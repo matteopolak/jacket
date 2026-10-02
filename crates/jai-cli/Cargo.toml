@@ -1,0 +1,20 @@
+[package]
+name = "jai-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jai-rs"
+path = "src/main.rs"
+
+[dependencies]
+jai-driver.workspace = true
+jai-source.workspace = true
+jai-lexer.workspace = true
+jai-syntax.workspace = true
+jai-sema.workspace = true
+jai-codegen.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "jai-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dev-dependencies]
+divan.workspace = true
+jai-source.workspace = true
+jai-lexer.workspace = true
+jai-syntax.workspace = true
+jai-sema.workspace = true
+jai-codegen.workspace = true
+jai-types.workspace = true
+
+[[bench]]
+name = "compiler"
+harness = false
+
+[lints]
+workspace = true

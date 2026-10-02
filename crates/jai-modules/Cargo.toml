@@ -1,0 +1,11 @@
+[package]
+name = "jai-modules"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+jai-source.workspace = true
+jai-syntax.workspace = true
+jai-lexer.workspace = true
+[lints]
+workspace = true

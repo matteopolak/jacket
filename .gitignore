@@ -1,0 +1,7 @@
+/target/
+/artifacts/
+/corpus/upstream/
+**/__pycache__/
+*.jai-output
+/TODO.md
+/HANDOFF.md
