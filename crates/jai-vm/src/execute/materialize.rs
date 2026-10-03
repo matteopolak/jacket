@@ -62,9 +62,15 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
         budget.reserve(1)?;
         let pointer = match value {
             Value::Pointer(pointer)
-            | Value::Slice { pointer, .. }
-            | Value::StringView { pointer, .. }
-            | Value::DynamicArray { pointer, .. } => Some(pointer),
+            | Value::Slice {
+                pointer, ..
+            }
+            | Value::StringView {
+                pointer, ..
+            }
+            | Value::DynamicArray {
+                pointer, ..
+            } => Some(pointer),
             _ => None,
         };
         if let Some(pointer) = pointer
@@ -96,7 +102,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 self.runtime_type_identity(value)?;
                 value.clone()
             }
-            Value::Pointer(pointer) | Value::Slice { pointer, .. } => {
+            Value::Pointer(pointer)
+            | Value::Slice {
+                pointer, ..
+            } => {
                 budget.reserve(pointer.metadata_cells())?;
                 value.clone()
             }
@@ -131,7 +140,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 budget.reserve(bytes.len())?;
                 Value::String(bytes.clone())
             }
-            Value::StringView { pointer, count } => {
+            Value::StringView {
+                pointer,
+                count,
+            } => {
                 let count = crate::checked_sequence_count(*count)?;
                 budget.reserve(count)?;
                 budget.charge_work(
@@ -176,25 +188,38 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 }
                 Value::String(bytes)
             }
-            Value::Record { ty, fields } => Value::Record {
+            Value::Record {
+                ty,
+                fields,
+            } => Value::Record {
                 ty: *ty,
                 fields: fields
                     .iter()
                     .map(|field| self.materialize_inner(field, depth + 1, budget))
                     .collect::<std::result::Result<_, _>>()?,
             },
-            Value::Array { ty, elements } => Value::Array {
+            Value::Array {
+                ty,
+                elements,
+            } => Value::Array {
                 ty: *ty,
                 elements: elements
                     .iter()
                     .map(|element| self.materialize_inner(element, depth + 1, budget))
                     .collect::<std::result::Result<_, _>>()?,
             },
-            Value::Distinct { ty, value } => Value::Distinct {
+            Value::Distinct {
+                ty,
+                value,
+            } => Value::Distinct {
                 ty: *ty,
                 value: Box::new(self.materialize_inner(value, depth + 1, budget)?),
             },
-            Value::Union { ty, field, value } => Value::Union {
+            Value::Union {
+                ty,
+                field,
+                value,
+            } => Value::Union {
                 ty: *ty,
                 field: *field,
                 value: Box::new(self.materialize_inner(value, depth + 1, budget)?),

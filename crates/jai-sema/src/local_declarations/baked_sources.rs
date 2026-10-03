@@ -23,9 +23,19 @@ impl LocalDeclarationRegistry {
                     .iter()
                     .find_map(|(callable, &id)| (id == procedure).then_some(callable.declaration))
             })?;
+        let source_formals = self
+            .generic_procedures
+            .baked_source_formals(procedure)
+            .or_else(|| {
+                (!self.procedure_substitutions.contains_key(&procedure))
+                    .then(|| (0..signature.parameters.len()).collect())
+            })?;
         Some(BakedProcedureTarget {
             origin: BakedCallableOrigin::Local(declaration),
             source: source.location,
+            source_formals,
+            source_arguments: None,
+            metadata: crate::procedure_values::bindings::CallbackSignature::source(&signature),
             signature,
         })
     }

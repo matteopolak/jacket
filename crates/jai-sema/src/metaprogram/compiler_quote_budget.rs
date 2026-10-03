@@ -182,7 +182,10 @@ impl<'a> Budget<'a> {
         self.charge(parameters.len())?;
         for parameter in parameters {
             match &parameter.binding {
-                syntax::RecordParameterBinding::Typed { ty, default } => {
+                syntax::RecordParameterBinding::Typed {
+                    ty,
+                    default,
+                } => {
                     self.push(Node::Type(ty), depth)?;
                     self.optional_expression(default.as_ref(), depth)?;
                 }
@@ -213,7 +216,10 @@ impl<'a> Budget<'a> {
                 self.push(Node::Expression(value), depth)?
             }
             syntax::CompileTimeBody::Block(values) => self.statements(values, depth)?,
-            syntax::CompileTimeBody::Procedure { result, body } => {
+            syntax::CompileTimeBody::Procedure {
+                result,
+                body,
+            } => {
                 self.push(Node::Type(result), depth)?;
                 self.statements(body, depth)?;
             }
@@ -308,6 +314,10 @@ impl<'a> Budget<'a> {
                     }
                 }
                 E::AnonymousProcedure(source) => self.push(Node::SourceProcedure(source), d)?,
+                E::BakeArguments(value) => {
+                    self.push(Node::Expression(&value.callee), d)?;
+                    self.arguments(&value.arguments, d)?;
+                }
                 E::Code(body) => self.push(Node::Code(body), d)?,
                 E::Insert(insert) => self.push(Node::Insert(insert), d)?,
                 E::QualifiedName(path) => self.path(path)?,
@@ -316,7 +326,10 @@ impl<'a> Budget<'a> {
                     self.path(path)?;
                     self.arguments(args, d)?;
                 }
-                E::IndirectCall { callee, args } => {
+                E::IndirectCall {
+                    callee,
+                    args,
+                } => {
                     self.push(Node::Expression(callee), d)?;
                     self.arguments(args, d)?;
                 }
@@ -329,19 +342,35 @@ impl<'a> Budget<'a> {
                     self.arguments(args, d)?;
                     self.arguments(overrides, d)?;
                 }
-                E::CallHint { call, .. }
+                E::CallHint {
+                    call, ..
+                }
                 | E::AddressOf(call)
                 | E::Dereference(call)
                 | E::Unary(_, call)
                 | E::Cast(_, _, call)
-                | E::InferredCast { value: call, .. }
-                | E::TypeQuery { value: call, .. }
-                | E::Member { base: call, .. } => self.push(Node::Expression(call), d)?,
-                E::Index { base, index } | E::Binary(_, base, index) => {
+                | E::InferredCast {
+                    value: call, ..
+                }
+                | E::TypeQuery {
+                    value: call, ..
+                }
+                | E::Member {
+                    base: call, ..
+                } => self.push(Node::Expression(call), d)?,
+                E::Index {
+                    base,
+                    index,
+                }
+                | E::Binary(_, base, index) => {
                     self.push(Node::Expression(base), d)?;
                     self.push(Node::Expression(index), d)?;
                 }
-                E::TypeCast { ty, value, .. } => {
+                E::TypeCast {
+                    ty,
+                    value,
+                    ..
+                } => {
                     self.push(Node::Type(ty), d)?;
                     self.push(Node::Expression(value), d)?;
                 }
@@ -374,7 +403,9 @@ impl<'a> Budget<'a> {
                 T::This | T::Builtin(_) | T::Variable(_) => {}
                 T::Named(path) => self.path(path)?,
                 T::TypeOf(value) => self.push(Node::Expression(value), d)?,
-                T::Restricted { restriction, .. } => {
+                T::Restricted {
+                    restriction, ..
+                } => {
                     let (syntax::TypeRestrictionSyntax::Nominal(ty)
                     | syntax::TypeRestrictionSyntax::Interface(ty)) = restriction;
                     self.push(Node::Type(ty), d)?;
@@ -383,11 +414,16 @@ impl<'a> Budget<'a> {
                 T::InlineEnum(value) => {
                     self.push(Node::Enum(value.representation.as_ref(), &value.members), d)?
                 }
-                T::Variant { base, .. }
+                T::Variant {
+                    base, ..
+                }
                 | T::Pointer(base)
                 | T::Slice(base)
                 | T::DynamicArray(base) => self.push(Node::Type(base), d)?,
-                T::FixedArray { count, element } => {
+                T::FixedArray {
+                    count,
+                    element,
+                } => {
                     self.push(Node::Expression(count), d)?;
                     self.push(Node::Type(element), d)?;
                 }
@@ -396,6 +432,9 @@ impl<'a> Budget<'a> {
                     self.charge(value.results.len())?;
                     for parameter in value.parameters.iter().chain(&value.results) {
                         self.push(Node::Type(&parameter.ty), d)?;
+                        if let Some(default) = &parameter.default {
+                            self.push(Node::Expression(default), d)?;
+                        }
                     }
                 }
                 T::Application(value) => {
@@ -407,10 +446,14 @@ impl<'a> Budget<'a> {
                 syntax::PlaceKind::Name(_) => {}
                 syntax::PlaceKind::Qualified(path) => self.path(path)?,
                 syntax::PlaceKind::Insert(value) => self.push(Node::Insert(value), d)?,
-                syntax::PlaceKind::Member { base, .. } | syntax::PlaceKind::Dereference(base) => {
-                    self.push(Node::Expression(base), d)?
+                syntax::PlaceKind::Member {
+                    base, ..
                 }
-                syntax::PlaceKind::Index { base, index } => {
+                | syntax::PlaceKind::Dereference(base) => self.push(Node::Expression(base), d)?,
+                syntax::PlaceKind::Index {
+                    base,
+                    index,
+                } => {
                     self.push(Node::Expression(base), d)?;
                     self.push(Node::Expression(index), d)?;
                 }
@@ -421,7 +464,21 @@ impl<'a> Budget<'a> {
                     self.push(Node::Expression(expr), d)?;
                 }
                 match value {
-                    syntax::Declaration::External { ty, binding, .. } => {
+                    syntax::Declaration::GroupMember {
+                        group, ..
+                    } => {
+                        self.charge(group.names().len())?;
+                        self.push(Node::Declaration(group.source()), d)?;
+                        self.charge(group.extra_initializers().len())?;
+                        for initializer in group.extra_initializers() {
+                            self.push(Node::Expression(initializer), d)?;
+                        }
+                    }
+                    syntax::Declaration::External {
+                        ty,
+                        binding,
+                        ..
+                    } => {
                         self.push(Node::Type(ty), d)?;
                         if let syntax::ExternalDataSource::Library(path) = &binding.source {
                             self.path(path)?;
@@ -430,14 +487,16 @@ impl<'a> Budget<'a> {
                             self.bytes(symbol.len())?;
                         }
                     }
-                    syntax::Declaration::Inferred { initializer, .. } => {
-                        self.push(Node::Expression(initializer), d)?
-                    }
-                    syntax::Declaration::Explicit { initializer, .. } => {
-                        self.optional_expression(initializer.as_ref(), d)?
-                    }
+                    syntax::Declaration::Inferred {
+                        initializer, ..
+                    } => self.push(Node::Expression(initializer), d)?,
+                    syntax::Declaration::Explicit {
+                        initializer, ..
+                    } => self.optional_expression(initializer.as_ref(), d)?,
                     syntax::Declaration::UnresolvedExplicit {
-                        ty, initializer, ..
+                        ty,
+                        initializer,
+                        ..
                     } => {
                         self.push(Node::Type(ty), d)?;
                         self.optional_expression(initializer.as_ref(), d)?;
@@ -450,17 +509,23 @@ impl<'a> Budget<'a> {
             }
             Node::Parameter(value) => match &value.binding {
                 syntax::ParameterBinding::Required(_) => {}
-                syntax::ParameterBinding::Defaulted { expression, .. } => {
-                    self.push(Node::Expression(expression), d)?
-                }
+                syntax::ParameterBinding::Defaulted {
+                    expression, ..
+                } => self.push(Node::Expression(expression), d)?,
                 syntax::ParameterBinding::RequiredType(ty) => self.push(Node::Type(ty), d)?,
-                syntax::ParameterBinding::DefaultedType { ty, expression } => {
+                syntax::ParameterBinding::DefaultedType {
+                    ty,
+                    expression,
+                } => {
                     self.optional_type(ty.as_ref(), d)?;
                     self.push(Node::Expression(expression), d)?;
                 }
             },
             Node::Result(value) => match &value.binding {
-                syntax::ResultBinding::Typed { ty, default } => {
+                syntax::ResultBinding::Typed {
+                    ty,
+                    default,
+                } => {
                     self.push(Node::Type(ty), d)?;
                     self.optional_expression(default.as_ref(), d)?;
                 }
@@ -477,7 +542,9 @@ impl<'a> Budget<'a> {
                 self.results(&value.results, d)?;
                 match &value.binding {
                     syntax::PrototypeBinding::EntryPoint => {}
-                    syntax::PrototypeBinding::Intrinsic { tag } => {
+                    syntax::PrototypeBinding::Intrinsic {
+                        tag,
+                    } => {
                         if let Some(tag) = tag {
                             self.bytes(tag.len())?;
                         }
@@ -519,12 +586,24 @@ impl<'a> Budget<'a> {
             }
             Node::Field(value) => {
                 self.charge(value.attributes.len())?;
-                for syntax::FieldAttribute::Alignment(expr) in &value.attributes {
-                    self.push(Node::Expression(expr), d)?;
+                for attribute in &value.attributes {
+                    match attribute {
+                        syntax::FieldAttribute::Alignment(expr) => {
+                            self.push(Node::Expression(expr), d)?
+                        }
+                        syntax::FieldAttribute::Placement(
+                            syntax::FieldPlacementSyntax::Overlay {
+                                target, ..
+                            },
+                        ) => self.push(Node::Place(target), d)?,
+                    }
                 }
                 self.notes(&value.notes, d)?;
                 match &value.binding {
-                    syntax::FieldBinding::Explicit { ty, initializer } => {
+                    syntax::FieldBinding::Explicit {
+                        ty,
+                        initializer,
+                    } => {
                         self.push(Node::Type(ty), d)?;
                         self.optional_expression(initializer.as_ref(), d)?;
                     }
@@ -541,15 +620,24 @@ impl<'a> Budget<'a> {
                 }
             }
             Node::Member(value) => match value {
+                syntax::RecordMember::Placement(placement) => {
+                    self.push(Node::Place(&placement.target), d)?
+                }
                 syntax::RecordMember::AnonymousRecord(value) => {
                     self.push(Node::RecordType(value), d)?
                 }
-                syntax::RecordMember::DefaultOverride { target, value, .. } => {
+                syntax::RecordMember::DefaultOverride {
+                    target,
+                    value,
+                    ..
+                } => {
                     self.push(Node::Place(target), d)?;
                     self.push(Node::Expression(value), d)?;
                 }
                 syntax::RecordMember::Assert {
-                    condition, message, ..
+                    condition,
+                    message,
+                    ..
                 } => {
                     self.push(Node::Expression(condition), d)?;
                     self.optional_expression(message.as_ref(), d)?;
@@ -564,7 +652,9 @@ impl<'a> Budget<'a> {
                     self.members(then_members, d)?;
                     self.members(else_members, d)?;
                 }
-                syntax::RecordMember::CompileTimeCases { cases, .. } => {
+                syntax::RecordMember::CompileTimeCases {
+                    cases, ..
+                } => {
                     self.push(Node::Expression(&cases.value), d)?;
                     self.charge(cases.arms.len())?;
                     for arm in &cases.arms {
@@ -596,9 +686,9 @@ impl<'a> Budget<'a> {
                         syntax::LoopControlReplacementBody::Code(body) => {
                             self.push(Node::Code(body), d)?
                         }
-                        syntax::LoopControlReplacementBody::Assert { condition, .. } => {
-                            self.push(Node::Expression(condition), d)?
-                        }
+                        syntax::LoopControlReplacementBody::Assert {
+                            condition, ..
+                        } => self.push(Node::Expression(condition), d)?,
                     }
                 }
             }
@@ -623,6 +713,8 @@ impl<'a> Budget<'a> {
                 }
             },
             Node::Statement(statement) => match &statement.kind {
+                // The statement node was admitted when enqueued; Empty owns no children.
+                S::Empty => {}
                 S::InstructionBytes(value) => self.bytes(value.bytes.len())?,
                 S::Simd(value) => {
                     self.charge(value.features.len())?;
@@ -655,7 +747,10 @@ impl<'a> Budget<'a> {
                     self.push(Node::Selection(selection), d)?;
                 }
                 S::CallerExport(value) => self.push(Node::Statement(value), d)?,
-                S::CompileTimeAssert { condition, message } => {
+                S::CompileTimeAssert {
+                    condition,
+                    message,
+                } => {
                     self.push(Node::Expression(condition), d)?;
                     self.optional_expression(message.as_ref(), d)?;
                 }
@@ -669,9 +764,11 @@ impl<'a> Budget<'a> {
                     self.statements(then_body, d)?;
                     self.statements(else_body, d)?;
                 }
-                S::CheckScope { body, .. } | S::Block(body) | S::Defer(body) => {
-                    self.statements(body, d)?
+                S::CheckScope {
+                    body, ..
                 }
+                | S::Block(body)
+                | S::Defer(body) => self.statements(body, d)?,
                 S::ContextField(value) => match value {
                     syntax::ContextFieldDeclaration::Field(value) => {
                         self.push(Node::Field(value), d)?
@@ -701,11 +798,23 @@ impl<'a> Budget<'a> {
                 S::Assign(_, value) | S::Update(_, _, value) | S::Expression(value) => {
                     self.push(Node::Expression(value), d)?
                 }
-                S::AssignPlace { target, value } | S::UpdatePlace { target, value, .. } => {
+                S::AssignPlace {
+                    target,
+                    value,
+                }
+                | S::UpdatePlace {
+                    target,
+                    value,
+                    ..
+                } => {
                     self.push(Node::Place(target), d)?;
                     self.push(Node::Expression(value), d)?;
                 }
-                S::DeclareResults { names, ty, values } => {
+                S::DeclareResults {
+                    names,
+                    ty,
+                    values,
+                } => {
                     self.charge(names.len())?;
                     self.optional_type(ty.as_ref(), d)?;
                     self.expressions(values, d)?;
@@ -725,7 +834,9 @@ impl<'a> Budget<'a> {
                     self.expressions(values, d)?;
                 }
                 S::AssignResults {
-                    targets, values, ..
+                    targets,
+                    values,
+                    ..
                 } => {
                     for target in targets {
                         self.push(Node::Place(target), d)?;
@@ -765,7 +876,8 @@ impl<'a> Budget<'a> {
                     match condition {
                         syntax::WhileCondition::Expression(value)
                         | syntax::WhileCondition::Binding {
-                            initializer: value, ..
+                            initializer: value,
+                            ..
                         } => self.push(Node::Expression(value), d)?,
                     }
                     self.statements(body, d)?;
@@ -785,11 +897,21 @@ impl<'a> Budget<'a> {
                     self.optional_expression(value.pointer_control.as_ref(), d)?;
                     self.statements(&value.body, d)?;
                 }
-                S::PushContext { value, body } => {
+                S::PushContext {
+                    value,
+                    body,
+                } => {
                     self.optional_expression(value.as_ref(), d)?;
                     self.statements(body, d)?;
                 }
-                S::Jump { .. } => {}
+                S::PushContextDeferred {
+                    value,
+                } => {
+                    self.optional_expression(value.as_ref(), d)?;
+                }
+                S::Jump {
+                    ..
+                } => {}
             },
         }
         Ok(())
@@ -925,9 +1047,10 @@ impl CompilerQuoteBudget {
                     self.admit_value(value, span, depth + 1)?;
                 }
             }
-            jai_ir::ConstantKind::Distinct(value) | jai_ir::ConstantKind::Union { value, .. } => {
-                self.admit_value(value, span, depth + 1)?
-            }
+            jai_ir::ConstantKind::Distinct(value)
+            | jai_ir::ConstantKind::Union {
+                value, ..
+            } => self.admit_value(value, span, depth + 1)?,
             jai_ir::ConstantKind::StringBytes(value) => {
                 self.retain_metadata(0, value.len(), span)?
             }
@@ -1041,8 +1164,9 @@ mod tests {
     #[test]
     fn anonymous_source_bodies_are_charged_before_quotation_retention() {
         let module = syntax::parse("main :: () { callback := () { return; }; }").unwrap();
-        let syntax::StatementKind::Declare(syntax::Declaration::Inferred { initializer, .. }) =
-            &module.procedures()[0].body[0].kind
+        let syntax::StatementKind::Declare(syntax::Declaration::Inferred {
+            initializer, ..
+        }) = &module.procedures()[0].body[0].kind
         else {
             panic!("anonymous declaration")
         };
@@ -1109,5 +1233,59 @@ mod tests {
                 .message
                 .contains("payload byte")
         );
+    }
+
+    #[test]
+    fn deferred_context_source_value_is_charged_before_quote_retention() {
+        let quote = CodeBody::Statement(Box::new(syntax::Statement {
+            span: Span::new(0, 1),
+            kind: syntax::StatementKind::PushContextDeferred {
+                value: Some(Expression {
+                    span: Span::new(0, 1),
+                    kind: ExpressionKind::String(vec![0; MAX_BYTES + 1]),
+                }),
+            },
+        }));
+        let diagnostic = admit_compiler_quote(&quote, Span::new(4, 8)).unwrap_err();
+        assert!(diagnostic.message.contains("payload byte"));
+    }
+}
+
+#[cfg(test)]
+mod baked_arguments_budget_tests {
+    use super::*;
+
+    #[test]
+    fn baked_callee_and_bound_arguments_are_charged_before_quotation_retention() {
+        let text = "PARTIAL::#bake_arguments worker(value=40);";
+        let mut sources = jai_source::SourceMap::default();
+        let id = sources.insert("baked-budget.jai".into(), text.into());
+        let parsed = syntax::parse_file(
+            sources.get(id).unwrap(),
+            &mut jai_source::Symbols::default(),
+        )
+        .unwrap();
+        let syntax::FileItem::Declaration(declaration) = &parsed.items()[0] else {
+            panic!()
+        };
+        let syntax::FileDeclarationKind::Constant(constant) = &declaration.kind else {
+            panic!()
+        };
+        for callee in [false, true] {
+            let mut initializer = constant.initializer.clone();
+            let syntax::ExpressionKind::BakeArguments(value) = &mut initializer.kind else {
+                panic!()
+            };
+            let target = if callee {
+                value.callee.as_mut()
+            } else {
+                &mut value.arguments[0].value
+            };
+            target.kind = syntax::ExpressionKind::String(vec![0; MAX_BYTES + 1]);
+            let quote = syntax::CodeBody::Expression(Box::new(initializer));
+            let error =
+                admit_compiler_quote(&quote, jai_source::Span::new(0, text.len())).unwrap_err();
+            assert!(error.message.contains("payload byte"));
+        }
     }
 }

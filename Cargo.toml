@@ -1,7 +1,10 @@
 [workspace]
 resolver = "3"
+exclude = ["fuzz"]
 members = [
     "crates/jai-source",
+    "crates/jai-native-source",
+    "crates/jai-platform",
     "crates/jai-types",
     "crates/jai-ir",
     "crates/jai-vm",
@@ -15,6 +18,9 @@ members = [
     "crates/jai-driver",
     "crates/jai-cli",
     "crates/jai-bench",
+    "crates/jai-runtime",
+    "crates/jai-wasm",
+    "crates/jai-language-server",
 ]
 
 [workspace.package]
@@ -23,9 +29,12 @@ edition = "2024"
 rust-version = "1.95"
 
 [workspace.dependencies]
+jai-language-server = { path = "crates/jai-language-server" }
 jai-modules = { path = "crates/jai-modules" }
 jai-driver = { path = "crates/jai-driver" }
 jai-source = { path = "crates/jai-source" }
+jai-native-source = { path = "crates/jai-native-source" }
+jai-platform = { path = "crates/jai-platform" }
 jai-types = { path = "crates/jai-types" }
 jai-ir = { path = "crates/jai-ir" }
 jai-vm = { path = "crates/jai-vm" }

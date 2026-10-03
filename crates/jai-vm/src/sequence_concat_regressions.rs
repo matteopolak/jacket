@@ -25,7 +25,10 @@ fn count(base: Place, integer_type: TypeId) -> IntExpr {
     )
 }
 fn pack(ty: TypeId, parts: Vec<SequencePackPart>) -> ValueExpr {
-    ValueExpr::SequenceConcat { ty, parts }
+    ValueExpr::SequenceConcat {
+        ty,
+        parts,
+    }
 }
 fn element(value: i128) -> SequencePackPart {
     SequencePackPart::Element(ValueExpr::Int(int(value)))
@@ -43,6 +46,7 @@ fn variadic(
         .procedure(ProcedureType {
             parameters: vec![parameter.ty()].into(),
             results: vec![result].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: jai_types::Variadic::Jai {
@@ -680,7 +684,16 @@ fn pack_snapshots_and_final_assembly_charge_address_origin_metadata() {
         let pending_signature = signature(&mut f.types, vec![], vec![unsigned]);
         f.signatures.insert(ProcedureId::new(2), pending_signature);
         f.pending = Some(ProcedureId::new(2));
-        let input = typed_local(&f, 0, 0, if spread { slice } else { unsigned });
+        let input = typed_local(
+            &f,
+            0,
+            0,
+            if spread {
+                slice
+            } else {
+                unsigned
+            },
+        );
         let mut parts = vec![if spread {
             SequencePackPart::Spread(ValueExpr::Load(input.place()))
         } else {
@@ -766,7 +779,11 @@ fn pack_snapshots_and_final_assembly_charge_address_origin_metadata() {
             // Both paths charge origins while constructing the cold source
             // image, snapshotting it, and assembling the final pack. A scalar
             // additionally clones its selected value before the raw snapshot.
-            if spread { 3 } else { 4 } * ORIGINS as u64,
+            if spread {
+                3
+            } else {
+                4
+            } * ORIGINS as u64,
         );
         let (final_copy, _) = run(
             spread,

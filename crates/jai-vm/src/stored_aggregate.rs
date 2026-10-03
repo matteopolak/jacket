@@ -71,7 +71,9 @@ impl StoredAggregate {
             TypeKind::Record(_) | TypeKind::Any(_) => {
                 types.record_storage_definition(self.ty)?;
             }
-            TypeKind::FixedArray { .. } => {}
+            TypeKind::FixedArray {
+                ..
+            } => {}
             TypeKind::Distinct(id) => {
                 types.distinct(*id)?;
             }
@@ -118,12 +120,19 @@ impl StoredAggregate {
         }
     }
     pub(crate) fn element_type(&self, types: &dyn TypeView, index: usize) -> Result<TypeId, Error> {
-        let TypeKind::FixedArray { element, count } = *types.kind(self.ty)? else {
+        let TypeKind::FixedArray {
+            element,
+            count,
+        } = *types.kind(self.ty)?
+        else {
             return Err(Error::UnsupportedType(self.ty));
         };
         let length = usize::try_from(count).map_err(|_| Error::CheckedCast)?;
         if index >= length {
-            return Err(Error::OutOfBounds { index, length });
+            return Err(Error::OutOfBounds {
+                index,
+                length,
+            });
         }
         Ok(element)
     }

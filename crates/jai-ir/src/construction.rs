@@ -19,6 +19,7 @@ pub struct ProgramBuilder {
     procedure_phases: crate::ProcedurePhases,
     debug_sources: Option<crate::DebugSources>,
     foreign_libraries: Vec<ForeignLibrary>,
+    foreign_library_sources: crate::ForeignLibrarySources,
     types: Option<Types>,
     procedures: Vec<Procedure>,
     prototypes: Vec<ProcedurePrototype>,
@@ -41,6 +42,7 @@ impl ProgramBuilder {
             procedures: vec![],
             prototypes: vec![],
             foreign_libraries: vec![],
+            foreign_library_sources: crate::ForeignLibrarySources::default(),
             context: None,
             globals: vec![],
             places: Places::default(),
@@ -84,6 +86,11 @@ impl ProgramBuilder {
         self.foreign_libraries = libraries;
         self
     }
+    /// Actual source provenance confers no native IO by itself.
+    pub fn foreign_library_sources(mut self, sources: crate::ForeignLibrarySources) -> Self {
+        self.foreign_library_sources = sources;
+        self
+    }
     pub fn program_exports(mut self, exports: Vec<crate::ProgramExport>) -> Self {
         self.program_exports = exports;
         self
@@ -108,6 +115,8 @@ impl ProgramBuilder {
         self
     }
     pub fn finish_library(mut self) -> Result<Library, IrError> {
+        self.foreign_library_sources
+            .validate(&self.foreign_libraries)?;
         self.storage_alignments
             .validate(&self.procedures, &self.globals)?;
         crate::procedure_hints::validate(&self.procedure_hints, &self.procedures)?;
@@ -146,6 +155,7 @@ impl ProgramBuilder {
             procedure_phases: std::mem::take(&mut self.procedure_phases),
             debug_sources: self.debug_sources.take(),
             foreign_libraries: std::mem::take(&mut self.foreign_libraries),
+            foreign_library_sources: std::mem::take(&mut self.foreign_library_sources),
             procedures: std::mem::take(&mut self.procedures),
             prototypes: std::mem::take(&mut self.prototypes),
             context: self.context.take(),

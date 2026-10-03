@@ -50,7 +50,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 /// Explicit feature overrides are applied in order. A selected host CPU may
 /// inherit its actual LLVM-reported features; named cross CPUs require explicit

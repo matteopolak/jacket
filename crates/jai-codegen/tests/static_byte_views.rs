@@ -43,6 +43,7 @@ fn program(
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -171,6 +172,7 @@ fn heterogeneous_fixture(target: &NativeTarget) -> Program {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

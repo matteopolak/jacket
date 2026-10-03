@@ -8,6 +8,7 @@ fn code_address_truth_and_incoming_values_revalidate_the_owning_ledger() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -212,7 +213,13 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
         let (_, entry, inspection) = self.test_snapshot_costs();
         self.limits.fuel = source
             .checked_add(entry)
-            .and_then(|total| total.checked_add(if validated { inspection } else { 0 }))
+            .and_then(|total| {
+                total.checked_add(if validated {
+                    inspection
+                } else {
+                    0
+                })
+            })
             .and_then(|total| total.checked_add(new_inspection))
             .unwrap();
         entry

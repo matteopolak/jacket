@@ -52,8 +52,16 @@ impl Fixture {
         types.define_record(io_vector, [void, u64]).unwrap();
         let vector_pointer = types.pointer(io_vector).unwrap();
         let mac = operating_system == OperatingSystem::MacOS;
-        let length = if mac { u32 } else { u64 };
-        let iov_count = if mac { s32 } else { u64 };
+        let length = if mac {
+            u32
+        } else {
+            u64
+        };
+        let iov_count = if mac {
+            s32
+        } else {
+            u64
+        };
         let control_header = types.reserve_record(jai_types::RecordKind::Struct);
         types
             .define_record(control_header, [length, s32, s32])
@@ -150,6 +158,7 @@ impl Fixture {
                     } else {
                         [result].into()
                     },
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: CallingConvention::C,
                     context: ContextMode::None,
                     variadic: if op == ProcessAbiOperation::Fcntl {
@@ -265,7 +274,10 @@ impl Fixture {
             ),
             0
         );
-        let Value::Array { elements, .. } = self.memory.load(&self.types, &buffer).unwrap() else {
+        let Value::Array {
+            elements, ..
+        } = self.memory.load(&self.types, &buffer).unwrap()
+        else {
             panic!("pipe ABI must store actual array")
         };
         [
@@ -280,7 +292,10 @@ impl Fixture {
             panic!("errno pointer")
         };
         let pointer = values[0].pointer().unwrap().clone();
-        let Value::Distinct { value, .. } = self.memory.load(&self.types, &pointer).unwrap() else {
+        let Value::Distinct {
+            value, ..
+        } = self.memory.load(&self.types, &pointer).unwrap()
+        else {
             panic!("actual error nominal")
         };
         (pointer, value.integer().unwrap().value())

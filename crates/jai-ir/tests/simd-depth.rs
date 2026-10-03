@@ -15,6 +15,7 @@ fn simd_address_children_keep_the_common_expression_depth_budget() {
                 .procedure(ProcedureType {
                     parameters: Box::new([]),
                     results: Box::new([]),
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: CallingConvention::Jai,
                     context: ContextMode::None,
                     variadic: Variadic::None,

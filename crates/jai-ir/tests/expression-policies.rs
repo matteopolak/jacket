@@ -10,6 +10,7 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], results: &[TypeId]
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -367,8 +368,12 @@ fn indirect_always_hint_accepts_only_literal_procedure_values_in_both_forms() {
     for value_form in [false, true] {
         let library = indirect(InlineHint::Always, value_form, 0).unwrap();
         let stored = match &library.procedures()[0].body.statements[0] {
-            Statement::DiscardValue(ValueExpr::IndirectCall { inline_hint, .. }) => *inline_hint,
-            Statement::IndirectCallResults { inline_hint, .. } => *inline_hint,
+            Statement::DiscardValue(ValueExpr::IndirectCall {
+                inline_hint, ..
+            }) => *inline_hint,
+            Statement::IndirectCallResults {
+                inline_hint, ..
+            } => *inline_hint,
             _ => panic!("indirect call changed during publication"),
         };
         assert_eq!(stored, InlineHint::Always);
@@ -388,10 +393,12 @@ fn indirect_automatic_and_never_hints_accept_normally_typed_nonliteral_callees()
             for source in 0..4 {
                 let library = indirect(hint, value_form, source).unwrap();
                 let stored = match &library.procedures()[0].body.statements[0] {
-                    Statement::DiscardValue(ValueExpr::IndirectCall { inline_hint, .. }) => {
-                        *inline_hint
-                    }
-                    Statement::IndirectCallResults { inline_hint, .. } => *inline_hint,
+                    Statement::DiscardValue(ValueExpr::IndirectCall {
+                        inline_hint, ..
+                    }) => *inline_hint,
+                    Statement::IndirectCallResults {
+                        inline_hint, ..
+                    } => *inline_hint,
                     _ => panic!("indirect call changed during publication"),
                 };
                 assert_eq!(stored, hint);

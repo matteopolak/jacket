@@ -245,7 +245,10 @@ fn byte_view_errors_keep_typed_target_context_without_large_error_results() {
     let view = builder
         .byte_view(object, LayoutPolicy::lp64(), 0, 4, &types)
         .unwrap();
-    let Err(StaticByteViewError::Target { expected, actual }) = view.validate_target(policy32())
+    let Err(StaticByteViewError::Target {
+        expected,
+        actual,
+    }) = view.validate_target(policy32())
     else {
         panic!("target mismatch retains its typed context")
     };

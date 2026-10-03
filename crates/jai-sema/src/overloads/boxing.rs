@@ -48,7 +48,9 @@ pub(super) fn runtime_payload(
                     .map_err(|error| Diagnostic::new(span, error.to_string()))?;
                 pending.push((definition.representation, false));
             }
-            TypeKind::FixedArray { element, .. } => pending.push((*element, false)),
+            TypeKind::FixedArray {
+                element, ..
+            } => pending.push((*element, false)),
             TypeKind::Enum(_) => {
                 types
                     .enum_definition(ty)

@@ -163,7 +163,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
 /// Unions retain opaque bytes: selecting a member is a separate typed read.
 fn bool_children(types: &Types, ty: TypeId) -> Result<Vec<TypeId>, Error> {
     Ok(match types.kind(ty)? {
-        jai_types::TypeKind::FixedArray { element, count } if *count != 0 => vec![*element],
+        jai_types::TypeKind::FixedArray {
+            element,
+            count,
+        } if *count != 0 => vec![*element],
         jai_types::TypeKind::Distinct(_) => vec![types.distinct_definition(ty)?.representation],
         jai_types::TypeKind::Record(_) => {
             let record = types.record_definition(ty)?;
@@ -278,7 +281,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                                 }
                             }
                         }
-                        jai_types::TypeKind::FixedArray { element, count } => {
+                        jai_types::TypeKind::FixedArray {
+                            element,
+                            count,
+                        } => {
                             let preheader =
                                 self.builder.get_insert_block().ok_or(Error::Invariant)?;
                             let header = self.label("storage.bool.header");

@@ -62,6 +62,7 @@ fn provider() -> Provider {
             .procedure(ProcedureType {
                 parameters: parameters.into(),
                 results: results.into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -236,7 +237,8 @@ fn low_fuel_and_rejected_transactions_restore_alloc_realloc_and_free() {
 }
 struct RejectCommit(bool);
 impl CompilerEffects for RejectCommit {
-    fn begin(&mut self) {}
+    fn begin(&mut self) {
+    }
     fn request(&mut self, _: CompilerRequest) -> EffectOutcome {
         EffectOutcome::Rejected("no requests".into())
     }

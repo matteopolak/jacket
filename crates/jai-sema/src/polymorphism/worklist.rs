@@ -67,6 +67,7 @@ pub struct Specializations {
     bodies: VecDeque<SpecializationId>,
     next_procedure: usize,
     callback_revision: usize,
+    callback_body_revisions: HashMap<ProcedureId, usize>,
     pending_callback_rechecks: HashSet<ProcedureId>,
     callback_changed_while_binding: HashSet<ProcedureId>,
 }
@@ -79,6 +80,7 @@ impl Specializations {
             bodies: VecDeque::new(),
             next_procedure: first_procedure,
             callback_revision: 0,
+            callback_body_revisions: HashMap::new(),
             pending_callback_rechecks: HashSet::new(),
             callback_changed_while_binding: HashSet::new(),
         }
@@ -269,9 +271,18 @@ impl Specializations {
         {
             return Ok(false);
         }
+        let body_revision = self
+            .callback_body_revisions
+            .get(&procedure)
+            .copied()
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or_else(|| Diagnostic::new(Span::default(), "callback body revision exhausted"))?;
         self.callback_revision = self.callback_revision.checked_add(1).ok_or_else(|| {
             Diagnostic::new(Span::default(), "callback readiness revision exhausted")
         })?;
+        self.callback_body_revisions
+            .insert(procedure, body_revision);
         self.pending_callback_rechecks.insert(procedure);
         if state == SpecializationState::ResolvingBody {
             self.callback_changed_while_binding.insert(procedure);
@@ -280,6 +291,17 @@ impl Specializations {
             self.bodies.push_back(SpecializationId(index));
         }
         Ok(true)
+    }
+    pub(crate) fn callback_body_revision(&self, procedure: ProcedureId) -> Option<usize> {
+        self.entries
+            .iter()
+            .any(|entry| entry.procedure == procedure)
+            .then(|| {
+                self.callback_body_revisions
+                    .get(&procedure)
+                    .copied()
+                    .unwrap_or(0)
+            })
     }
     pub(crate) fn callback_readiness_revision(&self) -> usize {
         self.callback_revision

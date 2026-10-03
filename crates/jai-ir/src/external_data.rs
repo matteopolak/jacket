@@ -110,7 +110,8 @@ impl fmt::Display for ExternalDataError {
     }
 }
 
-impl std::error::Error for ExternalDataError {}
+impl std::error::Error for ExternalDataError {
+}
 
 impl ExternalData {
     pub fn new(
@@ -205,7 +206,10 @@ mod tests {
             ExternalDataId::File(identities.declaration()),
             SourceSpan {
                 source,
-                span: Span { start: 0, end: 22 },
+                span: Span {
+                    start: 0,
+                    end: 22,
+                },
             },
         )
     }
@@ -250,7 +254,10 @@ mod tests {
             ));
         }
         let invalid = SourceSpan {
-            span: Span { start: 22, end: 0 },
+            span: Span {
+                start: 22,
+                end: 0,
+            },
             ..location
         };
         assert!(matches!(

@@ -508,12 +508,22 @@ impl Resolver<'_> {
                     _ => unreachable!("source directive branch"),
                 }
             }
+            E::BakeArguments(source) => {
+                let header =
+                    self.preview_baked_procedure(&source.callee, &source.arguments, span)?;
+                ArgumentInfo::typed(header.ty)
+            }
             E::AnonymousProcedure(source) => {
                 let header = self.preview_anonymous_procedure_argument(source)?;
                 ArgumentInfo::typed(header.ty)
             }
-            E::CallHint { call, .. } => return self.describe_argument(call),
-            E::InferredCast { mode, value } => {
+            E::CallHint {
+                call, ..
+            } => return self.describe_argument(call),
+            E::InferredCast {
+                mode,
+                value,
+            } => {
                 let value = self.describe_argument(value)?;
                 if matches!(value.ty, ArgumentType::Known(ty) if ty == self.types.meta_type()) {
                     self.ensure_runtime_type_storage(self.types.meta_type(), span)?;
@@ -596,7 +606,10 @@ impl Resolver<'_> {
                     }
                 }
             }
-            E::IndirectCall { callee, args } => {
+            E::IndirectCall {
+                callee,
+                args,
+            } => {
                 let info = self.describe_argument(callee)?;
                 let ty = self.argument_type(&info, span)?;
                 let signature = self
@@ -628,7 +641,10 @@ impl Resolver<'_> {
                 info
             }
             E::CompileTime(syntax::CompileTimeRun {
-                body: syntax::CompileTimeBody::Procedure { result, .. },
+                body:
+                    syntax::CompileTimeBody::Procedure {
+                        result, ..
+                    },
                 ..
             }) => {
                 let ty = self.preview_annotation(result, span)?;
@@ -661,22 +677,27 @@ impl Resolver<'_> {
                     match operation {
                         UnaryOp::Positive => return Ok(info),
                         UnaryOp::Negate => {
-                            if let ArgumentType::WeakFloat { negative, .. } = &mut info.ty {
+                            if let ArgumentType::WeakFloat {
+                                negative, ..
+                            } = &mut info.ty
+                            {
                                 *negative = !*negative;
                             }
                             info.constant = match info.constant {
-                                Some(ConstantArgument::FloatLiteral { spelling, negative }) => {
-                                    Some(ConstantArgument::FloatLiteral {
-                                        spelling,
-                                        negative: !negative,
-                                    })
-                                }
-                                Some(ConstantArgument::FloatExpression { f32, f64 }) => {
-                                    Some(ConstantArgument::FloatExpression {
-                                        f32: f32.map(FloatValue::negate),
-                                        f64: f64.map(FloatValue::negate),
-                                    })
-                                }
+                                Some(ConstantArgument::FloatLiteral {
+                                    spelling,
+                                    negative,
+                                }) => Some(ConstantArgument::FloatLiteral {
+                                    spelling,
+                                    negative: !negative,
+                                }),
+                                Some(ConstantArgument::FloatExpression {
+                                    f32,
+                                    f64,
+                                }) => Some(ConstantArgument::FloatExpression {
+                                    f32: f32.map(FloatValue::negate),
+                                    f64: f64.map(FloatValue::negate),
+                                }),
                                 _ => None,
                             };
                             return Ok(info);
@@ -701,7 +722,10 @@ impl Resolver<'_> {
                     match operation {
                         UnaryOp::Positive => {}
                         UnaryOp::Negate => match &mut info.ty {
-                            ArgumentType::WeakInteger { minimum, maximum } => {
+                            ArgumentType::WeakInteger {
+                                minimum,
+                                maximum,
+                            } => {
                                 let lower = maximum.checked_neg().ok_or_else(|| {
                                     Diagnostic::new(span, "integer literal negation overflow")
                                 })?;
@@ -711,7 +735,9 @@ impl Resolver<'_> {
                                 *minimum = lower;
                                 *maximum = upper;
                             }
-                            ArgumentType::WeakFloat { negative, .. } => *negative = !*negative,
+                            ArgumentType::WeakFloat {
+                                negative, ..
+                            } => *negative = !*negative,
                             _ => {}
                         },
                         UnaryOp::LogicalNot => {
@@ -739,7 +765,11 @@ impl Resolver<'_> {
                     span,
                 )?
             }
-            E::TypeCast { mode, ty, value } => {
+            E::TypeCast {
+                mode,
+                ty,
+                value,
+            } => {
                 let operand = self.describe_argument(value)?;
                 let target = self.preview_annotation(ty, span)?;
                 crate::overloads::explicit_cast_argument(
@@ -884,7 +914,10 @@ impl Resolver<'_> {
                 };
                 ArgumentInfo::typed(ty)
             }
-            E::Index { base, index } => {
+            E::Index {
+                base,
+                index,
+            } => {
                 let info = self.describe_argument(base)?;
                 let _ = self.describe_argument(index)?;
                 let ty = self.argument_type(&info, span)?;
@@ -893,7 +926,9 @@ impl Resolver<'_> {
                     .kind(ty)
                     .map_err(|error| Diagnostic::new(span, error.to_string()))?
                 {
-                    TypeKind::FixedArray { element, .. }
+                    TypeKind::FixedArray {
+                        element, ..
+                    }
                     | TypeKind::Slice(element)
                     | TypeKind::DynamicArray(element)
                     | TypeKind::Pointer(element) => element,
@@ -907,7 +942,10 @@ impl Resolver<'_> {
                 };
                 ArgumentInfo::typed(element)
             }
-            E::Member { base, member } => {
+            E::Member {
+                base,
+                member,
+            } => {
                 let info = self.describe_argument(base)?;
                 let simple = self.simple_member_receiver(base, &info);
                 self.describe_baked_member(info, *member, span, simple)?
@@ -1125,7 +1163,9 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<ArgumentInfo, Diagnostic> {
         Ok(match binding {
-            Binding::CompilerInput { ty, .. } => ArgumentInfo::typed(ty),
+            Binding::CompilerInput {
+                ty, ..
+            } => ArgumentInfo::typed(ty),
             Binding::Discarded(_) => {
                 return Err(Diagnostic::new(span, "a #discard parameter cannot be read"));
             }
@@ -1195,7 +1235,10 @@ impl Resolver<'_> {
                 })?;
                 ArgumentInfo::constant(BakedValue::Code(id), self.types.code_type())
             }
-            Binding::Procedure { procedure, ty } => {
+            Binding::Procedure {
+                procedure,
+                ty,
+            } => {
                 let value = BakedValue::runtime(
                     ConstantValue {
                         ty,
@@ -1245,7 +1288,9 @@ impl Resolver<'_> {
             .map_err(|error| Diagnostic::new(span, error.to_string()))?
         {
             TypeKind::String => Some(self.types.scalar(ScalarType::Int(IntegerType::U8))),
-            TypeKind::FixedArray { element, .. }
+            TypeKind::FixedArray {
+                element, ..
+            }
             | TypeKind::Slice(element)
             | TypeKind::DynamicArray(element) => Some(*element),
             _ => None,
@@ -1502,6 +1547,18 @@ impl Resolver<'_> {
                 })?;
             return self.preview_callback_call_results(&signature, contract.callback(), args, span);
         }
+        if let Some(Some(contract)) = self.checked_baked_constant_binding_contract(path, span)?
+            && contract.callback().is_some()
+        {
+            let info = self.describe_path(path, span)?;
+            let ty = self.argument_type(&info, span)?;
+            let signature = self
+                .types
+                .procedure_definition(ty)
+                .map_err(|error| Diagnostic::new(span, error.to_string()))?
+                .clone();
+            return self.preview_callback_call_results(&signature, contract.callback(), args, span);
+        }
         if matches!(
             self.lookup_path(path, span),
             Ok(Binding::Storage(_) | Binding::TypedConstant(_))
@@ -1635,13 +1692,14 @@ impl Resolver<'_> {
             }
             SelectedHeader::Generic(matched) => {
                 let scope = self.graph_scope.expect("generic header has a graph scope");
-                let (convention, context) = scope
+                let (convention, return_abi, context) = scope
                     .generic_calling_mode(matched.declaration)
                     .ok_or_else(|| Diagnostic::new(span, "generic calling mode is not ready"))?;
                 self.check_call_context(
                     &jai_types::ProcedureType {
                         parameters: Box::new([]),
                         results: Box::new([]),
+                        return_abi: return_abi,
                         convention,
                         context,
                         variadic: jai_types::Variadic::None,
@@ -1665,17 +1723,24 @@ impl Resolver<'_> {
         Ok(match &info.ty {
             ArgumentType::Known(ty)
             | ArgumentType::StringLiteral(ty)
-            | ArgumentType::RecordLiteral { ty: Some(ty), .. }
+            | ArgumentType::RecordLiteral {
+                ty: Some(ty), ..
+            }
             | ArgumentType::ArrayLiteral {
                 default: Some(ty), ..
             } => *ty,
-            ArgumentType::WeakInteger { minimum, maximum }
-                if *minimum >= IntegerType::S64.min() && *maximum <= IntegerType::S64.max() =>
-            {
+            ArgumentType::WeakInteger {
+                minimum,
+                maximum,
+            } if *minimum >= IntegerType::S64.min() && *maximum <= IntegerType::S64.max() => {
                 self.types.scalar(ScalarType::Int(IntegerType::S64))
             }
-            ArgumentType::WeakFloat { default, .. }
-            | ArgumentType::WeakFloatExpression { default, .. } => self.types.float(*default),
+            ArgumentType::WeakFloat {
+                default, ..
+            }
+            | ArgumentType::WeakFloatExpression {
+                default, ..
+            } => self.types.float(*default),
             _ => {
                 return Err(Diagnostic::new(
                     span,
@@ -1753,7 +1818,9 @@ impl Resolver<'_> {
         Ok(match info.ty {
             ArgumentType::Known(ty)
             | ArgumentType::StringLiteral(ty)
-            | ArgumentType::RecordLiteral { ty: Some(ty), .. }
+            | ArgumentType::RecordLiteral {
+                ty: Some(ty), ..
+            }
             | ArgumentType::ArrayLiteral {
                 explicit: Some(_),
                 default: Some(ty),
@@ -1769,7 +1836,10 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<ArgumentInfo, Diagnostic> {
         for (weak, strong) in [(&lhs, &rhs), (&rhs, &lhs)] {
-            if let ArgumentType::WeakInteger { minimum, maximum } = weak.ty
+            if let ArgumentType::WeakInteger {
+                minimum,
+                maximum,
+            } = weak.ty
                 && let ArgumentType::Known(ty) = strong.ty
                 && let Ok(TypeKind::Integer(integer)) = self.types.kind(ty)
             {
@@ -1836,7 +1906,12 @@ impl Resolver<'_> {
     }
     pub(crate) fn is_float_argument(&self, info: &ArgumentInfo) -> bool {
         match info.ty {
-            ArgumentType::WeakFloat { .. } | ArgumentType::WeakFloatExpression { .. } => true,
+            ArgumentType::WeakFloat {
+                ..
+            }
+            | ArgumentType::WeakFloatExpression {
+                ..
+            } => true,
             ArgumentType::Known(ty) => matches!(self.types.kind(ty), Ok(TypeKind::Float(_))),
             _ => false,
         }
@@ -1869,8 +1944,12 @@ impl Resolver<'_> {
             return Ok(ArgumentInfo::typed(self.types.float(ty)));
         }
         let default = |info: &ArgumentInfo| match info.ty {
-            ArgumentType::WeakFloat { default, .. }
-            | ArgumentType::WeakFloatExpression { default, .. } => default,
+            ArgumentType::WeakFloat {
+                default, ..
+            }
+            | ArgumentType::WeakFloatExpression {
+                default, ..
+            } => default,
             _ => FloatType::F32,
         };
         let default = if default(lhs) == FloatType::F64 || default(rhs) == FloatType::F64 {
@@ -1902,9 +1981,9 @@ impl Resolver<'_> {
             ArgumentType::Known(ty) => {
                 matches!(self.types.kind(*ty), Ok(TypeKind::Float(source)) if *source == target || target == FloatType::F64)
             }
-            ArgumentType::WeakFloat { spelling, .. } => {
-                FloatValue::parse_decimal(target, spelling).is_ok()
-            }
+            ArgumentType::WeakFloat {
+                spelling, ..
+            } => FloatValue::parse_decimal(target, spelling).is_ok(),
             ArgumentType::WeakFloatExpression {
                 permits_f32,
                 permits_f64,
@@ -1913,13 +1992,14 @@ impl Resolver<'_> {
                 FloatType::F32 => *permits_f32,
                 FloatType::F64 => *permits_f64,
             },
-            ArgumentType::WeakInteger { minimum, maximum } => {
-                [*minimum, *maximum].into_iter().all(|value| {
-                    jai_types::Integer::checked(IntegerType::S64, value)
-                        .or_else(|| jai_types::Integer::checked(IntegerType::U64, value))
-                        .is_some()
-                })
-            }
+            ArgumentType::WeakInteger {
+                minimum,
+                maximum,
+            } => [*minimum, *maximum].into_iter().all(|value| {
+                jai_types::Integer::checked(IntegerType::S64, value)
+                    .or_else(|| jai_types::Integer::checked(IntegerType::U64, value))
+                    .is_some()
+            }),
             _ => false,
         }
     }
@@ -1948,11 +2028,16 @@ impl Resolver<'_> {
                     info.constant = Some(ConstantArgument::Value(BakedValue::Float(value)));
                 }
             }
-            ArgumentType::WeakFloatExpression { .. } => {
+            ArgumentType::WeakFloatExpression {
+                ..
+            } => {
                 let f32 = round(FloatType::F32);
                 let f64 = round(FloatType::F64);
                 if f32.is_some() || f64.is_some() {
-                    info.constant = Some(ConstantArgument::FloatExpression { f32, f64 });
+                    info.constant = Some(ConstantArgument::FloatExpression {
+                        f32,
+                        f64,
+                    });
                 }
             }
             _ => {}

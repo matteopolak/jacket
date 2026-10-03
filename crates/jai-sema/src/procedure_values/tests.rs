@@ -125,7 +125,10 @@ fn c_variadic_arguments_promote_narrow_integers_enums_bools_and_floats() {
     let IntExprKind::Value(value) = value.kind() else {
         panic!()
     };
-    let ValueExpr::Call { call, .. } = value.as_ref() else {
+    let ValueExpr::Call {
+        call, ..
+    } = value.as_ref()
+    else {
         panic!()
     };
     let types = library.types();
@@ -164,14 +167,20 @@ fn jai_variadic_pack_is_a_slice_with_trailing_named_defaults() {
         .unwrap();
     assert!(matches!(
         signature.variadic,
-        jai_types::Variadic::Jai { parameter: 0, .. }
+        jai_types::Variadic::Jai {
+            parameter: 0,
+            ..
+        }
     ));
     let main = &library.procedures()[1];
     let value = returned_integer(main);
     let IntExprKind::Value(value) = value.kind() else {
         panic!()
     };
-    let ValueExpr::Call { call, .. } = value.as_ref() else {
+    let ValueExpr::Call {
+        call, ..
+    } = value.as_ref()
+    else {
         panic!()
     };
     assert!(

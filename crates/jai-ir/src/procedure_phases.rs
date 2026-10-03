@@ -36,7 +36,10 @@ mod tests {
         phases.insert(ProcedureId::new(123), ProcedureExecution::CompileTimeOnly);
         assert!(matches!(
             phases.validate(&[]),
-            Err(IrError::UnknownIdentity { index: 123, .. })
+            Err(IrError::UnknownIdentity {
+                index: 123,
+                ..
+            })
         ));
         assert_eq!(
             ProcedurePhases::default().get(ProcedureId::new(123)),
@@ -51,6 +54,7 @@ mod tests {
             .procedure(jai_types::ProcedureType {
                 parameters: vec![].into(),
                 results: vec![].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::Jai,
                 context: jai_types::ContextMode::None,
                 variadic: jai_types::Variadic::None,
@@ -68,12 +72,19 @@ mod tests {
             }])
             .finish_library()
             .unwrap_err();
-        assert!(matches!(error, IrError::UnknownIdentity { index: 123, .. }));
+        assert!(matches!(
+            error,
+            IrError::UnknownIdentity {
+                index: 123,
+                ..
+            }
+        ));
         let mut types = jai_types::TypeRegistry::new();
         let signature = types
             .procedure(jai_types::ProcedureType {
                 parameters: vec![].into(),
                 results: vec![].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::Jai,
                 context: jai_types::ContextMode::None,
                 variadic: jai_types::Variadic::None,

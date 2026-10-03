@@ -38,8 +38,13 @@ impl Parser<'_> {
                 },
                 arguments,
             ),
-            ExpressionKind::IndirectCall { callee, args } => (*callee, args),
-            ExpressionKind::ContextCall { .. } => {
+            ExpressionKind::IndirectCall {
+                callee,
+                args,
+            } => (*callee, args),
+            ExpressionKind::ContextCall {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     call_span,
                     "#bake_arguments cannot bake a call-context override group",

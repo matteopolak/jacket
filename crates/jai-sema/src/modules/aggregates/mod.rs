@@ -33,7 +33,10 @@ impl Resolver<'_> {
                     FloatExprKind::Value(Box::new(value)),
                 )),
                 TypeKind::Bool => Expr::Bool(BoolExpr::Value(Box::new(value))),
-                TypeKind::Pointer(_) => Expr::Pointer { ty, value },
+                TypeKind::Pointer(_) => Expr::Pointer {
+                    ty,
+                    value,
+                },
                 TypeKind::Enum(_) => {
                     let representation = self
                         .types
@@ -53,9 +56,14 @@ impl Resolver<'_> {
                 | TypeKind::Record(_)
                 | TypeKind::Any(_)
                 | TypeKind::String
-                | TypeKind::FixedArray { .. }
+                | TypeKind::FixedArray {
+                    ..
+                }
                 | TypeKind::Slice(_)
-                | TypeKind::DynamicArray(_) => Expr::Typed { ty, value },
+                | TypeKind::DynamicArray(_) => Expr::Typed {
+                    ty,
+                    value,
+                },
                 _ => {
                     return Err(Diagnostic::new(
                         span,
@@ -80,14 +88,25 @@ impl Resolver<'_> {
             Expr::Literal(_) | Expr::WeakConditional(_) => {
                 self.types.scalar(ScalarType::Int(IntegerType::S64))
             }
-            Expr::Typed { ty, .. } | Expr::Enum { ty, .. } | Expr::Pointer { ty, .. } => *ty,
+            Expr::Typed {
+                ty, ..
+            }
+            | Expr::Enum {
+                ty, ..
+            }
+            | Expr::Pointer {
+                ty, ..
+            } => *ty,
             Expr::Null => {
                 return Err(Diagnostic::new(
                     span,
                     "null requires a pointer type context",
                 ));
             }
-            Expr::Void(_) | Expr::IndirectVoid { .. } => {
+            Expr::Void(_)
+            | Expr::IndirectVoid {
+                ..
+            } => {
                 return Err(Diagnostic::new(span, "void call cannot supply a value"));
             }
         })
@@ -109,7 +128,10 @@ impl Resolver<'_> {
             TypeKind::Float(float) => Ok(ValueExpr::Float(value.float_as(*float, span)?)),
             TypeKind::Bool => Ok(ValueExpr::Bool(value.bool(span)?)),
             TypeKind::Type => match value {
-                Expr::Typed { ty: actual, value } if actual == ty => Ok(value),
+                Expr::Typed {
+                    ty: actual,
+                    value,
+                } if actual == ty => Ok(value),
                 Expr::Null => Ok(ValueExpr::Zero(ty)),
                 _ => Err(Diagnostic::new(
                     span,
@@ -118,15 +140,21 @@ impl Resolver<'_> {
             },
             TypeKind::Pointer(pointee) => match value {
                 Expr::Null => Ok(ValueExpr::Zero(ty)),
-                Expr::Pointer { ty: actual, value } if actual == ty => Ok(value),
-                Expr::Pointer { value, .. } if *pointee == self.types.void() => {
-                    Ok(ValueExpr::PointerCast {
-                        value: Box::new(value),
-                        ty,
-                        mode: CastMode::Checked,
-                    })
-                }
-                Expr::Pointer { ty: actual, value } => self
+                Expr::Pointer {
+                    ty: actual,
+                    value,
+                } if actual == ty => Ok(value),
+                Expr::Pointer {
+                    value, ..
+                } if *pointee == self.types.void() => Ok(ValueExpr::PointerCast {
+                    value: Box::new(value),
+                    ty,
+                    mode: CastMode::Checked,
+                }),
+                Expr::Pointer {
+                    ty: actual,
+                    value,
+                } => self
                     .reflection_pointer_coercion(value, actual, ty, span)?
                     .ok_or_else(|| {
                         Diagnostic::new(span, "pointer value has a different pointee type")
@@ -137,20 +165,28 @@ impl Resolver<'_> {
                 )),
             },
             TypeKind::String
-            | TypeKind::FixedArray { .. }
+            | TypeKind::FixedArray {
+                ..
+            }
             | TypeKind::Slice(_)
             | TypeKind::DynamicArray(_) => self.sequence_coercion(value, ty, span),
             TypeKind::Distinct(_) => self.variant_coercion(value, ty, span),
             TypeKind::Procedure(_) => match value {
                 Expr::Null => Ok(ValueExpr::Zero(ty)),
-                Expr::Typed { ty: actual, value } if actual == ty => Ok(value),
+                Expr::Typed {
+                    ty: actual,
+                    value,
+                } if actual == ty => Ok(value),
                 _ => Err(Diagnostic::new(
                     span,
                     "procedure value has a different canonical signature",
                 )),
             },
             TypeKind::Record(_) | TypeKind::Any(_) => match value {
-                Expr::Typed { ty: actual, value } if actual == ty => Ok(value),
+                Expr::Typed {
+                    ty: actual,
+                    value,
+                } if actual == ty => Ok(value),
                 _ => Err(Diagnostic::new(
                     span,
                     "record value has a different nominal type",
@@ -158,7 +194,9 @@ impl Resolver<'_> {
             },
             TypeKind::Enum(_) => match value {
                 Expr::Enum {
-                    ty: actual, value, ..
+                    ty: actual,
+                    value,
+                    ..
                 } if actual == ty => Ok(value),
                 Expr::Literal(0) if self.enum_is_flags(ty) => {
                     let representation = self
@@ -220,7 +258,11 @@ impl Resolver<'_> {
                 return Ok(value);
             }
         }
-        if let syntax::ExpressionKind::InferredCast { mode, value } = &expression.kind {
+        if let syntax::ExpressionKind::InferredCast {
+            mode,
+            value,
+        } = &expression.kind
+        {
             return self.cast_expression(value, ty, *mode, expression.span);
         }
         if crate::inferred_casts::needs_cast_context(expression) {
@@ -425,7 +467,11 @@ impl Resolver<'_> {
                 })?;
             return self.binding_expression(binding, span);
         }
-        if let Expr::Pointer { ty, value } = base {
+        if let Expr::Pointer {
+            ty,
+            value,
+        } = base
+        {
             let owner = match self.types.kind(ty) {
                 Ok(TypeKind::Pointer(owner)) => *owner,
                 _ => {
@@ -529,9 +575,17 @@ impl Resolver<'_> {
             self.check_local_storage_capture(storage, span)?;
         }
         match binding {
-            Binding::CompilerInput { binding, ty } => {
-                self.typed_value(ValueExpr::Bound { binding, ty }, ty, span)
-            }
+            Binding::CompilerInput {
+                binding,
+                ty,
+            } => self.typed_value(
+                ValueExpr::Bound {
+                    binding,
+                    ty,
+                },
+                ty,
+                span,
+            ),
             Binding::Discarded(_) => {
                 Err(Diagnostic::new(span, "#discard parameter cannot be read"))
             }
@@ -576,9 +630,18 @@ impl Resolver<'_> {
                 self.typed_value(value.into_expression(), ty, span)
             }
             Binding::Type(ty) => Ok(Expr::Type(ty)),
-            Binding::Procedure { procedure, ty } => {
-                let value =
-                    self.typed_value(ValueExpr::ProcedureValue { procedure, ty }, ty, span)?;
+            Binding::Procedure {
+                procedure,
+                ty,
+            } => {
+                let value = self.typed_value(
+                    ValueExpr::ProcedureValue {
+                        procedure,
+                        ty,
+                    },
+                    ty,
+                    span,
+                )?;
                 self.warn_deprecated_procedure(procedure, span)?;
                 Ok(value)
             }
@@ -803,7 +866,10 @@ pub(crate) fn scalar_constant(
             jai_ir::ConstantKind::Int(value)
         }
     };
-    Ok(jai_ir::ConstantValue { ty, kind })
+    Ok(jai_ir::ConstantValue {
+        ty,
+        kind,
+    })
 }
 
 impl Resolver<'_> {
@@ -816,12 +882,16 @@ impl Resolver<'_> {
             syntax::ExpressionKind::Dereference(pointer) => {
                 self.dereference_place(pointer, expression.span)
             }
-            syntax::ExpressionKind::Index { base, index } => {
-                self.index_place(base, index, expression.span)
-            }
+            syntax::ExpressionKind::Index {
+                base,
+                index,
+            } => self.index_place(base, index, expression.span),
             syntax::ExpressionKind::Name(name) => Ok(self.storage(*name)?.place()),
             syntax::ExpressionKind::QualifiedName(path) => self.path_place(path, expression.span),
-            syntax::ExpressionKind::Member { base, member } => {
+            syntax::ExpressionKind::Member {
+                base,
+                member,
+            } => {
                 let base = self.expression_place(base)?;
                 self.member_place(base, *member, expression.span)
             }
@@ -869,10 +939,16 @@ impl Resolver<'_> {
         match &target.kind {
             syntax::PlaceKind::Insert(directive) => self.insert_place(directive),
             syntax::PlaceKind::Dereference(pointer) => self.dereference_place(pointer, target.span),
-            syntax::PlaceKind::Index { base, index } => self.index_place(base, index, target.span),
+            syntax::PlaceKind::Index {
+                base,
+                index,
+            } => self.index_place(base, index, target.span),
             syntax::PlaceKind::Name(name) => Ok(self.storage(*name)?.place()),
             syntax::PlaceKind::Qualified(path) => self.path_place(path, target.span),
-            syntax::PlaceKind::Member { base, member } => {
+            syntax::PlaceKind::Member {
+                base,
+                member,
+            } => {
                 let base = self.expression_place(base)?;
                 self.member_place(base, *member, target.span)
             }

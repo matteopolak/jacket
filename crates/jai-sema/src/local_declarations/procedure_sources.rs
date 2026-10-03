@@ -84,7 +84,10 @@ impl Resolver<'_> {
                     .graph_scope
                     .map(|scope| scope.code_origin().0)
                     .or_else(|| self.compile_time.map(|context| context.file)),
-                location: SourceSpan { source, span },
+                location: SourceSpan {
+                    source,
+                    span,
+                },
                 ty,
             },
         )
@@ -140,6 +143,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![int].into(),
                 results: vec![int].into(),
+                return_abi: definition.return_abi,
                 convention: definition.convention,
                 context: definition.context,
                 variadic: jai_types::Variadic::None,
@@ -201,8 +205,9 @@ mod tests {
     fn anonymous_identity_retains_no_invented_name() {
         let text = "main :: () { callback := (value:int) => value; }";
         let module = syntax::parse(text).unwrap();
-        let syntax::StatementKind::Declare(syntax::Declaration::Inferred { initializer, .. }) =
-            &module.procedures()[0].body[0].kind
+        let syntax::StatementKind::Declare(syntax::Declaration::Inferred {
+            initializer, ..
+        }) = &module.procedures()[0].body[0].kind
         else {
             panic!("the fixture contains a real anonymous lambda");
         };
@@ -217,6 +222,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![int].into(),
                 results: vec![int].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: jai_types::Variadic::None,

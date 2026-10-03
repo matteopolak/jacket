@@ -71,8 +71,12 @@ impl ProcessAbiBindingContext {
             );
             let socket =
                 selected_entry(graph, directory.join("Socket/module.jai")).and_then(|entry| {
-                    selected_file(graph, &entry, directory.join("Socket").join(generated))
-                        .map(|generated| SocketReceipts { entry, generated })
+                    selected_file(graph, &entry, directory.join("Socket").join(generated)).map(
+                        |generated| SocketReceipts {
+                            entry,
+                            generated,
+                        },
+                    )
                 });
             return Some(Self {
                 unit: graph.unit(),
@@ -256,7 +260,10 @@ fn bind_available(
             })
         })
         .transpose()?;
-    let nominals = ProcessAbiNominals { error_code, socket };
+    let nominals = ProcessAbiNominals {
+        error_code,
+        socket,
+    };
     let mut headers = vec![&context.base];
     headers.extend(context.stdio.iter());
     if let Some(socket) = &context.socket {

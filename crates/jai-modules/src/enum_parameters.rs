@@ -301,7 +301,10 @@ impl Builder<'_> {
                 return Err(self.located(location, "duplicate enum parameter member"));
             }
             if member.name == name {
-                found = Some(EnumParameter { declaration, value });
+                found = Some(EnumParameter {
+                    declaration,
+                    value,
+                });
             }
             next = match enumeration.kind {
                 EnumKind::Values => number.checked_add(1),
@@ -342,7 +345,9 @@ impl Builder<'_> {
             ExpressionKind::Unary(_, value) | ExpressionKind::Cast(_, _, value) => {
                 **value = self.enum_tests(file, value)?;
             }
-            ExpressionKind::TypeCast { value, .. } => {
+            ExpressionKind::TypeCast {
+                value, ..
+            } => {
                 **value = self.enum_tests(file, value)?;
             }
             ExpressionKind::Conditional(value) => {

@@ -105,7 +105,10 @@ impl Parser<'_> {
                     if falls_through {
                         return Err(self.error("default case cannot #through"));
                     }
-                    default = Some(CompileTimeCaseDefault { body, span });
+                    default = Some(CompileTimeCaseDefault {
+                        body,
+                        span,
+                    });
                 }
             }
         }
@@ -264,7 +267,10 @@ mod tests {
         let file = parsed(
             "#scope_module #if OS == {case .LINUX; #scope_file VALUE::42; case; #load \"inactive.jai\";} Record::struct(T:Type){#if T == {case u8; value:u8; case; value:s32;}} FOLLOW::1;",
         );
-        let FileItem::CompileTimeCases { cases, .. } = &file.items()[1] else {
+        let FileItem::CompileTimeCases {
+            cases, ..
+        } = &file.items()[1]
+        else {
             panic!()
         };
         let FileItem::Declaration(value) = &cases.arms[0].body[1] else {
@@ -278,7 +284,10 @@ mod tests {
         else {
             panic!()
         };
-        let RecordMember::CompileTimeCases { cases, .. } = &record.members[0] else {
+        let RecordMember::CompileTimeCases {
+            cases, ..
+        } = &record.members[0]
+        else {
             panic!()
         };
         assert_eq!(cases.arms.len(), 1);

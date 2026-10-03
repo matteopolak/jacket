@@ -76,9 +76,10 @@ fn statement_paths(statement: &Statement, facts: &PhaseBindings) -> Paths {
             }
             result
         }
-        Statement::Block(block) | Statement::PushContext { body: block, .. } => {
-            block_paths(block, facts)
-        }
+        Statement::Block(block)
+        | Statement::PushContext {
+            body: block, ..
+        } => block_paths(block, facts),
         Statement::If(condition, yes, no) => match native_condition_with_bindings(condition, facts)
         {
             Some(true) => block_paths(yes, facts),

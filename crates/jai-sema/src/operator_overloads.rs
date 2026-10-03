@@ -27,7 +27,11 @@ impl Resolver<'_> {
         target: &syntax::PlaceSyntax,
         value: &Expression,
     ) -> Option<Result<Statement, Diagnostic>> {
-        let syntax::PlaceKind::Index { base, index } = &target.kind else {
+        let syntax::PlaceKind::Index {
+            base,
+            index,
+        } = &target.kind
+        else {
             return None;
         };
         let operand = self.mutation_operator_operand(base);
@@ -54,7 +58,11 @@ impl Resolver<'_> {
         source: &Expression,
         span: Span,
     ) -> Option<Result<Expr, Diagnostic>> {
-        let ExpressionKind::Index { base, index } = &source.kind else {
+        let ExpressionKind::Index {
+            base,
+            index,
+        } = &source.kind
+        else {
             return None;
         };
         let operand = self.mutation_operator_operand(base);
@@ -80,7 +88,10 @@ impl Resolver<'_> {
             },
         };
         self.overloaded_index_address(&source, span).map(|result| {
-            let Expr::Pointer { value, .. } = result? else {
+            let Expr::Pointer {
+                value, ..
+            } = result?
+            else {
                 return Err(Diagnostic::new(
                     span,
                     "index address operator must return a pointer",
@@ -187,7 +198,10 @@ impl Resolver<'_> {
                     .map_err(|error| Diagnostic::new(target.span, error.to_string()))?;
                 Expr::Pointer {
                     ty,
-                    value: ValueExpr::AddressOf { place, ty },
+                    value: ValueExpr::AddressOf {
+                        place,
+                        ty,
+                    },
                 }
             } else {
                 self.typed_value(ValueExpr::Load(place), place.ty(), target.span)?
@@ -223,8 +237,14 @@ impl Resolver<'_> {
                 return Ok(Statement::CallVoid(call));
             }
             let result = signature.results[0].ty;
-            let result =
-                self.typed_value(ValueExpr::Call { ty: result, call }, result, right.span)?;
+            let result = self.typed_value(
+                ValueExpr::Call {
+                    ty: result,
+                    call,
+                },
+                result,
+                right.span,
+            )?;
             Ok(Statement::Store(
                 place,
                 self.coerce_value(result, place.ty(), right.span)?,
@@ -276,7 +296,10 @@ impl Resolver<'_> {
             ExpressionKind::Binary(operation, left, right) => {
                 (OperatorKind::Binary(*operation), vec![left, right])
             }
-            ExpressionKind::Index { base, index } => {
+            ExpressionKind::Index {
+                base,
+                index,
+            } => {
                 let selection = self.select_operator(
                     OperatorKind::Index,
                     &[base, index],
@@ -310,7 +333,11 @@ impl Resolver<'_> {
                 });
             }
             ExpressionKind::AddressOf(source) => {
-                let ExpressionKind::Index { base, index } = &source.kind else {
+                let ExpressionKind::Index {
+                    base,
+                    index,
+                } = &source.kind
+                else {
                     return None;
                 };
                 let operand = match self.mutation_operator_operand(base) {
@@ -608,11 +635,16 @@ impl Resolver<'_> {
 
     fn nominal_operator_operand(&self, info: &ArgumentInfo) -> bool {
         match &info.ty {
-            ArgumentType::Known(ty) | ArgumentType::RecordLiteral { ty: Some(ty), .. } => {
-                nominal_type(self.types, *ty)
-            }
-            ArgumentType::ContextualCast { value, .. } => self.nominal_operator_operand(value),
-            ArgumentType::RecordLiteral { ty: None, .. } => true,
+            ArgumentType::Known(ty)
+            | ArgumentType::RecordLiteral {
+                ty: Some(ty), ..
+            } => nominal_type(self.types, *ty),
+            ArgumentType::ContextualCast {
+                value, ..
+            } => self.nominal_operator_operand(value),
+            ArgumentType::RecordLiteral {
+                ty: None, ..
+            } => true,
             _ => false,
         }
     }
@@ -647,9 +679,11 @@ fn nominal_type(types: &TypeRegistry, ty: TypeId) -> bool {
 }
 
 fn orientations(operator: OperatorDeclaration) -> impl Iterator<Item = bool> {
-    [false, true]
-        .into_iter()
-        .take(if operator.symmetric { 2 } else { 1 })
+    [false, true].into_iter().take(if operator.symmetric {
+        2
+    } else {
+        1
+    })
 }
 fn operator_arguments(
     operands: &[&Expression],
@@ -709,11 +743,17 @@ fn place_expression(place: &syntax::PlaceSyntax) -> Expression {
             syntax::PlaceKind::Insert(directive) => ExpressionKind::Insert(directive.clone()),
             syntax::PlaceKind::Name(name) => ExpressionKind::Name(*name),
             syntax::PlaceKind::Qualified(path) => ExpressionKind::QualifiedName(path.clone()),
-            syntax::PlaceKind::Member { base, member } => ExpressionKind::Member {
+            syntax::PlaceKind::Member {
+                base,
+                member,
+            } => ExpressionKind::Member {
                 base: base.clone(),
                 member: *member,
             },
-            syntax::PlaceKind::Index { base, index } => ExpressionKind::Index {
+            syntax::PlaceKind::Index {
+                base,
+                index,
+            } => ExpressionKind::Index {
                 base: base.clone(),
                 index: index.clone(),
             },

@@ -30,9 +30,15 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                 SimdInstruction::Arm64DebugTrap => {
                     native_simd::check_arm64_architecture(&triple).map_err(Error::Simd)?
                 }
-                SimdInstruction::Load { .. }
-                | SimdInstruction::Store { .. }
-                | SimdInstruction::Add { .. } => {}
+                SimdInstruction::Load {
+                    ..
+                }
+                | SimdInstruction::Store {
+                    ..
+                }
+                | SimdInstruction::Add {
+                    ..
+                } => {}
             }
         }
         block

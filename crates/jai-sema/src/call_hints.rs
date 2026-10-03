@@ -16,7 +16,9 @@ impl HintedCall {
     fn results(&self) -> &[ResultSignature] {
         match self {
             Self::Direct(signature, _) => &signature.results,
-            Self::Indirect { results, .. } => results,
+            Self::Indirect {
+                results, ..
+            } => results,
         }
     }
     fn statement(self, destinations: Vec<Option<Place>>) -> Statement {
@@ -24,7 +26,10 @@ impl HintedCall {
             Self::Direct(signature, call) if signature.results.is_empty() => {
                 Statement::CallVoid(call)
             }
-            Self::Direct(_, call) => Statement::CallResults { call, destinations },
+            Self::Direct(_, call) => Statement::CallResults {
+                call,
+                destinations,
+            },
             Self::Indirect {
                 callee,
                 arguments,
@@ -140,7 +145,10 @@ impl Resolver<'_> {
                 },
                 args,
             ),
-            syntax::ExpressionKind::IndirectCall { callee, args } => ((**callee).clone(), args),
+            syntax::ExpressionKind::IndirectCall {
+                callee,
+                args,
+            } => ((**callee).clone(), args),
             _ => {
                 return Err(Diagnostic::new(
                     hint_span,
@@ -178,7 +186,10 @@ impl Resolver<'_> {
                 "inline requires a constant procedure target",
             ));
         }
-        if let ValueExpr::ProcedureValue { procedure, .. } = callee {
+        if let ValueExpr::ProcedureValue {
+            procedure, ..
+        } = callee
+        {
             self.validate_call_hint(procedure, hint, hint_span)?;
         }
         Ok(HintedCall::Indirect {
@@ -221,7 +232,10 @@ impl Resolver<'_> {
             }
         };
         let value = match call {
-            HintedCall::Direct(_, call) => ValueExpr::Call { call, ty },
+            HintedCall::Direct(_, call) => ValueExpr::Call {
+                call,
+                ty,
+            },
             HintedCall::Indirect {
                 callee,
                 arguments,
@@ -285,7 +299,9 @@ impl Resolver<'_> {
                     0,
                 )?
             }
-            HintedCall::Indirect { contracts, .. } => contracts.clone(),
+            HintedCall::Indirect {
+                contracts, ..
+            } => contracts.clone(),
         };
         let mut destinations = vec![];
         for (index, result) in call.results().iter().enumerate() {

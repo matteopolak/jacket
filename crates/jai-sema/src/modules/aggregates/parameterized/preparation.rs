@@ -368,7 +368,10 @@ mod tests {
         let shape = types.record_definition(owner).unwrap();
         assert!(matches!(
             types.kind(shape.fields[0]).unwrap(),
-            jai_types::TypeKind::FixedArray { count: 8, .. }
+            jai_types::TypeKind::FixedArray {
+                count: 8,
+                ..
+            }
         ));
         assert_eq!(shape.fields[1], pointer);
         assert_eq!(
@@ -459,7 +462,10 @@ mod tests {
         let shape = types.record_definition(owner).unwrap();
         assert!(matches!(
             types.kind(shape.fields[0]).unwrap(),
-            jai_types::TypeKind::FixedArray { count: 4, .. }
+            jai_types::TypeKind::FixedArray {
+                count: 4,
+                ..
+            }
         ));
         assert!(records.record(owner).unwrap().defaults.is_empty());
         assert!(records.modifiers.next().is_none());

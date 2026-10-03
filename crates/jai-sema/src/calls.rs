@@ -37,7 +37,10 @@ pub(super) fn parameters_paths(
             }
             let (ty, default) = match &parameter.binding {
                 syntax::ParameterBinding::Required(ty) => (*ty, None),
-                syntax::ParameterBinding::Defaulted { ty, expression } => {
+                syntax::ParameterBinding::Defaulted {
+                    ty,
+                    expression,
+                } => {
                     let value = jai_eval::evaluate_paths(expression, &mut lookup)?;
                     let ty = match ty {
                         Some(ty) => *ty,
@@ -115,18 +118,15 @@ impl Resolver<'_> {
                     })?;
             }
             let callee = self.path_expression(path, span)?;
-            if baked {
-                let source = syntax::Expression {
-                    kind: if path.members.is_empty() {
-                        syntax::ExpressionKind::Name(path.root)
-                    } else {
-                        syntax::ExpressionKind::QualifiedName(path.clone())
-                    },
-                    span,
-                };
-                return self.indirect_call_from_source(callee, args, span, Some(&source));
-            }
-            return self.indirect_call(callee, args, span);
+            let source = syntax::Expression {
+                kind: if path.members.is_empty() {
+                    syntax::ExpressionKind::Name(path.root)
+                } else {
+                    syntax::ExpressionKind::QualifiedName(path.clone())
+                },
+                span,
+            };
+            return self.indirect_call_from_source(callee, args, span, Some(&source));
         }
         let (signature, call) = self.resolve_call_binding(path, args, span)?;
         match signature.results.as_slice() {
@@ -159,6 +159,18 @@ impl Resolver<'_> {
     }
 
     pub(crate) fn call_is_indirect(&mut self, path: &syntax::NamePath, span: Span) -> bool {
+        // A checked constant can share a wrapper's physical signature while
+        // retaining defaults and result obligations from its own declaration.
+        if self
+            .checked_baked_constant_binding_contract(path, span)
+            .is_ok_and(|retained| {
+                retained
+                    .flatten()
+                    .is_some_and(|contract| contract.callback().is_some())
+            })
+        {
+            return true;
+        }
         if self
             .local_callable_signature(path, span)
             .is_ok_and(|signature| signature.is_some())

@@ -120,7 +120,9 @@ pub(crate) fn procedure_application_patterns(
         .iter()
         .filter_map(|parameter| match &parameter.binding {
             syntax::ParameterBinding::RequiredType(ty)
-            | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => Some(ty),
+            | syntax::ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => Some(ty),
             _ => None,
         })
         .chain(
@@ -128,7 +130,9 @@ pub(crate) fn procedure_application_patterns(
                 .results
                 .iter()
                 .filter_map(|result| match &result.binding {
-                    syntax::ResultBinding::Typed { ty, .. } => Some(ty),
+                    syntax::ResultBinding::Typed {
+                        ty, ..
+                    } => Some(ty),
                     _ => None,
                 }),
         )
@@ -216,13 +220,15 @@ fn header_patterns(
         .iter()
         .filter_map(|parameter| match &parameter.binding {
             syntax::ParameterBinding::RequiredType(ty)
-            | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => {
-                Some((ty, parameter.span))
-            }
+            | syntax::ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => Some((ty, parameter.span)),
             _ => None,
         })
         .chain(results.iter().filter_map(|result| match &result.binding {
-            syntax::ResultBinding::Typed { ty, .. } => Some((ty, result.span)),
+            syntax::ResultBinding::Typed {
+                ty, ..
+            } => Some((ty, result.span)),
             _ => None,
         }))
         .collect::<Vec<_>>();
@@ -285,7 +291,10 @@ fn collect(ty: &T, names: &mut HashSet<jai_source::Symbol>) {
             }
         }
         T::Pointer(inner) | T::Slice(inner) | T::DynamicArray(inner) => collect(inner, names),
-        T::FixedArray { count, element } => {
+        T::FixedArray {
+            count,
+            element,
+        } => {
             collect(element, names);
             collect_expression(count, names);
         }
@@ -304,9 +313,13 @@ fn collect(ty: &T, names: &mut HashSet<jai_source::Symbol>) {
 }
 fn contains_restriction(ty: &T) -> bool {
     match ty {
-        T::Restricted { .. } => true,
+        T::Restricted {
+            ..
+        } => true,
         T::Pointer(ty) | T::Slice(ty) | T::DynamicArray(ty) => contains_restriction(ty),
-        T::FixedArray { element, .. } => contains_restriction(element),
+        T::FixedArray {
+            element, ..
+        } => contains_restriction(element),
         T::Procedure(procedure) => procedure
             .parameters
             .iter()
@@ -364,7 +377,10 @@ where
             T::Pointer(inner) | T::Slice(inner) | T::DynamicArray(inner) => {
                 self.has_bound_module_parameter(file, inner)
             }
-            T::FixedArray { count, element } => {
+            T::FixedArray {
+                count,
+                element,
+            } => {
                 self.has_bound_module_parameter(file, element)
                     || matches!(&count.kind, E::CompileVariable(name) if self.module_parameter(file, *name))
             }
@@ -388,7 +404,9 @@ where
         patterns: &mut HashMap<(usize, usize), TypePattern>,
     ) -> TypeResult<()> {
         match ty {
-            T::Restricted { restriction, .. } => match restriction {
+            T::Restricted {
+                restriction, ..
+            } => match restriction {
                 syntax::TypeRestrictionSyntax::Nominal(ty)
                 | syntax::TypeRestrictionSyntax::Interface(ty) => {
                     self.header_applications(file, ty, scope, patterns)?;
@@ -406,9 +424,9 @@ where
             T::Pointer(inner) | T::Slice(inner) | T::DynamicArray(inner) => {
                 self.header_applications(file, inner, scope, patterns)?
             }
-            T::FixedArray { element, .. } => {
-                self.header_applications(file, element, scope, patterns)?
-            }
+            T::FixedArray {
+                element, ..
+            } => self.header_applications(file, element, scope, patterns)?,
             T::Procedure(procedure) => {
                 for parameter in procedure.parameters.iter().chain(&procedure.results) {
                     self.header_applications(file, &parameter.ty, scope, patterns)?;
@@ -503,7 +521,10 @@ where
             T::DynamicArray(inner) => TypePattern::DynamicArray(Box::new(
                 self.header_pattern(file, inner, span, scope, patterns)?,
             )),
-            T::FixedArray { count, element } => {
+            T::FixedArray {
+                count,
+                element,
+            } => {
                 let count = match &count.kind {
                     E::CompileVariable(name)
                         if scope
@@ -773,7 +794,10 @@ fn bound_pattern(pattern: &TypePattern) -> bool {
     match pattern {
         TypePattern::Concrete(_) => true,
         TypePattern::Infer(_) | TypePattern::Variable(_) => false,
-        TypePattern::Restricted { ty, restriction } => {
+        TypePattern::Restricted {
+            ty,
+            restriction,
+        } => {
             bound_pattern(ty)
                 && match restriction {
                     TypeRestrictionPattern::Nominal(pattern) => bound_pattern(pattern),
@@ -783,15 +807,18 @@ fn bound_pattern(pattern: &TypePattern) -> bool {
         TypePattern::Pointer(inner)
         | TypePattern::Slice(inner)
         | TypePattern::DynamicArray(inner) => bound_pattern(inner),
-        TypePattern::FixedArray { element, count } => {
-            bound_pattern(element) && matches!(count, CountPattern::Exact(_))
-        }
+        TypePattern::FixedArray {
+            element,
+            count,
+        } => bound_pattern(element) && matches!(count, CountPattern::Exact(_)),
         TypePattern::Procedure(procedure) => procedure
             .parameters
             .iter()
             .chain(&procedure.results)
             .all(bound_pattern),
-        TypePattern::NominalApplication { arguments, .. } => arguments
+        TypePattern::NominalApplication {
+            arguments, ..
+        } => arguments
             .iter()
             .all(|argument| bound_nominal_argument(&argument.kind)),
     }
@@ -813,7 +840,9 @@ fn depends_on(ty: &T, names: &HashSet<jai_source::Symbol>) -> bool {
                 }
         }
         T::Pointer(inner) | T::Slice(inner) | T::DynamicArray(inner) => depends_on(inner, names),
-        T::FixedArray { element, .. } => depends_on(element, names),
+        T::FixedArray {
+            element, ..
+        } => depends_on(element, names),
         T::Procedure(procedure) => procedure
             .parameters
             .iter()

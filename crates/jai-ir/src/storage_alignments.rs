@@ -115,6 +115,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![].into(),
                 results: vec![].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -201,6 +202,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![integer].into(),
                 results: vec![].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,

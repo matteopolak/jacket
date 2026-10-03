@@ -79,7 +79,9 @@ impl Resolver<'_> {
                 return ModifierExecution::Pending(dependencies);
             }
             Ok(ModifierOutcome::Accepted(substitution)) => Ok(substitution),
-            Ok(ModifierOutcome::Rejected { reason }) => Err(Diagnostic::new(
+            Ok(ModifierOutcome::Rejected {
+                reason,
+            }) => Err(Diagnostic::new(
                 span,
                 if reason.is_empty() {
                     "specialization rejected by #modify".into()
@@ -138,7 +140,9 @@ impl Resolver<'_> {
         for (index, (slot, parameter)) in plan.slots().iter().zip(parameters).enumerate() {
             let ty = parameter.ty;
             let value = match *slot {
-                ModifierSlot::Type { name } => match initial.ty(name) {
+                ModifierSlot::Type {
+                    name,
+                } => match initial.ty(name) {
                     Some(represented) => {
                         let expression =
                             self.runtime_type_expression(crate::Expr::Type(represented), span)?;
@@ -148,7 +152,9 @@ impl Resolver<'_> {
                     // a rejected execution never decodes its initially empty slots.
                     None => ValueExpr::Zero(ty),
                 },
-                ModifierSlot::Baked { name, .. } => {
+                ModifierSlot::Baked {
+                    name, ..
+                } => {
                     let value = initial
                         .constant(name)
                         .cloned()

@@ -184,7 +184,7 @@ impl<'graph> PendingAliases<'graph> {
             let FileDeclarationKind::Global(global) = &source.syntax().kind else {
                 continue;
             };
-            let annotation = match &global.declaration {
+            let annotation = match global.declaration.source() {
                 syntax::Declaration::UnresolvedExplicit {
                     ty, ..
                 }

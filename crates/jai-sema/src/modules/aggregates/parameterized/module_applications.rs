@@ -50,7 +50,11 @@ pub(crate) fn instantiate_module_application(
             ModuleBoundArgument::Type(value) => {
                 BakedValue::Type(nominals.resolve_module_type_with_specializations(
                     graph,
-                    crate::modules::aggregates::types::ModuleTypeRequest { file, value, span },
+                    crate::modules::aggregates::types::ModuleTypeRequest {
+                        file,
+                        value,
+                        span,
+                    },
                     types,
                     records,
                     evaluate,
@@ -77,9 +81,14 @@ pub(crate) fn instantiate_module_application(
                     }
                     ModuleBoundArgument::Type(_) | ModuleBoundArgument::String(_) => unreachable!(),
                 };
-                BakedValue::runtime(jai_ir::ConstantValue { ty, kind }, types).map_err(|error| {
-                    located(graph, file, Diagnostic::new(span, error.to_string()))
-                })?
+                BakedValue::runtime(
+                    jai_ir::ConstantValue {
+                        ty,
+                        kind,
+                    },
+                    types,
+                )
+                .map_err(|error| located(graph, file, Diagnostic::new(span, error.to_string())))?
             }
         };
         substitution.bind_constant(parameter.name, value);

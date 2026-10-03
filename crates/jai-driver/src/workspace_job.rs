@@ -100,7 +100,10 @@ impl PreparedWorkspaceJob {
     ) -> Self {
         let unit = Arc::new(unit);
         let state = Rc::new(RefCell::new(JobState {
-            journal: Some(Journal { compiler, replay }),
+            journal: Some(Journal {
+                compiler,
+                replay,
+            }),
             pending: None,
             cancellation_error: None,
             child_canceller: None,
@@ -121,7 +124,10 @@ impl PreparedWorkspaceJob {
             poll_fn(|_| {
                 let mut state = guard.state.borrow_mut();
                 let progress = {
-                    let Journal { compiler, replay } = state
+                    let Journal {
+                        compiler,
+                        replay,
+                    } = state
                         .journal
                         .as_mut()
                         .expect("running job retains private journals");
@@ -209,7 +215,10 @@ impl PreparedWorkspaceJob {
                 }
                 Ok(match result {
                     Ok(WorkspaceJobOutcome::SourceRebuild) => {
-                        let Journal { compiler, replay } = state
+                        let Journal {
+                            compiler,
+                            replay,
+                        } = state
                             .journal
                             .take()
                             .expect("completed source prefix retains its private journals");
@@ -220,7 +229,10 @@ impl PreparedWorkspaceJob {
                         }))
                     }
                     Ok(WorkspaceJobOutcome::Library(library)) => {
-                        let Journal { compiler, replay } = state
+                        let Journal {
+                            compiler,
+                            replay,
+                        } = state
                             .journal
                             .take()
                             .expect("terminated job retains private journals");
@@ -309,7 +321,10 @@ impl PreparedWorkspaceJob {
         action: impl FnOnce(&mut CompilerSession, &mut EffectReplayCache) -> T,
     ) -> Result<T, jai_vm::Error> {
         let mut state = self.state.borrow_mut();
-        let Journal { compiler, replay } = state.journal.as_mut().ok_or_else(|| {
+        let Journal {
+            compiler,
+            replay,
+        } = state.journal.as_mut().ok_or_else(|| {
             jai_vm::Error::EffectRejected("workspace job has already terminated".into())
         })?;
         Ok(action(compiler, replay))
@@ -321,11 +336,12 @@ impl PreparedWorkspaceJob {
         if self.future.is_some() {
             return None;
         }
-        self.state
-            .borrow_mut()
-            .journal
-            .take()
-            .map(|Journal { compiler, replay }| (compiler, replay))
+        self.state.borrow_mut().journal.take().map(
+            |Journal {
+                 compiler,
+                 replay,
+             }| (compiler, replay),
+        )
     }
 }
 
@@ -349,7 +365,10 @@ struct CancellationGuard<'session, 'graph> {
 impl Drop for CancellationGuard<'_, '_> {
     fn drop(&mut self) {
         let mut state = self.state.borrow_mut();
-        if let Some(Journal { compiler, replay }) = state.journal.as_mut()
+        if let Some(Journal {
+            compiler,
+            replay,
+        }) = state.journal.as_mut()
             && let Err(error) = self
                 .session
                 .cancel(&mut ReplayEffects::new(compiler, replay))
@@ -361,7 +380,8 @@ impl Drop for CancellationGuard<'_, '_> {
 
 struct JobWake;
 impl Wake for JobWake {
-    fn wake(self: Arc<Self>) {}
+    fn wake(self: Arc<Self>) {
+    }
 }
 
 #[cfg(test)]

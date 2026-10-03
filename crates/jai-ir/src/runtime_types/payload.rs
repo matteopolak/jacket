@@ -60,7 +60,9 @@ pub(super) fn metadata_nodes(descriptor: &TypeDescriptor) -> Result<usize, Stati
                 charge(&mut remaining, note.len())?;
             }
         }
-        DescriptorKind::Enum { members, .. } => {
+        DescriptorKind::Enum {
+            members, ..
+        } => {
             charge(&mut remaining, members.len())?;
             for member in members {
                 charge(
@@ -99,15 +101,37 @@ pub(super) fn validate_shape(
             }
             return fields(value, 2).map(|_| ());
         }
-        DescriptorKind::Float { .. } | DescriptorKind::String => 1,
-        DescriptorKind::Integer { .. } | DescriptorKind::Pointer { .. } => 2,
-        DescriptorKind::Procedure { .. }
-        | DescriptorKind::FixedArray { .. }
-        | DescriptorKind::Slice { .. }
-        | DescriptorKind::DynamicArray { .. }
-        | DescriptorKind::Distinct { .. } => 4,
-        DescriptorKind::Record { .. } => 11,
-        DescriptorKind::Enum { .. } => 7,
+        DescriptorKind::Float {
+            ..
+        }
+        | DescriptorKind::String => 1,
+        DescriptorKind::Integer {
+            ..
+        }
+        | DescriptorKind::Pointer {
+            ..
+        } => 2,
+        DescriptorKind::Procedure {
+            ..
+        }
+        | DescriptorKind::FixedArray {
+            ..
+        }
+        | DescriptorKind::Slice {
+            ..
+        }
+        | DescriptorKind::DynamicArray {
+            ..
+        }
+        | DescriptorKind::Distinct {
+            ..
+        } => 4,
+        DescriptorKind::Record {
+            ..
+        } => 11,
+        DescriptorKind::Enum {
+            ..
+        } => 7,
     };
     let values = fields(value, count)?;
     if values[0].ty != schema.header_type() {
@@ -283,19 +307,33 @@ pub(super) fn validate(
         | DescriptorKind::Code
         | DescriptorKind::Any
         | DescriptorKind::Bool
-        | DescriptorKind::Float { .. }
-        | DescriptorKind::String => {}
-        DescriptorKind::Integer { representation } => boolean(&values[1], representation.signed())?,
-        DescriptorKind::Pointer { pointee } => {
-            reference(data, &values[1], pointee.represented_type(), identity, true)?
+        | DescriptorKind::Float {
+            ..
         }
-        DescriptorKind::FixedArray { element, .. }
-        | DescriptorKind::Slice { element }
-        | DescriptorKind::DynamicArray { element } => {
+        | DescriptorKind::String => {}
+        DescriptorKind::Integer {
+            representation,
+        } => boolean(&values[1], representation.signed())?,
+        DescriptorKind::Pointer {
+            pointee,
+        } => reference(data, &values[1], pointee.represented_type(), identity, true)?,
+        DescriptorKind::FixedArray {
+            element, ..
+        }
+        | DescriptorKind::Slice {
+            element,
+        }
+        | DescriptorKind::DynamicArray {
+            element,
+        } => {
             reference(data, &values[1], element.represented_type(), identity, true)?;
             let (kind, count) = match descriptor.kind {
-                DescriptorKind::FixedArray { count, .. } => (0, i128::from(count)),
-                DescriptorKind::Slice { .. } => (1, -1),
+                DescriptorKind::FixedArray {
+                    count, ..
+                } => (0, i128::from(count)),
+                DescriptorKind::Slice {
+                    ..
+                } => (1, -1),
                 _ => (2, -1),
             };
             number(&values[2], kind)?;
@@ -305,22 +343,29 @@ pub(super) fn validate(
             parameters,
             results,
             convention,
+            return_abi,
             context,
             ..
         } => {
             references(data, &values[1], parameters, identity, remaining)?;
             references(data, &values[2], results, identity, remaining)?;
-            let flags = if *context == ContextMode::None { 8 } else { 0 }
-                | if *convention == CallingConvention::C {
-                    32
-                } else {
-                    0
-                }
-                | if *convention == CallingConvention::CppMethod {
-                    0x1000_0000
-                } else {
-                    0
-                };
+            let flags = if *context == ContextMode::None {
+                8
+            } else {
+                0
+            } | if *convention == CallingConvention::C {
+                32
+            } else {
+                0
+            } | if *return_abi == jai_types::ForeignReturnAbi::CppNonPod {
+                0x2000_0000
+            } else {
+                0
+            } | if *convention == CallingConvention::CppMethod {
+                0x1000_0000
+            } else {
+                0
+            };
             number(&values[3], flags)?;
         }
         DescriptorKind::Distinct {
@@ -403,12 +448,15 @@ pub(super) fn validate(
                     true,
                 )?;
                 number(&values[2], i128::from(member.offset_in_bytes))?;
-                let flags = if member.using { 4 } else { 0 }
-                    | if member.procedure_as_void_pointer(types, identity.ty())? {
-                        8
-                    } else {
-                        0
-                    };
+                let flags = if member.using {
+                    4
+                } else {
+                    0
+                } | if member.procedure_as_void_pointer(types, identity.ty())? {
+                    8
+                } else {
+                    0
+                };
                 number(&values[3], flags)?;
                 strings(data, &values[4], &member.notes, remaining)?;
                 number(&values[5], -1)?;

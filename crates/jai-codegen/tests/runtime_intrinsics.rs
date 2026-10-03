@@ -42,6 +42,7 @@ impl Fixture {
             .procedure(ProcedureType {
                 parameters: parameters.into_boxed_slice(),
                 results: results.into_boxed_slice(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -65,7 +66,10 @@ impl Fixture {
     }
     fn address(&mut self, place: Place) -> ValueExpr {
         let ty = self.types.pointer(place.ty()).unwrap();
-        ValueExpr::AddressOf { place, ty }
+        ValueExpr::AddressOf {
+            place,
+            ty,
+        }
     }
     fn void_address(&mut self, place: Place) -> ValueExpr {
         let ty = self.types.pointer(self.types.void()).unwrap();
@@ -325,7 +329,11 @@ fn compare_and_swap_returns_success_and_observed_scalar_values() {
     for boolean in [false, true] {
         let mut f = Fixture::new();
         let bool_ty = f.types.scalar(ScalarType::Bool);
-        let value_ty = if boolean { bool_ty } else { f.int };
+        let value_ty = if boolean {
+            bool_ty
+        } else {
+            f.int
+        };
         let initial = if boolean {
             ValueExpr::Bool(BoolExpr::Constant(false))
         } else {
@@ -336,7 +344,9 @@ fn compare_and_swap_returns_success_and_observed_scalar_values() {
         let observed = f.local(value_ty, initial.clone());
         let pointer_ty = f.types.pointer(value_ty).unwrap();
         let (id, signature) = f.intrinsic(
-            RuntimeIntrinsic::CompareAndSwap { value: value_ty },
+            RuntimeIntrinsic::CompareAndSwap {
+                value: value_ty,
+            },
             vec![pointer_ty, value_ty, value_ty],
             vec![bool_ty, value_ty],
         );
@@ -434,8 +444,14 @@ fn atomic_integer_widths_nominal_enums_variants_and_pointer_values_use_real_stor
             f.types.define_enum(ty, [old, new]).unwrap();
             (
                 ty,
-                ValueExpr::Enum { ty, value: old },
-                ValueExpr::Enum { ty, value: new },
+                ValueExpr::Enum {
+                    ty,
+                    value: old,
+                },
+                ValueExpr::Enum {
+                    ty,
+                    value: new,
+                },
             )
         } else if kind == 9 {
             let ty = f.types.reserve_distinct(DistinctKind::Distinct);
@@ -461,7 +477,9 @@ fn atomic_integer_widths_nominal_enums_variants_and_pointer_values_use_real_stor
         let success = f.local(boolean, ValueExpr::Bool(BoolExpr::Constant(false)));
         let pointer = f.types.pointer(value_ty).unwrap();
         let (id, signature) = f.intrinsic(
-            RuntimeIntrinsic::CompareAndSwap { value: value_ty },
+            RuntimeIntrinsic::CompareAndSwap {
+                value: value_ty,
+            },
             vec![pointer, value_ty, value_ty],
             vec![boolean, value_ty],
         );
@@ -618,7 +636,9 @@ fn self_written_c_threads_observe_native_sequentially_consistent_cas() {
     let boolean = f.types.scalar(ScalarType::Bool);
     let pointer = f.types.pointer(f.int).unwrap();
     let (intrinsic, intrinsic_signature) = f.intrinsic(
-        RuntimeIntrinsic::CompareAndSwap { value: f.int },
+        RuntimeIntrinsic::CompareAndSwap {
+            value: f.int,
+        },
         vec![pointer, f.int, f.int],
         vec![boolean, f.int],
     );
@@ -650,6 +670,7 @@ fn self_written_c_threads_observe_native_sequentially_consistent_cas() {
         .procedure(ProcedureType {
             parameters: vec![pointer, f.int, f.int].into_boxed_slice(),
             results: vec![boolean].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,

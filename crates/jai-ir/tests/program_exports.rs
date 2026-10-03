@@ -23,6 +23,7 @@ fn fixture() -> (ProgramBuilder, jai_types::TypeId) {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -160,6 +161,7 @@ fn foreign_symbol_alias_requires_identical_checked_signature() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -170,6 +172,7 @@ fn foreign_symbol_alias_requires_identical_checked_signature() {
         .procedure(ProcedureType {
             parameters: vec![integer].into_boxed_slice(),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -237,6 +240,7 @@ fn main_policy_checks_real_c_signature_without_debug_names() {
     let mut signature = ProcedureType {
         parameters: vec![integer, argv].into_boxed_slice(),
         results: vec![integer].into_boxed_slice(),
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::C,
         context: ContextMode::None,
         variadic: Variadic::None,

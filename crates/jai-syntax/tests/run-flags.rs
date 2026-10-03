@@ -43,7 +43,11 @@ fn expression_runs_keep_flags_outside_the_body_and_binary_operator() {
     let ExpressionKind::Binary(_, lhs, _) = &first.initializer.kind else {
         panic!()
     };
-    let ExpressionKind::CompileTime(CompileTimeRun { flags, body }) = &lhs.kind else {
+    let ExpressionKind::CompileTime(CompileTimeRun {
+        flags,
+        body,
+    }) = &lhs.kind
+    else {
         panic!()
     };
     assert!(flags.stallable);

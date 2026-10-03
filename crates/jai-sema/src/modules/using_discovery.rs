@@ -26,7 +26,9 @@ pub(super) fn prepare_iteration_target(
         .kind(ty)
         .map_err(|error| Diagnostic::new(target, error.to_string()))?
     {
-        jai_types::TypeKind::FixedArray { element, .. }
+        jai_types::TypeKind::FixedArray {
+            element, ..
+        }
         | jai_types::TypeKind::Slice(element)
         | jai_types::TypeKind::DynamicArray(element)
             if loop_.expansion.is_none() =>
@@ -86,10 +88,12 @@ fn enclosing_sequence<'a>(
             syntax::StatementKind::Block(body)
             | syntax::StatementKind::Defer(body)
             | syntax::StatementKind::While(_, body)
-            | syntax::StatementKind::CheckScope { body, .. }
-            | syntax::StatementKind::PushContext { body, .. } => {
-                enclosing_sequence(body, names, retained_body, target)
+            | syntax::StatementKind::CheckScope {
+                body, ..
             }
+            | syntax::StatementKind::PushContext {
+                body, ..
+            } => enclosing_sequence(body, names, retained_body, target),
             syntax::StatementKind::If(_, yes, no)
             | syntax::StatementKind::CompileTimeIf {
                 then_body: yes,
@@ -379,7 +383,11 @@ mod tests {
             assert_eq!(decision.bindings.len(), 1);
             assert_eq!(
                 decision.bindings[0].name,
-                if only { "value" } else { "omitted" }
+                if only {
+                    "value"
+                } else {
+                    "omitted"
+                }
             );
             let original = decision.bindings[0].binding;
             discovery.resolve_using(id, decision).unwrap();
@@ -387,7 +395,11 @@ mod tests {
             let file = graph.module(graph.root()).unwrap().entry();
             let name = graph
                 .symbols()
-                .find(if only { "value" } else { "omitted" })
+                .find(if only {
+                    "value"
+                } else {
+                    "omitted"
+                })
                 .unwrap();
             assert_eq!(
                 graph

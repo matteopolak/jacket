@@ -145,6 +145,7 @@ fn cases() -> (Types, Vec<(&'static str, TypeId)>) {
             .procedure(ProcedureType {
                 parameters: parameters.into(),
                 results: Box::new([ty]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: if name == "variadic_hfa" {

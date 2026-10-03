@@ -67,7 +67,10 @@ impl Resolver<'_> {
                 initializers.push((field.id, ValueExpr::Zero(field.ty)));
             }
         }
-        let body = ValueExpr::RecordBuild { ty, initializers };
+        let body = ValueExpr::RecordBuild {
+            ty,
+            initializers,
+        };
         self.typed_value(
             if bindings.is_empty() {
                 body

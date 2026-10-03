@@ -109,7 +109,9 @@ impl Resolver<'_> {
         scope: crate::modules::FileScope<'_>,
     ) -> Result<SourceBinding, Diagnostic> {
         let value = match binding {
-            Binding::CompilerInput { .. } => {
+            Binding::CompilerInput {
+                ..
+            } => {
                 return Err(Diagnostic::at_source(
                     location,
                     "compiler input cannot enter declaration insertion capture",
@@ -128,7 +130,10 @@ impl Resolver<'_> {
             Binding::Enum(value) => {
                 return self.source_insertion_enum_in_scope(value.ty, value.value, location, scope);
             }
-            Binding::Procedure { procedure, ty } => {
+            Binding::Procedure {
+                procedure,
+                ty,
+            } => {
                 return scope
                     .insertion_capture_procedure(procedure, ty, location)
                     .map(SourceBinding::Graph);
@@ -234,7 +239,10 @@ impl Resolver<'_> {
             ));
         };
         Ok(SourceBinding::Value(SourceCaptureValue::Enumeration(
-            jai_modules::EnumParameter { declaration, value },
+            jai_modules::EnumParameter {
+                declaration,
+                value,
+            },
         )))
     }
 

@@ -45,16 +45,27 @@ pub fn declare<'ctx, 'types>(
         return Err(Error::InvalidSymbol(symbol.into()));
     }
     let procedure = types.procedure_definition(signature)?;
+    crate::cpp_methods::validate_triple(
+        types,
+        procedure,
+        platform,
+        &module.get_triple().as_str().to_string_lossy(),
+    )?;
     let variadic = match procedure.variadic {
         Variadic::None => false,
-        Variadic::C { .. } => true,
-        Variadic::Jai { .. } => return Err(Error::InvalidSignature(signature)),
+        Variadic::C {
+            ..
+        } => true,
+        Variadic::Jai {
+            ..
+        } => return Err(Error::InvalidSignature(signature)),
     };
     let signature = Signature::classify(
         context, types, lowerer, platform, target, signature, variadic,
     )?;
     let value = if let Some(existing) = module.get_function(symbol) {
-        if existing.get_type() != signature.llvm {
+        if existing.get_type() != signature.llvm || !signature.compatible_result_contract(existing)
+        {
             return Err(Error::InvalidSymbol(symbol.into()));
         }
         existing
@@ -62,7 +73,10 @@ pub fn declare<'ctx, 'types>(
         module.add_function(symbol, signature.llvm, None)
     };
     signature.attributes_on_function(value);
-    Ok(Function { value, signature })
+    Ok(Function {
+        value,
+        signature,
+    })
 }
 
 impl<'ctx> Function<'ctx> {
@@ -104,11 +118,12 @@ pub fn call<'ctx, 'types>(
     let mut llvm_arguments: Vec<BasicMetadataValueEnum<'ctx>> = vec![];
     let return_pointer = match signature.result {
         Value::Indirect {
-            storage, alignment, ..
+            storage,
+            alignment,
+            ..
         } => {
             let pointer = unions::entry_alloca(context, builder, storage, "foreign.result")?;
             set_pointer_alignment(pointer, alignment)?;
-            llvm_arguments.push(pointer.into());
             Some(pointer)
         }
         _ => None,
@@ -124,6 +139,14 @@ pub fn call<'ctx, 'types>(
             return Err(Error::InvalidCarrier);
         }
         llvm_arguments.extend(marshal_argument(context, builder, target, argument, abi)?);
+    }
+    if let Some(pointer) = return_pointer {
+        let index = usize::try_from(signature.result_parameter.ok_or(Error::InvalidCarrier)?)
+            .map_err(|_| Error::InvalidCarrier)?;
+        if index > llvm_arguments.len() {
+            return Err(Error::InvalidCarrier);
+        }
+        llvm_arguments.insert(index, pointer.into());
     }
     for &(source_ty, argument) in &arguments[signature.source_parameters.len()..] {
         abi::validate_storage_graph(types, source_ty)?;
@@ -150,14 +173,28 @@ pub fn call<'ctx, 'types>(
             let storage = lowerer.basic(source_ty)?;
             Some(match (&signature.result, return_pointer) {
                 (Value::Ignore, _) => storage.const_zero(),
-                (Value::Indirect { .. }, Some(pointer)) => {
-                    builder.build_load(storage, pointer, "foreign.result")?
-                }
-                (Value::Direct { .. }, _) => site
+                (
+                    Value::Indirect {
+                        ..
+                    },
+                    Some(pointer),
+                ) => builder.build_load(storage, pointer, "foreign.result")?,
+                (
+                    Value::Direct {
+                        ..
+                    },
+                    _,
+                ) => site
                     .try_as_basic_value()
                     .basic()
                     .ok_or(Error::InvalidCarrier)?,
-                (Value::Coerce { pieces, carrier }, _) => {
+                (
+                    Value::Coerce {
+                        pieces,
+                        carrier,
+                    },
+                    _,
+                ) => {
                     let returned = site
                         .try_as_basic_value()
                         .basic()
@@ -201,21 +238,28 @@ fn marshal_argument<'ctx>(
 ) -> Result<Vec<BasicMetadataValueEnum<'ctx>>, Error> {
     Ok(match abi {
         Value::Ignore => vec![],
-        Value::Direct { ty, .. } => {
+        Value::Direct {
+            ty, ..
+        } => {
             if argument.get_type() != *ty {
                 return Err(Error::InvalidCarrier);
             }
             vec![argument.into()]
         }
         Value::Indirect {
-            storage, alignment, ..
+            storage,
+            alignment,
+            ..
         } => {
             let pointer = unions::entry_alloca(context, builder, *storage, "foreign.argument")?;
             set_pointer_alignment(pointer, *alignment)?;
             builder.build_store(pointer, argument)?;
             vec![pointer.into()]
         }
-        Value::Coerce { pieces, carrier } => {
+        Value::Coerce {
+            pieces,
+            carrier,
+        } => {
             let carrier_size = match carrier {
                 Some(carrier) => target.get_abi_size(carrier),
                 None => pieces
@@ -380,31 +424,40 @@ pub fn parameters<'ctx, 'types>(
     function: FunctionValue<'ctx>,
 ) -> Result<Vec<BasicValueEnum<'ctx>>, Error> {
     let context = lowerer.context();
-    let mut index = u32::from(matches!(signature.result, Value::Indirect { .. }));
+    if signature.parameter_indices.len() != signature.parameters.len() {
+        return Err(Error::InvalidCarrier);
+    }
     let mut values = Vec::with_capacity(signature.parameters.len());
-    for (&source, abi) in signature
+    for ((&source, abi), &start) in signature
         .source_parameters
         .iter()
         .zip(&signature.parameters)
+        .zip(&signature.parameter_indices)
     {
+        let mut index = start;
         types.kind(source)?;
         let storage = lowerer.basic(source)?;
         let value = match abi {
             Value::Ignore => storage.const_zero(),
-            Value::Direct { .. } => {
+            Value::Direct {
+                ..
+            } => {
                 let value = function.get_nth_param(index).ok_or(Error::InvalidCarrier)?;
-                index += 1;
                 value
             }
-            Value::Indirect { .. } => {
+            Value::Indirect {
+                ..
+            } => {
                 let pointer = function
                     .get_nth_param(index)
                     .ok_or(Error::InvalidCarrier)?
                     .into_pointer_value();
-                index += 1;
                 builder.build_load(storage, pointer, "foreign.parameter")?
             }
-            Value::Coerce { pieces, carrier } => {
+            Value::Coerce {
+                pieces,
+                carrier,
+            } => {
                 let carrier_size = match carrier {
                     Some(ty) => target.get_abi_size(ty),
                     None => pieces
@@ -420,7 +473,6 @@ pub fn parameters<'ctx, 'types>(
                 )?;
                 if carrier.is_some() {
                     let value = function.get_nth_param(index).ok_or(Error::InvalidCarrier)?;
-                    index += 1;
                     store_unaligned(builder, temporary, value)?;
                 } else {
                     for piece in pieces {
@@ -462,18 +514,25 @@ pub fn return_value<'ctx>(
         Value::Ignore => {
             builder.build_return(None)?;
         }
-        Value::Indirect { .. } => {
+        Value::Indirect {
+            ..
+        } => {
             let pointer = function
-                .get_first_param()
+                .get_nth_param(signature.result_parameter.ok_or(Error::InvalidCarrier)?)
                 .ok_or(Error::InvalidCarrier)?
                 .into_pointer_value();
             builder.build_store(pointer, value)?;
             builder.build_return(None)?;
         }
-        Value::Direct { .. } => {
+        Value::Direct {
+            ..
+        } => {
             builder.build_return(Some(&value))?;
         }
-        Value::Coerce { carrier, pieces } => {
+        Value::Coerce {
+            carrier,
+            pieces,
+        } => {
             let physical = marshal_argument(context, builder, target, value, &signature.result)?;
             let mut values = physical
                 .into_iter()
@@ -527,6 +586,7 @@ mod reserved_symbols {
             .procedure(jai_types::ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::C,
                 context: jai_types::ContextMode::None,
                 variadic: jai_types::Variadic::None,

@@ -1,11 +1,13 @@
 //! Byte-based source locations shared by the compiler stages.
 mod diagnostic_markers;
 mod locations;
+mod provider;
 pub use diagnostic_markers::DiagnosticMarker;
+pub use provider::{SourceProvider, normalize_virtual_path};
 mod warnings;
 pub use locations::{
-    DeclarationId, Identities, LocatedDiagnostic, ModuleId, ScopeId, SourceId, SourceMap,
-    SourceRecord, SourceSpan, UnitId,
+    DeclarationId, Identities, LocatedDiagnostic, ModuleId, ScopeId, SourceAllocationId, SourceId,
+    SourceMap, SourceRecord, SourceRecordKind, SourceSpan, SourceTextSnapshot, UnitId,
 };
 use std::collections::HashMap;
 use std::fmt;
@@ -24,6 +26,36 @@ pub struct Symbols {
     by_name: HashMap<String, Symbol>,
 }
 impl Symbols {
+    /// Borrow both actual spelling stores. Names and map keys own separate Strings.
+    pub fn visit_retained_metadata<E>(
+        &self,
+        admit: &mut impl FnMut(usize, usize) -> Result<(), E>,
+    ) -> Result<(), E> {
+        admit(
+            self.names.capacity().saturating_add(1),
+            self.names
+                .capacity()
+                .saturating_mul(std::mem::size_of::<String>()),
+        )?;
+        let capacity = self.by_name.capacity();
+        let table = if capacity == 0 {
+            0
+        } else {
+            capacity
+                .saturating_mul(2)
+                .saturating_mul(std::mem::size_of::<(String, Symbol)>().saturating_add(1))
+                .saturating_add(32)
+        };
+        admit(capacity.saturating_add(1), table)?;
+        for name in &self.names {
+            admit(1, name.capacity())?;
+        }
+        for name in self.by_name.keys() {
+            admit(1, name.capacity())?;
+        }
+        Ok(())
+    }
+
     pub fn intern(&mut self, name: &str) -> Symbol {
         if let Some(&symbol) = self.by_name.get(name) {
             return symbol;
@@ -52,7 +84,10 @@ pub struct Span {
 
 impl Span {
     pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
+        Self {
+            start,
+            end,
+        }
     }
     pub fn text(self, source: &str) -> &str {
         &source[self.start..self.end]
@@ -113,7 +148,8 @@ impl fmt::Display for Diagnostic {
         f.write_str(&self.message)
     }
 }
-impl std::error::Error for Diagnostic {}
+impl std::error::Error for Diagnostic {
+}
 
 #[cfg(test)]
 mod tests {

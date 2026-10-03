@@ -75,7 +75,14 @@ where
                     .map_err(|error| failure(self.graph, file, error))?,
             ),
         };
-        BakedValue::runtime(jai_ir::ConstantValue { ty, kind }, self.types).map_err(|error| {
+        BakedValue::runtime(
+            jai_ir::ConstantValue {
+                ty,
+                kind,
+            },
+            self.types,
+        )
+        .map_err(|error| {
             failure(
                 self.graph,
                 file,

@@ -88,7 +88,8 @@ impl PartialEq for ByteImage {
             && self.target == other.target
     }
 }
-impl Eq for ByteImage {}
+impl Eq for ByteImage {
+}
 impl std::hash::Hash for ByteImage {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.bytes.hash(state);
@@ -220,15 +221,21 @@ impl ByteImage {
         let mut has_union = false;
         while let Some(value) = pending.pop() {
             match value {
-                Value::Union { .. } => {
+                Value::Union {
+                    ..
+                } => {
                     has_union = true;
                     break;
                 }
-                Value::Record { fields, .. }
+                Value::Record {
+                    fields, ..
+                }
                 | Value::Array {
                     elements: fields, ..
                 } => pending.extend(fields),
-                Value::Distinct { value, .. } => pending.push(value),
+                Value::Distinct {
+                    value, ..
+                } => pending.push(value),
                 _ => {}
             }
         }
@@ -480,9 +487,12 @@ impl ByteImage {
                 self.put_bits(offset, length, u64::from(*value))?
             }
             (TypeKind::Integer(_), Value::Int(value))
-            | (TypeKind::Enum(_), Value::Enum { value, .. }) => {
-                self.put_bits(offset, length, value.bits())?
-            }
+            | (
+                TypeKind::Enum(_),
+                Value::Enum {
+                    value, ..
+                },
+            ) => self.put_bits(offset, length, value.bits())?,
             (TypeKind::Integer(_), Value::AddressInteger(number)) => {
                 self.put_bits(offset, length, number.bits())?;
                 self.mark_number_provenance(offset, length, number)?;
@@ -490,22 +500,39 @@ impl ByteImage {
             (TypeKind::Float(_), Value::Float(value)) => {
                 self.put_bits(offset, length, value.bits())?
             }
-            (TypeKind::Type, Value::Type { descriptor }) => {
+            (
+                TypeKind::Type,
+                Value::Type {
+                    descriptor,
+                },
+            ) => {
                 if let Some(pointer) = descriptor {
                     let header = types.runtime_type_header().ok_or(Error::InvalidIr(
                         "nonnull runtime Type requires a bound descriptor header",
                     ))?;
                     if pointer.pointee() != header || pointer.is_null() || pointer.is_opaque() {
-                        return Err(Error::TypeMismatch { expected: ty });
+                        return Err(Error::TypeMismatch {
+                            expected: ty,
+                        });
                     }
                     self.encode_handle(offset, length, &Value::Pointer(pointer.clone()))?;
                 }
             }
             (TypeKind::Pointer(_), Value::Pointer(_))
-            | (TypeKind::Procedure(_), Value::Procedure { .. }) => {
+            | (
+                TypeKind::Procedure(_),
+                Value::Procedure {
+                    ..
+                },
+            ) => {
                 self.encode_handle(offset, length, value)?;
             }
-            (TypeKind::Distinct(id), Value::Distinct { value, .. }) => self.encode_at(
+            (
+                TypeKind::Distinct(id),
+                Value::Distinct {
+                    value, ..
+                },
+            ) => self.encode_at(
                 types,
                 layouts,
                 offset,
@@ -513,7 +540,12 @@ impl ByteImage {
                 value,
                 depth + 1,
             )?,
-            (kind, Value::Record { fields, .. }) if kind.record_storage_id().is_some() => {
+            (
+                kind,
+                Value::Record {
+                    fields, ..
+                },
+            ) if kind.record_storage_id().is_some() => {
                 let record = types.record_storage_definition(ty)?;
                 for (index, value) in fields.iter().enumerate() {
                     self.encode_at(
@@ -526,7 +558,14 @@ impl ByteImage {
                     )?;
                 }
             }
-            (TypeKind::Record(id), Value::Union { field, value, .. }) => {
+            (
+                TypeKind::Record(id),
+                Value::Union {
+                    field,
+                    value,
+                    ..
+                },
+            ) => {
                 self.unions.push(UnionView {
                     offset,
                     length,
@@ -542,7 +581,14 @@ impl ByteImage {
                     depth + 1,
                 )?;
             }
-            (TypeKind::FixedArray { element, .. }, Value::Array { elements, .. }) => {
+            (
+                TypeKind::FixedArray {
+                    element, ..
+                },
+                Value::Array {
+                    elements, ..
+                },
+            ) => {
                 let stride = storage
                     .array_stride
                     .ok_or(Error::InvalidIr("array layout missing stride"))?;
@@ -567,9 +613,29 @@ impl ByteImage {
                     "owned string requires backing descriptor before byte encoding",
                 ));
             }
-            (TypeKind::String, Value::StringView { pointer, count })
-            | (TypeKind::Slice(_), Value::Slice { pointer, count, .. })
-            | (TypeKind::DynamicArray(_), Value::DynamicArray { pointer, count, .. }) => {
+            (
+                TypeKind::String,
+                Value::StringView {
+                    pointer,
+                    count,
+                },
+            )
+            | (
+                TypeKind::Slice(_),
+                Value::Slice {
+                    pointer,
+                    count,
+                    ..
+                },
+            )
+            | (
+                TypeKind::DynamicArray(_),
+                Value::DynamicArray {
+                    pointer,
+                    count,
+                    ..
+                },
+            ) => {
                 let integer = types.scalar(ScalarType::Int(IntegerType::S64));
                 let count_value = Value::Int(
                     Integer::checked(IntegerType::S64, *count as i128).ok_or(Error::CheckedCast)?,
@@ -623,7 +689,11 @@ impl ByteImage {
                     }
                 }
             }
-            _ => return Err(Error::TypeMismatch { expected: ty }),
+            _ => {
+                return Err(Error::TypeMismatch {
+                    expected: ty,
+                });
+            }
         }
         Ok(())
     }
@@ -710,7 +780,9 @@ impl ByteImage {
                     }
                     None
                 };
-                Value::Type { descriptor }
+                Value::Type {
+                    descriptor,
+                }
             }
             TypeKind::Pointer(pointee) => {
                 Value::Pointer(self.decode_pointer(offset, length, *pointee, remaining)?)
@@ -762,10 +834,16 @@ impl ByteImage {
                             remaining,
                         )?);
                     }
-                    Value::Record { ty, fields }
+                    Value::Record {
+                        ty,
+                        fields,
+                    }
                 }
             }
-            TypeKind::FixedArray { element, count } => {
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => {
                 let count = size(*count, *remaining)?;
                 let stride = storage
                     .array_stride
@@ -788,7 +866,10 @@ impl ByteImage {
                         )?,
                     );
                 }
-                Value::Array { ty, elements }
+                Value::Array {
+                    ty,
+                    elements,
+                }
             }
             TypeKind::String | TypeKind::Slice(_) | TypeKind::DynamicArray(_) => {
                 let element = match types.kind(ty)? {
@@ -816,8 +897,15 @@ impl ByteImage {
                     remaining,
                 )?;
                 match types.kind(ty)? {
-                    TypeKind::String => Value::StringView { pointer, count },
-                    TypeKind::Slice(_) => Value::Slice { ty, pointer, count },
+                    TypeKind::String => Value::StringView {
+                        pointer,
+                        count,
+                    },
+                    TypeKind::Slice(_) => Value::Slice {
+                        ty,
+                        pointer,
+                        count,
+                    },
                     TypeKind::DynamicArray(_) => {
                         let allocated = descriptor_count(self.decode_at(
                             types,

@@ -10,7 +10,9 @@ impl Machine {
         match &task.action {
             Action::Eval(node) => {
                 if let Some(code) = &task.code
-                    && let NodeKind::SequencePack { ty, .. } = &code.nodes[node.index()].kind
+                    && let NodeKind::SequencePack {
+                        ty, ..
+                    } = &code.nodes[node.index()].kind
                 {
                     let TypeKind::Slice(element) = vm.provider.types().kind(*ty)? else {
                         return Err(Error::InvalidIr("sequence pack requires slice type").into());
@@ -18,23 +20,35 @@ impl Machine {
                     vm.prepare_layout(*element)?;
                 }
             }
-            Action::RecordStart { node } | Action::RecordNext { node, .. } => {
+            Action::RecordStart {
+                node,
+            }
+            | Action::RecordNext {
+                node, ..
+            } => {
                 let code = task
                     .code
                     .as_ref()
                     .ok_or(Error::InvalidIr("record action has no plan"))?;
-                let NodeKind::RecordBuild { ty, .. } = &code.nodes[node.index()].kind else {
+                let NodeKind::RecordBuild {
+                    ty, ..
+                } = &code.nodes[node.index()].kind
+                else {
                     return Err(Error::InvalidIr("record action has wrong plan node").into());
                 };
                 vm.prepare_layout(*ty)?;
             }
-            Action::OrderedRecordStart { node } => {
+            Action::OrderedRecordStart {
+                node,
+            } => {
                 let code = task
                     .code
                     .as_ref()
                     .ok_or(Error::InvalidIr("ordered record action has no plan"))?;
                 let NodeKind::OrderedRecord {
-                    ty, initializers, ..
+                    ty,
+                    initializers,
+                    ..
                 } = &code.nodes[node.index()].kind
                 else {
                     return Err(
@@ -43,12 +57,17 @@ impl Machine {
                 };
                 vm.prepare_ordered_record(*ty, initializers.iter().map(|(path, _)| path.as_ref()))?;
             }
-            Action::IndexBase { node } => {
+            Action::IndexBase {
+                node,
+            } => {
                 let code = task
                     .code
                     .as_ref()
                     .ok_or(Error::InvalidIr("index action has no plan"))?;
-                let NodeKind::IndexPlace { base_type, .. } = &code.nodes[node.index()].kind else {
+                let NodeKind::IndexPlace {
+                    base_type, ..
+                } = &code.nodes[node.index()].kind
+                else {
                     return Err(Error::InvalidIr("index action has wrong plan node").into());
                 };
                 if !matches!(
@@ -59,13 +78,21 @@ impl Machine {
                 }
             }
             Action::IndexFinish {
-                pointer, snapshot, ..
+                pointer,
+                snapshot,
+                ..
             } => {
                 let pointer = match snapshot {
                     Some(
-                        Value::Slice { pointer, .. }
-                        | Value::DynamicArray { pointer, .. }
-                        | Value::StringView { pointer, .. }
+                        Value::Slice {
+                            pointer, ..
+                        }
+                        | Value::DynamicArray {
+                            pointer, ..
+                        }
+                        | Value::StringView {
+                            pointer, ..
+                        }
                         | Value::Pointer(pointer),
                     ) => pointer,
                     _ => pointer,
@@ -76,7 +103,9 @@ impl Machine {
                     vm.prepare_pointer_layouts(pointer, true)?;
                 }
             }
-            Action::PushStart { .. } => {
+            Action::PushStart {
+                ..
+            } => {
                 let ty = vm
                     .provider
                     .context()
@@ -90,7 +119,9 @@ impl Machine {
                     vm.prepare_pointer_layouts(pointer, true)?;
                 }
             }
-            Action::RangeSetup { .. } => vm.prepare_pointer_layouts(self.place_at(0)?, true)?,
+            Action::RangeSetup {
+                ..
+            } => vm.prepare_pointer_layouts(self.place_at(0)?, true)?,
             Action::RangeNext(range) => {
                 vm.prepare_pointer_layouts(
                     range
@@ -100,12 +131,19 @@ impl Machine {
                     true,
                 )?;
             }
-            Action::PackNext { node, index, .. } if *index != 0 => {
+            Action::PackNext {
+                node,
+                index,
+                ..
+            } if *index != 0 => {
                 let code = task
                     .code
                     .as_ref()
                     .ok_or(Error::InvalidIr("pack action has no plan"))?;
-                let NodeKind::SequencePack { parts, .. } = &code.nodes[node.index()].kind else {
+                let NodeKind::SequencePack {
+                    parts, ..
+                } = &code.nodes[node.index()].kind
+                else {
                     return Err(Error::InvalidIr("pack action has wrong plan node").into());
                 };
                 let operand = self
@@ -116,11 +154,14 @@ impl Machine {
                     (PackPartMode::ElementPlace, Operand::Place(pointer)) => {
                         vm.prepare_pointer_layouts(pointer, true)?;
                     }
-                    (PackPartMode::Spread, Operand::Value(Value::Slice { pointer, count, .. }))
-                        if *count > 0 =>
-                    {
-                        vm.prepare_pointer_layouts(pointer, true)?
-                    }
+                    (
+                        PackPartMode::Spread,
+                        Operand::Value(Value::Slice {
+                            pointer,
+                            count,
+                            ..
+                        }),
+                    ) if *count > 0 => vm.prepare_pointer_layouts(pointer, true)?,
                     _ => {}
                 }
             }

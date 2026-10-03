@@ -165,11 +165,13 @@ impl Resolver<'_> {
             }
             let annotation = match &parameter.binding {
                 syntax::ParameterBinding::Required(ty)
-                | syntax::ParameterBinding::Defaulted { ty: Some(ty), .. } => {
-                    syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty))
-                }
+                | syntax::ParameterBinding::Defaulted {
+                    ty: Some(ty), ..
+                } => syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty)),
                 syntax::ParameterBinding::RequiredType(ty)
-                | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => ty.clone(),
+                | syntax::ParameterBinding::DefaultedType {
+                    ty: Some(ty), ..
+                } => ty.clone(),
                 _ => {
                     return Err(Diagnostic::new(
                         span,
@@ -216,10 +218,10 @@ impl Resolver<'_> {
                 target: target.id,
                 parameter_index,
                 binding,
-                source: self
-                    .debug
-                    .source()
-                    .map(|source| SourceSpan { source, span }),
+                source: self.debug.source().map(|source| SourceSpan {
+                    source,
+                    span,
+                }),
             });
         }
         Ok(bound)

@@ -198,7 +198,9 @@ impl CompilerCodePlanBuilder {
             plan: self.id,
             index: self.slots.len(),
         };
-        self.slots.push(CompilerSlotSchema { ty });
+        self.slots.push(CompilerSlotSchema {
+            ty,
+        });
         Ok(id)
     }
     fn owns_slot(&self, slot: CompilerSlotId) -> Result<(), Error> {
@@ -292,7 +294,10 @@ impl CompilerCodePlanBuilder {
             return Err(node_limit());
         }
         let leaf = self.runtime(leaf)?;
-        self.control(CompilerControl::Assign { slot, leaf })
+        self.control(CompilerControl::Assign {
+            slot,
+            leaf,
+        })
     }
     pub fn return_code(&mut self, site: CompilerReturnSiteId) -> Result<CompilerControlId, Error> {
         if site.plan != self.id || site.index >= self.sites {
@@ -450,11 +455,16 @@ impl CompilerCodePlan {
         }
         for control in &self.controls {
             let count = match control {
-                CompilerControl::Block { children, locals } => children
+                CompilerControl::Block {
+                    children,
+                    locals,
+                } => children
                     .len()
                     .checked_add(locals.len())
                     .ok_or_else(node_limit)?,
-                CompilerControl::If { .. } => 2,
+                CompilerControl::If {
+                    ..
+                } => 2,
                 _ => 0,
             };
             size = size.checked_add(count).ok_or_else(node_limit)?;
@@ -488,7 +498,10 @@ impl CompilerCodePlan {
                     }
                     false
                 }
-                CompilerControl::Assign { slot, leaf } => {
+                CompilerControl::Assign {
+                    slot,
+                    leaf,
+                } => {
                     if self.slot_schema(*slot).is_none() || *leaf >= self.runtime.len() {
                         return Err(Error::InvalidIr("compiler assignment identity is unknown"));
                     }
@@ -500,7 +513,10 @@ impl CompilerCodePlan {
                     }
                     true
                 }
-                CompilerControl::Block { children, locals } => {
+                CompilerControl::Block {
+                    children,
+                    locals,
+                } => {
                     for slot in locals {
                         if self.slot_schema(*slot).is_none() {
                             return Err(Error::InvalidIr("compiler block slot is unknown"));
@@ -561,7 +577,10 @@ impl CompilerCodePlan {
                     needs: inputs(*leaf),
                     ..Facts::default()
                 },
-                CompilerControl::Assign { slot, leaf } => Facts {
+                CompilerControl::Assign {
+                    slot,
+                    leaf,
+                } => Facts {
                     needs: inputs(*leaf),
                     writes: [slot.index].into(),
                     ..Facts::default()
@@ -574,7 +593,10 @@ impl CompilerCodePlan {
                     returns: true,
                     ..Facts::default()
                 },
-                CompilerControl::Block { children, locals } => {
+                CompilerControl::Block {
+                    children,
+                    locals,
+                } => {
                     let mut next = Facts::default();
                     for child in children {
                         if next.returns {
@@ -702,7 +724,11 @@ impl CompilerCodePlan {
             runtime.push(proof);
         }
         for control in &self.controls {
-            if let CompilerControl::Assign { slot, leaf } = control {
+            if let CompilerControl::Assign {
+                slot,
+                leaf,
+            } = control
+            {
                 let results = match &runtime[*leaf] {
                     CheckedCompilerRuntimeLeaf::Expression(proof) => {
                         vec![proof.expression().type_id(types)]
@@ -715,7 +741,10 @@ impl CompilerCodePlan {
                     ));
                 }
             }
-            if let CompilerControl::If { condition, .. } = control {
+            if let CompilerControl::If {
+                condition, ..
+            } = control
+            {
                 let CompilerRuntimeLeafKind::Expression(value) = self.runtime[*condition].kind()
                 else {
                     unreachable!()

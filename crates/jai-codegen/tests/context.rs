@@ -234,6 +234,7 @@ fn checked_ir_context_defaults_and_hidden_arguments_execute_without_sema() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -314,6 +315,7 @@ fn checked_ir_push_and_captured_cleanup_execute_without_sema() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,

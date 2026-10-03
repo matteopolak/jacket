@@ -81,9 +81,9 @@ impl fmt::Display for RecordReflectionTransactionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Type(error) => error.fmt(f),
-            Self::Stale { .. } => {
-                f.write_str("record reflection policy changed while an update was staged")
-            }
+            Self::Stale {
+                ..
+            } => f.write_str("record reflection policy changed while an update was staged"),
         }
     }
 }
@@ -92,7 +92,9 @@ impl std::error::Error for RecordReflectionTransactionError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Type(error) => Some(error),
-            Self::Stale { .. } => None,
+            Self::Stale {
+                ..
+            } => None,
         }
     }
 }

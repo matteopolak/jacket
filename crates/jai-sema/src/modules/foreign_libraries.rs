@@ -62,6 +62,38 @@ pub(super) fn all(graph: &ModuleGraph) -> Result<Vec<ForeignLibrary>, LocatedDia
         .collect()
 }
 
+pub(super) fn source_provenance(
+    graph: &ModuleGraph,
+) -> Result<jai_ir::ForeignLibrarySources, LocatedDiagnostic> {
+    let mut records = Vec::new();
+    for declaration in graph
+        .declarations()
+        .iter()
+        .filter(|declaration| matches!(declaration.syntax().kind, FileDeclarationKind::Library(_)))
+    {
+        let location = declaration.location();
+        let source = graph
+            .sources()
+            .get(location.source)
+            .expect("declaration owns source");
+        let identity = jai_ir::SourceProcedureIdentity::new(source, location)
+            .map_err(|error| graph.diagnostic(location, error.to_string()))?;
+        let environment = graph
+            .module_environment_origin(declaration.file())
+            .map_err(|error| graph.diagnostic(location, error.to_string()))?;
+        records.push((
+            ForeignLibraryId::new(declaration.id()),
+            identity,
+            environment,
+        ));
+    }
+    jai_ir::ForeignLibrarySources::from_source_records(records).map_err(|error| {
+        let file = graph.module(graph.root()).expect("root module").entry();
+        let location = graph.locate(file, Span::default()).expect("root source");
+        graph.diagnostic(location, error.to_string())
+    })
+}
+
 pub(super) fn origin(
     graph: &ModuleGraph,
     file: FileInstanceId,

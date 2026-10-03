@@ -67,6 +67,7 @@ fn pending_global_shapes_still_require_exact_procedure_constant_identity() {
             parameters: Box::new([]),
             results: Box::new([]),
             context: jai_types::ContextMode::None,
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             variadic: jai_types::Variadic::None,
         })

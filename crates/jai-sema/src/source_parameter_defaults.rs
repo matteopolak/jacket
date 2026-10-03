@@ -76,7 +76,9 @@ impl SourceParameterDefault {
         let exact = match &value {
             ParameterDefault::Constant(value) => value.ty == self.key.expected,
             ParameterDefault::RuntimeRead(read) => read.ty() == self.key.expected,
-            ParameterDefault::CodeNull { ty } => *ty == self.key.expected,
+            ParameterDefault::CodeNull {
+                ty,
+            } => *ty == self.key.expected,
             ParameterDefault::CallerLocation | ParameterDefault::Discarded => true,
             ParameterDefault::Source(_) => false,
         };

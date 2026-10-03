@@ -217,18 +217,20 @@ fn register_sources<'a>(
                     template,
                     file,
                     span: procedure.span,
+                    return_abi: procedure.return_abi,
                     convention: procedure.convention,
                     context: procedure.context,
                 },
             );
             continue;
         }
-        let (source_parameters, source_results, convention, context, span) =
+        let (source_parameters, source_results, convention, return_abi, context, span) =
             match &declaration.syntax().kind {
                 FileDeclarationKind::Procedure(procedure) => (
                     &procedure.parameters,
                     &procedure.results,
                     procedure.convention,
+                    procedure.return_abi,
                     procedure.context,
                     procedure.span,
                 ),
@@ -236,6 +238,7 @@ fn register_sources<'a>(
                     &prototype.parameters,
                     &prototype.results,
                     prototype.convention,
+                    prototype.return_abi,
                     prototype.context,
                     prototype.span,
                 ),
@@ -627,6 +630,7 @@ fn register_sources<'a>(
                     .map(|parameter| parameter.ty)
                     .collect(),
                 results: results.iter().map(|result| result.ty).collect(),
+                return_abi: return_abi,
                 convention,
                 context,
                 variadic,

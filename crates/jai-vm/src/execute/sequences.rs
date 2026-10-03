@@ -115,25 +115,38 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
         self.step(depth)?;
         Ok(match value {
             Value::String(bytes) => self.string_descriptor(bytes, depth + 1)?,
-            Value::Record { ty, fields } => Value::Record {
+            Value::Record {
+                ty,
+                fields,
+            } => Value::Record {
                 ty,
                 fields: fields
                     .into_iter()
                     .map(|field| self.normalize_storage_inner(field, depth + 1))
                     .collect::<Result<_>>()?,
             },
-            Value::Array { ty, elements } => Value::Array {
+            Value::Array {
+                ty,
+                elements,
+            } => Value::Array {
                 ty,
                 elements: elements
                     .into_iter()
                     .map(|element| self.normalize_storage_inner(element, depth + 1))
                     .collect::<Result<_>>()?,
             },
-            Value::Distinct { ty, value } => Value::Distinct {
+            Value::Distinct {
+                ty,
+                value,
+            } => Value::Distinct {
                 ty,
                 value: Box::new(self.normalize_storage_inner(*value, depth + 1)?),
             },
-            Value::Union { ty, field, value } => Value::Union {
+            Value::Union {
+                ty,
+                field,
+                value,
+            } => Value::Union {
                 ty,
                 field,
                 value: Box::new(self.normalize_storage_inner(*value, depth + 1)?),
@@ -175,8 +188,18 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             self.value(base, depth + 1)?
         };
         let storage = match (value.semantic(), storage) {
-            (Value::Array { elements, .. }, None) if elements.is_empty() => None,
-            (Value::Array { ty, .. }, None) => {
+            (
+                Value::Array {
+                    elements, ..
+                },
+                None,
+            ) if elements.is_empty() => None,
+            (
+                Value::Array {
+                    ty, ..
+                },
+                None,
+            ) => {
                 self.charge_work(value.cells(self.limits.value_cells)?)?;
                 Some(self.backing(base, *ty, value.clone(), depth + 1)?)
             }
@@ -195,7 +218,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
         depth: usize,
     ) -> Result<Value> {
         if let ValueExpr::Load(place) = base
-            && let TypeKind::FixedArray { count, .. } = *self.provider.types().kind(place.ty())?
+            && let TypeKind::FixedArray {
+                count, ..
+            } = *self.provider.types().kind(place.ty())?
         {
             let storage = self.place(*place, depth + 2)?;
             return Ok(match field {
@@ -212,7 +237,11 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             });
         }
         let (value, storage) = self.sequence_parts(base, depth + 1)?;
-        if let Value::Array { ty, elements } = value.semantic() {
+        if let Value::Array {
+            ty,
+            elements,
+        } = value.semantic()
+        {
             return Ok(match field {
                 SequenceField::Count => Value::Int(
                     Integer::checked(
@@ -240,9 +269,15 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     pointer,
                 )
             }
-            Value::StringView { pointer, count } | Value::Slice { pointer, count, .. } => {
-                (count, None, pointer)
+            Value::StringView {
+                pointer,
+                count,
             }
+            | Value::Slice {
+                pointer,
+                count,
+                ..
+            } => (count, None, pointer),
             Value::DynamicArray {
                 pointer,
                 count,
@@ -278,7 +313,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
         depth: usize,
     ) -> Result<Value> {
         if let ValueExpr::Load(place) = base
-            && let TypeKind::FixedArray { count, .. } = *self.provider.types().kind(place.ty())?
+            && let TypeKind::FixedArray {
+                count, ..
+            } = *self.provider.types().kind(place.ty())?
         {
             let storage = self.place(*place, depth + 2)?;
             let value = Value::Slice {
@@ -316,7 +353,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
     }
     fn array_data(&mut self, ty: TypeId, empty: bool, storage: Option<Pointer>) -> Result<Pointer> {
         if empty {
-            let TypeKind::FixedArray { element, .. } = self.provider.types().kind(ty)? else {
+            let TypeKind::FixedArray {
+                element, ..
+            } = self.provider.types().kind(ty)?
+            else {
                 return Err(Error::InvalidIr("array value has incorrect type").into());
             };
             Ok(Pointer::null(*element))
@@ -357,12 +397,14 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 self.prepare_layout(snapshot.ty())?;
                 snapshot.index(self.provider.types(), index, self.limits.value_cells)?
             }
-            Value::Array { elements, .. } => {
+            Value::Array {
+                elements, ..
+            } => {
                 let length = elements.len();
-                elements
-                    .into_iter()
-                    .nth(index)
-                    .ok_or(Error::OutOfBounds { index, length })?
+                elements.into_iter().nth(index).ok_or(Error::OutOfBounds {
+                    index,
+                    length,
+                })?
             }
             Value::String(bytes) => {
                 let byte = *bytes.get(index).ok_or(Error::OutOfBounds {
@@ -374,9 +416,20 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     i128::from(byte),
                 ))
             }
-            Value::StringView { pointer, count }
-            | Value::Slice { pointer, count, .. }
-            | Value::DynamicArray { pointer, count, .. } => {
+            Value::StringView {
+                pointer,
+                count,
+            }
+            | Value::Slice {
+                pointer,
+                count,
+                ..
+            }
+            | Value::DynamicArray {
+                pointer,
+                count,
+                ..
+            } => {
                 if check.enabled() && i64::try_from(index).map_or(true, |index| index >= count) {
                     return Err(Error::OutOfBounds {
                         index,
@@ -388,8 +441,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 self.load_sequence_value(&pointer)?
             }
             Value::Pointer(pointer) => {
-                let index =
-                    isize::try_from(index).map_err(|_| Error::OutOfBounds { index, length: 0 })?;
+                let index = isize::try_from(index).map_err(|_| Error::OutOfBounds {
+                    index,
+                    length: 0,
+                })?;
                 self.prepare_pointer_layouts(&pointer, true)?;
                 let pointer = self.memory.offset(self.provider.types(), &pointer, index)?;
                 self.load_sequence_value(&pointer)?
@@ -475,8 +530,15 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             }
         }
         let value = match self.provider.types().kind(ty)? {
-            TypeKind::String => Value::StringView { pointer, count },
-            TypeKind::Slice(_) => Value::Slice { ty, pointer, count },
+            TypeKind::String => Value::StringView {
+                pointer,
+                count,
+            },
+            TypeKind::Slice(_) => Value::Slice {
+                ty,
+                pointer,
+                count,
+            },
             TypeKind::DynamicArray(_) => Value::DynamicArray {
                 ty,
                 pointer,

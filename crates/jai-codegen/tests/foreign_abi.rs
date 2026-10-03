@@ -21,10 +21,13 @@ fn signature(
         .procedure(ProcedureType {
             parameters: parameters.into_boxed_slice(),
             results: result.into_iter().collect(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: if variadic {
-                Variadic::C { fixed_parameters }
+                Variadic::C {
+                    fixed_parameters,
+                }
             } else {
                 Variadic::None
             },
@@ -596,12 +599,18 @@ fn linux_sysv_shapes_and_register_exhaustion_are_verified_without_host_execution
     assert!(matches!(large.result, abi::Value::Indirect { .. }));
     assert!(matches!(
         large.parameters[0],
-        abi::Value::Indirect { by_value: true, .. }
+        abi::Value::Indirect {
+            by_value: true,
+            ..
+        }
     ));
     let exhausted = classify(exhausted);
     assert!(matches!(
         exhausted.parameters[5],
-        abi::Value::Indirect { by_value: true, .. }
+        abi::Value::Indirect {
+            by_value: true,
+            ..
+        }
     ));
     let module = context.create_module("linux.abi.classification");
     module.set_triple(&triple);

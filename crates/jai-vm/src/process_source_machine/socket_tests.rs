@@ -34,7 +34,10 @@ impl Fixture {
             0
         );
         let value = self.memory.load(&self.types, &buffer).unwrap();
-        let Value::Array { elements, .. } = value.semantic() else {
+        let Value::Array {
+            elements, ..
+        } = value.semantic()
+        else {
             panic!("socket pair array")
         };
         [
@@ -61,8 +64,16 @@ impl Fixture {
             .define_record(control, [socket.control_header, array])
             .unwrap();
         let mac = self.target.operating_system == OperatingSystem::MacOS;
-        let header_bytes = if mac { 12 } else { 16 };
-        let alignment = if mac { 4 } else { 8 };
+        let header_bytes = if mac {
+            12
+        } else {
+            16
+        };
+        let alignment = if mac {
+            4
+        } else {
+            8
+        };
         let length = header_bytes + 4 * descriptors.len();
         let capacity = (length + alignment - 1) & !(alignment - 1);
         let root = self
@@ -77,7 +88,11 @@ impl Fixture {
                             ty: socket.control_header,
                             fields: vec![
                                 int(self.socket_length(), length as i128),
-                                s32(if mac { 0xffff } else { 1 }),
+                                s32(if mac {
+                                    0xffff
+                                } else {
+                                    1
+                                }),
                                 s32(1),
                             ],
                         },
@@ -474,7 +489,11 @@ fn control_truncation_installs_only_fitting_rights_and_closes_discarded_referenc
         }
         let output = fixture.output_buffer(1);
         let (control, _) = fixture.control(&[-1]);
-        let capacity = if os == OperatingSystem::MacOS { 16 } else { 20 };
+        let capacity = if os == OperatingSystem::MacOS {
+            16
+        } else {
+            20
+        };
         let recv = fixture.message(&[(output, 1)], control.clone(), capacity);
         assert_eq!(
             scalar(

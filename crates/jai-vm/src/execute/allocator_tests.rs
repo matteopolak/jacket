@@ -32,6 +32,7 @@ fn provider(bind: bool) -> (Provider, TypeId, AllocatorSchema) {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([mode, word, word, data, data]),
             results: Box::new([data]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -74,7 +75,11 @@ fn dynamic_defaults_use_a_genuine_typed_allocator_and_reject_missing_or_unbound_
     value.validate(&provider.types, dynamic, 16).unwrap();
     assert_eq!(value.cells(16).unwrap(), 4);
     let allocator = vm.sequence_allocator(value).unwrap();
-    let Value::Record { ty, fields } = allocator else {
+    let Value::Record {
+        ty,
+        fields,
+    } = allocator
+    else {
         panic!("expected the declared allocator record")
     };
     assert_eq!(ty, schema.ty());
@@ -90,7 +95,9 @@ fn dynamic_defaults_use_a_genuine_typed_allocator_and_reject_missing_or_unbound_
     );
     assert_eq!(
         descriptor(&provider.types, dynamic, None).validate(&provider.types, dynamic, 16),
-        Err(Error::TypeMismatch { expected: dynamic })
+        Err(Error::TypeMismatch {
+            expected: dynamic
+        })
     );
     assert!(vm.statistics.steps >= 4);
 
@@ -105,7 +112,9 @@ fn dynamic_defaults_use_a_genuine_typed_allocator_and_reject_missing_or_unbound_
             dynamic,
             16
         ),
-        Err(Error::TypeMismatch { expected: dynamic })
+        Err(Error::TypeMismatch {
+            expected: dynamic
+        })
     );
     assert!(vm.sequence_allocator(value).is_err());
 }

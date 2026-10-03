@@ -21,7 +21,11 @@ impl Memory {
             for _ in 0..self.limits.evaluation_depth.min(256) {
                 match types.kind(representation)? {
                     TypeKind::Distinct(id) => representation = types.distinct(*id)?.representation,
-                    TypeKind::Record(_) | TypeKind::Any(_) | TypeKind::FixedArray { .. } => {
+                    TypeKind::Record(_)
+                    | TypeKind::Any(_)
+                    | TypeKind::FixedArray {
+                        ..
+                    } => {
                         let layout = self.layout(types, pointer.pointee)?;
                         let length = usize::try_from(layout.size)
                             .map_err(|_| Error::Limit(LimitKind::ValueCells))?;
@@ -69,7 +73,9 @@ impl Memory {
             .image()
             .validate_complete_handles(|value| match value {
                 Value::Pointer(pointer) => self.validate_pointer(types, pointer),
-                Value::Procedure { signature, .. } => {
+                Value::Procedure {
+                    signature, ..
+                } => {
                     types.procedure_definition(*signature)?;
                     Ok(())
                 }

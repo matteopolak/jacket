@@ -101,12 +101,18 @@ pub(in crate::modules) fn dependencies(
                 pending.extend(arguments.iter().map(|argument| &argument.value));
                 Some(path.clone())
             }
-            E::CallHint { call, .. }
+            E::CallHint {
+                call, ..
+            }
             | E::AddressOf(call)
             | E::Dereference(call)
-            | E::Member { base: call, .. }
+            | E::Member {
+                base: call, ..
+            }
             | E::Unary(_, call)
-            | E::InferredCast { value: call, .. } => {
+            | E::InferredCast {
+                value: call, ..
+            } => {
                 pending.push(call);
                 None
             }
@@ -117,7 +123,15 @@ pub(in crate::modules) fn dependencies(
                 pending.push(value);
                 None
             }
-            E::IndirectCall { callee, args } => {
+            E::BakeArguments(value) => {
+                pending.push(&value.callee);
+                pending.extend(value.arguments.iter().map(|argument| &argument.value));
+                None
+            }
+            E::IndirectCall {
+                callee,
+                args,
+            } => {
                 pending.push(callee);
                 pending.extend(args.iter().map(|argument| &argument.value));
                 None
@@ -135,7 +149,10 @@ pub(in crate::modules) fn dependencies(
                 pending.extend([left.as_ref(), right.as_ref()]);
                 None
             }
-            E::Index { base, index } => {
+            E::Index {
+                base,
+                index,
+            } => {
                 pending.extend([base.as_ref(), index.as_ref()]);
                 None
             }
@@ -158,8 +175,12 @@ pub(in crate::modules) fn dependencies(
             | E::Insert(_)
             | E::Type(_)
             | E::Cast(..)
-            | E::TypeCast { .. }
-            | E::TypeQuery { .. }
+            | E::TypeCast {
+                ..
+            }
+            | E::TypeQuery {
+                ..
+            }
             | E::StructLiteral(_)
             | E::PositionalStructLiteral(_)
             | E::Integer(_)
@@ -180,7 +201,9 @@ pub(in crate::modules) fn dependencies(
             | E::InferredMember(_)
             | E::CompileVariable(_) => None,
         };
-        let Some(path) = name else { continue };
+        let Some(path) = name else {
+            continue;
+        };
         let targets = match graph.lookup(declaration.file(), &path) {
             Ok(jai_modules::Binding::Declaration(id)) => callable_aliases
                 .get(&id)

@@ -28,6 +28,13 @@ impl Resolver<'_> {
             Some(place) if place.ty() == source_type => StorageBitcastSource::Place(place),
             _ => StorageBitcastSource::Value(Box::new(value)),
         };
-        self.typed_value(ValueExpr::StorageBitcast { source, cast }, target, span)
+        self.typed_value(
+            ValueExpr::StorageBitcast {
+                source,
+                cast,
+            },
+            target,
+            span,
+        )
     }
 }

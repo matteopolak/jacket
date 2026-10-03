@@ -49,7 +49,12 @@ impl<'a> Constants<'a> {
                     span,
                     "nominal enum block constant requires typed constant binding",
                 )),
-                Some(Binding::Storage(_) | Binding::CompilerInput { .. }) => Err(Diagnostic::new(
+                Some(
+                    Binding::Storage(_)
+                    | Binding::CompilerInput {
+                        ..
+                    },
+                ) => Err(Diagnostic::new(
                     span,
                     "mutable storage cannot supply a compile-time constant",
                 )),
@@ -58,7 +63,9 @@ impl<'a> Constants<'a> {
                 }
                 Some(Binding::Namespace(_) | Binding::Imported(_))
                 | Some(Binding::Library(_) | Binding::Macro(_))
-                | Some(Binding::Procedure { .. })
+                | Some(Binding::Procedure {
+                    ..
+                })
                 | Some(Binding::Type(_))
                 | Some(Binding::LambdaPreview(_))
                 | Some(Binding::TypedConstant(_) | Binding::Code(_)) => Err(Diagnostic::new(
@@ -81,17 +88,20 @@ impl<'a> Constants<'a> {
                             span,
                             "nominal enum block constant requires typed constant binding",
                         )),
-                        Binding::Storage(_) | Binding::CompilerInput { .. } => {
-                            Err(Diagnostic::new(
-                                span,
-                                "mutable storage cannot supply a compile-time constant",
-                            ))
-                        }
+                        Binding::Storage(_)
+                        | Binding::CompilerInput {
+                            ..
+                        } => Err(Diagnostic::new(
+                            span,
+                            "mutable storage cannot supply a compile-time constant",
+                        )),
                         Binding::Namespace(_)
                         | Binding::Imported(_)
                         | Binding::Library(_)
                         | Binding::Macro(_)
-                        | Binding::Procedure { .. }
+                        | Binding::Procedure {
+                            ..
+                        }
                         | Binding::Type(_)
                         | Binding::LambdaPreview(_)
                         | Binding::TypedConstant(_)
@@ -128,7 +138,10 @@ impl<'a> Constants<'a> {
                 span,
                 "nominal enum block constant requires typed constant binding",
             )),
-            Binding::Storage(_) | Binding::CompilerInput { .. } => Err(Diagnostic::new(
+            Binding::Storage(_)
+            | Binding::CompilerInput {
+                ..
+            } => Err(Diagnostic::new(
                 span,
                 "mutable storage cannot supply a compile-time constant",
             )),
@@ -136,7 +149,9 @@ impl<'a> Constants<'a> {
             | Binding::Imported(_)
             | Binding::Library(_)
             | Binding::Macro(_)
-            | Binding::Procedure { .. }
+            | Binding::Procedure {
+                ..
+            }
             | Binding::Type(_)
             | Binding::LambdaPreview(_)
             | Binding::TypedConstant(_)
@@ -190,7 +205,9 @@ impl<'a> Constants<'a> {
                             | syntax::ExpressionKind::QualifiedCall(_, _)
                             | syntax::ExpressionKind::Call(_, _) => {}
                             syntax::ExpressionKind::StructLiteral(_)
-                            | syntax::ExpressionKind::Member { .. } => {}
+                            | syntax::ExpressionKind::Member {
+                                ..
+                            } => {}
                             _ => {}
                         }
                     }
@@ -262,6 +279,7 @@ pub(super) fn resolve_globals(
         bindings.insert(declaration.name, Binding::Constant(value));
     }
     let mut globals = Vec::new();
+    let mut shared_values = HashMap::new();
     for global in module.globals() {
         let mut alignment = None;
         for attribute in global.declaration.attributes() {
@@ -274,54 +292,101 @@ pub(super) fn resolve_globals(
                 }
             }
         }
-        let (name, value) = match &global.declaration {
-            syntax::Declaration::Inferred {
-                name, initializer, ..
-            } => (
-                *name,
-                jai_eval::evaluate(initializer, |name, span| constants.value(name, span))?,
-            ),
-            syntax::Declaration::Explicit {
-                name,
-                ty,
-                initializer,
+        let selected_initializer = match &global.declaration {
+            syntax::Declaration::GroupMember {
+                group,
+                ordinal,
                 ..
-            } => {
-                let value = match initializer {
-                    Some(e) => jai_eval::evaluate(e, |name, span| constants.value(name, span))?,
-                    None => ScalarConstant::zero(*ty),
-                };
-                let value = value.coerce(*ty, global.span)?;
-                (*name, value)
+            } => group.initializer_for(*ordinal),
+            _ => None,
+        };
+        let copy_from = match &global.declaration {
+            syntax::Declaration::GroupMember {
+                group,
+                ordinal,
+                ..
+            } if *ordinal > 0 && group.extra_initializers().is_empty() => {
+                shared_values.get(&std::sync::Arc::as_ptr(group)).cloned()
             }
-            syntax::Declaration::External { .. } => {
-                return Err(Diagnostic::new(
-                    global.span,
-                    "external data requires source graph resolution",
-                ));
-            }
-            syntax::Declaration::UnresolvedExplicit { .. } => {
-                return Err(Diagnostic::new(
-                    global.span,
-                    "global aggregate types are not implemented",
-                ));
+            _ => None,
+        };
+        let initializer = if let Some(initializer) = copy_from {
+            initializer
+        } else {
+            let (_, value) = match global.declaration.source() {
+                syntax::Declaration::GroupMember {
+                    ..
+                } => unreachable!("group source is a single declaration"),
+                syntax::Declaration::Inferred {
+                    name,
+                    initializer,
+                    ..
+                } => (
+                    *name,
+                    jai_eval::evaluate(
+                        selected_initializer.unwrap_or(initializer),
+                        |name, span| constants.value(name, span),
+                    )?,
+                ),
+                syntax::Declaration::Explicit {
+                    name,
+                    ty,
+                    initializer,
+                    ..
+                } => {
+                    let value = match selected_initializer.or(initializer.as_ref()) {
+                        Some(e) => jai_eval::evaluate(e, |name, span| constants.value(name, span))?,
+                        None => ScalarConstant::zero(*ty),
+                    };
+                    let value = value.coerce(*ty, global.span)?;
+                    (*name, value)
+                }
+                syntax::Declaration::External {
+                    ..
+                } => {
+                    return Err(Diagnostic::new(
+                        global.span,
+                        "external data requires source graph resolution",
+                    ));
+                }
+                syntax::Declaration::UnresolvedExplicit {
+                    ..
+                } => {
+                    return Err(Diagnostic::new(
+                        global.span,
+                        "global aggregate types are not implemented",
+                    ));
+                }
+            };
+            let scalar = value.scalar_type().ok_or_else(|| {
+                Diagnostic::new(global.span, "float globals require graph type resolution")
+            })?;
+            let value = value.coerce(scalar, global.span)?;
+            match value {
+                ScalarConstant::Int(n) => GlobalInitializer::Int(n),
+                ScalarConstant::Bool(b) => GlobalInitializer::Bool(b),
+                ScalarConstant::Float(_) | ScalarConstant::WeakFloat(_) => {
+                    return Err(Diagnostic::new(
+                        global.span,
+                        "float globals require graph type resolution",
+                    ));
+                }
+                ScalarConstant::Literal(_) => {
+                    unreachable!("global value is coerced before allocation")
+                }
             }
         };
-        let scalar = value.scalar_type().ok_or_else(|| {
-            Diagnostic::new(global.span, "float globals require graph type resolution")
-        })?;
-        let value = value.coerce(scalar, global.span)?;
-        let initializer = match value {
-            ScalarConstant::Int(n) => GlobalInitializer::Int(n),
-            ScalarConstant::Bool(b) => GlobalInitializer::Bool(b),
-            ScalarConstant::Float(_) | ScalarConstant::WeakFloat(_) => {
-                return Err(Diagnostic::new(
-                    global.span,
-                    "float globals require graph type resolution",
-                ));
-            }
-            ScalarConstant::Literal(_) => unreachable!("global value is coerced before allocation"),
-        };
+        let name = global.declaration.name();
+        if let syntax::Declaration::GroupMember {
+            group,
+            ordinal,
+            ..
+        } = &global.declaration
+            && *ordinal == 0
+            && group.extra_initializers().is_empty()
+        {
+            shared_values.insert(std::sync::Arc::as_ptr(group), initializer.clone());
+        }
         let span = global.span;
         let global = Global::new(globals.len(), initializer, types);
         if let Some(alignment) = alignment {

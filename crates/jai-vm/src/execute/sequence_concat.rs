@@ -78,7 +78,12 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                         ty,
                         self.limits.evaluation_depth.min(256),
                     )?;
-                    let Value::Slice { pointer, count, .. } = value else {
+                    let Value::Slice {
+                        pointer,
+                        count,
+                        ..
+                    } = value
+                    else {
                         return Err(Error::InvalidIr(
                             "sequence spread requires a slice descriptor",
                         )
@@ -258,9 +263,15 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             }
             let key = match value {
                 Value::Pointer(pointer)
-                | Value::Slice { pointer, .. }
-                | Value::DynamicArray { pointer, .. }
-                | Value::StringView { pointer, .. }
+                | Value::Slice {
+                    pointer, ..
+                }
+                | Value::DynamicArray {
+                    pointer, ..
+                }
+                | Value::StringView {
+                    pointer, ..
+                }
                 | Value::Type {
                     descriptor: Some(pointer),
                 } => pointer.data_allocation_key(),
@@ -315,7 +326,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                         pending.push((semantic, depth + 1));
                     }
                 }
-                Value::Record { fields, .. }
+                Value::Record {
+                    fields, ..
+                }
                 | Value::Array {
                     elements: fields, ..
                 } => {
@@ -324,9 +337,12 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     }
                     pending.extend(fields.iter().map(|value| (value, depth + 1)));
                 }
-                Value::Distinct { value, .. } | Value::Union { value, .. } => {
-                    pending.push((value, depth + 1))
+                Value::Distinct {
+                    value, ..
                 }
+                | Value::Union {
+                    value, ..
+                } => pending.push((value, depth + 1)),
                 Value::DynamicArray {
                     allocator: Some(allocator),
                     ..

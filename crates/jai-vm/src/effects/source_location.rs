@@ -2,7 +2,10 @@ use super::*;
 
 pub(super) fn location(value: &Value) -> Result<SourceLocation, EffectError> {
     let fail = |reason| EffectError::Failed(Error::InvalidIr(reason));
-    let Value::Record { fields, .. } = value else {
+    let Value::Record {
+        fields, ..
+    } = value
+    else {
         return Err(fail("source location must be a checked record"));
     };
     if fields.len() != 3 {
@@ -45,7 +48,9 @@ pub(super) fn invoke_location(
         .map_err(|_| fail("source location intrinsic requires UTF-8 text"))?;
     let mut fatal = None;
     let request = match intrinsic {
-        CompilerIntrinsic::SourceAddStringAt { current_workspace } => {
+        CompilerIntrinsic::SourceAddStringAt {
+            current_workspace,
+        } => {
             let workspace = super::source::workspace_argument(&arguments[1], current_workspace)?;
             CompilerRequest::AddSourceAt {
                 workspace,
@@ -53,7 +58,9 @@ pub(super) fn invoke_location(
                 location: location(&arguments[2])?,
             }
         }
-        CompilerIntrinsic::SourceAddFileAt { current_workspace } => {
+        CompilerIntrinsic::SourceAddFileAt {
+            current_workspace,
+        } => {
             let workspace = super::source::workspace_argument(&arguments[1], current_workspace)?;
             CompilerRequest::AddSourceFileAt {
                 workspace,
@@ -63,7 +70,9 @@ pub(super) fn invoke_location(
         }
         CompilerIntrinsic::SourceReportAt => {
             let mode = match &arguments[2] {
-                Value::Enum { value, .. } if value.ty() == IntegerType::U8 => value.value(),
+                Value::Enum {
+                    value, ..
+                } if value.ty() == IntegerType::U8 => value.value(),
                 _ => {
                     return Err(fail(
                         "source report mode requires the checked u8 Report enum",
@@ -116,7 +125,8 @@ mod tests {
     #[derive(Default)]
     struct Effects(Vec<CompilerRequest>);
     impl CompilerEffects for Effects {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, request: CompilerRequest) -> EffectOutcome {
             self.0.push(request);
             EffectOutcome::Ready(CompilerResponse::Unit)

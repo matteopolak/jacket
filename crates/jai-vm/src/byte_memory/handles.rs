@@ -179,7 +179,10 @@ impl ByteImage {
             Value::Procedure {
                 procedure: None, ..
             } => return Ok(()),
-            Value::Pointer(_) | Value::Procedure { .. } => {}
+            Value::Pointer(_)
+            | Value::Procedure {
+                ..
+            } => {}
             _ => {
                 return Err(Error::InvalidIr(
                     "handle encoding requires pointer or procedure",
@@ -226,7 +229,9 @@ impl ByteImage {
                     }
                     pointer
                 }
-                Value::Procedure { .. } => self.certified_code_pointer(offset, length)?.ok_or(
+                Value::Procedure {
+                    ..
+                } => self.certified_code_pointer(offset, length)?.ok_or(
                     Error::UnsupportedPointerOperation(
                         "unowned procedure bytes cannot construct a code pointer",
                     ),

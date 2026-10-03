@@ -366,11 +366,42 @@ where
             .procedure(ProcedureType {
                 parameters: parameters.into_boxed_slice(),
                 results: results.into_boxed_slice(),
+                return_abi: procedure.return_abi,
                 convention: procedure.convention,
                 context: procedure.context,
                 variadic,
             })
             .map_err(|error| failure(self.graph, file, Diagnostic::new(span, error.to_string())))?;
+        let defaults = procedure
+            .parameters
+            .iter()
+            .filter(|parameter| {
+                !(parameter.variadic && procedure.convention == jai_types::CallingConvention::C)
+            })
+            .zip(&source_parameters)
+            .map(|(parameter, expected)| {
+                parameter
+                    .default
+                    .as_ref()
+                    .map(|expression| {
+                        if parameter.evaluation == syntax::ParameterEvaluation::Discard {
+                            return Ok(crate::ParameterDefault::Discarded);
+                        }
+                        super::super::defaults::Defaults::with_evaluator(
+                            self.graph,
+                            self.types,
+                            self.nominals,
+                            self.evaluate,
+                        )
+                        .with_specializations(self.records)
+                        .with_substitution(substitution.cloned())
+                        .expression(file, expression, *expected)
+                        .map(crate::ParameterDefault::Constant)
+                    })
+                    .transpose()
+            })
+            .collect::<Result<Vec<_>, LocatedDiagnostic>>()
+            .map_err(TypeFailure::from)?;
         self.nominals
             .remember_procedure_annotation(
                 crate::procedure_values::source_annotations::AnnotationPublication {
@@ -378,6 +409,7 @@ where
                     source: procedure,
                     substitution,
                     parameters: source_parameters,
+                    defaults,
                     ty,
                     span,
                 },

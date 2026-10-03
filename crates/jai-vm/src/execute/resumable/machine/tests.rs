@@ -8,6 +8,7 @@ fn readiness_retry_preserves_the_exact_retained_range_charge() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

@@ -50,7 +50,9 @@ fn integer_call(value: &IntExpr) -> &Call {
     match value.kind() {
         IntExprKind::Call(call) => call,
         IntExprKind::Value(value) => match value.as_ref() {
-            ValueExpr::Call { call, .. } => call,
+            ValueExpr::Call {
+                call, ..
+            } => call,
             _ => panic!("expected integer call"),
         },
         _ => panic!("expected integer call"),
@@ -334,8 +336,12 @@ fn record_default_uses_declaration_file_and_initializer_effect_order_is_explicit
     let EntryPoint::Int(main) = program.entry() else {
         panic!()
     };
-    let Statement::Store(_, ValueExpr::RecordBuild { initializers, .. }) =
-        &program.procedures()[main.index()].body.statements[0]
+    let Statement::Store(
+        _,
+        ValueExpr::RecordBuild {
+            initializers, ..
+        },
+    ) = &program.procedures()[main.index()].body.statements[0]
     else {
         panic!("expected typed record store")
     };
@@ -384,7 +390,10 @@ fn ordered_results_use_one_call_and_snapshots_before_destination_writes() {
             .count(),
         1
     );
-    let Statement::CallResults { destinations, .. } = &declaration.statements[0] else {
+    let Statement::CallResults {
+        destinations, ..
+    } = &declaration.statements[0]
+    else {
         panic!()
     };
     assert_eq!(destinations.len(), 2);
@@ -433,8 +442,13 @@ fn contextual_record_conditionals_preserve_the_nominal_type() {
     let EntryPoint::Int(main) = program.entry() else {
         panic!()
     };
-    let Statement::Store(_, ValueExpr::Conditional { ty, expression }) =
-        &program.procedures()[main.index()].body.statements[0]
+    let Statement::Store(
+        _,
+        ValueExpr::Conditional {
+            ty,
+            expression,
+        },
+    ) = &program.procedures()[main.index()].body.statements[0]
     else {
         panic!()
     };

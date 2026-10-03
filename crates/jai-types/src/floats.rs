@@ -67,35 +67,51 @@ impl fmt::Display for FloatError {
                 f.write_str("invalid normalized decimal floating-point literal")
             }
             Self::LiteralOutOfRange(ty) => write!(f, "decimal literal overflows {ty:?}"),
-            Self::WidthMismatch { left, right } => {
+            Self::WidthMismatch {
+                left,
+                right,
+            } => {
                 write!(f, "floating-point widths differ: {left:?} and {right:?}")
             }
-            Self::NonFiniteToInteger { target, .. } => {
+            Self::NonFiniteToInteger {
+                target, ..
+            } => {
                 write!(f, "NaN or infinity cannot convert to {target:?}")
             }
-            Self::FractionalToInteger { target, .. } => {
+            Self::FractionalToInteger {
+                target, ..
+            } => {
                 write!(f, "fractional value cannot convert exactly to {target:?}")
             }
-            Self::IntegerOutOfRange { target, .. } => write!(
+            Self::IntegerOutOfRange {
+                target, ..
+            } => write!(
                 f,
                 "floating-point value is outside {target:?}'s integer range"
             ),
-            Self::IntegerPrecisionLoss { target, .. } => {
+            Self::IntegerPrecisionLoss {
+                target, ..
+            } => {
                 write!(f, "integer cannot be represented exactly as {target:?}")
             }
             Self::NonFiniteConversion(_) => {
                 f.write_str("exact floating-point conversion requires a finite value")
             }
-            Self::FloatOverflow { target, .. } => {
+            Self::FloatOverflow {
+                target, ..
+            } => {
                 write!(f, "floating-point conversion overflows {target:?}")
             }
-            Self::FloatPrecisionLoss { target, .. } => {
+            Self::FloatPrecisionLoss {
+                target, ..
+            } => {
                 write!(f, "floating-point conversion loses precision in {target:?}")
             }
         }
     }
 }
-impl std::error::Error for FloatError {}
+impl std::error::Error for FloatError {
+}
 
 impl FloatType {
     pub const fn bits(self) -> u32 {
@@ -303,7 +319,10 @@ impl FloatValue {
     pub fn from_integer_exact(target: FloatType, value: Integer) -> Result<Self, FloatError> {
         let converted = Self::from_integer(target, value);
         if converted.to_integer(value.ty(), FloatToIntMode::Exact) != Ok(value) {
-            return Err(FloatError::IntegerPrecisionLoss { value, target });
+            return Err(FloatError::IntegerPrecisionLoss {
+                value,
+                target,
+            });
         }
         Ok(converted)
     }

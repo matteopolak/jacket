@@ -93,7 +93,8 @@ impl std::fmt::Display for ProcessError {
         write!(f, "virtual process: {self:?}")
     }
 }
-impl std::error::Error for ProcessError {}
+impl std::error::Error for ProcessError {
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ProcessEvent {
     Readable(FileDescriptor),
@@ -246,7 +247,10 @@ impl VirtualProcesses {
                 state: ProcessState::Running,
             },
         );
-        Ok(ForkPair { parent, child })
+        Ok(ForkPair {
+            parent,
+            child,
+        })
     }
     pub fn resolve_pid(&self, parent: ProcessId, abi_pid: i32) -> Result<ProcessId, ProcessError> {
         self.process(parent)?;
@@ -469,7 +473,10 @@ impl VirtualProcesses {
                 let state = self.readiness(fd)?;
                 Ok(state.bytes != 0 || state.eof)
             }
-            ProcessEvent::ChildExited { parent, child } => {
+            ProcessEvent::ChildExited {
+                parent,
+                child,
+            } => {
                 self.child(parent, child)?;
                 Ok(matches!(
                     self.process(child)?.state,
@@ -494,7 +501,9 @@ impl VirtualProcesses {
                 self.processes
                     .get_mut(&process)
                     .expect("known process")
-                    .state = ProcessState::AwaitingHost { key };
+                    .state = ProcessState::AwaitingHost {
+                    key,
+                };
                 Ok(ExecOutcome::Pending(key))
             }
             HostOutcome::Rejected(error) => Ok(ExecOutcome::Rejected(error)),
@@ -645,7 +654,9 @@ impl VirtualProcesses {
         self.processes
             .iter()
             .filter_map(|(id, process)| match process.state {
-                ProcessState::AwaitingHost { key } => Some((*id, key)),
+                ProcessState::AwaitingHost {
+                    key,
+                } => Some((*id, key)),
                 _ => None,
             })
     }
@@ -890,7 +901,10 @@ impl VirtualProcesses {
             }
             self.release_open(open);
         }
-        Ok(ProcessIo::Ready(ReceivedMessage { bytes, descriptors }))
+        Ok(ProcessIo::Ready(ReceivedMessage {
+            bytes,
+            descriptors,
+        }))
     }
     fn release_open(&mut self, id: OpenId) {
         // Ancillary references may form deep graphs. Cleanup uses bounded heap

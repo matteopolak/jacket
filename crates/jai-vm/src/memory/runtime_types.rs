@@ -44,7 +44,10 @@ impl Memory {
         types: &dyn TypeView,
         value: &Value,
     ) -> Result<jai_ir::RuntimeTypeIdentity, Error> {
-        let Value::Type { descriptor } = value else {
+        let Value::Type {
+            descriptor,
+        } = value
+        else {
             return Err(Error::InvalidIr("expected runtime Type value"));
         };
         let descriptor = descriptor.as_ref().ok_or(Error::NullPointer)?;
@@ -91,9 +94,15 @@ impl Memory {
             // a DynamicArray allocator's independent typed payload below.
             let pointer = match value {
                 Value::Pointer(pointer)
-                | Value::Slice { pointer, .. }
-                | Value::StringView { pointer, .. }
-                | Value::DynamicArray { pointer, .. } => Some(pointer),
+                | Value::Slice {
+                    pointer, ..
+                }
+                | Value::StringView {
+                    pointer, ..
+                }
+                | Value::DynamicArray {
+                    pointer, ..
+                } => Some(pointer),
                 _ => None,
             };
             if let Some(pointer) = pointer
@@ -123,7 +132,9 @@ impl Memory {
                 } => {
                     self.runtime_type_identity(types, value)?;
                 }
-                Value::Record { fields, .. }
+                Value::Record {
+                    fields, ..
+                }
                 | Value::Array {
                     elements: fields, ..
                 } => {
@@ -132,7 +143,12 @@ impl Memory {
                     }
                     pending.extend(fields);
                 }
-                Value::Union { value, .. } | Value::Distinct { value, .. } => pending.push(value),
+                Value::Union {
+                    value, ..
+                }
+                | Value::Distinct {
+                    value, ..
+                } => pending.push(value),
                 Value::DynamicArray {
                     allocator: Some(value),
                     ..

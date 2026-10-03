@@ -11,6 +11,7 @@ pub(super) fn classify(graph: &ModuleGraph) -> HashSet<DeclarationId> {
                 syntax::ExpressionKind::CompileTime(_)
                     | syntax::ExpressionKind::Code(_)
                     | syntax::ExpressionKind::AnonymousProcedure(_)
+                    | syntax::ExpressionKind::BakeArguments(_)
             )
         },
         false,
@@ -136,9 +137,15 @@ pub(super) fn visit(
             | E::Cast(_, _, value)
             | E::AddressOf(value)
             | E::Dereference(value)
-            | E::Member { base: value, .. }
-            | E::TypeCast { value, .. }
-            | E::TypeQuery { value, .. } => work.push(value),
+            | E::Member {
+                base: value, ..
+            }
+            | E::TypeCast {
+                value, ..
+            }
+            | E::TypeQuery {
+                value, ..
+            } => work.push(value),
             E::Binary(_, lhs, rhs)
             | E::Index {
                 base: lhs,
@@ -154,11 +161,20 @@ pub(super) fn visit(
                     work.push(otherwise);
                 }
             }
-            E::CallHint { call, .. } => work.push(call),
+            E::CallHint {
+                call, ..
+            } => work.push(call),
             E::Call(_, arguments) | E::QualifiedCall(_, arguments) => {
                 work.extend(arguments.iter().map(|argument| &argument.value))
             }
-            E::IndirectCall { callee, args } => {
+            E::BakeArguments(value) => {
+                work.push(&value.callee);
+                work.extend(value.arguments.iter().map(|argument| &argument.value));
+            }
+            E::IndirectCall {
+                callee,
+                args,
+            } => {
                 work.push(callee);
                 work.extend(args.iter().map(|argument| &argument.value));
             }

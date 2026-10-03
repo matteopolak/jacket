@@ -56,6 +56,7 @@ impl Fixture {
             .procedure(ProcedureType {
                 parameters: [].into(),
                 results: [integer].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: mode,
                 variadic: Variadic::None,
@@ -98,7 +99,10 @@ fn int(value: i128) -> IntExpr {
     IntExpr::constant(number(value))
 }
 fn block(statements: Vec<Statement>, flow: Flow) -> Block {
-    Block { statements, flow }
+    Block {
+        statements,
+        flow,
+    }
 }
 fn ret(value: IntExpr) -> Statement {
     Statement::Exit(Exit {
@@ -183,7 +187,9 @@ fn root_context_value_and_place_access_materialize_default_and_keep_copy_semanti
     );
     let library = fixture.finish().unwrap();
     let mut vm = Vm::new(&library, NoEffects, Limits::default()).unwrap();
-    let snapshot = vm.evaluate(&ValueExpr::Context { ty: record_type });
+    let snapshot = vm.evaluate(&ValueExpr::Context {
+        ty: record_type,
+    });
     assert_result(vm.execute(mutator, vec![]), 30);
     assert_result(vm.evaluate(&ValueExpr::Load(field)), 30);
     assert_eq!(

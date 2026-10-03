@@ -197,7 +197,10 @@ fn immutable_views_cannot_exceed_the_underlying_static_array() {
     assert!(build(2).is_ok());
     assert!(matches!(
         build(3),
-        Err(StaticDataError::OutOfBounds { index: 3, count: 2 })
+        Err(StaticDataError::OutOfBounds {
+            index: 3,
+            count: 2
+        })
     ));
 }
 

@@ -18,6 +18,7 @@ fn prototype_builder(binding: ForeignLibrary) -> ProgramBuilder {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,

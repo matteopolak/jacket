@@ -165,7 +165,10 @@ fn inferred_record_string_and_typed_array_fields_keep_aggregate_types() {
     assert_eq!(holder.fields[2].ty, types.string());
     assert!(matches!(
         types.kind(holder.fields[3].ty),
-        Ok(TypeKind::FixedArray { count: 2, .. })
+        Ok(TypeKind::FixedArray {
+            count: 2,
+            ..
+        })
     ));
 }
 #[test]

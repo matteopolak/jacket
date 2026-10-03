@@ -126,7 +126,10 @@ impl PlaceRegistry {
     ) -> Result<Place, IrError> {
         self.owns(base)?;
         let ty = types.validate_field(base.ty, field)?;
-        let projection = PlaceProjection { base, field };
+        let projection = PlaceProjection {
+            base,
+            field,
+        };
         let id = if let Some(&id) = self.canonical.get(&projection) {
             id
         } else {
@@ -165,7 +168,9 @@ impl PlaceRegistry {
             arena: self.arena,
             index: self.dereferences.len(),
         };
-        self.dereferences.push(DereferenceProjection { pointer });
+        self.dereferences.push(DereferenceProjection {
+            pointer,
+        });
         Ok(Place {
             kind: PlaceKind::Dereference(id),
             ty,
@@ -199,7 +204,11 @@ impl PlaceRegistry {
             arena: self.arena,
             index: self.indices.len(),
         };
-        self.indices.push(IndexProjection { base, index, check });
+        self.indices.push(IndexProjection {
+            base,
+            index,
+            check,
+        });
         Ok(Place {
             kind: PlaceKind::Index(id),
             ty,
@@ -223,8 +232,10 @@ impl PlaceRegistry {
             arena: self.arena,
             index: self.sequence_fields.len(),
         };
-        self.sequence_fields
-            .push(SequenceProjection { base, field });
+        self.sequence_fields.push(SequenceProjection {
+            base,
+            field,
+        });
         Ok(Place {
             kind: PlaceKind::SequenceField(id),
             ty,
@@ -411,7 +422,8 @@ impl PartialEq for Places {
             && self.sequence_fields.len() == other.sequence_fields.len()
     }
 }
-impl Eq for Places {}
+impl Eq for Places {
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Local {
@@ -427,7 +439,10 @@ impl Local {
         types: &dyn TypeView,
     ) -> Self {
         Self {
-            id: LocalId { procedure, index },
+            id: LocalId {
+                procedure,
+                index,
+            },
             ty: types.scalar(domain),
         }
     }
@@ -439,7 +454,10 @@ impl Local {
     ) -> Result<Self, IrError> {
         runtime_type(types, ty)?;
         Ok(Self {
-            id: LocalId { procedure, index },
+            id: LocalId {
+                procedure,
+                index,
+            },
             ty,
         })
     }
@@ -513,7 +531,10 @@ impl IntPlace {
         let TypeKind::Integer(ty) = types.kind(place.ty)? else {
             return Err(IrError::InvalidValue(place.ty));
         };
-        Ok(Self { place, ty: *ty })
+        Ok(Self {
+            place,
+            ty: *ty,
+        })
     }
     pub fn ty(self) -> IntegerType {
         self.ty
@@ -706,7 +727,9 @@ pub(crate) fn runtime_type(types: &dyn TypeView, ty: TypeId) -> Result<(), IrErr
                     .max()
                     .unwrap_or(0),
                 TypeKind::Distinct(id) => heights[&types.distinct(id)?.representation],
-                TypeKind::FixedArray { element, .. } => heights[&element],
+                TypeKind::FixedArray {
+                    element, ..
+                } => heights[&element],
                 _ => 0,
             };
             let height = child_height + 1;
@@ -729,7 +752,10 @@ pub(crate) fn runtime_type(types: &dyn TypeView, ty: TypeId) -> Result<(), IrErr
         if let Some(index) = active.iter().position(|active| *active == ty) {
             let mut cycle = active[index..].to_vec();
             cycle.push(ty);
-            return Err(jai_types::TypeError::RecursiveValue { cycle }.into());
+            return Err(jai_types::TypeError::RecursiveValue {
+                cycle,
+            }
+            .into());
         }
         active.push(ty);
         pending.push((ty, true));
@@ -746,7 +772,9 @@ pub(crate) fn runtime_type(types: &dyn TypeView, ty: TypeId) -> Result<(), IrErr
                 }
             }
             TypeKind::Distinct(id) => pending.push((types.distinct(id)?.representation, false)),
-            TypeKind::FixedArray { element, .. } => pending.push((element, false)),
+            TypeKind::FixedArray {
+                element, ..
+            } => pending.push((element, false)),
             TypeKind::Enum(id) => {
                 types.enumeration(id)?;
             }
@@ -780,7 +808,10 @@ pub(crate) fn nonzero_type(types: &dyn TypeView, ty: TypeId) -> Result<bool, IrE
                     .fields
                     .iter()
                     .any(|field| sizes[field]),
-                TypeKind::FixedArray { element, count } => count != 0 && sizes[&element],
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => count != 0 && sizes[&element],
                 TypeKind::Distinct(id) => sizes[&types.distinct(id)?.representation],
                 _ => true,
             };
@@ -793,7 +824,9 @@ pub(crate) fn nonzero_type(types: &dyn TypeView, ty: TypeId) -> Result<bool, IrE
                         pending.push((field, false));
                     }
                 }
-                TypeKind::FixedArray { element, .. } => pending.push((element, false)),
+                TypeKind::FixedArray {
+                    element, ..
+                } => pending.push((element, false)),
                 TypeKind::Distinct(id) => pending.push((types.distinct(id)?.representation, false)),
                 _ => {}
             }

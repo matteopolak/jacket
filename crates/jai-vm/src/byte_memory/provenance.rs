@@ -25,9 +25,9 @@ impl ByteSpan {
                 .map(|(_, id)| id)
                 .into_iter()
                 .collect(),
-            ByteProvenance::Address(AddressProvenance::Derived { allocations, .. }) => {
-                allocations.to_vec()
-            }
+            ByteProvenance::Address(AddressProvenance::Derived {
+                allocations, ..
+            }) => allocations.to_vec(),
             ByteProvenance::Procedure => vec![],
         }
     }
@@ -36,7 +36,9 @@ impl ByteSpan {
             ByteProvenance::Address(AddressProvenance::Pointer(pointer)) => {
                 Some(pointer.memory_identity())
             }
-            ByteProvenance::Address(AddressProvenance::Derived { memory, .. }) => Some(*memory),
+            ByteProvenance::Address(AddressProvenance::Derived {
+                memory, ..
+            }) => Some(*memory),
             ByteProvenance::Procedure => None,
         }
     }
@@ -85,7 +87,9 @@ impl ByteImage {
             Value::Pointer(pointer) => {
                 ByteProvenance::Address(AddressProvenance::Pointer(pointer.clone()))
             }
-            Value::Procedure { .. } => ByteProvenance::Procedure,
+            Value::Procedure {
+                ..
+            } => ByteProvenance::Procedure,
             _ => unreachable!("handle encoder validated the relocation class"),
         };
         self.provenance.push(ByteSpan {

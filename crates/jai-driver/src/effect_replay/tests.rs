@@ -131,7 +131,9 @@ fn replay_keeps_historical_create_destroy_without_reallocating_or_mutating() {
             panic!("expected child identity")
         };
         assert_eq!(*child.get_or_insert(id), id);
-        ready(effects.request(CompilerRequest::DestroyWorkspace { workspace: id }));
+        ready(effects.request(CompilerRequest::DestroyWorkspace {
+            workspace: id,
+        }));
         effects.finish(true).unwrap();
     }
     assert_eq!(session.workspaces().len(), 1);
@@ -153,7 +155,9 @@ fn chronological_settings_are_replayed_even_after_later_transactions() {
     let root = session.root();
     let origin = origin(&session, b"options run");
     let mut cache = EffectReplayCache::default();
-    let read = CompilerRequest::GetBuildOptions { workspace: root };
+    let read = CompilerRequest::GetBuildOptions {
+        workspace: root,
+    };
     let write = CompilerRequest::SetBuildOption {
         workspace: root,
         option: BuildOption::BitcodeOptimization(BitcodeOptimization::O3),

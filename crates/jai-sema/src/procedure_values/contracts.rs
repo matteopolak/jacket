@@ -3,6 +3,9 @@ use super::bindings::{CallbackArgumentPolicy, CallbackSignature};
 use super::*;
 mod anonymous_headers;
 mod baked_bindings;
+mod baked_partial;
+pub(crate) mod baked_partial_constants;
+mod baked_partial_producers;
 mod bound_result_use;
 mod compiler_slots;
 mod expression_bindings;
@@ -118,19 +121,25 @@ impl ValueContract {
     }
     pub(crate) fn callback(&self) -> Option<&CallbackSignature> {
         match &self.kind {
-            ContractKind::Callable { metadata, .. } => Some(metadata),
+            ContractKind::Callable {
+                metadata, ..
+            } => Some(metadata),
             _ => None,
         }
     }
     pub(crate) fn returned(&self) -> Vec<Option<Self>> {
         match &self.kind {
-            ContractKind::Callable { results, .. } => results.clone(),
+            ContractKind::Callable {
+                results, ..
+            } => results.clone(),
             _ => vec![],
         }
     }
     fn result(&self, index: usize) -> Option<Self> {
         match &self.kind {
-            ContractKind::Callable { results, .. } => results.get(index).cloned().flatten(),
+            ContractKind::Callable {
+                results, ..
+            } => results.get(index).cloned().flatten(),
             _ => None,
         }
     }
@@ -269,8 +278,12 @@ pub(crate) fn same_parameter_default(
             left.root() == right.root() && left.steps() == right.steps() && left.ty() == right.ty()
         }
         (
-            Some(ParameterDefault::CodeNull { ty: left }),
-            Some(ParameterDefault::CodeNull { ty: right }),
+            Some(ParameterDefault::CodeNull {
+                ty: left,
+            }),
+            Some(ParameterDefault::CodeNull {
+                ty: right,
+            }),
         ) => left == right,
         _ => false,
     }
@@ -357,7 +370,9 @@ impl Resolver<'_> {
         let syntax = self.contract_syntax(syntax, span, 0)?;
         let variable = match &syntax.syntax {
             syntax::TypeSyntax::Variable(name)
-            | syntax::TypeSyntax::Restricted { variable: name, .. } => Some(*name),
+            | syntax::TypeSyntax::Restricted {
+                variable: name, ..
+            } => Some(*name),
             syntax::TypeSyntax::Named(path) if path.members.is_empty() => Some(path.root),
             _ => None,
         };
@@ -399,7 +414,9 @@ impl Resolver<'_> {
         }
         let variable = match &source.syntax {
             syntax::TypeSyntax::Variable(name)
-            | syntax::TypeSyntax::Restricted { variable: name, .. } => Some(*name),
+            | syntax::TypeSyntax::Restricted {
+                variable: name, ..
+            } => Some(*name),
             syntax::TypeSyntax::Named(path) if path.members.is_empty() => Some(path.root),
             _ => None,
         };
@@ -471,12 +488,39 @@ impl Resolver<'_> {
                     } else {
                         signature.parameters.to_vec()
                     };
+                let defaults = if signature_source
+                    .parameters
+                    .iter()
+                    .any(|parameter| parameter.default.is_some())
+                {
+                    let origin = source.callback.as_ref().expect("callback producer origin");
+                    let proof = origin
+                        .proof
+                        .clone()
+                        .or_else(|| self.original_annotation_proof(origin))
+                        .ok_or_else(|| {
+                            Diagnostic::new(
+                                span,
+                                "callback defaults are pending their original checked annotation",
+                            )
+                        })?;
+                    if proof.ty() != ty || proof.parameters() != source_parameters.as_slice() {
+                        return Err(Diagnostic::new(
+                            span,
+                            "callback default proof has a different canonical signature",
+                        ));
+                    }
+                    proof.defaults().to_vec()
+                } else {
+                    Vec::new()
+                };
                 ContractKind::Callable {
                     metadata: CallbackSignature::annotation(
                         ty,
                         signature_source,
                         self.types,
                         &source_parameters,
+                        &defaults,
                     ),
                     results,
                     source: None,
@@ -497,11 +541,15 @@ impl Resolver<'_> {
             }
             (
                 Ok(
-                    jai_types::TypeKind::FixedArray { element, .. }
+                    jai_types::TypeKind::FixedArray {
+                        element, ..
+                    }
                     | jai_types::TypeKind::Slice(element)
                     | jai_types::TypeKind::DynamicArray(element),
                 ),
-                syntax::TypeSyntax::FixedArray { .. }
+                syntax::TypeSyntax::FixedArray {
+                    ..
+                }
                 | syntax::TypeSyntax::Slice(_)
                 | syntax::TypeSyntax::DynamicArray(_),
             ) => {
@@ -519,7 +567,10 @@ impl Resolver<'_> {
             }
             _ => return Ok(None),
         };
-        Ok(Some(ValueContract { ty, kind }))
+        Ok(Some(ValueContract {
+            ty,
+            kind,
+        }))
     }
     pub(crate) fn register_result_contracts(
         &mut self,
@@ -530,9 +581,9 @@ impl Resolver<'_> {
         let mut contracts = Vec::with_capacity(results.len());
         for (source, result) in source.iter().zip(results) {
             contracts.push(match &source.binding {
-                syntax::ResultBinding::Typed { ty, .. } => {
-                    self.annotation_value_contract(result.ty, ty, source.span)?
-                }
+                syntax::ResultBinding::Typed {
+                    ty, ..
+                } => self.annotation_value_contract(result.ty, ty, source.span)?,
                 syntax::ResultBinding::InferredDefault(expression) => match &result.default {
                     Some(value) => self.callback_expression_contract(
                         expression,
@@ -627,12 +678,18 @@ impl Resolver<'_> {
                     root: *name,
                     members: vec![],
                 };
+                if let Some(contract) = self.checked_baked_constant_binding_contract(&path, span)? {
+                    return Ok(contract);
+                }
                 if let Some(contract) = self.checked_baked_callback_binding_contract(&path, span)? {
                     return Ok(Some(contract));
                 }
                 self.callback_value_contract(value, span)
             }
             syntax::ExpressionKind::QualifiedName(path) => {
+                if let Some(contract) = self.checked_baked_constant_binding_contract(path, span)? {
+                    return Ok(contract);
+                }
                 if let Some(contract) = self.checked_baked_callback_binding_contract(path, span)? {
                     return Ok(Some(contract));
                 }
@@ -660,7 +717,35 @@ impl Resolver<'_> {
             }
             syntax::ExpressionKind::Call(_, arguments)
             | syntax::ExpressionKind::QualifiedCall(_, arguments) => {
-                if let ValueExpr::Call { call, .. } = value {
+                if let ValueExpr::IndirectCall {
+                    callee, ..
+                } = value
+                {
+                    let callee_source = syntax::Expression {
+                        kind: match &source.kind {
+                            syntax::ExpressionKind::Call(name, _) => {
+                                syntax::ExpressionKind::Name(*name)
+                            }
+                            syntax::ExpressionKind::QualifiedCall(path, _) => {
+                                syntax::ExpressionKind::QualifiedName(path.clone())
+                            }
+                            _ => unreachable!(),
+                        },
+                        span: source.span,
+                    };
+                    return Ok(self
+                        .callback_expression_contract_inner(
+                            &callee_source,
+                            callee,
+                            span,
+                            depth + 1,
+                        )?
+                        .and_then(|contract| contract.result(0)));
+                }
+                if let ValueExpr::Call {
+                    call, ..
+                } = value
+                {
                     return Ok(self
                         .call_result_contracts_for_source(
                             call.procedure,
@@ -675,16 +760,20 @@ impl Resolver<'_> {
                 }
                 self.callback_value_contract(value, span)
             }
-            syntax::ExpressionKind::TypeCast { ty, .. } => {
-                self.annotation_value_contract(value.type_id(self.types), ty, span)
-            }
-            syntax::ExpressionKind::CallHint { call, .. } => {
-                self.callback_expression_contract_inner(call, value, span, depth + 1)
-            }
+            syntax::ExpressionKind::TypeCast {
+                ty, ..
+            } => self.annotation_value_contract(value.type_id(self.types), ty, span),
+            syntax::ExpressionKind::CallHint {
+                call, ..
+            } => self.callback_expression_contract_inner(call, value, span, depth + 1),
             syntax::ExpressionKind::Unary(_, _)
             | syntax::ExpressionKind::Binary(_, _, _)
-            | syntax::ExpressionKind::Index { .. } => {
-                if let ValueExpr::Call { call, .. } = value
+            | syntax::ExpressionKind::Index {
+                ..
+            } => {
+                if let ValueExpr::Call {
+                    call, ..
+                } = value
                     && let Some(contracts) = self.local_operator_expression_result_contracts(
                         source,
                         call,
@@ -696,8 +785,13 @@ impl Resolver<'_> {
                 }
                 self.callback_value_contract(value, span)
             }
-            syntax::ExpressionKind::IndirectCall { callee, .. } => {
-                if let ValueExpr::IndirectCall { callee: value, .. } = value {
+            syntax::ExpressionKind::IndirectCall {
+                callee, ..
+            } => {
+                if let ValueExpr::IndirectCall {
+                    callee: value, ..
+                } = value
+                {
                     return Ok(self
                         .callback_expression_contract_inner(callee, value, span, depth + 1)?
                         .and_then(|contract| contract.result(0)));
@@ -705,7 +799,10 @@ impl Resolver<'_> {
                 self.callback_value_contract(value, span)
             }
             syntax::ExpressionKind::Conditional(source) => {
-                if let ValueExpr::Conditional { expression, .. } = value {
+                if let ValueExpr::Conditional {
+                    expression, ..
+                } = value
+                {
                     let left = self.callback_expression_contract_inner(
                         &source.then_value,
                         &expression.then_value,
@@ -729,10 +826,15 @@ impl Resolver<'_> {
                 self.callback_value_contract(value, span)
             }
             syntax::ExpressionKind::ArrayLiteral(source) => {
-                if let ValueExpr::Array { ty, elements } = value {
+                if let ValueExpr::Array {
+                    ty,
+                    elements,
+                } = value
+                {
                     if let Some(source) = &source.element_type
-                        && let Ok(jai_types::TypeKind::FixedArray { element, .. }) =
-                            self.types.kind(*ty)
+                        && let Ok(jai_types::TypeKind::FixedArray {
+                            element, ..
+                        }) = self.types.kind(*ty)
                     {
                         return Ok(self.annotation_value_contract(*element, source, span)?.map(
                             |inner| ValueContract {
@@ -785,23 +887,34 @@ impl Resolver<'_> {
             return Ok(None);
         }
         let result = match value {
-            ValueExpr::Bind { bindings, body, .. } => {
-                self.bound_expression_contract(bindings, body, span, depth + 1)?
-            }
-            ValueExpr::Bound { binding, ty } => {
-                self.expression_binding_contract(*binding, *ty, span)?
-            }
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ..
+            } => self.bound_expression_contract(bindings, body, span, depth + 1)?,
+            ValueExpr::Bound {
+                binding,
+                ty,
+            } => self.expression_binding_contract(*binding, *ty, span)?,
             // Physical aliases and partial paths cannot be represented by the
             // independent semantic-field callback contract.
-            ValueExpr::OrderedRecord { .. } => None,
-            ValueExpr::RecordBuild { ty, initializers } => {
+            ValueExpr::OrderedRecord {
+                ..
+            } => None,
+            ValueExpr::RecordBuild {
+                ty,
+                initializers,
+            } => {
                 let initializers = initializers
                     .iter()
                     .map(|(field, value)| (*field, value))
                     .collect::<Vec<_>>();
                 self.captured_record_contract(*ty, &initializers, span, depth + 1)?
             }
-            ValueExpr::Record { ty, fields } => {
+            ValueExpr::Record {
+                ty,
+                fields,
+            } => {
                 let initializers = fields
                     .iter()
                     .enumerate()
@@ -814,10 +927,17 @@ impl Resolver<'_> {
                     .collect::<Result<Vec<_>, _>>()?;
                 self.captured_record_contract(*ty, &initializers, span, depth + 1)?
             }
-            ValueExpr::Union { ty, field, value } => {
+            ValueExpr::Union {
+                ty,
+                field,
+                value,
+            } => {
                 self.captured_record_contract(*ty, &[(*field, value.as_ref())], span, depth + 1)?
             }
-            ValueExpr::ProcedureValue { procedure, ty } => {
+            ValueExpr::ProcedureValue {
+                procedure,
+                ty,
+            } => {
                 let Some(signature) = self.contract_procedure_signature(*procedure) else {
                     return Ok(None);
                 };
@@ -830,16 +950,24 @@ impl Resolver<'_> {
                     },
                 })
             }
-            ValueExpr::Call { call, .. } => self
+            ValueExpr::Call {
+                call, ..
+            } => self
                 .call_result_contracts_for_depth(call.procedure, &call.arguments, span, depth + 1)?
                 .into_iter()
                 .next()
                 .flatten(),
-            ValueExpr::IndirectCall { callee, .. } => self
+            ValueExpr::IndirectCall {
+                callee, ..
+            } => self
                 .callback_value_contract_inner(callee, span, depth + 1)?
                 .and_then(|contract| contract.result(0)),
             ValueExpr::Load(place) => self.callback_place_contract(*place, span, depth + 1)?,
-            ValueExpr::Field { base, field, .. } => {
+            ValueExpr::Field {
+                base,
+                field,
+                ..
+            } => {
                 let contract = self.callback_value_contract_inner(base, span, depth + 1)?;
                 match contract
                     .as_ref()
@@ -853,11 +981,16 @@ impl Resolver<'_> {
                     None => self.callback_field_contract(base.type_id(self.types), *field, span)?,
                 }
             }
-            ValueExpr::Conditional { expression, .. } => {
+            ValueExpr::Conditional {
+                expression, ..
+            } => {
                 let mut merged = None;
                 let mut pending = vec![&expression.then_value, &expression.else_value];
                 while let Some(branch) = pending.pop() {
-                    if let ValueExpr::Conditional { expression, .. } = branch {
+                    if let ValueExpr::Conditional {
+                        expression, ..
+                    } = branch
+                    {
                         pending.push(&expression.then_value);
                         pending.push(&expression.else_value);
                     } else if let Some(contract) =
@@ -871,7 +1004,10 @@ impl Resolver<'_> {
                 }
                 merged
             }
-            ValueExpr::Array { ty, elements } => {
+            ValueExpr::Array {
+                ty,
+                elements,
+            } => {
                 let mut merged = None;
                 for element in elements {
                     if let Some(contract) =
@@ -888,7 +1024,10 @@ impl Resolver<'_> {
                     kind: ContractKind::Sequence(Box::new(inner)),
                 })
             }
-            ValueExpr::SequenceBuild { ty, initializers } => {
+            ValueExpr::SequenceBuild {
+                ty,
+                initializers,
+            } => {
                 match initializers
                     .iter()
                     .find(|(field, _)| *field == jai_ir::SequenceField::Data)
@@ -914,16 +1053,24 @@ impl Resolver<'_> {
                     ty: *ty,
                     kind: ContractKind::Pointer(Box::new(inner)),
                 }),
-            ValueExpr::Index { base, .. } => self
+            ValueExpr::Index {
+                base, ..
+            } => self
                 .callback_value_contract_inner(base, span, depth + 1)?
                 .and_then(|contract| contract.element()),
-            ValueExpr::ArrayToSlice { array, ty } => self
+            ValueExpr::ArrayToSlice {
+                array,
+                ty,
+            } => self
                 .callback_place_contract(*array, span, depth + 1)?
                 .map(|mut contract| {
                     contract.ty = *ty;
                     contract
                 }),
-            ValueExpr::ArrayView { array, ty }
+            ValueExpr::ArrayView {
+                array,
+                ty,
+            }
             | ValueExpr::SequenceView {
                 sequence: array,
                 ty,
@@ -933,24 +1080,38 @@ impl Resolver<'_> {
                     contract.ty = *ty;
                     contract
                 }),
-            ValueExpr::AddressOf { place, ty } => self
+            ValueExpr::AddressOf {
+                place,
+                ty,
+            } => self
                 .callback_place_contract(*place, span, depth + 1)?
                 .map(|inner| ValueContract {
                     ty: *ty,
                     kind: ContractKind::Pointer(Box::new(inner)),
                 }),
-            ValueExpr::AddressOfValue { value, ty } => self
+            ValueExpr::AddressOfValue {
+                value,
+                ty,
+            } => self
                 .callback_value_contract_inner(value, span, depth + 1)?
                 .map(|inner| ValueContract {
                     ty: *ty,
                     kind: ContractKind::Pointer(Box::new(inner)),
                 }),
-            ValueExpr::PointerCast { value, ty, .. }
+            ValueExpr::PointerCast {
+                value,
+                ty,
+                ..
+            }
             | ValueExpr::PointerOffset {
-                pointer: value, ty, ..
+                pointer: value,
+                ty,
+                ..
             }
             | ValueExpr::PointerOffsetLeft {
-                pointer: value, ty, ..
+                pointer: value,
+                ty,
+                ..
             } => {
                 let contract = self.callback_value_contract_inner(value, span, depth + 1)?;
                 contract.and_then(|mut contract| {
@@ -1114,7 +1275,9 @@ impl Resolver<'_> {
                     jai_types::TypeKind::Pointer(element)
                     | jai_types::TypeKind::Slice(element)
                     | jai_types::TypeKind::DynamicArray(element)
-                    | jai_types::TypeKind::FixedArray { element, .. },
+                    | jai_types::TypeKind::FixedArray {
+                        element, ..
+                    },
                 ) => pending.push(*element),
                 _ => {}
             }
@@ -1148,7 +1311,9 @@ impl Resolver<'_> {
                 return Ok(None);
             };
             match metadata.syntax.named_binding() {
-                Some(syntax::FieldBinding::Explicit { ty: source, .. }) => {
+                Some(syntax::FieldBinding::Explicit {
+                    ty: source, ..
+                }) => {
                     if let Some(origin) = self.meta.record_specializations.record(record)
                         && let Some(scope) = self.graph_scope
                     {

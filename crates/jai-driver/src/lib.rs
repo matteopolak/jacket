@@ -62,10 +62,20 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Io { path, cause } => write!(f, "{}: {cause}", path.display()),
-            Self::Decode { path, diagnostic } => write!(f, "{}: {diagnostic}", path.display()),
-            Self::Located { rendered, .. } => f.write_str(rendered),
-            Self::LoadCycle { path } => write!(f, "{}: cyclic #load", path.display()),
+            Self::Io {
+                path,
+                cause,
+            } => write!(f, "{}: {cause}", path.display()),
+            Self::Decode {
+                path,
+                diagnostic,
+            } => write!(f, "{}: {diagnostic}", path.display()),
+            Self::Located {
+                rendered, ..
+            } => f.write_str(rendered),
+            Self::LoadCycle {
+                path,
+            } => write!(f, "{}: cyclic #load", path.display()),
             Self::Graph(error) => fmt::Display::fmt(error, f),
             Self::CompilerReport(message) => {
                 if let Some(location) = &message.location {
@@ -87,23 +97,47 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Io { cause, .. } => Some(cause),
-            Self::Decode { diagnostic, .. } | Self::Located { diagnostic, .. } => Some(diagnostic),
+            Self::Io {
+                cause, ..
+            } => Some(cause),
+            Self::Decode {
+                diagnostic, ..
+            }
+            | Self::Located {
+                diagnostic, ..
+            } => Some(diagnostic),
             Self::Graph(error) => Some(error),
-            Self::LoadCycle { .. } | Self::CompilerReport(_) => None,
+            Self::LoadCycle {
+                ..
+            }
+            | Self::CompilerReport(_) => None,
         }
     }
 }
 impl From<GraphError> for Error {
     fn from(error: GraphError) -> Self {
         match error {
-            GraphError::Io { path, cause } => Self::Io { path, cause },
-            GraphError::Decode { path, diagnostic } => Self::Decode { path, diagnostic },
+            GraphError::Io {
+                path,
+                cause,
+            } => Self::Io {
+                path,
+                cause,
+            },
+            GraphError::Decode {
+                path,
+                diagnostic,
+            } => Self::Decode {
+                path,
+                diagnostic,
+            },
             GraphError::Cycle {
                 kind: DependencyKind::Load,
                 path,
                 ..
-            } => Self::LoadCycle { path },
+            } => Self::LoadCycle {
+                path,
+            },
             other => Self::Graph(other),
         }
     }
@@ -456,7 +490,11 @@ mod tests {
                     jai_vm::ByteTarget::from(&target),
                 )
                 .unwrap();
-                let byte = if order == ByteOrder::Big { 1 } else { 4 };
+                let byte = if order == ByteOrder::Big {
+                    1
+                } else {
+                    4
+                };
                 assert_eq!(
                     vm.execute(entry, vec![]).outcome,
                     jai_vm::Outcome::Complete(vec![jai_vm::Value::Int(

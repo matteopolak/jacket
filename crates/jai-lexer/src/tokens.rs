@@ -25,6 +25,7 @@ tags!(Keyword {
 tags!(Directive {
     Import => "#import", Load => "#load", Run => "#run", String => "#string", If => "#if",
     Foreign => "#foreign", CCall => "#c_call", Type => "#type", CppMethod => "#cpp_method",
+    CppReturnTypeIsNonPod => "#cpp_return_type_is_non_pod",
     Char => "#char", As => "#as", Through => "#through", Elsewhere => "#elsewhere",
     ScopeFile => "#scope_file", NoContext => "#no_context", Place => "#place", Expand => "#expand",
     TypeInfoNone => "#type_info_none", Library => "#library" | "#foreign_library", Asm => "#asm", Assert => "#assert",

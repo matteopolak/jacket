@@ -111,7 +111,10 @@ impl WorkspaceScheduler {
             });
         }
         for workspace in build.workspaces.into_iter().filter(|_| !failed) {
-            let WorkspaceOutput::Checked { .. } = workspace.output else {
+            let WorkspaceOutput::Checked {
+                ..
+            } = workspace.output
+            else {
                 continue;
             };
             let id = workspace.id;
@@ -128,7 +131,9 @@ impl WorkspaceScheduler {
             });
             events.push(CompilerEvent::Phase {
                 workspace: id,
-                phase: CompilerPhase::Typechecked { pending_count: 0 },
+                phase: CompilerPhase::Typechecked {
+                    pending_count: 0,
+                },
             });
             let completed = frame
                 .compiler

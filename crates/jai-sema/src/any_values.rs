@@ -50,7 +50,9 @@ impl Resolver<'_> {
                 "Any boxing is waiting for the compilation target layout",
             )
         })?;
-        let AnyConversion::Borrow { .. } = schema
+        let AnyConversion::Borrow {
+            ..
+        } = schema
             .conversion(self.types, represented, policy)
             .map_err(|error| Diagnostic::new(span, error.to_string()))?
         else {
@@ -116,21 +118,31 @@ impl Resolver<'_> {
                     FloatExprKind::Value(value) => current = value,
                     _ => break None,
                 },
-                ValueExpr::Field { base, field, .. } => {
+                ValueExpr::Field {
+                    base,
+                    field,
+                    ..
+                } => {
                     projections.push(BoxedProjection::Field(*field));
                     current = base;
                 }
-                ValueExpr::SequenceField { base, field, .. }
-                    if matches!(
-                        self.types.kind(base.type_id(self.types)),
-                        Ok(TypeKind::String | TypeKind::Slice(_) | TypeKind::DynamicArray(_))
-                    ) =>
+                ValueExpr::SequenceField {
+                    base,
+                    field,
+                    ..
+                } if matches!(
+                    self.types.kind(base.type_id(self.types)),
+                    Ok(TypeKind::String | TypeKind::Slice(_) | TypeKind::DynamicArray(_))
+                ) =>
                 {
                     projections.push(BoxedProjection::Sequence(*field));
                     current = base;
                 }
                 ValueExpr::Index {
-                    base, index, check, ..
+                    base,
+                    index,
+                    check,
+                    ..
                 } => {
                     let base_type = base.type_id(self.types);
                     if matches!(self.types.kind(base_type), Ok(TypeKind::Pointer(_))) {
@@ -241,7 +253,14 @@ impl Resolver<'_> {
                 initializers.push((field.id, ValueExpr::Zero(field.ty)));
             }
         }
-        self.typed_value(ValueExpr::RecordBuild { ty, initializers }, ty, span)
+        self.typed_value(
+            ValueExpr::RecordBuild {
+                ty,
+                initializers,
+            },
+            ty,
+            span,
+        )
     }
 }
 

@@ -95,6 +95,7 @@ impl Parser<'_> {
                     parameters,
                     results,
                     convention: modifiers.convention,
+                    return_abi: modifiers.return_abi,
                     context: modifiers.context,
                 },
                 checks: modifiers.checks,

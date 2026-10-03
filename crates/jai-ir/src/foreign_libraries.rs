@@ -17,18 +17,25 @@ impl ForeignLibraryId {
         Self::File(declaration)
     }
     pub const fn local(procedure: ProcedureId, index: usize) -> Self {
-        Self::Local { procedure, index }
+        Self::Local {
+            procedure,
+            index,
+        }
     }
     pub const fn declaration(self) -> Option<DeclarationId> {
         match self {
             Self::File(id) => Some(id),
-            Self::Local { .. } => None,
+            Self::Local {
+                ..
+            } => None,
         }
     }
     pub fn index(self) -> usize {
         match self {
             Self::File(id) => id.index(),
-            Self::Local { index, .. } => index,
+            Self::Local {
+                index, ..
+            } => index,
         }
     }
 }
@@ -74,7 +81,8 @@ impl fmt::Display for ForeignLibraryError {
         })
     }
 }
-impl std::error::Error for ForeignLibraryError {}
+impl std::error::Error for ForeignLibraryError {
+}
 
 impl ForeignLibrary {
     pub fn validate(&self) -> Result<(), ForeignLibraryError> {
@@ -82,7 +90,9 @@ impl ForeignLibrary {
             return Err(ForeignLibraryError::NoLinkage);
         }
         match &self.kind {
-            ForeignLibraryKind::System { name } => {
+            ForeignLibraryKind::System {
+                name,
+            } => {
                 if name.is_empty()
                     || name.starts_with('-')
                     || name == "."
@@ -99,7 +109,9 @@ impl ForeignLibrary {
                     return Err(ForeignLibraryError::IncompatibleLinkage);
                 }
             }
-            ForeignLibraryKind::Local { path } => {
+            ForeignLibraryKind::Local {
+                path,
+            } => {
                 if path.as_os_str().is_empty() || path.as_os_str().as_encoded_bytes().contains(&0) {
                     return Err(ForeignLibraryError::InvalidLocalPath);
                 }
@@ -117,7 +129,9 @@ mod tests {
     fn system(name: &str) -> ForeignLibrary {
         ForeignLibrary {
             id: ForeignLibraryId::new(Identities::default().declaration()),
-            kind: ForeignLibraryKind::System { name: name.into() },
+            kind: ForeignLibraryKind::System {
+                name: name.into(),
+            },
             options: ForeignLibraryOptions::default(),
         }
     }

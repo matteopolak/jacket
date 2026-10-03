@@ -115,7 +115,9 @@ impl Memory {
         let origin = match integer.provenance() {
             None if address == 0 => return Ok(Pointer::null(pointee)),
             Some(AddressProvenance::Pointer(pointer)) => pointer,
-            Some(AddressProvenance::Derived { .. }) => {
+            Some(AddressProvenance::Derived {
+                ..
+            }) => {
                 return Err(Error::UnsupportedPointerOperation(
                     "transformed address integer has no proven affine pointer identity",
                 ));

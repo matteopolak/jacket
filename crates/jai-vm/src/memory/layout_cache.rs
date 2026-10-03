@@ -316,7 +316,10 @@ fn preflight_inner(
                         .ok_or(Error::InvalidIr("layout preflight lost a dependency"))?
                         .offsets
                 }
-                TypeKind::FixedArray { element, count } => {
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => {
                     include(
                         *element,
                         usize::try_from(*count).unwrap_or(usize::MAX),
@@ -368,7 +371,9 @@ fn preflight_inner(
                     .ok_or(Error::Limit(LimitKind::Fuel))?;
                 pending.extend(fields.iter().rev().map(|field| (*field, false)));
             }
-            TypeKind::FixedArray { element, .. } => {
+            TypeKind::FixedArray {
+                element, ..
+            } => {
                 budget.reserve(1, 4)?;
                 codec_work = codec_work
                     .checked_add(1)
@@ -536,7 +541,9 @@ impl super::Memory {
             };
             for projection in &pointer.data()?.path {
                 match projection {
-                    super::Projection::Bytes { ty: view, .. } => ty = *view,
+                    super::Projection::Bytes {
+                        ty: view, ..
+                    } => ty = *view,
                     super::Projection::Field(index) => {
                         prepare(ty)?;
                         ty = *types
@@ -546,7 +553,9 @@ impl super::Memory {
                             .ok_or(Error::InvalidIr("invalid prepared layout field"))?;
                     }
                     super::Projection::Index(_) => match types.kind(ty)? {
-                        TypeKind::FixedArray { element, .. } => {
+                        TypeKind::FixedArray {
+                            element, ..
+                        } => {
                             prepare(ty)?;
                             ty = *element;
                         }

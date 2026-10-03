@@ -66,7 +66,10 @@ fn arbitrary_payloads_and_optional_trailing_commas_are_retained_before_selection
         let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
             panic!("expected procedure")
         };
-        let StatementKind::CompileTimeIf { then_body, .. } = &procedure.body[0].kind else {
+        let StatementKind::CompileTimeIf {
+            then_body, ..
+        } = &procedure.body[0].kind
+        else {
             panic!("expected inactive branch")
         };
         let StatementKind::InstructionBytes(instruction) = &then_body[0].kind else {

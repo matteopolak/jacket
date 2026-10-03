@@ -187,19 +187,31 @@ fn aggregate_results_count_projected_pointer_children_before_publication() {
         .map(|(index, _)| {
             (
                 f.types.field(record, index).unwrap().id,
-                ValueExpr::AddressOf { place, ty: pointer },
+                ValueExpr::AddressOf {
+                    place,
+                    ty: pointer,
+                },
             )
         })
         .collect();
     f.globals.push(global);
     f.places = places.freeze();
-    let fields = vec![ValueExpr::AddressOf { place, ty: pointer }; 8];
+    let fields = vec![
+        ValueExpr::AddressOf {
+            place,
+            ty: pointer
+        };
+        8
+    ];
     let expressions = [
         ValueExpr::Array {
             ty: array,
             elements: fields.clone(),
         },
-        ValueExpr::Record { ty: record, fields },
+        ValueExpr::Record {
+            ty: record,
+            fields,
+        },
         ValueExpr::RecordBuild {
             ty: record,
             initializers,

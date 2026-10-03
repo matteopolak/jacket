@@ -152,11 +152,19 @@ pub(super) fn constant<'ctx>(
 impl<'ctx> Generator<'ctx, '_, '_> {
     pub(super) fn value(&mut self, value: &ValueExpr) -> Result<BasicValueEnum<'ctx>, Error> {
         let result: BasicValueEnum<'ctx> = match value {
-            ValueExpr::StorageBitcast { source, cast } => {
-                self.reinterpret_storage(source, *cast)?
-            }
-            ValueExpr::Bind { bindings, body, ty } => self.bind_values(bindings, body, *ty)?,
-            ValueExpr::Bound { binding, ty } => self.bound_value(*binding, *ty)?,
+            ValueExpr::StorageBitcast {
+                source,
+                cast,
+            } => self.reinterpret_storage(source, *cast)?,
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ty,
+            } => self.bind_values(bindings, body, *ty)?,
+            ValueExpr::Bound {
+                binding,
+                ty,
+            } => self.bound_value(*binding, *ty)?,
             ValueExpr::NativePointer(value) => {
                 native_pointer_constants::constant(self.lowerer, value)?
             }
@@ -168,20 +176,37 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                 self.functions,
                 self.signatures,
             )?,
-            ValueExpr::TypeDescriptor { value, ty } => {
+            ValueExpr::TypeDescriptor {
+                value,
+                ty,
+            } => {
                 let schema = jai_types::RuntimeTypeSchema::from_view(self.types)?;
                 if value.type_id(self.types) != schema.ty() || *ty != schema.descriptor_type() {
                     return Err(Error::Invariant);
                 }
                 self.value(value)?
             }
-            ValueExpr::Context { ty } => self.context_value(*ty)?,
-            ValueExpr::StaticAddress { data, address, ty } => {
-                static_data::address(self, data, address, *ty)?
-            }
-            ValueExpr::SequenceView { sequence, ty } => self.sequence_view(sequence, *ty)?,
-            ValueExpr::SequenceConcat { ty, parts } => self.sequence_concat(*ty, parts)?,
-            ValueExpr::Union { ty, field, value } => {
+            ValueExpr::Context {
+                ty,
+            } => self.context_value(*ty)?,
+            ValueExpr::StaticAddress {
+                data,
+                address,
+                ty,
+            } => static_data::address(self, data, address, *ty)?,
+            ValueExpr::SequenceView {
+                sequence,
+                ty,
+            } => self.sequence_view(sequence, *ty)?,
+            ValueExpr::SequenceConcat {
+                ty,
+                parts,
+            } => self.sequence_concat(*ty, parts)?,
+            ValueExpr::Union {
+                ty,
+                field,
+                value,
+            } => {
                 let expected = self.types.validate_field(*ty, *field)?;
                 if value.type_id(self.types) != expected {
                     return Err(Error::Invariant);
@@ -190,10 +215,16 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                 let member = self.value(value)?;
                 unions::construct(self.context, &self.builder, storage, member)?.into()
             }
-            ValueExpr::Distinct { value, .. } | ValueExpr::UnwrapDistinct { value, .. } => {
-                self.value(value)?
+            ValueExpr::Distinct {
+                value, ..
             }
-            ValueExpr::ProcedureValue { procedure, ty } => {
+            | ValueExpr::UnwrapDistinct {
+                value, ..
+            } => self.value(value)?,
+            ValueExpr::ProcedureValue {
+                procedure,
+                ty,
+            } => {
                 if self.signatures.get(procedure) != Some(ty) {
                     return Err(Error::Invariant);
                 }
@@ -213,13 +244,28 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                 .indirect_call(callee, arguments, *inline_hint)?
                 .value
                 .ok_or(Error::Invariant)?,
-            ValueExpr::Conditional { ty, expression } => self.conditional_value(*ty, expression)?,
-            ValueExpr::AddressOfValue { value, ty } => self.address_of_value(value, *ty)?,
-            ValueExpr::AddressOf { place, ty } => self.address_value(*place, *ty)?,
-            ValueExpr::PointerCast { value, ty, mode } => self.cast_pointer(value, *ty, *mode)?,
-            ValueExpr::PointerFromInteger { value, ty, mode } => {
-                self.integer_to_pointer(value, *ty, *mode)?
-            }
+            ValueExpr::Conditional {
+                ty,
+                expression,
+            } => self.conditional_value(*ty, expression)?,
+            ValueExpr::AddressOfValue {
+                value,
+                ty,
+            } => self.address_of_value(value, *ty)?,
+            ValueExpr::AddressOf {
+                place,
+                ty,
+            } => self.address_value(*place, *ty)?,
+            ValueExpr::PointerCast {
+                value,
+                ty,
+                mode,
+            } => self.cast_pointer(value, *ty, *mode)?,
+            ValueExpr::PointerFromInteger {
+                value,
+                ty,
+                mode,
+            } => self.integer_to_pointer(value, *ty, *mode)?,
             ValueExpr::PointerOffsetLeft {
                 offset,
                 pointer,
@@ -242,17 +288,35 @@ impl<'ctx> Generator<'ctx, '_, '_> {
             ValueExpr::Bool(value) => self.boolean(value)?.0.into(),
             ValueExpr::Load(place) => self.load(*place)?,
             ValueExpr::Zero(ty) => self.lowerer.basic(*ty)?.const_zero(),
-            ValueExpr::Array { ty, elements } => self.sequence_array(*ty, elements)?,
-            ValueExpr::StringBytes { ty, bytes } => self.sequence_string(*ty, bytes)?,
-            ValueExpr::SequenceField { base, field, ty } => {
-                self.sequence_field(base, *field, *ty)?
-            }
-            ValueExpr::ArrayToSlice { array, ty } => self.array_to_slice(*array, *ty)?,
-            ValueExpr::ArrayView { array, ty } => self.array_view(array, *ty)?,
-            ValueExpr::SequenceBuild { ty, initializers } => {
-                self.sequence_build(*ty, initializers)?
-            }
-            ValueExpr::Enum { ty, value } => {
+            ValueExpr::Array {
+                ty,
+                elements,
+            } => self.sequence_array(*ty, elements)?,
+            ValueExpr::StringBytes {
+                ty,
+                bytes,
+            } => self.sequence_string(*ty, bytes)?,
+            ValueExpr::SequenceField {
+                base,
+                field,
+                ty,
+            } => self.sequence_field(base, *field, *ty)?,
+            ValueExpr::ArrayToSlice {
+                array,
+                ty,
+            } => self.array_to_slice(*array, *ty)?,
+            ValueExpr::ArrayView {
+                array,
+                ty,
+            } => self.array_view(array, *ty)?,
+            ValueExpr::SequenceBuild {
+                ty,
+                initializers,
+            } => self.sequence_build(*ty, initializers)?,
+            ValueExpr::Enum {
+                ty,
+                value,
+            } => {
                 if self.types.enum_definition(*ty)?.representation != value.ty() {
                     return Err(Error::Invariant);
                 }
@@ -260,13 +324,19 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                     .const_int(value.bits(), false)
                     .into()
             }
-            ValueExpr::EnumFromInt { ty, value } => {
+            ValueExpr::EnumFromInt {
+                ty,
+                value,
+            } => {
                 if self.types.enum_definition(*ty)?.representation != value.ty() {
                     return Err(Error::Invariant);
                 }
                 self.int(value)?.0.into()
             }
-            ValueExpr::Record { ty, fields } => {
+            ValueExpr::Record {
+                ty,
+                fields,
+            } => {
                 if fields.len() != self.types.record_storage_definition(*ty)?.fields.len() {
                     return Err(Error::Invariant);
                 }
@@ -279,7 +349,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                     .collect::<Result<Vec<_>, _>>()?;
                 self.custom_record_build(*ty, initializers)?
             }
-            ValueExpr::RecordBuild { ty, initializers } => self.custom_record_build(
+            ValueExpr::RecordBuild {
+                ty,
+                initializers,
+            } => self.custom_record_build(
                 *ty,
                 initializers.iter().map(|(field, value)| (*field, value)),
             )?,
@@ -288,7 +361,11 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                 backing,
                 initializers,
             } => self.ordered_record_build(*ty, *backing, initializers)?,
-            ValueExpr::Field { base, field, ty } => {
+            ValueExpr::Field {
+                base,
+                field,
+                ty,
+            } => {
                 let base_ty = base.type_id(self.types);
                 if self.types.validate_field(base_ty, *field)? != *ty {
                     return Err(Error::Invariant);
@@ -304,7 +381,9 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                     self.custom_record_extract(base_ty, snapshot.into(), *field, *ty)?
                 }
             }
-            ValueExpr::Call { call, .. } => self.call(call)?.value.ok_or(Error::Invariant)?,
+            ValueExpr::Call {
+                call, ..
+            } => self.call(call)?.value.ok_or(Error::Invariant)?,
         };
         if result.get_type() != self.lowerer.basic(value.type_id(self.types))? {
             return Err(Error::Invariant);

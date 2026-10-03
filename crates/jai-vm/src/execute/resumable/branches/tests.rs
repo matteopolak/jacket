@@ -24,6 +24,7 @@ fn procedure(types: &mut TypeRegistry) -> Arc<Procedure> {
         .procedure(ProcedureType {
             parameters: [].into(),
             results: [].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -192,4 +193,90 @@ fn borrowed_procedure_frame_cannot_escape_into_a_branch_snapshot() {
         )))
     ));
     assert_eq!(vm.frames.len(), 1);
+}
+
+
+#[test]
+fn borrowed_string_capacity_inspection_does_not_walk_bytes() {
+    for length in [0, 152, 1077, 8192] {
+        let mut bytes = Vec::with_capacity(length + 31);
+        bytes.resize(length, b'7');
+        let capacity = bytes.capacity();
+        let value = Value::String(bytes);
+        let mut spent = 0;
+        let cells = value_cells(&value, 0, 256, &mut |work| {
+            spent += work;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(spent, 1);
+        assert_eq!(cells, capacity + 1);
+    }
+}
+
+#[test]
+fn nested_literal_inspection_charges_nodes_and_preserves_spare_capacity() {
+    let mut provider = Provider(TypeRegistry::new());
+    let ty = provider.0.fixed_array(provider.0.string(), 2).unwrap();
+    let mut bytes = Vec::with_capacity(8192);
+    bytes.resize(1077, b'7');
+    let byte_capacity = bytes.capacity();
+    let mut elements = Vec::with_capacity(7);
+    elements.push(Value::String(bytes));
+    elements.push(Value::String(Vec::new()));
+    let outer_capacity = elements.capacity();
+    let value = Value::Array {
+        ty,
+        elements,
+    };
+    let mut spent = 0;
+    let cells = value_cells(&value, 0, 256, &mut |work| {
+        spent += work;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(spent, 3);
+    assert_eq!(cells, 1 + outer_capacity + byte_capacity);
+}
+
+#[test]
+fn scheduler_inspects_large_literal_without_debiting_payload_again() {
+    let provider = Provider(TypeRegistry::new());
+    let mut vm = vm(&provider);
+    vm.immutable_backing(provider.0.string(), Value::String(vec![b'7'; 8192]), 0)
+        .unwrap();
+    let allocation_count = vm.memory.allocation_count();
+    let before = vm.statistics.steps;
+    vm.limits.fuel = before + 512;
+    let bounds = measured(&mut vm, false).unwrap();
+    assert!(bounds.cells >= 8192);
+    assert!(bounds.work >= 2 * 8192);
+    assert!(vm.statistics.steps > before);
+    assert!(vm.statistics.steps < before + 512);
+    assert_eq!(vm.memory.allocation_count(), allocation_count);
+}
+
+#[test]
+fn cheap_string_inspection_keeps_copy_fuel_and_retention_gates() {
+    let provider = Provider(TypeRegistry::new());
+    let mut vm = vm(&provider);
+    vm.immutable_backing(provider.0.string(), Value::String(vec![b'7'; 8192]), 0)
+        .unwrap();
+    let allocations = vm.memory.allocation_count();
+    let literal_count = vm.literal_backing.len();
+    vm.limits.fuel = vm.statistics.steps + 512;
+    assert!(matches!(
+        BranchSnapshot::fork_from_live(&mut vm, 0),
+        Err(Halt::Failed(Error::Limit(LimitKind::Fuel)))
+    ));
+    assert_eq!(vm.memory.allocation_count(), allocations);
+    assert_eq!(vm.literal_backing.len(), literal_count);
+    vm.limits.fuel = vm.statistics.steps + 1_000_000;
+    vm.limits.value_cells = 8192;
+    assert!(matches!(
+        BranchSnapshot::fork_from_live(&mut vm, 0),
+        Err(Halt::Failed(Error::Limit(LimitKind::ValueCells)))
+    ));
+    assert_eq!(vm.memory.allocation_count(), allocations);
+    assert_eq!(vm.literal_backing.len(), literal_count);
 }

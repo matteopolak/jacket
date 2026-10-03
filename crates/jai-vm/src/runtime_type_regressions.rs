@@ -30,7 +30,12 @@ fn catalog_builder() -> (Fixture, StaticDataBuilder, StaticObjectId, TypeId) {
     .unwrap() else {
         panic!("scalar ready");
     };
-    let scalar = |ty, kind| StaticValue::constant(ConstantValue { ty, kind });
+    let scalar = |ty, kind| {
+        StaticValue::constant(ConstantValue {
+            ty,
+            kind,
+        })
+    };
     let mut builder = StaticDataBuilder::new();
     let object = builder.reserve(descriptor, &f.types).unwrap();
     builder
@@ -295,7 +300,10 @@ fn runtime_type_constants_inside_global_aggregates_are_hydrated_by_the_vm() {
     ));
     let expression = ValueExpr::Load(f.globals[0].place());
     let mut vm = Vm::new(&f, NoEffects, Limits::default()).unwrap();
-    let Value::Record { fields, .. } = complete(vm.evaluate(&expression)) else {
+    let Value::Record {
+        fields, ..
+    } = complete(vm.evaluate(&expression))
+    else {
         panic!("record result");
     };
     assert_eq!(
@@ -321,8 +329,10 @@ fn runtime_type_publication_converter_runs_inside_the_validation_transaction() {
     assert!(matches!(execution.outcome, Outcome::Complete(_)));
     assert_eq!(published.unwrap(), constant);
     assert!(
-        vm.runtime_type_constant_value(&Value::Type { descriptor: None })
-            .is_err()
+        vm.runtime_type_constant_value(&Value::Type {
+            descriptor: None
+        })
+        .is_err()
     );
 }
 

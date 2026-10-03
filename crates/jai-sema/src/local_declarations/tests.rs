@@ -99,7 +99,11 @@ fn nested_annotation_shapes_use_local_alias_instead_of_equal_spelled_file_type()
                 .filter(|record| record.fields.len() == 4)
         })
         .unwrap();
-    let TypeKind::FixedArray { element, count } = *types.kind(container.fields[0]).unwrap() else {
+    let TypeKind::FixedArray {
+        element,
+        count,
+    } = *types.kind(container.fields[0]).unwrap()
+    else {
         panic!("expected fixed array")
     };
     assert_eq!(count, 2);

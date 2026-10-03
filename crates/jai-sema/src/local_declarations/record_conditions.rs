@@ -51,10 +51,18 @@ impl Resolver<'_> {
                             index += 1;
                             continue;
                         }
-                        self.compile_time_condition(condition)
-                            .map(|choice| if choice { then_members } else { else_members }.clone())
+                        self.compile_time_condition(condition).map(|choice| {
+                            if choice {
+                                then_members
+                            } else {
+                                else_members
+                            }
+                            .clone()
+                        })
                     }
-                    syntax::RecordMember::CompileTimeCases { cases, .. } => {
+                    syntax::RecordMember::CompileTimeCases {
+                        cases, ..
+                    } => {
                         if pending_promotions
                             && (!promoted_fields::independent_of_unready_fields(&cases.value)
                                 || cases.arms.iter().any(|arm| {
@@ -140,7 +148,9 @@ impl Resolver<'_> {
     ) -> Result<(), Diagnostic> {
         for member in members {
             if let syntax::RecordMember::Assert {
-                condition, message, ..
+                condition,
+                message,
+                ..
             } = member
             {
                 self.compile_time_assertion(condition, message.as_ref(), condition.span)?;
@@ -160,6 +170,7 @@ fn selection_budget(span: Span) -> Diagnostic {
 fn member_span(member: &syntax::RecordMember) -> Span {
     use syntax::RecordMember as M;
     match member {
+        M::Placement(value) => value.span,
         M::Field(value) => value.span,
         M::AnonymousRecord(value) => value.span,
         M::Constant(value) => value.span,
@@ -169,9 +180,17 @@ fn member_span(member: &syntax::RecordMember) -> Span {
         M::Record(value) => value.span,
         M::Enum(value) => value.span,
         M::Insert(value) => value.span,
-        M::CompileTimeCases { span, .. } => *span,
-        M::Assert { span, .. } | M::Conditional { span, .. } | M::DefaultOverride { span, .. } => {
-            *span
+        M::CompileTimeCases {
+            span, ..
+        } => *span,
+        M::Assert {
+            span, ..
         }
+        | M::Conditional {
+            span, ..
+        }
+        | M::DefaultOverride {
+            span, ..
+        } => *span,
     }
 }

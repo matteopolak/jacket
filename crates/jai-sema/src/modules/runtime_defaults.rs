@@ -218,7 +218,10 @@ pub(super) fn prepare(
         SourceRoot::Global(id) => {
             let declaration = graph.declaration(id).expect("checked global source");
             let annotation = match &declaration.syntax().kind {
-                FileDeclarationKind::Global(global) => match &global.declaration {
+                FileDeclarationKind::Global(global) => match global.declaration.source() {
+                    syntax::Declaration::GroupMember {
+                        ..
+                    } => unreachable!("source() returns the original non-group declaration"),
                     syntax::Declaration::Explicit {
                         ty, ..
                     } => Some(syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(

@@ -31,6 +31,7 @@ impl Fixture {
             .procedure(jai_types::ProcedureType {
                 parameters: Box::new([boolean]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,
@@ -746,7 +747,9 @@ fn controlling_loop_declaration_cannot_claim_descendant_block_scope() {
         let mut fixture = Fixture::new();
         let local = fixture.procedure.locals[0].id();
         let body = match &mut fixture.procedure.body.statements[index] {
-            Statement::While { body, .. } => body,
+            Statement::While {
+                body, ..
+            } => body,
             Statement::Range(range) => &mut range.body,
             _ => panic!(),
         };

@@ -9,8 +9,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 jai-runtime = { path = "../jai-runtime" }
+jai-language-server = { path = "../jai-language-server" }
 
-# Export-name attributes are the only permitted unsafe syntax, in exports.rs.
+# Export-name attributes are the only permitted unsafe syntax, in exports.rs and language_server.rs.
 # The interpreter and bridge use no unsafe blocks or raw host memory pointers.
 [lints.rust]
 unsafe_code = "deny"

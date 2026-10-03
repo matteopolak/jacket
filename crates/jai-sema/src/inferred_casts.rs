@@ -72,9 +72,12 @@ pub(crate) fn cast_kind_convertible(
                 | TypeKind::Procedure(_)
         ),
         TypeKind::Procedure(_) => source == target,
-        TypeKind::Record(_) | TypeKind::Any(_) | TypeKind::FixedArray { .. } | TypeKind::String => {
-            source == target
+        TypeKind::Record(_)
+        | TypeKind::Any(_)
+        | TypeKind::FixedArray {
+            ..
         }
+        | TypeKind::String => source == target,
         TypeKind::Slice(element) => match source_kind {
             TypeKind::FixedArray {
                 element: source, ..
@@ -126,7 +129,11 @@ impl Resolver<'_> {
     ) -> Result<Expr, Diagnostic> {
         let left_inferred = matches!(left.kind, syntax::ExpressionKind::InferredCast { .. });
         let right_inferred = matches!(right.kind, syntax::ExpressionKind::InferredCast { .. });
-        let peer = if left_inferred { right } else { left };
+        let peer = if left_inferred {
+            right
+        } else {
+            left
+        };
         let target = if matches!(Operator::from(operation), Operator::And | Operator::Or) {
             self.types.scalar(ScalarType::Bool)
         } else {
@@ -270,7 +277,9 @@ impl Resolver<'_> {
             }
             TypeKind::Record(_)
             | TypeKind::Any(_)
-            | TypeKind::FixedArray { .. }
+            | TypeKind::FixedArray {
+                ..
+            }
             | TypeKind::String => {
                 if self.expression_type(&operand, span)? != target {
                     return Err(Diagnostic::new(
@@ -292,7 +301,10 @@ impl Resolver<'_> {
                     ty: target,
                     flags: self.enum_is_flags(target),
                     representation,
-                    value: ValueExpr::EnumFromInt { ty: target, value },
+                    value: ValueExpr::EnumFromInt {
+                        ty: target,
+                        value,
+                    },
                 }
             }
             TypeKind::Integer(integer) => Expr::Int(operand.cast_integer(integer, mode, span)?),
@@ -311,7 +323,9 @@ impl Resolver<'_> {
 pub(crate) fn needs_cast_context(expression: &syntax::Expression) -> bool {
     use syntax::ExpressionKind as E;
     match &expression.kind {
-        E::InferredCast { .. } => true,
+        E::InferredCast {
+            ..
+        } => true,
         E::Conditional(value) => {
             needs_cast_context(&value.then_value)
                 || value

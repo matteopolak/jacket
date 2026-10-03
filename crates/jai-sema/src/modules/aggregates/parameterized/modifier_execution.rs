@@ -123,9 +123,10 @@ impl crate::Resolver<'_> {
                         .wait_sites(id)
                         .min_by_key(|site| (site.source.index(), site.span.start, site.span.end))
                         .expect("modifier intent has a source waiter");
-                    progress
-                        .pending
-                        .push(PendingRecordModifier { id, location });
+                    progress.pending.push(PendingRecordModifier {
+                        id,
+                        location,
+                    });
                     self.meta.record_specializations.modifiers.retry(id);
                 }
             }

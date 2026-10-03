@@ -18,7 +18,11 @@ impl Fixture {
         let mut source =
             String::from("Pair::struct {left:int;right:int;} Mode::enum {ACTIVE;PASSIVE;}\n");
         for n in 0..count {
-            let mode = if n % 2 == 0 { "ACTIVE" } else { "PASSIVE" };
+            let mode = if n % 2 == 0 {
+                "ACTIVE"
+            } else {
+                "PASSIVE"
+            };
             writeln!(source, "handler{n}::(seed:int)->int #c_call {{pair:Pair;pair.left=seed+{n};pair.right=3;values:[4]int;values[0]=pair.left;values[1]=pair.right;values[2]=2;values[3]=4;sum:=0;for i:0..3 sum+=values[i];mode:=Mode.{mode};if mode == .ACTIVE sum+=7;else sum-=2;return sum;}}").unwrap();
         }
         source.push_str(

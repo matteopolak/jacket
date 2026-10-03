@@ -36,7 +36,9 @@ impl Resolver<'_> {
         }
         let element = match kind {
             TypeKind::String => self.types.scalar(ScalarType::Int(IntegerType::U8)),
-            TypeKind::FixedArray { element, .. }
+            TypeKind::FixedArray {
+                element, ..
+            }
             | TypeKind::Slice(element)
             | TypeKind::DynamicArray(element) => element,
             _ => return Err(Diagnostic::new(span, "array iteration requires a sequence")),

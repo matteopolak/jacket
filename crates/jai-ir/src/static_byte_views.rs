@@ -43,9 +43,9 @@ impl From<LayoutError> for StaticByteViewError {
 impl fmt::Display for StaticByteViewError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnaddressableBacking { .. } => {
-                f.write_str("immutable byte backing exceeds its selected pointer address space")
-            }
+            Self::UnaddressableBacking {
+                ..
+            } => f.write_str("immutable byte backing exceeds its selected pointer address space"),
             Self::SliceCount(_) => {
                 f.write_str("immutable byte view length does not fit the signed slice count")
             }
@@ -53,19 +53,20 @@ impl fmt::Display for StaticByteViewError {
             Self::ForeignObject => {
                 f.write_str("immutable byte view belongs to another static object")
             }
-            Self::BackingType { .. } => {
-                f.write_str("immutable byte view has a different nominal backing type")
-            }
-            Self::Range { .. } => {
-                f.write_str("immutable byte view exceeds its target backing layout")
-            }
-            Self::Target { .. } => {
-                f.write_str("immutable byte view uses a different selected target layout")
-            }
+            Self::BackingType {
+                ..
+            } => f.write_str("immutable byte view has a different nominal backing type"),
+            Self::Range {
+                ..
+            } => f.write_str("immutable byte view exceeds its target backing layout"),
+            Self::Target {
+                ..
+            } => f.write_str("immutable byte view uses a different selected target layout"),
         }
     }
 }
-impl std::error::Error for StaticByteViewError {}
+impl std::error::Error for StaticByteViewError {
+}
 
 impl StaticByteView {
     // Only StaticDataBuilder calls this with its checked reserved-object type.
@@ -138,7 +139,10 @@ impl StaticByteView {
             },
         )?;
         if pointer_bits < 64 && size > ((1u64 << pointer_bits) - 1) {
-            return Err(StaticByteViewError::UnaddressableBacking { size, pointer_bits });
+            return Err(StaticByteViewError::UnaddressableBacking {
+                size,
+                pointer_bits,
+            });
         }
         if self.length > i64::MAX as u64 {
             return Err(StaticByteViewError::SliceCount(self.length));

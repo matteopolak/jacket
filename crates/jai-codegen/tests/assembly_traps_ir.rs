@@ -14,6 +14,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([integer]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,

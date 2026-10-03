@@ -69,13 +69,19 @@ impl Resolver<'_> {
         suspension: Option<suspension::Request<'_>>,
         execution: Execution<'_>,
     ) -> Result<RunOutcome, jai_source::Diagnostic> {
-        let Execution { owner: id, proof } = execution;
+        let Execution {
+            owner: id,
+            proof,
+        } = execution;
         let context = self
             .compile_time
             .expect("run context was checked before body binding");
         let (result, body) = match source {
             CompileTimeBody::Block(body) => (None, body),
-            CompileTimeBody::Procedure { result, body } => {
+            CompileTimeBody::Procedure {
+                result,
+                body,
+            } => {
                 let ty = self.reflected_type_syntax(result, location.span)?;
                 (!matches!(self.types.kind(ty), Ok(TypeKind::Void)))
                     .then_some(ty)
@@ -106,6 +112,7 @@ impl Resolver<'_> {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: result.into_iter().collect(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,

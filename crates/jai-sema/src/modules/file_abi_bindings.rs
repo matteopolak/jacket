@@ -135,7 +135,10 @@ impl AllocatorSourceReceipt {
                 Some((declaration.id(), role))
             })
             .collect();
-        Self { entry, roles }
+        Self {
+            entry,
+            roles,
+        }
     }
 }
 fn receipt(graph: &ModuleGraph, file: FileInstanceId) -> Option<SourceReceipt> {

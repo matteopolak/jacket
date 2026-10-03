@@ -39,11 +39,17 @@ pub(super) fn resolve(
                 PlaceKind::Qualified(names) => {
                     push_names(&mut pending, names.root, &names.members, place.span)?;
                 }
-                PlaceKind::Member { base, member } => {
+                PlaceKind::Member {
+                    base,
+                    member,
+                } => {
                     pending.push(Pending::Name(*member, place.span));
                     pending.push(Pending::Expression(base));
                 }
-                PlaceKind::Index { base, index } => {
+                PlaceKind::Index {
+                    base,
+                    index,
+                } => {
                     pending.push(Pending::Index(index, place.span));
                     pending.push(Pending::Expression(base));
                 }
@@ -56,11 +62,17 @@ pub(super) fn resolve(
                 ExpressionKind::QualifiedName(names) => {
                     push_names(&mut pending, names.root, &names.members, expression.span)?;
                 }
-                ExpressionKind::Member { base, member } => {
+                ExpressionKind::Member {
+                    base,
+                    member,
+                } => {
                     pending.push(Pending::Name(*member, expression.span));
                     pending.push(Pending::Expression(base));
                 }
-                ExpressionKind::Index { base, index } => {
+                ExpressionKind::Index {
+                    base,
+                    index,
+                } => {
                     pending.push(Pending::Index(index, expression.span));
                     pending.push(Pending::Expression(base));
                 }
@@ -87,7 +99,10 @@ pub(super) fn resolve(
                 }
             }
             Pending::Index(expression, span) => {
-                let TypeKind::FixedArray { element, count } = *types
+                let TypeKind::FixedArray {
+                    element,
+                    count,
+                } = *types
                     .kind(owner)
                     .map_err(|error| Diagnostic::new(span, error.to_string()))?
                 else {
@@ -113,7 +128,10 @@ pub(super) fn resolve(
                         ),
                     ));
                 }
-                path.push(PathStep::Element { owner, index });
+                path.push(PathStep::Element {
+                    owner,
+                    index,
+                });
                 owner = element;
             }
         }

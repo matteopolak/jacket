@@ -4,12 +4,24 @@ use jai_types::RecordKind;
 
 pub(super) fn identity(operation: RuntimeIntrinsic) -> Option<(TypeId, bool)> {
     Some(match operation {
-        RuntimeIntrinsic::PoolGet { pool }
-        | RuntimeIntrinsic::PoolReset { pool }
-        | RuntimeIntrinsic::PoolRelease { pool } => (pool, false),
-        RuntimeIntrinsic::FlatPoolGet { pool }
-        | RuntimeIntrinsic::FlatPoolReset { pool }
-        | RuntimeIntrinsic::FlatPoolFinish { pool } => (pool, true),
+        RuntimeIntrinsic::PoolGet {
+            pool,
+        }
+        | RuntimeIntrinsic::PoolReset {
+            pool,
+        }
+        | RuntimeIntrinsic::PoolRelease {
+            pool,
+        } => (pool, false),
+        RuntimeIntrinsic::FlatPoolGet {
+            pool,
+        }
+        | RuntimeIntrinsic::FlatPoolReset {
+            pool,
+        }
+        | RuntimeIntrinsic::FlatPoolFinish {
+            pool,
+        } => (pool, true),
         _ => return None,
     })
 }
@@ -32,12 +44,24 @@ pub(super) fn bind(
     let flat = types.record_storage_definition(*pool)?.fields.len() == 5;
     shape(types, *pool, flat)?;
     Ok(match (name, flat) {
-        (IntrinsicName::PoolGet, false) => RuntimeIntrinsic::PoolGet { pool: *pool },
-        (IntrinsicName::PoolGet, true) => RuntimeIntrinsic::FlatPoolGet { pool: *pool },
-        (IntrinsicName::PoolReset, false) => RuntimeIntrinsic::PoolReset { pool: *pool },
-        (IntrinsicName::PoolReset, true) => RuntimeIntrinsic::FlatPoolReset { pool: *pool },
-        (IntrinsicName::PoolRelease, false) => RuntimeIntrinsic::PoolRelease { pool: *pool },
-        (IntrinsicName::FlatPoolFinish, true) => RuntimeIntrinsic::FlatPoolFinish { pool: *pool },
+        (IntrinsicName::PoolGet, false) => RuntimeIntrinsic::PoolGet {
+            pool: *pool,
+        },
+        (IntrinsicName::PoolGet, true) => RuntimeIntrinsic::FlatPoolGet {
+            pool: *pool,
+        },
+        (IntrinsicName::PoolReset, false) => RuntimeIntrinsic::PoolReset {
+            pool: *pool,
+        },
+        (IntrinsicName::PoolReset, true) => RuntimeIntrinsic::FlatPoolReset {
+            pool: *pool,
+        },
+        (IntrinsicName::PoolRelease, false) => RuntimeIntrinsic::PoolRelease {
+            pool: *pool,
+        },
+        (IntrinsicName::FlatPoolFinish, true) => RuntimeIntrinsic::FlatPoolFinish {
+            pool: *pool,
+        },
         _ => {
             return Err(RuntimeIntrinsicError::Signature(
                 "release belongs to Pool; fini belongs to Flat_Pool",
@@ -55,21 +79,32 @@ pub(super) fn signature(
 ) -> Result<bool, RuntimeIntrinsicError> {
     let pointer = |ty| matches!(types.kind(ty), Ok(TypeKind::Pointer(pointee)) if *pointee == pool);
     Ok(match operation {
-        RuntimeIntrinsic::PoolGet { .. } | RuntimeIntrinsic::FlatPoolGet { .. } => {
+        RuntimeIntrinsic::PoolGet {
+            ..
+        }
+        | RuntimeIntrinsic::FlatPoolGet {
+            ..
+        } => {
             matches!(parameters, [this, size] if pointer(*this)
                 && *size == types.scalar(ScalarType::Int(IntegerType::S64)))
                 && matches!(results, [result] if matches!(types.kind(*result)?, TypeKind::Pointer(pointee) if matches!(types.kind(*pointee)?, TypeKind::Void)))
         }
-        RuntimeIntrinsic::FlatPoolReset { .. } => {
+        RuntimeIntrinsic::FlatPoolReset {
+            ..
+        } => {
             matches!(parameters, [this, overwrite]
             if pointer(*this) && *overwrite == types.scalar(ScalarType::Bool))
                 && results.is_empty()
         }
-        RuntimeIntrinsic::PoolReset { .. }
-        | RuntimeIntrinsic::PoolRelease { .. }
-        | RuntimeIntrinsic::FlatPoolFinish { .. } => {
-            matches!(parameters, [this] if pointer(*this)) && results.is_empty()
+        RuntimeIntrinsic::PoolReset {
+            ..
         }
+        | RuntimeIntrinsic::PoolRelease {
+            ..
+        }
+        | RuntimeIntrinsic::FlatPoolFinish {
+            ..
+        } => matches!(parameters, [this] if pointer(*this)) && results.is_empty(),
         _ => false,
     })
 }
@@ -102,7 +137,12 @@ pub(super) fn shape(
     let integer = |ty| matches!(types.kind(ty), Ok(TypeKind::Integer(IntegerType::S64)));
     let void_pointer = |ty| matches!(types.kind(ty), Ok(TypeKind::Pointer(pointee)) if matches!(types.kind(*pointee), Ok(TypeKind::Void)));
     let valid = definition.kind == RecordKind::Struct
-        && fields.len() == if flat { 5 } else { 4 }
+        && fields.len()
+            == if flat {
+                5
+            } else {
+                4
+            }
         && integer(fields[0])
         && integer(fields[1])
         && void_pointer(fields[2])

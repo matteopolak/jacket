@@ -142,14 +142,18 @@ impl Resolver<'_> {
             |resolver| {
                 for (source, annotation, value) in defaults {
                     let expression = match &source.binding {
-                        syntax::ParameterBinding::Defaulted { expression, .. }
-                        | syntax::ParameterBinding::DefaultedType { expression, .. } => {
-                            Some(expression)
+                        syntax::ParameterBinding::Defaulted {
+                            expression, ..
                         }
+                        | syntax::ParameterBinding::DefaultedType {
+                            expression, ..
+                        } => Some(expression),
                         _ => None,
                     };
                     let contract = match expression.map(|expression| &expression.kind) {
-                        Some(syntax::ExpressionKind::TypeCast { ty, .. }) => {
+                        Some(syntax::ExpressionKind::TypeCast {
+                            ty, ..
+                        }) => {
                             let retained = resolver.retained_callback_syntax(ty, source.span)?;
                             resolver.bound_generic_callback_contract(
                                 value.type_id(resolver.types),
@@ -197,7 +201,10 @@ impl Resolver<'_> {
         let operands = match &source.kind {
             syntax::ExpressionKind::Unary(_, value) => vec![value.as_ref()],
             syntax::ExpressionKind::Binary(_, left, right) => vec![left.as_ref(), right.as_ref()],
-            syntax::ExpressionKind::Index { base, index } => vec![base.as_ref(), index.as_ref()],
+            syntax::ExpressionKind::Index {
+                base,
+                index,
+            } => vec![base.as_ref(), index.as_ref()],
             _ => return Ok(None),
         };
         let arity = definition

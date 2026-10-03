@@ -154,9 +154,10 @@ impl Resolver<'_> {
                     let name = String::from_utf8(selected).map_err(|_| {
                         Diagnostic::new(span, "using mapped name must be valid UTF-8")
                     })?;
-                    decision
-                        .placeholders
-                        .push(UsingPlaceholder { name, placeholder });
+                    decision.placeholders.push(UsingPlaceholder {
+                        name,
+                        placeholder,
+                    });
                 }
                 UsingMemberBinding::Operators(declarations) if selected == member.name => {
                     decision.selected_operator_declarations.extend(declarations)
@@ -213,7 +214,10 @@ impl Resolver<'_> {
                         }),
                     };
                     if let Some(binding) = binding {
-                        decision.bindings.push(UsingBinding { name, binding });
+                        decision.bindings.push(UsingBinding {
+                            name,
+                            binding,
+                        });
                     } else if lexical {
                         let original = std::str::from_utf8(&member.name).map_err(|_| {
                             Diagnostic::new(span, "using source name must be valid UTF-8")

@@ -191,7 +191,11 @@ impl<'a> DomainInference<'a> {
                     ScalarType::Int(ty) => D::Integer(*ty),
                 }
             }
-            ExpressionKind::TypeCast { mode, ty, value } => {
+            ExpressionKind::TypeCast {
+                mode,
+                ty,
+                value,
+            } => {
                 let value = child(value)?;
                 let TypeSyntax::Builtin(BuiltinType::Float(ty)) = ty else {
                     typed.set(true);
@@ -384,9 +388,11 @@ impl<'a> DomainInference<'a> {
                     }
                 }
             }
-            ExpressionKind::TypeCast { mode, ty, .. } => {
-                floats::cast(ty, child(0, lookup)?, *mode, span)?
-            }
+            ExpressionKind::TypeCast {
+                mode,
+                ty,
+                ..
+            } => floats::cast(ty, child(0, lookup)?, *mode, span)?,
             ExpressionKind::Cast(mode, ty, _) => {
                 let value = child(0, lookup)?;
                 match ty {

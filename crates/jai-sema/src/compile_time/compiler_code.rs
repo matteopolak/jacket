@@ -64,7 +64,13 @@ enum CompilerBody<'a> {
 impl<'a> CompilerBody<'a> {
     fn from_run(body: &'a CompileTimeBody) -> Self {
         match body {
-            CompileTimeBody::Procedure { result, body } => Self::Procedure { result, body },
+            CompileTimeBody::Procedure {
+                result,
+                body,
+            } => Self::Procedure {
+                result,
+                body,
+            },
             CompileTimeBody::Expression(expression) => Self::Expression(expression),
             _ => Self::Other,
         }
@@ -133,7 +139,10 @@ impl crate::Resolver<'_> {
             jai_source::Diagnostic::new(span, "compiler Code requires source readiness")
         })?;
         let source = self.debug.source().unwrap_or(context.source);
-        let location = SourceSpan { source, span };
+        let location = SourceSpan {
+            source,
+            span,
+        };
         let key = RunCacheKey {
             lexical: self.run_lexical_key(span)?,
             flags,
@@ -350,7 +359,10 @@ impl crate::Resolver<'_> {
                                     context.limits,
                                 )
                                 .map(SelectedPublication::Code),
-                            CompilerDestination::Declarations { request, admission } => {
+                            CompilerDestination::Declarations {
+                                request,
+                                admission,
+                            } => {
                                 let code = self
                                     .compiler_declaration_insertion_code(
                                         quote,
@@ -458,7 +470,9 @@ impl crate::Resolver<'_> {
             }
             (
                 CompilerPublication::Declarations(code),
-                CompilerDestination::Declarations { request, .. },
+                CompilerDestination::Declarations {
+                    request, ..
+                },
             ) if code.request == request.id => Ok(Some(CompilerRunResult::Declarations(code))),
             _ => Err(jai_source::Diagnostic::at_source(
                 location,
@@ -491,7 +505,10 @@ impl crate::Resolver<'_> {
             )
         })?;
         let (key, body, named) = match body {
-            CompilerBody::Procedure { result, body } => {
+            CompilerBody::Procedure {
+                result,
+                body,
+            } => {
                 if self.lexical_annotation(result, location.span)? != self.types.code_type() {
                     return Ok(None);
                 }
@@ -502,13 +519,20 @@ impl crate::Resolver<'_> {
                 (key, SourceBody::Anonymous(body), false)
             }
             CompilerBody::Expression(expression) => {
-                if let jai_syntax::ExpressionKind::IndirectCall { callee, args } = &expression.kind
+                if let jai_syntax::ExpressionKind::IndirectCall {
+                    callee,
+                    args,
+                } = &expression.kind
                     && let jai_syntax::ExpressionKind::AnonymousProcedure(procedure) = &callee.kind
                 {
                     let [result] = procedure.results.as_slice() else {
                         return Ok(None);
                     };
-                    let jai_syntax::ResultBinding::Typed { ty, default } = &result.binding else {
+                    let jai_syntax::ResultBinding::Typed {
+                        ty,
+                        default,
+                    } = &result.binding
+                    else {
                         return Ok(None);
                     };
                     if self.lexical_annotation(ty, result.span)? != self.types.code_type() {

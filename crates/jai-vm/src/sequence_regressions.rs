@@ -237,7 +237,12 @@ fn empty_static_array_and_string_data_are_null_without_allocations() {
     let Outcome::Complete(values) = view.outcome else {
         panic!("{view:?}");
     };
-    let Value::Slice { pointer, count, .. } = &values[0] else {
+    let Value::Slice {
+        pointer,
+        count,
+        ..
+    } = &values[0]
+    else {
         panic!("{values:?}");
     };
     assert!(pointer.is_null());
@@ -596,7 +601,10 @@ fn materialization_preserves_non_utf8_bytes_and_bounds_total_output() {
         Value::String(vec![0xff, 0, 7])
     );
     assert!(matches!(
-        vm.materialize_value(&Value::StringView { pointer, count: 4 }),
+        vm.materialize_value(&Value::StringView {
+            pointer,
+            count: 4
+        }),
         Err(Error::OutOfBounds { .. })
     ));
     let strict = Vm::new(
@@ -915,7 +923,10 @@ fn compiler_effect_arguments_materialize_string_descriptors_inside_transaction()
     );
     let result = vm.execute(
         ProcedureId::new(99),
-        vec![Value::StringView { pointer, count: 4 }],
+        vec![Value::StringView {
+            pointer,
+            count: 4,
+        }],
     );
     assert!(matches!(
         result.outcome,
@@ -1050,7 +1061,10 @@ fn signed_descriptor_fields_roundtrip_through_local_storage() {
             vec![
                 Statement::Store(
                     descriptor.place(),
-                    ValueExpr::SequenceBuild { ty, initializers },
+                    ValueExpr::SequenceBuild {
+                        ty,
+                        initializers,
+                    },
                 ),
                 Statement::Store(count, ValueExpr::Int(int(i64::MIN.into()))),
                 return_value(ValueExpr::Load(count)),
@@ -1118,7 +1132,10 @@ fn signed_count_field_reads_and_unchecked_access_do_not_validate_logical_extents
             if ty == dynamic {
                 initializers.push((SequenceField::Allocated, ValueExpr::Int(int(-9))));
             }
-            let descriptor = ValueExpr::SequenceBuild { ty, initializers };
+            let descriptor = ValueExpr::SequenceBuild {
+                ty,
+                initializers,
+            };
             assert_eq!(
                 vm.evaluate(&field(descriptor.clone(), SequenceField::Count, integer))
                     .outcome,

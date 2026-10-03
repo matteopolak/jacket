@@ -185,7 +185,10 @@ fn array_record_padding_packing_and_union_views_share_layout_offsets() {
     image
         .write(&types, target, 8, word, &int(IntegerType::U32, 30))
         .unwrap();
-    let Value::Record { fields, .. } = image.read(&types, target, 0, record).unwrap() else {
+    let Value::Record {
+        fields, ..
+    } = image.read(&types, target, 0, record).unwrap()
+    else {
         panic!()
     };
     assert_eq!(
@@ -375,7 +378,13 @@ fn descriptor_relocations_and_counts_round_trip_without_host_addresses() {
                 allocator: None,
             },
         ),
-        (string, Value::StringView { pointer, count: 3 }),
+        (
+            string,
+            Value::StringView {
+                pointer,
+                count: 3,
+            },
+        ),
     ] {
         let image = ByteImage::encode(&types, target, ty, &value, 128).unwrap();
         assert_eq!(image.read(&types, target, 0, ty).unwrap(), value);
@@ -445,6 +454,7 @@ fn procedure_relocations_reject_data_handles_and_byte_reconstruction() {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::None,
             variadic: jai_types::Variadic::None,
@@ -540,7 +550,10 @@ fn narrow_target_descriptor_offsets_use_target_pointer_size() {
     let pointer = memory
         .allocate(&types, byte, Some(int(IntegerType::U8, 65)))
         .unwrap();
-    let value = Value::StringView { pointer, count: 1 };
+    let value = Value::StringView {
+        pointer,
+        count: 1,
+    };
     let image = ByteImage::encode(&types, target, string, &value, 64).unwrap();
     assert_eq!(image.len(), 12);
     assert_eq!(&image.bytes()[..8], &[0, 0, 0, 0, 0, 0, 0, 1]);
@@ -684,9 +697,15 @@ fn signed_descriptor_fields_round_trip_without_consumer_validation() {
         let mut image = ByteImage::encode(&types, target, ty, &value, 128).unwrap();
         assert_eq!(image.read(&types, target, 0, ty).unwrap(), value);
         let count = match &value {
-            Value::Slice { count, .. }
-            | Value::StringView { count, .. }
-            | Value::DynamicArray { count, .. } => *count,
+            Value::Slice {
+                count, ..
+            }
+            | Value::StringView {
+                count, ..
+            }
+            | Value::DynamicArray {
+                count, ..
+            } => *count,
             _ => unreachable!(),
         };
         assert_eq!(
@@ -708,9 +727,15 @@ fn signed_descriptor_fields_round_trip_without_consumer_validation() {
             )
             .unwrap();
         match image.read(&types, target, 0, ty).unwrap() {
-            Value::Slice { count, .. }
-            | Value::StringView { count, .. }
-            | Value::DynamicArray { count, .. } => assert_eq!(count, -1),
+            Value::Slice {
+                count, ..
+            }
+            | Value::StringView {
+                count, ..
+            }
+            | Value::DynamicArray {
+                count, ..
+            } => assert_eq!(count, -1),
             _ => panic!("expected descriptor"),
         }
         if ty == dynamic {
@@ -732,7 +757,9 @@ fn signed_descriptor_fields_round_trip_without_consumer_validation() {
 fn runtime_type_null_storage_requires_no_header_schema() {
     let types = TypeRegistry::new();
     let ty = types.meta_type();
-    let value = Value::Type { descriptor: None };
+    let value = Value::Type {
+        descriptor: None,
+    };
     for target in [
         ByteTarget::default(),
         ByteTarget {
@@ -829,7 +856,9 @@ fn runtime_type_storage_shares_ordinary_pointer_handles_and_address_origins() {
     copied.fill_range(0, 8, 0).unwrap();
     assert_eq!(
         copied.read(&types, target, 0, ty).unwrap(),
-        Value::Type { descriptor: None }
+        Value::Type {
+            descriptor: None
+        }
     );
     let forged = ByteImage::from_bytes(target, image.bytes().to_vec(), 128).unwrap();
     assert!(matches!(

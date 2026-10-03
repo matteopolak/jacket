@@ -7,7 +7,9 @@ pub(super) fn declarations(library: &Library) -> Result<(), IrError> {
         dependency
             .validate()
             .map_err(|_| unknown("foreign library metadata", dependency.id.index()))?;
-        if let ForeignLibraryId::Local { procedure, .. } = dependency.id
+        if let ForeignLibraryId::Local {
+            procedure, ..
+        } = dependency.id
             && library.procedure_by_id(procedure).is_none()
             && library.source_procedure_owners().get(procedure).is_none()
         {
@@ -64,7 +66,10 @@ pub(super) fn declarations(library: &Library) -> Result<(), IrError> {
         if let PrototypeOrigin::Intrinsic(intrinsic) = prototype.origin {
             intrinsic.validate_signature_shape(prototype.signature, &library.types)?;
         }
-        if let PrototypeOrigin::SourceContract { symbol } = &prototype.origin {
+        if let PrototypeOrigin::SourceContract {
+            symbol,
+        } = &prototype.origin
+        {
             if symbol.is_empty() || symbol.as_bytes().contains(&0) {
                 return Err(unknown("source contract symbol", prototype.id.index()));
             }
@@ -136,14 +141,18 @@ impl Context<'_> {
     ) -> Result<(), IrError> {
         let fixed = signature.parameters.len();
         match signature.variadic {
-            jai_types::Variadic::C { .. } if arguments.len() < fixed => {
+            jai_types::Variadic::C {
+                ..
+            } if arguments.len() < fixed => {
                 return Err(IrError::Arity {
                     kind: "fixed call arguments",
                     expected: fixed,
                     actual: arguments.len(),
                 });
             }
-            jai_types::Variadic::C { .. } => {}
+            jai_types::Variadic::C {
+                ..
+            } => {}
             _ => arity("call arguments", fixed, arguments.len())?,
         }
         let mut seen = HashSet::new();
@@ -154,7 +163,11 @@ impl Context<'_> {
                     index: parameter.index(),
                 });
             }
-            let actual = if let ValueExpr::SequenceConcat { ty, parts } = value {
+            let actual = if let ValueExpr::SequenceConcat {
+                ty,
+                parts,
+            } = value
+            {
                 let jai_types::Variadic::Jai {
                     parameter: pack,
                     element,

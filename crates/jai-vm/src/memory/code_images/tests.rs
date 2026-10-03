@@ -7,6 +7,7 @@ fn fixture() -> (TypeRegistry, TypeId, TypeId, Value) {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -91,6 +92,7 @@ fn reboxed_code_slot_recovers_only_original_signature_and_canonical_token() {
         .procedure(ProcedureType {
             parameters: Box::new([types.scalar(ScalarType::Int(IntegerType::U8))]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -98,7 +100,9 @@ fn reboxed_code_slot_recovers_only_original_signature_and_canonical_token() {
         .unwrap();
     assert_eq!(
         slot.read(&types, memory.target(), 0, other),
-        Err(Error::TypeMismatch { expected: other })
+        Err(Error::TypeMismatch {
+            expected: other
+        })
     );
     slot.retokenize_handles(|_| Ok(13)).unwrap();
     assert!(slot.read(&types, memory.target(), 0, signature).is_err());

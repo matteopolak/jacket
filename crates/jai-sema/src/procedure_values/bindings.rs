@@ -66,6 +66,7 @@ impl CallbackSignature {
         syntax: &syntax::ProcedureTypeSyntax,
         types: &TypeRegistry,
         source_parameters: &[TypeId],
+        defaults: &[Option<ParameterDefault>],
     ) -> Self {
         Self {
             argument_policy: CallbackArgumentPolicy::Established,
@@ -80,7 +81,9 @@ impl CallbackSignature {
                             fixed_parameters: source_parameters.len(),
                         }
                     } else {
-                        crate::overloads::CandidateVariadic::Jai { parameter }
+                        crate::overloads::CandidateVariadic::Jai {
+                            parameter,
+                        }
                     }
                 }),
             results: types
@@ -103,9 +106,10 @@ impl CallbackSignature {
                     !(parameter.variadic && syntax.convention == CallingConvention::C)
                 })
                 .zip(source_parameters)
-                .map(|(parameter, ty)| CallbackParameter {
+                .enumerate()
+                .map(|(index, (parameter, ty))| CallbackParameter {
                     name: parameter.name,
-                    default: None,
+                    default: defaults.get(index).cloned().flatten(),
                     ty: *ty,
                     evaluation: parameter.evaluation,
                 })
@@ -140,7 +144,9 @@ impl Resolver<'_> {
     ) -> Result<(), Diagnostic> {
         let syntax = match &parameter.binding {
             syntax::ParameterBinding::RequiredType(ty)
-            | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => Some(ty),
+            | syntax::ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => Some(ty),
             syntax::ParameterBinding::DefaultedType {
                 ty: None,
                 expression,
@@ -149,7 +155,9 @@ impl Resolver<'_> {
                 ty: None,
                 expression,
             } => match &expression.kind {
-                syntax::ExpressionKind::TypeCast { ty, .. } => Some(ty),
+                syntax::ExpressionKind::TypeCast {
+                    ty, ..
+                } => Some(ty),
                 _ => None,
             },
             _ => None,
@@ -193,19 +201,45 @@ impl Resolver<'_> {
         value: Option<&Expr>,
         span: Span,
     ) -> Result<(), Diagnostic> {
-        if let syntax::Declaration::UnresolvedExplicit { ty, .. }
-        | syntax::Declaration::External { ty, .. } = declaration
+        if let syntax::Declaration::UnresolvedExplicit {
+            ty, ..
+        }
+        | syntax::Declaration::External {
+            ty, ..
+        } = declaration
         {
             return self.bind_callback_annotation(place, ty, span);
         }
-        if let Some(Expr::Typed { value, .. } | Expr::Pointer { value, .. }) = value {
+        if let Some(
+            Expr::Typed {
+                value, ..
+            }
+            | Expr::Pointer {
+                value, ..
+            },
+        ) = value
+        {
             let initializer = match declaration {
-                syntax::Declaration::External { .. } => None,
-                syntax::Declaration::Inferred { initializer, .. } => Some(initializer),
-                syntax::Declaration::Explicit { initializer, .. }
-                | syntax::Declaration::UnresolvedExplicit { initializer, .. } => {
-                    initializer.as_ref()
+                syntax::Declaration::GroupMember {
+                    ..
+                } => {
+                    return Err(Diagnostic::new(
+                        self.span,
+                        "file declaration group requires its source publication owner",
+                    ));
                 }
+                syntax::Declaration::External {
+                    ..
+                } => None,
+                syntax::Declaration::Inferred {
+                    initializer, ..
+                } => Some(initializer),
+                syntax::Declaration::Explicit {
+                    initializer, ..
+                }
+                | syntax::Declaration::UnresolvedExplicit {
+                    initializer, ..
+                } => initializer.as_ref(),
             };
             let contract = match initializer {
                 Some(source) => self.callback_expression_contract(source, value, span)?,

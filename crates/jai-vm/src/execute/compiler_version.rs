@@ -51,8 +51,14 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     ))?;
                 fields.push(Value::Int(value));
             }
-            self.memory
-                .store(types, pointer, Value::Record { ty: record, fields })?;
+            self.memory.store(
+                types,
+                pointer,
+                Value::Record {
+                    ty: record,
+                    fields,
+                },
+            )?;
         }
         Ok(vec![Value::String(VERSION.as_bytes().to_vec())])
     }
@@ -130,7 +136,13 @@ mod tests {
                     Value::Int(Integer::checked(IntegerType::S32, part.parse().unwrap()).unwrap())
                 })
                 .collect();
-                assert_eq!(actual, Value::Record { ty: record, fields });
+                assert_eq!(
+                    actual,
+                    Value::Record {
+                        ty: record,
+                        fields
+                    }
+                );
             }
         }
     }
@@ -179,6 +191,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![pointer_type].into(),
                 results: vec![types.string()].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::Jai,
                 context: jai_types::ContextMode::Implicit,
                 variadic: jai_types::Variadic::None,
@@ -190,7 +203,9 @@ mod tests {
             signatures: [(id, signature)].into(),
             compiler: crate::CompilerProcedure {
                 signature,
-                intrinsic: crate::CompilerIntrinsic::SourceVersionInfo { record },
+                intrinsic: crate::CompilerIntrinsic::SourceVersionInfo {
+                    record,
+                },
             },
         };
         let mut vm = Vm::new(&provider, crate::NoEffects, Limits::default()).unwrap();
@@ -200,7 +215,9 @@ mod tests {
                 .outcome,
             Outcome::Complete(vec![Value::String(VERSION.as_bytes().to_vec())]),
         );
-        let Value::Record { fields, .. } = vm.memory.load(&provider.types, &pointer).unwrap()
+        let Value::Record {
+            fields, ..
+        } = vm.memory.load(&provider.types, &pointer).unwrap()
         else {
             panic!("version record must be initialized by the checked compiler call");
         };

@@ -106,6 +106,7 @@ fn signature(registry: &mut TypeRegistry, parameters: Vec<TypeId>, result: TypeI
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: Box::new([result]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -325,7 +326,9 @@ fn value<'ctx>(
         Literal::Int(value) => storage.into_int_type().const_int(*value, false).into(),
         Literal::Float(value) => storage.into_float_type().const_float(*value).into(),
         Literal::Fields(fields) => match *lowerer.registry().kind(ty).unwrap() {
-            TypeKind::FixedArray { element, .. } => {
+            TypeKind::FixedArray {
+                element, ..
+            } => {
                 let mut result = storage.into_array_type().const_zero();
                 for (index, field) in fields.iter().enumerate() {
                     let field = value(context, builder, lowerer, target, element, field);

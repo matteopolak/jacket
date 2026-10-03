@@ -62,8 +62,12 @@ impl Defaults<'_, '_> {
                         .types
                         .validate_field(owner, field)
                         .map_err(|error| Diagnostic::new(source.span, error.to_string())),
-                    promoted_literals::PathStep::Element { owner: array, .. } => {
-                        let TypeKind::FixedArray { element, .. } = *self
+                    promoted_literals::PathStep::Element {
+                        owner: array, ..
+                    } => {
+                        let TypeKind::FixedArray {
+                            element, ..
+                        } = *self
                             .types
                             .kind(array)
                             .map_err(|error| Diagnostic::new(source.span, error.to_string()))?

@@ -73,7 +73,9 @@ impl Resolver<'_> {
         let mut renamed = HashSet::new();
         let mut placeholders = vec![];
         for (member, name) in candidates.drain(..).zip(selected) {
-            let Some(name) = name else { continue };
+            let Some(name) = name else {
+                continue;
+            };
             if !renamed.insert(name.clone()) {
                 return Err(Diagnostic::new(span, "using produces duplicate names"));
             }

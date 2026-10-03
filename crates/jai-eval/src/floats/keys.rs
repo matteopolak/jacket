@@ -1,7 +1,8 @@
 //! Canonical bound expression identity excludes diagnostic source positions.
 use super::*;
 mod encoding;
-pub use encoding::WeakFloatEncodingError;
+mod retained_metadata;
+pub use encoding::{WeakFloatAdmissionError, WeakFloatEncodingError};
 
 /// Exact contextual constant identity. Nodes contain validated literals and
 /// numeric operations, never rounded fallback values or diagnostic locations.
@@ -100,7 +101,8 @@ mod tests {
         assert_ne!(left, right);
     }
 }
-impl Eq for WeakFloatKey {}
+impl Eq for WeakFloatKey {
+}
 impl std::hash::Hash for WeakFloatKey {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // Equal semantic trees have equal cached hashes, regardless of sharing.

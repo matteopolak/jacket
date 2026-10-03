@@ -21,14 +21,18 @@ impl fmt::Display for Error {
                 f,
                 "union payload size {size} exceeds the LLVM array API limit"
             ),
-            Self::Layout { expected, actual } => write!(
+            Self::Layout {
+                expected,
+                actual,
+            } => write!(
                 f,
                 "union storage differs from target policy: expected {expected:?}, actual {actual:?}"
             ),
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 /// The zero-length carrier imposes the strongest member alignment without
 /// representing an active member. The byte payload begins at offset zero.

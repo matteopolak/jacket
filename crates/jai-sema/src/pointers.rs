@@ -39,11 +39,15 @@ impl Resolver<'_> {
     ) -> Result<Expr, Diagnostic> {
         let ty = expected
             .or(match &yes {
-                Expr::Pointer { ty, .. } => Some(*ty),
+                Expr::Pointer {
+                    ty, ..
+                } => Some(*ty),
                 _ => None,
             })
             .or(match &no {
-                Expr::Pointer { ty, .. } => Some(*ty),
+                Expr::Pointer {
+                    ty, ..
+                } => Some(*ty),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -94,7 +98,10 @@ impl Resolver<'_> {
             .map_err(|error| Diagnostic::new(span, error.to_string()))?;
         Ok(Expr::Pointer {
             ty,
-            value: ValueExpr::AddressOf { place, ty },
+            value: ValueExpr::AddressOf {
+                place,
+                ty,
+            },
         })
     }
 
@@ -104,7 +111,10 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<Place, Diagnostic> {
         let value = self.expr(source)?;
-        let Expr::Pointer { value, .. } = value else {
+        let Expr::Pointer {
+            value, ..
+        } = value
+        else {
             return Err(Diagnostic::new(
                 span,
                 "dereference requires a typed pointer",
@@ -167,7 +177,9 @@ impl Resolver<'_> {
                     .dereference(pointer, self.types)
                     .map_err(|error| Diagnostic::new(span, error.to_string()))
             }
-            TypeKind::FixedArray { .. }
+            TypeKind::FixedArray {
+                ..
+            }
             | TypeKind::Slice(_)
             | TypeKind::DynamicArray(_)
             | TypeKind::String => {
@@ -229,7 +241,9 @@ impl Resolver<'_> {
             .kind(base_ty)
             .map_err(|error| Diagnostic::new(span, error.to_string()))?
         {
-            TypeKind::FixedArray { element, .. }
+            TypeKind::FixedArray {
+                element, ..
+            }
             | TypeKind::Slice(element)
             | TypeKind::DynamicArray(element)
             | TypeKind::Pointer(element) => *element,
@@ -321,7 +335,9 @@ impl Resolver<'_> {
     ) -> Result<Expr, Diagnostic> {
         if matches!(operator, BinaryOp::Add | BinaryOp::Subtract) {
             let void_type = |value: &Expr| match value {
-                Expr::Pointer { ty, .. } if matches!(self.types.kind(*ty), Ok(TypeKind::Pointer(element)) if *element == self.types.void()) => {
+                Expr::Pointer {
+                    ty, ..
+                } if matches!(self.types.kind(*ty), Ok(TypeKind::Pointer(element)) if *element == self.types.void()) => {
                     Some(*ty)
                 }
                 _ => None,
@@ -378,10 +394,25 @@ impl Resolver<'_> {
                     (Expr::Null, Expr::Null) => {
                         return Ok(Expr::Bool(BoolExpr::Constant(operation == Equality::Equal)));
                     }
-                    (Expr::Pointer { ty, value }, Expr::Null) => (ty, value, ValueExpr::Zero(ty)),
-                    (Expr::Null, Expr::Pointer { ty, value }) => (ty, ValueExpr::Zero(ty), value),
                     (
-                        Expr::Pointer { ty, value: left },
+                        Expr::Pointer {
+                            ty,
+                            value,
+                        },
+                        Expr::Null,
+                    ) => (ty, value, ValueExpr::Zero(ty)),
+                    (
+                        Expr::Null,
+                        Expr::Pointer {
+                            ty,
+                            value,
+                        },
+                    ) => (ty, ValueExpr::Zero(ty), value),
+                    (
+                        Expr::Pointer {
+                            ty,
+                            value: left,
+                        },
                         Expr::Pointer {
                             ty: right_ty,
                             value: right,
@@ -429,9 +460,30 @@ impl Resolver<'_> {
                     },
                 )));
             }
-            (BinaryOp::Add, Expr::Pointer { ty, value }, offset) => (ty, value, offset, false),
-            (BinaryOp::Subtract, Expr::Pointer { ty, value }, offset) => (ty, value, offset, true),
-            (BinaryOp::Add, offset, Expr::Pointer { ty, value }) => {
+            (
+                BinaryOp::Add,
+                Expr::Pointer {
+                    ty,
+                    value,
+                },
+                offset,
+            ) => (ty, value, offset, false),
+            (
+                BinaryOp::Subtract,
+                Expr::Pointer {
+                    ty,
+                    value,
+                },
+                offset,
+            ) => (ty, value, offset, true),
+            (
+                BinaryOp::Add,
+                offset,
+                Expr::Pointer {
+                    ty,
+                    value,
+                },
+            ) => {
                 let TypeKind::Pointer(element) = self
                     .types
                     .kind(ty)

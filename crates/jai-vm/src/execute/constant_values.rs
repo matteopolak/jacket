@@ -52,7 +52,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     }
                 }
             }
-            ConstantKind::Union { field, value } => Value::Union {
+            ConstantKind::Union {
+                field,
+                value,
+            } => Value::Union {
                 ty: constant.ty,
                 field: field.index(),
                 value: Box::new(self.constant_value(value, depth + 1)?),

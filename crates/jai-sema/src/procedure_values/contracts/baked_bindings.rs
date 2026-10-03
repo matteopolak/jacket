@@ -3,17 +3,19 @@ use super::*;
 
 impl Resolver<'_> {
     pub(crate) fn baked_callback_call_source(
-        &self,
+        &mut self,
         path: &syntax::NamePath,
         span: Span,
     ) -> Result<Option<syntax::Expression>, Diagnostic> {
-        if self.baked_callable_type(path).is_none() {
+        if !self.call_is_indirect(path, span) {
             return Ok(None);
         }
-        self.checked_baked_callback_binding_contract(path, span)?
-            .ok_or_else(|| {
-                Diagnostic::new(span, "baked callback has no checked source contract")
-            })?;
+        if self.baked_callable_type(path).is_some() {
+            self.checked_baked_callback_binding_contract(path, span)?
+                .ok_or_else(|| {
+                    Diagnostic::new(span, "baked callback has no checked source contract")
+                })?;
+        }
         Ok(Some(syntax::Expression {
             kind: if path.members.is_empty() {
                 syntax::ExpressionKind::Name(path.root)
@@ -99,9 +101,15 @@ impl Resolver<'_> {
         };
         let annotation = match &source.binding {
             syntax::ParameterBinding::RequiredType(ty)
-            | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => Some(ty),
-            syntax::ParameterBinding::DefaultedType { ty: None, .. }
-            | syntax::ParameterBinding::Defaulted { ty: None, .. } => None,
+            | syntax::ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => Some(ty),
+            syntax::ParameterBinding::DefaultedType {
+                ty: None, ..
+            }
+            | syntax::ParameterBinding::Defaulted {
+                ty: None, ..
+            } => None,
             _ => return Ok(true),
         };
         let Some(annotation) = annotation else {
@@ -180,9 +188,15 @@ impl Resolver<'_> {
         };
         let annotation = match &source.binding {
             syntax::ParameterBinding::RequiredType(ty)
-            | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => ty,
-            syntax::ParameterBinding::DefaultedType { ty: None, .. }
-            | syntax::ParameterBinding::Defaulted { ty: None, .. } => {
+            | syntax::ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => ty,
+            syntax::ParameterBinding::DefaultedType {
+                ty: None, ..
+            }
+            | syntax::ParameterBinding::Defaulted {
+                ty: None, ..
+            } => {
                 if !self.callback_contract_type(value.ty, 0) {
                     return Ok(false);
                 }

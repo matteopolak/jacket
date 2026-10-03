@@ -219,3 +219,28 @@ fn context_parameter_defaults_use_the_established_schema() {
         42
     );
 }
+
+
+#[test]
+fn deferred_push_keeps_selected_same_block_forward_aliases() {
+    assert_eq!(
+        result(
+            "#add_context number:int=2; main::()->int #no_context {value:T=40; push_context,defer_pop; #if true {T::int;} return value+context.number;}"
+        ),
+        42
+    );
+}
+
+#[test]
+fn deferred_push_checks_its_value_and_unreachable_source() {
+    let error = program("#add_context number:int=2; main::()->int {push_context,defer_pop 42; return context.number;}").unwrap_err();
+    assert!(
+        error.message.contains("convert") || error.message.contains("type"),
+        "{}",
+        error.message
+    );
+    let error =
+        program("#add_context number:int=2; main::()->int {return 42; push_context,defer_pop;}")
+            .unwrap_err();
+    assert_eq!(error.message, "unreachable statement");
+}

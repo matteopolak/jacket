@@ -256,17 +256,19 @@ fn method_type(
     } = input;
     use aggregates::parameterized::RecordMethodSource;
     use syntax::{ParameterBinding as P, ResultBinding as R};
-    let (parameters, results, convention, context) = match &method.source {
+    let (parameters, results, convention, return_abi, context) = match &method.source {
         RecordMethodSource::Procedure(source) => (
             &source.parameters,
             &source.results,
             source.convention,
+            source.return_abi,
             source.context,
         ),
         RecordMethodSource::Prototype(source) => (
             &source.parameters,
             &source.results,
             source.convention,
+            source.return_abi,
             source.context,
         ),
         RecordMethodSource::Constant(source) => {
@@ -309,10 +311,14 @@ fn method_type(
             continue;
         }
         let syntax = match &parameter.binding {
-            P::Required(ty) | P::Defaulted { ty: Some(ty), .. } => {
-                syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty))
-            }
-            P::RequiredType(ty) | P::DefaultedType { ty: Some(ty), .. } => ty.clone(),
+            P::Required(ty)
+            | P::Defaulted {
+                ty: Some(ty), ..
+            } => syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty)),
+            P::RequiredType(ty)
+            | P::DefaultedType {
+                ty: Some(ty), ..
+            } => ty.clone(),
             _ => {
                 return Err(failure(
                     request,
@@ -346,7 +352,10 @@ fn method_type(
     }
     let mut bound_results = vec![];
     for result in results {
-        let R::Typed { ty, .. } = &result.binding else {
+        let R::Typed {
+            ty, ..
+        } = &result.binding
+        else {
             return Err(failure(
                 request,
                 "inferred interface method results require semantic type inference",
@@ -367,6 +376,7 @@ fn method_type(
         .procedure(ProcedureType {
             parameters: bound_parameters.into_boxed_slice(),
             results: bound_results.into_boxed_slice(),
+            return_abi: return_abi,
             convention,
             context,
             variadic,

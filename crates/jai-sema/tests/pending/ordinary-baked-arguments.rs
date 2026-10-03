@@ -49,7 +49,10 @@ fn ordinary_bakes_create_real_wrappers_and_keep_nontrailing_slots() {
         .iter()
         .find(|procedure| procedure.parameters.len() == 2)
         .unwrap();
-    let jai_ir::Statement::CallResults { call, .. } = &wrapper.body.statements[0] else {
+    let jai_ir::Statement::CallResults {
+        call, ..
+    } = &wrapper.body.statements[0]
+    else {
         panic!("wrapper contains its genuine original call");
     };
     assert_eq!(

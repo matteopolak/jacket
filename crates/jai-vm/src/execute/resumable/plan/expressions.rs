@@ -160,7 +160,10 @@ impl Builder<'_> {
         self.reserve(0, depth)?;
         let ty = expression.type_id(self.types);
         let (op, operands) = match expression {
-            ValueExpr::StorageBitcast { source, cast } => {
+            ValueExpr::StorageBitcast {
+                source,
+                cast,
+            } => {
                 let (source, from_place) = match source {
                     StorageBitcastSource::Place(place) => (self.place(*place, depth + 1)?, true),
                     StorageBitcastSource::Value(value) => (self.value(value, depth + 1)?, false),
@@ -173,7 +176,11 @@ impl Builder<'_> {
                     vec![source],
                 )
             }
-            ValueExpr::Bind { bindings, body, .. } => {
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ..
+            } => {
                 self.reserve(bindings.len(), depth)?;
                 let mut lowered = Vec::with_capacity(bindings.len());
                 for (binding, value) in bindings {
@@ -192,7 +199,9 @@ impl Builder<'_> {
                     depth,
                 );
             }
-            ValueExpr::Bound { binding, .. } => {
+            ValueExpr::Bound {
+                binding, ..
+            } => {
                 if Some(binding.procedure()) != self.binding_owner {
                     return Err(Error::InvalidIr("expression binding has another owner"));
                 }
@@ -200,12 +209,19 @@ impl Builder<'_> {
             }
             ValueExpr::NativePointer(value) => (ApplyOp::NativePointer(value.clone()), vec![]),
             ValueExpr::RuntimeType(value) => (ApplyOp::RuntimeType(value.clone()), vec![]),
-            ValueExpr::TypeDescriptor { value, ty } => (
+            ValueExpr::TypeDescriptor {
+                value,
+                ty,
+            } => (
                 ApplyOp::TypeDescriptor(*ty),
                 vec![self.value(value, depth + 1)?],
             ),
-            ValueExpr::Context { ty } => (ApplyOp::Context(*ty), vec![]),
-            ValueExpr::Conditional { expression, .. } => {
+            ValueExpr::Context {
+                ty,
+            } => (ApplyOp::Context(*ty), vec![]),
+            ValueExpr::Conditional {
+                expression, ..
+            } => {
                 let condition = self.boolean(&expression.condition, depth + 1)?;
                 let then_node = self.value(&expression.then_value, depth + 1)?;
                 let else_node = self.value(&expression.else_value, depth + 1)?;
@@ -219,7 +235,11 @@ impl Builder<'_> {
                     depth,
                 );
             }
-            ValueExpr::StaticAddress { data, address, .. } => {
+            ValueExpr::StaticAddress {
+                data,
+                address,
+                ..
+            } => {
                 self.reserve(address.path().len(), depth)?;
                 (
                     ApplyOp::StaticAddress {
@@ -247,7 +267,9 @@ impl Builder<'_> {
                 ApplyOp::Bool(BoolApply::FromValue),
                 vec![self.boolean(value, depth + 1)?],
             ),
-            ValueExpr::Array { elements, .. } => {
+            ValueExpr::Array {
+                elements, ..
+            } => {
                 self.reserve(elements.len(), depth)?;
                 let mut nodes = Vec::with_capacity(elements.len());
                 for element in elements {
@@ -255,7 +277,9 @@ impl Builder<'_> {
                 }
                 (ApplyOp::Array(ty), nodes)
             }
-            ValueExpr::StringBytes { bytes, .. } => {
+            ValueExpr::StringBytes {
+                bytes, ..
+            } => {
                 self.reserve(bytes.len(), depth)?;
                 (
                     ApplyOp::StringBytes {
@@ -265,7 +289,11 @@ impl Builder<'_> {
                     vec![],
                 )
             }
-            ValueExpr::SequenceField { base, field, .. } => {
+            ValueExpr::SequenceField {
+                base,
+                field,
+                ..
+            } => {
                 let (node, from_place) = self.sequence_base(base, depth + 1)?;
                 (
                     ApplyOp::SequenceField {
@@ -277,7 +305,9 @@ impl Builder<'_> {
                     vec![node],
                 )
             }
-            ValueExpr::ArrayToSlice { array, .. } => (
+            ValueExpr::ArrayToSlice {
+                array, ..
+            } => (
                 ApplyOp::ArrayView {
                     base_type: array.ty(),
                     ty,
@@ -286,7 +316,9 @@ impl Builder<'_> {
                 },
                 vec![self.place(*array, depth + 1)?],
             ),
-            ValueExpr::ArrayView { array, .. } => {
+            ValueExpr::ArrayView {
+                array, ..
+            } => {
                 let (node, from_place) = self.sequence_base(array, depth + 1)?;
                 (
                     ApplyOp::ArrayView {
@@ -298,21 +330,37 @@ impl Builder<'_> {
                     vec![node],
                 )
             }
-            ValueExpr::SequenceView { sequence, .. } => {
+            ValueExpr::SequenceView {
+                sequence, ..
+            } => {
                 let (node, from_place) = self.sequence_base(sequence, depth + 1)?;
-                (ApplyOp::SequenceView { ty, from_place }, vec![node])
+                (
+                    ApplyOp::SequenceView {
+                        ty,
+                        from_place,
+                    },
+                    vec![node],
+                )
             }
             ValueExpr::Index {
-                base, index, check, ..
+                base,
+                index,
+                check,
+                ..
             } => {
                 let base = self.value(base, depth + 1)?;
                 let index = self.int(index, depth + 1)?;
                 (
-                    ApplyOp::SequenceIndex { ty, check: *check },
+                    ApplyOp::SequenceIndex {
+                        ty,
+                        check: *check,
+                    },
                     vec![base, index],
                 )
             }
-            ValueExpr::SequenceBuild { initializers, .. } => {
+            ValueExpr::SequenceBuild {
+                initializers, ..
+            } => {
                 self.reserve(
                     initializers
                         .len()
@@ -334,15 +382,24 @@ impl Builder<'_> {
                     nodes,
                 )
             }
-            ValueExpr::AddressOf { place, .. } => {
-                (ApplyOp::AddressOf, vec![self.place(*place, depth + 1)?])
-            }
-            ValueExpr::AddressOfValue { value, .. } => (
+            ValueExpr::AddressOf {
+                place, ..
+            } => (ApplyOp::AddressOf, vec![self.place(*place, depth + 1)?]),
+            ValueExpr::AddressOfValue {
+                value, ..
+            } => (
                 ApplyOp::AddressOfValue(ty),
                 vec![self.value(value, depth + 1)?],
             ),
-            ValueExpr::PointerCast { value, mode, .. } => (
-                ApplyOp::PointerCast { ty, mode: *mode },
+            ValueExpr::PointerCast {
+                value,
+                mode,
+                ..
+            } => (
+                ApplyOp::PointerCast {
+                    ty,
+                    mode: *mode,
+                },
                 vec![self.value(value, depth + 1)?],
             ),
             ValueExpr::PointerOffset {
@@ -363,7 +420,9 @@ impl Builder<'_> {
                 )
             }
             ValueExpr::PointerOffsetLeft {
-                offset, pointer, ..
+                offset,
+                pointer,
+                ..
             } => {
                 let offset = self.int(offset, depth + 1)?;
                 let pointer = self.value(pointer, depth + 1)?;
@@ -376,11 +435,20 @@ impl Builder<'_> {
                     vec![offset, pointer],
                 )
             }
-            ValueExpr::PointerFromInteger { value, mode, .. } => (
-                ApplyOp::PointerFromInteger { ty, mode: *mode },
+            ValueExpr::PointerFromInteger {
+                value,
+                mode,
+                ..
+            } => (
+                ApplyOp::PointerFromInteger {
+                    ty,
+                    mode: *mode,
+                },
                 vec![self.int(value, depth + 1)?],
             ),
-            ValueExpr::SequenceConcat { parts, .. } => {
+            ValueExpr::SequenceConcat {
+                parts, ..
+            } => {
                 self.reserve(parts.len(), depth)?;
                 let mut nodes = Vec::with_capacity(parts.len());
                 for part in parts {
@@ -395,7 +463,10 @@ impl Builder<'_> {
                             (PackPartMode::Spread, self.value(value, depth + 1)?)
                         }
                     };
-                    nodes.push(PackPartNode { mode, node });
+                    nodes.push(PackPartNode {
+                        mode,
+                        node,
+                    });
                 }
                 return self.push(
                     Some(ty),
@@ -406,14 +477,18 @@ impl Builder<'_> {
                     depth,
                 );
             }
-            ValueExpr::Distinct { value, .. } => {
-                (ApplyOp::Distinct(ty), vec![self.value(value, depth + 1)?])
-            }
-            ValueExpr::UnwrapDistinct { value, .. } => (
+            ValueExpr::Distinct {
+                value, ..
+            } => (ApplyOp::Distinct(ty), vec![self.value(value, depth + 1)?]),
+            ValueExpr::UnwrapDistinct {
+                value, ..
+            } => (
                 ApplyOp::UnwrapDistinct(ty),
                 vec![self.value(value, depth + 1)?],
             ),
-            ValueExpr::ProcedureValue { procedure, .. } => (
+            ValueExpr::ProcedureValue {
+                procedure, ..
+            } => (
                 ApplyOp::Literal(Value::Procedure {
                     signature: ty,
                     procedure: Some(*procedure),
@@ -421,13 +496,17 @@ impl Builder<'_> {
                 vec![],
             ),
             ValueExpr::IndirectCall {
-                callee, arguments, ..
+                callee,
+                arguments,
+                ..
             } => {
                 return self.indirect_call(callee, arguments, Some(ty), depth);
             }
             ValueExpr::Load(place) => (ApplyOp::Load, vec![self.place(*place, depth + 1)?]),
             ValueExpr::Zero(ty) => (ApplyOp::Zero(*ty), vec![]),
-            ValueExpr::Record { fields, .. } => {
+            ValueExpr::Record {
+                fields, ..
+            } => {
                 self.reserve(fields.len(), depth)?;
                 let mut nodes = Vec::with_capacity(fields.len());
                 for field in fields {
@@ -435,8 +514,15 @@ impl Builder<'_> {
                 }
                 (ApplyOp::Record(ty), nodes)
             }
-            ValueExpr::Union { field, value, .. } => (
-                ApplyOp::Union { ty, field: *field },
+            ValueExpr::Union {
+                field,
+                value,
+                ..
+            } => (
+                ApplyOp::Union {
+                    ty,
+                    field: *field,
+                },
                 vec![self.value(value, depth + 1)?],
             ),
             ValueExpr::OrderedRecord {
@@ -460,7 +546,9 @@ impl Builder<'_> {
                     depth,
                 );
             }
-            ValueExpr::RecordBuild { initializers, .. } => {
+            ValueExpr::RecordBuild {
+                initializers, ..
+            } => {
                 self.reserve(initializers.len(), depth)?;
                 let mut nodes = Vec::with_capacity(initializers.len());
                 for (field, value) in initializers {
@@ -475,17 +563,32 @@ impl Builder<'_> {
                     depth,
                 );
             }
-            ValueExpr::Field { base, field, .. } => (
-                ApplyOp::Field { ty, field: *field },
+            ValueExpr::Field {
+                base,
+                field,
+                ..
+            } => (
+                ApplyOp::Field {
+                    ty,
+                    field: *field,
+                },
                 vec![self.value(base, depth + 1)?],
             ),
-            ValueExpr::Call { call, .. } => return self.call(call, Some(ty), depth),
-            ValueExpr::Enum { value, .. } => {
-                (ApplyOp::Literal(Value::Enum { ty, value: *value }), vec![])
-            }
-            ValueExpr::EnumFromInt { value, .. } => {
-                (ApplyOp::EnumFromInt(ty), vec![self.int(value, depth + 1)?])
-            }
+            ValueExpr::Call {
+                call, ..
+            } => return self.call(call, Some(ty), depth),
+            ValueExpr::Enum {
+                value, ..
+            } => (
+                ApplyOp::Literal(Value::Enum {
+                    ty,
+                    value: *value,
+                }),
+                vec![],
+            ),
+            ValueExpr::EnumFromInt {
+                value, ..
+            } => (ApplyOp::EnumFromInt(ty), vec![self.int(value, depth + 1)?]),
         };
         self.apply(ty, op, operands, depth)
     }
@@ -509,7 +612,10 @@ impl Builder<'_> {
             IntExprKind::EnumValue(value) => {
                 (IntApply::EnumValue, vec![self.value(value, depth + 1)?])
             }
-            IntExprKind::PointerDifference { left, right } => {
+            IntExprKind::PointerDifference {
+                left,
+                right,
+            } => {
                 let left = self.value(left, depth + 1)?;
                 let right = self.value(right, depth + 1)?;
                 (IntApply::PointerDifference, vec![left, right])
@@ -518,7 +624,10 @@ impl Builder<'_> {
                 IntApply::FromFloat(*mode),
                 vec![self.float(value, depth + 1)?],
             ),
-            IntExprKind::FromPointer { value, mode } => (
+            IntExprKind::FromPointer {
+                value,
+                mode,
+            } => (
                 IntApply::FromPointer(*mode),
                 vec![self.value(value, depth + 1)?],
             ),
@@ -624,7 +733,15 @@ impl Builder<'_> {
                 } else {
                     ShortCircuitOp::Or
                 };
-                return self.push(Some(ty), NodeKind::ShortCircuit { op, left, right }, depth);
+                return self.push(
+                    Some(ty),
+                    NodeKind::ShortCircuit {
+                        op,
+                        left,
+                        right,
+                    },
+                    depth,
+                );
             }
             BoolExpr::Conditional(expression) => {
                 let condition = self.boolean(&expression.condition, depth + 1)?;

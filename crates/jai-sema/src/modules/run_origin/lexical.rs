@@ -219,7 +219,10 @@ impl Encoder<'_, '_> {
             }
             RunBindingFact::NullCode => self.token(b"null-code"),
             RunBindingFact::Macro(source) => self.macro_fact(*source)?,
-            RunBindingFact::Procedure { procedure, ty } => {
+            RunBindingFact::Procedure {
+                procedure,
+                ty,
+            } => {
                 self.token(b"procedure");
                 self.ty(*ty)?;
                 self.procedure_source(*procedure)?;
@@ -238,7 +241,10 @@ impl Encoder<'_, '_> {
                     jai_ir::ForeignLibraryId::File(declaration) => {
                         self.declaration(*declaration)?
                     }
-                    jai_ir::ForeignLibraryId::Local { procedure, index } => {
+                    jai_ir::ForeignLibraryId::Local {
+                        procedure,
+                        index,
+                    } => {
                         self.procedure_source(*procedure)?;
                         // The ordinal is assigned within this actual source procedure.
                         self.count(*index);

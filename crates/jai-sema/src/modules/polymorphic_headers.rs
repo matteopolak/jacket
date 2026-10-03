@@ -15,7 +15,10 @@ pub(super) fn register_prototype(
     if !crate::polymorphism::is_polymorphic_prototype(source) {
         return Ok(false);
     }
-    if let syntax::PrototypeBinding::Intrinsic { tag } = &source.binding {
+    if let syntax::PrototypeBinding::Intrinsic {
+        tag,
+    } = &source.binding
+    {
         jai_ir::RuntimeIntrinsic::validate_name(
             tag.as_deref()
                 .unwrap_or_else(|| graph.symbols().name(source.name)),
@@ -88,6 +91,7 @@ pub(super) fn register_prototype(
             template,
             file,
             span: source.span,
+            return_abi: source.return_abi,
             convention: source.convention,
             context: source.context,
         },

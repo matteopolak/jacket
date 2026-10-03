@@ -1,6 +1,9 @@
 //! Explicit host data protocol. Constructing a request never accesses the OS.
+mod capabilities;
 mod programs;
+mod virtual_paths;
 use crate::SourceOrigin;
+pub use capabilities::HostCapability;
 pub use programs::{ProgramScopeLimits, ReviewedProgramGrant, ReviewedPrograms};
 use std::{
     ffi::OsString,
@@ -124,7 +127,10 @@ impl ProcessLaunchFailure {
         if errno <= 0 {
             return Err(HostError::InvalidArguments);
         }
-        Ok(Self { platform, errno })
+        Ok(Self {
+            platform,
+            errno,
+        })
     }
     pub fn platform(self) -> ProcessHostPlatform {
         self.platform
@@ -181,6 +187,7 @@ pub enum HostError {
     InvalidPath,
     InvalidArguments,
     UnknownCapability,
+    UnsupportedCapability(HostCapability),
     Denied(&'static str),
     Budget(&'static str),
     Transaction(&'static str),
@@ -191,7 +198,8 @@ impl std::fmt::Display for HostError {
         write!(f, "host effect: {self:?}")
     }
 }
-impl std::error::Error for HostError {}
+impl std::error::Error for HostError {
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HostOutcome {
     Ready(HostResponse),
@@ -226,6 +234,7 @@ pub struct FilePathScope {
     root: FileRootId,
     canonical_root: PathBuf,
     working_relative: PathBuf,
+    virtual_namespace: bool,
 }
 impl FilePathScope {
     pub fn new(
@@ -246,6 +255,7 @@ impl FilePathScope {
             root,
             canonical_root: canonical_root.into(),
             working_relative,
+            virtual_namespace: false,
         })
     }
     pub fn root(&self) -> FileRootId {
@@ -255,6 +265,9 @@ impl FilePathScope {
         &self.canonical_root
     }
     pub fn resolve(&self, source: &Path) -> Result<HostPath, HostError> {
+        if self.virtual_namespace {
+            return self.resolve_virtual(source);
+        }
         if source.as_os_str().is_empty() || source.as_os_str().as_encoded_bytes().contains(&0) {
             return Err(HostError::InvalidPath);
         }

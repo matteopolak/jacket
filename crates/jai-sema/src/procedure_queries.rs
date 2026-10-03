@@ -171,9 +171,10 @@ impl Resolver<'_> {
             }
         };
         match self.lookup_path(&path, value.span) {
-            Ok(Binding::Procedure { procedure, ty }) => {
-                self.checked_procedure_facts(procedure, Some(ty), value.span)
-            }
+            Ok(Binding::Procedure {
+                procedure,
+                ty,
+            }) => self.checked_procedure_facts(procedure, Some(ty), value.span),
             Ok(Binding::TypedConstant(id)) => {
                 let constant = self.meta.constant(id).ok_or_else(|| {
                     Diagnostic::new(

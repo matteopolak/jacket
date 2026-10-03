@@ -70,7 +70,9 @@ impl jai_vm::CompilerEffects for WorkspaceEffects {
     }
     fn request(&mut self, request: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
         match &request {
-            jai_vm::CompilerRequest::CreateWorkspace { name } if name == "phase-fixture" => {
+            jai_vm::CompilerRequest::CreateWorkspace {
+                name,
+            } if name == "phase-fixture" => {
                 self.staged.push(request);
                 jai_vm::EffectOutcome::Ready(jai_vm::CompilerResponse::Workspace(
                     jai_vm::WorkspaceId::from_raw(42).unwrap(),
@@ -189,7 +191,9 @@ fn runtime_compiler_request_reports_the_typed_call_chain() {
     let context = jai_codegen::Context::create();
     let error = jai_codegen::lower(&context, &program).unwrap_err();
     let jai_codegen::Error::Reachability(
-        jai_codegen::native_reachability::Error::CompilerRequest { chain },
+        jai_codegen::native_reachability::Error::CompilerRequest {
+            chain,
+        },
     ) = error
     else {
         panic!("expected compiler-request reachability diagnostic");

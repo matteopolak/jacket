@@ -41,7 +41,9 @@ impl Resolver<'_> {
                 jai_types::TypeKind::Pointer(element)
                 | jai_types::TypeKind::Slice(element)
                 | jai_types::TypeKind::DynamicArray(element)
-                | jai_types::TypeKind::FixedArray { element, .. } => {
+                | jai_types::TypeKind::FixedArray {
+                    element, ..
+                } => {
                     scheduled = compiler_slot_budget(scheduled, 1, span)?;
                     pending.push(*element);
                 }

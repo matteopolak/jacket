@@ -22,6 +22,7 @@ impl Names {
     }
     fn candidate(&mut self, parameters: Vec<Parameter>) -> Candidate {
         Candidate {
+            result_type_parameters: Vec::new(),
             declaration: self.identities.declaration(),
             parameters,
             variadic: CandidateVariadic::None,
@@ -207,7 +208,9 @@ fn runtime_storage_defaults_remain_runtime_under_optional_baking() {
     let mut sources = jai_source::SourceMap::default();
     let source = sources.insert("/runtime-default/main.jai".into(), "context.value".into());
     let read = crate::runtime_defaults::RuntimeDefaultRead::checked(
-        crate::runtime_defaults::DefaultReadRoot::Context { ty: record },
+        crate::runtime_defaults::DefaultReadRoot::Context {
+            ty: record,
+        },
         vec![crate::runtime_defaults::DefaultReadStep::Field(field)],
         integer,
         jai_source::SourceSpan {
@@ -414,6 +417,7 @@ fn pure_matching_preserves_a_non_graph_callable_origin() {
         declaration: 7,
     };
     let candidate = Candidate {
+        result_type_parameters: Vec::new(),
         declaration: origin,
         parameters: vec![parameter(
             names.symbol("value"),
@@ -556,6 +560,7 @@ fn callback_patterns_infer_results_and_keep_abi_context_and_parameter_types_exac
     let signature = ProcedureType {
         parameters: vec![u8, u8].into_boxed_slice(),
         results: vec![u16].into_boxed_slice(),
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::Jai,
         context: ContextMode::Implicit,
         variadic: Variadic::None,
@@ -568,6 +573,7 @@ fn callback_patterns_infer_results_and_keep_abi_context_and_parameter_types_exac
             TypePattern::Procedure(Box::new(ProcedurePattern {
                 parameters: vec![TypePattern::Variable(t), TypePattern::Variable(t)],
                 results: vec![TypePattern::Infer(r)],
+                return_abi: signature.return_abi,
                 convention: signature.convention,
                 context: signature.context,
                 variadic: CandidateVariadic::None,
@@ -591,6 +597,7 @@ fn callback_patterns_infer_results_and_keep_abi_context_and_parameter_types_exac
             ..signature.clone()
         },
         ProcedureType {
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             ..signature.clone()
@@ -624,6 +631,7 @@ fn contextual_callback_inference_requires_known_parameters_and_a_unique_result()
     let pattern = TypePattern::Procedure(Box::new(ProcedurePattern {
         parameters: vec![TypePattern::Variable(t)],
         results: vec![TypePattern::Infer(r)],
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::Jai,
         context: ContextMode::Implicit,
         variadic: CandidateVariadic::None,
@@ -635,6 +643,7 @@ fn contextual_callback_inference_requires_known_parameters_and_a_unique_result()
     let descriptor = ProcedureType {
         parameters: vec![u8].into_boxed_slice(),
         results: vec![u16].into_boxed_slice(),
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::Jai,
         context: ContextMode::Implicit,
         variadic: Variadic::None,
@@ -822,7 +831,10 @@ fn contextual_records_validate_fields_and_canonicalize_baked_defaults() {
         )]),
     };
     let literal = |ty, fields| ArgumentInfo {
-        ty: ArgumentType::RecordLiteral { ty, fields },
+        ty: ArgumentType::RecordLiteral {
+            ty,
+            fields,
+        },
         constant: None,
     };
     let field = |name, value| RecordArgumentField {
@@ -1081,7 +1093,9 @@ fn forwarded_generic_pack_infers_its_element_and_binds_trailing_arguments() {
         parameter(rest, TypePattern::Infer(t)),
         parameter(last, TypePattern::Concrete(types.scalar(ScalarType::Bool))),
     ]);
-    candidate.variadic = CandidateVariadic::Jai { parameter: 0 };
+    candidate.variadic = CandidateVariadic::Jai {
+        parameter: 0,
+    };
     let mut forwarded = argument(ArgumentInfo::typed(slice));
     forwarded.spread = true;
     let args = [
@@ -1713,7 +1727,10 @@ fn baked_keys_normalize_zero_and_retain_scalar_and_nominal_type_identities() {
         declaration,
         substitution: Substitution {
             types: vec![],
-            constants: vec![ConstantBinding { name: n, value }],
+            constants: vec![ConstantBinding {
+                name: n,
+                value,
+            }],
             callables: vec![],
         },
     };
@@ -1761,16 +1778,145 @@ fn baked_keys_normalize_zero_and_retain_scalar_and_nominal_type_identities() {
     );
     assert_ne!(
         Substitution {
-            types: vec![TypeBinding { name: n, ty: u8 }],
+            types: vec![TypeBinding {
+                name: n,
+                ty: u8
+            }],
             constants: vec![],
             callables: vec![],
         }
         .key(declaration),
         Substitution {
-            types: vec![TypeBinding { name: n, ty: u16 }],
+            types: vec![TypeBinding {
+                name: n,
+                ty: u16
+            }],
             constants: vec![],
             callables: vec![],
         }
         .key(declaration)
+    );
+}
+
+
+#[test]
+fn result_type_inputs_keep_original_formal_and_argument_positions() {
+    let mut names = Names::new();
+    let types = TypeRegistry::new();
+    let t = names.symbol("T");
+    let value = names.symbol("value");
+    let int = types.scalar(ScalarType::Int(IntegerType::S64));
+    let mut candidate = names.candidate(vec![parameter(value, TypePattern::Variable(t))]);
+    candidate.result_type_parameters.push(ResultTypeParameter {
+        name: t,
+        result: 0,
+        span: Span::default(),
+        pattern: TypePattern::Infer(t),
+    });
+    let mut ty = argument(ArgumentInfo::constant(
+        BakedValue::Type(int),
+        types.meta_type(),
+    ));
+    ty.name = Some(t);
+    let arguments = [argument(ArgumentInfo::integer_literal(42)), ty];
+    let matched = match_candidate(&types, &candidate, &arguments, Span::default()).unwrap();
+    assert_eq!(matched.substitution.ty(t), Some(int));
+    assert!(matched.substitution.constants.is_empty());
+    assert_eq!(
+        matched.bindings,
+        [ArgumentBinding {
+            argument: 0,
+            parameter: 0,
+            runtime_parameter: Some(0)
+        }]
+    );
+    assert_eq!(
+        matched.result_type_arguments,
+        [ResultTypeArgument {
+            argument: 1,
+            parameter: 0
+        }]
+    );
+    recheck_match_with_nominals(
+        &types,
+        &NoNominals,
+        &candidate,
+        &arguments,
+        matched,
+        Span::default(),
+    )
+    .unwrap();
+}
+#[test]
+fn result_type_input_order_is_canonical_and_named_order_is_irrelevant() {
+    let mut names = Names::new();
+    let types = TypeRegistry::new();
+    let a = names.symbol("A");
+    let b = names.symbol("B");
+    let mut candidate = names.candidate(Vec::new());
+    candidate.result_type_parameters = [a, b]
+        .into_iter()
+        .enumerate()
+        .map(|(result, name)| ResultTypeParameter {
+            name,
+            result,
+            span: Span::default(),
+            pattern: TypePattern::Infer(name),
+        })
+        .collect();
+    let mut arg_a = argument(ArgumentInfo::constant(
+        BakedValue::Type(types.scalar(ScalarType::Int(IntegerType::S64))),
+        types.meta_type(),
+    ));
+    arg_a.name = Some(a);
+    let mut arg_b = argument(ArgumentInfo::constant(
+        BakedValue::Type(types.scalar(ScalarType::Bool)),
+        types.meta_type(),
+    ));
+    arg_b.name = Some(b);
+    let first = match_candidate(
+        &types,
+        &candidate,
+        &[arg_a.clone(), arg_b.clone()],
+        Span::default(),
+    )
+    .unwrap();
+    let second = match_candidate(&types, &candidate, &[arg_b, arg_a], Span::default()).unwrap();
+    assert_eq!(first.substitution, second.substitution);
+    assert!(first.bindings.is_empty());
+    assert!(second.bindings.is_empty());
+}
+#[test]
+fn result_type_inputs_cannot_replace_the_original_accepted_projection() {
+    let mut names = Names::new();
+    let types = TypeRegistry::new();
+    let t = names.symbol("T");
+    let mut candidate = names.candidate(Vec::new());
+    candidate.result_type_parameters.push(ResultTypeParameter {
+        name: t,
+        result: 0,
+        span: Span::default(),
+        pattern: TypePattern::Infer(t),
+    });
+    let mut input = argument(ArgumentInfo::constant(
+        BakedValue::Type(types.scalar(ScalarType::Bool)),
+        types.meta_type(),
+    ));
+    input.name = Some(t);
+    let mut matched =
+        match_candidate(&types, &candidate, from_ref(&input), Span::default()).unwrap();
+    matched.result_type_arguments[0].parameter = 1;
+    let error = recheck_match_with_nominals(
+        &types,
+        &NoNominals,
+        &candidate,
+        from_ref(&input),
+        matched,
+        Span::default(),
+    )
+    .unwrap_err();
+    assert!(
+        error.message.contains("inconsistent argument bindings"),
+        "{error:?}"
     );
 }

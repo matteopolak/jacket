@@ -13,6 +13,7 @@ impl Resolver<'_> {
         ty: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
+        crate::record_placements::require_record_construction_recipe(self.types, ty, span)?;
         let (plan, targets) = self.prepare_promoted_literal(literal, ty, span)?;
         let producers = literal
             .fields
@@ -121,22 +122,37 @@ pub(crate) fn concrete_literal(value: &ValueExpr, span: Span) -> Result<bool, Di
             ValueExpr::Int(value) if matches!(value.kind(), IntExprKind::Constant(_)) => {}
             ValueExpr::Float(value) if matches!(value.kind(), FloatExprKind::Constant(_)) => {}
             ValueExpr::Bool(BoolExpr::Constant(_))
-            | ValueExpr::Enum { .. }
-            | ValueExpr::ProcedureValue { .. }
+            | ValueExpr::Enum {
+                ..
+            }
+            | ValueExpr::ProcedureValue {
+                ..
+            }
             | ValueExpr::NativePointer(_)
             | ValueExpr::RuntimeType(_)
             | ValueExpr::Zero(_)
-            | ValueExpr::StringBytes { .. } => {}
-            ValueExpr::Record { fields, .. }
+            | ValueExpr::StringBytes {
+                ..
+            } => {}
+            ValueExpr::Record {
+                fields, ..
+            }
             | ValueExpr::Array {
                 elements: fields, ..
             } => {
                 pending.extend(fields.iter().map(|field| (field, depth + 1)));
             }
-            ValueExpr::RecordBuild { initializers, .. } => {
+            ValueExpr::RecordBuild {
+                initializers, ..
+            } => {
                 pending.extend(initializers.iter().map(|(_, value)| (value, depth + 1)));
             }
-            ValueExpr::Union { value, .. } | ValueExpr::Distinct { value, .. } => {
+            ValueExpr::Union {
+                value, ..
+            }
+            | ValueExpr::Distinct {
+                value, ..
+            } => {
                 pending.push((value, depth + 1));
             }
             _ => return Ok(false),

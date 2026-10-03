@@ -185,7 +185,9 @@ pub(super) fn import_declaration(
                 ..
             } => find(then_items, location).or_else(|| find(else_items, location)),
             FileItem::Parameters(parameters) => find(&parameters.declarations, location),
-            FileItem::CompileTimeCases { cases, .. } => cases
+            FileItem::CompileTimeCases {
+                cases, ..
+            } => cases
                 .arms
                 .iter()
                 .find_map(|arm| find(&arm.body, location))

@@ -142,8 +142,14 @@ impl Resolver<'_> {
         let record = scope.source_record(source).ok_or_else(|| {
             Diagnostic::new(span, "deprecation reference source origin is not retained")
         })?;
-        let location = WarningLocation::new(record, SourceSpan { source, span })
-            .map_err(|_| Diagnostic::new(span, "deprecation reference source span is invalid"))?;
+        let location = WarningLocation::new(
+            record,
+            SourceSpan {
+                source,
+                span,
+            },
+        )
+        .map_err(|_| Diagnostic::new(span, "deprecation reference source span is invalid"))?;
         self.meta
             .deprecations
             .reference(&identity, location)

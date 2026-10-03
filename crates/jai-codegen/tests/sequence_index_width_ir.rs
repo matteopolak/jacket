@@ -21,6 +21,7 @@ fn fixture(index: u64) -> Program {
             parameters: vec![slice, unsigned].into(),
             results: vec![int].into(),
             variadic: Variadic::None,
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
         })
@@ -30,6 +31,7 @@ fn fixture(index: u64) -> Program {
             parameters: vec![].into(),
             results: vec![int].into(),
             variadic: Variadic::None,
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
         })
@@ -246,6 +248,7 @@ fn dynamic_descriptor_uses_the_adopted_nominal_allocator_storage() {
         .procedure(ProcedureType {
             parameters: vec![mode, size, size, pointer, pointer].into(),
             results: vec![pointer].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,

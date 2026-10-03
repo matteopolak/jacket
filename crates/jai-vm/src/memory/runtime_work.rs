@@ -9,7 +9,9 @@ impl Memory {
         value: TypeId,
     ) -> Result<u64, Error> {
         if pointer.pointee != value {
-            return Err(Error::TypeMismatch { expected: value });
+            return Err(Error::TypeMismatch {
+                expected: value,
+            });
         }
         let size = self.layout(types, value)?.size;
         if !matches!(size, 1 | 2 | 4 | 8) {

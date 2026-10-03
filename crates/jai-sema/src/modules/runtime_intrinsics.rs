@@ -12,7 +12,10 @@ pub(crate) fn bind_prototype(
     types: &dyn TypeView,
     layout: Option<LayoutPolicy>,
 ) -> Result<ProcedurePrototype, Diagnostic> {
-    let syntax::PrototypeBinding::Intrinsic { tag } = &source.binding else {
+    let syntax::PrototypeBinding::Intrinsic {
+        tag,
+    } = &source.binding
+    else {
         return Err(Diagnostic::new(
             source.span,
             "runtime intrinsic binding requires an explicitly marked #intrinsic prototype",
@@ -57,7 +60,10 @@ pub(super) fn bind(
         let FileDeclarationKind::ProcedurePrototype(source) = &declaration.syntax().kind else {
             continue;
         };
-        let syntax::PrototypeBinding::Intrinsic { tag } = &source.binding else {
+        let syntax::PrototypeBinding::Intrinsic {
+            tag,
+        } = &source.binding
+        else {
             continue;
         };
         let name = tag

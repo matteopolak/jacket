@@ -25,7 +25,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 struct Binding<'a, 'ctx> {
     declaration: &'a ExternalData,
@@ -117,7 +118,10 @@ mod tests {
         let source = sources.insert("owned.jai".into(), "counter:s64 #elsewhere;".into());
         let location = SourceSpan {
             source,
-            span: Span { start: 0, end: 22 },
+            span: Span {
+                start: 0,
+                end: 22,
+            },
         };
         let first = ExternalData::new(
             jai_ir::ExternalDataId::File(ids.declaration()),
@@ -229,7 +233,10 @@ mod tests {
             "collision".into(),
             SourceSpan {
                 source,
-                span: Span { start: 0, end: 24 },
+                span: Span {
+                    start: 0,
+                    end: 24,
+                },
             },
             &types,
         )
@@ -242,7 +249,10 @@ mod tests {
                 context.i64_type().into(),
                 8
             ),
-            Err(Error::SymbolConflict { first: None, .. })
+            Err(Error::SymbolConflict {
+                first: None,
+                ..
+            })
         ));
         assert!(module.get_global("collision").is_none());
         module.verify().unwrap();

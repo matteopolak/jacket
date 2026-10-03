@@ -177,8 +177,9 @@ mod tests {
         let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
             panic!()
         };
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[0].kind
         else {
             panic!()
         };
@@ -189,8 +190,9 @@ mod tests {
         assert!(
             matches!(&initializer.kind, ExpressionKind::TypeCast {mode:CastMode::Checked,ty:TypeSyntax::Pointer(_),value} if matches!(&value.kind,ExpressionKind::Binary(BinaryOp::Add,left,_) if matches!(left.kind,ExpressionKind::TypeCast {..})))
         );
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[1].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[1].kind
         else {
             panic!()
         };
@@ -253,8 +255,9 @@ mod tests {
         let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
             panic!()
         };
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[0].kind
         else {
             panic!()
         };
@@ -288,16 +291,18 @@ mod tests {
         let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
             panic!()
         };
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[0].kind
         else {
             panic!()
         };
         assert!(
             matches!(&initializer.kind,ExpressionKind::TypeCast{mode:CastMode::Checked,ty:TypeSyntax::Named(_),value} if matches!(value.kind,ExpressionKind::Binary(BinaryOp::Add,_,_)))
         );
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[1].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[1].kind
         else {
             panic!()
         };

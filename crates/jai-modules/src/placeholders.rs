@@ -83,6 +83,16 @@ impl Default for Placeholders {
     }
 }
 impl Placeholders {
+    pub(super) fn visit_retained_metadata<E>(
+        &self,
+        charge: &mut impl FnMut(usize) -> Result<(), E>,
+        metadata: &mut impl FnMut(usize) -> Result<(), E>,
+    ) -> Result<(), E> {
+        crate::source_storage::vector(&self.entries, charge, metadata)?;
+        crate::source_storage::map(&self.namespaces, charge, metadata)?;
+        crate::source_storage::map(&self.imports, charge, metadata)
+    }
+
     pub(super) fn get(&self, id: PlaceholderId) -> Option<&Placeholder> {
         (id.session == self.session)
             .then(|| self.entries.get(id.index))

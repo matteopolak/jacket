@@ -14,7 +14,10 @@ fn initializer(text: &str) -> (jai_syntax::Expression, Symbols) {
     let FileDeclarationKind::Global(global) = &declaration.kind else {
         panic!()
     };
-    let Declaration::Inferred { initializer, .. } = &global.declaration else {
+    let Declaration::Inferred {
+        initializer, ..
+    } = &global.declaration
+    else {
         panic!()
     };
     (initializer.clone(), symbols)
@@ -48,7 +51,10 @@ fn generic_targets_and_relative_member_index_paths_retain_source_order() {
         PlaceKind::Qualified(_)
     ));
     assert_eq!(literal.fields[1].span.text(text), "data._u64=xx tid");
-    let PlaceKind::Index { index, .. } = &literal.fields[2].target.kind else {
+    let PlaceKind::Index {
+        index, ..
+    } = &literal.fields[2].target.kind
+    else {
         panic!()
     };
     assert_eq!(index.span.text(text), "next()");

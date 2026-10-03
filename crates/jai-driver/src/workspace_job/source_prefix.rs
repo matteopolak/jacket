@@ -33,7 +33,10 @@ pub(super) async fn drive(
         let mut state = guard.state.borrow_mut();
         loop {
             let readiness = {
-                let Journal { compiler, replay } = state
+                let Journal {
+                    compiler,
+                    replay,
+                } = state
                     .journal
                     .as_mut()
                     .expect("running prefix retains actual compiler and replay owners");

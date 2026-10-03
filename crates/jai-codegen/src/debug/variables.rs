@@ -140,7 +140,9 @@ impl<'ctx> LineTables<'ctx, '_> {
                 alignment_bytes,
             )
             .map_err(bridge_error)?;
-        Ok(Some(VariableRecord { metadata }))
+        Ok(Some(VariableRecord {
+            metadata,
+        }))
     }
     pub fn emit_variable(
         &self,

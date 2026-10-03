@@ -1,0 +1,51 @@
+name: bounded core fuzzing
+on:
+  push:
+    paths: ['fuzz/**', 'crates/jai-source/**', 'crates/jai-lexer/**', 'crates/jai-syntax/**', 'crates/jai-types/**', 'crates/jai-ir/**', 'crates/jai-vm/**', 'crates/jai-modules/**', 'crates/jai-sema/**', 'crates/jai-runtime/**', 'crates/jai-platform/**', 'prelude/**', 'tools/*fuzz*.py', 'tools/benchmark.py', 'tools/cargo_build_paths.py', 'tools/build_scripting_wasm.py', 'tools/test_benchmark.py', 'tools/test_cargo_build_paths.py', 'tools/test_build_scripting_wasm.py', '.github/workflows/fuzz.yml']
+  pull_request:
+    paths: ['fuzz/**', 'crates/jai-source/**', 'crates/jai-lexer/**', 'crates/jai-syntax/**', 'crates/jai-types/**', 'crates/jai-ir/**', 'crates/jai-vm/**', 'crates/jai-modules/**', 'crates/jai-sema/**', 'crates/jai-runtime/**', 'crates/jai-platform/**', 'prelude/**', 'tools/*fuzz*.py', 'tools/benchmark.py', 'tools/cargo_build_paths.py', 'tools/build_scripting_wasm.py', 'tools/test_benchmark.py', 'tools/test_cargo_build_paths.py', 'tools/test_build_scripting_wasm.py', '.github/workflows/fuzz.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      RUSTC_WRAPPER: ''
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned nightly
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt
+      - name: Check locked harness and fuzz-tool publication ages
+        run: |
+          python3 tools/check_dependency_age.py --lockfile fuzz/Cargo.lock
+          python3 tools/check_cargo_fuzz_age.py
+      - name: Install the policy-verified fuzz driver
+        run: cargo install cargo-fuzz --version '=0.13.2' --locked -j 1
+      - name: Replay authored deterministic regressions without LLVM
+        run: |
+          python3 -m unittest discover -s tools -p test_run_fuzz.py -v
+          python3 -m unittest discover -s tools -p test_benchmark.py -v
+          python3 -m unittest discover -s tools -p test_cargo_build_paths.py -v
+          python3 -m unittest discover -s tools -p test_build_scripting_wasm.py -v
+          cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+          cargo test --manifest-path fuzz/Cargo.toml --locked -j 1
+      - name: Run bounded AddressSanitizer campaigns
+        run: python3 tools/run_fuzz.py --runs 1000 --seconds 15 --rss-mb 1024
+      - name: Retain own fuzz logs, metadata and generated findings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-fuzz-evidence
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            artifacts/fuzz/**/metadata.json
+            artifacts/fuzz/**/*.txt
+            artifacts/fuzz/**/crashes/**
+            artifacts/fuzz/**/corpus/**

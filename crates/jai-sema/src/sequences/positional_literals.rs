@@ -57,7 +57,10 @@ impl Resolver<'_> {
             }
             initializers.push((field, value));
         }
-        let body = ValueExpr::SequenceBuild { ty, initializers };
+        let body = ValueExpr::SequenceBuild {
+            ty,
+            initializers,
+        };
         self.typed_value(
             if bindings.is_empty() {
                 body

@@ -141,10 +141,12 @@ def declarations(ts: list[tuple], *, record: bool = False, enum: bool = False) -
             continue
         first = separator + 1
         value = ts[first][1] if first < len(ts) else ''
+        signature = first + int(value in {'inline', 'no_inline'})
+        procedure = signature < len(ts) and ts[signature][1] == '('
         decl_kind = ('enum-member' if enum else 'field' if record and ts[separator][1] == ':'
                      else 'record' if value in {'struct', 'union'}
                      else 'enum' if value in {'enum', 'enum_flags'}
-                     else 'procedure' if value == '(' else 'storage'
+                     else 'procedure' if procedure else 'storage'
                      if ts[separator][1] in {':', ':='} else 'constant')
         cursor = separator if ts[separator][1] == ';' else first
         while cursor < len(ts) and ts[cursor][1] not in {';', '{'}:

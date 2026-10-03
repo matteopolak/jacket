@@ -16,6 +16,7 @@ fn signature(
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention,
             context: ContextMode::None,
             variadic,
@@ -88,7 +89,10 @@ fn integer(value: i128) -> ValueExpr {
 }
 
 fn pack(ty: TypeId, parts: Vec<SequencePackPart>) -> ValueExpr {
-    ValueExpr::SequenceConcat { ty, parts }
+    ValueExpr::SequenceConcat {
+        ty,
+        parts,
+    }
 }
 
 fn arguments(slice: TypeId, value: ValueExpr) -> Vec<(ParameterId, ValueExpr)> {
@@ -118,12 +122,17 @@ fn direct_and_indirect_jai_pack_calls_publish_in_source_order() {
         .unwrap();
         let stored = match &library.procedures()[0].body.statements[0] {
             Statement::CallVoid(call) => &call.arguments,
-            Statement::IndirectCallResults { arguments, .. } => arguments,
+            Statement::IndirectCallResults {
+                arguments, ..
+            } => arguments,
             _ => panic!("call shape changed during publication"),
         };
         assert_eq!(stored[0].0.index(), 1);
         assert_eq!(stored[1].0.index(), 0);
-        let ValueExpr::SequenceConcat { parts, .. } = &stored[0].1 else {
+        let ValueExpr::SequenceConcat {
+            parts, ..
+        } = &stored[0].1
+        else {
             panic!("ordered pack was replaced during publication");
         };
         assert_eq!(parts.len(), 3);

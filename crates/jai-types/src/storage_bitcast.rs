@@ -81,7 +81,8 @@ impl fmt::Display for StorageBitcastError {
         }
     }
 }
-impl std::error::Error for StorageBitcastError {}
+impl std::error::Error for StorageBitcastError {
+}
 
 impl StorageBitcast {
     pub fn prove(

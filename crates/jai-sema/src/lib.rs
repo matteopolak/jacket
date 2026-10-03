@@ -8,12 +8,14 @@ mod cleanup;
 mod context;
 mod debug_capture;
 mod declarations;
+mod deferred_context;
 mod deprecation_warnings;
 mod discarded_parameters;
 mod floats;
 mod local_declarations;
 mod loops;
 mod modules;
+mod named_results;
 mod resolve_options;
 mod runtime_defaults;
 mod source_locations;
@@ -41,7 +43,6 @@ mod pointers;
 mod procedure_notes;
 mod procedure_values;
 mod record_default_overrides;
-#[cfg(test)]
 mod record_placements;
 mod reflection;
 mod restriction_facts;
@@ -66,6 +67,7 @@ use jai_eval::{Integer as IntegerValue, Value as ScalarConstant};
 use jai_source::{Diagnostic, Span, Symbol, Symbols};
 use jai_syntax::{self as syntax, BinaryOp, IntegerType, ReturnType, ScalarType, UnaryOp};
 pub use modules::FileAbiBindingContext;
+pub use modules::NativeSourceLibraryBinding;
 pub use modules::ProcessAbiBindingContext;
 pub use modules::compiler_intrinsics::{
     CompilerBindingContext, CompilerModuleOrigin, CompilerModuleOrigins,
@@ -239,7 +241,9 @@ impl Expr {
                 span,
                 "null requires a pointer type context",
             )),
-            Self::Pointer { value, .. } => Ok(value),
+            Self::Pointer {
+                value, ..
+            } => Ok(value),
             Self::Float(e) => Ok(ValueExpr::Float(e)),
             value @ Self::WeakFloat(_) => value.float(span).map(ValueExpr::Float),
             value @ Self::WeakConditional(_) if value.has_float() => {
@@ -249,10 +253,16 @@ impl Expr {
             Self::Literal(n) => Self::Literal(n).int(span).map(ValueExpr::Int),
             Self::WeakConditional(e) => Self::WeakConditional(e).int(span).map(ValueExpr::Int),
             Self::Bool(e) => Ok(ValueExpr::Bool(e)),
-            Self::Typed { value, .. } | Self::Enum { value, .. } => Ok(value),
-            Self::Void(_) | Self::IndirectVoid { .. } => {
-                Err(Diagnostic::new(span, "void call cannot supply a value"))
+            Self::Typed {
+                value, ..
             }
+            | Self::Enum {
+                value, ..
+            } => Ok(value),
+            Self::Void(_)
+            | Self::IndirectVoid {
+                ..
+            } => Err(Diagnostic::new(span, "void call cannot supply a value")),
         }
     }
     fn condition(
@@ -266,7 +276,9 @@ impl Expr {
                 "type values cannot supply a runtime condition",
             )),
             Self::Null => Ok(BoolExpr::Constant(false)),
-            Self::Pointer { value, .. } => Ok(BoolExpr::FromPointer(Box::new(value))),
+            Self::Pointer {
+                value, ..
+            } => Ok(BoolExpr::FromPointer(Box::new(value))),
             Self::Bool(e) => Ok(e),
             value @ (Self::Float(_) | Self::WeakFloat(_)) => {
                 let value = value.float(span)?;
@@ -296,18 +308,25 @@ impl Expr {
                 representation,
                 IntExprKind::EnumValue(Box::new(value)),
             )))),
-            Self::Typed { ty, value }
-                if matches!(types.kind(ty), Ok(jai_types::TypeKind::Procedure(_))) =>
-            {
+            Self::Typed {
+                ty,
+                value,
+            } if matches!(types.kind(ty), Ok(jai_types::TypeKind::Procedure(_))) => {
                 Ok(BoolExpr::FromPointer(Box::new(value)))
             }
-            Self::Typed { .. } | Self::Enum { .. } => Err(Diagnostic::new(
+            Self::Typed {
+                ..
+            }
+            | Self::Enum {
+                ..
+            } => Err(Diagnostic::new(
                 span,
                 "nominal value cannot implicitly supply a condition",
             )),
-            Self::Void(_) | Self::IndirectVoid { .. } => {
-                Err(Diagnostic::new(span, "void call cannot supply a condition"))
-            }
+            Self::Void(_)
+            | Self::IndirectVoid {
+                ..
+            } => Err(Diagnostic::new(span, "void call cannot supply a condition")),
         }
     }
     fn weak_integer(&self) -> bool {
@@ -332,7 +351,9 @@ impl Expr {
                     "type values cannot be cast to an integer",
                 ));
             }
-            Self::Pointer { value, .. } => IntExpr::new(
+            Self::Pointer {
+                value, ..
+            } => IntExpr::new(
                 ty,
                 IntExprKind::FromPointer {
                     value: Box::new(value),
@@ -389,13 +410,18 @@ impl Expr {
                     )),
                 ),
             ),
-            Self::Typed { .. } => {
+            Self::Typed {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     span,
                     "aggregate cannot be cast to an integer",
                 ));
             }
-            Self::Void(_) | Self::IndirectVoid { .. } => {
+            Self::Void(_)
+            | Self::IndirectVoid {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     span,
                     "void call cannot be cast to an integer",
@@ -446,6 +472,7 @@ pub fn resolve(module: &syntax::Module) -> Result<Program, Diagnostic> {
                     .map(|parameter| parameter.ty)
                     .collect(),
                 results: results.iter().map(|result| result.ty).collect(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: jai_types::Variadic::None,
@@ -696,9 +723,9 @@ impl Resolver<'_> {
             }
         };
         match binding {
-            Binding::CompilerInput { .. } => {
-                Err(self.error("compiler input is read-only and has no native place"))
-            }
+            Binding::CompilerInput {
+                ..
+            } => Err(self.error("compiler input is read-only and has no native place")),
             Binding::Discarded(_) => Err(self.error("#discard parameter cannot be assigned")),
             Binding::Storage(storage) => Ok(storage),
             Binding::Constant(_)
@@ -706,7 +733,9 @@ impl Resolver<'_> {
             | Binding::Imported(_)
             | Binding::Enum(_)
             | Binding::Type(_)
-            | Binding::Procedure { .. }
+            | Binding::Procedure {
+                ..
+            }
             | Binding::Library(_)
             | Binding::Macro(_)
             | Binding::Code(_)
@@ -796,19 +825,33 @@ impl Resolver<'_> {
         statements: &[syntax::Statement],
         scoped: bool,
     ) -> Result<Block, Diagnostic> {
+        self.block_with_preparation(statements, scoped, true)
+    }
+    fn block_with_preparation(
+        &mut self,
+        statements: &[syntax::Statement],
+        scoped: bool,
+        prepare: bool,
+    ) -> Result<Block, Diagnostic> {
         let debug_location = self.debug_location(self.span)?;
         self.debug.begin_block(debug_location);
         if scoped {
             self.scopes.push(HashMap::new());
         }
-        self.register_local_declarations(statements)?;
-        let statements = self.select_compile_time_statements(statements)?;
-        self.refresh_local_import_environments(&statements)?;
-        self.resolve_registered_local_declarations()?;
+        let statements = if prepare {
+            self.register_local_declarations(statements)?;
+            let selected = self.select_compile_time_statements(statements)?;
+            self.refresh_local_import_environments(&selected)?;
+            self.resolve_registered_local_declarations()?;
+            std::borrow::Cow::Owned(selected)
+        } else {
+            // A deferred push borrows the already prepared lexical suffix.
+            std::borrow::Cow::Borrowed(statements)
+        };
         self.deferred_scopes.push(Vec::new());
         let mut out = Vec::new();
         let mut flow = Flow::FallsThrough;
-        for statement in &statements {
+        for (index, statement) in statements.iter().enumerate() {
             if let syntax::StatementKind::Import(import) = &statement.kind {
                 self.bind_scoped_import(import)?;
                 continue;
@@ -866,7 +909,15 @@ impl Resolver<'_> {
                 result?;
                 continue;
             }
-            let s = self.statement(statement)?;
+            let deferred_push = matches!(
+                statement.kind,
+                syntax::StatementKind::PushContextDeferred { .. }
+            );
+            let s = if deferred_push {
+                self.deferred_context_statement(statement, &statements[index + 1..])?
+            } else {
+                self.statement(statement)?
+            };
             flow = match &s {
                 Statement::Exit(_) => Flow::Terminates,
                 Statement::If(_, yes, no)
@@ -875,11 +926,17 @@ impl Resolver<'_> {
                     Flow::Terminates
                 }
                 Statement::Cases(c) => c.flow,
-                Statement::Block(b) | Statement::PushContext { body: b, .. } => b.flow,
+                Statement::Block(b)
+                | Statement::PushContext {
+                    body: b, ..
+                } => b.flow,
                 _ => Flow::FallsThrough,
             };
             self.debug.emit_statement(out.len());
             out.push(s);
+            if deferred_push {
+                break;
+            }
         }
         let pending = self
             .deferred_scopes
@@ -921,6 +978,10 @@ impl Resolver<'_> {
     }
     fn statement_kind(&mut self, statement: &syntax::Statement) -> Result<Statement, Diagnostic> {
         Ok(match &statement.kind {
+            syntax::StatementKind::Empty => Statement::Block(Block {
+                statements: Vec::new(),
+                flow: Flow::FallsThrough,
+            }),
             syntax::StatementKind::Simd(block) => Statement::Simd(self.simd_block(block)?),
             syntax::StatementKind::InstructionBytes(instruction) => {
                 Statement::Simd(self.machine_bytes(instruction)?)
@@ -932,7 +993,9 @@ impl Resolver<'_> {
                 ));
             }
             syntax::StatementKind::Using(directive) => self.using_directive(directive)?,
-            syntax::StatementKind::UsingDeclaration { .. } => self.using_declaration(statement)?,
+            syntax::StatementKind::UsingDeclaration {
+                ..
+            } => self.using_declaration(statement)?,
             syntax::StatementKind::CallerExport(inner) => self.caller_export(inner)?,
             syntax::StatementKind::ContextField(_) => {
                 return Err(Diagnostic::new(
@@ -948,8 +1011,17 @@ impl Resolver<'_> {
             | syntax::StatementKind::TypeAlias(_) => {
                 unreachable!("local declarations are registered before block statements")
             }
-            syntax::StatementKind::PushContext { value, body } => {
-                self.push_context(value.as_ref(), body, self.span)?
+            syntax::StatementKind::PushContext {
+                value,
+                body,
+            } => self.push_context(value.as_ref(), body, self.span)?,
+            syntax::StatementKind::PushContextDeferred {
+                ..
+            } => {
+                return Err(Diagnostic::new(
+                    statement.span,
+                    "deferred context push requires an enclosing statement sequence",
+                ));
             }
             syntax::StatementKind::Declare(declaration) => {
                 if matches!(declaration, syntax::Declaration::External { .. }) {
@@ -966,11 +1038,23 @@ impl Resolver<'_> {
                     return Ok(statement);
                 }
                 let (name, ty, expression) = match declaration {
-                    syntax::Declaration::External { .. } => {
+                    syntax::Declaration::GroupMember {
+                        ..
+                    } => {
+                        return Err(Diagnostic::new(
+                            self.span,
+                            "file declaration group requires its source publication owner",
+                        ));
+                    }
+                    syntax::Declaration::External {
+                        ..
+                    } => {
                         unreachable!("external storage handled before local allocation")
                     }
                     syntax::Declaration::Inferred {
-                        name, initializer, ..
+                        name,
+                        initializer,
+                        ..
                     } => {
                         let expression = self.expr(initializer)?;
                         let ty = self.expression_type(&expression, initializer.span)?;
@@ -1077,7 +1161,10 @@ impl Resolver<'_> {
                 };
                 self.update_place(&target, *operator, expression)?
             }
-            syntax::StatementKind::AssignPlace { target, value } => {
+            syntax::StatementKind::AssignPlace {
+                target,
+                value,
+            } => {
                 if let Some(result) = self.overloaded_index_assignment(target, value) {
                     return result;
                 }
@@ -1109,9 +1196,11 @@ impl Resolver<'_> {
                 self.reject_expanded_return(statement.span)?;
                 self.resolve_return_values(values)?
             }
-            syntax::StatementKind::DeclareResults { names, ty, values } => {
-                self.declare_results(names, ty.as_ref(), values)?
-            }
+            syntax::StatementKind::DeclareResults {
+                names,
+                ty,
+                values,
+            } => self.declare_results(names, ty.as_ref(), values)?,
             syntax::StatementKind::MixedResults {
                 bindings,
                 ty,
@@ -1157,7 +1246,9 @@ impl Resolver<'_> {
                                 "null requires a pointer type context",
                             ));
                         }
-                        Expr::Pointer { value, .. } => Statement::DiscardValue(value),
+                        Expr::Pointer {
+                            value, ..
+                        } => Statement::DiscardValue(value),
                         value @ (Expr::Float(_) | Expr::WeakFloat(_)) => {
                             Statement::DiscardValue(value.value(e.span)?)
                         }
@@ -1181,15 +1272,22 @@ impl Resolver<'_> {
                             arguments,
                             destinations: vec![],
                         },
-                        Expr::Typed { value, .. } | Expr::Enum { value, .. } => {
-                            Statement::DiscardValue(value)
+                        Expr::Typed {
+                            value, ..
                         }
+                        | Expr::Enum {
+                            value, ..
+                        } => Statement::DiscardValue(value),
                     }
                 }
             }
             syntax::StatementKind::CompileTimeCases(_)
-            | syntax::StatementKind::CompileTimeAssert { .. }
-            | syntax::StatementKind::CompileTimeIf { .. } => {
+            | syntax::StatementKind::CompileTimeAssert {
+                ..
+            }
+            | syntax::StatementKind::CompileTimeIf {
+                ..
+            } => {
                 unreachable!("static conditionals are selected before block lowering")
             }
             syntax::StatementKind::If(cond, yes, no) => {
@@ -1206,16 +1304,21 @@ impl Resolver<'_> {
             syntax::StatementKind::While(condition, body) => self.resolve_while(condition, body)?,
             syntax::StatementKind::Range(range) => self.resolve_range(range)?,
             syntax::StatementKind::ArrayLoop(loop_) => self.resolve_array_loop(loop_)?,
-            syntax::StatementKind::Jump { kind, target, span } => {
-                self.resolve_jump(*kind, *target, *span)?
-            }
+            syntax::StatementKind::Jump {
+                kind,
+                target,
+                span,
+            } => self.resolve_jump(*kind, *target, *span)?,
             syntax::StatementKind::Block(body) => {
                 let body = self.block(body, true)?;
                 self.debug
                     .attach_block(&[DebugPathStep::Child(DebugBranch::Block)]);
                 Statement::Block(body)
             }
-            syntax::StatementKind::CheckScope { checks, body } => {
+            syntax::StatementKind::CheckScope {
+                checks,
+                body,
+            } => {
                 let body = self.checked_block(*checks, body, true)?;
                 self.debug
                     .attach_block(&[DebugPathStep::Child(DebugBranch::Block)]);
@@ -1227,6 +1330,9 @@ impl Resolver<'_> {
     fn expr(&mut self, expr: &syntax::Expression) -> Result<Expr, Diagnostic> {
         let span = expr.span;
         Ok(match &expr.kind {
+            syntax::ExpressionKind::BakeArguments(source) => {
+                self.baked_procedure_value(&source.callee, &source.arguments, span)?
+            }
             syntax::ExpressionKind::AnonymousProcedure(source) => {
                 self.anonymous_procedure_value(source, span, None)?
             }
@@ -1246,17 +1352,19 @@ impl Resolver<'_> {
             syntax::ExpressionKind::Code(body) => self.capture_code(body, span)?,
             syntax::ExpressionKind::Insert(directive) => self.insert_expression(directive)?,
             syntax::ExpressionKind::Type(ty) => Expr::Type(self.reflected_type_syntax(ty, span)?),
-            syntax::ExpressionKind::TypeQuery { query, value } => {
-                self.type_query(*query, value, span)?
-            }
+            syntax::ExpressionKind::TypeQuery {
+                query,
+                value,
+            } => self.type_query(*query, value, span)?,
             syntax::ExpressionKind::Null => Expr::Null,
             syntax::ExpressionKind::AddressOf(source) => self.address_expression(source, span)?,
             syntax::ExpressionKind::Dereference(source) => {
                 self.dereference_expression(source, span)?
             }
-            syntax::ExpressionKind::Index { base, index } => {
-                self.index_expression(base, index, span)?
-            }
+            syntax::ExpressionKind::Index {
+                base,
+                index,
+            } => self.index_expression(base, index, span)?,
             syntax::ExpressionKind::Context => self.context_expression(span)?,
             syntax::ExpressionKind::InferredMember(_) => {
                 return Err(Diagnostic::new(
@@ -1302,10 +1410,14 @@ impl Resolver<'_> {
                 }
                 self.resolve_call_path(path, arguments, span)?
             }
-            syntax::ExpressionKind::CallHint { hint, call } => {
-                self.hinted_call_expression(*hint, call, span)?
-            }
-            syntax::ExpressionKind::IndirectCall { callee, args } => {
+            syntax::ExpressionKind::CallHint {
+                hint,
+                call,
+            } => self.hinted_call_expression(*hint, call, span)?,
+            syntax::ExpressionKind::IndirectCall {
+                callee,
+                args,
+            } => {
                 if let syntax::ExpressionKind::ShortLambda(source) = &callee.kind {
                     return self.short_lambda_call(source, callee.span, args, span);
                 }
@@ -1323,7 +1435,10 @@ impl Resolver<'_> {
             syntax::ExpressionKind::PositionalStructLiteral(literal) => {
                 self.positional_record_literal(literal, None, span)?
             }
-            syntax::ExpressionKind::Member { base, member } => {
+            syntax::ExpressionKind::Member {
+                base,
+                member,
+            } => {
                 if matches!(base.kind, syntax::ExpressionKind::Context) {
                     return self.context_member(*member, span);
                 }
@@ -1331,13 +1446,19 @@ impl Resolver<'_> {
                 self.member_value(base, *member, span)?
             }
             syntax::ExpressionKind::CompileTime(body) => self.resolve_compile_time(body, span)?,
-            syntax::ExpressionKind::InferredCast { .. } => {
+            syntax::ExpressionKind::InferredCast {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     span,
                     "xx cast requires a destination type from its context",
                 ));
             }
-            syntax::ExpressionKind::TypeCast { mode, ty, value } => {
+            syntax::ExpressionKind::TypeCast {
+                mode,
+                ty,
+                value,
+            } => {
                 let target = self.lexical_annotation(ty, span)?;
                 self.cast_expression(value, target, *mode, span)?
             }
@@ -1394,16 +1515,25 @@ impl Resolver<'_> {
                     }))),
                     Expr::Type(_)
                     | Expr::Code(_)
-                    | Expr::Typed { .. }
-                    | Expr::Enum { .. }
-                    | Expr::Pointer { .. }
+                    | Expr::Typed {
+                        ..
+                    }
+                    | Expr::Enum {
+                        ..
+                    }
+                    | Expr::Pointer {
+                        ..
+                    }
                     | Expr::Null => {
                         return Err(Diagnostic::new(
                             span,
                             "nominal conditional values are not implemented",
                         ));
                     }
-                    Expr::Void(_) | Expr::IndirectVoid { .. } => {
+                    Expr::Void(_)
+                    | Expr::IndirectVoid {
+                        ..
+                    } => {
                         return Err(Diagnostic::new(
                             span,
                             "void call cannot supply an ifx result",

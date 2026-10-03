@@ -71,13 +71,17 @@ impl Number {
     pub(crate) fn memory_identity(&self) -> Option<u64> {
         self.provenance.as_ref().map(|provenance| match provenance {
             AddressProvenance::Pointer(pointer) => pointer.memory_identity(),
-            AddressProvenance::Derived { memory, .. } => *memory,
+            AddressProvenance::Derived {
+                memory, ..
+            } => *memory,
         })
     }
     pub(crate) fn origin_count(&self) -> usize {
         match &self.provenance {
             Some(AddressProvenance::Pointer(_)) => 1,
-            Some(AddressProvenance::Derived { allocations, .. }) => allocations.len(),
+            Some(AddressProvenance::Derived {
+                allocations, ..
+            }) => allocations.len(),
             None => 0,
         }
     }
@@ -93,7 +97,9 @@ impl Number {
             Some(AddressProvenance::Pointer(pointer)) => {
                 (pointer.data_allocation_key().map(|key| key.1), &[])
             }
-            Some(AddressProvenance::Derived { allocations, .. }) => (None, allocations),
+            Some(AddressProvenance::Derived {
+                allocations, ..
+            }) => (None, allocations),
             None => (None, &[]),
         };
         single.into_iter().chain(many.iter().copied())

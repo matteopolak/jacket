@@ -26,7 +26,9 @@ impl Builder<'_> {
         self.initialize(path, bootstrap)?;
         match self.advance()? {
             DiscoveryStatus::Complete => Ok(self.graph),
-            DiscoveryStatus::Awaiting { .. } => {
+            DiscoveryStatus::Awaiting {
+                ..
+            } => {
                 let diagnostic = self
                     .pending_diagnostics
                     .first()
@@ -99,6 +101,11 @@ impl Builder<'_> {
                 .source
                 .resolve(&self.options.import_dirs, self.provider)
                 .map_err(GraphError::Prelude)?;
+            if runtime.parameters.temporary_storage_size < 0 {
+                return Err(GraphError::Prelude(PreludeError::InvalidConfiguration(
+                    "Runtime_Support temporary storage size must be nonnegative",
+                )));
+            }
             let arguments = [
                 (
                     "DEFINE_SYSTEM_ENTRY_POINT",
@@ -119,6 +126,17 @@ impl Builder<'_> {
                 value: ParameterValue::Scalar(jai_eval::Value::Bool(value)),
             })
             .collect::<Vec<_>>();
+            let mut arguments = arguments;
+            arguments.push(Argument {
+                name: Some(self.graph.symbols.intern("TEMPORARY_STORAGE_SIZE")),
+                value: ParameterValue::Scalar(jai_eval::Value::Int(
+                    jai_types::Integer::checked(
+                        jai_types::IntegerType::S32,
+                        runtime.parameters.temporary_storage_size as i128,
+                    )
+                    .expect("validated Runtime_Support temporary storage size"),
+                )),
+            });
             if runtime_path == path {
                 self.graph.runtime_support = Some(root);
                 self.requests.insert(root, (Some(arguments), None));
@@ -177,9 +195,12 @@ impl Builder<'_> {
             }
             match self.expand_module(module, &path) {
                 Ok(()) => {}
-                Err(GraphError::Pending { diagnostic, .. }) => self
-                    .pending_diagnostics
-                    .push(DeferredDependency { module, diagnostic }),
+                Err(GraphError::Pending {
+                    diagnostic, ..
+                }) => self.pending_diagnostics.push(DeferredDependency {
+                    module,
+                    diagnostic,
+                }),
                 Err(error) => return Err(error),
             }
         }
@@ -200,9 +221,13 @@ impl Builder<'_> {
                 .to_owned();
             match self.expand_module(module, &path) {
                 Ok(()) => {}
-                Err(GraphError::Pending { diagnostic, .. }) => {
-                    self.pending_diagnostics
-                        .push(DeferredDependency { module, diagnostic });
+                Err(GraphError::Pending {
+                    diagnostic, ..
+                }) => {
+                    self.pending_diagnostics.push(DeferredDependency {
+                        module,
+                        diagnostic,
+                    });
                     self.pending_inserted_modules.push(module);
                 }
                 Err(error) => return Err(error),
@@ -211,7 +236,9 @@ impl Builder<'_> {
         for key in std::mem::take(&mut self.pending_specializations) {
             match self.expand_specialization(&key) {
                 Ok(()) => self.graph.source_specializations.push(key),
-                Err(GraphError::Pending { diagnostic, .. }) => {
+                Err(GraphError::Pending {
+                    diagnostic, ..
+                }) => {
                     let module = self.graph.files[self
                         .graph
                         .declaration(key.declaration())
@@ -219,8 +246,10 @@ impl Builder<'_> {
                         .file()
                         .index()]
                     .module;
-                    self.pending_diagnostics
-                        .push(DeferredDependency { module, diagnostic });
+                    self.pending_diagnostics.push(DeferredDependency {
+                        module,
+                        diagnostic,
+                    });
                     self.pending_specializations.push(key);
                 }
                 Err(error) => return Err(error),
@@ -247,6 +276,7 @@ impl Builder<'_> {
                 ),
             });
         }
+        self.refresh_import_exports()?;
         if self.discovery_complete() {
             self.graph
                 .validate_operator_aliases()

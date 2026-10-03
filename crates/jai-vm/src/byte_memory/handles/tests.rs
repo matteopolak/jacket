@@ -28,7 +28,13 @@ fn borrowed_reference_token_map_keeps_identity_and_missing_handles_are_atomic() 
     };
     let mut reference = ByteImage::encode(&types, target, pair, &value, 128).unwrap();
     reference
-        .retokenize_handles(|value| Ok(if value == &first { 100 } else { 200 }))
+        .retokenize_handles(|value| {
+            Ok(if value == &first {
+                100
+            } else {
+                200
+            })
+        })
         .unwrap();
     let reversed = Value::Array {
         ty: pair,
@@ -217,6 +223,7 @@ fn procedure_tokens_can_be_stable_and_keep_distinct_procedures_separate() {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::None,
             variadic: jai_types::Variadic::None,

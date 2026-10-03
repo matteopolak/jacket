@@ -121,7 +121,10 @@ fn rejected_placement_definitions_can_be_retried() {
                 RecordLayout::default(),
                 anchors
             ),
-            Err(TypeError::InvalidPlacement { record, issue }),
+            Err(TypeError::InvalidPlacement {
+                record,
+                issue
+            }),
         );
         assert!(
             matches!(types.record_definition(record), Err(TypeError::Incomplete(id)) if id == record)

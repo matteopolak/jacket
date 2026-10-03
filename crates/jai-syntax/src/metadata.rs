@@ -22,10 +22,12 @@ pub enum RecordAttribute {
     Alignment(Expression),
     NoPadding,
     TypeInfoNone,
+    Reflection(RecordReflectionSettingSyntax),
 }
 #[derive(Clone, Debug)]
 pub enum FieldAttribute {
     Alignment(Expression),
+    Placement(FieldPlacementSyntax),
 }
 
 pub(super) fn merge_record_attributes(
@@ -36,13 +38,22 @@ pub(super) fn merge_record_attributes(
     for attribute in &suffix {
         if prefix
             .iter()
-            .any(|existing| std::mem::discriminant(existing) == std::mem::discriminant(attribute))
+            .any(|existing| same_record_attribute(existing, attribute))
         {
             return Err(Diagnostic::new(span, "duplicate record attribute"));
         }
     }
     prefix.extend(suffix);
     Ok(())
+}
+
+fn same_record_attribute(left: &RecordAttribute, right: &RecordAttribute) -> bool {
+    match (left, right) {
+        (RecordAttribute::Reflection(left), RecordAttribute::Reflection(right)) => {
+            left.flag == right.flag
+        }
+        _ => std::mem::discriminant(left) == std::mem::discriminant(right),
+    }
 }
 
 impl Parser<'_> {
@@ -78,7 +89,10 @@ impl Parser<'_> {
                     } else {
                         NoteValue::Expression(self.expression(0)?)
                     };
-                    arguments.push(NoteArgument { name: None, value });
+                    arguments.push(NoteArgument {
+                        name: None,
+                        value,
+                    });
                     if self.take(Punct::CloseParen) {
                         break;
                     }
@@ -101,6 +115,20 @@ impl Parser<'_> {
         let mut attributes = Vec::new();
         let mut seen = [false; 3];
         loop {
+            if matches!(self.token().kind, Kind::UnknownDirective) {
+                let span = self.token().span;
+                if let Some(setting) = self.record_reflection_setting() {
+                    let attribute = RecordAttribute::Reflection(setting);
+                    if attributes
+                        .iter()
+                        .any(|existing| same_record_attribute(existing, &attribute))
+                    {
+                        return Err(Diagnostic::new(span, "duplicate record attribute"));
+                    }
+                    attributes.push(attribute);
+                    continue;
+                }
+            }
             let (index, directive) = match self.token().kind {
                 Kind::Directive(Directive::Align) => (0, Directive::Align),
                 Kind::Directive(Directive::NoPadding) => (1, Directive::NoPadding),

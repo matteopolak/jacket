@@ -48,7 +48,11 @@ fn source_corpus_simd_blocks_preserve_features_registers_operands_and_spans() {
     assert_eq!(blocks[1].features[0].span.text(text), "AVX");
     assert_eq!(blocks[2].features[1].feature, SimdFeature::Avx2);
     assert_eq!(blocks[2].features[1].span.text(text), "AVX2");
-    let SimdStatement::RegisterDeclaration { name, span } = &blocks[0].statements[0] else {
+    let SimdStatement::RegisterDeclaration {
+        name,
+        span,
+    } = &blocks[0].statements[0]
+    else {
         panic!("expected vec declaration")
     };
     assert_eq!(symbols.name(*name), "v");
@@ -208,11 +212,17 @@ fn unsupported_balanced_statements_are_retained_without_register_or_expression_r
         panic!("expected assembly block")
     };
     assert_eq!(block.statements.len(), 4);
-    let SimdStatement::Unsupported { span } = block.statements[0] else {
+    let SimdStatement::Unsupported {
+        span,
+    } = block.statements[0]
+    else {
         panic!("expected unsupported register type")
     };
     assert_eq!(span.text(text), "rax: gpr;");
-    let SimdStatement::Unsupported { span } = block.statements[1] else {
+    let SimdStatement::Unsupported {
+        span,
+    } = block.statements[1]
+    else {
         panic!("expected unsupported opcode")
     };
     assert_eq!(
@@ -221,11 +231,18 @@ fn unsupported_balanced_statements_are_retained_without_register_or_expression_r
     );
     assert!(module.symbols().find("rax").is_none());
     assert!(module.symbols().find("address").is_none());
-    let SimdStatement::DebugTrap { span } = block.statements[2] else {
+    let SimdStatement::DebugTrap {
+        span,
+    } = block.statements[2]
+    else {
         panic!("expected debug trap")
     };
     assert_eq!(span.text(text), "int3;");
-    let SimdStatement::Interrupt { vector, span } = block.statements[3] else {
+    let SimdStatement::Interrupt {
+        vector,
+        span,
+    } = block.statements[3]
+    else {
         panic!("expected interrupt")
     };
     assert_eq!(vector, 0x41);
@@ -245,7 +262,10 @@ fn unknown_instructions_inside_inactive_source_branches_do_not_fail_parsing() {
     let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
         panic!("expected procedure")
     };
-    let StatementKind::CompileTimeIf { then_body, .. } = &procedure.body[0].kind else {
+    let StatementKind::CompileTimeIf {
+        then_body, ..
+    } = &procedure.body[0].kind
+    else {
         panic!("expected compile-time branch")
     };
     let StatementKind::Simd(block) = &then_body[0].kind else {

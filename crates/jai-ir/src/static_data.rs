@@ -94,6 +94,7 @@ pub struct StaticObject {
     id: StaticObjectId,
     value: StaticValue,
     descriptor: Option<crate::runtime_types::RuntimeTypeBinding>,
+    retained_bytes: usize,
 }
 impl Drop for StaticObject {
     fn drop(&mut self) {
@@ -112,6 +113,10 @@ impl Drop for StaticObject {
     }
 }
 impl StaticObject {
+    /// Sealed upper bound for this exact shared immutable object allocation.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
+    }
     pub fn id(&self) -> StaticObjectId {
         self.id
     }
@@ -139,6 +144,8 @@ pub struct StaticDataLimits {
     pub value_nodes: usize,
     pub value_depth: usize,
     pub projection_depth: usize,
+    /// Complete retained allocation footprint, including spare Vec capacity.
+    pub retained_bytes: usize,
 }
 impl Default for StaticDataLimits {
     fn default() -> Self {
@@ -147,6 +154,7 @@ impl Default for StaticDataLimits {
             value_nodes: 1_048_576,
             value_depth: 256,
             projection_depth: 256,
+            retained_bytes: 64 * 1024 * 1024,
         }
     }
 }
@@ -191,11 +199,13 @@ impl fmt::Display for StaticDataError {
             }
             Self::IncompleteObject(_) => f.write_str("static object definition is pending"),
             Self::AlreadyDefined(_) => f.write_str("static object is already defined"),
-            Self::TypeMismatch { .. } => f.write_str("static value has a different nominal type"),
+            Self::TypeMismatch {
+                ..
+            } => f.write_str("static value has a different nominal type"),
             Self::InvalidValue(_) => f.write_str("static value does not match its type"),
-            Self::OutOfBounds { .. } => {
-                f.write_str("static address or view exceeds its array bounds")
-            }
+            Self::OutOfBounds {
+                ..
+            } => f.write_str("static address or view exceeds its array bounds"),
             Self::Limit(limit) => write!(f, "static storage exceeds its {limit} limit"),
             Self::ReservationExhausted => {
                 f.write_str("static object reservation identity space exhausted")
@@ -203,7 +213,8 @@ impl fmt::Display for StaticDataError {
         }
     }
 }
-impl std::error::Error for StaticDataError {}
+impl std::error::Error for StaticDataError {
+}
 
 enum BorrowedValue<'a> {
     Static(&'a StaticValue),
@@ -255,7 +266,9 @@ fn validate_shapes<'a>(
                         return Err(StaticDataError::Limit("projection depth"));
                     }
                 }
-                StaticValueKind::Slice { data: None, .. } => {}
+                StaticValueKind::Slice {
+                    data: None, ..
+                } => {}
             },
             BorrowedValue::Constant(value) => match &value.kind {
                 ConstantKind::RuntimeType(_) => {
@@ -266,7 +279,10 @@ fn validate_shapes<'a>(
                         push(BorrowedValue::Constant(value), depth + 1)?;
                     }
                 }
-                ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
+                ConstantKind::Union {
+                    value, ..
+                }
+                | ConstantKind::Distinct(value) => {
                     push(BorrowedValue::Constant(value), depth + 1)?;
                 }
                 _ => {}
@@ -295,7 +311,10 @@ fn dispose_value(value: StaticValue) {
                 ConstantKind::Record(values) | ConstantKind::Array(values) => {
                     pending.extend(values.into_iter().map(OwnedValue::Constant));
                 }
-                ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
+                ConstantKind::Union {
+                    value, ..
+                }
+                | ConstantKind::Distinct(value) => {
                     pending.push(OwnedValue::Constant(*value));
                 }
                 _ => {}
@@ -317,6 +336,8 @@ pub struct StaticDataBuilder {
     published: usize,
     published_references: usize,
     retained_nodes: usize,
+    retained_bytes: usize,
+    published_bytes: usize,
 }
 impl Default for StaticDataBuilder {
     fn default() -> Self {
@@ -337,6 +358,8 @@ impl StaticDataBuilder {
             published: 0,
             published_references: 0,
             retained_nodes: 0,
+            retained_bytes: 0,
+            published_bytes: 0,
         }
     }
     pub fn reserve(
@@ -405,6 +428,21 @@ impl StaticDataBuilder {
         descriptor: jai_types::DescriptorId,
         types: &dyn TypeView,
     ) -> Result<(), StaticDataError> {
+        let preflight = (|| {
+            let remaining = StaticDataLimits::default()
+                .retained_bytes
+                .checked_sub(self.retained_bytes)
+                .and_then(|bytes| bytes.checked_sub(self.published_bytes))
+                .ok_or(StaticDataError::Limit("retained bytes"))?;
+            let source = graph
+                .get(descriptor)
+                .map_err(|_| StaticDataError::InvalidValue(value.ty))?;
+            retained_bytes::descriptor_preflight(&value, source, remaining)
+        })();
+        if let Err(error) = preflight {
+            dispose_value(value);
+            return Err(error);
+        }
         let binding = match crate::runtime_types::RuntimeTypeBinding::new(
             id, &value, graph, descriptor, types,
         ) {
@@ -447,10 +485,22 @@ impl StaticDataBuilder {
                     actual: value.ty,
                 });
             }
-            Ok(nodes)
+            let remaining = limits
+                .retained_bytes
+                .checked_sub(self.retained_bytes)
+                .and_then(|bytes| bytes.checked_sub(self.published_bytes))
+                .ok_or(StaticDataError::Limit("retained bytes"))?;
+            let bytes = retained_bytes::object(
+                &value,
+                descriptor
+                    .as_ref()
+                    .map(|binding| (binding.header(), binding.descriptor())),
+                remaining,
+            )?;
+            Ok((nodes, bytes))
         })();
-        let nodes = match admission {
-            Ok(nodes) => nodes,
+        let (nodes, bytes) = match admission {
+            Ok(proof) => proof,
             Err(error) => {
                 dispose_value(value);
                 return Err(error);
@@ -460,9 +510,11 @@ impl StaticDataBuilder {
             id,
             value,
             descriptor,
+            retained_bytes: bytes,
         }));
         self.objects[id.index].nodes = nodes;
         self.retained_nodes += nodes;
+        self.retained_bytes += bytes;
         Ok(())
     }
     /// Publish an immutable closure while retaining the sole append authority.
@@ -487,6 +539,20 @@ impl StaticDataBuilder {
                 .filter_map(|object| object.value.as_ref().map(|value| value.value())),
             limits,
         )?;
+        let table_bytes = retained_bytes::table(self.objects.len())?;
+        self.retained_bytes
+            .checked_add(table_bytes)
+            .filter(|bytes| *bytes <= limits.retained_bytes)
+            .ok_or(StaticDataError::Limit("retained bytes"))?;
+        let published_bytes = self
+            .published_bytes
+            .checked_add(table_bytes)
+            .filter(|bytes| {
+                self.retained_bytes
+                    .checked_add(*bytes)
+                    .is_some_and(|total| total <= StaticDataLimits::default().retained_bytes)
+            })
+            .ok_or(StaticDataError::Limit("publication retained bytes"))?;
         let mut objects = Vec::with_capacity(self.objects.len());
         for object in &self.objects {
             let value = object
@@ -495,19 +561,28 @@ impl StaticDataBuilder {
                 .ok_or(StaticDataError::IncompleteObject(object.id))?;
             objects.push(Arc::clone(value));
         }
-        let data = StaticData {
+        let mut data = StaticData {
             arena: self.arena,
             objects: objects.into(),
             limits,
+            validation_work: 0,
+            table_bytes,
+            retained_bytes: self.retained_bytes + table_bytes,
         };
-        data.validate(types)?;
+        data.validation_work = validation_work::validate_and_measure(&data, types)?;
         self.published = self.objects.len();
         self.published_references = published_references;
+        self.published_bytes = published_bytes;
         Ok(data)
     }
 
     /// Roll back failed construction without invalidating an exported address.
     pub fn discard_unpublished(&mut self) {
+        self.retained_bytes -= self.objects[self.published..]
+            .iter()
+            .filter_map(|object| object.value.as_ref())
+            .map(|object| object.retained_bytes())
+            .sum::<usize>();
         self.retained_nodes -= self.objects[self.published..]
             .iter()
             .map(|object| object.nodes)
@@ -530,11 +605,28 @@ pub struct StaticData {
     arena: u64,
     objects: Box<[Arc<StaticObject>]>,
     limits: StaticDataLimits,
+    validation_work: usize,
+    table_bytes: usize,
+    retained_bytes: usize,
 }
 impl StaticData {
     /// Compiler-owned identity for consumer caches; this is not a host address.
     pub fn identity(&self) -> u64 {
         self.arena
+    }
+    /// A sealed conservative bound for revalidating this exact immutable catalog.
+    /// It is measured at publication, including descriptor metadata, paths,
+    /// registry storage traversal and selected-layout dependency work.
+    pub fn validation_work(&self) -> usize {
+        self.validation_work
+    }
+    /// Sealed footprint of this catalog table, separately from shared objects.
+    pub fn table_retained_bytes(&self) -> usize {
+        self.table_bytes
+    }
+    /// Complete checked closure footprint. Consumers deduplicate shared objects.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
     }
     pub fn objects(&self) -> &[Arc<StaticObject>] {
         &self.objects
@@ -582,7 +674,11 @@ impl StaticData {
                     extent = view.length();
                 }
                 StaticProjection::Index(index) => {
-                    let TypeKind::FixedArray { element, count } = *types.kind(ty)? else {
+                    let TypeKind::FixedArray {
+                        element,
+                        count,
+                    } = *types.kind(ty)?
+                    else {
                         return Err(StaticDataError::InvalidValue(ty));
                     };
                     if *index >= count {
@@ -601,14 +697,35 @@ impl StaticData {
     /// Revalidation at a consumer boundary checks registry ownership as well as
     /// all aggregate members. The traversal is bounded and iterative.
     pub fn validate(&self, types: &dyn TypeView) -> Result<(), StaticDataError> {
-        let mut represented = std::collections::HashSet::new();
+        self.validate_inner(types, None)
+    }
+    fn validate_inner(
+        &self,
+        types: &dyn TypeView,
+        work: Option<&validation_work::ValidationWork>,
+    ) -> Result<(), StaticDataError> {
+        if let Some(work) = work {
+            work.add(
+                self.objects
+                    .len()
+                    .checked_mul(8)
+                    .ok_or(StaticDataError::Limit("validation work"))?,
+            )?;
+        }
+        // Each immutable descriptor object has its own binding. Historical
+        // revisions may represent one canonical type; validate every object.
         let mut descriptor_work = self.limits.value_nodes;
         for object in &self.objects {
             if let Some(binding) = object.descriptor_binding() {
-                binding.validate(self, types, &mut descriptor_work)?;
-                if !represented.insert(binding.identity().ty()) {
-                    return Err(StaticDataError::InvalidValue(object.ty()));
+                if let Some(work) = work {
+                    work.add(
+                        binding
+                            .nodes()
+                            .checked_mul(32)
+                            .ok_or(StaticDataError::Limit("validation work"))?,
+                    )?;
                 }
+                binding.validate(self, types, &mut descriptor_work)?;
             }
         }
         let mut pending: Vec<_> = self
@@ -618,6 +735,32 @@ impl StaticData {
             .collect();
         let mut nodes = 0usize;
         while let Some((value, expected, depth)) = pending.pop() {
+            if let Some(work) = work {
+                work.add(8)?;
+                match &value.kind {
+                    StaticValueKind::Address(address)
+                    | StaticValueKind::Slice {
+                        data: Some(address),
+                        ..
+                    } => work.add(
+                        address
+                            .path()
+                            .len()
+                            .checked_mul(8)
+                            .ok_or(StaticDataError::Limit("validation work"))?,
+                    )?,
+                    StaticValueKind::Constant(crate::ConstantValue {
+                        kind: ConstantKind::StringBytes(bytes),
+                        ..
+                    }) => work.add(
+                        bytes
+                            .len()
+                            .checked_mul(2)
+                            .ok_or(StaticDataError::Limit("validation work"))?,
+                    )?,
+                    _ => {}
+                }
+            }
             nodes = nodes
                 .checked_add(1)
                 .filter(|nodes| *nodes <= self.limits.value_nodes)
@@ -670,7 +813,11 @@ impl StaticData {
                     );
                 }
                 StaticValueKind::Array(elements) => {
-                    let TypeKind::FixedArray { element, count } = *kind else {
+                    let TypeKind::FixedArray {
+                        element,
+                        count,
+                    } = *kind
+                    else {
                         return Err(StaticDataError::InvalidValue(expected));
                     };
                     if u64::try_from(elements.len()).ok() != Some(count) {
@@ -703,7 +850,10 @@ impl StaticData {
                         });
                     }
                 }
-                StaticValueKind::Slice { data, count } => {
+                StaticValueKind::Slice {
+                    data,
+                    count,
+                } => {
                     let TypeKind::Slice(element) = *kind else {
                         return Err(StaticDataError::InvalidValue(expected));
                     };
@@ -735,3 +885,7 @@ impl StaticData {
 
 #[cfg(test)]
 mod tests;
+
+mod validation_work;
+
+mod retained_bytes;

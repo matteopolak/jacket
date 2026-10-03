@@ -46,7 +46,9 @@ fn quoted_exported_defers_keep_a_structural_caller_export() {
     let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
         panic!()
     };
-    let StatementKind::Declare(Declaration::Inferred { initializer, .. }) = &procedure.body[0].kind
+    let StatementKind::Declare(Declaration::Inferred {
+        initializer, ..
+    }) = &procedure.body[0].kind
     else {
         panic!()
     };

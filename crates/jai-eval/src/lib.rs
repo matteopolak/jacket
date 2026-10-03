@@ -1,6 +1,8 @@
 //! Pure constant evaluation with typed nodes and no host effects.
 mod bound_values;
 mod domains;
+mod retained_metadata;
+pub use retained_metadata::EvalRetainedMetadataError;
 pub mod floats;
 pub mod operators;
 #[cfg(test)]
@@ -194,7 +196,11 @@ fn arithmetic(
                 return if overflow_check.enabled() {
                     Err(invalid())
                 } else {
-                    Ok(if op == IntOp::Divide { a } else { 0 })
+                    Ok(if op == IntOp::Divide {
+                        a
+                    } else {
+                        0
+                    })
                 };
             }
             if op == IntOp::Divide {
@@ -451,21 +457,33 @@ fn bind(
         ExpressionKind::QualifiedName(path) => literal(lookup(path, span)?),
         ExpressionKind::StructLiteral(_)
         | ExpressionKind::PositionalStructLiteral(_)
-        | ExpressionKind::Member { .. } => {
+        | ExpressionKind::Member {
+            ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "aggregate constant evaluation is not implemented",
             ));
         }
         ExpressionKind::Float(value) => Expr::Float(floats::FloatExpr::literal(value)),
-        ExpressionKind::InferredCast { .. } => {
+        ExpressionKind::InferredCast {
+            ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "xx cast requires a destination type from its context",
             ));
         }
-        ExpressionKind::TypeCast { mode, ty, value } => {
-            floats::cast(ty, bind(value, overflow_check, lookup)?, *mode, span)?
+        ExpressionKind::TypeCast {
+            mode,
+            ty,
+            value,
+        } => floats::cast(ty, bind(value, overflow_check, lookup)?, *mode, span)?,
+        ExpressionKind::BakeArguments(_) => {
+            return Err(Diagnostic::new(
+                span,
+                "#bake_arguments requires checked callable source preparation",
+            ));
         }
         ExpressionKind::Code(_)
         | ExpressionKind::ShortLambda(_)
@@ -479,9 +497,15 @@ fn bind(
         | ExpressionKind::HereString(_)
         | ExpressionKind::Null
         | ExpressionKind::Uninitialized
-        | ExpressionKind::CallHint { .. }
-        | ExpressionKind::IndirectCall { .. }
-        | ExpressionKind::ContextCall { .. }
+        | ExpressionKind::CallHint {
+            ..
+        }
+        | ExpressionKind::IndirectCall {
+            ..
+        }
+        | ExpressionKind::ContextCall {
+            ..
+        }
         | ExpressionKind::InferredMember(_)
         | ExpressionKind::Context
         | ExpressionKind::CallerLocation
@@ -491,9 +515,13 @@ fn bind(
         | ExpressionKind::SourceLine
         | ExpressionKind::AddressOf(_)
         | ExpressionKind::Dereference(_)
-        | ExpressionKind::Index { .. }
+        | ExpressionKind::Index {
+            ..
+        }
         | ExpressionKind::ArrayLiteral(_)
-        | ExpressionKind::TypeQuery { .. } => {
+        | ExpressionKind::TypeQuery {
+            ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "this constant expression requires typed compile-time evaluation",

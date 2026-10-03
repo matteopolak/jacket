@@ -112,12 +112,18 @@ fn whole_union_copy_preserves_view_and_partial_raw_write_invalidates_it() {
     destination
         .write_range(15, &[destination.bytes()[15]])
         .unwrap();
-    let Value::Union { field, .. } = destination.read(&types, target, 8, union).unwrap() else {
+    let Value::Union {
+        field, ..
+    } = destination.read(&types, target, 8, union).unwrap()
+    else {
         panic!()
     };
     assert_eq!(field, 0);
     destination.copy_range_from(&source, 0, 8, 7).unwrap();
-    let Value::Union { field, .. } = destination.read(&types, target, 8, union).unwrap() else {
+    let Value::Union {
+        field, ..
+    } = destination.read(&types, target, 8, union).unwrap()
+    else {
         panic!()
     };
     assert_eq!(field, 0);
@@ -173,6 +179,7 @@ fn batch_assembly_preserves_handle_number_union_and_initialization_metadata() {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::None,
             variadic: jai_types::Variadic::None,

@@ -58,7 +58,9 @@ impl Resolver<'_> {
             )?
         };
         let direct_target = match target {
-            ValueExpr::ProcedureValue { procedure, .. } => Some(procedure),
+            ValueExpr::ProcedureValue {
+                procedure, ..
+            } => Some(procedure),
             _ => None,
         };
         if hint == jai_types::InlineHint::Always && direct_target.is_none() {
@@ -136,7 +138,9 @@ impl Resolver<'_> {
             }
         }
         let context_index = incoming.len();
-        incoming.push(ValueExpr::Context { ty: record });
+        incoming.push(ValueExpr::Context {
+            ty: record,
+        });
         incoming.extend(context_fields.iter().map(|(_, _, value)| value.clone()));
         let parameter_types = incoming
             .iter()
@@ -147,6 +151,7 @@ impl Resolver<'_> {
             .procedure(ProcedureType {
                 parameters: parameter_types.clone().into(),
                 results: results.iter().map(|result| result.ty).collect(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: jai_types::Variadic::None,
@@ -210,7 +215,10 @@ impl Resolver<'_> {
             if results.is_empty() {
                 Statement::CallVoid(call)
             } else {
-                Statement::CallResults { call, destinations }
+                Statement::CallResults {
+                    call,
+                    destinations,
+                }
             }
         } else {
             Statement::IndirectCallResults {

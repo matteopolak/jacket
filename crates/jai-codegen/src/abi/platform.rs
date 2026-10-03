@@ -76,7 +76,11 @@ impl Platform {
         matches!(self, Self::WebAssembly32 | Self::WebAssembly64)
     }
     pub(super) fn pointer_bytes(self) -> u32 {
-        if self == Self::WebAssembly32 { 4 } else { 8 }
+        if self == Self::WebAssembly32 {
+            4
+        } else {
+            8
+        }
     }
     pub(crate) fn has_proven_cpp_method_abi(self) -> bool {
         matches!(

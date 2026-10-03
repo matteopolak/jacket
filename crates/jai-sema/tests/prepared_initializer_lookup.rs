@@ -36,11 +36,15 @@ impl jai_vm::CompilerEffects for Effects {
     }
     fn request(&mut self, request: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
         match request {
-            jai_vm::CompilerRequest::CreateWorkspace { .. } => {
+            jai_vm::CompilerRequest::CreateWorkspace {
+                ..
+            } => {
                 self.requests += 1;
                 jai_vm::EffectOutcome::Pending(jai_vm::EffectKey(42))
             }
-            jai_vm::CompilerRequest::WriteOutput { bytes, .. } => {
+            jai_vm::CompilerRequest::WriteOutput {
+                bytes, ..
+            } => {
                 self.staged.push(bytes);
                 jai_vm::EffectOutcome::Ready(jai_vm::CompilerResponse::Unit)
             }

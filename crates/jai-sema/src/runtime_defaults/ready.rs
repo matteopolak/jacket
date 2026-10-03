@@ -131,7 +131,11 @@ impl Resolver<'_> {
                         ty: place.ty(),
                     };
                 }
-                jai_ir::PlaceKind::Context(ty) => break DefaultReadRoot::Context { ty },
+                jai_ir::PlaceKind::Context(ty) => {
+                    break DefaultReadRoot::Context {
+                        ty,
+                    };
+                }
                 jai_ir::PlaceKind::Field(id) => {
                     let projection = self
                         .places
@@ -224,7 +228,10 @@ fn read_path(
             ));
         }
         match &current.kind {
-            syntax::ExpressionKind::Member { base, member } => {
+            syntax::ExpressionKind::Member {
+                base,
+                member,
+            } => {
                 members.push(*member);
                 current = base;
             }

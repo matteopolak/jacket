@@ -233,7 +233,9 @@ fn an_exact_pending_wait_slot_is_polled_once_and_replayed_as_the_same_event() {
     assert_eq!(cache.suspended_workspaces(&origin), [child]);
     let event = CompilerEvent::Phase {
         workspace: child,
-        phase: jai_vm::CompilerPhase::Typechecked { pending_count: 0 },
+        phase: jai_vm::CompilerPhase::Typechecked {
+            pending_count: 0,
+        },
     };
     cache
         .publish_suspended_event(&origin, event.clone())
@@ -246,7 +248,9 @@ fn an_exact_pending_wait_slot_is_polled_once_and_replayed_as_the_same_event() {
             effects.poll_request(&CompilerRequest::WaitForMessage, key),
             EffectOutcome::Ready(CompilerResponse::Message(event.clone()))
         );
-        ready(effects.request(CompilerRequest::EndIntercept { workspace: child }));
+        ready(effects.request(CompilerRequest::EndIntercept {
+            workspace: child,
+        }));
         effects.finish(true).unwrap();
     }
     {
@@ -265,7 +269,9 @@ fn an_exact_pending_wait_slot_is_polled_once_and_replayed_as_the_same_event() {
             ready(effects.request(CompilerRequest::WaitForMessage)),
             CompilerResponse::Message(event)
         );
-        ready(effects.request(CompilerRequest::EndIntercept { workspace: child }));
+        ready(effects.request(CompilerRequest::EndIntercept {
+            workspace: child,
+        }));
         effects.finish(true).unwrap();
     }
     assert_eq!(session.workspaces().len(), 2);

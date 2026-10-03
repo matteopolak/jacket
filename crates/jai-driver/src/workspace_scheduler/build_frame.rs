@@ -139,7 +139,11 @@ impl WorkspaceScheduler {
                 };
                 loop {
                     let parked = active.job.suspended_job_ids();
-                    if let ActiveSourceJob::Discovery { job, virtual_paths } = &mut active.job {
+                    if let ActiveSourceJob::Discovery {
+                        job,
+                        virtual_paths,
+                    } = &mut active.job
+                    {
                         let progress = match job.poll() {
                             Ok(progress) => progress,
                             Err(error) => {
@@ -179,7 +183,10 @@ impl WorkspaceScheduler {
                                 state.active = Some(active);
                                 return Ok(SchedulerReadiness::Pending(pending));
                             }
-                            crate::GraphJobProgress::SourceWait { pending, error } => {
+                            crate::GraphJobProgress::SourceWait {
+                                pending,
+                                error,
+                            } => {
                                 // Only an actual source dependency may retain
                                 // completed input changes for another graph round.
                                 if let Some((compiler, traces)) = job.take_terminal_journals()
@@ -386,7 +393,9 @@ impl WorkspaceScheduler {
                         wait.pending.diagnostic.location,
                         match &wait.error {
                             Error::Located {
-                                source, diagnostic, ..
+                                source,
+                                diagnostic,
+                                ..
                             } => jai_source::SourceSpan {
                                 source: *source,
                                 span: diagnostic.span,

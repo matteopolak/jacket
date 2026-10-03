@@ -25,7 +25,11 @@ impl Resolver<'_> {
         let span = expression.span;
         match &expression.kind {
             E::CompileTime(syntax::CompileTimeRun {
-                body: syntax::CompileTimeBody::Procedure { result, body },
+                body:
+                    syntax::CompileTimeBody::Procedure {
+                        result,
+                        body,
+                    },
                 ..
             }) => {
                 self.check_discarded_run_body(result, body, span)?;
@@ -76,7 +80,11 @@ impl Resolver<'_> {
                     span,
                 )?;
             }
-            E::TypeCast { mode, ty, value } => {
+            E::TypeCast {
+                mode,
+                ty,
+                value,
+            } => {
                 self.validate_discarded_expression_inner(value, depth + 1)?;
                 let target = self.preview_annotation(ty, span)?;
                 let info = self.describe_argument(value)?;
@@ -92,7 +100,10 @@ impl Resolver<'_> {
                     self.validate_discarded_expression_inner(value, depth + 1)?;
                 }
             }
-            E::Index { base, index } => {
+            E::Index {
+                base,
+                index,
+            } => {
                 self.validate_discarded_expression_inner(base, depth + 1)?;
                 self.validate_discarded_expression_inner(index, depth + 1)?;
                 if let Some(result) = self.describe_operator_expression(expression) {
@@ -113,7 +124,10 @@ impl Resolver<'_> {
                     self.validate_discarded_expression_inner(&arg.value, depth + 1)?;
                 }
             }
-            E::IndirectCall { callee, args } => {
+            E::IndirectCall {
+                callee,
+                args,
+            } => {
                 self.validate_discarded_expression_inner(callee, depth + 1)?;
                 for arg in args {
                     self.validate_discarded_expression_inner(&arg.value, depth + 1)?;
@@ -133,10 +147,16 @@ impl Resolver<'_> {
                 body: syntax::CompileTimeBody::Expression(value),
                 ..
             })
-            | E::CallHint { call: value, .. }
-            | E::InferredCast { value, .. }
+            | E::CallHint {
+                call: value, ..
+            }
+            | E::InferredCast {
+                value, ..
+            }
             | E::Dereference(value)
-            | E::Member { base: value, .. } => {
+            | E::Member {
+                base: value, ..
+            } => {
                 self.validate_discarded_expression_inner(value, depth + 1)?;
             }
             E::AddressOf(value) => {
@@ -218,7 +238,10 @@ impl Resolver<'_> {
                     )),
                 }
             }
-            E::Member { base, member } => {
+            E::Member {
+                base,
+                member,
+            } => {
                 let info = self.describe_argument(base)?;
                 let mut ty = self.argument_type(&info, base.span)?;
                 if let Ok(TypeKind::Pointer(element)) = self.types.kind(ty) {
@@ -233,13 +256,18 @@ impl Resolver<'_> {
                     .map(|field| field.ty)
                     .ok_or_else(|| Diagnostic::new(source.span, "unknown addressable record field"))
             }
-            E::Index { base, index } => {
+            E::Index {
+                base,
+                index,
+            } => {
                 let info = self.describe_argument(base)?;
                 let ty = self.argument_type(&info, base.span)?;
                 let element = match self.types.kind(ty) {
                     Ok(TypeKind::Pointer(element)) if *element != self.types.void() => *element,
                     Ok(
-                        TypeKind::FixedArray { element, .. }
+                        TypeKind::FixedArray {
+                            element, ..
+                        }
                         | TypeKind::Slice(element)
                         | TypeKind::DynamicArray(element),
                     ) => {

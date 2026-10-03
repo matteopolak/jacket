@@ -146,6 +146,7 @@ pub struct ProcedureType {
     pub parameters: Box<[TypeId]>,
     pub results: Box<[TypeId]>,
     pub convention: CallingConvention,
+    pub return_abi: crate::ForeignReturnAbi,
     pub context: ContextMode,
     pub variadic: Variadic,
 }
@@ -198,6 +199,7 @@ pub enum TypeError {
         issue: PlacementIssue,
     },
     InvalidCppMethod(CppMethodIssue),
+    InvalidForeignReturn(crate::ForeignReturnIssue),
     ForeignType(TypeId),
     ForeignRecord(RecordId),
     ForeignEnum(EnumId),
@@ -234,10 +236,15 @@ pub enum TypeError {
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidPlacement { issue, .. } => {
+            Self::InvalidPlacement {
+                issue, ..
+            } => {
                 write!(f, "invalid record placement: {issue:?}")
             }
             Self::InvalidCppMethod(issue) => write!(f, "invalid C++ method signature: {issue:?}"),
+            Self::InvalidForeignReturn(issue) => {
+                write!(f, "invalid foreign return policy: {issue:?}")
+            }
             Self::ForeignType(_)
             | Self::ForeignRecord(_)
             | Self::ForeignEnum(_)
@@ -247,22 +254,33 @@ impl fmt::Display for TypeError {
             Self::NotAValue(_) => f.write_str("void and code values cannot occupy runtime storage"),
             Self::AlreadyDefined(_) => f.write_str("nominal type has already been defined"),
             Self::Incomplete(_) => f.write_str("nominal type definition is incomplete"),
-            Self::RuntimeTypeHeaderConflict { .. } => f.write_str(
+            Self::RuntimeTypeHeaderConflict {
+                ..
+            } => f.write_str(
                 "runtime Type descriptor header has already been bound to another nominal type",
             ),
-            Self::InvalidVariadic { issue, .. } => {
+            Self::InvalidVariadic {
+                issue, ..
+            } => {
                 write!(f, "invalid variadic procedure signature: {issue:?}")
             }
-            Self::FieldOutOfBounds { .. } => f.write_str("record field ordinal is out of bounds"),
-            Self::FieldOwner { .. } => f.write_str("field belongs to a different nominal record"),
-            Self::EnumRepresentation { .. } => {
-                f.write_str("enum value has the wrong integer representation")
-            }
-            Self::RecursiveValue { .. } => f.write_str("type contains itself by value"),
+            Self::FieldOutOfBounds {
+                ..
+            } => f.write_str("record field ordinal is out of bounds"),
+            Self::FieldOwner {
+                ..
+            } => f.write_str("field belongs to a different nominal record"),
+            Self::EnumRepresentation {
+                ..
+            } => f.write_str("enum value has the wrong integer representation"),
+            Self::RecursiveValue {
+                ..
+            } => f.write_str("type contains itself by value"),
         }
     }
 }
-impl std::error::Error for TypeError {}
+impl std::error::Error for TypeError {
+}
 
 /// Read-only access to completed descriptors, before or after the program freezes.
 /// A ready descriptor can still refer to a nominal type whose definition is pending.
@@ -349,9 +367,15 @@ pub trait TypeView {
             .record(id)?
             .fields
             .get(index)
-            .ok_or(TypeError::FieldOutOfBounds { record, index })?;
+            .ok_or(TypeError::FieldOutOfBounds {
+                record,
+                index,
+            })?;
         Ok(FieldDescriptor {
-            id: FieldId { record: id, index },
+            id: FieldId {
+                record: id,
+                index,
+            },
             ty,
         })
     }
@@ -367,7 +391,10 @@ pub trait TypeView {
             .ok_or(TypeError::WrongKind(record))?;
         let ty = self.field_type(field)?;
         if id != field.record {
-            return Err(TypeError::FieldOwner { record, field });
+            return Err(TypeError::FieldOwner {
+                record,
+                field,
+            });
         }
         Ok(ty)
     }
@@ -785,7 +812,10 @@ impl TypeRegistry {
     }
     pub fn fixed_array(&mut self, element: TypeId, count: u64) -> Result<TypeId, TypeError> {
         self.value(element)?;
-        Ok(self.intern(TypeKind::FixedArray { element, count }))
+        Ok(self.intern(TypeKind::FixedArray {
+            element,
+            count,
+        }))
     }
     pub fn slice(&mut self, element: TypeId) -> Result<TypeId, TypeError> {
         self.value(element)?;
@@ -799,6 +829,7 @@ impl TypeRegistry {
         for &ty in signature.parameters.iter().chain(signature.results.iter()) {
             self.value(ty)?;
         }
+        crate::foreign_return::validate(self, &signature)?;
         if signature.convention == CallingConvention::CppMethod {
             let issue = if signature.context != ContextMode::None {
                 Some(CppMethodIssue::Context)
@@ -820,7 +851,9 @@ impl TypeRegistry {
         }
         let issue = match signature.variadic {
             Variadic::None => None,
-            Variadic::C { fixed_parameters } => {
+            Variadic::C {
+                fixed_parameters,
+            } => {
                 if signature.convention != CallingConvention::C {
                     Some(VariadicIssue::CallingConvention)
                 } else if fixed_parameters != signature.parameters.len() {
@@ -829,7 +862,10 @@ impl TypeRegistry {
                     None
                 }
             }
-            Variadic::Jai { parameter, element } => {
+            Variadic::Jai {
+                parameter,
+                element,
+            } => {
                 self.value(element)?;
                 if signature.convention != CallingConvention::Jai {
                     Some(VariadicIssue::CallingConvention)
@@ -929,7 +965,12 @@ impl TypeRegistry {
         layout.field_placements = anchors
             .into()
             .iter()
-            .map(|anchor| anchor.map(|index| FieldId { record: id, index }))
+            .map(|anchor| {
+                anchor.map(|index| FieldId {
+                    record: id,
+                    index,
+                })
+            })
             .collect();
         self.define_record_with_layout(ty, fields, layout)
     }
@@ -940,7 +981,10 @@ impl TypeRegistry {
         field_count: usize,
         placements: &[Option<FieldId>],
     ) -> Result<(), TypeError> {
-        let invalid = |issue| TypeError::InvalidPlacement { record: ty, issue };
+        let invalid = |issue| TypeError::InvalidPlacement {
+            record: ty,
+            issue,
+        };
         if placements.is_empty() {
             return Ok(());
         }
@@ -948,7 +992,9 @@ impl TypeRegistry {
             return Err(invalid(PlacementIssue::FieldCount));
         }
         for (index, anchor) in placements.iter().enumerate() {
-            let Some(anchor) = anchor else { continue };
+            let Some(anchor) = anchor else {
+                continue;
+            };
             if anchor.record != owner {
                 return Err(TypeError::FieldOwner {
                     record: ty,
@@ -1216,7 +1262,9 @@ impl Types {
     fn value_dependencies(&self, id: TypeId) -> &[TypeId] {
         match &self.kinds[id.index] {
             TypeKind::Record(record) | TypeKind::Any(record) => &self.records[record.index].fields,
-            TypeKind::FixedArray { element, .. } => std::slice::from_ref(element),
+            TypeKind::FixedArray {
+                element, ..
+            } => std::slice::from_ref(element),
             TypeKind::Distinct(distinct) => {
                 std::slice::from_ref(&self.distincts[distinct.index].representation)
             }
@@ -1252,7 +1300,9 @@ impl Types {
                             let mut cycle =
                                 stack[start..].iter().map(|(id, _)| *id).collect::<Vec<_>>();
                             cycle.push(dependency);
-                            return Err(TypeError::RecursiveValue { cycle });
+                            return Err(TypeError::RecursiveValue {
+                                cycle,
+                            });
                         }
                         Visit::Complete => {}
                     }
@@ -1277,6 +1327,7 @@ mod tests {
         let signature = ProcedureType {
             parameters: Box::new([boolean]),
             results: Box::new([boolean]),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -1358,6 +1409,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([ready]),
                 results: Box::new([pending]),
+                return_abi: crate::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,
@@ -1503,6 +1555,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: crate::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -1597,6 +1650,7 @@ mod tests {
         let signature = ProcedureType {
             parameters: Box::new([boolean]),
             results: Box::new([boolean]),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -1694,6 +1748,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([union]),
                 results: Box::new([union]),
+                return_abi: crate::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,
@@ -1967,6 +2022,7 @@ mod variant_tests {
         let jai = ProcedureType {
             parameters: Box::new([byte, pack, boolean]),
             results: Box::new([]),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::Jai {
@@ -2030,6 +2086,7 @@ mod variant_tests {
         let c = ProcedureType {
             parameters: Box::new([byte]),
             results: Box::new([]),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::C {

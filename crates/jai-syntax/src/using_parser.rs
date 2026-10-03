@@ -18,7 +18,7 @@ impl Parser<'_> {
         selection: UsingSelection,
     ) -> Result<UsingDirective, Diagnostic> {
         let target = self.expression(0)?;
-        self.need(Punct::Semicolon)?;
+        self.finish_expression_statement(&target)?;
         Ok(UsingDirective {
             target,
             selection,

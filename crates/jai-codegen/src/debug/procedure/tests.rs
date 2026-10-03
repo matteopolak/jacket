@@ -89,6 +89,7 @@ fn checked_loop_local_declares_at_parent_with_child_lexical_scope() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

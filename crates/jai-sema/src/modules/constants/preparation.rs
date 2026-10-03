@@ -534,7 +534,10 @@ mod deferred_tests {
         };
         assert!(matches!(
             types.kind(ty).unwrap(),
-            jai_types::TypeKind::FixedArray { count: 42, .. }
+            jai_types::TypeKind::FixedArray {
+                count: 42,
+                ..
+            }
         ));
         assert!(!constants.states.contains_key(&n.id()));
         assert!(
@@ -610,7 +613,9 @@ mod deferred_tests {
         let mut constants = Constants::new(&graph);
         let count = &graph.declarations()[1];
         let alias = &graph.declarations()[2];
-        let Some(TypePreparation::Pending(PendingType::Constant { declaration, .. })) = nominals
+        let Some(TypePreparation::Pending(PendingType::Constant {
+            declaration, ..
+        })) = nominals
             .prepare_alias(
                 &graph,
                 alias.id(),
@@ -643,7 +648,10 @@ mod deferred_tests {
         assert_eq!(nominals.declarations.get(&alias.id()), Some(&ty));
         assert!(matches!(
             types.kind(ty).unwrap(),
-            jai_types::TypeKind::FixedArray { count: 42, .. }
+            jai_types::TypeKind::FixedArray {
+                count: 42,
+                ..
+            }
         ));
     }
 

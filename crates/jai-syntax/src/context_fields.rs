@@ -21,7 +21,10 @@ impl Parser<'_> {
         let name = self.name()?;
         Ok(match self.data_declaration(name, span)?.kind {
             StatementKind::Declare(declaration) => {
-                ContextFieldDeclaration::Variable(GlobalDeclaration { declaration, span })
+                ContextFieldDeclaration::Variable(GlobalDeclaration {
+                    declaration,
+                    span,
+                })
             }
             StatementKind::Constant(declaration) => ContextFieldDeclaration::Constant(declaration),
             _ => unreachable!("data declaration produces declaration"),

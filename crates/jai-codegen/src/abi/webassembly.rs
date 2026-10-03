@@ -58,7 +58,10 @@ impl<'ctx> Classifier<'ctx, '_, '_> {
                     };
                     selected = field;
                 }
-                TypeKind::FixedArray { element, count: 1 } => selected = *element,
+                TypeKind::FixedArray {
+                    element,
+                    count: 1,
+                } => selected = *element,
                 TypeKind::Bool
                 | TypeKind::Integer(_)
                 | TypeKind::Float(_)

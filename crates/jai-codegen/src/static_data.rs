@@ -290,7 +290,11 @@ fn project<'ctx>(
                 continue;
             }
             StaticProjection::Index(index) => {
-                let TypeKind::FixedArray { element, count } = *generator.types.kind(ty)? else {
+                let TypeKind::FixedArray {
+                    element,
+                    count,
+                } = *generator.types.kind(ty)?
+                else {
                     return Err(Error::Invariant);
                 };
                 if *index >= count {

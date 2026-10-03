@@ -23,7 +23,8 @@ impl fmt::Display for CompilerEventError {
         })
     }
 }
-impl std::error::Error for CompilerEventError {}
+impl std::error::Error for CompilerEventError {
+}
 
 #[derive(Clone, Default)]
 pub(super) struct Interception {

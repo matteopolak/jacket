@@ -77,7 +77,11 @@ fn genuine_source_prefix_rebuilds_before_a_later_original_typed_run() {
     let mut session = CompilerSession::new();
     let build = scheduler.resolve(&mut session).unwrap();
     assert_eq!(build.passes, 3);
-    let WorkspaceOutput::Checked { unit, library, .. } = build
+    let WorkspaceOutput::Checked {
+        unit,
+        library,
+        ..
+    } = build
         .workspaces
         .into_iter()
         .find(|workspace| workspace.id == session.root())
@@ -116,7 +120,9 @@ fn genuine_later_full_failure_discards_earlier_typed_source_rounds() {
         .err()
         .expect("actual missing source name fails");
     let SchedulerError::Driver(Error::Located {
-        path, diagnostic, ..
+        path,
+        diagnostic,
+        ..
     }) = &error
     else {
         panic!("expected the actual main-body source diagnostic: {error}")
@@ -163,7 +169,10 @@ fn plain_driver_session_resolution_discards_completed_run_before_later_body_fail
         .resolve_library_with_session(LayoutPolicy::lp64(), &mut session)
         .err()
         .expect("actual semantic failure");
-    let Error::Located { diagnostic, .. } = &error else {
+    let Error::Located {
+        diagnostic, ..
+    } = &error
+    else {
         panic!("expected the actual later body diagnostic: {error}")
     };
     assert_eq!(diagnostic.message, "unknown name 'missing'");

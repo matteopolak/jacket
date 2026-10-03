@@ -12,7 +12,10 @@ pub enum BlockRoot {
 impl BlockRoot {
     pub fn procedure(self) -> ProcedureId {
         match self {
-            Self::ProcedureBody(procedure) | Self::Cleanup { procedure, .. } => procedure,
+            Self::ProcedureBody(procedure)
+            | Self::Cleanup {
+                procedure, ..
+            } => procedure,
         }
     }
 }
@@ -52,7 +55,10 @@ impl BlockPath {
         Self::new(BlockRoot::ProcedureBody(id))
     }
     pub fn cleanup(procedure: ProcedureId, cleanup: CleanupId) -> Self {
-        Self::new(BlockRoot::Cleanup { procedure, cleanup })
+        Self::new(BlockRoot::Cleanup {
+            procedure,
+            cleanup,
+        })
     }
     pub fn child(&self, statement_index: usize, branch: DebugBranch) -> Self {
         self.then([
@@ -132,7 +138,10 @@ enum Node<'a> {
 }
 
 fn invalid(kind: &'static str, index: usize) -> IrError {
-    IrError::UnknownIdentity { kind, index }
+    IrError::UnknownIdentity {
+        kind,
+        index,
+    }
 }
 
 fn resolve<'a>(
@@ -148,7 +157,9 @@ fn resolve<'a>(
     }
     let mut node = Node::Block(match root {
         BlockRoot::ProcedureBody(_) => &procedure.body,
-        BlockRoot::Cleanup { cleanup, .. } => {
+        BlockRoot::Cleanup {
+            cleanup, ..
+        } => {
             &procedure
                 .cleanups
                 .get(cleanup.index())
@@ -169,10 +180,18 @@ fn resolve<'a>(
                 (Statement::Block(block), DebugBranch::Block)
                 | (Statement::If(_, block, _), DebugBranch::IfThen)
                 | (Statement::If(_, _, block), DebugBranch::IfElse)
-                | (Statement::While { body: block, .. }, DebugBranch::While)
-                | (Statement::PushContext { body: block, .. }, DebugBranch::PushContext) => {
-                    Node::Block(block)
-                }
+                | (
+                    Statement::While {
+                        body: block, ..
+                    },
+                    DebugBranch::While,
+                )
+                | (
+                    Statement::PushContext {
+                        body: block, ..
+                    },
+                    DebugBranch::PushContext,
+                ) => Node::Block(block),
                 (Statement::Range(range), DebugBranch::Range) => Node::Block(&range.body),
                 (Statement::Cases(cases), DebugBranch::CaseArm(index)) => Node::Block(
                     &cases
@@ -239,6 +258,7 @@ mod tests {
             .procedure(jai_types::ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,

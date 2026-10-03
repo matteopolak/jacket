@@ -28,7 +28,9 @@ impl Nominals<'_> {
             _ => return Ok(None),
         };
         let representation = match &annotation {
-            TypeSyntax::Variant { base, .. } => base.as_ref(),
+            TypeSyntax::Variant {
+                base, ..
+            } => base.as_ref(),
             annotation => annotation,
         };
         if let TypeSyntax::Named(path) = representation

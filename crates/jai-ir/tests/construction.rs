@@ -10,6 +10,7 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], results: &[TypeId]
         .procedure(jai_types::ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -18,7 +19,10 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], results: &[TypeId]
 }
 
 fn block(statements: Vec<Statement>, flow: Flow) -> Block {
-    Block { statements, flow }
+    Block {
+        statements,
+        flow,
+    }
 }
 
 fn procedure(id: usize, signature: TypeId, body: Block) -> Procedure {
@@ -58,6 +62,7 @@ fn sparse_procedures_and_foreign_prototypes_publish_complete_signatures() {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -139,6 +144,7 @@ fn foreign_prototype_requires_c_abi_without_context() {
             .procedure(jai_types::ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention,
                 context,
                 variadic: Variadic::None,
@@ -224,7 +230,10 @@ fn record_build_preserves_initializer_order_and_requires_every_field_once() {
     let signatures = HashMap::new();
     let places = Places::default();
     let checked = verify_expression(&types, &value, &signatures, &[], &places).unwrap();
-    let ValueExpr::RecordBuild { initializers, .. } = checked.expression() else {
+    let ValueExpr::RecordBuild {
+        initializers, ..
+    } = checked.expression()
+    else {
         panic!()
     };
     assert_eq!(initializers[0].0, second);

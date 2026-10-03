@@ -84,7 +84,10 @@ impl Jobs {
                 .reserve_local_procedure()
                 .map_err(|error| LocatedDiagnostic::new(source.key.location.source, error))?;
             self.admitted.insert(source.key);
-            self.pending.push(Job { source, owner });
+            self.pending.push(Job {
+                source,
+                owner,
+            });
         }
         Ok(())
     }
@@ -199,10 +202,12 @@ impl Job {
             parameters
                 .get(key.parameter)
                 .and_then(|parameter| match &parameter.binding {
-                    syntax::ParameterBinding::Defaulted { expression, .. }
-                    | syntax::ParameterBinding::DefaultedType { expression, .. } => {
-                        Some(expression)
+                    syntax::ParameterBinding::Defaulted {
+                        expression, ..
                     }
+                    | syntax::ParameterBinding::DefaultedType {
+                        expression, ..
+                    } => Some(expression),
                     syntax::ParameterBinding::Required(_)
                     | syntax::ParameterBinding::RequiredType(_) => None,
                 });

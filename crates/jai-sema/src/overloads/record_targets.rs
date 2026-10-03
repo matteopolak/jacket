@@ -38,11 +38,17 @@ impl Resolver<'_> {
                 steps.push(RecordArgumentStep::Field(path.root));
                 steps.extend(path.members.iter().copied().map(RecordArgumentStep::Field));
             }
-            PlaceKind::Member { base, member } => {
+            PlaceKind::Member {
+                base,
+                member,
+            } => {
                 self.describe_record_target_expression(base, &mut steps, 0)?;
                 steps.push(RecordArgumentStep::Field(*member));
             }
-            PlaceKind::Index { base, index } => {
+            PlaceKind::Index {
+                base,
+                index,
+            } => {
                 self.describe_record_target_expression(base, &mut steps, 0)?;
                 steps.push(RecordArgumentStep::Index {
                     value: Box::new(self.describe_argument(index)?),
@@ -54,7 +60,9 @@ impl Resolver<'_> {
             }
         }
         check_depth(steps.len(), source.span)?;
-        Ok(RecordArgumentTarget { steps })
+        Ok(RecordArgumentTarget {
+            steps,
+        })
     }
 
     fn describe_record_target_expression(
@@ -70,11 +78,17 @@ impl Resolver<'_> {
                 steps.push(RecordArgumentStep::Field(path.root));
                 steps.extend(path.members.iter().copied().map(RecordArgumentStep::Field));
             }
-            ExpressionKind::Member { base, member } => {
+            ExpressionKind::Member {
+                base,
+                member,
+            } => {
                 self.describe_record_target_expression(base, steps, depth + 1)?;
                 steps.push(RecordArgumentStep::Field(*member));
             }
-            ExpressionKind::Index { base, index } => {
+            ExpressionKind::Index {
+                base,
+                index,
+            } => {
                 self.describe_record_target_expression(base, steps, depth + 1)?;
                 steps.push(RecordArgumentStep::Index {
                     value: Box::new(self.describe_argument(index)?),

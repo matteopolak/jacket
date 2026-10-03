@@ -89,13 +89,14 @@ impl fmt::Display for AllocatorError {
                 f.write_str("allocator procedure has an incompatible Jai signature")
             }
             Self::InvalidData(_) => f.write_str("allocator data must have void-pointer type"),
-            Self::ConflictingBinding { .. } => {
-                f.write_str("allocator role is already bound to another nominal type")
-            }
+            Self::ConflictingBinding {
+                ..
+            } => f.write_str("allocator role is already bound to another nominal type"),
         }
     }
 }
-impl std::error::Error for AllocatorError {}
+impl std::error::Error for AllocatorError {
+}
 
 impl AllocatorSchema {
     pub fn validate(
@@ -225,6 +226,7 @@ mod tests {
         ProcedureType {
             parameters: Box::new([mode, size, size, data, data]),
             results: Box::new([data]),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,

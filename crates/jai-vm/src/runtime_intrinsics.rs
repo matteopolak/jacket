@@ -48,15 +48,28 @@ impl RuntimeProcedure {
                     prepare(destination.pointer()?, false)?;
                 }
             }
-            (RuntimeIntrinsic::Swap { .. }, [left, right]) => {
+            (
+                RuntimeIntrinsic::Swap {
+                    ..
+                },
+                [left, right],
+            ) => {
                 prepare(left.pointer()?, true)?;
                 prepare(right.pointer()?, true)?;
             }
-            (RuntimeIntrinsic::CompareAndSwap { .. }, [pointer, _, _]) => {
-                prepare(pointer.pointer()?, true)?
-            }
             (
-                RuntimeIntrinsic::PoolGet { .. } | RuntimeIntrinsic::FlatPoolGet { .. },
+                RuntimeIntrinsic::CompareAndSwap {
+                    ..
+                },
+                [pointer, _, _],
+            ) => prepare(pointer.pointer()?, true)?,
+            (
+                RuntimeIntrinsic::PoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolGet {
+                    ..
+                },
                 [pool, size],
             ) => {
                 if byte_count(size)? != 0 {
@@ -64,14 +77,23 @@ impl RuntimeProcedure {
                 }
             }
             (
-                RuntimeIntrinsic::PoolReset { .. }
-                | RuntimeIntrinsic::PoolRelease { .. }
-                | RuntimeIntrinsic::FlatPoolFinish { .. },
+                RuntimeIntrinsic::PoolReset {
+                    ..
+                }
+                | RuntimeIntrinsic::PoolRelease {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolFinish {
+                    ..
+                },
                 [pool],
             )
-            | (RuntimeIntrinsic::FlatPoolReset { .. }, [pool, Value::Bool(_)]) => {
-                prepare(pool.pointer()?, true)?
-            }
+            | (
+                RuntimeIntrinsic::FlatPoolReset {
+                    ..
+                },
+                [pool, Value::Bool(_)],
+            ) => prepare(pool.pointer()?, true)?,
             (RuntimeIntrinsic::DebugTrap, []) => {}
             _ => return Err(Error::InvalidIr("runtime intrinsic argument count differs").into()),
         }
@@ -87,8 +109,18 @@ impl RuntimeProcedure {
         mut prepare: impl FnMut(TypeId) -> Result<(), E>,
     ) -> Result<(), E> {
         let (pool, flat, allocating) = match (self.intrinsic, arguments) {
-            (RuntimeIntrinsic::PoolGet { pool }, [_, size])
-            | (RuntimeIntrinsic::FlatPoolGet { pool }, [_, size]) => {
+            (
+                RuntimeIntrinsic::PoolGet {
+                    pool,
+                },
+                [_, size],
+            )
+            | (
+                RuntimeIntrinsic::FlatPoolGet {
+                    pool,
+                },
+                [_, size],
+            ) => {
                 if byte_count(size)? == 0 {
                     return Ok(());
                 }
@@ -99,18 +131,45 @@ impl RuntimeProcedure {
                 )
             }
             (
-                RuntimeIntrinsic::PoolReset { pool } | RuntimeIntrinsic::PoolRelease { pool },
+                RuntimeIntrinsic::PoolReset {
+                    pool,
+                }
+                | RuntimeIntrinsic::PoolRelease {
+                    pool,
+                },
                 [_],
             ) => (pool, false, false),
-            (RuntimeIntrinsic::FlatPoolReset { pool }, [_, Value::Bool(_)])
-            | (RuntimeIntrinsic::FlatPoolFinish { pool }, [_]) => (pool, true, false),
             (
-                RuntimeIntrinsic::PoolGet { .. }
-                | RuntimeIntrinsic::FlatPoolGet { .. }
-                | RuntimeIntrinsic::PoolReset { .. }
-                | RuntimeIntrinsic::PoolRelease { .. }
-                | RuntimeIntrinsic::FlatPoolReset { .. }
-                | RuntimeIntrinsic::FlatPoolFinish { .. },
+                RuntimeIntrinsic::FlatPoolReset {
+                    pool,
+                },
+                [_, Value::Bool(_)],
+            )
+            | (
+                RuntimeIntrinsic::FlatPoolFinish {
+                    pool,
+                },
+                [_],
+            ) => (pool, true, false),
+            (
+                RuntimeIntrinsic::PoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::PoolReset {
+                    ..
+                }
+                | RuntimeIntrinsic::PoolRelease {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolReset {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolFinish {
+                    ..
+                },
                 _,
             ) => {
                 return Err(Error::InvalidIr("runtime intrinsic argument count differs").into());
@@ -121,7 +180,13 @@ impl RuntimeProcedure {
             .record_storage_definition(pool)
             .map_err(Error::from)?
             .fields;
-        if fields.len() != if flat { 5 } else { 4 } {
+        if fields.len()
+            != if flat {
+                5
+            } else {
+                4
+            }
+        {
             return Err(Error::InvalidIr("pool descriptor field count differs").into());
         }
         for &field in fields.iter() {
@@ -151,18 +216,35 @@ impl RuntimeProcedure {
                 };
                 u64::try_from(byte_count(count)?).map_err(|_| Error::Limit(LimitKind::Fuel))?
             }
-            RuntimeIntrinsic::Swap { .. }
-            | RuntimeIntrinsic::PoolGet { .. }
-            | RuntimeIntrinsic::PoolReset { .. }
-            | RuntimeIntrinsic::PoolRelease { .. }
-            | RuntimeIntrinsic::FlatPoolGet { .. }
-            | RuntimeIntrinsic::FlatPoolReset { .. }
-            | RuntimeIntrinsic::FlatPoolFinish { .. } => {
+            RuntimeIntrinsic::Swap {
+                ..
+            }
+            | RuntimeIntrinsic::PoolGet {
+                ..
+            }
+            | RuntimeIntrinsic::PoolReset {
+                ..
+            }
+            | RuntimeIntrinsic::PoolRelease {
+                ..
+            }
+            | RuntimeIntrinsic::FlatPoolGet {
+                ..
+            }
+            | RuntimeIntrinsic::FlatPoolReset {
+                ..
+            }
+            | RuntimeIntrinsic::FlatPoolFinish {
+                ..
+            } => {
                 return Err(Error::InvalidIr(
                     "runtime operation requires target-aware work accounting",
                 ));
             }
-            RuntimeIntrinsic::CompareAndSwap { .. } | RuntimeIntrinsic::DebugTrap => 1,
+            RuntimeIntrinsic::CompareAndSwap {
+                ..
+            }
+            | RuntimeIntrinsic::DebugTrap => 1,
         })
     }
 
@@ -177,9 +259,12 @@ impl RuntimeProcedure {
             .validate_signature_shape(self.signature, types)
             .map_err(Error::from)?;
         match (self.intrinsic, arguments) {
-            (RuntimeIntrinsic::Swap { .. }, [left, right]) => {
-                memory.swap_work_cost(types, left.pointer()?, right.pointer()?)
-            }
+            (
+                RuntimeIntrinsic::Swap {
+                    ..
+                },
+                [left, right],
+            ) => memory.swap_work_cost(types, left.pointer()?, right.pointer()?),
             (
                 RuntimeIntrinsic::MemoryCopy
                 | RuntimeIntrinsic::MemoryCopyReturningDestination
@@ -212,12 +297,20 @@ impl RuntimeProcedure {
                 }
                 memory.intrinsic_work_cost(types, &[(destination.pointer()?, true)], count)
             }
-            (RuntimeIntrinsic::CompareAndSwap { value }, [pointer, _, _]) => {
-                memory.atomic_work_cost(types, pointer.pointer()?, value)
-            }
+            (
+                RuntimeIntrinsic::CompareAndSwap {
+                    value,
+                },
+                [pointer, _, _],
+            ) => memory.atomic_work_cost(types, pointer.pointer()?, value),
             (RuntimeIntrinsic::DebugTrap, []) => Ok(1),
             (
-                RuntimeIntrinsic::PoolGet { .. } | RuntimeIntrinsic::FlatPoolGet { .. },
+                RuntimeIntrinsic::PoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolGet {
+                    ..
+                },
                 [pool, size],
             ) => memory.pool_work_cost(
                 types,
@@ -225,18 +318,30 @@ impl RuntimeProcedure {
                 matches!(self.intrinsic, RuntimeIntrinsic::FlatPoolGet { .. }),
                 PoolOperation::Get(byte_count(size)?),
             ),
-            (RuntimeIntrinsic::PoolReset { .. }, [pool]) => {
-                memory.pool_work_cost(types, pool.pointer()?, false, PoolOperation::Reset(false))
-            }
-            (RuntimeIntrinsic::FlatPoolReset { .. }, [pool, Value::Bool(overwrite)]) => memory
-                .pool_work_cost(
-                    types,
-                    pool.pointer()?,
-                    true,
-                    PoolOperation::Reset(*overwrite),
-                ),
             (
-                RuntimeIntrinsic::PoolRelease { .. } | RuntimeIntrinsic::FlatPoolFinish { .. },
+                RuntimeIntrinsic::PoolReset {
+                    ..
+                },
+                [pool],
+            ) => memory.pool_work_cost(types, pool.pointer()?, false, PoolOperation::Reset(false)),
+            (
+                RuntimeIntrinsic::FlatPoolReset {
+                    ..
+                },
+                [pool, Value::Bool(overwrite)],
+            ) => memory.pool_work_cost(
+                types,
+                pool.pointer()?,
+                true,
+                PoolOperation::Reset(*overwrite),
+            ),
+            (
+                RuntimeIntrinsic::PoolRelease {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolFinish {
+                    ..
+                },
                 [pool],
             ) => memory.pool_work_cost(
                 types,
@@ -311,17 +416,32 @@ impl RuntimeProcedure {
                     results.push(destination.clone());
                 }
             }
-            (RuntimeIntrinsic::Swap { .. }, [left, right]) => {
+            (
+                RuntimeIntrinsic::Swap {
+                    ..
+                },
+                [left, right],
+            ) => {
                 memory.swap_values(types, left.pointer()?, right.pointer()?)?;
             }
-            (RuntimeIntrinsic::CompareAndSwap { .. }, [pointer, expected, replacement]) => {
+            (
+                RuntimeIntrinsic::CompareAndSwap {
+                    ..
+                },
+                [pointer, expected, replacement],
+            ) => {
                 let (success, observed) =
                     memory.compare_and_swap(types, pointer.pointer()?, expected, replacement)?;
                 results.extend([Value::Bool(success), observed]);
             }
             (RuntimeIntrinsic::DebugTrap, []) => return Err(Error::RuntimeTrap),
             (
-                RuntimeIntrinsic::PoolGet { .. } | RuntimeIntrinsic::FlatPoolGet { .. },
+                RuntimeIntrinsic::PoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolGet {
+                    ..
+                },
                 [pool, size],
             ) => {
                 let pointer = memory
@@ -334,7 +454,12 @@ impl RuntimeProcedure {
                     .ok_or(Error::InvalidIr("pool get returned no pointer"))?;
                 results.push(Value::Pointer(pointer));
             }
-            (RuntimeIntrinsic::PoolReset { .. }, [pool]) => {
+            (
+                RuntimeIntrinsic::PoolReset {
+                    ..
+                },
+                [pool],
+            ) => {
                 memory.pool_operation(
                     types,
                     pool.pointer()?,
@@ -342,7 +467,12 @@ impl RuntimeProcedure {
                     PoolOperation::Reset(false),
                 )?;
             }
-            (RuntimeIntrinsic::FlatPoolReset { .. }, [pool, Value::Bool(overwrite)]) => {
+            (
+                RuntimeIntrinsic::FlatPoolReset {
+                    ..
+                },
+                [pool, Value::Bool(overwrite)],
+            ) => {
                 memory.pool_operation(
                     types,
                     pool.pointer()?,
@@ -351,7 +481,12 @@ impl RuntimeProcedure {
                 )?;
             }
             (
-                RuntimeIntrinsic::PoolRelease { .. } | RuntimeIntrinsic::FlatPoolFinish { .. },
+                RuntimeIntrinsic::PoolRelease {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolFinish {
+                    ..
+                },
                 [pool],
             ) => {
                 memory.pool_operation(

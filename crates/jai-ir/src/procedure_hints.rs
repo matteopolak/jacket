@@ -38,6 +38,7 @@ mod tests {
                 .procedure(jai_types::ProcedureType {
                     parameters: vec![].into(),
                     results: vec![].into(),
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: jai_types::CallingConvention::Jai,
                     context: jai_types::ContextMode::None,
                     variadic: jai_types::Variadic::None,

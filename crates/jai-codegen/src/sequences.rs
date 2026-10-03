@@ -110,7 +110,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         _ty: TypeId,
     ) -> Result<BasicValueEnum<'ctx>, Error> {
         let base_ty = base.type_id(self.types);
-        if let TypeKind::FixedArray { count, .. } = self.types.kind(base_ty)? {
+        if let TypeKind::FixedArray {
+            count, ..
+        } = self.types.kind(base_ty)?
+        {
             let count = *count;
             return match field {
                 SequenceField::Count => {
@@ -154,7 +157,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         array: Place,
         ty: TypeId,
     ) -> Result<BasicValueEnum<'ctx>, Error> {
-        let TypeKind::FixedArray { count, .. } = self.types.kind(array.ty())? else {
+        let TypeKind::FixedArray {
+            count, ..
+        } = self.types.kind(array.ty())?
+        else {
             return Err(Error::Invariant);
         };
         let count = *count;
@@ -205,7 +211,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         array: &ValueExpr,
         ty: TypeId,
     ) -> Result<BasicValueEnum<'ctx>, Error> {
-        let TypeKind::FixedArray { count, .. } = self.types.kind(array.type_id(self.types))? else {
+        let TypeKind::FixedArray {
+            count, ..
+        } = self.types.kind(array.type_id(self.types))?
+        else {
             return Err(Error::Invariant);
         };
         let count = *count;

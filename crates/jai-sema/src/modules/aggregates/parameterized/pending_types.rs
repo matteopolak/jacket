@@ -39,7 +39,12 @@ impl PendingType {
         match self {
             Self::RecordModifier(pending) => pending.location,
             Self::Placeholder(demand) => demand.location,
-            Self::Constant { location, .. } | Self::ProcedureDefault { location, .. } => location,
+            Self::Constant {
+                location, ..
+            }
+            | Self::ProcedureDefault {
+                location, ..
+            } => location,
         }
     }
 
@@ -48,11 +53,15 @@ impl PendingType {
     pub(crate) fn diagnostic(self, graph: &ModuleGraph) -> LocatedDiagnostic {
         match self {
             Self::RecordModifier(pending) => pending.diagnostic(),
-            Self::ProcedureDefault { location, .. } => LocatedDiagnostic {
+            Self::ProcedureDefault {
+                location, ..
+            } => LocatedDiagnostic {
                 location,
                 message: "selected source parameter default is pending checked preparation".into(),
             },
-            Self::Constant { location, .. } => LocatedDiagnostic {
+            Self::Constant {
+                location, ..
+            } => LocatedDiagnostic {
                 location,
                 message: "constant requires checked compile-time execution".into(),
             },

@@ -283,7 +283,7 @@ impl Resolver<'_> {
         }
         frames.push(HashMap::new());
         let original_scopes = std::mem::replace(&mut self.scopes, frames);
-        let expansion_locals = target.capture.as_ref().map_or_else(
+        let mut expansion_locals = target.capture.as_ref().map_or_else(
             || self.local_scopes.isolated_expansion(),
             |capture| {
                 let mut locals = capture.local_scopes.clone();
@@ -291,6 +291,9 @@ impl Resolver<'_> {
                 locals
             },
         );
+        // A caller return retains the invoking procedure slots independently
+        // of the macro definition's captured lexical names.
+        expansion_locals.retain_caller_results(&self.local_scopes);
         let mut original_locals = std::mem::replace(&mut self.local_scopes, expansion_locals);
         // The reborrow wrapper installed only this definition's substitution.
         self.graph_scope = original_file;
@@ -370,10 +373,12 @@ impl Resolver<'_> {
                 syntax::BuiltinType::Scalar(*ty),
             )),
             syntax::ParameterBinding::RequiredType(ty) => Some(ty.clone()),
-            syntax::ParameterBinding::Defaulted { ty, .. } => {
-                ty.map(|ty| syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(ty)))
-            }
-            syntax::ParameterBinding::DefaultedType { ty, .. } => ty.clone(),
+            syntax::ParameterBinding::Defaulted {
+                ty, ..
+            } => ty.map(|ty| syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(ty))),
+            syntax::ParameterBinding::DefaultedType {
+                ty, ..
+            } => ty.clone(),
         };
         let explicit = explicit
             .map(|ty| self.expanded_annotation(target, &ty, parameter.span))

@@ -22,7 +22,9 @@ impl Parser<'_> {
                 _ => {}
             }
         }
-        let Some(close) = close else { return false };
+        let Some(close) = close else {
+            return false;
+        };
         let next = self.tokens[close + 1].kind;
         let single_builtin = close == header + 2
             && self.tokens[header + 1].kind == Kind::Ident

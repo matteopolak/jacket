@@ -94,6 +94,7 @@ impl SourceConfiguration {
                         define_system_entry_point: flag(&environment, "JAI_RS_RUNTIME_ENTRY")?,
                         define_initialization: flag(&environment, "JAI_RS_RUNTIME_INITIALIZATION")?,
                         enable_backtrace_on_crash: flag(&environment, "JAI_RS_RUNTIME_BACKTRACE")?,
+                        temporary_storage_size: 32768,
                     };
                     Some(RuntimeSupportOptions {
                         source: match selection {
@@ -218,7 +219,8 @@ mod tests {
             RuntimeSupportParameters {
                 define_system_entry_point: false,
                 define_initialization: true,
-                enable_backtrace_on_crash: false
+                enable_backtrace_on_crash: false,
+                temporary_storage_size: 32768,
             }
         );
     }

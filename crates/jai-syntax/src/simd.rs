@@ -81,7 +81,10 @@ impl Parser<'_> {
                 if !matches!(feature, SimdFeature::Unsupported(_)) {
                     self.at += 1;
                 }
-                features.push(SimdFeatureRequirement { feature, span });
+                features.push(SimdFeatureRequirement {
+                    feature,
+                    span,
+                });
                 if !self.take(Punct::Comma) {
                     break;
                 }
@@ -216,7 +219,10 @@ impl Parser<'_> {
         } else if self.token().kind == Kind::Ident {
             let name = self.name()?;
             let introduce = self.take(Punct::Colon);
-            SimdOperandKind::Register { name, introduce }
+            SimdOperandKind::Register {
+                name,
+                introduce,
+            }
         } else {
             return Err(self.error("expected #asm register or bracketed memory operand"));
         };

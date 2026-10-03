@@ -83,8 +83,18 @@ impl GlobalDefinitionsPrefix {
 #[derive(Clone, Debug)]
 pub struct SourceProcedureIdentity {
     location: SourceSpan,
+    allocation: jai_source::SourceAllocationId,
     path: Arc<Path>,
     text: Arc<str>,
+}
+
+/// Closed key for a retained allocation and exact source span. Dense source IDs
+/// belong to one graph arena and do not participate in this retained identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SourceProcedureKey {
+    allocation: jai_source::SourceAllocationId,
+    start: usize,
+    end: usize,
 }
 
 /// Share the exact checked place snapshot without recursively cloning unused operands.
@@ -117,11 +127,22 @@ impl SourceProcedureIdentity {
         {
             return Err(SourceProcedureOwnerError::InvalidSource);
         }
+        let (allocation, text) = source
+            .span_owner(location.span)
+            .ok_or(SourceProcedureOwnerError::InvalidSource)?;
         Ok(Self {
             location,
+            allocation,
             path: Arc::from(source.path()),
-            text: source.shared_text(),
+            text,
         })
+    }
+    pub fn key(&self) -> SourceProcedureKey {
+        SourceProcedureKey {
+            allocation: self.allocation,
+            start: self.location.span.start,
+            end: self.location.span.end,
+        }
     }
     pub fn location(&self) -> SourceSpan {
         self.location
@@ -133,10 +154,25 @@ impl SourceProcedureIdentity {
         &self.text
     }
     pub fn matches_source(&self, source: &SourceRecord, location: SourceSpan) -> bool {
-        self.location == location
+        self.location.span == location.span
             && source.id() == location.source
             && self.path() == source.path()
-            && Arc::ptr_eq(&self.text, &source.shared_text())
+            && source
+                .span_owner(location.span)
+                .is_some_and(|(allocation, text)| {
+                    allocation == self.allocation && Arc::ptr_eq(&self.text, &text)
+                })
+    }
+    /// Source ownership survives freezing/rebuilding only when the original
+    /// allocation, exact span, retained text and path all remain authentic.
+    pub fn matches_identity(&self, other: &Self) -> bool {
+        self.key() == other.key() && self.path == other.path && Arc::ptr_eq(&self.text, &other.text)
+    }
+    /// Preserve the existing same-arena identity predicate used by role proofs.
+    pub fn same_source_identity(&self, other: &Self) -> bool {
+        self.location == other.location
+            && self.path == other.path
+            && Arc::ptr_eq(&self.text, &other.text)
     }
     pub fn body_text(&self) -> &str {
         &self.text[self.location.span.start..self.location.span.end]
@@ -305,7 +341,10 @@ impl fmt::Display for SourceProcedureOwnerError {
             Self::NotCompileTimeOnly => {
                 formatter.write_str("source-only procedure owner must be compile-time-only")
             }
-            Self::IncompleteGlobalDefinitions { expected, actual } => write!(
+            Self::IncompleteGlobalDefinitions {
+                expected,
+                actual,
+            } => write!(
                 formatter,
                 "source procedure owner waits for {expected} file globals; {actual} are defined"
             ),
@@ -325,7 +364,8 @@ impl fmt::Display for SourceProcedureOwnerError {
         }
     }
 }
-impl std::error::Error for SourceProcedureOwnerError {}
+impl std::error::Error for SourceProcedureOwnerError {
+}
 
 #[cfg(test)]
 mod tests;

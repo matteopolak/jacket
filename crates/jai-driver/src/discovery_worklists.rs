@@ -117,12 +117,17 @@ impl DiscoveryWorklists {
             return Err(failure);
         }
         if let Some(mut pending) = self.source_waits.into_iter().next() {
-            if let SourceDiscoveryRequest::Preparation { cause, .. } = pending.request {
+            if let SourceDiscoveryRequest::Preparation {
+                cause, ..
+            } = pending.request
+            {
                 pending.diagnostic = cause.diagnostic(graph);
             }
             return Ok(pending);
         }
-        if let DiscoveryStatus::Awaiting { dependencies, .. } = self.status
+        if let DiscoveryStatus::Awaiting {
+            dependencies, ..
+        } = self.status
             && let Some(dependency) = dependencies.into_iter().next()
         {
             return Ok(SourceDiscoveryPending {

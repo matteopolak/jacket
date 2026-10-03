@@ -12,9 +12,9 @@ impl Resolver<'_> {
             .iter()
             .zip(&header.results)
             .map(|(source, result)| match &source.binding {
-                syntax::ResultBinding::Typed { ty, .. } => {
-                    self.annotation_value_contract(result.ty, ty, source.span)
-                }
+                syntax::ResultBinding::Typed {
+                    ty, ..
+                } => self.annotation_value_contract(result.ty, ty, source.span),
                 syntax::ResultBinding::InferredDefault(expression) => {
                     self.preview_expected_callback_contract(expression, result.ty, source.span)
                 }

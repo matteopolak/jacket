@@ -291,7 +291,10 @@ impl<'a> Builder<'a> {
     fn push(&mut self, ty: Option<TypeId>, kind: NodeKind, depth: usize) -> Result<NodeId, Error> {
         self.reserve(1, depth)?;
         let id = NodeId(self.nodes.len());
-        self.nodes.push(Node { ty, kind });
+        self.nodes.push(Node {
+            ty,
+            kind,
+        });
         Ok(id)
     }
     fn finish(self, entry: Entry) -> Arc<Plan> {

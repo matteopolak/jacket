@@ -22,7 +22,11 @@ impl Resolver<'_> {
         operation: BinaryOp,
         right: &Expression,
     ) -> Result<Option<Statement>, Diagnostic> {
-        let syntax::PlaceKind::Index { base, index } = &target.kind else {
+        let syntax::PlaceKind::Index {
+            base,
+            index,
+        } = &target.kind
+        else {
             return Ok(None);
         };
         let address = self.mutation_operator_operand(base)?;
@@ -140,7 +144,10 @@ impl Resolver<'_> {
             target.span,
         )?;
         let old_value = if address_reader {
-            let Expr::Pointer { value, .. } = read_value else {
+            let Expr::Pointer {
+                value, ..
+            } = read_value
+            else {
                 return Err(Diagnostic::new(
                     target.span,
                     "index address operator must return a pointer",

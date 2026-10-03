@@ -11,7 +11,10 @@ pub struct ExpressionBindingId {
 impl ExpressionBindingId {
     #[doc(hidden)]
     pub fn new(procedure: ProcedureId, index: usize) -> Self {
-        Self { procedure, index }
+        Self {
+            procedure,
+            index,
+        }
     }
     pub fn procedure(self) -> ProcedureId {
         self.procedure

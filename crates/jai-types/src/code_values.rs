@@ -29,7 +29,10 @@ impl CodeValueIds {
                 arena.checked_add(1)
             })
             .expect("code value identity space exhausted");
-        Self { arena, next: 0 }
+        Self {
+            arena,
+            next: 0,
+        }
     }
     pub fn allocate(&mut self) -> CodeValueId {
         let id = CodeValueId {

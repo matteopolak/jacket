@@ -32,14 +32,15 @@ impl Parser<'_> {
             ExpressionKind::QualifiedCall(path, arguments) => {
                 application(self.literal_named_type(path), arguments)
             }
-            ExpressionKind::IndirectCall { callee, args } => {
-                application(self.literal_type_target(*callee)?, args)
-            }
+            ExpressionKind::IndirectCall {
+                callee,
+                args,
+            } => application(self.literal_type_target(*callee)?, args),
             _ => {
                 return Err(Diagnostic::new(
                     span,
                     "aggregate literal target requires type syntax",
-                ))
+                ));
             }
         })
     }
@@ -106,7 +107,10 @@ impl Parser<'_> {
             fields.push(self.struct_literal_field(target)?);
         }
         Ok(Expression {
-            kind: ExpressionKind::StructLiteral(StructLiteral { ty, fields }),
+            kind: ExpressionKind::StructLiteral(StructLiteral {
+                ty,
+                fields,
+            }),
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
     }
@@ -136,25 +140,33 @@ impl Parser<'_> {
 fn validate_relative_field_place(target: &PlaceSyntax) -> Result<(), Diagnostic> {
     let mut base = match &target.kind {
         PlaceKind::Name(_) | PlaceKind::Qualified(_) => return Ok(()),
-        PlaceKind::Member { base, .. } | PlaceKind::Index { base, .. } => base.as_ref(),
+        PlaceKind::Member {
+            base, ..
+        }
+        | PlaceKind::Index {
+            base, ..
+        } => base.as_ref(),
         _ => {
             return Err(Diagnostic::new(
                 target.span,
                 "struct literal field requires a relative field place",
-            ))
+            ));
         }
     };
     loop {
         base = match &base.kind {
             ExpressionKind::Name(_) | ExpressionKind::QualifiedName(_) => return Ok(()),
-            ExpressionKind::Member { base, .. } | ExpressionKind::Index { base, .. } => {
-                base.as_ref()
+            ExpressionKind::Member {
+                base, ..
             }
+            | ExpressionKind::Index {
+                base, ..
+            } => base.as_ref(),
             _ => {
                 return Err(Diagnostic::new(
                     base.span,
                     "struct literal field requires a relative field place",
-                ))
+                ));
             }
         };
     }

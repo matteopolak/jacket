@@ -195,24 +195,40 @@ impl Action {
                 ..
             } => {
                 let goal = match goal {
-                    Goal::Exit { cleanups, .. } => cleanups.capacity(),
-                    Goal::BindResults { destinations, .. } => destinations.capacity(),
+                    Goal::Exit {
+                        cleanups, ..
+                    } => cleanups.capacity(),
+                    Goal::BindResults {
+                        destinations, ..
+                    } => destinations.capacity(),
                     _ => 0,
                 };
                 (nodes.capacity(), values.capacity(), goal)
             }
-            Self::Apply { values, .. } => (values.capacity(), 0, 0),
-            Self::Invoke { arguments, .. } => (arguments.capacity(), 0, 0),
-            Self::BindResults { destinations, .. } | Self::StoreResults(destinations) => {
-                (destinations.capacity(), 0, 0)
+            Self::Apply {
+                values, ..
+            } => (values.capacity(), 0, 0),
+            Self::Invoke {
+                arguments, ..
+            } => (arguments.capacity(), 0, 0),
+            Self::BindResults {
+                destinations, ..
             }
+            | Self::StoreResults(destinations) => (destinations.capacity(), 0, 0),
             Self::ExitChain {
-                cleanups, values, ..
+                cleanups,
+                values,
+                ..
             } => (cleanups.capacity(), values.capacity(), 0),
-            Self::Transfer { values, .. } => (values.capacity(), 0, 0),
-            Self::Simd { registers, .. } | Self::SimdAddress { registers, .. } => {
-                (registers.capacity(), 0, 0)
+            Self::Transfer {
+                values, ..
+            } => (values.capacity(), 0, 0),
+            Self::Simd {
+                registers, ..
             }
+            | Self::SimdAddress {
+                registers, ..
+            } => (registers.capacity(), 0, 0),
             _ => (0, 0, 0),
         };
         first
@@ -281,7 +297,9 @@ enum LoopState {
 impl LoopState {
     fn id(&self) -> LoopId {
         match self {
-            Self::While { id, .. } => *id,
+            Self::While {
+                id, ..
+            } => *id,
             Self::Range(range) => range.id,
         }
     }
@@ -385,7 +403,9 @@ impl Machine {
         payload: usize,
     ) -> Result<()> {
         let range_cells = match &action {
-            Action::RangeSetup { range, .. }
+            Action::RangeSetup {
+                range, ..
+            }
             | Action::RangeBody(range)
             | Action::RangeNext(range)
             | Action::LoopBoundary(LoopState::Range(range)) => range.retained_cells(),
@@ -490,7 +510,10 @@ impl Machine {
             vm,
             Some(code.clone()),
             depth,
-            Action::Block { block, pc: 0 },
+            Action::Block {
+                block,
+                pc: 0,
+            },
             0,
         )
     }
@@ -622,7 +645,9 @@ impl Machine {
                 let code = code.unwrap();
                 let expression = &code.nodes[node.index()];
                 match &expression.kind {
-                    NodeKind::Bind { bindings, .. } => {
+                    NodeKind::Bind {
+                        bindings, ..
+                    } => {
                         if bindings
                             .iter()
                             .any(|(id, _)| Some(id.procedure()) != code.binding_owner)
@@ -645,18 +670,28 @@ impl Machine {
                             0,
                         )?;
                     }
-                    NodeKind::Apply { operands, .. } => self.collect(
+                    NodeKind::Apply {
+                        operands, ..
+                    } => self.collect(
                         vm,
                         code.clone(),
                         operands,
-                        Goal::Apply { node, place: false },
+                        Goal::Apply {
+                            node,
+                            place: false,
+                        },
                         depth + 1,
                     )?,
-                    NodeKind::Place { operands, .. } => self.collect(
+                    NodeKind::Place {
+                        operands, ..
+                    } => self.collect(
                         vm,
                         code.clone(),
                         operands,
-                        Goal::Apply { node, place: true },
+                        Goal::Apply {
+                            node,
+                            place: true,
+                        },
                         depth + 1,
                     )?,
                     NodeKind::Conditional {
@@ -683,7 +718,11 @@ impl Machine {
                         )?;
                         self.eval(vm, code.clone(), *condition, depth + 1)?;
                     }
-                    NodeKind::ShortCircuit { op, left, right } => {
+                    NodeKind::ShortCircuit {
+                        op,
+                        left,
+                        right,
+                    } => {
                         self.push(
                             vm,
                             Some(code.clone()),
@@ -720,25 +759,45 @@ impl Machine {
                             self.eval(vm, code.clone(), *callee, depth + 1)?;
                         }
                     },
-                    NodeKind::IndexPlace { base, .. } => {
-                        self.push(vm, Some(code.clone()), depth, Action::IndexBase { node }, 0)?;
+                    NodeKind::IndexPlace {
+                        base, ..
+                    } => {
+                        self.push(
+                            vm,
+                            Some(code.clone()),
+                            depth,
+                            Action::IndexBase {
+                                node,
+                            },
+                            0,
+                        )?;
                         self.eval(vm, code.clone(), *base, depth + 1)?;
                     }
-                    NodeKind::OrderedRecord { .. } => self.push(
+                    NodeKind::OrderedRecord {
+                        ..
+                    } => self.push(
                         vm,
                         Some(code.clone()),
                         depth,
-                        Action::OrderedRecordStart { node },
+                        Action::OrderedRecordStart {
+                            node,
+                        },
                         0,
                     )?,
-                    NodeKind::RecordBuild { .. } => self.push(
+                    NodeKind::RecordBuild {
+                        ..
+                    } => self.push(
                         vm,
                         Some(code.clone()),
                         depth,
-                        Action::RecordStart { node },
+                        Action::RecordStart {
+                            node,
+                        },
                         0,
                     )?,
-                    NodeKind::SequencePack { ty, .. } => {
+                    NodeKind::SequencePack {
+                        ty, ..
+                    } => {
                         let pack = super::pack::PackState::new(vm, *ty)?;
                         self.push(
                             vm,
@@ -795,9 +854,17 @@ impl Machine {
                     self.collected(vm, code.clone(), goal, values, cells, depth)?;
                 }
             }
-            Action::BindNext { node, index, scope } => {
+            Action::BindNext {
+                node,
+                index,
+                scope,
+            } => {
                 let code = code.unwrap();
-                let NodeKind::Bind { bindings, body } = &code.nodes[node.index()].kind else {
+                let NodeKind::Bind {
+                    bindings,
+                    body,
+                } = &code.nodes[node.index()].kind
+                else {
                     return Err(Error::InvalidIr("invalid continuation binding node").into());
                 };
                 if index != 0 {
@@ -844,7 +911,9 @@ impl Machine {
                 let expression = &code.nodes[node.index()];
                 let copied = clone_operands(vm, &values)?;
                 let result = match &expression.kind {
-                    NodeKind::Apply { op, .. } if !place => {
+                    NodeKind::Apply {
+                        op, ..
+                    } if !place => {
                         if let ApplyOp::Bound(binding) = op {
                             vm.bound_value(*binding, self.retained.saturating_add(self.plan_cells))
                                 .map(Operand::Value)
@@ -852,9 +921,9 @@ impl Machine {
                             super::apply::apply(vm, op, copied, depth)
                         }
                     }
-                    NodeKind::Place { op, .. } if place => {
-                        super::apply::apply_place(vm, op, copied, depth)
-                    }
+                    NodeKind::Place {
+                        op, ..
+                    } if place => super::apply::apply_place(vm, op, copied, depth),
                     _ => return Err(Error::InvalidIr("invalid continuation apply node").into()),
                 };
                 match result {
@@ -888,11 +957,18 @@ impl Machine {
                 self.eval(
                     vm,
                     code.unwrap(),
-                    if condition { then_node } else { else_node },
+                    if condition {
+                        then_node
+                    } else {
+                        else_node
+                    },
                     depth + 1,
                 )?;
             }
-            Action::Short { op, right } => {
+            Action::Short {
+                op,
+                right,
+            } => {
                 let left = self.pop(vm)?.into_value()?.boolean()?;
                 if matches!(op, ShortCircuitOp::And) && !left
                     || matches!(op, ShortCircuitOp::Or) && left
@@ -991,7 +1067,10 @@ impl Machine {
                     .into());
                 }
                 let code = code.unwrap();
-                let NodeKind::Call { arguments, .. } = &code.nodes[node.index()].kind else {
+                let NodeKind::Call {
+                    arguments, ..
+                } = &code.nodes[node.index()].kind
+                else {
                     unreachable!()
                 };
                 let nodes: Vec<_> = arguments.iter().map(|(_, node)| *node).collect();
@@ -1062,7 +1141,10 @@ impl Machine {
                 }
                 self.finish_call(vm, signature, previous_context, expected, vec![])?;
             }
-            Action::Block { block, pc } => {
+            Action::Block {
+                block,
+                pc,
+            } => {
                 let code = code.unwrap();
                 let block_code = &code.blocks[block.index()];
                 if pc == block_code.statements.len() {
@@ -1079,7 +1161,10 @@ impl Machine {
                     vm,
                     Some(code.clone()),
                     depth,
-                    Action::Block { block, pc: pc + 1 },
+                    Action::Block {
+                        block,
+                        pc: pc + 1,
+                    },
                     0,
                 )?;
                 self.statement(vm, code.clone(), block, pc, depth + 1)?;
@@ -1092,14 +1177,22 @@ impl Machine {
                 self.block(
                     vm,
                     code.unwrap(),
-                    if condition { then_block } else { else_block },
+                    if condition {
+                        then_block
+                    } else {
+                        else_block
+                    },
                     depth + 1,
                 )?;
             }
-            Action::IndexBase { node } => {
+            Action::IndexBase {
+                node,
+            } => {
                 let code = code.unwrap();
                 let NodeKind::IndexPlace {
-                    index, base_type, ..
+                    index,
+                    base_type,
+                    ..
                 } = code.nodes[node.index()].kind
                 else {
                     unreachable!()
@@ -1135,7 +1228,9 @@ impl Machine {
             } => {
                 let code = code.unwrap();
                 let NodeKind::IndexPlace {
-                    base_type, check, ..
+                    base_type,
+                    check,
+                    ..
                 } = code.nodes[node.index()].kind
                 else {
                     unreachable!()
@@ -1148,9 +1243,14 @@ impl Machine {
                     super::apply::index_place(vm, pointer, snapshot, index, base_type, ty, check)?;
                 self.operand(vm, Operand::Place(pointer))?;
             }
-            Action::RecordStart { node } => {
+            Action::RecordStart {
+                node,
+            } => {
                 let code = code.unwrap();
-                let NodeKind::RecordBuild { ty, .. } = code.nodes[node.index()].kind else {
+                let NodeKind::RecordBuild {
+                    ty, ..
+                } = code.nodes[node.index()].kind
+                else {
                     unreachable!()
                 };
                 let record = vm.zero_value(ty)?;
@@ -1173,7 +1273,10 @@ impl Machine {
                 mut record,
             } => {
                 let code = code.unwrap();
-                let NodeKind::RecordBuild { ty, initializers } = &code.nodes[node.index()].kind
+                let NodeKind::RecordBuild {
+                    ty,
+                    initializers,
+                } = &code.nodes[node.index()].kind
                 else {
                     unreachable!()
                 };
@@ -1208,7 +1311,9 @@ impl Machine {
                     self.eval(vm, code.clone(), next, depth + 1)?;
                 }
             }
-            Action::OrderedRecordStart { node } => {
+            Action::OrderedRecordStart {
+                node,
+            } => {
                 let code = code.unwrap();
                 let NodeKind::OrderedRecord {
                     ty,
@@ -1243,7 +1348,9 @@ impl Machine {
                 mut record,
             } => {
                 let code = code.unwrap();
-                let NodeKind::OrderedRecord { initializers, .. } = &code.nodes[node.index()].kind
+                let NodeKind::OrderedRecord {
+                    initializers, ..
+                } = &code.nodes[node.index()].kind
                 else {
                     unreachable!()
                 };
@@ -1285,7 +1392,10 @@ impl Machine {
                 mut pack,
             } => {
                 let code = code.unwrap();
-                let NodeKind::SequencePack { parts, .. } = &code.nodes[node.index()].kind else {
+                let NodeKind::SequencePack {
+                    parts, ..
+                } = &code.nodes[node.index()].kind
+                else {
                     unreachable!()
                 };
                 if index != 0 {
@@ -1320,7 +1430,10 @@ impl Machine {
             Action::Discard => {
                 self.pop(vm)?;
             }
-            Action::BindResults { destinations, call } => {
+            Action::BindResults {
+                destinations,
+                call,
+            } => {
                 self.push(
                     vm,
                     code.clone(),
@@ -1354,7 +1467,10 @@ impl Machine {
                         vm,
                         Some(code.clone()),
                         depth,
-                        Action::Transfer { transfer, values },
+                        Action::Transfer {
+                            transfer,
+                            values,
+                        },
                         cells,
                     )?;
                 } else {
@@ -1375,11 +1491,19 @@ impl Machine {
                     self.cleanup(vm, code.clone(), cleanup, depth + 1)?;
                 }
             }
-            Action::Transfer { transfer, values } => self.transfer(vm, transfer, values, depth)?,
-            Action::CleanupRestore { previous } => {
+            Action::Transfer {
+                transfer,
+                values,
+            } => self.transfer(vm, transfer, values, depth)?,
+            Action::CleanupRestore {
+                previous,
+            } => {
                 vm.current_context = previous;
             }
-            Action::PushStart { id, body } => {
+            Action::PushStart {
+                id,
+                body,
+            } => {
                 let value = self.pop(vm)?.into_value()?;
                 let ty = vm
                     .provider
@@ -1446,8 +1570,14 @@ impl Machine {
                 )?;
                 match condition {
                     ConditionCode::Value(node) => self.eval(vm, code.unwrap(), node, depth + 1)?,
-                    ConditionCode::BoundInt { destination, value }
-                    | ConditionCode::BoundBool { destination, value } => self.collect(
+                    ConditionCode::BoundInt {
+                        destination,
+                        value,
+                    }
+                    | ConditionCode::BoundBool {
+                        destination,
+                        value,
+                    } => self.collect(
                         vm,
                         code.unwrap(),
                         &[destination, value],
@@ -1529,7 +1659,14 @@ impl Machine {
                         range.ty,
                         IntOp::Add,
                         current,
-                        Number::plain(Integer::wrapping(range.ty, if reverse { -1 } else { 1 })),
+                        Number::plain(Integer::wrapping(
+                            range.ty,
+                            if reverse {
+                                -1
+                            } else {
+                                1
+                            },
+                        )),
                         CheckMode::Disabled,
                     )?;
                     vm.store_pointer(pointer, next.into_value(), depth + 1)?;
@@ -1575,14 +1712,22 @@ impl Machine {
                             vm,
                             Some(code.clone()),
                             depth,
-                            Action::CasesDecision { block, pc, index },
+                            Action::CasesDecision {
+                                block,
+                                pc,
+                                index,
+                            },
                             0,
                         )?;
                         self.eval(vm, code.clone(), arm.condition, depth + 1)?;
                     }
                 }
             }
-            Action::CasesDecision { block, pc, index } => {
+            Action::CasesDecision {
+                block,
+                pc,
+                index,
+            } => {
                 let code = code.unwrap();
                 let StatementCode::Cases(cases) = &code.blocks[block.index()].statements[pc] else {
                     unreachable!()
@@ -1627,7 +1772,12 @@ impl Machine {
                     );
                 }
             }
-            action @ (Action::Simd { .. } | Action::SimdAddress { .. }) => {
+            action @ (Action::Simd {
+                ..
+            }
+            | Action::SimdAddress {
+                ..
+            }) => {
                 return self.simd_task(vm, code.unwrap(), depth, action);
             }
         }
@@ -1643,7 +1793,10 @@ impl Machine {
         depth: usize,
     ) -> Result<()> {
         match goal {
-            Goal::Apply { node, place } => self.push(
+            Goal::Apply {
+                node,
+                place,
+            } => self.push(
                 vm,
                 Some(code.clone()),
                 depth,
@@ -1660,7 +1813,10 @@ impl Machine {
                 id,
                 signature,
             } => {
-                let NodeKind::Call { arguments, .. } = &code.nodes[node.index()].kind else {
+                let NodeKind::Call {
+                    arguments, ..
+                } = &code.nodes[node.index()].kind
+                else {
                     unreachable!()
                 };
                 let mut args: Vec<_> = arguments
@@ -1693,7 +1849,10 @@ impl Machine {
                     cells,
                 )?;
             }
-            Goal::Exit { cleanups, transfer } => {
+            Goal::Exit {
+                cleanups,
+                transfer,
+            } => {
                 let values = values
                     .into_iter()
                     .map(Operand::into_value)
@@ -1718,7 +1877,10 @@ impl Machine {
                 }
                 self.push(vm, Some(code.clone()), depth, Action::Store, 0)?;
             }
-            Goal::BindResults { destinations, call } => {
+            Goal::BindResults {
+                destinations,
+                call,
+            } => {
                 let mut captured = values.into_iter();
                 let pointers = destinations
                     .into_iter()
@@ -1747,7 +1909,9 @@ impl Machine {
                     cells,
                 )?;
             }
-            Goal::BoundCondition { boolean } => {
+            Goal::BoundCondition {
+                boolean,
+            } => {
                 let value = values.pop().unwrap().into_value()?;
                 let pointer = values.pop().unwrap().into_place()?;
                 let truth = if boolean {
@@ -1804,7 +1968,10 @@ impl Machine {
         depth: usize,
     ) -> Result<()> {
         match &code.blocks[block.index()].statements[pc] {
-            StatementCode::Store { destination, value } => self.collect(
+            StatementCode::Store {
+                destination,
+                value,
+            } => self.collect(
                 vm,
                 code.clone(),
                 &[*destination, *value],
@@ -1815,7 +1982,10 @@ impl Machine {
                 self.push(vm, Some(code.clone()), depth, Action::Discard, 0)?;
                 self.eval(vm, code.clone(), *node, depth + 1)?;
             }
-            StatementCode::CallResults { call, destinations } => {
+            StatementCode::CallResults {
+                call,
+                destinations,
+            } => {
                 let nodes: Vec<_> = destinations.iter().flatten().copied().collect();
                 let present: Vec<_> = destinations.iter().map(Option::is_some).collect();
                 self.collect(
@@ -1926,7 +2096,11 @@ impl Machine {
                 )?;
             }
             StatementCode::Block(block) => self.block(vm, code.clone(), *block, depth + 1)?,
-            StatementCode::PushContext { id, value, body } => {
+            StatementCode::PushContext {
+                id,
+                value,
+                body,
+            } => {
                 self.push(
                     vm,
                     Some(code.clone()),
@@ -1999,7 +2173,9 @@ impl Machine {
             vm,
             Some(code.clone()),
             depth,
-            Action::CleanupRestore { previous },
+            Action::CleanupRestore {
+                previous,
+            },
             0,
         )?;
         self.block(vm, code.clone(), cleanup.body, depth + 1)
@@ -2048,7 +2224,9 @@ impl Machine {
                         .remove(&id);
                     vm.memory.release(&pointer)?;
                 }
-                Action::CleanupRestore { .. } => {
+                Action::CleanupRestore {
+                    ..
+                } => {
                     return Err(Error::InvalidIr("cleanup transferred outside its body").into());
                 }
                 Action::SubjectEnd => {
@@ -2422,8 +2600,12 @@ impl Machine {
                 vm.step(depth)?;
                 match instruction {
                     SimdInstructionCode::Trap => return Err(Error::RuntimeTrap.into()),
-                    SimdInstructionCode::Load { address, .. }
-                    | SimdInstructionCode::Store { address, .. } => {
+                    SimdInstructionCode::Load {
+                        address, ..
+                    }
+                    | SimdInstructionCode::Store {
+                        address, ..
+                    } => {
                         self.push(
                             vm,
                             Some(code.clone()),
@@ -2491,7 +2673,9 @@ impl Machine {
                 }
                 match instruction {
                     SimdInstructionCode::Load {
-                        destination, width, ..
+                        destination,
+                        width,
+                        ..
                     } => {
                         let work = vm.memory.intrinsic_work_cost(
                             vm.provider.types(),
@@ -2507,7 +2691,11 @@ impl Machine {
                             width.bytes(),
                         )?);
                     }
-                    SimdInstructionCode::Store { source, width, .. } => {
+                    SimdInstructionCode::Store {
+                        source,
+                        width,
+                        ..
+                    } => {
                         let bytes = registers[source].as_deref().ok_or(Error::Uninitialized)?;
                         if bytes.len() != width.bytes() {
                             return Err(Error::InvalidIr("SIMD store storage width changed").into());
@@ -2614,7 +2802,12 @@ fn validate_operand<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                     .validate_runtime_type_values(vm.provider.types(), value)?;
             }
             Operand::Place(pointer) if pointer.pointee() == ty => {}
-            _ => return Err(Error::TypeMismatch { expected: ty }.into()),
+            _ => {
+                return Err(Error::TypeMismatch {
+                    expected: ty,
+                }
+                .into());
+            }
         }
     }
     Ok(())

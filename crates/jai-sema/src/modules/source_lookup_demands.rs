@@ -19,7 +19,9 @@ impl Demand {
             LookupError::UnknownName(name) => {
                 format!("unknown name '{}'", graph.symbols().name(name))
             }
-            LookupError::UnknownMember { name, .. } => {
+            LookupError::UnknownMember {
+                name, ..
+            } => {
                 format!("unknown module member '{}'", graph.symbols().name(name))
             }
             _ => "lookup does not describe an unavailable source binding".into(),
@@ -248,9 +250,15 @@ fn direct_call(expression: &crate::Expr) -> Option<ProcedureId> {
             jai_ir::FloatExprKind::Call(call) => Some(call.procedure),
             _ => None,
         },
-        crate::Expr::Typed { value, .. }
-        | crate::Expr::Pointer { value, .. }
-        | crate::Expr::Enum { value, .. } => value_call(value),
+        crate::Expr::Typed {
+            value, ..
+        }
+        | crate::Expr::Pointer {
+            value, ..
+        }
+        | crate::Expr::Enum {
+            value, ..
+        } => value_call(value),
         _ => None,
     }
 }
@@ -266,13 +274,23 @@ fn int_call(expression: &jai_ir::IntExpr) -> Option<ProcedureId> {
 }
 fn value_call(expression: &jai_ir::ValueExpr) -> Option<ProcedureId> {
     match expression {
-        jai_ir::ValueExpr::Call { call, .. } => Some(call.procedure),
+        jai_ir::ValueExpr::Call {
+            call, ..
+        } => Some(call.procedure),
         jai_ir::ValueExpr::Int(value) => int_call(value),
         jai_ir::ValueExpr::Bool(jai_ir::BoolExpr::Call(call)) => Some(call.procedure),
-        jai_ir::ValueExpr::Distinct { value, .. }
-        | jai_ir::ValueExpr::UnwrapDistinct { value, .. }
-        | jai_ir::ValueExpr::PointerCast { value, .. }
-        | jai_ir::ValueExpr::Bind { body: value, .. } => value_call(value),
+        jai_ir::ValueExpr::Distinct {
+            value, ..
+        }
+        | jai_ir::ValueExpr::UnwrapDistinct {
+            value, ..
+        }
+        | jai_ir::ValueExpr::PointerCast {
+            value, ..
+        }
+        | jai_ir::ValueExpr::Bind {
+            body: value, ..
+        } => value_call(value),
         _ => None,
     }
 }

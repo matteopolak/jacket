@@ -102,12 +102,19 @@ pub(crate) fn check_steps(
             }
             let child = match step {
                 PathStep::Field(field) => {
-                    let child = types
-                        .validate_field(ty, field)
-                        .map_err(|error| PathError::Canonical { index, error })?;
+                    let child =
+                        types
+                            .validate_field(ty, field)
+                            .map_err(|error| PathError::Canonical {
+                                index,
+                                error,
+                            })?;
                     if types
                         .record_storage_definition(ty)
-                        .map_err(|error| PathError::Canonical { index, error })?
+                        .map_err(|error| PathError::Canonical {
+                            index,
+                            error,
+                        })?
                         .kind
                         == RecordKind::Union
                         && let Some(previous) = node.union_choice.replace(field)
@@ -131,9 +138,10 @@ pub(crate) fn check_steps(
                     let TypeKind::FixedArray {
                         element: child,
                         count,
-                    } = *types
-                        .kind(ty)
-                        .map_err(|error| PathError::Canonical { index, error })?
+                    } = *types.kind(ty).map_err(|error| PathError::Canonical {
+                        index,
+                        error,
+                    })?
                     else {
                         return Err(PathError::NotFixedArray(index));
                     };
@@ -273,7 +281,10 @@ mod tests {
         ];
         assert!(matches!(
             check_steps(&types, root, &[(&invalid_owner, int)]),
-            Err(PathError::ArrayOwner { index: 0, .. })
+            Err(PathError::ArrayOwner {
+                index: 0,
+                ..
+            })
         ));
         let invalid_index = [
             field,
@@ -284,7 +295,10 @@ mod tests {
         ];
         assert!(matches!(
             check_steps(&types, root, &[(&invalid_index, int)]),
-            Err(PathError::ElementBounds { index: 0, .. })
+            Err(PathError::ElementBounds {
+                index: 0,
+                ..
+            })
         ));
         assert!(matches!(
             check_steps(&types, root, &[(&[field], array), (&leaf, int)]),

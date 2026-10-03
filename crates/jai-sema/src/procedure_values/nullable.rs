@@ -4,7 +4,10 @@ use jai_types::{TypeKind, TypeView};
 
 impl Expr {
     pub(crate) fn procedure_type(&self, types: &dyn TypeView) -> Option<TypeId> {
-        let Self::Typed { ty, .. } = self else {
+        let Self::Typed {
+            ty, ..
+        } = self
+        else {
             return None;
         };
         matches!(types.kind(*ty), Ok(TypeKind::Procedure(_))).then_some(*ty)
@@ -44,7 +47,10 @@ impl Resolver<'_> {
                 }
                 let value = |expression: Expr| match expression {
                     Expr::Null => Ok(ValueExpr::Zero(ty)),
-                    Expr::Typed { ty: actual, value } if actual == ty => Ok(value),
+                    Expr::Typed {
+                        ty: actual,
+                        value,
+                    } if actual == ty => Ok(value),
                     _ => Err(Diagnostic::new(
                         span,
                         "procedure equality requires a matching procedure value or null",

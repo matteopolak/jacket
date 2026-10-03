@@ -32,9 +32,9 @@ fn sequence_declaration(
             | syntax::ExpressionKind::ArrayLiteral(_)
             | syntax::ExpressionKind::StructLiteral(_)
             | syntax::ExpressionKind::PositionalStructLiteral(_) => return true,
-            syntax::ExpressionKind::TypeCast { ty, .. }
-                if !matches!(ty, syntax::TypeSyntax::Builtin(_)) =>
-            {
+            syntax::ExpressionKind::TypeCast {
+                ty, ..
+            } if !matches!(ty, syntax::TypeSyntax::Builtin(_)) => {
                 return true;
             }
             syntax::ExpressionKind::Name(name) => path(*name),
@@ -123,7 +123,9 @@ impl LiteralInference<'_, '_> {
                 expression.span,
             )
             .map_err(|error| located(self.graph, file, error))?,
-            syntax::ExpressionKind::TypeCast { ty, .. } => self.nominals.resolve_type(
+            syntax::ExpressionKind::TypeCast {
+                ty, ..
+            } => self.nominals.resolve_type(
                 self.graph,
                 file,
                 ty,
@@ -172,7 +174,9 @@ impl LiteralInference<'_, '_> {
                     )
                 })?
             }
-            syntax::ExpressionKind::StructLiteral(syntax::StructLiteral { ty, .. })
+            syntax::ExpressionKind::StructLiteral(syntax::StructLiteral {
+                ty, ..
+            })
             | syntax::ExpressionKind::PositionalStructLiteral(syntax::PositionalStructLiteral {
                 ty,
                 ..
@@ -329,7 +333,9 @@ fn bind_one<'a>(
                 pending.extend(&literal.values);
                 None
             }
-            syntax::ExpressionKind::TypeCast { value, .. } => {
+            syntax::ExpressionKind::TypeCast {
+                value, ..
+            } => {
                 pending.push(value);
                 None
             }

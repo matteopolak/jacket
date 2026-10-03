@@ -73,7 +73,10 @@ fn has_placements(types: &dyn TypeView, root: TypeId, limit: usize) -> Result<bo
                 pending.extend(record.fields.iter().copied());
             }
             TypeKind::Distinct(id) => pending.push(types.distinct(*id)?.representation),
-            TypeKind::FixedArray { element, count } if *count != 0 => pending.push(*element),
+            TypeKind::FixedArray {
+                element,
+                count,
+            } if *count != 0 => pending.push(*element),
             _ => {}
         }
     }
@@ -152,7 +155,10 @@ mod tests {
         assert!(snapshot.decoded_semantic().is_none());
         assert!(std::ptr::eq(value.semantic(), &value));
         value.validate(&types, worker, 128).unwrap();
-        let Value::Record { fields, .. } = snapshot.field(&types, 0, 4096).unwrap() else {
+        let Value::Record {
+            fields, ..
+        } = snapshot.field(&types, 0, 4096).unwrap()
+        else {
             panic!("initialized info is readable");
         };
         assert_eq!(

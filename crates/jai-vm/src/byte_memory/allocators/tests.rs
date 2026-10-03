@@ -19,6 +19,7 @@ fn fixture() -> (TypeRegistry, AllocatorSchema, TypeId, TypeId) {
         .procedure(ProcedureType {
             parameters: Box::new([mode, size, size, data, data]),
             results: Box::new([data]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -83,7 +84,10 @@ fn certified_zero_allocator_is_a_typed_payload_on_both_pointer_widths() {
         assert_eq!(image.metadata_cells(), 0);
         assert_eq!(image.read(&types, target, 0, dynamic).unwrap(), value);
         let mut absent = value.clone();
-        if let Value::DynamicArray { allocator, .. } = &mut absent {
+        if let Value::DynamicArray {
+            allocator, ..
+        } = &mut absent
+        {
             *allocator = None;
         }
         assert!(ByteImage::encode(&types, target, dynamic, &absent, 512).is_err());
@@ -139,7 +143,9 @@ fn allocator_procedure_and_data_slots_keep_typed_relocations_across_copy() {
         assert_eq!(
             image.read(&types, target, tail, signature).unwrap(),
             match &payload {
-                Value::Record { fields, .. } => fields[0].clone(),
+                Value::Record {
+                    fields, ..
+                } => fields[0].clone(),
                 _ => unreachable!(),
             }
         );

@@ -39,7 +39,10 @@ impl Resolver<'_> {
                 .find(|(member, _)| *member == name)
         {
             return Ok(Some(Binding::Enum(
-                crate::modules::aggregates::EnumConstant { ty, value: *value },
+                crate::modules::aggregates::EnumConstant {
+                    ty,
+                    value: *value,
+                },
             )));
         }
         if self
@@ -98,7 +101,9 @@ impl Resolver<'_> {
             .and_then(|methods| methods.iter().find(|method| method.source.name() == name));
         if let Some(binding) = self.ready_namespace_member(ty, name) {
             if method.is_some()
-                && let Binding::Procedure { procedure, .. } = binding
+                && let Binding::Procedure {
+                    procedure, ..
+                } = binding
                 && self.meta.local_declarations.header_readiness(procedure)
                     != Some(crate::local_declarations::HeaderReadiness::Complete)
             {
@@ -338,7 +343,10 @@ impl Resolver<'_> {
             {
                 continue;
             }
-            let Some(Binding::Procedure { procedure, ty }) = namespace.get(&method.source.name())
+            let Some(Binding::Procedure {
+                procedure,
+                ty,
+            }) = namespace.get(&method.source.name())
             else {
                 if matches!(&method.source, super::RecordMethodSource::Constant(_)) {
                     // Contextual lambdas retain their actual declaration environment.
@@ -377,7 +385,10 @@ impl Resolver<'_> {
             BakedValue::Value(jai_ir::ConstantValue {
                 ty,
                 kind: jai_ir::ConstantKind::Enum(value),
-            }) => Binding::Enum(crate::modules::aggregates::EnumConstant { ty, value }),
+            }) => Binding::Enum(crate::modules::aggregates::EnumConstant {
+                ty,
+                value,
+            }),
             BakedValue::Value(value) => Binding::TypedConstant(self.meta.intern_constant(value)),
             BakedValue::Float(value) => {
                 Binding::TypedConstant(self.meta.intern_constant(jai_ir::ConstantValue {

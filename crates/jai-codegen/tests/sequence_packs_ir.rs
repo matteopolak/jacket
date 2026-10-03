@@ -21,6 +21,7 @@ fn signature(
             parameters: parameters.into(),
             results: results.into(),
             variadic,
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
         })

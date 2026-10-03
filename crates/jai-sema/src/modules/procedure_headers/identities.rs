@@ -39,7 +39,9 @@ pub(in crate::modules) fn reserve(
             declarations.insert(declaration.id(), id);
         }
     }
-    Ok(SourceProcedures { declarations })
+    Ok(SourceProcedures {
+        declarations,
+    })
 }
 
 #[cfg(test)]

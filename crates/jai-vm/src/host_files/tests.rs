@@ -53,6 +53,7 @@ fn catalog(types: &mut TypeRegistry) -> (TypeId, Vec<FileAbiProcedure>) {
             .procedure(ProcedureType {
                 parameters: parameters.into(),
                 results: vec![result].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -105,7 +106,8 @@ struct Effects {
     requests: Vec<HostRequest>,
 }
 impl crate::CompilerEffects for Effects {
-    fn begin(&mut self) {}
+    fn begin(&mut self) {
+    }
     fn request(&mut self, _: crate::CompilerRequest) -> crate::EffectOutcome {
         crate::EffectOutcome::Rejected("not a compiler request".into())
     }

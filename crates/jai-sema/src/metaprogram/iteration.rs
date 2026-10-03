@@ -74,12 +74,15 @@ impl Resolver<'_> {
             .enum_definition(flags_ty)
             .map_err(|error| Diagnostic::new(span, error.to_string()))?
             .representation;
-        let bits = if by_pointer { pointer.bits() } else { 0 }
-            | if direction == syntax::Direction::Reverse {
-                reverse.bits()
-            } else {
-                0
-            };
+        let bits = if by_pointer {
+            pointer.bits()
+        } else {
+            0
+        } | if direction == syntax::Direction::Reverse {
+            reverse.bits()
+        } else {
+            0
+        };
         let flags = jai_ir::ConstantValue {
             ty: flags_ty,
             kind: jai_ir::ConstantKind::Enum(jai_types::Integer::wrapping(

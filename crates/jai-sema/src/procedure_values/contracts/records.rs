@@ -135,9 +135,13 @@ impl Resolver<'_> {
         };
         let syntax = match field.syntax.as_ref() {
             crate::local_declarations::FieldSourceRef::Named(field) => match &field.binding {
-                syntax::FieldBinding::Explicit { ty, .. } => ty.clone(),
+                syntax::FieldBinding::Explicit {
+                    ty, ..
+                } => ty.clone(),
                 syntax::FieldBinding::Inferred(expression) => match &expression.kind {
-                    syntax::ExpressionKind::TypeCast { ty, .. } => ty.clone(),
+                    syntax::ExpressionKind::TypeCast {
+                        ty, ..
+                    } => ty.clone(),
                     _ => return Ok(None),
                 },
             },

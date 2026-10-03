@@ -82,12 +82,15 @@ impl fmt::Display for CastModifiersError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Duplicate(_) => f.write_str("duplicate cast modifier"),
-            Self::Conflicting { .. } => f.write_str("conflicting cast modifiers"),
+            Self::Conflicting {
+                ..
+            } => f.write_str("conflicting cast modifiers"),
         }
     }
 }
 
-impl std::error::Error for CastModifiersError {}
+impl std::error::Error for CastModifiersError {
+}
 
 #[cfg(test)]
 mod tests {

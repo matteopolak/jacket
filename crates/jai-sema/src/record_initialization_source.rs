@@ -48,7 +48,9 @@ pub(crate) fn selected_journal(
                     .map_err(|e| Diagnostic::new(field.span, e.to_string()))?;
                 physical += 1;
                 let expression = match &field.binding {
-                    FieldBinding::Explicit { initializer, .. } => initializer.as_ref(),
+                    FieldBinding::Explicit {
+                        initializer, ..
+                    } => initializer.as_ref(),
                     FieldBinding::Inferred(value) => Some(value),
                 };
                 let source = match expression {
@@ -105,8 +107,12 @@ pub(crate) fn selected_journal(
                     source,
                 }
             }
-            RecordMember::Conditional { span, .. }
-            | RecordMember::CompileTimeCases { span, .. } => {
+            RecordMember::Conditional {
+                span, ..
+            }
+            | RecordMember::CompileTimeCases {
+                span, ..
+            } => {
                 return Err(Diagnostic::new(
                     *span,
                     "record construction requires selected source members",
@@ -119,7 +125,10 @@ pub(crate) fn selected_journal(
                 ));
             }
             // These namespace declarations/assertions do not create physical writes.
-            RecordMember::Assert { .. }
+            RecordMember::Placement(_)
+            | RecordMember::Assert {
+                ..
+            }
             | RecordMember::Constant(_)
             | RecordMember::TypeAlias(_)
             | RecordMember::Procedure(_)
@@ -183,10 +192,14 @@ pub(crate) fn explicit_expression<'a>(
     }
     match members.get(action.member_ordinal)? {
         RecordMember::Field(field) => match &field.binding {
-            FieldBinding::Explicit { initializer, .. } => initializer.as_ref(),
+            FieldBinding::Explicit {
+                initializer, ..
+            } => initializer.as_ref(),
             FieldBinding::Inferred(value) => Some(value),
         },
-        RecordMember::DefaultOverride { value, .. } => Some(value),
+        RecordMember::DefaultOverride {
+            value, ..
+        } => Some(value),
         _ => None,
     }
 }
@@ -323,7 +336,10 @@ mod tests {
         let error =
             selected_journal(&types, root, &skipped_override, |_| Ok(vec![actual])).unwrap_err();
         assert!(error.message.contains("skipped record override"));
-        let RecordMember::DefaultOverride { value, .. } = &skipped_override[1] else {
+        let RecordMember::DefaultOverride {
+            value, ..
+        } = &skipped_override[1]
+        else {
             panic!()
         };
         assert_eq!(error.span, value.span);

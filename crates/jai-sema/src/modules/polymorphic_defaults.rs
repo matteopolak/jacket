@@ -10,13 +10,17 @@ pub(super) fn sources<'a>(
     let mut defaults = Vec::new();
     for parameter in parameters {
         match &parameter.binding {
-            syntax::ParameterBinding::Defaulted { expression, ty } => defaults.push((
+            syntax::ParameterBinding::Defaulted {
+                expression,
+                ty,
+            } => defaults.push((
                 expression,
                 ty.map(|ty| syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(ty))),
             )),
-            syntax::ParameterBinding::DefaultedType { expression, ty } => {
-                defaults.push((expression, ty.clone()))
-            }
+            syntax::ParameterBinding::DefaultedType {
+                expression,
+                ty,
+            } => defaults.push((expression, ty.clone())),
             _ => {}
         }
     }
@@ -63,7 +67,11 @@ pub(super) fn prepare(
         return Ok(ArgumentInfo::runtime_read(read));
     }
     let (procedure_source, cast_annotation) = match &expression.kind {
-        syntax::ExpressionKind::TypeCast { ty, value, .. } => (value.as_ref(), Some(ty)),
+        syntax::ExpressionKind::TypeCast {
+            ty,
+            value,
+            ..
+        } => (value.as_ref(), Some(ty)),
         _ => (expression, None),
     };
     let source_procedure = match &procedure_source.kind {

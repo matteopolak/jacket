@@ -60,7 +60,9 @@ impl StaticClosures {
                         data: Some(address),
                         ..
                     } => self.charge(address.path().len())?,
-                    StaticValueKind::Slice { data: None, .. } => {}
+                    StaticValueKind::Slice {
+                        data: None, ..
+                    } => {}
                 },
                 Value::Constant(value) => match &value.kind {
                     // Cross-graph Type constants cannot be retained by StaticData.
@@ -71,7 +73,10 @@ impl StaticClosures {
                         self.charge(values.len())?;
                         pending.extend(values.iter().map(Value::Constant));
                     }
-                    ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
+                    ConstantKind::Union {
+                        value, ..
+                    }
+                    | ConstantKind::Distinct(value) => {
                         self.charge(1)?;
                         pending.push(Value::Constant(value));
                     }
@@ -108,7 +113,10 @@ impl StaticClosures {
                 StaticValueKind::Record(children) | StaticValueKind::Array(children) => {
                     pending.extend(children);
                 }
-                StaticValueKind::Address(_) | StaticValueKind::Slice { .. } => {}
+                StaticValueKind::Address(_)
+                | StaticValueKind::Slice {
+                    ..
+                } => {}
             }
         }
         self.procedures.insert(key);

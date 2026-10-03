@@ -42,12 +42,15 @@ fn hiding_record_members_preserves_layout_and_source_record_metadata() {
         [0, 8]
     );
     let DescriptorKind::Record {
-        fields, metadata, ..
+        fields,
+        metadata,
+        ..
     } = &descriptor.kind
     else {
         panic!()
     };
     assert!(fields.is_empty());
+    assert_eq!(metadata.textual_flags, 8);
     assert_eq!(metadata.notes[0].as_ref(), b"@KeepRecord");
     assert_eq!(types.field(record, 1).unwrap().ty, wide);
 }
@@ -60,6 +63,7 @@ fn reducing_procedure_members_changes_only_the_immutable_reflection_edge() {
         .procedure(ProcedureType {
             parameters: vec![integer].into(),
             results: vec![integer].into(),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -68,7 +72,14 @@ fn reducing_procedure_members_changes_only_the_immutable_reflection_edge() {
     let record = types.reserve_record(RecordKind::Struct);
     types.define_record(record, vec![procedure]).unwrap();
     let field = types.field(record, 0).unwrap();
-    let metadata = ReflectionMetadata::default();
+    let mut metadata = ReflectionMetadata::default();
+    metadata.record(
+        record,
+        ReflectedRecordMetadata {
+            textual_flags: 2 | 4 | 128,
+            ..ReflectedRecordMetadata::default()
+        },
+    );
     let original = ready(ReflectionGraph::build(
         &types,
         record,
@@ -91,9 +102,15 @@ fn reducing_procedure_members_changes_only_the_immutable_reflection_edge() {
         Some(LayoutPolicy::lp64()),
         &metadata,
     ));
-    let DescriptorKind::Record { fields, .. } = &reduced.descriptor(record).unwrap().kind else {
+    let DescriptorKind::Record {
+        fields,
+        metadata,
+        ..
+    } = &reduced.descriptor(record).unwrap().kind
+    else {
         panic!()
     };
+    assert_eq!(metadata.textual_flags, 2 | 4 | 16 | 32 | 128);
     assert_eq!(fields[0].id, field.id);
     assert_eq!(fields[0].offset_in_bytes, 0);
     assert!(
@@ -116,9 +133,15 @@ fn reducing_procedure_members_changes_only_the_immutable_reflection_edge() {
         original.descriptor(record).unwrap().layout,
         reduced.descriptor(record).unwrap().layout
     );
-    let DescriptorKind::Record { fields, .. } = &original.descriptor(record).unwrap().kind else {
+    let DescriptorKind::Record {
+        fields,
+        metadata,
+        ..
+    } = &original.descriptor(record).unwrap().kind
+    else {
         panic!()
     };
+    assert_eq!(metadata.textual_flags, 2 | 4 | 128);
     assert_eq!(fields[0].ty.represented_type(), procedure);
     assert!(
         !fields[0]
@@ -153,7 +176,10 @@ fn unnamed_physical_field_retains_promotion_and_actual_union_layout() {
         Some(LayoutPolicy::lp64()),
         &metadata,
     ));
-    let DescriptorKind::Record { fields, .. } = &graph.get(graph.root()).unwrap().kind else {
+    let DescriptorKind::Record {
+        fields, ..
+    } = &graph.get(graph.root()).unwrap().kind
+    else {
         panic!()
     };
     assert_eq!(
@@ -168,7 +194,10 @@ fn unnamed_physical_field_retains_promotion_and_actual_union_layout() {
     assert!(fields[1].using);
     let union = graph.get(fields[1].ty).unwrap();
     assert_eq!(union.runtime_size(), Some(16));
-    let DescriptorKind::Record { fields, .. } = &union.kind else {
+    let DescriptorKind::Record {
+        fields, ..
+    } = &union.kind
+    else {
         panic!()
     };
     assert_eq!(
@@ -247,7 +276,10 @@ fn certified_roots_share_one_ordered_closure_and_nominal_descriptor_identity() {
             pointee: graph.root()
         }
     );
-    let DescriptorKind::Record { fields, .. } = &graph.descriptor(second).unwrap().kind else {
+    let DescriptorKind::Record {
+        fields, ..
+    } = &graph.descriptor(second).unwrap().kind
+    else {
         panic!("second nominal record");
     };
     assert_eq!(fields[0].ty, graph.descriptor(integer).unwrap().id);
@@ -362,12 +394,18 @@ fn record_names_offsets_and_recursion_follow_the_target() {
     );
     let descriptor = graph32.get(graph32.root()).unwrap();
     assert_eq!(descriptor.name.as_deref(), Some(b"Node".as_slice()));
-    let DescriptorKind::Record { fields, .. } = &descriptor.kind else {
+    let DescriptorKind::Record {
+        fields, ..
+    } = &descriptor.kind
+    else {
         panic!("record")
     };
     assert_eq!(fields[1].offset_in_bytes, 4);
     assert_eq!(fields[1].name.as_deref(), Some(b"next".as_slice()));
-    let DescriptorKind::Pointer { pointee } = &graph32.get(fields[1].ty).unwrap().kind else {
+    let DescriptorKind::Pointer {
+        pointee,
+    } = &graph32.get(fields[1].ty).unwrap().kind
+    else {
         panic!("pointer")
     };
     assert_eq!(*pointee, graph32.root());
@@ -492,6 +530,7 @@ fn procedure_metatypes_keep_parameter_result_ids_and_context() {
         .procedure(ProcedureType {
             parameters: vec![integer].into(),
             results: vec![boolean, integer].into(),
+            return_abi: crate::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: crate::Variadic::None,
@@ -535,7 +574,12 @@ fn fixed_arrays_and_unions_use_layout_offsets_and_strides() {
         Some(LayoutPolicy::lp64()),
         &ReflectionMetadata::default(),
     ));
-    let DescriptorKind::Record { kind, fields, .. } = &graph.get(graph.root()).unwrap().kind else {
+    let DescriptorKind::Record {
+        kind,
+        fields,
+        ..
+    } = &graph.get(graph.root()).unwrap().kind
+    else {
         panic!("record")
     };
     assert_eq!(*kind, RecordKind::Union);

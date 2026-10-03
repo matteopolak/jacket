@@ -270,14 +270,18 @@ pub(crate) fn procedure_modifier_source<'a>(
     let mut names = HashSet::new();
     for binding in &initial.types {
         names.insert(binding.name);
-        slots.push(ModifierSlot::Type { name: binding.name });
+        slots.push(ModifierSlot::Type {
+            name: binding.name,
+        });
     }
     for binding in &initial.constants {
         if !names.insert(binding.name) {
             continue;
         }
         slots.push(match &binding.value {
-            BakedValue::Type(_) => ModifierSlot::Type { name: binding.name },
+            BakedValue::Type(_) => ModifierSlot::Type {
+                name: binding.name,
+            },
             BakedValue::Value(value) => ModifierSlot::Baked {
                 name: binding.name,
                 ty: value.ty,
@@ -305,13 +309,18 @@ pub(crate) fn procedure_modifier_source<'a>(
     }
     let mut result_names = Vec::new();
     for result in &source.results {
-        if let syntax::ResultBinding::Typed { ty, .. } = &result.binding {
+        if let syntax::ResultBinding::Typed {
+            ty, ..
+        } = &result.binding
+        {
             collect_result_names(ty, &mut result_names);
         }
     }
     for name in result_names {
         if names.insert(name) {
-            slots.push(ModifierSlot::Type { name });
+            slots.push(ModifierSlot::Type {
+                name,
+            });
         }
     }
     Ok(ModifierSource {
@@ -365,7 +374,12 @@ pub(crate) fn build_modifier_source(
             .copied()
             .filter(|slot| {
                 let name = match slot {
-                    ModifierSlot::Type { name } | ModifierSlot::Baked { name, .. } => *name,
+                    ModifierSlot::Type {
+                        name,
+                    }
+                    | ModifierSlot::Baked {
+                        name, ..
+                    } => *name,
                 };
                 evaluation(name) == syntax::ParameterEvaluation::Evaluate
             })
@@ -383,6 +397,7 @@ pub(crate) fn build_modifier_source(
                     parameters: Vec::new(),
                     results: Vec::new(),
                     convention: CallingConvention::Jai,
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     context: source.context,
                 },
                 checks: source.checks,
@@ -403,13 +418,20 @@ pub(crate) fn build_modifier_source(
         .iter()
         .map(|slot| {
             let name = match slot {
-                ModifierSlot::Type { name } | ModifierSlot::Baked { name, .. } => *name,
+                ModifierSlot::Type {
+                    name,
+                }
+                | ModifierSlot::Baked {
+                    name, ..
+                } => *name,
             };
             let binding = match slot {
-                ModifierSlot::Type { .. } => {
-                    syntax::ParameterBinding::RequiredType(TypeSyntax::Builtin(BuiltinType::Type))
-                }
-                ModifierSlot::Baked { .. } => source
+                ModifierSlot::Type {
+                    ..
+                } => syntax::ParameterBinding::RequiredType(TypeSyntax::Builtin(BuiltinType::Type)),
+                ModifierSlot::Baked {
+                    ..
+                } => source
                     .parameters
                     .iter()
                     .find(|parameter| parameter.name == name)
@@ -436,8 +458,12 @@ pub(crate) fn build_modifier_source(
     let mut parameter_types = Vec::new();
     for slot in plan.slots() {
         let ty = match slot {
-            ModifierSlot::Type { .. } => types.meta_type(),
-            ModifierSlot::Baked { ty, .. } => *ty,
+            ModifierSlot::Type {
+                ..
+            } => types.meta_type(),
+            ModifierSlot::Baked {
+                ty, ..
+            } => *ty,
         };
         parameter_types.push(ty);
         result_types.push(ty);
@@ -446,6 +472,7 @@ pub(crate) fn build_modifier_source(
         .procedure(ProcedureType {
             parameters: parameter_types.clone().into_boxed_slice(),
             results: result_types.clone().into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: source.context,
             variadic: Variadic::None,
@@ -459,8 +486,12 @@ pub(crate) fn build_modifier_source(
             evaluation: parameter.evaluation,
             name: parameter.name,
             ty: match slot {
-                ModifierSlot::Type { .. } => types.meta_type(),
-                ModifierSlot::Baked { ty, .. } => *ty,
+                ModifierSlot::Type {
+                    ..
+                } => types.meta_type(),
+                ModifierSlot::Baked {
+                    ty, ..
+                } => *ty,
             },
             default: None,
         })
@@ -496,7 +527,9 @@ fn collect_result_names(ty: &TypeSyntax, names: &mut Vec<Symbol>) {
         TypeSyntax::Pointer(ty) | TypeSyntax::Slice(ty) | TypeSyntax::DynamicArray(ty) => {
             collect_result_names(ty, names)
         }
-        TypeSyntax::FixedArray { element, .. } => collect_result_names(element, names),
+        TypeSyntax::FixedArray {
+            element, ..
+        } => collect_result_names(element, names),
         TypeSyntax::Procedure(procedure) => {
             for parameter in procedure.parameters.iter().chain(&procedure.results) {
                 collect_result_names(&parameter.ty, names);
@@ -536,8 +569,12 @@ fn rewrite_returns(body: &mut [syntax::Statement], plan: &ModifierPlan) -> Resul
             }
             StatementKind::Block(body)
             | StatementKind::While(_, body)
-            | StatementKind::CheckScope { body, .. }
-            | StatementKind::PushContext { body, .. } => rewrite_returns(body, plan)?,
+            | StatementKind::CheckScope {
+                body, ..
+            }
+            | StatementKind::PushContext {
+                body, ..
+            } => rewrite_returns(body, plan)?,
             StatementKind::Range(loop_) => rewrite_returns(&mut loop_.body, plan)?,
             StatementKind::ArrayLoop(loop_) => rewrite_returns(&mut loop_.body, plan)?,
             StatementKind::Cases(cases) => {
@@ -587,7 +624,12 @@ fn outputs(
         value: syntax::Expression {
             span,
             kind: ExpressionKind::Name(match slot {
-                ModifierSlot::Type { name } | ModifierSlot::Baked { name, .. } => *name,
+                ModifierSlot::Type {
+                    name,
+                }
+                | ModifierSlot::Baked {
+                    name, ..
+                } => *name,
             }),
         },
     }));

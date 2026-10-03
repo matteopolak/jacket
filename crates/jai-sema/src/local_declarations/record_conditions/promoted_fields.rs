@@ -18,9 +18,9 @@ impl Resolver<'_> {
             let result = match member {
                 syntax::RecordMember::AnonymousRecord(record) => self.local_inline_record(record),
                 syntax::RecordMember::Field(field) if field.using => match &field.binding {
-                    syntax::FieldBinding::Explicit { ty, .. } => {
-                        self.lexical_annotation(ty, field.span)
-                    }
+                    syntax::FieldBinding::Explicit {
+                        ty, ..
+                    } => self.lexical_annotation(ty, field.span),
                     syntax::FieldBinding::Inferred(expression) => self
                         .expr(expression)
                         .and_then(|value| self.expression_type(&value, expression.span)),

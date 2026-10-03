@@ -67,12 +67,18 @@ impl Resolver<'_> {
             |resolver| {
                 for (source, parameter) in omitted {
                     let expression = match &source.binding {
-                        syntax::ParameterBinding::Defaulted { expression, .. }
-                        | syntax::ParameterBinding::DefaultedType { expression, .. } => expression,
+                        syntax::ParameterBinding::Defaulted {
+                            expression, ..
+                        }
+                        | syntax::ParameterBinding::DefaultedType {
+                            expression, ..
+                        } => expression,
                         _ => continue,
                     };
                     let contract = match &expression.kind {
-                        syntax::ExpressionKind::TypeCast { ty, .. } => {
+                        syntax::ExpressionKind::TypeCast {
+                            ty, ..
+                        } => {
                             let retained =
                                 resolver.retained_callback_syntax(ty, expression.span)?;
                             resolver.bound_generic_callback_contract(
@@ -136,7 +142,9 @@ impl Resolver<'_> {
         let mut results = Vec::with_capacity(signature.results.len());
         for (source, result) in definition.source.results.iter().zip(&signature.results) {
             let contract = match &source.binding {
-                syntax::ResultBinding::Typed { ty, .. } => {
+                syntax::ResultBinding::Typed {
+                    ty, ..
+                } => {
                     let retained = self.retained_callback_syntax(ty, source.span)?;
                     self.bound_generic_callback_contract(
                         result.ty,
@@ -146,7 +154,9 @@ impl Resolver<'_> {
                     )?
                 }
                 syntax::ResultBinding::InferredDefault(expression) => match &expression.kind {
-                    syntax::ExpressionKind::TypeCast { ty, .. } => {
+                    syntax::ExpressionKind::TypeCast {
+                        ty, ..
+                    } => {
                         let retained = self.retained_callback_syntax(ty, expression.span)?;
                         self.bound_generic_callback_contract(
                             result.ty,
@@ -171,7 +181,9 @@ impl Resolver<'_> {
 pub(super) fn parameter_annotation(source: &syntax::Parameter) -> Option<&syntax::TypeSyntax> {
     match &source.binding {
         syntax::ParameterBinding::RequiredType(ty)
-        | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => Some(ty),
+        | syntax::ParameterBinding::DefaultedType {
+            ty: Some(ty), ..
+        } => Some(ty),
         _ => None,
     }
 }

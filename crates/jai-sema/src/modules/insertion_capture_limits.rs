@@ -94,7 +94,9 @@ fn count<'a>(
                     | TypeKind::DynamicArray(inner) => {
                         pending.push(Work::Type(*inner, depth + 1));
                     }
-                    TypeKind::FixedArray { element, .. } => {
+                    TypeKind::FixedArray {
+                        element, ..
+                    } => {
                         pending.push(Work::Type(*element, depth + 1));
                     }
                     TypeKind::Procedure(id) => {
@@ -105,7 +107,10 @@ fn count<'a>(
                         // The current encoder builds the declared parameter
                         // first, then replaces a Jai pack with its element.
                         // Count both allocations before admitting either one.
-                        if let jai_types::Variadic::Jai { element, .. } = signature.variadic {
+                        if let jai_types::Variadic::Jai {
+                            element, ..
+                        } = signature.variadic
+                        {
                             pending.push(Work::Type(element, depth + 1));
                         }
                         pending.push(Work::Types(&signature.parameters, depth + 1));
@@ -174,6 +179,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![child, child].into_boxed_slice(),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -232,7 +238,10 @@ mod tests {
                 4,
             )
             .unwrap(),
-            InsertionCaptureCost { nodes: 3, bytes: 4 }
+            InsertionCaptureCost {
+                nodes: 3,
+                bytes: 4
+            }
         );
         assert!(
             count(

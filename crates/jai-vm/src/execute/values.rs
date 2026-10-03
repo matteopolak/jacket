@@ -4,7 +4,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
     pub(super) fn value(&mut self, expression: &ValueExpr, depth: usize) -> Result<Value> {
         self.step(depth)?;
         let value = match expression {
-            ValueExpr::StorageBitcast { source, cast } => match source {
+            ValueExpr::StorageBitcast {
+                source,
+                cast,
+            } => match source {
                 StorageBitcastSource::Place(place) => {
                     let source = self.place(*place, depth + 1)?;
                     self.storage_bitcast_place(&source, *cast)?
@@ -14,7 +17,11 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     self.storage_bitcast_value(source, *cast, depth + 1)?
                 }
             },
-            ValueExpr::Bind { bindings, body, ty } => {
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ty,
+            } => {
                 let scope = self.begin_bindings(0)?;
                 let result: Result<Value> = (|| {
                     for (binding, producer) in bindings {
@@ -32,21 +39,29 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 self.end_bindings(scope)?;
                 result?
             }
-            ValueExpr::Bound { binding, .. } => self.bound_value(*binding, 0)?,
+            ValueExpr::Bound {
+                binding, ..
+            } => self.bound_value(*binding, 0)?,
             ValueExpr::NativePointer(value) => crate::constants::native_pointer(
                 self.provider.types(),
                 value,
                 self.memory.target(),
             )?,
             ValueExpr::RuntimeType(value) => self.runtime_type_constant(value, depth + 1)?,
-            ValueExpr::TypeDescriptor { value, ty } => {
+            ValueExpr::TypeDescriptor {
+                value,
+                ty,
+            } => {
                 let value = self.value(value, depth + 1)?;
                 let TypeKind::Pointer(header) = self.provider.types().kind(*ty)? else {
                     return Err(
                         Error::InvalidIr("Type descriptor requires a pointer result").into(),
                     );
                 };
-                let Value::Type { descriptor } = &value else {
+                let Value::Type {
+                    descriptor,
+                } = &value
+                else {
                     return Err(Error::InvalidIr("Type descriptor requires a runtime Type").into());
                 };
                 let pointer = if let Some(pointer) = descriptor {
@@ -57,8 +72,14 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 };
                 Value::Pointer(pointer)
             }
-            ValueExpr::Context { ty } => self.context_value(*ty)?,
-            ValueExpr::StaticAddress { data, address, ty } => {
+            ValueExpr::Context {
+                ty,
+            } => self.context_value(*ty)?,
+            ValueExpr::StaticAddress {
+                data,
+                address,
+                ty,
+            } => {
                 let pointer = self.static_address(data, address, depth + 1)?;
                 let value = Value::Pointer(pointer);
                 value.validate(
@@ -68,7 +89,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::Conditional { ty, expression } => {
+            ValueExpr::Conditional {
+                ty,
+                expression,
+            } => {
                 let value = if self.boolean(&expression.condition, depth + 1)? {
                     self.value(&expression.then_value, depth + 1)?
                 } else {
@@ -81,7 +105,11 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::Union { ty, field, value } => {
+            ValueExpr::Union {
+                ty,
+                field,
+                value,
+            } => {
                 self.provider.types().validate_field(*ty, *field)?;
                 let value = Value::Union {
                     ty: *ty,
@@ -95,12 +123,26 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::SequenceView { sequence, ty } => {
+            ValueExpr::SequenceView {
+                sequence,
+                ty,
+            } => {
                 let (value, storage) = self.sequence_parts(sequence, depth + 1)?;
                 let (pointer, count) = match value {
-                    Value::Slice { pointer, count, .. }
-                    | Value::DynamicArray { pointer, count, .. }
-                    | Value::StringView { pointer, count } => (pointer, count),
+                    Value::Slice {
+                        pointer,
+                        count,
+                        ..
+                    }
+                    | Value::DynamicArray {
+                        pointer,
+                        count,
+                        ..
+                    }
+                    | Value::StringView {
+                        pointer,
+                        count,
+                    } => (pointer, count),
                     Value::String(bytes) => (
                         self.memory.sequence_data(
                             self.provider.types(),
@@ -128,7 +170,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 value
             }
             ValueExpr::Float(expression) => Value::Float(self.float(expression, depth + 1)?),
-            ValueExpr::Array { ty, elements } => {
+            ValueExpr::Array {
+                ty,
+                elements,
+            } => {
                 if elements.len() > self.limits.value_cells {
                     return Err(Error::Limit(LimitKind::ValueCells).into());
                 }
@@ -149,7 +194,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::StringBytes { ty, bytes } => {
+            ValueExpr::StringBytes {
+                ty,
+                bytes,
+            } => {
                 if bytes.len() >= self.limits.value_cells {
                     return Err(Error::Limit(LimitKind::ValueCells).into());
                 }
@@ -161,7 +209,11 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::SequenceField { base, field, ty } => {
+            ValueExpr::SequenceField {
+                base,
+                field,
+                ty,
+            } => {
                 let value = self.sequence_field(base, *field, depth + 1)?;
                 value.validate(
                     self.provider.types(),
@@ -170,23 +222,32 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::ArrayToSlice { array, ty } => {
-                self.array_view(&ValueExpr::Load(*array), *ty, depth + 1)?
-            }
-            ValueExpr::ArrayView { array, ty } => self.array_view(array, *ty, depth + 1)?,
+            ValueExpr::ArrayToSlice {
+                array,
+                ty,
+            } => self.array_view(&ValueExpr::Load(*array), *ty, depth + 1)?,
+            ValueExpr::ArrayView {
+                array,
+                ty,
+            } => self.array_view(array, *ty, depth + 1)?,
             ValueExpr::Index {
                 base,
                 index,
                 ty,
                 check,
             } => self.sequence_index(base, index, *ty, *check, depth + 1)?,
-            ValueExpr::SequenceBuild { ty, initializers } => {
-                self.sequence_build(*ty, initializers, depth + 1)?
-            }
-            ValueExpr::AddressOfValue { value, ty } => {
-                self.address_of_value(value, *ty, depth + 1)?
-            }
-            ValueExpr::AddressOf { place, ty } => {
+            ValueExpr::SequenceBuild {
+                ty,
+                initializers,
+            } => self.sequence_build(*ty, initializers, depth + 1)?,
+            ValueExpr::AddressOfValue {
+                value,
+                ty,
+            } => self.address_of_value(value, *ty, depth + 1)?,
+            ValueExpr::AddressOf {
+                place,
+                ty,
+            } => {
                 let pointer = self.place(*place, depth + 1)?;
                 let value = Value::Pointer(pointer);
                 value.validate(
@@ -196,7 +257,11 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::PointerFromInteger { value, ty, mode } => {
+            ValueExpr::PointerFromInteger {
+                value,
+                ty,
+                mode,
+            } => {
                 let number = self.integer(value, depth + 1)?;
                 let TypeKind::Pointer(pointee) = self.provider.types().kind(*ty)? else {
                     return Err(Error::InvalidIr(
@@ -235,10 +300,15 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::SequenceConcat { ty, parts } => {
-                self.sequence_concat(*ty, parts, depth + 1)?
-            }
-            ValueExpr::PointerCast { value, ty, mode } => {
+            ValueExpr::SequenceConcat {
+                ty,
+                parts,
+            } => self.sequence_concat(*ty, parts, depth + 1)?,
+            ValueExpr::PointerCast {
+                value,
+                ty,
+                mode,
+            } => {
                 let value = self.value(value, depth + 1)?;
                 let pointer = value.pointer()?;
                 self.prepare_pointer_layouts(pointer, false)?;
@@ -263,7 +333,11 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 let offset = self.integer(offset, depth + 1)?.portable_integer()?.value();
                 self.prepare_pointer_layouts(&pointer, true)?;
                 self.charge_work(pointer.metadata_cells())?;
-                let offset = if *subtract { -offset } else { offset };
+                let offset = if *subtract {
+                    -offset
+                } else {
+                    offset
+                };
                 let offset = isize::try_from(offset).map_err(|_| Error::OutOfBounds {
                     index: usize::MAX,
                     length: 0,
@@ -280,7 +354,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::Distinct { ty, value } => {
+            ValueExpr::Distinct {
+                ty,
+                value,
+            } => {
                 let value = Value::Distinct {
                     ty: *ty,
                     value: Box::new(self.value(value, depth + 1)?),
@@ -292,13 +369,18 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::UnwrapDistinct { value, ty } => {
+            ValueExpr::UnwrapDistinct {
+                value,
+                ty,
+            } => {
                 let value = match self.value(value, depth + 1)? {
                     Value::StoredAggregate(snapshot) => {
                         self.charge_work(snapshot.storage_cells())?;
                         snapshot.representation(self.provider.types(), self.limits.value_cells)?
                     }
-                    Value::Distinct { value, .. } => *value,
+                    Value::Distinct {
+                        value, ..
+                    } => *value,
                     _ => {
                         return Err(
                             Error::InvalidIr("distinct unwrap requires distinct value").into()
@@ -312,7 +394,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::ProcedureValue { procedure, ty } => Value::Procedure {
+            ValueExpr::ProcedureValue {
+                procedure,
+                ty,
+            } => Value::Procedure {
                 signature: *ty,
                 procedure: Some(*procedure),
             },
@@ -338,7 +423,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             ValueExpr::Bool(expression) => Value::Bool(self.boolean(expression, depth + 1)?),
             ValueExpr::Load(place) => self.load(*place, depth + 1)?,
             ValueExpr::Zero(ty) => self.zero_value(*ty)?,
-            ValueExpr::Record { ty, fields } => {
+            ValueExpr::Record {
+                ty,
+                fields,
+            } => {
                 if fields.len() > self.limits.value_cells {
                     return Err(Error::Limit(LimitKind::ValueCells).into());
                 }
@@ -380,7 +468,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 }
                 self.finish_ordered_record(state, 0)?
             }
-            ValueExpr::RecordBuild { ty, initializers } => {
+            ValueExpr::RecordBuild {
+                ty,
+                initializers,
+            } => {
                 let mut value = self.zero_value(*ty)?;
                 let mut cells = value.cells(self.limits.value_cells)?;
                 let mut seen = std::collections::HashSet::new();
@@ -407,7 +498,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                             cells = updated.cells(self.limits.value_cells)?;
                             value = updated;
                         }
-                        Value::Record { fields, .. } => {
+                        Value::Record {
+                            fields, ..
+                        } => {
                             let length = fields.len();
                             let destination =
                                 fields.get_mut(field.index()).ok_or(Error::OutOfBounds {
@@ -440,15 +533,27 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 }
                 value
             }
-            ValueExpr::Field { base, field, ty } => {
+            ValueExpr::Field {
+                base,
+                field,
+                ty,
+            } => {
                 let base = self.value(base, depth + 1)?;
                 let base_ty = match base.semantic() {
                     Value::StoredAggregate(snapshot) => snapshot.ty(),
-                    Value::Record { ty, .. } | Value::Union { ty, .. } => *ty,
+                    Value::Record {
+                        ty, ..
+                    }
+                    | Value::Union {
+                        ty, ..
+                    } => *ty,
                     _ => return Err(Error::InvalidIr("field access requires a record").into()),
                 };
                 if self.provider.types().validate_field(base_ty, *field)? != *ty {
-                    return Err(Error::TypeMismatch { expected: *ty }.into());
+                    return Err(Error::TypeMismatch {
+                        expected: *ty,
+                    }
+                    .into());
                 }
                 match base {
                     Value::StoredAggregate(snapshot) => {
@@ -459,7 +564,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                             self.limits.value_cells,
                         )?
                     }
-                    Value::Record { fields, .. } => {
+                    Value::Record {
+                        fields, ..
+                    } => {
                         let length = fields.len();
                         fields
                             .into_iter()
@@ -474,7 +581,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                         value,
                         ..
                     } if active == field.index() => *value,
-                    value @ Value::Union { .. } => {
+                    value @ Value::Union {
+                        ..
+                    } => {
                         let value = self.normalize_storage_value(value, depth + 1)?;
                         self.memory.union_value_field(
                             self.provider.types(),
@@ -488,7 +597,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     }
                 }
             }
-            ValueExpr::Call { call, ty } => {
+            ValueExpr::Call {
+                call,
+                ty,
+            } => {
                 let value = self.one(call, depth + 1)?;
                 value.validate(
                     self.provider.types(),
@@ -497,7 +609,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::Enum { ty, value } => {
+            ValueExpr::Enum {
+                ty,
+                value,
+            } => {
                 let value = Value::Enum {
                     ty: *ty,
                     value: *value,
@@ -509,7 +624,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 )?;
                 value
             }
-            ValueExpr::EnumFromInt { ty, value } => {
+            ValueExpr::EnumFromInt {
+                ty,
+                value,
+            } => {
                 let value = Value::Enum {
                     ty: *ty,
                     value: {

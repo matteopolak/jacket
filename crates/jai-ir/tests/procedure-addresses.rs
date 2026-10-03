@@ -7,6 +7,7 @@ fn signature(types: &mut TypeRegistry, context: ContextMode) -> jai_types::TypeI
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context,
             variadic: Variadic::None,
@@ -22,7 +23,10 @@ fn null_and_bound_procedures_support_address_truth_and_equality() {
     let signatures = HashMap::from([(id, ty)]);
     let places = Places::default();
     let null = ValueExpr::Zero(ty);
-    let bound = ValueExpr::ProcedureValue { procedure: id, ty };
+    let bound = ValueExpr::ProcedureValue {
+        procedure: id,
+        ty,
+    };
     for value in [
         ValueExpr::Bool(BoolExpr::FromPointer(Box::new(null.clone()))),
         ValueExpr::Bool(BoolExpr::FromPointer(Box::new(bound.clone()))),

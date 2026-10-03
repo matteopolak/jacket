@@ -51,7 +51,8 @@ impl fmt::Display for CaseSelectionError {
         write!(f, "{self:?}")
     }
 }
-impl std::error::Error for CaseSelectionError {}
+impl std::error::Error for CaseSelectionError {
+}
 
 impl GraphDiscovery<'_> {
     pub fn cases(&self) -> &[DeferredCase] {
@@ -312,7 +313,10 @@ impl Builder<'_> {
                 self.graph.parameters[id.index()].value,
                 ParameterValue::Scalar(_)
             ),
-            Ok(Binding::SourceMember { .. }) | Ok(Binding::StorageMember(_)) => true,
+            Ok(Binding::SourceMember {
+                ..
+            })
+            | Ok(Binding::StorageMember(_)) => true,
             Ok(Binding::Declaration(id)) => {
                 if active.contains(&id) {
                     return false;

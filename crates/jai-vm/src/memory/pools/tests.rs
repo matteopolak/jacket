@@ -19,7 +19,14 @@ fn fixture(flat: bool, capacity: i128) -> (TypeRegistry, TypeId, Value) {
         values.push(number(8));
     }
     types.define_record(ty, fields).unwrap();
-    (types, ty, Value::Record { ty, fields: values })
+    (
+        types,
+        ty,
+        Value::Record {
+            ty,
+            fields: values,
+        },
+    )
 }
 fn number(value: i128) -> Value {
     Value::Int(Integer::wrapping(IntegerType::S64, value))

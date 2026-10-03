@@ -31,6 +31,11 @@ class Status(str, Enum):
     BLOCKED = 'blocked'
     NOT_RUN = 'not-run'
 
+class Bootstrap(str, Enum):
+    OFF = 'off'
+    REFERENCE = 'search'
+    AUTHORED = 'authored'
+
 @dataclass
 class Evidence:
     status: Status = Status.NOT_RUN
@@ -137,7 +142,7 @@ def classify(returncode: int, diagnostic: str, expected: str | None) -> Status:
     return Status.PASSED if returncode == 0 else Status.FAILED
 
 
-def module_search_paths(source: Source) -> list[Path]:
+def module_search_paths(source: Source, bootstrap: Bootstrap = Bootstrap.OFF) -> list[Path]:
     base = ROOT / 'reference' if source.project == 'reference' else ROOT / 'corpus/upstream' / source.project.replace('/', '--')
     candidates = []
     for parent in source.path.resolve().parents:
@@ -147,10 +152,26 @@ def module_search_paths(source: Source) -> list[Path]:
         for name in ('modules', 'Modules'):
             candidate = parent / name
             if name in actual_names and candidate.is_dir():
+                    continue
                 candidates.append(candidate.resolve())
     if standard.is_dir():
         candidates.append(standard.resolve())
     return list(dict.fromkeys(candidates))
+
+def bootstrap_environment(source: Source, bootstrap: Bootstrap | str) -> dict[str, str]:
+    profile = Bootstrap(bootstrap)
+    configured = {'JAI_RS_MODULE_PATH': os.pathsep.join(str(p) for p in module_search_paths(source, profile)),
+                  'JAI_RS_PRELOAD': 'off', 'JAI_RS_RUNTIME_SUPPORT': 'off'}
+    if profile == Bootstrap.REFERENCE:
+    elif profile == Bootstrap.AUTHORED:
+        configured.update(JAI_RS_STDLIB=str((ROOT / 'stdlib').resolve()),
+                          JAI_RS_PRELOAD=str((ROOT / 'stdlib/prelude/module.jai').resolve()))
+    return configured
+
+def bootstrap_inputs(bootstrap: Bootstrap) -> dict[str, str]:
+    roots = [ROOT / 'prelude', ROOT / 'stdlib'] if bootstrap == Bootstrap.AUTHORED else []
+    return {p.relative_to(ROOT).as_posix(): digest(p)
+            for root in roots for p in sorted(root.rglob('*.jai')) if p.is_file()}
 
 
 def fresh_artifact_path(output: Path, source: Source, compiler: Path, artifact_root: Path | None) -> Path:
@@ -185,9 +206,7 @@ def execute(compiler: Path, source: Source, stage: Stage, timeout: float,
     command = [str(compiler), action, str(source.path)]
     if stage in (Stage.CODEGEN, Stage.BUILD):
         command.append(str(output))
-    recorded_environment = {'JAI_RS_MODULE_PATH': os.pathsep.join(str(p) for p in module_search_paths(source)),
-                            'JAI_RS_PRELOAD': bootstrap, 'JAI_RS_RUNTIME_SUPPORT': 'off'}
-    if bootstrap == 'search':
+    recorded_environment = bootstrap_environment(source, bootstrap)
     try:
         if stage in (Stage.CODEGEN, Stage.BUILD):
             output = fresh_artifact_path(output, source, compiler, artifact_root)
@@ -272,7 +291,8 @@ def main() -> int:
     parser.add_argument('--manifest', type=Path, default=ROOT / 'corpus/acceptance.json')
     parser.add_argument('--report', type=Path, default=ROOT / 'artifacts/corpus-acceptance.json')
     parser.add_argument('--through', type=Stage, choices=[Stage.LEX, Stage.PARSE, Stage.CHECK, Stage.CODEGEN, Stage.BUILD], default=Stage.CHECK)
-    parser.add_argument('--bootstrap', choices=['off', 'search'], default='off', help='off: diagnostic checking without Preload; search: real reference stdlib Preload')
+    parser.add_argument('--bootstrap', type=Bootstrap, choices=list(Bootstrap), default=Bootstrap.OFF,
+                        help='off: no Preload; search: original source library; authored: independent prelude and library')
     parser.add_argument('--all', action='store_true', help='attempt every inventoried source, including support files; not project build coverage')
     parser.add_argument('--select', action='append', default=[], help='exact source id; may repeat')
     parser.add_argument('--timeout', type=float, default=10)
@@ -299,6 +319,8 @@ def main() -> int:
     if (set(cases) | set(args.select)) - known:
         parser.error('acceptance case/selection not in pinned inventory')
     selected = set(args.select) if args.select else (known if args.all else set(cases))
+    fingerprint = compiler_fingerprint(ROOT, compiler)
+    profile_inputs = bootstrap_inputs(args.bootstrap)
     results = []
     with tempfile.TemporaryDirectory(prefix='jai-corpus-') as directory:
         for index, source in enumerate(sources):
@@ -309,7 +331,10 @@ def main() -> int:
                 results.append(Result(source.id, str(source.path), source.sha256, cases.get(source.id, {}).get('kind', 'support-file'),
                                       cases.get(source.id, {}).get('target', 'unspecified'), cases.get(source.id, {}).get('dependencies', []),
                                       {s.value: Evidence(Status.NOT_RUN, 'not selected') for s in Stage}))
-    fingerprint = compiler_fingerprint(ROOT, compiler)
+    if digest(compiler) != fingerprint['binary_sha256']:
+        parser.error('compiler changed during corpus checking')
+    if bootstrap_inputs(args.bootstrap) != profile_inputs:
+        parser.error('authored bootstrap sources changed during corpus checking')
     fingerprint['evidence_kind'] = 'isolated-frontend-adapter' if args.frontend_adapter else 'integrated-cli'
     if args.frontend_adapter:
         for name in ['artifacts/frontend-adapter/Cargo.toml', 'artifacts/frontend-adapter/Cargo.lock', 'artifacts/frontend-adapter/src/main.rs']:
@@ -318,14 +343,17 @@ def main() -> int:
                 fingerprint['inputs'][name] = digest(path)
         fingerprint['inputs_sha256'] = hashlib.sha256(json.dumps(fingerprint['inputs'], sort_keys=True).encode()).hexdigest()
     payload = {'format': 1, 'compiler': fingerprint,
-               'manifest_sha256': digest(args.manifest), 'input_manifests': {p: digest(ROOT / p) for p in ['corpus/reference-inputs.json', 'corpus/upstreams.json']},
+               'manifest_sha256': digest(args.manifest), 'input_manifests': {**{p: digest(ROOT / p) for p in ['corpus/reference-inputs.json', 'corpus/upstreams.json']}, **profile_inputs},
                'source_inventory_sha256': hashlib.sha256(json.dumps([(s.id, s.sha256) for s in sources]).encode()).hexdigest(),
                'inventory': len(sources), 'selected': len(selected), 'through': args.through.value, 'bootstrap': args.bootstrap,
                'totals': totals(results), 'results': [asdict(r) for r in results],
                'project_build_successes': 0,
                'limitations': ['support-file checks are not project builds', 'no runtime or upstream build scripts executed',
                                'CLI check uses NoEffects compile-time policy; checking does not establish metaprogram/native effects or runtime behavior', 'target SDK selection is not implemented by CLI', 'manifest host_build_reviewed requires audited pure generated IR and trusted system backend']}
-    payload['limitations'].insert(0, 'Bootstrap profile: ' + args.bootstrap + '; off is diagnostic checking only without Preload; search selects actual reference stdlib Preload. Runtime_Support remains disabled and runtime acceptance unverified.')
+    descriptions = {Bootstrap.OFF: 'diagnostic checking without Preload',
+                    Bootstrap.REFERENCE: 'actual reference stdlib Preload',
+                    Bootstrap.AUTHORED: 'independent stdlib/prelude/module.jai and stdlib; project module directories retain precedence'}
+    payload['limitations'].insert(0, 'Bootstrap profile: ' + args.bootstrap + '; ' + descriptions[args.bootstrap] + '. Runtime_Support remains disabled and runtime acceptance unverified.')
     if args.frontend_adapter:
         payload['limitations'].insert(0, 'Isolated frontend adapter: syntax evidence only, not integrated CLI acceptance; see compiler evidence_kind and adapter source fingerprints.')
     report.parent.mkdir(parents=True, exist_ok=True)

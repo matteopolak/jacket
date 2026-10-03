@@ -9,6 +9,7 @@ fn fixture(name: &str, tag: Option<&str>) -> (syntax::ProcedurePrototype, Signat
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -23,6 +24,7 @@ fn fixture(name: &str, tag: Option<&str>) -> (syntax::ProcedurePrototype, Signat
                 parameters: vec![],
                 results: vec![],
                 convention: CallingConvention::Jai,
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 context: ContextMode::None,
             },
             binding: syntax::PrototypeBinding::Intrinsic {
@@ -108,6 +110,7 @@ fn matching_name_cannot_override_a_wrong_checked_result_type() {
         .procedure(ProcedureType {
             parameters: vec![pointer, byte, count].into(),
             results: vec![count].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

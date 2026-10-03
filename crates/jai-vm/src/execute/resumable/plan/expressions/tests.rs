@@ -8,6 +8,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, results: Vec<Typ
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -35,13 +36,18 @@ fn literal_plan_owns_bytes_and_admits_payload_before_copying() {
     };
     let checked = verify_expression(&types, &expression, &signatures, &[], &places).unwrap();
     let plan = compile_checked_expression(checked, Limits::default()).unwrap();
-    let ValueExpr::StringBytes { bytes, .. } = &mut expression else {
+    let ValueExpr::StringBytes {
+        bytes, ..
+    } = &mut expression
+    else {
         unreachable!()
     };
     bytes.fill(7);
     drop(expression);
     let NodeKind::Apply {
-        op: ApplyOp::StringBytes { bytes, .. },
+        op: ApplyOp::StringBytes {
+            bytes, ..
+        },
         ..
     } = &plan.nodes[root(&plan).index()].kind
     else {
@@ -140,7 +146,10 @@ fn lazy_boolean_plan_keeps_the_call_in_a_separately_scheduled_branch() {
     ));
     let checked = verify_expression(&types, &expression, &signatures, &[], &places).unwrap();
     let plan = compile_checked_expression(checked, Limits::default()).unwrap();
-    let NodeKind::Apply { operands, .. } = &plan.nodes[root(&plan).index()].kind else {
+    let NodeKind::Apply {
+        operands, ..
+    } = &plan.nodes[root(&plan).index()].kind
+    else {
         panic!("expected scalar wrapper")
     };
     let NodeKind::ShortCircuit {
@@ -289,6 +298,7 @@ fn pack_parts_distinguish_places_and_immediate_spread_snapshots() {
         .procedure(ProcedureType {
             parameters: vec![slice].into(),
             results: vec![integer_type].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::Jai {
@@ -318,10 +328,16 @@ fn pack_parts_distinguish_places_and_immediate_spread_snapshots() {
     let globals = [global];
     let checked = verify_call(&types, &call, &signatures, &globals, &places).unwrap();
     let plan = compile_checked_call(checked, Limits::default()).unwrap();
-    let NodeKind::Call { arguments, .. } = &plan.nodes[root(&plan).index()].kind else {
+    let NodeKind::Call {
+        arguments, ..
+    } = &plan.nodes[root(&plan).index()].kind
+    else {
         panic!("expected call")
     };
-    let NodeKind::SequencePack { parts, .. } = &plan.nodes[arguments[0].1.index()].kind else {
+    let NodeKind::SequencePack {
+        parts, ..
+    } = &plan.nodes[arguments[0].1.index()].kind
+    else {
         panic!("expected ordered pack")
     };
     assert!(matches!(parts[0].mode, PackPartMode::ElementPlace));

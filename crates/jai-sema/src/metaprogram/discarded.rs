@@ -15,13 +15,17 @@ impl Resolver<'_> {
                 None,
             ),
             syntax::ParameterBinding::RequiredType(ty) => (Some(ty.clone()), None),
-            syntax::ParameterBinding::Defaulted { ty, expression } => (
+            syntax::ParameterBinding::Defaulted {
+                ty,
+                expression,
+            } => (
                 ty.map(|ty| syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(ty))),
                 Some(expression),
             ),
-            syntax::ParameterBinding::DefaultedType { ty, expression } => {
-                (ty.clone(), Some(expression))
-            }
+            syntax::ParameterBinding::DefaultedType {
+                ty,
+                expression,
+            } => (ty.clone(), Some(expression)),
         };
         let expected = annotation
             .as_ref()

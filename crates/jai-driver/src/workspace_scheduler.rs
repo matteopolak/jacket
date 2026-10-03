@@ -145,7 +145,8 @@ impl fmt::Display for SchedulerError {
         }
     }
 }
-impl std::error::Error for SchedulerError {}
+impl std::error::Error for SchedulerError {
+}
 impl From<Error> for SchedulerError {
     fn from(error: Error) -> Self {
         Self::Driver(error)
@@ -200,7 +201,9 @@ enum ActiveSourceJob {
 impl ActiveSourceJob {
     fn suspended_job_ids(&self) -> Vec<crate::CompilerJobId> {
         match self {
-            Self::Discovery { job, .. } => job.suspended_job_ids(),
+            Self::Discovery {
+                job, ..
+            } => job.suspended_job_ids(),
             Self::Binding(job) => job.suspended_job_ids(),
         }
     }
@@ -208,13 +211,17 @@ impl ActiveSourceJob {
     #[cfg(test)]
     fn suspended_origins(&self) -> Vec<SourceOrigin> {
         match self {
-            Self::Discovery { job, .. } => job.suspended_origins(),
+            Self::Discovery {
+                job, ..
+            } => job.suspended_origins(),
             Self::Binding(job) => job.suspended_origins(),
         }
     }
     fn cancel(&mut self) -> Result<(), jai_vm::Error> {
         match self {
-            Self::Discovery { job, .. } => job.cancel(),
+            Self::Discovery {
+                job, ..
+            } => job.cancel(),
             Self::Binding(job) => job.cancel(),
         }
     }
@@ -223,7 +230,9 @@ impl ActiveSourceJob {
         scheduler: &mut WorkspaceScheduler,
     ) -> Result<bool, SchedulerError> {
         match self {
-            Self::Discovery { job, .. } => job.service_pending(scheduler),
+            Self::Discovery {
+                job, ..
+            } => job.service_pending(scheduler),
             Self::Binding(job) => job.service_pending(scheduler),
         }
     }
@@ -363,7 +372,9 @@ impl WorkspaceScheduler {
         }
         loop {
             let id = self.children.borrow().keys().next().copied();
-            let Some(id) = id else { break };
+            let Some(id) = id else {
+                break;
+            };
             if let Err(cause) = self.retire_child(id) {
                 error.get_or_insert(cause);
             }
@@ -386,9 +397,10 @@ impl WorkspaceScheduler {
             .flat_map(|workspace| &workspace.inputs)
             .try_fold(0usize, |count, input| {
                 count.checked_add(match input {
-                    BuildInput::Source(source) | BuildInput::SourceAt { source, .. } => {
-                        source.len()
-                    }
+                    BuildInput::Source(source)
+                    | BuildInput::SourceAt {
+                        source, ..
+                    } => source.len(),
                     _ => 0,
                 })
             });
@@ -451,7 +463,10 @@ impl WorkspaceScheduler {
         source.push('\n');
         for (index, input) in workspace.inputs.iter().enumerate() {
             let path = match input {
-                BuildInput::Source(text) | BuildInput::SourceAt { source: text, .. } => {
+                BuildInput::Source(text)
+                | BuildInput::SourceAt {
+                    source: text, ..
+                } => {
                     let path = base.join(format!(
                         ".jai-generated-{}-{}-{index}.jai",
                         root.get(),
@@ -471,7 +486,10 @@ impl WorkspaceScheduler {
                         base.join(path)
                     }
                 }
-                BuildInput::FileAt { path, location } => {
+                BuildInput::FileAt {
+                    path,
+                    location,
+                } => {
                     if path.is_absolute() {
                         path.clone()
                     } else {

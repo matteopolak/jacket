@@ -413,7 +413,10 @@ impl DebugSources {
                     .get(&key)
                     .and_then(|parent| match parent.root {
                         BlockRoot::ProcedureBody(_) => None,
-                        BlockRoot::Cleanup { procedure, cleanup } => Some((procedure, cleanup)),
+                        BlockRoot::Cleanup {
+                            procedure,
+                            cleanup,
+                        } => Some((procedure, cleanup)),
                     });
             }
             while let Some(key) = chain.pop() {
@@ -494,7 +497,8 @@ impl fmt::Display for DebugSourceLocationError {
         write!(f, "invalid debug source location: {self:?}")
     }
 }
-impl std::error::Error for DebugSourceLocationError {}
+impl std::error::Error for DebugSourceLocationError {
+}
 
 #[cfg(test)]
 mod tests {

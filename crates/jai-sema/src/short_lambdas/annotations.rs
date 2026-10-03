@@ -58,7 +58,10 @@ impl Resolver<'_> {
                         )),
                     };
                 }
-                T::Variable(name) | T::Restricted { variable: name, .. } => {
+                T::Variable(name)
+                | T::Restricted {
+                    variable: name, ..
+                } => {
                     if let Some(Binding::Type(ty)) =
                         self.scopes.iter().rev().find_map(|scope| scope.get(name))
                     {
@@ -87,7 +90,10 @@ impl Resolver<'_> {
                     let inner = self.preview_annotation_inner(inner, span, allow_this)?;
                     self.types.dynamic_array(inner)
                 }
-                T::FixedArray { count, element } => {
+                T::FixedArray {
+                    count,
+                    element,
+                } => {
                     let element = self.preview_annotation_inner(element, span, allow_this)?;
                     let count_value = jai_eval::evaluate_paths_with_overflow_check(
                         count,
@@ -179,6 +185,7 @@ impl Resolver<'_> {
                         .procedure(ProcedureType {
                             parameters: parameters.into(),
                             results: results.into(),
+                            return_abi: source.return_abi,
                             convention: source.convention,
                             context: source.context,
                             variadic,
@@ -187,7 +194,12 @@ impl Resolver<'_> {
                     self.remember_local_procedure_annotation(source, source_parameters, ty, span)?;
                     return Ok(ty);
                 }
-                T::Application(_) | T::InlineRecord(_) | T::InlineEnum(_) | T::Variant { .. } => {
+                T::Application(_)
+                | T::InlineRecord(_)
+                | T::InlineEnum(_)
+                | T::Variant {
+                    ..
+                } => {
                     return Err(Diagnostic::new(
                         span,
                         "annotation requires ready nominal source metadata before pure preview",

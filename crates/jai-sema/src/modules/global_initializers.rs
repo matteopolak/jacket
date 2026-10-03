@@ -15,6 +15,7 @@ pub(super) struct Job<'graph> {
 enum Recipe<'graph> {
     Ready(Global),
     Expression(&'graph syntax::Expression),
+    GroupCopy(jai_ir::GlobalId),
 }
 
 pub(super) struct Jobs<'graph> {
@@ -32,14 +33,46 @@ impl<'graph> Jobs<'graph> {
         options: &crate::ResolveOptions,
     ) -> Result<Self, LocatedDiagnostic> {
         let mut pending = std::collections::VecDeque::new();
+        let mut first_members = HashMap::new();
         for source in graph.declarations() {
             let FileDeclarationKind::Global(global) = &source.syntax().kind else {
                 continue;
             };
             let file = source.file();
             let index = pending.len();
-            let (expected, expression, external) = match &global.declaration {
-                syntax::Declaration::External { ty, binding, .. } => {
+            let selected_initializer = match &global.declaration {
+                syntax::Declaration::GroupMember {
+                    group,
+                    ordinal,
+                    ..
+                } => group.initializer_for(*ordinal),
+                _ => None,
+            };
+            if let syntax::Declaration::GroupMember {
+                group, ..
+            } = &global.declaration
+                && group.extra_initializers().is_empty()
+                && let Some(expression) = selected_initializer
+                && is_result_call(expression)
+            {
+                return Err(located(
+                    graph,
+                    file,
+                    Diagnostic::new(
+                        expression.span,
+                        "file declaration call-result lists require joint global result publication",
+                    ),
+                ));
+            }
+            let (expected, expression, external) = match global.declaration.source() {
+                syntax::Declaration::GroupMember {
+                    ..
+                } => unreachable!("source() returns the original non-group declaration"),
+                syntax::Declaration::External {
+                    ty,
+                    binding,
+                    ..
+                } => {
                     let expected = declarations.nominals.resolve_type_with_specializations(
                         graph,
                         aggregates::parameterized::TypeRequest::new(file, ty, global.span),
@@ -51,7 +84,10 @@ impl<'graph> Jobs<'graph> {
                         external_data::declaration(graph, source, binding, expected, index, types)?;
                     (expected, None, Some(external))
                 }
-                syntax::Declaration::Inferred { initializer, .. } => {
+                syntax::Declaration::Inferred {
+                    initializer, ..
+                } => {
+                    let initializer = selected_initializer.unwrap_or(initializer);
                     let expected = if enum_constants::is_pure_scalar(initializer)
                         && enum_constants::uses_enum(declarations, file, initializer)
                     {
@@ -89,10 +125,18 @@ impl<'graph> Jobs<'graph> {
                     (expected, Some(initializer), None)
                 }
                 syntax::Declaration::Explicit {
-                    ty, initializer, ..
-                } => (types.scalar(*ty), initializer.as_ref(), None),
+                    ty,
+                    initializer,
+                    ..
+                } => (
+                    types.scalar(*ty),
+                    selected_initializer.or(initializer.as_ref()),
+                    None,
+                ),
                 syntax::Declaration::UnresolvedExplicit {
-                    ty, initializer, ..
+                    ty,
+                    initializer,
+                    ..
                 } => {
                     let expected = declarations.nominals.resolve_type_with_specializations(
                         graph,
@@ -101,33 +145,85 @@ impl<'graph> Jobs<'graph> {
                         &mut meta.record_specializations,
                         &mut |file, expression| constants.evaluate_lazy(file, expression),
                     )?;
-                    (expected, initializer.as_ref(), None)
+                    (
+                        expected,
+                        selected_initializer.or(initializer.as_ref()),
+                        None,
+                    )
                 }
             };
-            let recipe = match (external, expression) {
-                (Some(external), _) => Recipe::Ready(external),
-                (_, Some(expression))
-                    if requires_worklist(graph, file, expression, declarations) =>
-                {
-                    Recipe::Expression(expression)
-                }
-                (_, Some(expression)) => {
-                    let value = if enum_constants::is_pure_scalar(expression)
-                        && (expected == types.meta_type()
-                            || matches!(types.kind(expected), Ok(TypeKind::Enum(_)))
-                            || enum_constants::uses_enum(declarations, file, expression))
-                    {
-                        enum_constants::evaluate_expression(
-                            declarations,
-                            types,
-                            meta,
-                            file,
-                            expression,
-                            Some(expected),
-                            options,
-                        )
-                        .map_err(|error| located(graph, file, error))?
+            let copy_from = if let syntax::Declaration::GroupMember {
+                group,
+                ordinal,
+                ..
+            } = &global.declaration
+            {
+                if expression.is_some() {
+                    let key = std::sync::Arc::as_ptr(group);
+                    if !group.extra_initializers().is_empty() {
+                        None
                     } else {
+                        if *ordinal == 0 {
+                            first_members.insert(key, jai_ir::GlobalId::new(index));
+                            None
+                        } else {
+                            Some(
+                                *first_members
+                                    .get(&key)
+                                    .expect("file group retains its source order"),
+                            )
+                        }
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            let recipe = if let Some(first) = copy_from {
+                Recipe::GroupCopy(first)
+            } else {
+                match (external, expression) {
+                    (Some(external), _) => Recipe::Ready(external),
+                    (_, Some(expression))
+                        if requires_worklist(graph, file, expression, declarations) =>
+                    {
+                        Recipe::Expression(expression)
+                    }
+                    (_, Some(expression)) => {
+                        let value = if enum_constants::is_pure_scalar(expression)
+                            && (expected == types.meta_type()
+                                || matches!(types.kind(expected), Ok(TypeKind::Enum(_)))
+                                || enum_constants::uses_enum(declarations, file, expression))
+                        {
+                            enum_constants::evaluate_expression(
+                                declarations,
+                                types,
+                                meta,
+                                file,
+                                expression,
+                                Some(expected),
+                                options,
+                            )
+                            .map_err(|error| located(graph, file, error))?
+                        } else {
+                            let mut evaluator = aggregates::Defaults::new(
+                                graph,
+                                types,
+                                &declarations.nominals,
+                                constants,
+                            )
+                            .with_specializations(&meta.record_specializations)
+                            .with_context(declarations.context.as_ref());
+                            evaluator.fields = declarations.defaults.clone();
+                            hydrate_constants(&mut evaluator, declarations, meta);
+                            evaluator.expression(file, expression, expected)?
+                        };
+                        Recipe::Ready(Global::new_typed(index, value, types).map_err(|error| {
+                            located(graph, file, Diagnostic::new(global.span, error.to_string()))
+                        })?)
+                    }
+                    (_, None) => {
                         let mut evaluator = aggregates::Defaults::new(
                             graph,
                             types,
@@ -138,23 +234,11 @@ impl<'graph> Jobs<'graph> {
                         .with_context(declarations.context.as_ref());
                         evaluator.fields = declarations.defaults.clone();
                         hydrate_constants(&mut evaluator, declarations, meta);
-                        evaluator.expression(file, expression, expected)?
-                    };
-                    Recipe::Ready(Global::new_typed(index, value, types).map_err(|error| {
-                        located(graph, file, Diagnostic::new(global.span, error.to_string()))
-                    })?)
-                }
-                (_, None) => {
-                    let mut evaluator =
-                        aggregates::Defaults::new(graph, types, &declarations.nominals, constants)
-                            .with_specializations(&meta.record_specializations)
-                            .with_context(declarations.context.as_ref());
-                    evaluator.fields = declarations.defaults.clone();
-                    hydrate_constants(&mut evaluator, declarations, meta);
-                    let value = evaluator.default_value(file, expected, global.span)?;
-                    Recipe::Ready(Global::new_typed(index, value, types).map_err(|error| {
-                        located(graph, file, Diagnostic::new(global.span, error.to_string()))
-                    })?)
+                        let value = evaluator.default_value(file, expected, global.span)?;
+                        Recipe::Ready(Global::new_typed(index, value, types).map_err(|error| {
+                            located(graph, file, Diagnostic::new(global.span, error.to_string()))
+                        })?)
+                    }
                 }
             };
             let owner = declarations
@@ -254,6 +338,7 @@ fn requires_worklist(
             expression.kind,
             E::CompileTime(_)
                 | E::AnonymousProcedure(_)
+                | E::BakeArguments(_)
                 | E::ShortLambda(_)
                 | E::Call(..)
                 | E::QualifiedCall(..)
@@ -296,6 +381,25 @@ impl Job<'_> {
         meta: &mut crate::reflection::MetaContext,
         options: &crate::ResolveOptions,
     ) -> Result<Global, Diagnostic> {
+        if let Recipe::GroupCopy(first) = self.recipe {
+            let first = context.globals.get(first.index()).ok_or_else(|| {
+                Diagnostic::new(
+                    self.location.span,
+                    "shared global initializer has not been published",
+                )
+            })?;
+            if first.ty() != self.expected {
+                return Err(Diagnostic::new(
+                    self.location.span,
+                    "shared global initializer type changed",
+                ));
+            }
+            return Ok(Global::new(
+                self.global.index(),
+                first.initializer().clone(),
+                types,
+            ));
+        }
         let Recipe::Expression(expression) = &self.recipe else {
             let Recipe::Ready(global) = &self.recipe else {
                 unreachable!()
@@ -355,4 +459,15 @@ impl Job<'_> {
         Global::new_typed(self.global.index(), value, resolver.types)
             .map_err(|error| Diagnostic::new(expression.span, error.to_string()))
     }
+}
+
+fn is_result_call(expression: &syntax::Expression) -> bool {
+    matches!(
+        expression.kind,
+        syntax::ExpressionKind::Call(..)
+            | syntax::ExpressionKind::QualifiedCall(..)
+            | syntax::ExpressionKind::IndirectCall { .. }
+            | syntax::ExpressionKind::ContextCall { .. }
+            | syntax::ExpressionKind::CallHint { .. }
+    )
 }

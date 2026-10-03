@@ -70,12 +70,18 @@ impl Resolver<'_> {
                 return self.local_record_application(syntax, application, span);
             }
             TypeSyntax::Variable(name) => return self.lexical_type_variable(*name, span),
-            TypeSyntax::Restricted { variable, span, .. } => {
+            TypeSyntax::Restricted {
+                variable,
+                span,
+                ..
+            } => {
                 return self.lexical_type_variable(*variable, *span);
             }
             TypeSyntax::InlineRecord(record) => return self.local_inline_record(record),
             TypeSyntax::InlineEnum(enumeration) => return self.local_inline_enum(enumeration),
-            TypeSyntax::Variant { .. } => {
+            TypeSyntax::Variant {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     span,
                     "distinct and isa types require a named type alias declaration",
@@ -85,7 +91,10 @@ impl Resolver<'_> {
                 let inner = self.lexical_annotation(inner, span)?;
                 self.types.pointer(inner)
             }
-            TypeSyntax::FixedArray { count, element } => {
+            TypeSyntax::FixedArray {
+                count,
+                element,
+            } => {
                 let element = self.lexical_annotation(element, span)?;
                 let count = self.local_integer_count(count)?;
                 self.types.fixed_array(element, count)
@@ -203,6 +212,7 @@ impl Resolver<'_> {
             .procedure(ProcedureType {
                 parameters: parameters.into_boxed_slice(),
                 results: results.into_boxed_slice(),
+                return_abi: procedure.return_abi,
                 convention: procedure.convention,
                 context: procedure.context,
                 variadic,

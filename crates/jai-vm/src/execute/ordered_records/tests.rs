@@ -198,6 +198,7 @@ fn pending_initializer_preserves_completed_effects_and_exact_image() {
         .procedure(ProcedureType {
             parameters: vec![].into(),
             results: vec![word].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

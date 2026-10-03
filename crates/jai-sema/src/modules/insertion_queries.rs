@@ -49,7 +49,10 @@ pub(super) fn evaluate(
                 let publication = resolver.execute_compiler_code_run(
                     run,
                     expression.span,
-                    crate::compile_time::CompilerDestination::Declarations { request, admission },
+                    crate::compile_time::CompilerDestination::Declarations {
+                        request,
+                        admission,
+                    },
                 )?;
                 return match publication {
                     Some(crate::compile_time::CompilerRunResult::Declarations(decision)) => {

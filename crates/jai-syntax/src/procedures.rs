@@ -1,6 +1,8 @@
 //! Procedure declarations and unresolved signature parsing.
 use super::*;
-use jai_types::{CallingConvention, ContextMode, DebugPolicy, InlineHint, ProcedureExecution};
+use jai_types::{
+    CallingConvention, ContextMode, DebugPolicy, ForeignReturnAbi, InlineHint, ProcedureExecution,
+};
 
 #[derive(Clone, Debug)]
 pub struct Parameter {
@@ -58,6 +60,7 @@ pub struct ModifyDirective {
 pub(super) struct ProcedureModifiers {
     pub(super) deprecation: Option<Deprecation>,
     pub(super) convention: CallingConvention,
+    pub(super) return_abi: ForeignReturnAbi,
     pub(super) context: ContextMode,
     pub(super) expands: bool,
     pub(super) checks: SafetyChecks,
@@ -73,7 +76,11 @@ impl Procedure {
             [
                 ProcedureResult {
                     name: None,
-                    binding: ResultBinding::Typed { ty, default: None },
+                    binding:
+                        ResultBinding::Typed {
+                            ty,
+                            default: None,
+                        },
                     usage: ResultUsage::Optional,
                     ..
                 },
@@ -153,6 +160,7 @@ pub struct ProcedureTypeParameter {
     pub variadic: bool,
     pub name: Option<Symbol>,
     pub ty: TypeSyntax,
+    pub default: Option<Expression>,
     pub using: bool,
     pub span: Span,
 }
@@ -161,6 +169,7 @@ pub struct ProcedureTypeSyntax {
     pub parameters: Vec<ProcedureTypeParameter>,
     pub results: Vec<ProcedureTypeParameter>,
     pub convention: CallingConvention,
+    pub return_abi: ForeignReturnAbi,
     pub context: ContextMode,
 }
 
@@ -211,6 +220,7 @@ impl Parser<'_> {
                                             | Directive::CompileTime
                                             | Directive::CCall
                                             | Directive::CppMethod
+                                            | Directive::CppReturnTypeIsNonPod
                                             | Directive::Foreign
                                             | Directive::Compiler
                                             | Directive::Expand
@@ -265,6 +275,7 @@ impl Parser<'_> {
                     parameters,
                     results,
                     mut convention,
+                    return_abi,
                     mut context,
                 },
             checks,
@@ -333,6 +344,7 @@ impl Parser<'_> {
                         parameters,
                         results,
                         convention,
+                        return_abi,
                         context,
                     },
                     binding: PrototypeBinding::EntryPoint,
@@ -360,6 +372,7 @@ impl Parser<'_> {
                 None
             };
             let source_contract = convention == CallingConvention::Jai
+                && return_abi == ForeignReturnAbi::Natural
                 && library.is_none()
                 && symbol.is_none()
                 && crate::source_contracts::packed_defaults(&parameters);
@@ -381,9 +394,13 @@ impl Parser<'_> {
                         parameters,
                         results,
                         convention,
+                        return_abi,
                         context,
                     },
-                    binding: PrototypeBinding::Foreign(ForeignProcedure { library, symbol }),
+                    binding: PrototypeBinding::Foreign(ForeignProcedure {
+                        library,
+                        symbol,
+                    }),
                     span,
                 },
             ));
@@ -419,9 +436,12 @@ impl Parser<'_> {
                         parameters,
                         results,
                         convention,
+                        return_abi,
                         context: ContextMode::None,
                     },
-                    binding: PrototypeBinding::Intrinsic { tag },
+                    binding: PrototypeBinding::Intrinsic {
+                        tag,
+                    },
                     span,
                 },
             ));
@@ -445,7 +465,9 @@ impl Parser<'_> {
                 }
             }
             self.deprecation_suffix(&mut deprecation)?;
-            let compiler = CompilerProcedure { tag };
+            let compiler = CompilerProcedure {
+                tag,
+            };
             if self.take(Punct::Semicolon) {
                 if !debug.emits() {
                     return Err(self.error("#no_debug requires a source procedure body"));
@@ -466,6 +488,7 @@ impl Parser<'_> {
                             parameters,
                             results,
                             convention,
+                            return_abi,
                             context,
                         },
                         binding: PrototypeBinding::Compiler(compiler),
@@ -494,6 +517,7 @@ impl Parser<'_> {
                         parameters,
                         results,
                         convention,
+                        return_abi,
                         context,
                     },
                     checks,
@@ -592,7 +616,13 @@ impl Parser<'_> {
             } else {
                 None
             };
-            (name, ResultBinding::Typed { ty, default })
+            (
+                name,
+                ResultBinding::Typed {
+                    ty,
+                    default,
+                },
+            )
         };
         if !self.allow_qualified
             && (name.is_some()
@@ -660,6 +690,7 @@ impl Parser<'_> {
     ) -> Result<ProcedureModifiers, Diagnostic> {
         let mut deprecation = None;
         let mut convention = CallingConvention::Jai;
+        let mut return_abi = ForeignReturnAbi::Natural;
         let mut context = ContextMode::Implicit;
         let mut saw_no_context = false;
         let mut expands = false;
@@ -718,6 +749,12 @@ impl Parser<'_> {
                     convention = CallingConvention::C;
                     context = ContextMode::None;
                 }
+                Kind::Directive(Directive::CppReturnTypeIsNonPod) => {
+                    if return_abi != ForeignReturnAbi::Natural {
+                        return Err(self.error("duplicate #cpp_return_type_is_non_pod"));
+                    }
+                    return_abi = ForeignReturnAbi::CppNonPod;
+                }
                 Kind::Directive(Directive::CppMethod) => {
                     if convention != CallingConvention::Jai {
                         return Err(self.error("conflicting procedure calling conventions"));
@@ -740,6 +777,7 @@ impl Parser<'_> {
         Ok(ProcedureModifiers {
             deprecation,
             convention,
+            return_abi,
             context,
             expands,
             checks,
@@ -767,6 +805,14 @@ impl Parser<'_> {
         }
         let variadic = self.take(Punct::Range);
         let ty = self.parameter_type_syntax()?;
+        let default = if !result && self.take(Punct::Assign) {
+            if variadic {
+                return Err(self.error("variadic callback parameters cannot have defaults"));
+            }
+            Some(self.expression(0)?)
+        } else {
+            None
+        };
         let usage = if self.token().kind == Kind::Directive(Directive::Must) {
             if !result {
                 return Err(self.error("#must applies only to procedure results"));
@@ -785,6 +831,7 @@ impl Parser<'_> {
             variadic,
             name,
             ty,
+            default,
             using,
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
@@ -827,6 +874,7 @@ impl Parser<'_> {
         let ProcedureModifiers {
             deprecation,
             convention,
+            return_abi,
             context,
             expands,
             checks,
@@ -879,6 +927,7 @@ impl Parser<'_> {
             parameters,
             results,
             convention,
+            return_abi,
             context,
         })
     }
@@ -957,7 +1006,9 @@ mod tests {
         assert_eq!(memcpy.context, ContextMode::None);
         assert!(matches!(
             &memcpy.binding,
-            PrototypeBinding::Intrinsic { tag: None }
+            PrototypeBinding::Intrinsic {
+                tag: None
+            }
         ));
         let FileItem::Declaration(FileDeclaration {
             kind: FileDeclarationKind::Procedure(main),
@@ -1076,7 +1127,9 @@ mod tests {
         assert_eq!(prototype.results[0].usage, ResultUsage::Required);
         assert!(matches!(
             prototype.binding,
-            PrototypeBinding::Intrinsic { tag: None }
+            PrototypeBinding::Intrinsic {
+                tag: None
+            }
         ));
     }
 

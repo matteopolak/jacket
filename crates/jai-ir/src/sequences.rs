@@ -51,7 +51,9 @@ impl SequenceField {
 }
 pub(crate) fn element(types: &dyn TypeView, ty: TypeId) -> Result<TypeId, IrError> {
     match *types.kind(ty)? {
-        TypeKind::FixedArray { element, .. }
+        TypeKind::FixedArray {
+            element, ..
+        }
         | TypeKind::Slice(element)
         | TypeKind::DynamicArray(element)
         | TypeKind::Pointer(element) => Ok(element),
@@ -65,7 +67,9 @@ pub(crate) fn field_type(
     field: SequenceField,
 ) -> Result<TypeId, IrError> {
     match types.kind(base)? {
-        TypeKind::FixedArray { .. }
+        TypeKind::FixedArray {
+            ..
+        }
         | TypeKind::Slice(_)
         | TypeKind::DynamicArray(_)
         | TypeKind::String => {}

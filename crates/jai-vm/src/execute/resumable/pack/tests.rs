@@ -114,7 +114,11 @@ fn wide_zero_stride_pack_layouts_preflight_cold_work_and_do_not_rescan_warm_fiel
     let retained = vm.memory.value_cells();
     provider.types.records.set(0);
     for _ in 0..16 {
-        let Value::Slice { pointer, count, .. } = PackState::new(&mut vm, slice)
+        let Value::Slice {
+            pointer,
+            count,
+            ..
+        } = PackState::new(&mut vm, slice)
             .unwrap()
             .finish(&mut vm)
             .unwrap()
@@ -127,7 +131,12 @@ fn wide_zero_stride_pack_layouts_preflight_cold_work_and_do_not_rescan_warm_fiel
     assert_eq!(provider.types.records.get(), 0);
     assert_eq!(vm.statistics.steps - cold_steps, 16);
     for _ in 0..16 {
-        let Value::Slice { pointer, count, .. } = vm.sequence_concat(slice, &[], 0).unwrap() else {
+        let Value::Slice {
+            pointer,
+            count,
+            ..
+        } = vm.sequence_concat(slice, &[], 0).unwrap()
+        else {
             panic!("expected empty slice")
         };
         assert!(pointer.is_null());
@@ -186,7 +195,12 @@ fn retained_pack_snapshots_survive_source_mutation_before_later_capture() {
             0,
         )
         .unwrap();
-    let Value::Slice { pointer, count, .. } = state.finish(&mut vm).unwrap() else {
+    let Value::Slice {
+        pointer,
+        count,
+        ..
+    } = state.finish(&mut vm).unwrap()
+    else {
         panic!("expected slice")
     };
     assert_eq!(count, 3);
@@ -226,7 +240,10 @@ fn stored_inactive_union_bytes_cannot_hide_a_pack_allocation_origin() {
             0,
         )
         .unwrap();
-    let Value::Slice { pointer, .. } = state.finish(&mut vm).unwrap() else {
+    let Value::Slice {
+        pointer, ..
+    } = state.finish(&mut vm).unwrap()
+    else {
         panic!("expected slice")
     };
     let union_root = vm
@@ -267,7 +284,11 @@ fn empty_pack_has_no_allocation_and_nonempty_zero_stride_pack_has_a_sentinel() {
     provider.types.define_record(empty, []).unwrap();
     let slice = provider.types.slice(empty).unwrap();
     let mut vm = Vm::new(&provider, crate::NoEffects, Limits::default()).unwrap();
-    let Value::Slice { pointer, count, .. } = PackState::new(&mut vm, slice)
+    let Value::Slice {
+        pointer,
+        count,
+        ..
+    } = PackState::new(&mut vm, slice)
         .unwrap()
         .finish(&mut vm)
         .unwrap()
@@ -289,7 +310,12 @@ fn empty_pack_has_no_allocation_and_nonempty_zero_stride_pack_has_a_sentinel() {
             0,
         )
         .unwrap();
-    let Value::Slice { pointer, count, .. } = state.finish(&mut vm).unwrap() else {
+    let Value::Slice {
+        pointer,
+        count,
+        ..
+    } = state.finish(&mut vm).unwrap()
+    else {
         panic!("expected slice")
     };
     assert_eq!(count, 1);

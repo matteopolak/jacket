@@ -132,7 +132,55 @@ impl Resolver<'_> {
                 }
             }
         }
+        policies.extend(self.result_type_callable_policies(candidate, source, matched, span)?);
         matched.substitution.callables = policies;
         Ok(())
+    }
+    pub(crate) fn result_type_callable_policies<Origin>(
+        &mut self,
+        candidate: &Candidate<Origin>,
+        source: &[syntax::CallArgument],
+        matched: &Match<Origin>,
+        span: Span,
+    ) -> Result<Vec<CallablePolicyBinding>, Diagnostic> {
+        let mut policies = Vec::new();
+        for binding in &matched.result_type_arguments {
+            let parameter = candidate
+                .result_type_parameters
+                .get(binding.parameter)
+                .ok_or_else(|| {
+                    Diagnostic::new(
+                        span,
+                        "result Type policy has no original result introduction",
+                    )
+                })?;
+            let argument = source.get(binding.argument).ok_or_else(|| {
+                Diagnostic::new(span, "result Type policy has no original source argument")
+            })?;
+            if argument.name != Some(parameter.name) || argument.spread {
+                return Err(Diagnostic::new(
+                    argument.value.span,
+                    "result Type policy does not match its checked named argument",
+                ));
+            }
+            let actual = matched.substitution.ty(parameter.name).ok_or_else(|| {
+                Diagnostic::new(span, "result Type policy has no accepted canonical Type")
+            })?;
+            if let Some(annotation) =
+                crate::procedure_values::contracts::callback_source_type(&argument.value)
+                && let Some(policy) = self.specialization_type_callable_policy(
+                    &annotation,
+                    actual,
+                    argument.value.span,
+                )?
+            {
+                policies.push(CallablePolicyBinding {
+                    name: parameter.name,
+                    occurrence: 0,
+                    policy,
+                });
+            }
+        }
+        Ok(policies)
     }
 }

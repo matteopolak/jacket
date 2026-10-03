@@ -65,7 +65,14 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                     // Copy now: later argument expressions may mutate source backing.
                     self.builder
                         .build_memcpy(data, layout.alignment, source, 1, bytes)?;
-                    (count, Snapshot::Spread { count, bytes, data })
+                    (
+                        count,
+                        Snapshot::Spread {
+                            count,
+                            bytes,
+                            data,
+                        },
+                    )
                 }
             };
             let available = self.builder.build_int_sub(

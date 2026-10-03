@@ -79,7 +79,11 @@ impl Resolver<'_> {
             let mut native_slots = Vec::new();
             let mut native_seen = std::collections::HashSet::new();
             for (_, binding) in &effective {
-                if let CompilerQuoteBinding::Native { slot, ty } = binding {
+                if let CompilerQuoteBinding::Native {
+                    slot,
+                    ty,
+                } = binding
+                {
                     if !native_seen.insert(*slot) {
                         continue;
                     }
@@ -127,7 +131,9 @@ impl Resolver<'_> {
                             &mut bytes,
                             capture_scope,
                         )?,
-                    CompilerQuoteBinding::Native { slot, .. } => {
+                    CompilerQuoteBinding::Native {
+                        slot, ..
+                    } => {
                         let value = snapshots.get(slot).expect("selected slot was materialized");
                         // Materialize one live slot once, but charge every
                         // retained source alias before its portable clone.

@@ -70,10 +70,16 @@ impl Builder<'_> {
             Statement::CallVoid(call) => {
                 StatementCode::Discard(self.call(call, None, depth + 1)?)
             }
-            Statement::CallResults { call, destinations } => {
+            Statement::CallResults {
+                call,
+                destinations,
+            } => {
                 let destinations = self.destinations(destinations, depth + 1)?;
                 let call = self.call(call, None, depth + 1)?;
-                StatementCode::CallResults { call, destinations }
+                StatementCode::CallResults {
+                    call,
+                    destinations,
+                }
             }
             Statement::IndirectCallResults {
                 callee,
@@ -83,7 +89,10 @@ impl Builder<'_> {
             } => {
                 let destinations = self.destinations(destinations, depth + 1)?;
                 let call = self.indirect_call(callee, arguments, None, depth + 1)?;
-                StatementCode::CallResults { call, destinations }
+                StatementCode::CallResults {
+                    call,
+                    destinations,
+                }
             }
             Statement::Exit(exit) => StatementCode::Exit(self.exit(exit, depth + 1)?),
             Statement::Cleanup(id) => StatementCode::Cleanup(*id),
@@ -112,7 +121,11 @@ impl Builder<'_> {
             }),
             Statement::Cases(cases) => StatementCode::Cases(self.cases(cases, depth + 1)?),
             Statement::Block(block) => StatementCode::Block(self.block(block, depth + 1)?),
-            Statement::PushContext { id, value, body } => StatementCode::PushContext {
+            Statement::PushContext {
+                id,
+                value,
+                body,
+            } => StatementCode::PushContext {
                 id: *id,
                 value: self.value(value, depth + 1)?,
                 body: self.block(body, depth + 1)?,

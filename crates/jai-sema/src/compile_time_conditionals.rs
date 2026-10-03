@@ -8,9 +8,11 @@ pub(crate) fn has_contextual_member(source: &syntax::Expression) -> bool {
         use syntax::ExpressionKind as E;
         match &expression.kind {
             E::InferredMember(_) => return true,
-            E::Unary(_, value) | E::Cast(_, _, value) | E::TypeCast { value, .. } => {
-                pending.push(value)
-            }
+            E::Unary(_, value)
+            | E::Cast(_, _, value)
+            | E::TypeCast {
+                value, ..
+            } => pending.push(value),
             E::Binary(_, lhs, rhs) => pending.extend([lhs.as_ref(), rhs.as_ref()]),
             E::Conditional(value) => {
                 pending.extend([value.condition.as_ref(), value.then_value.as_ref()]);
@@ -63,8 +65,10 @@ impl Resolver<'_> {
                     index += 1;
                     continue;
                 }
-                if let syntax::StatementKind::CompileTimeAssert { condition, message } =
-                    &selected[index].kind
+                if let syntax::StatementKind::CompileTimeAssert {
+                    condition,
+                    message,
+                } = &selected[index].kind
                 {
                     match self.compile_time_assertion(
                         condition,
@@ -119,7 +123,11 @@ impl Resolver<'_> {
                         continue;
                     }
                 };
-                let body = if choice { then_body } else { else_body };
+                let body = if choice {
+                    then_body
+                } else {
+                    else_body
+                };
                 // Static-if braces do not introduce a scope. Register only active
                 // declarations and retain their original source wrappers when
                 // splicing them into the enclosing block's flow and cleanup list.
@@ -246,7 +254,10 @@ impl Resolver<'_> {
                 {
                     Some(path.root)
                 }
-                E::Member { base, member } if self.symbols.name(*member) == "count" => {
+                E::Member {
+                    base,
+                    member,
+                } if self.symbols.name(*member) == "count" => {
                     if let E::Name(root) = base.kind {
                         Some(root)
                     } else {
@@ -258,7 +269,9 @@ impl Resolver<'_> {
             if let Some(root) = count_root
                 && self.is_runtime_local_name(root)
                 && let Some(ty) = self.local_declared_type(root, expression.span)?
-                && let Ok(jai_types::TypeKind::FixedArray { count, .. }) = self.types.kind(ty)
+                && let Ok(jai_types::TypeKind::FixedArray {
+                    count, ..
+                }) = self.types.kind(ty)
             {
                 // Fixed array length belongs to its type, not its storage.
                 // This cannot execute or inspect the runtime initializer.
@@ -268,8 +281,12 @@ impl Resolver<'_> {
             match &mut expression.kind {
                 E::Unary(_, value)
                 | E::Cast(_, _, value)
-                | E::TypeCast { value, .. }
-                | E::Member { base: value, .. }
+                | E::TypeCast {
+                    value, ..
+                }
+                | E::Member {
+                    base: value, ..
+                }
                 | E::AddressOf(value)
                 | E::Dereference(value) => pending.push(value),
                 E::Binary(_, lhs, rhs)
@@ -388,8 +405,12 @@ impl Resolver<'_> {
                 }
                 E::Unary(_, value)
                 | E::Cast(_, _, value)
-                | E::TypeCast { value, .. }
-                | E::Member { base: value, .. }
+                | E::TypeCast {
+                    value, ..
+                }
+                | E::Member {
+                    base: value, ..
+                }
                 | E::AddressOf(value)
                 | E::Dereference(value) => pending.push(value),
                 E::Binary(_, lhs, rhs)
@@ -490,8 +511,12 @@ fn require_constant(
                 }
                 IntExprKind::Load(_)
                 | IntExprKind::Call(_)
-                | IntExprKind::FromPointer { .. }
-                | IntExprKind::PointerDifference { .. } => return Err(nonconstant(span)),
+                | IntExprKind::FromPointer {
+                    ..
+                }
+                | IntExprKind::PointerDifference {
+                    ..
+                } => return Err(nonconstant(span)),
             },
             Node::Float(value) => match value.kind() {
                 FloatExprKind::Constant(_) => {}
@@ -516,96 +541,163 @@ fn require_constant(
                 FloatExprKind::Load(_) | FloatExprKind::Call(_) => return Err(nonconstant(span)),
             },
             Node::Value(value) => match value {
-                ValueExpr::StorageBitcast { source, .. } => match source {
+                ValueExpr::StorageBitcast {
+                    source, ..
+                } => match source {
                     jai_ir::StorageBitcastSource::Place(place) => pending.push(Node::Place(*place)),
                     jai_ir::StorageBitcastSource::Value(value) => pending.push(Node::Value(value)),
                 },
-                ValueExpr::Int(value) | ValueExpr::EnumFromInt { value, .. } => {
-                    pending.push(Node::Int(value))
-                }
+                ValueExpr::Int(value)
+                | ValueExpr::EnumFromInt {
+                    value, ..
+                } => pending.push(Node::Int(value)),
                 ValueExpr::Bool(value) => pending.push(Node::Bool(value)),
                 ValueExpr::Float(value) => pending.push(Node::Float(value)),
-                ValueExpr::Bind { bindings, body, .. } => {
+                ValueExpr::Bind {
+                    bindings,
+                    body,
+                    ..
+                } => {
                     pending.push(Node::Value(body));
                     pending.extend(bindings.iter().rev().map(|(_, value)| Node::Value(value)));
                 }
                 // The owned IR proof checks each reference's owner, scope, and
                 // type before VM evaluation; every producer is checked above.
-                ValueExpr::Bound { .. } => {}
+                ValueExpr::Bound {
+                    ..
+                } => {}
                 ValueExpr::Zero(_)
                 | ValueExpr::NativePointer(_)
                 | ValueExpr::RuntimeType(_)
-                | ValueExpr::StringBytes { .. }
-                | ValueExpr::Enum { .. }
-                | ValueExpr::StaticAddress { .. }
-                | ValueExpr::ProcedureValue { .. } => {}
-                ValueExpr::Conditional { expression, .. } => {
+                | ValueExpr::StringBytes {
+                    ..
+                }
+                | ValueExpr::Enum {
+                    ..
+                }
+                | ValueExpr::StaticAddress {
+                    ..
+                }
+                | ValueExpr::ProcedureValue {
+                    ..
+                } => {}
+                ValueExpr::Conditional {
+                    expression, ..
+                } => {
                     pending.extend([
                         Node::Bool(&expression.condition),
                         Node::Value(&expression.then_value),
                         Node::Value(&expression.else_value),
                     ]);
                 }
-                ValueExpr::Array { elements, .. }
+                ValueExpr::Array {
+                    elements, ..
+                }
                 | ValueExpr::Record {
                     fields: elements, ..
                 } => pending.extend(elements.iter().map(Node::Value)),
-                ValueExpr::OrderedRecord { initializers, .. } => {
+                ValueExpr::OrderedRecord {
+                    initializers, ..
+                } => {
                     pending.extend(initializers.iter().map(|(_, value)| Node::Value(value)));
                 }
-                ValueExpr::RecordBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Node::Value(value)))
+                ValueExpr::RecordBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Node::Value(value))),
+                ValueExpr::SequenceBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Node::Value(value))),
+                ValueExpr::Union {
+                    value, ..
                 }
-                ValueExpr::SequenceBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Node::Value(value)))
+                | ValueExpr::TypeDescriptor {
+                    value, ..
                 }
-                ValueExpr::Union { value, .. }
-                | ValueExpr::TypeDescriptor { value, .. }
-                | ValueExpr::Distinct { value, .. }
-                | ValueExpr::UnwrapDistinct { value, .. }
-                | ValueExpr::PointerCast { value, .. }
-                | ValueExpr::AddressOfValue { value, .. } => pending.push(Node::Value(value)),
-                ValueExpr::ArrayView { array: value, .. }
+                | ValueExpr::Distinct {
+                    value, ..
+                }
+                | ValueExpr::UnwrapDistinct {
+                    value, ..
+                }
+                | ValueExpr::PointerCast {
+                    value, ..
+                }
+                | ValueExpr::AddressOfValue {
+                    value, ..
+                } => pending.push(Node::Value(value)),
+                ValueExpr::ArrayView {
+                    array: value, ..
+                }
                 | ValueExpr::SequenceView {
                     sequence: value, ..
                 }
-                | ValueExpr::SequenceField { base: value, .. }
-                | ValueExpr::Field { base: value, .. } => pending.push(Node::Value(value)),
-                ValueExpr::Index { base, index, .. } => {
+                | ValueExpr::SequenceField {
+                    base: value, ..
+                }
+                | ValueExpr::Field {
+                    base: value, ..
+                } => pending.push(Node::Value(value)),
+                ValueExpr::Index {
+                    base,
+                    index,
+                    ..
+                } => {
                     pending.extend([Node::Value(base), Node::Int(index)]);
                 }
                 ValueExpr::PointerOffset {
-                    pointer, offset, ..
+                    pointer,
+                    offset,
+                    ..
                 } => {
                     pending.extend([Node::Value(pointer), Node::Int(offset)]);
                 }
                 ValueExpr::PointerOffsetLeft {
-                    pointer, offset, ..
+                    pointer,
+                    offset,
+                    ..
                 } => {
                     pending.extend([Node::Value(pointer), Node::Int(offset)]);
                 }
-                ValueExpr::PointerFromInteger { value, .. } => pending.push(Node::Int(value)),
-                ValueExpr::SequenceConcat { parts, .. } => {
+                ValueExpr::PointerFromInteger {
+                    value, ..
+                } => pending.push(Node::Int(value)),
+                ValueExpr::SequenceConcat {
+                    parts, ..
+                } => {
                     pending.extend(parts.iter().map(|part| match part {
                         jai_ir::SequencePackPart::Element(value)
                         | jai_ir::SequencePackPart::Spread(value) => Node::Value(value),
                     }));
                 }
-                ValueExpr::AddressOf { place, .. } => pending.push(Node::Place(*place)),
-                ValueExpr::Call { call, .. } if allow_calls => {
+                ValueExpr::AddressOf {
+                    place, ..
+                } => pending.push(Node::Place(*place)),
+                ValueExpr::Call {
+                    call, ..
+                } if allow_calls => {
                     pending.extend(call.arguments.iter().map(|(_, value)| Node::Value(value)))
                 }
                 ValueExpr::IndirectCall {
-                    callee, arguments, ..
+                    callee,
+                    arguments,
+                    ..
                 } if allow_calls => {
                     pending.push(Node::Value(callee));
                     pending.extend(arguments.iter().map(|(_, value)| Node::Value(value)));
                 }
                 ValueExpr::Load(_)
-                | ValueExpr::Context { .. }
-                | ValueExpr::ArrayToSlice { .. }
-                | ValueExpr::Call { .. }
-                | ValueExpr::IndirectCall { .. } => return Err(nonconstant(span)),
+                | ValueExpr::Context {
+                    ..
+                }
+                | ValueExpr::ArrayToSlice {
+                    ..
+                }
+                | ValueExpr::Call {
+                    ..
+                }
+                | ValueExpr::IndirectCall {
+                    ..
+                } => return Err(nonconstant(span)),
             },
             Node::Place(place) => match place.kind() {
                 PlaceKind::Global(_) => needs_globals = true,

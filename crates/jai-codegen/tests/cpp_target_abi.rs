@@ -66,6 +66,7 @@ fn canonical_receiver_first_method_shape_matches_clang22() {
         .procedure(ProcedureType {
             parameters: Box::new([receiver, s8, u8, boolean, float]),
             results: Box::new([result]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::CppMethod,
             context: ContextMode::None,
             variadic: Variadic::None,

@@ -40,9 +40,10 @@ impl Resolver<'_> {
                 syntax::LoopControlReplacementBody::Code(body) => {
                     (body.clone(), false, replacement.span)
                 }
-                syntax::LoopControlReplacementBody::Assert { condition, span } => {
-                    (syntax::CodeBody::Expression(condition.clone()), true, *span)
-                }
+                syntax::LoopControlReplacementBody::Assert {
+                    condition,
+                    span,
+                } => (syntax::CodeBody::Expression(condition.clone()), true, *span),
             };
             let Expr::Code(code) = self.capture_code(&body, span)? else {
                 unreachable!("source capture produces Code")

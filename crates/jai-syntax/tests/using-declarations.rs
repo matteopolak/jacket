@@ -46,7 +46,9 @@ fn basic_inferred_pointer_declaration_retains_original_initializer_once() {
     );
     assert_eq!(target_span.text(text), "buffer");
     let S::Declare(syntax::Declaration::Inferred {
-        name, initializer, ..
+        name,
+        initializer,
+        ..
     }) = &declaration.kind
     else {
         panic!()
@@ -64,7 +66,14 @@ fn basic_inferred_pointer_declaration_retains_original_initializer_once() {
 fn file_enum_and_global_children_keep_name_spans_and_visibility() {
     let text = "#scope_module using CGWindowLevelKey :: enum s32 { kCGBaseWindowLevelKey :: 0; kCGMinimumWindowLevelKey; } using state:Pair;";
     let (file, symbols) = parse(text);
-    let [F::Scope { .. }, wrapper, global] = file.items() else {
+    let [
+        F::Scope {
+            ..
+        },
+        wrapper,
+        global,
+    ] = file.items()
+    else {
         panic!()
     };
     let F::UsingDeclaration {
@@ -96,7 +105,10 @@ fn file_enum_and_global_children_keep_name_spans_and_visibility() {
         "CGWindowLevelKey"
     );
     assert!(matches!(declaration.kind, D::Enum(_)));
-    let F::UsingDeclaration { declaration, .. } = global else {
+    let F::UsingDeclaration {
+        declaration, ..
+    } = global
+    else {
         panic!()
     };
     assert_eq!(declaration.visibility, syntax::Visibility::Module);
@@ -202,9 +214,10 @@ fn actual_string_builder_and_focus_core_graphics_parse_unchanged() {
             .items()
             .iter()
             .find(|item| match item {
-                F::Declaration(declaration) | F::UsingDeclaration { declaration, .. } => {
-                    symbols.name(declaration.declared_name()) == name
-                }
+                F::Declaration(declaration)
+                | F::UsingDeclaration {
+                    declaration, ..
+                } => symbols.name(declaration.declared_name()) == name,
                 _ => false,
             })
             .unwrap();
@@ -229,10 +242,15 @@ fn actual_string_builder_and_focus_core_graphics_parse_unchanged() {
                 "buffer"
             );
             assert!(matches!(directive.selection, U::All));
-            let S::UsingDeclaration { declaration, .. } = &wrapper.kind else {
+            let S::UsingDeclaration {
+                declaration, ..
+            } = &wrapper.kind
+            else {
                 panic!()
             };
-            let S::Declare(syntax::Declaration::Inferred { initializer, .. }) = &declaration.kind
+            let S::Declare(syntax::Declaration::Inferred {
+                initializer, ..
+            }) = &declaration.kind
             else {
                 panic!()
             };
@@ -241,7 +259,10 @@ fn actual_string_builder_and_focus_core_graphics_parse_unchanged() {
                 "get_current_buffer(builder)"
             );
         } else {
-            let F::UsingDeclaration { declaration, .. } = named else {
+            let F::UsingDeclaration {
+                declaration, ..
+            } = named
+            else {
                 panic!()
             };
             assert!(matches!(declaration.kind, D::Enum(_)));

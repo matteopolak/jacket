@@ -1,6 +1,8 @@
 //! Shared source header and body payload; identity belongs to the enclosing declaration.
 use super::*;
-use jai_types::{CallingConvention, ContextMode, DebugPolicy, InlineHint, ProcedureExecution};
+use jai_types::{
+    CallingConvention, ContextMode, DebugPolicy, ForeignReturnAbi, InlineHint, ProcedureExecution,
+};
 
 #[derive(Clone, Debug)]
 pub struct CallableHeaderSyntax {
@@ -9,6 +11,7 @@ pub struct CallableHeaderSyntax {
     pub parameters: Vec<Parameter>,
     pub results: Vec<ProcedureResult>,
     pub convention: CallingConvention,
+    pub return_abi: ForeignReturnAbi,
     pub context: ContextMode,
 }
 

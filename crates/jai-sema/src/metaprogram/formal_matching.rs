@@ -57,7 +57,10 @@ impl Resolver<'_> {
                         {
                             previous.ty = *ty;
                         } else {
-                            definition.types.push(TypeBinding { name, ty: *ty });
+                            definition.types.push(TypeBinding {
+                                name,
+                                ty: *ty,
+                            });
                         }
                     }
                 }
@@ -82,6 +85,7 @@ impl Resolver<'_> {
                 )
             })?;
         let candidate = Candidate {
+            result_type_parameters: Vec::new(),
             declaration: target.id,
             parameters: vec![Parameter {
                 evaluation: syntax::ParameterEvaluation::Evaluate,
@@ -158,7 +162,10 @@ impl Resolver<'_> {
                         caller_span,
                     )?;
                     matched.substitution = substitution;
-                    return Ok(ExpandedSourceMatch { expected, matched });
+                    return Ok(ExpandedSourceMatch {
+                        expected,
+                        matched,
+                    });
                 }
                 Err(error) => {
                     rejection.get_or_insert(error);
@@ -179,9 +186,9 @@ impl Resolver<'_> {
     ) -> Result<TypeId, Diagnostic> {
         Ok(match pattern {
             TypePattern::Concrete(ty) => *ty,
-            TypePattern::Restricted { ty, .. } => {
-                self.materialize_matched_expanded_type(ty, actual, substitution, span)?
-            }
+            TypePattern::Restricted {
+                ty, ..
+            } => self.materialize_matched_expanded_type(ty, actual, substitution, span)?,
             TypePattern::Infer(name) | TypePattern::Variable(name) => substitution
                 .ty(*name)
                 .ok_or_else(|| Diagnostic::new(span, "expansion type variable is not bound"))?,
@@ -210,7 +217,9 @@ impl Resolver<'_> {
                 {
                     TypeKind::Slice(element)
                     | TypeKind::DynamicArray(element)
-                    | TypeKind::FixedArray { element, .. } => *element,
+                    | TypeKind::FixedArray {
+                        element, ..
+                    } => *element,
                     _ => {
                         return Err(Diagnostic::new(
                             span,
@@ -227,8 +236,12 @@ impl Resolver<'_> {
             // Pure matching has already proved the exact nominal origin,
             // argument bindings, count, and callback signature. Retain that
             // concrete identity, including bare generic record formals.
-            TypePattern::NominalApplication { .. }
-            | TypePattern::FixedArray { .. }
+            TypePattern::NominalApplication {
+                ..
+            }
+            | TypePattern::FixedArray {
+                ..
+            }
             | TypePattern::DynamicArray(_)
             | TypePattern::Procedure(_) => actual,
         })

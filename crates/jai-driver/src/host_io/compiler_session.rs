@@ -178,8 +178,13 @@ impl CompilerEffects for FileCompilerSession {
                 return Err(error(host_error.to_string()));
             }
         };
-        self.parked
-            .insert(origin, SuspendedFileTransaction { compiler, host });
+        self.parked.insert(
+            origin,
+            SuspendedFileTransaction {
+                compiler,
+                host,
+            },
+        );
         self.active_origin = None;
         Ok(())
     }

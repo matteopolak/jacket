@@ -28,7 +28,10 @@ impl Drop for DepthGuard {
 }
 
 fn unknown(kind: &'static str, index: usize) -> IrError {
-    IrError::UnknownIdentity { kind, index }
+    IrError::UnknownIdentity {
+        kind,
+        index,
+    }
 }
 fn arity(kind: &'static str, expected: usize, actual: usize) -> Result<(), IrError> {
     if expected == actual {
@@ -45,14 +48,20 @@ fn same_type(expected: TypeId, actual: TypeId) -> Result<(), IrError> {
     if expected == actual {
         Ok(())
     } else {
-        Err(IrError::TypeMismatch { expected, actual })
+        Err(IrError::TypeMismatch {
+            expected,
+            actual,
+        })
     }
 }
 fn same_integer(expected: IntegerType, actual: IntegerType) -> Result<(), IrError> {
     if expected == actual {
         Ok(())
     } else {
-        Err(IrError::IntegerMismatch { expected, actual })
+        Err(IrError::IntegerMismatch {
+            expected,
+            actual,
+        })
     }
 }
 

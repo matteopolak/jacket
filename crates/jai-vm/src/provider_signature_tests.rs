@@ -33,6 +33,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, results: Vec<Typ
             parameters: parameters.into(),
             results: results.into(),
             context: ContextMode::None,
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             variadic: Variadic::None,
         })

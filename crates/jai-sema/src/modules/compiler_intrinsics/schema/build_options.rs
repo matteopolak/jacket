@@ -133,6 +133,14 @@ impl Schema<'_, '_> {
                     )?;
                     &mut projection.runtime_support
                 }
+                (false, "temporary_storage_size")
+                    if matches!(
+                        self.types.kind(field.ty),
+                        Ok(TypeKind::Integer(IntegerType::S32))
+                    ) =>
+                {
+                    &mut projection.temporary_storage_size
+                }
                 (false, "backtrace_on_crash") => {
                     self.field_enum(field.ty, &["OFF", "ON"])?;
                     &mut projection.backtrace_on_crash

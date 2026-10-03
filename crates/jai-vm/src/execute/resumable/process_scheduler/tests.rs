@@ -63,7 +63,10 @@ fn cast(ty: IntegerType, value: IntExpr) -> IntExpr {
     IntExpr::new(ty, IntExprKind::Cast(CastMode::Checked, Box::new(value)))
 }
 fn block(statements: Vec<Statement>, flow: Flow) -> Block {
-    Block { statements, flow }
+    Block {
+        statements,
+        flow,
+    }
 }
 fn ret(value: IntExpr, cleanups: Vec<CleanupId>) -> Statement {
     Statement::Exit(Exit {
@@ -81,6 +84,7 @@ fn signature(
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -88,7 +92,10 @@ fn signature(
         .unwrap()
 }
 fn address(place: Place, ty: TypeId) -> ValueExpr {
-    ValueExpr::AddressOf { place, ty }
+    ValueExpr::AddressOf {
+        place,
+        ty,
+    }
 }
 
 struct Fixture {
@@ -596,7 +603,10 @@ impl CompilerEffects for Effects {
         Ok(())
     }
     fn request(&mut self, request: crate::CompilerRequest) -> crate::EffectOutcome {
-        let crate::CompilerRequest::Message { text, .. } = request else {
+        let crate::CompilerRequest::Message {
+            text, ..
+        } = request
+        else {
             panic!("unexpected scheduler fixture request")
         };
         self.requests.push(text.clone());

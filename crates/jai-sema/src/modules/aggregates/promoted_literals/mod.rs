@@ -23,7 +23,10 @@ pub(super) fn path_diagnostic(
             index,
             "record literal initializer exceeds compiler path budget".to_owned(),
         ),
-        PathError::Canonical { index, error } => (index, error.to_string()),
+        PathError::Canonical {
+            index,
+            error,
+        } => (index, error.to_string()),
         PathError::LeafType {
             index,
             expected,
@@ -52,7 +55,10 @@ pub(super) fn build_diagnostic<E>(error: BuildError<E>, span: Span) -> Result<Di
     let message = match error {
         BuildError::Default(error) => return Err(error),
         BuildError::Type(error) => error.to_string(),
-        BuildError::DefaultType { expected, actual } => {
+        BuildError::DefaultType {
+            expected,
+            actual,
+        } => {
             format!("record construction canonical type mismatch: {expected:?} and {actual:?}")
         }
         BuildError::MalformedDefault => {

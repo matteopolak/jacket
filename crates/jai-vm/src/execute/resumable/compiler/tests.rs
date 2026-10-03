@@ -54,6 +54,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, results: Vec<Typ
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

@@ -136,7 +136,11 @@ impl Builder<'_> {
                 };
                 match result {
                     Ok(()) => {}
-                    Err(error @ GraphError::Pending { .. }) => {
+                    Err(
+                        error @ GraphError::Pending {
+                            ..
+                        },
+                    ) => {
                         pending.get_or_insert(error);
                     }
                     Err(error) => return Err(error),
@@ -252,7 +256,9 @@ impl Builder<'_> {
         // and their defining depth rather than adding fake file declarations.
         for wrapper in statements {
             let statement = match &wrapper.kind {
-                StatementKind::UsingDeclaration { declaration, .. } => declaration.as_ref(),
+                StatementKind::UsingDeclaration {
+                    declaration, ..
+                } => declaration.as_ref(),
                 _ => wrapper,
             };
             let value = match &statement.kind {
@@ -301,7 +307,9 @@ impl Builder<'_> {
                 let depth = scopes.len();
                 let result = (|| {
                     match &statement.kind {
-                        StatementKind::UsingDeclaration { declaration, .. } => {
+                        StatementKind::UsingDeclaration {
+                            declaration, ..
+                        } => {
                             let original_count = scopes.last().unwrap().statements.len();
                             let child_result = self.scoped_statements(
                                 owner,
@@ -502,7 +510,12 @@ impl Builder<'_> {
                                         selected
                                     }
                                     Err(
-                                        GraphError::Pending { .. } | GraphError::Unsupported { .. },
+                                        GraphError::Pending {
+                                            ..
+                                        }
+                                        | GraphError::Unsupported {
+                                            ..
+                                        },
                                     ) => {
                                         if !needs_dependency {
                                             reserve_conditional_names(
@@ -552,7 +565,11 @@ impl Builder<'_> {
                             self.scoped_statements(
                                 owner,
                                 file,
-                                if selected { then_body } else { else_body },
+                                if selected {
+                                    then_body
+                                } else {
+                                    else_body
+                                },
                                 scopes,
                                 false,
                             )?;
@@ -576,12 +593,17 @@ impl Builder<'_> {
                         }
                         StatementKind::Block(body)
                         | StatementKind::Defer(body)
-                        | StatementKind::CheckScope { body, .. }
-                        | StatementKind::PushContext { body, .. } => {
-                            self.scoped_statements(owner, file, body, scopes, true)?
+                        | StatementKind::CheckScope {
+                            body, ..
                         }
+                        | StatementKind::PushContext {
+                            body, ..
+                        } => self.scoped_statements(owner, file, body, scopes, true)?,
                         StatementKind::While(condition, body) => {
-                            if let jai_syntax::WhileCondition::Binding { name, .. } = condition {
+                            if let jai_syntax::WhileCondition::Binding {
+                                name, ..
+                            } = condition
+                            {
                                 scopes.push(LocalScope {
                                     values: HashMap::from([(*name, LocalValue::Semantic)]),
                                     runtime_names: vec![*name],
@@ -661,7 +683,11 @@ impl Builder<'_> {
                 scopes.truncate(depth);
                 match result {
                     Ok(()) => {}
-                    Err(error @ GraphError::Pending { .. }) => {
+                    Err(
+                        error @ GraphError::Pending {
+                            ..
+                        },
+                    ) => {
                         if let StatementKind::Import(import) = &statement.kind
                             && (import.namespace.is_none() || import.using)
                         {
@@ -691,7 +717,10 @@ impl Builder<'_> {
         let mut selected_members = Vec::new();
         let mut pending = None;
         for member in members {
-            if let RecordMember::CompileTimeCases { cases, .. } = member {
+            if let RecordMember::CompileTimeCases {
+                cases, ..
+            } = member
+            {
                 let needs_dependency = case_bodies(cases).any(record_contains_import)
                     || (fields_affect_dependencies
                         && case_bodies(cases).any(record_contains_physical_fields));
@@ -715,7 +744,11 @@ impl Builder<'_> {
                         }
                         selected_members.push(member.clone());
                     }
-                    Err(error @ GraphError::Pending { .. }) => {
+                    Err(
+                        error @ GraphError::Pending {
+                            ..
+                        },
+                    ) => {
                         for body in case_bodies(cases) {
                             reserve_record_names(scopes.last_mut().unwrap(), body);
                         }
@@ -770,15 +803,27 @@ impl Builder<'_> {
                         self.record_selection(file, condition.span, selected);
                         selected
                     }
-                    Err(GraphError::Pending { .. } | GraphError::Unsupported { .. })
-                        if !needs_dependency =>
-                    {
+                    Err(
+                        GraphError::Pending {
+                            ..
+                        }
+                        | GraphError::Unsupported {
+                            ..
+                        },
+                    ) if !needs_dependency => {
                         reserve_record_names(scopes.last_mut().unwrap(), then_members);
                         reserve_record_names(scopes.last_mut().unwrap(), else_members);
                         selected_members.push(member.clone());
                         continue;
                     }
-                    Err(GraphError::Pending { .. } | GraphError::Unsupported { .. }) => {
+                    Err(
+                        GraphError::Pending {
+                            ..
+                        }
+                        | GraphError::Unsupported {
+                            ..
+                        },
+                    ) => {
                         reserve_record_names(scopes.last_mut().unwrap(), then_members);
                         reserve_record_names(scopes.last_mut().unwrap(), else_members);
                         let error = self.defer_condition(
@@ -804,7 +849,11 @@ impl Builder<'_> {
                     Err(error) => return Err(error),
                 }
             };
-            let branch = if selected { then_members } else { else_members };
+            let branch = if selected {
+                then_members
+            } else {
+                else_members
+            };
             retain_record_bindings(scopes.last_mut().unwrap(), branch);
             let branch = self.select_record_import_members(
                 owner,
@@ -859,7 +908,14 @@ impl Builder<'_> {
                     );
                     choice
                 }
-                Err(GraphError::Pending { .. } | GraphError::Unsupported { .. }) => {
+                Err(
+                    GraphError::Pending {
+                        ..
+                    }
+                    | GraphError::Unsupported {
+                        ..
+                    },
+                ) => {
                     return if needs_dependency {
                         Err(self.defer_case(file, &header, lexical_context(owner, scopes)))
                     } else {
@@ -974,9 +1030,9 @@ impl Builder<'_> {
         match &mut expanded.kind {
             ExpressionKind::Unary(_, value)
             | ExpressionKind::Cast(_, _, value)
-            | ExpressionKind::TypeCast { value, .. } => {
-                **value = self.expand_local(file, value, scopes, active)?
-            }
+            | ExpressionKind::TypeCast {
+                value, ..
+            } => **value = self.expand_local(file, value, scopes, active)?,
             ExpressionKind::Binary(_, lhs, rhs) => {
                 **lhs = self.expand_local(file, lhs, scopes, active)?;
                 if let ExpressionKind::Binary(operation, _, _) = &expression.kind
@@ -1023,7 +1079,9 @@ impl Builder<'_> {
 
     fn scoped_pending(&self, error: GraphError) -> GraphError {
         match error {
-            GraphError::Unsupported { diagnostic, .. } => self.semantic_pending(
+            GraphError::Unsupported {
+                diagnostic, ..
+            } => self.semantic_pending(
                 diagnostic.location,
                 "scoped import dependency is awaiting semantic compile-time evaluation",
             ),
@@ -1095,7 +1153,9 @@ fn contains_import(statements: &[Statement]) -> bool {
     statements.iter().any(|statement| match &statement.kind {
         StatementKind::Import(_)
         | StatementKind::Using(_)
-        | StatementKind::UsingDeclaration { .. } => true,
+        | StatementKind::UsingDeclaration {
+            ..
+        } => true,
         StatementKind::CompileTimeIf {
             then_body,
             else_body,
@@ -1107,8 +1167,12 @@ fn contains_import(statements: &[Statement]) -> bool {
         StatementKind::CompileTimeCases(cases) => case_bodies(cases).any(contains_import),
         StatementKind::Block(body)
         | StatementKind::Defer(body)
-        | StatementKind::CheckScope { body, .. }
-        | StatementKind::PushContext { body, .. }
+        | StatementKind::CheckScope {
+            body, ..
+        }
+        | StatementKind::PushContext {
+            body, ..
+        }
         | StatementKind::While(_, body) => contains_import(body),
         StatementKind::Range(value) => contains_import(&value.body),
         StatementKind::ArrayLoop(value) => contains_import(&value.body),
@@ -1187,11 +1251,20 @@ fn retain_record_bindings(scope: &mut LocalScope, members: &[RecordMember]) {
                     StatementKind::Enum(value.clone()),
                 ))
             }
-            RecordMember::Insert(_)
-            | RecordMember::DefaultOverride { .. }
-            | RecordMember::Assert { .. }
-            | RecordMember::CompileTimeCases { .. }
-            | RecordMember::Conditional { .. } => None,
+            RecordMember::Placement(_)
+            | RecordMember::Insert(_)
+            | RecordMember::DefaultOverride {
+                ..
+            }
+            | RecordMember::Assert {
+                ..
+            }
+            | RecordMember::CompileTimeCases {
+                ..
+            }
+            | RecordMember::Conditional {
+                ..
+            } => None,
         };
         if let Some(retained) = retained {
             scope.statements.push(retained);
@@ -1249,7 +1322,9 @@ fn reserve_promoted_field_names(scope: &mut LocalScope, members: &[RecordMember]
                 reserve_promoted_field_names(scope, then_members);
                 reserve_promoted_field_names(scope, else_members);
             }
-            RecordMember::CompileTimeCases { cases, .. } => {
+            RecordMember::CompileTimeCases {
+                cases, ..
+            } => {
                 for body in case_bodies(cases) {
                     reserve_promoted_field_names(scope, body);
                 }
@@ -1271,9 +1346,9 @@ fn record_contains_physical_fields(members: &[RecordMember]) -> bool {
             record_contains_physical_fields(then_members)
                 || record_contains_physical_fields(else_members)
         }
-        RecordMember::CompileTimeCases { cases, .. } => {
-            case_bodies(cases).any(record_contains_physical_fields)
-        }
+        RecordMember::CompileTimeCases {
+            cases, ..
+        } => case_bodies(cases).any(record_contains_physical_fields),
         _ => false,
     })
 }
@@ -1288,9 +1363,9 @@ fn record_contains_import(members: &[RecordMember]) -> bool {
             else_members,
             ..
         } => record_contains_import(then_members) || record_contains_import(else_members),
-        RecordMember::CompileTimeCases { cases, .. } => {
-            case_bodies(cases).any(record_contains_import)
-        }
+        RecordMember::CompileTimeCases {
+            cases, ..
+        } => case_bodies(cases).any(record_contains_import),
         _ => false,
     })
 }
@@ -1322,7 +1397,9 @@ fn reserve_conditional_names(
                 }
                 value.namespace
             }
-            StatementKind::UsingDeclaration { declaration, .. } => {
+            StatementKind::UsingDeclaration {
+                declaration, ..
+            } => {
                 reserve_conditional_names(
                     scope,
                     std::slice::from_ref(declaration.as_ref()),
@@ -1386,7 +1463,9 @@ fn reserve_record_names(scope: &mut LocalScope, members: &[RecordMember]) {
                 reserve_record_names(scope, else_members);
                 None
             }
-            RecordMember::CompileTimeCases { cases, .. } => {
+            RecordMember::CompileTimeCases {
+                cases, ..
+            } => {
                 for body in case_bodies(cases) {
                     reserve_record_names(scope, body);
                 }
@@ -1506,7 +1585,10 @@ mod tests {
         .unwrap();
         assert!(!discovery.advance().unwrap().is_complete());
         let condition = discovery.pending_conditions().next().unwrap();
-        let DiscoveryConditionContext::Lexical { scopes, .. } = &condition.context else {
+        let DiscoveryConditionContext::Lexical {
+            scopes, ..
+        } = &condition.context
+        else {
             panic!("expected lexical runtime environment")
         };
         let iterator = discovery.graph().symbols().find("iterator").unwrap();
@@ -1528,7 +1610,10 @@ mod tests {
             None,
         )
         .unwrap_err();
-        let GraphError::Pending { diagnostic, .. } = error else {
+        let GraphError::Pending {
+            diagnostic, ..
+        } = error
+        else {
             panic!("expected pending lexical dependency")
         };
         assert!(diagnostic.message.contains("semantic compile-time"));
@@ -1576,7 +1661,10 @@ mod tests {
     fn source_run_guard_waits_for_semantic_execution() {
         let source = "main :: () { #if #run true { Missing :: #import,file \"absent.jai\"; } }";
         let error = graph(source, None).unwrap_err();
-        let GraphError::Pending { diagnostic, .. } = error else {
+        let GraphError::Pending {
+            diagnostic, ..
+        } = error
+        else {
             panic!("expected pending compile-time execution")
         };
         assert!(diagnostic.message.contains("semantic compile-time"));
@@ -1584,24 +1672,27 @@ mod tests {
     }
 
     #[test]
-    fn cycles_and_missing_selected_imports_keep_import_location() {
+    fn same_instance_cycles_and_missing_selected_imports_keep_import_location() {
         let source = "main :: () { M :: #import,file \"dependency.jai\"; }";
-        let error = graph(
+        let cycle_graph = graph(
             source,
             Some("loop :: () { Root :: #import,file \"main.jai\"; }"),
         )
-        .unwrap_err();
-        assert!(matches!(
-            error,
-            GraphError::Cycle {
-                kind: DependencyKind::Import,
-                location: Some(_),
-                ..
-            }
-        ));
+        .unwrap();
+        assert_eq!(cycle_graph.modules().len(), 2);
+        assert_eq!(cycle_graph.scoped_imports().len(), 2);
+        assert!(
+            cycle_graph
+                .scoped_imports()
+                .iter()
+                .any(|edge| edge.module() == cycle_graph.root())
+        );
         let error =
             graph("main :: () { #if true { M :: #import \"Absent\"; } }", None).unwrap_err();
-        let GraphError::Located { diagnostic, .. } = error else {
+        let GraphError::Located {
+            diagnostic, ..
+        } = error
+        else {
             panic!("expected located missing module")
         };
         assert!(diagnostic.message.contains("Absent"));

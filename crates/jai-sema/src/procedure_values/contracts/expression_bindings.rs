@@ -88,7 +88,9 @@ impl Resolver<'_> {
                     **inner = value;
                 }
             }
-            ContractKind::Callable { .. } => {}
+            ContractKind::Callable {
+                ..
+            } => {}
         }
         // Callable leaves retain the destination's checked source policy.
         Ok(Some(declared))
@@ -117,7 +119,7 @@ impl Resolver<'_> {
         self.publish_expression_contract(binding, checked, contract, span)
     }
 
-    fn validate_expression_contract_producer(
+    pub(super) fn validate_expression_contract_producer(
         &self,
         binding: ExpressionBindingId,
         span: Span,
@@ -145,7 +147,7 @@ impl Resolver<'_> {
         Ok(())
     }
 
-    fn publish_expression_contract(
+    pub(super) fn publish_expression_contract(
         &mut self,
         binding: ExpressionBindingId,
         checked: &ValueExpr,

@@ -13,6 +13,7 @@ fn registry() -> (TypeRegistry, TypeId, AllocatorSchema) {
         .procedure(ProcedureType {
             parameters: Box::new([mode, size, size, pointer, pointer]),
             results: Box::new([pointer]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,

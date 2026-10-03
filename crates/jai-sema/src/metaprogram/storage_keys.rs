@@ -136,7 +136,10 @@ impl StorageKey {
                             }));
                             pending.push(Work::Value(value));
                         }
-                        IntExprKind::PointerDifference { left, right } => {
+                        IntExprKind::PointerDifference {
+                            left,
+                            right,
+                        } => {
                             emit(Token::Kind("pointer-difference"));
                             pending.push(Work::Value(right));
                             pending.push(Work::Value(left));
@@ -146,7 +149,10 @@ impl StorageKey {
                             emit(Token::Cast(*mode));
                             pending.push(Work::Float(value));
                         }
-                        IntExprKind::FromPointer { value, mode } => {
+                        IntExprKind::FromPointer {
+                            value,
+                            mode,
+                        } => {
                             emit(Token::Kind("int-from-pointer"));
                             emit(Token::Cast(*mode));
                             pending.push(Work::Value(value));
@@ -292,7 +298,10 @@ impl StorageKey {
                 Work::Value(value) => {
                     let expression = value;
                     match expression {
-                        ValueExpr::StorageBitcast { source, cast } => {
+                        ValueExpr::StorageBitcast {
+                            source,
+                            cast,
+                        } => {
                             emit(Token::Kind("storage-cast"));
                             emit(Token::StorageCast(*cast));
                             match source {
@@ -306,7 +315,11 @@ impl StorageKey {
                                 }
                             }
                         }
-                        ValueExpr::Bind { bindings, body, ty } => {
+                        ValueExpr::Bind {
+                            bindings,
+                            body,
+                            ty,
+                        } => {
                             emit(Token::Kind("bind"));
                             emit(Token::Type(*ty));
                             emit(Token::Count(bindings.len()));
@@ -316,7 +329,10 @@ impl StorageKey {
                                 pending.push(Work::Token(Token::ExpressionBinding(*binding)));
                             }
                         }
-                        ValueExpr::Bound { binding, ty } => {
+                        ValueExpr::Bound {
+                            binding,
+                            ty,
+                        } => {
                             emit(Token::Kind("bound"));
                             emit(Token::Type(*ty));
                             emit(Token::ExpressionBinding(*binding));
@@ -341,7 +357,9 @@ impl StorageKey {
                             emit(Token::Kind("load"));
                             pending.push(Work::Place(*place));
                         }
-                        ValueExpr::Context { ty } => {
+                        ValueExpr::Context {
+                            ty,
+                        } => {
                             emit(Token::Kind("context"));
                             emit(Token::Type(*ty));
                         }
@@ -349,12 +367,19 @@ impl StorageKey {
                             emit(Token::Kind("zero"));
                             emit(Token::Type(*ty));
                         }
-                        ValueExpr::StaticAddress { address, ty, .. } => {
+                        ValueExpr::StaticAddress {
+                            address,
+                            ty,
+                            ..
+                        } => {
                             emit(Token::Kind("static-address"));
                             emit(Token::Type(*ty));
                             emit(Token::Address(address.clone()));
                         }
-                        ValueExpr::StringBytes { bytes: value, ty } => {
+                        ValueExpr::StringBytes {
+                            bytes: value,
+                            ty,
+                        } => {
                             bytes = bytes.checked_add(value.len()).ok_or_else(|| {
                                 Diagnostic::new(span, "lexical storage key byte budget overflow")
                             })?;
@@ -368,17 +393,26 @@ impl StorageKey {
                             emit(Token::Type(*ty));
                             emit(Token::Bytes(value.clone()));
                         }
-                        ValueExpr::ProcedureValue { procedure, ty } => {
+                        ValueExpr::ProcedureValue {
+                            procedure,
+                            ty,
+                        } => {
                             emit(Token::Kind("procedure"));
                             emit(Token::Type(*ty));
                             emit(Token::Procedure(*procedure));
                         }
-                        ValueExpr::Enum { ty, value } => {
+                        ValueExpr::Enum {
+                            ty,
+                            value,
+                        } => {
                             emit(Token::Kind("enum"));
                             emit(Token::Type(*ty));
                             emit(Token::Integer(*value));
                         }
-                        ValueExpr::Array { ty, elements }
+                        ValueExpr::Array {
+                            ty,
+                            elements,
+                        }
                         | ValueExpr::Record {
                             ty,
                             fields: elements,
@@ -392,7 +426,11 @@ impl StorageKey {
                             emit(Token::Count(elements.len()));
                             pending.extend(elements.iter().rev().map(Work::Value));
                         }
-                        ValueExpr::Union { ty, field, value }
+                        ValueExpr::Union {
+                            ty,
+                            field,
+                            value,
+                        }
                         | ValueExpr::Field {
                             ty,
                             field,
@@ -429,7 +467,10 @@ impl StorageKey {
                                 pending.push(Work::Token(Token::Count(path.len())));
                             }
                         }
-                        ValueExpr::RecordBuild { ty, initializers } => {
+                        ValueExpr::RecordBuild {
+                            ty,
+                            initializers,
+                        } => {
                             emit(Token::Kind("record-build"));
                             emit(Token::Type(*ty));
                             emit(Token::Count(initializers.len()));
@@ -438,7 +479,10 @@ impl StorageKey {
                                 pending.push(Work::Token(Token::Field(*field)));
                             }
                         }
-                        ValueExpr::SequenceBuild { ty, initializers } => {
+                        ValueExpr::SequenceBuild {
+                            ty,
+                            initializers,
+                        } => {
                             emit(Token::Kind("sequence-build"));
                             emit(Token::Type(*ty));
                             emit(Token::Count(initializers.len()));
@@ -447,7 +491,10 @@ impl StorageKey {
                                 pending.push(Work::Token(Token::Sequence(*field)));
                             }
                         }
-                        ValueExpr::SequenceConcat { ty, parts } => {
+                        ValueExpr::SequenceConcat {
+                            ty,
+                            parts,
+                        } => {
                             emit(Token::Kind("sequence-concat"));
                             emit(Token::Type(*ty));
                             emit(Token::Count(parts.len()));
@@ -464,8 +511,14 @@ impl StorageKey {
                                 }
                             }
                         }
-                        ValueExpr::AddressOf { place, ty }
-                        | ValueExpr::ArrayToSlice { array: place, ty } => {
+                        ValueExpr::AddressOf {
+                            place,
+                            ty,
+                        }
+                        | ValueExpr::ArrayToSlice {
+                            array: place,
+                            ty,
+                        } => {
                             emit(Token::Kind(
                                 if matches!(value, ValueExpr::AddressOf { .. }) {
                                     "address-of"
@@ -476,33 +529,66 @@ impl StorageKey {
                             emit(Token::Type(*ty));
                             pending.push(Work::Place(*place));
                         }
-                        ValueExpr::TypeDescriptor { value: inner, ty }
-                        | ValueExpr::AddressOfValue { value: inner, ty }
-                        | ValueExpr::ArrayView { array: inner, ty }
+                        ValueExpr::TypeDescriptor {
+                            value: inner,
+                            ty,
+                        }
+                        | ValueExpr::AddressOfValue {
+                            value: inner,
+                            ty,
+                        }
+                        | ValueExpr::ArrayView {
+                            array: inner,
+                            ty,
+                        }
                         | ValueExpr::SequenceView {
                             sequence: inner,
                             ty,
                         }
-                        | ValueExpr::Distinct { value: inner, ty }
-                        | ValueExpr::UnwrapDistinct { value: inner, ty } => {
+                        | ValueExpr::Distinct {
+                            value: inner,
+                            ty,
+                        }
+                        | ValueExpr::UnwrapDistinct {
+                            value: inner,
+                            ty,
+                        } => {
                             emit(Token::Kind(match value {
-                                ValueExpr::TypeDescriptor { .. } => "type-descriptor",
-                                ValueExpr::AddressOfValue { .. } => "address-of-value",
-                                ValueExpr::ArrayView { .. } => "array-view",
-                                ValueExpr::SequenceView { .. } => "sequence-view",
-                                ValueExpr::Distinct { .. } => "distinct",
+                                ValueExpr::TypeDescriptor {
+                                    ..
+                                } => "type-descriptor",
+                                ValueExpr::AddressOfValue {
+                                    ..
+                                } => "address-of-value",
+                                ValueExpr::ArrayView {
+                                    ..
+                                } => "array-view",
+                                ValueExpr::SequenceView {
+                                    ..
+                                } => "sequence-view",
+                                ValueExpr::Distinct {
+                                    ..
+                                } => "distinct",
                                 _ => "unwrap-distinct",
                             }));
                             emit(Token::Type(*ty));
                             pending.push(Work::Value(inner));
                         }
-                        ValueExpr::PointerCast { value, ty, mode } => {
+                        ValueExpr::PointerCast {
+                            value,
+                            ty,
+                            mode,
+                        } => {
                             emit(Token::Kind("pointer-cast"));
                             emit(Token::Type(*ty));
                             emit(Token::Cast(*mode));
                             pending.push(Work::Value(value));
                         }
-                        ValueExpr::SequenceField { base, field, ty } => {
+                        ValueExpr::SequenceField {
+                            base,
+                            field,
+                            ty,
+                        } => {
                             emit(Token::Kind("sequence-field"));
                             emit(Token::Type(*ty));
                             emit(Token::Sequence(*field));
@@ -542,18 +628,28 @@ impl StorageKey {
                             pending.push(Work::Value(pointer));
                             pending.push(Work::Int(offset));
                         }
-                        ValueExpr::PointerFromInteger { value, ty, mode } => {
+                        ValueExpr::PointerFromInteger {
+                            value,
+                            ty,
+                            mode,
+                        } => {
                             emit(Token::Kind("pointer-from-integer"));
                             emit(Token::Type(*ty));
                             emit(Token::Cast(*mode));
                             pending.push(Work::Int(value));
                         }
-                        ValueExpr::EnumFromInt { value, ty } => {
+                        ValueExpr::EnumFromInt {
+                            value,
+                            ty,
+                        } => {
                             emit(Token::Kind("enum-from-int"));
                             emit(Token::Type(*ty));
                             pending.push(Work::Int(value));
                         }
-                        ValueExpr::Call { call, ty } => {
+                        ValueExpr::Call {
+                            call,
+                            ty,
+                        } => {
                             emit(Token::Kind("typed-call"));
                             emit(Token::Type(*ty));
                             pending.push(Work::Call(call));
@@ -574,7 +670,10 @@ impl StorageKey {
                             }
                             pending.push(Work::Value(callee));
                         }
-                        ValueExpr::Conditional { ty, expression } => {
+                        ValueExpr::Conditional {
+                            ty,
+                            expression,
+                        } => {
                             emit(Token::Kind("conditional-value"));
                             emit(Token::Type(*ty));
                             pending.push(Work::Value(&expression.else_value));

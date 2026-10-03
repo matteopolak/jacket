@@ -41,6 +41,7 @@ fn graph(prelude: &str, application: &str) -> ModuleGraph {
                     define_system_entry_point: false,
                     define_initialization: false,
                     enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
                 },
             }),
         },

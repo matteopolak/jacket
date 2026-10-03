@@ -24,6 +24,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, results: Vec<Typ
         .procedure(ProcedureType {
             parameters: parameters.into_boxed_slice(),
             results: results.into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: jai_types::Variadic::None,
@@ -644,6 +645,7 @@ fn foreign_prototype_and_procedure_pointer_use_sparse_checked_identities() {
         .procedure(ProcedureType {
             parameters: vec![int].into_boxed_slice(),
             results: vec![int].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -893,6 +895,7 @@ fn c_definition_parameters_and_returns_use_the_foreign_adapter() {
         .procedure(ProcedureType {
             parameters: vec![record].into_boxed_slice(),
             results: vec![record].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,

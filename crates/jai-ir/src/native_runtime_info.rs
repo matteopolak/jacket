@@ -26,7 +26,8 @@ impl fmt::Display for NativeRuntimeInfoError {
         f.write_str(&self.0)
     }
 }
-impl std::error::Error for NativeRuntimeInfoError {}
+impl std::error::Error for NativeRuntimeInfoError {
+}
 impl NativeRuntimeInfoError {
     pub(crate) fn invalid(message: &str) -> Self {
         Self(message.into())

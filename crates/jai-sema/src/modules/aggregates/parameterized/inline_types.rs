@@ -165,7 +165,11 @@ where
             return Ok(());
         }
         let flags = enumeration.kind == syntax::EnumKind::Flags;
-        let mut next = Some(if flags { 1i128 } else { 0 });
+        let mut next = Some(if flags {
+            1i128
+        } else {
+            0
+        });
         let mut values = Vec::new();
         let mut names = HashSet::new();
         let mut scope = scope.clone();
@@ -318,7 +322,9 @@ mod tests {
             records.reflected_field_notes(field.id).unwrap(),
             &[Box::<[u8]>::from(&b"Range(7)"[..])]
         );
-        let syntax::FieldBinding::Explicit { ty: annotation, .. } = source_record.shape.fields[0]
+        let syntax::FieldBinding::Explicit {
+            ty: annotation, ..
+        } = source_record.shape.fields[0]
             .syntax
             .named_binding()
             .unwrap()
@@ -409,8 +415,9 @@ mod tests {
         .unwrap() else {
             panic!("complete source shapes must be ready");
         };
-        let jai_types::DescriptorKind::Record { fields, .. } =
-            &reflection.get(reflection.root()).unwrap().kind
+        let jai_types::DescriptorKind::Record {
+            fields, ..
+        } = &reflection.get(reflection.root()).unwrap().kind
         else {
             panic!()
         };
@@ -425,7 +432,10 @@ mod tests {
         assert!(fields[1].using);
         let child = reflection.get(fields[1].ty).unwrap();
         assert_eq!(child.name, None);
-        let jai_types::DescriptorKind::Record { fields, .. } = &child.kind else {
+        let jai_types::DescriptorKind::Record {
+            fields, ..
+        } = &child.kind
+        else {
             panic!()
         };
         assert_eq!(

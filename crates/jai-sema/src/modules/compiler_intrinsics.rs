@@ -1,10 +1,11 @@
 //! Bind explicitly marked source declarations once, before VM execution.
 use super::*;
 mod code_arguments;
+mod platform;
 pub(crate) mod schema;
 pub(super) use code_arguments::lower_code_signature;
 pub(crate) use code_arguments::{SourceCompilerSignature, source_candidate};
-use jai_source::ModuleId;
+use jai_source::{ModuleId, SourceId, Span};
 use jai_types::{CallingConvention, ContextMode, TypeView};
 use jai_vm::{CompilerIntrinsic, CompilerProcedure, WorkspaceId};
 use schema::{build_options_projection, validate_enum, validate_location};
@@ -22,6 +23,8 @@ pub enum CompilerModuleOrigin {
 #[derive(Clone, Debug, Default)]
 pub struct CompilerModuleOrigins {
     modules: HashMap<ModuleId, CompilerModuleOrigin>,
+    runtime_support_source: Vec<(SourceId, Span, Symbol)>,
+    runtime_support_declarations: Vec<DeclarationId>,
 }
 impl CompilerModuleOrigins {
     pub fn register(&mut self, module: ModuleId, origin: CompilerModuleOrigin) {
@@ -29,6 +32,64 @@ impl CompilerModuleOrigins {
     }
     pub fn origin(&self, module: ModuleId) -> Option<CompilerModuleOrigin> {
         self.modules.get(&module).copied()
+    }
+    fn register_selected_runtime_support(&mut self, graph: &ModuleGraph) {
+        let Some(module) = graph.runtime_support() else {
+            return;
+        };
+        let selected_source = graph
+            .module(module)
+            .and_then(|selected| graph.file(selected.entry()))
+            .map(|file| file.source());
+        // A source module can be imported with different module arguments,
+        // producing distinct ModuleIds for the same provider-retained entry
+        // image. Carry the module role only across that exact SourceId.
+        // Separately retain original declaration coordinates from the selected
+        // entry; same-source insertions and copied files do not gain authority.
+        if let Some(source) = selected_source {
+            for instance in graph.modules() {
+                if graph
+                    .file(instance.entry())
+                    .is_some_and(|file| file.source() == source)
+                {
+                    self.register(instance.id(), CompilerModuleOrigin::RuntimeSupport);
+                }
+            }
+            for declaration in graph.declarations() {
+                let file = graph
+                    .file(declaration.file())
+                    .expect("declaration file belongs to graph");
+                if file.module() != module || file.source() != source {
+                    continue;
+                }
+                if is_compiler_declaration(declaration) {
+                    self.runtime_support_source.push((
+                        file.source(),
+                        declaration.location().span,
+                        declaration.name(),
+                    ));
+                }
+            }
+            for declaration in graph.declarations() {
+                let file = graph
+                    .file(declaration.file())
+                    .expect("declaration file belongs to graph");
+                if !is_compiler_declaration(declaration) {
+                    continue;
+                }
+                let key = (
+                    file.source(),
+                    declaration.location().span,
+                    declaration.name(),
+                );
+                if self.runtime_support_source.contains(&key) {
+                    self.runtime_support_declarations.push(declaration.id());
+                }
+            }
+        }
+    }
+    fn is_selected_runtime_declaration(&self, declaration: DeclarationId) -> bool {
+        self.runtime_support_declarations.contains(&declaration)
     }
     /// Match the loader's selected, canonical source entry against configured roots.
     pub fn from_graph(graph: &ModuleGraph, import_dirs: &[PathBuf]) -> Self {
@@ -63,10 +124,18 @@ impl CompilerModuleOrigins {
         if let Some(module) = graph.prelude() {
             origins.register(module, CompilerModuleOrigin::Preload);
         }
-        if let Some(module) = graph.runtime_support() {
-            origins.register(module, CompilerModuleOrigin::RuntimeSupport);
-        }
+        origins.register_selected_runtime_support(graph);
         origins
+    }
+}
+
+fn is_compiler_declaration(declaration: &jai_modules::Declaration) -> bool {
+    match &declaration.syntax().kind {
+        FileDeclarationKind::ProcedurePrototype(prototype) => {
+            matches!(&prototype.binding, syntax::PrototypeBinding::Compiler(_))
+        }
+        FileDeclarationKind::Procedure(procedure) => procedure.compiler.is_some(),
+        _ => false,
     }
 }
 
@@ -242,6 +311,17 @@ fn bind_available(
         let Some(origin) = context.origins.origin(module) else {
             return Err(graph.diagnostic(declaration.location(), "#compiler declaration does not belong to the application or a selected Compiler/Preload module"));
         };
+        if origin == CompilerModuleOrigin::RuntimeSupport {
+            if !context
+                .origins
+                .is_selected_runtime_declaration(declaration.id())
+            {
+                return Err(graph.diagnostic(
+                    declaration.location(),
+                    "Runtime_Support #compiler declaration is not an original selected source declaration",
+                ));
+            }
+        }
         if origin == CompilerModuleOrigin::Preload && source != SourceIntrinsic::CurrentWorkspace {
             return Err(graph.diagnostic(
                 declaration.location(),
@@ -332,7 +412,9 @@ fn bind_source_signature(
                 return Err("requires (version_info_return: *Version_Info) -> string".into());
             };
             schema::validate_version(*record, graph, declarations, types, context)?;
-            return Ok(CompilerIntrinsic::SourceVersionInfo { record: *record });
+            return Ok(CompilerIntrinsic::SourceVersionInfo {
+                record: *record,
+            });
         }
         (SourceIntrinsic::RuntimeInfo, [id], [result]) if workspace(*id) => {
             return Ok(CompilerIntrinsic::SourceRuntimeInfo {
@@ -433,7 +515,9 @@ fn bind_signature(
         SourceIntrinsic::EndIntercept
             if matches!(parameters, [id] if is_workspace(*id)) && results.is_empty() =>
         {
-            Ok(CompilerIntrinsic::SourceEndIntercept { current_workspace })
+            Ok(CompilerIntrinsic::SourceEndIntercept {
+                current_workspace,
+            })
         }
         SourceIntrinsic::BeginIntercept => Err(
             "requires (w: s64, flags: Intercept_Flags) -> void with the exact source u32 flags enum",
@@ -446,13 +530,17 @@ fn bind_signature(
             if matches!(parameters, [workspace] if is_workspace(*workspace))
                 && matches!(results, [name] if is_string(*name)) =>
         {
-            Ok(CompilerIntrinsic::SourceGetWorkspaceName { current_workspace })
+            Ok(CompilerIntrinsic::SourceGetWorkspaceName {
+                current_workspace,
+            })
         }
         SourceIntrinsic::DestroyWorkspace
             if matches!(parameters, [workspace] if is_workspace(*workspace))
                 && results.is_empty() =>
         {
-            Ok(CompilerIntrinsic::SourceDestroyWorkspace { current_workspace })
+            Ok(CompilerIntrinsic::SourceDestroyWorkspace {
+                current_workspace,
+            })
         }
         SourceIntrinsic::WriteString
             if matches!(parameters, [text, error] if is_string(*text) && matches!(types.kind(*error), Ok(TypeKind::Bool)))
@@ -490,16 +578,22 @@ fn bind_signature(
             if parameters.is_empty()
                 && matches!(results, [workspace] if is_workspace(*workspace)) =>
         {
-            Ok(CompilerIntrinsic::SourceCurrentWorkspace { current_workspace })
+            Ok(CompilerIntrinsic::SourceCurrentWorkspace {
+                current_workspace,
+            })
         }
         SourceIntrinsic::AddString | SourceIntrinsic::AddFile
             if matches!(parameters, [text, workspace] if is_string(*text) && is_workspace(*workspace))
                 && results.is_empty() =>
         {
             Ok(if source == SourceIntrinsic::AddString {
-                CompilerIntrinsic::SourceAddString { current_workspace }
+                CompilerIntrinsic::SourceAddString {
+                    current_workspace,
+                }
             } else {
-                CompilerIntrinsic::SourceAddFile { current_workspace }
+                CompilerIntrinsic::SourceAddFile {
+                    current_workspace,
+                }
             })
         }
         SourceIntrinsic::AddString => Err(

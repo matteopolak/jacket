@@ -239,11 +239,22 @@ impl Resolver<'_> {
                     }
                     false
                 }
-                S::AssignPlace { target, value } | S::UpdatePlace { target, value, .. } => {
+                S::AssignPlace {
+                    target,
+                    value,
+                }
+                | S::UpdatePlace {
+                    target,
+                    value,
+                    ..
+                } => {
                     let target = Self::preview_lambda_place_expression(target)?;
                     let ty = self.preview_lambda_assignment_type(&target)?;
                     self.check_discarded_argument(value, ty)?;
-                    if let S::UpdatePlace { operation, .. } = &statement.kind {
+                    if let S::UpdatePlace {
+                        operation, ..
+                    } = &statement.kind
+                    {
                         self.preview_lambda_update(&target, *operation, value, span)?;
                     }
                     false
@@ -255,7 +266,10 @@ impl Resolver<'_> {
                     yes && no
                 }
                 S::Block(body) => self.preview_lambda_nested(body, context, results)?,
-                S::CheckScope { checks, body } => {
+                S::CheckScope {
+                    checks,
+                    body,
+                } => {
                     let previous = self.checks;
                     self.checks = previous.overridden(*checks);
                     let checked = self.preview_lambda_nested(body, context, results);
@@ -386,8 +400,18 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<(Symbol, TypeId), Diagnostic> {
         let (name, annotation, initializer) = match declaration {
+            syntax::Declaration::GroupMember {
+                ..
+            } => {
+                return Err(Diagnostic::new(
+                    self.span,
+                    "file declaration group requires its source publication owner",
+                ));
+            }
             syntax::Declaration::Inferred {
-                name, initializer, ..
+                name,
+                initializer,
+                ..
             } => (*name, None, Some(initializer)),
             syntax::Declaration::Explicit {
                 name,
@@ -405,7 +429,9 @@ impl Resolver<'_> {
                 Some(self.preview_annotation(ty, span)?),
                 initializer.as_ref(),
             ),
-            syntax::Declaration::External { .. } => {
+            syntax::Declaration::External {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     span,
                     "external declaration requires its checked source binding before lambda preview",
@@ -465,11 +491,15 @@ impl Resolver<'_> {
             E::QualifiedName(path) => {
                 matches!(self.lookup_path(path, target.span)?, Binding::Storage(_))
             }
-            E::Member { base, .. } => {
+            E::Member {
+                base, ..
+            } => {
                 self.preview_lambda_mutable_place(base)?;
                 true
             }
-            E::Index { base, .. } => {
+            E::Index {
+                base, ..
+            } => {
                 let description = self.describe_argument(base)?;
                 let ty = self.argument_type(&description, base.span)?;
                 if !matches!(self.types.kind(ty), Ok(TypeKind::Pointer(_))) {
@@ -517,11 +547,17 @@ impl Resolver<'_> {
             syntax::PlaceKind::Qualified(path) => {
                 syntax::ExpressionKind::QualifiedName(path.clone())
             }
-            syntax::PlaceKind::Member { base, member } => syntax::ExpressionKind::Member {
+            syntax::PlaceKind::Member {
+                base,
+                member,
+            } => syntax::ExpressionKind::Member {
                 base: base.clone(),
                 member: *member,
             },
-            syntax::PlaceKind::Index { base, index } => syntax::ExpressionKind::Index {
+            syntax::PlaceKind::Index {
+                base,
+                index,
+            } => syntax::ExpressionKind::Index {
                 base: base.clone(),
                 index: index.clone(),
             },
@@ -593,7 +629,12 @@ impl Resolver<'_> {
                 ScalarConstant::Float(*value)
             }
             Some(
-                ConstantArgument::FloatLiteral { .. } | ConstantArgument::FloatExpression { .. },
+                ConstantArgument::FloatLiteral {
+                    ..
+                }
+                | ConstantArgument::FloatExpression {
+                    ..
+                },
             ) => jai_eval::evaluate_paths_with_overflow_check(
                 source,
                 self.checks.arithmetic_overflow,

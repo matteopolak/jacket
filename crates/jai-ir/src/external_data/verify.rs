@@ -34,7 +34,9 @@ pub(crate) fn verify_library(library: &Library) -> Result<(), ExternalDataError>
                 actual: data.ty(),
             }));
         }
-        if let ExternalDataId::Local { procedure, .. } = data.id()
+        if let ExternalDataId::Local {
+            procedure, ..
+        } = data.id()
             && library.procedure_by_id(procedure).is_none()
             && library.source_procedure_owners().get(procedure).is_none()
         {

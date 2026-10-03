@@ -121,8 +121,12 @@ mod tests {
     fn chains_accept_original_import_and_declaration_items_with_visibility() {
         let parsed = parse("#scope_module #if true #load \"a\"; else #if false #import \"Other\"; else VALUE::42; AFTER::1;").unwrap();
         let [
-            FileItem::Scope { .. },
-            FileItem::Conditional { else_items, .. },
+            FileItem::Scope {
+                ..
+            },
+            FileItem::Conditional {
+                else_items, ..
+            },
             FileItem::Declaration(after),
         ] = parsed.items()
         else {
@@ -163,7 +167,12 @@ mod tests {
             panic!("outer conditional expected");
         };
         assert!(else_items.is_empty());
-        let [FileItem::Conditional { else_items, .. }] = then_items.as_slice() else {
+        let [
+            FileItem::Conditional {
+                else_items, ..
+            },
+        ] = then_items.as_slice()
+        else {
             panic!("inner conditional expected");
         };
         assert!(matches!(else_items.as_slice(), [FileItem::Load(_)]));

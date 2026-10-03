@@ -49,7 +49,10 @@ impl Parser<'_> {
         };
         Ok(Expression {
             span: Span::new(start, self.tokens[self.at - 1].span.end),
-            kind: ExpressionKind::CompileTime(CompileTimeRun { flags, body }),
+            kind: ExpressionKind::CompileTime(CompileTimeRun {
+                flags,
+                body,
+            }),
         })
     }
 }
@@ -80,8 +83,9 @@ mod tests {
         let module =
             parse("main :: () { value := #run -> int { return 42; }; #run { value := 3; }; }")
                 .unwrap();
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &module.procedures()[0].body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &module.procedures()[0].body[0].kind
         else {
             panic!("expected inferred declaration");
         };

@@ -63,6 +63,7 @@ impl Fixture {
                 .procedure(ProcedureType {
                     parameters: parameters.into(),
                     results: [integer].into(),
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: CallingConvention::C,
                     context: ContextMode::None,
                     variadic,
@@ -152,7 +153,10 @@ fn pipe(vm: &mut Vm<'_, Fixture, NoEffects>, fixture: &Fixture) -> [i32; 2] {
         0
     );
     let result = vm.memory.load(&fixture.types, &pair).unwrap();
-    let Value::Array { elements, .. } = result.semantic() else {
+    let Value::Array {
+        elements, ..
+    } = result.semantic()
+    else {
         panic!()
     };
     [

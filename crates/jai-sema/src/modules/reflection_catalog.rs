@@ -30,8 +30,12 @@ impl FileScope<'_> {
             }
             match self.declarations.values.get(&id) {
                 Some(Binding::Type(ty))
-                | Some(Binding::Procedure { ty, .. })
-                | Some(Binding::Enum(aggregates::EnumConstant { ty, .. })) => {
+                | Some(Binding::Procedure {
+                    ty, ..
+                })
+                | Some(Binding::Enum(aggregates::EnumConstant {
+                    ty, ..
+                })) => {
                     source_fact(types, &mut facts, *ty, location)?;
                 }
                 Some(Binding::Storage(storage)) => {
@@ -130,9 +134,10 @@ fn source_constant_facts(
                 }
                 pending.extend(values.iter().rev());
             }
-            jai_ir::ConstantKind::Distinct(value) | jai_ir::ConstantKind::Union { value, .. } => {
-                pending.push(value)
-            }
+            jai_ir::ConstantKind::Distinct(value)
+            | jai_ir::ConstantKind::Union {
+                value, ..
+            } => pending.push(value),
             _ => {}
         }
     }

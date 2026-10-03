@@ -108,8 +108,12 @@ fn exported_while_binding_retains_the_marked_name_and_real_initializer() {
         macro_.body[0].span.text(text),
         "while `table_while_loop:=remaining {#insert body;}"
     );
-    let StatementKind::While(jai_syntax::WhileCondition::Binding { export_span, .. }, _) =
-        &macro_.body[1].kind
+    let StatementKind::While(
+        jai_syntax::WhileCondition::Binding {
+            export_span, ..
+        },
+        _,
+    ) = &macro_.body[1].kind
     else {
         panic!("ordinary while binding");
     };

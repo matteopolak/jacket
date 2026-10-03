@@ -4,6 +4,7 @@ fn method(types: &mut TypeRegistry) -> ProcedureType {
     ProcedureType {
         parameters: Box::new([receiver]),
         results: Box::new([]),
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::CppMethod,
         context: ContextMode::None,
         variadic: Variadic::None,

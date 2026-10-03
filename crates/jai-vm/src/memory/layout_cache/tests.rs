@@ -556,6 +556,7 @@ fn bind_allocator(types: &mut TypeRegistry) -> AllocatorSchema {
         .procedure(ProcedureType {
             parameters: Box::new([mode, size, size, data, data]),
             results: Box::new([data]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,

@@ -66,7 +66,9 @@ fn fixture() -> (Provider, Arc<StaticData>, StaticAddress, RuntimeTypeSchema) {
             .unwrap(),
     );
     (
-        Provider { types },
+        Provider {
+            types,
+        },
         data,
         StaticAddress::new(descriptor),
         schema,

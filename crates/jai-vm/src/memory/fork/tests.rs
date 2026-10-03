@@ -80,6 +80,7 @@ fn data_pointer_and_code_receipts_keep_inherited_branch_provenance() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

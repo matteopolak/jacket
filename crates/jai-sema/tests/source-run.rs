@@ -196,7 +196,8 @@ fn replay_metadata_is_stable_when_a_source_rebuild_appends_declarations() {
         fn set_source_origin(&mut self, origin: jai_vm::SourceOrigin) {
             self.values.push(origin);
         }
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("pure run has no compiler request");
         }
@@ -233,7 +234,8 @@ fn invalid_string_materialization_rolls_back_before_effect_finalization() {
         finished: Vec<bool>,
     }
     impl jai_vm::CompilerEffects for Effects {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("fixture is pure");
         }
@@ -262,7 +264,8 @@ fn address_derived_results_never_publish_or_commit() {
     #[derive(Default)]
     struct Effects(Vec<bool>);
     impl jai_vm::CompilerEffects for Effects {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("pure fixture");
         }
@@ -482,7 +485,8 @@ fn one_quoted_recipe_in_distinct_owners_has_distinct_replay_identity() {
         fn set_source_origin(&mut self, origin: jai_vm::SourceOrigin) {
             self.0.push(origin);
         }
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("pure recipe");
         }
@@ -509,7 +513,8 @@ fn quoted_run_captures_have_distinct_stable_replay_identity() {
         fn set_source_origin(&mut self, origin: jai_vm::SourceOrigin) {
             self.0.push(origin);
         }
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("pure quoted recipe");
         }
@@ -614,7 +619,8 @@ fn module_parameter_instances_have_stable_distinct_run_origins() {
         fn set_source_origin(&mut self, origin: jai_vm::SourceOrigin) {
             self.0.push(origin);
         }
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("pure module recipe")
         }
@@ -676,7 +682,8 @@ fn expected_run_type_is_checked_before_effects_commit() {
         rollbacks: usize,
     }
     impl jai_vm::CompilerEffects for Effects {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, request: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             assert!(matches!(
                 request,
@@ -827,7 +834,8 @@ fn completed_run_does_not_hide_a_later_callback_contract_failure() {
         commits: usize,
     }
     impl jai_vm::CompilerEffects for Effects {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, _: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
             panic!("this source fixture has no compiler requests")
         }

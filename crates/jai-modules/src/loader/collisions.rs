@@ -57,7 +57,9 @@ impl Builder<'_> {
                     self.append_origin(message, member.location(), side, "storage member");
                 }
             }
-            Binding::SourceMember { declaration, .. } => {
+            Binding::SourceMember {
+                declaration, ..
+            } => {
                 if let Some(declaration) = self.graph.declaration(declaration) {
                     self.append_origin(
                         message,

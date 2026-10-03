@@ -68,7 +68,10 @@ impl Resolver<'_> {
                     CompilerQuoteBinding::Lexical(storage) => {
                         PublishedBinding::Static(Binding::Storage(*storage))
                     }
-                    CompilerQuoteBinding::Native { slot, ty } => {
+                    CompilerQuoteBinding::Native {
+                        slot,
+                        ty,
+                    } => {
                         let value = snapshots.get(slot).ok_or(jai_vm::Error::InvalidIr(
                             "selected compiler quotation capture is absent",
                         ))?;
@@ -220,7 +223,10 @@ impl Resolver<'_> {
         vm.charge_publication_work(entries)?;
         let mut aliases = HashMap::new();
         for (_, binding) in template.frames().iter().flat_map(|frame| frame.iter()) {
-            if let CompilerQuoteBinding::Native { slot, .. } = binding {
+            if let CompilerQuoteBinding::Native {
+                slot, ..
+            } = binding
+            {
                 let count = aliases.entry(*slot).or_insert(0usize);
                 *count = count.checked_add(1).ok_or_else(fail)?;
             } else if let CompilerQuoteBinding::Static(Binding::TypedConstant(id)) = binding {
@@ -297,7 +303,9 @@ impl Resolver<'_> {
                     }
                 }
                 jai_ir::ConstantKind::Distinct(value)
-                | jai_ir::ConstantKind::Union { value, .. } => {
+                | jai_ir::ConstantKind::Union {
+                    value, ..
+                } => {
                     inspect(vm, value, nodes, bytes, span, depth + 1)?;
                 }
                 jai_ir::ConstantKind::StringBytes(value) => {
@@ -331,7 +339,11 @@ impl Resolver<'_> {
     {
         let diagnostic = |error: Diagnostic| jai_vm::Error::IrValidation(error.message);
         Ok(match binding {
-            Binding::CompilerInput { .. } | Binding::Discarded(_) | Binding::LambdaPreview(_) => {
+            Binding::CompilerInput {
+                ..
+            }
+            | Binding::Discarded(_)
+            | Binding::LambdaPreview(_) => {
                 return Err(jai_vm::Error::InvalidIr(
                     "compiler quotation contains an unowned source fact",
                 ));
@@ -377,7 +389,10 @@ impl Resolver<'_> {
                     .map_err(diagnostic)?;
                 CaptureBinding::Storage(key)
             }
-            Binding::Procedure { procedure, ty } => CaptureBinding::Procedure(*procedure, *ty),
+            Binding::Procedure {
+                procedure,
+                ty,
+            } => CaptureBinding::Procedure(*procedure, *ty),
             Binding::Constant(crate::ScalarConstant::Literal(value)) => {
                 CaptureBinding::WeakInteger(*value)
             }
@@ -430,10 +445,10 @@ impl Resolver<'_> {
                         jai_ir::ConstantKind::RuntimeType(value) => {
                             Binding::Type(value.identity().ty())
                         }
-                        kind => Binding::TypedConstant(
-                            self.meta
-                                .intern_constant(ConstantValue { ty: value.ty, kind }),
-                        ),
+                        kind => Binding::TypedConstant(self.meta.intern_constant(ConstantValue {
+                            ty: value.ty,
+                            kind,
+                        })),
                     },
                 };
                 bindings.insert(name, binding);

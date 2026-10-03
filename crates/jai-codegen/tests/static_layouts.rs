@@ -38,6 +38,7 @@ fn program(mut types: TypeRegistry, places: PlaceRegistry, result: IntExpr) -> P
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

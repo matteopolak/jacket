@@ -47,7 +47,10 @@ impl Parser<'_> {
                 } else {
                     None
                 };
-                RecordParameterBinding::Typed { ty, default }
+                RecordParameterBinding::Typed {
+                    ty,
+                    default,
+                }
             };
             parameters.push(RecordParameter {
                 name,

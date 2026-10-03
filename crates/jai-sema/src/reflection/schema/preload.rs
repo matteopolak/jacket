@@ -197,6 +197,7 @@ impl TypeInfoSchema {
             .procedure(ProcedureType {
                 parameters: Box::new([void_pointer]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,

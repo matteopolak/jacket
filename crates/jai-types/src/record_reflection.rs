@@ -28,7 +28,8 @@ impl fmt::Display for UnknownRecordReflectionFlags {
         write!(f, "unknown record reflection flag bits: {:#x}", self.bits)
     }
 }
-impl std::error::Error for UnknownRecordReflectionFlags {}
+impl std::error::Error for UnknownRecordReflectionFlags {
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecordMemberReflection {
@@ -47,7 +48,9 @@ impl RecordReflectionPolicy {
             | RecordReflectionFlag::NoSizeComplaint as u32;
         let unknown = bits & !KNOWN;
         if unknown != 0 {
-            return Err(UnknownRecordReflectionFlags { bits: unknown });
+            return Err(UnknownRecordReflectionFlags {
+                bits: unknown,
+            });
         }
         Ok(Self(bits as u8))
     }
@@ -134,6 +137,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![int].into(),
                 results: vec![int].into(),
+                return_abi: crate::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,

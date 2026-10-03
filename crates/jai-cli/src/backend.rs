@@ -297,7 +297,12 @@ impl Scratch {
             match fs::create_dir(&path) {
                 Ok(()) => return Ok(Self(path)),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                Err(cause) => return Err(Error::Io { path, cause }),
+                Err(cause) => {
+                    return Err(Error::Io {
+                        path,
+                        cause,
+                    });
+                }
             }
         }
         Err(Error::Arguments(

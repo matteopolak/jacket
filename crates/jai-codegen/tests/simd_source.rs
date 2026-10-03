@@ -236,7 +236,8 @@ fn execute_host_object(object: &Path, directory: &Path) {
 }
 
 #[cfg(not(target_arch = "x86_64"))]
-fn execute_on_compatible_x86_host(_: &Path, _: &Path) {}
+fn execute_on_compatible_x86_host(_: &Path, _: &Path) {
+}
 
 #[test]
 fn compile_time_simd_is_embedded_before_host_native_reachability() {

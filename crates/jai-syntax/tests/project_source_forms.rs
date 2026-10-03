@@ -58,8 +58,9 @@ fn parenthesized_dereference_keeps_pointer_operand_precedence_and_source_span() 
     let FileDeclarationKind::Procedure(procedure) = &procedure.kind else {
         panic!("expected procedure");
     };
-    let StatementKind::Declare(jai_syntax::Declaration::Inferred { initializer, .. }) =
-        &procedure.body[0].kind
+    let StatementKind::Declare(jai_syntax::Declaration::Inferred {
+        initializer, ..
+    }) = &procedure.body[0].kind
     else {
         panic!("expected initializer");
     };
@@ -74,8 +75,9 @@ fn parenthesized_dereference_keeps_pointer_operand_precedence_and_source_span() 
         conditional.condition.span.text(source),
         "(.*)(cast(*bool)data)"
     );
-    let StatementKind::Declare(jai_syntax::Declaration::Inferred { initializer, .. }) =
-        &procedure.body[1].kind
+    let StatementKind::Declare(jai_syntax::Declaration::Inferred {
+        initializer, ..
+    }) = &procedure.body[1].kind
     else {
         panic!("expected initializer");
     };

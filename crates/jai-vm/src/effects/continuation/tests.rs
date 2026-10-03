@@ -25,7 +25,8 @@ impl Default for Effects {
     }
 }
 impl CompilerEffects for Effects {
-    fn begin(&mut self) {}
+    fn begin(&mut self) {
+    }
     fn finish(&mut self, _: bool) -> Result<(), Error> {
         Ok(())
     }
@@ -296,7 +297,9 @@ fn fixed_typed_launch_and_intercept_metadata_are_counted() {
     assert_eq!(
         compiler_response_cells(&CompilerResponse::Message(CompilerEvent::Phase {
             workspace: WorkspaceId::from_raw(1).unwrap(),
-            phase: CompilerPhase::Typechecked { pending_count: 200 },
+            phase: CompilerPhase::Typechecked {
+                pending_count: 200
+            },
         })),
         4
     );

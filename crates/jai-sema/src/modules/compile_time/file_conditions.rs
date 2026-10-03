@@ -51,9 +51,15 @@ pub(super) fn collect(graph: &ModuleGraph) -> Vec<Guard<'_>> {
                         case: None,
                     });
                 }
-                pending.extend(if selected { then_items } else { else_items });
+                pending.extend(if selected {
+                    then_items
+                } else {
+                    else_items
+                });
             }
-            if let syntax::FileItem::CompileTimeCases { cases, .. } = item
+            if let syntax::FileItem::CompileTimeCases {
+                cases, ..
+            } = item
                 && let Some(selection) = graph.source_cases().iter().find(|selection| {
                     selection.file == file.id()
                         && selection.location.span == cases.span
@@ -175,5 +181,8 @@ pub(super) fn bind(
         }
     }
     *guards = retry;
-    Progress { completed, error }
+    Progress {
+        completed,
+        error,
+    }
 }

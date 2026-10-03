@@ -55,7 +55,10 @@ impl BakedValue {
             ConstantKind::RuntimeType(value) => Self::Type(value.identity().ty()),
             ConstantKind::Float(value) => Self::Float(value),
             ConstantKind::StringBytes(value) => Self::String(value.into_boxed_slice()),
-            kind => Self::Value(ConstantValue { ty: value.ty, kind }),
+            kind => Self::Value(ConstantValue {
+                ty: value.ty,
+                kind,
+            }),
         })
     }
     pub fn into_runtime(
@@ -74,11 +77,14 @@ impl BakedValue {
             Self::Type(_) | Self::Code(_) => return Err(TypeError::NotAValue(ty)),
             _ => return Err(TypeError::WrongKind(ty)),
         };
-        Ok(ConstantValue { ty, kind })
+        Ok(ConstantValue {
+            ty,
+            kind,
+        })
     }
 }
 
-fn normalize_constant(
+pub(crate) fn normalize_constant(
     value: ConstantValue,
     types: &dyn TypeView,
 ) -> Result<ConstantValue, TypeError> {
@@ -92,7 +98,9 @@ fn normalize_constant_inner(
     if active.contains(&value.ty) {
         let mut cycle = active.clone();
         cycle.push(value.ty);
-        return Err(TypeError::RecursiveValue { cycle });
+        return Err(TypeError::RecursiveValue {
+            cycle,
+        });
     }
     active.push(value.ty);
     let outer_type = value.ty;
@@ -158,7 +166,13 @@ fn normalize_constant_inner(
                     .collect::<Result<_, _>>()?,
             )
         }
-        (TypeKind::Record(id), ConstantKind::Union { field, value }) => {
+        (
+            TypeKind::Record(id),
+            ConstantKind::Union {
+                field,
+                value,
+            },
+        ) => {
             let definition = types.record(*id)?;
             if definition.kind != RecordKind::Union
                 || field.record() != *id
@@ -182,9 +196,14 @@ fn normalize_constant_inner(
         (TypeKind::Procedure(_), ConstantKind::Procedure(procedure)) => {
             ConstantKind::Procedure(procedure)
         }
-        (TypeKind::FixedArray { element, count }, ConstantKind::Array(values))
-            if usize::try_from(*count).ok() == Some(values.len())
-                && values.iter().all(|value| value.ty == *element) =>
+        (
+            TypeKind::FixedArray {
+                element,
+                count,
+            },
+            ConstantKind::Array(values),
+        ) if usize::try_from(*count).ok() == Some(values.len())
+            && values.iter().all(|value| value.ty == *element) =>
         {
             let values: Vec<_> = values
                 .into_iter()
@@ -220,7 +239,10 @@ fn normalize_constant_inner(
         _ => return Err(TypeError::WrongKind(value.ty)),
     };
     active.pop();
-    Ok(ConstantValue { ty: value.ty, kind })
+    Ok(ConstantValue {
+        ty: value.ty,
+        kind,
+    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -268,7 +290,10 @@ impl Substitution {
         match self.ty(name) {
             Some(previous) => previous == ty,
             None => {
-                self.types.push(TypeBinding { name, ty });
+                self.types.push(TypeBinding {
+                    name,
+                    ty,
+                });
                 true
             }
         }
@@ -277,7 +302,10 @@ impl Substitution {
         match self.constant(name) {
             Some(previous) => previous == &value,
             None => {
-                self.constants.push(ConstantBinding { name, value });
+                self.constants.push(ConstantBinding {
+                    name,
+                    value,
+                });
                 true
             }
         }
@@ -346,14 +374,17 @@ pub fn materialize_with_nominals(
             registry.kind(ty)?;
             ty
         }
-        TypePattern::Restricted { ty, .. } => {
-            materialize_with_nominals(registry, ty, substitution, nominal)?
-        }
+        TypePattern::Restricted {
+            ty, ..
+        } => materialize_with_nominals(registry, ty, substitution, nominal)?,
         TypePattern::Pointer(pointee) => {
             let ty = materialize_with_nominals(registry, pointee, substitution, nominal)?;
             registry.pointer(ty)?
         }
-        TypePattern::FixedArray { element, count } => {
+        TypePattern::FixedArray {
+            element,
+            count,
+        } => {
             let count = match count {
                 CountPattern::Exact(count) => *count,
                 CountPattern::Infer(name) | CountPattern::Variable(name) => {
@@ -393,10 +424,14 @@ pub fn materialize_with_nominals(
             }
             let variadic = match procedure.variadic {
                 crate::overloads::CandidateVariadic::None => jai_types::Variadic::None,
-                crate::overloads::CandidateVariadic::C { fixed_parameters } => {
-                    jai_types::Variadic::C { fixed_parameters }
-                }
-                crate::overloads::CandidateVariadic::Jai { parameter } => {
+                crate::overloads::CandidateVariadic::C {
+                    fixed_parameters,
+                } => jai_types::Variadic::C {
+                    fixed_parameters,
+                },
+                crate::overloads::CandidateVariadic::Jai {
+                    parameter,
+                } => {
                     let ty = parameters
                         .get(parameter)
                         .copied()
@@ -416,6 +451,7 @@ pub fn materialize_with_nominals(
             registry.procedure(jai_types::ProcedureType {
                 parameters: parameters.into_boxed_slice(),
                 results: results.into_boxed_slice(),
+                return_abi: procedure.return_abi,
                 convention: procedure.convention,
                 context: procedure.context,
                 variadic,
@@ -457,6 +493,7 @@ mod procedure_constant_keys {
         let mut signature = jai_types::ProcedureType {
             parameters: Box::new([]),
             results: vec![int].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::None,
             variadic: jai_types::Variadic::None,

@@ -9,7 +9,10 @@ pub struct FloatExpr {
 impl FloatExpr {
     #[doc(hidden)]
     pub fn new(ty: FloatType, kind: FloatExprKind) -> Self {
-        Self { ty, kind }
+        Self {
+            ty,
+            kind,
+        }
     }
     pub fn ty(&self) -> FloatType {
         self.ty

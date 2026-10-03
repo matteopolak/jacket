@@ -45,7 +45,11 @@ fn guarded(path: PathBuf, root: &Path) -> PathBuf {
     path
 }
 fn executable(prefix: Option<&Path>, name: &str, root: &Path) -> PathBuf {
-    let suffix = if cfg!(windows) { ".exe" } else { "" };
+    let suffix = if cfg!(windows) {
+        ".exe"
+    } else {
+        ""
+    };
     let file = format!("{name}{suffix}");
     let path = if let Some(prefix) = prefix {
         prefix.join("bin").join(file)

@@ -56,7 +56,10 @@ impl Parser<'_> {
     pub(super) fn safety_check_scope(&mut self) -> Result<StatementKind, Diagnostic> {
         let checks = self.safety_checks(SafetyChecks::default())?;
         let body = self.block()?;
-        Ok(StatementKind::CheckScope { checks, body })
+        Ok(StatementKind::CheckScope {
+            checks,
+            body,
+        })
     }
 }
 
@@ -96,7 +99,10 @@ mod tests {
             CheckPolicy::Disabled
         );
         assert_eq!(procedures[1].checks.array_bounds, CheckPolicy::Disabled);
-        let StatementKind::CheckScope { checks, .. } = &procedures[1].body[0].kind else {
+        let StatementKind::CheckScope {
+            checks, ..
+        } = &procedures[1].body[0].kind
+        else {
             panic!("expected scope")
         };
         assert_eq!(checks.array_bounds, CheckPolicy::Inherited);
@@ -104,7 +110,10 @@ mod tests {
         let StatementKind::Range(range) = &procedures[1].body[1].kind else {
             panic!("expected range")
         };
-        let StatementKind::CheckScope { checks, .. } = &range.body[0].kind else {
+        let StatementKind::CheckScope {
+            checks, ..
+        } = &range.body[0].kind
+        else {
             panic!("expected scope")
         };
         assert_eq!(checks.array_bounds, CheckPolicy::Disabled);

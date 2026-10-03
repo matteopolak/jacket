@@ -17,6 +17,8 @@ mod execution_phase;
 pub use execution_phase::ProcedureExecution;
 mod debug_policy;
 pub use debug_policy::DebugPolicy;
+mod foreign_return;
+pub use foreign_return::{ForeignReturnAbi, ForeignReturnIssue};
 mod registry;
 pub use registry::*;
 mod any;

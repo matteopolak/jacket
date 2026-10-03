@@ -76,13 +76,16 @@ impl fmt::Display for ConditionSelectionError {
             Self::UnknownRequest => {
                 f.write_str("condition request does not belong to this discovery session")
             }
-            Self::AlreadySelected { previous } => {
+            Self::AlreadySelected {
+                previous,
+            } => {
                 write!(f, "condition has already been selected as {previous}")
             }
         }
     }
 }
-impl std::error::Error for ConditionSelectionError {}
+impl std::error::Error for ConditionSelectionError {
+}
 
 /// Retains parsed sources, canonical module instances, identities, and pending
 /// work while the semantic phase resolves compile-time source conditions.
@@ -177,7 +180,9 @@ impl<'a> GraphDiscovery<'a> {
         if let Some(previous) = condition.selected
             && previous != selected
         {
-            return Err(ConditionSelectionError::AlreadySelected { previous });
+            return Err(ConditionSelectionError::AlreadySelected {
+                previous,
+            });
         }
         condition.selected = Some(selected);
         let (file, span, specialization) = (

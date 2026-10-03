@@ -110,7 +110,10 @@ impl Parser<'_> {
         };
         Ok(Expression {
             span: Span::new(start, body.span.end),
-            kind: ExpressionKind::ShortLambda(Box::new(ShortLambda { parameters, body })),
+            kind: ExpressionKind::ShortLambda(Box::new(ShortLambda {
+                parameters,
+                body,
+            })),
         })
     }
 }

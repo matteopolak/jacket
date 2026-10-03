@@ -41,7 +41,10 @@ impl Resolver<'_> {
         if !self.checks.array_bounds.enabled() {
             return Ok(());
         }
-        let Ok(jai_types::TypeKind::FixedArray { count, .. }) = self.types.kind(base) else {
+        let Ok(jai_types::TypeKind::FixedArray {
+            count, ..
+        }) = self.types.kind(base)
+        else {
             return Ok(());
         };
         let count = *count;

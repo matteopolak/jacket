@@ -1,6 +1,6 @@
 //! Apply only fields projected from a checked source Build_Options schema.
 use super::*;
-use jai_types::TypeView;
+use jai_types::{Integer, IntegerType, TypeView};
 
 pub(super) fn invoke_get_options(
     projection: BuildOptionsProjection,
@@ -20,7 +20,9 @@ pub(super) fn invoke_get_options(
         return Err(fail("get_build_options requires a source s64 workspace"));
     };
     let workspace = super::source::workspace_argument(workspace, current_workspace)?;
-    let snapshot = match effects.request(CompilerRequest::GetBuildOptions { workspace }) {
+    let snapshot = match effects.request(CompilerRequest::GetBuildOptions {
+        workspace,
+    }) {
         EffectOutcome::Ready(CompilerResponse::BuildOptions(snapshot)) => snapshot,
         EffectOutcome::Ready(_) => {
             return Err(EffectError::Failed(Error::EffectResponse(
@@ -57,6 +59,17 @@ pub(super) fn invoke_get_options(
                 RuntimeSupportMode::InitializationOnly => 2,
                 RuntimeSupportMode::Omit => 3,
             },
+            types,
+        )?;
+    }
+    if let Some(path) = projection.temporary_storage_size {
+        assign(
+            &mut record,
+            path,
+            Value::Int(
+                Integer::checked(IntegerType::S32, snapshot.temporary_storage_size as i128)
+                    .expect("retained temporary-storage setting fits source s32"),
+            ),
             types,
         )?;
     }
@@ -128,6 +141,10 @@ fn empty_options(ty: TypeId, types: &dyn TypeView, depth: usize) -> Result<Value
         .map_err(|error| EffectError::Failed(Error::Type(error)))?
     {
         jai_types::TypeKind::String => Ok(Value::String(vec![])),
+        jai_types::TypeKind::Integer(integer) => Ok(Value::Int(
+            Integer::checked(*integer, 0).expect("zero fits every source integer type"),
+        )),
+        jai_types::TypeKind::Bool => Ok(Value::Bool(false)),
         jai_types::TypeKind::Enum(id) => {
             let definition = types
                 .enumeration(*id)
@@ -154,7 +171,10 @@ fn empty_options(ty: TypeId, types: &dyn TypeView, depth: usize) -> Result<Value
                 .iter()
                 .map(|&field| empty_options(field, types, depth + 1))
                 .collect::<Result<_, _>>()?;
-            Ok(Value::Record { ty, fields })
+            Ok(Value::Record {
+                ty,
+                fields,
+            })
         }
         _ => Err(fail("get_build_options has an unsupported schema field")),
     }
@@ -166,7 +186,10 @@ fn assign_enum(
     level: i128,
     types: &dyn TypeView,
 ) -> Result<(), EffectError> {
-    let Value::Enum { ty, .. } = field(record, path, types)? else {
+    let Value::Enum {
+        ty, ..
+    } = field(record, path, types)?
+    else {
         return Err(EffectError::Failed(Error::InvalidIr(
             "get_build_options optimization projection requires an enum",
         )));
@@ -190,7 +213,11 @@ fn assign(
         field: jai_types::FieldId,
         types: &dyn TypeView,
     ) -> Result<(&'a mut Value, TypeId), EffectError> {
-        let Value::Record { ty, fields } = record else {
+        let Value::Record {
+            ty,
+            fields,
+        } = record
+        else {
             return Err(EffectError::Failed(Error::InvalidIr(
                 "get_build_options projection requires a struct record",
             )));
@@ -323,6 +350,19 @@ fn invoke_options_with_location(
         };
         options.push(BuildOption::RuntimeSupport(mode));
     }
+    if let Some(path) = projection.temporary_storage_size {
+        let Value::Int(value) = field(record, path, types)? else {
+            return Err(fail(
+                "Build_Options temporary_storage_size requires an s32 integer",
+            ));
+        };
+        if value.ty() != IntegerType::S32 || value.value() < 0 {
+            return Err(fail(
+                "Build_Options temporary_storage_size must be a nonnegative source s32",
+            ));
+        }
+        options.push(BuildOption::TemporaryStorageSize(value.value() as i32));
+    }
     if let Some(path) = projection.backtrace_on_crash {
         let mode = match enumeration(field(record, path, types)?)? {
             0 => BacktraceOnCrash::Off,
@@ -377,7 +417,10 @@ fn invoke_options_with_location(
                 location: location.clone(),
             }
         } else {
-            CompilerRequest::SetBuildOption { workspace, option }
+            CompilerRequest::SetBuildOption {
+                workspace,
+                option,
+            }
         };
         match effects.request(request) {
             EffectOutcome::Ready(CompilerResponse::Unit) => {}
@@ -407,7 +450,11 @@ fn field<'a>(
         field: jai_types::FieldId,
         types: &dyn TypeView,
     ) -> Result<&'a Value, EffectError> {
-        let Value::Record { ty, fields } = record else {
+        let Value::Record {
+            ty,
+            fields,
+        } = record
+        else {
             return Err(EffectError::Failed(Error::InvalidIr(
                 "build option projection requires a struct record",
             )));
@@ -450,7 +497,10 @@ fn string(value: &Value) -> Result<String, EffectError> {
     })
 }
 fn enumeration(value: &Value) -> Result<u64, EffectError> {
-    let Value::Enum { value, .. } = value else {
+    let Value::Enum {
+        value, ..
+    } = value
+    else {
         return Err(EffectError::Failed(Error::InvalidIr(
             "optimization field requires its checked enum",
         )));

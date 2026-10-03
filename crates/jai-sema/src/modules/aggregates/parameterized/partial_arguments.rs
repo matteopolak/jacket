@@ -74,7 +74,10 @@ impl PartialRecordApplication {
             let span = argument.value.span;
             if argument.spread {
                 return Err(Diagnostic::at_source(
-                    SourceSpan { span, ..location },
+                    SourceSpan {
+                        span,
+                        ..location
+                    },
                     "partial record arguments cannot spread a runtime pack",
                 ));
             }
@@ -86,7 +89,10 @@ impl PartialRecordApplication {
                         .position(|parameter| parameter.name == name)
                         .ok_or_else(|| {
                             Diagnostic::at_source(
-                                SourceSpan { span, ..location },
+                                SourceSpan {
+                                    span,
+                                    ..location
+                                },
                                 "unknown partial record argument",
                             )
                         })?
@@ -94,13 +100,19 @@ impl PartialRecordApplication {
                 None => {
                     if named {
                         return Err(Diagnostic::at_source(
-                            SourceSpan { span, ..location },
+                            SourceSpan {
+                                span,
+                                ..location
+                            },
                             "positional record argument follows a named argument",
                         ));
                     }
                     let formal = remaining.get(positional).copied().ok_or_else(|| {
                         Diagnostic::at_source(
-                            SourceSpan { span, ..location },
+                            SourceSpan {
+                                span,
+                                ..location
+                            },
                             "too many remaining record arguments",
                         )
                     })?;
@@ -110,7 +122,10 @@ impl PartialRecordApplication {
             };
             if baked[formal].is_some() || explicit[formal].replace(&argument.value).is_some() {
                 return Err(Diagnostic::at_source(
-                    SourceSpan { span, ..location },
+                    SourceSpan {
+                        span,
+                        ..location
+                    },
                     "record formal supplied more than once across partial application",
                 ));
             }
@@ -127,7 +142,9 @@ impl PartialRecordApplication {
                     CompletedRecordArgument::Baked(value)
                 } else {
                     let default = match &parameter.binding {
-                        syntax::RecordParameterBinding::Typed { default, .. } => default.as_ref(),
+                        syntax::RecordParameterBinding::Typed {
+                            default, ..
+                        } => default.as_ref(),
                         syntax::RecordParameterBinding::InferredDefault(default) => Some(default),
                     };
                     let expression = explicit[ordinal].or(default).ok_or_else(|| {

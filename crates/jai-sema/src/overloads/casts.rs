@@ -22,7 +22,11 @@ pub(super) fn concrete(
             .map_err(|error| Diagnostic::new(span, error.to_string()))?;
         return Ok(ConversionRank::Literal);
     }
-    if let ArgumentType::ContextualCast { mode, value } = &source.ty {
+    if let ArgumentType::ContextualCast {
+        mode,
+        value,
+    } = &source.ty
+    {
         concrete(types, nominals, target, value, *mode, span)?;
         return Ok(ConversionRank::Literal);
     }
@@ -79,7 +83,9 @@ pub(super) fn concrete(
         ArgumentType::EnumMember(name) => {
             matches!(kind, TypeKind::Enum(_)) && nominals.enum_member(target, *name).is_some()
         }
-        ArgumentType::WeakInteger { .. } => matches!(
+        ArgumentType::WeakInteger {
+            ..
+        } => matches!(
             kind,
             TypeKind::Pointer(_)
                 | TypeKind::Integer(_)
@@ -87,7 +93,12 @@ pub(super) fn concrete(
                 | TypeKind::Float(_)
                 | TypeKind::Bool
         ),
-        ArgumentType::WeakFloat { .. } | ArgumentType::WeakFloatExpression { .. } => {
+        ArgumentType::WeakFloat {
+            ..
+        }
+        | ArgumentType::WeakFloatExpression {
+            ..
+        } => {
             matches!(kind, TypeKind::Float(_) | TypeKind::Bool)
                 || (mode == CastMode::Checked
                     && matches!(kind, TypeKind::Integer(_) | TypeKind::Enum(_)))
@@ -142,11 +153,18 @@ pub(super) fn structural(
     }
     match pattern {
         TypePattern::Pointer(_) => {
-            if let ArgumentType::ContextualCast { mode, value } = &source.ty {
+            if let ArgumentType::ContextualCast {
+                mode,
+                value,
+            } = &source.ty
+            {
                 return structural(types, nominals, pattern, value, substitution, *mode, span);
             }
             let valid = match &source.ty {
-                ArgumentType::Null | ArgumentType::WeakInteger { .. } => true,
+                ArgumentType::Null
+                | ArgumentType::WeakInteger {
+                    ..
+                } => true,
                 ArgumentType::Known(source) => {
                     matches!(
                         types.kind(*source),
@@ -192,7 +210,9 @@ pub(super) fn target_type(
     span: Span,
 ) -> Result<TypeId, Diagnostic> {
     let kind = match pattern {
-        TypePattern::Restricted { ty, .. } => return target_type(types, ty, substitution, span),
+        TypePattern::Restricted {
+            ty, ..
+        } => return target_type(types, ty, substitution, span),
         TypePattern::Procedure(pattern) => {
             let signature = procedures::signature(types, pattern, substitution, span)?;
             return types.lookup_procedure(&signature).ok_or_else(|| {
@@ -217,7 +237,10 @@ pub(super) fn target_type(
         TypePattern::DynamicArray(element) => {
             TypeKind::DynamicArray(target_type(types, element, substitution, span)?)
         }
-        TypePattern::FixedArray { element, count } => TypeKind::FixedArray {
+        TypePattern::FixedArray {
+            element,
+            count,
+        } => TypeKind::FixedArray {
             element: target_type(types, element, substitution, span)?,
             count: match count {
                 CountPattern::Exact(count) => *count,
@@ -230,7 +253,9 @@ pub(super) fn target_type(
                     })?,
             },
         },
-        TypePattern::NominalApplication { .. } => {
+        TypePattern::NominalApplication {
+            ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "contextual casts to nominal applications are not supported",
@@ -260,7 +285,11 @@ pub(super) fn bake(
             "baked force casts require target-layout VM constant materialization",
         ));
     }
-    if let ArgumentType::ContextualCast { mode: inner, value } = &source.ty {
+    if let ArgumentType::ContextualCast {
+        mode: inner,
+        value,
+    } = &source.ty
+    {
         let value = bake(types, nominals, target, value, *inner, span)?;
         return bake(
             types,
@@ -541,13 +570,16 @@ fn force_source_type(
     span: Span,
 ) -> Result<TypeId, Diagnostic> {
     let ty = match &source.ty {
-        ArgumentType::WeakInteger { minimum, maximum }
-            if *minimum >= IntegerType::S64.min() && *maximum <= IntegerType::S64.max() =>
-        {
+        ArgumentType::WeakInteger {
+            minimum,
+            maximum,
+        } if *minimum >= IntegerType::S64.min() && *maximum <= IntegerType::S64.max() => {
             types.scalar(ScalarType::Int(IntegerType::S64))
         }
         ArgumentType::WeakFloat {
-            default, spelling, ..
+            default,
+            spelling,
+            ..
         } => {
             FloatValue::parse_decimal(*default, spelling)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?;
@@ -602,16 +634,32 @@ fn float_constant(
     Ok(match source.constant.as_ref() {
         Some(ConstantArgument::Value(BakedValue::Float(value))) => Some(*value),
         Some(ConstantArgument::Value(BakedValue::Value(value))) => runtime_float_constant(value),
-        Some(ConstantArgument::FloatLiteral { spelling, negative }) => {
-            let ArgumentType::WeakFloat { default, .. } = source.ty else {
+        Some(ConstantArgument::FloatLiteral {
+            spelling,
+            negative,
+        }) => {
+            let ArgumentType::WeakFloat {
+                default, ..
+            } = source.ty
+            else {
                 return Ok(None);
             };
             let value = FloatValue::parse_decimal(weak_target.unwrap_or(default), spelling)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-            Some(if *negative { value.negate() } else { value })
+            Some(if *negative {
+                value.negate()
+            } else {
+                value
+            })
         }
-        Some(ConstantArgument::FloatExpression { f32, f64 }) => {
-            let ArgumentType::WeakFloatExpression { default, .. } = source.ty else {
+        Some(ConstantArgument::FloatExpression {
+            f32,
+            f64,
+        }) => {
+            let ArgumentType::WeakFloatExpression {
+                default, ..
+            } = source.ty
+            else {
                 return Ok(None);
             };
             match weak_target.unwrap_or(default) {

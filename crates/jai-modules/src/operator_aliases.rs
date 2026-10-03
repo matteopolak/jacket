@@ -17,16 +17,21 @@ impl ModuleGraph {
             Ok(_) | Err(LookupError::NotNamespace(_)) => Err(fail(
                 "operator alias target must identify a source namespace".into(),
             )),
-            Err(LookupError::PrivateMember { name, .. }) => Err(fail(format!(
+            Err(LookupError::PrivateMember {
+                name, ..
+            }) => Err(fail(format!(
                 "operator alias namespace member '{}' is private",
                 self.symbols.name(name)
             ))),
-            Err(LookupError::UnknownName(name) | LookupError::UnknownMember { name, .. }) => {
-                Err(fail(format!(
-                    "unknown operator alias namespace '{}'",
-                    self.symbols.name(name)
-                )))
-            }
+            Err(
+                LookupError::UnknownName(name)
+                | LookupError::UnknownMember {
+                    name, ..
+                },
+            ) => Err(fail(format!(
+                "unknown operator alias namespace '{}'",
+                self.symbols.name(name)
+            ))),
             Err(LookupError::InvalidFile) => Err(fail(
                 "operator alias defining source file is unavailable".into(),
             )),

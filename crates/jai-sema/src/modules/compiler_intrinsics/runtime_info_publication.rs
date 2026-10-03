@@ -122,7 +122,9 @@ pub(in crate::modules) fn prepare(
             };
         roles.push((role, snapshot));
     }
-    Ok(PreparedRuntimeInfo { roles })
+    Ok(PreparedRuntimeInfo {
+        roles,
+    })
 }
 
 impl PreparedRuntimeInfo {

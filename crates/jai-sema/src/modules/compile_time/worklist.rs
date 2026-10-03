@@ -364,11 +364,58 @@ impl<'graph> Worklist<'graph> {
     }
 }
 
+/// A typed source demand admits the actual declaration even when its original
+/// expression did not contain an explicit #run or nominal annotation.
+pub(super) fn admit_constant_prerequisites<'graph>(
+    graph: &'graph ModuleGraph,
+    declarations: &ScopedDeclarations<'graph>,
+    required: &std::collections::HashSet<DeclarationId>,
+    constants: &mut Vec<&'graph jai_modules::Declaration>,
+    owners: &mut HashMap<DeclarationId, ProcedureId>,
+) -> Result<(), LocatedDiagnostic> {
+    for source in graph.declarations() {
+        if !required.contains(&source.id())
+            || declarations.values.contains_key(&source.id())
+            || owners.contains_key(&source.id())
+        {
+            continue;
+        }
+        if !matches!(source.syntax().kind, FileDeclarationKind::Constant(_))
+            || declarations.nominals.is_type_alias(graph, source.id())
+        {
+            return Err(located(
+                graph,
+                source.file(),
+                Diagnostic::new(
+                    source.location().span,
+                    "constant prerequisite does not denote a value declaration",
+                ),
+            ));
+        }
+        let owner = declarations
+            .generics
+            .borrow_mut()
+            .reserve_local_procedure()
+            .map_err(|error| located(graph, source.file(), error))?;
+        owners.insert(source.id(), owner);
+        constants.push(source);
+    }
+    Ok(())
+}
+
 pub(super) fn canonical_constant(
     source: &jai_modules::Declaration,
     declarations: &ScopedDeclarations<'_>,
     types: &TypeRegistry,
 ) -> bool {
+    // The ordinary partial producer already validates constant arguments and
+    // emits a real checked wrapper. Bind it in its original declaration scope
+    // so materialization cannot erase the declaration's callback contract.
+    if matches!(&source.syntax().kind, FileDeclarationKind::Constant(constant)
+        if matches!(constant.initializer.kind, syntax::ExpressionKind::BakeArguments(_)))
+    {
+        return true;
+    }
     matches!(&source.syntax().kind, FileDeclarationKind::Constant(constant) if constant.ty.is_some())
         && !declarations
             .nominals

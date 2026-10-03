@@ -244,6 +244,12 @@ impl<'a> Constants<'a> {
                 )),
             };
         }
+        if path.members.is_empty()
+            && self.graph.lookup(file, path).is_err()
+            && let Some(value) = self.target_constant(file, path.root, span)?
+        {
+            return Ok(Some(value));
+        }
         if let Ok(jai_modules::Binding::Parameter(id)) = self.graph.lookup(file, path) {
             return match &self.graph.parameter(id).unwrap().value {
                 jai_modules::ParameterValue::Scalar(value) => Ok(Some(value.clone())),
@@ -272,6 +278,91 @@ impl<'a> Constants<'a> {
             }
         }
         Ok(None)
+    }
+    fn target_constant(
+        &self,
+        file: FileInstanceId,
+        name: Symbol,
+        span: Span,
+    ) -> Result<Option<ConstantValue>, LocatedDiagnostic> {
+        let Some(target) = self.graph.target() else {
+            return Ok(None);
+        };
+        let (enum_name, member_name) = match self.graph.symbols().name(name) {
+            "OS" | "BUILD_OS" => ("Operating_System_Tag", target.operating_system.source_tag()),
+            "CPU" | "BUILD_CPU" => ("CPU_Tag", target.architecture.source_tag()),
+            _ => return Ok(None),
+        };
+        let member_name = member_name.ok_or_else(|| {
+            located(
+                self.graph,
+                file,
+                Diagnostic::new(span, "selected target has no source-defined OS or CPU tag"),
+            )
+        })?;
+        let enum_name = self.graph.symbols().find(enum_name).ok_or_else(|| {
+            located(
+                self.graph,
+                file,
+                Diagnostic::new(span, "target tag enum must be supplied by source"),
+            )
+        })?;
+        let enum_file = self
+            .graph
+            .prelude()
+            .map(|module| self.graph.module(module).unwrap().entry())
+            .unwrap_or(file);
+        let jai_modules::Binding::Declaration(declaration) = self
+            .graph
+            .lookup(
+                enum_file,
+                &NamePath {
+                    root: enum_name,
+                    members: Vec::new(),
+                },
+            )
+            .map_err(|_| {
+                located(
+                    self.graph,
+                    file,
+                    Diagnostic::new(
+                        span,
+                        "target tag enum is absent from the designated source scope",
+                    ),
+                )
+            })?
+        else {
+            return Err(located(
+                self.graph,
+                file,
+                Diagnostic::new(
+                    span,
+                    "target tag schema must denote a source enum declaration",
+                ),
+            ));
+        };
+        let member = self.graph.symbols().find(member_name).ok_or_else(|| {
+            located(
+                self.graph,
+                file,
+                Diagnostic::new(span, "selected target tag is absent from the source enum"),
+            )
+        })?;
+        let value = self
+            .enum_members
+            .get(&(declaration, member))
+            .copied()
+            .ok_or_else(|| {
+                located(
+                    self.graph,
+                    file,
+                    Diagnostic::new(
+                        span,
+                        "selected target tag is absent from the resolved source enum",
+                    ),
+                )
+            })?;
+        Ok(Some(ConstantValue::Int(value)))
     }
     pub(super) fn lookup_value(
         &mut self,

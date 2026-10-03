@@ -15,7 +15,12 @@ pub enum ModifierSlot {
 impl ModifierSlot {
     fn name(self) -> Symbol {
         match self {
-            Self::Type { name } | Self::Baked { name, .. } => name,
+            Self::Type {
+                name,
+            }
+            | Self::Baked {
+                name, ..
+            } => name,
         }
     }
 }
@@ -31,7 +36,9 @@ impl ModifierPlan {
         if slots.iter().any(|slot| !names.insert(slot.name())) {
             return Err(Error::InvalidIr("duplicate specialization modifier slot"));
         }
-        Ok(Self { slots })
+        Ok(Self {
+            slots,
+        })
     }
     pub fn slots(&self) -> &[ModifierSlot] {
         &self.slots
@@ -57,7 +64,11 @@ pub fn execute<P: ProcedureProvider + ?Sized>(
     maximum_depth: usize,
 ) -> ModifierOutcome {
     for slot in plan.slots() {
-        if let ModifierSlot::Baked { name, ty } = *slot {
+        if let ModifierSlot::Baked {
+            name,
+            ty,
+        } = *slot
+        {
             let actual = match initial.constant(name) {
                 Some(BakedValue::Value(value)) => value.ty,
                 Some(BakedValue::Float(value)) => types.float(value.ty()),
@@ -77,7 +88,9 @@ pub fn execute<P: ProcedureProvider + ?Sized>(
                 }
             };
             if actual != ty {
-                return ModifierOutcome::Failed(Error::TypeMismatch { expected: actual });
+                return ModifierOutcome::Failed(Error::TypeMismatch {
+                    expected: actual,
+                });
             }
             if let Err(error) = types.kind(ty) {
                 return ModifierOutcome::Failed(error.into());
@@ -110,7 +123,9 @@ pub fn execute<P: ProcedureProvider + ?Sized>(
         let mut draft = initial.clone();
         for (slot, value) in plan.slots.iter().zip(&values[2..]) {
             match *slot {
-                ModifierSlot::Type { name } => {
+                ModifierSlot::Type {
+                    name,
+                } => {
                     let meta = types
                         .lookup(&jai_types::TypeKind::Type)
                         .ok_or(Error::InvalidIr("modifier registry has no Type metatype"))?;
@@ -139,10 +154,16 @@ pub fn execute<P: ProcedureProvider + ?Sized>(
                         updated = true;
                     }
                     if !updated {
-                        draft.types.push(TypeBinding { name, ty });
+                        draft.types.push(TypeBinding {
+                            name,
+                            ty,
+                        });
                     }
                 }
-                ModifierSlot::Baked { name, ty } => {
+                ModifierSlot::Baked {
+                    name,
+                    ty,
+                } => {
                     if draft.types.iter().any(|binding| binding.name == name) {
                         return Err(Error::InvalidIr(
                             "modifier cannot change a type binding into a baked value",
@@ -158,7 +179,10 @@ pub fn execute<P: ProcedureProvider + ?Sized>(
                     {
                         binding.value = value;
                     } else {
-                        draft.constants.push(ConstantBinding { name, value });
+                        draft.constants.push(ConstantBinding {
+                            name,
+                            value,
+                        });
                     }
                 }
             }
@@ -175,7 +199,9 @@ pub fn execute<P: ProcedureProvider + ?Sized>(
         },
         Outcome::Pending(dependencies) => ModifierOutcome::Pending(dependencies),
         Outcome::Failed(Error::CompilerReported(reason)) if rejection.as_ref() == Some(&reason) => {
-            ModifierOutcome::Rejected { reason }
+            ModifierOutcome::Rejected {
+                reason,
+            }
         }
         Outcome::Failed(error) => ModifierOutcome::Failed(error),
     }

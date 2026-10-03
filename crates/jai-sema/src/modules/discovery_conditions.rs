@@ -75,7 +75,9 @@ pub(super) fn evaluate(
                 .map(|(owner, _)| *owner)
         });
         let owner = match &request.context {
-            DiscoveryConditionContext::Lexical { declaration, .. } => declarations
+            DiscoveryConditionContext::Lexical {
+                declaration, ..
+            } => declarations
                 .signatures
                 .get(declaration)
                 .map_or(context.owner, |signature| signature.id),
@@ -111,7 +113,9 @@ pub(super) fn evaluate(
                 .map(|(owner, _)| *owner)
         });
         let owner = match &request.context {
-            DiscoveryConditionContext::Lexical { declaration, .. } => declarations
+            DiscoveryConditionContext::Lexical {
+                declaration, ..
+            } => declarations
                 .signatures
                 .get(declaration)
                 .map_or(context.owner, |signature| signature.id),

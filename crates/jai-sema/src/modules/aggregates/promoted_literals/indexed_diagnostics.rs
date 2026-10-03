@@ -12,8 +12,13 @@ pub(crate) fn path_diagnostic_at(error: PathError, spans: &[Span], span: Span) -
             index,
             "literal initializer exceeds compiler path budget".to_owned(),
         ),
-        PathError::Canonical { index, error } => (index, error.to_string()),
-        PathError::ArrayOwner { index, .. } => (
+        PathError::Canonical {
+            index,
+            error,
+        } => (index, error.to_string()),
+        PathError::ArrayOwner {
+            index, ..
+        } => (
             index,
             "literal array path belongs to another canonical owner".to_owned(),
         ),
@@ -29,7 +34,9 @@ pub(crate) fn path_diagnostic_at(error: PathError, spans: &[Span], span: Span) -
             index,
             format!("literal index {element} exceeds fixed array count {count}"),
         ),
-        PathError::LeafType { index, .. } => (
+        PathError::LeafType {
+            index, ..
+        } => (
             index,
             "literal initializer has a different canonical target type".to_owned(),
         ),
@@ -50,9 +57,9 @@ pub(super) fn build_diagnostic<E>(error: BuildError<E>, span: Span) -> Result<Di
     let message = match error {
         BuildError::Default(error) => return Err(error),
         BuildError::Type(error) => error.to_string(),
-        BuildError::DefaultType { .. } => {
-            "literal construction has a different canonical default type".into()
-        }
+        BuildError::DefaultType {
+            ..
+        } => "literal construction has a different canonical default type".into(),
         BuildError::MalformedDefault => {
             "literal construction has a malformed checked default".into()
         }

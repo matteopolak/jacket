@@ -83,7 +83,10 @@ impl RuntimeTypeBinding {
         };
         Self::validate_header(header_value, descriptor.tag(), descriptor.runtime_size())?;
         payload::validate_shape(value, &descriptor.kind, schema)?;
-        if let DescriptorKind::Integer { representation } = &descriptor.kind {
+        if let DescriptorKind::Integer {
+            representation,
+        } = &descriptor.kind
+        {
             let StaticValueKind::Record(fields) = &value.kind else {
                 return Err(StaticDataError::InvalidValue(value.ty));
             };
@@ -127,6 +130,9 @@ impl RuntimeTypeBinding {
     }
     pub(crate) fn header(&self) -> &StaticAddress {
         &self.header
+    }
+    pub(crate) fn descriptor(&self) -> &TypeDescriptor {
+        &self.descriptor
     }
     pub(crate) fn nodes(&self) -> usize {
         self.nodes
@@ -247,7 +253,8 @@ impl PartialEq for RuntimeTypeConstant {
         self.identity == other.identity
     }
 }
-impl Eq for RuntimeTypeConstant {}
+impl Eq for RuntimeTypeConstant {
+}
 impl Hash for RuntimeTypeConstant {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.identity.hash(state);

@@ -117,16 +117,34 @@ impl CompilerIntrinsic {
             )),
         };
         let expected = match self {
-            Self::SourceCurrentWorkspace { .. } => 0,
+            Self::SourceCurrentWorkspace {
+                ..
+            } => 0,
             Self::SourceCreateWorkspace
-            | Self::SourceReport { .. }
-            | Self::SourceDestroyWorkspace { .. }
-            | Self::SourceGetWorkspaceName { .. } => 1,
-            Self::SourceEndIntercept { .. } => 1,
-            Self::SourceAddString { .. }
-            | Self::SourceAddFile { .. }
-            | Self::SourceSetWorkspaceStatus { .. } => 2,
-            Self::SourceBeginIntercept { .. } => 2,
+            | Self::SourceReport {
+                ..
+            }
+            | Self::SourceDestroyWorkspace {
+                ..
+            }
+            | Self::SourceGetWorkspaceName {
+                ..
+            } => 1,
+            Self::SourceEndIntercept {
+                ..
+            } => 1,
+            Self::SourceAddString {
+                ..
+            }
+            | Self::SourceAddFile {
+                ..
+            }
+            | Self::SourceSetWorkspaceStatus {
+                ..
+            } => 2,
+            Self::SourceBeginIntercept {
+                ..
+            } => 2,
             _ => return Err(fail("source intrinsic adapter received internal intrinsic")),
         };
         if arguments.len() != expected {
@@ -134,7 +152,10 @@ impl CompilerIntrinsic {
                 "source compiler intrinsic has unsupported argument count or optional code/location suffix",
             ));
         }
-        if let Self::SourceCurrentWorkspace { current_workspace } = self {
+        if let Self::SourceCurrentWorkspace {
+            current_workspace,
+        } = self
+        {
             return Ok(vec![Value::Int(
                 Integer::checked(IntegerType::S64, i128::from(current_workspace.get()))
                     .ok_or_else(|| fail("workspace identity exceeds source s64 ABI"))?,
@@ -142,8 +163,13 @@ impl CompilerIntrinsic {
         }
         let mut fatal_message = None;
         let request = match self {
-            Self::SourceBeginIntercept { current_workspace } => {
-                let Value::Enum { value, .. } = &arguments[1] else {
+            Self::SourceBeginIntercept {
+                current_workspace,
+            } => {
+                let Value::Enum {
+                    value, ..
+                } = &arguments[1]
+                else {
                     return Err(fail(
                         "intercept flags require the checked source u32 flags enum",
                     ));
@@ -160,28 +186,32 @@ impl CompilerIntrinsic {
                     flags,
                 }
             }
-            Self::SourceEndIntercept { current_workspace } => CompilerRequest::EndIntercept {
+            Self::SourceEndIntercept {
+                current_workspace,
+            } => CompilerRequest::EndIntercept {
                 workspace: workspace(0, current_workspace)?,
             },
-            Self::SourceGetWorkspaceName { current_workspace } => {
-                CompilerRequest::GetWorkspaceName {
-                    workspace: workspace(0, current_workspace)?,
-                }
-            }
-            Self::SourceDestroyWorkspace { current_workspace } => {
-                CompilerRequest::DestroyWorkspace {
-                    workspace: workspace(0, current_workspace)?,
-                }
-            }
-            Self::SourceSetWorkspaceStatus { current_workspace } => {
+            Self::SourceGetWorkspaceName {
+                current_workspace,
+            } => CompilerRequest::GetWorkspaceName {
+                workspace: workspace(0, current_workspace)?,
+            },
+            Self::SourceDestroyWorkspace {
+                current_workspace,
+            } => CompilerRequest::DestroyWorkspace {
+                workspace: workspace(0, current_workspace)?,
+            },
+            Self::SourceSetWorkspaceStatus {
+                current_workspace,
+            } => {
                 let status = match &arguments[0] {
-                    Value::Enum { value, .. } if value.ty() == IntegerType::U8 => {
-                        match value.value() {
-                            0 => WorkspaceStatus::Ok,
-                            1 => WorkspaceStatus::Failed,
-                            _ => return Err(fail("unknown Workspace_Status enum value")),
-                        }
-                    }
+                    Value::Enum {
+                        value, ..
+                    } if value.ty() == IntegerType::U8 => match value.value() {
+                        0 => WorkspaceStatus::Ok,
+                        1 => WorkspaceStatus::Failed,
+                        _ => return Err(fail("unknown Workspace_Status enum value")),
+                    },
                     _ => return Err(fail("workspace status requires the checked source u8 enum")),
                 };
                 CompilerRequest::SetWorkspaceStatus {
@@ -189,16 +219,24 @@ impl CompilerIntrinsic {
                     status,
                 }
             }
-            Self::SourceCreateWorkspace => CompilerRequest::CreateWorkspace { name: text(0)? },
-            Self::SourceAddString { current_workspace } => CompilerRequest::AddSource {
+            Self::SourceCreateWorkspace => CompilerRequest::CreateWorkspace {
+                name: text(0)?,
+            },
+            Self::SourceAddString {
+                current_workspace,
+            } => CompilerRequest::AddSource {
                 workspace: workspace(1, current_workspace)?,
                 source: text(0)?,
             },
-            Self::SourceAddFile { current_workspace } => CompilerRequest::AddSourceFile {
+            Self::SourceAddFile {
+                current_workspace,
+            } => CompilerRequest::AddSourceFile {
                 workspace: workspace(1, current_workspace)?,
                 path: PathBuf::from(text(0)?),
             },
-            Self::SourceReport { level } => {
+            Self::SourceReport {
+                level,
+            } => {
                 let message = text(0)?;
                 if level == MessageLevel::Error {
                     fatal_message = Some(message.clone());
@@ -272,7 +310,8 @@ mod tests {
         response: CompilerResponse,
     }
     impl CompilerEffects for Names {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, request: CompilerRequest) -> EffectOutcome {
             self.requests.push(request);
             EffectOutcome::Ready(self.response.clone())
@@ -332,7 +371,9 @@ mod tests {
         );
         assert_eq!(
             effects.requests,
-            vec![CompilerRequest::EndIntercept { workspace: current }]
+            vec![CompilerRequest::EndIntercept {
+                workspace: current
+            }]
         );
     }
 
@@ -352,7 +393,9 @@ mod tests {
         );
         assert_eq!(
             effects.requests,
-            vec![CompilerRequest::GetWorkspaceName { workspace: current }]
+            vec![CompilerRequest::GetWorkspaceName {
+                workspace: current
+            }]
         );
         effects.response = CompilerResponse::Unit;
         assert!(matches!(

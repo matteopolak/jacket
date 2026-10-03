@@ -11,6 +11,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, result: TypeId) 
         .procedure(ProcedureType {
             parameters: parameters.into_boxed_slice(),
             results: vec![result].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -86,7 +87,10 @@ fn unused_compiler_helpers_are_omitted_and_library_publication_is_explicit() {
     assert!(selected.get_function("jai.p9").is_some());
     assert!(selected.get_function("main").is_none());
     let error = Reachable::library(program.library(), &Publication::AllBodies).unwrap_err();
-    let Error::CompilerRequest { chain } = error else {
+    let Error::CompilerRequest {
+        chain,
+    } = error
+    else {
         panic!("compiler diagnostic")
     };
     assert_eq!(chain, [ProcedureId::new(3), ProcedureId::new(1)]);
@@ -198,6 +202,7 @@ fn global_procedure_constants_keep_bodies_and_foreign_prototypes_reachable() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: vec![int].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -495,6 +500,7 @@ fn source_contracts_remain_typed_object_declarations_and_reject_executable_deman
         .procedure(ProcedureType {
             parameters: vec![slice].into(),
             results: vec![int].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::Jai {
@@ -574,6 +580,7 @@ fn source_contract_callback_globals_reject_executable_demand() {
         .procedure(ProcedureType {
             parameters: vec![slice].into(),
             results: vec![int].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::Jai {
@@ -717,7 +724,10 @@ fn compile_time_body_calls_and_stored_callbacks_are_runtime_dependencies() {
             jai_vm::Outcome::Complete(values) if values[0].integer().unwrap().value() == 42
         ));
         let error = Reachable::executable(program.library(), program.entry()).unwrap_err();
-        let Error::CompileTimeOnly { chain } = error else {
+        let Error::CompileTimeOnly {
+            chain,
+        } = error
+        else {
             panic!("compile-time procedure diagnostic")
         };
         assert_eq!(
@@ -874,7 +884,10 @@ fn compiler_dependencies_inside_projected_places_and_exit_cleanups_are_followed(
             .unwrap();
         let error = Reachable::executable(program.library(), program.entry()).unwrap_err();
         assert!(error.to_string().contains("7 -> 1"));
-        let Error::CompilerRequest { chain } = error else {
+        let Error::CompilerRequest {
+            chain,
+        } = error
+        else {
             panic!("compiler diagnostic")
         };
         assert_eq!(chain, [entry, compiler]);

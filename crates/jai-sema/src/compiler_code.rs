@@ -29,12 +29,22 @@ pub(crate) enum CompilerCodeSourceKey {
 impl CompilerCodeSourceKey {
     pub(crate) fn file(self) -> FileInstanceId {
         match self {
-            Self::Named { file, .. } | Self::Anonymous { file, .. } => file,
+            Self::Named {
+                file, ..
+            }
+            | Self::Anonymous {
+                file, ..
+            } => file,
         }
     }
     pub(crate) fn location(self) -> SourceSpan {
         match self {
-            Self::Named { location, .. } | Self::Anonymous { location, .. } => location,
+            Self::Named {
+                location, ..
+            }
+            | Self::Anonymous {
+                location, ..
+            } => location,
         }
     }
 }
@@ -320,8 +330,18 @@ impl Resolver<'_> {
         let mut bindings = HashMap::new();
         for (name, (slot, ty)) in effective {
             let binding = self.allocate_expression_binding(source.span)?;
-            bindings.insert(name, Binding::CompilerInput { binding, ty });
-            inputs.push(CompilerRuntimeInput { binding, slot, ty });
+            bindings.insert(
+                name,
+                Binding::CompilerInput {
+                    binding,
+                    ty,
+                },
+            );
+            inputs.push(CompilerRuntimeInput {
+                binding,
+                slot,
+                ty,
+            });
         }
         Ok((inputs, bindings))
     }
@@ -334,9 +354,12 @@ impl Resolver<'_> {
         self.scopes.push(bindings);
         let leaf = (|| {
             Ok(match self.discard_call_results(source)? {
-                Some(Statement::CallVoid(call) | Statement::CallResults { call, .. }) => {
-                    CompilerRuntimeLeaf::call(call)
-                }
+                Some(
+                    Statement::CallVoid(call)
+                    | Statement::CallResults {
+                        call, ..
+                    },
+                ) => CompilerRuntimeLeaf::call(call),
                 Some(_) => {
                     return Err(Diagnostic::new(
                         source.span,
@@ -400,8 +423,18 @@ impl Resolver<'_> {
                     ));
                 }
                 let (name, initializer, explicit) = match source {
+                    syntax::Declaration::GroupMember {
+                        ..
+                    } => {
+                        return Err(Diagnostic::new(
+                            span,
+                            "file declaration group requires its source publication owner",
+                        ));
+                    }
                     syntax::Declaration::Inferred {
-                        name, initializer, ..
+                        name,
+                        initializer,
+                        ..
                     } => (*name, Some(initializer), None),
                     syntax::Declaration::Explicit {
                         name,
@@ -419,7 +452,9 @@ impl Resolver<'_> {
                         initializer.as_ref(),
                         Some(self.lexical_annotation(ty, span)?),
                     ),
-                    syntax::Declaration::External { .. } => {
+                    syntax::Declaration::External {
+                        ..
+                    } => {
                         return Err(Diagnostic::new(
                             span,
                             "compiler Code cannot own external native storage",
@@ -628,7 +663,10 @@ fn admit_native_source(source: &syntax::Expression) -> Result<(), Diagnostic> {
             E::Call(_, arguments) | E::QualifiedCall(_, arguments) => {
                 pending.extend(arguments.iter().map(|argument| &argument.value))
             }
-            E::IndirectCall { callee, args } => {
+            E::IndirectCall {
+                callee,
+                args,
+            } => {
                 pending.push(callee);
                 pending.extend(args.iter().map(|argument| &argument.value));
             }
@@ -640,14 +678,24 @@ fn admit_native_source(source: &syntax::Expression) -> Result<(), Diagnostic> {
                 pending.push(callee);
                 pending.extend(args.iter().chain(overrides).map(|argument| &argument.value));
             }
-            E::CallHint { call, .. }
+            E::CallHint {
+                call, ..
+            }
             | E::AddressOf(call)
             | E::Dereference(call)
             | E::Unary(_, call)
             | E::Cast(_, _, call)
-            | E::InferredCast { value: call, .. }
-            | E::Member { base: call, .. } => pending.push(call),
-            E::Index { base, index } | E::Binary(_, base, index) => {
+            | E::InferredCast {
+                value: call, ..
+            }
+            | E::Member {
+                base: call, ..
+            } => pending.push(call),
+            E::Index {
+                base,
+                index,
+            }
+            | E::Binary(_, base, index) => {
                 pending.push(base);
                 pending.push(index);
             }

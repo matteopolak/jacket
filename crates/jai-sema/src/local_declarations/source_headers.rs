@@ -13,7 +13,9 @@ impl SourceHeaderPhase {
     fn readiness(self) -> HeaderReadiness {
         match self {
             Self::Preview => HeaderReadiness::TypesOnly,
-            Self::Definition { readiness, .. } => readiness,
+            Self::Definition {
+                readiness, ..
+            } => readiness,
         }
     }
     fn complete_owner(self) -> Option<ProcedureId> {
@@ -115,14 +117,20 @@ impl Resolver<'_> {
                     self.source_header_annotation(ty, parameter.span, phase)?,
                     None,
                 ),
-                syntax::ParameterBinding::Defaulted { ty, expression } => (
+                syntax::ParameterBinding::Defaulted {
+                    ty,
+                    expression,
+                } => (
                     match ty {
                         Some(ty) => self.types.scalar(*ty),
                         None => self.source_header_default_type(expression, phase)?,
                     },
                     Some(expression),
                 ),
-                syntax::ParameterBinding::DefaultedType { ty, expression } => (
+                syntax::ParameterBinding::DefaultedType {
+                    ty,
+                    expression,
+                } => (
                     match ty {
                         Some(ty) => self.source_header_annotation(ty, parameter.span, phase)?,
                         None => self.source_header_default_type(expression, phase)?,
@@ -188,7 +196,10 @@ impl Resolver<'_> {
                 return Err(Diagnostic::new(result.span, "duplicate result name"));
             }
             let (ty, expression) = match &result.binding {
-                syntax::ResultBinding::Typed { ty, default } => (
+                syntax::ResultBinding::Typed {
+                    ty,
+                    default,
+                } => (
                     self.source_header_annotation(ty, result.span, phase)?,
                     default.as_ref(),
                 ),
@@ -242,6 +253,7 @@ impl Resolver<'_> {
                     .map(|parameter| parameter.ty)
                     .collect(),
                 results: results.iter().map(|result| result.ty).collect(),
+                return_abi: source.return_abi,
                 convention: source.convention,
                 context: source.context,
                 variadic,
@@ -259,7 +271,7 @@ impl Resolver<'_> {
             results,
         })
     }
-    fn preview_source_parameter_default(
+    pub(crate) fn preview_source_parameter_default(
         &mut self,
         expression: &syntax::Expression,
         ty: TypeId,
@@ -277,7 +289,9 @@ impl Resolver<'_> {
                     "#code,null requires a compile-time Code parameter",
                 ));
             }
-            return Ok(ParameterDefault::CodeNull { ty });
+            return Ok(ParameterDefault::CodeNull {
+                ty,
+            });
         }
         if let Some(read) = self.ready_runtime_parameter_default(expression, Some(ty))? {
             return Ok(ParameterDefault::RuntimeRead(read));
@@ -304,7 +318,9 @@ impl Resolver<'_> {
     ) -> Result<TypeId, Diagnostic> {
         match phase {
             SourceHeaderPhase::Preview => self.preview_annotation(syntax, span),
-            SourceHeaderPhase::Definition { .. } => self.lexical_annotation(syntax, span),
+            SourceHeaderPhase::Definition {
+                ..
+            } => self.lexical_annotation(syntax, span),
         }
     }
     fn source_header_default_type(
@@ -317,7 +333,9 @@ impl Resolver<'_> {
                 let description = self.describe_argument(expression)?;
                 self.argument_type(&description, expression.span)
             }
-            SourceHeaderPhase::Definition { .. } => self.local_default_type(expression),
+            SourceHeaderPhase::Definition {
+                ..
+            } => self.local_default_type(expression),
         }
     }
 }

@@ -27,6 +27,7 @@ fn truncation_keeps_unsigned_low_bits_in_vm_and_o0_o2_native_code() {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([int]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: Variadic::None,

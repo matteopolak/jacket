@@ -31,7 +31,10 @@ impl crate::Resolver<'_> {
                 RunOriginRequest {
                     workspace,
                     owner,
-                    location: jai_source::SourceSpan { source, span },
+                    location: jai_source::SourceSpan {
+                        source,
+                        span,
+                    },
                     lexical: &lexical,
                 },
             )
@@ -53,7 +56,13 @@ impl crate::modules::FileScope<'_> {
                     .graph
                     .file(file)
                     .map_or(self.source(), |file| file.source());
-                Diagnostic::at_source(jai_source::SourceSpan { source, span }, error.to_string())
+                Diagnostic::at_source(
+                    jai_source::SourceSpan {
+                        source,
+                        span,
+                    },
+                    error.to_string(),
+                )
             })
     }
     pub(crate) fn is_isolated_procedure(&self, procedure: jai_ir::ProcedureId) -> bool {
@@ -314,7 +323,10 @@ impl Encoder<'_, '_> {
                 self.token(b"dynamic-array");
                 self.ty(*element)?;
             }
-            TypeKind::FixedArray { element, count } => {
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => {
                 self.token(b"fixed-array");
                 self.token(&count.to_le_bytes());
                 self.ty(*element)?;
@@ -376,17 +388,26 @@ impl Encoder<'_, '_> {
                     jai_types::CallingConvention::Stdcall => b"stdcall",
                     jai_types::CallingConvention::CppMethod => b"cpp-method",
                 });
+                self.token(match procedure.return_abi {
+                    jai_types::ForeignReturnAbi::Natural => b"return-natural",
+                    jai_types::ForeignReturnAbi::CppNonPod => b"return-cpp-non-pod",
+                });
                 self.token(match procedure.context {
                     jai_types::ContextMode::Implicit => b"implicit-context",
                     jai_types::ContextMode::None => b"no-context",
                 });
                 match procedure.variadic {
                     jai_types::Variadic::None => self.token(b"variadic-none"),
-                    jai_types::Variadic::C { fixed_parameters } => {
+                    jai_types::Variadic::C {
+                        fixed_parameters,
+                    } => {
                         self.token(b"variadic-c");
                         self.token(&(fixed_parameters as u64).to_le_bytes());
                     }
-                    jai_types::Variadic::Jai { parameter, element } => {
+                    jai_types::Variadic::Jai {
+                        parameter,
+                        element,
+                    } => {
                         self.token(b"variadic-jai");
                         self.token(&(parameter as u64).to_le_bytes());
                         self.ty(element)?;
@@ -476,7 +497,10 @@ impl Encoder<'_, '_> {
                     self.constant(value)?;
                 }
             }
-            ConstantKind::Union { field, value } => {
+            ConstantKind::Union {
+                field,
+                value,
+            } => {
                 self.token(b"union");
                 self.ty(self.types.record_type(field.record())?)?;
                 self.token(&(field.index() as u64).to_le_bytes());
@@ -584,12 +608,17 @@ impl crate::procedure_values::contracts::CallablePolicyEncoder for Encoder<'_, '
     ) -> Result<(), Self::Error> {
         use crate::runtime_defaults::{DefaultReadRoot, DefaultReadStep};
         match read.root() {
-            DefaultReadRoot::Global { declaration, ty } => {
+            DefaultReadRoot::Global {
+                declaration,
+                ty,
+            } => {
                 self.token(b"global-default-read");
                 self.declaration(declaration)?;
                 self.ty(ty)?;
             }
-            DefaultReadRoot::Context { ty } => {
+            DefaultReadRoot::Context {
+                ty,
+            } => {
                 self.token(b"context-default-read");
                 self.ty(ty)?;
             }

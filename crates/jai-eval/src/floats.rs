@@ -3,7 +3,8 @@ use super::*;
 use jai_syntax::{BuiltinType, DecimalLiteral, FloatLiteral, TypeSyntax};
 use jai_types::{FloatOp, FloatToIntMode, FloatType, FloatValue};
 mod keys;
-pub use keys::{WeakFloatEncodingError, WeakFloatKey};
+pub(crate) mod retained_metadata;
+pub use keys::{WeakFloatAdmissionError, WeakFloatEncodingError, WeakFloatKey};
 
 /// A bound weak numeric expression retaining validated decimal literals.
 /// Names and all conditional arms are resolved before this value is created.
@@ -71,7 +72,8 @@ impl PartialEq for WeakFloatValue {
         self.key == other.key
     }
 }
-impl Eq for WeakFloatValue {}
+impl Eq for WeakFloatValue {
+}
 impl std::hash::Hash for WeakFloatValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.key.hash(state);

@@ -7,7 +7,9 @@ pub(super) fn default_type(source: &ArgumentType) -> Option<TypeId> {
     match source {
         ArgumentType::Known(ty)
         | ArgumentType::StringLiteral(ty)
-        | ArgumentType::RecordLiteral { ty: Some(ty), .. }
+        | ArgumentType::RecordLiteral {
+            ty: Some(ty), ..
+        }
         | ArgumentType::ArrayLiteral {
             default: Some(ty), ..
         } => Some(*ty),
@@ -16,7 +18,9 @@ pub(super) fn default_type(source: &ArgumentType) -> Option<TypeId> {
 }
 pub(super) fn explicit_type(source: &ArgumentType) -> Option<TypeId> {
     match source {
-        ArgumentType::RecordLiteral { ty, .. } => *ty,
+        ArgumentType::RecordLiteral {
+            ty, ..
+        } => *ty,
         ArgumentType::ArrayLiteral {
             explicit: Some(_),
             default,
@@ -34,7 +38,10 @@ pub(super) fn concrete(
     span: Span,
 ) -> Result<ConversionRank, Diagnostic> {
     match source {
-        ArgumentType::RecordLiteral { ty, fields } => {
+        ArgumentType::RecordLiteral {
+            ty,
+            fields,
+        } => {
             if let Some(source_type) = ty.filter(|ty| *ty != target) {
                 concrete(types, nominals, source_type, source, span)?;
                 return if nominals.implicit_conversion(source_type, target, span)? {
@@ -106,15 +113,18 @@ pub(super) fn concrete(
             Ok(rank)
         }
         ArgumentType::ArrayLiteral {
-            explicit, elements, ..
+            explicit,
+            elements,
+            ..
         } => {
             let (element, count, rank) = match types
                 .kind(target)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?
             {
-                TypeKind::FixedArray { element, count } => {
-                    (*element, Some(*count), ConversionRank::Exact)
-                }
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => (*element, Some(*count), ConversionRank::Exact),
                 TypeKind::Slice(element) => (*element, None, ConversionRank::ArrayView),
                 _ => {
                     return Err(Diagnostic::new(
@@ -166,15 +176,18 @@ pub(super) fn array_pattern(
     span: Span,
 ) -> Result<ConversionRank, Diagnostic> {
     let ArgumentType::ArrayLiteral {
-        explicit, elements, ..
+        explicit,
+        elements,
+        ..
     } = source
     else {
         unreachable!();
     };
     let (element, count, mut rank) = match pattern {
-        TypePattern::FixedArray { element, count } => {
-            (element.as_ref(), Some(count), ConversionRank::Exact)
-        }
+        TypePattern::FixedArray {
+            element,
+            count,
+        } => (element.as_ref(), Some(count), ConversionRank::Exact),
         TypePattern::Slice(element) if allow_conversion => {
             (element.as_ref(), None, ConversionRank::ArrayView)
         }
@@ -236,7 +249,9 @@ pub(super) fn bake(
 ) -> Result<BakedValue, Diagnostic> {
     concrete(types, nominals, target, source, span)?;
     let kind = match source {
-        ArgumentType::RecordLiteral { fields, .. } => {
+        ArgumentType::RecordLiteral {
+            fields, ..
+        } => {
             let definition = types
                 .record_storage_definition(target)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?;
@@ -284,8 +299,12 @@ pub(super) fn bake(
                 ConstantKind::Record(values.collect::<Result<_, _>>()?)
             }
         }
-        ArgumentType::ArrayLiteral { elements, .. } => {
-            let TypeKind::FixedArray { element, .. } = *types
+        ArgumentType::ArrayLiteral {
+            elements, ..
+        } => {
+            let TypeKind::FixedArray {
+                element, ..
+            } = *types
                 .kind(target)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?
             else {
@@ -314,6 +333,12 @@ pub(super) fn bake(
         }
         _ => unreachable!("literal bake receives a contextual aggregate"),
     };
-    BakedValue::runtime(ConstantValue { ty: target, kind }, types)
-        .map_err(|error| Diagnostic::new(span, error.to_string()))
+    BakedValue::runtime(
+        ConstantValue {
+            ty: target,
+            kind,
+        },
+        types,
+    )
+    .map_err(|error| Diagnostic::new(span, error.to_string()))
 }

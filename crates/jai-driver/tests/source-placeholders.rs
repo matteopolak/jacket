@@ -56,8 +56,11 @@ impl Drop for Fixture {
 }
 
 fn execute_main(build: &ScheduledBuild, session: &CompilerSession) -> i128 {
-    let WorkspaceOutput::Checked { unit, library, .. } =
-        &build.workspace(session.root()).unwrap().output
+    let WorkspaceOutput::Checked {
+        unit,
+        library,
+        ..
+    } = &build.workspace(session.root()).unwrap().output
     else {
         panic!("generated source did not produce a checked workspace");
     };
@@ -212,8 +215,12 @@ fn failed_early_default_cannot_publish_its_generated_source_or_replay_receipt() 
         panic!("the default retains its original source procedure")
     };
     let default = match &procedure.parameters[0].binding {
-        jai_syntax::ParameterBinding::Defaulted { expression, .. }
-        | jai_syntax::ParameterBinding::DefaultedType { expression, .. } => expression,
+        jai_syntax::ParameterBinding::Defaulted {
+            expression, ..
+        }
+        | jai_syntax::ParameterBinding::DefaultedType {
+            expression, ..
+        } => expression,
         jai_syntax::ParameterBinding::Required(_)
         | jai_syntax::ParameterBinding::RequiredType(_) => panic!("original source default"),
     };

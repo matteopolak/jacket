@@ -144,7 +144,14 @@ fn division_overflow_respects_mode_while_zero_and_shift_guards_remain_active() {
                     let expected = if check.enabled() {
                         Err(Error::Arithmetic(ArithmeticError::SignedDivisionOverflow))
                     } else {
-                        Ok(number(ty, if op == IntOp::Divide { ty.min() } else { 0 }))
+                        Ok(number(
+                            ty,
+                            if op == IntOp::Divide {
+                                ty.min()
+                            } else {
+                                0
+                            },
+                        ))
                     };
                     assert_eq!(
                         scalar::binary_with_check(

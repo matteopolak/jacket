@@ -118,7 +118,10 @@ fn block(statements: Vec<Statement>) -> Block {
         Some(Statement::Cases(cases)) => cases.flow,
         _ => Flow::FallsThrough,
     };
-    Block { statements, flow }
+    Block {
+        statements,
+        flow,
+    }
 }
 fn ret(expression: IntExpr) -> Statement {
     Statement::Exit(Exit {
@@ -131,6 +134,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, results: Vec<Typ
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: jai_types::Variadic::None,

@@ -58,6 +58,7 @@ fn fixture(owner: ProcedureId) -> Fixture {
         .procedure(ProcedureType {
             parameters: vec![workspace_type].into(),
             results: vec![info].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

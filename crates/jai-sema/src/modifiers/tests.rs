@@ -18,6 +18,7 @@ fn procedure(types: &mut TypeRegistry, accept: bool) -> (Procedure, TypeId) {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([types.scalar(ScalarType::Bool), string, number]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -97,7 +98,9 @@ fn checked_modifier_publishes_only_accepted_complete_bindings() {
                     .value(),
                 8
             ),
-            ModifierOutcome::Rejected { reason } if !accept => {
+            ModifierOutcome::Rejected {
+                reason,
+            } if !accept => {
                 assert_eq!(reason, "constraint failed")
             }
             other => panic!("unexpected modifier outcome {other:?}"),
@@ -143,8 +146,12 @@ fn invalid_modifier_plan_and_result_shape_fail_without_publication() {
     let name = symbols.intern("T");
     assert!(
         ModifierPlan::new(vec![
-            ModifierSlot::Type { name },
-            ModifierSlot::Type { name }
+            ModifierSlot::Type {
+                name
+            },
+            ModifierSlot::Type {
+                name
+            }
         ])
         .is_err()
     );
@@ -233,7 +240,10 @@ fn scalar_output_cannot_be_reinterpreted_as_a_type_identity() {
     let mut vm = Vm::new(&provider, NoEffects, Limits::default()).unwrap();
     let mut symbols = Symbols::default();
     let name = symbols.intern("T");
-    let plan = ModifierPlan::new(vec![ModifierSlot::Type { name }]).unwrap();
+    let plan = ModifierPlan::new(vec![ModifierSlot::Type {
+        name,
+    }])
+    .unwrap();
     let outcome = execute(
         &mut vm,
         &Call::new(ProcedureId::new(0), vec![]),
@@ -304,6 +314,7 @@ fn type_slot_decodes_an_actual_canonical_descriptor() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([boolean, string, meta]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -349,7 +360,10 @@ fn type_slot_decodes_an_actual_canonical_descriptor() {
         }],
         callables: vec![],
     };
-    let plan = ModifierPlan::new(vec![ModifierSlot::Type { name }]).unwrap();
+    let plan = ModifierPlan::new(vec![ModifierSlot::Type {
+        name,
+    }])
+    .unwrap();
     let ModifierOutcome::Accepted(final_bindings) = execute(
         &mut vm,
         &Call::new(ProcedureId::new(0), vec![]),

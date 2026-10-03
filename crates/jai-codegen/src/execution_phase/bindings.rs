@@ -54,7 +54,9 @@ fn value_condition(value: &ValueExpr, bindings: &mut Facts<'_>) -> Option<bool> 
             cast,
         } if cast.source_type() == cast.target_type() => value_condition(source, bindings),
         ValueExpr::Bool(value) => condition(value, bindings),
-        ValueExpr::Bound { binding, .. } => bindings.get(binding).copied().flatten(),
+        ValueExpr::Bound {
+            binding, ..
+        } => bindings.get(binding).copied().flatten(),
         ValueExpr::Bind {
             bindings: producers,
             body,
@@ -82,16 +84,16 @@ fn value_condition(value: &ValueExpr, bindings: &mut Facts<'_>) -> Option<bool> 
             }
             result
         }
-        ValueExpr::Conditional { expression, .. } => {
-            match condition(&expression.condition, bindings) {
-                Some(true) => value_condition(&expression.then_value, bindings),
-                Some(false) => value_condition(&expression.else_value, bindings),
-                None => {
-                    let left = value_condition(&expression.then_value, bindings)?;
-                    (value_condition(&expression.else_value, bindings)? == left).then_some(left)
-                }
+        ValueExpr::Conditional {
+            expression, ..
+        } => match condition(&expression.condition, bindings) {
+            Some(true) => value_condition(&expression.then_value, bindings),
+            Some(false) => value_condition(&expression.else_value, bindings),
+            None => {
+                let left = value_condition(&expression.then_value, bindings)?;
+                (value_condition(&expression.else_value, bindings)? == left).then_some(left)
             }
-        }
+        },
         _ => None,
     }
 }
@@ -171,13 +173,15 @@ fn boolean(value: &BoolExpr, bindings: &mut Facts<'_>) -> Option<bool> {
 fn native_value_boolean(value: &ValueExpr, bindings: &mut Facts<'_>) -> Option<bool> {
     match value {
         ValueExpr::Bool(value) => boolean(value, bindings),
-        ValueExpr::Bound { binding, .. } => bindings.get(binding).copied().flatten(),
-        ValueExpr::Conditional { expression, .. } => {
-            match boolean(&expression.condition, bindings)? {
-                true => native_value_boolean(&expression.then_value, bindings),
-                false => native_value_boolean(&expression.else_value, bindings),
-            }
-        }
+        ValueExpr::Bound {
+            binding, ..
+        } => bindings.get(binding).copied().flatten(),
+        ValueExpr::Conditional {
+            expression, ..
+        } => match boolean(&expression.condition, bindings)? {
+            true => native_value_boolean(&expression.then_value, bindings),
+            false => native_value_boolean(&expression.else_value, bindings),
+        },
         _ => None,
     }
 }
@@ -192,7 +196,10 @@ mod tests {
         let ty = types.scalar(jai_types::ScalarType::Bool);
         let id = ExpressionBindingId::new(jai_ir::ProcedureId::new(0), 0);
         let next = ExpressionBindingId::new(id.procedure(), 1);
-        let capture = ValueExpr::Bound { binding: id, ty };
+        let capture = ValueExpr::Bound {
+            binding: id,
+            ty,
+        };
         let expression = ValueExpr::Bind {
             bindings: vec![
                 (id, ValueExpr::Bool(BoolExpr::CompileTime)),
@@ -201,7 +208,10 @@ mod tests {
                     ValueExpr::Bool(BoolExpr::Not(Box::new(BoolExpr::Value(Box::new(capture))))),
                 ),
             ],
-            body: Box::new(ValueExpr::Bound { binding: next, ty }),
+            body: Box::new(ValueExpr::Bound {
+                binding: next,
+                ty,
+            }),
             ty,
         };
         assert_eq!(
@@ -227,16 +237,31 @@ mod tests {
         let inner = ExpressionBindingId::new(outer.procedure(), 1);
         let facts = PhaseBindings::from([(outer, Some(false)), (inner, None)]);
         assert_eq!(
-            native_value_condition(&ValueExpr::Bound { binding: outer, ty }, &facts),
+            native_value_condition(
+                &ValueExpr::Bound {
+                    binding: outer,
+                    ty
+                },
+                &facts
+            ),
             Some(false)
         );
         assert_eq!(
-            native_value_condition(&ValueExpr::Bound { binding: inner, ty }, &facts),
+            native_value_condition(
+                &ValueExpr::Bound {
+                    binding: inner,
+                    ty
+                },
+                &facts
+            ),
             None
         );
         assert_eq!(
             native_value_condition(
-                &ValueExpr::Bound { binding: outer, ty },
+                &ValueExpr::Bound {
+                    binding: outer,
+                    ty
+                },
                 &PhaseBindings::new()
             ),
             None
@@ -244,12 +269,24 @@ mod tests {
         let mut overlay = Facts::new(&facts);
         overlay.local.insert(outer, None);
         assert_eq!(
-            value_condition(&ValueExpr::Bound { binding: outer, ty }, &mut overlay),
+            value_condition(
+                &ValueExpr::Bound {
+                    binding: outer,
+                    ty
+                },
+                &mut overlay
+            ),
             None
         );
         overlay.local.remove(&outer);
         assert_eq!(
-            value_condition(&ValueExpr::Bound { binding: outer, ty }, &mut overlay),
+            value_condition(
+                &ValueExpr::Bound {
+                    binding: outer,
+                    ty
+                },
+                &mut overlay
+            ),
             Some(false)
         );
     }
@@ -263,7 +300,10 @@ mod tests {
         let outer: PhaseBindings = (0..10_000)
             .map(|index| (ExpressionBindingId::new(procedure, index), Some(false)))
             .collect();
-        let mut value = ValueExpr::Bound { binding: id, ty };
+        let mut value = ValueExpr::Bound {
+            binding: id,
+            ty,
+        };
         for _ in 0..500 {
             value = ValueExpr::Bind {
                 bindings: vec![],

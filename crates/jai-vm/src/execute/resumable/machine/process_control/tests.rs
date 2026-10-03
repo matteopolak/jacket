@@ -80,6 +80,7 @@ impl Fixture {
                         ]
                         .into()
                     },
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: CallingConvention::C,
                     context: ContextMode::None,
                     variadic: Variadic::None,

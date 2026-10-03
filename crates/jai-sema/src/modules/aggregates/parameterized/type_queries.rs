@@ -148,13 +148,22 @@ where
                 Some(annotation) => annotation.clone(),
                 None => return Ok(None),
             },
-            syntax::FileDeclarationKind::Global(global) => match &global.declaration {
-                syntax::Declaration::Explicit { ty, .. } => {
-                    syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty))
-                }
-                syntax::Declaration::UnresolvedExplicit { ty, .. } => ty.clone(),
-                syntax::Declaration::External { ty, .. } => ty.clone(),
-                syntax::Declaration::Inferred { .. } => return Ok(None),
+            syntax::FileDeclarationKind::Global(global) => match global.declaration.source() {
+                syntax::Declaration::GroupMember {
+                    ..
+                } => unreachable!("source() returns the original non-group declaration"),
+                syntax::Declaration::Explicit {
+                    ty, ..
+                } => syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty)),
+                syntax::Declaration::UnresolvedExplicit {
+                    ty, ..
+                } => ty.clone(),
+                syntax::Declaration::External {
+                    ty, ..
+                } => ty.clone(),
+                syntax::Declaration::Inferred {
+                    ..
+                } => return Ok(None),
             },
             _ => return Ok(None),
         };

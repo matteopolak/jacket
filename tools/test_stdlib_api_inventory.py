@@ -16,6 +16,26 @@ class ContractInventoryTests(unittest.TestCase):
         self.assertEqual([d['name'] for d in found], ['f'])
         self.assertEqual(found[0]['implementation_form'], 'source-body')
 
+    def test_inline_bodies_do_not_consume_following_declarations(self):
+        found = self.scan('f :: inline (x: int) -> int { local := x; return local; } '
+                          'g :: no_inline () { hidden := 7; } Last :: 42;')
+        self.assertEqual([(item['name'], item['kind']) for item in found],
+                         [('f', 'procedure'), ('g', 'procedure'), ('Last', 'constant')])
+        self.assertEqual([item['implementation_form'] for item in found[:2]],
+                         ['source-body', 'source-body'])
+
+    def test_inline_hint_is_preserved_in_the_public_contract(self):
+        one = self.scan('f :: inline () -> int { return 1; }')[0]
+        two = self.scan('f :: inline () -> int { return 2; }')[0]
+        changed = self.scan('f :: no_inline () -> int { return 1; }')[0]
+        self.assertEqual(one['contract_sha256'], two['contract_sha256'])
+        self.assertNotEqual(one['contract_sha256'], changed['contract_sha256'])
+
+    def test_inline_record_methods_preserve_sibling_fields(self):
+        found = self.scan('R :: struct { run :: inline () { local := 3; } value: int; }')[0]
+        self.assertEqual([(item['name'], item['kind']) for item in found['members']],
+                         [('run', 'procedure'), ('value', 'field')])
+
     def test_bodies_do_not_change_contract_but_defaults_and_fields_do(self):
         one = self.scan('f :: (x := 2) -> int { return x; }')[0]
         two = self.scan('f :: (x := 2) -> int { return x + 1; }')[0]

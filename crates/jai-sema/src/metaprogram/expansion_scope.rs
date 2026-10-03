@@ -34,8 +34,10 @@ impl Resolver<'_> {
             .source()
             .or_else(|| self.graph_scope.map(|scope| scope.source()))
         {
-            self.debug
-                .push_caller_origin(jai_source::SourceSpan { source, span });
+            self.debug.push_caller_origin(jai_source::SourceSpan {
+                source,
+                span,
+            });
         }
         let result = self.with_definition_scope(target.file, substitution, |resolver| {
             resolver.expand_bound_definition_body(target, bindings, initializers, span)

@@ -20,6 +20,7 @@ fn pending_body_retries_into_a_typed_embeddable_constant() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: jai_types::Variadic::None,
@@ -130,6 +131,7 @@ fn invalid_staging_body_cannot_become_ready() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: jai_types::Variadic::None,

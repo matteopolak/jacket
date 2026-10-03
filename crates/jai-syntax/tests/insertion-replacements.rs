@@ -40,7 +40,10 @@ fn replacement_bodies_preserve_their_original_spans_and_typed_jump_kinds() {
         panic!()
     };
     assert_eq!(statement.span.text(text), "break row");
-    let LoopControlReplacementBody::Assert { span, condition } = &directive.replacements[2].body
+    let LoopControlReplacementBody::Assert {
+        span,
+        condition,
+    } = &directive.replacements[2].body
     else {
         panic!()
     };

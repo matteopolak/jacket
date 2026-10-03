@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jai playground release manifest v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "commit",
+    "dirty_checkout",
+    "entrypoint",
+    "files",
+    "archive",
+    "capabilities"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "dirty_checkout": {
+      "const": false
+    },
+    "entrypoint": {
+      "const": "index.html"
+    },
+    "files": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "size",
+          "sha256"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240,
+            "description": "Normalized relative POSIX regular-file path; consumers must also reject duplicate names, traversal, protected trees, symlinks and invalid archive types."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 67108864
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "required": [
+        "name",
+        "size",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "jai-playground.zip"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": [
+        "runtime",
+        "lsp"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {
+          "const": true
+        },
+        "lsp": {
+          "type": "boolean",
+          "description": "True only after actual staged shared-Wasm language protocol probes pass."
+        }
+      }
+    }
+  }
+}

@@ -84,7 +84,10 @@ mod tests {
         (types, ty)
     }
     fn bound(id: ExpressionBindingId, ty: TypeId) -> ValueExpr {
-        ValueExpr::Bound { binding: id, ty }
+        ValueExpr::Bound {
+            binding: id,
+            ty,
+        }
     }
     fn scoped(
         bindings: Vec<(ExpressionBindingId, ValueExpr)>,
@@ -273,6 +276,7 @@ mod tests {
             .procedure(jai_types::ProcedureType {
                 parameters: vec![ty].into(),
                 results: vec![ty].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::C,
                 context: jai_types::ContextMode::None,
                 variadic: jai_types::Variadic::None,

@@ -94,6 +94,12 @@ impl FileScope<'_> {
             .cloned()
             .or_else(|| self.declarations.generics.borrow().callback_signature(id))
     }
+    pub(crate) fn callback_result_type_parameters(&self, id: ProcedureId) -> Vec<Symbol> {
+        self.declarations
+            .generics
+            .borrow()
+            .callback_result_type_parameters(id)
+    }
     pub(crate) fn callback_specialized_type(
         &self,
         id: ProcedureId,
@@ -120,7 +126,10 @@ impl FileScope<'_> {
         let FileDeclarationKind::Global(global) = &declaration.syntax().kind else {
             return Ok(None);
         };
-        let syntax::Declaration::Inferred { initializer, .. } = &global.declaration else {
+        let syntax::Declaration::Inferred {
+            initializer, ..
+        } = global.declaration.source()
+        else {
             return Ok(None);
         };
         let path = match &initializer.kind {
@@ -245,11 +254,20 @@ impl FileScope<'_> {
         let FileDeclarationKind::Global(global) = &declaration.syntax().kind else {
             return Ok(None);
         };
-        let ty = match &global.declaration {
-            syntax::Declaration::UnresolvedExplicit { ty, .. }
-            | syntax::Declaration::External { ty, .. } => ty,
-            syntax::Declaration::Inferred { initializer, .. } => {
-                let syntax::ExpressionKind::TypeCast { ty, .. } = &initializer.kind else {
+        let ty = match global.declaration.source() {
+            syntax::Declaration::UnresolvedExplicit {
+                ty, ..
+            }
+            | syntax::Declaration::External {
+                ty, ..
+            } => ty,
+            syntax::Declaration::Inferred {
+                initializer, ..
+            } => {
+                let syntax::ExpressionKind::TypeCast {
+                    ty, ..
+                } = &initializer.kind
+                else {
                     return Ok(None);
                 };
                 ty
@@ -305,9 +323,9 @@ impl FileScope<'_> {
         results
             .iter()
             .map(|result| match &result.binding {
-                syntax::ResultBinding::Typed { ty, .. } => {
-                    scope.callback_contract_syntax(ty, span).map(Some)
-                }
+                syntax::ResultBinding::Typed {
+                    ty, ..
+                } => scope.callback_contract_syntax(ty, span).map(Some),
                 syntax::ResultBinding::InferredDefault(_) => Ok(None),
             })
             .collect::<Result<Vec<_>, _>>()
@@ -336,9 +354,12 @@ impl FileScope<'_> {
             else {
                 return Ok(None);
             };
-            return FileScope { file, ..*self }
-                .callback_contract_syntax(ty, span)
-                .map(Some);
+            return FileScope {
+                file,
+                ..*self
+            }
+            .callback_contract_syntax(ty, span)
+            .map(Some);
         }
         let Some(record) = self.declarations.nominals.records.get(&record) else {
             return Ok(None);
@@ -360,9 +381,13 @@ impl FileScope<'_> {
 
 fn field_contract_annotation(binding: &syntax::FieldBinding) -> Option<&syntax::TypeSyntax> {
     match binding {
-        syntax::FieldBinding::Explicit { ty, .. } => Some(ty),
+        syntax::FieldBinding::Explicit {
+            ty, ..
+        } => Some(ty),
         syntax::FieldBinding::Inferred(expression) => match &expression.kind {
-            syntax::ExpressionKind::TypeCast { ty, .. } => Some(ty),
+            syntax::ExpressionKind::TypeCast {
+                ty, ..
+            } => Some(ty),
             _ => None,
         },
     }
@@ -398,6 +423,10 @@ impl FileScope<'_> {
         ty: &syntax::TypeSyntax,
         span: Span,
     ) -> Result<ContractSyntax, Diagnostic> {
-        FileScope { file, ..*self }.callback_contract_syntax(ty, span)
+        FileScope {
+            file,
+            ..*self
+        }
+        .callback_contract_syntax(ty, span)
     }
 }

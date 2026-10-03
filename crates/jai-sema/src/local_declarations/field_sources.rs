@@ -74,7 +74,9 @@ impl<'a> FieldSourceRef<'a> {
     pub(crate) fn initializer(self) -> Option<&'a syntax::Expression> {
         match self {
             Self::Named(field) => match &field.binding {
-                syntax::FieldBinding::Explicit { initializer, .. } => initializer.as_ref(),
+                syntax::FieldBinding::Explicit {
+                    initializer, ..
+                } => initializer.as_ref(),
                 syntax::FieldBinding::Inferred(expression) => Some(expression),
             },
             Self::AnonymousRecord(_) => None,

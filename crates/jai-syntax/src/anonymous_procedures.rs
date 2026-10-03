@@ -38,6 +38,7 @@ impl Parser<'_> {
                                     Kind::Directive(
                                         Directive::CCall
                                             | Directive::CppMethod
+                                            | Directive::CppReturnTypeIsNonPod
                                             | Directive::NoContext
                                             | Directive::NoDebug
                                             | Directive::CompileTime
@@ -132,8 +133,9 @@ mod condition_regressions {
             "probe :: () { f := (value := 1) -> int { return value; }; }",
         ] {
             let procedure = source_procedure(source);
-            let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-                &procedure.body[0].kind
+            let StatementKind::Declare(Declaration::Inferred {
+                initializer, ..
+            }) = &procedure.body[0].kind
             else {
                 panic!("expected inferred local")
             };
@@ -148,12 +150,16 @@ mod condition_regressions {
     fn sgpu_pointer_array_target_is_actual_pointer_type_syntax() {
         let source = "probe :: () { names := (*u8).[\"VK_LAYER_KHRONOS_validation\"].data; }";
         let procedure = source_procedure(source);
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[0].kind
         else {
             panic!("expected local")
         };
-        let ExpressionKind::Member { base, .. } = &initializer.kind else {
+        let ExpressionKind::Member {
+            base, ..
+        } = &initializer.kind
+        else {
             panic!("expected original data projection")
         };
         let ExpressionKind::ArrayLiteral(ArrayLiteral {
@@ -181,8 +187,9 @@ mod condition_regressions {
             ("probe :: () { values := Box(element_type).[item]; }", false),
         ] {
             let procedure = source_procedure(source);
-            let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-                &procedure.body[0].kind
+            let StatementKind::Declare(Declaration::Inferred {
+                initializer, ..
+            }) = &procedure.body[0].kind
             else {
                 panic!("expected local")
             };

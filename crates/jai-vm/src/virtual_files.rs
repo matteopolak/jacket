@@ -84,7 +84,8 @@ impl std::fmt::Display for FileError {
         write!(f, "virtual stdio: {self:?}")
     }
 }
-impl std::error::Error for FileError {}
+impl std::error::Error for FileError {
+}
 #[derive(Clone, Debug)]
 struct FileState {
     path: HostPath,

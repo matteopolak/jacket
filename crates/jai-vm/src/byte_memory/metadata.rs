@@ -14,7 +14,9 @@ impl ByteSpan {
 /// A retained interval occupies a record even when code-derived data origins are empty.
 pub(super) fn address_metadata_cells(address: &AddressProvenance) -> usize {
     match address {
-        AddressProvenance::Derived { allocations, .. } => derived_metadata_cells(allocations.len()),
+        AddressProvenance::Derived {
+            allocations, ..
+        } => derived_metadata_cells(allocations.len()),
         AddressProvenance::Pointer(pointer) => 1usize.saturating_add(pointer.metadata_cells()),
     }
 }
@@ -124,7 +126,9 @@ pub(super) fn encoded_metadata_cells(value: &Value, limit: usize) -> Result<usiz
         let cells = match value {
             Value::StoredAggregate(snapshot) => snapshot.image().metadata_cells(),
             Value::DynamicArray {
-                pointer, allocator, ..
+                pointer,
+                allocator,
+                ..
             } => {
                 if let Some(allocator) = allocator {
                     pending.push(allocator.as_ref());
@@ -138,29 +142,40 @@ pub(super) fn encoded_metadata_cells(value: &Value, limit: usize) -> Result<usiz
                 }
             }
             Value::Pointer(pointer)
-            | Value::Slice { pointer, .. }
-            | Value::StringView { pointer, .. }
+            | Value::Slice {
+                pointer, ..
+            }
+            | Value::StringView {
+                pointer, ..
+            }
             | Value::Type {
                 descriptor: Some(pointer),
             } if !pointer.is_null() && !pointer.is_opaque() => 1usize
                 .saturating_add(pointer.metadata_cells())
                 .saturating_mul(2),
             Value::Procedure {
-                procedure: Some(_), ..
+                procedure: Some(_),
+                ..
             } => 2,
             Value::AddressInteger(number) => number.provenance().map_or(0, address_metadata_cells),
-            Value::Record { fields, .. }
+            Value::Record {
+                fields, ..
+            }
             | Value::Array {
                 elements: fields, ..
             } => {
                 pending.extend(fields);
                 0
             }
-            Value::Distinct { value, .. } => {
+            Value::Distinct {
+                value, ..
+            } => {
                 pending.push(value);
                 0
             }
-            Value::Union { value, .. } => {
+            Value::Union {
+                value, ..
+            } => {
                 pending.push(value);
                 1
             }

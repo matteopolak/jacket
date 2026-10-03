@@ -20,7 +20,7 @@ pub(super) enum BindingProgress {
     Pending(super::LibraryPending),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(super) enum BindingMode<'a> {
     Headers(&'a std::collections::HashSet<jai_types::FieldId>),
     Initializers,
@@ -74,7 +74,7 @@ pub(super) fn bind_procedures_resumable<'graph>(
         mut ready,
         mut pending,
         mut constants,
-        constant_owners,
+        mut constant_owners,
         mut runs,
         mut completed_runs,
         mut isolated_caches,
@@ -115,8 +115,9 @@ pub(super) fn bind_procedures_resumable<'graph>(
             admission,
         } = session;
         if let BindingMode::Types(pending) = mode {
-            if let Some(aggregates::parameterized::PendingType::Constant { declaration, .. }) =
-                pending.cause()
+            if let Some(aggregates::parameterized::PendingType::Constant {
+                declaration, ..
+            }) = pending.cause()
             {
                 header_prerequisites.constants.insert(declaration);
             }
@@ -124,6 +125,7 @@ pub(super) fn bind_procedures_resumable<'graph>(
         if let BindingMode::Headers(fields) = mode {
             header_prerequisites.include_fields(fields);
         }
+        let mut execution_deferred = deferred.clone();
         while !pending.is_empty()
             || !constants.is_empty()
             || !runs.is_empty()
@@ -141,6 +143,15 @@ pub(super) fn bind_procedures_resumable<'graph>(
                     | BindingMode::SourceRuns
             )
         {
+            worklist::admit_constant_prerequisites(
+                graph,
+                declarations,
+                &header_prerequisites.constants,
+                &mut constants,
+                &mut constant_owners,
+            )?;
+            execution_deferred.extend(header_prerequisites.constants.iter().copied());
+            let deferred = &execution_deferred;
             while let Some(body) = declarations.generics.borrow_mut().next_body() {
                 if ready.remove(&body.signature.id).is_some() {
                     meta.debug_sources.clear_procedure(body.signature.id);
@@ -837,8 +848,11 @@ pub(super) fn bind_procedures_resumable<'graph>(
                         .generics
                         .borrow()
                         .is_isolated_procedure(signature.id);
-                let body_effects: &dyn EffectService =
-                    if isolated { &isolated_effects } else { effects };
+                let body_effects: &dyn EffectService = if isolated {
+                    &isolated_effects
+                } else {
+                    effects
+                };
                 let body_cache = if isolated {
                     isolated_caches.entry(signature.id).or_default()
                 } else {
@@ -1015,7 +1029,14 @@ pub(super) fn bind_procedures_resumable<'graph>(
                                 resolver.using_record(storage)?;
                             }
                         }
-                        let body = resolver.block(&procedure.body, false)?;
+                        let body = if job.modifier.is_some() {
+                            // Auxiliary modifier source returns acceptance, explanation,
+                            // and binding slots through its checked plan/signature. Its
+                            // source header intentionally has no ordinary result rows.
+                            resolver.block(&procedure.body, false)?
+                        } else {
+                            resolver.named_result_body(&procedure.results, &procedure.body)?
+                        };
                         if !signature.results.is_empty() && body.flow != Flow::Terminates {
                             return Err(Diagnostic::new(
                                 procedure.span,
@@ -1564,6 +1585,15 @@ pub(super) fn bind_procedures_resumable<'graph>(
                 {
                     break;
                 }
+                // A partial type phase retains the actual source demand even
+                // when no VM dependency or body attempt has escaped this pass.
+                let demanded_location = if stalled.is_none()
+                    && let BindingMode::Types(pending) = mode
+                {
+                    Some(pending.location())
+                } else {
+                    None
+                };
                 let (file, span, dependencies) = match stalled {
                     Some(wait) => wait,
                     None => {
@@ -1609,7 +1639,17 @@ pub(super) fn bind_procedures_resumable<'graph>(
                             file,
                             span,
                             format!(
-                                "retained source work made no progress; bodies {bodies:?}, constants {values:?}, original runs {}, alignment jobs {}, file guards {}, selected defaults {}, generic bodies {}, modifier bodies {}",
+                                "retained source work made no progress; mode {mode:?}; selected constants ready {}, field prerequisites ready {}, record modifiers queued {}, selected layout {:?}, isolated VM waits {}; bodies {bodies:?}, constants {values:?}, original runs {}, alignment jobs {}, file guards {}, selected defaults {}, generic bodies {}, modifier bodies {}",
+                                header_prerequisites
+                                    .constants
+                                    .iter()
+                                    .all(|id| declarations.values.contains_key(id)),
+                                header_prerequisites.ready(&meta.field_default_jobs),
+                                meta.record_specializations.queued_modifier_count(),
+                                options.effective_layout(),
+                                isolated_caches
+                                    .values()
+                                    .any(|cache| cache.pending_execution().is_some()),
                                 runs.len(),
                                 alignment_jobs.len(),
                                 file_guards.len(),
@@ -1620,14 +1660,18 @@ pub(super) fn bind_procedures_resumable<'graph>(
                         )
                     }
                 };
-                return Err(located(
+                let mut failure = located(
                     graph,
                     file,
                     Diagnostic::new(
                         span,
                         format!("unresolved or cyclic #run dependencies: {dependencies:?}"),
                     ),
-                ));
+                );
+                if let Some(location) = demanded_location {
+                    failure.location = location;
+                }
+                return Err(failure);
             }
             pending = retry;
             constants = retry_constants;

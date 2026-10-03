@@ -19,7 +19,9 @@ pub(crate) fn source_variadic(
         .iter()
         .position(|parameter| parameter.name == pack.name)
         .map_or(crate::overloads::CandidateVariadic::None, |parameter| {
-            crate::overloads::CandidateVariadic::Jai { parameter }
+            crate::overloads::CandidateVariadic::Jai {
+                parameter,
+            }
         })
 }
 

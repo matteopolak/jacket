@@ -67,7 +67,10 @@ impl Capture {
                 .ok_or("emitted local lost its source lexical scope")?;
             let declaration = match local.declaration {
                 CapturedDeclaration::Parameter(ordinal) => LocalDeclaration::Parameter(ordinal),
-                CapturedDeclaration::Statement { token, relative } => {
+                CapturedDeclaration::Statement {
+                    token,
+                    relative,
+                } => {
                     let mut path = statements
                         .get(&token)
                         .cloned()

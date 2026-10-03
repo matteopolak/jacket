@@ -30,7 +30,8 @@ impl fmt::Display for ProcedureNoteError {
         write!(formatter, "invalid procedure note source: {self:?}")
     }
 }
-impl std::error::Error for ProcedureNoteError {}
+impl std::error::Error for ProcedureNoteError {
+}
 impl From<DebugSourceLocationError> for ProcedureNoteError {
     fn from(error: DebugSourceLocationError) -> Self {
         Self::Location(error)
@@ -256,7 +257,10 @@ mod tests {
             .unwrap();
         assert!(matches!(
             metadata.validate_procedure_notes(|_| false),
-            Err(IrError::UnknownIdentity { index: 7, .. })
+            Err(IrError::UnknownIdentity {
+                index: 7,
+                ..
+            })
         ));
         metadata.set_procedure_policy(procedure, crate::DebugPolicy::Suppress);
         assert_eq!(metadata.procedure_notes(procedure)[0].text(), b"Quiet");

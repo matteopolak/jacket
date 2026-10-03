@@ -28,7 +28,10 @@ impl Parser<'_> {
                 "#program_export must precede a procedure or global definition",
             ));
         }
-        Ok(ProgramExport { symbol, span })
+        Ok(ProgramExport {
+            symbol,
+            span,
+        })
     }
 }
 

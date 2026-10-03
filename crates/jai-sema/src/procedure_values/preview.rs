@@ -161,7 +161,10 @@ impl Resolver<'_> {
         let mut pack_supplied = false;
         for argument in arguments {
             if argument.spread {
-                let Variadic::Jai { parameter, .. } = descriptor.variadic else {
+                let Variadic::Jai {
+                    parameter, ..
+                } = descriptor.variadic
+                else {
                     return Err(Diagnostic::new(
                         argument.value.span,
                         "spread arguments require a Jai variadic parameter",
@@ -197,7 +200,10 @@ impl Resolver<'_> {
                 continue;
             }
             if argument.name.is_some() && pack_supplied {
-                let Variadic::Jai { parameter, .. } = descriptor.variadic else {
+                let Variadic::Jai {
+                    parameter, ..
+                } = descriptor.variadic
+                else {
                     unreachable!()
                 };
                 bound[parameter] = true;
@@ -205,16 +211,19 @@ impl Resolver<'_> {
             }
             if argument.name.is_none() && !named {
                 match descriptor.variadic {
-                    Variadic::Jai { parameter, element }
-                        if positional >= parameter && !bound[parameter] =>
-                    {
+                    Variadic::Jai {
+                        parameter,
+                        element,
+                    } if positional >= parameter && !bound[parameter] => {
                         if checks.parameter(metadata, parameter) {
                             self.check_discarded_argument(&argument.value, element)?;
                         }
                         pack_supplied = true;
                         continue;
                     }
-                    Variadic::C { fixed_parameters } if positional >= fixed_parameters => {
+                    Variadic::C {
+                        fixed_parameters,
+                    } if positional >= fixed_parameters => {
                         if checks.c_variadic(signature) {
                             self.check_discarded_c_variadic_argument(&argument.value)?;
                         }
@@ -264,7 +273,10 @@ impl Resolver<'_> {
             }
             bound[index] = true;
         }
-        if let Variadic::Jai { parameter, .. } = descriptor.variadic {
+        if let Variadic::Jai {
+            parameter, ..
+        } = descriptor.variadic
+        {
             bound[parameter] = true;
         }
         for (index, supplied) in bound.iter().enumerate() {

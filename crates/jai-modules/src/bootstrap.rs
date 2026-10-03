@@ -17,13 +17,14 @@ pub enum PreludeSource {
     File(PathBuf),
 }
 
-/// Explicit compiler policy for the three required Runtime_Support parameters.
-/// There is deliberately no default: callers derive these from build settings.
+/// Explicit Runtime_Support policy derived from workspace build settings.
+/// The source module also retains its 32768-byte fallback for direct imports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RuntimeSupportParameters {
     pub define_system_entry_point: bool,
     pub define_initialization: bool,
     pub enable_backtrace_on_crash: bool,
+    pub temporary_storage_size: i32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -63,14 +64,18 @@ pub enum PreludeError {
 impl fmt::Display for PreludeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Missing { roots } => {
+            Self::Missing {
+                roots,
+            } => {
                 f.write_str("Preload source not found in configured module roots")?;
                 for root in roots {
                     write!(f, " {}", root.display())?;
                 }
                 Ok(())
             }
-            Self::MissingRuntimeSupport { roots } => {
+            Self::MissingRuntimeSupport {
+                roots,
+            } => {
                 f.write_str("Runtime_Support source not found in configured module roots")?;
                 for root in roots {
                     write!(f, " {}", root.display())?;
@@ -78,16 +83,25 @@ impl fmt::Display for PreludeError {
                 Ok(())
             }
             Self::InvalidConfiguration(message) => f.write_str(message),
-            Self::Io { path, cause } => write!(f, "{}: {cause}", path.display()),
+            Self::Io {
+                path,
+                cause,
+            } => write!(f, "{}: {cause}", path.display()),
         }
     }
 }
 impl std::error::Error for PreludeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Io { cause, .. } => Some(cause),
-            Self::Missing { .. }
-            | Self::MissingRuntimeSupport { .. }
+            Self::Io {
+                cause, ..
+            } => Some(cause),
+            Self::Missing {
+                ..
+            }
+            | Self::MissingRuntimeSupport {
+                ..
+            }
             | Self::InvalidConfiguration(_) => None,
         }
     }

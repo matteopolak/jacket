@@ -65,6 +65,7 @@ impl Resolver<'_> {
             CallableSource {
                 parameters: &source.parameters,
                 results: &source.results,
+                return_abi: source.return_abi,
                 convention: source.convention,
                 context: source.context,
                 span: source.span,
@@ -224,6 +225,7 @@ impl Resolver<'_> {
                 || !descriptor.parameters.is_empty()
                 || !descriptor.results.is_empty()
                 || descriptor.convention != source.convention
+                || descriptor.return_abi != source.return_abi
                 || descriptor.context != source.context
             {
                 return Err(Diagnostic::new(
@@ -245,6 +247,7 @@ impl Resolver<'_> {
             CallableSource {
                 parameters: &source.parameters,
                 results: &source.results,
+                return_abi: source.return_abi,
                 convention: source.convention,
                 context: source.context,
                 span: source.span,
@@ -292,7 +295,9 @@ impl Resolver<'_> {
                     "local compiler prototypes require provider registration in their defining file",
                 ));
             }
-            syntax::PrototypeBinding::Intrinsic { .. } => {
+            syntax::PrototypeBinding::Intrinsic {
+                ..
+            } => {
                 crate::modules::runtime_intrinsics::bind_prototype(
                     source,
                     self.symbols.name(source.name),
@@ -372,7 +377,10 @@ impl Resolver<'_> {
             }
             binding
         };
-        let Some(Binding::Procedure { procedure, .. }) = binding else {
+        let Some(Binding::Procedure {
+            procedure, ..
+        }) = binding
+        else {
             return Ok(None);
         };
         Ok(self
@@ -412,7 +420,10 @@ impl Resolver<'_> {
         let Some(binding) = binding else {
             return Ok(None);
         };
-        let Binding::Procedure { procedure, .. } = binding else {
+        let Binding::Procedure {
+            procedure, ..
+        } = binding
+        else {
             return Ok(None);
         };
         self.meta

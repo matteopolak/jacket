@@ -88,13 +88,16 @@ impl fmt::Display for AnyError {
             Self::IncompatibleStorageMirror(_) => f.write_str(
                 "source record does not share Any's exact pointer fields and target layout",
             ),
-            Self::InvalidField { field, .. } => {
+            Self::InvalidField {
+                field, ..
+            } => {
                 write!(f, "Any {field:?} field has the wrong pointer type")
             }
         }
     }
 }
-impl std::error::Error for AnyError {}
+impl std::error::Error for AnyError {
+}
 
 impl AnySchema {
     pub fn validate(

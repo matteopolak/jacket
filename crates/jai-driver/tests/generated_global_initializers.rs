@@ -56,8 +56,11 @@ impl Drop for Fixture {
 }
 
 fn execute_main(build: &ScheduledBuild, session: &CompilerSession) -> i128 {
-    let WorkspaceOutput::Checked { unit, library, .. } =
-        &build.workspace(session.root()).unwrap().output
+    let WorkspaceOutput::Checked {
+        unit,
+        library,
+        ..
+    } = &build.workspace(session.root()).unwrap().output
     else {
         panic!("generated source did not produce a checked workspace");
     };

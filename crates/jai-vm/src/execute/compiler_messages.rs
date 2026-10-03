@@ -78,18 +78,24 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
     ) -> Result<Vec<Value>> {
         self.validate_message_schema(schema)?;
         let (record, base_field, detail_field, kind, detail) = match event {
-            CompilerEvent::Phase { phase, .. } => (
+            CompilerEvent::Phase {
+                phase, ..
+            } => (
                 schema.phase,
                 schema.phase_base,
                 schema.phase_kind,
                 4,
                 match phase {
                     CompilerPhase::SourceParsed => 0,
-                    CompilerPhase::Typechecked { .. } => 1,
+                    CompilerPhase::Typechecked {
+                        ..
+                    } => 1,
                     CompilerPhase::TargetCodeBuilt => 2,
                 },
             ),
-            CompilerEvent::Complete { error, .. } => (
+            CompilerEvent::Complete {
+                error, ..
+            } => (
                 schema.complete,
                 schema.complete_base,
                 schema.completion_error,
@@ -119,7 +125,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             source_enum(types, record, detail_field, detail)?,
         )?;
         if let CompilerEvent::Phase {
-            phase: CompilerPhase::Typechecked { pending_count },
+            phase: CompilerPhase::Typechecked {
+                pending_count,
+            },
             ..
         } = event
         {
@@ -153,10 +161,16 @@ fn source_enum(
             "compiler message tag is absent from the checked source enum",
         ));
     }
-    Ok(Value::Enum { ty, value })
+    Ok(Value::Enum {
+        ty,
+        value,
+    })
 }
 fn set(record: &mut Value, field: FieldId, value: Value) -> std::result::Result<(), Error> {
-    let Value::Record { fields, .. } = record else {
+    let Value::Record {
+        fields, ..
+    } = record
+    else {
         return Err(Error::InvalidIr(
             "compiler message must use source record storage",
         ));
@@ -247,7 +261,10 @@ mod tests {
     }
     fn integer(value: &Value) -> i128 {
         match value {
-            Value::Int(n) | Value::Enum { value: n, .. } => n.value(),
+            Value::Int(n)
+            | Value::Enum {
+                value: n, ..
+            } => n.value(),
             _ => panic!("integer field expected"),
         }
     }
@@ -261,7 +278,9 @@ mod tests {
                 schema,
                 CompilerEvent::Phase {
                     workspace,
-                    phase: CompilerPhase::Typechecked { pending_count: 9 },
+                    phase: CompilerPhase::Typechecked {
+                        pending_count: 9,
+                    },
                 },
             )
             .unwrap(),
@@ -281,7 +300,11 @@ mod tests {
             (&first, schema.phase, 4, 1),
             (&second, schema.complete, 6, 1),
         ] {
-            let Value::Record { ty, fields } = vm.memory.load(&provider.0, base).unwrap() else {
+            let Value::Record {
+                ty,
+                fields,
+            } = vm.memory.load(&provider.0, base).unwrap()
+            else {
                 panic!("Message base record expected")
             };
             assert_eq!(ty, schema.message);
@@ -291,7 +314,10 @@ mod tests {
                 .memory
                 .cast_pointer(&provider.0, base, concrete, CastMode::Checked)
                 .unwrap();
-            let Value::Record { fields, .. } = vm.memory.load(&provider.0, &full).unwrap() else {
+            let Value::Record {
+                fields, ..
+            } = vm.memory.load(&provider.0, &full).unwrap()
+            else {
                 panic!("concrete message expected")
             };
             assert_eq!(integer(&fields[1]), detail);
@@ -317,7 +343,8 @@ mod tests {
     }
     struct Response(EffectOutcome);
     impl CompilerEffects for Response {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, request: CompilerRequest) -> EffectOutcome {
             assert_eq!(request, CompilerRequest::WaitForMessage);
             self.0.clone()
@@ -396,6 +423,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![].into(),
                 results: vec![result].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::Jai,
                 context: jai_types::ContextMode::Implicit,
                 variadic: jai_types::Variadic::None,
@@ -407,7 +435,9 @@ mod tests {
             signatures: [(id, signature)].into(),
             compiler: crate::CompilerProcedure {
                 signature,
-                intrinsic: crate::CompilerIntrinsic::SourceWaitForMessage { schema },
+                intrinsic: crate::CompilerIntrinsic::SourceWaitForMessage {
+                    schema,
+                },
             },
         };
         let effects = Response(EffectOutcome::Ready(CompilerResponse::Message(
@@ -425,7 +455,9 @@ mod tests {
             .memory
             .cast_pointer(&provider.types, &base, schema.complete, CastMode::Checked)
             .unwrap();
-        let Value::Record { fields, .. } = vm.memory.load(&provider.types, &concrete).unwrap()
+        let Value::Record {
+            fields, ..
+        } = vm.memory.load(&provider.types, &concrete).unwrap()
         else {
             panic!("actual completion record expected")
         };

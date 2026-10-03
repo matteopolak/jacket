@@ -826,7 +826,10 @@ impl Resolver<'_> {
         if let GraphBinding::StorageMember(id) = binding {
             return self.imported_storage_member_value(id, span);
         }
-        if let GraphBinding::SourceMember { member, .. } = binding {
+        if let GraphBinding::SourceMember {
+            member, ..
+        } = binding
+        {
             let scope = self.graph_scope.ok_or_else(|| {
                 Diagnostic::new(span, "imported source members require a source graph")
             })?;
@@ -861,7 +864,10 @@ impl Resolver<'_> {
                 "imported storage member metadata is not ready",
             ));
         }
-        if let GraphBinding::SourceMember { member, .. } = binding {
+        if let GraphBinding::SourceMember {
+            member, ..
+        } = binding
+        {
             let scope = self.graph_scope.ok_or_else(|| {
                 Diagnostic::new(span, "imported source members require a source graph")
             })?;

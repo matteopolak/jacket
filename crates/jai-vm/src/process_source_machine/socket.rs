@@ -100,17 +100,41 @@ fn profile(
     )?;
     Ok(Profile {
         socket,
-        header_bytes: if mac { 48 } else { 56 },
-        control_bytes: if mac { 12 } else { 16 },
-        alignment: if mac { 4 } else { 8 },
-        sol_socket: if mac { 0xffff } else { 1 },
-        ctrunc: if mac { 0x20 } else { 0x8 },
+        header_bytes: if mac {
+            48
+        } else {
+            56
+        },
+        control_bytes: if mac {
+            12
+        } else {
+            16
+        },
+        alignment: if mac {
+            4
+        } else {
+            8
+        },
+        sol_socket: if mac {
+            0xffff
+        } else {
+            1
+        },
+        ctrunc: if mac {
+            0x20
+        } else {
+            0x8
+        },
         length,
         iov_count,
     })
 }
 fn enum_bits(value: &Value, ty: TypeId, repr: IntegerType) -> Result<i128, Error> {
-    let Value::Enum { ty: actual, value } = value.semantic() else {
+    let Value::Enum {
+        ty: actual,
+        value,
+    } = value.semantic()
+    else {
         return Err(Error::InvalidIr("Socket requires its actual enum value"));
     };
     if *actual != ty || value.ty() != repr {
@@ -127,7 +151,10 @@ fn size(value: &Value, repr: IntegerType, limit: usize) -> Result<usize, Error> 
 }
 fn fields(value: &Value, ty: TypeId) -> Result<&[Value], Error> {
     match value.semantic() {
-        Value::Record { ty: actual, fields } if *actual == ty => Ok(fields),
+        Value::Record {
+            ty: actual,
+            fields,
+        } if *actual == ty => Ok(fields),
         _ => Err(Error::InvalidIr("Socket record value mismatch")),
     }
 }
@@ -182,7 +209,11 @@ fn message(
     let header_work =
         memory.intrinsic_work_cost(types, &[(header, receiving)], profile.header_bytes)?;
     charge(header_work)?;
-    let mut writable_retention = if receiving { header_work } else { 0 };
+    let mut writable_retention = if receiving {
+        header_work
+    } else {
+        0
+    };
     let value = memory.load(types, header)?;
     let header_fields = fields(&value, profile.socket.message_header)?;
     if !header_fields[0].pointer()?.is_null()
@@ -230,7 +261,10 @@ fn message(
         if receiving {
             writable_retention = add(writable_retention, output_work)?;
         }
-        vectors.push(Vector { pointer, bytes });
+        vectors.push(Vector {
+            pointer,
+            bytes,
+        });
     }
     Ok(Message {
         header: header.clone(),
@@ -433,7 +467,11 @@ fn receive(
         &flags,
         int(
             IntegerType::S32,
-            if truncated { profile.ctrunc as i128 } else { 0 },
+            if truncated {
+                profile.ctrunc as i128
+            } else {
+                0
+            },
         ),
     )?;
     let final_retained = memory

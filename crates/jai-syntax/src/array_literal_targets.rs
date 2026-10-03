@@ -38,9 +38,10 @@ impl Parser<'_> {
             ExpressionKind::QualifiedCall(path, arguments) => {
                 application(self.literal_named_type(path), arguments)
             }
-            ExpressionKind::IndirectCall { callee, args } => {
-                application(self.array_literal_type_target(*callee)?, args)
-            }
+            ExpressionKind::IndirectCall {
+                callee,
+                args,
+            } => application(self.array_literal_type_target(*callee)?, args),
             _ => {
                 return Err(Diagnostic::new(
                     span,

@@ -55,7 +55,10 @@ fn nested_nominal_restrictions_and_interfaces_keep_original_leaf_spans() {
     let TypeSyntax::Pointer(array) = pointer.as_ref() else {
         panic!()
     };
-    let TypeSyntax::FixedArray { element, .. } = array.as_ref() else {
+    let TypeSyntax::FixedArray {
+        element, ..
+    } = array.as_ref()
+    else {
         panic!()
     };
     let TypeSyntax::Restricted {

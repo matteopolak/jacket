@@ -81,22 +81,32 @@ pub(super) fn record_body_metadata(
     ReflectedRecordMetadata {
         notes: notes(record.notes, source),
         textual_flags: record.attributes.iter().fold(
-            if union { 2 } else { 0 },
+            if union {
+                2
+            } else {
+                0
+            },
             |flags, attribute| {
                 flags
                     | match attribute {
                         syntax::RecordAttribute::NoPadding => 4,
                         syntax::RecordAttribute::TypeInfoNone => 8,
-                        syntax::RecordAttribute::Alignment(_) => 0,
+                        syntax::RecordAttribute::Alignment(_)
+                        | syntax::RecordAttribute::Reflection(_) => 0,
                     }
             },
         ),
         status_flags: 0,
-        nontextual_flags: if union { 64 } else { 0 },
+        nontextual_flags: if union {
+            64
+        } else {
+            0
+        },
         unsupported_members: record.members.iter().any(|member| {
             !matches!(
                 member,
                 syntax::RecordMember::Field(_)
+                    | syntax::RecordMember::Placement(_)
                     | syntax::RecordMember::AnonymousRecord(_)
                     | syntax::RecordMember::DefaultOverride { .. }
             )

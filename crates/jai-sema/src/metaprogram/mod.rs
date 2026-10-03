@@ -321,7 +321,10 @@ impl Resolver<'_> {
             source_file,
             file_scope,
             procedure: self.procedure,
-            location: SourceSpan { source, span },
+            location: SourceSpan {
+                source,
+                span,
+            },
             frames,
             local_scopes: self.local_scopes.clone(),
             expansion_origins: self.debug.caller_origins().to_vec(),

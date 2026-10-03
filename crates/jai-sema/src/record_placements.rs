@@ -48,6 +48,53 @@ pub(crate) fn placement_ordinals<'a>(
     })
 }
 
+/// Preserve selected body order and field-prefix overlays in one source journal.
+pub(crate) fn source_placement_ordinals(
+    members: &[syntax::RecordMember],
+) -> Result<Box<[Option<usize>]>, Diagnostic> {
+    let mut ordered = Vec::new();
+    for member in members {
+        match member {
+            syntax::RecordMember::Placement(placement) => {
+                ordered.push(PlacementMember::Place(&placement.target))
+            }
+            syntax::RecordMember::Field(field) => {
+                for attribute in &field.attributes {
+                    if let syntax::FieldAttribute::Placement(
+                        syntax::FieldPlacementSyntax::Overlay {
+                            target, ..
+                        },
+                    ) = attribute
+                    {
+                        return Err(Diagnostic::new(
+                            target.span,
+                            "field #overlay requires a checked overlay cursor policy; source parsing preserves its distinct placement kind",
+                        ));
+                    }
+                }
+                ordered.push(PlacementMember::Field(Some(field.name)));
+            }
+            syntax::RecordMember::AnonymousRecord(_) => ordered.push(PlacementMember::Field(None)),
+            _ => {}
+        }
+    }
+    placement_ordinals(ordered)
+}
+
+pub(crate) fn source_reflection_policy(
+    attributes: &[syntax::RecordAttribute],
+) -> jai_types::RecordReflectionPolicy {
+    jai_types::RecordReflectionPolicy::from_flags(attributes.iter().filter_map(|attribute| {
+        match attribute {
+            syntax::RecordAttribute::TypeInfoNone => {
+                Some(jai_types::RecordReflectionFlag::NoTypeInfo)
+            }
+            syntax::RecordAttribute::Reflection(setting) => Some(setting.flag),
+            _ => None,
+        }
+    }))
+}
+
 /// Until ordered recipes are bound, reject whole placed constructors before a
 /// semantic field map can erase overlapping write order. Field-default jobs
 /// and shape registration may still finish independently of construction.

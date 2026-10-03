@@ -707,7 +707,8 @@
     "bootstrap": {
       "enum": [
         "off",
-        "search"
+        "search",
+        "authored"
       ]
     }
   },

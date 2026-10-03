@@ -33,7 +33,12 @@ pub(crate) fn snapshot(context: &Context<'_>, meta: &crate::reflection::MetaCont
                     },
                 );
             }
-            PrototypeOrigin::Foreign { .. } | PrototypeOrigin::SourceContract { .. } => {
+            PrototypeOrigin::Foreign {
+                ..
+            }
+            | PrototypeOrigin::SourceContract {
+                ..
+            } => {
                 bindings.foreign.insert(prototype.id);
             }
             PrototypeOrigin::Compiler => {}

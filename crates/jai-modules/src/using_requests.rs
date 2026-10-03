@@ -103,7 +103,8 @@ impl fmt::Display for UsingResponseError {
         })
     }
 }
-impl std::error::Error for UsingResponseError {}
+impl std::error::Error for UsingResponseError {
+}
 
 #[derive(Clone)]
 pub(super) struct UsingRequestStore {
@@ -150,7 +151,9 @@ impl GraphDiscovery<'_> {
         {
             return Err(response_error(UsingResponseError::InvalidSourceIdentity));
         }
-        if let DiscoveryConditionContext::Lexical { declaration, .. } = &context
+        if let DiscoveryConditionContext::Lexical {
+            declaration, ..
+        } = &context
             && self
                 .builder
                 .graph
@@ -167,7 +170,10 @@ impl GraphDiscovery<'_> {
             .builder
             .defer_using(file, &directive, visibility, location, context)
         {
-            Ok(()) | Err(GraphError::Pending { .. }) => {}
+            Ok(())
+            | Err(GraphError::Pending {
+                ..
+            }) => {}
             Err(error) => return Err(error),
         }
         let specialization = self.builder.specialization_for_span(file, span);
@@ -392,7 +398,9 @@ impl Builder<'_> {
         } else {
             let owner = match &context {
                 DiscoveryConditionContext::File => None,
-                DiscoveryConditionContext::Lexical { declaration, .. } => Some(*declaration),
+                DiscoveryConditionContext::Lexical {
+                    declaration, ..
+                } => Some(*declaration),
             };
             self.using_requests.requests.push(FileUsingRequest {
                 id: UsingRequestId {
@@ -638,7 +646,9 @@ fn record_static_member(members: &[jai_syntax::RecordMember], name: Symbol) -> b
             else_members,
             ..
         } => record_static_member(then_members, name) || record_static_member(else_members, name),
-        jai_syntax::RecordMember::CompileTimeCases { cases, .. } => {
+        jai_syntax::RecordMember::CompileTimeCases {
+            cases, ..
+        } => {
             cases
                 .arms
                 .iter()

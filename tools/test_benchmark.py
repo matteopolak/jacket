@@ -14,10 +14,11 @@ spec.loader.exec_module(benchmark)
 
 def fixture(root):
     for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml',
-                 'tools/benchmark.py', 'tools/benchmark_resources.py', 'tools/check_dependency_age.py', 'crates/example/src/lib.rs'):
+                 'tools/benchmark.py', 'tools/benchmark_resources.py', 'tools/check_dependency_age.py',
+                 'tools/cargo_build_paths.py', 'crates/example/src/lib.rs'):
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('fixture')
+        path.write_text('[toolchain]\nchannel = \"nightly-2026-08-29\"\n' if name == 'rust-toolchain.toml' else 'fixture')
 
 
 def artifact(suite, executable, kind='bench'):
@@ -120,8 +121,32 @@ class BenchmarkProvenanceTests(unittest.TestCase):
             inputs = benchmark.source_hashes(root)
             self.assertIn('crates/example/src/debug_shim.cpp', inputs)
             self.assertNotIn('crates/example/src/supplied-native.o', inputs)
+            authored = root / 'stdlib/prelude/module.jai'
+            authored.parent.mkdir()
+            authored.write_text('own_bootstrap :: 1;')
+            inputs = benchmark.source_hashes(root)
+            self.assertIn('stdlib/prelude/module.jai', inputs)
             benchmark.copy_snapshot(root, root / 'captured', inputs)
             self.assertEqual((root / 'captured/crates/example/src/debug_shim.cpp').read_text(), shim.read_text())
+            self.assertEqual((root / 'captured/stdlib/prelude/module.jai').read_text(), authored.read_text())
+
+    def test_snapshot_includes_runtime_bootstrap_and_verifies_copied_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture(root)
+            runtime = root / 'prelude/runtime-storage.jai'
+            runtime.parent.mkdir()
+            runtime.write_text('owned_runtime_storage :: 42;')
+            inputs = benchmark.source_hashes(root)
+            self.assertIn('prelude/runtime-storage.jai', inputs)
+            self.assertIn('tools/cargo_build_paths.py', inputs)
+            destination = root / 'captured'
+            write = Path.write_bytes
+            def corrupt_copy(path, content):
+                return write(path, b'changed own copy' if path == destination / 'prelude/runtime-storage.jai' else content)
+            with patch.object(Path, 'write_bytes', corrupt_copy):
+                with self.assertRaisesRegex(RuntimeError, 'snapshot input changed while copying: prelude/runtime-storage.jai'):
+                    benchmark.copy_snapshot(root, destination, inputs)
 
     def test_smoke_and_measurement_flags_preserve_locked_offline_builds(self):
         command = benchmark.build_command(['compiler', 'vm', 'discovery'], True)
@@ -134,6 +159,16 @@ class BenchmarkProvenanceTests(unittest.TestCase):
         self.assertEqual(smoke[-2:], ['--skip', 'reference_lex'])
         self.assertEqual(benchmark.measurement_arguments(25, False, False, True),
                          ['--color', 'never', '--bench', '--sample-count', '25', '--sample-size', '1'])
+
+    def test_external_target_and_pinned_cargo_are_explicit_in_snapshot_build(self):
+        target = Path('/Volumes/CodexBuilds/targets/jai')
+        cargo = ['/own/rustup', 'run', 'nightly-2026-08-29', 'cargo']
+        command = benchmark.build_command(['vm'], True, Path('/own/snapshot/Cargo.toml'), cargo, target)
+        self.assertEqual(command[:len(cargo)], cargo)
+        self.assertEqual(command[command.index('--target-dir')+1], str(target))
+        self.assertIn('--locked', command)
+        self.assertIn('--offline', command)
+        self.assertEqual(command[command.index('--manifest-path')+1], '/own/snapshot/Cargo.toml')
 
     def test_actual_divan_measurements_are_required_instead_of_test_tree_output(self):
         # Own float-alias benchmark output, captured with Divan --bench and ten samples.
@@ -149,7 +184,8 @@ class BenchmarkProvenanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fixture(root)
-            with patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
+            with patch.dict('os.environ', {'CARGO_TARGET_DIR': str(root / 'external-target')}), \
+                 patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
                  patch.object(benchmark.platform, 'platform', return_value='fixture'), \
                  patch.object(benchmark, 'host_hardware', return_value={}), \
                  patch.object(benchmark.subprocess, 'run', return_value=SimpleNamespace(returncode=7)) as run, \
@@ -176,7 +212,8 @@ class BenchmarkProvenanceTests(unittest.TestCase):
                 if calls == 2:
                     raise OSError(errno.ENOSPC, 'No space left on device')
                 save(destination, metadata)
-            with patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
+            with patch.dict('os.environ', {'CARGO_TARGET_DIR': str(root / 'external-target')}), \
+                 patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
                  patch.object(benchmark.platform, 'platform', return_value='fixture'), \
                  patch.object(benchmark, 'host_hardware', return_value={}), \
                  patch.object(benchmark.subprocess, 'run', return_value=SimpleNamespace(returncode=7)), \
@@ -209,10 +246,11 @@ class BenchmarkProvenanceTests(unittest.TestCase):
             root = Path(directory)
             fixture(root)
             def run(command, **kwargs):
-                if command[0] == 'cargo':
+                if 'bench' in command and '--no-run' in command:
                     (Path(kwargs['cwd']) / 'crates/example/src/lib.rs').write_text('new source during build')
                 return SimpleNamespace(returncode=0)
-            with patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
+            with patch.dict('os.environ', {'CARGO_TARGET_DIR': str(root / 'external-target')}), \
+                 patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
                  patch.object(benchmark.platform, 'platform', return_value='fixture'), \
                  patch.object(benchmark, 'host_hardware', return_value={}), \
                  patch.object(benchmark.subprocess, 'run', side_effect=run) as mocked, \
@@ -230,11 +268,11 @@ class BenchmarkProvenanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fixture(root)
-            executable = root / 'target/vm'
+            executable = root / 'external-target/vm'
             executable.parent.mkdir()
             executable.write_bytes(b'own benchmark fixture')
             def run(command, **kwargs):
-                if command[0] == 'cargo':
+                if 'bench' in command and '--no-run' in command:
                     build_source = Path(kwargs['cwd'])
                     self.assertEqual((build_source / 'crates/example/src/lib.rs').read_text(), 'fixture')
                     self.assertEqual(command[command.index('--manifest-path') + 1], str(build_source / 'Cargo.toml'))
@@ -250,7 +288,8 @@ class BenchmarkProvenanceTests(unittest.TestCase):
                         'expected_outcome': 'complete', 'live_allocations': 2,
                     }) + '\n')
                 return SimpleNamespace(returncode=0)
-            with patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
+            with patch.dict('os.environ', {'CARGO_TARGET_DIR': str(root / 'external-target')}), \
+                 patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
                  patch.object(benchmark.platform, 'platform', return_value='fixture'), \
                  patch.object(benchmark, 'host_hardware', return_value={}), \
                  patch.object(benchmark.subprocess, 'run', side_effect=run), \
@@ -259,6 +298,12 @@ class BenchmarkProvenanceTests(unittest.TestCase):
                 benchmark.main()
             metadata = json.loads(next((root / 'artifacts/benchmarks').rglob('metadata.json')).read_text())
             self.assertTrue(metadata['valid'])
+            self.assertEqual(metadata['target_directory']['path'], str((root / 'external-target').resolve()))
+            self.assertEqual(metadata['target_directory']['source'], 'environment')
+            self.assertEqual(metadata['build_command'][metadata['build_command'].index('--target-dir')+1],
+                             str((root / 'external-target').resolve()))
+            self.assertEqual(metadata['executables']['vm']['build_path'], str(executable.resolve()))
+            self.assertFalse((root / 'target').exists())
             self.assertEqual(metadata['source_changes_after_build'], ['crates/example/src/lib.rs'])
             self.assertEqual(len(metadata['runs']), 2)
             self.assertFalse(executable.exists())
@@ -274,11 +319,11 @@ class BenchmarkProvenanceTests(unittest.TestCase):
             with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 fixture(root)
-                executable = root / 'target/vm'
+                executable = root / 'external-target/vm'
                 executable.parent.mkdir()
                 executable.write_bytes(b'own benchmark fixture')
                 def run(command, **kwargs):
-                    if command[0] == 'cargo':
+                    if 'bench' in command and '--no-run' in command:
                         kwargs['stdout'].write(artifact('vm', executable) + '\n')
                     elif len(command) > 4 and Path(command[4]).parent.name == 'executables':
                         destination = Path(command[4]).parent.parent
@@ -286,7 +331,8 @@ class BenchmarkProvenanceTests(unittest.TestCase):
                                               else 'compiler-source.tar.gz')
                         path.write_bytes(b'changed retained input')
                     return SimpleNamespace(returncode=0)
-                with patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
+                with patch.dict('os.environ', {'CARGO_TARGET_DIR': str(root / 'external-target')}), \
+                 patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
                      patch.object(benchmark.platform, 'platform', return_value='fixture'), \
                      patch.object(benchmark, 'host_hardware', return_value={}), \
                      patch.object(benchmark.subprocess, 'run', side_effect=run), \
@@ -303,16 +349,17 @@ class BenchmarkProvenanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fixture(root)
-            executable = root / 'target/vm'
+            executable = root / 'external-target/vm'
             executable.parent.mkdir()
             executable.write_bytes(b'first own benchmark')
             def run(command, **kwargs):
-                if command[0] == 'cargo':
+                if 'bench' in command and '--no-run' in command:
                     kwargs['stdout'].write(artifact('vm', executable) + '\n')
                 elif len(command) > 4 and Path(command[4]).parent.name == 'executables':
                     Path(command[4]).write_bytes(b'replaced own benchmark')
                 return SimpleNamespace(returncode=0)
-            with patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
+            with patch.dict('os.environ', {'CARGO_TARGET_DIR': str(root / 'external-target')}), \
+                 patch.object(benchmark, 'ROOT', root), patch.object(benchmark, 'version', return_value='fixture'), \
                  patch.object(benchmark.platform, 'platform', return_value='fixture'), \
                  patch.object(benchmark, 'host_hardware', return_value={}), \
                  patch.object(benchmark.subprocess, 'run', side_effect=run) as mocked, \

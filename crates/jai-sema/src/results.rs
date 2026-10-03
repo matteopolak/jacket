@@ -18,7 +18,11 @@ impl Resolver<'_> {
     ) -> Result<Vec<Place>, Diagnostic> {
         let mut values = Vec::new();
         for expression in source {
-            if let syntax::ExpressionKind::CallHint { hint, call } = &expression.kind {
+            if let syntax::ExpressionKind::CallHint {
+                hint,
+                call,
+            } = &expression.kind
+            {
                 self.capture_hinted_call(
                     *hint,
                     call,
@@ -61,7 +65,10 @@ impl Resolver<'_> {
                     destinations.push(Some(local.place()));
                     values.push(local.place());
                 }
-                statements.push(Statement::CallResults { call, destinations });
+                statements.push(Statement::CallResults {
+                    call,
+                    destinations,
+                });
                 continue;
             }
             let direct = match &expression.kind {
@@ -104,7 +111,10 @@ impl Resolver<'_> {
                         destinations.push(Some(local.place()));
                         values.push(local.place());
                     }
-                    statements.push(Statement::CallResults { call, destinations });
+                    statements.push(Statement::CallResults {
+                        call,
+                        destinations,
+                    });
                     continue;
                 } else {
                     let source = self.baked_callback_call_source(&path, expression.span)?;
@@ -123,7 +133,11 @@ impl Resolver<'_> {
                     continue;
                 }
             }
-            if let syntax::ExpressionKind::IndirectCall { callee, args } = &expression.kind {
+            if let syntax::ExpressionKind::IndirectCall {
+                callee,
+                args,
+            } = &expression.kind
+            {
                 let target = self.expr(callee)?;
                 self.capture_indirect_results(
                     IndirectResultCall {
@@ -155,6 +169,13 @@ impl Resolver<'_> {
             self.bind_value_contract(local.place(), contract, expression.span)?;
             statements.push(Statement::Store(local.place(), value));
             values.push(local.place());
+        }
+        if source.len() == 1
+            && values.len() == 1
+            && expected.len() > 1
+            && !is_result_call(&source[0])
+        {
+            values.resize(expected.len(), values[0]);
         }
         Ok(values)
     }
@@ -215,6 +236,30 @@ impl Resolver<'_> {
             None => None,
         };
         let mut statements = Vec::new();
+        if source.len() == 1 && matches!(source[0].kind, syntax::ExpressionKind::Uninitialized) {
+            let ty = ty.ok_or_else(|| {
+                Diagnostic::new(
+                    source[0].span,
+                    "--- declaration lists require an explicit type",
+                )
+            })?;
+            for &name in names {
+                if self.symbols.name(name) == "_" {
+                    continue;
+                }
+                let local = self.declare_typed(name, ty)?;
+                let contract = self.annotation_value_contract(
+                    ty,
+                    annotation.expect("uninitialized declaration checked its annotation"),
+                    self.span,
+                )?;
+                self.bind_value_contract(local.place(), contract, self.span)?;
+            }
+            return Ok(Statement::Block(Block {
+                statements,
+                flow: Flow::FallsThrough,
+            }));
+        }
         let used = names
             .iter()
             .map(|name| self.symbols.name(*name) != "_")
@@ -278,7 +323,10 @@ impl Resolver<'_> {
             let address = self.allocate_typed(pointer)?;
             statements.push(Statement::Store(
                 address.place(),
-                ValueExpr::AddressOf { place, ty: pointer },
+                ValueExpr::AddressOf {
+                    place,
+                    ty: pointer,
+                },
             ));
             let place = self
                 .places
@@ -304,7 +352,9 @@ impl Resolver<'_> {
             return Err(self.error("assignment result count does not match target count"));
         }
         for (index, place) in places.into_iter().enumerate() {
-            let Some(place) = place else { continue };
+            let Some(place) = place else {
+                continue;
+            };
             let value = self.typed_value(
                 ValueExpr::Load(values[index]),
                 values[index].ty(),
@@ -332,4 +382,15 @@ impl Resolver<'_> {
             flow: Flow::FallsThrough,
         }))
     }
+}
+
+fn is_result_call(expression: &syntax::Expression) -> bool {
+    matches!(
+        expression.kind,
+        syntax::ExpressionKind::Call(..)
+            | syntax::ExpressionKind::QualifiedCall(..)
+            | syntax::ExpressionKind::IndirectCall { .. }
+            | syntax::ExpressionKind::ContextCall { .. }
+            | syntax::ExpressionKind::CallHint { .. }
+    )
 }

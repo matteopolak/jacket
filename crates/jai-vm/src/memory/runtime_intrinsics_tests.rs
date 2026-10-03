@@ -248,6 +248,7 @@ fn code_address_fill_and_copy_keep_nonportable_provenance_without_data_origins()
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::None,
             variadic: jai_types::Variadic::None,
@@ -532,6 +533,7 @@ fn typed_swap_charges_retained_procedure_ledger_capacity_with_stable_live_cells(
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::None,
             variadic: jai_types::Variadic::None,

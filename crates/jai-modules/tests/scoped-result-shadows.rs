@@ -37,7 +37,10 @@ main :: () {
     assert!(discovery.graph().scoped_imports().is_empty());
     let request = discovery.pending_conditions().next().unwrap().clone();
     assert_eq!(request.location.span.text(source), "enabled");
-    let DiscoveryConditionContext::Lexical { scopes, .. } = &request.context else {
+    let DiscoveryConditionContext::Lexical {
+        scopes, ..
+    } = &request.context
+    else {
         panic!("result source lost its lexical context");
     };
     let group = scopes

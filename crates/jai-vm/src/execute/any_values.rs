@@ -13,7 +13,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             return Err(Error::InvalidIr("materialized address requires a pointer type").into());
         };
         if expression.type_id(types) != pointee {
-            return Err(Error::TypeMismatch { expected: pointee }.into());
+            return Err(Error::TypeMismatch {
+                expected: pointee,
+            }
+            .into());
         }
         let value = self.value(expression, depth + 1)?;
         let pointer = self.temporary(pointee, value, depth + 1)?;

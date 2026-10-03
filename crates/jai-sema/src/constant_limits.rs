@@ -8,9 +8,10 @@ pub(crate) fn is_zero(value: &ConstantValue) -> bool {
     while let Some(value) = pending.pop() {
         match &value.kind {
             ConstantKind::Zero => {}
-            ConstantKind::Distinct(value) | ConstantKind::Union { value, .. } => {
-                pending.push(value)
-            }
+            ConstantKind::Distinct(value)
+            | ConstantKind::Union {
+                value, ..
+            } => pending.push(value),
             ConstantKind::Int(value) | ConstantKind::Enum(value) if value.bits() == 0 => {}
             ConstantKind::Bool(false) => {}
             ConstantKind::Float(jai_types::FloatValue::F32(0) | jai_types::FloatValue::F64(0)) => {}
@@ -33,9 +34,10 @@ pub(crate) fn cells(value: &ConstantValue) -> Option<usize> {
             ConstantKind::Array(elements) | ConstantKind::Record(elements) => {
                 pending.extend(elements)
             }
-            ConstantKind::Distinct(value) | ConstantKind::Union { value, .. } => {
-                pending.push(value)
-            }
+            ConstantKind::Distinct(value)
+            | ConstantKind::Union {
+                value, ..
+            } => pending.push(value),
             ConstantKind::StringBytes(bytes) => count = count.checked_add(bytes.len())?,
             _ => {}
         }

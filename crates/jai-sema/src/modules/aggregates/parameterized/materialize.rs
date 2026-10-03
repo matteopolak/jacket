@@ -79,7 +79,11 @@ where
             match self.records.modifiers.prepare(intent, location) {
                 modifier_intents::RecordModifierReadiness::Pending(id) => {
                     return Err(TypeFailure::Pending(
-                        PendingRecordModifier { id, location }.into(),
+                        PendingRecordModifier {
+                            id,
+                            location,
+                        }
+                        .into(),
                     ));
                 }
                 modifier_intents::RecordModifierReadiness::Failed(error) => {
@@ -184,7 +188,9 @@ where
         for parameter in &record.parameters {
             let expected = self.parameter_type(file, parameter, &substitution)?;
             let default_expression = match &parameter.binding {
-                syntax::RecordParameterBinding::Typed { default, .. } => default.as_ref(),
+                syntax::RecordParameterBinding::Typed {
+                    default, ..
+                } => default.as_ref(),
                 syntax::RecordParameterBinding::InferredDefault(expression) => Some(expression),
             };
             let default = default_expression
@@ -376,9 +382,9 @@ where
                 }
                 let field_ty = self.in_record_annotation(ty, |resolver| match field {
                     FieldSourceRef::Named(field) => match &field.binding {
-                        syntax::FieldBinding::Explicit { ty, .. } => {
-                            resolver.resolve(file, ty, Some(&substitution), field.span)
-                        }
+                        syntax::FieldBinding::Explicit {
+                            ty, ..
+                        } => resolver.resolve(file, ty, Some(&substitution), field.span),
                         syntax::FieldBinding::Inferred(expression) => {
                             resolver.inferred_default_type(file, expression, &substitution)
                         }
@@ -404,7 +410,13 @@ where
                 )
             })?;
             self.types
-                .define_record_with_layout(ty, fields, layout)
+                .define_record_with_placements(
+                    ty,
+                    fields,
+                    layout,
+                    crate::record_placements::source_placement_ordinals(record.members)
+                        .map_err(|error| failure(self.graph, file, error))?,
+                )
                 .map_err(|e| {
                     failure(
                         self.graph,
@@ -413,6 +425,14 @@ where
                     )
                 })?;
         }
+        crate::reflection::apply_source_record_attributes(self.types, ty, record.attributes)
+            .map_err(|error| {
+                failure(
+                    self.graph,
+                    file,
+                    Diagnostic::new(record.span, error.to_string()),
+                )
+            })?;
         let mut fields = Vec::new();
         for (index, field) in record.physical_fields().enumerate() {
             let descriptor = self.types.field(ty, index).map_err(|e| {

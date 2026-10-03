@@ -24,6 +24,7 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], results: &[TypeId]
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -263,6 +264,7 @@ fn wrong_width_varargs_context_calling_convention_and_void_success_are_rejected(
             .procedure(ProcedureType {
                 parameters: [].into(),
                 results: [result].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention,
                 context,
                 variadic,
@@ -290,6 +292,7 @@ fn wrong_width_varargs_context_calling_convention_and_void_success_are_rejected(
             .procedure(ProcedureType {
                 parameters: [s32].into(),
                 results: [types.void()].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -462,6 +465,7 @@ fn fcntl_requires_actual_c_ellipsis_two_fixed_parameters_and_s32_result() {
         .procedure(ProcedureType {
             parameters: [s32, s32].into(),
             results: [s32].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::C {

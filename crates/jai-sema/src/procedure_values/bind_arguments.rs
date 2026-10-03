@@ -34,8 +34,14 @@ impl Resolver<'_> {
         }
         let variadic = match metadata.source_variadic {
             CandidateVariadic::None => Variadic::None,
-            CandidateVariadic::C { fixed_parameters } => Variadic::C { fixed_parameters },
-            CandidateVariadic::Jai { parameter } => {
+            CandidateVariadic::C {
+                fixed_parameters,
+            } => Variadic::C {
+                fixed_parameters,
+            },
+            CandidateVariadic::Jai {
+                parameter,
+            } => {
                 let ty = metadata
                     .parameters
                     .get(parameter)
@@ -64,6 +70,7 @@ impl Resolver<'_> {
                 .map(|parameter| parameter.ty)
                 .collect(),
             results: runtime.results.clone(),
+            return_abi: runtime.return_abi,
             convention: runtime.convention,
             context: runtime.context,
             variadic,
@@ -114,7 +121,11 @@ impl Resolver<'_> {
         let mut named = false;
         for argument in args {
             if argument.spread {
-                let Variadic::Jai { parameter, element } = descriptor.variadic else {
+                let Variadic::Jai {
+                    parameter,
+                    element,
+                } = descriptor.variadic
+                else {
                     return Err(Diagnostic::new(
                         argument.value.span,
                         "spread arguments require a Jai variadic parameter",
@@ -159,7 +170,11 @@ impl Resolver<'_> {
                 continue;
             }
             if argument.name.is_some() && !pack.is_empty() {
-                let Variadic::Jai { parameter, element } = descriptor.variadic else {
+                let Variadic::Jai {
+                    parameter,
+                    element,
+                } = descriptor.variadic
+                else {
                     unreachable!()
                 };
                 if let Some(id) = runtime_ids[parameter] {
@@ -182,13 +197,15 @@ impl Resolver<'_> {
             }
             if argument.name.is_none() && !named {
                 match descriptor.variadic {
-                    Variadic::Jai { parameter, .. }
-                        if positional >= parameter && !bound[parameter] =>
-                    {
+                    Variadic::Jai {
+                        parameter, ..
+                    } if positional >= parameter && !bound[parameter] => {
                         pack.push(argument);
                         continue;
                     }
-                    Variadic::C { fixed_parameters } if positional >= fixed_parameters => {
+                    Variadic::C {
+                        fixed_parameters,
+                    } if positional >= fixed_parameters => {
                         if matches!(runtime.variadic, Variadic::C { .. }) {
                             arguments.push((
                                 ParameterId::new(runtime_count + positional - fixed_parameters),
@@ -246,7 +263,10 @@ impl Resolver<'_> {
                 self.check_discarded_argument(&argument.value, expected)?;
             }
         }
-        if let Variadic::Jai { parameter, element } = descriptor.variadic
+        if let Variadic::Jai {
+            parameter,
+            element,
+        } = descriptor.variadic
             && !bound[parameter]
         {
             if let Some(id) = runtime_ids[parameter] {

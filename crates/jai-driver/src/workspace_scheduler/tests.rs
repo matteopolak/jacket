@@ -62,7 +62,11 @@ fn stage(session: &mut CompilerSession, request: CompilerRequest) -> CompilerRes
 }
 fn checked(build: &ScheduledBuild, id: WorkspaceId) -> (&CompilationUnit, &jai_sema::Library) {
     match &build.workspace(id).unwrap().output {
-        WorkspaceOutput::Checked { unit, library, .. } => (unit, library),
+        WorkspaceOutput::Checked {
+            unit,
+            library,
+            ..
+        } => (unit, library),
         WorkspaceOutput::AwaitingInputs => panic!("expected checked graph"),
     }
 }
@@ -328,7 +332,8 @@ fn source_output_and_runtime_policy_commit_and_drive_bootstrap_parameters() {
         jai_modules::RuntimeSupportParameters {
             define_system_entry_point: false,
             define_initialization: true,
-            enable_backtrace_on_crash: false
+            enable_backtrace_on_crash: false,
+            temporary_storage_size: 32768,
         }
     );
 }
@@ -443,7 +448,10 @@ main :: () -> int { return answer; }"#,
     let inputs = session.workspace(session.root()).unwrap().inputs();
     assert_eq!(inputs.len(), 1);
     match &inputs[0] {
-        crate::BuildInput::SourceAt { source, location } => {
+        crate::BuildInput::SourceAt {
+            source,
+            location,
+        } => {
             assert_eq!(source, "answer :: 42;");
             assert_eq!(
                 location.path,

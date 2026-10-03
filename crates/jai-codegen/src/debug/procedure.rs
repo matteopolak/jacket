@@ -274,7 +274,11 @@ impl<'ctx, 'program, 'tables> State<'ctx, 'program, 'tables> {
             if !roots.insert(current.root) {
                 return Err(Error::Metadata("cyclic debug cleanup scope".into()));
             }
-            let BlockRoot::Cleanup { procedure, cleanup } = current.root else {
+            let BlockRoot::Cleanup {
+                procedure,
+                cleanup,
+            } = current.root
+            else {
                 break;
             };
             let Some(parent) = self.sources.cleanup_parent(procedure, cleanup) else {

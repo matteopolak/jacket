@@ -15,6 +15,7 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], results: &[TypeId]
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -194,6 +195,7 @@ fn wrong_pointer_nominal_width_context_convention_and_varargs_are_rejected() {
             .procedure(ProcedureType {
                 parameters: vec![pointer].into(),
                 results: vec![result].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention,
                 context,
                 variadic,

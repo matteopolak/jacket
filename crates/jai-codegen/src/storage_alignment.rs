@@ -31,7 +31,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 /// Declaration alignment raises the allocation guarantee without changing its type.
 pub(super) fn allocation(

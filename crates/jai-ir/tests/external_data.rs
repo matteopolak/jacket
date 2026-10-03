@@ -45,6 +45,7 @@ fn procedure(
         .procedure(ProcedureType {
             parameters: vec![].into(),
             results: vec![].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention,
             context: ContextMode::None,
             variadic: Variadic::None,

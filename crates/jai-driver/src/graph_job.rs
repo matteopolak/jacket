@@ -77,7 +77,10 @@ impl PreparedGraphJob {
         replay: EffectReplayCache,
     ) -> Self {
         let state = Rc::new(RefCell::new(JobState {
-            journal: Some(Journal { compiler, replay }),
+            journal: Some(Journal {
+                compiler,
+                replay,
+            }),
             pending: None,
             cancellation_error: None,
             child_canceller: None,
@@ -136,7 +139,10 @@ impl PreparedGraphJob {
                 }
                 Ok(match result {
                     Ok(unit) => {
-                        let Journal { compiler, replay } = state
+                        let Journal {
+                            compiler,
+                            replay,
+                        } = state
                             .journal
                             .take()
                             .expect("completed graph retains its private journals");
@@ -146,9 +152,13 @@ impl PreparedGraphJob {
                             replay,
                         }))
                     }
-                    Err(GraphJobFailure::Source { pending, error }) => {
-                        GraphJobProgress::SourceWait { pending, error }
-                    }
+                    Err(GraphJobFailure::Source {
+                        pending,
+                        error,
+                    }) => GraphJobProgress::SourceWait {
+                        pending,
+                        error,
+                    },
                     Err(GraphJobFailure::Hard(error)) => {
                         state.journal = None;
                         GraphJobProgress::Failed(error)
@@ -211,7 +221,10 @@ impl PreparedGraphJob {
         self.state.borrow_mut().child_canceller = Some(scheduler.child_canceller());
         let origins = self.suspended_origins();
         let mut state = self.state.borrow_mut();
-        let Journal { compiler, replay } = state.journal.as_mut().ok_or_else(|| {
+        let Journal {
+            compiler,
+            replay,
+        } = state.journal.as_mut().ok_or_else(|| {
             jai_vm::Error::EffectRejected("graph discovery job has already terminated".into())
         })?;
         let mut progress = false;
@@ -227,11 +240,12 @@ impl PreparedGraphJob {
         if self.future.is_some() {
             return None;
         }
-        self.state
-            .borrow_mut()
-            .journal
-            .take()
-            .map(|Journal { compiler, replay }| (compiler, replay))
+        self.state.borrow_mut().journal.take().map(
+            |Journal {
+                 compiler,
+                 replay,
+             }| (compiler, replay),
+        )
     }
 }
 
@@ -249,7 +263,8 @@ impl Drop for PreparedGraphJob {
 
 struct JobWake;
 impl Wake for JobWake {
-    fn wake(self: Arc<Self>) {}
+    fn wake(self: Arc<Self>) {
+    }
 }
 
 #[cfg(test)]

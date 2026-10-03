@@ -13,6 +13,7 @@ fn procedure(
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -218,6 +219,7 @@ fn staged_atomic_type_dependencies_remain_typed_before_invocation() {
         .procedure(ProcedureType {
             parameters: vec![pointer, pending, pending].into(),
             results: vec![boolean, pending].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -225,7 +227,9 @@ fn staged_atomic_type_dependencies_remain_typed_before_invocation() {
         .unwrap();
     let runtime = RuntimeProcedure {
         signature,
-        intrinsic: RuntimeIntrinsic::CompareAndSwap { value: pending },
+        intrinsic: RuntimeIntrinsic::CompareAndSwap {
+            value: pending,
+        },
     };
     let mut memory = Memory::new(crate::Limits::default());
     let expected_error = Error::Type(jai_types::TypeError::Incomplete(pending));

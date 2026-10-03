@@ -21,6 +21,7 @@ impl Fixture {
             .procedure(jai_types::ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,
@@ -30,6 +31,7 @@ impl Fixture {
             .procedure(jai_types::ProcedureType {
                 parameters: Box::new([boolean]),
                 results: Box::new([pointer]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,

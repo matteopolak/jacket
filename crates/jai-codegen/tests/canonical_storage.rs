@@ -46,6 +46,7 @@ fn finish_full(
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: vec![types.scalar(ScalarType::Int(IntegerType::S64))].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -344,6 +345,7 @@ fn known_padding_survives_direct_and_indirect_parameters_and_results() {
         .procedure(ProcedureType {
             parameters: Box::new([record]),
             results: Box::new([record]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -455,6 +457,7 @@ fn padded_global_record_preserves_nested_union_procedure_relocation() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([int]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

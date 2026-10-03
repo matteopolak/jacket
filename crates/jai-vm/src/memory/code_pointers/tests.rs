@@ -11,6 +11,7 @@ fn catalog() -> (TypeRegistry, TypeId, Value) {
         .procedure(ProcedureType {
             parameters: Box::new([integer]),
             results: Box::new([integer]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -114,6 +115,7 @@ fn receipts_reject_foreign_memory_types_wrong_signatures_and_unknown_handles() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,
@@ -192,7 +194,13 @@ fn integer_roundtrip_requires_the_exact_receipt_and_selected_target_width() {
     let (types, signature, value) = catalog();
     for policy in [ilp32(), LayoutPolicy::lp64()] {
         for endian in [Endian::Little, Endian::Big] {
-            let memory = Memory::with_target(Limits::default(), ByteTarget { policy, endian });
+            let memory = Memory::with_target(
+                Limits::default(),
+                ByteTarget {
+                    policy,
+                    endian,
+                },
+            );
             admit(&memory, &types, signature, &value);
             let pointer = memory.code_pointer(&types, &value).unwrap();
             let integer = memory

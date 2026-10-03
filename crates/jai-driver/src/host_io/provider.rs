@@ -1,4 +1,6 @@
 //! Opt-in host provider; no supplied compiler/library is loaded or invoked.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod platform;
 use jai_vm::SourceOrigin;
 use jai_vm::host_effects::*;
 use sha2::{Digest, Sha256};
@@ -143,7 +145,13 @@ impl HostIo {
         let bytes = path.as_os_str().as_encoded_bytes().len();
         self.reserve_registration(bytes)?;
         let id = FileRootId::allocate();
-        self.roots.insert(id, Root { path, writable });
+        self.roots.insert(
+            id,
+            Root {
+                path,
+                writable,
+            },
+        );
         Ok(id)
     }
     /// Trusted inventory protection for original inputs. Granted static reads
@@ -891,9 +899,10 @@ fn capture<R: Read + Send + 'static>(
 }
 fn retained(record: &Observation) -> usize {
     let request = match &record.request {
-        HostRequest::WriteEntireFile { path, bytes } => {
-            path.relative().as_os_str().as_encoded_bytes().len() + bytes.len()
-        }
+        HostRequest::WriteEntireFile {
+            path,
+            bytes,
+        } => path.relative().as_os_str().as_encoded_bytes().len() + bytes.len(),
         HostRequest::ReadEntireFile(path) | HostRequest::ReadFileForOpen(path) => {
             path.relative().as_os_str().as_encoded_bytes().len()
         }
@@ -979,7 +988,11 @@ impl HostEffects for HostIo {
                 ));
             }
             let outcome = record.outcome.clone();
-            if let HostRequest::WriteEntireFile { path, bytes } = request {
+            if let HostRequest::WriteEntireFile {
+                path,
+                bytes,
+            } = request
+            {
                 self.transaction
                     .as_mut()
                     .unwrap()
@@ -1034,7 +1047,10 @@ impl HostEffects for HostIo {
                     Err(error) => return self.reject(error),
                 }
             }
-            HostRequest::WriteEntireFile { path, bytes } => {
+            HostRequest::WriteEntireFile {
+                path,
+                bytes,
+            } => {
                 if let Err(error) = self.path(path, true) {
                     return self.reject(error);
                 }

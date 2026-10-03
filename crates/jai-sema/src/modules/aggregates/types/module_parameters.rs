@@ -61,7 +61,11 @@ impl Nominals<'_> {
             &syntax::Expression,
         ) -> Result<ConstantValue, LocatedDiagnostic>,
     ) -> Result<TypeId, LocatedDiagnostic> {
-        let ModuleTypeRequest { file, value, span } = request;
+        let ModuleTypeRequest {
+            file,
+            value,
+            span,
+        } = request;
         self.resolve_module_type_inner(
             graph,
             file,
@@ -140,7 +144,10 @@ impl Nominals<'_> {
                     self.resolve_module_type_inner(graph, file, inner, types, span, application)?;
                 types.dynamic_array(inner)
             }
-            ModuleType::FixedArray { element, count } => {
+            ModuleType::FixedArray {
+                element,
+                count,
+            } => {
                 let element =
                     self.resolve_module_type_inner(graph, file, element, types, span, application)?;
                 types.fixed_array(element, *count)
@@ -173,10 +180,14 @@ impl Nominals<'_> {
                 });
                 let variadic = match procedure.variadic {
                     ModuleVariadic::None => jai_types::Variadic::None,
-                    ModuleVariadic::C { fixed_parameters } => {
-                        jai_types::Variadic::C { fixed_parameters }
-                    }
-                    ModuleVariadic::Jai { parameter } => {
+                    ModuleVariadic::C {
+                        fixed_parameters,
+                    } => jai_types::Variadic::C {
+                        fixed_parameters,
+                    },
+                    ModuleVariadic::Jai {
+                        parameter,
+                    } => {
                         let Some(&element) = parameters.get(parameter) else {
                             return Err(failure(
                                 "module procedure variadic parameter is out of range",
@@ -185,12 +196,16 @@ impl Nominals<'_> {
                         parameters[parameter] = types
                             .slice(element)
                             .map_err(|error| failure(&error.to_string()))?;
-                        jai_types::Variadic::Jai { parameter, element }
+                        jai_types::Variadic::Jai {
+                            parameter,
+                            element,
+                        }
                     }
                 };
                 types.procedure(jai_types::ProcedureType {
                     parameters: parameters.into_boxed_slice(),
                     results: results.into_boxed_slice(),
+                    return_abi: procedure.return_abi,
                     convention: procedure.convention,
                     context: procedure.context,
                     variadic,

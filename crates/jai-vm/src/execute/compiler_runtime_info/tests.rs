@@ -171,7 +171,11 @@ fn certified_table_reads_actual_registered_descriptors_and_null_global_data() {
     let values = vm
         .compiler_runtime_info(provider.workspace, provider.snapshot.schema(), &[current()])
         .unwrap();
-    let Value::Record { ty, fields } = values[0].semantic() else {
+    let Value::Record {
+        ty,
+        fields,
+    } = values[0].semantic()
+    else {
         panic!("actual Runtime_Info value")
     };
     assert_eq!(*ty, provider.snapshot.schema().ty());
@@ -344,6 +348,7 @@ fn checked_compiler_call_returns_the_actual_runtime_info_record() {
         .procedure(ProcedureType {
             parameters: vec![base.types.scalar(ScalarType::Int(IntegerType::S64))].into(),
             results: vec![base.snapshot.schema().ty()].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: jai_types::CallingConvention::Jai,
             context: jai_types::ContextMode::Implicit,
             variadic: jai_types::Variadic::None,
@@ -359,10 +364,20 @@ fn checked_compiler_call_returns_the_actual_runtime_info_record() {
     let Outcome::Complete(values) = execution.outcome else {
         panic!("{execution:?}")
     };
-    let Value::Record { ty, fields } = values[0].semantic() else {
+    let Value::Record {
+        ty,
+        fields,
+    } = values[0].semantic()
+    else {
         panic!("checked compiler result is a stored Runtime_Info")
     };
     assert_eq!(*ty, provider.base.snapshot.schema().ty());
-    assert!(matches!(&fields[0], Value::Slice { count: 1, .. }));
+    assert!(matches!(
+        &fields[0],
+        Value::Slice {
+            count: 1,
+            ..
+        }
+    ));
     assert!(matches!(&fields[1], Value::Pointer(pointer) if pointer.is_null()));
 }

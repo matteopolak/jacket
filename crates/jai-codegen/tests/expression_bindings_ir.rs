@@ -37,6 +37,7 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], result: TypeId) ->
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: vec![result].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -44,7 +45,10 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], result: TypeId) ->
         .unwrap()
 }
 fn bound(binding: ExpressionBindingId, ty: TypeId) -> ValueExpr {
-    ValueExpr::Bound { binding, ty }
+    ValueExpr::Bound {
+        binding,
+        ty,
+    }
 }
 fn bind(bindings: Vec<(ExpressionBindingId, ValueExpr)>, body: ValueExpr, ty: TypeId) -> ValueExpr {
     ValueExpr::Bind {

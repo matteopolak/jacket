@@ -45,11 +45,16 @@ fn place_names(source: &PlaceSyntax, names: &mut Vec<Symbol>) -> Result<(), Diag
             names.push(path.root);
             names.extend(&path.members);
         }
-        PlaceKind::Member { base, member } => {
+        PlaceKind::Member {
+            base,
+            member,
+        } => {
             expression_names(base, names)?;
             names.push(*member);
         }
-        PlaceKind::Index { .. } => return Err(indexed_diagnostic(source.span)),
+        PlaceKind::Index {
+            ..
+        } => return Err(indexed_diagnostic(source.span)),
         _ => {
             return Err(Diagnostic::new(
                 source.span,
@@ -74,11 +79,16 @@ fn expression_names(mut source: &Expression, names: &mut Vec<Symbol>) -> Result<
                 names.extend(&path.members);
                 break;
             }
-            ExpressionKind::Member { base, member } => {
+            ExpressionKind::Member {
+                base,
+                member,
+            } => {
                 suffix.push(*member);
                 source = base;
             }
-            ExpressionKind::Index { .. } => return Err(indexed_diagnostic(source.span)),
+            ExpressionKind::Index {
+                ..
+            } => return Err(indexed_diagnostic(source.span)),
             _ => {
                 return Err(Diagnostic::new(
                     source.span,

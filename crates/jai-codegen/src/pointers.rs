@@ -72,7 +72,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         let kind = self.types.kind(base.ty())?.clone();
         let base_slot = self.slot(base)?;
         let (pointer, count, element) = match kind {
-            TypeKind::FixedArray { element, count } => (
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => (
                 base_slot.pointer,
                 Some(self.context.i64_type().const_int(count, false)),
                 element,
@@ -172,7 +175,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         // in the index must not change the array value we already evaluated.
         let snapshot = self.value(base)?;
         let (pointer, count, element) = match kind {
-            TypeKind::FixedArray { element, count } => {
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => {
                 let pointer = crate::unions::entry_alloca(
                     self.context,
                     &self.builder,

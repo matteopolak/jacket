@@ -44,7 +44,9 @@ fn quoted_caller_return_keeps_its_explicit_export_marker() {
     let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
         panic!();
     };
-    let StatementKind::Declare(Declaration::Inferred { initializer, .. }) = &procedure.body[0].kind
+    let StatementKind::Declare(Declaration::Inferred {
+        initializer, ..
+    }) = &procedure.body[0].kind
     else {
         panic!();
     };

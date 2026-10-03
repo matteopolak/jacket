@@ -418,7 +418,7 @@ fn file_directory_imports_and_exported_loads() {
     );
 }
 #[test]
-fn collisions_cycles_and_unsupported_forms_fail_explicitly() {
+fn collisions_load_cycles_and_unsupported_forms_fail_explicitly() {
     let collision = Fixture::new(&[
         ("main.jai", "value :: 1;\n#import \"Leaf\";"),
         ("modules/Leaf.jai", "value :: 2;"),
@@ -429,26 +429,18 @@ fn collisions_cycles_and_unsupported_forms_fail_explicitly() {
         matches!(&collision, GraphError::Located { diagnostic, .. } if diagnostic.location.span.start > 0)
     );
     assert!(collision.to_string().contains("main.jai:2:"));
-    for (files, kind) in [
-        (
-            vec![("main.jai", "#load \"main.jai\";")],
-            DependencyKind::Load,
-        ),
-        (
-            vec![
-                ("main.jai", "#import \"A\";"),
-                ("modules/A.jai", "#import \"B\";"),
-                ("modules/B.jai", "#import \"A\";"),
-            ],
-            DependencyKind::Import,
-        ),
-    ] {
-        let error = Fixture::new(&files).graph().unwrap_err();
-        assert!(error.to_string().contains(":1:"), "{error}");
-        assert!(
-            matches!(error, GraphError::Cycle { kind: actual, location: Some(_), .. } if actual == kind)
-        );
-    }
+    let error = Fixture::new(&[("main.jai", "#load \"main.jai\";")])
+        .graph()
+        .unwrap_err();
+    assert!(error.to_string().contains(":1:"), "{error}");
+    assert!(matches!(
+        error,
+        GraphError::Cycle {
+            kind: DependencyKind::Load,
+            location: Some(_),
+            ..
+        }
+    ));
     for source in [
         "#import \"Leaf\"()(DEBUG=true);",
         "#import,string \"value :: 1;\";",

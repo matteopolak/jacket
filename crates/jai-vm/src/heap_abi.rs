@@ -40,7 +40,8 @@ impl std::fmt::Display for HeapAbiError {
         write!(f, "heap ABI binding: {self:?}")
     }
 }
-impl std::error::Error for HeapAbiError {}
+impl std::error::Error for HeapAbiError {
+}
 #[derive(Clone, Debug)]
 pub struct HeapAuthority {
     library: ForeignLibrary,

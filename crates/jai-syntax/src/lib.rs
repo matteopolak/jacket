@@ -4,7 +4,9 @@ pub use source_procedures::*;
 mod anonymous_procedures;
 mod anonymous_records;
 mod array_literal_targets;
+mod baked_arguments;
 mod builtin_type_tags;
+pub use baked_arguments::BakedArgumentsSyntax;
 mod call_arguments;
 mod caller_exports;
 #[cfg(test)]
@@ -19,14 +21,16 @@ mod source_procedure_headers;
 pub use compile_time_cases::*;
 mod context_fields;
 mod declaration_attributes;
+mod declaration_lists;
+mod deferred_context;
 mod deprecation;
 mod file_conditional_bodies;
 pub use deprecation::Deprecation;
 mod expressions;
 mod external_data;
 pub use external_data::{ExternalDataBinding, ExternalDataSource};
-#[cfg(test)]
 mod field_placement;
+pub use field_placement::FieldPlacementSyntax;
 mod field_prefix;
 mod instruction_bytes;
 mod libraries;
@@ -40,6 +44,7 @@ mod operators;
 mod parameter_baking;
 mod parameter_evaluation;
 mod placeholders;
+mod retained_metadata;
 pub use placeholders::PlaceholderDeclaration;
 mod places;
 mod pointer_prefixes;
@@ -52,10 +57,10 @@ mod record_conditionals;
 mod record_defaults;
 mod record_members;
 mod record_parameters;
-#[cfg(test)]
 mod record_placement;
-#[cfg(test)]
+pub use record_placement::RecordPlacementSyntax;
 mod record_reflection_syntax;
+pub use record_reflection_syntax::RecordReflectionSettingSyntax;
 mod run_flag_parser;
 mod run_flags;
 mod safety_checks;
@@ -64,6 +69,7 @@ pub use run_flags::RunFlags;
 mod short_lambdas;
 mod simd;
 mod statement_conditionals;
+mod statement_termination;
 mod statements;
 mod type_annotations;
 mod type_restrictions;
@@ -91,6 +97,7 @@ pub use procedures::*;
 pub use program_exports::*;
 pub use record_members::*;
 pub use record_parameters::*;
+pub use retained_metadata::{MAX_SOURCE_METADATA_DEPTH, SourceMetadataError};
 pub use safety_checks::{CheckPolicy, SafetyChecks};
 pub use short_lambdas::*;
 pub use simd::*;
@@ -209,6 +216,12 @@ pub struct ConstantResultsDeclaration {
 }
 #[derive(Clone, Debug)]
 pub enum Declaration {
+    /// Each published name retains one common initializer syntax owner.
+    GroupMember {
+        name: Symbol,
+        ordinal: usize,
+        group: std::sync::Arc<DeclarationGroup>,
+    },
     External {
         name: Symbol,
         ty: TypeSyntax,
@@ -233,21 +246,101 @@ pub enum Declaration {
         attributes: Vec<DeclarationAttribute>,
     },
 }
+#[derive(Clone, Debug)]
+pub struct DeclarationGroup {
+    names: Vec<(Symbol, Span)>,
+    source: Declaration,
+    extra_initializers: Vec<Expression>,
+}
+impl DeclarationGroup {
+    pub fn names(&self) -> &[(Symbol, Span)] {
+        &self.names
+    }
+    pub fn name_capacity(&self) -> usize {
+        self.names.capacity()
+    }
+    /// Include the shared owner and Arc counters before borrowing its payload.
+    pub fn retained_owner_byte_bound(&self) -> usize {
+        std::mem::size_of::<Self>()
+            .saturating_add(std::mem::size_of::<[usize; 2]>())
+            .saturating_add(std::mem::align_of::<Self>().saturating_sub(1))
+    }
+    pub fn source(&self) -> &Declaration {
+        &self.source
+    }
+    pub fn extra_initializers(&self) -> &Vec<Expression> {
+        &self.extra_initializers
+    }
+    pub fn initializer_for(&self, ordinal: usize) -> Option<&Expression> {
+        if ordinal != 0 && !self.extra_initializers.is_empty() {
+            return self.extra_initializers.get(ordinal - 1);
+        }
+        match &self.source {
+            Declaration::Inferred {
+                initializer, ..
+            } => Some(initializer),
+            Declaration::Explicit {
+                initializer, ..
+            }
+            | Declaration::UnresolvedExplicit {
+                initializer, ..
+            } => initializer.as_ref(),
+            Declaration::External {
+                ..
+            }
+            | Declaration::GroupMember {
+                ..
+            } => None,
+        }
+    }
+}
 impl Declaration {
+    /// View the actual common written type/initializer without changing the
+    /// individual name of a published group member.
+    pub fn source(&self) -> &Self {
+        match self {
+            Self::GroupMember {
+                group, ..
+            } => group.source(),
+            _ => self,
+        }
+    }
     pub fn attributes(&self) -> &[DeclarationAttribute] {
         match self {
-            Self::Inferred { attributes, .. }
-            | Self::Explicit { attributes, .. }
-            | Self::UnresolvedExplicit { attributes, .. }
-            | Self::External { attributes, .. } => attributes,
+            Self::GroupMember {
+                group, ..
+            } => group.source().attributes(),
+            Self::Inferred {
+                attributes, ..
+            }
+            | Self::Explicit {
+                attributes, ..
+            }
+            | Self::UnresolvedExplicit {
+                attributes, ..
+            }
+            | Self::External {
+                attributes, ..
+            } => attributes,
         }
     }
     pub fn name(&self) -> Symbol {
         match self {
-            Self::Inferred { name, .. }
-            | Self::Explicit { name, .. }
-            | Self::UnresolvedExplicit { name, .. }
-            | Self::External { name, .. } => *name,
+            Self::GroupMember {
+                name, ..
+            } => *name,
+            Self::Inferred {
+                name, ..
+            }
+            | Self::Explicit {
+                name, ..
+            }
+            | Self::UnresolvedExplicit {
+                name, ..
+            }
+            | Self::External {
+                name, ..
+            } => *name,
         }
     }
 }
@@ -321,12 +414,17 @@ pub struct Statement {
 impl Statement {
     /// Wrap retained syntax with its genuine source range; no location is inferred.
     pub fn new(span: Span, kind: StatementKind) -> Self {
-        Self { span, kind }
+        Self {
+            span,
+            kind,
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum StatementKind {
+    /// An explicit empty statement retains its genuine semicolon range.
+    Empty,
     InstructionBytes(InstructionBytes),
     Simd(SimdBlock),
     Import(ScopedImportDeclaration),
@@ -400,6 +498,9 @@ pub enum StatementKind {
         value: Option<Expression>,
         body: Vec<Statement>,
     },
+    PushContextDeferred {
+        value: Option<Expression>,
+    },
     Jump {
         kind: JumpKind,
         target: LoopTarget,
@@ -432,14 +533,13 @@ pub fn parse(source: &str) -> Result<Module, Diagnostic> {
         if parser.starts_procedure() {
             procedures.push(parser.procedure()?);
         } else {
-            let span = parser.token().span;
-            let name = parser.name()?;
-            match parser.data_declaration(name, span)?.kind {
-                StatementKind::Declare(declaration) => {
-                    globals.push(GlobalDeclaration { declaration, span })
+            for declaration in parser.file_data_declarations()? {
+                match declaration {
+                    declaration_lists::GlobalOrConstant::Global(global) => globals.push(global),
+                    declaration_lists::GlobalOrConstant::Constant(constant) => {
+                        constants.push(constant)
+                    }
                 }
-                StatementKind::Constant(declaration) => constants.push(declaration),
-                _ => unreachable!("data declaration always produces a declaration"),
             }
         }
     }
@@ -517,7 +617,10 @@ impl Parser<'_> {
         while self.take(Punct::Dot) {
             members.push(self.name()?);
         }
-        Ok(NamePath { root, members })
+        Ok(NamePath {
+            root,
+            members,
+        })
     }
     fn scalar_type(&mut self) -> Result<ScalarType, Diagnostic> {
         let ty = match BuiltinType::from_spelling(&self.token().spelling(self.source)) {

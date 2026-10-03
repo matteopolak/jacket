@@ -16,9 +16,10 @@ impl Resolver<'_> {
         &mut self,
         source: RecordSource<'_>,
         fields: &[FieldSource],
+        members: &[syntax::RecordMember],
         has_namespace_members: bool,
     ) -> Result<TypeId, Diagnostic> {
-        let ty = self.define_local_record_shape(source, fields, has_namespace_members)?;
+        let ty = self.define_local_record_shape(source, fields, members, has_namespace_members)?;
         self.finish_local_record_defaults(ty)?;
         Ok(ty)
     }
@@ -27,6 +28,7 @@ impl Resolver<'_> {
         &mut self,
         source: RecordSource<'_>,
         fields: &[FieldSource],
+        members: &[syntax::RecordMember],
         has_namespace_members: bool,
     ) -> Result<TypeId, Diagnostic> {
         let RecordSource {
@@ -58,9 +60,9 @@ impl Resolver<'_> {
                 }
                 let field_ty = self.record_field_annotation(ty, |resolver| match field {
                     FieldSource::Named(field) => match &field.binding {
-                        syntax::FieldBinding::Explicit { ty, .. } => {
-                            resolver.lexical_annotation(ty, field.span)
-                        }
+                        syntax::FieldBinding::Explicit {
+                            ty, ..
+                        } => resolver.lexical_annotation(ty, field.span),
                         syntax::FieldBinding::Inferred(expression) => {
                             resolver.local_default_type(expression)
                         }
@@ -76,12 +78,8 @@ impl Resolver<'_> {
                         layout.minimum_alignment = Some(self.local_alignment(expression)?);
                     }
                     syntax::RecordAttribute::NoPadding => layout.packed = true,
-                    syntax::RecordAttribute::TypeInfoNone => {
-                        return Err(Diagnostic::new(
-                            span,
-                            "#type_info_none requires reflection metadata suppression, which is not implemented",
-                        ));
-                    }
+                    syntax::RecordAttribute::TypeInfoNone
+                    | syntax::RecordAttribute::Reflection(_) => {}
                 }
             }
             let mut alignments = Vec::new();
@@ -92,6 +90,7 @@ impl Resolver<'_> {
                         syntax::FieldAttribute::Alignment(expression) => {
                             alignment = Some(self.local_alignment(expression)?)
                         }
+                        syntax::FieldAttribute::Placement(_) => {}
                     }
                 }
                 alignments.push(alignment);
@@ -100,9 +99,16 @@ impl Resolver<'_> {
                 layout.field_alignments = alignments.into_boxed_slice();
             }
             self.types
-                .define_record_with_layout(ty, field_types, layout)
+                .define_record_with_placements(
+                    ty,
+                    field_types,
+                    layout,
+                    crate::record_placements::source_placement_ordinals(members)?,
+                )
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?;
         }
+        crate::reflection::apply_source_record_attributes(self.types, ty, attributes)
+            .map_err(|error| Diagnostic::new(span, error.to_string()))?;
         let mut metadata = Vec::new();
         for (index, field) in fields.iter().enumerate() {
             let descriptor = self
@@ -112,9 +118,13 @@ impl Resolver<'_> {
             let source = match field {
                 FieldSource::AnonymousRecord(_) => None,
                 FieldSource::Named(field) => match &field.binding {
-                    syntax::FieldBinding::Explicit { ty, .. } => Some(ty),
+                    syntax::FieldBinding::Explicit {
+                        ty, ..
+                    } => Some(ty),
                     syntax::FieldBinding::Inferred(expression) => match &expression.kind {
-                        syntax::ExpressionKind::TypeCast { ty, .. } => Some(ty),
+                        syntax::ExpressionKind::TypeCast {
+                            ty, ..
+                        } => Some(ty),
                         _ => None,
                     },
                 },
@@ -146,13 +156,18 @@ impl Resolver<'_> {
         );
         self.validate_field_conversion_record(ty, span)?;
         let textual_flags = attributes.iter().fold(
-            if kind == RecordKind::Union { 2 } else { 0 },
+            if kind == RecordKind::Union {
+                2
+            } else {
+                0
+            },
             |flags, attribute| {
                 flags
                     | match attribute {
                         syntax::RecordAttribute::NoPadding => 4,
                         syntax::RecordAttribute::TypeInfoNone => 8,
-                        syntax::RecordAttribute::Alignment(_) => 0,
+                        syntax::RecordAttribute::Alignment(_)
+                        | syntax::RecordAttribute::Reflection(_) => 0,
                     }
             },
         );
@@ -163,7 +178,11 @@ impl Resolver<'_> {
                 notes: record_notes,
                 textual_flags,
                 status_flags: 4,
-                nontextual_flags: if kind == RecordKind::Union { 64 } else { 0 },
+                nontextual_flags: if kind == RecordKind::Union {
+                    64
+                } else {
+                    0
+                },
                 unsupported_members: has_namespace_members,
             },
         );

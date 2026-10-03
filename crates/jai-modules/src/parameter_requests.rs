@@ -40,9 +40,14 @@ pub enum ParameterTask {
 impl ParameterTask {
     fn same_work(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::ResolveType { syntax: left }, Self::ResolveType { syntax: right }) => {
-                same_type_source(left, right)
-            }
+            (
+                Self::ResolveType {
+                    syntax: left,
+                },
+                Self::ResolveType {
+                    syntax: right,
+                },
+            ) => same_type_source(left, right),
             (
                 Self::CheckInterface {
                     actual: left,
@@ -139,7 +144,8 @@ impl fmt::Display for ParameterResponseError {
         })
     }
 }
-impl std::error::Error for ParameterResponseError {}
+impl std::error::Error for ParameterResponseError {
+}
 
 #[derive(Clone)]
 pub(super) struct ParameterRequestStore {
@@ -254,6 +260,7 @@ fn same_type_source(left: &TypeSyntax, right: &TypeSyntax) -> bool {
         ) => left_count.span == right_count.span && same_type_source(left, right),
         (T::Procedure(left), T::Procedure(right)) => {
             left.convention == right.convention
+                && left.return_abi == right.return_abi
                 && left.context == right.context
                 && left.parameters.len() == right.parameters.len()
                 && left.results.len() == right.results.len()
@@ -390,7 +397,9 @@ fn validate_type(graph: &ModuleGraph, ty: &ModuleType) -> Result<(), ParameterRe
         ModuleType::Pointer(inner)
         | ModuleType::Slice(inner)
         | ModuleType::DynamicArray(inner)
-        | ModuleType::FixedArray { element: inner, .. } => validate_type(graph, inner),
+        | ModuleType::FixedArray {
+            element: inner, ..
+        } => validate_type(graph, inner),
         ModuleType::Procedure(signature) => {
             for ty in signature.parameters.iter().chain(&signature.results) {
                 validate_type(graph, ty)?;

@@ -2,6 +2,7 @@ mod bootstrap_imports;
 mod callable_aliases;
 mod collisions;
 mod declaration_insertions;
+mod import_cycles;
 mod insertion_admission;
 mod session;
 mod suspended_imports;
@@ -44,6 +45,8 @@ pub(super) struct Builder<'a> {
     active_modules: HashSet<ModuleId>,
     active_files: HashSet<(ModuleId, PathBuf)>,
     callable_aliases: Vec<callable_aliases::DeferredAlias>,
+    published_imports: Vec<import_cycles::PublishedImport>,
+    has_import_backedges: bool,
 }
 impl<'a> Builder<'a> {
     pub(super) fn new(options: GraphOptions, provider: &'a dyn SourceProvider) -> Self {
@@ -124,6 +127,8 @@ impl<'a> Builder<'a> {
             active_modules: HashSet::new(),
             active_files: HashSet::new(),
             callable_aliases: Vec::new(),
+            published_imports: vec![],
+            has_import_backedges: false,
         }
     }
     fn canonical(&self, path: &Path) -> Result<PathBuf, GraphError> {
@@ -181,7 +186,17 @@ impl<'a> Builder<'a> {
                 diagnostic,
             })?
             .into_owned();
-        let id = self.graph.sources.insert(path.to_owned(), text);
+        let snapshot = self
+            .provider
+            .retain_decoded_text(path, &text)
+            .map_err(|cause| GraphError::Io {
+                path: path.to_owned(),
+                cause,
+            })?;
+        let id = self
+            .graph
+            .sources
+            .insert_snapshot(path.to_owned(), snapshot);
         let file =
             jai_syntax::parse_file(self.graph.sources.get(id).unwrap(), &mut self.graph.symbols)
                 .map_err(|diagnostic| {
@@ -205,6 +220,7 @@ impl<'a> Builder<'a> {
         self.active_specialization = specialization;
         if result.is_ok() {
             self.completed_modules.insert(module);
+            self.refresh_import_exports()?;
         }
         result
     }
@@ -215,12 +231,17 @@ impl<'a> Builder<'a> {
         loop {
             let mut progressed = false;
             let mut initialization_pending = None;
+            self.refresh_import_exports()?;
             self.prepare_callable_aliases(module)?;
             for file in self.graph.modules[module.index()].files.clone() {
                 let before = (self.initialized_files.len(), self.graph.parameters.len());
                 match self.initialize_file(file) {
                     Ok(()) => {}
-                    Err(error @ GraphError::Pending { .. }) => {
+                    Err(
+                        error @ GraphError::Pending {
+                            ..
+                        },
+                    ) => {
                         initialization_pending.get_or_insert(error);
                     }
                     Err(error) => return Err(error),
@@ -247,7 +268,11 @@ impl<'a> Builder<'a> {
                             }
                         }
                     }
-                    Err(error @ GraphError::Pending { .. }) => {
+                    Err(
+                        error @ GraphError::Pending {
+                            ..
+                        },
+                    ) => {
                         first_pending.get_or_insert(error);
                         deferred.push((file, path, item));
                     }
@@ -259,6 +284,7 @@ impl<'a> Builder<'a> {
                 return Err(first_pending.expect("no progress requires a pending dependency"));
             }
         }
+        self.refresh_import_exports()?;
         self.finish_callable_aliases(module)
     }
     fn file(
@@ -318,7 +344,10 @@ impl<'a> Builder<'a> {
         self.file_origins.insert(id, origin);
         self.active_files.remove(&key);
         match self.initialize_file(id) {
-            Ok(()) | Err(GraphError::Pending { .. }) => Ok(id),
+            Ok(())
+            | Err(GraphError::Pending {
+                ..
+            }) => Ok(id),
             Err(error) => Err(error),
         }
     }
@@ -517,7 +546,10 @@ impl<'a> Builder<'a> {
                         UsingDeclarationSource::File(Box::new(declaration.clone())),
                     )?;
                 }
-                FileItem::CompileTimeCases { cases, location } => {
+                FileItem::CompileTimeCases {
+                    cases,
+                    location,
+                } => {
                     let choice = match self.selected_case(file, cases.span) {
                         Some(choice) => choice,
                         None => match self.constant_case(file, &cases.header()) {
@@ -531,7 +563,14 @@ impl<'a> Builder<'a> {
                                 );
                                 choice
                             }
-                            Err(GraphError::Pending { .. } | GraphError::Unsupported { .. }) => {
+                            Err(
+                                GraphError::Pending {
+                                    ..
+                                }
+                                | GraphError::Unsupported {
+                                    ..
+                                },
+                            ) => {
                                 return Err(self.defer_case(
                                     file,
                                     &cases.header(),
@@ -561,46 +600,56 @@ impl<'a> Builder<'a> {
                     else_items,
                     location: _,
                 } => {
-                    let decision = if let Some(selected) =
-                        self.selected_condition(file, condition.span)
-                    {
-                        selected
-                    } else {
-                        let value = match self.constant_expression(file, condition, &mut Vec::new())
-                        {
-                            Ok(value) => value,
-                            Err(GraphError::Pending { .. } | GraphError::Unsupported { .. }) => {
-                                return Err(self.defer_condition(
-                                    file,
-                                    condition,
-                                    DiscoveryConditionContext::File,
-                                ));
+                    let decision =
+                        if let Some(selected) = self.selected_condition(file, condition.span) {
+                            selected
+                        } else {
+                            let value =
+                                match self.constant_expression(file, condition, &mut Vec::new()) {
+                                    Ok(value) => value,
+                                    Err(
+                                        GraphError::Pending {
+                                            ..
+                                        }
+                                        | GraphError::Unsupported {
+                                            ..
+                                        },
+                                    ) => {
+                                        return Err(self.defer_condition(
+                                            file,
+                                            condition,
+                                            DiscoveryConditionContext::File,
+                                        ));
+                                    }
+                                    Err(error) => return Err(error),
+                                };
+                            match value {
+                                jai_eval::Value::Bool(v) => v,
+                                jai_eval::Value::Literal(v) => v != 0,
+                                jai_eval::Value::Int(v) => v.value() != 0,
+                                jai_eval::Value::Float(v) => v.to_f64() != 0.0,
+                                jai_eval::Value::WeakFloat(v) => {
+                                    v.round(v.default_type(), condition.span)
+                                        .map_err(|d| {
+                                            self.located(
+                                                SourceSpan {
+                                                    source: self.graph.files[file.index()].source,
+                                                    span: d.span,
+                                                },
+                                                d.message,
+                                            )
+                                        })?
+                                        .to_f64()
+                                        != 0.0
+                                }
                             }
-                            Err(error) => return Err(error),
                         };
-                        match value {
-                            jai_eval::Value::Bool(v) => v,
-                            jai_eval::Value::Literal(v) => v != 0,
-                            jai_eval::Value::Int(v) => v.value() != 0,
-                            jai_eval::Value::Float(v) => v.to_f64() != 0.0,
-                            jai_eval::Value::WeakFloat(v) => {
-                                v.round(v.default_type(), condition.span)
-                                    .map_err(|d| {
-                                        self.located(
-                                            SourceSpan {
-                                                source: self.graph.files[file.index()].source,
-                                                span: d.span,
-                                            },
-                                            d.message,
-                                        )
-                                    })?
-                                    .to_f64()
-                                    != 0.0
-                            }
-                        }
-                    };
                     self.record_selection(file, condition.span, decision);
-                    let selected = if decision { then_items } else { else_items };
+                    let selected = if decision {
+                        then_items
+                    } else {
+                        else_items
+                    };
                     self.register_declarations(file, selected)?;
                     let module = self.graph.files[file.0].module;
                     self.pending.entry(module).or_default().extend(
@@ -640,7 +689,12 @@ impl<'a> Builder<'a> {
                     syntax: syntax.clone(),
                 }),
                 FileItem::Declaration(declaration) => self.scoped_declaration(file, declaration)?,
-                FileItem::Assert { .. } | FileItem::Scope { .. } => {}
+                FileItem::Assert {
+                    ..
+                }
+                | FileItem::Scope {
+                    ..
+                } => {}
             }
         }
         Ok(())
@@ -816,13 +870,10 @@ impl<'a> Builder<'a> {
             return Ok(module);
         }
         let path = self.import_path(file, import)?;
-        if self
+        let active_path = self
             .modules
             .iter()
-            .any(|(key, module)| key.path == path && self.active_modules.contains(module))
-        {
-            return Err(self.cycle(DependencyKind::Import, path, Some(import.location)));
-        }
+            .any(|(key, module)| key.path == path && self.active_modules.contains(module));
         self.first_import
             .entry(path.clone())
             .or_insert(import.location);
@@ -830,6 +881,7 @@ impl<'a> Builder<'a> {
             .pending_imports
             .get(&path)
             .is_some_and(|location| *location != import.location)
+            && !active_path
         {
             let diagnostic = self.graph.diagnostic(
                 import.location,
@@ -841,11 +893,16 @@ impl<'a> Builder<'a> {
                 rendered,
             });
         }
-        self.pending_imports.insert(path.clone(), import.location);
+        if !active_path {
+            self.pending_imports.insert(path.clone(), import.location);
+        }
         let arguments =
             self.evaluate_arguments(file, &import.arguments.instance, import.location)?;
         let supplied_program =
             self.evaluate_arguments(file, &import.arguments.program, import.location)?;
+        if supplied_program.is_some() && active_path {
+            return Err(self.located(import.location, "program module parameters must be supplied before the module begins dependency expansion"));
+        }
         if supplied_program.is_some()
             && self.program.contains_key(&path)
             && self.first_import.get(&path) != Some(&import.location)
@@ -869,7 +926,10 @@ impl<'a> Builder<'a> {
         };
         let module = if let Some(&module) = self.modules.get(&key) {
             if self.active_modules.contains(&module) {
-                return Err(self.cycle(DependencyKind::Import, path, Some(import.location)));
+                // The entry's declarations are already reserved. A backedge
+                // retains this exact instance rather than recursively expanding it.
+                self.has_import_backedges = true;
+                return Ok(module);
             }
             module
         } else {
@@ -897,7 +957,9 @@ impl<'a> Builder<'a> {
         if !self.completed_modules.contains(&module) {
             self.expand_import_module(file, import, module, &path, scope)?;
         }
-        self.pending_imports.remove(&path);
+        if !active_path {
+            self.pending_imports.remove(&path);
+        }
         Ok(module)
     }
     fn bind_import(
@@ -906,17 +968,35 @@ impl<'a> Builder<'a> {
         import: &ImportDeclaration,
         module: ModuleId,
     ) -> Result<(), GraphError> {
-        if let Some(name) = import.namespace {
+        self.bind_import_names(
+            file,
+            import.namespace,
+            import.using,
+            import.visibility,
+            module,
+            import.location,
+        )
+    }
+    pub(super) fn bind_import_names(
+        &mut self,
+        file: FileInstanceId,
+        namespace: Option<Symbol>,
+        using: bool,
+        visibility: Visibility,
+        module: ModuleId,
+        location: SourceSpan,
+    ) -> Result<(), GraphError> {
+        if let Some(name) = namespace {
             self.bind(
                 file,
-                import.visibility,
+                visibility,
                 name,
                 Binding::Module(module),
-                import.location,
+                location,
                 true,
             )?;
         }
-        if import.namespace.is_none() || import.using {
+        if namespace.is_none() || using {
             let mut exports: Vec<_> = self.graph.modules[module.index()]
                 .exports
                 .iter()
@@ -929,23 +1009,10 @@ impl<'a> Builder<'a> {
                     .cmp(self.graph.symbols.name(*right))
             });
             for (name, binding) in exports {
-                self.bind(
-                    file,
-                    import.visibility,
-                    name,
-                    binding,
-                    import.location,
-                    true,
-                )?;
+                self.bind(file, visibility, name, binding, location, true)?;
             }
             for (name, placeholder) in self.graph.module_placeholder_exports(module) {
-                self.link_placeholder_import(
-                    file,
-                    import.visibility,
-                    name,
-                    placeholder,
-                    import.location,
-                )?;
+                self.link_placeholder_import(file, visibility, name, placeholder, location)?;
             }
         }
         Ok(())

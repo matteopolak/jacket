@@ -51,7 +51,9 @@ impl Resolver<'_> {
             let mut values = Vec::with_capacity(frame.len());
             for (&name, binding) in frame {
                 let binding = match binding.clone() {
-                    Binding::CompilerInput { .. } => {
+                    Binding::CompilerInput {
+                        ..
+                    } => {
                         return Err(Diagnostic::new(
                             span,
                             "compiler input cannot enter a retained source capture",
@@ -102,9 +104,10 @@ impl Resolver<'_> {
                         charge(&mut bytes, key.bytes(), MAX_LEXICAL_BYTES, span)?;
                         CaptureBinding::Storage(key)
                     }
-                    Binding::Procedure { procedure, ty } => {
-                        CaptureBinding::Procedure(procedure, ty)
-                    }
+                    Binding::Procedure {
+                        procedure,
+                        ty,
+                    } => CaptureBinding::Procedure(procedure, ty),
                     Binding::Constant(crate::ScalarConstant::Literal(value)) => {
                         CaptureBinding::WeakInteger(value)
                     }
@@ -190,9 +193,10 @@ pub(super) fn charge_constant(
                 }
                 pending.extend(values);
             }
-            jai_ir::ConstantKind::Distinct(value) | jai_ir::ConstantKind::Union { value, .. } => {
-                pending.push(value)
-            }
+            jai_ir::ConstantKind::Distinct(value)
+            | jai_ir::ConstantKind::Union {
+                value, ..
+            } => pending.push(value),
             jai_ir::ConstantKind::StringBytes(value) => {
                 charge(bytes, value.len(), MAX_LEXICAL_BYTES, span)?
             }

@@ -55,7 +55,8 @@ impl fmt::Display for RuntimeInfoSnapshotError {
         }
     }
 }
-impl std::error::Error for RuntimeInfoSnapshotError {}
+impl std::error::Error for RuntimeInfoSnapshotError {
+}
 
 impl RuntimeInfoSnapshot {
     pub fn new_compile_time(

@@ -87,3 +87,99 @@ fn committed_batches_advance_once_and_rejected_batches_do_not_publish() {
             .contains(RecordReflectionFlag::ProceduresAreVoidPointers)
     );
 }
+
+
+#[test]
+fn changed_policy_publishes_an_independent_descriptor_and_retains_the_old_graph() {
+    use jai_types::{
+        DescriptorKind, LayoutPolicy, ReflectionGraph, ReflectionMetadata, ReflectionReadiness,
+    };
+    use std::sync::Arc;
+    let mut types = TypeRegistry::new();
+    let schema = Arc::new(schema::TypeInfoSchema::new(&mut types).unwrap());
+    let record = types.reserve_record(RecordKind::Struct);
+    let int = types.scalar(ScalarType::Int(IntegerType::S64));
+    types.define_record(record, [int]).unwrap();
+    let metadata = ReflectionMetadata::default();
+    let mut meta = MetaContext::default();
+    meta.schema = Some(Arc::clone(&schema));
+    let ReflectionReadiness::Ready(old_graph) =
+        ReflectionGraph::build(&types, record, Some(LayoutPolicy::lp64()), &metadata).unwrap()
+    else {
+        panic!("actual record descriptor is ready")
+    };
+    let (old_data, additions) = storage::materialize(
+        &mut types,
+        &old_graph,
+        &schema,
+        &meta.storage,
+        &mut meta.storage_builder,
+    )
+    .unwrap();
+    for (ty, pointer, address) in additions {
+        meta.storage
+            .insert(ty, (pointer, Arc::clone(&old_data), address));
+    }
+    let old_object = meta.storage[&record].2.object();
+    let old = jai_ir::RuntimeTypeConstant::new(Arc::clone(&old_data), old_object, &types).unwrap();
+    meta.storage_policies
+        .insert(record, types.record_reflection_policy(record).unwrap());
+    types
+        .add_record_reflection_flags(
+            record,
+            RecordReflectionPolicy::from_flags([RecordReflectionFlag::NoTypeInfo]),
+        )
+        .unwrap();
+    meta.synchronize_reflection_policy(&types, Span::default())
+        .unwrap();
+    assert!(meta.storage.is_empty());
+    assert_eq!(meta.descriptor_policy_epoch, 1);
+    let ReflectionReadiness::Ready(current_graph) =
+        ReflectionGraph::build(&types, record, Some(LayoutPolicy::lp64()), &metadata).unwrap()
+    else {
+        panic!("hidden record descriptor is ready")
+    };
+    let (current_data, additions) = storage::materialize(
+        &mut types,
+        &current_graph,
+        &schema,
+        &meta.storage,
+        &mut meta.storage_builder,
+    )
+    .unwrap();
+    let current_object = additions
+        .iter()
+        .find(|(ty, _, _)| *ty == record)
+        .unwrap()
+        .2
+        .object();
+    let current =
+        jai_ir::RuntimeTypeConstant::new(Arc::clone(&current_data), current_object, &types)
+            .unwrap();
+    assert_eq!(old.identity().ty(), current.identity().ty());
+    assert_ne!(old.identity().object(), current.identity().object());
+    assert!(Arc::ptr_eq(
+        &old_data.objects()[old_object.index()],
+        &current_data.objects()[old_object.index()]
+    ));
+    let DescriptorKind::Record {
+        fields: old_fields,
+        ..
+    } = &old_graph.get(old_graph.root()).unwrap().kind
+    else {
+        panic!()
+    };
+    let DescriptorKind::Record {
+        fields: current_fields,
+        ..
+    } = &current_graph.get(current_graph.root()).unwrap().kind
+    else {
+        panic!()
+    };
+    assert_eq!(old_fields.len(), 1);
+    assert!(current_fields.is_empty());
+    old.validate(&types).unwrap();
+    current.validate(&types).unwrap();
+    old_data.validate(&types).unwrap();
+    current_data.validate(&types).unwrap();
+}

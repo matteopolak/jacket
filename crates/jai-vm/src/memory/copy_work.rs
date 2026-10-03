@@ -39,14 +39,18 @@ impl Memory {
                 union = true;
             }
             ty = match projection {
-                Projection::Bytes { ty, .. } => *ty,
+                Projection::Bytes {
+                    ty, ..
+                } => *ty,
                 Projection::Field(index) => *types
                     .record_storage_definition(ty)?
                     .fields
                     .get(*index)
                     .ok_or(Error::InvalidIr("invalid copy field projection"))?,
                 Projection::Index(_) => match types.kind(ty)? {
-                    TypeKind::FixedArray { element, .. } => *element,
+                    TypeKind::FixedArray {
+                        element, ..
+                    } => *element,
                     TypeKind::String => types.scalar(ScalarType::Int(IntegerType::U8)),
                     _ => return Err(Error::InvalidIr("invalid copy index projection")),
                 },
@@ -85,11 +89,24 @@ impl Memory {
             match (projection, value) {
                 (Projection::Sequence(field), _) if ordinal + 1 == pointer.data()?.path.len() => {
                     let metadata = match (field, value) {
-                        (jai_ir::SequenceField::Data, Value::Slice { pointer, .. })
-                        | (jai_ir::SequenceField::Data, Value::DynamicArray { pointer, .. })
-                        | (jai_ir::SequenceField::Data, Value::StringView { pointer, .. }) => {
-                            pointer.metadata_cells()
-                        }
+                        (
+                            jai_ir::SequenceField::Data,
+                            Value::Slice {
+                                pointer, ..
+                            },
+                        )
+                        | (
+                            jai_ir::SequenceField::Data,
+                            Value::DynamicArray {
+                                pointer, ..
+                            },
+                        )
+                        | (
+                            jai_ir::SequenceField::Data,
+                            Value::StringView {
+                                pointer, ..
+                            },
+                        ) => pointer.metadata_cells(),
                         _ => 0,
                     };
                     return add_work(path, add_work(1, metadata)?);
@@ -99,13 +116,23 @@ impl Memory {
                 {
                     return add_work(path, 1);
                 }
-                (Projection::Field(index), Value::Record { fields, .. }) => {
+                (
+                    Projection::Field(index),
+                    Value::Record {
+                        fields, ..
+                    },
+                ) => {
                     value = fields.get(*index).ok_or(Error::OutOfBounds {
                         index: *index,
                         length: fields.len(),
                     })?;
                 }
-                (Projection::Index(index), Value::Array { elements, .. }) => {
+                (
+                    Projection::Index(index),
+                    Value::Array {
+                        elements, ..
+                    },
+                ) => {
                     value = elements.get(*index).ok_or(Error::OutOfBounds {
                         index: *index,
                         length: elements.len(),
@@ -229,7 +256,10 @@ fn zero_shape(
                 include(zero_shape(types, schema.ty(), limits, depth + 1, cache)?, 1)?;
             }
         }
-        TypeKind::FixedArray { element, count } => {
+        TypeKind::FixedArray {
+            element,
+            count,
+        } => {
             let count = usize::try_from(*count).map_err(|_| Error::Limit(LimitKind::ValueCells))?;
             if count != 0 {
                 include(

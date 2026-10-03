@@ -2,34 +2,80 @@
 """Build the real Rust interpreter as wasm and stage its browser runner."""
 from pathlib import Path
 import argparse
+import hashlib
+import json
 import os
 import shutil
 import subprocess
+from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def storage_directory(path):
+    while not path.exists():
+        path = path.parent
+    if not path.is_dir():
+        raise ValueError('build storage path is not a directory')
+    return path
+
+
+def build_command(cargo, target, release):
+    command = [*cargo, "build", "--offline", "--locked", "-j", "1", "-p", "jai-wasm",
+               "--target", "wasm32-unknown-unknown", "--target-dir", str(target)]
+    if release:
+        command.append("--release")
+    return command
 
 
 def main():
-    root = Path(__file__).resolve().parents[1]
+    root = ROOT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release", action="store_true")
     parser.add_argument("--output", type=Path, default=root / "artifacts/scripting-runtime")
+    parser.add_argument("--target-dir", type=Path,
+                        help="Override CARGO_TARGET_DIR or Cargo target configuration")
     args = parser.parse_args()
-    if shutil.disk_usage(root).free < 2 * 1024**3:
-        raise SystemExit("build requires at least 2 GiB of free disk space")
-    command = ["cargo", "build", "--offline", "--locked", "-j", "1", "-p", "jai-wasm", "--target", "wasm32-unknown-unknown"]
-    if args.release:
-        command.append("--release")
-    subprocess.run(command, cwd=root, env={**os.environ, "CARGO_INCREMENTAL": "0"}, check=True)
-    target_root = Path(os.environ.get("CARGO_TARGET_DIR", root / "target"))
-    if not target_root.is_absolute():
-        target_root = root / target_root
-    wasm = target_root / "wasm32-unknown-unknown" / ("release" if args.release else "debug") / "jai_wasm.wasm"
-    if wasm.read_bytes()[:8] != b"\x00asm\x01\x00\x00\x00":
-        raise SystemExit("compiler output is not a WebAssembly module")
-    args.output.mkdir(parents=True, exist_ok=True)
-    for source in (root / "web/scripting-runtime").iterdir():
-        shutil.copy2(source, args.output / source.name)
-    shutil.copy2(wasm, args.output / "jai_wasm.wasm")
-    print(f"Browser runner: {args.output}")
+    environment = {**os.environ, "CARGO_INCREMENTAL": "0"}
+    cargo = pinned_cargo_command(root, environment)
+    target = configured_target_directory(args.target_dir, environment, cargo, root)
+    environment["CARGO_TARGET_DIR"] = str(target.path)
+    # Output paths are user-selected too; they cannot replace inert original inputs.
+    output = checked_directory(args.output.resolve(), root)
+    for path in (root, target.path, output):
+        if shutil.disk_usage(storage_directory(path)).free < 2 * 1024**3:
+            raise SystemExit("build requires at least 2 GiB of free disk space on each used volume")
+    command = build_command(cargo, target.path, args.release)
+    subprocess.run(command, cwd=root, env=environment, check=True)
+    wasm = target.path / "wasm32-unknown-unknown" / ("release" if args.release else "debug") / "jai_wasm.wasm"
+    with wasm.open("rb") as compiled:
+        if compiled.read(8) != b"\x00asm\x01\x00\x00\x00":
+            raise SystemExit("compiler output is not a WebAssembly module")
+    output.mkdir(parents=True, exist_ok=True)
+    browser = root / "web/scripting-runtime"
+    for source in sorted(browser.rglob("*")):
+        relative = source.relative_to(browser)
+        if any(part in {"node_modules", ".git", "target"} for part in relative.parts):
+            continue
+        if source.is_symlink():
+            raise ValueError("browser assets cannot be symlinks")
+        if source.is_dir():
+            continue
+        if not source.is_file():
+            raise ValueError("browser assets must be regular files")
+        destination = output / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    staged = output / "jai_wasm.wasm"
+    shutil.copy2(wasm, staged)
+    expected = hashlib.sha256(wasm.read_bytes()).hexdigest()
+    if hashlib.sha256(staged.read_bytes()).hexdigest() != expected:
+        raise RuntimeError("WebAssembly output changed while staging it")
+    receipt = {"build_command": command, "target_directory": target.receipt(),
+               "wasm_build_path": str(wasm), "wasm_staged_path": str(staged),
+               "wasm_sha256": expected}
+    (output / "build-metadata.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    print(f"Browser runner: {output}")
 
 
 if __name__ == "__main__":

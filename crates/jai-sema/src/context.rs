@@ -199,7 +199,10 @@ impl Resolver<'_> {
             ContextConstant::Value(value) => {
                 self.typed_value(value.clone().into_expression(), value.ty, span)
             }
-            ContextConstant::Procedure { procedure, ty } => self.typed_value(
+            ContextConstant::Procedure {
+                procedure,
+                ty,
+            } => self.typed_value(
                 ValueExpr::ProcedureValue {
                     procedure: *procedure,
                     ty: *ty,
@@ -270,6 +273,10 @@ impl Resolver<'_> {
         let body = result?;
         self.debug
             .attach_block(&[DebugPathStep::Child(DebugBranch::PushContext)]);
-        Ok(Statement::PushContext { id, value, body })
+        Ok(Statement::PushContext {
+            id,
+            value,
+            body,
+        })
     }
 }

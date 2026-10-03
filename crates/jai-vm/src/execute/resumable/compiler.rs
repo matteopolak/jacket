@@ -264,11 +264,17 @@ impl CompilerController {
         for control in source.controls() {
             controls.push(match control {
                 CompilerControl::Evaluate(leaf) => Control::Evaluate(*leaf),
-                CompilerControl::Assign { slot, leaf } => Control::Assign {
+                CompilerControl::Assign {
+                    slot,
+                    leaf,
+                } => Control::Assign {
                     slot: *slot,
                     leaf: *leaf,
                 },
-                CompilerControl::Block { children, locals } => Control::Block {
+                CompilerControl::Block {
+                    children,
+                    locals,
+                } => Control::Block {
                     children: children.clone(),
                     locals: locals.clone(),
                 },
@@ -478,9 +484,10 @@ impl CompilerController {
             match work {
                 Work::Enter(id) => match self.control(id)? {
                     Control::Evaluate(leaf) => self.start_leaf(*leaf, Goal::Discard)?,
-                    Control::Assign { slot, leaf } => {
-                        self.start_leaf(*leaf, Goal::Assign(*slot))?
-                    }
+                    Control::Assign {
+                        slot,
+                        leaf,
+                    } => self.start_leaf(*leaf, Goal::Assign(*slot))?,
                     Control::If {
                         condition,
                         then_control,
@@ -492,7 +499,9 @@ impl CompilerController {
                             no: *else_control,
                         },
                     )?,
-                    Control::Block { locals, .. } => {
+                    Control::Block {
+                        locals, ..
+                    } => {
                         vm.charge_work(locals.len())?;
                         for slot in locals {
                             if self.frame.slot(*slot)?.value.is_some() {
@@ -538,8 +547,15 @@ impl CompilerController {
                         });
                     }
                 },
-                Work::BlockNext { block, index } => {
-                    let Control::Block { children, locals } = self.control(block)? else {
+                Work::BlockNext {
+                    block,
+                    index,
+                } => {
+                    let Control::Block {
+                        children,
+                        locals,
+                    } = self.control(block)?
+                    else {
                         return Err(Error::InvalidIr("compiler block cursor has no block").into());
                     };
                     if let Some(child) = children.get(index).copied() {
@@ -702,14 +718,21 @@ impl CompilerController {
                 slot.cells = active.value_cells.unwrap();
                 self.frame.cells = next;
             }
-            Goal::Decide { yes, no } => {
+            Goal::Decide {
+                yes,
+                no,
+            } => {
                 let values = active.values.as_ref().unwrap();
                 if values.len() != 1 {
                     return Err(
                         Error::InvalidIr("compiler condition has the wrong result count").into(),
                     );
                 }
-                let selected = if values[0].boolean()? { yes } else { no };
+                let selected = if values[0].boolean()? {
+                    yes
+                } else {
+                    no
+                };
                 self.push(vm, Work::Enter(selected))?;
             }
         }
@@ -781,16 +804,24 @@ fn metered_cells<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             cells = sum(cells, bytes.capacity())?;
         }
         Value::Pointer(pointer)
-        | Value::Slice { pointer, .. }
-        | Value::StringView { pointer, .. } => cells = sum(cells, pointer.metadata_cells())?,
-        Value::Type { descriptor } => {
+        | Value::Slice {
+            pointer, ..
+        }
+        | Value::StringView {
+            pointer, ..
+        } => cells = sum(cells, pointer.metadata_cells())?,
+        Value::Type {
+            descriptor,
+        } => {
             cells = sum(
                 cells,
                 descriptor.as_ref().map_or(0, Pointer::metadata_cells),
             )?
         }
         Value::AddressInteger(number) => cells = sum(cells, number.metadata_cells())?,
-        Value::Record { fields, .. }
+        Value::Record {
+            fields, ..
+        }
         | Value::Array {
             elements: fields, ..
         } => {
@@ -799,11 +830,16 @@ fn metered_cells<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 cells = sum(cells, metered_cells(vm, value, depth + 1)?)?;
             }
         }
-        Value::Union { value, .. } | Value::Distinct { value, .. } => {
-            cells = sum(cells, metered_cells(vm, value, depth + 1)?)?
+        Value::Union {
+            value, ..
         }
+        | Value::Distinct {
+            value, ..
+        } => cells = sum(cells, metered_cells(vm, value, depth + 1)?)?,
         Value::DynamicArray {
-            pointer, allocator, ..
+            pointer,
+            allocator,
+            ..
         } => {
             cells = sum(cells, pointer.metadata_cells())?;
             if let Some(value) = allocator {
@@ -820,8 +856,12 @@ fn metered_cells<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
         Value::Int(_)
         | Value::Bool(_)
         | Value::Float(_)
-        | Value::Enum { .. }
-        | Value::Procedure { .. } => {}
+        | Value::Enum {
+            ..
+        }
+        | Value::Procedure {
+            ..
+        } => {}
     }
     bound(cells, vm.limits.value_cells)?;
     Ok(cells)

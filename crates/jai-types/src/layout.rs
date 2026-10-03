@@ -10,7 +10,10 @@ pub struct ScalarLayout {
 }
 impl ScalarLayout {
     pub const fn new(size: u64, alignment: u32) -> Self {
-        Self { size, alignment }
+        Self {
+            size,
+            alignment,
+        }
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,7 +46,10 @@ impl From<TypeError> for LayoutError {
 impl fmt::Display for LayoutError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidPolicy { component, issue } => {
+            Self::InvalidPolicy {
+                component,
+                issue,
+            } => {
                 write!(f, "invalid layout policy for {component}: {issue:?}")
             }
             Self::Type(error) => write!(f, "invalid type for layout: {error:?}"),
@@ -61,7 +67,8 @@ impl fmt::Display for LayoutError {
         }
     }
 }
-impl std::error::Error for LayoutError {}
+impl std::error::Error for LayoutError {
+}
 
 /// Explicit primitive storage policy; procedure values use pointer layout.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -95,7 +102,10 @@ impl LayoutPolicy {
                 None
             };
             if let Some(issue) = issue {
-                Err(LayoutError::InvalidPolicy { component, issue })
+                Err(LayoutError::InvalidPolicy {
+                    component,
+                    issue,
+                })
             } else {
                 Ok(())
             }
@@ -229,7 +239,9 @@ impl<'types> LayoutEngine<'types> {
                         stack.push((*field, false));
                     }
                 }
-                TypeKind::FixedArray { element, .. } => stack.push((*element, false)),
+                TypeKind::FixedArray {
+                    element, ..
+                } => stack.push((*element, false)),
                 TypeKind::Distinct(distinct) => {
                     stack.push((self.types.distinct(*distinct)?.representation, false));
                 }
@@ -307,7 +319,11 @@ impl<'types> LayoutEngine<'types> {
                 .get(index)
                 .copied()
                 .flatten()
-                .unwrap_or(if options.packed { 1 } else { field.alignment });
+                .unwrap_or(if options.packed {
+                    1
+                } else {
+                    field.alignment
+                });
             alignment = alignment.max(field_alignment);
             if union {
                 offsets.push(0);
@@ -352,7 +368,10 @@ impl<'types> LayoutEngine<'types> {
                 .policy
                 .integer(self.types.enumeration(*enumeration)?.representation)
                 .into(),
-            TypeKind::FixedArray { element, count } => {
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => {
                 let element = self.dependency(*element)?;
                 let stride = Self::align_up(id, element.size, element.alignment)?;
                 Layout {
@@ -886,6 +905,7 @@ mod representation_tests {
             .procedure(ProcedureType {
                 parameters: vec![enumeration].into_boxed_slice(),
                 results: vec![double].into_boxed_slice(),
+                return_abi: crate::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: crate::Variadic::None,

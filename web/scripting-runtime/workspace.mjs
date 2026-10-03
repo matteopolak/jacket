@@ -11,7 +11,7 @@ export class SourcePath {
   }
 
   static parse(value) {
-    if (typeof value !== "string" || value.startsWith("/") || /[\\\0]/u.test(value)) {
+    if (typeof value !== "string" || value.startsWith("/") || /[\\\0:]/u.test(value)) {
       throw new TypeError("Use a relative file name with forward slashes.");
     }
     const parts = [];
@@ -40,6 +40,7 @@ export class SourcePath {
 export class Workspace {
   #files = new Map();
   #selected;
+  #revision = 0;
 
   constructor(source) {
     this.add(entryName, source);
@@ -57,6 +58,26 @@ export class Workspace {
     });
   }
 
+  get documents() {
+    return this.names.map(name => Object.freeze({ path: name, text: this.#files.get(name).text, version: this.#files.get(name).version }));
+  }
+
+  get tree() {
+    const root = { kind: "directory", name: "", path: "", children: [] };
+    for (const name of this.names) {
+      const parts = name.split("/"); let parent = root; let prefix = "";
+      for (const component of parts.slice(0, -1)) {
+        prefix += (prefix ? "/" : "") + component;
+        let child = parent.children.find(node => node.kind === "directory" && node.name === component);
+        if (!child) { child = { kind: "directory", name: component, path: prefix, children: [] }; parent.children.push(child); }
+        parent = child;
+      }
+      parent.children.push({ kind: "file", name: parts.at(-1), path: name });
+    }
+    const sort = node => { node.children.sort((a,b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "directory" ? -1 : 1); for (const child of node.children) if (child.kind === "directory") sort(child); return node; };
+    return sort(root);
+  }
+
   get canRemoveSelected() {
     return this.#selected !== entryName;
   }
@@ -65,7 +86,7 @@ export class Workspace {
     const path = SourcePath.parse(name);
     if (typeof text !== "string") throw new TypeError("Source files must contain text.");
     if (this.#files.has(path.name)) throw new Error("That file already exists.");
-    this.#files.set(path.name, Object.freeze({ path, text }));
+    this.#files.set(path.name, Object.freeze({ path, text, version: ++this.#revision }));
     this.#selected = path.name;
   }
 
@@ -77,7 +98,8 @@ export class Workspace {
 
   edit(text) {
     if (typeof text !== "string") throw new TypeError("Source files must contain text.");
-    this.#files.set(this.#selected, Object.freeze({ path: this.selected.path, text }));
+    if (text === this.selected.text) return;
+    this.#files.set(this.#selected, Object.freeze({ path: this.selected.path, text, version: ++this.#revision }));
   }
 
   removeSelected() {

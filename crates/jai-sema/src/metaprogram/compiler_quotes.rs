@@ -84,7 +84,10 @@ impl CompilerQuoteTemplate {
                     ));
                 }
                 match binding {
-                    CompilerQuoteBinding::Native { slot, ty } => {
+                    CompilerQuoteBinding::Native {
+                        slot,
+                        ty,
+                    } => {
                         if !allowed.contains(slot)
                             || plan
                                 .slot_schema(*slot)
@@ -100,7 +103,9 @@ impl CompilerQuoteTemplate {
                         Binding::Storage(_)
                         | Binding::Discarded(_)
                         | Binding::LambdaPreview(_)
-                        | Binding::CompilerInput { .. },
+                        | Binding::CompilerInput {
+                            ..
+                        },
                     ) => {
                         return Err(fail(
                             "compiler quotation static facts cannot contain runtime or preview storage",
@@ -254,8 +259,20 @@ mod tests {
             &body,
             source,
             vec![vec![
-                (name, CompilerQuoteBinding::Native { slot, ty }),
-                (alias, CompilerQuoteBinding::Native { slot, ty }),
+                (
+                    name,
+                    CompilerQuoteBinding::Native {
+                        slot,
+                        ty,
+                    },
+                ),
+                (
+                    alias,
+                    CompilerQuoteBinding::Native {
+                        slot,
+                        ty,
+                    },
+                ),
             ]],
         )
         .unwrap();
@@ -292,7 +309,13 @@ mod tests {
                 foreign_site,
                 &body,
                 source.clone(),
-                vec![vec![(name, CompilerQuoteBinding::Native { slot, ty })]],
+                vec![vec![(
+                    name,
+                    CompilerQuoteBinding::Native {
+                        slot,
+                        ty
+                    }
+                )]],
             )
             .is_err()
         );
@@ -328,7 +351,10 @@ mod tests {
         let (graph, source, body) = quotation();
         let name = graph.symbols().find("captured").unwrap();
         let alias = graph.symbols().find("Answer").unwrap();
-        let native = CompilerQuoteBinding::Native { slot, ty };
+        let native = CompilerQuoteBinding::Native {
+            slot,
+            ty,
+        };
         for frame in [
             vec![(name, native.clone()), (name, native.clone())],
             vec![

@@ -98,7 +98,7 @@ impl Resolver<'_> {
                 "constant query exceeds source depth",
             ));
         }
-        if matches!(source.kind, E::CompileTime(_)) {
+        if matches!(source.kind, E::CompileTime(_) | E::BakeArguments(_)) {
             return Ok(Constantness::Deferred);
         }
         if let E::Cast(jai_types::CastMode::Force(_), _, value)
@@ -122,15 +122,20 @@ impl Resolver<'_> {
         }
         let next = depth + 1;
         Ok(match &source.kind {
-            E::Cast(_, _, value) | E::TypeCast { value, .. } => {
-                match self.source_constantness(value, next)? {
-                    Constantness::Runtime => Constantness::Runtime,
-                    Constantness::Constant | Constantness::Deferred => Constantness::Deferred,
-                }
-            }
+            E::Cast(_, _, value)
+            | E::TypeCast {
+                value, ..
+            } => match self.source_constantness(value, next)? {
+                Constantness::Runtime => Constantness::Runtime,
+                Constantness::Constant | Constantness::Deferred => Constantness::Deferred,
+            },
             E::Unary(_, value)
-            | E::InferredCast { value, .. }
-            | E::CallHint { call: value, .. } => self.source_constantness(value, next)?,
+            | E::InferredCast {
+                value, ..
+            }
+            | E::CallHint {
+                call: value, ..
+            } => self.source_constantness(value, next)?,
             E::Binary(_, left, right) => self
                 .source_constantness(left, next)?
                 .combine(self.source_constantness(right, next)?),
@@ -198,7 +203,9 @@ impl Resolver<'_> {
                 self.describe_call_results(path, args, source.span)?;
                 Ok(false)
             }
-            E::CallHint { call, .. } => self.source_is_constant(call),
+            E::CallHint {
+                call, ..
+            } => self.source_is_constant(call),
             _ => Ok(self.describe_argument(source)?.is_compile_time_constant()),
         }
     }

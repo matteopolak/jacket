@@ -58,9 +58,12 @@ fn targets_local(statement: &jai_ir::Statement, local: jai_ir::LocalId) -> bool 
         return true;
     }
     match statement {
-        jai_ir::Statement::Store(_, jai_ir::ValueExpr::AddressOf { place, .. }) => {
-            place.kind() == jai_ir::PlaceKind::Local(local)
-        }
+        jai_ir::Statement::Store(
+            _,
+            jai_ir::ValueExpr::AddressOf {
+                place, ..
+            },
+        ) => place.kind() == jai_ir::PlaceKind::Local(local),
         jai_ir::Statement::Block(block) => block
             .statements
             .iter()
@@ -143,7 +146,9 @@ fn cleanup_and_generated_sequence_prefixes_use_their_actual_emitted_paths() {
     };
     let while_index = sequence.statements.len() - 1;
     let body = match &sequence.statements[while_index] {
-        jai_ir::Statement::While { body, .. } => body,
+        jai_ir::Statement::While {
+            body, ..
+        } => body,
         _ => panic!("generated sequence while"),
     };
     let total = sources

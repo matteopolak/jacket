@@ -190,7 +190,10 @@ where
                     _ => return None,
                 };
                 Some(RecordMethod {
-                    id: RecordMethodId { owner, member },
+                    id: RecordMethodId {
+                        owner,
+                        member,
+                    },
                     file,
                     source,
                 })
@@ -253,7 +256,11 @@ where
             return Ok(());
         }
         let flags = enumeration.kind == syntax::EnumKind::Flags;
-        let mut next = Some(if flags { 1i128 } else { 0 });
+        let mut next = Some(if flags {
+            1i128
+        } else {
+            0
+        });
         let mut values = Vec::new();
         let mut names = HashSet::new();
         let mut enum_scope = scope.clone();

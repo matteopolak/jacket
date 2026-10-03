@@ -39,8 +39,12 @@ impl Resolver<'_> {
         }
         let ty = value.type_id(self.types);
         match self.types.kind(ty) {
-            Ok(TypeKind::Slice(element) | TypeKind::FixedArray { element, .. })
-                if *element == self.types.string() => {}
+            Ok(
+                TypeKind::Slice(element)
+                | TypeKind::FixedArray {
+                    element, ..
+                },
+            ) if *element == self.types.string() => {}
             _ => {
                 return Err(Diagnostic::new(
                     span,
@@ -74,8 +78,14 @@ impl Resolver<'_> {
                 ));
             };
             let elements = match value {
-                Value::Array { elements, .. } => elements.clone(),
-                Value::Slice { pointer, count, .. } => {
+                Value::Array {
+                    elements, ..
+                } => elements.clone(),
+                Value::Slice {
+                    pointer,
+                    count,
+                    ..
+                } => {
                     let count = usize::try_from(*count).map_err(|_| {
                         Diagnostic::new(span, "using name list has an invalid count")
                     })?;
@@ -221,7 +231,9 @@ impl Resolver<'_> {
                 .memory()
                 .load(self.types, &allocation)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-            let Value::Array { elements, .. } = vm
+            let Value::Array {
+                elements, ..
+            } = vm
                 .materialize_value(&value)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?
             else {

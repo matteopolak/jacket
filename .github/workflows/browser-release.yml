@@ -1,0 +1,75 @@
+name: verify browser compiler release
+on:
+  workflow_dispatch:
+    inputs:
+      compiler_revision:
+        description: Reviewed full 40-character compiler commit to build
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: browser-compiler-${{ inputs.compiler_revision }}
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPILER_REVISION: ${{ inputs.compiler_revision }}
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '1'
+      RUSTC_WRAPPER: ''
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/browser-release
+    steps:
+      - name: Require an immutable compiler revision
+        run: |
+          python3 - <<'PY'
+          import os, re
+          if not re.fullmatch(r'[0-9a-f]{40}', os.environ['COMPILER_REVISION']):
+              raise SystemExit('compiler_revision must be a lowercase full commit SHA')
+          PY
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.compiler_revision }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Verify checkout and dependency ages before fetching/building
+        run: |
+          test "$(git rev-parse HEAD)" = "$COMPILER_REVISION"
+          python3 tools/check_ci_sources.py
+          python3 tools/check_dependency_age.py
+      - name: Validate and install the aged pinned Rust/Wasm toolchain
+        id: toolchain
+        run: |
+          toolchain=$(python3 tools/package_browser_release.py --toolchain)
+          echo "channel=$toolchain" >> "$GITHUB_OUTPUT"
+          rustup toolchain install "$toolchain" --profile minimal --component rustfmt --component clippy
+          rustup target add wasm32-unknown-unknown --toolchain "$toolchain"
+      - name: Fetch only the locked graph
+        env:
+          PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
+        run: rustup run "$PINNED_TOOLCHAIN" cargo fetch --locked
+      - name: Check packaging helpers and authored browser state
+        run: |
+          python3 -m unittest discover -s tools -p test_package_browser_release.py -v
+          python3 -m unittest discover -s tools -p test_build_scripting_wasm.py -v
+          python3 -m unittest discover -s tools -p test_cargo_build_paths.py -v
+          node --test tools/test_browser_release.mjs tools/test_browser_workspace.mjs
+      - name: Test the portable runtime and Wasm boundary without LLVM
+        env:
+          PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
+        run: rustup run "$PINNED_TOOLCHAIN" cargo test --offline --locked -j 1 -p jai-runtime -p jai-wasm
+      - name: Build, execute and package the actual staged compiler
+        run: python3 tools/package_browser_release.py --output "$RUNNER_TEMP/jai-browser-release" --target-dir "$CARGO_TARGET_DIR"
+      - name: Retain the exact-commit producer assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jai-playground-${{ inputs.compiler_revision }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/jai-browser-release/jai-playground.zip
+            ${{ runner.temp }}/jai-browser-release/jai-playground.manifest.json

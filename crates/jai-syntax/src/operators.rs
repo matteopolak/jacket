@@ -44,8 +44,9 @@ mod tests {
         else {
             panic!()
         };
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[0].kind
         else {
             panic!()
         };

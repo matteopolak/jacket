@@ -33,7 +33,8 @@ impl fmt::Display for CompilerTransactionError {
         })
     }
 }
-impl std::error::Error for CompilerTransactionError {}
+impl std::error::Error for CompilerTransactionError {
+}
 
 /// Owns the uncommitted host half of a suspended VM job. Dropping it cancels
 /// staging; it is deliberately neither clonable nor constructible by callers.

@@ -134,7 +134,10 @@ impl Resolver<'_> {
                 continue;
             }
             let binding = self.resolve_local_declaration(depth, &declaration)?;
-            let Binding::Procedure { procedure, .. } = binding else {
+            let Binding::Procedure {
+                procedure, ..
+            } = binding
+            else {
                 return Err(Diagnostic::new(
                     span,
                     "local operator has no callable signature",

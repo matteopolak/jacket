@@ -60,9 +60,9 @@ pub(super) fn build(
             }
         };
         let binding = match &parameter.binding {
-            syntax::RecordParameterBinding::Typed { ty, .. } => {
-                syntax::ParameterBinding::RequiredType(ty.clone())
-            }
+            syntax::RecordParameterBinding::Typed {
+                ty, ..
+            } => syntax::ParameterBinding::RequiredType(ty.clone()),
             syntax::RecordParameterBinding::InferredDefault(expression) => {
                 // The checked auxiliary Signature supplies the bound slot's type;
                 // this original syntax is retained rather than reverse-printing a TypeId.

@@ -5,3 +5,7 @@ mod bridge;
 #[allow(unsafe_code)]
 mod exports;
 pub use exports::*;
+
+#[allow(unsafe_code)]
+mod language_server;
+pub use language_server::*;

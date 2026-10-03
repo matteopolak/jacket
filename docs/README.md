@@ -1,8 +1,15 @@
 # Developer documentation
 
+- [Bounded compiler and interpreter fuzzing](fuzz-targets.md)
+
 - [Persistent source checkpoints](source-checkpoints.md)
+- [Build storage](build-storage.md)
 
 - [Browser source workspace](browser-workspace.md)
+- [Shared native and WebAssembly language server](language-server.md)
+- [Browser compiler releases](browser-compiler-releases.md)
+- [Browser editor](browser-editor.md)
+- [Scripting runtime](scripting-runtime.md)
 
 - [Code formatting](code-formatting.md)
 
@@ -19,6 +26,7 @@
 - [Reviewed SDK source ABI witnesses](native-sdk-proofs.md)
 
 - [Completion and acceptance plan](completion-plan.md)
+- [Compiler stage strategy](compiler-stage-strategy.md)
 - [Parallel implementation and acceptance](parallel-workstreams.md)
 - [Independent frozen component checks](parallel-component-checks.md)
 - [Callable aliases in overload groups](callable-overload-aliases.md)
@@ -112,6 +120,7 @@
 - [Reference compatibility and acceptance](specs/jai/README.md)
 - [Staged corpus acceptance harness](specs/jai/README.md)
 - [Source-free corpus stage reports](corpus-stage-reports.md)
+- [Complete corpus breadth baseline](corpus-breadth-baseline.md)
 - [CLI source and artifact boundaries](cli-source-boundaries.md)
 - [Reviewed native corpus examples](native-corpus-examples.md)
 - [Focus and Jaison acceptance](focus-and-jaison-acceptance.md)
@@ -202,6 +211,7 @@ Public source corpora are input data.
 - [Native custom record regression tests](native-custom-records.md)
 - [Thread placement acceptance](thread-placement-acceptance.md)
 - [Record placement syntax](record-placement-syntax.md)
+- [Ordered record source metadata](ordered-record-source-metadata.md)
 - [Custom record C ABI verification](native-custom-record-abi.md)
 
 - [Native source debug information](native-debug-information.md)
@@ -298,6 +308,40 @@ Public source corpora are input data.
 - [Historical right-handed UI](specs/stdlib/README.md) — retained widgets, upward-positive layout, and cached resource reads.
 - [Enum source namespaces](enum-source-namespaces.md) — original enum alias type facts for inferred source header defaults.
 - [Nested source namespaces](nested-source-namespaces.md) — canonical nested type reservations through original early source aliases.
+
+- [Return type parameters](return-type-parameters.md)
+
+- [Source allocation origins](source-allocation-origins.md)
+- [Retained source identity](retained-source-identity.md)
+- [Static catalog ownership](static-catalog-ownership.md)
+- [Retained source providers](retained-source-providers.md)
+- [C++ record return ABI](cpp-return-abi.md) — typed foreign return policy and paired native result carriers.
+- [Microsoft C++ result classification](cpp-return-classification.md)
+- [Platform and native host boundary](platform-native-host-boundary.md)
+- [Native library source bindings](native-library-source-bindings.md)
+- [Typed heap constructor receipts](typed-heap-constructor-receipts.md)
+
+- [Baked argument syntax](baked-argument-syntax.md)
+
+- [Retained global initializer jobs](global-initializer-jobs.md)
+- [Baked procedure arguments (staged)](baked-procedure-arguments.md)
+- [Opaque numeric pointer values](opaque-numeric-pointers.md)
+- [Initial type readiness](initial-type-readiness.md)
+- [Retained source-run prefix](source-run-prefix.md)
+- [Static catalog ownership](static-catalog-ownership.md) — complete immutable allocation footprints and cumulative retained-root admission.
+- [Constant capture admission](constant-capture-admission.md) — complete retained-root quotas and cumulative fuel for selected compiler constants.
+- [Source expression parsing](source-expression-parsing.md)
+
+- [Source syntax retention](source-syntax-retention.md)
+- [Scalar source retention](scalar-source-retention.md)
+- [Graph source retention](graph-source-retention.md)
+- [Metered source environments](metered-source-environments.md)
+- [Source reflection factory](reflection-source-factory.md)
+
+- [Latest corpus frontier](corpus-breadth-frontier.md) — matched source cohorts, stage results, and remaining language coverage.
+- [Declaration lists](declaration-lists.md)
+- [Statement termination](statement-termination.md)
+- [Runtime support bootstrap](runtime-support-bootstrap.md)
 
 ## Language and library specifications
 

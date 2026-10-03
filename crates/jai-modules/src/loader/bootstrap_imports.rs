@@ -22,7 +22,8 @@ impl Builder<'_> {
         }
         let path = self.graph.source_requests[&module].path.clone();
         if self.active_modules.contains(&module) {
-            return Err(self.cycle(DependencyKind::Import, path, Some(import.location)));
+            self.has_import_backedges = true;
+            return Ok(Some(module));
         }
         if !self.completed_modules.contains(&module) {
             self.expand_module(module, &path)?;

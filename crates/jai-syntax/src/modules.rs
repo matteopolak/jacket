@@ -179,10 +179,17 @@ pub struct ParsedFile {
     items: Vec<FileItem>,
 }
 impl ParsedFile {
+    pub(super) fn retained_items(&self) -> &Vec<FileItem> {
+        &self.items
+    }
+
     /// Wrap original typed source items in a new expansion instance without
     /// reparsing text or changing their source coordinates.
     pub fn from_items(source: SourceId, items: Vec<FileItem>) -> Self {
-        Self { source, items }
+        Self {
+            source,
+            items,
+        }
     }
     pub fn source(&self) -> SourceId {
         self.source
@@ -227,7 +234,10 @@ impl Parser<'_> {
     }
     fn file_items(&mut self, source: SourceId) -> Result<ParsedFile, Diagnostic> {
         let items = self.file_item_list(source, Visibility::Export, false)?;
-        Ok(ParsedFile { source, items })
+        Ok(ParsedFile {
+            source,
+            items,
+        })
     }
     fn file_item_list(
         &mut self,
@@ -294,7 +304,10 @@ impl Parser<'_> {
             }
             if self.token().kind == Kind::Directive(Directive::Run) {
                 let expression = self.compile_time()?;
-                let ExpressionKind::CompileTime(CompileTimeRun { flags, body }) = expression.kind
+                let ExpressionKind::CompileTime(CompileTimeRun {
+                    flags,
+                    body,
+                }) = expression.kind
                 else {
                     unreachable!("compile-time parser returns a run request");
                 };
@@ -404,6 +417,40 @@ impl Parser<'_> {
                 None
             };
             let declaration_start = self.token().span.start;
+            if self.token().kind == Kind::Ident
+                && self
+                    .tokens
+                    .get(self.at + 1)
+                    .is_some_and(|token| token.kind == Kind::Punctuation(Punct::Comma))
+            {
+                if using_declaration.is_some() || program_export.is_some() {
+                    return Err(
+                        self.error("using and #program_export require an individual declaration")
+                    );
+                }
+                for member in self.file_data_declarations()? {
+                    let (kind, span) = match member {
+                        declaration_lists::GlobalOrConstant::Global(global) => {
+                            let span = global.span;
+                            (FileDeclarationKind::Global(global), span)
+                        }
+                        declaration_lists::GlobalOrConstant::Constant(constant) => {
+                            let span = constant.span;
+                            (FileDeclarationKind::Constant(constant), span)
+                        }
+                    };
+                    items.push(FileItem::Declaration(FileDeclaration {
+                        program_export: None,
+                        visibility,
+                        kind,
+                        location: SourceSpan {
+                            source,
+                            span,
+                        },
+                    }));
+                }
+                continue;
+            }
             let kind = if self.starts_library() {
                 FileDeclarationKind::Library(self.library_declaration()?)
             } else if matches!(
@@ -425,7 +472,10 @@ impl Parser<'_> {
                 let name = self.name()?;
                 match self.data_declaration(name, span)?.kind {
                     StatementKind::Declare(declaration) => {
-                        FileDeclarationKind::Global(GlobalDeclaration { declaration, span })
+                        FileDeclarationKind::Global(GlobalDeclaration {
+                            declaration,
+                            span,
+                        })
                     }
                     StatementKind::Constant(declaration) => {
                         FileDeclarationKind::Constant(declaration)
@@ -560,7 +610,10 @@ impl Parser<'_> {
             using,
             mode,
             target,
-            arguments: ImportArguments { instance, program },
+            arguments: ImportArguments {
+                instance,
+                program,
+            },
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
     }
@@ -711,7 +764,10 @@ mod tests {
         else {
             panic!("expected procedure")
         };
-        let StatementKind::CompileTimeIf { then_body, .. } = &procedure.body[0].kind else {
+        let StatementKind::CompileTimeIf {
+            then_body, ..
+        } = &procedure.body[0].kind
+        else {
             panic!("expected conditional")
         };
         let statement = &then_body[0];

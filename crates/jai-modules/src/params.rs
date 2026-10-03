@@ -229,7 +229,9 @@ impl Builder<'_> {
             Binding::StorageMember(_) => Err(diagnostic(
                 "runtime storage member requires semantic evaluation",
             )),
-            Binding::SourceMember { declaration, .. } => {
+            Binding::SourceMember {
+                declaration, ..
+            } => {
                 if matches!(
                     self.graph.declarations[declaration.index()].syntax.kind,
                     FileDeclarationKind::Enum(_)
@@ -401,7 +403,11 @@ impl Builder<'_> {
                 );
                 let value = match result {
                     Ok(value) => value,
-                    Err(error @ GraphError::Pending { .. }) => {
+                    Err(
+                        error @ GraphError::Pending {
+                            ..
+                        },
+                    ) => {
                         first_pending.get_or_insert(error);
                         deferred.push(parameter);
                         continue;
@@ -418,7 +424,9 @@ impl Builder<'_> {
                     false,
                 )?;
                 let variable = match &parameter.ty {
-                    ModuleParameterType::Interface { variable, .. }
+                    ModuleParameterType::Interface {
+                        variable, ..
+                    }
                     | ModuleParameterType::Unresolved(jai_syntax::TypeSyntax::Restricted {
                         variable,
                         ..
@@ -556,7 +564,12 @@ impl Builder<'_> {
                 debug_assert!(matches!(response, ParameterResponse::NominalSatisfied));
                 value
             }
-            (ModuleParameterType::Unresolved(jai_syntax::TypeSyntax::Restricted { .. }), _) => {
+            (
+                ModuleParameterType::Unresolved(jai_syntax::TypeSyntax::Restricted {
+                    ..
+                }),
+                _,
+            ) => {
                 return Err(self.located(
                     parameter.location,
                     "restricted module parameter requires a type argument",
@@ -567,7 +580,9 @@ impl Builder<'_> {
                 self.coerce_module_value(file, &ty, value, parameter.location, program_wide)?
             }
             (
-                ModuleParameterType::Interface { constraint, .. },
+                ModuleParameterType::Interface {
+                    constraint, ..
+                },
                 value @ ParameterValue::Type(_),
             ) => {
                 let constraint =

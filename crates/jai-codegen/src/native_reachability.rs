@@ -22,7 +22,9 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::CompilerRequest { chain } => {
+            Self::CompilerRequest {
+                chain,
+            } => {
                 f.write_str(
                     "native runtime reaches compiler-only request through procedure chain ",
                 )?;
@@ -34,7 +36,9 @@ impl fmt::Display for Error {
                 }
                 Ok(())
             }
-            Self::CompileTimeOnly { chain } => {
+            Self::CompileTimeOnly {
+                chain,
+            } => {
                 f.write_str(
                     "native runtime reaches #compile_time procedure through procedure chain ",
                 )?;
@@ -46,7 +50,9 @@ impl fmt::Display for Error {
                 }
                 Ok(())
             }
-            Self::SourceContract { chain } => {
+            Self::SourceContract {
+                chain,
+            } => {
                 f.write_str(
                     "native executable reaches a bodyless source contract without a checked provider through procedure chain ",
                 )?;
@@ -70,7 +76,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 #[derive(Debug)]
 pub struct Reachable {
     procedures: HashSet<ProcedureId>,
@@ -180,8 +187,12 @@ impl Reachable {
             .iter()
             .filter_map(|prototype| match prototype.origin {
                 PrototypeOrigin::Compiler => Some(prototype.id),
-                PrototypeOrigin::Foreign { .. }
-                | PrototypeOrigin::SourceContract { .. }
+                PrototypeOrigin::Foreign {
+                    ..
+                }
+                | PrototypeOrigin::SourceContract {
+                    ..
+                }
                 | PrototypeOrigin::Intrinsic(_) => None,
             })
             .collect();
@@ -215,11 +226,17 @@ impl Reachable {
                 }
                 chain.reverse();
                 return Err(if source_contract {
-                    Error::SourceContract { chain }
+                    Error::SourceContract {
+                        chain,
+                    }
                 } else if compile_time_only {
-                    Error::CompileTimeOnly { chain }
+                    Error::CompileTimeOnly {
+                        chain,
+                    }
                 } else {
-                    Error::CompilerRequest { chain }
+                    Error::CompilerRequest {
+                        chain,
+                    }
                 });
             }
             if let Some(procedure) = library.procedure_by_id(id) {
@@ -305,17 +322,27 @@ fn scan<'a>(
                 Statement::Simd(block) => {
                     for instruction in block.instructions().iter().rev() {
                         match instruction {
-                            jai_ir::SimdInstruction::Load { address, .. }
-                            | jai_ir::SimdInstruction::Store { address, .. } => {
+                            jai_ir::SimdInstruction::Load {
+                                address, ..
+                            }
+                            | jai_ir::SimdInstruction::Store {
+                                address, ..
+                            } => {
                                 pending.push(Node::Value(address));
                             }
-                            jai_ir::SimdInstruction::Add { .. }
+                            jai_ir::SimdInstruction::Add {
+                                ..
+                            }
                             | jai_ir::SimdInstruction::DebugTrap
                             | jai_ir::SimdInstruction::Arm64DebugTrap => {}
                         }
                     }
                 }
-                Statement::PushContext { value, body, .. } => {
+                Statement::PushContext {
+                    value,
+                    body,
+                    ..
+                } => {
                     pending.push(Node::Block(body));
                     pending.push(Node::Value(value));
                 }
@@ -334,7 +361,10 @@ fn scan<'a>(
                     pending.push(Node::Value(value));
                 }
                 Statement::DiscardValue(value) => pending.push(Node::Value(value)),
-                Statement::CallResults { call, destinations } => {
+                Statement::CallResults {
+                    call,
+                    destinations,
+                } => {
                     pending.push(Node::Call(call));
                     pending.extend(destinations.iter().flatten().copied().map(Node::Place));
                 }
@@ -386,7 +416,9 @@ fn scan<'a>(
                     }
                 }
                 Statement::While {
-                    condition, body, ..
+                    condition,
+                    body,
+                    ..
                 } => {
                     let skip = match condition {
                         LoopCondition::Value(value) | LoopCondition::BoundBool(_, value) => {
@@ -454,11 +486,17 @@ fn scan<'a>(
                 }
             }
             Node::Value(value) => match value {
-                ValueExpr::StorageBitcast { source, .. } => match source {
+                ValueExpr::StorageBitcast {
+                    source, ..
+                } => match source {
                     StorageBitcastSource::Place(place) => pending.push(Node::Place(*place)),
                     StorageBitcastSource::Value(value) => pending.push(Node::Value(value)),
                 },
-                ValueExpr::Bind { bindings, body, .. } => {
+                ValueExpr::Bind {
+                    bindings,
+                    body,
+                    ..
+                } => {
                     pending.push(Node::RemoveBindings(bindings));
                     pending.push(Node::Value(body));
                     for (binding, producer) in bindings.iter().rev() {
@@ -466,24 +504,38 @@ fn scan<'a>(
                         pending.push(Node::Value(producer));
                     }
                 }
-                ValueExpr::Bound { .. } => {}
-                ValueExpr::ProcedureValue { procedure, .. } => {
+                ValueExpr::Bound {
+                    ..
+                } => {}
+                ValueExpr::ProcedureValue {
+                    procedure, ..
+                } => {
                     edges.insert(*procedure);
                 }
                 ValueExpr::IndirectCall {
-                    callee, arguments, ..
+                    callee,
+                    arguments,
+                    ..
                 } => {
                     pending.push(Node::Value(callee));
                     pending.extend(arguments.iter().map(|(_, value)| Node::Value(value)));
                 }
-                ValueExpr::Call { call, .. } => pending.push(Node::Call(call)),
+                ValueExpr::Call {
+                    call, ..
+                } => pending.push(Node::Call(call)),
                 ValueExpr::Int(value) => pending.push(Node::Int(value)),
                 ValueExpr::Float(value) => pending.push(Node::Float(value)),
                 ValueExpr::Bool(value) => pending.push(Node::Bool(value)),
                 ValueExpr::Load(place)
-                | ValueExpr::AddressOf { place, .. }
-                | ValueExpr::ArrayToSlice { array: place, .. } => pending.push(Node::Place(*place)),
-                ValueExpr::Conditional { expression, .. } => {
+                | ValueExpr::AddressOf {
+                    place, ..
+                }
+                | ValueExpr::ArrayToSlice {
+                    array: place, ..
+                } => pending.push(Node::Place(*place)),
+                ValueExpr::Conditional {
+                    expression, ..
+                } => {
                     pending.push(Node::Bool(&expression.condition));
                     match crate::execution_phase::native_condition_with_bindings(
                         &expression.condition,
@@ -497,20 +549,24 @@ fn scan<'a>(
                         }
                     }
                 }
-                ValueExpr::Array { elements, .. }
+                ValueExpr::Array {
+                    elements, ..
+                }
                 | ValueExpr::Record {
                     fields: elements, ..
                 } => pending.extend(elements.iter().map(Node::Value)),
-                ValueExpr::OrderedRecord { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Node::Value(value)))
-                }
-                ValueExpr::RecordBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Node::Value(value)))
-                }
-                ValueExpr::SequenceBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Node::Value(value)))
-                }
-                ValueExpr::SequenceConcat { parts, .. } => {
+                ValueExpr::OrderedRecord {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Node::Value(value))),
+                ValueExpr::RecordBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Node::Value(value))),
+                ValueExpr::SequenceBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Node::Value(value))),
+                ValueExpr::SequenceConcat {
+                    parts, ..
+                } => {
                     for part in parts {
                         match part {
                             SequencePackPart::Element(value) | SequencePackPart::Spread(value) => {
@@ -519,32 +575,66 @@ fn scan<'a>(
                         }
                     }
                 }
-                ValueExpr::SequenceField { base, .. }
-                | ValueExpr::ArrayView { array: base, .. }
-                | ValueExpr::SequenceView { sequence: base, .. }
-                | ValueExpr::PointerCast { value: base, .. }
-                | ValueExpr::AddressOfValue { value: base, .. }
-                | ValueExpr::Distinct { value: base, .. }
-                | ValueExpr::UnwrapDistinct { value: base, .. }
-                | ValueExpr::Union { value: base, .. }
-                | ValueExpr::Field { base, .. }
-                | ValueExpr::TypeDescriptor { value: base, .. } => pending.push(Node::Value(base)),
-                ValueExpr::Index { base, index, .. } => {
+                ValueExpr::SequenceField {
+                    base, ..
+                }
+                | ValueExpr::ArrayView {
+                    array: base, ..
+                }
+                | ValueExpr::SequenceView {
+                    sequence: base, ..
+                }
+                | ValueExpr::PointerCast {
+                    value: base, ..
+                }
+                | ValueExpr::AddressOfValue {
+                    value: base, ..
+                }
+                | ValueExpr::Distinct {
+                    value: base, ..
+                }
+                | ValueExpr::UnwrapDistinct {
+                    value: base, ..
+                }
+                | ValueExpr::Union {
+                    value: base, ..
+                }
+                | ValueExpr::Field {
+                    base, ..
+                }
+                | ValueExpr::TypeDescriptor {
+                    value: base, ..
+                } => pending.push(Node::Value(base)),
+                ValueExpr::Index {
+                    base,
+                    index,
+                    ..
+                } => {
                     pending.push(Node::Value(base));
                     pending.push(Node::Int(index));
                 }
                 ValueExpr::PointerOffset {
-                    pointer, offset, ..
+                    pointer,
+                    offset,
+                    ..
                 }
                 | ValueExpr::PointerOffsetLeft {
-                    pointer, offset, ..
+                    pointer,
+                    offset,
+                    ..
                 } => {
                     pending.push(Node::Value(pointer));
                     pending.push(Node::Int(offset));
                 }
-                ValueExpr::EnumFromInt { value, .. }
-                | ValueExpr::PointerFromInteger { value, .. } => pending.push(Node::Int(value)),
-                ValueExpr::StaticAddress { data, .. } => {
+                ValueExpr::EnumFromInt {
+                    value, ..
+                }
+                | ValueExpr::PointerFromInteger {
+                    value, ..
+                } => pending.push(Node::Int(value)),
+                ValueExpr::StaticAddress {
+                    data, ..
+                } => {
                     if statics.insert(data.identity()) {
                         pending.extend(
                             data.objects()
@@ -564,16 +654,27 @@ fn scan<'a>(
                     }
                 }
                 ValueExpr::NativePointer(_)
-                | ValueExpr::Context { .. }
-                | ValueExpr::StringBytes { .. }
+                | ValueExpr::Context {
+                    ..
+                }
+                | ValueExpr::StringBytes {
+                    ..
+                }
                 | ValueExpr::Zero(_)
-                | ValueExpr::Enum { .. } => {}
+                | ValueExpr::Enum {
+                    ..
+                } => {}
             },
             Node::Int(value) => match value.kind() {
                 IntExprKind::Value(value)
                 | IntExprKind::EnumValue(value)
-                | IntExprKind::FromPointer { value, .. } => pending.push(Node::Value(value)),
-                IntExprKind::PointerDifference { left, right } => {
+                | IntExprKind::FromPointer {
+                    value, ..
+                } => pending.push(Node::Value(value)),
+                IntExprKind::PointerDifference {
+                    left,
+                    right,
+                } => {
                     pending.push(Node::Value(left));
                     pending.push(Node::Value(right));
                 }
@@ -709,9 +810,10 @@ fn scan<'a>(
                 ConstantKind::Record(values) | ConstantKind::Array(values) => {
                     pending.extend(values.iter().map(Node::Constant))
                 }
-                ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
-                    pending.push(Node::Constant(value))
+                ConstantKind::Union {
+                    value, ..
                 }
+                | ConstantKind::Distinct(value) => pending.push(Node::Constant(value)),
                 ConstantKind::Int(_)
                 | ConstantKind::NativePointer(_)
                 | ConstantKind::Float(_)
@@ -725,7 +827,10 @@ fn scan<'a>(
                 StaticValueKind::Record(values) | StaticValueKind::Array(values) => {
                     pending.extend(values.iter().map(Node::Static))
                 }
-                StaticValueKind::Address(_) | StaticValueKind::Slice { .. } => {}
+                StaticValueKind::Address(_)
+                | StaticValueKind::Slice {
+                    ..
+                } => {}
             },
         }
     }

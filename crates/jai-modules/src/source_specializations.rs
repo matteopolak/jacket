@@ -211,7 +211,9 @@ pub(super) fn needs_specialization(procedure: &Procedure) -> bool {
             parameter.baking != jai_syntax::ParameterBaking::None
                 || match &parameter.binding {
                     ParameterBinding::RequiredType(ty)
-                    | ParameterBinding::DefaultedType { ty: Some(ty), .. } => generic_type(ty),
+                    | ParameterBinding::DefaultedType {
+                        ty: Some(ty), ..
+                    } => generic_type(ty),
                     _ => false,
                 }
         })
@@ -220,13 +222,16 @@ fn generic_type(ty: &TypeSyntax) -> bool {
     match ty {
         TypeSyntax::TypeOf(expression) => generic_expression(expression),
         TypeSyntax::Variable(_) => true,
-        TypeSyntax::Restricted { .. } => true,
+        TypeSyntax::Restricted {
+            ..
+        } => true,
         TypeSyntax::Pointer(inner) | TypeSyntax::Slice(inner) | TypeSyntax::DynamicArray(inner) => {
             generic_type(inner)
         }
-        TypeSyntax::FixedArray { element, count } => {
-            generic_type(element) || generic_expression(count)
-        }
+        TypeSyntax::FixedArray {
+            element,
+            count,
+        } => generic_type(element) || generic_expression(count),
         TypeSyntax::Procedure(procedure) => procedure
             .parameters
             .iter()
@@ -250,8 +255,12 @@ fn generic_expression(expression: &jai_syntax::Expression) -> bool {
                 .any(|argument| generic_expression(&argument.value))
         }
         ExpressionKind::AddressOf(inner)
-        | ExpressionKind::CallHint { call: inner, .. }
-        | ExpressionKind::InferredCast { value: inner, .. } => generic_expression(inner),
+        | ExpressionKind::CallHint {
+            call: inner, ..
+        }
+        | ExpressionKind::InferredCast {
+            value: inner, ..
+        } => generic_expression(inner),
         _ => false,
     }
 }

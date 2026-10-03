@@ -81,7 +81,10 @@ impl fmt::Display for Error {
                 f.write_str("foreign ABI carrier does not match its checked storage value")
             }
             Self::InvalidSymbol(symbol) => write!(f, "foreign symbol {symbol:?} cannot be emitted"),
-            Self::ClassificationLimit { ty, limit } => write!(
+            Self::ClassificationLimit {
+                ty,
+                limit,
+            } => write!(
                 f,
                 "C ABI classification for {ty:?} exceeds {limit} unique type/offset nodes"
             ),
@@ -91,7 +94,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Extension {
@@ -124,7 +128,9 @@ impl<'ctx> Value<'ctx> {
     fn parameter_types(&self, context: &'ctx Context) -> Vec<BasicMetadataTypeEnum<'ctx>> {
         match self {
             Self::Ignore => vec![],
-            Self::Direct { ty, .. } => vec![(*ty).into()],
+            Self::Direct {
+                ty, ..
+            } => vec![(*ty).into()],
             Self::Coerce {
                 carrier: Some(ty), ..
             } => vec![(*ty).into()],
@@ -132,13 +138,20 @@ impl<'ctx> Value<'ctx> {
                 pieces,
                 carrier: None,
             } => pieces.iter().map(|piece| piece.ty.into()).collect(),
-            Self::Indirect { .. } => vec![context.ptr_type(AddressSpace::default()).into()],
+            Self::Indirect {
+                ..
+            } => vec![context.ptr_type(AddressSpace::default()).into()],
         }
     }
     pub fn return_type(&self, context: &'ctx Context) -> Option<BasicTypeEnum<'ctx>> {
         match self {
-            Self::Ignore | Self::Indirect { .. } => None,
-            Self::Direct { ty, .. } => Some(*ty),
+            Self::Ignore
+            | Self::Indirect {
+                ..
+            } => None,
+            Self::Direct {
+                ty, ..
+            } => Some(*ty),
             Self::Coerce {
                 carrier: Some(ty), ..
             } => Some(*ty),
@@ -165,6 +178,10 @@ pub struct Signature<'ctx> {
     pub result: Value<'ctx>,
     pub source_parameters: Vec<TypeId>,
     pub source_result: Option<TypeId>,
+    /// The physical hidden result slot; Microsoft methods put it after `this`.
+    pub(crate) result_parameter: Option<u32>,
+    /// First physical carrier for every source parameter, including ignored ones.
+    pub(crate) parameter_indices: Vec<u32>,
     attributes: Vec<(AttributeLoc, Attribute)>,
 }
 impl<'ctx> Signature<'ctx> {
@@ -210,32 +227,48 @@ impl<'ctx> Signature<'ctx> {
         };
         let source_result = procedure.results.first().copied();
         let result = match source_result {
+            Some(ty) if crate::cpp_methods::indirect_result(types, procedure, platform)? => {
+                validate_storage_graph(types, ty)?;
+                let storage = classifier.lowerer.basic(ty)?;
+                let layout = classifier.layout(ty)?;
+                if layout.size == 0 {
+                    return Err(Error::UnsupportedType(ty));
+                }
+                Value::Indirect {
+                    storage,
+                    alignment: layout.alignment,
+                    by_value: false,
+                }
+            }
             Some(ty) => classifier.value(ty, true)?,
             None => Value::Ignore,
         };
         let mut parameters = vec![];
+        let mut parameter_indices = vec![];
         let mut llvm_parameters = vec![];
         let mut attributes = vec![];
-        if let Value::Indirect {
-            storage, alignment, ..
-        } = result
-        {
-            llvm_parameters.push(context.ptr_type(AddressSpace::default()).into());
-            attributes.push((
-                AttributeLoc::Param(0),
-                type_attribute(context, "sret", storage),
-            ));
-            attributes.push((
-                AttributeLoc::Param(0),
-                enum_attribute(context, "align", u64::from(alignment)),
-            ));
-            attributes.push((
-                AttributeLoc::Param(0),
-                enum_attribute(context, "noalias", 0),
-            ));
-            if platform.is_sysv_x86_64() {
-                classifier.integer_registers -= 1;
-            }
+        let result_parameter = matches!(result, Value::Indirect { .. }).then_some(
+            if procedure.convention == jai_types::CallingConvention::CppMethod
+                && matches!(platform, Platform::WindowsX86_64 | Platform::WindowsArm64)
+            {
+                1
+            } else {
+                0
+            },
+        );
+        if result_parameter == Some(0) {
+            append_result_parameter(
+                context,
+                platform,
+                procedure.convention == jai_types::CallingConvention::CppMethod
+                    || procedure.return_abi == jai_types::ForeignReturnAbi::CppNonPod,
+                &result,
+                &mut llvm_parameters,
+                &mut attributes,
+            )?;
+        }
+        if result_parameter.is_some() && platform.is_sysv_x86_64() {
+            classifier.integer_registers -= 1;
         }
         if let Value::Direct {
             extension: Some(extension),
@@ -247,9 +280,10 @@ impl<'ctx> Signature<'ctx> {
                 extension_attribute(context, extension),
             ));
         }
-        for &ty in &procedure.parameters {
+        for (source_index, &ty) in procedure.parameters.iter().enumerate() {
             let value = classifier.value(ty, false)?;
             let index = u32::try_from(llvm_parameters.len()).map_err(|_| Error::InvalidCarrier)?;
+            parameter_indices.push(index);
             if let Some(alignment) = classifier.stack_alignment(ty, &value)? {
                 attributes.push((
                     AttributeLoc::Param(index),
@@ -282,6 +316,20 @@ impl<'ctx> Signature<'ctx> {
             }
             llvm_parameters.extend(value.parameter_types(context));
             parameters.push(value);
+            if result_parameter == Some(1) && source_index == 0 {
+                if llvm_parameters.len() != 1 {
+                    return Err(Error::InvalidCarrier);
+                }
+                append_result_parameter(
+                    context,
+                    platform,
+                    procedure.convention == jai_types::CallingConvention::CppMethod
+                        || procedure.return_abi == jai_types::ForeignReturnAbi::CppNonPod,
+                    &result,
+                    &mut llvm_parameters,
+                    &mut attributes,
+                )?;
+            }
         }
         let llvm = match result.return_type(context) {
             Some(ty) => ty.fn_type(&llvm_parameters, variadic),
@@ -293,8 +341,30 @@ impl<'ctx> Signature<'ctx> {
             result,
             source_parameters: procedure.parameters.to_vec(),
             source_result,
+            result_parameter,
+            parameter_indices,
             attributes,
         })
+    }
+    /// Opaque LLVM pointer parameters do not preserve hidden result placement
+    /// or the Microsoft AArch64 register rule in FunctionType equality alone.
+    pub(crate) fn compatible_result_contract(&self, function: FunctionValue<'ctx>) -> bool {
+        for index in 0..function.count_params() {
+            let location = AttributeLoc::Param(index);
+            for name in ["sret", "inreg"] {
+                let kind = Attribute::get_named_enum_kind_id(name);
+                let expected = self.attributes.iter().find_map(|(loc, attribute)| {
+                    (*loc == location
+                        && (attribute.is_enum() || attribute.is_type())
+                        && attribute.get_enum_kind_id() == kind)
+                        .then_some(*attribute)
+                });
+                if function.get_enum_attribute(location, kind) != expected {
+                    return false;
+                }
+            }
+        }
+        true
     }
     pub fn attributes_on_function(&self, function: FunctionValue<'ctx>) {
         function.set_call_conventions(0);
@@ -308,6 +378,38 @@ impl<'ctx> Signature<'ctx> {
             call.add_attribute(location, attribute);
         }
     }
+}
+fn append_result_parameter<'ctx>(
+    context: &'ctx Context,
+    platform: Platform,
+    cpp_result: bool,
+    result: &Value<'ctx>,
+    parameters: &mut Vec<BasicMetadataTypeEnum<'ctx>>,
+    attributes: &mut Vec<(AttributeLoc, Attribute)>,
+) -> Result<(), Error> {
+    let Value::Indirect {
+        storage,
+        alignment,
+        ..
+    } = result
+    else {
+        return Err(Error::InvalidCarrier);
+    };
+    let index = u32::try_from(parameters.len()).map_err(|_| Error::InvalidCarrier)?;
+    parameters.push(context.ptr_type(AddressSpace::default()).into());
+    let location = AttributeLoc::Param(index);
+    attributes.push((location, type_attribute(context, "sret", *storage)));
+    attributes.push((
+        location,
+        enum_attribute(context, "align", u64::from(*alignment)),
+    ));
+    attributes.push((location, enum_attribute(context, "noalias", 0)));
+    // The Microsoft AArch64 C++ ABI uses x0/x1 rather than the ordinary x8
+    // indirect-result register. `inreg` is the LLVM target ABI discriminator.
+    if cpp_result && platform == Platform::WindowsArm64 {
+        attributes.push((location, enum_attribute(context, "inreg", 0)));
+    }
+    Ok(())
 }
 fn enum_attribute(context: &Context, name: &str, value: u64) -> Attribute {
     context.create_enum_attribute(Attribute::get_named_enum_kind_id(name), value)
@@ -586,7 +688,10 @@ impl<'ctx> Classifier<'ctx, '_, '_> {
                             .map_err(|_| Error::InvalidCarrier)?,
                     )?,
                 };
-                pieces.push(Piece { ty, offset: start });
+                pieces.push(Piece {
+                    ty,
+                    offset: start,
+                });
             } else {
                 float_count += 1;
                 let ty = if inside.iter().any(|leaf| leaf.float == Some(FloatType::F64)) {
@@ -596,7 +701,10 @@ impl<'ctx> Classifier<'ctx, '_, '_> {
                 } else {
                     self.context.f32_type().into()
                 };
-                pieces.push(Piece { ty, offset: start });
+                pieces.push(Piece {
+                    ty,
+                    offset: start,
+                });
             }
         }
         if !result {
@@ -672,7 +780,10 @@ impl<'ctx> Classifier<'ctx, '_, '_> {
                         )?;
                     }
                 }
-                TypeKind::FixedArray { element, count } => {
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => {
                     let stride = layout.array_stride.ok_or(Error::InvalidCarrier)?;
                     if stride == 0 {
                         continue;
@@ -729,9 +840,9 @@ pub(crate) fn validate_storage_graph(types: &Types, root: TypeId) -> Result<(), 
                     schedule(&mut pending, &mut seen, (field, 0), root)?;
                 }
             }
-            TypeKind::FixedArray { element, .. } => {
-                schedule(&mut pending, &mut seen, (*element, 0), root)?
-            }
+            TypeKind::FixedArray {
+                element, ..
+            } => schedule(&mut pending, &mut seen, (*element, 0), root)?,
             TypeKind::Distinct(id) => schedule(
                 &mut pending,
                 &mut seen,
@@ -819,6 +930,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![union].into_boxed_slice(),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -858,6 +970,7 @@ mod tests {
                     .procedure(ProcedureType {
                         parameters: vec![ty].into_boxed_slice(),
                         results: Box::new([]),
+                        return_abi: jai_types::ForeignReturnAbi::Natural,
                         convention: CallingConvention::C,
                         context: ContextMode::None,
                         variadic: Variadic::None,
@@ -910,6 +1023,7 @@ mod tests {
                     .procedure(ProcedureType {
                         parameters: vec![ty].into_boxed_slice(),
                         results: Box::new([]),
+                        return_abi: jai_types::ForeignReturnAbi::Natural,
                         convention: CallingConvention::C,
                         context: ContextMode::None,
                         variadic: Variadic::None,
@@ -938,3 +1052,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod return_policy_tests;

@@ -17,7 +17,12 @@ pub(crate) enum DefaultReadRoot {
 impl DefaultReadRoot {
     pub(crate) fn ty(self) -> TypeId {
         match self {
-            Self::Global { ty, .. } | Self::Context { ty } => ty,
+            Self::Global {
+                ty, ..
+            }
+            | Self::Context {
+                ty,
+            } => ty,
         }
     }
 }
@@ -123,7 +128,9 @@ impl Resolver<'_> {
             }
             depth += 1;
             match &path.kind {
-                syntax::ExpressionKind::Member { base, .. } => path = base,
+                syntax::ExpressionKind::Member {
+                    base, ..
+                } => path = base,
                 syntax::ExpressionKind::Name(_)
                 | syntax::ExpressionKind::QualifiedName(_)
                 | syntax::ExpressionKind::Context => break,
@@ -164,7 +171,11 @@ impl Resolver<'_> {
                         ty: place.ty(),
                     };
                 }
-                jai_ir::PlaceKind::Context(ty) => break DefaultReadRoot::Context { ty },
+                jai_ir::PlaceKind::Context(ty) => {
+                    break DefaultReadRoot::Context {
+                        ty,
+                    };
+                }
                 jai_ir::PlaceKind::Field(id) => {
                     let projection = self
                         .places
@@ -227,7 +238,10 @@ impl Resolver<'_> {
             ));
         }
         let mut place = match read.root {
-            DefaultReadRoot::Global { declaration, ty } => {
+            DefaultReadRoot::Global {
+                declaration,
+                ty,
+            } => {
                 let scope = self.graph_scope.ok_or_else(|| {
                     Diagnostic::new(span, "runtime default requires its retained source graph")
                 })?;
@@ -240,7 +254,9 @@ impl Resolver<'_> {
                 }
                 storage
             }
-            DefaultReadRoot::Context { ty } => {
+            DefaultReadRoot::Context {
+                ty,
+            } => {
                 let schema = self.require_context(span)?;
                 if schema.definition.record_type != ty {
                     return Err(Diagnostic::at_source(

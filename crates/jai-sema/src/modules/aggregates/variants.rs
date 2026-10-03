@@ -15,7 +15,10 @@ impl Resolver<'_> {
         target: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
-        let Expr::Typed { ty, .. } = &expression else {
+        let Expr::Typed {
+            ty, ..
+        } = &expression
+        else {
             return Ok(expression);
         };
         if *ty == target {
@@ -63,7 +66,9 @@ impl Resolver<'_> {
         target: TypeId,
         span: Span,
     ) -> Result<ValueExpr, Diagnostic> {
-        if let Expr::Typed { ty, .. } = &expression
+        if let Expr::Typed {
+            ty, ..
+        } = &expression
             && *ty == target
         {
             return expression.value(span);
@@ -100,7 +105,10 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<Expr, Diagnostic> {
         let mut visited = HashSet::new();
-        while let Expr::Typed { ty, .. } = &expression {
+        while let Expr::Typed {
+            ty, ..
+        } = &expression
+        {
             let Ok(definition) = self.types.distinct_definition(*ty) else {
                 break;
             };
@@ -189,8 +197,18 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<Expr, Diagnostic> {
         let target = match (&left, &right) {
-            (Expr::Typed { ty, .. }, _) if self.is_variant_expression(&left) => *ty,
-            (_, Expr::Typed { ty, .. }) if self.is_variant_expression(&right) => *ty,
+            (
+                Expr::Typed {
+                    ty, ..
+                },
+                _,
+            ) if self.is_variant_expression(&left) => *ty,
+            (
+                _,
+                Expr::Typed {
+                    ty, ..
+                },
+            ) if self.is_variant_expression(&right) => *ty,
             _ => {
                 return Err(Diagnostic::new(
                     span,
@@ -228,7 +246,10 @@ impl Resolver<'_> {
         expression: Expr,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
-        let Expr::Typed { ty: target, .. } = &expression else {
+        let Expr::Typed {
+            ty: target, ..
+        } = &expression
+        else {
             return Err(Diagnostic::new(
                 span,
                 "distinct operation requires a nominal operand",

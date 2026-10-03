@@ -20,7 +20,9 @@ fn real_full_source_body_and_header() {
         panic!("{:?}", p.body[0])
     };
     let e = match declaration {
-        jai_syntax::Declaration::Inferred { initializer, .. } => initializer,
+        jai_syntax::Declaration::Inferred {
+            initializer, ..
+        } => initializer,
         _ => panic!(),
     };
     assert!(matches!(e.kind, ExpressionKind::AnonymousProcedure(_)));

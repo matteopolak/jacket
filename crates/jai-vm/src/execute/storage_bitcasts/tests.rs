@@ -154,6 +154,7 @@ fn a_resumed_storage_cast_does_not_replay_completed_source_effects() {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([word]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -275,6 +276,7 @@ fn prefix_place_cast_does_not_load_an_unwritten_source_tail() {
         .procedure(jai_types::ProcedureType {
             parameters: Box::new([]),
             results: Box::new([word]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

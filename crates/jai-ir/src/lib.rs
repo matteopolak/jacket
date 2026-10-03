@@ -19,6 +19,8 @@ pub use native_pointer_constants::{
     NativePointerConstant, NativePointerConstantError, NativePointerSource,
 };
 mod foreign_libraries;
+mod foreign_library_sources;
+pub use foreign_library_sources::ForeignLibrarySources;
 mod procedure_hints;
 mod procedure_phases;
 pub use procedure_phases::ProcedurePhases;
@@ -31,9 +33,15 @@ mod source_procedure_owners;
 mod source_warnings;
 pub use source_procedure_owners::{
     CheckedSourceProcedureOwner, GlobalDefinitionsPrefix, SourceProcedureIdentity,
-    SourceProcedureOwnerError, SourceProcedureOwners, SourceProcedurePlaces,
+    SourceProcedureKey, SourceProcedureOwnerError, SourceProcedureOwners, SourceProcedurePlaces,
 };
 pub use source_warnings::SourceWarnings;
+mod typed_constructors;
+pub use typed_constructors::{
+    CheckedTypedConstructorInitializationStep, CheckedTypedConstructorReceipt,
+    TypedConstructorDefaultScope, TypedConstructorError, TypedConstructorInitialization,
+    TypedConstructorOwner, TypedConstructorSource,
+};
 mod simd;
 mod static_byte_views;
 mod static_data;
@@ -106,7 +114,10 @@ pub struct PushContextId {
 impl PushContextId {
     #[doc(hidden)]
     pub fn new(procedure: ProcedureId, index: usize) -> Self {
-        Self { procedure, index }
+        Self {
+            procedure,
+            index,
+        }
     }
     pub fn procedure(self) -> ProcedureId {
         self.procedure
@@ -141,6 +152,7 @@ pub struct Library {
     procedure_phases: ProcedurePhases,
     debug_sources: Option<DebugSources>,
     foreign_libraries: Vec<ForeignLibrary>,
+    foreign_library_sources: ForeignLibrarySources,
     procedures: Vec<Procedure>,
     prototypes: Vec<ProcedurePrototype>,
     context: Option<ContextDefinition>,
@@ -186,6 +198,9 @@ impl Library {
     }
     pub fn foreign_libraries(&self) -> &[ForeignLibrary] {
         &self.foreign_libraries
+    }
+    pub fn foreign_library_sources(&self) -> &ForeignLibrarySources {
+        &self.foreign_library_sources
     }
     pub fn procedures(&self) -> &[Procedure] {
         &self.procedures
@@ -346,7 +361,12 @@ pub enum PrototypeOrigin {
 impl PrototypeOrigin {
     pub fn external_symbol(&self) -> Option<&str> {
         match self {
-            Self::Foreign { symbol, .. } | Self::SourceContract { symbol } => Some(symbol),
+            Self::Foreign {
+                symbol, ..
+            }
+            | Self::SourceContract {
+                symbol,
+            } => Some(symbol),
             Self::Compiler | Self::Intrinsic(_) => None,
         }
     }
@@ -453,20 +473,35 @@ impl fmt::Display for IrError {
             Self::Type(error) => write!(f, "invalid IR type: {error}"),
             Self::RuntimeIntrinsic(error) => write!(f, "invalid IR runtime intrinsic: {error}"),
             Self::ProgramExport(error) => write!(f, "invalid IR program export: {error}"),
-            Self::UnknownIdentity { kind, index } => write!(f, "invalid {kind} identity {index}"),
-            Self::DuplicateIdentity { kind, index } => {
+            Self::UnknownIdentity {
+                kind,
+                index,
+            } => write!(f, "invalid {kind} identity {index}"),
+            Self::DuplicateIdentity {
+                kind,
+                index,
+            } => {
                 write!(f, "duplicate {kind} identity {index}")
             }
-            Self::LocalOwner { expected, actual } => write!(
+            Self::LocalOwner {
+                expected,
+                actual,
+            } => write!(
                 f,
                 "local belongs to procedure {}, expected {}",
                 actual.index(),
                 expected.index()
             ),
-            Self::TypeMismatch { expected, actual } => {
+            Self::TypeMismatch {
+                expected,
+                actual,
+            } => {
                 write!(f, "IR type mismatch: expected {expected:?}, got {actual:?}")
             }
-            Self::IntegerMismatch { expected, actual } => write!(
+            Self::IntegerMismatch {
+                expected,
+                actual,
+            } => write!(
                 f,
                 "IR integer mismatch: expected {expected:?}, got {actual:?}"
             ),
@@ -478,7 +513,10 @@ impl fmt::Display for IrError {
             Self::ForeignProjection(_) => {
                 f.write_str("field projection belongs to another place registry")
             }
-            Self::ForeignPlaceProjection { kind, index } => write!(
+            Self::ForeignPlaceProjection {
+                kind,
+                index,
+            } => write!(
                 f,
                 "{kind} projection {index} belongs to another place registry"
             ),
@@ -500,10 +538,17 @@ impl fmt::Display for IrError {
         }
     }
 }
-impl std::error::Error for IrError {}
+impl std::error::Error for IrError {
+}
 
 pub use disposal::compiler_roots::{discard_call, discard_value_expression};
 pub use verify::compiler_bindings::{
     verify_compiler_bound_call_with_context, verify_compiler_bound_expression_with_context,
     verify_compiler_slot_type,
+};
+
+mod static_catalog_ownership;
+pub use static_catalog_ownership::{
+    StaticCatalogAdmissionError, StaticCatalogBudget, StaticCatalogOwnership,
+    measure_static_catalogs,
 };

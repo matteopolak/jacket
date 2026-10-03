@@ -29,7 +29,10 @@ impl Resolver<'_> {
                 .kind(ty)
                 .map_err(|error| Diagnostic::new(span, error.to_string()))?
             {
-                TypeKind::FixedArray { element, .. } | TypeKind::Slice(element) => Some(*element),
+                TypeKind::FixedArray {
+                    element, ..
+                }
+                | TypeKind::Slice(element) => Some(*element),
                 _ => {
                     return Err(Diagnostic::new(
                         span,
@@ -98,7 +101,10 @@ impl Resolver<'_> {
             };
             elements.push(self.coerce_value(value, element, expression.span)?);
         }
-        let array = ValueExpr::Array { ty, elements };
+        let array = ValueExpr::Array {
+            ty,
+            elements,
+        };
         if let Some(view) =
             expected.filter(|expected| matches!(self.types.kind(*expected), Ok(TypeKind::Slice(_))))
         {
@@ -129,7 +135,9 @@ impl Resolver<'_> {
             .clone();
         let element = match kind {
             TypeKind::String => self.types.scalar(ScalarType::Int(IntegerType::U8)),
-            TypeKind::FixedArray { element, .. }
+            TypeKind::FixedArray {
+                element, ..
+            }
             | TypeKind::Slice(element)
             | TypeKind::DynamicArray(element) => element,
             _ => return Err(Diagnostic::new(span, "value is not a sequence")),
@@ -160,7 +168,9 @@ impl Resolver<'_> {
             self.reject_iteration_write(*array, span)?;
         }
         if field == SequenceField::Count
-            && let TypeKind::FixedArray { count, .. } = kind
+            && let TypeKind::FixedArray {
+                count, ..
+            } = kind
             && matches!(&base, ValueExpr::Load(place) if matches!(place.kind(), jai_ir::PlaceKind::Local(_) | jai_ir::PlaceKind::Global(_)))
         {
             let count =
@@ -186,7 +196,11 @@ impl Resolver<'_> {
         ty: TypeId,
         span: Span,
     ) -> Result<ValueExpr, Diagnostic> {
-        let Expr::Typed { ty: actual, value } = value else {
+        let Expr::Typed {
+            ty: actual,
+            value,
+        } = value
+        else {
             return Err(Diagnostic::new(
                 span,
                 "sequence value requires a compatible sequence type",
@@ -195,14 +209,21 @@ impl Resolver<'_> {
         if actual == ty {
             return Ok(value);
         }
-        if let (Ok(TypeKind::FixedArray { element, .. }), Ok(TypeKind::Slice(expected))) =
-            (self.types.kind(actual), self.types.kind(ty))
+        if let (
+            Ok(TypeKind::FixedArray {
+                element, ..
+            }),
+            Ok(TypeKind::Slice(expected)),
+        ) = (self.types.kind(actual), self.types.kind(ty))
             && element == expected
         {
             return Ok(match value {
                 ValueExpr::Load(array) => {
                     self.reject_iteration_write(array, span)?;
-                    ValueExpr::ArrayToSlice { array, ty }
+                    ValueExpr::ArrayToSlice {
+                        array,
+                        ty,
+                    }
                 }
                 array => ValueExpr::ArrayView {
                     array: Box::new(array),
@@ -248,7 +269,14 @@ impl Resolver<'_> {
             let value = self.expr_expected(&initializer.value, field_ty)?;
             initializers.push((field, self.coerce_value(value, field_ty, initializer.span)?));
         }
-        self.typed_value(ValueExpr::SequenceBuild { ty, initializers }, ty, span)
+        self.typed_value(
+            ValueExpr::SequenceBuild {
+                ty,
+                initializers,
+            },
+            ty,
+            span,
+        )
     }
 
     fn sequence_field_type(
@@ -315,11 +343,17 @@ pub(crate) fn reject_returned_temporary(
     let mut escapes = false;
     while let Some(value) = pending.pop() {
         match value {
-            ValueExpr::Bind { bindings, body, .. } => {
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ..
+            } => {
                 pending.push(body);
                 pending.extend(bindings.iter().map(|(_, value)| value));
             }
-            ValueExpr::ArrayView { array, .. } => {
+            ValueExpr::ArrayView {
+                array, ..
+            } => {
                 if !jai_ir::is_static_value(array) {
                     escapes = true;
                     break;
@@ -342,28 +376,57 @@ pub(crate) fn reject_returned_temporary(
                 }
                 pending.push(base);
             }
-            ValueExpr::Conditional { expression, .. } => {
+            ValueExpr::Conditional {
+                expression, ..
+            } => {
                 pending.push(&expression.then_value);
                 pending.push(&expression.else_value);
             }
-            ValueExpr::Array { elements, .. } => pending.extend(elements),
-            ValueExpr::Record { fields, .. } => pending.extend(fields),
-            ValueExpr::OrderedRecord { initializers, .. } => {
+            ValueExpr::Array {
+                elements, ..
+            } => pending.extend(elements),
+            ValueExpr::Record {
+                fields, ..
+            } => pending.extend(fields),
+            ValueExpr::OrderedRecord {
+                initializers, ..
+            } => {
                 pending.extend(initializers.iter().map(|(_, value)| value));
             }
-            ValueExpr::RecordBuild { initializers, .. } => {
+            ValueExpr::RecordBuild {
+                initializers, ..
+            } => {
                 pending.extend(initializers.iter().map(|(_, value)| value));
             }
-            ValueExpr::SequenceBuild { initializers, .. } => {
+            ValueExpr::SequenceBuild {
+                initializers, ..
+            } => {
                 pending.extend(initializers.iter().map(|(_, value)| value));
             }
-            ValueExpr::Union { value, .. }
-            | ValueExpr::Distinct { value, .. }
-            | ValueExpr::UnwrapDistinct { value, .. }
-            | ValueExpr::PointerCast { value, .. } => pending.push(value),
-            ValueExpr::SequenceView { sequence, .. } => pending.push(sequence),
-            ValueExpr::PointerOffset { pointer, .. } => pending.push(pointer),
-            ValueExpr::Field { base, .. } | ValueExpr::Index { base, .. } => pending.push(base),
+            ValueExpr::Union {
+                value, ..
+            }
+            | ValueExpr::Distinct {
+                value, ..
+            }
+            | ValueExpr::UnwrapDistinct {
+                value, ..
+            }
+            | ValueExpr::PointerCast {
+                value, ..
+            } => pending.push(value),
+            ValueExpr::SequenceView {
+                sequence, ..
+            } => pending.push(sequence),
+            ValueExpr::PointerOffset {
+                pointer, ..
+            } => pending.push(pointer),
+            ValueExpr::Field {
+                base, ..
+            }
+            | ValueExpr::Index {
+                base, ..
+            } => pending.push(base),
             // Loads and calls follow the source language's explicit storage lifetime.
             // Scalar fields and conditions cannot expose their temporary backing.
             _ => {}
@@ -385,6 +448,22 @@ impl Resolver<'_> {
         value: ValueExpr,
         span: Span,
     ) -> Result<jai_ir::ConstantValue, Diagnostic> {
+        fn scalar_kind(
+            value: &ValueExpr,
+            expected: TypeId,
+            types: &TypeRegistry,
+            span: Span,
+            depth: usize,
+        ) -> Result<jai_ir::ConstantKind, Diagnostic> {
+            let constant = convert(value.clone(), types, span, depth + 1)?;
+            if constant.ty != expected {
+                return Err(Diagnostic::new(
+                    span,
+                    "closed scalar constant has a different canonical type",
+                ));
+            }
+            Ok(constant.kind)
+        }
         fn convert(
             value: ValueExpr,
             types: &TypeRegistry,
@@ -403,6 +482,7 @@ impl Resolver<'_> {
                 ValueExpr::RuntimeType(value) => jai_ir::ConstantKind::RuntimeType(value),
                 ValueExpr::Int(value) => match value.kind() {
                     IntExprKind::Constant(value) => jai_ir::ConstantKind::Int(*value),
+                    IntExprKind::Value(value) => scalar_kind(value, ty, types, span, depth)?,
                     _ => {
                         return Err(Diagnostic::new(
                             span,
@@ -411,8 +491,12 @@ impl Resolver<'_> {
                     }
                 },
                 ValueExpr::Bool(BoolExpr::Constant(value)) => jai_ir::ConstantKind::Bool(value),
+                ValueExpr::Bool(BoolExpr::Value(value)) => {
+                    scalar_kind(&value, ty, types, span, depth)?
+                }
                 ValueExpr::Float(value) => match value.kind() {
                     FloatExprKind::Constant(value) => jai_ir::ConstantKind::Float(*value),
+                    FloatExprKind::Value(value) => scalar_kind(value, ty, types, span, depth)?,
                     _ => {
                         return Err(Diagnostic::new(
                             span,
@@ -421,23 +505,47 @@ impl Resolver<'_> {
                     }
                 },
                 ValueExpr::Zero(_) => jai_ir::ConstantKind::Zero,
-                ValueExpr::ProcedureValue { procedure, .. } => {
-                    jai_ir::ConstantKind::Procedure(procedure)
-                }
-                ValueExpr::StringBytes { bytes, .. } => jai_ir::ConstantKind::StringBytes(bytes),
-                ValueExpr::Array { elements, .. } => jai_ir::ConstantKind::Array(
+                ValueExpr::ProcedureValue {
+                    procedure, ..
+                } => jai_ir::ConstantKind::Procedure(procedure),
+                ValueExpr::StringBytes {
+                    bytes, ..
+                } => jai_ir::ConstantKind::StringBytes(bytes),
+                ValueExpr::Array {
+                    elements, ..
+                } => jai_ir::ConstantKind::Array(
                     elements
                         .into_iter()
                         .map(|value| convert(value, types, span, depth + 1))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
-                ValueExpr::Record { fields, .. } => jai_ir::ConstantKind::Record(
+                ValueExpr::Field {
+                    base,
+                    field,
+                    ..
+                } => {
+                    let record = convert(*base, types, span, depth + 1)?;
+                    let projected =
+                        crate::field_conversions::project_constant(record, &[field], types, span)?;
+                    if projected.ty != ty {
+                        return Err(Diagnostic::new(
+                            span,
+                            "constant field projection has a different canonical type",
+                        ));
+                    }
+                    projected.kind
+                }
+                ValueExpr::Record {
+                    fields, ..
+                } => jai_ir::ConstantKind::Record(
                     fields
                         .into_iter()
                         .map(|value| convert(value, types, span, depth + 1))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
-                ValueExpr::RecordBuild { initializers, .. } => {
+                ValueExpr::RecordBuild {
+                    initializers, ..
+                } => {
                     let count = types
                         .record_definition(ty)
                         .map_err(|error| Diagnostic::new(span, error.to_string()))?
@@ -456,11 +564,22 @@ impl Resolver<'_> {
                             })?,
                     )
                 }
-                ValueExpr::Enum { value, .. } => jai_ir::ConstantKind::Enum(value),
-                ValueExpr::Distinct { value, .. } => jai_ir::ConstantKind::Distinct(Box::new(
-                    convert(*value, types, span, depth + 1)?,
-                )),
-                ValueExpr::Union { field, value, .. } => jai_ir::ConstantKind::Union {
+                ValueExpr::Enum {
+                    value, ..
+                } => jai_ir::ConstantKind::Enum(value),
+                ValueExpr::Distinct {
+                    value, ..
+                } => jai_ir::ConstantKind::Distinct(Box::new(convert(
+                    *value,
+                    types,
+                    span,
+                    depth + 1,
+                )?)),
+                ValueExpr::Union {
+                    field,
+                    value,
+                    ..
+                } => jai_ir::ConstantKind::Union {
                     field,
                     value: Box::new(convert(*value, types, span, depth + 1)?),
                 },
@@ -471,9 +590,15 @@ impl Resolver<'_> {
                     ));
                 }
             };
-            Ok(jai_ir::ConstantValue { ty, kind })
+            Ok(jai_ir::ConstantValue {
+                ty,
+                kind,
+            })
         }
-        let constant = convert(value, self.types, span, 0)?;
+        let constant = match self.closed_baked_constant(&value, span)? {
+            Some(constant) => constant,
+            None => convert(value, self.types, span, 0)?,
+        };
         crate::constant_limits::cells(&constant).ok_or_else(|| {
             Diagnostic::new(span, "constant exceeds compiler constant cell budget")
         })?;

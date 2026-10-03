@@ -95,7 +95,10 @@ mod tests {
             let prefix = parser.placed_field_prefix().unwrap();
             assert!(prefix.qualifiers.using);
             assert_eq!(prefix.qualifiers.conversion, FieldConversion::Implicit);
-            let FieldPlacementSyntax::Overlay { target, span } = prefix.placement.unwrap();
+            let FieldPlacementSyntax::Overlay {
+                target,
+                span,
+            } = prefix.placement.unwrap();
             assert_eq!(target.span.text(text), "anchor");
             assert!(span.text(text).starts_with("#overlay"));
             assert!(span.text(text).ends_with(')'));

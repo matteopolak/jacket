@@ -75,6 +75,7 @@ impl Fixture {
                         },
                     ]
                     .into(),
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: CallingConvention::C,
                     context: ContextMode::None,
                     variadic: Variadic::None,
@@ -312,7 +313,10 @@ fn pipe_read_keeps_a_pending_event_until_the_same_descriptor_has_bytes() {
         0
     );
     let pair = vm.memory.load(&fixture.types, &pair).unwrap();
-    let Value::Array { elements, .. } = pair.semantic() else {
+    let Value::Array {
+        elements, ..
+    } = pair.semantic()
+    else {
         panic!("expected descriptor pair")
     };
     let byte = fixture

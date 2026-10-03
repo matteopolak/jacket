@@ -25,7 +25,11 @@ impl Defaults<'_, '_> {
             .kind(target)
             .map_err(|error| located(self.graph, file, Diagnostic::new(span, error.to_string())))?
             .clone();
-        if let ExpressionKind::InferredCast { mode, value } = &value.kind {
+        if let ExpressionKind::InferredCast {
+            mode,
+            value,
+        } = &value.kind
+        {
             return self.inferred_cast_constant(file, value, target, *mode, span);
         }
         if matches!(kind, TypeKind::Pointer(_))
@@ -96,7 +100,10 @@ impl Defaults<'_, '_> {
                     ));
                 }
             };
-            return Ok(TypedConstant { ty: target, kind });
+            return Ok(TypedConstant {
+                ty: target,
+                kind,
+            });
         }
         if let TypeKind::Float(float) = kind {
             let expression = Expression {

@@ -102,7 +102,14 @@ impl Fixture {
                     }
                 })
                 .collect();
-            assert_eq!(external.len(), if provided { 2 } else { 1 });
+            assert_eq!(
+                external.len(),
+                if provided {
+                    2
+                } else {
+                    1
+                }
+            );
             for (global, data) in &external {
                 assert!(matches!(data.id(), ExternalDataId::File(_)));
                 let record = graph.sources().get(data.location().source).unwrap();
@@ -116,7 +123,10 @@ impl Fixture {
                     ExternalDataSource::Program => assert!(!library),
                     ExternalDataSource::Library(binding) => {
                         assert!(library);
-                        let ForeignLibraryKind::Local { path } = &binding.kind else {
+                        let ForeignLibraryKind::Local {
+                            path,
+                        } = &binding.kind
+                        else {
                             panic!("authored local archive became a different provider kind");
                         };
                         assert_eq!(
@@ -150,6 +160,25 @@ impl Fixture {
             }
             let mut vm =
                 jai_vm::Vm::new(&program, jai_vm::NoEffects, jai_vm::Limits::default()).unwrap();
+            assert_eq!(
+                vm.memory().allocation_count(),
+                0,
+                "a fresh VM eagerly allocated external storage"
+            );
+            if !provided {
+                // Implicit entry calls lazily allocate their genuine context.
+                // Establish that separate storage before measuring externs.
+                let context = program.library().context().unwrap();
+                let initialized = vm.evaluate(&jai_ir::ValueExpr::Context {
+                    ty: context.record_type,
+                });
+                assert!(
+                    matches!(initialized.outcome, jai_vm::Outcome::Complete(ref values)
+                    if values.len() == 1),
+                    "{initialized:?}"
+                );
+                assert!(vm.memory().allocation_count() > 0);
+            }
             let before = vm.memory().allocation_count();
             let entry = match program.entry() {
                 jai_ir::EntryPoint::Int(id) | jai_ir::EntryPoint::Void(id) => id,

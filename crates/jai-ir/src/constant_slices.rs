@@ -74,7 +74,10 @@ impl fmt::Display for ConstantSliceError {
                 f,
                 "constant slice literal storage {ty:?} has another type or count"
             ),
-            Self::ElementType { expected, actual } => write!(
+            Self::ElementType {
+                expected,
+                actual,
+            } => write!(
                 f,
                 "constant slice element has type {actual:?}; expected {expected:?}"
             ),
@@ -97,7 +100,8 @@ impl fmt::Display for ConstantSliceError {
         }
     }
 }
-impl std::error::Error for ConstantSliceError {}
+impl std::error::Error for ConstantSliceError {
+}
 impl From<TypeError> for ConstantSliceError {
     fn from(value: TypeError) -> Self {
         Self::Type(value)
@@ -149,7 +153,8 @@ impl PartialEq for CapturedSliceIdentity {
             && self.receipt.backing_ordinal == other.receipt.backing_ordinal
     }
 }
-impl Eq for CapturedSliceIdentity {}
+impl Eq for CapturedSliceIdentity {
+}
 impl std::hash::Hash for CapturedSliceIdentity {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.session.hash(state);
@@ -262,9 +267,10 @@ impl ConstantSliceBacking {
                 return Err(ConstantSliceError::Limit("element slots"));
             }
             match *types.kind(storage)? {
-                TypeKind::FixedArray { element, count } if count == elements.len() as u64 => {
-                    Ok(element)
-                }
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } if count == elements.len() as u64 => Ok(element),
                 TypeKind::String => Ok(types.scalar(ScalarType::Int(IntegerType::U8))),
                 _ => Err(ConstantSliceError::InvalidLiteral(storage)),
             }
@@ -282,7 +288,9 @@ impl ConstantSliceBacking {
             types,
             element,
             elements.into_iter().map(Some).collect(),
-            ConstantSliceOrigin::Literal { storage },
+            ConstantSliceOrigin::Literal {
+                storage,
+            },
             ConstantSliceAccess::ReadOnly,
             limits,
         )
@@ -477,7 +485,10 @@ impl ConstantSlice {
         if cells != backing.cells || depth != backing.depth || owned_bytes != backing.owned_bytes {
             return Err(ConstantSliceError::Limit("stale backing proof"));
         }
-        if let ConstantSliceOrigin::Literal { storage } = &backing.origin {
+        if let ConstantSliceOrigin::Literal {
+            storage,
+        } = &backing.origin
+        {
             match *types.kind(*storage)? {
                 TypeKind::FixedArray {
                     element: stored,
@@ -548,9 +559,10 @@ fn validate_slots(
         }
         let children: &[ConstantValue] = match &value.kind {
             ConstantKind::Record(values) | ConstantKind::Array(values) => values,
-            ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
-                std::slice::from_ref(value)
+            ConstantKind::Union {
+                value, ..
             }
+            | ConstantKind::Distinct(value) => std::slice::from_ref(value),
             _ => &[],
         };
         if children.len()

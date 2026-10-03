@@ -68,7 +68,8 @@ impl fmt::Display for TargetTripleError {
         f.write_str("target triple requires 3 to 5 nonempty ASCII identifier segments")
     }
 }
-impl std::error::Error for TargetTripleError {}
+impl std::error::Error for TargetTripleError {
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EffectKey(pub u64);
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -81,6 +82,7 @@ pub enum BuildOption {
     Optimize(bool),
     OutputPath(PathBuf),
     Target(TargetTriple),
+    TemporaryStorageSize(i32),
 }
 pub use jai_types::{BacktraceOnCrash, BuildOutputKind, RuntimeSupportMode};
 pub use jai_types::{BitcodeOptimization, MachineOptimization};
@@ -105,6 +107,7 @@ pub struct BuildOptionsProjection {
     pub target: Option<RecordFieldPath>,
     pub bitcode: Option<RecordFieldPath>,
     pub machine: Option<RecordFieldPath>,
+    pub temporary_storage_size: Option<RecordFieldPath>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageLevel {
@@ -206,6 +209,7 @@ pub struct BuildOptionsSnapshot {
     pub target: Option<TargetTriple>,
     pub bitcode: BitcodeOptimization,
     pub machine: MachineOptimization,
+    pub temporary_storage_size: i32,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompilerResponse {
@@ -224,7 +228,8 @@ pub enum EffectOutcome {
 /// A driver must stage effects between begin/finish and discard them on rollback.
 /// A Ready response may reserve an identity, but must not publish changes early.
 pub trait CompilerEffects {
-    fn set_source_origin(&mut self, _origin: SourceOrigin) {}
+    fn set_source_origin(&mut self, _origin: SourceOrigin) {
+    }
     /// Host requests share this handler's begin/finish transaction.
     fn host_request(
         &mut self,
@@ -311,7 +316,8 @@ impl<E: CompilerEffects + ?Sized> CompilerEffects for &mut E {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoEffects;
 impl CompilerEffects for NoEffects {
-    fn begin(&mut self) {}
+    fn begin(&mut self) {
+    }
     fn suspend(&mut self) -> Result<(), Error> {
         Ok(())
     }
@@ -468,7 +474,9 @@ impl CompilerIntrinsic {
                 workspace: workspace(0)?,
                 path: PathBuf::from(text(1)?),
             },
-            Self::CreateWorkspace => CompilerRequest::CreateWorkspace { name: text(0)? },
+            Self::CreateWorkspace => CompilerRequest::CreateWorkspace {
+                name: text(0)?,
+            },
             Self::SetOptimization => {
                 let Some(Value::Bool(enabled)) = arguments.get(1) else {
                     return Err(fail("optimization option requires a boolean"));
@@ -489,28 +497,62 @@ impl CompilerIntrinsic {
                         .map_err(|_| fail("target triple has invalid structure"))?,
                 ),
             },
-            Self::SourceAddFileAt { .. }
-            | Self::SourceAddStringAt { .. }
+            Self::SourceAddFileAt {
+                ..
+            }
+            | Self::SourceAddStringAt {
+                ..
+            }
             | Self::SourceWriteString
             | Self::SourceWriteStrings
-            | Self::SourceVersionInfo { .. }
-            | Self::SourceRuntimeInfo { .. }
-            | Self::SourceBeginIntercept { .. }
-            | Self::SourceEndIntercept { .. }
-            | Self::SourceWaitForMessage { .. }
+            | Self::SourceVersionInfo {
+                ..
+            }
+            | Self::SourceRuntimeInfo {
+                ..
+            }
+            | Self::SourceBeginIntercept {
+                ..
+            }
+            | Self::SourceEndIntercept {
+                ..
+            }
+            | Self::SourceWaitForMessage {
+                ..
+            }
             | Self::SourceDebugBreak
             | Self::SourceReportAt
-            | Self::SourceGetBuildOptions { .. }
-            | Self::SourceSetBuildOptions { .. }
-            | Self::SourceSetBuildOptionsAt { .. }
-            | Self::SourceAddString { .. }
-            | Self::SourceAddFile { .. }
+            | Self::SourceGetBuildOptions {
+                ..
+            }
+            | Self::SourceSetBuildOptions {
+                ..
+            }
+            | Self::SourceSetBuildOptionsAt {
+                ..
+            }
+            | Self::SourceAddString {
+                ..
+            }
+            | Self::SourceAddFile {
+                ..
+            }
             | Self::SourceCreateWorkspace
-            | Self::SourceCurrentWorkspace { .. }
-            | Self::SourceReport { .. }
-            | Self::SourceSetWorkspaceStatus { .. }
-            | Self::SourceDestroyWorkspace { .. }
-            | Self::SourceGetWorkspaceName { .. } => {
+            | Self::SourceCurrentWorkspace {
+                ..
+            }
+            | Self::SourceReport {
+                ..
+            }
+            | Self::SourceSetWorkspaceStatus {
+                ..
+            }
+            | Self::SourceDestroyWorkspace {
+                ..
+            }
+            | Self::SourceGetWorkspaceName {
+                ..
+            } => {
                 return Err(fail("source intrinsic reached internal adapter"));
             }
             Self::Message(level) => CompilerRequest::Message {

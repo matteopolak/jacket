@@ -64,7 +64,10 @@ impl ContractSyntax {
             syntax::TypeSyntax::DynamicArray(inner) => {
                 syntax::TypeSyntax::DynamicArray(Box::new(child(ContractStep::Element, inner)?))
             }
-            syntax::TypeSyntax::FixedArray { element, count } => syntax::TypeSyntax::FixedArray {
+            syntax::TypeSyntax::FixedArray {
+                element,
+                count,
+            } => syntax::TypeSyntax::FixedArray {
                 element: Box::new(child(ContractStep::Element, element)?),
                 count: count.clone(),
             },

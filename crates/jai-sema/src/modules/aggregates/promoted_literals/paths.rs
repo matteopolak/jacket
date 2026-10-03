@@ -50,10 +50,16 @@ pub(super) fn check_paths(
             }
             let child = types
                 .validate_field(ty, field)
-                .map_err(|error| PathError::Canonical { index, error })?;
+                .map_err(|error| PathError::Canonical {
+                    index,
+                    error,
+                })?;
             if types
                 .record_storage_definition(ty)
-                .map_err(|error| PathError::Canonical { index, error })?
+                .map_err(|error| PathError::Canonical {
+                    index,
+                    error,
+                })?
                 .kind
                 == RecordKind::Union
                 && let Some(previous) = node.union_choice.replace(field)

@@ -600,7 +600,13 @@ impl Memory {
                 );
             }
             value = match (projection, value) {
-                (Projection::Field(index), Value::Record { ty, fields }) => {
+                (
+                    Projection::Field(index),
+                    Value::Record {
+                        ty,
+                        fields,
+                    },
+                ) => {
                     let layout = self.layout(types, *ty)?;
                     let field_offset = *layout
                         .field_offsets
@@ -611,8 +617,17 @@ impl Memory {
                         .ok_or(Error::CheckedCast)?;
                     fields.get(*index).ok_or(Error::Uninitialized)?
                 }
-                (Projection::Index(index), Value::Array { ty, elements }) => {
-                    let TypeKind::FixedArray { element, .. } = *types.kind(*ty)? else {
+                (
+                    Projection::Index(index),
+                    Value::Array {
+                        ty,
+                        elements,
+                    },
+                ) => {
+                    let TypeKind::FixedArray {
+                        element, ..
+                    } = *types.kind(*ty)?
+                    else {
                         return Err(Error::InvalidIr("pool configuration array type mismatch"));
                     };
                     let stride = self.layout(types, element)?.size;

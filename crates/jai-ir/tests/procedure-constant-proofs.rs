@@ -16,6 +16,7 @@ fn signature(
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention,
             context,
             variadic: Variadic::None,
@@ -179,6 +180,7 @@ fn borrowed_leaf_proof_preserves_calling_convention_context_parameters_and_resul
                 .procedure(ProcedureType {
                     parameters: parameters.into(),
                     results: results.into(),
+                    return_abi: jai_types::ForeignReturnAbi::Natural,
                     convention: CallingConvention::Jai,
                     context: ContextMode::None,
                     variadic: Variadic::None,
@@ -202,6 +204,7 @@ fn borrowed_leaf_proof_preserves_variadic_signature_identity() {
     let make = |variadic| ProcedureType {
         parameters: vec![pack].into(),
         results: Box::new([]),
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::Jai,
         context: ContextMode::None,
         variadic,

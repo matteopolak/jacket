@@ -1,6 +1,6 @@
 //! Versioned, exact semantic DAG encoding for immutable replay facts.
 use super::*;
-use std::collections::HashMap;
+use crate::retained_metadata::{EvalRetainedMetadataError, admit, push, reserve};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeakFloatEncodingError {
@@ -15,32 +15,39 @@ impl std::fmt::Display for WeakFloatEncodingError {
         })
     }
 }
-impl std::error::Error for WeakFloatEncodingError {}
+impl std::error::Error for WeakFloatEncodingError {
+}
 
-struct Output {
+struct Output<'a, E> {
     bytes: Vec<u8>,
     limit: usize,
+    charge: &'a mut dyn FnMut(usize, usize) -> Result<(), E>,
 }
-impl Output {
-    fn append(&mut self, bytes: &[u8]) -> Result<(), WeakFloatEncodingError> {
+impl<E> Output<'_, E> {
+    fn append(&mut self, bytes: &[u8]) -> Result<(), WeakFloatAdmissionError<E>> {
         if bytes.len() > self.limit.saturating_sub(self.bytes.len()) {
-            return Err(WeakFloatEncodingError::ByteLimit);
+            return Err(WeakFloatAdmissionError::Encoding(
+                WeakFloatEncodingError::ByteLimit,
+            ));
         }
+        admit(bytes.len().saturating_add(1), 0, self.charge)?;
+        reserve(&mut self.bytes, bytes.len(), self.charge)?;
         self.bytes.extend_from_slice(bytes);
         Ok(())
     }
-    fn byte(&mut self, value: u8) -> Result<(), WeakFloatEncodingError> {
+    fn byte(&mut self, value: u8) -> Result<(), WeakFloatAdmissionError<E>> {
         self.append(&[value])
     }
-    fn integer_type(&mut self, ty: IntegerType) -> Result<(), WeakFloatEncodingError> {
+    fn integer_type(&mut self, ty: IntegerType) -> Result<(), WeakFloatAdmissionError<E>> {
         self.append(&[ty.bits() as u8, u8::from(ty.signed())])
     }
-    fn text(&mut self, text: &str) -> Result<(), WeakFloatEncodingError> {
-        let length = u32::try_from(text.len()).map_err(|_| WeakFloatEncodingError::ByteLimit)?;
+    fn text(&mut self, text: &str) -> Result<(), WeakFloatAdmissionError<E>> {
+        let length = u32::try_from(text.len())
+            .map_err(|_| WeakFloatAdmissionError::Encoding(WeakFloatEncodingError::ByteLimit))?;
         self.append(&length.to_le_bytes())?;
         self.append(text.as_bytes())
     }
-    fn tag(&mut self, node: &Node) -> Result<(), WeakFloatEncodingError> {
+    fn tag(&mut self, node: &Node) -> Result<(), WeakFloatAdmissionError<E>> {
         match node {
             Node::FloatDefault(ty) => self.append(&[28, float_type(*ty)]),
             Node::Float(ty) => self.append(&[0, ty.map_or(0, float_type)]),
@@ -103,71 +110,162 @@ impl Output {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WeakFloatAdmissionError<E> {
+    Encoding(WeakFloatEncodingError),
+    Admission(E),
+    CapacityOverflow,
+    Allocation,
+}
+impl<E> From<EvalRetainedMetadataError<E>> for WeakFloatAdmissionError<E> {
+    fn from(error: EvalRetainedMetadataError<E>) -> Self {
+        match error {
+            EvalRetainedMetadataError::Admission(error) => Self::Admission(error),
+            EvalRetainedMetadataError::CapacityOverflow => Self::CapacityOverflow,
+            EvalRetainedMetadataError::Allocation => Self::Allocation,
+        }
+    }
+}
+fn resolved_id<E>(
+    resolved: &[(*const KeyNode, u32)],
+    pointer: *const KeyNode,
+    charge: &mut dyn FnMut(usize, usize) -> Result<(), E>,
+) -> Result<Option<u32>, WeakFloatAdmissionError<E>> {
+    for (existing, id) in resolved {
+        admit(1, 0, charge)?;
+        if *existing == pointer {
+            return Ok(Some(*id));
+        }
+    }
+    Ok(None)
+}
 impl WeakFloatKey {
-    /// Export exact semantic identity, with checked traversal and output limits.
-    /// Equal keys encode identically regardless of source positions or sharing.
+    /// Export exact semantic identity through the same engine as metered callers.
     pub fn canonical_bytes(
         &self,
         max_nodes: usize,
         max_bytes: usize,
     ) -> Result<Vec<u8>, WeakFloatEncodingError> {
+        match self.canonical_bytes_with_work(max_nodes, max_bytes, &mut |_, _| {
+            Ok::<_, std::convert::Infallible>(())
+        }) {
+            Ok(bytes) => Ok(bytes),
+            Err(WeakFloatAdmissionError::Encoding(error)) => Err(error),
+            Err(WeakFloatAdmissionError::Admission(never)) => match never {},
+            Err(
+                WeakFloatAdmissionError::CapacityOverflow | WeakFloatAdmissionError::Allocation,
+            ) => Err(WeakFloatEncodingError::ByteLimit),
+        }
+    }
+    /// Debit each real traversal, comparison and old/new scratch allocation
+    /// BEFORE inspecting/copying it. Nodes and decimal signatures stay borrowed.
+    /// Equal keys produce exactly the same version-one records as the unmetered API.
+    pub fn canonical_bytes_with_work<E>(
+        &self,
+        max_nodes: usize,
+        max_bytes: usize,
+        charge: &mut impl FnMut(usize, usize) -> Result<(), E>,
+    ) -> Result<Vec<u8>, WeakFloatAdmissionError<E>> {
+        admit(
+            1,
+            std::mem::size_of::<Vec<(&Node, [u32; 3], u8)>>()
+                + std::mem::size_of::<Vec<(*const KeyNode, u32)>>()
+                + std::mem::size_of::<Vec<(&WeakFloatKey, bool)>>()
+                + std::mem::size_of::<Vec<u8>>(),
+            charge,
+        )?;
         let mut output = Output {
             bytes: Vec::new(),
             limit: max_bytes,
+            charge,
         };
-        // WFK + version, canonical record count, records, and final root ID.
         output.append(b"WFK\x01\0\0\0\0")?;
-        let mut resolved = HashMap::new();
-        let mut canonical = HashMap::<(Node, Vec<u32>), u32>::new();
-        let mut pending = vec![(self, false)];
+        let mut resolved = Vec::new();
+        let mut canonical: Vec<(&Node, [u32; 3], u8)> = Vec::new();
+        let mut pending = Vec::new();
+        push(&mut pending, (self, false), output.charge)?;
         let mut visited = 0usize;
         while let Some((key, finish)) = pending.pop() {
+            admit(1, 0, output.charge)?;
             let pointer = std::sync::Arc::as_ptr(&key.0);
-            if resolved.contains_key(&pointer) {
+            if resolved_id(&resolved, pointer, output.charge)?.is_some() {
                 continue;
             }
             if !finish {
                 if visited >= max_nodes {
-                    return Err(WeakFloatEncodingError::NodeLimit);
+                    return Err(WeakFloatAdmissionError::Encoding(
+                        WeakFloatEncodingError::NodeLimit,
+                    ));
                 }
                 visited += 1;
-                pending.push((key, true));
-                pending.extend(key.0.children.iter().rev().map(|child| (child, false)));
+                push(&mut pending, (key, true), output.charge)?;
+                for child in key.0.children.iter().rev() {
+                    admit(1, 0, output.charge)?;
+                    push(&mut pending, (child, false), output.charge)?;
+                }
                 continue;
             }
-            let children: Vec<u32> = key
-                .0
-                .children
-                .iter()
-                .map(|child| resolved[&std::sync::Arc::as_ptr(&child.0)])
-                .collect();
-            // Reject a huge spelling before cloning it into the interning map.
+            if key.0.children.len() > 3 {
+                return Err(WeakFloatAdmissionError::Encoding(
+                    WeakFloatEncodingError::NodeLimit,
+                ));
+            }
+            let mut children = [0; 3];
+            for (index, child) in key.0.children.iter().enumerate() {
+                admit(1, 0, output.charge)?;
+                children[index] =
+                    resolved_id(&resolved, std::sync::Arc::as_ptr(&child.0), output.charge)?
+                        .ok_or(WeakFloatAdmissionError::Encoding(
+                            WeakFloatEncodingError::NodeLimit,
+                        ))?;
+            }
+            let count = key.0.children.len() as u8;
             if let Node::Decimal(value) = &key.0.tag
                 && value.spelling().len() > max_bytes
             {
-                return Err(WeakFloatEncodingError::ByteLimit);
+                return Err(WeakFloatAdmissionError::Encoding(
+                    WeakFloatEncodingError::ByteLimit,
+                ));
             }
-            let signature = (key.0.tag.clone(), children);
-            let id = if let Some(id) = canonical.get(&signature) {
-                *id
-            } else {
-                let id = u32::try_from(canonical.len())
-                    .map_err(|_| WeakFloatEncodingError::NodeLimit)?;
-                output.tag(&signature.0)?;
-                // The private grammar has at most three children per node.
-                output.byte(signature.1.len() as u8)?;
-                for child in &signature.1 {
-                    output.append(&child.to_le_bytes())?;
+            let mut existing = None;
+            for (index, (node, previous, length)) in canonical.iter().enumerate() {
+                let spelling_work = match (*node, &key.0.tag) {
+                    (Node::Decimal(left), Node::Decimal(right)) => {
+                        left.spelling().len().saturating_add(right.spelling().len())
+                    }
+                    _ => 0,
+                };
+                admit(spelling_work.saturating_add(4), 0, output.charge)?;
+                if *length == count && *previous == children && **node == key.0.tag {
+                    existing = Some(index as u32);
+                    break;
                 }
-                canonical.insert(signature, id);
-                id
+            }
+            let id = match existing {
+                Some(id) => id,
+                None => {
+                    let id = u32::try_from(canonical.len()).map_err(|_| {
+                        WeakFloatAdmissionError::Encoding(WeakFloatEncodingError::NodeLimit)
+                    })?;
+                    output.tag(&key.0.tag)?;
+                    output.byte(count)?;
+                    for child in &children[..usize::from(count)] {
+                        output.append(&child.to_le_bytes())?;
+                    }
+                    push(&mut canonical, (&key.0.tag, children, count), output.charge)?;
+                    id
+                }
             };
-            resolved.insert(pointer, id);
+            push(&mut resolved, (pointer, id), output.charge)?;
         }
-        let count =
-            u32::try_from(canonical.len()).map_err(|_| WeakFloatEncodingError::NodeLimit)?;
+        let count = u32::try_from(canonical.len())
+            .map_err(|_| WeakFloatAdmissionError::Encoding(WeakFloatEncodingError::NodeLimit))?;
+        admit(1, 0, output.charge)?;
         output.bytes[4..8].copy_from_slice(&count.to_le_bytes());
-        output.append(&resolved[&std::sync::Arc::as_ptr(&self.0)].to_le_bytes())?;
+        let root = resolved_id(&resolved, std::sync::Arc::as_ptr(&self.0), output.charge)?.ok_or(
+            WeakFloatAdmissionError::Encoding(WeakFloatEncodingError::NodeLimit),
+        )?;
+        output.append(&root.to_le_bytes())?;
         Ok(output.bytes)
     }
 }

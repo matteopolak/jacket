@@ -582,7 +582,10 @@ impl crate::Resolver<'_> {
                     if let Some(expected) = destination {
                         return Err(jai_source::Diagnostic::at_source(
                             location,
-                            jai_vm::Error::TypeMismatch { expected }.to_string(),
+                            jai_vm::Error::TypeMismatch {
+                                expected,
+                            }
+                            .to_string(),
                         ));
                     }
                     let provider = ReadyProcedures::new_with_context(
@@ -878,9 +881,11 @@ pub(crate) fn is_run_constant(expression: &jai_syntax::Expression) -> bool {
         use jai_syntax::ExpressionKind as E;
         match &expression.kind {
             E::CompileTime(_) => return true,
-            E::Unary(_, inner) | E::Cast(_, _, inner) | E::TypeCast { value: inner, .. } => {
-                work.push(inner)
-            }
+            E::Unary(_, inner)
+            | E::Cast(_, _, inner)
+            | E::TypeCast {
+                value: inner, ..
+            } => work.push(inner),
             E::Binary(_, lhs, rhs) => {
                 work.push(lhs);
                 work.push(rhs);
@@ -957,7 +962,12 @@ fn evaluate_state<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
         callbacks,
     } = execution;
     if expression.type_id(provider.types()) != expected {
-        return failure(location, jai_vm::Error::TypeMismatch { expected });
+        return failure(
+            location,
+            jai_vm::Error::TypeMismatch {
+                expected,
+            },
+        );
     }
     if let Err(error) = materializable_type(provider.types(), expected, limits.evaluation_depth) {
         return readiness_error(location, error);
@@ -1159,7 +1169,9 @@ fn materializable_type(
                 let record = types.record(*id)?;
                 work.extend(record.fields.iter().map(|&field| (field, depth + 1)));
             }
-            TypeKind::FixedArray { element, .. } => work.push((*element, depth + 1)),
+            TypeKind::FixedArray {
+                element, ..
+            } => work.push((*element, depth + 1)),
             TypeKind::Distinct(id) => work.push((types.distinct(*id)?.representation, depth + 1)),
             _ => return Err(jai_vm::Error::UnsupportedType(ty)),
         }
@@ -1231,7 +1243,9 @@ fn materialize_with_runtime_types(
                 .map_err(|error| match error {
                     jai_ir::NativePointerConstantError::Type(error) => jai_vm::Error::Type(error),
                     jai_ir::NativePointerConstantError::InvalidType(expected) => {
-                        jai_vm::Error::TypeMismatch { expected }
+                        jai_vm::Error::TypeMismatch {
+                            expected,
+                        }
                     }
                     jai_ir::NativePointerConstantError::CheckedCast => jai_vm::Error::CheckedCast,
                     jai_ir::NativePointerConstantError::UnsupportedWidth(_) => {
@@ -1250,7 +1264,9 @@ fn materialize_with_runtime_types(
             Value::Int(value) => ConstantKind::Int(value),
             Value::Float(value) => ConstantKind::Float(value),
             Value::Bool(value) => ConstantKind::Bool(value),
-            Value::Type { descriptor: None } => ConstantKind::Zero,
+            Value::Type {
+                descriptor: None,
+            } => ConstantKind::Zero,
             value @ Value::Type {
                 descriptor: Some(_),
             } => ConstantKind::RuntimeType(runtime_type(&value)?),
@@ -1262,10 +1278,16 @@ fn materialize_with_runtime_types(
                 None => ConstantKind::Zero,
             },
             Value::String(value) => ConstantKind::StringBytes(value),
-            Value::Enum { value, .. } => ConstantKind::Enum(value),
-            Value::Record { fields, .. } => {
+            Value::Enum {
+                value, ..
+            } => ConstantKind::Enum(value),
+            Value::Record {
+                fields, ..
+            } => {
                 let TypeKind::Record(id) = types.kind(ty)? else {
-                    return Err(jai_vm::Error::TypeMismatch { expected: ty });
+                    return Err(jai_vm::Error::TypeMismatch {
+                        expected: ty,
+                    });
                 };
                 let record = types.record(*id)?;
                 ConstantKind::Record(
@@ -1278,7 +1300,11 @@ fn materialize_with_runtime_types(
                         .collect::<Result<_, _>>()?,
                 )
             }
-            Value::Union { field, value, .. } => {
+            Value::Union {
+                field,
+                value,
+                ..
+            } => {
                 let field = types.field(ty, field)?;
                 ConstantKind::Union {
                     field: field.id,
@@ -1292,9 +1318,16 @@ fn materialize_with_runtime_types(
                     )?),
                 }
             }
-            Value::Array { elements, .. } => {
-                let TypeKind::FixedArray { element, .. } = types.kind(ty)? else {
-                    return Err(jai_vm::Error::TypeMismatch { expected: ty });
+            Value::Array {
+                elements, ..
+            } => {
+                let TypeKind::FixedArray {
+                    element, ..
+                } = types.kind(ty)?
+                else {
+                    return Err(jai_vm::Error::TypeMismatch {
+                        expected: ty,
+                    });
                 };
                 ConstantKind::Array(
                     elements
@@ -1305,7 +1338,9 @@ fn materialize_with_runtime_types(
                         .collect::<Result<_, _>>()?,
                 )
             }
-            Value::Distinct { value, .. } => {
+            Value::Distinct {
+                value, ..
+            } => {
                 let representation = types.distinct_definition(ty)?.representation;
                 ConstantKind::Distinct(Box::new(convert(
                     types,
@@ -1318,7 +1353,10 @@ fn materialize_with_runtime_types(
             }
             _ => return Err(jai_vm::Error::UnsupportedType(ty)),
         };
-        Ok(ConstantValue { ty, kind })
+        Ok(ConstantValue {
+            ty,
+            kind,
+        })
     }
     convert(types, value, expected, 0, maximum_depth, runtime_type)
 }
@@ -1328,13 +1366,27 @@ pub fn scalar_type(types: &dyn TypeView, value: &Value) -> Option<TypeId> {
         Value::Int(value) => Some(types.scalar(ScalarType::Int(value.ty()))),
         Value::Bool(_) => Some(types.scalar(ScalarType::Bool)),
         Value::Float(value) => Some(types.float(value.ty())),
-        Value::Type { .. } => Some(types.meta_type()),
-        Value::Record { ty, .. }
-        | Value::Enum { ty, .. }
-        | Value::Distinct { ty, .. }
-        | Value::Union { ty, .. }
-        | Value::Array { ty, .. } => Some(*ty),
-        Value::Procedure { signature, .. } => Some(*signature),
+        Value::Type {
+            ..
+        } => Some(types.meta_type()),
+        Value::Record {
+            ty, ..
+        }
+        | Value::Enum {
+            ty, ..
+        }
+        | Value::Distinct {
+            ty, ..
+        }
+        | Value::Union {
+            ty, ..
+        }
+        | Value::Array {
+            ty, ..
+        } => Some(*ty),
+        Value::Procedure {
+            signature, ..
+        } => Some(*signature),
         Value::Pointer(pointer) if pointer.is_null() || pointer.is_opaque() => {
             types.lookup(&TypeKind::Pointer(pointer.pointee()))
         }

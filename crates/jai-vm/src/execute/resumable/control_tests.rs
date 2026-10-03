@@ -45,6 +45,7 @@ fn signature(
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context,
             variadic: Variadic::None,
@@ -563,9 +564,27 @@ fn suspended_bound_while_condition_preserves_bindings_break_and_continue_edges()
             vm.resume_resumable().outcome,
             ResumableOutcome::AwaitingPublication
         );
-        let expected = if skip_and_break { 1 } else { 6 };
-        assert_eq!(read_global(&vm), value(if skip_and_break { 3 } else { 4 }));
-        assert_eq!(vm.statistics.calls, if skip_and_break { 4 } else { 5 });
+        let expected = if skip_and_break {
+            1
+        } else {
+            6
+        };
+        assert_eq!(
+            read_global(&vm),
+            value(if skip_and_break {
+                3
+            } else {
+                4
+            })
+        );
+        assert_eq!(
+            vm.statistics.calls,
+            if skip_and_break {
+                4
+            } else {
+                5
+            }
+        );
         finish(&mut vm, expected);
         assert_eq!(
             Vm::new(&provider, crate::NoEffects, Limits::default())

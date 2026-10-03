@@ -73,12 +73,13 @@ impl Resolver<'_> {
             Expr::Literal(_) | Expr::WeakConditional(_) => {
                 value.int_as(IntegerType::S64, span).map(ValueExpr::Int)
             }
-            Expr::Pointer { value, .. } => Ok(value),
-            Expr::Typed { ty, value }
-                if matches!(self.types.kind(ty), Ok(TypeKind::Pointer(_))) =>
-            {
-                Ok(value)
-            }
+            Expr::Pointer {
+                value, ..
+            } => Ok(value),
+            Expr::Typed {
+                ty,
+                value,
+            } if matches!(self.types.kind(ty), Ok(TypeKind::Pointer(_))) => Ok(value),
             _ => Err(Diagnostic::new(
                 span,
                 "C variadic argument requires an ABI scalar or pointer",

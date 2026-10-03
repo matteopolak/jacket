@@ -135,6 +135,9 @@ impl Parser<'_> {
                 "#symmetric requires a binary operator",
             ));
         }
-        Ok(OperatorDeclaration { kind, symmetric })
+        Ok(OperatorDeclaration {
+            kind,
+            symmetric,
+        })
     }
 }

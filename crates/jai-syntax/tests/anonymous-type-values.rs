@@ -17,7 +17,10 @@ fn anonymous_type_initializers_preserve_bodies_and_declaration_boundaries() {
         let FileDeclarationKind::Global(global) = &item.kind else {
             panic!()
         };
-        let Declaration::Inferred { initializer, .. } = &global.declaration else {
+        let Declaration::Inferred {
+            initializer, ..
+        } = &global.declaration
+        else {
             panic!()
         };
         assert!(matches!(

@@ -71,7 +71,11 @@ fn registry_fields_and_custom_layouts_drive_debug_members_without_synthetic_name
         );
         for (index, name) in ["tag", "payload"].into_iter().enumerate() {
             let field = registry.field(ty, index).unwrap();
-            let record_name = if ty == packed { "Packed" } else { "Choice" };
+            let record_name = if ty == packed {
+                "Packed"
+            } else {
+                "Choice"
+            };
             let start = text.find(record_name).unwrap();
             let at = start + text[start..].find(name).unwrap();
             let field_location = sources
@@ -204,6 +208,7 @@ fn cross_target_pointer_width_and_record_offsets_reach_native_dwarf() {
             .procedure(jai_types::ProcedureType {
                 parameters: vec![word].into_boxed_slice(),
                 results: vec![word, word].into_boxed_slice(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: jai_types::CallingConvention::Jai,
                 context: jai_types::ContextMode::Implicit,
                 variadic: jai_types::Variadic::None,

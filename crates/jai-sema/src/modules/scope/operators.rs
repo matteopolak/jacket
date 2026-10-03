@@ -17,7 +17,10 @@ impl FileScope<'_> {
             &self.declarations.nominals,
             records,
             &mut |file, expression| {
-                let scope = FileScope { file, ..*self };
+                let scope = FileScope {
+                    file,
+                    ..*self
+                };
                 jai_eval::evaluate_paths(expression, |path, span| {
                     match scope.value(path, span)? {
                         Binding::Constant(value) => Ok(value),

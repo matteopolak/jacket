@@ -19,7 +19,12 @@ fn create(session: &mut CompilerSession) -> WorkspaceId {
 }
 fn destroy(session: &mut CompilerSession, id: WorkspaceId) {
     assert_eq!(
-        ready(session, CompilerRequest::DestroyWorkspace { workspace: id }),
+        ready(
+            session,
+            CompilerRequest::DestroyWorkspace {
+                workspace: id
+            }
+        ),
         CompilerResponse::Unit
     );
 }
@@ -81,9 +86,15 @@ fn every_targeted_operation_rejects_staged_and_committed_tombstones() {
     let child = create(&mut session);
     session.finish(true).unwrap();
     let operations = [
-        CompilerRequest::DestroyWorkspace { workspace: child },
-        CompilerRequest::GetBuildOptions { workspace: child },
-        CompilerRequest::GetWorkspaceName { workspace: child },
+        CompilerRequest::DestroyWorkspace {
+            workspace: child,
+        },
+        CompilerRequest::GetBuildOptions {
+            workspace: child,
+        },
+        CompilerRequest::GetWorkspaceName {
+            workspace: child,
+        },
         CompilerRequest::AddSource {
             workspace: child,
             source: "discard".into(),
@@ -201,7 +212,9 @@ fn unknown_handles_reject_and_destroyed_failures_do_not_survive() {
     session.begin();
     let child = create(&mut session);
     assert!(matches!(
-        session.request(CompilerRequest::DestroyWorkspace { workspace: foreign }),
+        session.request(CompilerRequest::DestroyWorkspace {
+            workspace: foreign
+        }),
         EffectOutcome::Rejected(_)
     ));
     assert!(session.finish(true).is_err());
@@ -240,14 +253,18 @@ fn workspace_names_read_real_transaction_visible_identity() {
     assert_eq!(
         ready(
             &mut session,
-            CompilerRequest::GetWorkspaceName { workspace: child }
+            CompilerRequest::GetWorkspaceName {
+                workspace: child
+            }
         ),
         CompilerResponse::WorkspaceName("child π".into())
     );
     assert_eq!(
         ready(
             &mut session,
-            CompilerRequest::GetWorkspaceName { workspace: root }
+            CompilerRequest::GetWorkspaceName {
+                workspace: root
+            }
         ),
         CompilerResponse::WorkspaceName(String::new())
     );
@@ -256,7 +273,9 @@ fn workspace_names_read_real_transaction_visible_identity() {
     assert_eq!(
         ready(
             &mut session,
-            CompilerRequest::GetWorkspaceName { workspace: child }
+            CompilerRequest::GetWorkspaceName {
+                workspace: child
+            }
         ),
         CompilerResponse::WorkspaceName("child π".into())
     );

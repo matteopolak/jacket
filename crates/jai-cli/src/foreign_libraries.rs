@@ -6,7 +6,10 @@ pub(crate) fn arguments(library: &ForeignLibrary, triple: &str) -> Result<Vec<St
     library
         .validate()
         .map_err(|error| Error::Source(error.to_string()))?;
-    let ForeignLibraryKind::System { name } = &library.kind else {
+    let ForeignLibraryKind::System {
+        name,
+    } = &library.kind
+    else {
         return Err(Error::Source(
             "source-declared local native library linking is unsupported; object emission retains its metadata without accessing native bytes".into(),
         ));
@@ -49,7 +52,9 @@ mod tests {
     fn system(name: &str) -> ForeignLibrary {
         ForeignLibrary {
             id: ForeignLibraryId::new(Identities::default().declaration()),
-            kind: ForeignLibraryKind::System { name: name.into() },
+            kind: ForeignLibraryKind::System {
+                name: name.into(),
+            },
             options: ForeignLibraryOptions::default(),
         }
     }

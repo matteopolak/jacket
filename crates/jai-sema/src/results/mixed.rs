@@ -20,7 +20,9 @@ impl Resolver<'_> {
         let mut used = Vec::new();
         for binding in bindings {
             match binding {
-                syntax::ResultTargetBinding::New { name, .. } => {
+                syntax::ResultTargetBinding::New {
+                    name, ..
+                } => {
                     existing.push(None);
                     contract_places.push(None);
                     expected.push(annotated);
@@ -44,7 +46,10 @@ impl Resolver<'_> {
                     let address = self.allocate_typed(pointer)?;
                     statements.push(Statement::Store(
                         address.place(),
-                        ValueExpr::AddressOf { place, ty: pointer },
+                        ValueExpr::AddressOf {
+                            place,
+                            ty: pointer,
+                        },
                     ));
                     let place = self
                         .places
@@ -65,7 +70,10 @@ impl Resolver<'_> {
                 continue;
             }
             let (place, span) = match binding {
-                syntax::ResultTargetBinding::New { name, span } => (
+                syntax::ResultTargetBinding::New {
+                    name,
+                    span,
+                } => (
                     self.declare_typed(*name, annotated.unwrap_or(values[index].ty()))?
                         .place(),
                     *span,
@@ -80,9 +88,12 @@ impl Resolver<'_> {
             let value = self.implicit_field_pointer(value, place.ty(), span)?;
             let value = self.coerce_value(value, place.ty(), span)?;
             let contract = match (binding, annotation) {
-                (syntax::ResultTargetBinding::New { .. }, Some(annotation)) => {
-                    self.annotation_value_contract(place.ty(), annotation, span)?
-                }
+                (
+                    syntax::ResultTargetBinding::New {
+                        ..
+                    },
+                    Some(annotation),
+                ) => self.annotation_value_contract(place.ty(), annotation, span)?,
                 (syntax::ResultTargetBinding::Existing(_), _) => {
                     let original =
                         contract_places[index].expect("existing binding retains its source place");

@@ -168,10 +168,15 @@ impl fmt::Display for Error {
             Self::ForeignPointer => {
                 f.write_str("compile-time pointer belongs to another virtual memory")
             }
-            Self::OutOfBounds { index, length } => {
+            Self::OutOfBounds {
+                index,
+                length,
+            } => {
                 write!(f, "compile-time index {index} is outside length {length}")
             }
-            Self::TypeMismatch { .. } => f.write_str("compile-time value has the wrong type"),
+            Self::TypeMismatch {
+                ..
+            } => f.write_str("compile-time value has the wrong type"),
             Self::UnsupportedPointerOperation(reason) => {
                 write!(f, "unsupported virtual pointer operation: {reason}")
             }
@@ -193,7 +198,10 @@ impl fmt::Display for Error {
                 "external global {} has no checked compile-time data provider",
                 id.index()
             ),
-            Self::CompilerDiagnostic { location, message } => write!(
+            Self::CompilerDiagnostic {
+                location,
+                message,
+            } => write!(
                 f,
                 "{}:{}:{}: {}",
                 location.path.display(),
@@ -209,7 +217,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
     Complete(Vec<Value>),

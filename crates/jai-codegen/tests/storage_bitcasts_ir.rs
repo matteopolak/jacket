@@ -44,6 +44,7 @@ fn finish(
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: vec![types.scalar(ScalarType::Int(IntegerType::S64))].into_boxed_slice(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,

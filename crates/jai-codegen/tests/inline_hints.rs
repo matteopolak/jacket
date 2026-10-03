@@ -385,6 +385,7 @@ fn native_policy_validation_also_checks_programs_built_without_source_binding() 
             .procedure(ProcedureType {
                 parameters: vec![].into(),
                 results: vec![int].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,

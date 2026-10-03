@@ -235,7 +235,9 @@ fn validate_atomic_number(value: &Value) -> Result<(), Error> {
         Value::AddressInteger(_) => Err(Error::UnsupportedPointerOperation(
             "compare_and_swap on address-derived integers has no target-independent comparison",
         )),
-        Value::Distinct { value, .. } => validate_atomic_number(value),
+        Value::Distinct {
+            value, ..
+        } => validate_atomic_number(value),
         _ => Ok(()),
     }
 }

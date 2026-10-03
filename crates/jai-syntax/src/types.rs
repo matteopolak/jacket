@@ -359,7 +359,10 @@ impl Parser<'_> {
         }
         let base = match (builtin, members.is_empty()) {
             (Some(builtin), true) => TypeSyntax::Builtin(builtin),
-            _ => TypeSyntax::Named(NamePath { root, members }),
+            _ => TypeSyntax::Named(NamePath {
+                root,
+                members,
+            }),
         };
         if self.is(Punct::OpenParen) {
             Ok(TypeSyntax::Application(self.type_application(base, start)?))
@@ -465,6 +468,10 @@ impl Parser<'_> {
         self.need(Punct::OpenBrace)?;
         let mut members = Vec::new();
         while !self.take(Punct::CloseBrace) {
+            // Extra separators do not declare members or advance enum values.
+            if self.take(Punct::Semicolon) {
+                continue;
+            }
             if self.token().kind == Kind::Eof {
                 return Err(self.error("unterminated enum declaration"));
             }
@@ -532,7 +539,11 @@ impl Parser<'_> {
                 self.need(Punct::Assign)?;
                 let value = self.expression(0)?;
                 let span = Span::new(field_start, value.span.end);
-                fields.push(StructLiteralField { name, value, span });
+                fields.push(StructLiteralField {
+                    name,
+                    value,
+                    span,
+                });
                 if self.take(Punct::CloseBrace) {
                     break;
                 }
@@ -543,7 +554,10 @@ impl Parser<'_> {
             }
         }
         Ok(Expression {
-            kind: ExpressionKind::StructLiteral(StructLiteral { ty, fields }),
+            kind: ExpressionKind::StructLiteral(StructLiteral {
+                ty,
+                fields,
+            }),
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
     }
@@ -567,7 +581,10 @@ mod tests {
         &declaration.kind
     }
     fn explicit(field: &FieldDeclaration) -> &TypeSyntax {
-        let FieldBinding::Explicit { ty, .. } = &field.binding else {
+        let FieldBinding::Explicit {
+            ty, ..
+        } = &field.binding
+        else {
             panic!("expected explicit field")
         };
         ty
@@ -630,7 +647,10 @@ mod tests {
         let FileDeclarationKind::Record(record) = declaration(&parsed, 0) else {
             panic!()
         };
-        let TypeSyntax::FixedArray { count, element } = explicit(record.fields().next().unwrap())
+        let TypeSyntax::FixedArray {
+            count,
+            element,
+        } = explicit(record.fields().next().unwrap())
         else {
             panic!()
         };
@@ -727,8 +747,9 @@ mod tests {
         let FileDeclarationKind::Procedure(procedure) = declaration(&parsed, 0) else {
             panic!()
         };
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[0].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[0].kind
         else {
             panic!()
         };
@@ -744,7 +765,10 @@ mod tests {
         assert_eq!(literal.fields[0].span.text(source), "x=1");
         assert!(matches!(
             &literal.fields[1].value.kind,
-            ExpressionKind::StructLiteral(StructLiteral { ty: None, .. })
+            ExpressionKind::StructLiteral(StructLiteral {
+                ty: None,
+                ..
+            })
         ));
         let StatementKind::Declare(Declaration::UnresolvedExplicit {
             ty,
@@ -939,8 +963,9 @@ mod tests {
             procedure.body[4].kind,
             StatementKind::ProcedurePrototype(_)
         ));
-        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
-            &procedure.body[5].kind
+        let StatementKind::Declare(Declaration::Inferred {
+            initializer, ..
+        }) = &procedure.body[5].kind
         else {
             panic!("expected local")
         };

@@ -2,7 +2,15 @@
 use super::*;
 impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
     pub(super) fn compiler_write_strings(&mut self, arguments: &[Value]) -> Result<Vec<Value>> {
-        let [Value::Slice { pointer, count, .. }, Value::Bool(error)] = arguments else {
+        let [
+            Value::Slice {
+                pointer,
+                count,
+                ..
+            },
+            Value::Bool(error),
+        ] = arguments
+        else {
             return Err(Error::InvalidIr(
                 "write_strings requires its checked string slice and standard-error flag",
             )
@@ -94,7 +102,8 @@ mod tests {
     #[derive(Default)]
     struct Output(Vec<CompilerRequest>);
     impl CompilerEffects for Output {
-        fn begin(&mut self) {}
+        fn begin(&mut self) {
+        }
         fn request(&mut self, request: CompilerRequest) -> EffectOutcome {
             self.0.push(request);
             EffectOutcome::Ready(CompilerResponse::Unit)

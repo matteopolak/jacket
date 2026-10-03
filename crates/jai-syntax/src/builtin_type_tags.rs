@@ -81,7 +81,9 @@ mod tests {
             panic!("aliases expected");
         };
         let FileDeclarationKind::TypeAlias(TypeAliasDeclaration {
-            ty: TypeSyntax::Variant { base, .. },
+            ty: TypeSyntax::Variant {
+                base, ..
+            },
             ..
         }) = &unit.kind
         else {

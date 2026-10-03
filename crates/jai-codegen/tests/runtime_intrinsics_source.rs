@@ -30,9 +30,13 @@ impl Fixture {
     fn parity_with_imports(&self, source: &str, expected: i32, import_dirs: Vec<PathBuf>) {
         let source_path = self.0.join("main.jai");
         fs::write(&source_path, source).unwrap();
-        let graph =
-            jai_modules::ModuleGraph::load(&source_path, jai_modules::GraphOptions { import_dirs })
-                .unwrap();
+        let graph = jai_modules::ModuleGraph::load(
+            &source_path,
+            jai_modules::GraphOptions {
+                import_dirs,
+            },
+        )
+        .unwrap();
         let target = jai_codegen::target::NativeTarget::new().unwrap();
         let options = ResolveOptions {
             target: Some(target.build_target().unwrap()),

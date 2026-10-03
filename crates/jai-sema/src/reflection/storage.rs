@@ -122,9 +122,11 @@ impl Resolver<'_> {
             TypeKind::Float(_) => jai_types::TypeInfoTag::Float,
             TypeKind::String => jai_types::TypeInfoTag::String,
             TypeKind::Pointer(_) => jai_types::TypeInfoTag::Pointer,
-            TypeKind::FixedArray { .. } | TypeKind::Slice(_) | TypeKind::DynamicArray(_) => {
-                jai_types::TypeInfoTag::Array
+            TypeKind::FixedArray {
+                ..
             }
+            | TypeKind::Slice(_)
+            | TypeKind::DynamicArray(_) => jai_types::TypeInfoTag::Array,
             TypeKind::Procedure(_) => jai_types::TypeInfoTag::Procedure,
             TypeKind::Record(_) => jai_types::TypeInfoTag::Struct,
             TypeKind::Enum(_) => jai_types::TypeInfoTag::Enum,
@@ -277,7 +279,11 @@ impl Resolver<'_> {
             return Ok(None);
         };
         let value = match value {
-            ValueExpr::StaticAddress { data, address, .. } => ValueExpr::StaticAddress {
+            ValueExpr::StaticAddress {
+                data,
+                address,
+                ..
+            } => ValueExpr::StaticAddress {
                 data,
                 address: address.project(StaticProjection::Field(field)),
                 ty: target,
@@ -361,7 +367,7 @@ impl Resolver<'_> {
     }
 }
 
-fn materialize(
+pub(super) fn materialize(
     types: &mut TypeRegistry,
     graph: &ReflectionGraph,
     schema: &schema::TypeInfoSchema,
@@ -417,15 +423,22 @@ fn descriptor_value(
         | DescriptorKind::Code
         | DescriptorKind::Any
         | DescriptorKind::Bool => return Ok(header),
-        DescriptorKind::Integer { representation } => vec![
+        DescriptorKind::Integer {
+            representation,
+        } => vec![
             header,
             StaticValue::constant(jai_ir::ConstantValue {
                 ty: types.scalar(ScalarType::Bool),
                 kind: ConstantKind::Bool(representation.signed()),
             }),
         ],
-        DescriptorKind::Float { .. } | DescriptorKind::String => vec![header],
-        DescriptorKind::Pointer { pointee } => vec![
+        DescriptorKind::Float {
+            ..
+        }
+        | DescriptorKind::String => vec![header],
+        DescriptorKind::Pointer {
+            pointee,
+        } => vec![
             header,
             reference(
                 graph,
@@ -441,6 +454,7 @@ fn descriptor_value(
             parameters,
             results,
             convention,
+            return_abi,
             context,
             ..
         } => {
@@ -474,17 +488,23 @@ fn descriptor_value(
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let flags = if *context == ContextMode::None { 8 } else { 0 }
-                | if *convention == CallingConvention::C {
-                    32
-                } else {
-                    0
-                }
-                | if *convention == CallingConvention::CppMethod {
-                    0x1000_0000
-                } else {
-                    0
-                };
+            let flags = if *context == ContextMode::None {
+                8
+            } else {
+                0
+            } | if *convention == CallingConvention::C {
+                32
+            } else {
+                0
+            } | if *return_abi == jai_types::ForeignReturnAbi::CppNonPod {
+                0x2000_0000
+            } else {
+                0
+            } | if *convention == CallingConvention::CppMethod {
+                0x1000_0000
+            } else {
+                0
+            };
             vec![
                 header,
                 view(types, builder, argument_view, arguments)?,
@@ -502,12 +522,17 @@ fn descriptor_value(
             let note_view = types.field(schema.member, 4)?.ty;
             let mut members = Vec::with_capacity(fields.len());
             for field in fields {
-                let flags = if field.using { 4 } else { 0 }
-                    | if field.procedure_as_void_pointer(types, descriptor.id.represented_type())? {
-                        8
-                    } else {
-                        0
-                    };
+                let flags = if field.using {
+                    4
+                } else {
+                    0
+                } | if field
+                    .procedure_as_void_pointer(types, descriptor.id.represented_type())?
+                {
+                    8
+                } else {
+                    0
+                };
                 members.push(record(
                     schema.member,
                     vec![
@@ -598,12 +623,22 @@ fn descriptor_value(
                 )?,
             ]
         }
-        DescriptorKind::FixedArray { element, .. }
-        | DescriptorKind::Slice { element }
-        | DescriptorKind::DynamicArray { element } => {
+        DescriptorKind::FixedArray {
+            element, ..
+        }
+        | DescriptorKind::Slice {
+            element,
+        }
+        | DescriptorKind::DynamicArray {
+            element,
+        } => {
             let (kind, count) = match descriptor.kind {
-                DescriptorKind::FixedArray { count, .. } => (0, i128::from(count)),
-                DescriptorKind::Slice { .. } => (1, -1),
+                DescriptorKind::FixedArray {
+                    count, ..
+                } => (0, i128::from(count)),
+                DescriptorKind::Slice {
+                    ..
+                } => (1, -1),
                 _ => (2, -1),
             };
             vec![
@@ -663,7 +698,15 @@ fn descriptor_value(
                 view(types, builder, names_view, names)?,
                 view(types, builder, values_view, values)?,
                 enum_value(types, schema.enum_status, 0)?,
-                enum_value(types, schema.enum_flags, if *flags { 1 } else { 0 })?,
+                enum_value(
+                    types,
+                    schema.enum_flags,
+                    if *flags {
+                        1
+                    } else {
+                        0
+                    },
+                )?,
             ]
         }
         DescriptorKind::Distinct {
@@ -793,7 +836,7 @@ fn reference(
         kind: StaticValueKind::Address(address),
     })
 }
-fn view(
+pub(super) fn view(
     types: &mut TypeRegistry,
     builder: &mut StaticDataBuilder,
     view: TypeId,
@@ -823,7 +866,7 @@ fn view(
         },
     })
 }
-fn record(ty: TypeId, fields: Vec<StaticValue>) -> StaticValue {
+pub(super) fn record(ty: TypeId, fields: Vec<StaticValue>) -> StaticValue {
     StaticValue {
         ty,
         kind: StaticValueKind::Record(fields),
@@ -838,7 +881,7 @@ fn empty_view(ty: TypeId) -> StaticValue {
         },
     }
 }
-fn zero(ty: TypeId) -> StaticValue {
+pub(super) fn zero(ty: TypeId) -> StaticValue {
     StaticValue::constant(jai_ir::ConstantValue {
         ty,
         kind: ConstantKind::Zero,

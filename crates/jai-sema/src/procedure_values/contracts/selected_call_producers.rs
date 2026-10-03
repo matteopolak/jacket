@@ -10,7 +10,11 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<(), Diagnostic> {
         self.validate_expression_contract_producer(binding, span)?;
-        let ValueExpr::Call { call, ty } = checked else {
+        let ValueExpr::Call {
+            call,
+            ty,
+        } = checked
+        else {
             return Err(Diagnostic::new(
                 span,
                 "selected call contract requires its actual call producer",

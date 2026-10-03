@@ -74,7 +74,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 fn context(ty: BasicTypeEnum<'_>) -> ContextRef<'_> {
     match ty {

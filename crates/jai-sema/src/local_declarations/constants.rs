@@ -113,6 +113,19 @@ impl Resolver<'_> {
         &mut self,
         constant: &syntax::ConstantDeclaration,
     ) -> Result<Binding, Diagnostic> {
+        if self.bind_baked_source_constant(constant)?.is_some() {
+            return self
+                .scopes
+                .last()
+                .and_then(|scope| scope.get(&constant.name))
+                .cloned()
+                .ok_or_else(|| {
+                    Diagnostic::new(
+                        constant.span,
+                        "partial constant did not publish its actual declaration",
+                    )
+                });
+        }
         if let Some(annotation) = &constant.ty {
             let ty = self.lexical_annotation(annotation, constant.span)?;
             if ty == self.types.code_type() {
@@ -264,12 +277,42 @@ impl Resolver<'_> {
             .map_err(|error| Diagnostic::new(expression.span, error.to_string()))?
             && !reflection::is_semantic_constant(expression)
         {
+            let mut path_refused = false;
             let value = jai_eval::floats::evaluate_float_paths_with_overflow_check(
                 expression,
                 float,
                 self.checks.arithmetic_overflow,
-                |path, span| self.local_scalar_path(path, span),
-            )?;
+                |path, span| {
+                    let value = self.local_scalar_path(path, span);
+                    path_refused |= value.is_err();
+                    value
+                },
+            );
+            let value = match value {
+                Ok(value) => value,
+                Err(error) => {
+                    // A typed record path may project a closed #as float field.
+                    // Arithmetic and source-width errors keep the float evaluator's diagnostic.
+                    if path_refused
+                        && matches!(
+                            expression.kind,
+                            syntax::ExpressionKind::Name(_)
+                                | syntax::ExpressionKind::QualifiedName(_)
+                        )
+                    {
+                        let projected = self
+                            .expr_expected(expression, ty)
+                            .and_then(|value| self.coerce_value(value, ty, expression.span))
+                            .and_then(|value| self.literal_constant(value, expression.span));
+                        if let Ok(constant) = projected
+                            && constant.ty == ty
+                        {
+                            return Ok(constant);
+                        }
+                    }
+                    return Err(error);
+                }
+            };
             return Ok(jai_ir::ConstantValue {
                 ty,
                 kind: ConstantKind::Float(value),

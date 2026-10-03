@@ -117,7 +117,10 @@ pub fn run(
     }
     let scheduled = scheduled.map_err(|error| Error::Source(error.to_string()))?;
     for workspace in &scheduled.workspaces {
-        if let jai_driver::WorkspaceOutput::Checked { library, .. } = &workspace.output {
+        if let jai_driver::WorkspaceOutput::Checked {
+            library, ..
+        } = &workspace.output
+        {
             crate::source_warnings::emit(library);
         }
     }

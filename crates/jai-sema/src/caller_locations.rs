@@ -186,11 +186,17 @@ impl Resolver<'_> {
         parameter: &syntax::Parameter,
     ) -> Result<Option<TypeId>, Diagnostic> {
         let (expression, annotation) = match &parameter.binding {
-            syntax::ParameterBinding::Defaulted { expression, ty } => (
+            syntax::ParameterBinding::Defaulted {
+                expression,
+                ty,
+            } => (
                 expression,
                 ty.map(|ty| syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(ty))),
             ),
-            syntax::ParameterBinding::DefaultedType { expression, ty } => (expression, ty.clone()),
+            syntax::ParameterBinding::DefaultedType {
+                expression,
+                ty,
+            } => (expression, ty.clone()),
             _ => return Ok(None),
         };
         if !matches!(expression.kind, syntax::ExpressionKind::CallerLocation) {
@@ -280,7 +286,9 @@ impl Resolver<'_> {
                     "#code,null requires a compile-time Code parameter",
                 ));
             }
-            Ok(ParameterDefault::CodeNull { ty })
+            Ok(ParameterDefault::CodeNull {
+                ty,
+            })
         } else if let Some(read) = self.runtime_parameter_default(expression, ty)? {
             Ok(ParameterDefault::RuntimeRead(read))
         } else {
@@ -312,7 +320,9 @@ impl Resolver<'_> {
                 span,
                 "#discard default has no runtime value",
             )),
-            ParameterDefault::CodeNull { .. } => Err(Diagnostic::new(
+            ParameterDefault::CodeNull {
+                ..
+            } => Err(Diagnostic::new(
                 span,
                 "#code,null default requires a compile-time Code parameter binding",
             )),
@@ -345,9 +355,9 @@ impl Resolver<'_> {
             ParameterDefault::Source(source) => {
                 self.materialize_code_default(source.require()?, span)
             }
-            ParameterDefault::CodeNull { ty } if *ty == self.types.code_type() => {
-                Ok(Expr::Code(self.meta.codes.null()))
-            }
+            ParameterDefault::CodeNull {
+                ty,
+            } if *ty == self.types.code_type() => Ok(Expr::Code(self.meta.codes.null())),
             _ => Err(Diagnostic::new(
                 span,
                 "expected a checked compile-time Code default",

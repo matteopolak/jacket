@@ -31,7 +31,11 @@ impl Registers {
         operand: &syntax::SimdOperand,
         width: SimdWidth,
     ) -> Result<(), Diagnostic> {
-        if let syntax::SimdOperandKind::Register { name, introduce } = operand.kind {
+        if let syntax::SimdOperandKind::Register {
+            name,
+            introduce,
+        } = operand.kind
+        {
             if introduce {
                 self.declare(name, operand.span)?;
             }
@@ -49,7 +53,10 @@ impl Registers {
         Ok(())
     }
     fn id(&self, operand: &syntax::SimdOperand) -> Result<SimdRegisterId, Diagnostic> {
-        let syntax::SimdOperandKind::Register { name, .. } = operand.kind else {
+        let syntax::SimdOperandKind::Register {
+            name, ..
+        } = operand.kind
+        else {
             return Err(Diagnostic::new(
                 operand.span,
                 "SIMD instruction requires a register operand",
@@ -204,13 +211,18 @@ impl Resolver<'_> {
         // source order when address expressions are resolved in the second pass.
         for statement in &source.statements {
             match statement {
-                syntax::SimdStatement::Unsupported { span } => {
+                syntax::SimdStatement::Unsupported {
+                    span,
+                } => {
                     return Err(Diagnostic::new(
                         *span,
                         "assembly instruction is unsupported by the selected compilation profile",
                     ));
                 }
-                syntax::SimdStatement::Interrupt { vector, span } => {
+                syntax::SimdStatement::Interrupt {
+                    vector,
+                    span,
+                } => {
                     return Err(Diagnostic::new(
                         *span,
                         format!(
@@ -218,10 +230,13 @@ impl Resolver<'_> {
                         ),
                     ));
                 }
-                syntax::SimdStatement::DebugTrap { .. } => {}
-                syntax::SimdStatement::RegisterDeclaration { name, span } => {
-                    registers.declare(*name, *span)?
-                }
+                syntax::SimdStatement::DebugTrap {
+                    ..
+                } => {}
+                syntax::SimdStatement::RegisterDeclaration {
+                    name,
+                    span,
+                } => registers.declare(*name, *span)?,
                 syntax::SimdStatement::Instruction(instruction) => {
                     instruction_shape(instruction, features)?;
                     for operand in &instruction.operands {
@@ -240,7 +255,10 @@ impl Resolver<'_> {
             );
         }
         for statement in &source.statements {
-            if let syntax::SimdStatement::DebugTrap { span } = statement {
+            if let syntax::SimdStatement::DebugTrap {
+                span,
+            } = statement
+            {
                 builder
                     .instruction(SimdInstruction::DebugTrap, self.types)
                     .map_err(|e| error(*span, e))?;
@@ -255,7 +273,9 @@ impl Resolver<'_> {
                 syntax::SimdOpcode::Movups | syntax::SimdOpcode::Movdqu => {
                     match (&operands[0].kind, &operands[1].kind) {
                         (
-                            syntax::SimdOperandKind::Register { .. },
+                            syntax::SimdOperandKind::Register {
+                                ..
+                            },
                             syntax::SimdOperandKind::Memory(address),
                         ) => SimdInstruction::Load {
                             destination: registers.id(&operands[0])?,
@@ -264,7 +284,9 @@ impl Resolver<'_> {
                         },
                         (
                             syntax::SimdOperandKind::Memory(address),
-                            syntax::SimdOperandKind::Register { .. },
+                            syntax::SimdOperandKind::Register {
+                                ..
+                            },
                         ) => SimdInstruction::Store {
                             source: registers.id(&operands[1])?,
                             interpretation,
@@ -304,7 +326,10 @@ impl Resolver<'_> {
         source: &syntax::Expression,
         writable: bool,
     ) -> Result<ValueExpr, Diagnostic> {
-        let Expr::Pointer { value, .. } = self.expr(source)? else {
+        let Expr::Pointer {
+            value, ..
+        } = self.expr(source)?
+        else {
             return Err(Diagnostic::new(
                 source.span,
                 "SIMD memory operand requires a typed pointer",
@@ -337,10 +362,19 @@ mod tests {
         let mut registers = Registers::default();
         for statement in &source.statements {
             match statement {
-                syntax::SimdStatement::Unsupported { .. }
-                | syntax::SimdStatement::DebugTrap { .. }
-                | syntax::SimdStatement::Interrupt { .. } => {}
-                syntax::SimdStatement::RegisterDeclaration { name, span } => {
+                syntax::SimdStatement::Unsupported {
+                    ..
+                }
+                | syntax::SimdStatement::DebugTrap {
+                    ..
+                }
+                | syntax::SimdStatement::Interrupt {
+                    ..
+                } => {}
+                syntax::SimdStatement::RegisterDeclaration {
+                    name,
+                    span,
+                } => {
                     registers.declare(*name, *span)?;
                 }
                 syntax::SimdStatement::Instruction(instruction) => {
@@ -358,14 +392,20 @@ mod tests {
         let source = block("main::(){#asm AVX {a:vec; movups.x a,[p]; addps.x b:,a,a;}} ");
         let registers = collect(&source).unwrap();
         assert_eq!(registers.widths, [Some(SimdWidth::X128); 2]);
-        let syntax::SimdStatement::RegisterDeclaration { name, .. } = source.statements[0] else {
+        let syntax::SimdStatement::RegisterDeclaration {
+            name, ..
+        } = source.statements[0]
+        else {
             panic!("expected declaration")
         };
         assert_eq!(registers.names[&name], 0);
         let syntax::SimdStatement::Instruction(instruction) = &source.statements[2] else {
             panic!("expected addition")
         };
-        let syntax::SimdOperandKind::Register { name, .. } = instruction.operands[0].kind else {
+        let syntax::SimdOperandKind::Register {
+            name, ..
+        } = instruction.operands[0].kind
+        else {
             panic!("expected destination")
         };
         assert_eq!(registers.names[&name], 1);

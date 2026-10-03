@@ -68,14 +68,18 @@ fn wait_ticket_and_filtered_events_survive_actual_transaction_parking() {
     parked
         .publish_event(CompilerEvent::Phase {
             workspace: child,
-            phase: CompilerPhase::Typechecked { pending_count: 0 },
+            phase: CompilerPhase::Typechecked {
+                pending_count: 0,
+            },
         })
         .unwrap();
     session.resume_transaction(parked).unwrap();
     assert!(matches!(
         session.poll_request(&CompilerRequest::WaitForMessage, next),
         EffectOutcome::Ready(CompilerResponse::Message(CompilerEvent::Phase {
-            phase: CompilerPhase::Typechecked { pending_count: 0 },
+            phase: CompilerPhase::Typechecked {
+                pending_count: 0
+            },
             ..
         }))
     ));
@@ -95,7 +99,9 @@ fn unread_events_are_removed_when_their_subscription_ends() {
         })
         .unwrap();
     session.resume_transaction(parked).unwrap();
-    ready(session.request(CompilerRequest::EndIntercept { workspace: child }));
+    ready(session.request(CompilerRequest::EndIntercept {
+        workspace: child,
+    }));
     assert!(matches!(
         session.request(CompilerRequest::WaitForMessage),
         EffectOutcome::Rejected(_)
@@ -167,7 +173,9 @@ fn retired_and_foreign_workspace_handles_cannot_create_subscriptions() {
         };
         session.begin();
         if !foreign {
-            ready(session.request(CompilerRequest::DestroyWorkspace { workspace }));
+            ready(session.request(CompilerRequest::DestroyWorkspace {
+                workspace,
+            }));
         }
         assert!(matches!(
             session.request(CompilerRequest::BeginIntercept {

@@ -32,17 +32,27 @@ impl Context<'_> {
                 block.validate(self.types).map_err(IrError::Simd)?;
                 for instruction in block.instructions() {
                     match instruction {
-                        SimdInstruction::Load { address, .. }
-                        | SimdInstruction::Store { address, .. } => {
+                        SimdInstruction::Load {
+                            address, ..
+                        }
+                        | SimdInstruction::Store {
+                            address, ..
+                        } => {
                             self.value(address)?;
                         }
-                        SimdInstruction::Add { .. }
+                        SimdInstruction::Add {
+                            ..
+                        }
                         | SimdInstruction::DebugTrap
                         | SimdInstruction::Arm64DebugTrap => {}
                     }
                 }
             }
-            Statement::PushContext { id, value, body } => {
+            Statement::PushContext {
+                id,
+                value,
+                body,
+            } => {
                 let expected = self.context.ok_or(IrError::MissingContext)?.record_type;
                 same_type(expected, self.value(value)?)?;
                 let expected_parent = self
@@ -66,7 +76,10 @@ impl Context<'_> {
             Statement::DiscardValue(value) => {
                 self.value(value)?;
             }
-            Statement::CallResults { call, destinations } => {
+            Statement::CallResults {
+                call,
+                destinations,
+            } => {
                 let results = self.call(call)?;
                 arity("call destinations", results.len(), destinations.len())?;
                 for (destination, &ty) in destinations.iter().zip(results) {
@@ -291,9 +304,13 @@ pub(super) fn cleanup_dependencies(procedure: &Procedure) -> Result<(), IrError>
                         pending.extend(&yes.statements);
                         pending.extend(&no.statements);
                     }
-                    Statement::While { body, .. }
+                    Statement::While {
+                        body, ..
+                    }
                     | Statement::Block(body)
-                    | Statement::PushContext { body, .. } => pending.extend(&body.statements),
+                    | Statement::PushContext {
+                        body, ..
+                    } => pending.extend(&body.statements),
                     Statement::Range(range) => pending.extend(&range.body.statements),
                     Statement::Cases(cases) => {
                         pending.push(&cases.subject);

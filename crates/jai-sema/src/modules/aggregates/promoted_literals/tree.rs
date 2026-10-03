@@ -42,7 +42,10 @@ impl PreparedLeaf {
         Self(value.into_expression())
     }
     pub fn bound(binding: jai_ir::ExpressionBindingId, ty: TypeId) -> Self {
-        Self(ValueExpr::Bound { binding, ty })
+        Self(ValueExpr::Bound {
+            binding,
+            ty,
+        })
     }
 }
 
@@ -116,7 +119,10 @@ impl PreparedLiteral {
         for (value, expected) in values.iter().zip(self.leaf_types) {
             let actual = value.type_id(types);
             if actual != expected {
-                return Err(BuildError::DefaultType { expected, actual });
+                return Err(BuildError::DefaultType {
+                    expected,
+                    actual,
+                });
             }
         }
         Composer {
@@ -142,7 +148,10 @@ impl ConstructedValue for ValueExpr {
         value.into_expression()
     }
     fn record(ty: TypeId, initializers: Vec<(FieldId, Self)>) -> Self {
-        Self::RecordBuild { ty, initializers }
+        Self::RecordBuild {
+            ty,
+            initializers,
+        }
     }
     fn union(ty: TypeId, field: FieldId, value: Self) -> Self {
         Self::Union {
@@ -298,9 +307,10 @@ impl<D: FieldDefaults, V: ConstructedValue> Composer<'_, D, V> {
                     }
                     pending.extend(values.iter().map(|value| (value, depth + 1)));
                 }
-                ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
-                    pending.push((value, depth + 1))
+                ConstantKind::Union {
+                    value, ..
                 }
+                | ConstantKind::Distinct(value) => pending.push((value, depth + 1)),
                 _ => {}
             }
         }
@@ -413,7 +423,10 @@ mod tests {
         .unwrap();
     }
     fn field_value(expression: &ValueExpr, field: FieldId) -> &ValueExpr {
-        let ValueExpr::RecordBuild { initializers, .. } = expression else {
+        let ValueExpr::RecordBuild {
+            initializers, ..
+        } = expression
+        else {
             panic!("physical struct build required");
         };
         &initializers.iter().find(|(id, _)| *id == field).unwrap().1
@@ -678,7 +691,11 @@ mod tests {
         let ConstantKind::Record(fields) = value.kind else {
             panic!("record constant required");
         };
-        let ConstantKind::Union { field, value } = &fields[0].kind else {
+        let ConstantKind::Union {
+            field,
+            value,
+        } = &fields[0].kind
+        else {
             panic!("actual selected union field required");
         };
         assert_eq!(*field, selected);

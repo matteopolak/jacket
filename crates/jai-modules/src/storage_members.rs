@@ -46,6 +46,24 @@ impl Default for StorageMembers {
     }
 }
 impl StorageMembers {
+    pub(super) fn visit_retained_metadata<E>(
+        &self,
+        charge: &mut impl FnMut(usize) -> Result<(), E>,
+        metadata: &mut impl FnMut(usize) -> Result<(), E>,
+    ) -> Result<(), E> {
+        crate::source_storage::vector(&self.records, charge, metadata)?;
+        for record in &self.records {
+            charge(1)?;
+            metadata(
+                record
+                    .path
+                    .len()
+                    .saturating_mul(std::mem::size_of::<Symbol>()),
+            )?;
+        }
+        Ok(())
+    }
+
     pub(super) fn len(&self) -> usize {
         self.records.len()
     }

@@ -169,6 +169,7 @@ fn execute_fixture_with_optimizations(
                         define_system_entry_point: false,
                         define_initialization: false,
                         enable_backtrace_on_crash: false,
+                        temporary_storage_size: 32768,
                     },
                 }),
             },

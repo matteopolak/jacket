@@ -255,6 +255,11 @@ impl RecordSpecializations {
             .entry((owner, member))
             .or_insert_with(|| types.reserve_record(kind))
     }
+    pub(super) fn nested_parent(&self, ty: TypeId) -> Option<(TypeId, usize)> {
+        self.nested
+            .iter()
+            .find_map(|(&site, &reserved)| (reserved == ty).then_some(site))
+    }
     pub(crate) fn reserve_nested_enum(
         &mut self,
         owner: TypeId,

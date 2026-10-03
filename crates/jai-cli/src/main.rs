@@ -101,18 +101,30 @@ impl Options {
     }
     fn target_options(&self) -> Option<&jai_codegen::target::TargetOptions> {
         match self {
-            Self::EmitLlvm { target, .. }
-            | Self::EmitObject { target, .. }
-            | Self::Build { target, .. } => Some(target),
+            Self::EmitLlvm {
+                target, ..
+            }
+            | Self::EmitObject {
+                target, ..
+            }
+            | Self::Build {
+                target, ..
+            } => Some(target),
             _ => None,
         }
     }
     fn source(&self) -> &Path {
         match self {
             Self::Lex(p) | Self::Parse(p) | Self::Check(p) | Self::CheckLibrary(p) => p,
-            Self::EmitLlvm { source, .. }
-            | Self::EmitObject { source, .. }
-            | Self::Build { source, .. } => source,
+            Self::EmitLlvm {
+                source, ..
+            }
+            | Self::EmitObject {
+                source, ..
+            }
+            | Self::Build {
+                source, ..
+            } => source,
         }
     }
 }
@@ -139,7 +151,10 @@ impl fmt::Display for Error {
             Self::CompileTimeLimit(error) => fmt::Display::fmt(error, f),
             Self::Source(text) => f.write_str(text),
             Self::Codegen(e) => fmt::Display::fmt(e, f),
-            Self::Io { path, cause } => write!(f, "{}: {cause}", path.display()),
+            Self::Io {
+                path,
+                cause,
+            } => write!(f, "{}: {cause}", path.display()),
             Self::ToolNotFound(p) => write!(f, "trusted native tool not found: {}", p.display()),
             Self::ReferenceTool(p) => {
                 write!(f, "refusing to execute reference tool: {}", p.display())
@@ -192,7 +207,9 @@ fn run() -> Result<(), Error> {
     let sources = source_configuration::SourceConfiguration::from_environment()?;
     let native_options = options.target_options().unwrap_or(&default_target).clone();
     match options {
-        Options::EmitLlvm { output, .. } => {
+        Options::EmitLlvm {
+            output, ..
+        } => {
             return workspace_build::run(
                 &path,
                 sources.graph,
@@ -203,7 +220,9 @@ fn run() -> Result<(), Error> {
                 workspace_build::ArtifactCommand::Llvm(output),
             );
         }
-        Options::EmitObject { output, .. } => {
+        Options::EmitObject {
+            output, ..
+        } => {
             return workspace_build::run(
                 &path,
                 sources.graph,
@@ -214,7 +233,9 @@ fn run() -> Result<(), Error> {
                 workspace_build::ArtifactCommand::Object(output),
             );
         }
-        Options::Build { output, .. } => {
+        Options::Build {
+            output, ..
+        } => {
             return workspace_build::run(
                 &path,
                 sources.graph,

@@ -78,7 +78,8 @@ impl fmt::Display for ExportError {
         }
     }
 }
-impl std::error::Error for ExportError {}
+impl std::error::Error for ExportError {
+}
 
 pub(crate) fn validate(library: &Library, exports: &[ProgramExport]) -> Result<(), ExportError> {
     let mut symbols = HashSet::new();

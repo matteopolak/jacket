@@ -22,7 +22,11 @@ where
         let mut source_members = Vec::new();
         for (index, member) in record.members.iter().enumerate() {
             let (name, span) = match member {
-                M::DefaultOverride { .. } | M::AnonymousRecord(_) => continue,
+                M::DefaultOverride {
+                    ..
+                }
+                | M::AnonymousRecord(_)
+                | M::Placement(_) => continue,
                 M::Field(field) => (field.name, field.span),
                 M::Constant(value) => (value.name, value.span),
                 M::TypeAlias(value) => (value.name, value.span),
@@ -40,9 +44,15 @@ where
                         ),
                     ));
                 }
-                M::Assert { span, .. }
-                | M::Conditional { span, .. }
-                | M::CompileTimeCases { span, .. } => {
+                M::Assert {
+                    span, ..
+                }
+                | M::Conditional {
+                    span, ..
+                }
+                | M::CompileTimeCases {
+                    span, ..
+                } => {
                     return Err(failure(
                         self.graph,
                         file,
@@ -190,7 +200,7 @@ where
         self.records.define_source_members(owner, source_members);
         Ok(scope)
     }
-    fn bind_nested_record(
+    pub(super) fn bind_nested_record(
         &mut self,
         owner: TypeId,
         origin: Option<RecordTemplateId>,

@@ -424,6 +424,7 @@ impl Resolver<'_> {
                     .clone();
                 if descriptor.parameters != parameters.parameters
                     || descriptor.convention != parameters.convention
+                    || descriptor.return_abi != parameters.return_abi
                     || descriptor.context != parameters.context
                     || descriptor.variadic != parameters.variadic
                 {
@@ -650,7 +651,9 @@ impl Resolver<'_> {
             syntax::ExpressionKind::QualifiedCall(path, args) => {
                 Some(self.describe_call_results(path, args, expression.span)?)
             }
-            syntax::ExpressionKind::CallHint { call, .. } => {
+            syntax::ExpressionKind::CallHint {
+                call, ..
+            } => {
                 return self.preview_short_lambda_inferred_body(call);
             }
             _ => None,
@@ -686,10 +689,14 @@ impl Resolver<'_> {
             syntax::ExpressionKind::QualifiedCall(path, args) => {
                 Some(self.describe_discarded_call_results(path, args, expression.span)?)
             }
-            syntax::ExpressionKind::CallHint { call, .. } => {
+            syntax::ExpressionKind::CallHint {
+                call, ..
+            } => {
                 return self.preview_short_lambda_void_body(call);
             }
-            syntax::ExpressionKind::IndirectCall { .. } => {
+            syntax::ExpressionKind::IndirectCall {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     expression.span,
                     "discarded indirect callback preview requires its source result contract",
@@ -911,6 +918,7 @@ impl Resolver<'_> {
             ProcedureType {
                 parameters: parameters.clone().into(),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: Variadic::None,
@@ -1025,6 +1033,11 @@ impl Resolver<'_> {
         let convention = expected_signature
             .as_ref()
             .map_or(CallingConvention::Jai, |signature| signature.convention);
+        let return_abi = expected_signature
+            .as_ref()
+            .map_or(jai_types::ForeignReturnAbi::Natural, |signature| {
+                signature.return_abi
+            });
         let context = expected_signature
             .as_ref()
             .map_or(ContextMode::Implicit, |signature| signature.context);
@@ -1049,6 +1062,7 @@ impl Resolver<'_> {
                             .map(|parameter| parameter.ty)
                             .collect(),
                         results: vec![].into(),
+                        return_abi: return_abi,
                         convention,
                         context,
                         variadic: Variadic::None,
@@ -1285,6 +1299,7 @@ impl Resolver<'_> {
                         .map(|parameter| parameter.ty)
                         .collect(),
                     results: result_signatures.iter().map(|result| result.ty).collect(),
+                    return_abi: return_abi,
                     convention,
                     context,
                     variadic: Variadic::None,
@@ -1310,6 +1325,13 @@ impl Resolver<'_> {
                 body,
             },
         )?;
-        self.typed_value(ValueExpr::ProcedureValue { procedure, ty }, ty, span)
+        self.typed_value(
+            ValueExpr::ProcedureValue {
+                procedure,
+                ty,
+            },
+            ty,
+            span,
+        )
     }
 }

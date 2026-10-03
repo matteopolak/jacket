@@ -6,6 +6,7 @@ fn signature(types: &mut TypeRegistry, parameters: &[TypeId], results: &[TypeId]
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -49,37 +50,49 @@ fn pools_bind_exact_nominal_self_types_and_target_storage() {
             "get",
             vec![pool_pointer, s64],
             vec![data],
-            RuntimeIntrinsic::PoolGet { pool },
+            RuntimeIntrinsic::PoolGet {
+                pool,
+            },
         ),
         (
             "reset",
             vec![pool_pointer],
             vec![],
-            RuntimeIntrinsic::PoolReset { pool },
+            RuntimeIntrinsic::PoolReset {
+                pool,
+            },
         ),
         (
             "release",
             vec![pool_pointer],
             vec![],
-            RuntimeIntrinsic::PoolRelease { pool },
+            RuntimeIntrinsic::PoolRelease {
+                pool,
+            },
         ),
         (
             "get",
             vec![flat_pointer, s64],
             vec![data],
-            RuntimeIntrinsic::FlatPoolGet { pool: flat },
+            RuntimeIntrinsic::FlatPoolGet {
+                pool: flat,
+            },
         ),
         (
             "reset",
             vec![flat_pointer, boolean],
             vec![],
-            RuntimeIntrinsic::FlatPoolReset { pool: flat },
+            RuntimeIntrinsic::FlatPoolReset {
+                pool: flat,
+            },
         ),
         (
             "fini",
             vec![flat_pointer],
             vec![],
-            RuntimeIntrinsic::FlatPoolFinish { pool: flat },
+            RuntimeIntrinsic::FlatPoolFinish {
+                pool: flat,
+            },
         ),
     ] {
         let signature = signature(&mut types, &parameters, &results);
@@ -101,9 +114,11 @@ fn pools_bind_exact_nominal_self_types_and_target_storage() {
     let other_pointer = types.pointer(other).unwrap();
     let other_signature = signature(&mut types, &[other_pointer, s64], &[data]);
     assert!(
-        RuntimeIntrinsic::PoolGet { pool }
-            .validate_signature_shape(other_signature, &types)
-            .is_err()
+        RuntimeIntrinsic::PoolGet {
+            pool
+        }
+        .validate_signature_shape(other_signature, &types)
+        .is_err()
     );
     let union = types.reserve_record(RecordKind::Union);
     types.define_record(union, [s64, s64, data, s64]).unwrap();
@@ -189,7 +204,9 @@ fn swap_preserves_exact_aggregate_identity_and_rejects_compiler_only_storage() {
     let swap = signature(&mut types, &[pointer, pointer], &[]);
     assert_eq!(
         RuntimeIntrinsic::bind("swap", swap, &types, LayoutPolicy::lp64()).unwrap(),
-        RuntimeIntrinsic::Swap { value: record }
+        RuntimeIntrinsic::Swap {
+            value: record
+        }
     );
     let other = types.reserve_record(RecordKind::Struct);
     types.define_record(other, [integer, integer]).unwrap();
@@ -215,7 +232,9 @@ fn atomics_preserve_exact_nominal_types_and_reject_aggregate_and_float_types() {
         let ty = signature(&mut types, &[pointer, value, value], &[boolean, value]);
         assert_eq!(
             RuntimeIntrinsic::bind("compare_and_swap", ty, &types, LayoutPolicy::lp64()).unwrap(),
-            RuntimeIntrinsic::CompareAndSwap { value }
+            RuntimeIntrinsic::CompareAndSwap {
+                value
+            }
         );
     }
     let pointer = types.pointer(distinct).unwrap();
@@ -263,6 +282,7 @@ fn foreign_contextful_and_variadic_signatures_cannot_masquerade_as_intrinsics() 
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention,
                 context,
                 variadic,

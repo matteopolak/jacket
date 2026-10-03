@@ -98,7 +98,10 @@ impl ExternalGlobals {
         *next = next.checked_add(1).ok_or_else(|| {
             Diagnostic::at_source(location, "local external data identity space exhausted")
         })?;
-        let identity = ExternalDataId::Local { procedure, index };
+        let identity = ExternalDataId::Local {
+            procedure,
+            index,
+        };
         self.identities.insert(declaration, identity);
         Ok(identity)
     }

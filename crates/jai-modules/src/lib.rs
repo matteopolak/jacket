@@ -29,7 +29,9 @@ mod operator_scopes;
 mod scoped_imports;
 mod source_arguments;
 mod source_origins;
-pub use source_origins::SourceOriginError;
+mod source_storage;
+pub use source_origins::{SourceOriginAdmissionError, SourceOriginError};
+pub use source_storage::GraphSyntaxStorage;
 mod source_specializations;
 mod storage_members;
 pub use storage_members::{
@@ -381,14 +383,30 @@ impl fmt::Display for GraphError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidUsingResponse(error) => fmt::Display::fmt(error, f),
-            Self::FailedDiscovery { rendered } => f.write_str(rendered),
+            Self::FailedDiscovery {
+                rendered,
+            } => f.write_str(rendered),
             Self::Prelude(error) => fmt::Display::fmt(error, f),
-            Self::Io { path, cause } => write!(f, "{}: {cause}", path.display()),
-            Self::Decode { path, diagnostic } => write!(f, "{}: {diagnostic}", path.display()),
-            Self::Located { rendered, .. }
-            | Self::Pending { rendered, .. }
-            | Self::Unsupported { rendered, .. } => f.write_str(rendered),
-            Self::Cycle { rendered, .. } => f.write_str(rendered),
+            Self::Io {
+                path,
+                cause,
+            } => write!(f, "{}: {cause}", path.display()),
+            Self::Decode {
+                path,
+                diagnostic,
+            } => write!(f, "{}: {diagnostic}", path.display()),
+            Self::Located {
+                rendered, ..
+            }
+            | Self::Pending {
+                rendered, ..
+            }
+            | Self::Unsupported {
+                rendered, ..
+            } => f.write_str(rendered),
+            Self::Cycle {
+                rendered, ..
+            } => f.write_str(rendered),
         }
     }
 }
@@ -396,14 +414,28 @@ impl std::error::Error for GraphError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::InvalidUsingResponse(error) => Some(error),
-            Self::FailedDiscovery { .. } => None,
+            Self::FailedDiscovery {
+                ..
+            } => None,
             Self::Prelude(error) => Some(error),
-            Self::Io { cause, .. } => Some(cause),
-            Self::Decode { diagnostic, .. } => Some(diagnostic),
-            Self::Located { diagnostic, .. }
-            | Self::Pending { diagnostic, .. }
-            | Self::Unsupported { diagnostic, .. } => Some(diagnostic),
-            Self::Cycle { .. } => None,
+            Self::Io {
+                cause, ..
+            } => Some(cause),
+            Self::Decode {
+                diagnostic, ..
+            } => Some(diagnostic),
+            Self::Located {
+                diagnostic, ..
+            }
+            | Self::Pending {
+                diagnostic, ..
+            }
+            | Self::Unsupported {
+                diagnostic, ..
+            } => Some(diagnostic),
+            Self::Cycle {
+                ..
+            } => None,
         }
     }
 }
@@ -744,9 +776,15 @@ impl ModuleGraph {
                 .or_else(|| self.placeholder_module_lookup(id, name))
                 .unwrap_or_else(|| {
                     Err(if module.bindings.contains_key(&name) {
-                        LookupError::PrivateMember { module: id, name }
+                        LookupError::PrivateMember {
+                            module: id,
+                            name,
+                        }
                     } else {
-                        LookupError::UnknownMember { module: id, name }
+                        LookupError::UnknownMember {
+                            module: id,
+                            name,
+                        }
                     })
                 })?;
             previous = name;
@@ -772,3 +810,5 @@ impl ModuleGraph {
 }
 #[cfg(test)]
 mod tests;
+
+pub use jai_syntax::SourceMetadataError;

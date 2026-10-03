@@ -49,7 +49,8 @@ impl fmt::Display for NativePointerConstantError {
         }
     }
 }
-impl std::error::Error for NativePointerConstantError {}
+impl std::error::Error for NativePointerConstantError {
+}
 impl From<TypeError> for NativePointerConstantError {
     fn from(error: TypeError) -> Self {
         Self::Type(error)

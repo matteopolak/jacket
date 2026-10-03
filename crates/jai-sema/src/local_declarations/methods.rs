@@ -377,6 +377,7 @@ impl Resolver<'_> {
                     body_owner: Some(body_owner),
                     annotation_owner: NominalAnnotationContext::None,
                     active: HashSet::new(),
+                    named_results: None,
                 },
                 globals: self.globals,
                 locals: vec![],

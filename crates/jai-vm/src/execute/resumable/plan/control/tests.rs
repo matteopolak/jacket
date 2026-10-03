@@ -10,6 +10,7 @@ fn fixture() -> (TypeRegistry, Procedure, HashMap<ProcedureId, TypeId>) {
         .procedure(ProcedureType {
             parameters: [].into(),
             results: [integer].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -51,7 +52,11 @@ fn procedure_plan_owns_source_and_addresses_control_with_stable_ids() {
     drop(procedure);
     assert_eq!(plan.source.body.statements.len(), 2);
     let block = &plan.code.blocks[plan.body.index()];
-    let StatementCode::Store { destination, value } = block.statements[0] else {
+    let StatementCode::Store {
+        destination,
+        value,
+    } = block.statements[0]
+    else {
         panic!("expected store")
     };
     assert!(destination.index() < value.index());

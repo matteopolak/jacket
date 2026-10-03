@@ -140,7 +140,11 @@ fn source_identity_and_spelling_are_checked_at_publication() {
                     2 => "Pair\0Alias".into(),
                     _ => "Pair".into(),
                 }),
-                location: location(if invalid == 0 { replacement } else { original }),
+                location: location(if invalid == 0 {
+                    replacement
+                } else {
+                    original
+                }),
             },
         );
         assert!(

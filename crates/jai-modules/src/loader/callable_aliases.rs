@@ -254,8 +254,12 @@ impl Builder<'_> {
                         LookupError::InvalidFile => "definition file is unavailable",
                         LookupError::UnknownName(_) => "target name is unknown",
                         LookupError::NotNamespace(_) => "target is not a namespace",
-                        LookupError::UnknownMember { .. } => "target member is unknown",
-                        LookupError::PrivateMember { .. } => "target member is private",
+                        LookupError::UnknownMember {
+                            ..
+                        } => "target member is unknown",
+                        LookupError::PrivateMember {
+                            ..
+                        } => "target member is private",
                         LookupError::UnfilledPlaceholder(_) => {
                             return self.pending_callable_alias(declaration.syntax().location);
                         }
@@ -301,7 +305,11 @@ impl Builder<'_> {
                 self.resolve_callable_binding(previous, alias.destination, alias.name, phase);
             let mut members = match result {
                 Ok(members) => members,
-                Err(error @ GraphError::Pending { .. }) => {
+                Err(
+                    error @ GraphError::Pending {
+                        ..
+                    },
+                ) => {
                     first_pending.get_or_insert(error);
                     continue;
                 }

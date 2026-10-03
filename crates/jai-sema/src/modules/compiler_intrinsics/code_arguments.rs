@@ -190,6 +190,7 @@ pub(crate) fn source_candidate<Origin>(
     use crate::overloads::{ArgumentInfo, Candidate, CandidateVariadic, Parameter, TypePattern};
     Candidate {
         declaration,
+        result_type_parameters: Vec::new(),
         variadic: CandidateVariadic::None,
         parameters: source
             .parameters
@@ -207,7 +208,9 @@ pub(crate) fn source_candidate<Origin>(
                         value.ty,
                     ),
                     ParameterDefault::CallerLocation => ArgumentInfo::caller_location(parameter.ty),
-                    ParameterDefault::CodeNull { ty } => ArgumentInfo::code_null(*ty),
+                    ParameterDefault::CodeNull {
+                        ty,
+                    } => ArgumentInfo::code_null(*ty),
                 }),
                 baking: syntax::ParameterBaking::None,
             })

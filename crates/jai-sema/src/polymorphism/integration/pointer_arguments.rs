@@ -77,9 +77,10 @@ fn offset(
             types.kind(ty),
             Ok(TypeKind::Integer(integer)) if IntegerType::S64.contains(*integer)
         ),
-        ArgumentType::WeakInteger { minimum, maximum } => {
-            minimum >= IntegerType::S64.min() && maximum <= IntegerType::S64.max()
-        }
+        ArgumentType::WeakInteger {
+            minimum,
+            maximum,
+        } => minimum >= IntegerType::S64.min() && maximum <= IntegerType::S64.max(),
         _ => false,
     };
     if preserves_range {

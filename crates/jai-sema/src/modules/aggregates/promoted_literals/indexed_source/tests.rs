@@ -51,7 +51,11 @@ fn nested_array_member_indexes_keep_actual_owners_and_written_order() {
         &types,
         |owner, name, _| {
             assert!(owner == root && name == rows_name || owner == row && name == values_name);
-            Ok(vec![if owner == root { first } else { second }])
+            Ok(vec![if owner == root {
+                first
+            } else {
+                second
+            }])
         },
         |expression| {
             let value = ready(expression)?;

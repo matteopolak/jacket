@@ -112,6 +112,9 @@ impl FileScope<'_> {
         let value = enumeration.members.get(&tag).copied().ok_or_else(|| {
             Diagnostic::new(span, "selected target tag is absent from the source enum")
         })?;
-        Ok(Some(Binding::Enum(aggregates::EnumConstant { ty, value })))
+        Ok(Some(Binding::Enum(aggregates::EnumConstant {
+            ty,
+            value,
+        })))
     }
 }

@@ -143,15 +143,18 @@ impl Resolver<'_> {
             statements.push(Statement::Store(local.place(), expression));
             values[index] = Some(super::ValueExpr::Load(local.place()));
         }
-        for (index, result) in self.results.iter().enumerate() {
-            if values[index].is_none() {
-                values[index] = Some(
-                    result
-                        .default
-                        .clone()
-                        .ok_or_else(|| self.error("missing required return value"))?
-                        .into_expression(),
-                );
+        for (index, value) in values.iter_mut().enumerate() {
+            if value.is_none() {
+                *value = self.capture_named_return(index, &mut statements)?;
+                if value.is_none() {
+                    *value = Some(
+                        self.results[index]
+                            .default
+                            .clone()
+                            .ok_or_else(|| self.error("missing required return value"))?
+                            .into_expression(),
+                    );
+                }
             }
         }
         statements.push(Statement::Exit(Exit {

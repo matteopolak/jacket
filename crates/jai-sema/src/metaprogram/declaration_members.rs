@@ -124,7 +124,10 @@ fn convert(
                 directive: directive.clone(),
                 location,
             },
-            S::CompileTimeAssert { condition, message } => FileItem::Assert {
+            S::CompileTimeAssert {
+                condition,
+                message,
+            } => FileItem::Assert {
                 condition: condition.clone(),
                 message: message.clone(),
                 location,

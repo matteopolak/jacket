@@ -67,7 +67,10 @@ fn lexical_external_slots_follow_the_real_file_prefix_and_keep_distinct_identiti
     assert_eq!(data[0].symbol(), data[1].symbol());
     assert_ne!(data[0].id(), data[1].id());
     for data in data {
-        let ExternalDataId::Local { procedure, .. } = data.id() else {
+        let ExternalDataId::Local {
+            procedure, ..
+        } = data.id()
+        else {
             panic!("actual local owner")
         };
         assert!(program.procedure_by_id(procedure).is_some());
@@ -82,7 +85,10 @@ fn unused_anonymous_external_retains_a_checked_owner_without_a_runtime_body() {
     let GlobalInitializer::External(data) = program.globals()[1].initializer() else {
         panic!("external storage")
     };
-    let ExternalDataId::Local { procedure, .. } = data.id() else {
+    let ExternalDataId::Local {
+        procedure, ..
+    } = data.id()
+    else {
         panic!("actual temporary owner")
     };
     let owner = program
@@ -149,7 +155,10 @@ fn anonymous_local_library_has_a_real_certified_source_owner() {
             .iter()
             .any(|canonical| canonical == library)
     );
-    let jai_ir::ForeignLibraryId::Local { procedure, .. } = library.id else {
+    let jai_ir::ForeignLibraryId::Local {
+        procedure, ..
+    } = library.id
+    else {
         panic!("local library owner")
     };
     assert!(

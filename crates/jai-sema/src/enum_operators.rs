@@ -11,8 +11,18 @@ impl Resolver<'_> {
     ) -> Result<Expr, Diagnostic> {
         if matches!(operator, BinaryOp::Equal | BinaryOp::NotEqual) {
             let flags_zero = match (&a, &b) {
-                (Expr::Enum { ty, .. }, Expr::Literal(0))
-                | (Expr::Literal(0), Expr::Enum { ty, .. }) => self.enum_is_flags(*ty),
+                (
+                    Expr::Enum {
+                        ty, ..
+                    },
+                    Expr::Literal(0),
+                )
+                | (
+                    Expr::Literal(0),
+                    Expr::Enum {
+                        ty, ..
+                    },
+                ) => self.enum_is_flags(*ty),
                 _ => false,
             };
             if flags_zero {
@@ -27,7 +37,9 @@ impl Resolver<'_> {
                 ..
             },
             Expr::Enum {
-                ty: b_ty, value: b, ..
+                ty: b_ty,
+                value: b,
+                ..
             },
         ) = (a, b)
         else {
@@ -94,9 +106,18 @@ impl Resolver<'_> {
         span: Span,
     ) -> Result<Expr, Diagnostic> {
         let representation = match (&a, &b) {
-            (Expr::Enum { representation, .. }, _) | (_, Expr::Enum { representation, .. }) => {
-                *representation
-            }
+            (
+                Expr::Enum {
+                    representation, ..
+                },
+                _,
+            )
+            | (
+                _,
+                Expr::Enum {
+                    representation, ..
+                },
+            ) => *representation,
             _ => {
                 return Err(Diagnostic::new(
                     span,
@@ -105,9 +126,9 @@ impl Resolver<'_> {
             }
         };
         let operand = |value| match value {
-            Expr::Enum { value, .. } => {
-                IntExpr::new(representation, IntExprKind::EnumValue(Box::new(value)))
-            }
+            Expr::Enum {
+                value, ..
+            } => IntExpr::new(representation, IntExprKind::EnumValue(Box::new(value))),
             Expr::Literal(0) => IntExpr::constant(IntegerValue::wrapping(representation, 0)),
             _ => unreachable!("flags-zero operands were checked before lowering"),
         };

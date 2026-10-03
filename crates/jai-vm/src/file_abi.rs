@@ -48,7 +48,8 @@ impl std::fmt::Display for FileAbiError {
         write!(f, "stdio ABI binding: {self:?}")
     }
 }
-impl std::error::Error for FileAbiError {}
+impl std::error::Error for FileAbiError {
+}
 /// The embedding source binder must supply only declarations from its verified
 /// selected POSIX stdio source. This trusted Rust API is unavailable to Jai code.
 /// Its exact library and procedure identities remain authoritative after aliases/imports.

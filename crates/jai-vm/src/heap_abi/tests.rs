@@ -22,6 +22,7 @@ fn signature(types: &mut TypeRegistry, operation: HeapAbiOperation) -> TypeId {
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::C,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -72,6 +73,7 @@ fn exact_decl_library_origin_and_full_c_shapes_are_required() {
             .procedure(ProcedureType {
                 parameters: [].into(),
                 results: [].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: Variadic::None,
@@ -128,6 +130,7 @@ fn wrong_width_context_convention_and_variadic_are_rejected() {
             .procedure(ProcedureType {
                 parameters: [size].into(),
                 results: [pointer].into(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention,
                 context,
                 variadic,

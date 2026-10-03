@@ -56,7 +56,9 @@ fn anonymous_enums_can_nest_under_arrays_and_pointers() {
         panic!()
     };
     let FieldBinding::Explicit {
-        ty: TypeSyntax::FixedArray { element, .. },
+        ty: TypeSyntax::FixedArray {
+            element, ..
+        },
         ..
     } = &record.fields().next().unwrap().binding
     else {

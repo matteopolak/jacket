@@ -62,14 +62,23 @@ impl Resolver<'_> {
     ) -> Result<(), Diagnostic> {
         let ty = match value {
             Expr::Type(ty)
-            | Expr::Pointer { ty, .. }
-            | Expr::Typed { ty, .. }
-            | Expr::Enum { ty, .. } => *ty,
+            | Expr::Pointer {
+                ty, ..
+            }
+            | Expr::Typed {
+                ty, ..
+            }
+            | Expr::Enum {
+                ty, ..
+            } => *ty,
             Expr::Code(_) => self.types.code_type(),
             Expr::Int(value) => self.types.scalar(ScalarType::Int(value.ty())),
             Expr::Bool(_) => self.types.scalar(ScalarType::Bool),
             Expr::Float(value) => self.types.float(value.ty()),
-            Expr::Void(_) | Expr::IndirectVoid { .. } => self.types.void(),
+            Expr::Void(_)
+            | Expr::IndirectVoid {
+                ..
+            } => self.types.void(),
             // Weak literals and untyped null have no canonical concrete type
             // until a checked context chooses one. They add no guessed row.
             Expr::Null | Expr::Literal(_) | Expr::WeakFloat(_) | Expr::WeakConditional(_) => {

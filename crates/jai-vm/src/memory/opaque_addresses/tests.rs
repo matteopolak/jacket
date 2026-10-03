@@ -260,6 +260,7 @@ fn actual_data_and_code_origins_keep_their_receipts_after_numeric_support() {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -452,6 +453,7 @@ fn descriptor_pointer_rejects_another_target_before_storage_retention() {
         .procedure(ProcedureType {
             parameters: Box::new([mode, size, size, data, data]),
             results: Box::new([data]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::Implicit,
             variadic: Variadic::None,

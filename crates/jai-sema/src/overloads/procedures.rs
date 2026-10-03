@@ -72,6 +72,7 @@ pub(crate) fn procedure_pattern(
     Ok(TypePattern::Procedure(Box::new(ProcedurePattern {
         parameters,
         results,
+        return_abi: source.return_abi,
         convention: source.convention,
         context: source.context,
         variadic,
@@ -81,10 +82,19 @@ pub(crate) fn procedure_pattern(
 fn shape(pattern: &ProcedurePattern, source: &ProcedureType, span: Span) -> Result<(), Diagnostic> {
     let variadic = match source.variadic {
         Variadic::None => CandidateVariadic::None,
-        Variadic::C { fixed_parameters } => CandidateVariadic::C { fixed_parameters },
-        Variadic::Jai { parameter, .. } => CandidateVariadic::Jai { parameter },
+        Variadic::C {
+            fixed_parameters,
+        } => CandidateVariadic::C {
+            fixed_parameters,
+        },
+        Variadic::Jai {
+            parameter, ..
+        } => CandidateVariadic::Jai {
+            parameter,
+        },
     };
     if source.convention != pattern.convention
+        || source.return_abi != pattern.return_abi
         || source.context != pattern.context
         || variadic != pattern.variadic
         || source.parameters.len() != pattern.parameters.len()
@@ -286,8 +296,14 @@ pub(super) fn signature(
     }
     let variadic = match pattern.variadic {
         CandidateVariadic::None => Variadic::None,
-        CandidateVariadic::C { fixed_parameters } => Variadic::C { fixed_parameters },
-        CandidateVariadic::Jai { parameter } => {
+        CandidateVariadic::C {
+            fixed_parameters,
+        } => Variadic::C {
+            fixed_parameters,
+        },
+        CandidateVariadic::Jai {
+            parameter,
+        } => {
             let element = parameters
                 .get(parameter)
                 .and_then(|ty| match types.kind(*ty) {
@@ -297,12 +313,16 @@ pub(super) fn signature(
                 .ok_or_else(|| {
                     Diagnostic::new(span, "Jai callback pack has no slice element type")
                 })?;
-            Variadic::Jai { parameter, element }
+            Variadic::Jai {
+                parameter,
+                element,
+            }
         }
     };
     Ok(ProcedureType {
         parameters: parameters.into_boxed_slice(),
         results: results.into_boxed_slice(),
+        return_abi: pattern.return_abi,
         convention: pattern.convention,
         context: pattern.context,
         variadic,

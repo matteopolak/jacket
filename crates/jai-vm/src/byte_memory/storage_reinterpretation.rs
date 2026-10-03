@@ -35,7 +35,11 @@ impl ByteImage {
         for _ in 0..MAX_DEPTH {
             match types.kind(represented)? {
                 TypeKind::Distinct(id) => represented = types.distinct(*id)?.representation,
-                TypeKind::Record(_) | TypeKind::Any(_) | TypeKind::FixedArray { .. } => {
+                TypeKind::Record(_)
+                | TypeKind::Any(_)
+                | TypeKind::FixedArray {
+                    ..
+                } => {
                     let length = size(layout(&mut layouts, ty)?.size, limit)?;
                     let range = self.range(offset, length)?;
                     let storage = length
@@ -130,7 +134,10 @@ impl ByteImage {
                     }
                 }
             }
-            TypeKind::FixedArray { element, count } => {
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => {
                 let count = size(*count, *remaining)?;
                 let stride = storage
                     .array_stride

@@ -46,7 +46,10 @@ impl CallablePolicyKey {
                     });
                     match &parameter.default {
                         None => encoder.token(b"required"),
-                        Some(DefaultPolicy::PendingSource { key, bytes }) => {
+                        Some(DefaultPolicy::PendingSource {
+                            key,
+                            bytes,
+                        }) => {
                             encoder.token(b"pending-original-source-default");
                             encoder.token(bytes.as_bytes());
                             count(encoder, key.parameter);
@@ -96,7 +99,10 @@ impl CallablePolicyKey {
                 encoder.token(b"sequence");
                 element.encode(encoder)?;
             }
-            ValuePolicy::Record { bindings, fields } => {
+            ValuePolicy::Record {
+                bindings,
+                fields,
+            } => {
                 encoder.token(b"record");
                 bindings.encode(encoder)?;
                 count(encoder, fields.len());

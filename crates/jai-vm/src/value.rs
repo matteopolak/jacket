@@ -111,7 +111,9 @@ impl Value {
             if depth > maximum_depth {
                 return Err(Error::Limit(crate::LimitKind::EvaluationDepth));
             }
-            let mismatch = || Error::TypeMismatch { expected: ty };
+            let mismatch = || Error::TypeMismatch {
+                expected: ty,
+            };
             if let Self::StoredAggregate(snapshot) = value {
                 if snapshot.ty() != ty {
                     return Err(mismatch());
@@ -123,7 +125,12 @@ impl Value {
                 continue;
             }
             match (types.kind(ty)?, value) {
-                (TypeKind::Type, Self::Type { descriptor: None }) => {}
+                (
+                    TypeKind::Type,
+                    Self::Type {
+                        descriptor: None,
+                    },
+                ) => {}
                 (
                     TypeKind::Type,
                     Self::Type {
@@ -132,16 +139,29 @@ impl Value {
                 ) if !pointer.is_null()
                     && !pointer.is_opaque()
                     && types.runtime_type_header() == Some(pointer.pointee()) => {}
-                (TypeKind::Procedure(_), Self::Procedure { signature, .. }) if *signature == ty => {
-                }
-                (TypeKind::Distinct(id), Self::Distinct { ty: actual, value }) if *actual == ty => {
+                (
+                    TypeKind::Procedure(_),
+                    Self::Procedure {
+                        signature, ..
+                    },
+                ) if *signature == ty => {}
+                (
+                    TypeKind::Distinct(id),
+                    Self::Distinct {
+                        ty: actual,
+                        value,
+                    },
+                ) if *actual == ty => {
                     pending.push((value, types.distinct(*id)?.representation, depth + 1))
                 }
                 (TypeKind::Bool, Self::Bool(_)) | (TypeKind::String, Self::String(_)) => {}
-                (TypeKind::String, Self::StringView { pointer, .. })
-                    if pointer.pointee()
-                        == types.scalar(jai_types::ScalarType::Int(jai_types::IntegerType::U8)) => {
-                }
+                (
+                    TypeKind::String,
+                    Self::StringView {
+                        pointer, ..
+                    },
+                ) if pointer.pointee()
+                    == types.scalar(jai_types::ScalarType::Int(jai_types::IntegerType::U8)) => {}
                 (
                     TypeKind::DynamicArray(element),
                     Self::DynamicArray {
@@ -165,14 +185,24 @@ impl Value {
                 (TypeKind::Float(expected), Self::Float(actual)) if *expected == actual.ty() => {}
                 (TypeKind::Pointer(pointee), Self::Pointer(pointer))
                     if *pointee == pointer.pointee() => {}
-                (TypeKind::Enum(id), Self::Enum { ty: actual, value }) if ty == *actual => {
+                (
+                    TypeKind::Enum(id),
+                    Self::Enum {
+                        ty: actual,
+                        value,
+                    },
+                ) if ty == *actual => {
                     if types.enumeration(*id)?.representation != value.ty() {
                         return Err(mismatch());
                     }
                 }
-                (kind, Self::Record { ty: actual, fields })
-                    if ty == *actual && kind.record_storage_id().is_some() =>
-                {
+                (
+                    kind,
+                    Self::Record {
+                        ty: actual,
+                        fields,
+                    },
+                ) if ty == *actual && kind.record_storage_id().is_some() => {
                     let record = types.record_storage_definition(ty)?;
                     if record.kind != RecordKind::Struct || fields.len() != record.fields.len() {
                         return Err(mismatch());
@@ -203,7 +233,10 @@ impl Value {
                     pending.push((value, *field_ty, depth + 1));
                 }
                 (
-                    TypeKind::FixedArray { element, count },
+                    TypeKind::FixedArray {
+                        element,
+                        count,
+                    },
                     Self::Array {
                         ty: actual,
                         elements,
@@ -255,21 +288,30 @@ impl Value {
                         pending.push(semantic);
                     }
                 }
-                Self::Record { fields, .. } => {
+                Self::Record {
+                    fields, ..
+                } => {
                     cells = cells
                         .checked_add(fields.capacity() - fields.len())
                         .filter(|n| *n <= maximum)
                         .ok_or(Error::Limit(crate::LimitKind::ValueCells))?;
                     pending.extend(fields);
                 }
-                Self::Array { elements, .. } => {
+                Self::Array {
+                    elements, ..
+                } => {
                     cells = cells
                         .checked_add(elements.capacity() - elements.len())
                         .filter(|n| *n <= maximum)
                         .ok_or(Error::Limit(crate::LimitKind::ValueCells))?;
                     pending.extend(elements);
                 }
-                Self::Union { value, .. } | Self::Distinct { value, .. } => pending.push(value),
+                Self::Union {
+                    value, ..
+                }
+                | Self::Distinct {
+                    value, ..
+                } => pending.push(value),
                 Self::AddressInteger(number) => {
                     cells = cells
                         .checked_add(number.metadata_cells())
@@ -277,8 +319,12 @@ impl Value {
                         .ok_or(Error::Limit(crate::LimitKind::ValueCells))?;
                 }
                 Self::Pointer(pointer)
-                | Self::Slice { pointer, .. }
-                | Self::StringView { pointer, .. }
+                | Self::Slice {
+                    pointer, ..
+                }
+                | Self::StringView {
+                    pointer, ..
+                }
                 | Self::Type {
                     descriptor: Some(pointer),
                 } => {
@@ -288,7 +334,9 @@ impl Value {
                         .ok_or(Error::Limit(crate::LimitKind::ValueCells))?;
                 }
                 Self::DynamicArray {
-                    pointer, allocator, ..
+                    pointer,
+                    allocator,
+                    ..
                 } => {
                     cells = cells
                         .checked_add(pointer.metadata_cells())

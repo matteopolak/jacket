@@ -145,7 +145,9 @@ impl Resolver<'_> {
                     "lexical specialization modifier dependencies are pending",
                 ));
             }
-            Ok(ModifierOutcome::Rejected { reason }) => Err(Diagnostic::new(
+            Ok(ModifierOutcome::Rejected {
+                reason,
+            }) => Err(Diagnostic::new(
                 span,
                 if reason.is_empty() {
                     "specialization rejected by #modify".into()

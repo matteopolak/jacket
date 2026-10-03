@@ -40,6 +40,13 @@ impl Resolver<'_> {
                     "leading-dot member does not belong to the contextual enum",
                 )
             })?;
-        self.typed_value(ValueExpr::Enum { ty, value }, ty, span)
+        self.typed_value(
+            ValueExpr::Enum {
+                ty,
+                value,
+            },
+            ty,
+            span,
+        )
     }
 }

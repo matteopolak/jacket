@@ -272,47 +272,115 @@ pub enum ValueExpr {
 impl ValueExpr {
     pub fn type_id(&self, types: &dyn TypeView) -> TypeId {
         match self {
-            Self::StorageBitcast { cast, .. } => cast.target_type(),
+            Self::StorageBitcast {
+                cast, ..
+            } => cast.target_type(),
             Self::NativePointer(value) => value.type_id(),
             Self::RuntimeType(value) => value.ty(),
             Self::Int(e) => e.type_id(types),
             Self::Float(e) => e.type_id(types),
             Self::Bool(e) => e.type_id(types),
             Self::Load(place) => place.ty(),
-            Self::Context { ty }
-            | Self::Bind { ty, .. }
-            | Self::Bound { ty, .. }
-            | Self::TypeDescriptor { ty, .. }
-            | Self::Conditional { ty, .. }
-            | Self::StaticAddress { ty, .. }
-            | Self::Array { ty, .. }
-            | Self::StringBytes { ty, .. }
-            | Self::SequenceField { ty, .. }
-            | Self::ArrayToSlice { ty, .. }
-            | Self::ArrayView { ty, .. }
-            | Self::SequenceView { ty, .. }
-            | Self::Index { ty, .. }
-            | Self::SequenceBuild { ty, .. }
-            | Self::AddressOf { ty, .. }
-            | Self::AddressOfValue { ty, .. }
-            | Self::PointerCast { ty, .. }
-            | Self::PointerOffset { ty, .. }
-            | Self::PointerOffsetLeft { ty, .. }
-            | Self::PointerFromInteger { ty, .. }
-            | Self::SequenceConcat { ty, .. }
-            | Self::Distinct { ty, .. }
-            | Self::UnwrapDistinct { ty, .. }
-            | Self::ProcedureValue { ty, .. }
-            | Self::IndirectCall { ty, .. }
+            Self::Context {
+                ty,
+            }
+            | Self::Bind {
+                ty, ..
+            }
+            | Self::Bound {
+                ty, ..
+            }
+            | Self::TypeDescriptor {
+                ty, ..
+            }
+            | Self::Conditional {
+                ty, ..
+            }
+            | Self::StaticAddress {
+                ty, ..
+            }
+            | Self::Array {
+                ty, ..
+            }
+            | Self::StringBytes {
+                ty, ..
+            }
+            | Self::SequenceField {
+                ty, ..
+            }
+            | Self::ArrayToSlice {
+                ty, ..
+            }
+            | Self::ArrayView {
+                ty, ..
+            }
+            | Self::SequenceView {
+                ty, ..
+            }
+            | Self::Index {
+                ty, ..
+            }
+            | Self::SequenceBuild {
+                ty, ..
+            }
+            | Self::AddressOf {
+                ty, ..
+            }
+            | Self::AddressOfValue {
+                ty, ..
+            }
+            | Self::PointerCast {
+                ty, ..
+            }
+            | Self::PointerOffset {
+                ty, ..
+            }
+            | Self::PointerOffsetLeft {
+                ty, ..
+            }
+            | Self::PointerFromInteger {
+                ty, ..
+            }
+            | Self::SequenceConcat {
+                ty, ..
+            }
+            | Self::Distinct {
+                ty, ..
+            }
+            | Self::UnwrapDistinct {
+                ty, ..
+            }
+            | Self::ProcedureValue {
+                ty, ..
+            }
+            | Self::IndirectCall {
+                ty, ..
+            }
             | Self::Zero(ty)
-            | Self::Record { ty, .. }
-            | Self::Union { ty, .. }
-            | Self::RecordBuild { ty, .. }
-            | Self::OrderedRecord { ty, .. }
-            | Self::Field { ty, .. }
-            | Self::Call { ty, .. }
-            | Self::Enum { ty, .. }
-            | Self::EnumFromInt { ty, .. } => *ty,
+            | Self::Record {
+                ty, ..
+            }
+            | Self::Union {
+                ty, ..
+            }
+            | Self::RecordBuild {
+                ty, ..
+            }
+            | Self::OrderedRecord {
+                ty, ..
+            }
+            | Self::Field {
+                ty, ..
+            }
+            | Self::Call {
+                ty, ..
+            }
+            | Self::Enum {
+                ty, ..
+            }
+            | Self::EnumFromInt {
+                ty, ..
+            } => *ty,
         }
     }
 }
@@ -326,12 +394,18 @@ impl ConstantValue {
                 ty: self.ty,
                 elements: elements.into_iter().map(Self::into_expression).collect(),
             },
-            ConstantKind::StringBytes(bytes) => ValueExpr::StringBytes { ty: self.ty, bytes },
+            ConstantKind::StringBytes(bytes) => ValueExpr::StringBytes {
+                ty: self.ty,
+                bytes,
+            },
             ConstantKind::Distinct(value) => ValueExpr::Distinct {
                 ty: self.ty,
                 value: Box::new(value.into_expression()),
             },
-            ConstantKind::Union { field, value } => ValueExpr::Union {
+            ConstantKind::Union {
+                field,
+                value,
+            } => ValueExpr::Union {
                 ty: self.ty,
                 field,
                 value: Box::new(value.into_expression()),
@@ -342,7 +416,10 @@ impl ConstantValue {
                 ty: self.ty,
                 fields: fields.into_iter().map(Self::into_expression).collect(),
             },
-            ConstantKind::Enum(value) => ValueExpr::Enum { ty: self.ty, value },
+            ConstantKind::Enum(value) => ValueExpr::Enum {
+                ty: self.ty,
+                value,
+            },
             ConstantKind::Procedure(procedure) => ValueExpr::ProcedureValue {
                 procedure,
                 ty: self.ty,

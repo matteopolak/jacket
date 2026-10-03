@@ -7,6 +7,7 @@ fn signature(types: &mut TypeRegistry, parameters: Vec<TypeId>, results: Vec<Typ
         .procedure(ProcedureType {
             parameters: parameters.into(),
             results: results.into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -23,7 +24,10 @@ fn ret(expression: IntExpr, cleanups: Vec<CleanupId>) -> Statement {
     })
 }
 fn block(statements: Vec<Statement>, flow: Flow) -> Block {
-    Block { statements, flow }
+    Block {
+        statements,
+        flow,
+    }
 }
 struct Provider {
     library: Library,
@@ -193,7 +197,10 @@ fn binding_fixture(provider: &Provider) -> ValueExpr {
     let read = |binding| {
         IntExpr::new(
             IntegerType::S64,
-            IntExprKind::Value(Box::new(ValueExpr::Bound { binding, ty: word })),
+            IntExprKind::Value(Box::new(ValueExpr::Bound {
+                binding,
+                ty: word,
+            })),
         )
     };
     ValueExpr::Bind {
@@ -406,12 +413,12 @@ impl CompilerEffects for Effects {
     fn request(&mut self, request: crate::CompilerRequest) -> crate::EffectOutcome {
         self.requests.push(request.clone());
         match request {
-            crate::CompilerRequest::CreateWorkspace { .. } => {
-                crate::EffectOutcome::Pending(crate::EffectKey(42))
-            }
-            crate::CompilerRequest::Message { .. } => {
-                crate::EffectOutcome::Ready(crate::CompilerResponse::Unit)
-            }
+            crate::CompilerRequest::CreateWorkspace {
+                ..
+            } => crate::EffectOutcome::Pending(crate::EffectKey(42)),
+            crate::CompilerRequest::Message {
+                ..
+            } => crate::EffectOutcome::Ready(crate::CompilerResponse::Unit),
             _ => panic!("unexpected request"),
         }
     }

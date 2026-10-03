@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+from cargo_build_paths import configured_target_directory, pinned_cargo_command
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = ('compiler', 'vm', 'discovery')
@@ -41,9 +42,11 @@ def source_files(root: Path) -> list[Path]:
              if path.is_file() and (path.suffix in {
                  '.rs', '.toml', '.jai', '.json', '.c', '.cc', '.cpp', '.h', '.hh', '.hpp', '.s', '.S', '.ll', '.inc',
              } or path.name.endswith('.jai.pending'))]
+    files.extend(path for path in (root / 'prelude').glob('*.jai') if path.is_file())
     files.extend(root / name for name in (
         'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml',
         'tools/benchmark.py', 'tools/benchmark_resources.py', 'tools/check_dependency_age.py',
+        'tools/cargo_build_paths.py',
     ))
     return sorted(files)
 
@@ -60,6 +63,8 @@ def copy_snapshot(root: Path, destination: Path, inputs: dict[str, str]) -> None
         path = destination / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
+        if digest(path) != expected:
+            raise RuntimeError(f'snapshot input changed while copying: {name}')
 
 
 def changed_inputs(before: dict[str, str], after: dict[str, str]) -> list[str]:
@@ -132,13 +137,16 @@ def corpus_hashes(root: Path, upstream: bool, reference: bool) -> dict:
     return result
 
 
-def build_command(suites: list[str], offline: bool, manifest: Path | None = None) -> list[str]:
-    command = ['cargo', 'bench', '--locked', '-j1', '-p', 'jai-bench',
+def build_command(suites: list[str], offline: bool, manifest: Path | None = None,
+                  cargo: list[str] | None = None, target: Path | None = None) -> list[str]:
+    command = [*(cargo or ['cargo']), 'bench', '--locked', '-j1', '-p', 'jai-bench',
                '--no-run', '--message-format=json']
     if offline:
         command.append('--offline')
     if manifest is not None:
         command.extend(['--manifest-path', str(manifest)])
+    if target is not None:
+        command.extend(['--target-dir', str(target)])
     for suite in suites:
         command.extend(['--bench', suite])
     return command
@@ -201,6 +209,7 @@ def measured_rows(output: str, samples: int) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--target-dir', type=Path, help='Override CARGO_TARGET_DIR or Cargo target configuration')
     parser.add_argument('--samples', type=int, default=100)
     parser.add_argument('--upstream', action='store_true')
     parser.add_argument('--bench', choices=['all', *SUITES], default='all')
@@ -218,7 +227,10 @@ def main() -> None:
         parser.error('--timeout-seconds must be positive')
     environment = os.environ.copy()
     environment['RUSTC_WRAPPER'] = ''
-    environment['CARGO_TARGET_DIR'] = str(ROOT / 'target')
+    cargo = pinned_cargo_command(ROOT, environment)
+    target_selection = configured_target_directory(args.target_dir, environment, cargo, ROOT)
+    target_root = target_selection.path
+    environment['CARGO_TARGET_DIR'] = str(target_root)
     environment['JAI_BENCH_CORPUS_ROOT'] = str(ROOT)
     environment['JAI_BENCH_TIMEOUT_SECONDS'] = str(args.timeout_seconds)
     suites = list(SUITES) if args.bench == 'all' else [args.bench]
@@ -228,7 +240,7 @@ def main() -> None:
     destination.mkdir(parents=True)
     environment['JAI_BENCH_NATIVE_ARTIFACTS'] = str(destination / 'native-artifacts')
     build_source = destination / 'source'
-    command = build_command(suites, args.offline, build_source / 'Cargo.toml')
+    command = build_command(suites, args.offline, build_source / 'Cargo.toml', cargo, target_root)
     llvm_prefix = environment.get('LLVM_SYS_221_PREFIX')
     llvm_config = str(Path(llvm_prefix) / 'bin/llvm-config') if llvm_prefix else 'llvm-config'
     inputs = {}
@@ -237,6 +249,7 @@ def main() -> None:
         'format': 3, 'timestamp': datetime.now(timezone.utc).isoformat(),
         'mode': 'smoke' if args.smoke else 'baseline', 'build_command': command,
         'build_source_directory': str(build_source),
+        'target_directory': target_selection.receipt(),
         'benchmark_suites': suites, 'sample_count': None if args.smoke else args.samples,
         'sample_size': None if args.smoke else 1,
         'timeout_seconds': args.timeout_seconds,
@@ -262,7 +275,7 @@ def main() -> None:
     try:
         metadata['hardware'] = host_hardware()
         metadata['rustc'] = version('rustc', '-vV')
-        metadata['cargo'] = version('cargo', '-V')
+        metadata['cargo'] = version(*cargo, '-V')
         metadata['llvm'] = {'version': version(llvm_config, '--version'), 'prefix': version(llvm_config, '--prefix')}
         # Freeze the current source before a potentially slow network preflight.
         inputs = source_hashes(ROOT)
@@ -299,7 +312,7 @@ def main() -> None:
         if changed:
             metadata['changed_build_inputs'] = changed
             raise RuntimeError('source inputs changed during the build; baseline is not valid')
-        built = benchmark_executables((destination / 'build.jsonl').read_text(), suites, ROOT / 'target')
+        built = benchmark_executables((destination / 'build.jsonl').read_text(), suites, target_root)
         (destination / 'executables').mkdir()
         binaries = {}
         metadata['executables'] = {}

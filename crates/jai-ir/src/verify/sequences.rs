@@ -1,7 +1,10 @@
 use super::*;
 
 fn array_view(types: &dyn TypeView, source: TypeId, target: TypeId) -> Result<(), IrError> {
-    let TypeKind::FixedArray { element, .. } = *types.kind(source)? else {
+    let TypeKind::FixedArray {
+        element, ..
+    } = *types.kind(source)?
+    else {
         return Err(IrError::InvalidValue(source));
     };
     storage::runtime_type(types, element)?;
@@ -41,8 +44,14 @@ impl Context<'_> {
         storage::runtime_type(types, ty)?;
         same_type(ty, value.type_id(types))?;
         match value {
-            ValueExpr::Array { elements, .. } => {
-                let TypeKind::FixedArray { element, count } = *types.kind(ty)? else {
+            ValueExpr::Array {
+                elements, ..
+            } => {
+                let TypeKind::FixedArray {
+                    element,
+                    count,
+                } = *types.kind(ty)?
+                else {
                     return Err(IrError::InvalidValue(ty));
                 };
                 storage::runtime_type(types, element)?;
@@ -52,22 +61,34 @@ impl Context<'_> {
                     same_type(element, self.value(value)?)?;
                 }
             }
-            ValueExpr::StringBytes { .. } => {
+            ValueExpr::StringBytes {
+                ..
+            } => {
                 if !matches!(types.kind(ty)?, TypeKind::String) {
                     return Err(IrError::InvalidValue(ty));
                 }
             }
-            ValueExpr::SequenceField { base, field, .. } => {
+            ValueExpr::SequenceField {
+                base,
+                field,
+                ..
+            } => {
                 let base = self.value(base)?;
                 same_type(crate::sequences::field_type(types, base, *field)?, ty)?;
             }
-            ValueExpr::ArrayToSlice { array, .. } => {
+            ValueExpr::ArrayToSlice {
+                array, ..
+            } => {
                 array_view(types, self.place(*array)?, ty)?;
             }
-            ValueExpr::ArrayView { array, .. } => {
+            ValueExpr::ArrayView {
+                array, ..
+            } => {
                 array_view(types, self.value(array)?, ty)?;
             }
-            ValueExpr::SequenceView { sequence, .. } => {
+            ValueExpr::SequenceView {
+                sequence, ..
+            } => {
                 let source = self.value(sequence)?;
                 if !matches!(
                     types.kind(source)?,
@@ -80,7 +101,11 @@ impl Context<'_> {
                 };
                 same_type(element, crate::sequences::element(types, source)?)?;
             }
-            ValueExpr::Index { base, index, .. } => {
+            ValueExpr::Index {
+                base,
+                index,
+                ..
+            } => {
                 let base = self.value(base)?;
                 let element = crate::sequences::element(types, base)?;
                 storage::runtime_type(types, element)?;
@@ -88,7 +113,9 @@ impl Context<'_> {
                 same_integer(crate::canonical_index_type(index.ty()), index.ty())?;
                 same_type(element, ty)?;
             }
-            ValueExpr::SequenceBuild { initializers, .. } => {
+            ValueExpr::SequenceBuild {
+                initializers, ..
+            } => {
                 let element = match *types.kind(ty)? {
                     TypeKind::Slice(element) | TypeKind::DynamicArray(element) => element,
                     TypeKind::String => types.scalar(ScalarType::Int(IntegerType::U8)),

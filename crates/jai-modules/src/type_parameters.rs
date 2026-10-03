@@ -1,5 +1,6 @@
 //! Source-bound type identities are materialized by the existing semantic registry.
 use super::*;
+mod retained_metadata;
 use jai_syntax::{BuiltinType, Expression, ExpressionKind, TypeSyntax};
 use jai_types::{CallingConvention, ContextMode, FloatType, ScalarType};
 
@@ -36,6 +37,7 @@ pub struct ModuleProcedureType {
     pub parameters: Vec<ModuleType>,
     pub results: Vec<ModuleType>,
     pub convention: CallingConvention,
+    pub return_abi: jai_types::ForeignReturnAbi,
     pub context: ContextMode,
     pub variadic: ModuleVariadic,
 }
@@ -206,7 +208,10 @@ impl Builder<'_> {
             TypeSyntax::DynamicArray(inner) => ModuleType::DynamicArray(Box::new(
                 self.bind_module_type(file, inner, span, active)?,
             )),
-            TypeSyntax::FixedArray { count, element } => {
+            TypeSyntax::FixedArray {
+                count,
+                element,
+            } => {
                 let value = self.constant_expression(file, count, &mut vec![])?;
                 let count = match value {
                     jai_eval::Value::Literal(value) => u64::try_from(value).ok(),
@@ -237,7 +242,9 @@ impl Builder<'_> {
                     let ty = &parameter.ty;
                     parameters.push(self.bind_module_type(file, ty, parameter.span, active)?);
                     if parameter.variadic {
-                        variadic = ModuleVariadic::Jai { parameter: index };
+                        variadic = ModuleVariadic::Jai {
+                            parameter: index,
+                        };
                     }
                 }
                 let mut results = Vec::new();
@@ -248,6 +255,7 @@ impl Builder<'_> {
                 ModuleType::Procedure(ModuleProcedureType {
                     parameters,
                     results,
+                    return_abi: procedure.return_abi,
                     convention: procedure.convention,
                     context: procedure.context,
                     variadic,
@@ -259,7 +267,9 @@ impl Builder<'_> {
                     "#this type requires an enclosing record field annotation",
                 ));
             }
-            TypeSyntax::Restricted { .. } => {
+            TypeSyntax::Restricted {
+                ..
+            } => {
                 let ParameterResponse::Type(ty) = self.semantic_parameter(
                     file,
                     location,
@@ -289,7 +299,9 @@ impl Builder<'_> {
             }
             TypeSyntax::InlineRecord(_)
             | TypeSyntax::InlineEnum(_)
-            | TypeSyntax::Variant { .. }
+            | TypeSyntax::Variant {
+                ..
+            }
             | TypeSyntax::Application(_) => {
                 let ParameterResponse::Type(ty) = self.semantic_parameter(
                     file,
@@ -434,7 +446,9 @@ impl Builder<'_> {
         location: SourceSpan,
     ) -> Result<(), GraphError> {
         match self.validate_module_interface_pure(file, actual, constraint, location) {
-            Err(GraphError::Pending { diagnostic, .. }) => {
+            Err(GraphError::Pending {
+                diagnostic, ..
+            }) => {
                 let response = self.semantic_parameter(
                     file,
                     location,
@@ -546,7 +560,11 @@ impl Builder<'_> {
                 procedure.name,
                 &procedure.parameters,
                 &procedure.results,
-                (procedure.convention, procedure.context),
+                (
+                    procedure.convention,
+                    procedure.return_abi,
+                    procedure.context,
+                ),
                 location,
             ),
             RecordMember::ProcedurePrototype(procedure) => self.interface_signature(
@@ -554,11 +572,18 @@ impl Builder<'_> {
                 procedure.name,
                 &procedure.parameters,
                 &procedure.results,
-                (procedure.convention, procedure.context),
+                (
+                    procedure.convention,
+                    procedure.return_abi,
+                    procedure.context,
+                ),
                 location,
             ),
             RecordMember::Field(field) => {
-                let FieldBinding::Explicit { ty, .. } = &field.binding else {
+                let FieldBinding::Explicit {
+                    ty, ..
+                } = &field.binding
+                else {
                     return Err(self.interface_pending(
                         location,
                         "inferred interface fields require semantic type inference",
@@ -587,11 +612,11 @@ impl Builder<'_> {
         name: Symbol,
         parameters: &[jai_syntax::Parameter],
         results: &[jai_syntax::ProcedureResult],
-        abi: (CallingConvention, ContextMode),
+        abi: (CallingConvention, jai_types::ForeignReturnAbi, ContextMode),
         location: SourceSpan,
     ) -> Result<(Symbol, ModuleType), GraphError> {
         use jai_syntax::{ParameterBinding as P, ResultBinding as R};
-        let (convention, context) = abi;
+        let (convention, return_abi, context) = abi;
         let mut bound_parameters = Vec::new();
         let mut variadic = ModuleVariadic::None;
         for (index, parameter) in parameters.iter().enumerate() {
@@ -608,10 +633,14 @@ impl Builder<'_> {
                 continue;
             }
             let ty = match &parameter.binding {
-                P::Required(ty) | P::Defaulted { ty: Some(ty), .. } => {
-                    TypeSyntax::Builtin(BuiltinType::Scalar(*ty))
-                }
-                P::RequiredType(ty) | P::DefaultedType { ty: Some(ty), .. } => ty.clone(),
+                P::Required(ty)
+                | P::Defaulted {
+                    ty: Some(ty), ..
+                } => TypeSyntax::Builtin(BuiltinType::Scalar(*ty)),
+                P::RequiredType(ty)
+                | P::DefaultedType {
+                    ty: Some(ty), ..
+                } => ty.clone(),
                 _ => {
                     return Err(self.interface_pending(
                         location,
@@ -621,12 +650,17 @@ impl Builder<'_> {
             };
             bound_parameters.push(self.bind_module_type(file, &ty, parameter.span, &mut vec![])?);
             if parameter.variadic {
-                variadic = ModuleVariadic::Jai { parameter: index };
+                variadic = ModuleVariadic::Jai {
+                    parameter: index,
+                };
             }
         }
         let mut bound_results = Vec::new();
         for result in results {
-            let R::Typed { ty, .. } = &result.binding else {
+            let R::Typed {
+                ty, ..
+            } = &result.binding
+            else {
                 return Err(self.interface_pending(
                     location,
                     "inferred interface results require semantic type inference",
@@ -640,6 +674,7 @@ impl Builder<'_> {
             ModuleType::Procedure(ModuleProcedureType {
                 parameters: bound_parameters,
                 results: bound_results,
+                return_abi: return_abi,
                 convention,
                 context,
                 variadic,
@@ -746,7 +781,10 @@ impl Builder<'_> {
             ModuleType::DynamicArray(inner) => {
                 ModuleType::DynamicArray(Box::new(self.rebind_program_type(file, *inner)))
             }
-            ModuleType::FixedArray { element, count } => ModuleType::FixedArray {
+            ModuleType::FixedArray {
+                element,
+                count,
+            } => ModuleType::FixedArray {
                 element: Box::new(self.rebind_program_type(file, *element)),
                 count,
             },
@@ -775,7 +813,9 @@ impl Builder<'_> {
         program_wide: bool,
     ) -> Result<ParameterValue, GraphError> {
         match self.coerce_module_value_pure(file, ty, value.clone(), location, program_wide) {
-            Err(GraphError::Pending { diagnostic, .. }) => {
+            Err(GraphError::Pending {
+                diagnostic, ..
+            }) => {
                 let ParameterResponse::Value(value) = self.semantic_parameter(
                     file,
                     location,
@@ -828,11 +868,15 @@ impl Builder<'_> {
             }
             (
                 ModuleType::Declaration(_)
-                | ModuleType::Application { .. }
+                | ModuleType::Application {
+                    ..
+                }
                 | ModuleType::Pointer(_)
                 | ModuleType::Slice(_)
                 | ModuleType::DynamicArray(_)
-                | ModuleType::FixedArray { .. }
+                | ModuleType::FixedArray {
+                    ..
+                }
                 | ModuleType::Procedure(_),
                 _,
             ) => Err(self.interface_pending(

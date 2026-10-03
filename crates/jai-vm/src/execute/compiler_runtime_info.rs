@@ -31,7 +31,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 workspace: owner,
                 snapshot,
             } if owner == workspace && snapshot.schema() == schema => snapshot,
-            RuntimeInfoAvailability::Ready { .. } => {
+            RuntimeInfoAvailability::Ready {
+                ..
+            } => {
                 return Err(Error::InvalidIr(
                     "runtime-info checkpoint belongs to another workspace or source schema",
                 )

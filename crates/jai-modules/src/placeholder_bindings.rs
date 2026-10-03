@@ -130,7 +130,10 @@ impl ModuleGraph {
             if link.visibility == Visibility::Export {
                 self.lookup_placeholder_export(link.placeholder)
             } else {
-                Err(LookupError::PrivateMember { module, name })
+                Err(LookupError::PrivateMember {
+                    module,
+                    name,
+                })
             }
         })
     }

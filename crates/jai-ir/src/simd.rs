@@ -122,8 +122,12 @@ impl SimdBlock {
                 instruction,
                 types,
             )?;
-            if let SimdInstruction::Load { destination, .. }
-            | SimdInstruction::Add { destination, .. } = instruction
+            if let SimdInstruction::Load {
+                destination, ..
+            }
+            | SimdInstruction::Add {
+                destination, ..
+            } = instruction
             {
                 initialized[destination.index()] = true;
             }
@@ -166,7 +170,8 @@ impl fmt::Display for SimdError {
         })
     }
 }
-impl std::error::Error for SimdError {}
+impl std::error::Error for SimdError {
+}
 
 pub struct SimdBuilder {
     arena: u64,
@@ -220,8 +225,12 @@ impl SimdBuilder {
             crate::disposal::simd_instructions(vec![instruction]);
             return Err(error);
         }
-        if let SimdInstruction::Load { destination, .. }
-        | SimdInstruction::Add { destination, .. } = &instruction
+        if let SimdInstruction::Load {
+            destination, ..
+        }
+        | SimdInstruction::Add {
+            destination, ..
+        } = &instruction
         {
             self.initialized[destination.index()] = true;
         }
@@ -305,11 +314,19 @@ fn validate_instruction(
         Ok(())
     };
     match instruction {
-        SimdInstruction::Load { .. }
+        SimdInstruction::Load {
+            ..
+        }
         | SimdInstruction::DebugTrap
         | SimdInstruction::Arm64DebugTrap => {}
-        SimdInstruction::Store { source, .. } => read(*source)?,
-        SimdInstruction::Add { left, right, .. } => {
+        SimdInstruction::Store {
+            source, ..
+        } => read(*source)?,
+        SimdInstruction::Add {
+            left,
+            right,
+            ..
+        } => {
             read(*left)?;
             read(*right)?;
         }

@@ -18,7 +18,8 @@ impl PartialEq for DiagnosticMarker {
         Arc::ptr_eq(&self.0, &other.0)
     }
 }
-impl Eq for DiagnosticMarker {}
+impl Eq for DiagnosticMarker {
+}
 impl fmt::Debug for DiagnosticMarker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("DiagnosticMarker")
@@ -42,9 +43,15 @@ mod tests {
         assert_ne!(marker, DiagnosticMarker::new());
         assert!(Diagnostic::new(span, "type mismatch").marker().is_none());
         assert!(
-            Diagnostic::at_source(crate::SourceSpan { source, span }, "type mismatch")
-                .marker()
-                .is_none()
+            Diagnostic::at_source(
+                crate::SourceSpan {
+                    source,
+                    span
+                },
+                "type mismatch"
+            )
+            .marker()
+            .is_none()
         );
     }
 }

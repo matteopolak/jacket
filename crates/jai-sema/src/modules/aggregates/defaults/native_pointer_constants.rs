@@ -69,6 +69,9 @@ impl Defaults<'_, '_> {
         } else {
             ConstantKind::NativePointer(pointer)
         };
-        Ok(TypedConstant { ty: target, kind })
+        Ok(TypedConstant {
+            ty: target,
+            kind,
+        })
     }
 }

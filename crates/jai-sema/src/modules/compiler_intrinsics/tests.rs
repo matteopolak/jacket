@@ -1,4 +1,5 @@
 use super::*;
+use jai_modules::GraphOptions;
 
 mod messages;
 mod runtime_info;
@@ -7,6 +8,7 @@ fn signature(parameters: &[TypeId], results: &[TypeId]) -> ProcedureType {
     ProcedureType {
         parameters: parameters.into(),
         results: results.into(),
+        return_abi: jai_types::ForeignReturnAbi::Natural,
         convention: CallingConvention::Jai,
         context: ContextMode::Implicit,
         variadic: jai_types::Variadic::None,
@@ -14,6 +16,14 @@ fn signature(parameters: &[TypeId], results: &[TypeId]) -> ProcedureType {
 }
 fn workspace() -> WorkspaceId {
     WorkspaceId::from_raw(7).unwrap()
+}
+fn runtime_target() -> jai_types::BuildTarget {
+    jai_types::BuildTarget {
+        operating_system: jai_types::OperatingSystem::MacOS,
+        architecture: jai_types::Architecture::Arm64,
+        layout: jai_types::LayoutPolicy::lp64(),
+        byte_order: jai_types::ByteOrder::Little,
+    }
 }
 
 #[test]
@@ -446,4 +456,248 @@ fn discarded_source_parameters_do_not_create_an_accidental_catalog_match() {
             );
         },
     );
+}
+
+#[test]
+fn selected_runtime_source_authorizes_its_parameterized_instances_by_source_identity() {
+    use jai_modules::Filesystem;
+    use jai_modules::{
+        BootstrapOptions, PreludeSource, RuntimeSupportOptions, RuntimeSupportParameters,
+        RuntimeSupportSource,
+    };
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = std::env::temp_dir().join(format!(
+        "jai-runtime-role-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    let source_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let prelude_dir = source_root.join("prelude");
+    let stdlib = source_root.join("stdlib");
+    let preload = prelude_dir.join("module.jai");
+    let runtime = stdlib.join("Runtime_Support.jai");
+    let main = root.join("main.jai");
+    std::fs::write(
+        &main,
+        "Runtime_Small :: #import \"Runtime_Support\" (DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = false, ENABLE_BACKTRACE_ON_CRASH = false, TEMPORARY_STORAGE_SIZE = 4096);\nRuntime_Large :: #import \"Runtime_Support\" (DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = false, ENABLE_BACKTRACE_ON_CRASH = false, TEMPORARY_STORAGE_SIZE = 65536);\nmain :: () {}\n",
+    )
+    .unwrap();
+    let import_dirs = vec![stdlib.clone(), prelude_dir.clone()];
+    let graph = ModuleGraph::load_with_bootstrap_options(
+        &main,
+        GraphOptions {
+            import_dirs: import_dirs.clone(),
+        },
+        BootstrapOptions {
+            prelude: PreludeSource::File(preload),
+            runtime_support: Some(RuntimeSupportOptions {
+                source: RuntimeSupportSource::File(runtime),
+                parameters: RuntimeSupportParameters {
+                    define_system_entry_point: false,
+                    define_initialization: false,
+                    enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
+                },
+            }),
+        },
+        &Filesystem,
+        Some(runtime_target()),
+    )
+    .unwrap();
+    let selected = graph.runtime_support().unwrap();
+    let selected_source = graph
+        .file(graph.module(selected).unwrap().entry())
+        .unwrap()
+        .source();
+    let runtime_instances = graph
+        .modules()
+        .iter()
+        .filter(|instance| {
+            graph
+                .file(instance.entry())
+                .is_some_and(|file| file.source() == selected_source)
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        runtime_instances.len() >= 3,
+        "bootstrap plus two argument variants"
+    );
+    let context = CompilerBindingContext::from_graph_with_provider(
+        &graph,
+        &import_dirs,
+        workspace(),
+        &Filesystem,
+    );
+    for instance in runtime_instances {
+        assert_eq!(
+            context.origins.origin(instance.id()),
+            Some(CompilerModuleOrigin::RuntimeSupport)
+        );
+    }
+    let options = crate::ResolveOptions {
+        target: Some(runtime_target()),
+        compiler: Some(context),
+        ..crate::ResolveOptions::default()
+    };
+    crate::resolve_library_with_options(&graph, &options, &mut jai_vm::NoEffects).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn copied_or_loaded_runtime_writer_declarations_do_not_inherit_source_authority() {
+    use jai_modules::Filesystem;
+    use jai_modules::{
+        BootstrapOptions, PreludeSource, RuntimeSupportOptions, RuntimeSupportParameters,
+        RuntimeSupportSource,
+    };
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = std::env::temp_dir().join(format!(
+        "jai-runtime-role-negative-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let modules = root.join("modules");
+    std::fs::create_dir_all(&modules).unwrap();
+    let source_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let prelude_dir = source_root.join("prelude");
+    let stdlib = source_root.join("stdlib");
+    let preload = prelude_dir.join("module.jai");
+    let runtime = modules.join("Runtime_Support.jai");
+    let generated = modules.join("generated.jai");
+    let main = root.join("main.jai");
+    let mut runtime_source = std::fs::read_to_string(stdlib.join("Runtime_Support.jai")).unwrap();
+    runtime_source.push_str("\n#load \"generated.jai\";\n");
+    std::fs::write(&runtime, runtime_source).unwrap();
+    std::fs::write(
+        &generated,
+        "inserted_writer :: (s: string, to_standard_error := false) #no_context #compiler \"write_string\";\n",
+    )
+    .unwrap();
+    std::fs::write(&main, "main :: () {}\n").unwrap();
+    let import_dirs = vec![modules.clone(), stdlib.clone(), prelude_dir.clone()];
+    let graph = ModuleGraph::load_with_bootstrap_options(
+        &main,
+        GraphOptions {
+            import_dirs: import_dirs.clone(),
+        },
+        BootstrapOptions {
+            prelude: PreludeSource::File(preload),
+            runtime_support: Some(RuntimeSupportOptions {
+                source: RuntimeSupportSource::File(runtime),
+                parameters: RuntimeSupportParameters {
+                    define_system_entry_point: false,
+                    define_initialization: false,
+                    enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
+                },
+            }),
+        },
+        &Filesystem,
+        Some(runtime_target()),
+    )
+    .unwrap();
+    let options = crate::ResolveOptions {
+        target: Some(runtime_target()),
+        compiler: Some(CompilerBindingContext::from_graph_with_provider(
+            &graph,
+            &import_dirs,
+            workspace(),
+            &Filesystem,
+        )),
+        ..crate::ResolveOptions::default()
+    };
+    let error =
+        crate::resolve_library_with_options(&graph, &options, &mut jai_vm::NoEffects).unwrap_err();
+    assert!(
+        error
+            .message
+            .contains("not an original selected source declaration"),
+        "{error:?}"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn same_named_runtime_file_from_a_different_source_provider_identity_is_not_selected() {
+    use jai_modules::Filesystem;
+    use jai_modules::{
+        BootstrapOptions, PreludeSource, RuntimeSupportOptions, RuntimeSupportParameters,
+        RuntimeSupportSource,
+    };
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = std::env::temp_dir().join(format!(
+        "jai-runtime-role-copy-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let modules = root.join("modules");
+    std::fs::create_dir_all(&modules).unwrap();
+    let source_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let prelude_dir = source_root.join("prelude");
+    let stdlib = source_root.join("stdlib");
+    let preload = prelude_dir.join("module.jai");
+    let runtime = stdlib.join("Runtime_Support.jai");
+    let copied = modules.join("Runtime_Support_Copy.jai");
+    let main = root.join("main.jai");
+    std::fs::copy(&runtime, &copied).unwrap();
+    std::fs::write(
+        &main,
+        "Runtime_Copy :: #import \"Runtime_Support_Copy\" (DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = false, ENABLE_BACKTRACE_ON_CRASH = false);\nmain :: () {}\n",
+    )
+    .unwrap();
+    let import_dirs = vec![modules.clone(), stdlib.clone(), prelude_dir.clone()];
+    let graph = ModuleGraph::load_with_bootstrap_options(
+        &main,
+        GraphOptions {
+            import_dirs: import_dirs.clone(),
+        },
+        BootstrapOptions {
+            prelude: PreludeSource::File(preload),
+            runtime_support: Some(RuntimeSupportOptions {
+                source: RuntimeSupportSource::File(runtime),
+                parameters: RuntimeSupportParameters {
+                    define_system_entry_point: false,
+                    define_initialization: false,
+                    enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
+                },
+            }),
+        },
+        &Filesystem,
+        Some(runtime_target()),
+    )
+    .unwrap();
+    let options = crate::ResolveOptions {
+        target: Some(runtime_target()),
+        compiler: Some(CompilerBindingContext::from_graph_with_provider(
+            &graph,
+            &import_dirs,
+            workspace(),
+            &Filesystem,
+        )),
+        ..crate::ResolveOptions::default()
+    };
+    let error =
+        crate::resolve_library_with_options(&graph, &options, &mut jai_vm::NoEffects).unwrap_err();
+    assert!(
+        error.message.contains("does not belong to the application"),
+        "{error:?}"
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }

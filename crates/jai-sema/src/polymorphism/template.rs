@@ -25,12 +25,15 @@ pub struct ProcedureTemplate<Origin = DeclarationId> {
 }
 
 pub fn is_polymorphic(procedure: &syntax::Procedure) -> bool {
-    procedure.modify.is_some() || polymorphic_parameters(&procedure.parameters)
+    procedure.modify.is_some() || polymorphic_header(&procedure.parameters, &procedure.results)
 }
 pub fn is_polymorphic_prototype(prototype: &syntax::ProcedurePrototype) -> bool {
-    polymorphic_parameters(&prototype.parameters)
+    polymorphic_header(&prototype.parameters, &prototype.results)
 }
-fn polymorphic_parameters(parameters: &[syntax::Parameter]) -> bool {
+fn polymorphic_header(
+    parameters: &[syntax::Parameter],
+    results: &[syntax::ProcedureResult],
+) -> bool {
     let mut names = HashSet::new();
     let mut generic = parameters
         .iter()
@@ -38,10 +41,20 @@ fn polymorphic_parameters(parameters: &[syntax::Parameter]) -> bool {
     for parameter in parameters {
         match &parameter.binding {
             ParameterBinding::RequiredType(ty)
-            | ParameterBinding::DefaultedType { ty: Some(ty), .. } => {
+            | ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => {
                 collect_variables(ty, &mut names, &mut generic);
             }
             _ => {}
+        }
+    }
+    for result in results {
+        if let ResultBinding::Typed {
+            ty, ..
+        } = &result.binding
+        {
+            collect_variables(ty, &mut names, &mut generic);
         }
     }
     generic
@@ -152,18 +165,21 @@ fn from_header<Origin: Copy>(
         }
         let ty = match &parameter.binding {
             ParameterBinding::RequiredType(ty)
-            | ParameterBinding::DefaultedType { ty: Some(ty), .. } => Some(ty),
+            | ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => Some(ty),
             _ => None,
         };
         if let Some(ty) = ty {
             collect_variables(ty, &mut variables, &mut generic);
         }
     }
-    if modifier {
-        for result in source_results {
-            if let ResultBinding::Typed { ty, .. } = &result.binding {
-                collect_variables(ty, &mut variables, &mut generic);
-            }
+    for result in source_results {
+        if let ResultBinding::Typed {
+            ty, ..
+        } = &result.binding
+        {
+            collect_variables(ty, &mut variables, &mut generic);
         }
     }
     let mut parameters = Vec::with_capacity(source_parameters.len());
@@ -194,13 +210,17 @@ fn from_header<Origin: Copy>(
                 (Some(TypeSyntax::Builtin(BuiltinType::Scalar(*ty))), None)
             }
             ParameterBinding::RequiredType(ty) => (Some(ty.clone()), None),
-            ParameterBinding::Defaulted { ty, expression } => (
+            ParameterBinding::Defaulted {
+                ty,
+                expression,
+            } => (
                 ty.map(|ty| TypeSyntax::Builtin(BuiltinType::Scalar(ty))),
                 Some(default(expression)?),
             ),
-            ParameterBinding::DefaultedType { ty, expression } => {
-                (ty.clone(), Some(default(expression)?))
-            }
+            ParameterBinding::DefaultedType {
+                ty,
+                expression,
+            } => (ty.clone(), Some(default(expression)?)),
         };
         let ty = match ty {
             Some(ty) => pattern(
@@ -238,25 +258,14 @@ fn from_header<Origin: Copy>(
             ResultBinding::InferredDefault(expression) => (None, Some(default(expression)?)),
         };
         let ty = match ty {
-            Some(ty) => {
-                let mut result_variables = HashSet::new();
-                let mut introduces = false;
-                collect_variables(&ty, &mut result_variables, &mut introduces);
-                if introduces && !modifier {
-                    return Err(Diagnostic::new(
-                        result.span,
-                        "return type variables cannot be inferred from a call",
-                    ));
-                }
-                pattern(
-                    &ty,
-                    &variables,
-                    result.span,
-                    &mut concrete,
-                    &mut count,
-                    applications,
-                )?
-            }
+            Some(ty) => pattern(
+                &ty,
+                &variables,
+                result.span,
+                &mut concrete,
+                &mut count,
+                applications,
+            )?,
             None => inferred_default_type(
                 value.as_ref().expect("inferred result has a default"),
                 result.span,
@@ -280,9 +289,21 @@ fn from_header<Origin: Copy>(
     {
         results.clear();
     }
+    let mut result_type_parameters = Vec::new();
+    if !modifier {
+        for (ordinal, (result, source)) in results.iter().zip(source_results).enumerate() {
+            crate::overloads::collect_result_type_parameters(
+                &result.ty,
+                ordinal,
+                source.span,
+                &mut result_type_parameters,
+            )?;
+        }
+    }
     let candidate = Candidate {
         declaration,
         parameters,
+        result_type_parameters,
         variadic,
     };
     crate::overloads::validate_candidate(&candidate, span)?;
@@ -299,7 +320,12 @@ fn inferred_default_type(
     concrete: &mut impl FnMut(&TypeSyntax, Span) -> Result<TypeId, Diagnostic>,
 ) -> Result<TypePattern, Diagnostic> {
     Ok(TypePattern::Concrete(match &value.ty {
-        ArgumentType::ContextualCast { .. } | ArgumentType::ContextualProcedure { .. } => {
+        ArgumentType::ContextualCast {
+            ..
+        }
+        | ArgumentType::ContextualProcedure {
+            ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "contextual cast default requires an explicit parameter type",
@@ -319,30 +345,42 @@ fn inferred_default_type(
         }
         ArgumentType::Known(ty)
         | ArgumentType::StringLiteral(ty)
-        | ArgumentType::RecordLiteral { ty: Some(ty), .. }
+        | ArgumentType::RecordLiteral {
+            ty: Some(ty), ..
+        }
         | ArgumentType::ArrayLiteral {
             default: Some(ty), ..
         } => *ty,
-        ArgumentType::RecordLiteral { ty: None, .. }
-        | ArgumentType::ArrayLiteral { default: None, .. } => {
+        ArgumentType::RecordLiteral {
+            ty: None, ..
+        }
+        | ArgumentType::ArrayLiteral {
+            default: None, ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "aggregate default requires a concrete type",
             ));
         }
-        ArgumentType::WeakInteger { .. } => concrete(
+        ArgumentType::WeakInteger {
+            ..
+        } => concrete(
             &TypeSyntax::Builtin(BuiltinType::Scalar(ScalarType::Int(IntegerType::S64))),
             span,
         )?,
-        ArgumentType::WeakFloat { default, .. }
-        | ArgumentType::WeakFloatExpression { default, .. } => {
-            concrete(&TypeSyntax::Builtin(BuiltinType::Float(*default)), span)?
+        ArgumentType::WeakFloat {
+            default, ..
         }
+        | ArgumentType::WeakFloatExpression {
+            default, ..
+        } => concrete(&TypeSyntax::Builtin(BuiltinType::Float(*default)), span)?,
     }))
 }
 fn collect_variables(ty: &TypeSyntax, variables: &mut HashSet<Symbol>, generic: &mut bool) {
     match ty {
-        TypeSyntax::Restricted { variable, .. } => {
+        TypeSyntax::Restricted {
+            variable, ..
+        } => {
             variables.insert(*variable);
             *generic = true;
         }
@@ -353,7 +391,10 @@ fn collect_variables(ty: &TypeSyntax, variables: &mut HashSet<Symbol>, generic: 
         TypeSyntax::Pointer(ty) | TypeSyntax::Slice(ty) | TypeSyntax::DynamicArray(ty) => {
             collect_variables(ty, variables, generic)
         }
-        TypeSyntax::FixedArray { element, count } => {
+        TypeSyntax::FixedArray {
+            element,
+            count,
+        } => {
             collect_variables(element, variables, generic);
             if let ExpressionKind::CompileVariable(name) = count.kind {
                 variables.insert(name);
@@ -396,13 +437,23 @@ fn collect_expression_variables(
         | ExpressionKind::Dereference(inner)
         | ExpressionKind::Unary(_, inner)
         | ExpressionKind::Cast(_, _, inner)
-        | ExpressionKind::Member { base: inner, .. }
-        | ExpressionKind::TypeQuery { value: inner, .. }
-        | ExpressionKind::CallHint { call: inner, .. }
-        | ExpressionKind::InferredCast { value: inner, .. } => {
-            collect_expression_variables(inner, variables, generic)
+        | ExpressionKind::Member {
+            base: inner, ..
         }
-        ExpressionKind::TypeCast { ty, value, .. } => {
+        | ExpressionKind::TypeQuery {
+            value: inner, ..
+        }
+        | ExpressionKind::CallHint {
+            call: inner, ..
+        }
+        | ExpressionKind::InferredCast {
+            value: inner, ..
+        } => collect_expression_variables(inner, variables, generic),
+        ExpressionKind::TypeCast {
+            ty,
+            value,
+            ..
+        } => {
             collect_variables(ty, variables, generic);
             collect_expression_variables(value, variables, generic);
         }
@@ -548,13 +599,18 @@ fn pattern(
 }
 fn contains_variable(ty: &TypeSyntax, variables: &HashSet<Symbol>) -> bool {
     match ty {
-        TypeSyntax::Restricted { .. } => true,
+        TypeSyntax::Restricted {
+            ..
+        } => true,
         TypeSyntax::Variable(_) => true,
         TypeSyntax::Named(path) => path.members.is_empty() && variables.contains(&path.root),
         TypeSyntax::Pointer(ty) | TypeSyntax::Slice(ty) | TypeSyntax::DynamicArray(ty) => {
             contains_variable(ty, variables)
         }
-        TypeSyntax::FixedArray { element, count } => {
+        TypeSyntax::FixedArray {
+            element,
+            count,
+        } => {
             contains_variable(element, variables)
                 || matches!(count.kind, ExpressionKind::CompileVariable(_))
                 || matches!(count.kind, ExpressionKind::Name(name) if variables.contains(&name))
@@ -588,15 +644,23 @@ fn expression_mentions_variable(expression: &Expression, variables: &HashSet<Sym
         | ExpressionKind::Dereference(value)
         | ExpressionKind::Unary(_, value)
         | ExpressionKind::Cast(_, _, value)
-        | ExpressionKind::Member { base: value, .. }
-        | ExpressionKind::TypeQuery { value, .. }
-        | ExpressionKind::CallHint { call: value, .. }
-        | ExpressionKind::InferredCast { value, .. } => {
-            expression_mentions_variable(value, variables)
+        | ExpressionKind::Member {
+            base: value, ..
         }
-        ExpressionKind::TypeCast { ty, value, .. } => {
-            contains_variable(ty, variables) || expression_mentions_variable(value, variables)
+        | ExpressionKind::TypeQuery {
+            value, ..
         }
+        | ExpressionKind::CallHint {
+            call: value, ..
+        }
+        | ExpressionKind::InferredCast {
+            value, ..
+        } => expression_mentions_variable(value, variables),
+        ExpressionKind::TypeCast {
+            ty,
+            value,
+            ..
+        } => contains_variable(ty, variables) || expression_mentions_variable(value, variables),
         ExpressionKind::Binary(_, left, right)
         | ExpressionKind::Index {
             base: left,
@@ -694,7 +758,10 @@ mod tests {
         let template =
             template("first :: (values: [$N] $T, fallback: T = 0) -> T { return fallback; }")
                 .unwrap();
-        let TypePattern::FixedArray { element, count } = &template.candidate.parameters[0].ty
+        let TypePattern::FixedArray {
+            element,
+            count,
+        } = &template.candidate.parameters[0].ty
         else {
             panic!("expected array pattern");
         };
@@ -720,11 +787,10 @@ mod tests {
                 .message
                 .contains("introduced more than once")
         );
-        assert!(
-            template("bad :: () -> $T { return 3; }")
-                .unwrap_err()
-                .message
-                .contains("return type variables")
-        );
+        let returned = template("good :: () -> $T { return 3; }").unwrap();
+        assert!(returned.generic);
+        assert!(returned.candidate.parameters.is_empty());
+        assert_eq!(returned.candidate.result_type_parameters.len(), 1);
+        assert_eq!(returned.candidate.result_type_parameters[0].result, 0);
     }
 }

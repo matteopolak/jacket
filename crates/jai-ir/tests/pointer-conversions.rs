@@ -9,6 +9,7 @@ fn signature(types: &mut TypeRegistry) -> TypeId {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -70,7 +71,11 @@ fn pointer_integer_conversions_accept_both_modes_without_host_address_rules() {
                 integer(IntegerType::U64, u64::MAX.into()),
                 integer(IntegerType::U8, 255),
             ] {
-                values.push(ValueExpr::PointerFromInteger { value, ty, mode });
+                values.push(ValueExpr::PointerFromInteger {
+                    value,
+                    ty,
+                    mode,
+                });
             }
         }
         publish(types, values).unwrap();

@@ -40,7 +40,10 @@ pub(super) fn replace_record_field<P: ProcedureProvider + ?Sized, E: CompilerEff
                 .get_mut(field.index())
                 .ok_or(Error::InvalidIr("record initializer field missing"))?;
             *slot = value;
-            Value::Record { ty, fields }
+            Value::Record {
+                ty,
+                fields,
+            }
         }
         _ => return Err(Error::InvalidIr("record build requires a record value").into()),
     };
@@ -89,9 +92,20 @@ pub(super) fn index_place<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
     } else {
         let (pointer, count) =
             match snapshot.ok_or(Error::InvalidIr("missing indexed descriptor snapshot"))? {
-                Value::Slice { pointer, count, .. }
-                | Value::DynamicArray { pointer, count, .. }
-                | Value::StringView { pointer, count } => (pointer, Some(count)),
+                Value::Slice {
+                    pointer,
+                    count,
+                    ..
+                }
+                | Value::DynamicArray {
+                    pointer,
+                    count,
+                    ..
+                }
+                | Value::StringView {
+                    pointer,
+                    count,
+                } => (pointer, Some(count)),
                 Value::Pointer(pointer) => (pointer, None),
                 _ => {
                     return Err(
@@ -112,7 +126,10 @@ pub(super) fn index_place<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
         vm.indexed_sequence_pointer(&pointer, index)?
     };
     if pointer.pointee() != ty {
-        return Err(Error::TypeMismatch { expected: ty }.into());
+        return Err(Error::TypeMismatch {
+            expected: ty,
+        }
+        .into());
     }
     Ok(pointer)
 }
@@ -181,7 +198,9 @@ fn compare_strings<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
 ) -> Result<bool> {
     let length = |value: &Value| match value {
         Value::String(bytes) => i64::try_from(bytes.len()).map_err(|_| Error::CheckedCast),
-        Value::StringView { count, .. } => Ok(*count),
+        Value::StringView {
+            count, ..
+        } => Ok(*count),
         _ => Err(Error::InvalidIr(
             "string comparison requires string descriptors",
         )),
@@ -192,7 +211,10 @@ fn compare_strings<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
         let count = crate::checked_sequence_count(count)?;
         if count != 0 {
             for value in [&left, &right] {
-                if let Value::StringView { pointer, .. } = value {
+                if let Value::StringView {
+                    pointer, ..
+                } = value
+                {
                     vm.prepare_pointer_layouts(pointer, true)?;
                     vm.memory
                         .validate_slice(vm.provider.types(), pointer, count)?;
@@ -207,7 +229,9 @@ fn compare_strings<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                         .get(index)
                         .copied()
                         .ok_or_else(|| Error::InvalidIr("string byte is outside its count").into()),
-                    Value::StringView { pointer, .. } => {
+                    Value::StringView {
+                        pointer, ..
+                    } => {
                         vm.prepare_pointer_layouts(pointer, true)?;
                         let pointer = vm.memory.offset(
                             vm.provider.types(),
@@ -284,7 +308,10 @@ fn array_data<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
     storage: Option<Pointer>,
 ) -> Result<Pointer> {
     if empty {
-        let TypeKind::FixedArray { element, .. } = vm.provider.types().kind(ty)? else {
+        let TypeKind::FixedArray {
+            element, ..
+        } = vm.provider.types().kind(ty)?
+        else {
             return Err(Error::InvalidIr("array value has incorrect type").into());
         };
         Ok(Pointer::null(*element))
@@ -323,12 +350,14 @@ fn sequence_index<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             )?;
             snapshot.index(vm.provider.types(), index, vm.limits.value_cells)?
         }
-        Value::Array { elements, .. } => {
+        Value::Array {
+            elements, ..
+        } => {
             let length = elements.len();
-            elements
-                .into_iter()
-                .nth(index)
-                .ok_or(Error::OutOfBounds { index, length })?
+            elements.into_iter().nth(index).ok_or(Error::OutOfBounds {
+                index,
+                length,
+            })?
         }
         Value::String(bytes) => {
             let byte = *bytes.get(index).ok_or(Error::OutOfBounds {
@@ -340,9 +369,20 @@ fn sequence_index<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 i128::from(byte),
             ))
         }
-        Value::StringView { pointer, count }
-        | Value::Slice { pointer, count, .. }
-        | Value::DynamicArray { pointer, count, .. } => {
+        Value::StringView {
+            pointer,
+            count,
+        }
+        | Value::Slice {
+            pointer,
+            count,
+            ..
+        }
+        | Value::DynamicArray {
+            pointer,
+            count,
+            ..
+        } => {
             if check.enabled() && i64::try_from(index).map_or(true, |index| index >= count) {
                 return Err(Error::OutOfBounds {
                     index,
@@ -360,7 +400,10 @@ fn sequence_index<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             let pointer = vm.memory.offset(
                 vm.provider.types(),
                 &pointer,
-                isize::try_from(index).map_err(|_| Error::OutOfBounds { index, length: 0 })?,
+                isize::try_from(index).map_err(|_| Error::OutOfBounds {
+                    index,
+                    length: 0,
+                })?,
             )?;
             vm.load_sequence_value(&pointer)?
         }
@@ -378,18 +421,28 @@ fn field<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
 ) -> Result<Value> {
     let base_ty = match &base {
         Value::StoredAggregate(snapshot) => snapshot.ty(),
-        Value::Record { ty, .. } | Value::Union { ty, .. } => *ty,
+        Value::Record {
+            ty, ..
+        }
+        | Value::Union {
+            ty, ..
+        } => *ty,
         _ => return Err(Error::InvalidIr("field access requires a record").into()),
     };
     if vm.provider.types().validate_field(base_ty, field)? != ty {
-        return Err(Error::TypeMismatch { expected: ty }.into());
+        return Err(Error::TypeMismatch {
+            expected: ty,
+        }
+        .into());
     }
     let value = match base {
         Value::StoredAggregate(snapshot) => {
             vm.charge_work(snapshot.storage_cells())?;
             snapshot.field(vm.provider.types(), field.index(), vm.limits.value_cells)?
         }
-        Value::Record { fields, .. } => {
+        Value::Record {
+            fields, ..
+        } => {
             let length = fields.len();
             fields
                 .into_iter()
@@ -404,7 +457,9 @@ fn field<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             value,
             ..
         } if active == field.index() => *value,
-        value @ Value::Union { .. } => {
+        value @ Value::Union {
+            ..
+        } => {
             let value = vm.normalize_storage_value(value, depth + 1)?;
             vm.charge_work(value.cells(vm.limits.value_cells)?)?;
             vm.memory
@@ -450,8 +505,15 @@ fn sequence_build<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
         }
     }
     let value = match vm.provider.types().kind(ty)? {
-        TypeKind::String => Value::StringView { pointer, count },
-        TypeKind::Slice(_) => Value::Slice { ty, pointer, count },
+        TypeKind::String => Value::StringView {
+            pointer,
+            count,
+        },
+        TypeKind::Slice(_) => Value::Slice {
+            ty,
+            pointer,
+            count,
+        },
         TypeKind::DynamicArray(_) => Value::DynamicArray {
             ty,
             pointer,
@@ -477,7 +539,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             vm.charge_work(value.cells(vm.limits.value_cells)?)?;
             value.clone()
         }
-        ApplyOp::StringBytes { ty, bytes } => {
+        ApplyOp::StringBytes {
+            ty,
+            bytes,
+        } => {
             if bytes.len() >= vm.limits.value_cells {
                 return Err(Error::Limit(LimitKind::ValueCells).into());
             }
@@ -488,24 +553,33 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             crate::constants::native_pointer(vm.provider.types(), value, vm.memory.target())?
         }
         ApplyOp::RuntimeType(value) => vm.runtime_type_constant(value, depth + 1)?,
-        ApplyOp::StaticAddress { data, address } => {
-            Value::Pointer(vm.static_address(data, address, depth + 1)?)
-        }
+        ApplyOp::StaticAddress {
+            data,
+            address,
+        } => Value::Pointer(vm.static_address(data, address, depth + 1)?),
         ApplyOp::Context(ty) => vm.context_value(*ty)?,
         ApplyOp::Zero(ty) => vm.zero_value(*ty)?,
         ApplyOp::Load => vm.load_sequence_value(&place_operand(&mut operands)?)?,
-        ApplyOp::StorageBitcast { cast, from_place } => {
+        ApplyOp::StorageBitcast {
+            cast,
+            from_place,
+        } => {
             if *from_place {
                 vm.storage_bitcast_place(&place_operand(&mut operands)?, *cast)?
             } else {
                 vm.storage_bitcast_value(value_operand(&mut operands)?, *cast, depth + 1)?
             }
         }
-        ApplyOp::Int { ty, op } => {
+        ApplyOp::Int {
+            ty,
+            op,
+        } => {
             let result = match op {
                 IntApply::FromValue => number(vm, value_operand(&mut operands)?)?,
                 IntApply::EnumValue => match value_operand(&mut operands)? {
-                    Value::Enum { value, .. } => Number::plain(value),
+                    Value::Enum {
+                        value, ..
+                    } => Number::plain(value),
                     _ => {
                         return Err(
                             Error::InvalidIr("enum conversion requires an enum value").into()
@@ -570,7 +644,9 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             }
             BoolApply::FromPointer => match value_operand(&mut operands)? {
                 Value::Pointer(pointer) => vm.pointer_truth(&pointer)?,
-                Value::Procedure { procedure, .. } => procedure.is_some(),
+                Value::Procedure {
+                    procedure, ..
+                } => procedure.is_some(),
                 _ => {
                     return Err(
                         Error::InvalidIr("pointer truth requires a pointer or procedure").into(),
@@ -640,7 +716,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 }
             }
         }),
-        ApplyOp::Float { ty, op } => {
+        ApplyOp::Float {
+            ty,
+            op,
+        } => {
             let result = match op {
                 FloatApply::FromValue => value_operand(&mut operands)?.float()?,
                 FloatApply::Negate => value_operand(&mut operands)?.float()?.negate(),
@@ -674,7 +753,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             let TypeKind::Pointer(header) = vm.provider.types().kind(*ty)? else {
                 return Err(Error::InvalidIr("Type descriptor requires a pointer result").into());
             };
-            let Value::Type { descriptor } = &value else {
+            let Value::Type {
+                descriptor,
+            } = &value
+            else {
                 return Err(Error::InvalidIr("Type descriptor requires a runtime Type").into());
             };
             let pointer = if let Some(pointer) = descriptor {
@@ -711,7 +793,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 *ty,
             )?
         }
-        ApplyOp::Union { ty, field } => {
+        ApplyOp::Union {
+            ty,
+            field,
+        } => {
             vm.provider.types().validate_field(*ty, *field)?;
             let child = value_operand(&mut operands)?;
             admit_wrapper(vm, &child)?;
@@ -729,8 +814,14 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             ty,
             field: field_id,
         } => field(vm, value_operand(&mut operands)?, *field_id, *ty, depth + 1)?,
-        ApplyOp::SequenceBuild { ty, fields } => sequence_build(vm, *ty, fields, &mut operands)?,
-        ApplyOp::SequenceIndex { ty, check } => sequence_index(
+        ApplyOp::SequenceBuild {
+            ty,
+            fields,
+        } => sequence_build(vm, *ty, fields, &mut operands)?,
+        ApplyOp::SequenceIndex {
+            ty,
+            check,
+        } => sequence_index(
             vm,
             value_operand(&mut operands)?,
             value_operand(&mut operands)?,
@@ -775,7 +866,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 depth + 1,
             )?
         }
-        ApplyOp::SequenceView { ty, from_place } => {
+        ApplyOp::SequenceView {
+            ty,
+            from_place,
+        } => {
             let value = if *from_place {
                 vm.load_sequence_value(&place_operand(&mut operands)?)?
             } else {
@@ -786,9 +880,20 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 value => value,
             };
             let (pointer, count) = match value {
-                Value::Slice { pointer, count, .. }
-                | Value::DynamicArray { pointer, count, .. }
-                | Value::StringView { pointer, count } => (pointer, count),
+                Value::Slice {
+                    pointer,
+                    count,
+                    ..
+                }
+                | Value::DynamicArray {
+                    pointer,
+                    count,
+                    ..
+                }
+                | Value::StringView {
+                    pointer,
+                    count,
+                } => (pointer, count),
                 _ => {
                     return Err(
                         Error::InvalidIr("sequence view requires string or descriptor").into(),
@@ -815,7 +920,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
             let value = checked(vm, value_operand(&mut operands)?, pointee)?;
             Value::Pointer(vm.temporary(pointee, value, depth + 1)?)
         }
-        ApplyOp::PointerCast { ty, mode } => {
+        ApplyOp::PointerCast {
+            ty,
+            mode,
+        } => {
             let pointer = pointer(vm, value_operand(&mut operands)?)?;
             vm.prepare_pointer_layouts(&pointer, false)?;
             let TypeKind::Pointer(pointee) = vm.provider.types().kind(*ty)? else {
@@ -864,7 +972,10 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 *ty,
             )?
         }
-        ApplyOp::PointerFromInteger { ty, mode } => {
+        ApplyOp::PointerFromInteger {
+            ty,
+            mode,
+        } => {
             let source = number(vm, value_operand(&mut operands)?)?;
             vm.prepare_number_address(&source)?;
             let TypeKind::Pointer(pointee) = vm.provider.types().kind(*ty)? else {
@@ -897,7 +1008,9 @@ pub(super) fn apply<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                     vm.charge_work(snapshot.storage_cells())?;
                     snapshot.representation(vm.provider.types(), vm.limits.value_cells)?
                 }
-                Value::Distinct { value, .. } => *value,
+                Value::Distinct {
+                    value, ..
+                } => *value,
                 _ => return Err(Error::InvalidIr("distinct unwrap requires distinct value").into()),
             };
             checked(vm, value, *ty)?
@@ -936,7 +1049,11 @@ fn sequence_field<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
     static_backing: bool,
     depth: usize,
 ) -> Result<Value> {
-    if from_place && let TypeKind::FixedArray { count, .. } = *vm.provider.types().kind(base_ty)? {
+    if from_place
+        && let TypeKind::FixedArray {
+            count, ..
+        } = *vm.provider.types().kind(base_ty)?
+    {
         let Operand::Place(storage) = operand else {
             return Err(Error::InvalidIr("array field requires captured storage").into());
         };
@@ -957,8 +1074,9 @@ fn sequence_field<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
         sequence_parts(vm, operand, base_ty, from_place, static_backing, depth + 1)?;
     let (count, allocated, pointer) = match &value {
         Value::StoredAggregate(snapshot) => {
-            let jai_types::TypeKind::FixedArray { count, .. } =
-                vm.provider.types().kind(snapshot.ty())?
+            let jai_types::TypeKind::FixedArray {
+                count, ..
+            } = vm.provider.types().kind(snapshot.ty())?
             else {
                 return Err(
                     Error::InvalidIr("sequence field requires array, string or slice").into(),
@@ -970,12 +1088,23 @@ fn sequence_field<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                 array_data(vm, snapshot.ty(), *count == 0, storage)?,
             )
         }
-        Value::Array { ty, elements } => (
+        Value::Array {
+            ty,
+            elements,
+        } => (
             i64::try_from(elements.len()).map_err(|_| Error::CheckedCast)?,
             None,
             array_data(vm, *ty, elements.is_empty(), storage)?,
         ),
-        Value::StringView { pointer, count } | Value::Slice { pointer, count, .. } => {
+        Value::StringView {
+            pointer,
+            count,
+        }
+        | Value::Slice {
+            pointer,
+            count,
+            ..
+        } => {
             vm.charge_work(pointer.metadata_cells())?;
             (*count, None, pointer.clone())
         }
@@ -1017,7 +1146,11 @@ fn array_view<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
     static_backing: bool,
     depth: usize,
 ) -> Result<Value> {
-    if from_place && let TypeKind::FixedArray { count, .. } = *vm.provider.types().kind(base_ty)? {
+    if from_place
+        && let TypeKind::FixedArray {
+            count, ..
+        } = *vm.provider.types().kind(base_ty)?
+    {
         let Operand::Place(storage) = operand else {
             return Err(Error::InvalidIr("array view requires captured storage").into());
         };

@@ -38,9 +38,15 @@ impl Resolver<'_> {
                 _ => None,
             },
             Expr::Bool(BoolExpr::Value(value)) => Some(value.as_ref()),
-            Expr::Typed { value, .. } | Expr::Enum { value, .. } | Expr::Pointer { value, .. } => {
-                Some(value)
+            Expr::Typed {
+                value, ..
             }
+            | Expr::Enum {
+                value, ..
+            }
+            | Expr::Pointer {
+                value, ..
+            } => Some(value),
             _ => None,
         };
         if let Some(value) = value {
@@ -56,10 +62,18 @@ fn root_call(value: &ValueExpr, span: Span) -> Result<Option<&Call>, Diagnostic>
     let mut value = value;
     for _ in 0..crate::constant_limits::MAX_CONSTANT_DEPTH {
         match value {
-            ValueExpr::Call { call, .. } => return Ok(Some(call)),
-            ValueExpr::Bind { bindings, body, .. } => {
+            ValueExpr::Call {
+                call, ..
+            } => return Ok(Some(call)),
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ..
+            } => {
                 value = match body.as_ref() {
-                    ValueExpr::Bound { binding, .. } => {
+                    ValueExpr::Bound {
+                        binding, ..
+                    } => {
                         let Some((_, producer)) =
                             bindings.iter().find(|(producer, _)| producer == binding)
                         else {

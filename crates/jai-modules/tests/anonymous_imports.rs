@@ -163,7 +163,10 @@ fn promoted_anonymous_field_shadows_file_constant_in_parent_method_guard() {
         GraphDiscovery::new(Path::new(ENTRY), GraphOptions::default(), &provider).unwrap();
     assert!(!discovery.advance().unwrap().is_complete());
     let pending = discovery.pending_conditions().next().unwrap();
-    let DiscoveryConditionContext::Lexical { scopes, .. } = &pending.context else {
+    let DiscoveryConditionContext::Lexical {
+        scopes, ..
+    } = &pending.context
+    else {
         panic!("promoted physical field must retain a runtime lexical shadow")
     };
     let enabled = discovery.graph().symbols().find("enabled").unwrap();
@@ -223,7 +226,10 @@ fn deferred_anonymous_layout_preserves_child_context_and_loads_independent_paren
         .pending_conditions()
         .find(|condition| condition.location.span.text(source).contains("#run"))
         .unwrap();
-    let DiscoveryConditionContext::Lexical { scopes, .. } = &pending.context else {
+    let DiscoveryConditionContext::Lexical {
+        scopes, ..
+    } = &pending.context
+    else {
         panic!("child layout guard must retain its actual defining record context")
     };
     let enabled = discovery.graph().symbols().find("enabled").unwrap();

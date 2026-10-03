@@ -41,9 +41,10 @@ main :: () -> int {
 | Independent standard library | Authored modules included; full compilation and behavior testing pending |
 | Reference examples | Source checks in progress; complete coverage pending |
 | Focus, Jails, jaison, and other recent projects | Source checks only; full builds pending |
-| Windows, mobile, WebAssembly | C ABI and object tests; runtime compatibility unverified |
+| Browser editor | Real Wasm runs, file tree, source editor and shared source LSP tested; host services and full standard library pending |
+| Windows and mobile | C ABI and object tests; runtime compatibility unverified |
 
-The compatibility corpus contains **702 local reference files** and **1,440 files from seven recent upstream projects**. The latest recorded compiler parses **1,784 files** and checks **101 support files** with the included Preload. A separate feature snapshot passes all **36 positive contracts** through native execution, with **10 expected rejections** also passing. Full library and project builds remain pending. The table describes tested features in the working tree; [compatibility coverage](docs/reference-compatibility.md) explains the remaining work.
+The compatibility corpus contains **702 local reference files** and **1,440 files from seven recent upstream projects**. The latest recorded snapshot tokenizes all **2,603 files**, including our library and prelude, and parses **2,349** completely, with 39 more accepted files and no regressions in the same cohort. The earlier body sweep checked **103 pinned support files** with the included Preload; that stage has not been rerun for this snapshot. Full standard-library and upstream project builds remain pending. See the [latest measured frontier](docs/corpus-breadth-frontier.md) and [earlier baseline](docs/corpus-breadth-baseline.md) for the separate stage results.
 
 For example, record specialization and compile-time execution can work together:
 
@@ -89,6 +90,14 @@ cargo run -p jai-cli -- build examples/sum.jai sum
 echo $? # 45
 ```
 
+The source interpreter can run the same authored example without the native backend:
+
+```sh
+cargo run -p jai-runtime --bin jai-script -- run examples/sum.jai --fuel 1000000
+```
+
+To build and serve the standalone browser playground, follow the [browser editor setup](docs/browser-editor.md). Its compiler and language service run locally in WebAssembly; no deployed demo is claimed.
+
 You can inspect tokens with `lex`, check one file's syntax with `parse`, or save its LLVM output with `emit-llvm`:
 
 ```sh
@@ -116,5 +125,7 @@ cargo bench -p jai-bench --bench vm --locked -- --test
 ```
 
 The skipped lexer test requires the separately supplied reference files. Native-path rejection tests run in public checkouts too. Local reference checks run without the lexer filter.
+
+The standalone [fuzz targets](docs/fuzz-targets.md) exercise lexer/parser source, closed virtual module loading, constants and the checked IR interpreter with authored seeds, bounded resources and AddressSanitizer. Their mutable corpora and crash inputs are retained separately from benchmarks; completed campaigns and deterministic replay provide different evidence from build or target registration.
 
 Start with the [developer guide](docs/README.md) for architecture, language coverage, benchmarks, and dependency policy. Rustfmt keeps code formatting consistent, and Cargo enforces a minimum dependency release age of 14 days.

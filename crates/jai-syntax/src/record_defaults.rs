@@ -68,7 +68,10 @@ mod tests {
         assert!(
             matches!(&target.kind, PlaceKind::Qualified(path) if symbols.name(path.root) == "base" && symbols.name(path.members[0]) == "kind")
         );
-        let RecordMember::Conditional { then_members, .. } = &record.members[3] else {
+        let RecordMember::Conditional {
+            then_members, ..
+        } = &record.members[3]
+        else {
             panic!()
         };
         assert!(

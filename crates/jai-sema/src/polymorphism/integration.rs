@@ -13,10 +13,12 @@ use jai_types::{
     CallingConvention, ContextMode, ProcedureType, TypeId, TypeRegistry, TypeView, Variadic,
 };
 use std::collections::{HashMap, HashSet};
+mod baked_preview;
 mod callable_policies;
 mod callbacks;
 mod modifier_jobs;
 mod modifiers;
+pub(crate) mod selected_constants;
 pub(crate) use modifier_jobs::ModifierReadiness;
 pub(crate) use modifier_jobs::{ModifierSource, build_modifier_source, procedure_modifier_source};
 pub(crate) use modifiers::ModifierExecution;
@@ -26,6 +28,7 @@ pub(crate) struct TemplateDefinition {
     pub file: FileInstanceId,
     pub span: Span,
     pub convention: CallingConvention,
+    pub return_abi: jai_types::ForeignReturnAbi,
     pub context: ContextMode,
 }
 
@@ -136,6 +139,23 @@ impl GenericContext {
             .find(|entry| entry.procedure == id)
             .map(|entry| (entry.key.declaration, entry.defining_file))
     }
+    pub(crate) fn callback_result_type_parameters(
+        &self,
+        id: ProcedureId,
+    ) -> Vec<jai_source::Symbol> {
+        self.callback_source_origin(id)
+            .and_then(|(declaration, _)| self.templates.get(&declaration))
+            .map(|definition| {
+                definition
+                    .template
+                    .candidate
+                    .result_type_parameters
+                    .iter()
+                    .map(|parameter| parameter.name)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
     pub(crate) fn callback_signature(&self, id: ProcedureId) -> Option<Signature> {
         self.signatures.get(&id).cloned()
     }
@@ -160,6 +180,9 @@ impl GenericContext {
     }
     pub(crate) fn callback_body_failure(&self, id: ProcedureId) -> Option<&Diagnostic> {
         self.work.callback_body_failure(id)
+    }
+    pub(crate) fn callback_body_revision(&self, procedure: ProcedureId) -> Option<usize> {
+        self.work.callback_body_revision(procedure)
     }
     pub(crate) fn callback_readiness_revision(&self) -> usize {
         self.work.callback_readiness_revision()
@@ -201,10 +224,14 @@ impl GenericContext {
     pub(crate) fn calling_mode(
         &self,
         declaration: DeclarationId,
-    ) -> Option<(CallingConvention, ContextMode)> {
-        self.templates
-            .get(&declaration)
-            .map(|definition| (definition.convention, definition.context))
+    ) -> Option<(CallingConvention, jai_types::ForeignReturnAbi, ContextMode)> {
+        self.templates.get(&declaration).map(|definition| {
+            (
+                definition.convention,
+                definition.return_abi,
+                definition.context,
+            )
+        })
     }
     pub(crate) fn has_pending_bodies(&self) -> bool {
         self.work
@@ -393,10 +420,13 @@ impl GenericContext {
                         .map(|parameter| parameter.ty)
                         .collect(),
                     results: results.iter().map(|result| result.ty).collect(),
+                    return_abi: definition.return_abi,
                     convention: definition.convention,
                     context: definition.context,
                     variadic: match definition.template.candidate.variadic {
-                        CandidateVariadic::C { .. } => Variadic::C {
+                        CandidateVariadic::C {
+                            ..
+                        } => Variadic::C {
                             fixed_parameters: runtime_count,
                         },
                         _ => variadic,
@@ -460,6 +490,7 @@ pub(crate) fn concrete_candidate<Origin>(
     let variadic = signature.source_variadic;
     Candidate {
         declaration,
+        result_type_parameters: Vec::new(),
         variadic,
         parameters: signature
             .parameters
@@ -469,7 +500,9 @@ pub(crate) fn concrete_candidate<Origin>(
                 evaluation: parameter.evaluation,
                 name: parameter.name,
                 ty: TypePattern::Concrete(match variadic {
-                    CandidateVariadic::Jai { parameter: pack } if pack == index => {
+                    CandidateVariadic::Jai {
+                        parameter: pack,
+                    } if pack == index => {
                         let Ok(jai_types::TypeKind::Slice(element)) = types.kind(parameter.ty)
                         else {
                             unreachable!("source Jai pack parameter is a checked slice");
@@ -486,7 +519,9 @@ pub(crate) fn concrete_candidate<Origin>(
                         ArgumentInfo::constant(BakedValue::Value(value.clone()), value.ty)
                     }
                     ParameterDefault::CallerLocation => ArgumentInfo::caller_location(parameter.ty),
-                    ParameterDefault::CodeNull { ty } => ArgumentInfo::code_null(*ty),
+                    ParameterDefault::CodeNull {
+                        ty,
+                    } => ArgumentInfo::code_null(*ty),
                 }),
                 baking: jai_syntax::ParameterBaking::None,
             })
@@ -638,6 +673,7 @@ mod tests {
             template,
             file,
             span: Span::default(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
         });

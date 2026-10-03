@@ -106,7 +106,10 @@ mod tests {
         let owner = ProcedureId::new(42);
         let ty = types.scalar(ScalarType::Int(IntegerType::S64));
         let id = ExpressionBindingId::new(owner, 0);
-        let expression = ValueExpr::Bound { binding: id, ty };
+        let expression = ValueExpr::Bound {
+            binding: id,
+            ty,
+        };
         let signatures = HashMap::new();
         let places = Places::default();
         assert!(

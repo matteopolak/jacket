@@ -155,7 +155,11 @@ fn scalar_adapter_preserves_the_same_source_ranges() {
 #[test]
 fn context_and_remove_quotations_use_the_statement_parser_range() {
     for payload in ["remove value;", "push_context context { return; }"] {
-        let terminator = if payload.ends_with(';') { "" } else { ";" };
+        let terminator = if payload.ends_with(';') {
+            ""
+        } else {
+            ";"
+        };
         let text = format!("// quote origin\nquoted :: #code {payload}{terminator}");
         let mut sources = SourceMap::default();
         let source = sources.insert("control-quote.jai".into(), text.clone());
@@ -193,8 +197,9 @@ fn parentheses_remain_in_expression_ranges_before_binary_and_postfix_joins() {
         let source = sources.insert("expression-ranges.jai".into(), text.clone());
         let file =
             jai_syntax::parse_file(sources.get(source).unwrap(), &mut Symbols::default()).unwrap();
-        let StatementKind::Declare(jai_syntax::Declaration::Inferred { initializer, .. }) =
-            &procedure(&file, 0).body[0].kind
+        let StatementKind::Declare(jai_syntax::Declaration::Inferred {
+            initializer, ..
+        }) = &procedure(&file, 0).body[0].kind
         else {
             panic!("expected inferred declaration")
         };

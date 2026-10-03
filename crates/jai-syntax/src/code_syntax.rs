@@ -132,7 +132,10 @@ impl Parser<'_> {
                 span: Span::new(procedure_start, self.tokens[self.at - 1].span.end),
                 kind: ExpressionKind::CompileTime(CompileTimeRun {
                     flags: RunFlags::default(),
-                    body: CompileTimeBody::Procedure { result, body },
+                    body: CompileTimeBody::Procedure {
+                        result,
+                        body,
+                    },
                 }),
             }
         } else {
@@ -283,7 +286,9 @@ mod tests {
             panic!("expected insertion")
         };
         let ExpressionKind::CompileTime(CompileTimeRun {
-            body: CompileTimeBody::Procedure { body, .. },
+            body: CompileTimeBody::Procedure {
+                body, ..
+            },
             ..
         }) = &second.value.kind
         else {

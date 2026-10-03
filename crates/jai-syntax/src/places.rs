@@ -29,8 +29,20 @@ impl TryFrom<Expression> for PlaceSyntax {
             ExpressionKind::Insert(directive) => PlaceKind::Insert(directive),
             ExpressionKind::Name(name) => PlaceKind::Name(name),
             ExpressionKind::QualifiedName(path) => PlaceKind::Qualified(path),
-            ExpressionKind::Member { base, member } => PlaceKind::Member { base, member },
-            ExpressionKind::Index { base, index } => PlaceKind::Index { base, index },
+            ExpressionKind::Member {
+                base,
+                member,
+            } => PlaceKind::Member {
+                base,
+                member,
+            },
+            ExpressionKind::Index {
+                base,
+                index,
+            } => PlaceKind::Index {
+                base,
+                index,
+            },
             ExpressionKind::Dereference(pointer) => PlaceKind::Dereference(pointer),
             _ => {
                 return Err(Diagnostic::new(

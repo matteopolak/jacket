@@ -11,6 +11,7 @@ fn trap_builder(intrinsic: RuntimeIntrinsic, context: ContextMode) -> ProgramBui
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context,
             variadic: Variadic::None,
@@ -58,6 +59,7 @@ fn checked_publication_rejects_a_foreign_nominal_cas_value_identity() {
         .procedure(ProcedureType {
             parameters: vec![pointer, integer, integer].into(),
             results: vec![boolean, integer].into(),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -68,7 +70,9 @@ fn checked_publication_rejects_a_foreign_nominal_cas_value_identity() {
         .prototypes(vec![ProcedurePrototype {
             id: ProcedureId::new(0),
             signature,
-            origin: PrototypeOrigin::Intrinsic(RuntimeIntrinsic::CompareAndSwap { value: foreign }),
+            origin: PrototypeOrigin::Intrinsic(RuntimeIntrinsic::CompareAndSwap {
+                value: foreign,
+            }),
         }])
         .finish_library();
     assert!(matches!(result, Err(IrError::RuntimeIntrinsic(_))));

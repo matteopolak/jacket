@@ -61,7 +61,11 @@ pub(super) fn push_definitions(
     }
     while let Some((statement, parent)) = pending.pop() {
         match statement {
-            Statement::PushContext { id, body, .. } => {
+            Statement::PushContext {
+                id,
+                body,
+                ..
+            } => {
                 if id.procedure() != procedure.id {
                     return Err(IrError::LocalOwner {
                         expected: procedure.id,
@@ -88,9 +92,10 @@ pub(super) fn push_definitions(
                         .map(|statement| (statement, parent)),
                 );
             }
-            Statement::Block(body) | Statement::While { body, .. } => {
-                pending.extend(body.statements.iter().map(|statement| (statement, parent)))
-            }
+            Statement::Block(body)
+            | Statement::While {
+                body, ..
+            } => pending.extend(body.statements.iter().map(|statement| (statement, parent))),
             Statement::Range(range) => pending.extend(
                 range
                     .body

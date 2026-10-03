@@ -254,6 +254,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![input, output].into_boxed_slice(),
                 results: vec![types.scalar(ScalarType::Int(IntegerType::S32))].into_boxed_slice(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention,
                 context,
                 variadic,

@@ -11,7 +11,10 @@ struct Guard<'session, 'graph> {
 impl Drop for Guard<'_, '_> {
     fn drop(&mut self) {
         let mut state = self.state.borrow_mut();
-        if let Some(Journal { compiler, replay }) = state.journal.as_mut()
+        if let Some(Journal {
+            compiler,
+            replay,
+        }) = state.journal.as_mut()
             && let Err(error) = self
                 .session
                 .cancel(&mut ReplayEffects::new(compiler, replay))
@@ -43,7 +46,10 @@ async fn query(
     let response = poll_fn(|_| {
         let mut state = guard.state.borrow_mut();
         let progress = {
-            let Journal { compiler, replay } = state
+            let Journal {
+                compiler,
+                replay,
+            } = state
                 .journal
                 .as_mut()
                 .expect("running graph retains its private journals");
@@ -136,7 +142,10 @@ pub(super) async fn discover(
             };
             let outcome = {
                 let mut state = state.borrow_mut();
-                let Journal { compiler, replay } = state
+                let Journal {
+                    compiler,
+                    replay,
+                } = state
                     .journal
                     .as_mut()
                     .expect("running graph retains its journals");
@@ -191,7 +200,9 @@ pub(super) async fn discover(
                     return Err(error.into());
                 }
                 Err(Error::Located {
-                    source, diagnostic, ..
+                    source,
+                    diagnostic,
+                    ..
                 }) => {
                     worklists.failure(jai_source::LocatedDiagnostic {
                         location: jai_source::SourceSpan {
@@ -248,7 +259,10 @@ pub(super) async fn discover(
             Ok(pending) => {
                 let error =
                     crate::source_discovery::located(discovery.graph(), pending.diagnostic.clone());
-                Err(GraphJobFailure::Source { pending, error })
+                Err(GraphJobFailure::Source {
+                    pending,
+                    error,
+                })
             }
             Err(diagnostic) => {
                 Err(crate::source_discovery::located(discovery.graph(), diagnostic).into())

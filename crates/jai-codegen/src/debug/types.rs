@@ -37,7 +37,10 @@ impl LineTables<'_, '_> {
                         pending.push(*pointee);
                     }
                 }
-                TypeKind::FixedArray { element, count } => {
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => {
                     if i64::try_from(*count).is_err() {
                         return Ok(None);
                     }
@@ -127,7 +130,9 @@ impl LineTables<'_, '_> {
                     {
                         stack.push((*child, false))
                     }
-                    TypeKind::FixedArray { element, .. } => stack.push((*element, false)),
+                    TypeKind::FixedArray {
+                        element, ..
+                    } => stack.push((*element, false)),
                     TypeKind::Procedure(id) => {
                         let signature = types.procedure_type(*id).map_err(Error::Type)?;
                         stack.extend(
@@ -148,7 +153,10 @@ impl LineTables<'_, '_> {
                     bits(layout.size)?,
                     alignment(layout.alignment)?,
                 ),
-                TypeKind::FixedArray { element, count } => self.session.array_type(
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => self.session.array_type(
                     cache[element],
                     *count,
                     bits(layout.size)?,

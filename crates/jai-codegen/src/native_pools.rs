@@ -68,12 +68,24 @@ pub(super) fn emit<'ctx>(
     arguments: &[BasicValueEnum<'ctx>],
 ) -> Result<(), Error> {
     let (pool, flat, name) = match operation {
-        RuntimeIntrinsic::PoolGet { pool } => (pool, false, "jai.pool.get"),
-        RuntimeIntrinsic::FlatPoolGet { pool } => (pool, true, "jai.pool.get"),
-        RuntimeIntrinsic::PoolReset { pool } => (pool, false, "jai.pool.reset"),
-        RuntimeIntrinsic::FlatPoolReset { pool } => (pool, true, "jai.pool.reset"),
-        RuntimeIntrinsic::PoolRelease { pool } => (pool, false, "jai.pool.release"),
-        RuntimeIntrinsic::FlatPoolFinish { pool } => (pool, true, "jai.pool.release"),
+        RuntimeIntrinsic::PoolGet {
+            pool,
+        } => (pool, false, "jai.pool.get"),
+        RuntimeIntrinsic::FlatPoolGet {
+            pool,
+        } => (pool, true, "jai.pool.get"),
+        RuntimeIntrinsic::PoolReset {
+            pool,
+        } => (pool, false, "jai.pool.reset"),
+        RuntimeIntrinsic::FlatPoolReset {
+            pool,
+        } => (pool, true, "jai.pool.reset"),
+        RuntimeIntrinsic::PoolRelease {
+            pool,
+        } => (pool, false, "jai.pool.release"),
+        RuntimeIntrinsic::FlatPoolFinish {
+            pool,
+        } => (pool, true, "jai.pool.release"),
         _ => return Err(Error::Invariant),
     };
     let context = lowerer.context();
@@ -135,7 +147,14 @@ pub(super) fn emit<'ctx>(
             parameters.extend::<[BasicMetadataValueEnum<'ctx>; 8]>([
                 arguments[1].into(),
                 integer
-                    .const_int(if flat { 0 } else { policy.pointer().size }, false)
+                    .const_int(
+                        if flat {
+                            0
+                        } else {
+                            policy.pointer().size
+                        },
+                        false,
+                    )
                     .into(),
                 integer.const_int(default_alignment, false).into(),
                 capacity.into(),
@@ -154,7 +173,14 @@ pub(super) fn emit<'ctx>(
             parameters.extend::<[BasicMetadataValueEnum<'ctx>; 7]>([
                 overwrite.into(),
                 integer
-                    .const_int(if flat { 0 } else { policy.pointer().size }, false)
+                    .const_int(
+                        if flat {
+                            0
+                        } else {
+                            policy.pointer().size
+                        },
+                        false,
+                    )
                     .into(),
                 integer.const_int(default_alignment, false).into(),
                 left.into(),

@@ -80,7 +80,8 @@ impl fmt::Display for RuntimeIntrinsicError {
         }
     }
 }
-impl std::error::Error for RuntimeIntrinsicError {}
+impl std::error::Error for RuntimeIntrinsicError {
+}
 
 impl RuntimeIntrinsic {
     /// Validate pool storage without replacing its nominal self type.
@@ -130,7 +131,9 @@ impl RuntimeIntrinsic {
                         "swap requires (*T, *T) -> void",
                     ));
                 };
-                Self::Swap { value: *value }
+                Self::Swap {
+                    value: *value,
+                }
             }
             IntrinsicName::CompareAndSwap => {
                 let TypeKind::Procedure(id) = types.kind(signature)? else {
@@ -144,7 +147,9 @@ impl RuntimeIntrinsic {
                         "compare_and_swap requires (*T, T, T) -> (bool, T)",
                     ));
                 };
-                Self::CompareAndSwap { value: *value }
+                Self::CompareAndSwap {
+                    value: *value,
+                }
             }
             IntrinsicName::DebugTrap => Self::DebugTrap,
             IntrinsicName::PoolGet
@@ -164,9 +169,15 @@ impl RuntimeIntrinsic {
         policy: LayoutPolicy,
     ) -> Result<(), RuntimeIntrinsicError> {
         self.validate_signature_shape(signature, types)?;
-        if let Self::CompareAndSwap { value } = self {
+        if let Self::CompareAndSwap {
+            value,
+        } = self
+        {
             atomic_scalar(types, policy, value)?;
-        } else if let Self::Swap { value } = self {
+        } else if let Self::Swap {
+            value,
+        } = self
+        {
             LayoutEngine::new(types, policy)
                 .layout(value)
                 .map_err(layout_error)?;
@@ -232,7 +243,9 @@ impl RuntimeIntrinsic {
                         && integer(*count, IntegerType::S64))
                     && matches!(results, [result] if void_pointer(*result))
             }
-            Self::Swap { value } => {
+            Self::Swap {
+                value,
+            } => {
                 if matches!(
                     types.kind(value)?,
                     TypeKind::Void | TypeKind::Code | TypeKind::Type
@@ -246,7 +259,9 @@ impl RuntimeIntrinsic {
                         && *left == *right)
                     && results.is_empty()
             }
-            Self::CompareAndSwap { value } => {
+            Self::CompareAndSwap {
+                value,
+            } => {
                 atomic_scalar_kind(types, value)?;
                 matches!(parameters, [pointer, old, new]
                     if matches!(types.kind(*pointer), Ok(TypeKind::Pointer(pointee)) if *pointee == value)
@@ -255,12 +270,24 @@ impl RuntimeIntrinsic {
                         if *success == types.scalar(ScalarType::Bool) && *old == value)
             }
             Self::DebugTrap => parameters.is_empty() && results.is_empty(),
-            Self::PoolGet { pool }
-            | Self::FlatPoolGet { pool }
-            | Self::PoolReset { pool }
-            | Self::FlatPoolReset { pool }
-            | Self::PoolRelease { pool }
-            | Self::FlatPoolFinish { pool } => {
+            Self::PoolGet {
+                pool,
+            }
+            | Self::FlatPoolGet {
+                pool,
+            }
+            | Self::PoolReset {
+                pool,
+            }
+            | Self::FlatPoolReset {
+                pool,
+            }
+            | Self::PoolRelease {
+                pool,
+            }
+            | Self::FlatPoolFinish {
+                pool,
+            } => {
                 let flat = pools::identity(self)
                     .ok_or(RuntimeIntrinsicError::Signature("missing pool identity"))?
                     .1;
@@ -281,19 +308,31 @@ impl RuntimeIntrinsic {
                 Self::MemorySetReturningDestination => {
                     "destination-returning memset requires (*void, s64, s64) -> *void"
                 }
-                Self::Swap { .. } => {
-                    "swap requires (*T, *T) -> void with identical nominal pointee types"
-                }
-                Self::CompareAndSwap { .. } => "compare_and_swap requires (*T, T, T) -> (bool, T)",
+                Self::Swap {
+                    ..
+                } => "swap requires (*T, *T) -> void with identical nominal pointee types",
+                Self::CompareAndSwap {
+                    ..
+                } => "compare_and_swap requires (*T, T, T) -> (bool, T)",
                 Self::DebugTrap => "llvm.debugtrap requires () -> void",
-                Self::PoolGet { .. } | Self::FlatPoolGet { .. } => {
-                    "pool get requires (*Pool, s64) -> *void"
+                Self::PoolGet {
+                    ..
                 }
-                Self::PoolReset { .. } | Self::PoolRelease { .. } => {
-                    "Pool reset/release requires (*Pool) -> void"
+                | Self::FlatPoolGet {
+                    ..
+                } => "pool get requires (*Pool, s64) -> *void",
+                Self::PoolReset {
+                    ..
                 }
-                Self::FlatPoolReset { .. } => "Flat_Pool reset requires (*Flat_Pool, bool) -> void",
-                Self::FlatPoolFinish { .. } => "Flat_Pool fini requires (*Flat_Pool) -> void",
+                | Self::PoolRelease {
+                    ..
+                } => "Pool reset/release requires (*Pool) -> void",
+                Self::FlatPoolReset {
+                    ..
+                } => "Flat_Pool reset requires (*Flat_Pool, bool) -> void",
+                Self::FlatPoolFinish {
+                    ..
+                } => "Flat_Pool fini requires (*Flat_Pool) -> void",
             }))
         }
     }

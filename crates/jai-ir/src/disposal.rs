@@ -27,10 +27,17 @@ pub(crate) fn simd_instructions(instructions: Vec<SimdInstruction>) {
 fn push_simd(instructions: Vec<SimdInstruction>, pending: &mut Vec<Work>) {
     for instruction in instructions {
         match instruction {
-            SimdInstruction::Load { address, .. } | SimdInstruction::Store { address, .. } => {
+            SimdInstruction::Load {
+                address, ..
+            }
+            | SimdInstruction::Store {
+                address, ..
+            } => {
                 pending.push(Work::Value(address));
             }
-            SimdInstruction::Add { .. }
+            SimdInstruction::Add {
+                ..
+            }
             | SimdInstruction::DebugTrap
             | SimdInstruction::Arm64DebugTrap => {}
         }
@@ -103,7 +110,10 @@ fn run(mut pending: Vec<Work>) {
                 ConstantKind::Record(values) | ConstantKind::Array(values) => {
                     pending.extend(values.into_iter().map(Work::Constant));
                 }
-                ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
+                ConstantKind::Union {
+                    value, ..
+                }
+                | ConstantKind::Distinct(value) => {
                     pending.push(Work::Constant(*value));
                 }
                 ConstantKind::Int(_)
@@ -131,12 +141,18 @@ fn run(mut pending: Vec<Work>) {
                 Statement::Simd(mut block) => {
                     push_simd(block.take_instructions(), &mut pending);
                 }
-                Statement::PushContext { value, body, .. } => {
+                Statement::PushContext {
+                    value,
+                    body,
+                    ..
+                } => {
                     pending.push(Work::Value(value));
                     pending.push(Work::Block(body));
                 }
                 Statement::IndirectCallResults {
-                    callee, arguments, ..
+                    callee,
+                    arguments,
+                    ..
                 } => {
                     pending.push(Work::Value(*callee));
                     pending.extend(arguments.into_iter().map(|(_, value)| Work::Value(value)));
@@ -144,7 +160,10 @@ fn run(mut pending: Vec<Work>) {
                 Statement::Store(_, value) | Statement::DiscardValue(value) => {
                     pending.push(Work::Value(value));
                 }
-                Statement::CallResults { call, .. } | Statement::CallVoid(call) => {
+                Statement::CallResults {
+                    call, ..
+                }
+                | Statement::CallVoid(call) => {
                     pending.push(Work::Call(call));
                 }
                 Statement::StoreInt(_, value) | Statement::DiscardInt(value) => {
@@ -171,7 +190,9 @@ fn run(mut pending: Vec<Work>) {
                     }
                 }
                 Statement::While {
-                    condition, body, ..
+                    condition,
+                    body,
+                    ..
                 } => {
                     match condition {
                         LoopCondition::Value(value) | LoopCondition::BoundBool(_, value) => {

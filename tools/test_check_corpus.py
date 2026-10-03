@@ -1,16 +1,54 @@
 import json
 import hashlib
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 import subprocess
 
-from check_corpus import (Evidence, Source, Stage, Status, classify, evaluate,
+from check_corpus import (Bootstrap, Evidence, Source, Stage, Status, bootstrap_environment, classify, evaluate,
                           execute, inside, inventory, totals, validate_cases, module_search_paths,
                           compiler_fingerprint, annotate_observed_compiler_inputs)
 
 class AcceptanceTests(unittest.TestCase):
+    def test_authored_profile_preserves_project_paths_and_uses_own_library(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root/'corpus/upstream/owner--project'
+            local = project/'modules'; local.mkdir(parents=True)
+            (root/'stdlib').mkdir()
+            preload = root/'stdlib/prelude/module.jai'; preload.parent.mkdir(); preload.write_text('')
+            path = project/'first.jai'; path.write_text('main :: () {}')
+            source = Source('owner/project:first.jai',path,'same','same','owner/project',None)
+            with patch('check_corpus.ROOT',root):
+                configured = bootstrap_environment(source, Bootstrap.AUTHORED)
+            self.assertEqual(configured['JAI_RS_MODULE_PATH'].split(os.pathsep),
+                             [str(local.resolve()), str((root/'stdlib').resolve())])
+            self.assertEqual(configured['JAI_RS_STDLIB'],str((root/'stdlib').resolve()))
+            self.assertEqual(configured['JAI_RS_PRELOAD'],str(preload.resolve()))
+            self.assertEqual(configured['JAI_RS_RUNTIME_SUPPORT'],'off')
+
+    def test_unknown_bootstrap_profile_fails_before_compiler_execution(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch('check_corpus.subprocess.run') as run:
+                with self.assertRaises(ValueError):
+                    execute(root/'jai-rs',self.source(root),Stage.CHECK,1,root/'out',bootstrap='typo')
+            run.assert_not_called()
+
+    def test_authored_reference_example_does_not_rediscover_reference_library(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            project.mkdir(parents=True)
+            local = project/'modules'
+            local.mkdir()
+            (root/'stdlib').mkdir()
+            source = Source('reference:examples/demo/main.jai',project/'main.jai','same','same','reference',None)
+            with patch('check_corpus.ROOT',root):
+                paths = module_search_paths(source, Bootstrap.AUTHORED)
+            self.assertEqual(paths,[local.resolve(),(root/'stdlib').resolve()])
+
     def test_frozen_binary_inputs_are_observed_worktree_not_verified_build_inputs(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)

@@ -19,7 +19,11 @@ impl Classifier<'_, '_, '_> {
                 .get(index)
                 .copied()
                 .flatten()
-                .unwrap_or(if record.layout.packed { 1 } else { natural });
+                .unwrap_or(if record.layout.packed {
+                    1
+                } else {
+                    natural
+                });
             alignment = alignment.max(selected);
         }
         Ok(alignment)

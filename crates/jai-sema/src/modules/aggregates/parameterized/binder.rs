@@ -73,7 +73,9 @@ pub(crate) fn bind_arguments<'a>(
         .zip(slots)
         .map(|(parameter, explicit)| {
             let default = match &parameter.binding {
-                RecordParameterBinding::Typed { default, .. } => default.as_ref(),
+                RecordParameterBinding::Typed {
+                    default, ..
+                } => default.as_ref(),
                 RecordParameterBinding::InferredDefault(expression) => Some(expression),
             };
             let expression = explicit.or(default).ok_or_else(|| {

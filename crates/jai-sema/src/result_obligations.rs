@@ -40,10 +40,22 @@ impl Resolver<'_> {
         declaration: &syntax::Declaration,
     ) -> Result<Option<Statement>, Diagnostic> {
         let (name, annotation, initializer) = match declaration {
+            syntax::Declaration::GroupMember {
+                ..
+            } => {
+                return Err(Diagnostic::new(
+                    self.span,
+                    "file declaration group requires its source publication owner",
+                ));
+            }
             // External storage has no initializer result to consume or discard.
-            syntax::Declaration::External { .. } => return Ok(None),
+            syntax::Declaration::External {
+                ..
+            } => return Ok(None),
             syntax::Declaration::Inferred {
-                name, initializer, ..
+                name,
+                initializer,
+                ..
             } => (*name, None, Some(initializer)),
             syntax::Declaration::Explicit {
                 name,
@@ -80,7 +92,11 @@ impl Resolver<'_> {
         expression: &syntax::Expression,
     ) -> Result<Option<Statement>, Diagnostic> {
         let span = expression.span;
-        if let syntax::ExpressionKind::CallHint { hint, call } = &expression.kind {
+        if let syntax::ExpressionKind::CallHint {
+            hint,
+            call,
+        } = &expression.kind
+        {
             return self.discard_hinted_call(*hint, call, span).map(Some);
         }
         if let syntax::ExpressionKind::ContextCall {
@@ -142,7 +158,11 @@ impl Resolver<'_> {
                 .discard_indirect_results(callee, args, span, source.as_ref())
                 .map(Some);
         }
-        if let syntax::ExpressionKind::IndirectCall { callee, args } = &expression.kind {
+        if let syntax::ExpressionKind::IndirectCall {
+            callee,
+            args,
+        } = &expression.kind
+        {
             let target = self.expr(callee)?;
             return self
                 .discard_indirect_results(target, args, span, Some(callee))

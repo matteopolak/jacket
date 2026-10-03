@@ -3,52 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>Jai playground</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <h1>Jai playground</h1>
-  <p>Write Jai and run it in your browser.</p>
-  <div class="workspace">
-    <aside aria-label="Source workspace">
-      <h2>Files</h2>
-      <nav id="files" aria-label="Source files"></nav>
-      <form id="new-file">
-        <label for="file-name">New file</label>
-        <input id="file-name" placeholder="helpers.jai" autocomplete="off" spellcheck="false" required>
-        <button type="submit">Add file</button>
-      </form>
-      <button id="remove-file" type="button" disabled>Remove file</button>
-    </aside>
-    <section class="editor" aria-label="Source editor">
-      <label for="source" id="selected-name">main.jai</label>
-      <textarea id="source" spellcheck="false" autocapitalize="off">main :: () -> int {
-    if #compile_time return 900;
-    return 42;
-}</textarea>
+  <main class="studio">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">J</span><div><h1>Jai playground</h1><span class="subtitle">Browser compiler · experimental</span></div></div>
+      <div class="actions"><span id="runtime-status" class="runtime-status" role="status">Starting compiler…</span><button id="cancel" type="button" disabled>Cancel</button><button id="run" type="button" class="primary" disabled><span aria-hidden="true">▶</span> Run<span class="shortcut">⌘ / Ctrl ↵</span></button></div>
+    </header>
+    <section class="workbench">
+      <aside class="sidebar" aria-label="Source workspace">
+        <div class="section-heading"><h2>Explorer</h2><button id="remove-file" class="icon-button" title="Remove selected file" aria-label="Remove selected file" type="button" disabled>−</button></div>
+        <div class="workspace-label">WORKSPACE</div><nav id="files" aria-label="Source files"></nav>
+        <form id="new-file"><label for="file-name">Add a source file</label><div class="new-file-row"><input id="file-name" placeholder="lib/helpers.jai" autocomplete="off" spellcheck="false" required aria-describedby="path-hint"><button type="submit" title="Add file" aria-label="Add file">+</button></div><span id="path-hint" class="muted">Use / to create folders</span></form>
+        <div class="sidebar-foot"><span class="language-dot"></span> Jai source workspace<br><span class="muted">Files stay in this browser session</span></div>
+      </aside>
+      <section class="editor-panel" aria-label="Source editor">
+        <div class="editor-tabs"><div class="active-tab"><span class="file-symbol" aria-hidden="true">J</span><span id="selected-name">main.jai</span></div><button id="find" class="text-button" type="button" title="Find in file (Ctrl or Command + F)">Find</button></div>
+        <div id="source" class="source-editor"></div>
+        <div class="editor-status"><span id="editor-position">Ln 1, Col 1</span><span>Spaces: 4</span><span>UTF-8</span><span id="language-status">Jai · syntax coloring</span></div>
+      </section>
     </section>
-  </div>
-  <p class="hint">Runs start in main.jai. Use #load to include other files in this workspace.</p>
-  <div class="actions">
-    <button id="run" type="button">Run</button>
-    <button id="cancel" type="button" disabled>Cancel</button>
-    <span class="shortcut">Ctrl / ⌘ + Enter</span>
-  </div>
-  <details>
-    <summary>Run options</summary>
-    <div class="options">
-      <div>
-        <label for="arguments">Arguments (JSON array of strings)</label>
-        <input id="arguments" value="[]" spellcheck="false">
-      </div>
-      <div>
-        <label for="fuel">Execution step limit</label>
-        <input id="fuel" type="number" min="0" max="4294967295" value="1000000">
-      </div>
-    </div>
-  </details>
-  <pre id="result" role="status" aria-live="polite">Ready.</pre>
-  <p class="hint">Experimental compiler. Source files stay in this browser session. Program I/O and native libraries need host support.</p>
-  <script type="module" src="./editor.mjs"></script>
+    <section class="bottom-panel" aria-label="Compiler output">
+      <div class="panel-tabs" role="tablist" aria-label="Output panels"><button id="output-tab" role="tab" aria-selected="true" aria-controls="output-panel" type="button">Output</button><button id="problems-tab" role="tab" aria-selected="false" aria-controls="problems-panel" type="button">Problems <span id="problem-count">0</span></button><details id="run-options"><summary>Run options</summary><div class="options"><label>Arguments <input id="arguments" value="[]" spellcheck="false" aria-label="Arguments as JSON array of strings"></label><label>Step limit <input id="fuel" type="number" min="0" max="4294967295" value="1000000"></label></div></details></div>
+      <div id="output-panel" role="tabpanel" aria-labelledby="output-tab"><pre id="result" role="status" aria-live="polite">Ready to edit. Run starts at main.jai.</pre></div>
+      <div id="problems-panel" role="tabpanel" aria-labelledby="problems-tab" hidden><div id="problems" class="problems"><p class="muted">No diagnostics.</p></div></div>
+    </section>
+    <footer class="footer"><span>Experimental Jai compiler · compatibility is evolving</span><span id="revision">Local workspace</span></footer>
+  </main>
+  <script type="module" src="./boot.mjs"></script>
 </body>
 </html>

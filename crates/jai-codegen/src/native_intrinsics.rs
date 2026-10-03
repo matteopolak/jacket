@@ -40,12 +40,24 @@ pub(super) fn define<'ctx>(
         .ok_or(Error::Invariant)?;
     let arguments: Vec<_> = function.get_param_iter().collect();
     match operation {
-        RuntimeIntrinsic::PoolGet { .. }
-        | RuntimeIntrinsic::PoolReset { .. }
-        | RuntimeIntrinsic::PoolRelease { .. }
-        | RuntimeIntrinsic::FlatPoolGet { .. }
-        | RuntimeIntrinsic::FlatPoolReset { .. }
-        | RuntimeIntrinsic::FlatPoolFinish { .. } => {
+        RuntimeIntrinsic::PoolGet {
+            ..
+        }
+        | RuntimeIntrinsic::PoolReset {
+            ..
+        }
+        | RuntimeIntrinsic::PoolRelease {
+            ..
+        }
+        | RuntimeIntrinsic::FlatPoolGet {
+            ..
+        }
+        | RuntimeIntrinsic::FlatPoolReset {
+            ..
+        }
+        | RuntimeIntrinsic::FlatPoolFinish {
+            ..
+        } => {
             pools::emit(module, lowerer, target, &builder, operation, &arguments)?;
         }
         RuntimeIntrinsic::DebugTrap => {
@@ -55,7 +67,9 @@ pub(super) fn define<'ctx>(
             builder.build_call(intrinsic, &[], "")?;
             builder.build_return(None)?;
         }
-        RuntimeIntrinsic::Swap { value } => {
+        RuntimeIntrinsic::Swap {
+            value,
+        } => {
             let left = arguments[0].into_pointer_value();
             let right = arguments[1].into_pointer_value();
             let storage = lowerer.basic(value)?;
@@ -127,7 +141,9 @@ pub(super) fn define<'ctx>(
                 .map_err(|_| Error::Invariant)?;
             builder.build_return(None)?;
         }
-        RuntimeIntrinsic::CompareAndSwap { value } => {
+        RuntimeIntrinsic::CompareAndSwap {
+            value,
+        } => {
             let pointer = arguments[0].into_pointer_value();
             let expected = arguments[1];
             let replacement = arguments[2];
@@ -374,14 +390,30 @@ pub(super) fn define<'ctx>(
                         builder.build_return(Some(&sign))?;
                     }
                 }
-                RuntimeIntrinsic::PoolGet { .. }
-                | RuntimeIntrinsic::PoolReset { .. }
-                | RuntimeIntrinsic::PoolRelease { .. }
-                | RuntimeIntrinsic::FlatPoolGet { .. }
-                | RuntimeIntrinsic::FlatPoolReset { .. }
-                | RuntimeIntrinsic::FlatPoolFinish { .. }
-                | RuntimeIntrinsic::CompareAndSwap { .. }
-                | RuntimeIntrinsic::Swap { .. }
+                RuntimeIntrinsic::PoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::PoolReset {
+                    ..
+                }
+                | RuntimeIntrinsic::PoolRelease {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolGet {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolReset {
+                    ..
+                }
+                | RuntimeIntrinsic::FlatPoolFinish {
+                    ..
+                }
+                | RuntimeIntrinsic::CompareAndSwap {
+                    ..
+                }
+                | RuntimeIntrinsic::Swap {
+                    ..
+                }
                 | RuntimeIntrinsic::DebugTrap => {
                     return Err(Error::Invariant);
                 }

@@ -11,6 +11,7 @@ impl Resolver<'_> {
             CallableSource {
                 parameters: &source.parameters,
                 results: &source.results,
+                return_abi: source.return_abi,
                 convention: source.convention,
                 context: source.context,
                 span: source.span,
@@ -95,6 +96,7 @@ impl Resolver<'_> {
             CallableSource {
                 parameters: &source.parameters,
                 results: &source.results,
+                return_abi: source.return_abi,
                 convention: source.convention,
                 context: source.context,
                 span: source.span,

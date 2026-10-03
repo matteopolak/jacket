@@ -28,7 +28,13 @@ impl Resolver<'_> {
             .ok_or_else(|| Diagnostic::new(span, "debug source origin is not retained"))?;
         self.meta
             .debug_sources
-            .source_location(record, SourceSpan { source, span })
+            .source_location(
+                record,
+                SourceSpan {
+                    source,
+                    span,
+                },
+            )
             .map(Some)
             .map_err(|error| Diagnostic::new(span, error.to_string()))
     }

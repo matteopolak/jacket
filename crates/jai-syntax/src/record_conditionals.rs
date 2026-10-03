@@ -41,7 +41,10 @@ impl Parser<'_> {
                 Self::source_case_record_members,
             )?;
             let span = cases.span;
-            return Ok(RecordMember::CompileTimeCases { cases, span });
+            return Ok(RecordMember::CompileTimeCases {
+                cases,
+                span,
+            });
         }
         let then_members = self.record_conditional_body()?;
         let else_members = if self.keyword(Keyword::Else) {
@@ -140,7 +143,9 @@ mod tests {
             ]
         ));
         let RecordMember::Assert {
-            condition, span, ..
+            condition,
+            span,
+            ..
         } = &record.members[0]
         else {
             panic!()

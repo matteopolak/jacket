@@ -59,7 +59,10 @@ pub(super) fn build(
                         )?,
                         Some(initializer),
                     ),
-                    syntax::FieldBinding::Explicit { ty, initializer } => (
+                    syntax::FieldBinding::Explicit {
+                        ty,
+                        initializer,
+                    } => (
                         declarations.nominals.resolve_type(
                             graph,
                             file,
@@ -80,7 +83,23 @@ pub(super) fn build(
                 }
                 let mut alignment = None;
                 for attribute in &syntax.attributes {
-                    let syntax::FieldAttribute::Alignment(expression) = attribute;
+                    let expression = match attribute {
+                        syntax::FieldAttribute::Alignment(expression) => expression,
+                        syntax::FieldAttribute::Placement(
+                            syntax::FieldPlacementSyntax::Overlay {
+                                span, ..
+                            },
+                        ) => {
+                            return Err(located(
+                                graph,
+                                file,
+                                Diagnostic::new(
+                                    *span,
+                                    "context extensions do not support record field placement",
+                                ),
+                            ));
+                        }
+                    };
                     let value = constants.evaluate_lazy(file, expression)?;
                     let value = match value {
                         ConstantValue::Int(value) => u32::try_from(value.value()).ok(),
@@ -222,23 +241,37 @@ fn source_field(
     span: Span,
 ) -> Result<syntax::FieldDeclaration, Diagnostic> {
     let binding = match declaration {
-        syntax::Declaration::External { .. } => {
+        syntax::Declaration::GroupMember {
+            ..
+        } => {
+            return Err(Diagnostic::new(
+                span,
+                "file declaration group requires its source publication owner",
+            ));
+        }
+        syntax::Declaration::External {
+            ..
+        } => {
             return Err(Diagnostic::new(
                 span,
                 "external data cannot supply an owned context field",
             ));
         }
-        syntax::Declaration::Inferred { initializer, .. } => {
-            syntax::FieldBinding::Inferred(initializer.clone())
-        }
+        syntax::Declaration::Inferred {
+            initializer, ..
+        } => syntax::FieldBinding::Inferred(initializer.clone()),
         syntax::Declaration::Explicit {
-            ty, initializer, ..
+            ty,
+            initializer,
+            ..
         } => syntax::FieldBinding::Explicit {
             ty: syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty)),
             initializer: initializer.clone(),
         },
         syntax::Declaration::UnresolvedExplicit {
-            ty, initializer, ..
+            ty,
+            initializer,
+            ..
         } => syntax::FieldBinding::Explicit {
             ty: ty.clone(),
             initializer: initializer.clone(),

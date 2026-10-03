@@ -6,7 +6,7 @@ use jai_modules::{
 use jai_syntax::NamePath;
 use std::path::Path;
 
-const RUNTIME: &str = "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool); Context_Base :: struct { value: int; } runtime_helper :: 42; #if preload_helper == 3 { from_preload :: true; } #if DEFINE_SYSTEM_ENTRY_POINT { chosen_entry :: true; } else { chosen_entry :: false; } #if DEFINE_INITIALIZATION { chosen_init :: true; } else { chosen_init :: false; } #if ENABLE_BACKTRACE_ON_CRASH { chosen_backtrace :: true; } else { chosen_backtrace :: false; } #scope_module; runtime_private :: 9;";
+const RUNTIME: &str = "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool, TEMPORARY_STORAGE_SIZE: s32 = 32768); Context_Base :: struct { value: int; } runtime_helper :: 42; #if preload_helper == 3 { from_preload :: true; } #if DEFINE_SYSTEM_ENTRY_POINT { chosen_entry :: true; } else { chosen_entry :: false; } #if DEFINE_INITIALIZATION { chosen_init :: true; } else { chosen_init :: false; } #if ENABLE_BACKTRACE_ON_CRASH { chosen_backtrace :: true; } else { chosen_backtrace :: false; } #scope_module; runtime_private :: 9;";
 
 fn load(entry: &str, parameters: RuntimeSupportParameters) -> ModuleGraph {
     load_with_main(entry, parameters, "A :: #import \"A\"; main :: () {}")
@@ -50,8 +50,9 @@ fn explicit_runtime_import_reuses_only_the_same_ordered_argument_request() {
             define_system_entry_point: true,
             define_initialization: true,
             enable_backtrace_on_crash: false,
+            temporary_storage_size: 32768,
         },
-        "Same :: #import \"Runtime_Support\"(DEFINE_SYSTEM_ENTRY_POINT=true, DEFINE_INITIALIZATION=true, ENABLE_BACKTRACE_ON_CRASH=false); Different :: #import \"Runtime_Support\"(ENABLE_BACKTRACE_ON_CRASH=false, DEFINE_INITIALIZATION=true, DEFINE_SYSTEM_ENTRY_POINT=true); main :: () {}",
+        "Same :: #import \"Runtime_Support\"(DEFINE_SYSTEM_ENTRY_POINT=true, DEFINE_INITIALIZATION=true, ENABLE_BACKTRACE_ON_CRASH=false, TEMPORARY_STORAGE_SIZE=cast(s32)32768); Different :: #import \"Runtime_Support\"(ENABLE_BACKTRACE_ON_CRASH=false, DEFINE_INITIALIZATION=true, DEFINE_SYSTEM_ENTRY_POINT=true, TEMPORARY_STORAGE_SIZE=cast(s32)32768); Omitted_Default :: #import \"Runtime_Support\"(DEFINE_SYSTEM_ENTRY_POINT=true, DEFINE_INITIALIZATION=true, ENABLE_BACKTRACE_ON_CRASH=false); Weak_Integer :: #import \"Runtime_Support\"(DEFINE_SYSTEM_ENTRY_POINT=true, DEFINE_INITIALIZATION=true, ENABLE_BACKTRACE_ON_CRASH=false, TEMPORARY_STORAGE_SIZE=32768); main :: () {}",
     );
     let file = graph.module(graph.root()).unwrap().entry();
     assert_eq!(
@@ -62,11 +63,40 @@ fn explicit_runtime_import_reuses_only_the_same_ordered_argument_request() {
         panic!("expected distinct explicit runtime instance");
     };
     assert_ne!(Some(different), graph.runtime_support());
-    // Source text is parsed once even when request order creates a second instance.
+    let Binding::Module(omitted) = lookup(&graph, file, "Omitted_Default", &[]).unwrap() else {
+        panic!("expected module with omitted default request");
+    };
+    let Binding::Module(weak) = lookup(&graph, file, "Weak_Integer", &[]).unwrap() else {
+        panic!("expected module with weak integer request");
+    };
+    assert_ne!(Some(omitted), graph.runtime_support());
+    assert_ne!(Some(weak), graph.runtime_support());
+    assert_ne!(Some(omitted), Some(weak));
+    // Request identity preserves syntax-level distinctions even though all requests bind
+    // the declared s32 default to the same final value.
+    let temporary_value = ParameterValue::Scalar(jai_eval::Value::Int(
+        jai_types::Integer::checked(jai_types::IntegerType::S32, 32768).unwrap(),
+    ));
+    for module in [graph.runtime_support().unwrap(), different, omitted, weak] {
+        assert!(graph.parameters().iter().any(|parameter| {
+            parameter.module == module
+                && graph.symbols().name(parameter.name) == "TEMPORARY_STORAGE_SIZE"
+                && parameter.value == temporary_value
+        }));
+    }
+    // Source text is parsed once even when distinct requests create separate instances.
     assert_eq!(graph.sources().records().len(), 3);
     assert_ne!(
         lookup(&graph, file, "Same", &["Context_Base"]),
         lookup(&graph, file, "Different", &["Context_Base"])
+    );
+    assert_ne!(
+        lookup(&graph, file, "Same", &["Context_Base"]),
+        lookup(&graph, file, "Omitted_Default", &["Context_Base"])
+    );
+    assert_ne!(
+        lookup(&graph, file, "Same", &["Context_Base"]),
+        lookup(&graph, file, "Weak_Integer", &["Context_Base"])
     );
 }
 fn lookup(
@@ -93,6 +123,7 @@ fn actual_parameter_names_bind_explicit_typed_build_policy_and_preserve_module_i
         define_system_entry_point: true,
         define_initialization: true,
         enable_backtrace_on_crash: false,
+        temporary_storage_size: 32768,
     };
     let graph = load("/jai-runtime/main.jai", parameters);
     let runtime = graph.runtime_support().unwrap();
@@ -104,7 +135,7 @@ fn actual_parameter_names_bind_explicit_typed_build_policy_and_preserve_module_i
         .filter(|parameter| parameter.module == runtime)
         .map(|parameter| (graph.symbols().name(parameter.name), &parameter.value))
         .collect::<Vec<_>>();
-    assert_eq!(supplied.len(), 3);
+    assert_eq!(supplied.len(), 4);
     for (name, expected) in [
         ("DEFINE_SYSTEM_ENTRY_POINT", true),
         ("DEFINE_INITIALIZATION", true),
@@ -113,6 +144,13 @@ fn actual_parameter_names_bind_explicit_typed_build_policy_and_preserve_module_i
         assert!(supplied.iter().any(|(actual, value)| *actual == name
             && **value == ParameterValue::Scalar(jai_eval::Value::Bool(expected))));
     }
+    assert!(supplied.iter().any(|(actual, value)| {
+        *actual == "TEMPORARY_STORAGE_SIZE"
+            && **value
+                == ParameterValue::Scalar(jai_eval::Value::Int(
+                    jai_types::Integer::checked(jai_types::IntegerType::S32, 32768).unwrap(),
+                ))
+    }));
     let root = graph.module(graph.root()).unwrap().entry();
     let canonical = lookup(&graph, root, "runtime_helper", &[]).unwrap();
     let Binding::Module(module) = lookup(&graph, root, "A", &[]).unwrap() else {
@@ -138,12 +176,13 @@ fn checking_runtime_support_itself_does_not_duplicate_source_declarations() {
             define_system_entry_point: false,
             define_initialization: true,
             enable_backtrace_on_crash: false,
+            temporary_storage_size: 32768,
         },
     );
     assert_eq!(graph.runtime_support(), Some(graph.root()));
     assert_eq!(graph.modules().len(), 2);
     assert_eq!(graph.sources().records().len(), 2);
-    assert_eq!(graph.parameters().len(), 3);
+    assert_eq!(graph.parameters().len(), 4);
 }
 
 #[test]
@@ -154,6 +193,7 @@ fn checking_preload_itself_publishes_its_scope_before_loading_runtime_support() 
             define_system_entry_point: false,
             define_initialization: true,
             enable_backtrace_on_crash: false,
+            temporary_storage_size: 32768,
         },
     );
     assert_eq!(graph.prelude(), Some(graph.root()));
@@ -183,6 +223,7 @@ fn runtime_support_requires_preload_instead_of_inventing_its_types() {
                     define_system_entry_point: false,
                     define_initialization: false,
                     enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
                 },
             }),
         },
@@ -204,7 +245,7 @@ fn runtime_target_arguments_use_preload_before_the_application_file_is_published
         ),
         (
             "/jai-bootstrap-target/modules/Runtime_Support.jai",
-            "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool); Selected :: #import \"Selected\"(Selected_OS=OS, Selected_CPU=CPU);",
+            "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool, TEMPORARY_STORAGE_SIZE: s32 = 32768); Selected :: #import \"Selected\"(Selected_OS=OS, Selected_CPU=CPU);",
         ),
         (
             "/jai-bootstrap-target/modules/Selected.jai",
@@ -228,6 +269,7 @@ fn runtime_target_arguments_use_preload_before_the_application_file_is_published
                     define_system_entry_point: false,
                     define_initialization: true,
                     enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
                 },
             }),
         },

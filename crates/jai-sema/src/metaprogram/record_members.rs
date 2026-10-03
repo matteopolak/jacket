@@ -130,7 +130,10 @@ pub(crate) fn literal_record_members(
                         frames.push(MemberFrame {
                             pending,
                             result: Vec::new(),
-                            completion: Completion::CaseDefault { cases, arms },
+                            completion: Completion::CaseDefault {
+                                cases,
+                                arms,
+                            },
                         });
                     } else {
                         frames
@@ -140,7 +143,10 @@ pub(crate) fn literal_record_members(
                             .push(record_cases(cases, arms, None));
                     }
                 }
-                Completion::CaseDefault { cases, arms } => {
+                Completion::CaseDefault {
+                    cases,
+                    arms,
+                } => {
                     let default = cases
                         .default
                         .as_ref()
@@ -165,7 +171,9 @@ pub(crate) fn literal_record_members(
             ));
         }
         let member = match &statement.kind {
-            syntax::StatementKind::UsingDeclaration { .. } => {
+            syntax::StatementKind::UsingDeclaration {
+                ..
+            } => {
                 return Err(Diagnostic::new(
                     statement.span,
                     "record insertion cannot preserve a using declaration's member selection yet",
@@ -211,13 +219,14 @@ pub(crate) fn literal_record_members(
                 }
                 record_cases(cases, Vec::new(), None)
             }
-            syntax::StatementKind::CompileTimeAssert { condition, message } => {
-                syntax::RecordMember::Assert {
-                    condition: condition.clone(),
-                    message: message.clone(),
-                    span: statement.span,
-                }
-            }
+            syntax::StatementKind::CompileTimeAssert {
+                condition,
+                message,
+            } => syntax::RecordMember::Assert {
+                condition: condition.clone(),
+                message: message.clone(),
+                span: statement.span,
+            },
             syntax::StatementKind::CompileTimeIf {
                 condition,
                 then_body,
@@ -239,23 +248,37 @@ pub(crate) fn literal_record_members(
             }
             syntax::StatementKind::Declare(declaration) => {
                 let binding = match declaration {
-                    syntax::Declaration::External { .. } => {
+                    syntax::Declaration::GroupMember {
+                        ..
+                    } => {
+                        return Err(Diagnostic::new(
+                            statement.span,
+                            "file declaration group requires its source publication owner",
+                        ));
+                    }
+                    syntax::Declaration::External {
+                        ..
+                    } => {
                         return Err(Diagnostic::new(
                             statement.span,
                             "external storage cannot become a record insertion field",
                         ));
                     }
-                    syntax::Declaration::Inferred { initializer, .. } => {
-                        syntax::FieldBinding::Inferred(initializer.clone())
-                    }
+                    syntax::Declaration::Inferred {
+                        initializer, ..
+                    } => syntax::FieldBinding::Inferred(initializer.clone()),
                     syntax::Declaration::Explicit {
-                        ty, initializer, ..
+                        ty,
+                        initializer,
+                        ..
                     } => syntax::FieldBinding::Explicit {
                         ty: syntax::TypeSyntax::Builtin(syntax::BuiltinType::Scalar(*ty)),
                         initializer: initializer.clone(),
                     },
                     syntax::Declaration::UnresolvedExplicit {
-                        ty, initializer, ..
+                        ty,
+                        initializer,
+                        ..
                     } => syntax::FieldBinding::Explicit {
                         ty: ty.clone(),
                         initializer: initializer.clone(),
@@ -292,13 +315,14 @@ pub(crate) fn literal_record_members(
                     span: statement.span,
                 }
             }
-            syntax::StatementKind::AssignPlace { target, value } => {
-                syntax::RecordMember::DefaultOverride {
-                    target: target.clone(),
-                    value: value.clone(),
-                    span: statement.span,
-                }
-            }
+            syntax::StatementKind::AssignPlace {
+                target,
+                value,
+            } => syntax::RecordMember::DefaultOverride {
+                target: target.clone(),
+                value: value.clone(),
+                span: statement.span,
+            },
             syntax::StatementKind::Constant(value) => {
                 let mut value = value.clone();
                 // The statement wrapper retains the full declaration range;
@@ -574,7 +598,10 @@ mod tests {
         let text = "members::#code { #if #complete SELECT == { case 1; first:s32; #through; case 2; #if enabled { second:u8; } else { third:int; } case; fallback:bool; } tail:u64; };";
         let members = literal_record_members(&quote(text)).unwrap();
         let [
-            syntax::RecordMember::CompileTimeCases { cases, span },
+            syntax::RecordMember::CompileTimeCases {
+                cases,
+                span,
+            },
             syntax::RecordMember::Field(tail),
         ] = members.as_slice()
         else {

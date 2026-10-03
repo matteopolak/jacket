@@ -16,7 +16,11 @@ impl Builder<'_> {
         scope: ImportBindingScope,
     ) -> Result<(), GraphError> {
         match self.expand_module(module, path) {
-            Err(error @ GraphError::Pending { .. }) => {
+            Err(
+                error @ GraphError::Pending {
+                    ..
+                },
+            ) => {
                 if matches!(scope, ImportBindingScope::File) {
                     self.publish_import(file, import, module)?;
                 }
@@ -36,6 +40,16 @@ impl Builder<'_> {
         if !self.graph.imports.iter().any(|edge| {
             edge.file == file && edge.module == module && edge.location == import.location
         }) {
+            if import.namespace.is_none() || import.using {
+                self.published_imports.push(import_cycles::PublishedImport {
+                    file,
+                    module,
+                    namespace: import.namespace,
+                    using: import.using,
+                    visibility: import.visibility,
+                    location: import.location,
+                });
+            }
             self.graph.imports.push(ImportEdge {
                 file,
                 module,

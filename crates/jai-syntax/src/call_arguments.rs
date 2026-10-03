@@ -110,9 +110,12 @@ mod tests {
             &mut symbols,
         );
         let StatementKind::Expression(Expression {
-            kind: ExpressionKind::ContextCall {
-                args, overrides, ..
-            },
+            kind:
+                ExpressionKind::ContextCall {
+                    args,
+                    overrides,
+                    ..
+                },
             ..
         }) = &statements[0].kind
         else {

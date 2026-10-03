@@ -14,6 +14,7 @@ fn fixture() -> (Library, ProcedureId, TypeId, TypeId, TypeId) {
         .procedure(ProcedureType {
             parameters: Box::new([]),
             results: Box::new([]),
+            return_abi: jai_types::ForeignReturnAbi::Natural,
             convention: CallingConvention::Jai,
             context: ContextMode::None,
             variadic: Variadic::None,
@@ -186,12 +187,21 @@ fn owned_operand_and_task_payloads_copy_progress_and_share_only_frozen_code() {
             right.code.as_ref().unwrap()
         ));
     }
-    let Action::Block { block, pc } = branch.tasks[0].action else {
+    let Action::Block {
+        block,
+        pc,
+    } = branch.tasks[0].action
+    else {
         panic!("lost block progress")
     };
     assert_eq!(block, code.body);
     assert_eq!(pc, 1);
-    let Action::Collect { index, values, .. } = &mut branch.tasks[1].action else {
+    let Action::Collect {
+        index,
+        values,
+        ..
+    } = &mut branch.tasks[1].action
+    else {
         panic!("lost collection progress")
     };
     assert_eq!(*index, 1);
@@ -199,7 +209,10 @@ fn owned_operand_and_task_payloads_copy_progress_and_share_only_frozen_code() {
         panic!("lost owned task value")
     };
     bytes[0] = 99;
-    let Action::Collect { values, .. } = &machine.tasks[1].action else {
+    let Action::Collect {
+        values, ..
+    } = &machine.tasks[1].action
+    else {
         unreachable!()
     };
     assert!(matches!(&values[0], Operand::Value(Value::String(bytes)) if bytes == &[4, 5, 6]));
@@ -254,7 +267,9 @@ fn simd_buffers_are_owned_independently_at_the_same_instruction_index() {
     assert_eq!((*index, *reserved), (2, 18));
     registers[0].as_mut().unwrap()[0] = 99;
     let Action::Simd {
-        index, registers, ..
+        index,
+        registers,
+        ..
     } = &machine.tasks[0].action
     else {
         unreachable!()
@@ -331,7 +346,9 @@ fn float_bits_procedure_identity_and_opaque_storage_survive_the_private_copy() {
         Operand::Value(Value::StoredAggregate(value)) => value
             .field(library.types(), 0, vm.limits.value_cells)
             .unwrap(),
-        Operand::Value(Value::Record { fields, .. }) => fields[0].clone(),
+        Operand::Value(Value::Record {
+            fields, ..
+        }) => fields[0].clone(),
         _ => panic!("lost updated record value"),
     };
     assert_eq!(changed_field, integer(99));
@@ -426,7 +443,12 @@ fn pack_snapshots_and_source_mutations_stay_in_their_own_machine_branch() {
     let mut branch = machine
         .fork_private(machine.fork_work_cost().unwrap())
         .unwrap();
-    let Action::PackNext { index, pack, .. } = &mut machine.tasks[0].action else {
+    let Action::PackNext {
+        index,
+        pack,
+        ..
+    } = &mut machine.tasks[0].action
+    else {
         panic!("lost pack progress")
     };
     assert_eq!(*index, 1);
@@ -440,11 +462,21 @@ fn pack_snapshots_and_source_mutations_stay_in_their_own_machine_branch() {
         0,
     )
     .unwrap();
-    let Action::PackNext { index, pack, .. } = branch.tasks.pop().unwrap().action else {
+    let Action::PackNext {
+        index,
+        pack,
+        ..
+    } = branch.tasks.pop().unwrap().action
+    else {
         panic!("lost forked pack")
     };
     assert_eq!(index, 1);
-    let Value::Slice { pointer, count, .. } = pack.finish(&mut vm).unwrap() else {
+    let Value::Slice {
+        pointer,
+        count,
+        ..
+    } = pack.finish(&mut vm).unwrap()
+    else {
         panic!("expected snapshot slice")
     };
     assert_eq!(count, 1);
@@ -452,10 +484,18 @@ fn pack_snapshots_and_source_mutations_stay_in_their_own_machine_branch() {
         vm.memory.load(library.types(), &pointer).unwrap(),
         integer(7)
     );
-    let Action::PackNext { pack, .. } = machine.tasks.pop().unwrap().action else {
+    let Action::PackNext {
+        pack, ..
+    } = machine.tasks.pop().unwrap().action
+    else {
         unreachable!()
     };
-    let Value::Slice { pointer, count, .. } = pack.finish(&mut vm).unwrap() else {
+    let Value::Slice {
+        pointer,
+        count,
+        ..
+    } = pack.finish(&mut vm).unwrap()
+    else {
         panic!("expected source slice")
     };
     assert_eq!(count, 2);

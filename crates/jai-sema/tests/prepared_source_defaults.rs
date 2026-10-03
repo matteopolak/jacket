@@ -92,11 +92,15 @@ impl jai_vm::CompilerEffects for Effects {
     }
     fn request(&mut self, request: jai_vm::CompilerRequest) -> jai_vm::EffectOutcome {
         match request {
-            jai_vm::CompilerRequest::CreateWorkspace { .. } => {
+            jai_vm::CompilerRequest::CreateWorkspace {
+                ..
+            } => {
                 self.requests += 1;
                 jai_vm::EffectOutcome::Pending(jai_vm::EffectKey(42))
             }
-            jai_vm::CompilerRequest::WriteOutput { bytes, .. } => {
+            jai_vm::CompilerRequest::WriteOutput {
+                bytes, ..
+            } => {
                 self.issued_writes += 1;
                 self.staged.push(bytes);
                 jai_vm::EffectOutcome::Ready(jai_vm::CompilerResponse::Unit)
@@ -176,8 +180,12 @@ fn assert_default_wait(graph: &ModuleGraph, wait: &jai_sema::LibraryPending) {
         panic!("source procedure")
     };
     let original = match &procedure.parameters[0].binding {
-        jai_syntax::ParameterBinding::Defaulted { expression, .. }
-        | jai_syntax::ParameterBinding::DefaultedType { expression, .. } => expression,
+        jai_syntax::ParameterBinding::Defaulted {
+            expression, ..
+        }
+        | jai_syntax::ParameterBinding::DefaultedType {
+            expression, ..
+        } => expression,
         jai_syntax::ParameterBinding::Required(_)
         | jai_syntax::ParameterBinding::RequiredType(_) => panic!("original source default"),
     };
@@ -279,8 +287,12 @@ fn a_failed_selected_default_does_not_commit_its_source_effects() {
         panic!("the original selected default belongs to a source procedure")
     };
     let original = match &procedure.parameters[0].binding {
-        jai_syntax::ParameterBinding::Defaulted { expression, .. }
-        | jai_syntax::ParameterBinding::DefaultedType { expression, .. } => expression,
+        jai_syntax::ParameterBinding::Defaulted {
+            expression, ..
+        }
+        | jai_syntax::ParameterBinding::DefaultedType {
+            expression, ..
+        } => expression,
         jai_syntax::ParameterBinding::Required(_)
         | jai_syntax::ParameterBinding::RequiredType(_) => panic!("original source default"),
     };

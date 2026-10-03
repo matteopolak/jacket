@@ -15,7 +15,9 @@ pub(super) fn infer_discarded_default<'a>(
             members: vec![],
         }),
         syntax::ExpressionKind::QualifiedCall(path, _) => Some(path.clone()),
-        syntax::ExpressionKind::CallHint { call, .. }
+        syntax::ExpressionKind::CallHint {
+            call, ..
+        }
         | syntax::ExpressionKind::CompileTime(syntax::CompileTimeRun {
             body: syntax::CompileTimeBody::Expression(call),
             ..

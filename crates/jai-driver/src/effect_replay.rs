@@ -251,7 +251,10 @@ impl EffectReplayCache {
             ));
         }
         parked.bytes = parked.bytes - old + bytes;
-        parked.branch = Some(ReplayBranch { runs: added, bytes });
+        parked.branch = Some(ReplayBranch {
+            runs: added,
+            bytes,
+        });
         parked.preview = Some(preview);
         self.suspended_bytes = suspended_bytes.expect("checked suspended byte limit");
         Ok(())
@@ -470,7 +473,9 @@ impl CompilerEffects for ReplayEffects<'_> {
         }
         let stream_bytes = match &self.transaction {
             Transaction::Recording(requests) => estimate(&origin, requests),
-            Transaction::Replaying { requests, .. } => estimate(&origin, requests),
+            Transaction::Replaying {
+                requests, ..
+            } => estimate(&origin, requests),
             Transaction::Idle | Transaction::Rejected(_) => {
                 return Err(jai_vm::Error::EffectRejected(
                     "compiler suspension requires an active transaction".into(),
@@ -590,7 +595,10 @@ impl CompilerEffects for ReplayEffects<'_> {
             return self.reject("compiler request must poll its existing pending slot".into());
         }
         match &mut self.transaction {
-            Transaction::Replaying { requests, next } => {
+            Transaction::Replaying {
+                requests,
+                next,
+            } => {
                 let Some(recorded) = requests.get(*next) else {
                     return self.reject(
                         "compile-time effect replay added a request after the committed stream"
@@ -612,13 +620,27 @@ impl CompilerEffects for ReplayEffects<'_> {
                 let outcome = self.session.request(request.clone());
                 if let EffectOutcome::Ready(response) = &outcome {
                     let changed = match &request {
-                        CompilerRequest::AddSource { workspace, .. }
-                        | CompilerRequest::AddSourceAt { workspace, .. }
-                        | CompilerRequest::AddSourceFile { workspace, .. }
-                        | CompilerRequest::AddSourceFileAt { workspace, .. }
-                        | CompilerRequest::SetBuildOption { workspace, .. }
-                        | CompilerRequest::SetBuildOptionAt { workspace, .. }
-                        | CompilerRequest::DestroyWorkspace { workspace } => Some(*workspace),
+                        CompilerRequest::AddSource {
+                            workspace, ..
+                        }
+                        | CompilerRequest::AddSourceAt {
+                            workspace, ..
+                        }
+                        | CompilerRequest::AddSourceFile {
+                            workspace, ..
+                        }
+                        | CompilerRequest::AddSourceFileAt {
+                            workspace, ..
+                        }
+                        | CompilerRequest::SetBuildOption {
+                            workspace, ..
+                        }
+                        | CompilerRequest::SetBuildOptionAt {
+                            workspace, ..
+                        }
+                        | CompilerRequest::DestroyWorkspace {
+                            workspace,
+                        } => Some(*workspace),
                         _ => None,
                     };
                     if let Some(workspace) = changed {
@@ -675,7 +697,10 @@ impl CompilerEffects for ReplayEffects<'_> {
             self.branch = None;
         }
         match transaction {
-            Transaction::Replaying { requests, next } => {
+            Transaction::Replaying {
+                requests,
+                next,
+            } => {
                 if commit && next != requests.len() {
                     return Err(jai_vm::Error::EffectRejected(format!(
                         "compile-time effect replay omitted {} committed request(s)",
@@ -723,39 +748,76 @@ fn estimate(origin: &SourceOrigin, requests: &[RecordedRequest]) -> usize {
     for recorded in requests {
         bytes = bytes.saturating_add(std::mem::size_of::<RecordedRequest>());
         let text = match &recorded.request {
-            CompilerRequest::WriteOutput { bytes, .. } => bytes.len(),
-            CompilerRequest::AddSource { source, .. }
-            | CompilerRequest::AddSourceAt { source, .. } => source.len(),
-            CompilerRequest::AddSourceFile { path, .. }
-            | CompilerRequest::AddSourceFileAt { path, .. } => {
-                path.as_os_str().as_encoded_bytes().len()
+            CompilerRequest::WriteOutput {
+                bytes, ..
+            } => bytes.len(),
+            CompilerRequest::AddSource {
+                source, ..
             }
-            CompilerRequest::CreateWorkspace { name } => name.len(),
-            CompilerRequest::Message { text, .. } | CompilerRequest::Report { text, .. } => {
-                text.len()
+            | CompilerRequest::AddSourceAt {
+                source, ..
+            } => source.len(),
+            CompilerRequest::AddSourceFile {
+                path, ..
             }
-            CompilerRequest::SetBuildOption { option, .. }
-            | CompilerRequest::SetBuildOptionAt { option, .. } => match option {
+            | CompilerRequest::AddSourceFileAt {
+                path, ..
+            } => path.as_os_str().as_encoded_bytes().len(),
+            CompilerRequest::CreateWorkspace {
+                name,
+            } => name.len(),
+            CompilerRequest::Message {
+                text, ..
+            }
+            | CompilerRequest::Report {
+                text, ..
+            } => text.len(),
+            CompilerRequest::SetBuildOption {
+                option, ..
+            }
+            | CompilerRequest::SetBuildOptionAt {
+                option, ..
+            } => match option {
                 jai_vm::BuildOption::OutputPath(path) => path.as_os_str().as_encoded_bytes().len(),
                 jai_vm::BuildOption::Target(target) => target.as_str().len(),
                 _ => 0,
             },
-            CompilerRequest::GetBuildOptions { .. }
-            | CompilerRequest::GetWorkspaceName { .. }
-            | CompilerRequest::SetWorkspaceStatus { .. }
-            | CompilerRequest::DestroyWorkspace { .. }
-            | CompilerRequest::BeginIntercept { .. }
-            | CompilerRequest::EndIntercept { .. }
+            CompilerRequest::GetBuildOptions {
+                ..
+            }
+            | CompilerRequest::GetWorkspaceName {
+                ..
+            }
+            | CompilerRequest::SetWorkspaceStatus {
+                ..
+            }
+            | CompilerRequest::DestroyWorkspace {
+                ..
+            }
+            | CompilerRequest::BeginIntercept {
+                ..
+            }
+            | CompilerRequest::EndIntercept {
+                ..
+            }
             | CompilerRequest::WaitForMessage => 0,
         };
         bytes = bytes.saturating_add(text);
         if let CompilerResponse::WorkspaceName(name) = &recorded.response {
             bytes = bytes.saturating_add(name.len());
         }
-        if let CompilerRequest::SetBuildOptionAt { location, .. }
-        | CompilerRequest::AddSourceAt { location, .. }
-        | CompilerRequest::AddSourceFileAt { location, .. }
-        | CompilerRequest::Report { location, .. } = &recorded.request
+        if let CompilerRequest::SetBuildOptionAt {
+            location, ..
+        }
+        | CompilerRequest::AddSourceAt {
+            location, ..
+        }
+        | CompilerRequest::AddSourceFileAt {
+            location, ..
+        }
+        | CompilerRequest::Report {
+            location, ..
+        } = &recorded.request
         {
             bytes = bytes.saturating_add(location.path.as_os_str().as_encoded_bytes().len());
         }

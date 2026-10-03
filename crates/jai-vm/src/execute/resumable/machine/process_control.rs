@@ -116,7 +116,13 @@ impl Machine {
             .retained
             .checked_add(transient)
             .and_then(|n| n.checked_add(STOP_CELLS))
-            .and_then(|n| n.checked_add(if vm.processes.is_none() { 8 } else { 0 }))
+            .and_then(|n| {
+                n.checked_add(if vm.processes.is_none() {
+                    8
+                } else {
+                    0
+                })
+            })
             .ok_or(Error::Limit(LimitKind::ValueCells))?;
         self.process_combined_cells(vm, prospective)?;
         self.next_process_stop
@@ -240,7 +246,11 @@ impl Machine {
         )?;
         let result = stop.result;
         let serial = stop.serial;
-        let cells = if result.expected.is_some() { 1 } else { 2 };
+        let cells = if result.expected.is_some() {
+            1
+        } else {
+            2
+        };
         let next_retained = self
             .retained
             .checked_sub(STOP_CELLS)

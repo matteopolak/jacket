@@ -25,11 +25,16 @@ pub(crate) fn index_expressions(source: &PlaceSyntax) -> Result<Vec<&Expression>
                 PlaceKind::Qualified(names) => {
                     depth = checked_names(depth, names.members.len(), place.span)?;
                 }
-                PlaceKind::Member { base, .. } => {
+                PlaceKind::Member {
+                    base, ..
+                } => {
                     depth += 1;
                     pending.push(Node::Base(base));
                 }
-                PlaceKind::Index { base, index } => {
+                PlaceKind::Index {
+                    base,
+                    index,
+                } => {
                     depth += 1;
                     pending.push(Node::Index(index));
                     pending.push(Node::Base(base));
@@ -46,11 +51,16 @@ pub(crate) fn index_expressions(source: &PlaceSyntax) -> Result<Vec<&Expression>
                 ExpressionKind::QualifiedName(names) => {
                     depth = checked_names(depth, names.members.len(), base.span)?;
                 }
-                ExpressionKind::Member { base, .. } => {
+                ExpressionKind::Member {
+                    base, ..
+                } => {
                     depth += 1;
                     pending.push(Node::Base(base));
                 }
-                ExpressionKind::Index { base, index } => {
+                ExpressionKind::Index {
+                    base,
+                    index,
+                } => {
                     depth += 1;
                     pending.push(Node::Index(index));
                     pending.push(Node::Base(base));

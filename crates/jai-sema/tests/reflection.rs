@@ -188,3 +188,34 @@ fn field_notes_and_offsets_preserve_declaration_metadata() {
         42
     );
 }
+
+#[test]
+fn source_type_info_none_suppresses_metadata_and_preserves_physical_fields() {
+    assert_eq!(
+        run(r#"
+        Hidden :: struct #type_info_none { value:s64; }
+        Generic :: struct(T:Type) #type_info_none { value:T; }
+        main :: () -> int {
+            Local :: struct #type_info_none { value:s64; }
+            named:Hidden;
+            generic:Generic(s64);
+            local:Local;
+            anonymous:struct #type_info_none { value:s64; };
+            named.value=42;
+            generic.value=42;
+            local.value=42;
+            anonymous.value=42;
+            if named.value != 42 || generic.value != 42 || local.value != 42 || anonymous.value != 42 return 1;
+            if size_of(Hidden) != 8 || size_of(Generic(s64)) != 8 || size_of(Local) != 8 || size_of(type_of(anonymous)) != 8 return 2;
+            named_info := type_info(Hidden);
+            generic_info := type_info(Generic(s64));
+            local_info := type_info(Local);
+            inline_info := type_info(type_of(anonymous));
+            if named_info.members.count != 0 || generic_info.members.count != 0 || local_info.members.count != 0 || inline_info.members.count != 0 return 3;
+            if (cast(u32)named_info.textual_flags & 8) == 0 || (cast(u32)generic_info.textual_flags & 8) == 0 || (cast(u32)local_info.textual_flags & 8) == 0 || (cast(u32)inline_info.textual_flags & 8) == 0 return 4;
+            return 42;
+        }
+        "#),
+        42,
+    );
+}

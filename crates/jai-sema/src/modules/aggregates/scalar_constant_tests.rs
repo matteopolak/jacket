@@ -53,7 +53,10 @@ fn cached_decimal_materializes_directly_at_each_requested_width() {
 #[test]
 fn decimal_integer_target_produces_source_aware_diagnostic() {
     let types = TypeRegistry::new();
-    let span = Span { start: 11, end: 29 };
+    let span = Span {
+        start: 11,
+        end: 29,
+    };
     let error =
         scalar_constant(types.scalar(ScalarType::Bool), decimal(), &types, span).unwrap_err();
     assert_eq!(error.span, span);

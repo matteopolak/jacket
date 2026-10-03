@@ -45,7 +45,9 @@ where
                 ));
             }
             match member {
-                M::CompileTimeCases { cases, .. } => {
+                M::CompileTimeCases {
+                    cases, ..
+                } => {
                     let chosen = self.record_cases(file, &cases, scope)?;
                     pending.extend(chosen.into_iter().rev().map(|member| (member, depth + 1)));
                 }
@@ -104,6 +106,7 @@ where
 fn span(member: &syntax::RecordMember) -> Span {
     use syntax::RecordMember as M;
     match member {
+        M::Placement(value) => value.span,
         M::Field(value) => value.span,
         M::AnonymousRecord(value) => value.span,
         M::Constant(value) => value.span,
@@ -113,9 +116,17 @@ fn span(member: &syntax::RecordMember) -> Span {
         M::Record(value) => value.span,
         M::Enum(value) => value.span,
         M::Insert(value) => value.span,
-        M::Assert { span, .. }
-        | M::Conditional { span, .. }
-        | M::CompileTimeCases { span, .. }
-        | M::DefaultOverride { span, .. } => *span,
+        M::Assert {
+            span, ..
+        }
+        | M::Conditional {
+            span, ..
+        }
+        | M::CompileTimeCases {
+            span, ..
+        }
+        | M::DefaultOverride {
+            span, ..
+        } => *span,
     }
 }

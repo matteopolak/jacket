@@ -6,7 +6,10 @@ use jai_syntax::{NamePath, PlaceKind, PlaceSyntax};
 pub(crate) fn descriptor_target(source: &PlaceSyntax) -> Result<Symbol, Diagnostic> {
     match &source.kind {
         PlaceKind::Name(name) => Ok(*name),
-        PlaceKind::Qualified(NamePath { root, members }) if members.is_empty() => Ok(*root),
+        PlaceKind::Qualified(NamePath {
+            root,
+            members,
+        }) if members.is_empty() => Ok(*root),
         _ => Err(Diagnostic::new(
             source.span,
             "descriptor literal initializer requires a direct descriptor field",

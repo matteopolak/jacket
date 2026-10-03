@@ -91,7 +91,9 @@ fn completed_child_preview_mutations_commit_only_with_the_waiting_parent() {
         assert!(session.take_outputs().is_empty());
         let CompilerResponse::WorkspaceName(name) = ready(
             &mut session,
-            CompilerRequest::GetWorkspaceName { workspace: id },
+            CompilerRequest::GetWorkspaceName {
+                workspace: id,
+            },
         ) else {
             panic!("resumed parent must see its actual staged child")
         };

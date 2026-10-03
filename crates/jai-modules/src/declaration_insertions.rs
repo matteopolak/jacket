@@ -167,7 +167,8 @@ impl fmt::Display for InsertionResponseError {
         })
     }
 }
-impl std::error::Error for InsertionResponseError {}
+impl std::error::Error for InsertionResponseError {
+}
 
 #[derive(Clone)]
 pub(super) struct InsertionRequestStore {
@@ -387,7 +388,9 @@ pub(super) fn validate_code(
             }
             let location = match item {
                 FileItem::Declaration(declaration)
-                | FileItem::UsingDeclaration { declaration, .. } => {
+                | FileItem::UsingDeclaration {
+                    declaration, ..
+                } => {
                     if graph.symbols.get(declaration_name(declaration)).is_none() {
                         return Err(InsertionResponseError::InvalidBinding);
                     }
@@ -407,7 +410,10 @@ pub(super) fn validate_code(
                     work.push((else_items, depth + 1));
                     *location
                 }
-                FileItem::CompileTimeCases { cases, location } => {
+                FileItem::CompileTimeCases {
+                    cases,
+                    location,
+                } => {
                     for arm in &cases.arms {
                         work.push((&arm.body, depth + 1));
                     }
@@ -416,11 +422,21 @@ pub(super) fn validate_code(
                     }
                     *location
                 }
-                FileItem::Insert { location, .. }
-                | FileItem::ContextField { location, .. }
-                | FileItem::Scope { location, .. }
-                | FileItem::Using { location, .. }
-                | FileItem::Assert { location, .. } => *location,
+                FileItem::Insert {
+                    location, ..
+                }
+                | FileItem::ContextField {
+                    location, ..
+                }
+                | FileItem::Scope {
+                    location, ..
+                }
+                | FileItem::Using {
+                    location, ..
+                }
+                | FileItem::Assert {
+                    location, ..
+                } => *location,
             };
             if location.source != code.location.source
                 || !valid_location(graph, location)

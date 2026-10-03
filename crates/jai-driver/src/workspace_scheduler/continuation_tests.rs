@@ -290,7 +290,9 @@ fn explicit_no_output_completes_only_after_the_actual_source_recipe_fixed_point(
             ready(effects.request(CompilerRequest::WaitForMessage)),
             CompilerResponse::Message(CompilerEvent::Phase {
                 workspace: child,
-                phase: CompilerPhase::Typechecked { pending_count: 0 }
+                phase: CompilerPhase::Typechecked {
+                    pending_count: 0
+                }
             })
         );
         assert_eq!(
@@ -300,7 +302,9 @@ fn explicit_no_output_completes_only_after_the_actual_source_recipe_fixed_point(
                 error: jai_vm::CompilerCompletion::None
             })
         );
-        ready(effects.request(CompilerRequest::EndIntercept { workspace: child }));
+        ready(effects.request(CompilerRequest::EndIntercept {
+            workspace: child,
+        }));
         effects.finish(true).unwrap();
     }
     assert_eq!(session.workspace(child).unwrap().inputs().len(), 2);
@@ -333,10 +337,14 @@ fn actual_child_source_readiness_and_effects_remain_private_until_parent_publica
             ready(effects.request(CompilerRequest::WaitForMessage)),
             CompilerResponse::Message(CompilerEvent::Phase {
                 workspace: child,
-                phase: CompilerPhase::Typechecked { pending_count: 0 }
+                phase: CompilerPhase::Typechecked {
+                    pending_count: 0
+                }
             })
         );
-        ready(effects.request(CompilerRequest::EndIntercept { workspace: child }));
+        ready(effects.request(CompilerRequest::EndIntercept {
+            workspace: child,
+        }));
         effects.finish(true).unwrap();
     }
     assert_eq!(scheduler.replay_cache().len(), 2);
@@ -475,7 +483,9 @@ fn cancelled_actual_child_produces_shutdown_without_running_its_source() {
         .preview_suspended(&origin, &session)
         .unwrap();
     preview.begin();
-    ready(preview.request(CompilerRequest::DestroyWorkspace { workspace: child }));
+    ready(preview.request(CompilerRequest::DestroyWorkspace {
+        workspace: child,
+    }));
     preview.finish(true).unwrap();
     scheduler
         .replay
@@ -493,7 +503,9 @@ fn cancelled_actual_child_produces_shutdown_without_running_its_source() {
                 error: jai_vm::CompilerCompletion::CompilerShutdown
             }))
         );
-        ready(effects.request(CompilerRequest::EndIntercept { workspace: child }));
+        ready(effects.request(CompilerRequest::EndIntercept {
+            workspace: child,
+        }));
         effects.finish(true).unwrap();
     }
     assert!(session.is_destroyed(child));

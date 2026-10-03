@@ -82,7 +82,8 @@ impl fmt::Display for CatalogError {
         }
     }
 }
-impl std::error::Error for CatalogError {}
+impl std::error::Error for CatalogError {
+}
 
 impl SourceTypeCatalog {
     pub(crate) fn validate_checkpoint(
@@ -191,7 +192,11 @@ impl SourceTypeCatalog {
                 .cached
                 .as_ref()
                 .is_some_and(|cached| cached.generation == staged.generation);
-            let new_rows = if reuse_rows { 0 } else { staged.ordered.len() };
+            let new_rows = if reuse_rows {
+                0
+            } else {
+                staged.ordered.len()
+            };
             staged.published_rows = staged
                 .published_rows
                 .checked_add(new_rows)
@@ -307,7 +312,9 @@ impl SourceTypeCatalog {
                 TypeKind::Pointer(element)
                 | TypeKind::Slice(element)
                 | TypeKind::DynamicArray(element)
-                | TypeKind::FixedArray { element, .. } => std::slice::from_ref(element),
+                | TypeKind::FixedArray {
+                    element, ..
+                } => std::slice::from_ref(element),
                 TypeKind::Record(_) => match types.record_definition(ty) {
                     Ok(record) => record.fields.as_ref(),
                     Err(TypeError::Incomplete(_)) => {
@@ -431,7 +438,10 @@ mod tests {
         let mut catalog = SourceTypeCatalog::default();
         let before = catalog.checkpoint(&types).unwrap();
         let (sources, id) = source("[3]u8");
-        let span = Span { start: 0, end: 5 };
+        let span = Span {
+            start: 0,
+            end: 5,
+        };
         catalog
             .register_source(&types, backing, sources.get(id).unwrap(), span)
             .unwrap();
@@ -446,7 +456,10 @@ mod tests {
         assert!(!before.types().contains(&backing));
         assert_eq!(
             catalog.source_origin(backing),
-            Some(SourceSpan { source: id, span })
+            Some(SourceSpan {
+                source: id,
+                span
+            })
         );
     }
 
@@ -463,7 +476,10 @@ mod tests {
                 &types,
                 record,
                 sources.get(id).unwrap(),
-                Span { start: 0, end: 4 },
+                Span {
+                    start: 0,
+                    end: 4,
+                },
             )
             .unwrap();
         let reserved = catalog.checkpoint(&types).unwrap();
@@ -491,7 +507,10 @@ mod tests {
                 &types,
                 pointer,
                 sources.get(id).unwrap(),
-                Span { start: 1, end: 2 }
+                Span {
+                    start: 1,
+                    end: 2
+                }
             ),
             Err(CatalogError::InvalidSource)
         ));
@@ -519,7 +538,10 @@ mod tests {
                 &types,
                 pointer,
                 sources.get(id).unwrap(),
-                Span { start: 0, end: 4 }
+                Span {
+                    start: 0,
+                    end: 4
+                }
             ),
             Err(CatalogError::GenerationExhausted)
         ));
@@ -543,7 +565,10 @@ mod tests {
                 &types,
                 record,
                 sources.get(id).unwrap(),
-                Span { start: 0, end: 4 },
+                Span {
+                    start: 0,
+                    end: 4,
+                },
             )
             .unwrap();
         let pointer = types.pointer(record).unwrap();

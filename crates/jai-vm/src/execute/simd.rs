@@ -73,7 +73,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                     registers[destination.index()] = Some(bytes);
                 }
                 SimdInstruction::Store {
-                    source, address, ..
+                    source,
+                    address,
+                    ..
                 } => {
                     let address = self.value(address, depth + 1)?.pointer()?.clone();
                     self.simd_budget(reserved)?;

@@ -19,6 +19,7 @@ pub(super) struct CallableSource<'a> {
     pub(super) parameters: &'a [syntax::Parameter],
     pub(super) results: &'a [syntax::ProcedureResult],
     pub(super) convention: CallingConvention,
+    pub(super) return_abi: jai_types::ForeignReturnAbi,
     pub(super) context: ContextMode,
     pub(super) span: Span,
 }

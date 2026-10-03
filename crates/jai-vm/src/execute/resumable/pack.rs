@@ -106,7 +106,12 @@ impl PackState {
                     self.ty,
                     vm.limits.evaluation_depth.min(256),
                 )?;
-                let Value::Slice { pointer, count, .. } = value else {
+                let Value::Slice {
+                    pointer,
+                    count,
+                    ..
+                } = value
+                else {
                     return Err(
                         Error::InvalidIr("sequence spread requires a slice descriptor").into(),
                     );

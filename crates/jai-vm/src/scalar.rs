@@ -146,7 +146,11 @@ pub(crate) fn binary_with_check(
             if check.enabled() && ty.signed() && a == ty.min() && b == -1 {
                 return Err(Error::Arithmetic(ArithmeticError::SignedDivisionOverflow));
             }
-            if op == IntOp::Divide { a / b } else { a % b }
+            if op == IntOp::Divide {
+                a / b
+            } else {
+                a % b
+            }
         }
         IntOp::ShiftLeft | IntOp::ShiftRight => {
             let count = u32::try_from(b)

@@ -273,7 +273,9 @@ fn insertion_visibility(
                     return Some(found);
                 }
             }
-            FileItem::CompileTimeCases { cases, .. } => {
+            FileItem::CompileTimeCases {
+                cases, ..
+            } => {
                 for arm in &cases.arms {
                     if let Some(found) = insertion_visibility(&arm.body, visibility, location) {
                         return Some(found);

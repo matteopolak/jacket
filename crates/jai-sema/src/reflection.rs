@@ -1,8 +1,15 @@
 //! Bind type-valued queries without evaluating runtime expressions.
 use super::*;
 use jai_types::{ReflectionReadiness, TypeKind, reflected_size};
+mod catalog;
+mod policy_revision;
+mod record_attributes;
+mod runtime_info;
 pub(crate) mod schema;
+pub(crate) use record_attributes::apply_source_record_attributes;
+mod source_facts;
 mod storage;
+pub(crate) use runtime_info::RuntimeInfoCheckpoint;
 
 #[derive(Default)]
 pub(crate) struct MetaContext {
@@ -25,6 +32,11 @@ pub(crate) struct MetaContext {
     pub(crate) compiler_source_signatures:
         HashMap<ProcedureId, modules::compiler_intrinsics::SourceCompilerSignature>,
     pub(crate) callbacks: crate::procedure_values::bindings::CallbackRegistry,
+    pub(crate) baked_wrappers: crate::procedure_values::baked_arguments::BakedWrappers,
+    pub(crate) baked_constant_contracts:
+        crate::procedure_values::contracts::baked_partial_constants::BakedConstantContracts,
+    pub(crate) selected_constants:
+        crate::polymorphism::integration::selected_constants::SelectedConstants,
     pub(crate) record_specializations: modules::aggregates::parameterized::RecordSpecializations,
     pub(crate) field_default_jobs: modules::field_default_jobs::FieldDefaultJobs,
     pub(crate) local_declarations: crate::local_declarations::LocalDeclarationRegistry,
@@ -34,6 +46,10 @@ pub(crate) struct MetaContext {
     storage: HashMap<TypeId, (TypeId, std::sync::Arc<StaticData>, StaticAddress)>,
     storage_policies: HashMap<TypeId, jai_types::RecordReflectionPolicy>,
     storage_builder: StaticDataBuilder,
+    reflection_catalog: catalog::SourceTypeCatalog,
+    runtime_info_snapshots:
+        HashMap<runtime_info::RuntimeInfoKey, std::sync::Arc<jai_ir::RuntimeInfoSnapshot>>,
+    descriptor_policy_epoch: u64,
 }
 
 impl MetaContext {
@@ -69,8 +85,11 @@ pub(crate) fn is_semantic_constant(expression: &syntax::Expression) -> bool {
     let mut expressions = vec![expression];
     while let Some(expression) = expressions.pop() {
         match &expression.kind {
-            syntax::ExpressionKind::Type(_)
-            | syntax::ExpressionKind::TypeQuery { .. }
+            syntax::ExpressionKind::BakeArguments(_)
+            | syntax::ExpressionKind::Type(_)
+            | syntax::ExpressionKind::TypeQuery {
+                ..
+            }
             | syntax::ExpressionKind::Code(_)
             | syntax::ExpressionKind::CompileTime(_)
             | syntax::ExpressionKind::SourceLocation
@@ -91,7 +110,10 @@ pub(crate) fn is_semantic_constant(expression: &syntax::Expression) -> bool {
                 expressions.push(left);
                 expressions.push(right);
             }
-            syntax::ExpressionKind::Index { base, index } => {
+            syntax::ExpressionKind::Index {
+                base,
+                index,
+            } => {
                 expressions.push(base);
                 expressions.push(index);
             }
@@ -106,6 +128,9 @@ impl Resolver<'_> {
         &mut self,
         constant: &syntax::ConstantDeclaration,
     ) -> Result<(), Diagnostic> {
+        if self.bind_baked_source_constant(constant)?.is_some() {
+            return Ok(());
+        }
         if let Some(annotation) = &constant.ty {
             let ty = self.lexical_annotation(annotation, constant.span)?;
             if ty == self.types.code_type() {
@@ -130,7 +155,9 @@ impl Resolver<'_> {
             Expr::Code(id) if constant.ty.is_none() => {
                 self.bind_name(constant.name, Binding::Code(id))
             }
-            Expr::Typed { value, .. } => {
+            Expr::Typed {
+                value, ..
+            } => {
                 let value = self.literal_constant(value, constant.span)?;
                 let id = self.meta.intern_constant(value);
                 self.bind_name(constant.name, Binding::TypedConstant(id))
@@ -217,6 +244,7 @@ impl Resolver<'_> {
         };
         match query {
             syntax::TypeQueryKind::SizeOf => {
+                self.prepare_queried_source_layout(ty, span)?;
                 match reflected_size(self.types, ty, self.target_layout)
                     .map_err(|error| Diagnostic::new(span, error.to_string()))?
                 {

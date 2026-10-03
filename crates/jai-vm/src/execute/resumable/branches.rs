@@ -56,22 +56,29 @@ fn value_cells(
     let mut cells = 1;
     match value {
         Value::String(bytes) => {
-            charge(fuel(bytes.len())?)?;
+            // Reading Vec capacity does not inspect its byte payload. Retain the
+            // full capacity here; Bounds::work separately charges actual copies.
             cells = add(cells, bytes.capacity())?;
         }
         Value::Pointer(pointer)
-        | Value::Slice { pointer, .. }
-        | Value::StringView { pointer, .. } => cells = add(cells, pointer.metadata_cells())?,
-        Value::Type { descriptor } => {
-            cells = add(cells, option_pointer_cells(descriptor.as_ref())?)?
+        | Value::Slice {
+            pointer, ..
         }
+        | Value::StringView {
+            pointer, ..
+        } => cells = add(cells, pointer.metadata_cells())?,
+        Value::Type {
+            descriptor,
+        } => cells = add(cells, option_pointer_cells(descriptor.as_ref())?)?,
         Value::AddressInteger(number) => {
             cells = add(cells, number.origin_count())?;
             if let Some(crate::AddressProvenance::Pointer(pointer)) = number.provenance() {
                 cells = add(cells, pointer.metadata_cells())?;
             }
         }
-        Value::Array { elements, .. }
+        Value::Array {
+            elements, ..
+        }
         | Value::Record {
             fields: elements, ..
         } => {
@@ -83,11 +90,18 @@ fn value_cells(
                 )?;
             }
         }
-        Value::Distinct { value, .. } | Value::Union { value, .. } => {
+        Value::Distinct {
+            value, ..
+        }
+        | Value::Union {
+            value, ..
+        } => {
             cells = add(cells, value_cells(value, depth + 1, maximum_depth, charge)?)?;
         }
         Value::DynamicArray {
-            pointer, allocator, ..
+            pointer,
+            allocator,
+            ..
         } => {
             cells = add(cells, pointer.metadata_cells())?;
             if let Some(allocator) = allocator {
@@ -113,8 +127,12 @@ fn value_cells(
         Value::Int(_)
         | Value::Bool(_)
         | Value::Float(_)
-        | Value::Enum { .. }
-        | Value::Procedure { .. } => {}
+        | Value::Enum {
+            ..
+        }
+        | Value::Procedure {
+            ..
+        } => {}
     }
     Ok(cells)
 }

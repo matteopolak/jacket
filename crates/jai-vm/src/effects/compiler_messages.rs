@@ -64,7 +64,12 @@ pub enum CompilerEvent {
 impl CompilerEvent {
     pub fn workspace(&self) -> WorkspaceId {
         match *self {
-            Self::Phase { workspace, .. } | Self::Complete { workspace, .. } => workspace,
+            Self::Phase {
+                workspace, ..
+            }
+            | Self::Complete {
+                workspace, ..
+            } => workspace,
         }
     }
 }

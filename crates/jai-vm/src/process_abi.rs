@@ -91,7 +91,8 @@ impl std::fmt::Display for ProcessAbiError {
         write!(f, "process ABI binding: {self:?}")
     }
 }
-impl std::error::Error for ProcessAbiError {}
+impl std::error::Error for ProcessAbiError {
+}
 
 /// Trusted Rust receipt boundary, unavailable to Jai source. The embedding must verify
 /// immutable source bytes/paths, graph identity, canonical library table and nominal origins.
@@ -305,9 +306,10 @@ fn byte_pointer(ty: TypeId, types: &dyn TypeView) -> Result<bool, TypeError> {
 fn descriptor_pair(ty: TypeId, types: &dyn TypeView) -> Result<bool, TypeError> {
     Ok(match types.kind(ty)? {
         TypeKind::Pointer(actual) => match types.kind(*actual)? {
-            TypeKind::FixedArray { element, count: 2 } => {
-                integer(*element, IntegerType::S32, types)?
-            }
+            TypeKind::FixedArray {
+                element,
+                count: 2,
+            } => integer(*element, IntegerType::S32, types)?,
             _ => false,
         },
         _ => false,

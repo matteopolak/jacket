@@ -102,7 +102,14 @@ impl Resolver<'_> {
                         .types
                         .insert(key, self.lexical_annotation(ty, expression.span)?);
                 }
-                E::TypeQuery { .. } | E::CompileTime(_) | E::Cast(_, _, _) | E::TypeCast { .. } => {
+                E::TypeQuery {
+                    ..
+                }
+                | E::CompileTime(_)
+                | E::Cast(_, _, _)
+                | E::TypeCast {
+                    ..
+                } => {
                     let value = self.expr(expression)?;
                     match value {
                         Expr::Type(ty) => {
@@ -118,7 +125,9 @@ impl Resolver<'_> {
                         }
                     }
                 }
-                E::CallHint { call, .. } => expressions.push(call),
+                E::CallHint {
+                    call, ..
+                } => expressions.push(call),
                 E::AddressOf(inner) => {
                     if let Expr::Type(ty) = self.expr(expression)? {
                         snapshot.types.insert(key, ty);
@@ -126,9 +135,11 @@ impl Resolver<'_> {
                         expressions.push(inner);
                     }
                 }
-                E::Dereference(inner) | E::Unary(_, inner) | E::Member { base: inner, .. } => {
-                    expressions.push(inner)
-                }
+                E::Dereference(inner)
+                | E::Unary(_, inner)
+                | E::Member {
+                    base: inner, ..
+                } => expressions.push(inner),
                 E::Binary(_, left, right)
                 | E::Index {
                     base: left,
@@ -159,7 +170,10 @@ impl Resolver<'_> {
                     self.resolve_record_argument_callee(path, expression.span, &mut snapshot)?;
                     expressions.extend(arguments.iter().map(|argument| &argument.value));
                 }
-                E::IndirectCall { callee, args } => {
+                E::IndirectCall {
+                    callee,
+                    args,
+                } => {
                     expressions.push(callee);
                     expressions.extend(args.iter().map(|argument| &argument.value));
                 }
@@ -312,12 +326,13 @@ impl Resolver<'_> {
                 kind: ConstantKind::Enum(value.value),
             }),
             Binding::Code(code) => LexicalTypeArgument::Code(*code),
-            Binding::Procedure { procedure, ty } => {
-                LexicalTypeArgument::Typed(jai_ir::ConstantValue {
-                    ty: *ty,
-                    kind: ConstantKind::Procedure(*procedure),
-                })
-            }
+            Binding::Procedure {
+                procedure,
+                ty,
+            } => LexicalTypeArgument::Typed(jai_ir::ConstantValue {
+                ty: *ty,
+                kind: ConstantKind::Procedure(*procedure),
+            }),
             Binding::Imported(binding) => {
                 let binding = self
                     .graph_scope?

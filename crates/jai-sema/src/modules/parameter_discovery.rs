@@ -49,12 +49,16 @@ pub(super) fn resolve(
         };
         let result = match &request.task {
             ParameterTask::ResolveType {
-                syntax: syntax::TypeSyntax::Restricted { .. },
+                syntax: syntax::TypeSyntax::Restricted {
+                    ..
+                },
             } => Err(LocatedDiagnostic {
                 location: request.location,
                 message: "module type restriction requires semantic constraint proof".into(),
             }),
-            ParameterTask::ResolveType { syntax } => aggregates::parameterized::resolve_type(
+            ParameterTask::ResolveType {
+                syntax,
+            } => aggregates::parameterized::resolve_type(
                 graph,
                 aggregates::parameterized::TypeRequest::new(
                     request.file,
@@ -79,29 +83,41 @@ pub(super) fn resolve(
                 )
             })
             .map(ParameterResponse::Type),
-            ParameterTask::CheckInterface { actual, required } => {
-                super::parameter_interfaces::check(
-                    graph,
-                    request,
-                    super::parameter_interfaces::InterfaceTypes { actual, required },
-                    nominals,
-                    types,
-                    meta,
-                    constants,
-                )
-                .map(|()| ParameterResponse::InterfaceSatisfied)
-            }
-            ParameterTask::CheckNominal { actual, required } => super::parameter_nominals::check(
+            ParameterTask::CheckInterface {
+                actual,
+                required,
+            } => super::parameter_interfaces::check(
                 graph,
                 request,
-                super::parameter_nominals::NominalTypes { actual, required },
+                super::parameter_interfaces::InterfaceTypes {
+                    actual,
+                    required,
+                },
+                nominals,
+                types,
+                meta,
+                constants,
+            )
+            .map(|()| ParameterResponse::InterfaceSatisfied),
+            ParameterTask::CheckNominal {
+                actual,
+                required,
+            } => super::parameter_nominals::check(
+                graph,
+                request,
+                super::parameter_nominals::NominalTypes {
+                    actual,
+                    required,
+                },
                 nominals,
                 types,
                 meta,
                 constants,
             )
             .map(|()| ParameterResponse::NominalSatisfied),
-            ParameterTask::CoerceValue { .. } => Err(LocatedDiagnostic {
+            ParameterTask::CoerceValue {
+                ..
+            } => Err(LocatedDiagnostic {
                 location: request.location,
                 message:
                     "module aggregate value requires canonical source constant materialization"
@@ -187,7 +203,10 @@ pub(super) fn encode_type(
         TypeKind::Pointer(inner) => ModuleType::Pointer(Box::new(nested(*inner)?)),
         TypeKind::Slice(inner) => ModuleType::Slice(Box::new(nested(*inner)?)),
         TypeKind::DynamicArray(inner) => ModuleType::DynamicArray(Box::new(nested(*inner)?)),
-        TypeKind::FixedArray { element, count } => ModuleType::FixedArray {
+        TypeKind::FixedArray {
+            element,
+            count,
+        } => ModuleType::FixedArray {
             element: Box::new(nested(*element)?),
             count: *count,
         },
@@ -203,15 +222,22 @@ pub(super) fn encode_type(
                 .collect::<Result<Vec<_>, _>>()?;
             let variadic = match signature.variadic {
                 jai_types::Variadic::None => jai_modules::ModuleVariadic::None,
-                jai_types::Variadic::C { fixed_parameters } => {
-                    jai_modules::ModuleVariadic::C { fixed_parameters }
-                }
-                jai_types::Variadic::Jai { parameter, element } => {
+                jai_types::Variadic::C {
+                    fixed_parameters,
+                } => jai_modules::ModuleVariadic::C {
+                    fixed_parameters,
+                },
+                jai_types::Variadic::Jai {
+                    parameter,
+                    element,
+                } => {
                     let entry = parameters.get_mut(parameter).ok_or_else(|| {
                         fail("module procedure variadic parameter is unavailable")
                     })?;
                     *entry = nested(element)?;
-                    jai_modules::ModuleVariadic::Jai { parameter }
+                    jai_modules::ModuleVariadic::Jai {
+                        parameter,
+                    }
                 }
             };
             ModuleType::Procedure(jai_modules::ModuleProcedureType {
@@ -222,6 +248,7 @@ pub(super) fn encode_type(
                     .copied()
                     .map(nested)
                     .collect::<Result<Vec<_>, _>>()?,
+                return_abi: signature.return_abi,
                 convention: signature.convention,
                 context: signature.context,
                 variadic,

@@ -180,6 +180,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "itoa"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
 name = "jai-bench"
 version = "0.1.0"
 dependencies = [
@@ -232,6 +238,7 @@ version = "0.1.0"
 dependencies = [
  "jai-lexer",
  "jai-modules",
+ "jai-platform",
  "jai-sema",
  "jai-source",
  "jai-syntax",
@@ -258,6 +265,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "jai-language-server"
+version = "0.1.0"
+dependencies = [
+ "jai-lexer",
+ "jai-source",
+ "jai-syntax",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jai-lexer"
 version = "0.1.0"
 dependencies = [
@@ -277,9 +295,39 @@ version = "0.1.0"
 dependencies = [
  "jai-eval",
  "jai-lexer",
+ "jai-native-source",
  "jai-source",
  "jai-syntax",
  "jai-types",
+]
+
+[[package]]
+name = "jai-native-source"
+version = "0.1.0"
+dependencies = [
+ "jai-lexer",
+ "jai-source",
+]
+
+[[package]]
+name = "jai-platform"
+version = "0.1.0"
+dependencies = [
+ "jai-native-source",
+ "jai-source",
+ "jai-vm",
+]
+
+[[package]]
+name = "jai-runtime"
+version = "0.1.0"
+dependencies = [
+ "jai-modules",
+ "jai-sema",
+ "jai-source",
+ "jai-syntax",
+ "jai-types",
+ "jai-vm",
 ]
 
 [[package]]
@@ -322,6 +370,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jai-wasm"
+version = "0.1.0"
+dependencies = [
+ "jai-language-server",
+ "jai-runtime",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -352,6 +408,12 @@ dependencies = [
  "regex-lite",
  "semver",
 ]
+
+[[package]]
+name = "memchr"
+version = "2.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "proc-macro2"
@@ -395,6 +457,49 @@ name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
+
+[[package]]
+name = "serde"
+version = "1.0.229"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
+dependencies = [
+ "serde_core",
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.229"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.229"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.151"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
+]
 
 [[package]]
 name = "sha2"
@@ -491,3 +596,9 @@ checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
 dependencies = [
  "windows-link",
 ]
+
+[[package]]
+name = "zmij"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"

@@ -32,7 +32,9 @@ impl Resolver<'_> {
     ) -> bool {
         let mut changed = false;
         for (&name, contract) in bindings {
-            let Some(contract) = contract else { continue };
+            let Some(contract) = contract else {
+                continue;
+            };
             let key = (procedure, name);
             let merged = match self.meta.callbacks.generic_type_arguments.get(&key) {
                 Some(previous) => {
@@ -98,7 +100,9 @@ impl Resolver<'_> {
         let mut changed = previous.len() != contracts.len();
         previous.resize(contracts.len(), None);
         for (previous, contract) in previous.iter_mut().zip(contracts) {
-            let Some(contract) = contract else { continue };
+            let Some(contract) = contract else {
+                continue;
+            };
             let merged = match previous.as_ref() {
                 Some(previous) => previous.clone().merge(contract.clone()),
                 None => contract.clone(),

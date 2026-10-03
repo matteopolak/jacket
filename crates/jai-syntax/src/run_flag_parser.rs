@@ -51,7 +51,12 @@ mod tests {
     #[test]
     fn flags_preserve_the_call_body_boundary_and_default_policy() {
         let mut parser = parser("#run,stallable build();", true);
-        assert_eq!(parser.run_flags().unwrap(), RunFlags { stallable: true });
+        assert_eq!(
+            parser.run_flags().unwrap(),
+            RunFlags {
+                stallable: true
+            }
+        );
         assert_eq!(parser.text(), "build");
         let mut parser = self::parser("#run build();", true);
         assert_eq!(parser.run_flags().unwrap(), RunFlags::default());
@@ -63,7 +68,12 @@ mod tests {
         let mut parser = parser("#run,sta\\   llable build();", true);
         let span = parser.tokens[parser.at + 1].span;
         assert_eq!(span.text(parser.source), "sta\\   llable");
-        assert_eq!(parser.run_flags().unwrap(), RunFlags { stallable: true });
+        assert_eq!(
+            parser.run_flags().unwrap(),
+            RunFlags {
+                stallable: true
+            }
+        );
         assert_eq!(parser.text(), "build");
     }
 

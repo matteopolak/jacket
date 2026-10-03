@@ -105,7 +105,7 @@ impl Resolver<'_> {
                 let storage = child.storage(parameter.name)?;
                 child.using_record(storage)?;
             }
-            let body = child.block(&source.body, false)?;
+            let body = child.named_result_body(&source.results, &source.body)?;
             if !signature.results.is_empty() && body.flow != Flow::Terminates {
                 return Err(Diagnostic::new(
                     source.span,

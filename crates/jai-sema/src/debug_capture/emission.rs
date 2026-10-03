@@ -123,7 +123,10 @@ impl Capture {
         // scope. Its emitted child retains its stepping source; the declaration
         // anchor is the actual owning wrapper statement, which contains that child.
         for local in self.locals.values_mut() {
-            if let CapturedDeclaration::Statement { token, relative } = &mut local.declaration
+            if let CapturedDeclaration::Statement {
+                token,
+                relative,
+            } = &mut local.declaration
                 && *token == statement.token
                 && relative.is_empty()
             {
@@ -321,6 +324,52 @@ impl Capture {
             ));
         }
     }
+    /// Result locals point to their actual initializer in the completed body.
+    pub(crate) fn named_result_local(
+        &mut self,
+        id: LocalId,
+        name: String,
+        location: DebugSourceLocation,
+        index: usize,
+    ) {
+        let Some(block) = self.completed_block.as_mut() else {
+            return;
+        };
+        let token = if let Some((_, statement)) =
+            block.statements.iter_mut().find(|(at, _)| *at == index)
+        {
+            statement.location = Some(location.clone());
+            statement.token
+        } else {
+            let token = StatementToken(self.next_statement);
+            self.next_statement += 1;
+            block.statements.push((
+                index,
+                StatementCapture {
+                    token,
+                    location: Some(location.clone()),
+                    blocks: vec![],
+                    replacement: None,
+                    prefix: vec![],
+                    generated: vec![],
+                },
+            ));
+            token
+        };
+        self.locals.insert(
+            id,
+            CapturedLocal {
+                name,
+                location,
+                scope: block.scope,
+                declaration: CapturedDeclaration::Statement {
+                    token,
+                    relative: Box::new([]),
+                },
+            },
+        );
+    }
+
     pub(crate) fn local(&mut self, id: LocalId, name: String, location: DebugSourceLocation) {
         let scope = self
             .blocks
@@ -414,9 +463,13 @@ fn generated_paths<'a>(
                 child(Branch::IfThen, yes);
                 child(Branch::IfElse, no);
             }
-            Statement::While { body, .. } => child(Branch::While, body),
+            Statement::While {
+                body, ..
+            } => child(Branch::While, body),
             Statement::Range(range) => child(Branch::Range, &range.body),
-            Statement::PushContext { body, .. } => child(Branch::PushContext, body),
+            Statement::PushContext {
+                body, ..
+            } => child(Branch::PushContext, body),
             Statement::Cases(cases) => {
                 for (index, arm) in cases.arms.iter().enumerate() {
                     child(Branch::CaseArm(index), &arm.body);
@@ -429,10 +482,14 @@ fn generated_paths<'a>(
                 pending.push((subject, &cases.subject));
             }
             Statement::Simd(_)
-            | Statement::IndirectCallResults { .. }
+            | Statement::IndirectCallResults {
+                ..
+            }
             | Statement::Store(..)
             | Statement::DiscardValue(..)
-            | Statement::CallResults { .. }
+            | Statement::CallResults {
+                ..
+            }
             | Statement::StoreInt(..)
             | Statement::StoreBool(..)
             | Statement::Exit(..)

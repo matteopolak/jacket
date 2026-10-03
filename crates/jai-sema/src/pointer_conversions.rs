@@ -33,7 +33,9 @@ impl Resolver<'_> {
         };
         let value = match value {
             Expr::Null => ValueExpr::Zero(target),
-            Expr::Pointer { value, .. } => ValueExpr::PointerCast {
+            Expr::Pointer {
+                value, ..
+            } => ValueExpr::PointerCast {
                 value: Box::new(value),
                 ty: target,
                 mode,
@@ -76,6 +78,9 @@ impl Resolver<'_> {
                 ));
             }
         };
-        Ok(Expr::Pointer { ty: target, value })
+        Ok(Expr::Pointer {
+            ty: target,
+            value,
+        })
     }
 }

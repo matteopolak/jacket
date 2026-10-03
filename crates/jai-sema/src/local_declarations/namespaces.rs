@@ -27,7 +27,9 @@ impl Resolver<'_> {
         source: RecordSource<'_>,
         members: &[syntax::RecordMember],
     ) -> Result<TypeId, Diagnostic> {
-        let RecordSource { id, .. } = source;
+        let RecordSource {
+            id, ..
+        } = source;
         if members.len() > 65_536 {
             return Err(Diagnostic::new(
                 source.span,
@@ -45,7 +47,7 @@ impl Resolver<'_> {
                     _ => None,
                 })
                 .collect();
-            let ty = self.define_local_record(source, &fields, false)?;
+            let ty = self.define_local_record(source, &fields, members, false)?;
             if !self
                 .meta
                 .local_declarations
@@ -131,10 +133,19 @@ impl Resolver<'_> {
                         fields.push(FieldSource::AnonymousRecord(record.as_ref().clone()));
                         continue;
                     }
-                    syntax::RecordMember::Assert { .. }
-                    | syntax::RecordMember::DefaultOverride { .. } => continue,
-                    syntax::RecordMember::Conditional { span, .. }
-                    | syntax::RecordMember::CompileTimeCases { span, .. } => {
+                    syntax::RecordMember::Placement(_) => continue,
+                    syntax::RecordMember::Assert {
+                        ..
+                    }
+                    | syntax::RecordMember::DefaultOverride {
+                        ..
+                    } => continue,
+                    syntax::RecordMember::Conditional {
+                        span, ..
+                    }
+                    | syntax::RecordMember::CompileTimeCases {
+                        span, ..
+                    } => {
                         return Err(Diagnostic::new(
                             *span,
                             "record conditional was not selected before shape binding",
@@ -177,7 +188,7 @@ impl Resolver<'_> {
                 .method_phases
                 .insert(ty, MethodPhase::TypesOnly);
             self.resolve_registered_local_declarations()?;
-            self.define_local_record_shape(source, &fields, has_namespace_members)?;
+            self.define_local_record_shape(source, &fields, &selected, has_namespace_members)?;
             self.meta.local_declarations.method_phases.remove(&ty);
             // Descriptor queries require the completed field shape. Resolve
             // remaining semantic constants before publishing the namespace.

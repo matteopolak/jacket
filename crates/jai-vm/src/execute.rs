@@ -172,10 +172,13 @@ fn runtime_prototype(prototype: &ProcedurePrototype) -> ProcedureAvailability<'_
                 intrinsic,
             })
         }
-        PrototypeOrigin::Foreign { .. } | PrototypeOrigin::Compiler => {
-            ProcedureAvailability::Foreign
+        PrototypeOrigin::Foreign {
+            ..
         }
-        PrototypeOrigin::SourceContract { .. } => ProcedureAvailability::Failed(Error::InvalidIr(
+        | PrototypeOrigin::Compiler => ProcedureAvailability::Foreign,
+        PrototypeOrigin::SourceContract {
+            ..
+        } => ProcedureAvailability::Failed(Error::InvalidIr(
             "source contract has no compile-time implementation provider",
         )),
     }
@@ -1026,10 +1029,14 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                     crate::CompilerIntrinsic::SourceWriteStrings => self
                         .compiler_write_strings(&arguments)
                         .map_err(into_effect_error),
-                    crate::CompilerIntrinsic::SourceVersionInfo { record } => self
+                    crate::CompilerIntrinsic::SourceVersionInfo {
+                        record,
+                    } => self
                         .compiler_version_info(record, &arguments)
                         .map_err(into_effect_error),
-                    crate::CompilerIntrinsic::SourceWaitForMessage { schema } => self
+                    crate::CompilerIntrinsic::SourceWaitForMessage {
+                        schema,
+                    } => self
                         .compiler_wait_for_message(schema, &arguments)
                         .map_err(into_effect_error),
                     crate::CompilerIntrinsic::SourceRuntimeInfo {
@@ -1345,7 +1352,9 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                     length: 0,
                 })?;
                 match self.provider.types().kind(projection.base.ty())? {
-                    TypeKind::FixedArray { .. } => {
+                    TypeKind::FixedArray {
+                        ..
+                    } => {
                         self.prepare_pointer_layouts(&base, true)?;
                         self.memory.index(self.provider.types(), &base, index)?
                     }
@@ -1353,9 +1362,20 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                         let value = snapshot
                             .ok_or(Error::InvalidIr("missing indexed descriptor snapshot"))?;
                         let (pointer, count) = match value {
-                            Value::Slice { pointer, count, .. }
-                            | Value::DynamicArray { pointer, count, .. }
-                            | Value::StringView { pointer, count } => (pointer, Some(count)),
+                            Value::Slice {
+                                pointer,
+                                count,
+                                ..
+                            }
+                            | Value::DynamicArray {
+                                pointer,
+                                count,
+                                ..
+                            }
+                            | Value::StringView {
+                                pointer,
+                                count,
+                            } => (pointer, Some(count)),
                             Value::Pointer(pointer) => (pointer, None),
                             _ => {
                                 return Err(Error::InvalidIr(
@@ -1504,7 +1524,10 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
             ProcedureAvailability::Failed(error) => return Err(error.into()),
         };
         if signature != actual {
-            return Err(Error::TypeMismatch { expected: actual }.into());
+            return Err(Error::TypeMismatch {
+                expected: actual,
+            }
+            .into());
         }
         self.call_arguments(procedure, arguments, depth + 1)
     }
@@ -1518,7 +1541,10 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
     fn integer(&mut self, expression: &IntExpr, depth: usize) -> Result<Number> {
         self.step(depth)?;
         let value = match expression.kind() {
-            IntExprKind::FromPointer { value, mode } => {
+            IntExprKind::FromPointer {
+                value,
+                mode,
+            } => {
                 let pointer = self.value(value, depth + 1)?.pointer()?.clone();
                 self.prepare_pointer_layouts(&pointer, false)?;
                 self.charge_work(pointer.metadata_cells())?;
@@ -1529,7 +1555,10 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                     *mode,
                 )?
             }
-            IntExprKind::PointerDifference { left, right } => {
+            IntExprKind::PointerDifference {
+                left,
+                right,
+            } => {
                 let left = self.value(left, depth + 1)?.pointer()?.clone();
                 let right = self.value(right, depth + 1)?.pointer()?.clone();
                 self.prepare_pointer_layouts(&left, true)?;
@@ -1547,7 +1576,9 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
             )?),
             IntExprKind::Value(value) => self.value(value, depth + 1)?.number()?,
             IntExprKind::EnumValue(value) => match self.value(value, depth + 1)? {
-                Value::Enum { value, .. } => Number::plain(value),
+                Value::Enum {
+                    value, ..
+                } => Number::plain(value),
                 _ => return Err(Error::InvalidIr("enum conversion requires an enum value").into()),
             },
             IntExprKind::Constant(value) => Number::plain(*value),
@@ -1610,7 +1641,9 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
             }
             BoolExpr::FromPointer(value) => match self.value(value, depth + 1)? {
                 Value::Pointer(pointer) => self.pointer_truth(&pointer)?,
-                Value::Procedure { procedure, .. } => procedure.is_some(),
+                Value::Procedure {
+                    procedure, ..
+                } => procedure.is_some(),
                 _ => {
                     return Err(
                         Error::InvalidIr("pointer truth requires a pointer or procedure").into(),
@@ -1705,7 +1738,11 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
         self.step(depth)?;
         match statement {
             Statement::Simd(block) => return self.simd(block, depth + 1),
-            Statement::PushContext { id, value, body } => {
+            Statement::PushContext {
+                id,
+                value,
+                body,
+            } => {
                 return self.push_context(*id, value, body, depth + 1);
             }
             Statement::IndirectCallResults {
@@ -1739,7 +1776,10 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
             Statement::DiscardValue(expression) => {
                 self.value(expression, depth + 1)?;
             }
-            Statement::CallResults { call, destinations } => {
+            Statement::CallResults {
+                call,
+                destinations,
+            } => {
                 let pointers = destinations
                     .iter()
                     .map(|place| place.map(|place| self.place(place, depth + 1)).transpose())
@@ -1945,7 +1985,11 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                 current.clone(),
                 Number::plain(Integer::wrapping(
                     current.ty(),
-                    if reverse { -1 } else { 1 },
+                    if reverse {
+                        -1
+                    } else {
+                        1
+                    },
                 )),
                 CheckMode::Disabled,
                 self.limits.value_cells,

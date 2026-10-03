@@ -97,7 +97,10 @@ impl fmt::Display for Error {
                 f,
                 "record {ty:?} requires ordered placement initialization support"
             ),
-            Self::UnsupportedAlignment { requested, actual } => write!(
+            Self::UnsupportedAlignment {
+                requested,
+                actual,
+            } => write!(
                 f,
                 "target represents requested alignment {requested} as {actual}"
             ),
@@ -119,8 +122,14 @@ impl fmt::Display for Error {
             Self::UnsupportedUnion(ty) => {
                 write!(f, "union {ty:?} requires a storage and field-access ABI")
             }
-            Self::Union { ty, error } => write!(f, "union {ty:?}: {error}"),
-            Self::ArrayTooLarge { ty, count } => {
+            Self::Union {
+                ty,
+                error,
+            } => write!(f, "union {ty:?}: {error}"),
+            Self::ArrayTooLarge {
+                ty,
+                count,
+            } => {
                 write!(f, "array {ty:?} length {count} exceeds the LLVM API limit")
             }
             Self::ArrayStorageTooLarge {
@@ -148,7 +157,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 
 /// A per-context cache. Semantic pointees and nominal identities remain in `Types`.
 pub struct TypeLowerer<'ctx, 'types> {
@@ -245,7 +255,10 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
                     TypeKind::Distinct(distinct) => {
                         vec![self.types.distinct(*distinct)?.representation]
                     }
-                    TypeKind::FixedArray { element, count } => {
+                    TypeKind::FixedArray {
+                        element,
+                        count,
+                    } => {
                         if *count > u64::from(u32::MAX) {
                             return Err(Error::ArrayTooLarge {
                                 ty: id,
@@ -297,7 +310,10 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
                     self.types.enumeration(*enumeration)?.representation,
                 )
                 .into(),
-                TypeKind::FixedArray { element, count } => {
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } => {
                     if let Some(target) = self.target {
                         let address_bits = self
                             .context
@@ -388,8 +404,12 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
                             self.context.i8_type().array_type(size).into(),
                         ]
                     } else if kind == RecordKind::Union {
-                        crate::unions::body(self.context, target, &fields, &expected)
-                            .map_err(|error| Error::Union { ty: id, error })?
+                        crate::unions::body(self.context, target, &fields, &expected).map_err(
+                            |error| Error::Union {
+                                ty: id,
+                                error,
+                            },
+                        )?
                     } else {
                         crate::records::body(self.context, target, &fields, &expected)?
                     };
@@ -714,6 +734,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([a, float, enumeration, slice]),
                 results: Box::new([double]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: jai_types::Variadic::None,
@@ -832,6 +853,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([byte, byte]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
                 variadic: jai_types::Variadic::None,
@@ -841,6 +863,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::C,
                 context: ContextMode::None,
                 variadic: jai_types::Variadic::None,
@@ -850,6 +873,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: Box::new([]),
                 results: Box::new([]),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: jai_types::Variadic::None,
@@ -1057,6 +1081,7 @@ mod tests {
             .procedure(ProcedureType {
                 parameters: vec![byte].into_boxed_slice(),
                 results: vec![byte].into_boxed_slice(),
+                return_abi: jai_types::ForeignReturnAbi::Natural,
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
                 variadic: jai_types::Variadic::None,

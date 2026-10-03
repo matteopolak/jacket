@@ -390,36 +390,73 @@ fn location_cells(location: &SourceLocation) -> usize {
 }
 fn compiler_request_cells(request: &CompilerRequest) -> usize {
     let n = match request {
-        CompilerRequest::BeginIntercept { .. } | CompilerRequest::SetWorkspaceStatus { .. } => 2,
-        CompilerRequest::EndIntercept { .. }
-        | CompilerRequest::GetWorkspaceName { .. }
-        | CompilerRequest::DestroyWorkspace { .. }
-        | CompilerRequest::GetBuildOptions { .. } => 1,
+        CompilerRequest::BeginIntercept {
+            ..
+        }
+        | CompilerRequest::SetWorkspaceStatus {
+            ..
+        } => 2,
+        CompilerRequest::EndIntercept {
+            ..
+        }
+        | CompilerRequest::GetWorkspaceName {
+            ..
+        }
+        | CompilerRequest::DestroyWorkspace {
+            ..
+        }
+        | CompilerRequest::GetBuildOptions {
+            ..
+        } => 1,
         CompilerRequest::WaitForMessage => 0,
         CompilerRequest::SetBuildOptionAt {
-            option, location, ..
+            option,
+            location,
+            ..
         } => option_cells(option)
             .saturating_add(location_cells(location))
             .saturating_add(1),
-        CompilerRequest::SetBuildOption { option, .. } => option_cells(option).saturating_add(1),
-        CompilerRequest::WriteOutput { bytes, .. } => bytes.len().saturating_add(2),
+        CompilerRequest::SetBuildOption {
+            option, ..
+        } => option_cells(option).saturating_add(1),
+        CompilerRequest::WriteOutput {
+            bytes, ..
+        } => bytes.len().saturating_add(2),
         CompilerRequest::AddSourceAt {
-            source, location, ..
+            source,
+            location,
+            ..
         } => source
             .len()
             .saturating_add(location_cells(location))
             .saturating_add(2),
-        CompilerRequest::AddSourceFileAt { path, location, .. } => path_cells(path)
+        CompilerRequest::AddSourceFileAt {
+            path,
+            location,
+            ..
+        } => path_cells(path)
             .saturating_add(location_cells(location))
             .saturating_add(1),
-        CompilerRequest::Report { text, location, .. } => text
+        CompilerRequest::Report {
+            text,
+            location,
+            ..
+        } => text
             .len()
             .saturating_add(location_cells(location))
             .saturating_add(3),
-        CompilerRequest::AddSource { source, .. } => source.len().saturating_add(2),
-        CompilerRequest::AddSourceFile { path, .. } => path_cells(path).saturating_add(1),
-        CompilerRequest::CreateWorkspace { name } => name.len().saturating_add(1),
-        CompilerRequest::Message { text, .. } => text.len().saturating_add(2),
+        CompilerRequest::AddSource {
+            source, ..
+        } => source.len().saturating_add(2),
+        CompilerRequest::AddSourceFile {
+            path, ..
+        } => path_cells(path).saturating_add(1),
+        CompilerRequest::CreateWorkspace {
+            name,
+        } => name.len().saturating_add(1),
+        CompilerRequest::Message {
+            text, ..
+        } => text.len().saturating_add(2),
     };
     n.saturating_add(1)
 }
@@ -436,11 +473,17 @@ fn compiler_response_cells(response: &CompilerResponse) -> usize {
             ),
         CompilerResponse::Unit => 1,
         CompilerResponse::Workspace(_) => 2,
-        CompilerResponse::Message(CompilerEvent::Phase { phase, .. }) => match phase {
-            CompilerPhase::Typechecked { .. } => 4,
+        CompilerResponse::Message(CompilerEvent::Phase {
+            phase, ..
+        }) => match phase {
+            CompilerPhase::Typechecked {
+                ..
+            } => 4,
             CompilerPhase::SourceParsed | CompilerPhase::TargetCodeBuilt => 3,
         },
-        CompilerResponse::Message(CompilerEvent::Complete { .. }) => 3,
+        CompilerResponse::Message(CompilerEvent::Complete {
+            ..
+        }) => 3,
     }
 }
 fn host_request_cells(request: &HostRequest) -> usize {
@@ -449,9 +492,10 @@ fn host_request_cells(request: &HostRequest) -> usize {
         HostRequest::ReadEntireFile(value) | HostRequest::ReadFileForOpen(value) => {
             path(value).saturating_add(1)
         }
-        HostRequest::WriteEntireFile { path: value, bytes } => {
-            path(value).saturating_add(bytes.len()).saturating_add(2)
-        }
+        HostRequest::WriteEntireFile {
+            path: value,
+            bytes,
+        } => path(value).saturating_add(bytes.len()).saturating_add(2),
         HostRequest::RunProgram(invocation) => {
             invocation
                 .arguments

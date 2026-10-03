@@ -63,9 +63,9 @@ pub(super) fn encode(
         }
         match &parameter.binding {
             syntax::ParameterBinding::RequiredType(ty)
-            | syntax::ParameterBinding::DefaultedType { ty: Some(ty), .. } => {
-                formal_type(ty, &mut names)
-            }
+            | syntax::ParameterBinding::DefaultedType {
+                ty: Some(ty), ..
+            } => formal_type(ty, &mut names),
             _ => {}
         }
     }
@@ -155,11 +155,16 @@ pub(super) fn decode(
                     | ModuleBoundArgument::String(_)
                     | ModuleBoundArgument::Float(_) => unreachable!(),
                 };
-                BakedValue::runtime(jai_ir::ConstantValue { ty, kind }, types).map_err(|error| {
-                    LocatedDiagnostic {
-                        location,
-                        message: error.to_string(),
-                    }
+                BakedValue::runtime(
+                    jai_ir::ConstantValue {
+                        ty,
+                        kind,
+                    },
+                    types,
+                )
+                .map_err(|error| LocatedDiagnostic {
+                    location,
+                    message: error.to_string(),
                 })?
             }
         };
@@ -177,12 +182,19 @@ fn formal_type(ty: &syntax::TypeSyntax, names: &mut Vec<Symbol>) {
     use syntax::TypeSyntax as T;
     match ty {
         T::Variable(name) => remember(names, *name),
-        T::Restricted { variable, .. } => remember(names, *variable),
+        T::Restricted {
+            variable, ..
+        } => remember(names, *variable),
         T::Pointer(value)
         | T::Slice(value)
         | T::DynamicArray(value)
-        | T::Variant { base: value, .. } => formal_type(value, names),
-        T::FixedArray { count, element } => {
+        | T::Variant {
+            base: value, ..
+        } => formal_type(value, names),
+        T::FixedArray {
+            count,
+            element,
+        } => {
             formal_expression(count, names);
             formal_type(element, names);
         }
@@ -207,7 +219,9 @@ fn formal_expression(expression: &syntax::Expression, names: &mut Vec<Symbol>) {
         E::Type(ty) => formal_type(ty, names),
         E::Unary(_, value)
         | E::Cast(_, _, value)
-        | E::InferredCast { value, .. }
+        | E::InferredCast {
+            value, ..
+        }
         | E::AddressOf(value)
         | E::Dereference(value) => formal_expression(value, names),
         E::Binary(_, left, right)
@@ -218,7 +232,11 @@ fn formal_expression(expression: &syntax::Expression, names: &mut Vec<Symbol>) {
             formal_expression(left, names);
             formal_expression(right, names);
         }
-        E::TypeCast { ty, value, .. } => {
+        E::TypeCast {
+            ty,
+            value,
+            ..
+        } => {
             formal_type(ty, names);
             formal_expression(value, names);
         }

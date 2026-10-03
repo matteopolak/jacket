@@ -23,7 +23,10 @@ fn bare_contract_retains_true_jai_abi_and_has_no_native_library_authority() {
     assert_eq!(signature.parameters.len(), 4);
     assert!(matches!(
         signature.variadic,
-        Variadic::Jai { parameter: 0, .. }
+        Variadic::Jai {
+            parameter: 0,
+            ..
+        }
     ));
     assert!(library.foreign_libraries().is_empty());
 }

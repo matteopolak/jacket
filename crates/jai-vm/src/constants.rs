@@ -27,8 +27,12 @@ pub(crate) fn preflight_provider_constants(
                 budget.reserve(data.symbol().len())?;
                 if let jai_ir::ExternalDataSource::Library(binding) = data.source() {
                     budget.reserve(match &binding.kind {
-                        jai_ir::ForeignLibraryKind::System { name } => name.len(),
-                        jai_ir::ForeignLibraryKind::Local { path } => path.as_os_str().len(),
+                        jai_ir::ForeignLibraryKind::System {
+                            name,
+                        } => name.len(),
+                        jai_ir::ForeignLibraryKind::Local {
+                            path,
+                        } => path.as_os_str().len(),
                     })?;
                 }
             }
@@ -68,7 +72,10 @@ impl ShapeBudget {
                     }
                     pending.extend(children.iter().map(|child| (child, depth + 1)));
                 }
-                ConstantKind::Distinct(child) | ConstantKind::Union { value: child, .. } => {
+                ConstantKind::Distinct(child)
+                | ConstantKind::Union {
+                    value: child, ..
+                } => {
                     self.reserve(1)?;
                     if depth == self.depth {
                         return Err(Error::Limit(LimitKind::EvaluationDepth));
@@ -121,7 +128,9 @@ fn zero_inner(
 ) -> Result<Value, Error> {
     budget.consume(depth)?;
     Ok(match types.kind(ty)? {
-        TypeKind::Type => Value::Type { descriptor: None },
+        TypeKind::Type => Value::Type {
+            descriptor: None,
+        },
         TypeKind::Procedure(_) => Value::Procedure {
             signature: ty,
             procedure: None,
@@ -176,10 +185,16 @@ fn zero_inner(
                 for &field in &record.fields {
                     fields.push(zero_inner(types, field, budget, depth + 1)?);
                 }
-                Value::Record { ty, fields }
+                Value::Record {
+                    ty,
+                    fields,
+                }
             }
         }
-        TypeKind::FixedArray { element, count } => {
+        TypeKind::FixedArray {
+            element,
+            count,
+        } => {
             let count = usize::try_from(*count)
                 .ok()
                 .filter(|count| *count <= budget.remaining)
@@ -188,7 +203,10 @@ fn zero_inner(
             for _ in 0..count {
                 elements.push(zero_inner(types, *element, budget, depth + 1)?);
             }
-            Value::Array { ty, elements }
+            Value::Array {
+                ty,
+                elements,
+            }
         }
         _ => return Err(Error::UnsupportedType(ty)),
     })
@@ -236,7 +254,10 @@ fn constant(
                 "runtime Type constants require VM static publication",
             ));
         }
-        ConstantKind::Union { field, value } => Value::Union {
+        ConstantKind::Union {
+            field,
+            value,
+        } => Value::Union {
             ty: constant.ty,
             field: field.index(),
             value: Box::new(self::constant(types, value, budget, depth + 1)?),
@@ -305,7 +326,9 @@ pub(crate) fn native_pointer(
     let error = |error| match error {
         NativePointerConstantError::Type(error) => Error::Type(error),
         NativePointerConstantError::CheckedCast => Error::CheckedCast,
-        NativePointerConstantError::InvalidType(ty) => Error::TypeMismatch { expected: ty },
+        NativePointerConstantError::InvalidType(ty) => Error::TypeMismatch {
+            expected: ty,
+        },
         NativePointerConstantError::UnsupportedWidth(_) => {
             Error::UnsupportedPointerOperation("native pointer constant width is unsupported")
         }

@@ -19,7 +19,11 @@ pub(super) fn template<'a>(
     let [result] = procedure.results.as_slice() else {
         return Ok(None);
     };
-    let syntax::ResultBinding::Typed { ty, default } = &result.binding else {
+    let syntax::ResultBinding::Typed {
+        ty,
+        default,
+    } = &result.binding
+    else {
         return Ok(None);
     };
     let ty = declarations.nominals.resolve_type_with_specializations(

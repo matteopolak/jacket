@@ -152,7 +152,10 @@ impl fmt::Display for Error {
                 f,
                 "compiler runtime prototype {id:?} has no native implementation"
             ),
-            Self::UnsupportedInlining { procedure, reason } => {
+            Self::UnsupportedInlining {
+                procedure,
+                reason,
+            } => {
                 write!(f, "unsupported inlining policy for {procedure:?}: {reason}")
             }
             Self::Pointer(error) => {
@@ -173,7 +176,8 @@ impl fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+}
 /// LLVM performs instruction construction and text serialization.
 pub fn emit(program: &Program) -> Result<String, Error> {
     let context = Context::create();
@@ -318,13 +322,19 @@ fn lower_unit<'ctx>(
             functions.insert(prototype.id, function);
             continue;
         }
-        if let jai_ir::PrototypeOrigin::SourceContract { symbol } = &prototype.origin {
+        if let jai_ir::PrototypeOrigin::SourceContract {
+            symbol,
+        } = &prototype.origin
+        {
             let function =
                 module.add_function(symbol, lowerer.function(prototype.signature)?, None);
             functions.insert(prototype.id, function);
             continue;
         }
-        let jai_ir::PrototypeOrigin::Foreign { symbol, .. } = &prototype.origin else {
+        let jai_ir::PrototypeOrigin::Foreign {
+            symbol, ..
+        } = &prototype.origin
+        else {
             return Err(Error::UnsupportedPrototype(prototype.id));
         };
         let external = foreign::declare(
@@ -757,9 +767,11 @@ impl<'ctx> Generator<'ctx, '_, '_> {
             }
             match statement {
                 Statement::Simd(block) => self.simd(block)?,
-                Statement::PushContext { id, value, body } => {
-                    self.push_context(*id, value, body)?
-                }
+                Statement::PushContext {
+                    id,
+                    value,
+                    body,
+                } => self.push_context(*id, value, body)?,
                 Statement::StoreInt(id, e) => {
                     let v = self.int(e)?;
                     let slot = self.int_place(*id)?;
@@ -784,9 +796,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                     let result = self.indirect_call(callee, arguments, *inline_hint)?.value;
                     self.store_call_results(result, &destinations)?;
                 }
-                Statement::CallResults { call, destinations } => {
-                    self.call_results(call, destinations)?
-                }
+                Statement::CallResults {
+                    call,
+                    destinations,
+                } => self.call_results(call, destinations)?,
                 Statement::Exit(exit) => self.exit(exit)?,
                 Statement::Cleanup(id) => self.cleanup(*id)?,
                 Statement::DiscardInt(e) => {
@@ -1090,28 +1103,45 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         hint: jai_types::InlineHint,
     ) -> Result<foreign::CallResult<'ctx>, Error> {
         let signature = callee.type_id(self.types);
-        if let ValueExpr::ProcedureValue { procedure, .. } = callee {
+        if let ValueExpr::ProcedureValue {
+            procedure, ..
+        } = callee
+        {
             inline_hints::validate(self.library, *procedure, hint)?;
         }
         let definition = self.types.procedure_definition(signature)?;
-        let convention = definition.convention;
-        let variadic = matches!(definition.variadic, jai_types::Variadic::C { .. });
-        let target = if let ValueExpr::ProcedureValue { procedure, .. } = callee {
+        // The checked source convention chooses the ABI. A target with no
+        // foreign classifier can still lower its internal Jai callbacks.
+        let foreign_signature = if definition.convention.uses_c_abi() {
+            let platform = self.target.c_platform()?;
+            crate::cpp_methods::validate_triple(
+                self.types,
+                definition,
+                platform,
+                &self.target.triple.as_str().to_string_lossy(),
+            )?;
+            Some(abi::Signature::classify(
+                self.context,
+                self.types,
+                self.lowerer,
+                platform,
+                &self.target.data,
+                signature,
+                matches!(definition.variadic, jai_types::Variadic::C { .. }),
+            )?)
+        } else {
+            None
+        };
+        let target = if let ValueExpr::ProcedureValue {
+            procedure, ..
+        } = callee
+        {
             foreign::Callee::Direct(*self.functions.get(procedure).ok_or(Error::Invariant)?)
         } else {
             foreign::Callee::Indirect(self.value(callee)?.into_pointer_value())
         };
         let arguments = self.arguments(arguments)?;
-        let result = if convention.uses_c_abi() {
-            let signature = abi::Signature::classify(
-                self.context,
-                self.types,
-                self.lowerer,
-                self.target.c_platform()?,
-                &self.target.data,
-                signature,
-                variadic,
-            )?;
+        let result = if let Some(signature) = foreign_signature {
             foreign::call(
                 &self.builder,
                 self.types,
@@ -1174,12 +1204,14 @@ impl<'ctx> Generator<'ctx, '_, '_> {
     fn int(&mut self, e: &IntExpr) -> Result<Number<'ctx>, Error> {
         let ty = integer_type(self.context, e.ty());
         Ok(Number(match e.kind() {
-            IntExprKind::FromPointer { value, mode } => {
-                self.pointer_to_integer(value, e.ty(), *mode)?
-            }
-            IntExprKind::PointerDifference { left, right } => {
-                self.pointer_difference(left, right)?
-            }
+            IntExprKind::FromPointer {
+                value,
+                mode,
+            } => self.pointer_to_integer(value, e.ty(), *mode)?,
+            IntExprKind::PointerDifference {
+                left,
+                right,
+            } => self.pointer_difference(left, right)?,
             IntExprKind::Constant(n) => ty.const_int(n.bits(), false),
             IntExprKind::InvalidCheckedCast => {
                 self.check_cast(Bit(self.bit.const_zero()))?;

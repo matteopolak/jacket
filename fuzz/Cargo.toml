@@ -1,0 +1,74 @@
+[package]
+name = "jai-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[features]
+fuzzing = ["dep:libfuzzer-sys"]
+
+[dependencies]
+libfuzzer-sys = { version = "=0.4.13", optional = true }
+jai-source = { path = "../crates/jai-source" }
+jai-lexer = { path = "../crates/jai-lexer" }
+jai-syntax = { path = "../crates/jai-syntax" }
+jai-types = { path = "../crates/jai-types" }
+jai-ir = { path = "../crates/jai-ir" }
+jai-vm = { path = "../crates/jai-vm" }
+jai-modules = { path = "../crates/jai-modules" }
+jai-sema = { path = "../crates/jai-sema" }
+jai-runtime = { path = "../crates/jai-runtime" }
+
+[workspace]
+members = ["."]
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.release]
+debug = 1
+incremental = false
+
+[[bin]]
+name = "lexer_utf8"
+path = "fuzz_targets/lexer_utf8.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fuzzing"]
+
+[[bin]]
+name = "parser"
+path = "fuzz_targets/parser.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fuzzing"]
+
+[[bin]]
+name = "module_vfs"
+path = "fuzz_targets/module_vfs.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fuzzing"]
+
+[[bin]]
+name = "constant_sema"
+path = "fuzz_targets/constant_sema.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fuzzing"]
+
+[[bin]]
+name = "checked_ir_vm"
+path = "fuzz_targets/checked_ir_vm.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fuzzing"]

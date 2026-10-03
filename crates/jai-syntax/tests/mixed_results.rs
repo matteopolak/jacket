@@ -16,7 +16,9 @@ fn source_marks_existing_and_new_result_destinations_explicitly() {
         panic!()
     };
     let StatementKind::MixedResults {
-        bindings, ty: None, ..
+        bindings,
+        ty: None,
+        ..
     } = &procedure.body[0].kind
     else {
         panic!()
@@ -34,7 +36,9 @@ fn source_marks_existing_and_new_result_destinations_explicitly() {
     assert!(matches!(bindings[0], ResultTargetBinding::New { .. }));
     assert!(matches!(bindings[1], ResultTargetBinding::Existing(_)));
     let StatementKind::MixedResults {
-        bindings, ty: None, ..
+        bindings,
+        ty: None,
+        ..
     } = &procedure.body[2].kind
     else {
         panic!()

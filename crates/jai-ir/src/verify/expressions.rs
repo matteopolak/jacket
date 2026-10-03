@@ -61,7 +61,13 @@ pub(super) fn constant_with_closures(
                 same_type(types.validate_field(value.ty, *field)?, payload.ty)?;
                 pending.push((payload, depth + 1));
             }
-            (ConstantKind::Array(elements), TypeKind::FixedArray { element, count }) => {
+            (
+                ConstantKind::Array(elements),
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                },
+            ) => {
                 let count =
                     usize::try_from(*count).map_err(|_| IrError::InvalidConstant(value.ty))?;
                 arity("constant array elements", count, elements.len())?;
@@ -123,9 +129,10 @@ pub(super) fn constant_procedures_with_closures(
                 &[]
             }
             ConstantKind::Record(children) | ConstantKind::Array(children) => children,
-            ConstantKind::Union { value, .. } | ConstantKind::Distinct(value) => {
-                std::slice::from_ref(value.as_ref())
+            ConstantKind::Union {
+                value, ..
             }
+            | ConstantKind::Distinct(value) => std::slice::from_ref(value.as_ref()),
             ConstantKind::Int(_)
             | ConstantKind::NativePointer(_)
             | ConstantKind::Float(_)
@@ -153,7 +160,10 @@ impl Context<'_> {
             ValueExpr::NativePointer(value) => value
                 .validate(types)
                 .map_err(|_| IrError::InvalidValue(value.type_id()))?,
-            ValueExpr::StorageBitcast { source, cast } => {
+            ValueExpr::StorageBitcast {
+                source,
+                cast,
+            } => {
                 cast.revalidate(types, cast.layout_policy())
                     .map_err(IrError::StorageBitcast)?;
                 storage::runtime_type(types, cast.source_type())?;
@@ -163,8 +173,14 @@ impl Context<'_> {
                 };
                 same_type(cast.source_type(), source_type)?;
             }
-            ValueExpr::Bind { bindings, body, .. } => self.bound_scope(bindings, body, ty)?,
-            ValueExpr::Bound { binding, .. } => self.bound_value(*binding, ty)?,
+            ValueExpr::Bind {
+                bindings,
+                body,
+                ..
+            } => self.bound_scope(bindings, body, ty)?,
+            ValueExpr::Bound {
+                binding, ..
+            } => self.bound_value(*binding, ty)?,
             ValueExpr::RuntimeType(value) => {
                 self.static_closures.borrow_mut().procedures(
                     value.data(),
@@ -173,13 +189,19 @@ impl Context<'_> {
                 )?;
                 value.validate_identity(types)?;
             }
-            ValueExpr::TypeDescriptor { value, .. } => {
+            ValueExpr::TypeDescriptor {
+                value, ..
+            } => {
                 let schema = jai_types::RuntimeTypeSchema::from_view(types)?;
                 same_type(schema.ty(), self.value(value)?)?;
                 same_type(schema.descriptor_type(), ty)?;
             }
-            ValueExpr::Context { .. } => same_type(self.context_type()?, ty)?,
-            ValueExpr::Conditional { expression, .. } => {
+            ValueExpr::Context {
+                ..
+            } => same_type(self.context_type()?, ty)?,
+            ValueExpr::Conditional {
+                expression, ..
+            } => {
                 self.boolean(&expression.condition)?;
                 same_type(ty, self.value(&expression.then_value)?)?;
                 same_type(ty, self.value(&expression.else_value)?)?;
@@ -187,34 +209,70 @@ impl Context<'_> {
             ValueExpr::Int(value) => self.integer(value)?,
             ValueExpr::Float(value) => self.float(value)?,
             ValueExpr::Bool(value) => self.boolean(value)?,
-            ValueExpr::Array { .. }
-            | ValueExpr::StringBytes { .. }
-            | ValueExpr::SequenceField { .. }
-            | ValueExpr::ArrayToSlice { .. }
-            | ValueExpr::ArrayView { .. }
-            | ValueExpr::Index { .. }
-            | ValueExpr::SequenceView { .. }
-            | ValueExpr::SequenceBuild { .. } => self.sequence_value(value, ty)?,
-            ValueExpr::AddressOf { .. }
-            | ValueExpr::AddressOfValue { .. }
-            | ValueExpr::PointerCast { .. }
-            | ValueExpr::PointerOffset { .. }
-            | ValueExpr::PointerOffsetLeft { .. }
-            | ValueExpr::PointerFromInteger { .. } => self.pointer_value(value, ty)?,
+            ValueExpr::Array {
+                ..
+            }
+            | ValueExpr::StringBytes {
+                ..
+            }
+            | ValueExpr::SequenceField {
+                ..
+            }
+            | ValueExpr::ArrayToSlice {
+                ..
+            }
+            | ValueExpr::ArrayView {
+                ..
+            }
+            | ValueExpr::Index {
+                ..
+            }
+            | ValueExpr::SequenceView {
+                ..
+            }
+            | ValueExpr::SequenceBuild {
+                ..
+            } => self.sequence_value(value, ty)?,
+            ValueExpr::AddressOf {
+                ..
+            }
+            | ValueExpr::AddressOfValue {
+                ..
+            }
+            | ValueExpr::PointerCast {
+                ..
+            }
+            | ValueExpr::PointerOffset {
+                ..
+            }
+            | ValueExpr::PointerOffsetLeft {
+                ..
+            }
+            | ValueExpr::PointerFromInteger {
+                ..
+            } => self.pointer_value(value, ty)?,
             // Concatenated backing belongs to the caller frame and is admitted
             // only as the actual Jai variadic parameter by call_arguments.
-            ValueExpr::SequenceConcat { .. } => return Err(IrError::InvalidValue(ty)),
-            ValueExpr::Distinct { value, .. } => {
+            ValueExpr::SequenceConcat {
+                ..
+            } => return Err(IrError::InvalidValue(ty)),
+            ValueExpr::Distinct {
+                value, ..
+            } => {
                 same_type(
                     types.distinct_definition(ty)?.representation,
                     self.value(value)?,
                 )?;
             }
-            ValueExpr::UnwrapDistinct { value, .. } => {
+            ValueExpr::UnwrapDistinct {
+                value, ..
+            } => {
                 let wrapped = self.value(value)?;
                 same_type(types.distinct_definition(wrapped)?.representation, ty)?;
             }
-            ValueExpr::ProcedureValue { procedure, .. } => {
+            ValueExpr::ProcedureValue {
+                procedure, ..
+            } => {
                 let &signature = self
                     .signatures
                     .get(procedure)
@@ -232,7 +290,11 @@ impl Context<'_> {
                 arity("indirect call results", 1, results.len())?;
                 same_type(ty, results[0])?;
             }
-            ValueExpr::StaticAddress { data, address, .. } => {
+            ValueExpr::StaticAddress {
+                data,
+                address,
+                ..
+            } => {
                 let TypeKind::Pointer(pointee) = *types.kind(ty)? else {
                     return Err(IrError::InvalidValue(ty));
                 };
@@ -245,7 +307,9 @@ impl Context<'_> {
                 self.place(*place)?;
             }
             ValueExpr::Zero(_) => {}
-            ValueExpr::Record { fields, .. } => {
+            ValueExpr::Record {
+                fields, ..
+            } => {
                 let record = types.record_storage_definition(ty)?;
                 if record.kind != RecordKind::Struct {
                     return Err(IrError::InvalidValue(ty));
@@ -255,13 +319,19 @@ impl Context<'_> {
                     same_type(expected, self.value(field)?)?;
                 }
             }
-            ValueExpr::Union { field, value, .. } => {
+            ValueExpr::Union {
+                field,
+                value,
+                ..
+            } => {
                 if types.record_definition(ty)?.kind != RecordKind::Union {
                     return Err(IrError::InvalidValue(ty));
                 }
                 same_type(types.validate_field(ty, *field)?, self.value(value)?)?;
             }
-            ValueExpr::RecordBuild { initializers, .. } => {
+            ValueExpr::RecordBuild {
+                initializers, ..
+            } => {
                 let record = types.record_storage_definition(ty)?;
                 if record.kind != RecordKind::Struct {
                     return Err(IrError::InvalidValue(ty));
@@ -283,7 +353,9 @@ impl Context<'_> {
                     same_type(expected, self.value(value)?)?;
                 }
             }
-            ValueExpr::OrderedRecord { initializers, .. } => {
+            ValueExpr::OrderedRecord {
+                initializers, ..
+            } => {
                 if types.record_storage_definition(ty)?.kind != RecordKind::Struct {
                     return Err(IrError::InvalidValue(ty));
                 }
@@ -297,15 +369,25 @@ impl Context<'_> {
                     same_type(expected, self.value(value)?)?;
                 }
             }
-            ValueExpr::Field { base, field, .. } => {
+            ValueExpr::Field {
+                base,
+                field,
+                ..
+            } => {
                 let base = self.value(base)?;
                 same_type(types.validate_field(base, *field)?, ty)?;
             }
-            ValueExpr::Call { call, .. } => self.single_call(call, ty)?,
-            ValueExpr::Enum { value, .. } => {
+            ValueExpr::Call {
+                call, ..
+            } => self.single_call(call, ty)?,
+            ValueExpr::Enum {
+                value, ..
+            } => {
                 same_integer(types.enum_definition(ty)?.representation, value.ty())?;
             }
-            ValueExpr::EnumFromInt { value, .. } => {
+            ValueExpr::EnumFromInt {
+                value, ..
+            } => {
                 self.integer(value)?;
                 same_integer(types.enum_definition(ty)?.representation, value.ty())?;
             }
@@ -324,7 +406,10 @@ impl Context<'_> {
                 let value_ty = self.value(value)?;
                 same_integer(ty, self.types.enum_definition(value_ty)?.representation)?;
             }
-            IntExprKind::PointerDifference { left, right } => {
+            IntExprKind::PointerDifference {
+                left,
+                right,
+            } => {
                 same_integer(IntegerType::S64, ty)?;
                 self.pointer_compare(left, right)?;
                 let pointer = left.type_id(self.types);
@@ -344,7 +429,10 @@ impl Context<'_> {
                 }
                 self.float(value)?;
             }
-            IntExprKind::FromPointer { value, mode } => {
+            IntExprKind::FromPointer {
+                value,
+                mode,
+            } => {
                 if matches!(mode, CastMode::Force(_)) {
                     return Err(IrError::InvalidValue(expected));
                 }

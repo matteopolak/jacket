@@ -141,7 +141,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
                 | TypeKind::String
                 | TypeKind::Slice(_)
                 | TypeKind::DynamicArray(_) => return Ok(true),
-                TypeKind::FixedArray { element, count } if count != 0 => pending.push(element),
+                TypeKind::FixedArray {
+                    element,
+                    count,
+                } if count != 0 => pending.push(element),
                 TypeKind::Record(_) | TypeKind::Any(_) => pending.extend(
                     self.types
                         .record_storage_definition(ty)?
@@ -214,9 +217,10 @@ impl<'ctx> Generator<'ctx, '_, '_> {
             TypeKind::Distinct(id) => {
                 self.guard_sequence_pack_storage(storage, self.types.distinct(id)?.representation)?
             }
-            TypeKind::FixedArray { element, count }
-                if count != 0 && self.sequence_type_contains_pointer(element)? =>
-            {
+            TypeKind::FixedArray {
+                element,
+                count,
+            } if count != 0 && self.sequence_type_contains_pointer(element)? => {
                 let integer = self.context.i64_type();
                 let origin = self.builder.get_insert_block().ok_or(Error::Invariant)?;
                 let test = self.label("pack.return.array.test");

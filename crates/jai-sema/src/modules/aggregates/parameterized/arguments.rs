@@ -77,9 +77,9 @@ where
         substitution: &Substitution,
     ) -> TypeResult<TypeId> {
         match &parameter.binding {
-            syntax::RecordParameterBinding::Typed { ty, .. } => {
-                self.resolve(file, ty, Some(substitution), parameter.span)
-            }
+            syntax::RecordParameterBinding::Typed {
+                ty, ..
+            } => self.resolve(file, ty, Some(substitution), parameter.span),
             syntax::RecordParameterBinding::InferredDefault(default) => {
                 if let Some(ty) = type_expression(default) {
                     match self.resolve(file, &ty, Some(substitution), default.span) {
@@ -155,7 +155,9 @@ where
         }
         match &expression.kind {
             E::String(_) | E::HereString(_) => Ok(self.types.string()),
-            E::TypeCast { ty, .. } => self.resolve(file, ty, Some(substitution), expression.span),
+            E::TypeCast {
+                ty, ..
+            } => self.resolve(file, ty, Some(substitution), expression.span),
             E::StructLiteral(literal) if literal.ty.is_some() => self.resolve(
                 file,
                 &syntax::TypeSyntax::Named(literal.ty.clone().unwrap()),

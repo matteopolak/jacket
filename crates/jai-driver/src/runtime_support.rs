@@ -16,6 +16,7 @@ impl BuildSettings {
             define_initialization,
             enable_backtrace_on_crash: define_system_entry_point
                 && self.backtrace_on_crash == BacktraceOnCrash::On,
+            temporary_storage_size: self.temporary_storage_size,
         }
     }
 }
@@ -69,7 +70,8 @@ mod tests {
                             define_system_entry_point: entry,
                             define_initialization: init,
                             enable_backtrace_on_crash: entry
-                                && backtrace_on_crash == BacktraceOnCrash::On
+                                && backtrace_on_crash == BacktraceOnCrash::On,
+                            temporary_storage_size: 32768,
                         }
                     );
                 }

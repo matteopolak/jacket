@@ -73,20 +73,21 @@ impl<'a> Nominals<'a> {
             source,
             substitution,
             parameters,
+            defaults,
             ty,
             span,
         } = publication;
-        if !source
-            .parameters
-            .iter()
-            .any(|parameter| parameter.evaluation == syntax::ParameterEvaluation::Discard)
-        {
+        if !source.parameters.iter().any(|parameter| {
+            parameter.evaluation == syntax::ParameterEvaluation::Discard
+                || parameter.default.is_some()
+        }) {
             return Ok(());
         }
         use crate::procedure_values::source_annotations::{
             CheckedSourceProcedureType, ProcedureAnnotationKey, ProcedureAnnotationOrigin,
         };
-        let proof = CheckedSourceProcedureType::checked(ty, source, parameters, types, span)?;
+        let proof =
+            CheckedSourceProcedureType::checked(ty, source, parameters, defaults, types, span)?;
         let key = ProcedureAnnotationKey::new(
             ProcedureAnnotationOrigin::Graph(file),
             source,
@@ -148,7 +149,9 @@ impl<'a> Nominals<'a> {
                     .insert(declaration.id(), types.reserve_record(record.kind));
             }
             if let FileDeclarationKind::TypeAlias(alias) = &declaration.syntax().kind
-                && let TypeSyntax::Variant { kind, .. } = &alias.ty
+                && let TypeSyntax::Variant {
+                    kind, ..
+                } = &alias.ty
             {
                 let kind = match kind {
                     TypeVariantKind::Distinct => jai_types::DistinctKind::Distinct,
@@ -233,7 +236,9 @@ impl<'a> Nominals<'a> {
                     | TypeSyntax::Procedure(_)
                     | TypeSyntax::InlineRecord(_)
                     | TypeSyntax::InlineEnum(_)
-                    | TypeSyntax::Variant { .. } => return true,
+                    | TypeSyntax::Variant {
+                        ..
+                    } => return true,
                     TypeSyntax::Named(path) => path.clone(),
                     TypeSyntax::Variable(name) => path(*name),
                     _ => return false,
@@ -303,7 +308,10 @@ impl<'a> Nominals<'a> {
                 }
                 _ => continue,
             };
-            let representation = if let TypeSyntax::Variant { base, .. } = &syntax {
+            let representation = if let TypeSyntax::Variant {
+                base, ..
+            } = &syntax
+            {
                 base.as_ref()
             } else {
                 &syntax
@@ -360,7 +368,11 @@ impl<'a> Nominals<'a> {
         ) -> Result<ConstantValue, LocatedDiagnostic>,
     ) -> Result<TypeId, LocatedDiagnostic> {
         self.resolve_type_inner(
-            TypeSite { graph, file, span },
+            TypeSite {
+                graph,
+                file,
+                span,
+            },
             syntax,
             types,
             evaluate,
@@ -391,7 +403,11 @@ impl<'a> Nominals<'a> {
         ) -> Result<ConstantValue, LocatedDiagnostic>,
         visiting: &mut HashSet<DeclarationId>,
     ) -> Result<TypeId, LocatedDiagnostic> {
-        let TypeSite { graph, file, span } = site;
+        let TypeSite {
+            graph,
+            file,
+            span,
+        } = site;
         let result = match syntax {
             TypeSyntax::TypeOf(value) => {
                 return self.annotation_type_of(site, value, types, evaluate, visiting);
@@ -431,9 +447,15 @@ impl<'a> Nominals<'a> {
                     ),
                 ));
             }
-            TypeSyntax::Restricted { variable, .. } => {
+            TypeSyntax::Restricted {
+                variable, ..
+            } => {
                 return self.resolve_type_inner(
-                    TypeSite { graph, file, span },
+                    TypeSite {
+                        graph,
+                        file,
+                        span,
+                    },
                     &TypeSyntax::Variable(*variable),
                     types,
                     evaluate,
@@ -470,7 +492,9 @@ impl<'a> Nominals<'a> {
                     ),
                 ));
             }
-            TypeSyntax::Variant { .. } => {
+            TypeSyntax::Variant {
+                ..
+            } => {
                 return Err(located(
                     graph,
                     file,
@@ -558,7 +582,10 @@ impl<'a> Nominals<'a> {
                 let inner = self.resolve_type_inner(site, inner, types, evaluate, visiting)?;
                 types.pointer(inner)
             }
-            TypeSyntax::FixedArray { count, element } => {
+            TypeSyntax::FixedArray {
+                count,
+                element,
+            } => {
                 let element = self.resolve_type_inner(site, element, types, evaluate, visiting)?;
                 let value = evaluate(file, count)?;
                 let count = match value {
@@ -654,6 +681,7 @@ impl<'a> Nominals<'a> {
                     .procedure(ProcedureType {
                         parameters: parameters.into_boxed_slice(),
                         results: results.into_boxed_slice(),
+                        return_abi: procedure.return_abi,
                         convention: procedure.convention,
                         context: procedure.context,
                         variadic,
@@ -661,12 +689,37 @@ impl<'a> Nominals<'a> {
                     .map_err(|error| {
                         located(graph, file, Diagnostic::new(span, error.to_string()))
                     })?;
+                let defaults = procedure
+                    .parameters
+                    .iter()
+                    .filter(|parameter| {
+                        !(parameter.variadic && procedure.convention == CallingConvention::C)
+                    })
+                    .zip(&source_parameters)
+                    .map(|(parameter, expected)| {
+                        parameter
+                            .default
+                            .as_ref()
+                            .map(|expression| {
+                                if parameter.evaluation == syntax::ParameterEvaluation::Discard {
+                                    return Ok(crate::ParameterDefault::Discarded);
+                                }
+                                super::defaults::Defaults::with_evaluator(
+                                    graph, types, self, evaluate,
+                                )
+                                .expression(file, expression, *expected)
+                                .map(crate::ParameterDefault::Constant)
+                            })
+                            .transpose()
+                    })
+                    .collect::<Result<Vec<_>, LocatedDiagnostic>>()?;
                 self.remember_procedure_annotation(
                     crate::procedure_values::source_annotations::AnnotationPublication {
                         file,
                         source: procedure,
                         substitution: None,
                         parameters: source_parameters,
+                        defaults,
                         ty,
                         span,
                     },
@@ -722,7 +775,9 @@ impl<'a> Nominals<'a> {
                     matches!(&field.binding,
                     FieldBinding::Explicit { ty, .. } if contains_inline_nominal(ty))
                         || match &field.binding {
-                            FieldBinding::Explicit { initializer, .. } => initializer.as_ref(),
+                            FieldBinding::Explicit {
+                                initializer, ..
+                            } => initializer.as_ref(),
                             FieldBinding::Inferred(initializer) => Some(initializer),
                         }
                         .is_some_and(super::super::field_default_jobs::contains_typed_leaf)
@@ -798,7 +853,9 @@ impl<'a> Nominals<'a> {
                     ));
                 }
                 let field_ty = match &field.binding {
-                    FieldBinding::Explicit { ty, .. } => super::parameterized::resolve_type(
+                    FieldBinding::Explicit {
+                        ty, ..
+                    } => super::parameterized::resolve_type(
                         graph,
                         super::parameterized::TypeRequest::new(file, ty, field.span)
                             .with_substitution(None)
@@ -809,7 +866,10 @@ impl<'a> Nominals<'a> {
                         evaluate,
                     )?,
                     FieldBinding::Inferred(expression) => {
-                        if let syntax::ExpressionKind::TypeCast { ty, .. } = &expression.kind {
+                        if let syntax::ExpressionKind::TypeCast {
+                            ty, ..
+                        } = &expression.kind
+                        {
                             field_types.push(super::parameterized::resolve_type(
                                 graph,
                                 super::parameterized::TypeRequest::new(file, ty, expression.span)
@@ -900,7 +960,25 @@ impl<'a> Nominals<'a> {
             }
             let layout = super::layout::record_layout(graph, file, record, evaluate)?;
             types
-                .define_record_with_layout(ty, field_types, layout)
+                .define_record_with_placements(
+                    ty,
+                    field_types,
+                    layout,
+                    crate::record_placements::source_placement_ordinals(&record.members)
+                        .map_err(|error| located(graph, file, error))?,
+                )
+                .map_err(|error| {
+                    located(graph, file, Diagnostic::new(record.span, error.to_string()))
+                })?;
+            types
+                .add_record_reflection_flags(
+                    ty,
+                    crate::record_placements::source_reflection_policy(&record.attributes),
+                )
+                .map_err(|error| {
+                    located(graph, file, Diagnostic::new(record.span, error.to_string()))
+                })?;
+            crate::reflection::apply_source_record_attributes(types, ty, &record.attributes)
                 .map_err(|error| {
                     located(graph, file, Diagnostic::new(record.span, error.to_string()))
                 })?;
@@ -1059,7 +1137,10 @@ impl<'a> Nominals<'a> {
             .get(&member)
             .copied()
             .ok_or_else(|| Diagnostic::new(span, "unknown enum member"))?;
-        Ok(Some(EnumConstant { ty: *ty, value }))
+        Ok(Some(EnumConstant {
+            ty: *ty,
+            value,
+        }))
     }
 }
 
@@ -1072,7 +1153,9 @@ fn named_leaf(syntax: &TypeSyntax) -> &TypeSyntax {
         TypeSyntax::Pointer(inner) | TypeSyntax::Slice(inner) | TypeSyntax::DynamicArray(inner) => {
             named_leaf(inner)
         }
-        TypeSyntax::FixedArray { element, .. } => named_leaf(element),
+        TypeSyntax::FixedArray {
+            element, ..
+        } => named_leaf(element),
         TypeSyntax::Application(application) => named_leaf(&application.base),
         _ => syntax,
     }
@@ -1083,7 +1166,9 @@ fn contains_inline_nominal(syntax: &TypeSyntax) -> bool {
         TypeSyntax::Pointer(inner) | TypeSyntax::Slice(inner) | TypeSyntax::DynamicArray(inner) => {
             contains_inline_nominal(inner)
         }
-        TypeSyntax::FixedArray { element, .. } => contains_inline_nominal(element),
+        TypeSyntax::FixedArray {
+            element, ..
+        } => contains_inline_nominal(element),
         TypeSyntax::Procedure(procedure) => {
             procedure
                 .parameters

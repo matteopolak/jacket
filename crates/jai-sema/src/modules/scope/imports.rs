@@ -126,11 +126,15 @@ impl FileScope<'_> {
         Diagnostic::new(
             span,
             match error {
-                LookupError::PrivateMember { name, .. } => format!(
+                LookupError::PrivateMember {
+                    name, ..
+                } => format!(
                     "module member '{}' is private",
                     self.declarations.graph.symbols().name(name)
                 ),
-                LookupError::UnknownMember { name, .. } => format!(
+                LookupError::UnknownMember {
+                    name, ..
+                } => format!(
                     "unknown module member '{}'",
                     self.declarations.graph.symbols().name(name)
                 ),
@@ -230,7 +234,9 @@ impl FileScope<'_> {
     ) -> Result<Binding, Diagnostic> {
         match binding {
             GraphBinding::Module(module) => Ok(Binding::Namespace(module)),
-            GraphBinding::SourceMember { .. } => {
+            GraphBinding::SourceMember {
+                ..
+            } => {
                 if let Some((owner, member)) = self.imported_source_member_owner(binding, span)?
                     && let Some(value) = self
                         .declarations

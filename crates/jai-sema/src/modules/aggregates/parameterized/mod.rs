@@ -49,6 +49,7 @@ mod state;
 pub(crate) use methods::{RecordMethod, RecordMethodId, RecordMethodSource};
 pub(crate) use self_type::NominalAnnotationContext;
 mod member_enums;
+mod source_layouts;
 use super::types::Nominals;
 use crate::local_declarations::{FieldMetadata, FieldSourceRef, RecordMetadata};
 use crate::modules::{declaration_id, located, path};

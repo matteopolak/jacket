@@ -13,7 +13,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
         let right = self.value(right, depth + 1)?;
         let length = |value: &Value| match value {
             Value::String(bytes) => i64::try_from(bytes.len()).map_err(|_| Error::CheckedCast),
-            Value::StringView { count, .. } => Ok(*count),
+            Value::StringView {
+                count, ..
+            } => Ok(*count),
             _ => Err(Error::InvalidIr(
                 "string comparison requires string descriptors",
             )),
@@ -24,7 +26,10 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
             let count = crate::checked_sequence_count(count)?;
             if count != 0 {
                 for value in [&left, &right] {
-                    if let Value::StringView { pointer, .. } = value {
+                    if let Value::StringView {
+                        pointer, ..
+                    } = value
+                    {
                         self.prepare_pointer_layouts(pointer, true)?;
                         self.memory
                             .validate_slice(self.provider.types(), pointer, count)?;
@@ -51,7 +56,9 @@ impl<P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'_, P, E> {
                 .get(index)
                 .copied()
                 .ok_or_else(|| Error::InvalidIr("string byte is outside its count").into()),
-            Value::StringView { pointer, .. } => {
+            Value::StringView {
+                pointer, ..
+            } => {
                 self.prepare_pointer_layouts(pointer, true)?;
                 let offset = isize::try_from(index).map_err(|_| Error::CheckedCast)?;
                 let pointer = self.memory.offset(self.provider.types(), pointer, offset)?;

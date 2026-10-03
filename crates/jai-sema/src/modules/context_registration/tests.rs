@@ -38,6 +38,7 @@ fn graph(activate_runtime: bool) -> ModuleGraph {
                     define_system_entry_point: false,
                     define_initialization: true,
                     enable_backtrace_on_crash: false,
+                    temporary_storage_size: 32768,
                 },
             }),
         },

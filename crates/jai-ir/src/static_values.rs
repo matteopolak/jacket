@@ -55,36 +55,57 @@ pub fn is_static_value(value: &ValueExpr) -> bool {
                     pending.push(Work::EndScope(installed.len()));
                     pending.push(Work::BindNext(values, 0, body));
                 }
-                ValueExpr::Bound { binding, .. } => {
+                ValueExpr::Bound {
+                    binding, ..
+                } => {
                     if !bindings.contains(binding) {
                         return false;
                     }
                 }
                 ValueExpr::NativePointer(_)
                 | ValueExpr::Zero(_)
-                | ValueExpr::StringBytes { .. }
-                | ValueExpr::Enum { .. }
-                | ValueExpr::StaticAddress { .. }
-                | ValueExpr::ProcedureValue { .. } => {}
-                ValueExpr::Int(value) | ValueExpr::EnumFromInt { value, .. } => {
-                    pending.push(Work::Int(value))
+                | ValueExpr::StringBytes {
+                    ..
                 }
+                | ValueExpr::Enum {
+                    ..
+                }
+                | ValueExpr::StaticAddress {
+                    ..
+                }
+                | ValueExpr::ProcedureValue {
+                    ..
+                } => {}
+                ValueExpr::Int(value)
+                | ValueExpr::EnumFromInt {
+                    value, ..
+                } => pending.push(Work::Int(value)),
                 ValueExpr::Bool(value) => pending.push(Work::Bool(value)),
                 ValueExpr::Float(value) => pending.push(Work::Float(value)),
-                ValueExpr::Array { elements, .. }
+                ValueExpr::Array {
+                    elements, ..
+                }
                 | ValueExpr::Record {
                     fields: elements, ..
                 } => pending.extend(elements.iter().map(Work::Value)),
-                ValueExpr::OrderedRecord { .. } => return false,
-                ValueExpr::RecordBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Work::Value(value)))
+                ValueExpr::OrderedRecord {
+                    ..
+                } => return false,
+                ValueExpr::RecordBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Work::Value(value))),
+                ValueExpr::SequenceBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| Work::Value(value))),
+                ValueExpr::Distinct {
+                    value, ..
                 }
-                ValueExpr::SequenceBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| Work::Value(value)))
+                | ValueExpr::UnwrapDistinct {
+                    value, ..
                 }
-                ValueExpr::Distinct { value, .. }
-                | ValueExpr::UnwrapDistinct { value, .. }
-                | ValueExpr::Field { base: value, .. } => pending.push(Work::Value(value)),
+                | ValueExpr::Field {
+                    base: value, ..
+                } => pending.push(Work::Value(value)),
                 _ => return false,
             },
             Work::Int(value) => match value.kind() {
@@ -162,7 +183,10 @@ mod captured_constants_tests {
         let ty = types.scalar(ScalarType::Int(IntegerType::S64));
         let first = ExpressionBindingId::new(ProcedureId::new(0), 0);
         let second = ExpressionBindingId::new(ProcedureId::new(0), 1);
-        let bound = |binding| ValueExpr::Bound { binding, ty };
+        let bound = |binding| ValueExpr::Bound {
+            binding,
+            ty,
+        };
         assert!(is_static_value(&ValueExpr::Bind {
             bindings: vec![(first, ValueExpr::Zero(ty)), (second, bound(first))],
             body: Box::new(bound(second)),
@@ -210,7 +234,10 @@ mod captured_constants_tests {
         let ty = types.scalar(ScalarType::Int(IntegerType::S64));
         let first = ExpressionBindingId::new(ProcedureId::new(0), 0);
         let second = ExpressionBindingId::new(ProcedureId::new(0), 1);
-        let bound = |binding| ValueExpr::Bound { binding, ty };
+        let bound = |binding| ValueExpr::Bound {
+            binding,
+            ty,
+        };
         let inner = |binding, value| ValueExpr::Bind {
             bindings: vec![(binding, value)],
             body: Box::new(bound(binding)),
@@ -273,7 +300,10 @@ mod captured_constants_tests {
             ty,
         };
         assert!(is_static_value(&value));
-        let ValueExpr::Bind { bindings, .. } = &mut value else {
+        let ValueExpr::Bind {
+            bindings, ..
+        } = &mut value
+        else {
             unreachable!()
         };
         bindings.push((ExpressionBindingId::new(owner, 65_536), ValueExpr::Zero(ty)));

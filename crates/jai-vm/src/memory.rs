@@ -368,7 +368,11 @@ impl Memory {
             .filter(|length| *length < self.limits.value_cells)
             .ok_or(Error::Limit(LimitKind::ValueCells))?;
         let alignment = layout.alignment.max(16);
-        let length = if count != 0 { length.max(1) } else { length };
+        let length = if count != 0 {
+            length.max(1)
+        } else {
+            length
+        };
         let string = types
             .lookup(&TypeKind::String)
             .ok_or(Error::InvalidIr("string byte storage type is unavailable"))?;
@@ -509,7 +513,13 @@ impl Memory {
                         .ok_or(Error::InvalidIr("invalid address field type"))?;
                     relative
                 }
-                (Projection::Index(index), TypeKind::FixedArray { element, count }) => {
+                (
+                    Projection::Index(index),
+                    TypeKind::FixedArray {
+                        element,
+                        count,
+                    },
+                ) => {
                     if (*index as u128) > u128::from(*count) {
                         return Err(Error::OutOfBounds {
                             index: *index,
@@ -695,7 +705,10 @@ impl Memory {
         self.allocation(&pointer)?;
         self.validate_pointer(types, &pointer)?;
         let (element, length) = match types.kind(pointer.pointee)? {
-            TypeKind::FixedArray { element, count } => (
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => (
                 *element,
                 usize::try_from(*count).map_err(|_| Error::Limit(LimitKind::ValueCells))?,
             ),
@@ -708,7 +721,10 @@ impl Memory {
             _ => return Err(Error::UnsupportedType(pointer.pointee)),
         };
         if index >= length {
-            return Err(Error::OutOfBounds { index, length });
+            return Err(Error::OutOfBounds {
+                index,
+                length,
+            });
         }
         let mut result = pointer.clone();
         if result.data()?.path.len() >= self.limits.evaluation_depth.min(256) {
@@ -812,7 +828,10 @@ impl Memory {
     }
     pub fn sequence_data(&self, types: &dyn TypeView, pointer: &Pointer) -> Result<Pointer, Error> {
         let (element, count) = match types.kind(pointer.pointee)? {
-            TypeKind::FixedArray { element, count } => (*element, *count),
+            TypeKind::FixedArray {
+                element,
+                count,
+            } => (*element, *count),
             TypeKind::String => {
                 let Value::String(bytes) = self.load(types, pointer)? else {
                     return Err(Error::InvalidIr("string backing storage mismatch"));
@@ -874,7 +893,12 @@ impl Memory {
         let mut ty = self.allocation(pointer)?.ty;
         for projection in &pointer.data()?.path {
             ty = match (projection, types.kind(ty)?) {
-                (Projection::Bytes { ty, .. }, _) => *ty,
+                (
+                    Projection::Bytes {
+                        ty, ..
+                    },
+                    _,
+                ) => *ty,
                 (Projection::Sequence(field), _) => sequence_field_type(types, ty, *field)?,
                 (Projection::Field(index), kind) if kind.record_storage_id().is_some() => {
                     let fields = &types.record_storage_definition(ty)?.fields;
@@ -883,11 +907,13 @@ impl Memory {
                         length: fields.len(),
                     })?
                 }
-                (Projection::Index(index), TypeKind::FixedArray { element, count })
-                    if (*index as u128) <= u128::from(*count) =>
-                {
-                    *element
-                }
+                (
+                    Projection::Index(index),
+                    TypeKind::FixedArray {
+                        element,
+                        count,
+                    },
+                ) if (*index as u128) <= u128::from(*count) => *element,
                 (Projection::Index(_), TypeKind::String) => {
                     types.scalar(ScalarType::Int(IntegerType::U8))
                 }
@@ -1114,21 +1140,32 @@ impl Memory {
                 );
             }
             value = match (projection, value) {
-                (Projection::Field(index), Value::Record { fields, .. }) => {
-                    fields.get(*index).ok_or(Error::OutOfBounds {
-                        index: *index,
-                        length: fields.len(),
-                    })?
-                }
-                (Projection::Field(index), Value::Union { field, value, .. }) if index == field => {
-                    value
-                }
-                (Projection::Index(index), Value::Array { elements, .. }) => {
-                    elements.get(*index).ok_or(Error::OutOfBounds {
-                        index: *index,
-                        length: elements.len(),
-                    })?
-                }
+                (
+                    Projection::Field(index),
+                    Value::Record {
+                        fields, ..
+                    },
+                ) => fields.get(*index).ok_or(Error::OutOfBounds {
+                    index: *index,
+                    length: fields.len(),
+                })?,
+                (
+                    Projection::Field(index),
+                    Value::Union {
+                        field,
+                        value,
+                        ..
+                    },
+                ) if index == field => value,
+                (
+                    Projection::Index(index),
+                    Value::Array {
+                        elements, ..
+                    },
+                ) => elements.get(*index).ok_or(Error::OutOfBounds {
+                    index: *index,
+                    length: elements.len(),
+                })?,
                 _ => {
                     return Err(Error::InvalidIr(
                         "read of inactive union field or malformed aggregate",
@@ -1240,20 +1277,37 @@ impl Memory {
                     break;
                 }
                 destination = match (projection, destination) {
-                    (Projection::Field(index), Value::Record { fields, .. }) => {
+                    (
+                        Projection::Field(index),
+                        Value::Record {
+                            fields, ..
+                        },
+                    ) => {
                         let length = fields.len();
                         fields.get_mut(*index).ok_or(Error::OutOfBounds {
                             index: *index,
                             length,
                         })?
                     }
-                    (Projection::Field(index), Value::Union { field, value, .. }) => {
+                    (
+                        Projection::Field(index),
+                        Value::Union {
+                            field,
+                            value,
+                            ..
+                        },
+                    ) => {
                         if index != field {
                             return Err(Error::InvalidIr("write of inactive union field"));
                         }
                         value
                     }
-                    (Projection::Index(index), Value::Array { elements, .. }) => {
+                    (
+                        Projection::Index(index),
+                        Value::Array {
+                            elements, ..
+                        },
+                    ) => {
                         let length = elements.len();
                         elements.get_mut(*index).ok_or(Error::OutOfBounds {
                             index: *index,
@@ -1323,11 +1377,19 @@ fn reinterpret(types: &dyn TypeView, value: Value, ty: TypeId) -> Result<Value, 
     let (bits, width) = match value {
         Value::Int(value) => (value.bits(), value.ty().bits()),
         Value::Float(value) => (value.bits(), value.ty().bits()),
-        Value::Enum { value, .. } => (value.bits(), value.ty().bits()),
-        _ => return Err(Error::TypeMismatch { expected: ty }),
+        Value::Enum {
+            value, ..
+        } => (value.bits(), value.ty().bits()),
+        _ => {
+            return Err(Error::TypeMismatch {
+                expected: ty,
+            });
+        }
     };
     if scalar_width(types, ty)? != Some(width) {
-        return Err(Error::TypeMismatch { expected: ty });
+        return Err(Error::TypeMismatch {
+            expected: ty,
+        });
     }
     Ok(match types.kind(ty)? {
         TypeKind::Integer(integer) => Value::Int(Integer::wrapping(*integer, i128::from(bits))),
@@ -1341,7 +1403,11 @@ fn reinterpret(types: &dyn TypeView, value: Value, ty: TypeId) -> Result<Value, 
             ty,
             value: Integer::wrapping(types.enumeration(*id)?.representation, i128::from(bits)),
         },
-        _ => return Err(Error::TypeMismatch { expected: ty }),
+        _ => {
+            return Err(Error::TypeMismatch {
+                expected: ty,
+            });
+        }
     })
 }
 
@@ -1370,9 +1436,15 @@ fn sequence_field_type(
 }
 fn sequence_field_value(value: &Value, field: jai_ir::SequenceField) -> Result<Value, Error> {
     let (pointer, count, allocated) = match value {
-        Value::Slice { pointer, count, .. } | Value::StringView { pointer, count } => {
-            (pointer, *count, None)
+        Value::Slice {
+            pointer,
+            count,
+            ..
         }
+        | Value::StringView {
+            pointer,
+            count,
+        } => (pointer, *count, None),
         Value::DynamicArray {
             pointer,
             count,
@@ -1401,9 +1473,15 @@ fn store_sequence_field(
     value: Value,
 ) -> Result<(), Error> {
     let (pointer, count, allocated) = match destination {
-        Value::Slice { pointer, count, .. } | Value::StringView { pointer, count } => {
-            (pointer, count, None)
+        Value::Slice {
+            pointer,
+            count,
+            ..
         }
+        | Value::StringView {
+            pointer,
+            count,
+        } => (pointer, count, None),
         Value::DynamicArray {
             pointer,
             count,

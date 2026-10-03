@@ -25,7 +25,10 @@ impl Resolver<'_> {
             slice,
             spread.value.span,
         )?));
-        Ok(ValueExpr::SequenceConcat { ty: slice, parts })
+        Ok(ValueExpr::SequenceConcat {
+            ty: slice,
+            parts,
+        })
     }
 }
 
@@ -39,11 +42,17 @@ impl Resolver<'_> {
         let mut pending = vec![value];
         while let Some(value) = pending.pop() {
             match value {
-                ValueExpr::Bind { bindings, body, .. } => {
+                ValueExpr::Bind {
+                    bindings,
+                    body,
+                    ..
+                } => {
                     pending.push(body);
                     pending.extend(bindings.iter().map(|(_, value)| value));
                 }
-                ValueExpr::Call { call, .. } => {
+                ValueExpr::Call {
+                    call, ..
+                } => {
                     let procedure = self
                         .meta
                         .local_declarations
@@ -86,8 +95,12 @@ impl Resolver<'_> {
                                     field: jai_ir::SequenceField::Data,
                                     ..
                                 }
-                                | ValueExpr::PointerCast { value: base, .. }
-                                | ValueExpr::SequenceView { sequence: base, .. } => base,
+                                | ValueExpr::PointerCast {
+                                    value: base, ..
+                                }
+                                | ValueExpr::SequenceView {
+                                    sequence: base, ..
+                                } => base,
                                 _ => break,
                             };
                         }
@@ -112,34 +125,52 @@ impl Resolver<'_> {
                         }
                     }
                 }
-                ValueExpr::PointerCast { value, .. }
-                | ValueExpr::Distinct { value, .. }
-                | ValueExpr::Union { value, .. }
-                | ValueExpr::UnwrapDistinct { value, .. } => pending.push(value),
-                ValueExpr::SequenceView { sequence, .. } => pending.push(sequence),
+                ValueExpr::PointerCast {
+                    value, ..
+                }
+                | ValueExpr::Distinct {
+                    value, ..
+                }
+                | ValueExpr::Union {
+                    value, ..
+                }
+                | ValueExpr::UnwrapDistinct {
+                    value, ..
+                } => pending.push(value),
+                ValueExpr::SequenceView {
+                    sequence, ..
+                } => pending.push(sequence),
                 ValueExpr::SequenceField {
                     base,
                     field: jai_ir::SequenceField::Data,
                     ..
                 }
-                | ValueExpr::Field { base, .. } => pending.push(base),
-                ValueExpr::Conditional { expression, .. } => {
+                | ValueExpr::Field {
+                    base, ..
+                } => pending.push(base),
+                ValueExpr::Conditional {
+                    expression, ..
+                } => {
                     pending.push(&expression.then_value);
                     pending.push(&expression.else_value);
                 }
-                ValueExpr::Array { elements, .. }
+                ValueExpr::Array {
+                    elements, ..
+                }
                 | ValueExpr::Record {
                     fields: elements, ..
                 } => pending.extend(elements),
-                ValueExpr::OrderedRecord { initializers, .. } => {
+                ValueExpr::OrderedRecord {
+                    initializers, ..
+                } => {
                     pending.extend(initializers.iter().map(|(_, value)| value));
                 }
-                ValueExpr::RecordBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| value))
-                }
-                ValueExpr::SequenceBuild { initializers, .. } => {
-                    pending.extend(initializers.iter().map(|(_, value)| value))
-                }
+                ValueExpr::RecordBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| value)),
+                ValueExpr::SequenceBuild {
+                    initializers, ..
+                } => pending.extend(initializers.iter().map(|(_, value)| value)),
                 _ => {}
             }
         }

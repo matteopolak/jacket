@@ -56,7 +56,8 @@ impl fmt::Display for RuntimeInfoError {
         }
     }
 }
-impl std::error::Error for RuntimeInfoError {}
+impl std::error::Error for RuntimeInfoError {
+}
 
 impl RuntimeInfoSchema {
     pub fn validate(

@@ -119,11 +119,9 @@ fn generic_program_type_defaults_rebind_only_the_same_module_source_template() {
         .parameters()
         .iter()
         .filter_map(|parameter| match &parameter.value {
-            ParameterValue::Type(ModuleType::Application { template, .. })
-                if parameter.program_wide =>
-            {
-                Some(*template)
-            }
+            ParameterValue::Type(ModuleType::Application {
+                template, ..
+            }) if parameter.program_wide => Some(*template),
             _ => None,
         })
         .collect();

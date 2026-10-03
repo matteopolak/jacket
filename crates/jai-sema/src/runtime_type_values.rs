@@ -39,7 +39,9 @@ impl Resolver<'_> {
                         .map_err(|error| Diagnostic::new(span, error.to_string()))?
                         .representation,
                 ),
-                TypeKind::FixedArray { element, .. } => pending.push(element),
+                TypeKind::FixedArray {
+                    element, ..
+                } => pending.push(element),
                 _ => {}
             }
         }
@@ -55,7 +57,12 @@ impl Resolver<'_> {
             return Ok(value);
         };
         let Expr::Pointer {
-            value: ValueExpr::StaticAddress { data, address, .. },
+            value:
+                ValueExpr::StaticAddress {
+                    data,
+                    address,
+                    ..
+                },
             ..
         } = self.type_info_header_expression(represented, span)?
         else {

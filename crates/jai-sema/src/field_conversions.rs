@@ -82,7 +82,10 @@ impl Resolver<'_> {
         target: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
-        let Expr::Typed { ty: source, .. } = &expression else {
+        let Expr::Typed {
+            ty: source, ..
+        } = &expression
+        else {
             return Ok(expression);
         };
         if *source == target || !matches!(self.types.kind(*source), Ok(TypeKind::Record(_))) {
@@ -112,7 +115,10 @@ impl Resolver<'_> {
         target: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
-        let Expr::Pointer { ty: source, .. } = &expression else {
+        let Expr::Pointer {
+            ty: source, ..
+        } = &expression
+        else {
             return Ok(expression);
         };
         if *source == target {
@@ -138,7 +144,10 @@ impl Resolver<'_> {
         }
         Ok(Expr::Pointer {
             ty: target,
-            value: ValueExpr::AddressOf { place, ty: target },
+            value: ValueExpr::AddressOf {
+                place,
+                ty: target,
+            },
         })
     }
 }

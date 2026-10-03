@@ -1086,6 +1086,7 @@ impl<'graph> PreparedPhase<'graph> {
                 libraries.extend(meta.local_declarations.foreign_libraries());
                 libraries
             })
+            .foreign_library_sources(foreign_libraries::source_provenance(graph)?)
             .globals(globals)
             .places(places.freeze())
             .declarations(procedure_ids)

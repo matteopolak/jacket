@@ -115,7 +115,11 @@ fn nominal_restrictions_publish_parameters_only_after_a_typed_proof() {
     let requests = discovery.pending_parameter_requests();
     assert_eq!(requests.len(), 1);
     let request = &requests[0];
-    let ParameterTask::CheckNominal { actual, required } = &request.task else {
+    let ParameterTask::CheckNominal {
+        actual,
+        required,
+    } = &request.task
+    else {
         panic!("expected source nominal ancestry request");
     };
     assert_ne!(
@@ -195,8 +199,9 @@ fn responses_reject_non_type_declarations_and_incomplete_formal_keys() {
         ),
         Err(ParameterResponseError::InvalidSourceIdentity)
     );
-    let ParameterResponse::Type(ModuleType::Application { template, .. }) =
-        box_response(&discovery, IntegerType::U8)
+    let ParameterResponse::Type(ModuleType::Application {
+        template, ..
+    }) = box_response(&discovery, IntegerType::U8)
     else {
         unreachable!()
     };

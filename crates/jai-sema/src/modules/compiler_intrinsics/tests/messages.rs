@@ -84,7 +84,9 @@ impl jai_vm::CompilerEffects for Effects {
             jai_vm::CompilerRequest::WaitForMessage => {
                 jai_vm::CompilerResponse::Message(jai_vm::CompilerEvent::Phase {
                     workspace: workspace(),
-                    phase: jai_vm::CompilerPhase::Typechecked { pending_count: 9 },
+                    phase: jai_vm::CompilerPhase::Typechecked {
+                        pending_count: 9,
+                    },
                 })
             }
             _ => jai_vm::CompilerResponse::Unit,

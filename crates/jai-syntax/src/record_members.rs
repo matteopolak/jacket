@@ -3,6 +3,7 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub enum RecordMember {
+    Placement(RecordPlacementSyntax),
     AnonymousRecord(Box<RecordTypeSyntax>),
     DefaultOverride {
         target: PlaceSyntax,
@@ -48,7 +49,10 @@ impl Parser<'_> {
         if self.token().kind == Kind::Eof {
             return Err(self.error("unterminated record declaration"));
         }
-        if self.token().kind == Kind::UnknownDirective {
+        if self.token().kind == Kind::Directive(Directive::Place) {
+            return Ok(vec![RecordMember::Placement(self.record_placement()?)]);
+        }
+        if self.token().kind == Kind::UnknownDirective && self.text() != "#overlay" {
             return Err(self.error(format!("unknown directive '{}'", self.text())));
         }
         if self.token().kind == Kind::Directive(Directive::Assert) {
@@ -139,11 +143,13 @@ impl Parser<'_> {
 
     pub(super) fn record_field_group(&mut self) -> Result<Vec<FieldDeclaration>, Diagnostic> {
         let field_start = self.token().span.start;
-        let prefix = field_prefix(&self.tokens, &mut self.at)?;
-        let using = prefix.using;
-        let mut names = vec![self.name()?];
+        let prefix = self.placed_field_prefix()?;
+        let using = prefix.qualifiers.using;
+        let first_span = self.token().span;
+        let mut names = vec![(self.name()?, first_span)];
         while self.take(Punct::Comma) {
-            names.push(self.name()?);
+            let span = self.token().span;
+            names.push((self.name()?, span));
         }
         if using && names.len() != 1 {
             return Err(self.error("grouped using record fields are not implemented"));
@@ -163,7 +169,10 @@ impl Parser<'_> {
             } else {
                 None
             };
-            FieldBinding::Explicit { ty, initializer }
+            FieldBinding::Explicit {
+                ty,
+                initializer,
+            }
         };
         if matches!(
             &binding,
@@ -176,16 +185,19 @@ impl Parser<'_> {
         } else {
             self.need(Punct::Semicolon)?;
         }
+        if let Some(placement) = prefix.placement {
+            attributes.push(FieldAttribute::Placement(placement));
+        }
         let notes = self.notes()?;
         let span = Span::new(field_start, self.tokens[self.at - 1].span.end);
         Ok(names
             .into_iter()
-            .map(|name| FieldDeclaration {
+            .map(|(name, name_span)| FieldDeclaration {
                 name,
                 binding: binding.clone(),
                 using,
-                conversion: prefix.conversion,
-                span,
+                conversion: prefix.qualifiers.conversion,
+                span: Span::new(name_span.start, span.end),
                 attributes: attributes.clone(),
                 notes: notes.clone(),
             })
@@ -281,5 +293,101 @@ mod tests {
                 ..
             }]
         ));
+    }
+}
+
+#[cfg(test)]
+mod placement_integration_tests {
+    use super::*;
+    use jai_source::SourceMap;
+
+    fn file(text: &str) -> Result<ParsedFile, jai_source::LocatedDiagnostic> {
+        let mut sources = SourceMap::default();
+        let id = sources.insert("placed-record.jai".into(), text.into());
+        parse_file(sources.get(id).unwrap(), &mut Symbols::default())
+    }
+
+    #[test]
+    fn complete_record_ast_preserves_cursor_overlay_and_reflection_policy() {
+        let text = "Storage :: struct #type_info_procedures_are_void_pointers #type_info_no_size_complaint { anchor:u64; LIMIT::8; #place anchor; view:u32=---; #overlay(anchor) using #as alias:u64=---; } after::()->int{return 42;}";
+        let parsed = file(text).unwrap();
+        assert_eq!(parsed.items().len(), 2);
+        let FileItem::Declaration(declaration) = &parsed.items()[0] else {
+            panic!()
+        };
+        let FileDeclarationKind::Record(record) = &declaration.kind else {
+            panic!()
+        };
+        assert_eq!(record.members.len(), 5);
+        let RecordMember::Placement(placement) = &record.members[2] else {
+            panic!()
+        };
+        assert_eq!(placement.target.span.text(text), "anchor");
+        assert_eq!(placement.span.text(text), "#place anchor;");
+        let RecordMember::Field(field) = &record.members[4] else {
+            panic!()
+        };
+        assert!(field.using);
+        assert_eq!(field.conversion, FieldConversion::Implicit);
+        let FieldAttribute::Placement(FieldPlacementSyntax::Overlay {
+            target,
+            span,
+        }) = &field.attributes[0]
+        else {
+            panic!()
+        };
+        assert_eq!(target.span.text(text), "anchor");
+        assert_eq!(span.text(text), "#overlay(anchor)");
+        let RecordAttribute::Reflection(first) = &record.attributes[0] else {
+            panic!()
+        };
+        assert_eq!(
+            first.flag,
+            jai_types::RecordReflectionFlag::ProceduresAreVoidPointers
+        );
+        assert_eq!(
+            first.span.text(text),
+            "#type_info_procedures_are_void_pointers"
+        );
+        let RecordAttribute::Reflection(second) = &record.attributes[1] else {
+            panic!()
+        };
+        assert_eq!(
+            second.flag,
+            jai_types::RecordReflectionFlag::NoSizeComplaint
+        );
+        assert_eq!(second.span.text(text), "#type_info_no_size_complaint");
+    }
+
+    #[test]
+    fn placement_and_overlay_reject_values_calls_and_missing_delimiters() {
+        for body in [
+            "#place 1;",
+            "#place anchor();",
+            "#place anchor view:u64;",
+            "#overlay(anchor()) alias:u64;",
+            "#overlay anchor alias:u64;",
+            "#overlay(anchor) #overlay(anchor) alias:u64;",
+        ] {
+            let text = format!("Storage::struct{{anchor:u64; {body}}}");
+            let error = file(&text).unwrap_err();
+            assert!(error.location.span.end <= text.len(), "{text}");
+        }
+    }
+
+    #[test]
+    fn reflection_duplicates_are_per_flag_and_unknown_spellings_stay_errors() {
+        for attributes in [
+            "#type_info_no_size_complaint #type_info_no_size_complaint",
+            "#type_info_procedures_are_void_pointers #type_info_procedures_are_void_pointers",
+            "#type_info_no_size_complaints",
+        ] {
+            let text = format!("Storage::struct {attributes} {{ value:u64; }}");
+            assert!(file(&text).is_err(), "{text}");
+        }
+        // Header prefix and suffix merge also checks the actual flag, not just
+        // the common Reflection variant discriminant.
+        assert!(file("Storage::struct #type_info_procedures_are_void_pointers {value:u64;} #type_info_no_size_complaint").is_ok());
+        assert!(file("Storage::struct #type_info_no_size_complaint {value:u64;} #type_info_no_size_complaint").is_err());
     }
 }

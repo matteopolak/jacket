@@ -35,7 +35,10 @@ pub(crate) fn annotation_query_path(
                 }
                 break path.clone();
             }
-            syntax::ExpressionKind::Member { base, member } => {
+            syntax::ExpressionKind::Member {
+                base,
+                member,
+            } => {
                 if suffix.len() >= MAX_QUERY_PATH {
                     return Err(Diagnostic::new(
                         value.span,
