@@ -137,7 +137,9 @@ impl DeclarationSyntax {
             syntax::StatementKind::ProcedurePrototype(prototype) => {
                 Self::Prototype(prototype.clone())
             }
-            syntax::StatementKind::UsingDeclaration { declaration, .. } => {
+            syntax::StatementKind::UsingDeclaration {
+                declaration, ..
+            } => {
                 return Self::from_statement(declaration);
             }
             _ => return None,
@@ -239,7 +241,9 @@ impl LocalScopes {
                 }
             })
             .collect();
-        CleanupRuntimeShadows { frames }
+        CleanupRuntimeShadows {
+            frames,
+        }
     }
 
     pub(crate) fn restore_cleanup_runtime(&mut self, shadows: CleanupRuntimeShadows) {
@@ -395,7 +399,10 @@ impl LocalDeclarationRegistry {
         let mut libraries: Vec<_> = self.foreign_libraries.values().cloned().collect();
         libraries.sort_by_key(|library| match library.id {
             ForeignLibraryId::File(id) => (0, id.index(), 0),
-            ForeignLibraryId::Local { procedure, index } => (1, procedure.index(), index),
+            ForeignLibraryId::Local {
+                procedure,
+                index,
+            } => (1, procedure.index(), index),
         });
         libraries
     }
@@ -849,7 +856,10 @@ impl Resolver<'_> {
             entry.nominal = match &syntax {
                 DeclarationSyntax::Record(record) => Some(self.types.reserve_record(record.kind)),
                 DeclarationSyntax::Alias(syntax::TypeAliasDeclaration {
-                    ty: syntax::TypeSyntax::Variant { kind, .. },
+                    ty:
+                        syntax::TypeSyntax::Variant {
+                            kind, ..
+                        },
                     ..
                 }) => Some(self.types.reserve_distinct(match kind {
                     syntax::TypeVariantKind::Distinct => jai_types::DistinctKind::Distinct,
@@ -1150,7 +1160,9 @@ impl Resolver<'_> {
                 .define_local_alias(declaration.id, alias)
                 .map(Binding::Type),
             DeclarationSyntax::Constant(constant) => self.local_constant_binding(constant),
-            DeclarationSyntax::ConstantResult(result) => self.local_constant_result_binding(result),
+            DeclarationSyntax::ConstantResult(result) => {
+                self.local_constant_result_binding(declaration.id, result)
+            }
             DeclarationSyntax::Procedure(procedure) => {
                 self.define_local_procedure(declaration.id, procedure)
             }
@@ -1242,8 +1254,11 @@ impl Resolver<'_> {
             };
         }
         if let Some(scope) = self.graph_scope {
-            if let Some(binding @ jai_modules::Binding::SourceMember { .. }) =
-                scope.using_graph_binding(path)
+            if let Some(
+                binding @ jai_modules::Binding::SourceMember {
+                    ..
+                },
+            ) = scope.using_graph_binding(path)
             {
                 return match self.imported_binding_value(binding, span)? {
                     Binding::Type(ty) => Ok(ty),
@@ -1278,7 +1293,10 @@ impl Resolver<'_> {
         id: LocalDeclarationId,
         alias: &syntax::TypeAliasDeclaration,
     ) -> Result<TypeId, Diagnostic> {
-        let ty = if let syntax::TypeSyntax::Variant { base, .. } = &alias.ty {
+        let ty = if let syntax::TypeSyntax::Variant {
+            base, ..
+        } = &alias.ty
+        {
             let base = self.lexical_annotation(base, alias.span)?;
             let ty = self.meta.local_declarations.entries[&id].nominal.unwrap();
             self.types
@@ -1319,9 +1337,15 @@ impl Resolver<'_> {
                 .cloned()
             {
                 return match declaration {
-                    syntax::Declaration::Explicit { ty, .. } => Ok(Some(self.types.scalar(ty))),
-                    syntax::Declaration::UnresolvedExplicit { ty, .. }
-                    | syntax::Declaration::External { ty, .. } => {
+                    syntax::Declaration::Explicit {
+                        ty, ..
+                    } => Ok(Some(self.types.scalar(ty))),
+                    syntax::Declaration::UnresolvedExplicit {
+                        ty, ..
+                    }
+                    | syntax::Declaration::External {
+                        ty, ..
+                    } => {
                         let inner_bindings = self.scopes.split_off(depth + 1);
                         let inner_frames = self.local_scopes.frames.split_off(depth + 1);
                         let result = self.preview_annotation(&ty, span).map(Some);
@@ -1329,7 +1353,9 @@ impl Resolver<'_> {
                         self.local_scopes.frames.extend(inner_frames);
                         result
                     }
-                    syntax::Declaration::Inferred { .. } => Err(Diagnostic::new(
+                    syntax::Declaration::Inferred {
+                        ..
+                    } => Err(Diagnostic::new(
                         span,
                         "forward type_of on an inferred variable requires its initializer's checked type",
                     )),

@@ -1,0 +1,218 @@
+:root {
+  color-scheme: light dark;
+  font: 15px system-ui, sans-serif;
+  --border: #8884;
+  --surface: #8881;
+}
+
+body {
+  max-width: 1160px;
+  margin: 2rem auto;
+  padding: 0 1.25rem;
+}
+
+h1 {
+  margin-bottom: .4rem;
+  font-size: 1.8rem;
+}
+
+p {
+  line-height: 1.5;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+aside, .editor {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: .6rem;
+}
+
+aside {
+  padding: .8rem;
+  background: var(--surface);
+}
+
+h2, label {
+  font-size: .9rem;
+  font-weight: 600;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+nav {
+  display: grid;
+  gap: .25rem;
+}
+
+button, input, textarea {
+  font: inherit;
+}
+
+button {
+  padding: .55rem .8rem;
+  border: 1px solid var(--border);
+  border-radius: .35rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: .5;
+}
+
+button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid #589dff;
+  outline-offset: 2px;
+}
+
+nav button {
+  text-align: left;
+  overflow-wrap: anywhere;
+  background: transparent;
+}
+
+nav button[aria-pressed="true"] {
+  background: #589dff25;
+  border-color: #589dff;
+}
+
+#new-file {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: .4rem;
+}
+
+#remove-file {
+  margin-top: .5rem;
+  width: 100%;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: .5rem;
+  border: 1px solid var(--border);
+  border-radius: .35rem;
+}
+
+.editor label {
+  display: block;
+  padding: .7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 390px;
+  resize: vertical;
+  border: 0;
+  padding: 1rem;
+  background: transparent;
+  font: 14px/1.6 ui-monospace, monospace;
+  tab-size: 4;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 1rem 0;
+}
+
+#run {
+  background: #2069b9;
+  color: white;
+  border-color: transparent;
+}
+
+.shortcut {
+  color: #888;
+  font-size: .85rem;
+}
+
+details {
+  border: 1px solid var(--border);
+  border-radius: .4rem;
+  padding: .7rem 1rem;
+}
+
+summary {
+  cursor: pointer;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  margin-top: .8rem;
+}
+
+.options label {
+  display: block;
+  margin-bottom: .4rem;
+}
+
+pre {
+  min-height: 3rem;
+  margin-bottom: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: .4rem;
+  font: 14px/1.5 ui-monospace, monospace;
+}
+
+.hint {
+  color: #888;
+  font-size: .85rem;
+}
+
+
+@media (max-width: 640px) {
+  body {
+  margin-top: 1rem;
+  padding: 0 .75rem;
+}
+
+  .workspace {
+  grid-template-columns: 1fr;
+}
+
+  nav {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+  #new-file {
+  grid-template-columns: 1fr auto;
+}
+
+  #new-file label {
+  grid-column: 1 / -1;
+}
+
+  #remove-file {
+  width: auto;
+}
+
+  .options {
+  grid-template-columns: 1fr;
+}
+
+  .shortcut {
+  display: none;
+}
+
+}

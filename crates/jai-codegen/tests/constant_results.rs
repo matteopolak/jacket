@@ -22,3 +22,19 @@ fn all_discarded_optional_results_still_execute_the_call() {
         42,
     );
 }
+
+#[test]
+fn forward_projection_use_keeps_one_group_execution() {
+    checked_execution::check(
+        "calls:s32=0; facts :: ()->s32,s32,s32 {calls+=1;return 10,20,11;} observed :: (sum:s32)->s32 {return sum+calls;} main :: ()->int {sum :: a+b+c; a,b,c :: #run facts(); answer :: #run observed(sum); return answer;}",
+        42,
+    );
+}
+
+#[test]
+fn shadowed_groups_keep_separate_executions() {
+    checked_execution::check(
+        "calls:s32=0; facts :: ()->s32,s32 {calls+=1;return calls,10;} observed :: (a:s32,b:s32)->s32 {return a+b+calls*10;} main :: ()->int {a,b :: #run facts(); outer_sum :: a+b; {a,b :: #run facts(); answer :: #run observed(a,b); return outer_sum+answer;}}",
+        43,
+    );
+}

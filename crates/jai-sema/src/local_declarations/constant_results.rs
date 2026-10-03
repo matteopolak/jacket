@@ -36,16 +36,49 @@ pub(super) fn declarations(
 impl Resolver<'_> {
     pub(super) fn local_constant_result_binding(
         &mut self,
+        declaration: LocalDeclarationId,
         result: &ConstantResult,
     ) -> Result<Binding, Diagnostic> {
         let values = self.constant_result_values(&result.declaration)?;
-        let value = values.get(result.index).cloned().ok_or_else(|| {
-            Diagnostic::new(
-                result.span(),
-                "constant result count does not match declaration count",
-            )
-        })?;
-        crate::compile_time::materialized_binding(value, None, result.span(), self.meta)
+        let siblings: Vec<_> = self
+            .local_scopes
+            .frames
+            .last()
+            .expect("constant projections retain their defining frame")
+            .declarations
+            .values()
+            .filter_map(|declaration| match &declaration.syntax {
+                DeclarationSyntax::ConstantResult(sibling)
+                    if Arc::ptr_eq(&sibling.declaration, &result.declaration) =>
+                {
+                    Some((declaration.id, sibling.index, sibling.span()))
+                }
+                _ => None,
+            })
+            .collect();
+        let mut bindings = Vec::with_capacity(siblings.len());
+        for (id, index, span) in siblings {
+            let value = values.get(index).cloned().ok_or_else(|| {
+                Diagnostic::new(
+                    span,
+                    "constant result count does not match declaration count",
+                )
+            })?;
+            let binding = crate::compile_time::materialized_binding(value, None, span, self.meta)?;
+            bindings.push((id, binding));
+        }
+        let selected = bindings
+            .iter()
+            .find(|(id, _)| *id == declaration)
+            .expect("registered result projection belongs to its group")
+            .1
+            .clone();
+        for (id, binding) in bindings {
+            let entry = self.meta.local_declarations.entries.get_mut(&id).unwrap();
+            entry.binding = Some(binding);
+            entry.scope_watermark = self.local_scopes.next_scope;
+        }
+        Ok(selected)
     }
     pub(crate) fn constant_result_values(
         &mut self,

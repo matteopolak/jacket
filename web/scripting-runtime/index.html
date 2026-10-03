@@ -1,56 +1,54 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jai script interpreter</title>
-<style>
-  :root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
-  body { max-width: 850px; margin: 3rem auto; padding: 0 1rem; }
-  h1 { font-size: 1.7rem; margin-bottom: .5rem; }
-  p { line-height: 1.5; }
-  label { display: block; margin: 1.25rem 0 .4rem; font-weight: 600; }
-  textarea, input { box-sizing: border-box; width: 100%; padding: .8rem; font: 14px ui-monospace, monospace; border: 1px solid #8887; border-radius: .4rem; }
-  textarea { min-height: 280px; resize: vertical; }
-  .actions { display: flex; gap: .6rem; margin: 1rem 0; }
-  button { padding: .6rem 1rem; font: inherit; border-radius: .4rem; border: 1px solid #8887; cursor: pointer; }
-  pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #8881; padding: 1rem; border-radius: .4rem; min-height: 3rem; }
-</style>
-<h1>Jai script interpreter</h1>
-<p>Run Jai source in your browser. The interpreter checks the source and executes it with virtual memory. Files, processes, graphics and foreign functions require host adapters.</p>
-<label for="source">Source</label>
-<textarea id="source" spellcheck="false">main :: () -> int {
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jai playground</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <h1>Jai playground</h1>
+  <p>Write Jai and run it in your browser.</p>
+  <div class="workspace">
+    <aside aria-label="Source workspace">
+      <h2>Files</h2>
+      <nav id="files" aria-label="Source files"></nav>
+      <form id="new-file">
+        <label for="file-name">New file</label>
+        <input id="file-name" placeholder="helpers.jai" autocomplete="off" spellcheck="false" required>
+        <button type="submit">Add file</button>
+      </form>
+      <button id="remove-file" type="button" disabled>Remove file</button>
+    </aside>
+    <section class="editor" aria-label="Source editor">
+      <label for="source" id="selected-name">main.jai</label>
+      <textarea id="source" spellcheck="false" autocapitalize="off">main :: () -> int {
     if #compile_time return 900;
     return 42;
 }</textarea>
-<label for="arguments">Arguments (JSON array of strings)</label>
-<input id="arguments" value="[]" spellcheck="false">
-<label for="fuel">Execution step limit</label>
-<input id="fuel" type="number" min="0" max="4294967295" value="1000000">
-<div class="actions"><button id="run">Run script</button><button id="cancel" disabled>Cancel</button></div>
-<pre id="result" role="status" aria-live="polite">Ready.</pre>
-<script type="module">
-  const source = document.querySelector("#source");
-  const args = document.querySelector("#arguments");
-  const fuel = document.querySelector("#fuel");
-  const result = document.querySelector("#result");
-  const run = document.querySelector("#run");
-  const cancel = document.querySelector("#cancel");
-  let worker;
-  function idle() { run.disabled = false; cancel.disabled = true; }
-  run.onclick = () => {
-    try {
-      const argumentsValue = JSON.parse(args.value);
-      if (!Array.isArray(argumentsValue) || argumentsValue.some(value => typeof value !== "string")) throw new Error("Arguments must be a JSON array of strings.");
-      worker ??= new Worker("./worker.mjs", { type: "module" });
-      worker.onmessage = ({ data }) => {
-        result.textContent = data.error ?? `Exit code: ${data.result.exitCode}\nInterpreter steps: ${data.result.steps}`;
-        idle();
-      };
-      worker.onerror = event => { result.textContent = event.message || "Browser worker failed."; worker.terminate(); worker = undefined; idle(); };
-      run.disabled = true; cancel.disabled = false; result.textContent = "Checking and running…";
-      worker.postMessage({ source: source.value, options: { arguments: argumentsValue, fuel: Number(fuel.value) } });
-    } catch (error) { result.textContent = error.message; idle(); }
-  };
-  cancel.onclick = () => { worker?.terminate(); worker = undefined; result.textContent = "Cancelled."; idle(); };
-</script>
+    </section>
+  </div>
+  <p class="hint">Runs start in main.jai. Use #load to include other files in this workspace.</p>
+  <div class="actions">
+    <button id="run" type="button">Run</button>
+    <button id="cancel" type="button" disabled>Cancel</button>
+    <span class="shortcut">Ctrl / ⌘ + Enter</span>
+  </div>
+  <details>
+    <summary>Run options</summary>
+    <div class="options">
+      <div>
+        <label for="arguments">Arguments (JSON array of strings)</label>
+        <input id="arguments" value="[]" spellcheck="false">
+      </div>
+      <div>
+        <label for="fuel">Execution step limit</label>
+        <input id="fuel" type="number" min="0" max="4294967295" value="1000000">
+      </div>
+    </div>
+  </details>
+  <pre id="result" role="status" aria-live="polite">Ready.</pre>
+  <p class="hint">Experimental compiler. Source files stay in this browser session. Program I/O and native libraries need host support.</p>
+  <script type="module" src="./editor.mjs"></script>
+</body>
 </html>

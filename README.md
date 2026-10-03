@@ -99,7 +99,7 @@ cargo run -p jai-cli -- emit-llvm examples/sum.jai sum.ll
 
 The local Jai distribution helps establish language behavior. Newer, maintained Jai projects guide compatibility when they differ from that older reference. The [upstream corpus](docs/upstream-corpus.md) records the projects and exact revisions used.
 
-Tests cover rejected programs and the behavior of newly compiled programs. Benchmarks measure compiler time and Rust allocations so performance work can be based on measurements. Unsupported features produce errors instead of counting as successful builds.
+Tests cover rejected programs and the behavior of newly compiled programs. Benchmarks cover compiler stages, module discovery, interpreter execution, and memory use; broader native workloads are being verified. Unsupported features produce errors instead of counting as successful builds.
 
 
 ## Working on the compiler
