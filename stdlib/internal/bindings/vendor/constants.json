@@ -1,0 +1,26 @@
+{
+  "X11/XNClientWindow": {
+    "package": "x11",
+    "header": "include/X11/Xlib.h",
+    "header_sha256": "7430c535c4e2b0a31d002d5f9d8f21c6b9f7232e9aad2e297662b90c2591f64d",
+    "code": "XNClientWindow :: \"clientWindow\".data"
+  },
+  "X11/XNFocusWindow": {
+    "package": "x11",
+    "header": "include/X11/Xlib.h",
+    "header_sha256": "7430c535c4e2b0a31d002d5f9d8f21c6b9f7232e9aad2e297662b90c2591f64d",
+    "code": "XNFocusWindow :: \"focusWindow\".data"
+  },
+  "X11/XNInputStyle": {
+    "package": "x11",
+    "header": "include/X11/Xlib.h",
+    "header_sha256": "7430c535c4e2b0a31d002d5f9d8f21c6b9f7232e9aad2e297662b90c2591f64d",
+    "code": "XNInputStyle :: \"inputStyle\".data"
+  },
+  "Windows/GUID_DEVINTERFACE_HID": {
+    "package": "windows-sdk",
+    "header": "generation/WinSDK/RecompiledIdlHeaders/shared/hidclass.h",
+    "header_sha256": "6ad68a5d2bfc2c50d59c3dbfc9325d8ac1d7b47e335e0118ccc3743936ee0f7b",
+    "code": "GUID_DEVINTERFACE_HID :: GUID.{0x4d1e55b2, 0xf16f, 0x11cf, .[0x88, 0xcb, 0x0, 0x11, 0x11, 0x0, 0x0, 0x30]}"
+  }
+}

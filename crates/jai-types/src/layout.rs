@@ -1,9 +1,9 @@
 //! Explicit target layouts, independent of Rust's host representation.
-use crate::{FloatType, IntegerType, RecordKind, TypeError, TypeId, TypeKind, Types};
+use crate::{FloatType, IntegerType, RecordKind, TypeError, TypeId, TypeKind, TypeView};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ScalarLayout {
     pub size: u64,
     pub alignment: u32,
@@ -30,7 +30,10 @@ pub enum LayoutError {
     Unsized(TypeId),
     RecursiveValue(TypeId),
     Overflow(TypeId),
+    TupleOverflow,
     DependencyNotReady(TypeId),
+    InvalidRecordAlignment(TypeId),
+    InvalidRecordFieldLayout(TypeId),
 }
 impl From<TypeError> for LayoutError {
     fn from(error: TypeError) -> Self {
@@ -47,14 +50,21 @@ impl fmt::Display for LayoutError {
             Self::Unsized(id) => write!(f, "type {id:?} has no storage layout"),
             Self::RecursiveValue(id) => write!(f, "recursive value layout for {id:?}"),
             Self::Overflow(id) => write!(f, "layout size overflows for {id:?}"),
+            Self::TupleOverflow => f.write_str("tuple target layout size overflows"),
             Self::DependencyNotReady(id) => write!(f, "layout dependency unavailable for {id:?}"),
+            Self::InvalidRecordAlignment(id) => {
+                write!(f, "record {id:?} alignment must be a nonzero power of two")
+            }
+            Self::InvalidRecordFieldLayout(id) => {
+                write!(f, "record {id:?} has inconsistent field layout metadata")
+            }
         }
     }
 }
 impl std::error::Error for LayoutError {}
 
 /// Explicit primitive storage policy; procedure values use pointer layout.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct LayoutPolicy {
     pointer: ScalarLayout,
     integers: [ScalarLayout; 4],
@@ -160,12 +170,32 @@ impl From<ScalarLayout> for Layout {
 }
 
 pub struct LayoutEngine<'types> {
-    types: &'types Types,
+    types: &'types dyn TypeView,
     policy: LayoutPolicy,
     cache: HashMap<TypeId, Layout>,
 }
 impl<'types> LayoutEngine<'types> {
-    pub fn new(types: &'types Types, policy: LayoutPolicy) -> Self {
+    /// Sequential anonymous result storage under the selected target policy.
+    /// No nominal type is created, and each child uses the ordinary checked walk.
+    pub fn tuple_layout(&mut self, fields: &[TypeId]) -> Result<Layout, LayoutError> {
+        let Some(&anchor) = fields.first() else {
+            return Ok(Layout {
+                size: 0,
+                alignment: 1,
+                field_offsets: Box::new([]),
+                array_stride: None,
+            });
+        };
+        let mut children = Vec::with_capacity(fields.len());
+        for &field in fields {
+            children.push(self.layout(field)?.clone());
+        }
+        Self::fields(anchor, children.iter(), false).map_err(|error| match error {
+            LayoutError::Overflow(_) => LayoutError::TupleOverflow,
+            other => other,
+        })
+    }
+    pub fn new(types: &'types dyn TypeView, policy: LayoutPolicy) -> Self {
         Self {
             types,
             policy,
@@ -194,12 +224,15 @@ impl<'types> LayoutEngine<'types> {
             }
             stack.push((id, true));
             match self.types.kind(id)? {
-                TypeKind::Record(record) => {
+                TypeKind::Record(record) | TypeKind::Any(record) => {
                     for field in self.types.record(*record)?.fields.iter().rev() {
                         stack.push((*field, false));
                     }
                 }
                 TypeKind::FixedArray { element, .. } => stack.push((*element, false)),
+                TypeKind::Distinct(distinct) => {
+                    stack.push((self.types.distinct(*distinct)?.representation, false));
+                }
                 // Pointer and descriptor representations do not need pointee layout.
                 _ => {}
             }
@@ -224,21 +257,75 @@ impl<'types> LayoutEngine<'types> {
         fields: impl IntoIterator<Item = &'a Layout>,
         union: bool,
     ) -> Result<Layout, LayoutError> {
+        Self::record_fields(id, fields, union, &crate::RecordLayout::default())
+    }
+    fn record_fields<'a>(
+        id: TypeId,
+        fields: impl IntoIterator<Item = &'a Layout>,
+        union: bool,
+        options: &crate::RecordLayout,
+    ) -> Result<Layout, LayoutError> {
+        Self::placed_record_fields(id, fields, union, options, &[])
+    }
+
+    /// Anchors here are private checked ordinals; the public record definition
+    /// must retain owner-bound FieldIds before supplying their indices.
+    fn placed_record_fields<'a>(
+        id: TypeId,
+        fields: impl IntoIterator<Item = &'a Layout>,
+        union: bool,
+        options: &crate::RecordLayout,
+        placements: &[Option<usize>],
+    ) -> Result<Layout, LayoutError> {
+        if options
+            .minimum_alignment
+            .is_some_and(|alignment| !alignment.is_power_of_two())
+        {
+            return Err(LayoutError::InvalidRecordAlignment(id));
+        }
+        if options
+            .field_alignments
+            .iter()
+            .flatten()
+            .any(|alignment| !alignment.is_power_of_two())
+        {
+            return Err(LayoutError::InvalidRecordAlignment(id));
+        }
         let mut size = 0;
-        let mut alignment = 1;
+        let mut cursor = 0;
+        let mut alignment = options.minimum_alignment.unwrap_or(1);
         let mut offsets = Vec::new();
-        for field in fields {
-            alignment = alignment.max(field.alignment);
+        for (index, field) in fields.into_iter().enumerate() {
+            if let Some(anchor) = placements.get(index).copied().flatten() {
+                if union || anchor >= index {
+                    return Err(LayoutError::InvalidRecordFieldLayout(id));
+                }
+                cursor = offsets[anchor];
+            }
+            let field_alignment = options
+                .field_alignments
+                .get(index)
+                .copied()
+                .flatten()
+                .unwrap_or(if options.packed { 1 } else { field.alignment });
+            alignment = alignment.max(field_alignment);
             if union {
                 offsets.push(0);
                 size = size.max(field.size);
             } else {
-                size = Self::align_up(id, size, field.alignment)?;
-                offsets.push(size);
-                size = size
+                cursor = Self::align_up(id, cursor, field_alignment)?;
+                offsets.push(cursor);
+                cursor = cursor
                     .checked_add(field.size)
                     .ok_or(LayoutError::Overflow(id))?;
+                size = size.max(cursor);
             }
+        }
+        if !options.field_alignments.is_empty() && options.field_alignments.len() != offsets.len() {
+            return Err(LayoutError::InvalidRecordFieldLayout(id));
+        }
+        if !placements.is_empty() && placements.len() != offsets.len() {
+            return Err(LayoutError::InvalidRecordFieldLayout(id));
         }
         Ok(Layout {
             size: Self::align_up(id, size, alignment)?,
@@ -249,11 +336,18 @@ impl<'types> LayoutEngine<'types> {
     }
     fn calculate(&self, id: TypeId) -> Result<Layout, LayoutError> {
         Ok(match self.types.kind(id)? {
-            TypeKind::Void | TypeKind::Type => return Err(LayoutError::Unsized(id)),
+            TypeKind::Void | TypeKind::Code => {
+                return Err(LayoutError::Unsized(id));
+            }
             TypeKind::Bool => self.policy.boolean.into(),
             TypeKind::Integer(ty) => self.policy.integer(*ty).into(),
             TypeKind::Float(ty) => self.policy.float(*ty).into(),
-            TypeKind::Pointer(_) | TypeKind::Procedure(_) => self.policy.pointer.into(),
+            TypeKind::Distinct(distinct) => self
+                .dependency(self.types.distinct(*distinct)?.representation)?
+                .clone(),
+            TypeKind::Type | TypeKind::Pointer(_) | TypeKind::Procedure(_) => {
+                self.policy.pointer.into()
+            }
             TypeKind::Enum(enumeration) => self
                 .policy
                 .integer(self.types.enumeration(*enumeration)?.representation)
@@ -270,14 +364,35 @@ impl<'types> LayoutEngine<'types> {
                     array_stride: Some(stride),
                 }
             }
-            TypeKind::Record(record) => {
-                let record = self.types.record(*record)?;
+            TypeKind::Record(owner) | TypeKind::Any(owner) => {
+                let record = self.types.record(*owner)?;
                 let fields = record
                     .fields
                     .iter()
                     .map(|field| self.dependency(*field))
                     .collect::<Result<Vec<_>, _>>()?;
-                Self::fields(id, fields, record.kind == RecordKind::Union)?
+                let placements = record
+                    .layout
+                    .field_placements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, anchor)| {
+                        anchor.map_or(Ok(None), |anchor| {
+                            self.types.validate_field(id, anchor)?;
+                            if anchor.record() != *owner || anchor.index() >= index {
+                                return Err(LayoutError::InvalidRecordFieldLayout(id));
+                            }
+                            Ok(Some(anchor.index()))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, LayoutError>>()?;
+                Self::placed_record_fields(
+                    id,
+                    fields,
+                    record.kind == RecordKind::Union,
+                    &record.layout,
+                    &placements,
+                )?
             }
             TypeKind::String | TypeKind::Slice(_) => {
                 let count: Layout = self.policy.integer(IntegerType::S64).into();
@@ -298,6 +413,62 @@ impl<'types> LayoutEngine<'types> {
 mod tests {
     use super::*;
     use crate::{ScalarType, TypeRegistry};
+    #[test]
+    fn private_placement_cursor_keeps_max_extent_and_rounds_the_tail() {
+        let registry = TypeRegistry::new();
+        let id = registry.string();
+        let original: Layout = ScalarLayout::new(79, 1).into();
+        let overlay: Layout = ScalarLayout::new(16, 8).into();
+        let scalar: Layout = ScalarLayout::new(8, 8).into();
+        let layout = LayoutEngine::placed_record_fields(
+            id,
+            [&original, &overlay, &scalar],
+            false,
+            &crate::RecordLayout::default(),
+            &[None, Some(0), None],
+        )
+        .unwrap();
+        assert_eq!(layout.field_offsets.as_ref(), &[0, 0, 16]);
+        assert_eq!((layout.size, layout.alignment), (80, 8));
+    }
+
+    #[test]
+    fn private_placement_cursor_extends_padding_from_the_anchor() {
+        let registry = TypeRegistry::new();
+        let id = registry.string();
+        let info: Layout = ScalarLayout::new(16, 8).into();
+        let padding: Layout = ScalarLayout::new(64, 1).into();
+        let slice: Layout = ScalarLayout::new(16, 8).into();
+        let layout = LayoutEngine::placed_record_fields(
+            id,
+            [&info, &padding, &slice],
+            false,
+            &crate::RecordLayout::default(),
+            &[None, Some(0), None],
+        )
+        .unwrap();
+        assert_eq!(layout.field_offsets.as_ref(), &[0, 0, 64]);
+        assert_eq!((layout.size, layout.alignment), (80, 8));
+    }
+
+    #[test]
+    fn private_placement_cursor_rejects_forward_and_union_anchors() {
+        let registry = TypeRegistry::new();
+        let id = registry.string();
+        let field: Layout = ScalarLayout::new(8, 8).into();
+        for (union, anchors) in [(false, [None, Some(1)]), (true, [None, Some(0)])] {
+            assert!(matches!(
+                LayoutEngine::placed_record_fields(
+                    id,
+                    [&field, &field],
+                    union,
+                    &crate::RecordLayout::default(),
+                    &anchors
+                ),
+                Err(LayoutError::InvalidRecordFieldLayout(_))
+            ));
+        }
+    }
     fn ilp32() -> LayoutPolicy {
         LayoutPolicy::new(
             ScalarLayout::new(4, 4),
@@ -419,6 +590,38 @@ mod tests {
             engine.layout(record).unwrap().field_offsets.as_ref(),
             &[0, 8]
         );
+    }
+    #[test]
+    fn anonymous_tuple_layout_uses_target_offsets_and_rejects_invalid_children() {
+        let mut registry = TypeRegistry::new();
+        let byte = registry.scalar(ScalarType::Int(IntegerType::U8));
+        let word = registry.scalar(ScalarType::Int(IntegerType::U64));
+        let pointer = registry.pointer(byte).unwrap();
+        let huge = registry.fixed_array(byte, u64::MAX).unwrap();
+        let void = registry.void();
+        let foreign = TypeRegistry::new().scalar(ScalarType::Int(IntegerType::U8));
+        let types = registry.freeze().unwrap();
+        for (policy, offsets, size) in [
+            (LayoutPolicy::lp64(), [0, 8, 16], 24),
+            (ilp32(), [0, 4, 8], 16),
+        ] {
+            let mut engine = LayoutEngine::new(&types, policy);
+            let tuple = engine.tuple_layout(&[byte, pointer, word]).unwrap();
+            assert_eq!(tuple.field_offsets.as_ref(), &offsets);
+            assert_eq!(tuple.size, size);
+            assert_eq!(engine.tuple_layout(&[]).unwrap().size, 0);
+            assert!(
+                matches!(engine.tuple_layout(&[void]), Err(LayoutError::Unsized(id)) if id == void)
+            );
+            assert!(
+                matches!(engine.tuple_layout(&[foreign]), Err(LayoutError::Type(TypeError::ForeignType(id))) if id == foreign)
+            );
+            assert!(matches!(
+                engine.tuple_layout(&[huge, byte]),
+                Err(LayoutError::TupleOverflow)
+            ));
+            assert_eq!(engine.tuple_layout(&[byte]).unwrap().size, 1);
+        }
     }
     #[test]
     fn arithmetic_overflow_and_void_storage_are_structured_errors() {
@@ -545,6 +748,124 @@ mod tests {
         // Reusing the root must preserve the result after querying another branch.
         assert_eq!(engine.layout(root).unwrap().size, 72);
     }
+    #[test]
+    fn explicit_record_constraints_control_nested_offsets_and_array_stride() {
+        let mut registry = TypeRegistry::new();
+        let byte = registry.scalar(ScalarType::Int(IntegerType::U8));
+        let word = registry.scalar(ScalarType::Int(IntegerType::U64));
+        let packed = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_layout(
+                packed,
+                [byte, word],
+                crate::RecordLayout {
+                    packed: true,
+                    minimum_alignment: None,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let aligned = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_layout(
+                aligned,
+                [packed, byte],
+                crate::RecordLayout {
+                    packed: false,
+                    minimum_alignment: Some(16),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let array = registry.fixed_array(aligned, 2).unwrap();
+        let union = registry.reserve_record(RecordKind::Union);
+        registry
+            .define_record_with_layout(
+                union,
+                [byte, packed],
+                crate::RecordLayout {
+                    packed: false,
+                    minimum_alignment: Some(16),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let types = registry.freeze().unwrap();
+        let mut engine = LayoutEngine::new(&types, LayoutPolicy::lp64());
+        assert_eq!(
+            engine.layout(packed).unwrap().field_offsets.as_ref(),
+            &[0, 1]
+        );
+        assert_eq!(engine.layout(packed).unwrap().size, 9);
+        assert_eq!(engine.layout(packed).unwrap().alignment, 1);
+        assert_eq!(
+            engine.layout(aligned).unwrap().field_offsets.as_ref(),
+            &[0, 9]
+        );
+        assert_eq!(engine.layout(aligned).unwrap().size, 16);
+        assert_eq!(engine.layout(array).unwrap().array_stride, Some(16));
+        assert_eq!(engine.layout(array).unwrap().size, 32);
+        assert_eq!(
+            engine.layout(union).unwrap().field_offsets.as_ref(),
+            &[0, 0]
+        );
+        assert_eq!(engine.layout(union).unwrap().size, 16);
+    }
+    #[test]
+    fn invalid_record_alignment_fails_without_poisoning_other_layouts() {
+        let mut registry = TypeRegistry::new();
+        let byte = registry.scalar(ScalarType::Int(IntegerType::U8));
+        let mut invalid = Vec::new();
+        for alignment in [0, 3] {
+            let record = registry.reserve_record(RecordKind::Struct);
+            registry
+                .define_record_with_layout(
+                    record,
+                    [byte],
+                    crate::RecordLayout {
+                        packed: false,
+                        minimum_alignment: Some(alignment),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            invalid.push(record);
+        }
+        let types = registry.freeze().unwrap();
+        let mut engine = LayoutEngine::new(&types, LayoutPolicy::lp64());
+        for record in invalid {
+            assert!(
+                matches!(engine.layout(record), Err(LayoutError::InvalidRecordAlignment(id)) if id == record)
+            );
+        }
+        assert_eq!(engine.layout(byte).unwrap().size, 1);
+    }
+    #[test]
+    fn field_alignment_can_reduce_natural_alignment_in_packed_ffi_storage() {
+        let mut registry = TypeRegistry::new();
+        let word = registry.scalar(ScalarType::Int(IntegerType::U32));
+        let pointer = registry.pointer(word).unwrap();
+        let record = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_layout(
+                record,
+                [word, pointer, word],
+                crate::RecordLayout {
+                    packed: true,
+                    field_alignments: vec![Some(4), Some(4), Some(4)].into_boxed_slice(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let types = registry.freeze().unwrap();
+        let mut engine = LayoutEngine::new(&types, LayoutPolicy::lp64());
+        assert_eq!(
+            engine.layout(record).unwrap().field_offsets.as_ref(),
+            &[0, 4, 12]
+        );
+        assert_eq!(engine.layout(record).unwrap().size, 16);
+        assert_eq!(engine.layout(record).unwrap().alignment, 4);
+    }
 }
 
 #[cfg(test)]
@@ -567,6 +888,7 @@ mod representation_tests {
                 results: vec![double].into_boxed_slice(),
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
+                variadic: crate::Variadic::None,
             })
             .unwrap();
         let record = registry.reserve_record(RecordKind::Struct);
@@ -582,8 +904,9 @@ mod representation_tests {
             &[0, 8, 16, 24]
         );
         assert_eq!(engine.layout(record).unwrap().size, 32);
-        assert!(
-            matches!(engine.layout(meta_type), Err(LayoutError::Unsized(id)) if id == meta_type)
+        assert_eq!(
+            engine.layout(meta_type).unwrap(),
+            &Layout::from(LayoutPolicy::lp64().pointer())
         );
     }
     #[test]

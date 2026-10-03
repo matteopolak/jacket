@@ -9,5 +9,8 @@ jai-source.workspace = true
 jai-lexer.workspace = true
 jai-syntax.workspace = true
 jai-sema.workspace = true
+jai-vm.workspace = true
+jai-types.workspace = true
+sha2.workspace = true
 [lints]
 workspace = true

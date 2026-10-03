@@ -10,7 +10,7 @@
 
 Private integer/Boolean value and storage wrappers preserve language widths because LLVM uses one Rust value type for both. Enums select operations and comparison predicates. Strings name modules, functions and instructions for diagnostics; they do not select types or encode LLVM syntax.
 
-The complete module is verified before returning. `emit` creates a context and uses LLVM to serialize it. The CLI surfaces structured backend errors before writing output or invoking Clang. `check` stops at semantic resolution. Native linking still uses trusted Clang; object emission, target selection and optimization pipelines remain future work.
+The complete module is verified before returning. `emit` creates a context and uses LLVM to serialize it. The CLI surfaces structured backend errors before writing output or invoking Clang. `check` stops at semantic resolution. [Native target selection, optimization and object emission](native-build.md) use LLVM target machines; guarded installed Clang links newly generated host objects. [Workspace artifact scheduling](workspace-artifacts.md) applies source build settings and emits checked child builds.
 
 ## How to change it
 
@@ -33,4 +33,4 @@ cargo build -p jai-cli --locked
 
 ## Dependencies
 
-Inkwell 0.10.0, llvm-sys 221.1.0, independently installed LLVM 22, and `jai-sema`/`jai-syntax`. All 33 external locked Rust packages passed age checks before compilation. Inkwell and llvm-sys use unsafe FFI internally; workspace code forbids unsafe Rust. See [Inkwell](https://github.com/TheDan64/inkwell) and [Homebrew LLVM 22](https://formulae.brew.sh/formula/llvm@22).
+Inkwell 0.10.0, llvm-sys 221.1.0, independently installed LLVM 22.1, and `jai-sema`/`jai-syntax`. Run the locked dependency-age guard before compilation, including after lockfile changes. Inkwell and llvm-sys use unsafe FFI internally; workspace code forbids unsafe Rust. See [Inkwell](https://github.com/TheDan64/inkwell) and [Homebrew LLVM 22](https://formulae.brew.sh/formula/llvm@22).

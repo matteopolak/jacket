@@ -7,5 +7,7 @@ rust-version.workspace = true
 jai-source.workspace = true
 jai-syntax.workspace = true
 jai-lexer.workspace = true
+jai-eval.workspace = true
+jai-types.workspace = true
 [lints]
 workspace = true

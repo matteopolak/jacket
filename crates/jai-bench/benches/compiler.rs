@@ -1,11 +1,57 @@
 use divan::{Bencher, counter::BytesCount};
+#[path = "compiler/sequence_indices.rs"]
+mod sequence_indices;
 use std::{fs, path::Path};
+
+#[path = "compiler/float_aliases.rs"]
+mod float_aliases;
+
+#[path = "compiler/native_runtime.rs"]
+mod native_runtime;
+#[path = "compiler/whole_module.rs"]
+mod whole_module;
 
 #[global_allocator]
 static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
 
 fn main() {
     divan::main();
+}
+
+#[divan::bench(args = [4, 64, 1024])]
+fn source_run_resolve(bencher: Bencher, iterations: usize) {
+    let source = format!(
+        "main::()->int {{return #run sum({iterations});}} sum::(n:int)->int {{result:=0; for i:1..n result+=i; return result;}}"
+    );
+    let mut inputs = jai_modules::SourceOverlay::default();
+    let path = Path::new("/bench/main.jai");
+    inputs.insert(path, source.as_bytes().to_vec()).unwrap();
+    let graph = jai_modules::ModuleGraph::load_with_provider(
+        path,
+        jai_modules::GraphOptions::default(),
+        &inputs,
+    )
+    .unwrap();
+    let options = jai_sema::ResolveOptions {
+        layout: Some(jai_types::LayoutPolicy::lp64()),
+        ..Default::default()
+    };
+    let program =
+        jai_sema::resolve_graph_with_options(&graph, &options, &mut jai_vm::NoEffects).unwrap();
+    let expected = iterations as i128 * (iterations as i128 + 1) / 2;
+    assert!(
+        matches!(jai_vm::execute(&program, jai_vm::Limits::default()).outcome, jai_vm::Outcome::Complete(values) if matches!(values.as_slice(), [jai_vm::Value::Int(value)] if value.value() == expected))
+    );
+    bencher
+        .counter(BytesCount::new(source.len()))
+        .bench_local(|| {
+            jai_sema::resolve_graph_with_options(
+                divan::black_box(&graph),
+                &options,
+                &mut jai_vm::NoEffects,
+            )
+            .unwrap()
+        });
 }
 
 fn structural_types(registry: &mut jai_types::TypeRegistry, count: usize) -> jai_types::TypeId {
@@ -24,7 +70,15 @@ fn type_intern_create(bencher: Bencher, count: usize) {
     let mut check = jai_types::TypeRegistry::new();
     let root = structural_types(&mut check, count);
     assert_eq!(root, structural_types(&mut check, count));
-    assert_eq!(check.freeze().unwrap().iter().count(), 14 + 4 * count);
+    assert_eq!(
+        check.freeze().unwrap().iter().count(),
+        jai_types::TypeRegistry::new()
+            .freeze()
+            .unwrap()
+            .iter()
+            .count()
+            + 4 * count
+    );
     bencher.bench_local(|| {
         let mut registry = jai_types::TypeRegistry::new();
         divan::black_box(structural_types(&mut registry, count));
@@ -60,7 +114,15 @@ fn nominal_graph(count: usize) -> (jai_types::TypeRegistry, jai_types::TypeId) {
 fn checked_nominal_graph(count: usize) -> (jai_types::Types, jai_types::TypeId) {
     let (registry, root) = nominal_graph(count);
     let types = registry.freeze().unwrap();
-    assert_eq!(types.iter().count(), 14 + 4 * count);
+    assert_eq!(
+        types.iter().count(),
+        jai_types::TypeRegistry::new()
+            .freeze()
+            .unwrap()
+            .iter()
+            .count()
+            + 4 * count
+    );
     let mut engine = jai_types::LayoutEngine::new(&types, jai_types::LayoutPolicy::lp64());
     let layout = engine.layout(root).unwrap();
     assert_eq!(layout.size, 8 + 64 * count as u64);
@@ -352,15 +414,15 @@ fn lex_corpus(bencher: Bencher, path: &Path) {
 }
 #[divan::bench(sample_count = 20, sample_size = 1)]
 fn reference_lex(bencher: Bencher) {
-    lex_corpus(
-        bencher,
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference"),
-    );
+    lex_corpus(bencher, &corpus_root().join("reference"));
 }
 #[divan::bench(sample_count = 20, sample_size = 1, ignore)]
 fn upstream_lex(bencher: Bencher) {
-    lex_corpus(
-        bencher,
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/upstream"),
-    );
+    lex_corpus(bencher, &corpus_root().join("corpus/upstream"));
+}
+
+fn corpus_root() -> std::path::PathBuf {
+    std::env::var_os("JAI_BENCH_CORPUS_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
 }

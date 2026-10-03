@@ -1,6 +1,9 @@
 //! Compilation identities and immutable source records.
 use crate::{Diagnostic, Span};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 macro_rules! identity {
     ($name:ident) => {
@@ -20,7 +23,7 @@ identity!(ScopeId);
 identity!(DeclarationId);
 
 /// Allocate identities within one compilation session; IDs never identify spellings.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Identities {
     units: usize,
     modules: usize,
@@ -63,14 +66,14 @@ impl LocatedDiagnostic {
     pub fn new(source: SourceId, diagnostic: Diagnostic) -> Self {
         Self {
             location: SourceSpan {
-                source,
+                source: diagnostic.source.unwrap_or(source),
                 span: diagnostic.span,
             },
             message: diagnostic.message,
         }
     }
     pub fn render(&self, sources: &SourceMap) -> String {
-        let diagnostic = Diagnostic::new(self.location.span, &self.message);
+        let diagnostic = Diagnostic::at_source(self.location, &self.message);
         match sources.get(self.location.source) {
             Some(source) => diagnostic.render(&source.path.to_string_lossy(), &source.text),
             None => format!(
@@ -87,11 +90,11 @@ impl std::fmt::Display for LocatedDiagnostic {
     }
 }
 impl std::error::Error for LocatedDiagnostic {}
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SourceRecord {
     id: SourceId,
     path: PathBuf,
-    text: String,
+    text: Arc<str>,
 }
 impl SourceRecord {
     pub fn id(&self) -> SourceId {
@@ -103,15 +106,23 @@ impl SourceRecord {
     pub fn text(&self) -> &str {
         &self.text
     }
+    /// Retain this source's immutable text and allocation provenance across phases.
+    pub fn shared_text(&self) -> Arc<str> {
+        Arc::clone(&self.text)
+    }
 }
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SourceMap {
     records: Vec<SourceRecord>,
 }
 impl SourceMap {
     pub fn insert(&mut self, path: PathBuf, text: String) -> SourceId {
         let id = SourceId(self.records.len());
-        self.records.push(SourceRecord { id, path, text });
+        self.records.push(SourceRecord {
+            id,
+            path,
+            text: text.into(),
+        });
         id
     }
     pub fn get(&self, id: SourceId) -> Option<&SourceRecord> {
@@ -134,5 +145,27 @@ mod tests {
         let diagnostic = LocatedDiagnostic::new(id, Diagnostic::new(Span::new(3, 6), "bad name"));
         assert_eq!(diagnostic.render(&sources), "a.jai:2:1: error: bad name");
         assert_eq!(sources.get(id).unwrap().id(), id);
+    }
+    #[test]
+    fn explicit_diagnostic_origin_survives_lexical_source_fallbacks() {
+        let mut sources = SourceMap::default();
+        let caller = sources.insert("caller.jai".into(), "caller".into());
+        let quote = sources.insert("quote.jai".into(), "é\r\nquoted".into());
+        let location = SourceSpan {
+            source: quote,
+            span: Span::new(4, 10),
+        };
+        let diagnostic = Diagnostic::at_source(location, "bad quote").with_fallback_source(caller);
+        let located = LocatedDiagnostic::new(caller, diagnostic);
+        assert_eq!(located.location, location);
+        assert_eq!(located.render(&sources), "quote.jai:2:1: error: bad quote");
+        let caller_diagnostic = Diagnostic::new(Span::new(0, 6), "bad caller");
+        assert_eq!(caller_diagnostic.source, None);
+        assert_eq!(
+            LocatedDiagnostic::new(caller, caller_diagnostic)
+                .location
+                .source,
+            caller
+        );
     }
 }

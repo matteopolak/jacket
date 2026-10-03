@@ -1,0 +1,643 @@
+{
+  "native_build_options": {
+    "ENABLE_ASSERTS": 1,
+    "ENABLE_OVERRIDE": 0,
+    "ENABLE_STATISTICS": 1,
+    "ENABLE_VALIDATE_ARGS": 1,
+    "RPMALLOC_CONFIGURABLE": 1,
+    "RPMALLOC_FIRST_CLASS_HEAPS": 1
+  },
+  "native_field_count": 66,
+  "probe_sdk_exports": "All pinned SDK exports prefixed; probe instance never executed",
+  "profiles": {
+    "0": {
+      "heap_size_class_t": [
+        {
+          "owner": "heap_size_class_t",
+          "path": "free_list"
+        },
+        {
+          "owner": "heap_size_class_t",
+          "path": "partial_span"
+        },
+        {
+          "owner": "heap_size_class_t",
+          "path": "cache"
+        }
+      ],
+      "heap_t": [
+        {
+          "owner": "heap_t",
+          "path": "owner_thread"
+        },
+        {
+          "owner": "heap_t",
+          "path": "size_class"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_cache"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_free_deferred"
+        },
+        {
+          "owner": "heap_t",
+          "path": "full_span_count"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_reserve"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_reserve_master"
+        },
+        {
+          "owner": "heap_t",
+          "path": "spans_reserved"
+        },
+        {
+          "owner": "heap_t",
+          "path": "child_count"
+        },
+        {
+          "owner": "heap_t",
+          "path": "next_heap"
+        },
+        {
+          "owner": "heap_t",
+          "path": "next_orphan"
+        },
+        {
+          "owner": "heap_t",
+          "path": "id"
+        },
+        {
+          "owner": "heap_t",
+          "path": "finalize"
+        },
+        {
+          "owner": "heap_t",
+          "path": "master_heap"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_large_cache"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_use"
+        },
+        {
+          "owner": "heap_t",
+          "path": "size_class_use"
+        },
+        {
+          "owner": "heap_t",
+          "path": "thread_to_global"
+        },
+        {
+          "owner": "heap_t",
+          "path": "global_to_thread"
+        }
+      ],
+      "size_class_use_t": [
+        {
+          "owner": "size_class_use_t",
+          "path": "alloc_current"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "alloc_peak"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "alloc_total"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "free_total"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_current"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_peak"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_to_cache"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_from_cache"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_from_reserved"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_map_calls"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "unused"
+        }
+      ],
+      "span_cache_t": [
+        {
+          "owner": "span_cache_t",
+          "path": "count"
+        },
+        {
+          "owner": "span_cache_t",
+          "path": "span"
+        }
+      ],
+      "span_large_cache_t": [
+        {
+          "owner": "span_large_cache_t",
+          "path": "count"
+        },
+        {
+          "owner": "span_large_cache_t",
+          "path": "span"
+        }
+      ],
+      "span_t": [
+        {
+          "owner": "span_t",
+          "path": "free_list"
+        },
+        {
+          "owner": "span_t",
+          "path": "block_count"
+        },
+        {
+          "owner": "span_t",
+          "path": "size_class"
+        },
+        {
+          "owner": "span_t",
+          "path": "free_list_limit"
+        },
+        {
+          "owner": "span_t",
+          "path": "used_count"
+        },
+        {
+          "owner": "span_t",
+          "path": "free_list_deferred"
+        },
+        {
+          "owner": "span_t",
+          "path": "list_size"
+        },
+        {
+          "owner": "span_t",
+          "path": "block_size"
+        },
+        {
+          "owner": "span_t",
+          "path": "flags"
+        },
+        {
+          "owner": "span_t",
+          "path": "span_count"
+        },
+        {
+          "owner": "span_t",
+          "path": "total_spans"
+        },
+        {
+          "owner": "span_t",
+          "path": "offset_from_master"
+        },
+        {
+          "owner": "span_t",
+          "path": "remaining_spans"
+        },
+        {
+          "owner": "span_t",
+          "path": "align_offset"
+        },
+        {
+          "owner": "span_t",
+          "path": "heap"
+        },
+        {
+          "owner": "span_t",
+          "path": "next"
+        },
+        {
+          "owner": "span_t",
+          "path": "prev"
+        }
+      ],
+      "span_use_t": [
+        {
+          "owner": "span_use_t",
+          "path": "current"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "high"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_deferred"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_to_global"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_from_global"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_to_cache"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_from_cache"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_to_reserved"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_from_reserved"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_map_calls"
+        }
+      ]
+    },
+    "1": {
+      "heap_size_class_t": [
+        {
+          "owner": "heap_size_class_t",
+          "path": "free_list"
+        },
+        {
+          "owner": "heap_size_class_t",
+          "path": "partial_span"
+        },
+        {
+          "owner": "heap_size_class_t",
+          "path": "cache"
+        }
+      ],
+      "heap_t": [
+        {
+          "owner": "heap_t",
+          "path": "owner_thread"
+        },
+        {
+          "owner": "heap_t",
+          "path": "size_class"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_cache"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_free_deferred"
+        },
+        {
+          "owner": "heap_t",
+          "path": "full_span_count"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_reserve"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_reserve_master"
+        },
+        {
+          "owner": "heap_t",
+          "path": "spans_reserved"
+        },
+        {
+          "owner": "heap_t",
+          "path": "child_count"
+        },
+        {
+          "owner": "heap_t",
+          "path": "next_heap"
+        },
+        {
+          "owner": "heap_t",
+          "path": "next_orphan"
+        },
+        {
+          "owner": "heap_t",
+          "path": "id"
+        },
+        {
+          "owner": "heap_t",
+          "path": "finalize"
+        },
+        {
+          "owner": "heap_t",
+          "path": "master_heap"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_large_cache"
+        },
+        {
+          "owner": "heap_t",
+          "path": "full_span"
+        },
+        {
+          "owner": "heap_t",
+          "path": "large_huge_span"
+        },
+        {
+          "owner": "heap_t",
+          "path": "span_use"
+        },
+        {
+          "owner": "heap_t",
+          "path": "size_class_use"
+        },
+        {
+          "owner": "heap_t",
+          "path": "thread_to_global"
+        },
+        {
+          "owner": "heap_t",
+          "path": "global_to_thread"
+        }
+      ],
+      "size_class_use_t": [
+        {
+          "owner": "size_class_use_t",
+          "path": "alloc_current"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "alloc_peak"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "alloc_total"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "free_total"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_current"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_peak"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_to_cache"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_from_cache"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_from_reserved"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "spans_map_calls"
+        },
+        {
+          "owner": "size_class_use_t",
+          "path": "unused"
+        }
+      ],
+      "span_cache_t": [
+        {
+          "owner": "span_cache_t",
+          "path": "count"
+        },
+        {
+          "owner": "span_cache_t",
+          "path": "span"
+        }
+      ],
+      "span_large_cache_t": [
+        {
+          "owner": "span_large_cache_t",
+          "path": "count"
+        },
+        {
+          "owner": "span_large_cache_t",
+          "path": "span"
+        }
+      ],
+      "span_t": [
+        {
+          "owner": "span_t",
+          "path": "free_list"
+        },
+        {
+          "owner": "span_t",
+          "path": "block_count"
+        },
+        {
+          "owner": "span_t",
+          "path": "size_class"
+        },
+        {
+          "owner": "span_t",
+          "path": "free_list_limit"
+        },
+        {
+          "owner": "span_t",
+          "path": "used_count"
+        },
+        {
+          "owner": "span_t",
+          "path": "free_list_deferred"
+        },
+        {
+          "owner": "span_t",
+          "path": "list_size"
+        },
+        {
+          "owner": "span_t",
+          "path": "block_size"
+        },
+        {
+          "owner": "span_t",
+          "path": "flags"
+        },
+        {
+          "owner": "span_t",
+          "path": "span_count"
+        },
+        {
+          "owner": "span_t",
+          "path": "total_spans"
+        },
+        {
+          "owner": "span_t",
+          "path": "offset_from_master"
+        },
+        {
+          "owner": "span_t",
+          "path": "remaining_spans"
+        },
+        {
+          "owner": "span_t",
+          "path": "align_offset"
+        },
+        {
+          "owner": "span_t",
+          "path": "heap"
+        },
+        {
+          "owner": "span_t",
+          "path": "next"
+        },
+        {
+          "owner": "span_t",
+          "path": "prev"
+        }
+      ],
+      "span_use_t": [
+        {
+          "owner": "span_use_t",
+          "path": "current"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "high"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_deferred"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_to_global"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_from_global"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_to_cache"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_from_cache"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_to_reserved"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_from_reserved"
+        },
+        {
+          "owner": "span_use_t",
+          "path": "spans_map_calls"
+        }
+      ]
+    }
+  },
+  "records": {
+    "heap_size_class_t": "Size_Class_Storage",
+    "heap_t": "Heap_Storage",
+    "size_class_use_t": "Size_Counters_Storage",
+    "span_cache_t": "Span_Cache_Storage",
+    "span_large_cache_t": "Large_Cache_Storage",
+    "span_t": "Span_Storage",
+    "span_use_t": "Span_Counters_Storage"
+  },
+  "scope": "Native SDK storage ABI only; not public heap implementation or atomic operations",
+  "source": "rpmalloc/rpmalloc.c",
+  "source_export_profiles": {
+    "0": [
+      "rpaligned_alloc",
+      "rpaligned_calloc",
+      "rpaligned_realloc",
+      "rpcalloc",
+      "rpfree",
+      "rpmalloc",
+      "rpmalloc_config",
+      "rpmalloc_dump_statistics",
+      "rpmalloc_finalize",
+      "rpmalloc_global_statistics",
+      "rpmalloc_initialize",
+      "rpmalloc_initialize_config",
+      "rpmalloc_is_thread_initialized",
+      "rpmalloc_linker_reference",
+      "rpmalloc_set_main_thread",
+      "rpmalloc_thread_collect",
+      "rpmalloc_thread_finalize",
+      "rpmalloc_thread_initialize",
+      "rpmalloc_thread_statistics",
+      "rpmalloc_usable_size",
+      "rpmemalign",
+      "rpposix_memalign",
+      "rprealloc"
+    ],
+    "1": [
+      "rpaligned_alloc",
+      "rpaligned_calloc",
+      "rpaligned_realloc",
+      "rpcalloc",
+      "rpfree",
+      "rpmalloc",
+      "rpmalloc_config",
+      "rpmalloc_dump_statistics",
+      "rpmalloc_finalize",
+      "rpmalloc_get_heap_for_ptr",
+      "rpmalloc_global_statistics",
+      "rpmalloc_heap_acquire",
+      "rpmalloc_heap_aligned_alloc",
+      "rpmalloc_heap_aligned_calloc",
+      "rpmalloc_heap_aligned_realloc",
+      "rpmalloc_heap_alloc",
+      "rpmalloc_heap_calloc",
+      "rpmalloc_heap_free",
+      "rpmalloc_heap_free_all",
+      "rpmalloc_heap_realloc",
+      "rpmalloc_heap_release",
+      "rpmalloc_heap_thread_set_current",
+      "rpmalloc_initialize",
+      "rpmalloc_initialize_config",
+      "rpmalloc_is_thread_initialized",
+      "rpmalloc_linker_reference",
+      "rpmalloc_set_main_thread",
+      "rpmalloc_thread_collect",
+      "rpmalloc_thread_finalize",
+      "rpmalloc_thread_initialize",
+      "rpmalloc_thread_statistics",
+      "rpmalloc_usable_size",
+      "rpmemalign",
+      "rpposix_memalign",
+      "rprealloc"
+    ]
+  },
+  "source_sha256": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
+  "verification": "Host C source parsing here; native/source evidence indexed separately"
+}

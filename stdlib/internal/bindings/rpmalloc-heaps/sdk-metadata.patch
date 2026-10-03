@@ -1,0 +1,124 @@
+--- a/rpmalloc.c
++++ b/rpmalloc.c
+@@ -951,6 +951,9 @@
+ //  release is set to 0 for partial unmap, or size of entire range for a full unmap
+ static void
+ _rpmalloc_unmap(void* address, size_t size, size_t offset, size_t release) {
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	binding_metadata_unmap(address, size, release);
++#endif
+ 	rpmalloc_assert(!release || (release >= size), "Invalid unmap size");
+ 	rpmalloc_assert(!release || (release >= _memory_page_size), "Invalid unmap size");
+ 	if (release) {
+@@ -1227,7 +1230,13 @@
+ 	//full set of spans. Otherwise we would waste memory if page size > span size (huge pages)
+ 	size_t aligned_span_count = _rpmalloc_span_align_count(span_count);
+ 	size_t align_offset = 0;
+-	span_t* span = (span_t*)_rpmalloc_mmap(aligned_span_count * _memory_span_size, &align_offset);
++	span_t* span = (span_t*)
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++binding_metadata_map(aligned_span_count * _memory_span_size, &align_offset, aligned_span_count)
++#else
++_rpmalloc_mmap(aligned_span_count * _memory_span_size, &align_offset)
++#endif
++;
+ 	if (!span)
+ 		return 0;
+ 	_rpmalloc_span_initialize(span, aligned_span_count, span_count, align_offset);
+@@ -1964,8 +1973,16 @@
+ 	size_t block_size = _memory_span_size * heap_span_count;
+ 	size_t span_count = heap_span_count;
+ 	span_t* span = 0;
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	BindingMetadataReservation heap_metadata = {0};
++#endif
+ 	// If there are global reserved spans, use these first
+ 	if (_memory_global_reserve_count >= heap_span_count) {
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++		size_t metadata_heaps = (_memory_span_size - sizeof(span_t)) / aligned_heap_size;
++		if (metadata_heaps < request_heap_count) metadata_heaps = request_heap_count;
++		if (!binding_metadata_reserve(&heap_metadata, metadata_heaps, 0)) return 0;
++#endif
+ 		span = _rpmalloc_global_get_reserved_spans(heap_span_count);
+ 	}
+ 	if (!span) {
+@@ -1988,10 +2005,25 @@
+ 			span_count = block_size / _memory_span_size;
+ 		}
+ 
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++		size_t metadata_heaps = (_memory_span_size - sizeof(span_t)) / aligned_heap_size;
++		if (metadata_heaps < request_heap_count) metadata_heaps = request_heap_count;
++		if (!binding_metadata_reserve(&heap_metadata, metadata_heaps, 0)) return 0;
++#endif
+ 		size_t align_offset = 0;
+-		span = (span_t*)_rpmalloc_mmap(block_size, &align_offset);
+-		if (!span)
++		span = (span_t*)
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++binding_metadata_map(block_size, &align_offset, span_count)
++#else
++_rpmalloc_mmap(block_size, &align_offset)
++#endif
++;
++		if (!span) {
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++			binding_metadata_cancel(&heap_metadata);
++#endif
+ 			return 0;
++		}
+ 
+ 		// Master span will contain the heaps
+ 		_rpmalloc_stat_inc(&_master_spans);
+@@ -2016,6 +2048,11 @@
+ 		--num_heaps;
+ 	}
+ 
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	size_t metadata_heap_count = remain_size / aligned_heap_size;
++	if (metadata_heap_count < request_heap_count) metadata_heap_count = request_heap_count;
++	binding_metadata_commit_heaps(&heap_metadata, heap, aligned_heap_size, metadata_heap_count);
++#endif
+ 	if (span_count > heap_span_count) {
+ 		// Cap reserved spans
+ 		size_t remain_count = span_count - heap_span_count;
+@@ -2308,7 +2345,13 @@
+ 	if (size & (_memory_page_size - 1))
+ 		++num_pages;
+ 	size_t align_offset = 0;
+-	span_t* span = (span_t*)_rpmalloc_mmap(num_pages * _memory_page_size, &align_offset);
++	span_t* span = (span_t*)
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++binding_metadata_map(num_pages * _memory_page_size, &align_offset, 1)
++#else
++_rpmalloc_mmap(num_pages * _memory_page_size, &align_offset)
++#endif
++;
+ 	if (!span)
+ 		return span;
+ 
+@@ -2419,7 +2462,13 @@
+ 	align_offset = 0;
+ 	mapped_size = num_pages * _memory_page_size;
+ 
+-	span = (span_t*)_rpmalloc_mmap(mapped_size, &align_offset);
++	span = (span_t*)
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++binding_metadata_map(mapped_size, &align_offset, 1)
++#else
++_rpmalloc_mmap(mapped_size, &align_offset)
++#endif
++;
+ 	if (!span) {
+ 		errno = ENOMEM;
+ 		return 0;
+@@ -3124,6 +3173,9 @@
+ //! Initialize thread, assign heap
+ extern inline void
+ rpmalloc_thread_initialize(void) {
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	if (!binding_domain_prepare_heap()) return;
++#endif
+ 	if (!get_thread_heap_raw()) {
+ 		heap_t* heap = _rpmalloc_heap_allocate(0);
+ 		if (heap) {

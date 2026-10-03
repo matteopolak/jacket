@@ -1,11 +1,11 @@
 //! Resolve declarative constants before runtime statements and allocate globals.
-use super::{Binding, ConstantValue, Diagnostic, Global, HashMap, Resolver, Span, Symbol, syntax};
+use super::{Binding, Diagnostic, Global, HashMap, ScalarConstant, Span, Symbol, syntax};
 use super::{GlobalInitializer, TypeRegistry};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum State {
     Visiting,
-    Ready(ConstantValue),
+    Ready(ScalarConstant),
 }
 enum Work<'a> {
     Enter(Symbol, Span),
@@ -39,15 +39,31 @@ impl<'a> Constants<'a> {
             graph_scope,
         })
     }
-    fn ready_value(&self, name: Symbol, span: Span) -> Result<ConstantValue, Diagnostic> {
+    fn ready_value(&self, name: Symbol, span: Span) -> Result<ScalarConstant, Diagnostic> {
         match self.states.get(&name) {
-            Some(State::Ready(value)) => Ok(*value),
+            Some(State::Ready(value)) => Ok(value.clone()),
             Some(State::Visiting) => Err(Diagnostic::new(span, "cyclic constant dependencies")),
             None => match self.outer.get(&name) {
-                Some(Binding::Constant(value)) => Ok(*value),
-                Some(Binding::Storage(_)) => Err(Diagnostic::new(
+                Some(Binding::Constant(value)) => Ok(value.clone()),
+                Some(Binding::Enum(_)) => Err(Diagnostic::new(
+                    span,
+                    "nominal enum block constant requires typed constant binding",
+                )),
+                Some(Binding::Storage(_) | Binding::CompilerInput { .. }) => Err(Diagnostic::new(
                     span,
                     "mutable storage cannot supply a compile-time constant",
+                )),
+                Some(Binding::Discarded(_)) => {
+                    Err(Diagnostic::new(span, "#discard parameter cannot be read"))
+                }
+                Some(Binding::Namespace(_) | Binding::Imported(_))
+                | Some(Binding::Library(_) | Binding::Macro(_))
+                | Some(Binding::Procedure { .. })
+                | Some(Binding::Type(_))
+                | Some(Binding::LambdaPreview(_))
+                | Some(Binding::TypedConstant(_) | Binding::Code(_)) => Err(Diagnostic::new(
+                    span,
+                    "typed value requires semantic constant binding",
                 )),
                 None => match self.graph_scope {
                     Some(scope) => match scope.value(
@@ -57,10 +73,31 @@ impl<'a> Constants<'a> {
                         },
                         span,
                     )? {
+                        Binding::Discarded(_) => {
+                            Err(Diagnostic::new(span, "#discard parameter cannot be read"))
+                        }
                         Binding::Constant(value) => Ok(value),
-                        Binding::Storage(_) => Err(Diagnostic::new(
+                        Binding::Enum(_) => Err(Diagnostic::new(
                             span,
-                            "mutable storage cannot supply a compile-time constant",
+                            "nominal enum block constant requires typed constant binding",
+                        )),
+                        Binding::Storage(_) | Binding::CompilerInput { .. } => {
+                            Err(Diagnostic::new(
+                                span,
+                                "mutable storage cannot supply a compile-time constant",
+                            ))
+                        }
+                        Binding::Namespace(_)
+                        | Binding::Imported(_)
+                        | Binding::Library(_)
+                        | Binding::Macro(_)
+                        | Binding::Procedure { .. }
+                        | Binding::Type(_)
+                        | Binding::LambdaPreview(_)
+                        | Binding::TypedConstant(_)
+                        | Binding::Code(_) => Err(Diagnostic::new(
+                            span,
+                            "typed value requires semantic constant binding",
                         )),
                     },
                     None => Err(Diagnostic::new(span, "unknown constant")),
@@ -68,7 +105,11 @@ impl<'a> Constants<'a> {
             },
         }
     }
-    fn ready_path(&self, path: &syntax::NamePath, span: Span) -> Result<ConstantValue, Diagnostic> {
+    fn ready_path(
+        &self,
+        path: &syntax::NamePath,
+        span: Span,
+    ) -> Result<ScalarConstant, Diagnostic> {
         if path.members.is_empty() {
             return self.ready_value(path.root, span);
         }
@@ -79,14 +120,33 @@ impl<'a> Constants<'a> {
             .graph_scope
             .ok_or_else(|| Diagnostic::new(span, "qualified constant requires a module scope"))?;
         match scope.value(path, span)? {
+            Binding::Discarded(_) => {
+                Err(Diagnostic::new(span, "#discard parameter cannot be read"))
+            }
             Binding::Constant(value) => Ok(value),
-            Binding::Storage(_) => Err(Diagnostic::new(
+            Binding::Enum(_) => Err(Diagnostic::new(
+                span,
+                "nominal enum block constant requires typed constant binding",
+            )),
+            Binding::Storage(_) | Binding::CompilerInput { .. } => Err(Diagnostic::new(
                 span,
                 "mutable storage cannot supply a compile-time constant",
             )),
+            Binding::Namespace(_)
+            | Binding::Imported(_)
+            | Binding::Library(_)
+            | Binding::Macro(_)
+            | Binding::Procedure { .. }
+            | Binding::Type(_)
+            | Binding::LambdaPreview(_)
+            | Binding::TypedConstant(_)
+            | Binding::Code(_) => Err(Diagnostic::new(
+                span,
+                "typed value requires semantic constant binding",
+            )),
         }
     }
-    fn value(&mut self, name: Symbol, span: Span) -> Result<ConstantValue, Diagnostic> {
+    fn value(&mut self, name: Symbol, span: Span) -> Result<ScalarConstant, Diagnostic> {
         let mut work = vec![Work::Enter(name, span)];
         while let Some(step) = work.pop() {
             match step {
@@ -131,6 +191,7 @@ impl<'a> Constants<'a> {
                             | syntax::ExpressionKind::Call(_, _) => {}
                             syntax::ExpressionKind::StructLiteral(_)
                             | syntax::ExpressionKind::Member { .. } => {}
+                            _ => {}
                         }
                     }
                     work.extend(
@@ -145,7 +206,13 @@ impl<'a> Constants<'a> {
                         jai_eval::evaluate_paths(&declaration.initializer, |path, span| {
                             self.ready_path(path, span)
                         })?;
-                    if let Some(ty) = declaration.ty {
+                    if let Some(annotation) = &declaration.ty {
+                        let ty = annotation.as_scalar().ok_or_else(|| {
+                            Diagnostic::new(
+                                declaration.span,
+                                "typed constant annotation requires a scoped semantic session",
+                            )
+                        })?;
                         value = value.coerce(ty, declaration.span)?;
                     }
                     self.states.insert(declaration.name, State::Ready(value));
@@ -184,6 +251,7 @@ pub(super) fn check_top_level_names(module: &syntax::Module) -> Result<(), Diagn
 pub(super) fn resolve_globals(
     module: &syntax::Module,
     types: &TypeRegistry,
+    alignments: &mut jai_ir::StorageAlignments,
 ) -> Result<(Vec<Global>, HashMap<Symbol, Binding>), Diagnostic> {
     let declarations: Vec<_> = module.constants().iter().collect();
     let empty = HashMap::new();
@@ -195,8 +263,21 @@ pub(super) fn resolve_globals(
     }
     let mut globals = Vec::new();
     for global in module.globals() {
+        let mut alignment = None;
+        for attribute in global.declaration.attributes() {
+            match attribute {
+                syntax::DeclarationAttribute::Alignment(expression) => {
+                    alignment = Some(super::storage_alignment::constant(
+                        jai_eval::evaluate(expression, |name, span| constants.value(name, span))?,
+                        expression.span,
+                    )?);
+                }
+            }
+        }
         let (name, value) = match &global.declaration {
-            syntax::Declaration::Inferred { name, initializer } => (
+            syntax::Declaration::Inferred {
+                name, initializer, ..
+            } => (
                 *name,
                 jai_eval::evaluate(initializer, |name, span| constants.value(name, span))?,
             ),
@@ -204,13 +285,20 @@ pub(super) fn resolve_globals(
                 name,
                 ty,
                 initializer,
+                ..
             } => {
                 let value = match initializer {
                     Some(e) => jai_eval::evaluate(e, |name, span| constants.value(name, span))?,
-                    None => ConstantValue::zero(*ty),
+                    None => ScalarConstant::zero(*ty),
                 };
                 let value = value.coerce(*ty, global.span)?;
                 (*name, value)
+            }
+            syntax::Declaration::External { .. } => {
+                return Err(Diagnostic::new(
+                    global.span,
+                    "external data requires source graph resolution",
+                ));
             }
             syntax::Declaration::UnresolvedExplicit { .. } => {
                 return Err(Diagnostic::new(
@@ -219,43 +307,31 @@ pub(super) fn resolve_globals(
                 ));
             }
         };
-        let value = value.coerce(value.ty(), global.span)?;
+        let scalar = value.scalar_type().ok_or_else(|| {
+            Diagnostic::new(global.span, "float globals require graph type resolution")
+        })?;
+        let value = value.coerce(scalar, global.span)?;
         let initializer = match value {
-            ConstantValue::Int(n) => GlobalInitializer::Int(n),
-            ConstantValue::Bool(b) => GlobalInitializer::Bool(b),
-            ConstantValue::Literal(_) => unreachable!("global value is coerced before allocation"),
+            ScalarConstant::Int(n) => GlobalInitializer::Int(n),
+            ScalarConstant::Bool(b) => GlobalInitializer::Bool(b),
+            ScalarConstant::Float(_) | ScalarConstant::WeakFloat(_) => {
+                return Err(Diagnostic::new(
+                    global.span,
+                    "float globals require graph type resolution",
+                ));
+            }
+            ScalarConstant::Literal(_) => unreachable!("global value is coerced before allocation"),
         };
+        let span = global.span;
         let global = Global::new(globals.len(), initializer, types);
+        if let Some(alignment) = alignment {
+            alignments
+                .set_global(global.id(), alignment)
+                .map_err(|error| Diagnostic::new(span, error.to_string()))?;
+        }
         let storage = global.storage();
         globals.push(global);
         bindings.insert(name, Binding::Storage(storage));
     }
     Ok((globals, bindings))
-}
-impl Resolver<'_> {
-    pub(super) fn bind_block_constants(
-        &mut self,
-        statements: &[syntax::Statement],
-    ) -> Result<(), Diagnostic> {
-        let declarations: Vec<_> = statements
-            .iter()
-            .filter_map(|s| match s {
-                syntax::Statement::Constant(c) => Some(c),
-                _ => None,
-            })
-            .collect();
-        if declarations.is_empty() {
-            return Ok(());
-        }
-        let mut visible = HashMap::clone(self.globals);
-        for scope in &self.scopes {
-            visible.extend(scope.iter().map(|(name, value)| (*name, *value)));
-        }
-        let mut constants = Constants::new(&declarations, &visible, self.graph_scope)?;
-        for declaration in declarations {
-            let value = constants.value(declaration.name, declaration.span)?;
-            self.bind_name(declaration.name, Binding::Constant(value))?;
-        }
-        Ok(())
-    }
 }

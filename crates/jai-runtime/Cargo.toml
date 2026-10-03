@@ -1,0 +1,20 @@
+[package]
+name = "jai-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jai-script"
+path = "src/main.rs"
+
+[dependencies]
+jai-modules.workspace = true
+jai-sema.workspace = true
+jai-source.workspace = true
+jai-syntax.workspace = true
+jai-types.workspace = true
+jai-vm.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,11 @@
+#load "../internal/executable/abi.jai";
+#load "../internal/executable/bitfields.jai";
+#load "../internal/executable/macho.jai";
+#load "../internal/executable/coff.jai";
+#load "../internal/executable/codeview.jai";
+#load "../internal/executable/elf.jai";
+#load "../internal/executable/universal.jai";
+#load "../internal/executable/relocations.jai";
+#load "../internal/executable/lexer.jai";
+#load "../internal/executable/tbd.jai";
+#load "../internal/executable/archive.jai";

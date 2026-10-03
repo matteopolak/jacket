@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-10-03T01:26:56.587850+00:00",
+  "purpose": "self-contained bounded original caller-return test inputs",
+  "macro_windows": [
+    {
+      "original_path": "corpus/upstream/roeyb1--sgpu/module.jai",
+      "original_sha256": "d1ca644af4cd34f01a9ef98077fb62589e5c77b6d62ed94da40ad7b831a6343a",
+      "original_byte_span": {
+        "start": 20763,
+        "end_exclusive": 21015
+      },
+      "original_line_span": {
+        "start": 665,
+        "end_inclusive": 674
+      },
+      "fixture_path": "crates/jai-sema/tests/fixtures/supplied-sgpu-caller-return.jai",
+      "fixture_sha256": "101b690c51e6d1c0606b290b6a8573b8f3e75dc24f6fe67e7baee86a46d55660",
+      "fixture_bytes": 251,
+      "scope": "bounded original macro, canonically packed for tracked text; exact byte identity restored by test adapter",
+      "fixture_packing": "LF lines with one EOF newline; adapter restores original line separators and the extra footer separator",
+      "restored_macro_sha256": "18094e7b8c68ac0d92c8f5bd75f840ca1fe7fa4882b7ffc79dd3247c7373674a",
+      "restored_macro_bytes": 252,
+      "restored_macro_equals_original_window": true
+    }
+  ],
+  "original_native_artifacts_executed": false,
+  "original_test_wrapper_or_harness_semantics_changed": false,
+  "fixture_packing_normalized_without_macro_change": true,
+  "generated_sgpu_source_before_sha256": "7bd237a402b18a8a0c6b7117d4d608fade3c4c5950d2c271759c0038177669d3",
+  "generated_sgpu_source_after_sha256": "7bd237a402b18a8a0c6b7117d4d608fade3c4c5950d2c271759c0038177669d3",
+  "generated_sgpu_source_bytes": 768,
+  "generated_sgpu_source_bytes_equal": true,
+  "wrapper_and_assertion_tail_bytes_unchanged": true,
+  "original_macro_bytes_changed": false,
+  "tracked_reference_source_bytes": false,
+  "authored_syntax_case": "authored_scalar_macro_retains_caller_return_after_runtime_branch"
+}

@@ -23,6 +23,39 @@ pub struct Token {
     pub span: Span,
 }
 
+impl Token {
+    /// Canonical name spelling; the token span still covers source padding.
+    pub fn spelling(self, source: &str) -> Cow<'_, str> {
+        let raw = self.span.text(source);
+        match self.kind {
+            Kind::Ident
+            | Kind::Keyword(_)
+            | Kind::Directive(_)
+            | Kind::UnknownDirective
+            | Kind::Note => identifier_spelling(raw),
+            _ => Cow::Borrowed(raw),
+        }
+    }
+}
+
+fn identifier_spelling(raw: &str) -> Cow<'_, str> {
+    if !raw.contains('\\') {
+        return Cow::Borrowed(raw);
+    }
+    let mut name = String::with_capacity(raw.len());
+    let mut chars = raw.chars().peekable();
+    while let Some(character) = chars.next() {
+        if character == '\\' {
+            while chars.peek() == Some(&' ') {
+                chars.next();
+            }
+        } else {
+            name.push(character);
+        }
+    }
+    Cow::Owned(name)
+}
+
 pub fn lex(source: &str) -> Result<Vec<Token>, Diagnostic> {
     Lexer {
         source,
@@ -92,13 +125,17 @@ impl Lexer<'_> {
         });
     }
     fn ident(&mut self) {
-        while self
-            .rest()
-            .chars()
-            .next()
-            .is_some_and(|c| c == '_' || c == '\\' || c.is_alphanumeric())
-        {
-            self.bump();
+        while let Some(character) = self.rest().chars().next() {
+            if character == '_' || character.is_alphanumeric() {
+                self.bump();
+            } else if character == '\\' {
+                self.bump();
+                while self.rest().starts_with(' ') {
+                    self.bump();
+                }
+            } else {
+                break;
+            }
         }
     }
     fn run(&mut self) -> Result<Vec<Token>, Diagnostic> {
@@ -160,13 +197,14 @@ impl Lexer<'_> {
                 self.ident();
                 if self.at == start + 1 {
                     Kind::Punctuation(Punct::Hash)
-                } else if Directive::from_spelling(&self.source[start..self.at])
-                    == Some(Directive::String)
+                } else if Directive::from_spelling(&identifier_spelling(
+                    &self.source[start..self.at],
+                )) == Some(Directive::String)
                 {
                     self.here_string(start)?;
                     Kind::HereString
                 } else {
-                    Directive::from_spelling(&self.source[start..self.at])
+                    Directive::from_spelling(&identifier_spelling(&self.source[start..self.at]))
                         .map(Kind::Directive)
                         .unwrap_or(Kind::UnknownDirective)
                 }
@@ -174,10 +212,10 @@ impl Lexer<'_> {
                 self.bump();
                 self.ident();
                 Kind::Note
-            } else if c == '_' || c == '\\' || c.is_alphabetic() {
+            } else if c == '_' || c.is_alphabetic() {
                 self.bump();
                 self.ident();
-                Keyword::from_spelling(&self.source[start..self.at])
+                Keyword::from_spelling(&identifier_spelling(&self.source[start..self.at]))
                     .map(Kind::Keyword)
                     .unwrap_or(Kind::Ident)
             } else if c.is_ascii_digit()
@@ -357,6 +395,31 @@ mod tests {
             texts("café := \"é\\\"\";"),
             ["café", ":=", "\"é\\\"\"", ";"]
         );
+    }
+    #[test]
+    fn padded_identifiers_keep_source_spans_and_canonical_spellings() {
+        let source = "time\\        _report hel\\ lo café\\ _name re\\ turn";
+        let tokens = lex(source).unwrap();
+        assert_eq!(tokens[0].span.text(source), "time\\        _report");
+        assert_eq!(tokens[0].spelling(source), "time_report");
+        assert_eq!(tokens[1].spelling(source), "hello");
+        assert_eq!(tokens[2].spelling(source), "café_name");
+        assert_eq!(tokens[3].kind, Kind::Keyword(Keyword::Return));
+        assert_eq!(tokens[3].span.text(source), "re\\ turn");
+    }
+    #[test]
+    fn identifier_padding_does_not_cross_non_space_boundaries() {
+        for boundary in ["\n", "\r\n", "\t", "\u{a0}", "/* gap */"] {
+            let source = format!("left\\{boundary}right");
+            let tokens = lex(&source).unwrap();
+            assert_eq!(tokens[0].spelling(&source), "left");
+            assert_eq!(tokens[1].spelling(&source), "right");
+        }
+        assert!(lex("\\ name").is_err());
+        let source = "left\\ ; right";
+        let tokens = lex(source).unwrap();
+        assert_eq!(tokens[0].spelling(source), "left");
+        assert_eq!(tokens[1].kind, Kind::Punctuation(Punct::Semicolon));
     }
     #[test]
     fn errors_are_located() {

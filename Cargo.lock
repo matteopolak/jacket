@@ -21,6 +21,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
+name = "block-buffer"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "cc"
 version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -69,6 +78,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf0a07a401f374238ab8e2f11a104d2851bf9ce711ec69804834de8af45c7af"
 
 [[package]]
+name = "cpufeatures"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ca28b0ae3115b884660db4118d803791fd6756b6e88f39c0f3f7859060d7566"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "crypto-common"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
+name = "digest"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
+dependencies = [
+ "block-buffer",
+ "crypto-common",
+]
+
+[[package]]
 name = "divan"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -110,6 +147,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d"
 
 [[package]]
+name = "hybrid-array"
+version = "0.4.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27f864f10dfb56725ce5ce5472bc52252c8f93a4ab86327122cebf62c5f59a17"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "inkwell"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -138,12 +184,17 @@ name = "jai-bench"
 version = "0.1.0"
 dependencies = [
  "divan",
+ "inkwell",
  "jai-codegen",
+ "jai-eval",
+ "jai-ir",
  "jai-lexer",
+ "jai-modules",
  "jai-sema",
  "jai-source",
  "jai-syntax",
  "jai-types",
+ "jai-vm",
 ]
 
 [[package]]
@@ -156,6 +207,8 @@ dependencies = [
  "jai-sema",
  "jai-source",
  "jai-syntax",
+ "jai-types",
+ "jai-vm",
 ]
 
 [[package]]
@@ -163,9 +216,14 @@ name = "jai-codegen"
 version = "0.1.0"
 dependencies = [
  "inkwell",
+ "jai-ir",
+ "jai-llvm",
+ "jai-modules",
  "jai-sema",
+ "jai-source",
  "jai-syntax",
  "jai-types",
+ "jai-vm",
 ]
 
 [[package]]
@@ -177,6 +235,9 @@ dependencies = [
  "jai-sema",
  "jai-source",
  "jai-syntax",
+ "jai-types",
+ "jai-vm",
+ "sha2",
 ]
 
 [[package]]
@@ -189,6 +250,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jai-ir"
+version = "0.1.0"
+dependencies = [
+ "jai-source",
+ "jai-types",
+]
+
+[[package]]
 name = "jai-lexer"
 version = "0.1.0"
 dependencies = [
@@ -196,12 +265,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jai-llvm"
+version = "0.1.0"
+dependencies = [
+ "inkwell",
+]
+
+[[package]]
 name = "jai-modules"
 version = "0.1.0"
 dependencies = [
+ "jai-eval",
  "jai-lexer",
  "jai-source",
  "jai-syntax",
+ "jai-types",
 ]
 
 [[package]]
@@ -209,10 +287,12 @@ name = "jai-sema"
 version = "0.1.0"
 dependencies = [
  "jai-eval",
+ "jai-ir",
  "jai-modules",
  "jai-source",
  "jai-syntax",
  "jai-types",
+ "jai-vm",
 ]
 
 [[package]]
@@ -231,6 +311,15 @@ dependencies = [
 [[package]]
 name = "jai-types"
 version = "0.1.0"
+
+[[package]]
+name = "jai-vm"
+version = "0.1.0"
+dependencies = [
+ "jai-ir",
+ "jai-source",
+ "jai-types",
+]
 
 [[package]]
 name = "lazy_static"
@@ -308,6 +397,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
+name = "sha2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -364,6 +464,12 @@ dependencies = [
  "quote",
  "syn 3.0.6",
 ]
+
+[[package]]
+name = "typenum"
+version = "1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "unicode-ident"

@@ -1,0 +1,4584 @@
+{
+  "C_header_targets": [
+    "x86_64-linux-gnu",
+    "aarch64-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc"
+  ],
+  "build_fixes": [
+    {
+      "path": "stdlib/internal/bindings/rpmalloc-heaps/sdk-page-granularity.patch",
+      "purpose": "Round heap-pool mappings to whole configured pages",
+      "sha256": "4ee8af6bc941251310da5ccea8810c158eeb8152b6960923a9d5a9e5a05394ff"
+    },
+    {
+      "path": "stdlib/internal/bindings/rpmalloc-heaps/sdk-runtime-dimensions.patch",
+      "purpose": "Conditional private runtime storage; original SDK layout otherwise unchanged",
+      "sha256": "f2b12d6b3ea053e0422fa7f6369aebdd8add5f1bfe0955296c77867f9e0af259"
+    },
+    {
+      "path": "stdlib/internal/bindings/rpmalloc-heaps/sdk-runtime-policies.patch",
+      "purpose": "Private unlimited/unmap policies and reviewed Linux ordinary mapping/huge-page discovery",
+      "sha256": "cd14c428c4a5dcf46cc76a24e87662a85cddf105414b670336a1ec60a181158d"
+    },
+    {
+      "path": "stdlib/internal/bindings/rpmalloc-heaps/sdk-live-config.patch",
+      "purpose": "Read live name provider at each native naming use; thread-local copy lifetime",
+      "sha256": "c617393d4773d848995548b09620ddb6aa5fcb6e6596e747df61676e481d364d"
+    },
+    {
+      "path": "stdlib/internal/bindings/rpmalloc-heaps/sdk-domains.patch",
+      "purpose": "Complete private mutable SDK state in typed module-owned domains and per-domain thread slots",
+      "sha256": "28ec6483d0d4c132e0429fbd76694f0d2ed65dfb96742cb2dcbe8d4121f2291d"
+    },
+    {
+      "path": "stdlib/internal/bindings/rpmalloc-heaps/sdk-metadata.patch",
+      "purpose": "Reserve typed heap/span publication capacity before native ownership mutation; retire at actual unmap",
+      "sha256": "3e83a44c76f33c079df075dc357d50607a8a1068056195c23f0e35e1d6ff0a74"
+    }
+  ],
+  "configurations": {
+    "0": [
+      "rpmalloc_initialize",
+      "rpmalloc_initialize_config",
+      "rpmalloc_config",
+      "rpmalloc_finalize",
+      "rpmalloc_thread_initialize",
+      "rpmalloc_thread_finalize",
+      "rpmalloc_thread_collect",
+      "rpmalloc_is_thread_initialized",
+      "rpmalloc_thread_statistics",
+      "rpmalloc_global_statistics",
+      "rpmalloc_dump_statistics",
+      "rpmalloc",
+      "rpfree",
+      "rpcalloc",
+      "rprealloc",
+      "rpaligned_realloc",
+      "rpaligned_alloc",
+      "rpaligned_calloc",
+      "rpmemalign",
+      "rpposix_memalign",
+      "rpmalloc_usable_size",
+      "rpmalloc_linker_reference"
+    ],
+    "1": [
+      "rpmalloc_initialize",
+      "rpmalloc_initialize_config",
+      "rpmalloc_config",
+      "rpmalloc_finalize",
+      "rpmalloc_thread_initialize",
+      "rpmalloc_thread_finalize",
+      "rpmalloc_thread_collect",
+      "rpmalloc_is_thread_initialized",
+      "rpmalloc_thread_statistics",
+      "rpmalloc_global_statistics",
+      "rpmalloc_dump_statistics",
+      "rpmalloc",
+      "rpfree",
+      "rpcalloc",
+      "rprealloc",
+      "rpaligned_realloc",
+      "rpaligned_alloc",
+      "rpaligned_calloc",
+      "rpmemalign",
+      "rpposix_memalign",
+      "rpmalloc_usable_size",
+      "rpmalloc_linker_reference",
+      "rpmalloc_heap_acquire",
+      "rpmalloc_heap_release",
+      "rpmalloc_heap_alloc",
+      "rpmalloc_heap_aligned_alloc",
+      "rpmalloc_heap_calloc",
+      "rpmalloc_heap_aligned_calloc",
+      "rpmalloc_heap_realloc",
+      "rpmalloc_heap_aligned_realloc",
+      "rpmalloc_heap_free",
+      "rpmalloc_heap_free_all",
+      "rpmalloc_heap_thread_set_current",
+      "rpmalloc_get_heap_for_ptr"
+    ]
+  },
+  "fields": [
+    {
+      "path": "memory_map",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "memory_unmap",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "error_callback",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "map_fail_callback",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "page_size",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "span_size",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "span_map_count",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "enable_huge_pages",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "page_name",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "huge_page_name",
+      "record": "rpmalloc_config_t"
+    },
+    {
+      "path": "mapped",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "mapped_peak",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "cached",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "huge_alloc",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "huge_alloc_peak",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "mapped_total",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "unmapped_total",
+      "record": "rpmalloc_global_statistics_t"
+    },
+    {
+      "path": "sizecache",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "spancache",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "thread_to_global",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "global_to_thread",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].current",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].peak",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].to_global",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].from_global",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].to_cache",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].from_cache",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].to_reserved",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].from_reserved",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "span_use[0].map_calls",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].alloc_current",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].alloc_peak",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].alloc_total",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].free_total",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].spans_to_cache",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].spans_from_cache",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].spans_from_reserved",
+      "record": "rpmalloc_thread_statistics_t"
+    },
+    {
+      "path": "size_use[0].map_calls",
+      "record": "rpmalloc_thread_statistics_t"
+    }
+  ],
+  "files": {
+    "LICENSE": "992dc09524f6c215f1ae0ff7d26e8ce548b7212df65a09919dbafc98e2323b41",
+    "rpmalloc/rpmalloc.c": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
+    "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1"
+  },
+  "functions": [
+    {
+      "name": "rpmalloc_config",
+      "origin": "public_header",
+      "signature": "rpmalloc_config :: () -> *rpmalloc_config_t #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_finalize",
+      "origin": "public_header",
+      "signature": "rpmalloc_finalize :: () #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_initialize",
+      "origin": "public_header",
+      "signature": "rpmalloc_initialize :: () -> s32 #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_initialize_config",
+      "origin": "public_header",
+      "signature": "rpmalloc_initialize_config :: (config: *rpmalloc_config_t) -> s32 #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_is_thread_initialized",
+      "origin": "public_header",
+      "signature": "rpmalloc_is_thread_initialized :: () -> s32 #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_set_main_thread",
+      "origin": "official_c_source_definition",
+      "signature": "rpmalloc_set_main_thread :: () #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_thread_collect",
+      "origin": "public_header",
+      "signature": "rpmalloc_thread_collect :: () #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_thread_finalize",
+      "origin": "public_header",
+      "signature": "rpmalloc_thread_finalize :: (release_caches: s32) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_thread_initialize",
+      "origin": "public_header",
+      "signature": "rpmalloc_thread_initialize :: () #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_dump_statistics",
+      "origin": "public_header",
+      "signature": "rpmalloc_dump_statistics :: (file: *void) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_global_statistics",
+      "origin": "public_header",
+      "signature": "rpmalloc_global_statistics :: (stats: *rpmalloc_global_statistics_t) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_thread_statistics",
+      "origin": "public_header",
+      "signature": "rpmalloc_thread_statistics :: (stats: *rpmalloc_thread_statistics_t) #foreign sdk;"
+    },
+    {
+      "name": "rpaligned_alloc",
+      "origin": "public_header",
+      "signature": "rpaligned_alloc :: (alignment: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpaligned_calloc",
+      "origin": "public_header",
+      "signature": "rpaligned_calloc :: (alignment: u64, num: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpaligned_realloc",
+      "origin": "public_header",
+      "signature": "rpaligned_realloc :: (ptr: *void, alignment: u64, size: u64, oldsize: u64, flags: u32) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpcalloc",
+      "origin": "public_header",
+      "signature": "rpcalloc :: (num: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpfree",
+      "origin": "public_header",
+      "signature": "rpfree :: (ptr: *void) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc",
+      "origin": "public_header",
+      "signature": "rpmalloc :: (size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_usable_size",
+      "origin": "public_header",
+      "signature": "rpmalloc_usable_size :: (ptr: *void) -> u64 #foreign sdk;"
+    },
+    {
+      "name": "rpmemalign",
+      "origin": "public_header",
+      "signature": "rpmemalign :: (alignment: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpposix_memalign",
+      "origin": "public_header",
+      "signature": "rpposix_memalign :: (memptr: **void, alignment: u64, size: u64) -> s32 #foreign sdk;"
+    },
+    {
+      "name": "rprealloc",
+      "origin": "public_header",
+      "signature": "rprealloc :: (ptr: *void, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_get_heap_for_ptr",
+      "origin": "public_header",
+      "signature": "rpmalloc_get_heap_for_ptr :: (ptr: *void) -> *rpmalloc_heap_t #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_acquire",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_acquire :: () -> *rpmalloc_heap_t #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_aligned_alloc",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_aligned_alloc :: (heap: *rpmalloc_heap_t, alignment: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_aligned_calloc",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_aligned_calloc :: (heap: *rpmalloc_heap_t, alignment: u64, num: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_aligned_realloc",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_aligned_realloc :: (heap: *rpmalloc_heap_t, ptr: *void, alignment: u64, size: u64, flags: u32) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_alloc",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_alloc :: (heap: *rpmalloc_heap_t, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_calloc",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_calloc :: (heap: *rpmalloc_heap_t, num: u64, size: u64) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_free",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_free :: (heap: *rpmalloc_heap_t, ptr: *void) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_free_all",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_free_all :: (heap: *rpmalloc_heap_t) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_realloc",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_realloc :: (heap: *rpmalloc_heap_t, ptr: *void, size: u64, flags: u32) -> *void #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_release",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_release :: (heap: *rpmalloc_heap_t) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_heap_thread_set_current",
+      "origin": "public_header",
+      "signature": "rpmalloc_heap_thread_set_current :: (heap: *rpmalloc_heap_t) #foreign sdk;"
+    },
+    {
+      "name": "rpmalloc_linker_reference",
+      "origin": "public_header",
+      "signature": "rpmalloc_linker_reference :: () #foreign sdk;"
+    }
+  ],
+  "native_build_options": {
+    "ENABLE_ASSERTS": 1,
+    "ENABLE_OVERRIDE": 0,
+    "ENABLE_STATISTICS": 1,
+    "ENABLE_VALIDATE_ARGS": 1,
+    "RPMALLOC_CONFIGURABLE": 1,
+    "RPMALLOC_FIRST_CLASS_HEAPS": 1
+  },
+  "native_profiles": {
+    "binding_rpmalloc_sdk": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_",
+      "callbacks": "binding_rpmalloc_callbacks",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk",
+      "statistics": true,
+      "symbol_prefix": "",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_no_asserts",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_asserts_no_validate_args",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_global_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_asserts",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_asserts_no_validate_args",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_thread_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache_no_asserts",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_thread_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache_no_validate_args",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_thread_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_global_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_global_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_global_cache_no_validate_args",
+      "condition": "!RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_global_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_global_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_global_cache_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_no_thread_cache",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_thread_cache_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_thread_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_no_thread_cache_no_asserts",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_thread_cache_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_thread_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_thread_cache_no_validate_args",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_thread_cache_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_thread_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_no_validate_args",
+      "condition": "!RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_adaptive",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_asserts",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_asserts_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_asserts_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_asserts_adaptive",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_asserts_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_asserts_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_asserts_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_asserts_no_validate_args",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_asserts_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_asserts_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_asserts_no_validate_args_adaptive",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_asserts_no_validate_args_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_asserts_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_asserts_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_adaptive",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts_adaptive",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts_no_validate_args",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts_no_validate_args_adaptive",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_asserts_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache_no_asserts",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache_no_validate_args",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_validate_args",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_global_cache_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_global_cache_no_validate_args_adaptive",
+      "condition": "!RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_global_cache_no_validate_args_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_global_cache_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_global_cache_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_thread_cache",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_thread_cache_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_thread_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_thread_cache_no_asserts",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_thread_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_nostats_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_thread_cache_no_validate_args",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_thread_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_validate_args",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_nostats_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_nostats_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_nostats_no_validate_args_adaptive",
+      "condition": "!RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_nostats_no_validate_args_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 0,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": false,
+      "sdk": "binding_rpmalloc_sdk_nostats_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_nostats_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_",
+      "callbacks": "binding_rpmalloc_callbacks_raw",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_global_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_global_cache_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_thread_cache",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_thread_cache_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_thread_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_thread_cache_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_thread_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_thread_cache_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_thread_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_base_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_asserts_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_asserts_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_asserts_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts_no_validate_args_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_asserts_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_validate_args_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache_no_asserts",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_thread_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_validate_args",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_base_nostats_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_base_nostats_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_base_nostats_no_validate_args_adaptive",
+      "condition": "RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_base_nostats_no_validate_args_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 0,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": false,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_base_nostats_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_base_nostats_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_global_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_global_cache_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_global_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_global_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_global_cache_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_thread_cache",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_thread_cache_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_thread_cache",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_thread_cache_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_thread_cache_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_thread_cache_no_asserts",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_thread_cache_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_thread_cache_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_thread_cache_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 1,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_no_validate_args",
+      "statistics": true,
+      "symbol_prefix": "binding_rpmalloc_raw_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_asserts_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_asserts_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_asserts_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_asserts_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_asserts_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_asserts_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_asserts_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_asserts_no_validate_args_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_asserts_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_adaptive_",
+      "thread_cache": true,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_validate_args_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_adaptive_facade_",
+      "global_cache": false,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 0,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_thread_cache": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_thread_cache",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_thread_cache_no_asserts": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache_no_asserts",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 1,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_thread_cache_no_asserts",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_",
+      "thread_cache": false,
+      "validation": true
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_thread_cache_no_asserts_no_validate_args": {
+      "adaptive": false,
+      "assertions": false,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache_no_asserts_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 0,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_thread_cache_no_asserts_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_thread_cache_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 0,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_thread_cache_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_thread_cache_no_validate_args_",
+      "thread_cache": false,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_validate_args": {
+      "adaptive": false,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_validate_args_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_validate_args",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_validate_args_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 0,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_validate_args",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_validate_args_",
+      "thread_cache": true,
+      "validation": false
+    },
+    "binding_rpmalloc_sdk_raw_nostats_no_validate_args_adaptive": {
+      "adaptive": true,
+      "assertions": true,
+      "callback_prefix": "binding_rpmalloc_raw_nostats_no_validate_args_adaptive_",
+      "callbacks": "binding_rpmalloc_callbacks_raw_nostats_no_validate_args_adaptive",
+      "condition": "RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE",
+      "facade_prefix": "binding_rpmalloc_raw_nostats_no_validate_args_adaptive_facade_",
+      "global_cache": true,
+      "options": {
+        "BINDING_RPMALLOC_PUBLIC_HEAPS": 1,
+        "BINDING_RPMALLOC_RAW": 1,
+        "ENABLE_ADAPTIVE_THREAD_CACHE": 1,
+        "ENABLE_ASSERTS": 1,
+        "ENABLE_GLOBAL_CACHE": 1,
+        "ENABLE_OVERRIDE": 0,
+        "ENABLE_STATISTICS": 0,
+        "ENABLE_THREAD_CACHE": 1,
+        "ENABLE_VALIDATE_ARGS": 0,
+        "RPMALLOC_CONFIGURABLE": 1,
+        "RPMALLOC_FIRST_CLASS_HEAPS": 1
+      },
+      "public_heaps": true,
+      "raw": true,
+      "sdk": "binding_rpmalloc_sdk_raw_nostats_no_validate_args_adaptive",
+      "statistics": false,
+      "symbol_prefix": "binding_rpmalloc_raw_nostats_no_validate_args_adaptive_",
+      "thread_cache": true,
+      "validation": false
+    }
+  },
+  "native_storage": {
+    "native_build_options": {
+      "ENABLE_ASSERTS": 1,
+      "ENABLE_OVERRIDE": 0,
+      "ENABLE_STATISTICS": 1,
+      "ENABLE_VALIDATE_ARGS": 1,
+      "RPMALLOC_CONFIGURABLE": 1,
+      "RPMALLOC_FIRST_CLASS_HEAPS": 1
+    },
+    "native_field_count": 66,
+    "probe_sdk_exports": "All pinned SDK exports prefixed; probe instance never executed",
+    "profiles": {
+      "0": {
+        "heap_size_class_t": [
+          {
+            "owner": "heap_size_class_t",
+            "path": "free_list"
+          },
+          {
+            "owner": "heap_size_class_t",
+            "path": "partial_span"
+          },
+          {
+            "owner": "heap_size_class_t",
+            "path": "cache"
+          }
+        ],
+        "heap_t": [
+          {
+            "owner": "heap_t",
+            "path": "owner_thread"
+          },
+          {
+            "owner": "heap_t",
+            "path": "size_class"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_cache"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_free_deferred"
+          },
+          {
+            "owner": "heap_t",
+            "path": "full_span_count"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_reserve"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_reserve_master"
+          },
+          {
+            "owner": "heap_t",
+            "path": "spans_reserved"
+          },
+          {
+            "owner": "heap_t",
+            "path": "child_count"
+          },
+          {
+            "owner": "heap_t",
+            "path": "next_heap"
+          },
+          {
+            "owner": "heap_t",
+            "path": "next_orphan"
+          },
+          {
+            "owner": "heap_t",
+            "path": "id"
+          },
+          {
+            "owner": "heap_t",
+            "path": "finalize"
+          },
+          {
+            "owner": "heap_t",
+            "path": "master_heap"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_large_cache"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_use"
+          },
+          {
+            "owner": "heap_t",
+            "path": "size_class_use"
+          },
+          {
+            "owner": "heap_t",
+            "path": "thread_to_global"
+          },
+          {
+            "owner": "heap_t",
+            "path": "global_to_thread"
+          }
+        ],
+        "size_class_use_t": [
+          {
+            "owner": "size_class_use_t",
+            "path": "alloc_current"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "alloc_peak"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "alloc_total"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "free_total"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_current"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_peak"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_to_cache"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_from_cache"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_from_reserved"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_map_calls"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "unused"
+          }
+        ],
+        "span_cache_t": [
+          {
+            "owner": "span_cache_t",
+            "path": "count"
+          },
+          {
+            "owner": "span_cache_t",
+            "path": "span"
+          }
+        ],
+        "span_large_cache_t": [
+          {
+            "owner": "span_large_cache_t",
+            "path": "count"
+          },
+          {
+            "owner": "span_large_cache_t",
+            "path": "span"
+          }
+        ],
+        "span_t": [
+          {
+            "owner": "span_t",
+            "path": "free_list"
+          },
+          {
+            "owner": "span_t",
+            "path": "block_count"
+          },
+          {
+            "owner": "span_t",
+            "path": "size_class"
+          },
+          {
+            "owner": "span_t",
+            "path": "free_list_limit"
+          },
+          {
+            "owner": "span_t",
+            "path": "used_count"
+          },
+          {
+            "owner": "span_t",
+            "path": "free_list_deferred"
+          },
+          {
+            "owner": "span_t",
+            "path": "list_size"
+          },
+          {
+            "owner": "span_t",
+            "path": "block_size"
+          },
+          {
+            "owner": "span_t",
+            "path": "flags"
+          },
+          {
+            "owner": "span_t",
+            "path": "span_count"
+          },
+          {
+            "owner": "span_t",
+            "path": "total_spans"
+          },
+          {
+            "owner": "span_t",
+            "path": "offset_from_master"
+          },
+          {
+            "owner": "span_t",
+            "path": "remaining_spans"
+          },
+          {
+            "owner": "span_t",
+            "path": "align_offset"
+          },
+          {
+            "owner": "span_t",
+            "path": "heap"
+          },
+          {
+            "owner": "span_t",
+            "path": "next"
+          },
+          {
+            "owner": "span_t",
+            "path": "prev"
+          }
+        ],
+        "span_use_t": [
+          {
+            "owner": "span_use_t",
+            "path": "current"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "high"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_deferred"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_to_global"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_from_global"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_to_cache"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_from_cache"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_to_reserved"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_from_reserved"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_map_calls"
+          }
+        ]
+      },
+      "1": {
+        "heap_size_class_t": [
+          {
+            "owner": "heap_size_class_t",
+            "path": "free_list"
+          },
+          {
+            "owner": "heap_size_class_t",
+            "path": "partial_span"
+          },
+          {
+            "owner": "heap_size_class_t",
+            "path": "cache"
+          }
+        ],
+        "heap_t": [
+          {
+            "owner": "heap_t",
+            "path": "owner_thread"
+          },
+          {
+            "owner": "heap_t",
+            "path": "size_class"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_cache"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_free_deferred"
+          },
+          {
+            "owner": "heap_t",
+            "path": "full_span_count"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_reserve"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_reserve_master"
+          },
+          {
+            "owner": "heap_t",
+            "path": "spans_reserved"
+          },
+          {
+            "owner": "heap_t",
+            "path": "child_count"
+          },
+          {
+            "owner": "heap_t",
+            "path": "next_heap"
+          },
+          {
+            "owner": "heap_t",
+            "path": "next_orphan"
+          },
+          {
+            "owner": "heap_t",
+            "path": "id"
+          },
+          {
+            "owner": "heap_t",
+            "path": "finalize"
+          },
+          {
+            "owner": "heap_t",
+            "path": "master_heap"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_large_cache"
+          },
+          {
+            "owner": "heap_t",
+            "path": "full_span"
+          },
+          {
+            "owner": "heap_t",
+            "path": "large_huge_span"
+          },
+          {
+            "owner": "heap_t",
+            "path": "span_use"
+          },
+          {
+            "owner": "heap_t",
+            "path": "size_class_use"
+          },
+          {
+            "owner": "heap_t",
+            "path": "thread_to_global"
+          },
+          {
+            "owner": "heap_t",
+            "path": "global_to_thread"
+          }
+        ],
+        "size_class_use_t": [
+          {
+            "owner": "size_class_use_t",
+            "path": "alloc_current"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "alloc_peak"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "alloc_total"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "free_total"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_current"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_peak"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_to_cache"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_from_cache"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_from_reserved"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "spans_map_calls"
+          },
+          {
+            "owner": "size_class_use_t",
+            "path": "unused"
+          }
+        ],
+        "span_cache_t": [
+          {
+            "owner": "span_cache_t",
+            "path": "count"
+          },
+          {
+            "owner": "span_cache_t",
+            "path": "span"
+          }
+        ],
+        "span_large_cache_t": [
+          {
+            "owner": "span_large_cache_t",
+            "path": "count"
+          },
+          {
+            "owner": "span_large_cache_t",
+            "path": "span"
+          }
+        ],
+        "span_t": [
+          {
+            "owner": "span_t",
+            "path": "free_list"
+          },
+          {
+            "owner": "span_t",
+            "path": "block_count"
+          },
+          {
+            "owner": "span_t",
+            "path": "size_class"
+          },
+          {
+            "owner": "span_t",
+            "path": "free_list_limit"
+          },
+          {
+            "owner": "span_t",
+            "path": "used_count"
+          },
+          {
+            "owner": "span_t",
+            "path": "free_list_deferred"
+          },
+          {
+            "owner": "span_t",
+            "path": "list_size"
+          },
+          {
+            "owner": "span_t",
+            "path": "block_size"
+          },
+          {
+            "owner": "span_t",
+            "path": "flags"
+          },
+          {
+            "owner": "span_t",
+            "path": "span_count"
+          },
+          {
+            "owner": "span_t",
+            "path": "total_spans"
+          },
+          {
+            "owner": "span_t",
+            "path": "offset_from_master"
+          },
+          {
+            "owner": "span_t",
+            "path": "remaining_spans"
+          },
+          {
+            "owner": "span_t",
+            "path": "align_offset"
+          },
+          {
+            "owner": "span_t",
+            "path": "heap"
+          },
+          {
+            "owner": "span_t",
+            "path": "next"
+          },
+          {
+            "owner": "span_t",
+            "path": "prev"
+          }
+        ],
+        "span_use_t": [
+          {
+            "owner": "span_use_t",
+            "path": "current"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "high"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_deferred"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_to_global"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_from_global"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_to_cache"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_from_cache"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_to_reserved"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_from_reserved"
+          },
+          {
+            "owner": "span_use_t",
+            "path": "spans_map_calls"
+          }
+        ]
+      }
+    },
+    "records": {
+      "heap_size_class_t": "Size_Class_Storage",
+      "heap_t": "Heap_Storage",
+      "size_class_use_t": "Size_Counters_Storage",
+      "span_cache_t": "Span_Cache_Storage",
+      "span_large_cache_t": "Large_Cache_Storage",
+      "span_t": "Span_Storage",
+      "span_use_t": "Span_Counters_Storage"
+    },
+    "scope": "Native SDK storage ABI only; not public heap implementation or atomic operations",
+    "source": "rpmalloc/rpmalloc.c",
+    "source_export_profiles": {
+      "0": [
+        "rpaligned_alloc",
+        "rpaligned_calloc",
+        "rpaligned_realloc",
+        "rpcalloc",
+        "rpfree",
+        "rpmalloc",
+        "rpmalloc_config",
+        "rpmalloc_dump_statistics",
+        "rpmalloc_finalize",
+        "rpmalloc_global_statistics",
+        "rpmalloc_initialize",
+        "rpmalloc_initialize_config",
+        "rpmalloc_is_thread_initialized",
+        "rpmalloc_linker_reference",
+        "rpmalloc_set_main_thread",
+        "rpmalloc_thread_collect",
+        "rpmalloc_thread_finalize",
+        "rpmalloc_thread_initialize",
+        "rpmalloc_thread_statistics",
+        "rpmalloc_usable_size",
+        "rpmemalign",
+        "rpposix_memalign",
+        "rprealloc"
+      ],
+      "1": [
+        "rpaligned_alloc",
+        "rpaligned_calloc",
+        "rpaligned_realloc",
+        "rpcalloc",
+        "rpfree",
+        "rpmalloc",
+        "rpmalloc_config",
+        "rpmalloc_dump_statistics",
+        "rpmalloc_finalize",
+        "rpmalloc_get_heap_for_ptr",
+        "rpmalloc_global_statistics",
+        "rpmalloc_heap_acquire",
+        "rpmalloc_heap_aligned_alloc",
+        "rpmalloc_heap_aligned_calloc",
+        "rpmalloc_heap_aligned_realloc",
+        "rpmalloc_heap_alloc",
+        "rpmalloc_heap_calloc",
+        "rpmalloc_heap_free",
+        "rpmalloc_heap_free_all",
+        "rpmalloc_heap_realloc",
+        "rpmalloc_heap_release",
+        "rpmalloc_heap_thread_set_current",
+        "rpmalloc_initialize",
+        "rpmalloc_initialize_config",
+        "rpmalloc_is_thread_initialized",
+        "rpmalloc_linker_reference",
+        "rpmalloc_set_main_thread",
+        "rpmalloc_thread_collect",
+        "rpmalloc_thread_finalize",
+        "rpmalloc_thread_initialize",
+        "rpmalloc_thread_statistics",
+        "rpmalloc_usable_size",
+        "rpmemalign",
+        "rpposix_memalign",
+        "rprealloc"
+      ]
+    },
+    "source_sha256": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
+    "verification": "Host C source parsing here; native/source evidence indexed separately"
+  },
+  "repository": "mjansson/rpmalloc",
+  "revision": "e4393ff85585d91400bcbad2e7266c011075b673",
+  "scope": "Private native SDK only; reviewed public Jai callbacks/heaps require separate adapters"
+}

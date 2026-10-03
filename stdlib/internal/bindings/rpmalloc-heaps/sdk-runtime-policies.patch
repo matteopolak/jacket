@@ -1,0 +1,76 @@
+--- a/rpmalloc.c
++++ b/rpmalloc.c
+@@ -956,6 +956,10 @@
+ 	if (_memory_huge_pages)
+ 		fd |= VM_FLAGS_SUPERPAGE_SIZE_2MB;
+ 	void* ptr = mmap(0, size + padding, PROT_READ | PROT_WRITE, flags, fd, 0);
++#  elif defined(__linux__) && BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	/* Reviewed facade requests ordinary mappings; no huge flag/fallback. */
++	void* ptr = mmap(0, size + padding, PROT_READ | PROT_WRITE, flags, -1, 0);
++	_rpmalloc_set_name(ptr, size + padding);
+ #  elif defined(MAP_HUGETLB)
+ 	void* ptr = mmap(0, size + padding, PROT_READ | PROT_WRITE | PROT_MAX(PROT_READ | PROT_WRITE), (_memory_huge_pages ? MAP_HUGETLB : 0) | flags, -1, 0);
+ #    if defined(MADV_HUGEPAGE)
+@@ -1017,6 +1021,10 @@
+ 			release += _memory_span_size;
+ 		}
+ 	}
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	if (binding_disable_unmap)
++		goto binding_unmap_done;
++#endif
+ #if !DISABLE_UNMAP
+ #if PLATFORM_WINDOWS
+ 	if (!VirtualFree(address, release ? 0 : size, release ? MEM_RELEASE : MEM_DECOMMIT)) {
+@@ -1046,6 +1054,9 @@
+ 		}
+ 	}
+ #endif
++#endif
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++binding_unmap_done:
+ #endif
+ 	if (release)
+ 		_rpmalloc_stat_sub(&_mapped_pages_os, release >> _memory_page_size_shift);
+@@ -1477,7 +1488,9 @@
+ 	memcpy(cache->span + cache->count, span, sizeof(span_t*) * insert_count);
+ 	cache->count += (uint32_t)insert_count;
+ 
+-#if ENABLE_UNLIMITED_CACHE
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	while ((binding_unlimited_cache || (_memory_page_size > _memory_span_size)) && (insert_count < count)) {
++#elif ENABLE_UNLIMITED_CACHE
+ 	while (insert_count < count) {
+ #else
+ 	// Enable unlimited cache if huge pages, or we will leak since it is unlikely that an entire huge page
+@@ -2802,7 +2815,11 @@
+ 		_memory_page_size = system_info.dwPageSize;
+ #else
+ 		_memory_page_size = _memory_map_granularity;
+-		if (_memory_config.enable_huge_pages) {
++		if (_memory_config.enable_huge_pages
++#if defined(__linux__) && BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++		    && binding_linux_huge_pages
++#endif
++		) {
+ #if defined(__linux__)
+ 			size_t huge_page_size = 0;
+ 			FILE* meminfo = fopen("/proc/meminfo", "r");
+@@ -3285,11 +3302,16 @@
+ 		while (!atomic_cas32_acquire(&cache->lock, 1, 0))
+ 			_rpmalloc_spin();
+ 		uint32_t count = cache->count;
+-#if ENABLE_UNLIMITED_CACHE
++#if ENABLE_UNLIMITED_CACHE || BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++		if (binding_unlimited_cache)
++#endif
++		{
+ 		span_t* current_span = cache->overflow;
+ 		while (current_span) {
+ 			++count;
+ 			current_span = current_span->next;
++		}
+ 		}
+ #endif
+ 		atomic_store32_release(&cache->lock, 0);

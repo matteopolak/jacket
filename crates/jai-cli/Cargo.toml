@@ -15,6 +15,8 @@ jai-lexer.workspace = true
 jai-syntax.workspace = true
 jai-sema.workspace = true
 jai-codegen.workspace = true
+jai-types.workspace = true
+jai-vm.workspace = true
 
 [lints]
 workspace = true

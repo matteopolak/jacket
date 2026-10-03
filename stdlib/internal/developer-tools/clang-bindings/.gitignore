@@ -1,0 +1,6 @@
+/developer-tools-clang
+/libclang.dylib
+/libclang.so
+/compiler-path.txt
+/*.dylib
+/runtime-sdk.json

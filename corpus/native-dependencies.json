@@ -1,0 +1,1128 @@
+{
+  "format": 1,
+  "provenance": "Static declarations from fingerprinted pinned upstream Jai source; not resolved target branches or native acceptance.",
+  "rebuild_recipes": {
+    "vma": {
+      "repository": "GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator",
+      "revision": "1d8f600fd424278486eade7ed3e877c99f0846b1",
+      "source_path": "include/vk_mem_alloc.h",
+      "source_sha256": "90ce12fc4a2466235a09ae02905dd0c13aee80c1bbf11b331ab61230c2ceb112",
+      "documentation": "https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html"
+    }
+  },
+  "projects": [
+    {
+      "repository": "focus-editor/focus",
+      "revision": "c6b3ead7d4174527d0138e8a31f7c3c5663badec",
+      "declarations": [
+        {
+          "path": "modules/Input/macos.jai",
+          "sha256": "93a9cb944f435bdd458e9f811da497544069c4706b29b51c74255d967e8a7482",
+          "line": 635,
+          "name": "Carbon",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Input/macos.jai",
+          "sha256": "93a9cb944f435bdd458e9f811da497544069c4706b29b51c74255d967e8a7482",
+          "line": 636,
+          "name": "QuartzCore",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Linux_Display/ld_xcb.jai",
+          "sha256": "60deab95ab6a9501758bd0437b5ec3e861d451bd2936845b5c2130487626d86a",
+          "line": 779,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Linux_Display/missing.jai",
+          "sha256": "de0253cf19b6717e408cdec801291d8f1f4e9ee901ecf2bd972fe37eeb742613",
+          "line": 12,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/AppKit.jai",
+          "sha256": "3110a1a0b856e6ae3be788a1177eeab5eb301f06de699f2f258c57efa5073864",
+          "line": 1607,
+          "name": "Cocoa",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/AppKit.jai",
+          "sha256": "3110a1a0b856e6ae3be788a1177eeab5eb301f06de699f2f258c57efa5073864",
+          "line": 1608,
+          "name": "AppKit",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/CoreGraphics.jai",
+          "sha256": "e872ab20fecccafc91ba622e5ff64d216d627e75c20d0f29dcdde189d93fd526",
+          "line": 84,
+          "name": "CoreGraphics",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/Foundation.jai",
+          "sha256": "332b6645e8ef0b464f6f6864bfcd48611d07674bdf75028d5e44cfd9e3979f80",
+          "line": 592,
+          "name": "Foundation",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/GameController.jai",
+          "sha256": "4f3b414e275e088a41eba61a2c5d7fbb80d9ae55f9bbd0e87b83a2d377905383",
+          "line": 811,
+          "name": "GameController",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/LightweightRenderingView/module.jai",
+          "sha256": "1cdf4fe1c26a2d3d0b6af67fa1cdde943721e095c8d9b11a94f169f9ab1d42fd",
+          "line": 131,
+          "name": "QuartzCore",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/LightweightRenderingView/module.jai",
+          "sha256": "1cdf4fe1c26a2d3d0b6af67fa1cdde943721e095c8d9b11a94f169f9ab1d42fd",
+          "line": 133,
+          "name": "libLightweightRenderingView",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/bindings/arm64/message.jai",
+          "sha256": "d45e47afcf7f4b473820321128a2993ebaac287b5754ac4b23f90c87b8e42548",
+          "line": 44,
+          "name": "libobjc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Objective_C/bindings/arm64/runtime.jai",
+          "sha256": "a90028ecf46193dd2ba28a090208b8493da2084b8172be5eff6ee864aa11aa6f",
+          "line": 1644,
+          "name": "libobjc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Objective_C/bindings/x64/message.jai",
+          "sha256": "ef168c6b9131bae7be7898e108c5a01aa68a572a8eb8fe15156559d18e4cefd2",
+          "line": 92,
+          "name": "libobjc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Objective_C/bindings/x64/runtime.jai",
+          "sha256": "0ed9b893a42e4b4007ae0b0054cc9110ed2fd5d87ed88deda852e4fb152e8c88",
+          "line": 1578,
+          "name": "libobjc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Objective_C/module.jai",
+          "sha256": "943bc08a3b560f4ced913ab6a1590fac1b3cb1d3ce01e09d5fc80f7ae41ff921",
+          "line": 698,
+          "name": "libobjc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/module.jai",
+          "sha256": "943bc08a3b560f4ced913ab6a1590fac1b3cb1d3ce01e09d5fc80f7ae41ff921",
+          "line": 699,
+          "name": "libSystem",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/module.jai",
+          "sha256": "943bc08a3b560f4ced913ab6a1590fac1b3cb1d3ce01e09d5fc80f7ae41ff921",
+          "line": 716,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Objective_C/module.jai",
+          "sha256": "943bc08a3b560f4ced913ab6a1590fac1b3cb1d3ce01e09d5fc80f7ae41ff921",
+          "line": 718,
+          "name": "libobjc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Runtime_Support.jai",
+          "sha256": "edda3c9eaec9e652b4d5c90db206f70de3a450b7a72151825fd7780056d64809",
+          "line": 599,
+          "name": "kernel32",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Runtime_Support.jai",
+          "sha256": "edda3c9eaec9e652b4d5c90db206f70de3a450b7a72151825fd7780056d64809",
+          "line": 619,
+          "name": "libc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Runtime_Support.jai",
+          "sha256": "edda3c9eaec9e652b4d5c90db206f70de3a450b7a72151825fd7780056d64809",
+          "line": 687,
+          "name": "libc",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Runtime_Support.jai",
+          "sha256": "edda3c9eaec9e652b4d5c90db206f70de3a450b7a72151825fd7780056d64809",
+          "line": 689,
+          "name": "libpthread",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Runtime_Support.jai",
+          "sha256": "edda3c9eaec9e652b4d5c90db206f70de3a450b7a72151825fd7780056d64809",
+          "line": 724,
+          "name": "liblog",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "modules/Tracy/c_bindings.jai",
+          "sha256": "badba8c381e5e9622b6630dc19786fc239a891e5a96ef048b03c50f185c75a23",
+          "line": 134,
+          "name": "TracyClient",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "modules/Window_Creation/windows.jai",
+          "sha256": "f2c203b653c62477a8bcedbf43a7a992fcba18687f2fac5c8236df30c0e4dea6",
+          "line": 12,
+          "name": "user32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Window_Creation/windows.jai",
+          "sha256": "f2c203b653c62477a8bcedbf43a7a992fcba18687f2fac5c8236df30c0e4dea6",
+          "line": 278,
+          "name": "user32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/build_system_unix.jai",
+          "sha256": "e830bd28f0ec0293715d4e8e15d476b0674b1541a68650d546829bf742b162f2",
+          "line": 280,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/main.jai",
+          "sha256": "61dd827015d133dc59a700420e07f3cb734438d40b7a3364202673c78027a218",
+          "line": 1203,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/platform/windows.jai",
+          "sha256": "3a963ca2413af90cbb95265d46ef2755b11c24167c6613d84da938e507f16719",
+          "line": 313,
+          "name": "user32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/platform/windows.jai",
+          "sha256": "3a963ca2413af90cbb95265d46ef2755b11c24167c6613d84da938e507f16719",
+          "line": 314,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/platform/windows.jai",
+          "sha256": "3a963ca2413af90cbb95265d46ef2755b11c24167c6613d84da938e507f16719",
+          "line": 315,
+          "name": "shell32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/platform/windows.jai",
+          "sha256": "3a963ca2413af90cbb95265d46ef2755b11c24167c6613d84da938e507f16719",
+          "line": 316,
+          "name": "ole32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/platform/windows.jai",
+          "sha256": "3a963ca2413af90cbb95265d46ef2755b11c24167c6613d84da938e507f16719",
+          "line": 341,
+          "name": "Dwmapi",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "src/utils/rw_lock.jai",
+          "sha256": "767be86cb4bd5a2e1d963b4465ede742a04578a32cc1a71bad75b3646c3d6bae",
+          "line": 35,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        }
+      ]
+    },
+    {
+      "repository": "Ivo-Balbaert/The_Way_to_Jai",
+      "revision": "19cb4b7acb0de2798c769f9ad73313a4d15f4056",
+      "declarations": [
+        {
+          "path": "examples/19/19.8_windows_input.jai",
+          "sha256": "955bb746b82ef63332a49e0ac1a70b4ec85079f94a2a7c58100ee7a4246a0fd4",
+          "line": 4,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.1_call_c_linux.jai",
+          "sha256": "da3b0acba18134ff4b830f39188a2cdec4b7ab7b4e996f4b3ca33e4f53d3dea2",
+          "line": 4,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.2_call_c_windows.jai",
+          "sha256": "352ddf4f30b4811693d6f9303fb69ea6b46333bf65ec673f5e63842b6598ed98",
+          "line": 5,
+          "name": "msvcrt",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.2_call_c_windows.jai",
+          "sha256": "352ddf4f30b4811693d6f9303fb69ea6b46333bf65ec673f5e63842b6598ed98",
+          "line": 6,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.4_get_computer_name.jai",
+          "sha256": "0cb0845a4e7e1fea07c27373facb7d7b2b2466fd496b19f90abf1ef406fbb084",
+          "line": 16,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.4_get_computer_name.jai",
+          "sha256": "0cb0845a4e7e1fea07c27373facb7d7b2b2466fd496b19f90abf1ef406fbb084",
+          "line": 28,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/mylib/29.5_callc.jai",
+          "sha256": "aae2b093b4d3f640cebd6c729aa3c850f4c7dd7e5a7f1f8ac3687293fa6f8483",
+          "line": 5,
+          "name": "libmy",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/cpp_library/linux.jai",
+          "sha256": "6ae89a6ad80f756320bcfd9823311c6ded4001c8ef5c8d01e55d905391fd4cdd",
+          "line": 127,
+          "name": "./cpp_library",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/cpp_library/macos.jai",
+          "sha256": "6ae89a6ad80f756320bcfd9823311c6ded4001c8ef5c8d01e55d905391fd4cdd",
+          "line": 127,
+          "name": "./cpp_library",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/cpp_library/windows.jai",
+          "sha256": "1e495fa74ef76ea9520aa914d1160e60515b87041c185d55c3a656a133502c82",
+          "line": 116,
+          "name": "./cpp_library",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/jai_raylib/local_modules/raylib_win64/module.jai",
+          "sha256": "948f5a22f6fd60e5cb6c6efe5bf72a1a964e1b75027521d7191e5efbdf98e5f4",
+          "line": 3107,
+          "name": "vendor/raylib_4.2.0_win64_msvc16/lib/raylib",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/main7.jai",
+          "sha256": "743daa9ecd841e1cfd6584da40d458dde596b3de95a4db4efe383a857638f4bb",
+          "line": 1,
+          "name": "dynlib",
+          "kind": "local",
+          "options": [
+            "no_static_library"
+          ]
+        },
+        {
+          "path": "examples/50/50.1_guessing_game_windows.jai",
+          "sha256": "e13210a74b380a8c810bd128dae16939ac5ecb0cbf8cff9d51f7924ddbf2c618",
+          "line": 5,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1198,
+          "name": "user32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1199,
+          "name": "gdi32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1200,
+          "name": "shell32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1201,
+          "name": "winmm",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1202,
+          "name": "lib/raylib",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "my_modules/glfw/glfw3.jai",
+          "sha256": "842c00bfeb2df189e52818cacb2d78ebe036d9e01734203dd5259ca6c062cd0a",
+          "line": 455,
+          "name": "win/glfw3",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "my_modules/glfw/glfw3.jai",
+          "sha256": "842c00bfeb2df189e52818cacb2d78ebe036d9e01734203dd5259ca6c062cd0a",
+          "line": 456,
+          "name": "mac/libglfw.3",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "my_modules/glfw/glfw3.jai",
+          "sha256": "842c00bfeb2df189e52818cacb2d78ebe036d9e01734203dd5259ca6c062cd0a",
+          "line": 457,
+          "name": "linux/libglfw",
+          "kind": "local",
+          "options": []
+        }
+      ]
+    },
+    {
+      "repository": "SogoCZE/Jails",
+      "revision": "42fa76c816ad34c9f24a4bde586d145c992dc860",
+      "declarations": [
+        {
+          "path": "server/main.jai",
+          "sha256": "e2947334dabd03da1f7edba2aa78f973acc576479ec4fbd25efca63faf8c4456",
+          "line": 622,
+          "name": "kernel32",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        }
+      ]
+    },
+    {
+      "repository": "rluba/jaison",
+      "revision": "2009cdb5895d36020b5a3e6be8976db4706518a9",
+      "declarations": []
+    },
+    {
+      "repository": "withlang-dev/open-jai",
+      "revision": "264ba53218bf0e55bbc328197b312fe704496224",
+      "declarations": [
+        {
+          "path": "build.jai",
+          "sha256": "d7f71946ae600492c64f312de212f7fe538c4410354468cfb530e0d75828310f",
+          "line": 4,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/19/19.8_windows_input.jai",
+          "sha256": "955bb746b82ef63332a49e0ac1a70b4ec85079f94a2a7c58100ee7a4246a0fd4",
+          "line": 4,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.1_call_c_linux.jai",
+          "sha256": "01130fef9b0e61461e9cda02fdfa764eea56a851ff67d836a68ccb3dec6193a2",
+          "line": 4,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.2_call_c_windows.jai",
+          "sha256": "ce4acd876b5c1b1a03bac45b594dc9e292c184a809de8eb4b0f03da41dd9a5a7",
+          "line": 5,
+          "name": "msvcrt",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.2_call_c_windows.jai",
+          "sha256": "ce4acd876b5c1b1a03bac45b594dc9e292c184a809de8eb4b0f03da41dd9a5a7",
+          "line": 6,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.4_get_computer_name.jai",
+          "sha256": "a466af72d950c0cc9f192d7db7f1e17cb59152f9f61943d12a62b450f2fbf1ea",
+          "line": 16,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/29.4_get_computer_name.jai",
+          "sha256": "a466af72d950c0cc9f192d7db7f1e17cb59152f9f61943d12a62b450f2fbf1ea",
+          "line": 28,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/29/mylib/29.5_callc.jai",
+          "sha256": "aae2b093b4d3f640cebd6c729aa3c850f4c7dd7e5a7f1f8ac3687293fa6f8483",
+          "line": 5,
+          "name": "libmy",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/cpp_library/linux.jai",
+          "sha256": "6ae89a6ad80f756320bcfd9823311c6ded4001c8ef5c8d01e55d905391fd4cdd",
+          "line": 127,
+          "name": "./cpp_library",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/cpp_library/macos.jai",
+          "sha256": "6ae89a6ad80f756320bcfd9823311c6ded4001c8ef5c8d01e55d905391fd4cdd",
+          "line": 127,
+          "name": "./cpp_library",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/cpp_library/windows.jai",
+          "sha256": "1e495fa74ef76ea9520aa914d1160e60515b87041c185d55c3a656a133502c82",
+          "line": 116,
+          "name": "./cpp_library",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/jai_raylib/local_modules/raylib_win64/module.jai",
+          "sha256": "948f5a22f6fd60e5cb6c6efe5bf72a1a964e1b75027521d7191e5efbdf98e5f4",
+          "line": 3107,
+          "name": "vendor/raylib_4.2.0_win64_msvc16/lib/raylib",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "examples/30/main7.jai",
+          "sha256": "743daa9ecd841e1cfd6584da40d458dde596b3de95a4db4efe383a857638f4bb",
+          "line": 1,
+          "name": "dynlib",
+          "kind": "local",
+          "options": [
+            "no_static_library"
+          ]
+        },
+        {
+          "path": "examples/50/50.1_guessing_game_windows.jai",
+          "sha256": "e13210a74b380a8c810bd128dae16939ac5ecb0cbf8cff9d51f7924ddbf2c618",
+          "line": 5,
+          "name": "kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1198,
+          "name": "user32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1199,
+          "name": "gdi32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1200,
+          "name": "shell32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1201,
+          "name": "winmm",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "examples/52/raylib/module.jai",
+          "sha256": "728be304a55f216f33c6e3d87f7f37ad7131641307a58807a97d353a801a12fd",
+          "line": 1202,
+          "name": "lib/raylib",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "test/meta/run/foreign_compile_time_aggregate_return_value.jai",
+          "sha256": "95710cfb580dc8a3ec6dfe8b0de6c3540ac8178a4521bb378ae316de304b64db",
+          "line": 3,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "test/meta/run/foreign_compile_time_pointer_return_value.jai",
+          "sha256": "20f2df83a1bc21164dd783fb76675594d58683a8d2685fb65460e26c135d65a3",
+          "line": 3,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "test/meta/run/foreign_compile_time_side_effect_value.jai",
+          "sha256": "08777731d3b2cc8bbdb4459dcf6b563628b5e56bbaaf8103dc51506649f1e200",
+          "line": 3,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "test/meta/run/foreign_compile_time_value.jai",
+          "sha256": "9b8decbac5225886b6d5d6934301538bcc2af97a91337c84ae765beef2a392e7",
+          "line": 3,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "utils/stress.jai",
+          "sha256": "6319f1079523d73887c418b67b9d12131697c79999d9dc6d4a550abf176f04f6",
+          "line": 36367,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        }
+      ]
+    },
+    {
+      "repository": "ostef/Vk-Engine",
+      "revision": "cc91b617d93d13144c947fba925c6c64594ac1d7",
+      "declarations": [
+        {
+          "path": "Modules/Common/logging.jai",
+          "sha256": "51ce19d4ebec5fbc4c8764f2ec9c530e89007503eabc157371aebcd45d3d05e5",
+          "line": 273,
+          "name": "libc",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "Modules/Common/logging.jai",
+          "sha256": "51ce19d4ebec5fbc4c8764f2ec9c530e89007503eabc157371aebcd45d3d05e5",
+          "line": 279,
+          "name": "Kernel32",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "Modules/ImGui/module.jai",
+          "sha256": "d93abde9fbc13eada30a57709ef4dd088ee091d7602db6f9a8a1782fff5e7afa",
+          "line": 20,
+          "name": "./Libs/Windows/ImGui",
+          "kind": "local",
+          "options": [
+            "no_static_library"
+          ]
+        },
+        {
+          "path": "Modules/ImGui/module.jai",
+          "sha256": "d93abde9fbc13eada30a57709ef4dd088ee091d7602db6f9a8a1782fff5e7afa",
+          "line": 25,
+          "name": "./Libs/Linux/libImGui",
+          "kind": "local",
+          "options": [
+            "no_static_library"
+          ]
+        },
+        {
+          "path": "Modules/ImGui/module.jai",
+          "sha256": "d93abde9fbc13eada30a57709ef4dd088ee091d7602db6f9a8a1782fff5e7afa",
+          "line": 26,
+          "name": "libm",
+          "kind": "system",
+          "options": [
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 67,
+          "name": "Libs/Windows/SDL2",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 69,
+          "name": "Libs/MacOS/libSDL2",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 70,
+          "name": "libdl",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 71,
+          "name": "libm",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 74,
+          "name": "libSDL2",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 75,
+          "name": "libdl",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 76,
+          "name": "libm",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/SDL/module.jai",
+          "sha256": "bf1b726ff278c32f68b3abdfa688338d82938c4fbc268f2844475c856e27495a",
+          "line": 77,
+          "name": "libpthread",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 61,
+          "name": "Libs/Windows/vulkan-1",
+          "kind": "local",
+          "options": [
+            "no_static_library"
+          ]
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 62,
+          "name": "Libs/Windows/VkMemAlloc",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 65,
+          "name": "msvcprt",
+          "kind": "system",
+          "options": [
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 69,
+          "name": "libvulkan",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 70,
+          "name": "Libs/Linux/libVkMemAlloc",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 73,
+          "name": "libstdc++.so.6",
+          "kind": "system",
+          "options": [
+            "link_always"
+          ]
+        },
+        {
+          "path": "Modules/Vulkan/module.jai",
+          "sha256": "4b9b597087eb7a271129f06bf7b2e48345c40d05748a71f8d814f5e28aaf56d6",
+          "line": 74,
+          "name": "libunwind",
+          "kind": "system",
+          "options": [
+            "link_always"
+          ]
+        },
+        {
+          "path": "Source/Core/loader.jai",
+          "sha256": "1c2c578908cce39f3771881172ca8712f5cf9b1e254eb79c30bcdb97f18cb1a7",
+          "line": 291,
+          "name": "Kernel32",
+          "kind": "system",
+          "options": [
+            "system"
+          ]
+        }
+      ]
+    },
+    {
+      "repository": "roeyb1/sgpu",
+      "revision": "8ad94f50a50a73ab260403673d09d844830003e3",
+      "declarations": [
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 91,
+          "name": "libs/win/vulkan-1",
+          "kind": "local",
+          "options": []
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 93,
+          "name": "libs/win/vulkan-1",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 96,
+          "name": "libcpmt",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 101,
+          "name": "win/VkMemAlloc_DEBUG",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 103,
+          "name": "win/VkMemAlloc",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 110,
+          "name": "linux/VkMemAlloc_DEBUG",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 112,
+          "name": "linux/VkMemAlloc",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 116,
+          "name": "libc++",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 117,
+          "name": "libstdc++",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 121,
+          "name": "libvulkan",
+          "kind": "system",
+          "options": []
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 128,
+          "name": "mac/VkMemAlloc_DEBUG",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 130,
+          "name": "mac/VkMemAlloc",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 134,
+          "name": "c++",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 135,
+          "name": "c++abi",
+          "kind": "system",
+          "options": [
+            "system",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/module.jai",
+          "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a",
+          "line": 139,
+          "name": "libs/mac/libvulkan",
+          "kind": "local",
+          "options": [
+            "no_dll"
+          ]
+        },
+        {
+          "path": "modules/slang/module.jai",
+          "sha256": "41f8e91da4fcf0b6f260fdf0df8b78fbb86c8ae6a829b792e5ed8b494c159586",
+          "line": 36,
+          "name": "win/slang-compiler",
+          "kind": "local",
+          "options": [
+            "no_dll",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/slang/module.jai",
+          "sha256": "41f8e91da4fcf0b6f260fdf0df8b78fbb86c8ae6a829b792e5ed8b494c159586",
+          "line": 38,
+          "name": "linux/libslang",
+          "kind": "local",
+          "options": [
+            "no_dll",
+            "link_always"
+          ]
+        },
+        {
+          "path": "modules/slang/module.jai",
+          "sha256": "41f8e91da4fcf0b6f260fdf0df8b78fbb86c8ae6a829b792e5ed8b494c159586",
+          "line": 40,
+          "name": "mac/libslang",
+          "kind": "local",
+          "options": [
+            "link_always"
+          ]
+        }
+      ]
+    }
+  ]
+}

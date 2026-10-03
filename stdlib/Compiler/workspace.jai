@@ -1,0 +1,37 @@
+compiler_create_workspace :: Impl.compiler_create_workspace;
+compiler_destroy_workspace :: Impl.compiler_destroy_workspace;
+compiler_set_memory_breakpoint :: Impl.compiler_set_memory_breakpoint;
+developer_debug :: Impl.developer_debug;
+get_name :: Impl.get_name;
+get_build_options :: Impl.get_build_options;
+set_build_options :: Impl.set_build_options;
+set_build_options_dc :: Impl.set_build_options_dc;
+add_build_file :: Impl.add_build_file;
+add_build_string :: Impl.add_build_string;
+compiler_report :: Impl.compiler_report;
+compiler_get_version_info :: Impl.compiler_get_version_info;
+get_toplevel_command_line :: Impl.get_toplevel_command_line;
+compiler_get_base_path :: Impl.compiler_get_base_path;
+compiler_add_library_search_directory :: Impl.compiler_add_library_search_directory;
+compiler_set_type_info_flags :: Impl.compiler_set_type_info_flags;
+compiler_get_struct_location :: Impl.compiler_get_struct_location;
+remap_import :: Impl.remap_import;
+provide_import :: Impl.provide_import;
+compiler_get_nodes :: Impl.compiler_get_nodes;
+compiler_get_code :: Impl.compiler_get_code;
+get_root_type :: Impl.get_root_type;
+get_type :: Impl.get_type;
+get_type_table :: Impl.get_type_table;
+compiler_make_procedure_live :: Impl.compiler_make_procedure_live;
+compiler_modify_procedure :: Impl.compiler_modify_procedure;
+compiler_begin_intercept :: Impl.compiler_begin_intercept;
+compiler_end_intercept :: Impl.compiler_end_intercept;
+compiler_wait_for_message :: Impl.compiler_wait_for_message;
+compiler_set_workspace_status :: Impl.compiler_set_workspace_status;
+compiler_custom_link_command_is_complete :: Impl.compiler_custom_link_command_is_complete;
+add_data_segment :: Impl.add_data_segment;
+add_global_data :: Impl.add_global_data;
+get_runtime_info :: Impl.get_runtime_info;
+
+#scope_file
+Impl :: #import "internal/compiler-api";

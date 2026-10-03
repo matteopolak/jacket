@@ -3,10 +3,15 @@
 set -euo pipefail
 
 source /etc/os-release
-if [[ "$ID" != ubuntu || "$VERSION_ID" != 24.04 || "$(uname -m)" != x86_64 ]]; then
-  echo 'This setup supports only Ubuntu 24.04 x86_64.' >&2
+if [[ "$ID" != ubuntu || "$VERSION_ID" != 24.04 ]]; then
+  echo 'This setup supports only Ubuntu 24.04.' >&2
   exit 1
 fi
+case "$(uname -m)" in
+  x86_64) package_arch=amd64 ;;
+  aarch64) package_arch=arm64 ;;
+  *) echo 'This setup supports only x86_64 and ARM64 hosts.' >&2; exit 1 ;;
+esac
 
 task_temp=$(mktemp -d)
 trap 'rm -rf "$task_temp"' EXIT
@@ -21,7 +26,7 @@ fi
 gpg --batch --dearmor --output "$task_temp/llvm.gpg" "$task_temp/key.asc"
 sudo install -m 0644 "$task_temp/llvm.gpg" /usr/share/keyrings/jai-ci-llvm.gpg
 printf '%s\n' \
-  'deb [arch=amd64 signed-by=/usr/share/keyrings/jai-ci-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' \
+  "deb [arch=$package_arch signed-by=/usr/share/keyrings/jai-ci-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
   | sudo tee /etc/apt/sources.list.d/jai-ci-llvm.list > /dev/null
 sudo apt-get update
 sudo apt-get install --yes --no-install-recommends llvm-22-dev clang-22 libpolly-22-dev

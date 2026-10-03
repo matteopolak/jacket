@@ -1,0 +1,2785 @@
+{
+  "format": 1,
+  "cases": [
+    {
+      "id": "reference:examples/VR/modules/OpenXR/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:Vulkan",
+        "import:../Vulkan_Render"
+      ]
+    },
+    {
+      "id": "reference:examples/VR/modules/Vulkan_Memory_Allocator/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:Vulkan"
+      ]
+    },
+    {
+      "id": "reference:examples/VR/modules/Vulkan_Render/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler",
+        "import:File",
+        "import:File_Utilities",
+        "import:Hash_Table",
+        "import:Math",
+        "import:String",
+        "import:System",
+        "import:Vulkan",
+        "import:Vulkan_Memory_Allocator"
+      ]
+    },
+    {
+      "id": "reference:examples/import_replacement/somewhere/FunModule/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:how_to/040_import_and_load/files/From_Subdirectory/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:another_file.jai",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Adpcm.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Android/AAudio/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:POSIX"
+      ]
+    },
+    {
+      "id": "reference:modules/Android/EGL/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:Android",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Android/Log/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Android/Native_App/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:Android",
+        "import:Android/Jni",
+        "import:POSIX"
+      ]
+    },
+    {
+      "id": "reference:modules/Android/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:Android/Jni",
+        "import:Android/Log",
+        "import:Android/Native_App",
+        "import:POSIX",
+        "import:Input"
+      ]
+    },
+    {
+      "id": "reference:modules/Atomics.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Autorun.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler",
+        "import:Process",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/Base64.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Basic/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:Array.jai",
+        "load:Simple_String.jai",
+        "load:String_Builder.jai",
+        "load:Print.jai",
+        "load:Int128.jai",
+        "load:Apollo_Time.jai",
+        "load:string_to_float.jai",
+        "load:float_to_string.jai",
+        "load:Memory_Debugger.jai",
+        "load:Visualize_Memory_Debugger.jai",
+        "load:windows.jai",
+        "load:linux.jai",
+        "load:osx.jai",
+        "load:ps5.jai",
+        "load:switch.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Bindings_Generator/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Bit_Array.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Bit_Operations.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Bucket_Array.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/BuildCpp.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Toolchains/Android",
+        "import:Basic",
+        "import:File",
+        "import:String",
+        "import:Process",
+        "import:Compiler",
+        "import:File_Utilities",
+        "import:Windows_Resources",
+        "import:Windows",
+        "import:POSIX",
+        "import:ps5/toolchain"
+      ]
+    },
+    {
+      "id": "reference:modules/Check/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:c_porting.jai",
+        "load:bindings.jai",
+        "import:Compiler",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Clipboard/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:Clipboard.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Code_Visit/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Codex/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:write.jai",
+        "load:metrics.jai",
+        "load:read.jai",
+        "import:Basic",
+        "import:Compiler",
+        "import:Code_Visit",
+        "import:Relative_Pointers",
+        "load:serialize.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Command_Line.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Math",
+        "import:Compiler",
+        "import:String",
+        "import:Sort",
+        "import:Reflection"
+      ]
+    },
+    {
+      "id": "reference:modules/Compiler/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:Compiler.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Crc.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Curl/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:unix.jai",
+        "import:POSIX",
+        "import:Socket"
+      ]
+    },
+    {
+      "id": "reference:modules/Debug.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:System",
+        "import:String",
+        "library:libc",
+        "import:Windows_Registry",
+        "import:X11",
+        "import:Hash_Table",
+        "import:Hash",
+        "import:Basic",
+        "import:Windows",
+        "import:Windows_Utf8",
+        "import:POSIX",
+        "load:NintendoSDK/Debug.jai",
+        "import:ps5"
+      ]
+    },
+    {
+      "id": "reference:modules/Deep_Copy.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Hash_Table",
+        "import:Hash",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Default_Allocator/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:kernel32",
+        "load:ps5.jai",
+        "library:msvcrt",
+        "library:libc"
+      ]
+    },
+    {
+      "id": "reference:modules/Default_Metaprogram.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:File",
+        "import:Compiler",
+        "import:Metaprogram_Plugins"
+      ]
+    },
+    {
+      "id": "reference:modules/Example_Plugin.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/File/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:ps5.jai",
+        "load:unix.jai",
+        "import:System",
+        "import:Basic",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/File_Async/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:io_completion_ports.jai",
+        "load:io_uring.jai",
+        "load:thread_pool.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/File_Utilities/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:path.jai",
+        "load:os/windows.jai",
+        "load:os/ps5.jai",
+        "load:os/unix.jai",
+        "import:Basic",
+        "import:File",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/File_Watcher/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:System",
+        "import:macos",
+        "import:Basic",
+        "import:File_Utilities",
+        "import:Hash_Table",
+        "import:Pool",
+        "import:String",
+        "import:Windows",
+        "import:Windows_Utf8",
+        "import:Linux",
+        "import:POSIX"
+      ]
+    },
+    {
+      "id": "reference:modules/Flat_Pool.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:System",
+        "import:Windows",
+        "load:ps5/Flat_Pool.jai",
+        "import:POSIX"
+      ]
+    },
+    {
+      "id": "reference:modules/Float16.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Math"
+      ]
+    },
+    {
+      "id": "reference:modules/GL/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:GL.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Gamepad/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:Gamepad.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/GetRect/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:widgets/widgets.jai",
+        "load:system/system.jai",
+        "import:Basic",
+        "import:Input",
+        "import:Hash_Table",
+        "import:Math",
+        "import:String",
+        "import:Unicode",
+        "import:Pool",
+        "import:Simp",
+        "import:Window_Creation",
+        "import:Hash",
+        "import:GetRect",
+        "import:Compiler",
+        "import:File",
+        "import:Window_Type"
+      ]
+    },
+    {
+      "id": "reference:modules/GetRect_LeftHanded/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:widgets/widgets.jai",
+        "load:system/system.jai",
+        "import:Basic",
+        "import:Input",
+        "import:Hash_Table",
+        "import:Math",
+        "import:String",
+        "import:Unicode",
+        "import:Pool",
+        "import:Simp",
+        "import:Window_Creation",
+        "import:Hash",
+        "import:Compiler",
+        "import:File",
+        "import:Window_Type"
+      ]
+    },
+    {
+      "id": "reference:modules/Hash.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Hash_Table.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Hash",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Ico_File.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:stb_image",
+        "import:stb_image_resize",
+        "import:Basic",
+        "import:Windows_Resources",
+        "import:String",
+        "import:Windows"
+      ]
+    },
+    {
+      "id": "reference:modules/Icon.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows_Resources",
+        "import:Compiler",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/ImGui/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Math",
+        "load:windows.jai",
+        "library:user32",
+        "load:unix.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Input/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:x11.jai",
+        "load:macos.jai",
+        "load:ps5.jai",
+        "load:android.jai",
+        "import:Basic",
+        "import:Window_Type"
+      ]
+    },
+    {
+      "id": "reference:modules/IntroSort.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Iprof/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:instrument.jai",
+        "load:options.jai",
+        "load:runtime.jai",
+        "load:reports.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Jai_Lexer/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Pool",
+        "import:File",
+        "import:Unicode"
+      ]
+    },
+    {
+      "id": "reference:modules/Keymap/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:save.jai",
+        "import:Text_File_Handler",
+        "import:Basic",
+        "import:Input",
+        "import:Gamepad",
+        "import:Unicode",
+        "import:Bucket_Array",
+        "import:File"
+      ]
+    },
+    {
+      "id": "reference:modules/Linux/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:POSIX",
+        "library:libc",
+        "load:io_uring.jai",
+        "load:epoll.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/MacOS_Bundler.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Process",
+        "import:File",
+        "import:File_Utilities",
+        "import:String",
+        "import:POSIX"
+      ]
+    },
+    {
+      "id": "reference:modules/Machine_X64.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "reference:modules/Mail.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:Curl",
+        "import:File",
+        "import:Base64"
+      ]
+    },
+    {
+      "id": "reference:modules/Math/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:cephes.jai",
+        "load:plane.jai",
+        "load:matrix.jai",
+        "load:print.jai",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Memory/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:x64.jai",
+        "load:generic.jai",
+        "load:supplementary/candidates.jai",
+        "load:supplementary/unwraps.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Metal/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:Metal.jai",
+        "import:macos"
+      ]
+    },
+    {
+      "id": "reference:modules/Metaprogram_Plugins.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Minimal_Metaprogram.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "reference:modules/MojoShader/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:mac/libmojoshader",
+        "library:linux/libmojoshader",
+        "library:win/mojoshader"
+      ]
+    },
+    {
+      "id": "reference:modules/Objective_C/LightweightRenderingView/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Objective_C",
+        "import:Objective_C/AppKit",
+        "library:QuartzCore",
+        "library:libLightweightRenderingView",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Objective_C/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:POSIX",
+        "load:bindings/x64/runtime.jai",
+        "load:bindings/x64/message.jai",
+        "load:bindings/arm64/runtime.jai",
+        "load:bindings/arm64/message.jai",
+        "load:Foundation.jai",
+        "import:macos",
+        "library:libobjc",
+        "library:libSystem",
+        "library:libc"
+      ]
+    },
+    {
+      "id": "reference:modules/Overwriting_Allocator/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Hash_Table",
+        "import:Basic",
+        "import:Thread"
+      ]
+    },
+    {
+      "id": "reference:modules/PCG.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/POSIX/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings/linux/base.jai",
+        "load:bindings/linux/stdio.jai",
+        "load:bindings/linux/stdlib.jai",
+        "load:bindings/linux/syscall.jai",
+        "load:bindings/linux/pthread.jai",
+        "load:bindings/linux/resource.jai",
+        "load:bindings/macos/arm64/base.jai",
+        "load:bindings/macos/arm64/stdio.jai",
+        "load:bindings/macos/arm64/stdlib.jai",
+        "load:bindings/macos/arm64/syscall.jai",
+        "load:bindings/macos/arm64/pthread.jai",
+        "load:bindings/macos/arm64/resource.jai",
+        "load:bindings/macos/arm64/sysctl.jai",
+        "load:bindings/macos/x64/base.jai",
+        "load:bindings/macos/x64/stdio.jai",
+        "load:bindings/macos/x64/stdlib.jai",
+        "load:bindings/macos/x64/syscall.jai",
+        "load:bindings/macos/x64/pthread.jai",
+        "load:bindings/macos/x64/resource.jai",
+        "load:bindings/macos/x64/sysctl.jai",
+        "load:bindings/android/arm64/base.jai",
+        "load:bindings/android/arm64/stdio.jai",
+        "load:bindings/android/arm64/stdlib.jai",
+        "load:bindings/android/arm64/syscall.jai",
+        "load:bindings/android/arm64/pthread.jai",
+        "load:bindings/android/arm64/resource.jai",
+        "load:bindings/android/x64/base.jai",
+        "load:bindings/android/x64/stdio.jai",
+        "load:bindings/android/x64/stdlib.jai",
+        "load:bindings/android/x64/syscall.jai",
+        "load:bindings/android/x64/pthread.jai",
+        "load:bindings/android/x64/resource.jai",
+        "library:libc"
+      ]
+    },
+    {
+      "id": "reference:modules/POSIX_old/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:POSIX.jai",
+        "load:libc_bindings.jai",
+        "load:bindings/linux/epoll.jai",
+        "load:bindings/linux/io_uring.jai",
+        "load:bindings/linux/pthread.jai",
+        "load:bindings/linux/resource.jai",
+        "library:libc",
+        "load:bindings/android/arm64/base.jai",
+        "load:bindings/android/arm64/pthread.jai",
+        "load:bindings/android/x64/base.jai",
+        "load:bindings/android/x64/pthread.jai",
+        "load:bindings/macos/pthread.jai",
+        "load:bindings/macos/resource.jai",
+        "load:bindings/macos/sysctl.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Performance_Report.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler",
+        "import:Sort",
+        "import:Program_Print"
+      ]
+    },
+    {
+      "id": "reference:modules/Pool.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Unmapping_Allocator",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Preload.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Print_Color.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:kernel32",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Print_Vars.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler",
+        "import:Program_Print"
+      ]
+    },
+    {
+      "id": "reference:modules/Process/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:ps5.jai",
+        "import:Basic",
+        "import:POSIX",
+        "load:posix.jai",
+        "import:String",
+        "import:System"
+      ]
+    },
+    {
+      "id": "reference:modules/Program_Print/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Hash_Table",
+        "import:Sort",
+        "import:File",
+        "import:Compiler",
+        "import:Basic",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/Project_Generator.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:File",
+        "import:IntroSort",
+        "import:Basic",
+        "import:String",
+        "import:System"
+      ]
+    },
+    {
+      "id": "reference:modules/Protocol_For_Memory_Visualization.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/RadixSort.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Random.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Bit_Operations"
+      ]
+    },
+    {
+      "id": "reference:modules/Reflection.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/Relative_Pointers.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Remap_Context.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:Basic",
+        "import:Hash_Table"
+      ]
+    },
+    {
+      "id": "reference:modules/Runtime_Support.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Runtime_Support_Crash_Handler",
+        "import:Default_Allocator",
+        "library:kernel32",
+        "library:libc",
+        "library:libpthread",
+        "library:liblog"
+      ]
+    },
+    {
+      "id": "reference:modules/Runtime_Support_Crash_Handler.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:DbgHelp",
+        "library:kernel32",
+        "library:libc"
+      ]
+    },
+    {
+      "id": "reference:modules/SDL/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:SDL_version.jai",
+        "load:SDL_video.jai",
+        "load:SDL_surface.jai",
+        "load:SDL_pixels.jai",
+        "load:SDL_blit.jai",
+        "load:SDL_syswm.jai",
+        "load:SDL_clipboard.jai",
+        "load:SDL_event.jai",
+        "load:SDL_keyboard.jai",
+        "load:SDL_scancode.jai",
+        "load:SDL_mouse.jai",
+        "load:SDL_joystick.jai",
+        "load:SDL_rect.jai",
+        "load:SDL_timer.jai",
+        "load:SDL_render.jai",
+        "load:SDL_hints.jai",
+        "load:SDL_blendmode.jai",
+        "load:SDL_audio.jai",
+        "load:SDL_gamecontroller.jai",
+        "library:windows/SDL2",
+        "library:macos/libSDL2",
+        "library:libdl",
+        "library:libm",
+        "import:X11",
+        "library:linux/libSDL2",
+        "library:libpthread"
+      ]
+    },
+    {
+      "id": "reference:modules/Shared_Memory_Channel/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:posix.jai",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Simp/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows",
+        "import:X11",
+        "import:Objective_C",
+        "import:Objective_C/AppKit",
+        "import:Android/EGL",
+        "import:Android/GLES",
+        "import:GL",
+        "load:backend/gl.jai",
+        "import:Metal",
+        "import:Basic",
+        "import:Math",
+        "import:String",
+        "import:Bit_Operations",
+        "import:Thread",
+        "import:stb_image",
+        "import:stb_image_write",
+        "import:stb_image_resize",
+        "import:Android",
+        "load:bitmap.jai",
+        "load:texture.jai",
+        "load:texture_format.jai",
+        "load:shader.jai",
+        "load:immediate.jai",
+        "load:font.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Simple_Package/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Sort",
+        "import:Basic",
+        "import:File",
+        "import:Hash_Table",
+        "import:Pool"
+      ]
+    },
+    {
+      "id": "reference:modules/Sloppy_Math.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Math"
+      ]
+    },
+    {
+      "id": "reference:modules/Soa.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Math",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Socket/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows",
+        "load:generated_windows.jai",
+        "load:generated_linux.jai",
+        "load:generated_android.jai",
+        "load:generated_macos.jai",
+        "import:POSIX",
+        "library:libc",
+        "import:Basic",
+        "import:System"
+      ]
+    },
+    {
+      "id": "reference:modules/Sort.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/Sound_Player/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:load.jai",
+        "load:async.jai",
+        "load:cached_decoder.jai",
+        "import:Windows",
+        "import:Math",
+        "import:Thread",
+        "load:os/win32.jai",
+        "load:os/alsa.jai",
+        "load:os/core_audio.jai",
+        "load:os/ps5.jai",
+        "load:os/aaudio.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Srgb.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Math"
+      ]
+    },
+    {
+      "id": "reference:modules/String/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Reflection",
+        "library:msvcrt",
+        "library:libm",
+        "library:libc"
+      ]
+    },
+    {
+      "id": "reference:modules/System.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows",
+        "import:Windows_Utf8",
+        "import:Bit_Operations",
+        "import:String",
+        "import:POSIX",
+        "import:Process",
+        "library:libc",
+        "import:File",
+        "import:Objective_C",
+        "import:Basic",
+        "load:ps5/ps5_system.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/Tagged_Union.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Text_File_Handler/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:File",
+        "import:String",
+        "import:Hash_Table"
+      ]
+    },
+    {
+      "id": "reference:modules/Thekla_Atlas/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:unix.jai",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "reference:modules/Thekla_Baker/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:unix.jai",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "reference:modules/Thread/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:primitives.jai",
+        "load:thread_group.jai",
+        "import:Race_Detector",
+        "import:Basic",
+        "import:Atomics"
+      ]
+    },
+    {
+      "id": "reference:modules/Toolchains/Android/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:ndk.jai",
+        "load:android_studio.jai",
+        "load:plugin.jai",
+        "import:Basic",
+        "import:File",
+        "import:File_Utilities",
+        "import:String",
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "reference:modules/Treemap.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Sort",
+        "import:Basic",
+        "import:Math",
+        "import:Bucket_Array"
+      ]
+    },
+    {
+      "id": "reference:modules/Unicode.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/Unmapping_Allocator/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Hash_Table",
+        "import:Basic",
+        "import:Thread",
+        "load:ps5.jai",
+        "import:Windows",
+        "import:POSIX",
+        "import:System"
+      ]
+    },
+    {
+      "id": "reference:modules/Vulkan/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:generated_windows.jai",
+        "load:windows_extras.jai",
+        "library:win/vulkan-1",
+        "load:generated_linux.jai",
+        "library:libvulkan"
+      ]
+    },
+    {
+      "id": "reference:modules/Wav_File.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Bit_Operations"
+      ]
+    },
+    {
+      "id": "reference:modules/Window_Creation/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:linux.jai",
+        "load:osx.jai",
+        "load:ps5.jai",
+        "load:android.jai",
+        "import:Basic",
+        "import:Window_Type"
+      ]
+    },
+    {
+      "id": "reference:modules/Window_Type.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows",
+        "import:X11",
+        "import:Objective_C/AppKit",
+        "import:Android"
+      ]
+    },
+    {
+      "id": "reference:modules/Windows.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:Ntdll",
+        "library:kernel32",
+        "library:winmm",
+        "library:user32",
+        "library:shell32",
+        "library:msvcrt",
+        "library:Gdi32",
+        "library:opengl32",
+        "library:Dwmapi",
+        "library:DbgHelp",
+        "library:Advapi32",
+        "library:shlwapi",
+        "library:comdlg32"
+      ]
+    },
+    {
+      "id": "reference:modules/Windows_Registry.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:advapi32",
+        "import:Windows"
+      ]
+    },
+    {
+      "id": "reference:modules/Windows_Resources.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:kernel32",
+        "import:Compiler",
+        "library:ole32",
+        "library:oleaut32",
+        "import:Basic",
+        "import:File",
+        "import:Windows",
+        "import:Windows_Registry",
+        "import:Windows_Utf8",
+        "import:File_Utilities",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/Windows_Utf8.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "library:kernel32"
+      ]
+    },
+    {
+      "id": "reference:modules/X11/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:POSIX",
+        "library:libX11",
+        "library:libc",
+        "library:libGL"
+      ]
+    },
+    {
+      "id": "reference:modules/X11/sofd/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:X11",
+        "import:POSIX",
+        "library:libsofd"
+      ]
+    },
+    {
+      "id": "reference:modules/Zip_File_Directory.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:File",
+        "import:Bit_Operations"
+      ]
+    },
+    {
+      "id": "reference:modules/d3d11/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:dxgi",
+        "import:Windows",
+        "import:d3d_compiler",
+        "load:d3d11_bindings.jai",
+        "load:d3d11_debug_bindings.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/d3d12/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:dxgi",
+        "import:Windows",
+        "import:d3d_compiler",
+        "load:d3d12_bindings.jai",
+        "load:d3d12_debug_bindings.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/d3d_compiler/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:d3dcompiler_bindings.jai",
+        "library:d3dcompiler_47",
+        "import:Basic",
+        "import:Windows",
+        "import:Windows_Utf8",
+        "import:String"
+      ]
+    },
+    {
+      "id": "reference:modules/debug_info/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:codeview/codeview.jai",
+        "load:dwarf/dwarf.jai",
+        "load:pdb/pdb.jai",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "reference:modules/dxc_compiler/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:dxc_compiler_bindings.jai",
+        "import:Windows_Utf8",
+        "import:Windows",
+        "import:d3d12"
+      ]
+    },
+    {
+      "id": "reference:modules/dxgi/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Windows",
+        "load:dxgi_bindings.jai",
+        "library:dxgi",
+        "library:user32",
+        "library:gdi32"
+      ]
+    },
+    {
+      "id": "reference:modules/executable_formats/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:apple_universal.jai",
+        "load:ar.jai",
+        "load:coff.jai",
+        "load:elf.jai",
+        "load:macho.jai",
+        "load:pe.jai",
+        "load:tbd/tbd.jai",
+        "import:Basic",
+        "import:File"
+      ]
+    },
+    {
+      "id": "reference:modules/freetype-2.12.1/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:unix.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/freetype255/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "library:win/freetype255MT",
+        "library:linux/freetype255MT",
+        "library:mac/libfreetype",
+        "library:ps5/freetype255MT"
+      ]
+    },
+    {
+      "id": "reference:modules/generate_c_header.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:File",
+        "import:Hash_Table",
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "reference:modules/linux_build.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Compiler",
+        "import:Basic",
+        "import:String",
+        "import:Process",
+        "import:File_Utilities",
+        "import:Windows"
+      ]
+    },
+    {
+      "id": "reference:modules/lz4/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/macos/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:POSIX",
+        "load:bindings/kernel.jai",
+        "load:bindings/mach.jai",
+        "load:bindings/core_foundation.jai",
+        "load:kevent.jai",
+        "library:CoreServices"
+      ]
+    },
+    {
+      "id": "reference:modules/md5.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Bit_Operations"
+      ]
+    },
+    {
+      "id": "reference:modules/meow_hash/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "reference:modules/meshoptimizer/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:meshoptimizer.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/nvidia_aftermath/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:nvidia_aftermath_bindings.jai",
+        "import:d3d12",
+        "import:Windows"
+      ]
+    },
+    {
+      "id": "reference:modules/nvtt/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "import:Windows",
+        "load:linux.jai",
+        "load:macos.jai",
+        "load:ps5.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/pl_mpeg/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:File",
+        "import:Math",
+        "load:buffer.jai",
+        "load:audio.jai",
+        "load:video.jai",
+        "load:demux.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/rpmalloc/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:rpmalloc.jai",
+        "load:rpmalloc.raw.jai",
+        "import:Basic",
+        "import:File"
+      ]
+    },
+    {
+      "id": "reference:modules/stb_image/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:POSIX",
+        "library:libm"
+      ]
+    },
+    {
+      "id": "reference:modules/stb_image_resize/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/stb_image_write/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/stb_vorbis/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:bindings.jai",
+        "import:POSIX",
+        "library:libm"
+      ]
+    },
+    {
+      "id": "reference:modules/telemetry3/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:telemetry.jai"
+      ]
+    },
+    {
+      "id": "reference:modules/xxHash/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "focus-editor/focus:modules/Clipboard/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:Clipboard.jai"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/File_Async/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:io_completion_ports.jai",
+        "load:io_uring.jai",
+        "load:thread_pool.jai"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Input/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:linux.jai",
+        "load:macos.jai",
+        "import:Basic",
+        "import:Window_Type"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Linux_Display/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:linux_display.jai"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Objective_C/LightweightRenderingView/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Objective_C",
+        "import:Objective_C/AppKit",
+        "library:QuartzCore",
+        "library:libLightweightRenderingView",
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Objective_C/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:POSIX",
+        "load:bindings/x64/runtime.jai",
+        "load:bindings/x64/message.jai",
+        "load:bindings/arm64/runtime.jai",
+        "load:bindings/arm64/message.jai",
+        "load:Foundation.jai",
+        "import:macos",
+        "library:libobjc",
+        "library:libSystem",
+        "library:libc"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Runtime_Support.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Runtime_Support_Crash_Handler",
+        "import:Default_Allocator",
+        "library:kernel32",
+        "library:libc",
+        "library:libpthread",
+        "library:liblog",
+        "import:System",
+        "import:String",
+        "import:Basic",
+        "import:File",
+        "import:XDG",
+        "import:Objective_C",
+        "import:Windows",
+        "import:Windows_Utf8"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Simp/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows",
+        "import:Linux_Display",
+        "import:Objective_C",
+        "import:Objective_C/AppKit",
+        "import:GL",
+        "import:Linux_Display/GL",
+        "load:backend/gl.jai",
+        "import:Metal",
+        "import:Basic",
+        "import:Math",
+        "import:String",
+        "import:Bit_Operations",
+        "import:Thread",
+        "import:stb_image",
+        "import:stb_image_write",
+        "import:stb_image_resize",
+        "load:bitmap.jai",
+        "load:texture.jai",
+        "load:texture_format.jai",
+        "load:shader.jai",
+        "load:immediate.jai",
+        "load:font.jai"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Simple_Bucket_Array.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Tracy/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:c_bindings.jai"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Wayland/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:util.jai",
+        "load:client-core.jai",
+        "load:protocols/core/wayland.jai",
+        "load:protocols/core/stable/presentation-time.jai",
+        "load:protocols/core/stable/viewporter.jai",
+        "load:protocols/core/stable/xdg-shell.jai",
+        "load:protocols/core/staging/single-pixel-buffer-v1.jai",
+        "load:protocols/core/staging/tearing-control-v1.jai",
+        "load:protocols/core/staging/fractional-scale-v1.jai",
+        "load:protocols/core/unstable/fullscreen-shell-unstable-v1.jai",
+        "load:protocols/core/unstable/xdg-decoration-unstable-v1.jai",
+        "load:cursor.jai",
+        "load:egl.jai",
+        "import:Basic",
+        "import:POSIX",
+        "import:String"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Window_Creation/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:linux.jai",
+        "load:osx.jai",
+        "import:Basic",
+        "import:Window_Type"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/Window_Type.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Windows",
+        "import:Linux_Display",
+        "import:Objective_C/AppKit"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/XDG/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:System",
+        "import:POSIX",
+        "import:Process",
+        "import:File"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/libxkbcommon/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:POSIX"
+      ]
+    },
+    {
+      "id": "focus-editor/focus:modules/uniform/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:char_class.jai",
+        "load:compile.jai",
+        "load:match.jai",
+        "load:nfa.jai",
+        "load:parse.jai",
+        "load:program.jai",
+        "load:rune.jai",
+        "load:simplify.jai",
+        "load:sparse.jai",
+        "load:unicode_casefold.jai",
+        "load:unicode_group.jai",
+        "load:walk.jai"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:examples/30/jai_raylib/local_modules/raylib_win64/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "library:vendor/raylib_4.2.0_win64_msvc16/lib/raylib"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:examples/33/glfw/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Vulkan",
+        "load:glfw3.jai"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:examples/35/raylib/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:examples/52/raylib/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "library:user32",
+        "library:gdi32",
+        "library:shell32",
+        "library:winmm",
+        "library:lib/raylib",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:my_modules/Build/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:my_modules/Linked_List.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:my_modules/TestInside.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:my_modules/TestModule_Params/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:my_modules/TestScope.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:TestInside"
+      ]
+    },
+    {
+      "id": "Ivo-Balbaert/The_Way_to_Jai:my_modules/glfw/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Vulkan",
+        "load:glfw3.jai"
+      ]
+    },
+    {
+      "id": "rluba/jaison:module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:generic.jai",
+        "load:typed.jai",
+        "import:Basic",
+        "import:File",
+        "import:String",
+        "import:Hash_Table",
+        "import:./unicode_utils",
+        "import:IntroSort"
+      ]
+    },
+    {
+      "id": "rluba/jaison:unicode_utils/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:examples/30/jai_raylib/local_modules/raylib_win64/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "library:vendor/raylib_4.2.0_win64_msvc16/lib/raylib"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:examples/33/glfw/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Vulkan",
+        "load:glfw3.jai"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:examples/35/raylib/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:examples/52/raylib/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "library:user32",
+        "library:gdi32",
+        "library:shell32",
+        "library:winmm",
+        "library:lib/raylib",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Atomics/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Base64/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Basic/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:String",
+        "import:Math",
+        "import:Random",
+        "import:File",
+        "import:System"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Bindings_Generator/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Bit_Array/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Bucket_Array/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/BuildCpp/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Check/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Compiler/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:String"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Crc/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Debug/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/File/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/File_Utilities/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:File"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Flat_Pool/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/GL/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/GetRect/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Hash/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Hash_Table/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Input/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/IntroSort/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Machine_X64/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Mail/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Math/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/POSIX/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Pool/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Process/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Program_Print/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/RadixSort/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Random/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/SDL/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Simp/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Input",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Sort/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Sound_Player/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/String/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/System/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/TestModule_Params/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/TestModule_TypedParams/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/TestScope/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Thread/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Unicode/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Wav_File/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Window_Creation/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Input"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Windows/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/Windows_Resources/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/md5/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/rpmalloc/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:modules/xxHash/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:test/cli/options/import_modules/CliImportModule/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:test/examples/modules/Comment_Module/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:test/examples/modules/Duplicate_Module/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "withlang-dev/open-jai:test/examples/modules/Local_Module/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "withlang-dev/open-jai:test/language/modules/module_parameters/Param_Module/module.jai",
+      "kind": "support-file",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Binary_Reader.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": []
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Build_Utils/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Compiler",
+        "load:generate_api.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Common/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:memory.jai",
+        "load:array.jai",
+        "load:string.jai",
+        "load:string_builder.jai",
+        "load:logging.jai",
+        "load:unicode.jai",
+        "import:Win32",
+        "import:Math"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Hash_Map.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Hash"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Hash_Set.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Hash"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/ImGui/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Math",
+        "import:Linalg",
+        "load:imgui_windows.jai",
+        "library:./Libs/Windows/ImGui",
+        "load:imgui_linux.jai",
+        "library:./Libs/Linux/libImGui",
+        "library:libm"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/ImGuiExt/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Basic",
+        "import:ImGui"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Lexer.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Basic",
+        "import:String"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Linked_List.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Paged_Array.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Linked_List"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Parser.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:Common",
+        "import:Lexer"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/SDL/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:SDL_version.jai",
+        "load:SDL_video.jai",
+        "load:SDL_surface.jai",
+        "load:SDL_pixels.jai",
+        "load:SDL_blit.jai",
+        "load:SDL_syswm.jai",
+        "load:SDL_clipboard.jai",
+        "load:SDL_event.jai",
+        "load:SDL_keyboard.jai",
+        "load:SDL_scancode.jai",
+        "load:SDL_mouse.jai",
+        "load:SDL_joystick.jai",
+        "load:SDL_rect.jai",
+        "load:SDL_timer.jai",
+        "load:SDL_render.jai",
+        "load:SDL_hints.jai",
+        "load:SDL_blendmode.jai",
+        "load:SDL_audio.jai",
+        "load:SDL_gamecontroller.jai",
+        "library:Libs/Windows/SDL2",
+        "library:Libs/MacOS/libSDL2",
+        "library:libdl",
+        "library:libm",
+        "import:X11",
+        "library:libSDL2",
+        "library:libpthread"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Type_Utils.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic",
+        "import:String",
+        "import:Compiler"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Modules/Vulkan/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:vulkan_windows.jai",
+        "load:windows_extras.jai",
+        "library:Libs/Windows/vulkan-1",
+        "library:Libs/Windows/VkMemAlloc",
+        "library:msvcprt",
+        "load:vulkan_linux.jai",
+        "library:libvulkan",
+        "library:Libs/Linux/libVkMemAlloc",
+        "library:libstdc++.so.6",
+        "library:libunwind"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Core/Build/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Compiler",
+        "import:File",
+        "import:Build_Utils",
+        "load:asset.jai",
+        "load:profiler.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Core/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:SDL",
+        "import:Linalg",
+        "import:Compiler",
+        "import:String",
+        "import:File",
+        "import:Math",
+        "import:Basic",
+        "import:Random",
+        "load:config.public.jai",
+        "load:asset.public.jai",
+        "load:input.public.jai",
+        "load:cpu_frame_profiler.public.jai",
+        "load:serialize_deserialize.public.jai",
+        "load:utils.public.jai",
+        "load:Graphics/abstraction_layer.public.jai",
+        "load:Graphics/gpu_frame_profiler.public.jai",
+        "load:Graphics/texture2d.public.jai",
+        "load:Graphics/environment_map.public.jai",
+        "load:Graphics/material.public.jai",
+        "load:Graphics/mesh.public.jai",
+        "load:Graphics/animation.public.jai",
+        "load:Physics/types.public.jai",
+        "load:Physics/collision_mesh.public.jai",
+        "load:module_api.public.jai",
+        "load:main.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Editor/Build/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Compiler",
+        "import:File",
+        "import:Build_Utils",
+        "import:Core/Build",
+        "import:Game/Build",
+        "import:Renderer/Build",
+        "load:menus.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Editor/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Core",
+        "import:Game",
+        "import:Renderer",
+        "import:Common",
+        "import:Linalg",
+        "import:String",
+        "import:Compiler",
+        "import:Type_Utils",
+        "load:module_api.jai",
+        "load:main.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Game/Build/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Compiler",
+        "import:File",
+        "import:Build_Utils",
+        "import:Core/Build",
+        "import:Renderer/Build",
+        "load:entity.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Game/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Core",
+        "import:Renderer",
+        "import:Common",
+        "import:Linalg",
+        "import:Hash_Map",
+        "import:Paged_Array",
+        "import:Random",
+        "import:String",
+        "import:Compiler",
+        "import:Type_Utils",
+        "import:File",
+        "import:File_Utilities",
+        "load:world.public.jai",
+        "load:entity.public.jai",
+        "load:component.public.jai",
+        "load:graphics.public.jai",
+        "load:physics.public.jai",
+        "load:misc.public.jai",
+        "load:module_api.public.jai",
+        "load:main.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Renderer/Build/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Common",
+        "import:Compiler",
+        "import:File",
+        "import:Build_Utils",
+        "import:Core/Build",
+        "load:shader_codegen.jai",
+        "load:binding_set.jai"
+      ]
+    },
+    {
+      "id": "ostef/Vk-Engine:Source/Renderer/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Core",
+        "import:Common",
+        "import:Linalg",
+        "import:Hash_Map",
+        "import:Paged_Array",
+        "import:Random",
+        "import:String",
+        "import:Compiler",
+        "import:Type_Utils",
+        "import:File",
+        "import:File_Utilities",
+        "load:module_api.public.jai",
+        "load:main.jai",
+        "import:Hash"
+      ]
+    },
+    {
+      "id": "roeyb1/sgpu:module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:pool.jai",
+        "load:memory.jai",
+        "load:command_buffer.jai",
+        "load:textures.jai",
+        "load:bindless.jai",
+        "load:pipeline.jai",
+        "load:render_capture.jai",
+        "load:gpu_arena.jai",
+        "load:swapchain.jai",
+        "load:sync.jai",
+        "load:query.jai",
+        "load:shader_compiler.jai",
+        "load:shader_vfs.jai"
+      ]
+    },
+    {
+      "id": "roeyb1/sgpu:modules/Vulkan_With_VMA/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:generated_windows.jai",
+        "load:windows_extras.jai",
+        "library:libs/win/vulkan-1",
+        "library:libcpmt",
+        "library:win/VkMemAlloc_DEBUG",
+        "library:win/VkMemAlloc",
+        "load:generated_linux.jai",
+        "load:linux_extras.jai",
+        "library:linux/VkMemAlloc_DEBUG",
+        "library:linux/VkMemAlloc",
+        "library:libc++",
+        "library:libstdc++",
+        "library:libvulkan",
+        "load:generated_macos.jai",
+        "load:macos_extras.jai",
+        "library:mac/VkMemAlloc_DEBUG",
+        "library:mac/VkMemAlloc",
+        "library:c++",
+        "library:c++abi",
+        "library:libs/mac/libvulkan"
+      ]
+    },
+    {
+      "id": "roeyb1/sgpu:modules/renderdoc/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "import:Basic"
+      ]
+    },
+    {
+      "id": "roeyb1/sgpu:modules/slang/module.jai",
+      "kind": "module",
+      "target": "selected-host-source-branches",
+      "dependencies": [
+        "load:windows.jai",
+        "load:linux.jai",
+        "load:macos.jai",
+        "library:win/slang-compiler",
+        "library:linux/libslang",
+        "library:mac/libslang"
+      ]
+    }
+  ]
+}

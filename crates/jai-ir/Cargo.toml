@@ -1,0 +1,12 @@
+[package]
+name = "jai-ir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jai-source.workspace = true
+jai-types.workspace = true
+
+[lints]
+workspace = true

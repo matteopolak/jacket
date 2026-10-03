@@ -1,0 +1,12 @@
+{
+  "header_sha256": "27ce505daa602cc7cb69345606b14cccd8d4bc8b248c30765093416dead73ec8",
+  "signature_source": "template<typename T> struct ImVector;\nstruct ImGuiTextFilter {\n    struct ImGuiTextRange {\n        void split(char separator, ImVector<ImGuiTextRange>* out) const;\n    };\n};\n",
+  "symbols": {
+    "windows-x64": "?split@ImGuiTextRange@ImGuiTextFilter@@QEBAXDPEAU?$ImVector@UImGuiTextRange@ImGuiTextFilter@@@@@Z",
+    "windows-arm64": "?split@ImGuiTextRange@ImGuiTextFilter@@QEBAXDPEAU?$ImVector@UImGuiTextRange@ImGuiTextFilter@@@@@Z",
+    "linux-x64": "_ZNK15ImGuiTextFilter14ImGuiTextRange5splitEcP8ImVectorIS0_E",
+    "linux-arm64": "_ZNK15ImGuiTextFilter14ImGuiTextRange5splitEcP8ImVectorIS0_E",
+    "macos-x64": "_ZNK15ImGuiTextFilter14ImGuiTextRange5splitEcP8ImVectorIS0_E",
+    "macos-arm64": "_ZNK15ImGuiTextFilter14ImGuiTextRange5splitEcP8ImVectorIS0_E"
+  }
+}

@@ -4,6 +4,7 @@ use inkwell::{
     context::Context,
     targets::TargetData,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType, StructType},
+    values::{BasicValue, BasicValueEnum, StructValue},
 };
 use jai_types::{
     CallingConvention, ContextMode, FloatType, IntegerType, Layout, LayoutEngine, LayoutError,
@@ -20,9 +21,38 @@ pub enum Error {
     Layout(LayoutError),
     NoStorage(TypeId),
     UnsupportedUnion(TypeId),
+    UnsupportedCustomLayout(TypeId),
+    MissingRecordTarget(TypeId),
+    RecordStorageTooLarge {
+        ty: TypeId,
+        size: u64,
+        address_bits: u32,
+    },
+    UnsupportedPlacement(TypeId),
+    UnsupportedAlignment {
+        requested: u32,
+        actual: u32,
+    },
+    InvalidCustomLayout,
+    MissingDescriptorTarget(TypeId),
+    DescriptorTargetMismatch {
+        ty: TypeId,
+        descriptor: Box<LayoutPolicy>,
+        target: Box<LayoutPolicy>,
+    },
+    Union {
+        ty: TypeId,
+        error: crate::unions::Error,
+    },
     ArrayTooLarge {
         ty: TypeId,
         count: u64,
+    },
+    ArrayStorageTooLarge {
+        ty: TypeId,
+        count: u64,
+        stride: u64,
+        address_bits: u32,
     },
     NotProcedure(TypeId),
     UnsupportedSignature(TypeId),
@@ -48,16 +78,64 @@ impl fmt::Display for Error {
             Self::Type(error) => write!(f, "invalid LLVM type identity: {error}"),
             Self::Layout(error) => write!(f, "unsupported LLVM target layout: {error}"),
             Self::NoStorage(ty) => write!(f, "type {ty:?} has no LLVM storage representation"),
+            Self::UnsupportedCustomLayout(ty) => write!(
+                f,
+                "record {ty:?} requires bound target data for custom layout lowering"
+            ),
+            Self::RecordStorageTooLarge {
+                ty,
+                size,
+                address_bits,
+            } => write!(
+                f,
+                "record {ty:?} storage of {size} bytes exceeds the selected {address_bits}-bit address extent"
+            ),
+            Self::MissingRecordTarget(ty) => {
+                write!(f, "record {ty:?} requires explicitly selected target data")
+            }
+            Self::UnsupportedPlacement(ty) => write!(
+                f,
+                "record {ty:?} requires ordered placement initialization support"
+            ),
+            Self::UnsupportedAlignment { requested, actual } => write!(
+                f,
+                "target represents requested alignment {requested} as {actual}"
+            ),
+            Self::InvalidCustomLayout => {
+                f.write_str("custom record representation disagrees with the target layout")
+            }
+            Self::MissingDescriptorTarget(ty) => write!(
+                f,
+                "runtime type descriptor for {ty:?} requires explicitly selected target data"
+            ),
+            Self::DescriptorTargetMismatch {
+                ty,
+                descriptor,
+                target,
+            } => write!(
+                f,
+                "runtime type descriptor for {ty:?} uses layout {descriptor:?}, but LLVM selected {target:?}"
+            ),
             Self::UnsupportedUnion(ty) => {
                 write!(f, "union {ty:?} requires a storage and field-access ABI")
             }
+            Self::Union { ty, error } => write!(f, "union {ty:?}: {error}"),
             Self::ArrayTooLarge { ty, count } => {
                 write!(f, "array {ty:?} length {count} exceeds the LLVM API limit")
             }
+            Self::ArrayStorageTooLarge {
+                ty,
+                count,
+                stride,
+                address_bits,
+            } => write!(
+                f,
+                "array {ty:?} length {count} with element stride {stride} exceeds {address_bits}-bit target storage"
+            ),
             Self::NotProcedure(ty) => write!(f, "type {ty:?} is not a procedure signature"),
             Self::UnsupportedSignature(ty) => write!(
                 f,
-                "procedure {ty:?} requires an unsupported calling convention, context, or result ABI"
+                "procedure {ty:?} requires an unsupported calling convention or context ABI"
             ),
             Self::LayoutMismatch {
                 ty,
@@ -76,8 +154,11 @@ impl std::error::Error for Error {}
 pub struct TypeLowerer<'ctx, 'types> {
     context: &'ctx Context,
     types: &'types Types,
+    target: Option<&'types TargetData>,
+    context_pointer: Option<TypeId>,
     cache: HashMap<TypeId, BasicTypeEnum<'ctx>>,
     ready: HashSet<TypeId>,
+    layouts: Option<LayoutEngine<'types>>,
 }
 impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
     pub fn new(context: &'ctx Context, types: &'types Types) -> Self {
@@ -85,7 +166,7 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
         // are opaque; source-level recursive pointees stay in the registry.
         let cache = types
             .iter()
-            .filter(|(_, kind)| matches!(kind, TypeKind::Record(_)))
+            .filter(|(_, kind)| kind.record_storage_id().is_some())
             .map(|(id, _)| {
                 (
                     id,
@@ -98,9 +179,57 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
         Self {
             context,
             types,
+            target: None,
+            context_pointer: None,
             cache,
             ready: HashSet::new(),
+            layouts: None,
         }
+    }
+
+    pub fn with_target(
+        context: &'ctx Context,
+        types: &'types Types,
+        target: &'types TargetData,
+    ) -> Self {
+        let mut lowerer = Self::new(context, types);
+        lowerer.target = Some(target);
+        lowerer
+    }
+
+    /// Bind the checked per-library context schema before lowering signatures.
+    pub fn set_context_pointer(&mut self, pointer: Option<TypeId>) -> Result<(), Error> {
+        if let Some(pointer) = pointer
+            && !matches!(self.types.kind(pointer)?, TypeKind::Pointer(_))
+        {
+            return Err(Error::UnsupportedSignature(pointer));
+        }
+        self.context_pointer = pointer;
+        Ok(())
+    }
+    pub fn registry(&self) -> &'types Types {
+        self.types
+    }
+    pub fn context(&self) -> &'ctx Context {
+        self.context
+    }
+    pub fn target_data(&self) -> Option<&TargetData> {
+        self.target
+    }
+    pub(crate) fn semantic_layout(&mut self, ty: TypeId) -> Result<Layout, Error> {
+        if self.layouts.is_none() {
+            let target = self.target.ok_or(Error::UnsupportedCustomLayout(ty))?;
+            self.layouts = Some(LayoutEngine::new(
+                self.types,
+                layout_policy(self.context, target)?,
+            ));
+        }
+        Ok(self
+            .layouts
+            .as_mut()
+            .expect("layout engine initialized")
+            .layout(ty)?
+            .clone())
     }
 
     pub fn basic(&mut self, root: TypeId) -> Result<BasicTypeEnum<'ctx>, Error> {
@@ -113,6 +242,9 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
             let kind = self.types.kind(id)?;
             if !finish {
                 let dependencies: Vec<TypeId> = match kind {
+                    TypeKind::Distinct(distinct) => {
+                        vec![self.types.distinct(*distinct)?.representation]
+                    }
                     TypeKind::FixedArray { element, count } => {
                         if *count > u64::from(u32::MAX) {
                             return Err(Error::ArrayTooLarge {
@@ -122,9 +254,21 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
                         }
                         vec![*element]
                     }
-                    TypeKind::Record(record) => {
-                        let definition = self.types.record(*record)?;
-                        if definition.kind == RecordKind::Union {
+                    TypeKind::DynamicArray(_) => self
+                        .types
+                        .allocator_schema()
+                        .map(|schema| vec![schema.ty()])
+                        .unwrap_or_default(),
+                    kind if kind.record_storage_id().is_some() => {
+                        let definition = self.types.record_storage_definition(id)?;
+                        if (definition.layout.packed
+                            || definition.layout.minimum_alignment.is_some()
+                            || !definition.layout.field_alignments.is_empty())
+                            && self.target.is_none()
+                        {
+                            return Err(Error::UnsupportedCustomLayout(id));
+                        }
+                        if definition.kind == RecordKind::Union && self.target.is_none() {
                             return Err(Error::UnsupportedUnion(id));
                         }
                         definition.fields.to_vec()
@@ -138,12 +282,14 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
                 }
             }
             let lowered: BasicTypeEnum<'ctx> = match kind {
-                TypeKind::Void | TypeKind::Type => return Err(Error::NoStorage(id)),
+                TypeKind::Void | TypeKind::Code => {
+                    return Err(Error::NoStorage(id));
+                }
                 TypeKind::Bool => self.context.bool_type().into(),
                 TypeKind::Integer(integer) => integer_type(self.context, *integer).into(),
                 TypeKind::Float(FloatType::F32) => self.context.f32_type().into(),
                 TypeKind::Float(FloatType::F64) => self.context.f64_type().into(),
-                TypeKind::Pointer(_) | TypeKind::Procedure(_) => {
+                TypeKind::Type | TypeKind::Pointer(_) | TypeKind::Procedure(_) => {
                     self.context.ptr_type(AddressSpace::default()).into()
                 }
                 TypeKind::Enum(enumeration) => integer_type(
@@ -151,31 +297,102 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
                     self.types.enumeration(*enumeration)?.representation,
                 )
                 .into(),
-                TypeKind::FixedArray { element, count } => self.cache[element]
-                    .array_type(u32::try_from(*count).map_err(|_| Error::ArrayTooLarge {
-                        ty: id,
-                        count: *count,
-                    })?)
-                    .into(),
+                TypeKind::FixedArray { element, count } => {
+                    if let Some(target) = self.target {
+                        let address_bits = self
+                            .context
+                            .ptr_sized_int_type(target, None)
+                            .get_bit_width();
+                        let stride = target.get_abi_size(&self.cache[element]);
+                        let maximum = u64::MAX
+                            .checked_shr(64u32.saturating_sub(address_bits))
+                            .unwrap_or(0);
+                        if address_bits > 64
+                            || count
+                                .checked_mul(stride)
+                                .is_none_or(|bytes| bytes > maximum)
+                        {
+                            return Err(Error::ArrayStorageTooLarge {
+                                ty: id,
+                                count: *count,
+                                stride,
+                                address_bits,
+                            });
+                        }
+                    }
+                    self.cache[element]
+                        .array_type(u32::try_from(*count).map_err(|_| Error::ArrayTooLarge {
+                            ty: id,
+                            count: *count,
+                        })?)
+                        .into()
+                }
                 TypeKind::String | TypeKind::Slice(_) => self.descriptor().into(),
                 TypeKind::DynamicArray(_) => {
                     let pointer = self.context.ptr_type(AddressSpace::default()).into();
                     let count = self.context.i64_type().into();
-                    let allocator = self.context.struct_type(&[pointer, pointer], false).into();
+                    let allocator = self
+                        .types
+                        .allocator_schema()
+                        .map(|schema| self.cache[&schema.ty()])
+                        .unwrap_or_else(|| {
+                            self.context.struct_type(&[pointer, pointer], false).into()
+                        });
                     self.context
                         .struct_type(&[count, pointer, count, allocator], false)
                         .into()
                 }
-                TypeKind::Record(record) => {
-                    let definition = self.types.record(*record)?;
-                    if definition.kind == RecordKind::Union {
-                        return Err(Error::UnsupportedUnion(id));
-                    }
+                TypeKind::Distinct(distinct) => {
+                    self.cache[&self.types.distinct(*distinct)?.representation]
+                }
+                TypeKind::Record(_) | TypeKind::Any(_) => {
+                    let definition = self.types.record_storage_definition(id)?;
                     let fields: Vec<_> = definition
                         .fields
                         .iter()
                         .map(|field| self.cache[field])
                         .collect();
+                    let kind = definition.kind;
+                    let placed = definition
+                        .layout
+                        .field_placements
+                        .iter()
+                        .any(Option::is_some);
+                    let custom_union = kind == RecordKind::Union
+                        && definition.layout != jai_types::RecordLayout::default();
+                    let target = self.target.ok_or(Error::MissingRecordTarget(id))?;
+                    let expected = self.semantic_layout(id)?;
+                    let address_bits = self
+                        .context
+                        .ptr_sized_int_type(target, None)
+                        .get_bit_width();
+                    let maximum = u64::MAX
+                        .checked_shr(64u32.saturating_sub(address_bits))
+                        .unwrap_or(0);
+                    if address_bits > 64 || expected.size > maximum {
+                        return Err(Error::RecordStorageTooLarge {
+                            ty: id,
+                            size: expected.size,
+                            address_bits,
+                        });
+                    }
+                    let fields = if placed || custom_union {
+                        let size =
+                            u32::try_from(expected.size).map_err(|_| Error::InvalidCustomLayout)?;
+                        vec![
+                            crate::records::alignment_carrier(
+                                self.context,
+                                target,
+                                expected.alignment,
+                            )?,
+                            self.context.i8_type().array_type(size).into(),
+                        ]
+                    } else if kind == RecordKind::Union {
+                        crate::unions::body(self.context, target, &fields, &expected)
+                            .map_err(|error| Error::Union { ty: id, error })?
+                    } else {
+                        crate::records::body(self.context, target, &fields, &expected)?
+                    };
                     let structure = self.cache[&id].into_struct_type();
                     structure.set_body(&fields, false);
                     structure.into()
@@ -197,29 +414,114 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
         )
     }
 
-    /// Internal LLVM signatures only. Foreign ABIs, implicit contexts, and
-    /// multiple results require a separate ABI classifier before emission.
+    /// Internal LLVM signatures. An implicit context requires a bound checked
+    /// context-pointer schema; foreign conventions use the separate C classifier.
+    /// Multiple internal results use a literal LLVM struct in declaration order.
     pub fn function(&mut self, ty: TypeId) -> Result<FunctionType<'ctx>, Error> {
         let TypeKind::Procedure(id) = self.types.kind(ty)? else {
             return Err(Error::NotProcedure(ty));
         };
         let signature = self.types.procedure(*id)?;
         if signature.convention != CallingConvention::Jai
-            || signature.context != ContextMode::None
-            || signature.results.len() > 1
+            || (signature.context == ContextMode::Implicit && self.context_pointer.is_none())
         {
             return Err(Error::UnsupportedSignature(ty));
         }
-        let parameters = signature
+        let mut parameters = signature
             .parameters
             .iter()
             .map(|&ty| self.basic(ty).map(BasicMetadataTypeEnum::from))
             .collect::<Result<Vec<_>, _>>()?;
+        if signature.context == ContextMode::Implicit {
+            parameters.insert(
+                0,
+                self.basic(
+                    self.context_pointer
+                        .ok_or(Error::UnsupportedSignature(ty))?,
+                )?
+                .into(),
+            );
+        }
         Ok(match signature.results.as_ref() {
             [] => self.context.void_type().fn_type(&parameters, false),
             [result] => self.basic(*result)?.fn_type(&parameters, false),
-            _ => unreachable!(),
+            results => {
+                let fields = results
+                    .iter()
+                    .map(|&result| self.basic(result))
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.context
+                    .struct_type(&fields, false)
+                    .fn_type(&parameters, false)
+            }
         })
+    }
+
+    /// Build an exact named physical record constant from semantic fields.
+    /// This narrow public path requires constant values of the canonical LLVM
+    /// field types; internal relocation-aware constants may use equivalent
+    /// alternate physical types through the common record adapter directly.
+    pub fn record_constant(
+        &mut self,
+        ty: TypeId,
+        fields: &[BasicValueEnum<'ctx>],
+    ) -> Result<StructValue<'ctx>, crate::Error> {
+        let record = self
+            .types
+            .record_storage_definition(ty)
+            .map_err(Error::from)?;
+        if record.kind != RecordKind::Struct {
+            return Err(crate::Error::Invariant);
+        }
+        if record.layout.field_placements.iter().any(Option::is_some) {
+            return Err(Error::UnsupportedPlacement(ty).into());
+        }
+        let expected = record.fields.to_vec();
+        if fields.len() != expected.len() {
+            return Err(crate::Error::Invariant);
+        }
+        for (&value, expected) in fields.iter().zip(expected) {
+            if !value.is_const() || value.get_type() != self.basic(expected)? {
+                return Err(crate::Error::Invariant);
+            }
+        }
+        let target = self.target.ok_or(Error::MissingRecordTarget(ty))?;
+        let layout = self.verify_layout(ty, target)?;
+        let storage = self.basic(ty)?.into_struct_type();
+        let value = crate::records::constant(self.context, target, storage, fields, &layout)?;
+        if value.get_type() != storage.into() {
+            return Err(crate::Error::Invariant);
+        }
+        Ok(value.into_struct_value())
+    }
+
+    /// Resolve a source-owned field to the two-level explicit payload path.
+    /// Physical indices are not source field ordinals and cannot cross owners.
+    pub fn record_field_path(
+        &mut self,
+        ty: TypeId,
+        field: jai_types::FieldId,
+    ) -> Result<[u32; 2], Error> {
+        self.types.validate_field(ty, field)?;
+        let record = self.types.record_storage_definition(ty)?;
+        if record.kind != RecordKind::Struct {
+            return Err(Error::InvalidCustomLayout);
+        }
+        if record.layout.field_placements.iter().any(Option::is_some) {
+            return Err(Error::UnsupportedPlacement(ty));
+        }
+        let source_fields = record.fields.to_vec();
+        let target = self.target.ok_or(Error::MissingRecordTarget(ty))?;
+        let layout = self.verify_layout(ty, target)?;
+        let fields = source_fields
+            .iter()
+            .map(|&field| self.basic(field))
+            .collect::<Result<Vec<_>, _>>()?;
+        let (_, ordinals) = crate::records::payload(self.context, target, &fields, &layout)?;
+        let ordinal = *ordinals
+            .get(field.index())
+            .ok_or(Error::InvalidCustomLayout)?;
+        Ok([1, ordinal])
     }
 
     /// Derive primitive policy from the actual LLVM TargetData, then compare
@@ -228,15 +530,75 @@ impl<'ctx, 'types> TypeLowerer<'ctx, 'types> {
         let lowered = self.basic(ty)?;
         let policy = layout_policy(self.context, target)?;
         let expected = LayoutEngine::new(self.types, policy).layout(ty)?.clone();
-        let fields = match lowered {
-            BasicTypeEnum::StructType(structure) => (0..structure.count_fields())
-                .map(|index| {
-                    target
-                        .offset_of_element(&structure, index)
-                        .expect("validated LLVM field index")
-                })
-                .collect(),
-            _ => vec![],
+        let mut representation = ty;
+        while let TypeKind::Distinct(distinct) = self.types.kind(representation)? {
+            representation = self.types.distinct(*distinct)?.representation;
+        }
+        let semantic_fields = match self.types.kind(representation)? {
+            TypeKind::Record(record) if self.types.record(*record)?.kind == RecordKind::Union => {
+                Some(vec![0; self.types.record(*record)?.fields.len()])
+            }
+            TypeKind::Record(record)
+                if self
+                    .types
+                    .record(*record)?
+                    .layout
+                    .field_placements
+                    .iter()
+                    .any(Option::is_some) =>
+            {
+                let storage = lowered.into_struct_type();
+                let base = target
+                    .offset_of_element(&storage, 1)
+                    .ok_or(Error::InvalidCustomLayout)?;
+                if base != 0 {
+                    return Err(Error::InvalidCustomLayout);
+                }
+                Some(expected.field_offsets.to_vec())
+            }
+            TypeKind::Record(record) | TypeKind::Any(record) => {
+                let source_fields = self.types.record(*record)?.fields.to_vec();
+                let fields = source_fields
+                    .iter()
+                    .map(|&field| self.basic(field))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let (_, ordinals) =
+                    crate::records::payload(self.context, target, &fields, &expected)?;
+                let structure = lowered.into_struct_type();
+                let payload = structure
+                    .get_field_type_at_index(1)
+                    .ok_or(Error::InvalidCustomLayout)?
+                    .into_struct_type();
+                let base = target
+                    .offset_of_element(&structure, 1)
+                    .ok_or(Error::InvalidCustomLayout)?;
+                Some(
+                    ordinals
+                        .into_iter()
+                        .map(|ordinal| {
+                            target
+                                .offset_of_element(&payload, ordinal)
+                                .and_then(|offset| base.checked_add(offset))
+                                .ok_or(Error::InvalidCustomLayout)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+            }
+            _ => None,
+        };
+        let fields = if let Some(fields) = semantic_fields {
+            fields
+        } else {
+            match lowered {
+                BasicTypeEnum::StructType(structure) => (0..structure.count_fields())
+                    .map(|index| {
+                        target
+                            .offset_of_element(&structure, index)
+                            .expect("validated LLVM field index")
+                    })
+                    .collect(),
+                _ => vec![],
+            }
         };
         let array_stride = match lowered {
             BasicTypeEnum::ArrayType(array) => Some(target.get_abi_size(&array.get_element_type())),
@@ -354,12 +716,13 @@ mod tests {
                 results: Box::new([double]),
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
+                variadic: jai_types::Variadic::None,
             })
             .unwrap();
         let types = registry.freeze().unwrap();
         let context = Context::create();
         let target = native_data();
-        let mut lowerer = TypeLowerer::new(&context, &types);
+        let mut lowerer = TypeLowerer::with_target(&context, &types, &target);
         let module = context.create_module("type-test");
         module.set_data_layout(&target.get_data_layout());
         for id in [
@@ -434,7 +797,7 @@ mod tests {
         let types = registry.freeze().unwrap();
         let context = Context::create();
         let target = TargetData::create("e-p:32:32-i64:32-f64:32");
-        let mut lowerer = TypeLowerer::new(&context, &types);
+        let mut lowerer = TypeLowerer::with_target(&context, &types, &target);
         assert_eq!(
             layout_policy(&context, &target).unwrap().pointer(),
             ScalarLayout::new(4, 4)
@@ -471,6 +834,7 @@ mod tests {
                 results: Box::new([byte, byte]),
                 convention: CallingConvention::Jai,
                 context: ContextMode::None,
+                variadic: jai_types::Variadic::None,
             })
             .unwrap();
         let foreign = registry
@@ -479,6 +843,7 @@ mod tests {
                 results: Box::new([]),
                 convention: CallingConvention::C,
                 context: ContextMode::None,
+                variadic: jai_types::Variadic::None,
             })
             .unwrap();
         let implicit = registry
@@ -487,16 +852,27 @@ mod tests {
                 results: Box::new([]),
                 convention: CallingConvention::Jai,
                 context: ContextMode::Implicit,
+                variadic: jai_types::Variadic::None,
             })
             .unwrap();
         let types = registry.freeze().unwrap();
         let context = Context::create();
         let mut lowerer = TypeLowerer::new(&context, &types);
         assert!(matches!(lowerer.basic(void), Err(Error::NoStorage(id)) if id == void));
-        assert!(matches!(lowerer.basic(meta), Err(Error::NoStorage(id)) if id == meta));
+        assert!(lowerer.basic(meta).unwrap().is_pointer_type());
         assert!(matches!(lowerer.basic(union), Err(Error::UnsupportedUnion(id)) if id == union));
         assert!(matches!(lowerer.basic(huge), Err(Error::ArrayTooLarge { ty, .. }) if ty == huge));
-        for id in [multi, foreign, implicit] {
+        assert_eq!(
+            lowerer
+                .function(multi)
+                .unwrap()
+                .get_return_type()
+                .unwrap()
+                .into_struct_type()
+                .count_fields(),
+            2
+        );
+        for id in [foreign, implicit] {
             assert!(
                 matches!(lowerer.function(id), Err(Error::UnsupportedSignature(ty)) if ty == id)
             );
@@ -526,7 +902,180 @@ mod tests {
         }
         let types = registry.freeze().unwrap();
         let context = Context::create();
-        let mut lowerer = TypeLowerer::new(&context, &types);
+        let target = native_data();
+        let mut lowerer = TypeLowerer::with_target(&context, &types, &target);
         assert!(lowerer.basic(root).unwrap().is_struct_type());
+    }
+    #[test]
+    fn placement_byte_storage_matches_the_checked_overlapping_offsets() {
+        let mut registry = TypeRegistry::new();
+        let word = registry.scalar(ScalarType::Int(IntegerType::U64));
+        let record = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_placements(
+                record,
+                [word, word],
+                jai_types::RecordLayout::default(),
+                [None, Some(0)],
+            )
+            .unwrap();
+        let pointer = registry.pointer(record).unwrap();
+        let array = registry.fixed_array(record, 3).unwrap();
+        let types = registry.freeze().unwrap();
+        let context = Context::create();
+        let target = native_data();
+        let mut lowerer = TypeLowerer::with_target(&context, &types, &target);
+        let layout = lowerer.verify_layout(record, &target).unwrap();
+        assert_eq!(layout.field_offsets.as_ref(), &[0, 0]);
+        assert_eq!((layout.size, layout.alignment), (8, 8));
+        assert_eq!(lowerer.verify_layout(array, &target).unwrap().size, 24);
+        assert!(lowerer.basic(pointer).unwrap().is_pointer_type());
+    }
+
+    #[test]
+    fn custom_record_payload_offsets_alignments_and_distinct_views_match_target() {
+        let mut registry = TypeRegistry::new();
+        let byte = registry.scalar(ScalarType::Int(IntegerType::U8));
+        let word = registry.scalar(ScalarType::Int(IntegerType::U64));
+        let packed = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_layout(
+                packed,
+                [byte, word],
+                jai_types::RecordLayout {
+                    packed: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let reduced = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_layout(
+                reduced,
+                [byte, word],
+                jai_types::RecordLayout {
+                    packed: true,
+                    field_alignments: Box::new([None, Some(4)]),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let aligned = registry.reserve_record(RecordKind::Struct);
+        registry
+            .define_record_with_layout(
+                aligned,
+                [byte, packed],
+                jai_types::RecordLayout {
+                    packed: true,
+                    minimum_alignment: Some(32),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let union = registry.reserve_record(RecordKind::Union);
+        registry
+            .define_record_with_layout(
+                union,
+                [byte, word],
+                jai_types::RecordLayout {
+                    packed: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let distinct = registry.reserve_distinct(jai_types::DistinctKind::Distinct);
+        registry.define_distinct(distinct, reduced).unwrap();
+        let array = registry.fixed_array(aligned, 2).unwrap();
+        let types = registry.freeze().unwrap();
+        let context = Context::create();
+        let target = native_data();
+        let mut lowerer = TypeLowerer::with_target(&context, &types, &target);
+        for (ty, size, alignment, offsets) in [
+            (packed, 9, 1, vec![0, 1]),
+            (reduced, 12, 4, vec![0, 4]),
+            (aligned, 32, 32, vec![0, 1]),
+            (union, 8, 1, vec![0, 0]),
+            (distinct, 12, 4, vec![0, 4]),
+        ] {
+            let layout = lowerer.verify_layout(ty, &target).unwrap();
+            assert_eq!(
+                (
+                    layout.size,
+                    layout.alignment,
+                    layout.field_offsets.into_vec()
+                ),
+                (size, alignment, offsets)
+            );
+        }
+        assert_eq!(
+            lowerer.verify_layout(array, &target).unwrap().array_stride,
+            Some(32)
+        );
+    }
+    #[test]
+    fn bound_target_union_layout_preserves_all_members_at_zero_and_array_stride() {
+        let mut registry = TypeRegistry::new();
+        let byte = registry.scalar(ScalarType::Int(IntegerType::U8));
+        let word = registry.scalar(ScalarType::Int(IntegerType::U32));
+        let words = registry.fixed_array(word, 3).unwrap();
+        let union = registry.reserve_record(RecordKind::Union);
+        registry.define_record(union, [byte, words]).unwrap();
+        let sequence = registry.fixed_array(union, 2).unwrap();
+        let empty = registry.reserve_record(RecordKind::Union);
+        registry.define_record(empty, []).unwrap();
+        let types = registry.freeze().unwrap();
+        let context = Context::create();
+        let target = TargetData::create("e-p:32:32-i64:32-f64:32");
+        let mut lowerer = TypeLowerer::with_target(&context, &types, &target);
+        let layout = lowerer.verify_layout(union, &target).unwrap();
+        assert_eq!(layout.size, 12);
+        assert_eq!(layout.alignment, 4);
+        assert_eq!(layout.field_offsets.as_ref(), &[0, 0]);
+        assert_eq!(
+            lowerer
+                .verify_layout(sequence, &target)
+                .unwrap()
+                .array_stride,
+            Some(12)
+        );
+        assert_eq!(lowerer.verify_layout(empty, &target).unwrap().size, 0);
+        let storage = lowerer.basic(union).unwrap().into_struct_type();
+        assert_eq!(target.offset_of_element(&storage, 1), Some(0));
+        let module = context.create_module("union.layout");
+        module.set_data_layout(&target.get_data_layout());
+        module.add_global(storage, None, "union");
+        module.verify().unwrap();
+    }
+    #[test]
+    fn implicit_internal_signatures_require_the_checked_context_schema() {
+        let mut registry = TypeRegistry::new();
+        let byte = registry.scalar(ScalarType::Int(IntegerType::U8));
+        let context_record = registry.reserve_record(RecordKind::Struct);
+        registry.define_record(context_record, [byte]).unwrap();
+        let pointer = registry.pointer(context_record).unwrap();
+        let signature = registry
+            .procedure(ProcedureType {
+                parameters: vec![byte].into_boxed_slice(),
+                results: vec![byte].into_boxed_slice(),
+                convention: CallingConvention::Jai,
+                context: ContextMode::Implicit,
+                variadic: jai_types::Variadic::None,
+            })
+            .unwrap();
+        let types = registry.freeze().unwrap();
+        let context = Context::create();
+        let mut lowerer = TypeLowerer::new(&context, &types);
+        assert!(matches!(
+            lowerer.function(signature),
+            Err(Error::UnsupportedSignature(_))
+        ));
+        assert!(lowerer.set_context_pointer(Some(context_record)).is_err());
+        lowerer.set_context_pointer(Some(pointer)).unwrap();
+        let function = lowerer.function(signature).unwrap();
+        assert_eq!(function.count_param_types(), 2);
+        assert!(function.get_param_types()[0].is_pointer_type());
+        assert_eq!(function.get_param_types()[1], context.i8_type().into());
+        lowerer.set_context_pointer(None).unwrap();
+        assert!(lowerer.function(signature).is_err());
     }
 }

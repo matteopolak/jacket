@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "cases": [
+    {
+      "id": "focus-editor/focus:first.jai",
+      "kind": "metaprogram",
+      "target": "macos-linux-windows",
+      "dependencies": ["Compiler workspace API", "project module search paths", "graphics/window SDKs"]
+    },
+    {
+      "id": "rluba/jaison:tests.jai",
+      "kind": "program",
+      "target": "host",
+      "dependencies": ["Basic MEMORY_DEBUGGER module parameter", "polymorphism", "reflection", "unicode_utils"]
+    },
+    {
+      "id": "rluba/jaison:examples/example.jai",
+      "kind": "program",
+      "target": "host",
+      "dependencies": ["actual module.jai library", "Basic", "reflection", "promoted record initialization"]
+    },
+    {
+      "id": "rluba/jaison:module.jai",
+      "kind": "module",
+      "target": "host",
+      "dependencies": ["actual generic.jai and typed.jai", "Basic", "File", "String", "Hash_Table", "IntroSort", "Reflection", "unicode_utils"]
+    }
+  ]
+}

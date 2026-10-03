@@ -1,0 +1,393 @@
+{
+  "archive_sha256": "460f484a244bdf3bfd5a683e6ee8dbde1c15b0489dbb65608969b6ece7c9751d",
+  "header_hashes": {
+    "libc/include/android/api-level.h": "11e00e92b633450ffc50ae30fd5bcb4c3838a33d80e524e6b407af427bf88642",
+    "libc/include/android/versioning.h": "e89f59dda1cb8e1dd37575e24c8f928f697c776b1bfe0e0bb607da4f931e5bbc",
+    "libc/include/bits/page_size.h": "4a40a2017c01deb7c884dc1e00a53d641545e6c18d6030a34b08615a01efca57",
+    "libc/include/bits/posix_limits.h": "e1196635fcf8c3b46a97b9317eb7a22f1e331f90a593dd82016a247e35c535fa",
+    "libc/include/bits/pthread_types.h": "1b727fc1200b6aae864bfd0d153516edd763a503603b49f3a00bebffb6016e35",
+    "libc/include/bits/signal_types.h": "83e7794afd3e231f1091ec456e34bd0401775b393c5de33d5a8f8c2942a998ff",
+    "libc/include/bits/timespec.h": "641555f8ce6fd9c7f809aa090b76af8319209630eeb027ce7bab9b65d3a467ec",
+    "libc/include/bits/wchar_limits.h": "52b3b385044a1074a5f80791f394c32e676e76e4547fa74f188368e960cb34da",
+    "libc/include/limits.h": "8f140ad5aac2844dd425b99e3262e4b099cc8b36f18d8c81553f5ace628b95ac",
+    "libc/include/poll.h": "d9f6ec13b36b01b90aeadc6844a5b5d9c6e4282eff3758179f383fb81477f53a",
+    "libc/include/sched.h": "5cbe6a08805ca68083cc2cb6b2ed8a2c14fa5e2625ffe4cdcb70439036fe002d",
+    "libc/include/signal.h": "fc93227032832f7ec26e87402cfabec900dbf1d4c7647015ca60b131afae3f3d",
+    "libc/include/stdint.h": "2368fab63d602a8d2f9d1baabacd82f063eccdde95201aa2320fc3c70f06d0fa",
+    "libc/include/sys/cdefs.h": "1884a265f55af2a05d8df308dedd482d4f4407abc590856d035bef838d4e3516",
+    "libc/include/sys/select.h": "46ea309192d3f34618e07d3c040cff53bc18fe07334d523c4f2072010db1dbed",
+    "libc/include/sys/time.h": "81106a57eed154de5846e3ef06dab604e52037686c821236c65801803af24cbf",
+    "libc/include/sys/types.h": "c603f5fa07922140287ca9c8c0043dfa3ab45201c25c296fd7eec24116303ddf",
+    "libc/include/sys/ucontext.h": "b9c9e6f95c5362d609dc833c1c4dcc11ba8b543a997ac2d91283d61b8192beb9",
+    "libc/include/sys/uio.h": "0d32fc6ab4fbd157ebd7a7ec963b86bf904e0942db17f849b7303a5a6ce746f4",
+    "libc/include/sys/user.h": "710b0da4c277367bed1a293459e11180d72e59baf70ac5b7a575ca9620652355",
+    "libc/include/time.h": "44242cef16840d526520f5e78ec913c9526b342e99fd7d0494b5e40e51c3c8ee",
+    "libc/include/xlocale.h": "3223f187323107c76cb208bf14dceda3b642ec73578ae279d5b10cb4e42ee3fc",
+    "libc/kernel/android/uapi/linux/compiler.h": "3b257afbda9f2900ec061e0a3351fa19d66b5495cee169900de3f640be0210ba",
+    "libc/kernel/android/uapi/linux/compiler_types.h": "8a815cacf2f9a05fe591cbb9d5ae593bac7b3d36f71184ee723de979802e5aed",
+    "libc/kernel/uapi/asm-arm64/asm/bitsperlong.h": "e17e530bc6dc93aa7fe66ec8c176e86487b8eb14e80255531c04cc9808513053",
+    "libc/kernel/uapi/asm-arm64/asm/poll.h": "e65c5e9a00fb6cab57e791b8fcb1cad3c053fa3ea5170f1137d71e7a77c76529",
+    "libc/kernel/uapi/asm-arm64/asm/posix_types.h": "54c9c13ed0a1894336d70abb439bcd182a19c04396a05e379f217f0ff5eb132f",
+    "libc/kernel/uapi/asm-arm64/asm/sigcontext.h": "54271bf8bb6cf91a3fa541af36776eeabb74e3ff16b6ea7953e1511849457b81",
+    "libc/kernel/uapi/asm-arm64/asm/siginfo.h": "7fc8a02d1f9ba5b8541b02af9e7b78e396164547cc51bf24e605932e45dcea79",
+    "libc/kernel/uapi/asm-arm64/asm/signal.h": "5c75f992d45a8c6e548bc5e9e1ecc9f924235de47d9395df7756ed439c971172",
+    "libc/kernel/uapi/asm-arm64/asm/sve_context.h": "d893ab5cdb06af3c7faf0bf7471a2a148911c0b6a4c6193920e42a63a65ca1fa",
+    "libc/kernel/uapi/asm-arm64/asm/types.h": "4b8d02254d1d5ee1b7eb6ee962a63a935330799c14eaf07f93698c2cf8e59e2a",
+    "libc/kernel/uapi/asm-generic/bitsperlong.h": "363e0abd35c267c94d736d8bb04af196fa4f8e5959d26fe1be9b041adb3f154b",
+    "libc/kernel/uapi/asm-generic/int-ll64.h": "a34ebb4aa0604ff54f78922f50bb7dc82d9587cfc426aa4f0c1ef0c74b051dbe",
+    "libc/kernel/uapi/asm-generic/poll.h": "5b5aec0f635651417d5916a05b7882fcc61ac353335c0d30a45d26a2ac237c4f",
+    "libc/kernel/uapi/asm-generic/posix_types.h": "07903723d5a5ec855cfcbf0e00f50a80a6b076ff7bacc94fa675171851513f53",
+    "libc/kernel/uapi/asm-generic/siginfo.h": "f9b0742910405ca76f9f4193431e33b709b0d9d4a910fa130c05e636f7eaaa48",
+    "libc/kernel/uapi/asm-generic/signal-defs.h": "7929b870ba2469aa328eecbbbdff092b8505bf92aa060edf25404a80b8a9ac5f",
+    "libc/kernel/uapi/asm-generic/signal.h": "a25959c16fa69fb7923465fd171971ac1eda32ec5243a7edf0b33ff9847f44d9",
+    "libc/kernel/uapi/asm-generic/types.h": "f676ab1191fcad85565228eb0e4cf53edc98e5fb0b4dba9ae3ebf1855e9ada96",
+    "libc/kernel/uapi/asm-x86/asm/bitsperlong.h": "e343383ddabdc6ebd93054b2d758efc6247daf8ec5e1e0769f0dfa9f9e63be84",
+    "libc/kernel/uapi/asm-x86/asm/poll.h": "e65c5e9a00fb6cab57e791b8fcb1cad3c053fa3ea5170f1137d71e7a77c76529",
+    "libc/kernel/uapi/asm-x86/asm/posix_types.h": "1248ea8b090d92a712b85cb0e4a71464404b100e7c85e90b4edb19a66198c30a",
+    "libc/kernel/uapi/asm-x86/asm/posix_types_64.h": "daba3320e459d498913ce51af77fc820f1edcfcb64e551170259c82a2ac99e1b",
+    "libc/kernel/uapi/asm-x86/asm/sigcontext.h": "a63479f3c1f7f70e78142f9885de7e873a8646b38ddafaab48c996186c6ebea1",
+    "libc/kernel/uapi/asm-x86/asm/siginfo.h": "f78c4469591c3cd9c2cfd683c6475b4322f238f3460d6fbea8cd11d78db03a61",
+    "libc/kernel/uapi/asm-x86/asm/signal.h": "7480d0aebb14663d20c2e4fb3b65be3f30c389579965c8a6c1179ed1cdccf92d",
+    "libc/kernel/uapi/asm-x86/asm/types.h": "4b8d02254d1d5ee1b7eb6ee962a63a935330799c14eaf07f93698c2cf8e59e2a",
+    "libc/kernel/uapi/linux/limits.h": "b67c7dc51627702441cc1761f20dc7f358e0e9cbfc1d8e690cf16890d3e1a2e7",
+    "libc/kernel/uapi/linux/poll.h": "1376bd6bd165dd697e4b8d533654477e9079c38be3cafa0ccd34b22f360bcff9",
+    "libc/kernel/uapi/linux/posix_types.h": "b4dfa3505ea263b2867e7305c6ca1274415cde7236496cf524556ce0ce59099d",
+    "libc/kernel/uapi/linux/sched.h": "e899d47d4e7adc9e14706691554c992beae313b277be56c16c555344a67a0932",
+    "libc/kernel/uapi/linux/sched/types.h": "0c993eb7a61baec833147ceddb1142c2506968fed4677bbeb37717441ba4582d",
+    "libc/kernel/uapi/linux/signal.h": "9cb5e962325f523f1f0fbd95b6ed407b6980abc6ac04fafea23c564edd85b1f9",
+    "libc/kernel/uapi/linux/stddef.h": "73a9baa7c6632693d046bc0013b524b6687df78265be5b436f792478837cd7df",
+    "libc/kernel/uapi/linux/time.h": "5cc3fb13f6436a03d789ee03ab27ce030ea2a06ad826d392174fdd4b910f3a0d",
+    "libc/kernel/uapi/linux/time_types.h": "c6b1ec0f6fb20fa807b2aa904be0e1cadbfa4292807e472b49ec68a9c9ba8148",
+    "libc/kernel/uapi/linux/types.h": "8e20bd6ad75ba12e73a54c35f61b04b6ba6574c3dfb65a5c0cb3edc2a1200c5a",
+    "libc/kernel/uapi/linux/uio.h": "165cf8ecaea47fd801b9b39a223992b3b2aa6bd37b45d84d43dab4c1e3828f2e"
+  },
+  "revision": "android-16.0.0_r1",
+  "scope": "Official native C header delegates; Android Jai target/runtime remains unverified",
+  "targets": {
+    "arm64": {
+      "condition": "OS == .ANDROID && CPU == .ARM64",
+      "headers": [
+        "libc/include/android/api-level.h",
+        "libc/include/android/versioning.h",
+        "libc/include/bits/page_size.h",
+        "libc/include/bits/posix_limits.h",
+        "libc/include/bits/pthread_types.h",
+        "libc/include/bits/signal_types.h",
+        "libc/include/bits/timespec.h",
+        "libc/include/bits/wchar_limits.h",
+        "libc/include/limits.h",
+        "libc/include/poll.h",
+        "libc/include/sched.h",
+        "libc/include/signal.h",
+        "libc/include/stdint.h",
+        "libc/include/sys/cdefs.h",
+        "libc/include/sys/select.h",
+        "libc/include/sys/time.h",
+        "libc/include/sys/types.h",
+        "libc/include/sys/ucontext.h",
+        "libc/include/sys/uio.h",
+        "libc/include/sys/user.h",
+        "libc/include/time.h",
+        "libc/include/xlocale.h",
+        "libc/kernel/android/uapi/linux/compiler.h",
+        "libc/kernel/android/uapi/linux/compiler_types.h",
+        "libc/kernel/uapi/asm-arm64/asm/bitsperlong.h",
+        "libc/kernel/uapi/asm-arm64/asm/poll.h",
+        "libc/kernel/uapi/asm-arm64/asm/posix_types.h",
+        "libc/kernel/uapi/asm-arm64/asm/sigcontext.h",
+        "libc/kernel/uapi/asm-arm64/asm/siginfo.h",
+        "libc/kernel/uapi/asm-arm64/asm/signal.h",
+        "libc/kernel/uapi/asm-arm64/asm/sve_context.h",
+        "libc/kernel/uapi/asm-arm64/asm/types.h",
+        "libc/kernel/uapi/asm-generic/bitsperlong.h",
+        "libc/kernel/uapi/asm-generic/int-ll64.h",
+        "libc/kernel/uapi/asm-generic/poll.h",
+        "libc/kernel/uapi/asm-generic/posix_types.h",
+        "libc/kernel/uapi/asm-generic/siginfo.h",
+        "libc/kernel/uapi/asm-generic/signal-defs.h",
+        "libc/kernel/uapi/asm-generic/signal.h",
+        "libc/kernel/uapi/asm-generic/types.h",
+        "libc/kernel/uapi/linux/limits.h",
+        "libc/kernel/uapi/linux/poll.h",
+        "libc/kernel/uapi/linux/posix_types.h",
+        "libc/kernel/uapi/linux/sched.h",
+        "libc/kernel/uapi/linux/sched/types.h",
+        "libc/kernel/uapi/linux/signal.h",
+        "libc/kernel/uapi/linux/stddef.h",
+        "libc/kernel/uapi/linux/time.h",
+        "libc/kernel/uapi/linux/time_types.h",
+        "libc/kernel/uapi/linux/types.h",
+        "libc/kernel/uapi/linux/uio.h"
+      ],
+      "shapes": [
+        {
+          "alignment": 8,
+          "code": "iovec :: struct {\n    iov_base: *void;\n    iov_len: u64;\n}",
+          "fields": [
+            {
+              "alignment": 8,
+              "canonical_c_type": "void *",
+              "jai_type": "*void",
+              "name": "iov_base",
+              "native_type": "void *",
+              "offset": 0,
+              "size": 8
+            },
+            {
+              "alignment": 8,
+              "canonical_c_type": "unsigned long",
+              "jai_type": "u64",
+              "name": "iov_len",
+              "native_type": "__kernel_size_t",
+              "offset": 8,
+              "size": 8
+            }
+          ],
+          "name": "iovec",
+          "size": 16
+        },
+        {
+          "alignment": 4,
+          "code": "pollfd :: struct {\n    fd: s32;\n    events: s16;\n    revents: s16;\n}",
+          "fields": [
+            {
+              "alignment": 4,
+              "canonical_c_type": "int",
+              "jai_type": "s32",
+              "name": "fd",
+              "native_type": "int",
+              "offset": 0,
+              "size": 4
+            },
+            {
+              "alignment": 2,
+              "canonical_c_type": "short",
+              "jai_type": "s16",
+              "name": "events",
+              "native_type": "short",
+              "offset": 4,
+              "size": 2
+            },
+            {
+              "alignment": 2,
+              "canonical_c_type": "short",
+              "jai_type": "s16",
+              "name": "revents",
+              "native_type": "short",
+              "offset": 6,
+              "size": 2
+            }
+          ],
+          "name": "pollfd",
+          "size": 8
+        },
+        {
+          "alignment": 4,
+          "code": "sched_param :: struct {\n    sched_priority: s32;\n}",
+          "fields": [
+            {
+              "alignment": 4,
+              "canonical_c_type": "int",
+              "jai_type": "s32",
+              "name": "sched_priority",
+              "native_type": "int",
+              "offset": 0,
+              "size": 4
+            }
+          ],
+          "name": "sched_param",
+          "size": 4
+        },
+        {
+          "alignment": 8,
+          "code": "timeval :: struct {\n    tv_sec: s64;\n    tv_usec: s64;\n}",
+          "fields": [
+            {
+              "alignment": 8,
+              "canonical_c_type": "long",
+              "jai_type": "s64",
+              "name": "tv_sec",
+              "native_type": "__kernel_old_time_t",
+              "offset": 0,
+              "size": 8
+            },
+            {
+              "alignment": 8,
+              "canonical_c_type": "long",
+              "jai_type": "s64",
+              "name": "tv_usec",
+              "native_type": "__kernel_suseconds_t",
+              "offset": 8,
+              "size": 8
+            }
+          ],
+          "name": "timeval",
+          "size": 16
+        }
+      ],
+      "triple": "aarch64-linux-android35"
+    },
+    "x64": {
+      "condition": "OS == .ANDROID && CPU == .X64",
+      "headers": [
+        "libc/include/android/api-level.h",
+        "libc/include/android/versioning.h",
+        "libc/include/bits/page_size.h",
+        "libc/include/bits/posix_limits.h",
+        "libc/include/bits/pthread_types.h",
+        "libc/include/bits/signal_types.h",
+        "libc/include/bits/timespec.h",
+        "libc/include/bits/wchar_limits.h",
+        "libc/include/limits.h",
+        "libc/include/poll.h",
+        "libc/include/sched.h",
+        "libc/include/signal.h",
+        "libc/include/stdint.h",
+        "libc/include/sys/cdefs.h",
+        "libc/include/sys/select.h",
+        "libc/include/sys/time.h",
+        "libc/include/sys/types.h",
+        "libc/include/sys/ucontext.h",
+        "libc/include/sys/uio.h",
+        "libc/include/sys/user.h",
+        "libc/include/time.h",
+        "libc/include/xlocale.h",
+        "libc/kernel/android/uapi/linux/compiler.h",
+        "libc/kernel/android/uapi/linux/compiler_types.h",
+        "libc/kernel/uapi/asm-generic/bitsperlong.h",
+        "libc/kernel/uapi/asm-generic/int-ll64.h",
+        "libc/kernel/uapi/asm-generic/poll.h",
+        "libc/kernel/uapi/asm-generic/posix_types.h",
+        "libc/kernel/uapi/asm-generic/siginfo.h",
+        "libc/kernel/uapi/asm-generic/signal-defs.h",
+        "libc/kernel/uapi/asm-generic/types.h",
+        "libc/kernel/uapi/asm-x86/asm/bitsperlong.h",
+        "libc/kernel/uapi/asm-x86/asm/poll.h",
+        "libc/kernel/uapi/asm-x86/asm/posix_types.h",
+        "libc/kernel/uapi/asm-x86/asm/posix_types_64.h",
+        "libc/kernel/uapi/asm-x86/asm/sigcontext.h",
+        "libc/kernel/uapi/asm-x86/asm/siginfo.h",
+        "libc/kernel/uapi/asm-x86/asm/signal.h",
+        "libc/kernel/uapi/asm-x86/asm/types.h",
+        "libc/kernel/uapi/linux/limits.h",
+        "libc/kernel/uapi/linux/poll.h",
+        "libc/kernel/uapi/linux/posix_types.h",
+        "libc/kernel/uapi/linux/sched.h",
+        "libc/kernel/uapi/linux/sched/types.h",
+        "libc/kernel/uapi/linux/signal.h",
+        "libc/kernel/uapi/linux/stddef.h",
+        "libc/kernel/uapi/linux/time.h",
+        "libc/kernel/uapi/linux/time_types.h",
+        "libc/kernel/uapi/linux/types.h",
+        "libc/kernel/uapi/linux/uio.h"
+      ],
+      "shapes": [
+        {
+          "alignment": 8,
+          "code": "iovec :: struct {\n    iov_base: *void;\n    iov_len: u64;\n}",
+          "fields": [
+            {
+              "alignment": 8,
+              "canonical_c_type": "void *",
+              "jai_type": "*void",
+              "name": "iov_base",
+              "native_type": "void *",
+              "offset": 0,
+              "size": 8
+            },
+            {
+              "alignment": 8,
+              "canonical_c_type": "unsigned long",
+              "jai_type": "u64",
+              "name": "iov_len",
+              "native_type": "__kernel_size_t",
+              "offset": 8,
+              "size": 8
+            }
+          ],
+          "name": "iovec",
+          "size": 16
+        },
+        {
+          "alignment": 4,
+          "code": "pollfd :: struct {\n    fd: s32;\n    events: s16;\n    revents: s16;\n}",
+          "fields": [
+            {
+              "alignment": 4,
+              "canonical_c_type": "int",
+              "jai_type": "s32",
+              "name": "fd",
+              "native_type": "int",
+              "offset": 0,
+              "size": 4
+            },
+            {
+              "alignment": 2,
+              "canonical_c_type": "short",
+              "jai_type": "s16",
+              "name": "events",
+              "native_type": "short",
+              "offset": 4,
+              "size": 2
+            },
+            {
+              "alignment": 2,
+              "canonical_c_type": "short",
+              "jai_type": "s16",
+              "name": "revents",
+              "native_type": "short",
+              "offset": 6,
+              "size": 2
+            }
+          ],
+          "name": "pollfd",
+          "size": 8
+        },
+        {
+          "alignment": 4,
+          "code": "sched_param :: struct {\n    sched_priority: s32;\n}",
+          "fields": [
+            {
+              "alignment": 4,
+              "canonical_c_type": "int",
+              "jai_type": "s32",
+              "name": "sched_priority",
+              "native_type": "int",
+              "offset": 0,
+              "size": 4
+            }
+          ],
+          "name": "sched_param",
+          "size": 4
+        },
+        {
+          "alignment": 8,
+          "code": "timeval :: struct {\n    tv_sec: s64;\n    tv_usec: s64;\n}",
+          "fields": [
+            {
+              "alignment": 8,
+              "canonical_c_type": "long",
+              "jai_type": "s64",
+              "name": "tv_sec",
+              "native_type": "__kernel_old_time_t",
+              "offset": 0,
+              "size": 8
+            },
+            {
+              "alignment": 8,
+              "canonical_c_type": "long",
+              "jai_type": "s64",
+              "name": "tv_usec",
+              "native_type": "__kernel_suseconds_t",
+              "offset": 8,
+              "size": 8
+            }
+          ],
+          "name": "timeval",
+          "size": 16
+        }
+      ],
+      "triple": "x86_64-linux-android35"
+    }
+  }
+}

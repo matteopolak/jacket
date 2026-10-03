@@ -1,5 +1,5 @@
 name: compiler checks
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
@@ -8,9 +8,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, ubuntu-24.04]
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: x86_64
+          - runner: ubuntu-24.04
+            architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -22,6 +32,8 @@ jobs:
           python-version: '3.14'
       - name: Validate dependency ages before building
         run: python3 tools/check_dependency_age.py
+      - name: Validate public checkout compilation inputs
+        run: python3 tools/check_ci_sources.py
       - name: Install LLVM 22 (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -37,19 +49,29 @@ jobs:
       - name: Verify native host and LLVM
         run: |
           uname -sm
+          test "$(uname -m)" = "${{ matrix.architecture }}"
           llvm-config --version
           clang --version
       - name: Format check
-        run: cargo fmt --all -- --check
+        id: format
+        continue-on-error: true
+        run: python3 tools/check_rust_format.py
       - name: Lint
+        id: lint
+        continue-on-error: true
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Rust and native execution tests
-        # These two tests require the separately supplied distribution. The
-        # local reference checks run them with the supplied inputs.
+        # The full reference lexer requires the separately supplied sources.
+        # Protected-tool rejection remains active without original native files.
         run: |
           ulimit -c 0
-          cargo test --workspace --locked -- --skip lex_entire_reference_without_executing_it --skip supplied_executable_is_rejected_before_backend_execution
+          cargo test --workspace --locked -- --skip lex_entire_reference_without_executing_it
       - name: Policy tests
         run: python3 -m unittest discover -s tools -p 'test_*.py'
       - name: Benchmark smoke checks (no timing gate on shared runners)
-        run: cargo bench -p jai-bench --bench compiler --locked -- --test --skip reference_lex
+        run: cargo bench -p jai-bench --bench compiler --bench vm --bench discovery --locked -- --test --skip reference_lex
+      - name: Enforce formatting and lint results
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.lint.outcome == 'failure') }}
+        run: |
+          echo "Formatting or Clippy failed; see the corresponding step diagnostics."
+          exit 1

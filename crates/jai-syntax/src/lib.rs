@@ -1,21 +1,111 @@
 //! Parsing converts raw tokens into domain operators, names and signatures.
+mod source_procedures;
+pub use source_procedures::*;
+mod anonymous_procedures;
+mod anonymous_records;
+mod array_literal_targets;
+mod builtin_type_tags;
+mod call_arguments;
+mod caller_exports;
+#[cfg(test)]
+mod caller_references;
+mod casts;
+mod code_syntax;
+mod compile_time;
+mod compile_time_cases;
+mod insert_replacements;
+mod procedure_notes;
+mod source_procedure_headers;
+pub use compile_time_cases::*;
+mod context_fields;
+mod declaration_attributes;
+mod deprecation;
+mod file_conditional_bodies;
+pub use deprecation::Deprecation;
+mod expressions;
+mod external_data;
+pub use external_data::{ExternalDataBinding, ExternalDataSource};
+#[cfg(test)]
+mod field_placement;
+mod field_prefix;
+mod instruction_bytes;
+mod libraries;
+mod literals;
+mod metadata;
 mod modules;
 mod numeric_literals;
+mod operator_aliases;
+mod operator_declarations;
+mod operators;
+mod parameter_baking;
+mod parameter_evaluation;
+mod placeholders;
+pub use placeholders::PlaceholderDeclaration;
+mod places;
+mod pointer_prefixes;
+pub use parameter_baking::ParameterBaking;
+pub use parameter_evaluation::ParameterEvaluation;
+pub use type_restrictions::TypeRestrictionSyntax;
+mod procedures;
+mod program_exports;
+mod record_conditionals;
+mod record_defaults;
+mod record_members;
+mod record_parameters;
+#[cfg(test)]
+mod record_placement;
+#[cfg(test)]
+mod record_reflection_syntax;
+mod run_flag_parser;
+mod run_flags;
+mod safety_checks;
+mod source_contracts;
+pub use run_flags::RunFlags;
+mod short_lambdas;
+mod simd;
+mod statement_conditionals;
+mod statements;
+mod type_annotations;
+mod type_restrictions;
 mod types;
+mod using_declarations;
+mod using_parser;
+mod using_syntax;
+pub use code_syntax::*;
+pub use compile_time::*;
+pub use declaration_attributes::*;
+pub use expressions::*;
+pub use field_prefix::*;
+pub use insert_replacements::*;
+pub use instruction_bytes::*;
 use jai_lexer::{Directive, Keyword, Kind, Punct, Token, lex};
 use jai_source::{Diagnostic, Span, Symbol, Symbols};
+pub use libraries::*;
+pub use literals::{DecimalLiteral, FloatRangeError, HereStringLiteral, HereStringModifier};
+pub use metadata::*;
 pub use modules::*;
+pub use operator_aliases::*;
+pub use operator_declarations::*;
+pub use places::*;
+pub use procedures::*;
+pub use program_exports::*;
+pub use record_members::*;
+pub use record_parameters::*;
+pub use safety_checks::{CheckPolicy, SafetyChecks};
+pub use short_lambdas::*;
+pub use simd::*;
 pub use types::*;
+pub use using_syntax::*;
 
 pub use jai_types::{CastMode, IntegerType, ReturnType, ScalarType};
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum UnaryOp {
     Positive,
     Negate,
     LogicalNot,
     Complement,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum BinaryOp {
     LogicalOr,
     LogicalAnd,
@@ -58,15 +148,15 @@ impl BinaryOp {
         Some(match p {
             Punct::LogicalOr => (Self::LogicalOr, 1),
             Punct::LogicalAnd => (Self::LogicalAnd, 3),
-            Punct::Or => (Self::BitOr, 5),
-            Punct::Xor => (Self::BitXor, 7),
-            Punct::And => (Self::BitAnd, 9),
-            Punct::Equal => (Self::Equal, 11),
-            Punct::NotEqual => (Self::NotEqual, 11),
-            Punct::Less => (Self::Less, 13),
-            Punct::LessEqual => (Self::LessEqual, 13),
-            Punct::Greater => (Self::Greater, 13),
-            Punct::GreaterEqual => (Self::GreaterEqual, 13),
+            Punct::Equal => (Self::Equal, 5),
+            Punct::NotEqual => (Self::NotEqual, 5),
+            Punct::Less => (Self::Less, 7),
+            Punct::LessEqual => (Self::LessEqual, 7),
+            Punct::Greater => (Self::Greater, 7),
+            Punct::GreaterEqual => (Self::GreaterEqual, 7),
+            Punct::Or => (Self::BitOr, 9),
+            Punct::Xor => (Self::BitXor, 11),
+            Punct::And => (Self::BitAnd, 13),
             Punct::ShiftLeft => (Self::ShiftLeft, 15),
             Punct::ShiftRight => (Self::ShiftRight, 15),
             Punct::Add => (Self::Add, 17),
@@ -100,32 +190,6 @@ impl Module {
     }
 }
 #[derive(Clone, Debug)]
-pub struct Parameter {
-    pub name: Symbol,
-    pub binding: ParameterBinding,
-}
-#[derive(Clone, Debug)]
-pub enum ParameterBinding {
-    Required(ScalarType),
-    Defaulted {
-        ty: Option<ScalarType>,
-        expression: Expression,
-    },
-}
-#[derive(Clone, Debug)]
-pub struct CallArgument {
-    pub name: Option<Symbol>,
-    pub value: Expression,
-}
-#[derive(Clone, Debug)]
-pub struct Procedure {
-    pub name: Symbol,
-    pub parameters: Vec<Parameter>,
-    pub body: Vec<Statement>,
-    pub span: Span,
-    pub return_type: ReturnType,
-}
-#[derive(Clone, Debug)]
 pub struct GlobalDeclaration {
     pub declaration: Declaration,
     pub span: Span,
@@ -133,45 +197,66 @@ pub struct GlobalDeclaration {
 #[derive(Clone, Debug)]
 pub struct ConstantDeclaration {
     pub name: Symbol,
-    pub ty: Option<ScalarType>,
+    pub ty: Option<TypeSyntax>,
+    pub initializer: Expression,
+    pub span: Span,
+}
+#[derive(Clone, Debug)]
+pub struct ConstantResultsDeclaration {
+    pub names: Vec<(Symbol, Span)>,
     pub initializer: Expression,
     pub span: Span,
 }
 #[derive(Clone, Debug)]
 pub enum Declaration {
+    External {
+        name: Symbol,
+        ty: TypeSyntax,
+        binding: ExternalDataBinding,
+        attributes: Vec<DeclarationAttribute>,
+    },
     Inferred {
         name: Symbol,
         initializer: Expression,
+        attributes: Vec<DeclarationAttribute>,
     },
     Explicit {
         name: Symbol,
         ty: ScalarType,
         initializer: Option<Expression>,
+        attributes: Vec<DeclarationAttribute>,
     },
     UnresolvedExplicit {
         name: Symbol,
         ty: TypeSyntax,
         initializer: Option<Expression>,
+        attributes: Vec<DeclarationAttribute>,
     },
 }
 impl Declaration {
+    pub fn attributes(&self) -> &[DeclarationAttribute] {
+        match self {
+            Self::Inferred { attributes, .. }
+            | Self::Explicit { attributes, .. }
+            | Self::UnresolvedExplicit { attributes, .. }
+            | Self::External { attributes, .. } => attributes,
+        }
+    }
     pub fn name(&self) -> Symbol {
         match self {
             Self::Inferred { name, .. }
             | Self::Explicit { name, .. }
-            | Self::UnresolvedExplicit { name, .. } => *name,
+            | Self::UnresolvedExplicit { name, .. }
+            | Self::External { name, .. } => *name,
         }
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Direction {
-    Forward,
-    Reverse,
-}
+pub use jai_types::Direction;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JumpKind {
     Break,
     Continue,
+    Remove,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LoopTarget {
@@ -183,15 +268,32 @@ pub enum WhileCondition {
     Expression(Expression),
     Binding {
         name: Symbol,
+        export_span: Option<Span>,
         initializer: Expression,
     },
 }
 #[derive(Clone, Debug)]
 pub struct RangeLoop {
     pub iterator: Symbol,
+    pub iterator_export: bool,
     pub start: Expression,
     pub end: Expression,
     pub direction: Direction,
+    pub reverse_control: Option<Expression>,
+    pub body: Vec<Statement>,
+}
+#[derive(Clone, Debug)]
+pub struct ArrayLoop {
+    pub expansion: Option<NamePath>,
+    pub iterator: Symbol,
+    pub iterator_export: bool,
+    pub index: Option<Symbol>,
+    pub index_export: bool,
+    pub sequence: Expression,
+    pub direction: Direction,
+    pub reverse_control: Option<Expression>,
+    pub by_pointer: bool,
+    pub pointer_control: Option<Expression>,
     pub body: Vec<Statement>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -207,18 +309,97 @@ pub struct CaseStatement {
     pub complete: bool,
     pub default: Option<Vec<Statement>>,
 }
+/// A complete parsed statement and its byte range in the defining source.
+///
+/// The surrounding parsed file or captured code owns the source identity. Cloning
+/// syntax retains this range even when name lookup is rebound during insertion.
 #[derive(Clone, Debug)]
-pub enum Statement {
+pub struct Statement {
+    pub span: Span,
+    pub kind: StatementKind,
+}
+impl Statement {
+    /// Wrap retained syntax with its genuine source range; no location is inferred.
+    pub fn new(span: Span, kind: StatementKind) -> Self {
+        Self { span, kind }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum StatementKind {
+    InstructionBytes(InstructionBytes),
+    Simd(SimdBlock),
+    Import(ScopedImportDeclaration),
+    Using(UsingDirective),
+    UsingDeclaration {
+        declaration: Box<Statement>,
+        selection: UsingSelection,
+        target_span: Span,
+    },
+    CallerExport(Box<Statement>),
+    CompileTimeAssert {
+        condition: Expression,
+        message: Option<Expression>,
+    },
+    CompileTimeIf {
+        condition: Expression,
+        then_body: Vec<Statement>,
+        else_body: Vec<Statement>,
+    },
+    CheckScope {
+        checks: SafetyChecks,
+        body: Vec<Statement>,
+    },
+    ContextField(ContextFieldDeclaration),
+    Library(LibraryDeclaration),
+    Procedure(Box<Procedure>),
+    ProcedurePrototype(ProcedurePrototype),
+    Record(RecordDeclaration),
+    Enum(EnumDeclaration),
+    TypeAlias(TypeAliasDeclaration),
+    Insert(InsertDirective),
     Declare(Declaration),
     Constant(ConstantDeclaration),
+    ConstantResults(ConstantResultsDeclaration),
     Assign(Symbol, Expression),
     Update(Symbol, BinaryOp, Expression),
+    AssignPlace {
+        target: PlaceSyntax,
+        value: Expression,
+    },
+    UpdatePlace {
+        target: PlaceSyntax,
+        operation: BinaryOp,
+        value: Expression,
+    },
+    DeclareResults {
+        names: Vec<Symbol>,
+        ty: Option<TypeSyntax>,
+        values: Vec<Expression>,
+    },
+    MixedResults {
+        bindings: Vec<ResultTargetBinding>,
+        ty: Option<TypeSyntax>,
+        values: Vec<Expression>,
+    },
+    AssignResults {
+        targets: Vec<PlaceSyntax>,
+        values: Vec<Expression>,
+        operation: Option<BinaryOp>,
+    },
     Return(Option<Expression>),
+    ReturnValues(Vec<ReturnValue>),
     Expression(Expression),
     If(Expression, Vec<Statement>, Vec<Statement>),
     Cases(CaseStatement),
+    CompileTimeCases(CompileTimeCases<Statement>),
     While(WhileCondition, Vec<Statement>),
     Range(RangeLoop),
+    ArrayLoop(ArrayLoop),
+    PushContext {
+        value: Option<Expression>,
+        body: Vec<Statement>,
+    },
     Jump {
         kind: JumpKind,
         target: LoopTarget,
@@ -227,34 +408,11 @@ pub enum Statement {
     Block(Vec<Statement>),
     Defer(Vec<Statement>),
 }
+
 #[derive(Clone, Debug)]
-pub struct Expression {
-    pub kind: ExpressionKind,
-    pub span: Span,
-}
-#[derive(Clone, Debug)]
-pub enum ExpressionKind {
-    Integer(i128),
-    Bool(bool),
-    Name(Symbol),
-    QualifiedName(NamePath),
-    Call(Symbol, Vec<CallArgument>),
-    QualifiedCall(NamePath, Vec<CallArgument>),
-    StructLiteral(StructLiteral),
-    Member {
-        base: Box<Expression>,
-        member: Symbol,
-    },
-    Unary(UnaryOp, Box<Expression>),
-    Cast(CastMode, ScalarType, Box<Expression>),
-    Binary(BinaryOp, Box<Expression>, Box<Expression>),
-    Conditional(ConditionalExpression),
-}
-#[derive(Clone, Debug)]
-pub struct ConditionalExpression {
-    pub condition: Box<Expression>,
-    pub then_value: Box<Expression>,
-    pub else_value: Option<Box<Expression>>,
+pub enum ResultTargetBinding {
+    New { name: Symbol, span: Span },
+    Existing(PlaceSyntax),
 }
 
 pub fn parse(source: &str) -> Result<Module, Diagnostic> {
@@ -264,6 +422,8 @@ pub fn parse(source: &str) -> Result<Module, Diagnostic> {
         at: 0,
         symbols: Symbols::default(),
         allow_qualified: false,
+        record_conditional_depth: 0,
+        file_conditional_depth: 0,
     };
     let mut procedures = Vec::new();
     let mut constants = Vec::new();
@@ -274,11 +434,11 @@ pub fn parse(source: &str) -> Result<Module, Diagnostic> {
         } else {
             let span = parser.token().span;
             let name = parser.name()?;
-            match parser.data_declaration(name, span)? {
-                Statement::Declare(declaration) => {
+            match parser.data_declaration(name, span)?.kind {
+                StatementKind::Declare(declaration) => {
                     globals.push(GlobalDeclaration { declaration, span })
                 }
-                Statement::Constant(declaration) => constants.push(declaration),
+                StatementKind::Constant(declaration) => constants.push(declaration),
                 _ => unreachable!("data declaration always produces a declaration"),
             }
         }
@@ -296,6 +456,8 @@ struct Parser<'a> {
     at: usize,
     symbols: Symbols,
     allow_qualified: bool,
+    record_conditional_depth: usize,
+    file_conditional_depth: usize,
 }
 impl Parser<'_> {
     fn token(&self) -> Token {
@@ -338,16 +500,27 @@ impl Parser<'_> {
         }
     }
     fn name(&mut self) -> Result<Symbol, Diagnostic> {
-        if self.token().kind != Kind::Ident {
+        if !matches!(
+            self.token().kind,
+            Kind::Ident | Kind::Keyword(Keyword::Context)
+        ) {
             return Err(self.error("expected identifier"));
         }
-        let name = self.token().span.text(self.source);
-        let symbol = self.symbols.intern(name);
+        let name = self.token().spelling(self.source);
+        let symbol = self.symbols.intern(&name);
         self.at += 1;
         Ok(symbol)
     }
+    fn name_path(&mut self) -> Result<NamePath, Diagnostic> {
+        let root = self.name()?;
+        let mut members = Vec::new();
+        while self.take(Punct::Dot) {
+            members.push(self.name()?);
+        }
+        Ok(NamePath { root, members })
+    }
     fn scalar_type(&mut self) -> Result<ScalarType, Diagnostic> {
-        let ty = match BuiltinType::from_spelling(self.text()) {
+        let ty = match BuiltinType::from_spelling(&self.token().spelling(self.source)) {
             Some(BuiltinType::Scalar(ty)) => ty,
             _ => return Err(self.error("expected a supported scalar type")),
         };
@@ -356,545 +529,6 @@ impl Parser<'_> {
         }
         self.at += 1;
         Ok(ty)
-    }
-    fn starts_procedure(&self) -> bool {
-        if self.token().kind != Kind::Ident
-            || self
-                .tokens
-                .get(self.at + 1)
-                .is_none_or(|t| t.kind != Kind::Punctuation(Punct::Constant))
-            || self
-                .tokens
-                .get(self.at + 2)
-                .is_none_or(|t| t.kind != Kind::Punctuation(Punct::OpenParen))
-        {
-            return false;
-        }
-        let mut depth = 0;
-        for (offset, token) in self.tokens[self.at + 2..].iter().enumerate() {
-            match token.kind {
-                Kind::Punctuation(Punct::OpenParen) => depth += 1,
-                Kind::Punctuation(Punct::CloseParen) => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return self.tokens.get(self.at + offset + 3).is_some_and(|next| {
-                            matches!(
-                                next.kind,
-                                Kind::Punctuation(Punct::OpenBrace | Punct::Arrow)
-                            )
-                        });
-                    }
-                }
-                Kind::Eof => return false,
-                _ => {}
-            }
-        }
-        false
-    }
-    fn data_declaration(&mut self, name: Symbol, span: Span) -> Result<Statement, Diagnostic> {
-        let statement = if self.take(Punct::Constant) {
-            Statement::Constant(ConstantDeclaration {
-                name,
-                span,
-                ty: None,
-                initializer: self.expression(0)?,
-            })
-        } else if self.take(Punct::Infer) {
-            Statement::Declare(Declaration::Inferred {
-                name,
-                initializer: self.expression(0)?,
-            })
-        } else {
-            self.need(Punct::Colon)?;
-            let ty = if self.allow_qualified {
-                self.type_syntax()?
-            } else {
-                TypeSyntax::Builtin(BuiltinType::Scalar(self.scalar_type()?))
-            };
-            if self.take(Punct::Colon) {
-                let Some(ty) = ty.as_scalar() else {
-                    return Err(self.error("non-scalar constant annotations are not implemented"));
-                };
-                Statement::Constant(ConstantDeclaration {
-                    name,
-                    span,
-                    ty: Some(ty),
-                    initializer: self.expression(0)?,
-                })
-            } else {
-                let initializer = if self.take(Punct::Assign) {
-                    Some(self.expression(0)?)
-                } else {
-                    None
-                };
-                Statement::Declare(if let Some(ty) = ty.as_scalar() {
-                    Declaration::Explicit {
-                        name,
-                        ty,
-                        initializer,
-                    }
-                } else {
-                    Declaration::UnresolvedExplicit {
-                        name,
-                        ty,
-                        initializer,
-                    }
-                })
-            }
-        };
-        self.need(Punct::Semicolon)?;
-        Ok(statement)
-    }
-    fn procedure(&mut self) -> Result<Procedure, Diagnostic> {
-        let span = self.token().span;
-        let name = self.name()?;
-        self.need(Punct::Constant)?;
-        self.need(Punct::OpenParen)?;
-        let mut parameters = Vec::new();
-        if !self.take(Punct::CloseParen) {
-            loop {
-                let name = self.name()?;
-                let binding = if self.take(Punct::Infer) {
-                    ParameterBinding::Defaulted {
-                        ty: None,
-                        expression: self.expression(0)?,
-                    }
-                } else {
-                    self.need(Punct::Colon)?;
-                    let ty = self.scalar_type()?;
-                    if self.take(Punct::Assign) {
-                        ParameterBinding::Defaulted {
-                            ty: Some(ty),
-                            expression: self.expression(0)?,
-                        }
-                    } else {
-                        ParameterBinding::Required(ty)
-                    }
-                };
-                parameters.push(Parameter { name, binding });
-                if self.take(Punct::CloseParen) {
-                    break;
-                }
-                self.need(Punct::Comma)?;
-            }
-        }
-        let return_type = if self.take(Punct::Arrow) {
-            ReturnType::Value(self.scalar_type()?)
-        } else {
-            ReturnType::Void
-        };
-        Ok(Procedure {
-            name,
-            parameters,
-            body: self.block()?,
-            span,
-            return_type,
-        })
-    }
-    fn block(&mut self) -> Result<Vec<Statement>, Diagnostic> {
-        self.need(Punct::OpenBrace)?;
-        let mut out = Vec::new();
-        while !self.take(Punct::CloseBrace) {
-            if self.token().kind == Kind::Eof {
-                return Err(self.error("unterminated block"));
-            }
-            out.push(self.statement()?);
-        }
-        Ok(out)
-    }
-    fn body(&mut self) -> Result<Vec<Statement>, Diagnostic> {
-        if self.is(Punct::OpenBrace) {
-            self.block()
-        } else {
-            self.keyword(Keyword::Then);
-            Ok(vec![self.statement()?])
-        }
-    }
-    fn named_prefix(&self, punctuation: Punct) -> bool {
-        self.token().kind == Kind::Ident
-            && self
-                .tokens
-                .get(self.at + 1)
-                .is_some_and(|t| t.kind == Kind::Punctuation(punctuation))
-    }
-    fn statement(&mut self) -> Result<Statement, Diagnostic> {
-        if self.is(Punct::OpenBrace) {
-            return Ok(Statement::Block(self.block()?));
-        }
-        if self.keyword(Keyword::Defer) {
-            return Ok(Statement::Defer(self.body()?));
-        }
-        if self.keyword(Keyword::Return) {
-            let expr = if self.is(Punct::Semicolon) {
-                None
-            } else {
-                Some(self.expression(0)?)
-            };
-            self.need(Punct::Semicolon)?;
-            return Ok(Statement::Return(expr));
-        }
-        if self.keyword(Keyword::If) {
-            let complete = self.token().kind == Kind::Directive(Directive::Complete);
-            if complete {
-                self.at += 1;
-            }
-            let cond = self.expression(0)?;
-            if self.is(Punct::OpenBrace) {
-                let operator = match self.tokens[self.at - 1].kind {
-                    Kind::Punctuation(Punct::Equal) => Some(CaseOperator::Equal),
-                    Kind::Punctuation(Punct::NotEqual) => Some(CaseOperator::NotEqual),
-                    _ => None,
-                };
-                if let Some(operator) = operator {
-                    return self.case_statement(cond, operator, complete);
-                }
-            }
-            if complete {
-                return Err(self.error("#complete requires if-case"));
-            }
-            let yes = self.body()?;
-            let no = if self.keyword(Keyword::Else) {
-                self.body()?
-            } else {
-                Vec::new()
-            };
-            return Ok(Statement::If(cond, yes, no));
-        }
-        if self.keyword(Keyword::While) {
-            let condition = if self.named_prefix(Punct::Infer) {
-                let name = self.name()?;
-                self.need(Punct::Infer)?;
-                WhileCondition::Binding {
-                    name,
-                    initializer: self.expression(0)?,
-                }
-            } else {
-                WhileCondition::Expression(self.expression(0)?)
-            };
-            return Ok(Statement::While(condition, self.body()?));
-        }
-        if self.keyword(Keyword::For) {
-            let direction = if self.take(Punct::Less) {
-                Direction::Reverse
-            } else {
-                Direction::Forward
-            };
-            let iterator = if self.named_prefix(Punct::Colon) {
-                let name = self.name()?;
-                self.need(Punct::Colon)?;
-                name
-            } else {
-                self.symbols.intern("it")
-            };
-            let start = self.expression(0)?;
-            self.need(Punct::Range)?;
-            let end = self.expression(0)?;
-            return Ok(Statement::Range(RangeLoop {
-                iterator,
-                start,
-                end,
-                direction,
-                body: self.body()?,
-            }));
-        }
-        let jump = match self.token().kind {
-            Kind::Keyword(Keyword::Break) => Some(JumpKind::Break),
-            Kind::Keyword(Keyword::Continue) => Some(JumpKind::Continue),
-            _ => None,
-        };
-        if let Some(kind) = jump {
-            let span = self.token().span;
-            self.at += 1;
-            let target = if self.token().kind == Kind::Ident {
-                LoopTarget::Named(self.name()?)
-            } else {
-                LoopTarget::Innermost
-            };
-            self.need(Punct::Semicolon)?;
-            return Ok(Statement::Jump { kind, target, span });
-        }
-        if self.token().kind == Kind::Ident
-            && matches!(self.tokens[self.at + 1].kind, Kind::Punctuation(p)
-                if matches!(p, Punct::Infer | Punct::Colon | Punct::Constant | Punct::Assign) || BinaryOp::compound(p).is_some())
-        {
-            let span = self.token().span;
-            let name = self.name()?;
-            if let Kind::Punctuation(p) = self.token().kind
-                && let Some(op) = BinaryOp::compound(p)
-            {
-                self.at += 1;
-                let value = self.expression(0)?;
-                self.need(Punct::Semicolon)?;
-                return Ok(Statement::Update(name, op, value));
-            }
-            if self.take(Punct::Assign) {
-                let v = self.expression(0)?;
-                self.need(Punct::Semicolon)?;
-                return Ok(Statement::Assign(name, v));
-            }
-            return self.data_declaration(name, span);
-        }
-        let expr = self.expression(0)?;
-        self.need(Punct::Semicolon)?;
-        Ok(Statement::Expression(expr))
-    }
-    fn case_statement(
-        &mut self,
-        value: Expression,
-        operator: CaseOperator,
-        complete: bool,
-    ) -> Result<Statement, Diagnostic> {
-        self.need(Punct::OpenBrace)?;
-        let mut arms = Vec::new();
-        let mut default = None;
-        while !self.take(Punct::CloseBrace) {
-            if !self.keyword(Keyword::Case) {
-                return Err(self.error("expected case label"));
-            }
-            if default.is_some() {
-                return Err(self.error("default case must be last"));
-            }
-            let label = if self.is(Punct::Semicolon) {
-                None
-            } else {
-                Some(self.expression(0)?)
-            };
-            self.need(Punct::Semicolon)?;
-            let mut body = Vec::new();
-            let mut through = false;
-            while !self.is(Punct::CloseBrace) && self.token().kind != Kind::Keyword(Keyword::Case) {
-                if self.token().kind == Kind::Eof {
-                    return Err(self.error("unterminated case block"));
-                }
-                if self.token().kind == Kind::Directive(Directive::Through) {
-                    self.at += 1;
-                    self.need(Punct::Semicolon)?;
-                    through = true;
-                    if !self.is(Punct::CloseBrace)
-                        && self.token().kind != Kind::Keyword(Keyword::Case)
-                    {
-                        return Err(self.error("#through must be the last case statement"));
-                    }
-                    break;
-                }
-                body.push(self.statement()?);
-            }
-            if let Some(label) = label {
-                arms.push((label, body, through));
-            } else {
-                if through {
-                    return Err(self.error("default case cannot #through"));
-                }
-                default = Some(body);
-            }
-        }
-        Ok(Statement::Cases(CaseStatement {
-            value,
-            operator,
-            arms,
-            default,
-            complete,
-        }))
-    }
-    fn expression(&mut self, minimum: u8) -> Result<Expression, Diagnostic> {
-        let token = self.token();
-        let span = token.span;
-        let unary = match token.kind {
-            Kind::Punctuation(Punct::Sub) => Some(UnaryOp::Negate),
-            Kind::Punctuation(Punct::Add) => Some(UnaryOp::Positive),
-            Kind::Punctuation(Punct::Not) => Some(UnaryOp::LogicalNot),
-            Kind::Punctuation(Punct::Complement) => Some(UnaryOp::Complement),
-            _ => None,
-        };
-        let mut lhs = if self.take(Punct::OpenParen) {
-            let e = self.expression(0)?;
-            self.need(Punct::CloseParen)?;
-            e
-        } else if self.is(Punct::StructLiteral) {
-            if !self.allow_qualified {
-                return Err(self.error("struct literals require aggregate type resolution"));
-            }
-            self.struct_literal(None, span.start)?
-        } else if self.keyword(Keyword::Ifx) {
-            let condition = Box::new(self.expression(0)?);
-            if self.is(Punct::OpenBrace) {
-                return Err(self.error("ifx case expressions are not implemented"));
-            }
-            self.keyword(Keyword::Then);
-            if self.token().kind == Kind::Keyword(Keyword::Else) {
-                return Err(self.error("implicit then values in ifx are not implemented yet"));
-            }
-            let then_value = Box::new(self.expression(0)?);
-            let else_value = if self.keyword(Keyword::Else) {
-                Some(Box::new(self.expression(0)?))
-            } else {
-                None
-            };
-            let end = else_value.as_ref().unwrap_or(&then_value).span.end;
-            Expression {
-                span: Span::new(span.start, end),
-                kind: ExpressionKind::Conditional(ConditionalExpression {
-                    condition,
-                    then_value,
-                    else_value,
-                }),
-            }
-        } else if self.keyword(Keyword::Cast) {
-            let mode = if self.take(Punct::Comma) {
-                if self.token().kind != Kind::Ident || self.text() != "no_check" {
-                    return Err(self.error("expected no_check cast modifier"));
-                }
-                self.at += 1;
-                CastMode::Unchecked
-            } else {
-                CastMode::Checked
-            };
-            self.need(Punct::OpenParen)?;
-            let ty = self.scalar_type()?;
-            self.need(Punct::CloseParen)?;
-            let value = self.expression(21)?;
-            Expression {
-                span: Span::new(span.start, value.span.end),
-                kind: ExpressionKind::Cast(mode, ty, Box::new(value)),
-            }
-        } else if let Some(op) = unary {
-            self.at += 1;
-            let rhs = self.expression(21)?;
-            Expression {
-                span: Span::new(span.start, rhs.span.end),
-                kind: ExpressionKind::Unary(op, Box::new(rhs)),
-            }
-        } else if token.kind == Kind::Number {
-            let value = numeric_literals::integer(self.text())
-                .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-            self.at += 1;
-            Expression {
-                span,
-                kind: ExpressionKind::Integer(i128::from(value)),
-            }
-        } else if self.keyword(Keyword::True) {
-            Expression {
-                span,
-                kind: ExpressionKind::Bool(true),
-            }
-        } else if self.keyword(Keyword::False) {
-            Expression {
-                span,
-                kind: ExpressionKind::Bool(false),
-            }
-        } else if token.kind == Kind::Ident {
-            Expression {
-                span,
-                kind: ExpressionKind::Name(self.name()?),
-            }
-        } else {
-            return Err(self.error("expected expression; this syntax is not implemented yet"));
-        };
-        loop {
-            if self.is(Punct::StructLiteral) && minimum <= 23 {
-                if !self.allow_qualified {
-                    return Err(self.error("struct literals require aggregate type resolution"));
-                }
-                let ty = match lhs.kind {
-                    ExpressionKind::Name(root) => NamePath {
-                        root,
-                        members: Vec::new(),
-                    },
-                    ExpressionKind::QualifiedName(path) => path,
-                    _ => return Err(self.error("struct literal type must be a named type")),
-                };
-                lhs = self.struct_literal(Some(ty), lhs.span.start)?;
-                continue;
-            }
-            if self.is(Punct::Dot) && minimum <= 23 {
-                if !self.allow_qualified {
-                    return Err(
-                        self.error("qualified module references require module scope resolution")
-                    );
-                }
-                self.at += 1;
-                let member = self.name()?;
-                let start = lhs.span.start;
-                let kind = match lhs.kind {
-                    ExpressionKind::Name(root) => ExpressionKind::QualifiedName(NamePath {
-                        root,
-                        members: vec![member],
-                    }),
-                    ExpressionKind::QualifiedName(mut path) => {
-                        path.members.push(member);
-                        ExpressionKind::QualifiedName(path)
-                    }
-                    _ => ExpressionKind::Member {
-                        base: Box::new(lhs),
-                        member,
-                    },
-                };
-                lhs = Expression {
-                    span: Span::new(start, self.tokens[self.at - 1].span.end),
-                    kind,
-                };
-                continue;
-            }
-            if self.is(Punct::OpenParen) && minimum <= 23 {
-                let callee = match lhs.kind {
-                    ExpressionKind::Name(name) => NamePath {
-                        root: name,
-                        members: vec![],
-                    },
-                    ExpressionKind::QualifiedName(path) => path,
-                    _ => return Err(self.error("indirect procedure calls are not implemented")),
-                };
-                self.at += 1;
-                let mut args = Vec::new();
-                if !self.take(Punct::CloseParen) {
-                    loop {
-                        let name = if self.named_prefix(Punct::Assign) {
-                            let name = self.name()?;
-                            self.need(Punct::Assign)?;
-                            Some(name)
-                        } else {
-                            None
-                        };
-                        args.push(CallArgument {
-                            name,
-                            value: self.expression(0)?,
-                        });
-                        if self.take(Punct::CloseParen) {
-                            break;
-                        }
-                        self.need(Punct::Comma)?;
-                    }
-                }
-                lhs = Expression {
-                    span: Span::new(lhs.span.start, self.tokens[self.at - 1].span.end),
-                    kind: if callee.members.is_empty() {
-                        ExpressionKind::Call(callee.root, args)
-                    } else {
-                        ExpressionKind::QualifiedCall(callee, args)
-                    },
-                };
-                continue;
-            }
-            let Kind::Punctuation(punctuation) = self.token().kind else {
-                break;
-            };
-            let Some((op, precedence)) = BinaryOp::parse(punctuation) else {
-                break;
-            };
-            if precedence < minimum {
-                break;
-            }
-            self.at += 1;
-            if self.is(Punct::OpenBrace) && matches!(op, BinaryOp::Equal | BinaryOp::NotEqual) {
-                break;
-            }
-            let rhs = self.expression(precedence + 1)?;
-            lhs = Expression {
-                span: Span::new(lhs.span.start, rhs.span.end),
-                kind: ExpressionKind::Binary(op, Box::new(lhs), Box::new(rhs)),
-            };
-        }
-        Ok(lhs)
     }
 }
 #[cfg(test)]
@@ -909,7 +543,7 @@ mod tests {
     #[test]
     fn precedence() {
         let m = parse("main :: () -> int { return 1 + 2 * 3; }").unwrap();
-        let Statement::Return(Some(e)) = &m.procedures[0].body[0] else {
+        let StatementKind::Return(Some(e)) = &m.procedures[0].body[0].kind else {
             panic!()
         };
         let ExpressionKind::Binary(BinaryOp::Add, _, rhs) = &e.kind else {
@@ -934,16 +568,16 @@ mod tests {
         let module =
             parse("main :: () { for < i: 1..4 { continue i; } while value := true break value; }")
                 .unwrap();
-        let Statement::Range(range) = &module.procedures[0].body[0] else {
+        let StatementKind::Range(range) = &module.procedures[0].body[0].kind else {
             panic!("expected range")
         };
         assert_eq!(range.direction, Direction::Reverse);
         assert!(
-            matches!(&range.body[0], Statement::Jump { kind: JumpKind::Continue, target: LoopTarget::Named(name), .. } if *name == range.iterator)
+            matches!(&range.body[0].kind, StatementKind::Jump { kind: JumpKind::Continue, target: LoopTarget::Named(name), .. } if *name == range.iterator)
         );
         assert!(matches!(
-            &module.procedures[0].body[1],
-            Statement::While(WhileCondition::Binding { .. }, _)
+            &module.procedures[0].body[1].kind,
+            StatementKind::While(WhileCondition::Binding { .. }, _)
         ));
         for invalid in [
             "main :: () { for 1.. {} }",
@@ -961,8 +595,8 @@ mod tests {
         assert_eq!(module.globals().len(), 1);
         assert_eq!(module.procedures().len(), 1);
         assert!(matches!(
-            module.procedures()[0].body[0],
-            Statement::Constant(_)
+            module.procedures()[0].body[0].kind,
+            StatementKind::Constant(_)
         ));
         assert!(parse("N :: (1 + 2; main :: () {}").is_err());
     }
@@ -974,7 +608,7 @@ mod tests {
     fn conditional_expressions_bind_else_to_the_nearest_ifx() {
         let module =
             parse("main :: ()->int { return ifx true then ifx false 1 else 2 else 3; }").unwrap();
-        let Statement::Return(Some(e)) = &module.procedures()[0].body[0] else {
+        let StatementKind::Return(Some(e)) = &module.procedures()[0].body[0].kind else {
             panic!()
         };
         let ExpressionKind::Conditional(outer) = &e.kind else {

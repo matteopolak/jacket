@@ -1,4 +1,6 @@
 //! Actual execution of newly generated code; never uses supplied native code.
+#[path = "support/native_tools.rs"]
+mod native_tools;
 use std::{
     fs,
     io::Write,
@@ -22,7 +24,21 @@ fn execute(source: &str) -> i32 {
 fn execute_status(source: &str) -> ExitStatus {
     let module = jai_syntax::parse(source).unwrap();
     let program = jai_sema::resolve(&module).unwrap();
-    let ir = jai_codegen::emit(&program).unwrap();
+    execute_program_status(&program)
+}
+fn execute_scoped(source: &str) -> i32 {
+    let mut overlay = jai_modules::SourceOverlay::new();
+    let path = std::path::Path::new("/jai-native-safety/main.jai");
+    overlay.insert(path, source.as_bytes().to_vec()).unwrap();
+    let graph =
+        jai_modules::ModuleGraph::load_with_provider(path, Default::default(), &overlay).unwrap();
+    let program = jai_sema::resolve_graph(&graph).unwrap();
+    execute_program_status(&program)
+        .code()
+        .expect("test program terminated by a signal")
+}
+fn execute_program_status(program: &jai_ir::Program) -> ExitStatus {
+    let ir = jai_codegen::emit(program).unwrap();
     let path = std::env::temp_dir().join(format!(
         "jai-rust-test-{}-{}-{}",
         std::process::id(),
@@ -35,7 +51,7 @@ fn execute_status(source: &str) -> ExitStatus {
     fs::create_dir(&path).unwrap();
     let scratch = Scratch(path);
     let executable = scratch.0.join("program");
-    let mut compiler = Command::new("clang")
+    let mut compiler = native_tools::clang_command()
         .args(["-x", "ir", "-", "-o"])
         .arg(&executable)
         .stdin(Stdio::piped())
@@ -118,6 +134,54 @@ fn nested_short_circuit_skips_nonterminating_calls() {
     assert_eq!(
         execute(
             "forever :: ()->bool { while true {} return true; } main :: ()->int { if (false && forever()) || (true || forever()) return 42; else return 1; }"
+        ),
+        42
+    );
+}
+
+#[test]
+fn selected_short_circuit_return_preserves_effects_and_stops_the_block() {
+    assert_eq!(
+        execute_scoped(include_str!(
+            "../../../tests/corpus/positive/short-circuit.jai"
+        )),
+        12
+    );
+    assert_eq!(
+        execute_scoped(
+            "calls := 0; bump :: () -> bool { calls += 1; return false; } main :: () -> int { if bump() || true return calls + 41; return 1; }"
+        ),
+        42
+    );
+}
+
+#[test]
+fn selected_returns_in_unknown_arms_do_not_create_a_dead_join() {
+    for condition in ["true", "false"] {
+        assert_eq!(
+            execute(&format!(
+                "pick :: (b: bool) -> int {{ if b {{ if true return 42; }} else {{ if true return 42; }} return 1; }} main :: () -> int {{ return pick({condition}); }}"
+            )),
+            42
+        );
+    }
+    assert_eq!(
+        execute(
+            "calls := 0; stop :: () { if true return; calls += 1; } main :: () -> int { stop(); return calls + 42; }"
+        ),
+        42
+    );
+}
+
+#[test]
+fn native_loop_selection_preserves_condition_effects_and_terminating_bodies() {
+    assert_eq!(
+        execute("main :: () -> int { while true { if true return 42; } return 1; }"),
+        42
+    );
+    assert_eq!(
+        execute(
+            "calls := 0; bump :: () -> bool { calls += 1; return true; } main :: () -> int { while bump() && false { calls += 100; } return calls + 41; }"
         ),
         42
     );
@@ -327,6 +391,18 @@ fn deferred_names_capture_their_original_binding() {
         execute("main :: ()->int { n := 0; x := 3; { defer n = x; x := 8; x += 1; } return n; }"),
         3
     );
+    assert_eq!(
+        execute("x := 3; main :: ()->int { n := 0; { defer n = x; x := 8; x += 1; } return n; }"),
+        3
+    );
+    assert_eq!(
+        execute("main :: ()->int { n := 0; x := 3; { x := 8; defer n = x; x += 1; } return n; }"),
+        9
+    );
+    assert_eq!(
+        execute("main :: ()->int { n := 0; x := 3; { defer n = x; x += 1; } return n; }"),
+        4
+    );
 }
 
 #[test]
@@ -513,19 +589,21 @@ fn integer_widening_sign_and_unsigned_arithmetic_are_preserved() {
 #[test]
 fn fixed_width_arithmetic_and_constant_evaluation_wrap_identically() {
     assert_eq!(
-        execute(
-            "C :: cast(u8) 255 + 1; main :: ()->int { n:u8 = 255; n+=1; if C==n return 42; else return 1; }"
+        execute_scoped(
+            "main :: ()->int #no_aoc { C :: cast(u8) 255 + 1; n:u8 = 255; n+=1; if C==n return 42; else return 1; }"
         ),
         42
     );
     assert_eq!(
-        execute(
-            "C :: cast(u64) 18446744073709551615 * cast(u64) 18446744073709551615; main :: ()->int { n:u64 = 18446744073709551615; n*=n; if C==n && n==1 return 42; else return 1; }"
+        execute_scoped(
+            "main :: ()->int #no_aoc { C :: cast(u64) 18446744073709551615 * cast(u64) 18446744073709551615; n:u64 = 18446744073709551615; n*=n; if C==n && n==1 return 42; else return 1; }"
         ),
         42
     );
     assert_eq!(
-        execute("main :: ()->int { n:s8 = 127; n+=1; if n == -128 return 42; else return 1; }"),
+        execute_scoped(
+            "main :: ()->int #no_aoc { n:s8 = 127; n+=1; if n == -128 return 42; else return 1; }"
+        ),
         42
     );
     assert_eq!(

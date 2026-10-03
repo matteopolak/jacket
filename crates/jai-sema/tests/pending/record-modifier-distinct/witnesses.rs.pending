@@ -1,0 +1,26 @@
+// Pending source witnesses; use the existing record-modifiers.rs helpers after canonical typed constants become ready before alias arguments.
+#[test]
+fn accepted_type_slot_preserves_distinct_dependent_value_identity() {
+    rejected_type_modifier(
+        "First::#type,distinct u8; Other::#type,distinct u8; initial:First:21; \
+         Box::struct(T:Type,Fill:T) #modify {T=Other;return true;} {value:T=Fill;} \
+         Rejected::#type Box(First,initial); main::()->int{return 0;}",
+    );
+}
+
+#[test]
+fn accepted_type_slot_accepts_the_original_distinct_dependent_value() {
+    assert_eq!(
+        run_with_options(
+            "First::#type,distinct u8; initial:First:21; \
+             Box::struct(T:Type,Fill:T) #modify {return true;} {value:T=Fill;} \
+             Ready::#type Box(First,initial); saved:Ready; \
+             main::()->int{return cast(int)saved.value;}",
+            &ResolveOptions {
+                layout: Some(jai_types::LayoutPolicy::lp64()),
+                ..ResolveOptions::default()
+            },
+        ),
+        21,
+    );
+}

@@ -42,15 +42,27 @@ impl Resolver<'_> {
             let ty = match place {
                 Storage::Int(id) => ScalarType::Int(id.ty()),
                 Storage::Bool(_) => ScalarType::Bool,
+                Storage::Value(_) => {
+                    return Err(Diagnostic::new(
+                        span,
+                        "nominal case subjects are not implemented",
+                    ));
+                }
             };
             let value = value.coerce(ty, label.span)?;
             if seen.contains(&value) {
                 return Err(Diagnostic::new(label.span, "duplicate case label"));
             }
-            seen.push(value);
+            seen.push(value.clone());
             let lhs = match place {
                 Storage::Int(id) => Expr::Int(IntExpr::load(id)),
                 Storage::Bool(id) => Expr::Bool(BoolExpr::Load(id)),
+                Storage::Value(_) => {
+                    return Err(Diagnostic::new(
+                        span,
+                        "nominal case subjects are not implemented",
+                    ));
+                }
             };
             let op = match case.operator {
                 syntax::CaseOperator::Equal => BinaryOp::Equal,
@@ -60,6 +72,8 @@ impl Resolver<'_> {
                 .binary(op, lhs, Self::constant(value), label.span)?
                 .bool(label.span)?;
             let body = self.block(body, true)?;
+            self.debug
+                .attach_block(&[DebugPathStep::Child(DebugBranch::CaseArm(arms.len()))]);
             if *through && body.flow == Flow::Terminates {
                 return Err(Diagnostic::new(label.span, "unreachable #through"));
             }
@@ -69,11 +83,14 @@ impl Resolver<'_> {
                 through: *through,
             });
         }
-        let default = case
-            .default
-            .as_ref()
-            .map(|b| self.block(b, true))
-            .transpose()?;
+        let default = if let Some(body) = &case.default {
+            let body = self.block(body, true)?;
+            self.debug
+                .attach_block(&[DebugPathStep::Child(DebugBranch::CaseDefault)]);
+            Some(body)
+        } else {
+            None
+        };
         if arms.last().is_some_and(|a| a.through) && default.is_none() {
             return Err(Diagnostic::new(
                 span,
@@ -82,8 +99,8 @@ impl Resolver<'_> {
         }
         if case.complete {
             let complete = matches!(place, Storage::Bool(_))
-                && seen.contains(&ConstantValue::Bool(true))
-                && seen.contains(&ConstantValue::Bool(false))
+                && seen.contains(&ScalarConstant::Bool(true))
+                && seen.contains(&ScalarConstant::Bool(false))
                 && case.operator == syntax::CaseOperator::Equal;
             if !complete {
                 return Err(Diagnostic::new(

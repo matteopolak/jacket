@@ -1,0 +1,60 @@
+--- a/rpmalloc.c
++++ b/rpmalloc.c
+@@ -635,7 +635,11 @@
+ 	size_t extract_count;
+ #endif
+ 	//! Cached spans
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	span_t** span;
++#else
+ 	span_t* span[GLOBAL_CACHE_MULTIPLIER * MAX_THREAD_SPAN_CACHE];
++#endif
+ 	//! Unlimited cache overflow
+ 	span_t* overflow;
+ };
+@@ -699,7 +703,11 @@
+ //! Global reserved master
+ static span_t* _memory_global_reserve_master;
+ //! All heaps
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++static heap_t** _memory_heaps;
++#else
+ static heap_t* _memory_heaps[HEAP_ARRAY_SIZE];
++#endif
+ //! Used to restrict access to mapping memory for huge pages
+ static atomic32_t _memory_global_lock;
+ //! Orphaned heaps
+@@ -2770,6 +2778,11 @@
+ 		rpmalloc_thread_initialize();
+ 		return 0;
+ 	}
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	int binding_storage_error = binding_rpmalloc_prepare_storage();
++	if (binding_storage_error)
++		return binding_storage_error;
++#endif
+ 	_rpmalloc_initialized = 1;
+ 
+ 	if (config)
+@@ -2982,6 +2995,10 @@
+ 	_huge_pages_peak = 0;
+ #endif
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	memset(_memory_heaps, 0, HEAP_ARRAY_SIZE * sizeof(*_memory_heaps));
++#else
+ 	memset(_memory_heaps, 0, sizeof(_memory_heaps));
++#endif
+ 	atomic_store32_release(&_memory_global_lock, 0);
+ 
+ 	rpmalloc_linker_reference();
+@@ -2994,6 +3011,10 @@
+ //! Finalize the allocator
+ void
+ rpmalloc_finalize(void) {
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	if (!_rpmalloc_initialized)
++		return;
++#endif
+ 	rpmalloc_thread_finalize(1);
+ 	//rpmalloc_dump_statistics(stdout);
+ 

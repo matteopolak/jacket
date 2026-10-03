@@ -1,0 +1,114 @@
+--- a/rpmalloc.c
++++ b/rpmalloc.c
+@@ -206,7 +206,9 @@
+ 
+ #if defined(_WIN32) && (!defined(BUILD_DYNAMIC_LINK) || !BUILD_DYNAMIC_LINK)
+ #include <fibersapi.h>
++#if !BINDING_RPMALLOC_RUNTIME_CONFIGURATION
+ static DWORD fls_key;
++#endif
+ #endif
+ 
+ #if PLATFORM_POSIX
+@@ -655,6 +657,7 @@
+ #define _memory_default_span_size_shift 16
+ #define _memory_default_span_mask (~((uintptr_t)(_memory_span_size - 1)))
+ 
++#if !BINDING_RPMALLOC_RUNTIME_CONFIGURATION
+ //! Initialized flag
+ static int _rpmalloc_initialized;
+ //! Main thread ID
+@@ -743,6 +746,10 @@
+ static int32_t _huge_pages_peak;
+ #endif
+ 
++#else
++#include "runtime-domain.inc"
++#endif
++
+ ////////////
+ ///
+ /// Thread local heap and ID
+@@ -766,7 +773,11 @@
+ #      define _Thread_local __thread
+ #    endif
+ #  endif
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++#define _memory_thread_heap (*binding_domain_heap_slot())
++#else
+ static _Thread_local heap_t* _memory_thread_heap TLS_MODEL;
++#endif
+ #endif
+ 
+ static inline heap_t*
+@@ -2988,7 +2999,13 @@
+ 		return -1;
+ #endif
+ #if defined(_WIN32) && (!defined(BUILD_DYNAMIC_LINK) || !BUILD_DYNAMIC_LINK)
++	#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	fls_key = binding_domain_fls_allocate();
++	if (fls_key == FLS_OUT_OF_INDEXES)
++		return ENOMEM;
++#else
+ 	fls_key = FlsAlloc(&_rpmalloc_thread_destructor);
++#endif
+ #endif
+ 
+ 	//Setup all small and medium size classes
+@@ -3050,6 +3067,9 @@
+ 	if (!_rpmalloc_initialized)
+ 		return;
+ #endif
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	binding_domain_current()->owned_finalizing = 1;
++#endif
+ 	rpmalloc_thread_finalize(1);
+ 	//rpmalloc_dump_statistics(stdout);
+ 
+@@ -3082,7 +3102,11 @@
+ 	pthread_key_delete(_memory_thread_heap);
+ #endif
+ #if defined(_WIN32) && (!defined(BUILD_DYNAMIC_LINK) || !BUILD_DYNAMIC_LINK)
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	binding_domain_fls_free();
++#else
+ 	FlsFree(fls_key);
++#endif
+ 	fls_key = 0;
+ #endif
+ #if ENABLE_STATISTICS
+@@ -3092,6 +3116,9 @@
+ #endif
+ 
+ 	_rpmalloc_initialized = 0;
++#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	binding_domain_current()->owned_finalizing = 0;
++#endif
+ }
+ 
+ //! Initialize thread, assign heap
+@@ -3103,7 +3130,11 @@
+ 			_rpmalloc_stat_inc(&_memory_active_heaps);
+ 			set_thread_heap(heap);
+ #if defined(_WIN32) && (!defined(BUILD_DYNAMIC_LINK) || !BUILD_DYNAMIC_LINK)
+-			FlsSetValue(fls_key, heap);
++			#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	binding_domain_fls_heap(heap);
++#else
++	FlsSetValue(fls_key, heap);
++#endif
+ #endif
+ 		}
+ 	}
+@@ -3117,7 +3148,11 @@
+ 		_rpmalloc_heap_release_raw(heap, release_caches);
+ 	set_thread_heap(0);
+ #if defined(_WIN32) && (!defined(BUILD_DYNAMIC_LINK) || !BUILD_DYNAMIC_LINK)
++	#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION
++	binding_domain_fls_heap(0);
++#else
+ 	FlsSetValue(fls_key, 0);
++#endif
+ #endif
+ }
+ 

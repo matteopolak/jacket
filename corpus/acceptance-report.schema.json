@@ -39,6 +39,18 @@
         "inputs_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_kind": {
+          "enum": [
+            "isolated-frontend-adapter",
+            "integrated-cli"
+          ]
+        },
+        "inputs_provenance": {
+          "const": "observed-worktree"
+        },
+        "build_inputs_verified": {
+          "const": false
         }
       },
       "required": [
@@ -346,6 +358,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -399,6 +417,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -452,6 +476,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -505,6 +535,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -558,6 +594,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -611,6 +653,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -655,6 +703,12 @@
       "items": {
         "type": "string"
       }
+    },
+    "bootstrap": {
+      "enum": [
+        "off",
+        "search"
+      ]
     }
   },
   "additionalProperties": false

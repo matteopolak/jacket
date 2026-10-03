@@ -1,6 +1,10 @@
 //! Unresolved type expressions and ordered nominal declarations.
 use super::*;
-use jai_types::{CallingConvention, ContextMode, FloatType, RecordKind};
+#[path = "anonymous_pointer_aliases.rs"]
+mod anonymous_pointer_aliases;
+#[path = "callback_aliases.rs"]
+mod callback_aliases;
+use jai_types::{FloatType, RecordKind};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuiltinType {
@@ -9,10 +13,12 @@ pub enum BuiltinType {
     String,
     Void,
     Type,
+    Context,
+    Any,
 }
 
 impl BuiltinType {
-    pub(super) fn from_spelling(text: &str) -> Option<Self> {
+    pub fn from_spelling(text: &str) -> Option<Self> {
         Some(match text {
             "int" | "s64" => Self::Scalar(ScalarType::Int(IntegerType::S64)),
             "s8" => Self::Scalar(ScalarType::Int(IntegerType::S8)),
@@ -28,6 +34,7 @@ impl BuiltinType {
             "string" => Self::String,
             "void" => Self::Void,
             "Type" => Self::Type,
+            "Any" => Self::Any,
             _ => return None,
         })
     }
@@ -35,8 +42,22 @@ impl BuiltinType {
 
 #[derive(Clone, Debug)]
 pub enum TypeSyntax {
+    This,
+    TypeOf(Box<Expression>),
     Builtin(BuiltinType),
     Named(NamePath),
+    Variable(Symbol),
+    Restricted {
+        variable: Symbol,
+        restriction: TypeRestrictionSyntax,
+        span: Span,
+    },
+    InlineRecord(Box<RecordTypeSyntax>),
+    InlineEnum(Box<EnumTypeSyntax>),
+    Variant {
+        kind: TypeVariantKind,
+        base: Box<TypeSyntax>,
+    },
     Pointer(Box<TypeSyntax>),
     FixedArray {
         count: Box<Expression>,
@@ -45,6 +66,18 @@ pub enum TypeSyntax {
     Slice(Box<TypeSyntax>),
     DynamicArray(Box<TypeSyntax>),
     Procedure(ProcedureTypeSyntax),
+    Application(TypeApplicationSyntax),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TypeVariantKind {
+    Distinct,
+    IsA,
+}
+#[derive(Clone, Debug)]
+pub struct TypeAliasDeclaration {
+    pub name: Symbol,
+    pub ty: TypeSyntax,
+    pub span: Span,
 }
 impl TypeSyntax {
     /// The executable scalar AST is an explicit bridge, not a name lookup.
@@ -54,21 +87,6 @@ impl TypeSyntax {
             _ => None,
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct ProcedureTypeParameter {
-    pub name: Option<Symbol>,
-    pub ty: TypeSyntax,
-    pub using: bool,
-    pub span: Span,
-}
-#[derive(Clone, Debug)]
-pub struct ProcedureTypeSyntax {
-    pub parameters: Vec<ProcedureTypeParameter>,
-    pub results: Vec<ProcedureTypeParameter>,
-    pub convention: CallingConvention,
-    pub context: ContextMode,
 }
 
 #[derive(Clone, Debug)]
@@ -84,14 +102,47 @@ pub struct FieldDeclaration {
     pub name: Symbol,
     pub binding: FieldBinding,
     pub using: bool,
+    pub conversion: FieldConversion,
     pub span: Span,
+    pub attributes: Vec<FieldAttribute>,
+    pub notes: Vec<NoteSyntax>,
 }
 #[derive(Clone, Debug)]
 pub struct RecordDeclaration {
     pub name: Symbol,
     pub kind: RecordKind,
-    pub fields: Vec<FieldDeclaration>,
+    pub members: Vec<RecordMember>,
+    pub parameters: Vec<RecordParameter>,
     pub span: Span,
+    pub attributes: Vec<RecordAttribute>,
+    pub notes: Vec<NoteSyntax>,
+    pub modify: Option<ModifyDirective>,
+}
+#[derive(Clone, Debug)]
+pub struct RecordTypeSyntax {
+    pub kind: jai_types::RecordKind,
+    pub members: Vec<RecordMember>,
+    pub parameters: Vec<RecordParameter>,
+    pub attributes: Vec<RecordAttribute>,
+    pub notes: Vec<NoteSyntax>,
+    pub span: Span,
+    pub modify: Option<ModifyDirective>,
+}
+impl RecordDeclaration {
+    pub fn fields(&self) -> impl Iterator<Item = &FieldDeclaration> {
+        self.members.iter().filter_map(|member| match member {
+            RecordMember::Field(field) => Some(field),
+            _ => None,
+        })
+    }
+}
+impl RecordTypeSyntax {
+    pub fn fields(&self) -> impl Iterator<Item = &FieldDeclaration> {
+        self.members.iter().filter_map(|member| match member {
+            RecordMember::Field(field) => Some(field),
+            _ => None,
+        })
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EnumKind {
@@ -113,6 +164,14 @@ pub struct EnumDeclaration {
     pub members: Vec<EnumMember>,
     pub span: Span,
 }
+#[derive(Clone, Debug)]
+pub struct EnumTypeSyntax {
+    pub representation: Option<TypeSyntax>,
+    pub kind: EnumKind,
+    pub specified: bool,
+    pub members: Vec<EnumMember>,
+    pub span: Span,
+}
 
 #[derive(Clone, Debug)]
 pub struct StructLiteralField {
@@ -125,122 +184,188 @@ pub struct StructLiteral {
     pub ty: Option<NamePath>,
     pub fields: Vec<StructLiteralField>,
 }
+#[derive(Clone, Debug)]
+pub struct PositionalStructLiteral {
+    pub ty: Option<NamePath>,
+    pub values: Vec<Expression>,
+}
 
 impl Parser<'_> {
+    pub(super) fn type_alias_prefix(&self) -> bool {
+        if !self.named_prefix(Punct::Constant) {
+            return false;
+        }
+        let token = self.tokens[self.at + 2];
+        match token.kind {
+            Kind::Punctuation(Punct::Mul) => {
+                let mut leaf = self.at + 2;
+                while self
+                    .tokens
+                    .get(leaf)
+                    .is_some_and(|token| token.kind == Kind::Punctuation(Punct::Mul))
+                {
+                    leaf += 1;
+                }
+                match self.tokens.get(leaf).map(|token| token.kind) {
+                    Some(Kind::Keyword(
+                        Keyword::Struct | Keyword::Union | Keyword::Enum | Keyword::EnumFlags,
+                    )) => true,
+                    Some(Kind::Ident) => {
+                        BuiltinType::from_spelling(&self.tokens[leaf].spelling(self.source))
+                            .is_some()
+                            && self.tokens.get(leaf + 1).is_some_and(|token| {
+                                token.kind == Kind::Punctuation(Punct::Semicolon)
+                            })
+                    }
+                    _ => false,
+                }
+            }
+            Kind::Punctuation(Punct::OpenParen) => self.bodyless_procedure_type_prefix(),
+            Kind::Directive(Directive::Type | Directive::Context) => true,
+            Kind::Punctuation(Punct::OpenBracket) => !self.tokens[self.at + 2..]
+                .iter()
+                .take_while(|token| {
+                    !matches!(token.kind, Kind::Punctuation(Punct::Semicolon) | Kind::Eof)
+                })
+                .any(|token| {
+                    matches!(
+                        token.kind,
+                        Kind::Punctuation(Punct::ArrayLiteral | Punct::StructLiteral)
+                    )
+                }),
+            Kind::Ident => {
+                BuiltinType::from_spelling(&token.spelling(self.source)).is_some()
+                    && self
+                        .tokens
+                        .get(self.at + 3)
+                        .is_some_and(|token| token.kind == Kind::Punctuation(Punct::Semicolon))
+            }
+            _ => false,
+        }
+    }
+    pub(super) fn type_alias_declaration(&mut self) -> Result<TypeAliasDeclaration, Diagnostic> {
+        let start = self.token().span.start;
+        let name = self.name()?;
+        self.need(Punct::Constant)?;
+        let ty = self.type_syntax()?;
+        self.need(Punct::Semicolon)?;
+        Ok(TypeAliasDeclaration {
+            name,
+            ty,
+            span: Span::new(start, self.tokens[self.at - 1].span.end),
+        })
+    }
     pub(super) fn type_syntax(&mut self) -> Result<TypeSyntax, Diagnostic> {
+        self.type_syntax_with_results(true)
+    }
+    pub(super) fn parameter_type_syntax(&mut self) -> Result<TypeSyntax, Diagnostic> {
+        self.type_syntax_with_results(false)
+    }
+    fn type_syntax_with_results(&mut self, result_list: bool) -> Result<TypeSyntax, Diagnostic> {
+        let start = self.token().span.start;
+        if self.token().kind == Kind::Directive(Directive::This) {
+            self.at += 1;
+            return Ok(TypeSyntax::This);
+        }
+        if self.token().kind == Kind::Keyword(Keyword::TypeOf) {
+            return self.type_of_annotation();
+        }
+        if self.token().kind == Kind::Directive(Directive::Context) {
+            self.at += 1;
+            return Ok(TypeSyntax::Builtin(BuiltinType::Context));
+        }
+        if matches!(
+            self.token().kind,
+            Kind::Keyword(Keyword::Struct | Keyword::Union)
+        ) {
+            return Ok(TypeSyntax::InlineRecord(Box::new(self.record_type()?)));
+        }
+        if matches!(
+            self.token().kind,
+            Kind::Keyword(Keyword::Enum | Keyword::EnumFlags)
+        ) {
+            return Ok(TypeSyntax::InlineEnum(Box::new(self.enum_type()?)));
+        }
+        if self.take(Punct::Dollar) {
+            let variable = self.name()?;
+            return Ok(match self.type_restriction()? {
+                Some(restriction) => TypeSyntax::Restricted {
+                    variable,
+                    restriction,
+                    span: Span::new(start, self.tokens[self.at - 1].span.end),
+                },
+                None => TypeSyntax::Variable(variable),
+            });
+        }
         if self.take(Punct::Mul) {
-            return Ok(TypeSyntax::Pointer(Box::new(self.type_syntax()?)));
+            return Ok(TypeSyntax::Pointer(Box::new(
+                self.type_syntax_with_results(result_list)?,
+            )));
         }
         if self.take(Punct::OpenBracket) {
             if self.take(Punct::CloseBracket) {
-                return Ok(TypeSyntax::Slice(Box::new(self.type_syntax()?)));
+                return Ok(TypeSyntax::Slice(Box::new(
+                    self.type_syntax_with_results(result_list)?,
+                )));
             }
             if self.take(Punct::Range) {
                 self.need(Punct::CloseBracket)?;
-                return Ok(TypeSyntax::DynamicArray(Box::new(self.type_syntax()?)));
+                return Ok(TypeSyntax::DynamicArray(Box::new(
+                    self.type_syntax_with_results(result_list)?,
+                )));
             }
             let count = Box::new(self.expression(0)?);
             self.need(Punct::CloseBracket)?;
             return Ok(TypeSyntax::FixedArray {
                 count,
-                element: Box::new(self.type_syntax()?),
+                element: Box::new(self.type_syntax_with_results(result_list)?),
             });
         }
         let explicit_procedure = self.token().kind == Kind::Directive(Directive::Type);
         if explicit_procedure {
             self.at += 1;
+            if self.take(Punct::Comma) {
+                let kind = match self.text() {
+                    "distinct" if self.token().kind == Kind::Ident => TypeVariantKind::Distinct,
+                    "isa" if self.token().kind == Kind::Ident => TypeVariantKind::IsA,
+                    _ => return Err(self.error("expected distinct or isa type modifier")),
+                };
+                self.at += 1;
+                return Ok(TypeSyntax::Variant {
+                    kind,
+                    base: Box::new(self.type_syntax_with_results(result_list)?),
+                });
+            }
+            if let Some(tag) = self.compiler_type_tag() {
+                return Ok(TypeSyntax::Builtin(tag));
+            }
         }
         if self.is(Punct::OpenParen) {
-            return Ok(TypeSyntax::Procedure(self.procedure_type_syntax()?));
+            return Ok(TypeSyntax::Procedure(
+                self.procedure_type_syntax(result_list)?,
+            ));
         }
         if explicit_procedure {
-            return Err(self.error("expected procedure signature after #type"));
+            return self.type_syntax_with_results(result_list);
         }
         if self.token().kind != Kind::Ident {
             return Err(self.error("expected type expression"));
         }
-        let builtin = BuiltinType::from_spelling(self.text());
+        let builtin = BuiltinType::from_spelling(&self.token().spelling(self.source));
         let root = self.name()?;
         let mut members = Vec::new();
         while self.take(Punct::Dot) {
             members.push(self.name()?);
         }
-        Ok(match (builtin, members.is_empty()) {
+        let base = match (builtin, members.is_empty()) {
             (Some(builtin), true) => TypeSyntax::Builtin(builtin),
             _ => TypeSyntax::Named(NamePath { root, members }),
-        })
-    }
-
-    fn procedure_type_parameter(&mut self) -> Result<ProcedureTypeParameter, Diagnostic> {
-        let start = self.token().span.start;
-        let using = self.keyword(Keyword::Using);
-        let name = if self.named_prefix(Punct::Colon) {
-            let name = self.name()?;
-            self.need(Punct::Colon)?;
-            Some(name)
-        } else {
-            None
         };
-        if using && name.is_none() {
-            return Err(self.error("using procedure parameters require a name"));
+        if self.is(Punct::OpenParen) {
+            Ok(TypeSyntax::Application(self.type_application(base, start)?))
+        } else {
+            Ok(base)
         }
-        let ty = self.type_syntax()?;
-        Ok(ProcedureTypeParameter {
-            name,
-            ty,
-            using,
-            span: Span::new(start, self.tokens[self.at - 1].span.end),
-        })
-    }
-    fn procedure_type_parameters(&mut self) -> Result<Vec<ProcedureTypeParameter>, Diagnostic> {
-        self.need(Punct::OpenParen)?;
-        let mut parameters = Vec::new();
-        if !self.take(Punct::CloseParen) {
-            loop {
-                parameters.push(self.procedure_type_parameter()?);
-                if self.take(Punct::CloseParen) {
-                    break;
-                }
-                self.need(Punct::Comma)?;
-            }
-        }
-        Ok(parameters)
-    }
-    fn procedure_type_syntax(&mut self) -> Result<ProcedureTypeSyntax, Diagnostic> {
-        let parameters = self.procedure_type_parameters()?;
-        let mut results = Vec::new();
-        if self.take(Punct::Arrow) {
-            if self.is(Punct::OpenParen) {
-                results = self.procedure_type_parameters()?;
-            } else {
-                loop {
-                    results.push(self.procedure_type_parameter()?);
-                    if !self.take(Punct::Comma) {
-                        break;
-                    }
-                }
-            }
-        }
-        let mut convention = CallingConvention::Jai;
-        let mut context = ContextMode::Implicit;
-        loop {
-            match self.token().kind {
-                Kind::Directive(Directive::NoContext) if context == ContextMode::Implicit => {
-                    context = ContextMode::None;
-                }
-                Kind::Directive(Directive::CCall) if convention == CallingConvention::Jai => {
-                    convention = CallingConvention::C;
-                }
-                _ => break,
-            }
-            self.at += 1;
-        }
-        Ok(ProcedureTypeSyntax {
-            parameters,
-            results,
-            convention,
-            context,
-        })
     }
 
     pub(super) fn nominal_prefix(&self) -> Option<Keyword> {
@@ -258,6 +383,22 @@ impl Parser<'_> {
         let start = self.token().span.start;
         let name = self.name()?;
         self.need(Punct::Constant)?;
+        let mut record = self.record_type()?;
+        record.notes = self.notes()?;
+        self.take(Punct::Semicolon);
+        Ok(RecordDeclaration {
+            name,
+            kind: record.kind,
+            members: record.members,
+            parameters: record.parameters,
+            attributes: record.attributes,
+            notes: record.notes,
+            modify: record.modify,
+            span: Span::new(start, self.tokens[self.at - 1].span.end),
+        })
+    }
+    pub(super) fn record_type(&mut self) -> Result<RecordTypeSyntax, Diagnostic> {
+        let start = self.token().span.start;
         let kind = if self.keyword(Keyword::Struct) {
             RecordKind::Struct
         } else if self.keyword(Keyword::Union) {
@@ -265,55 +406,23 @@ impl Parser<'_> {
         } else {
             return Err(self.error("expected struct or union"));
         };
-        self.need(Punct::OpenBrace)?;
-        let mut fields = Vec::new();
-        while !self.take(Punct::CloseBrace) {
-            if self.token().kind == Kind::Eof {
-                return Err(self.error("unterminated record declaration"));
-            }
-            let field_start = self.token().span.start;
-            let using = self.keyword(Keyword::Using);
-            let mut names = vec![self.name()?];
-            while self.take(Punct::Comma) {
-                names.push(self.name()?);
-            }
-            if using && names.len() != 1 {
-                return Err(self.error("grouped using record fields are not implemented"));
-            }
-            let binding = if self.take(Punct::Infer) {
-                if names.len() != 1 {
-                    return Err(self.error("grouped inferred record fields are not implemented"));
-                }
-                FieldBinding::Inferred(self.expression(0)?)
-            } else {
-                self.need(Punct::Colon)?;
-                let ty = self.type_syntax()?;
-                let initializer = if self.take(Punct::Assign) {
-                    Some(self.expression(0)?)
-                } else {
-                    None
-                };
-                if names.len() != 1 && initializer.is_some() {
-                    return Err(self.error("grouped record field defaults are not implemented"));
-                }
-                FieldBinding::Explicit { ty, initializer }
-            };
-            self.need(Punct::Semicolon)?;
-            let span = Span::new(field_start, self.tokens[self.at - 1].span.end);
-            for name in names {
-                fields.push(FieldDeclaration {
-                    name,
-                    binding: binding.clone(),
-                    using,
-                    span,
-                });
-            }
-        }
-        self.take(Punct::Semicolon);
-        Ok(RecordDeclaration {
-            name,
+        let parameters = self.record_parameters()?;
+        let mut attributes = self.record_attributes()?;
+        let modify = self.modify_directive()?;
+        let members = self.record_members()?;
+        let suffix = self.record_attributes()?;
+        metadata::merge_record_attributes(
+            &mut attributes,
+            suffix,
+            Span::new(start, self.tokens[self.at - 1].span.end),
+        )?;
+        Ok(RecordTypeSyntax {
             kind,
-            fields,
+            members,
+            parameters,
+            attributes,
+            notes: Vec::new(),
+            modify,
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
     }
@@ -321,6 +430,20 @@ impl Parser<'_> {
         let start = self.token().span.start;
         let name = self.name()?;
         self.need(Punct::Constant)?;
+        let enumeration = self.enum_type()?;
+        self.take(Punct::Semicolon);
+        Ok(EnumDeclaration {
+            name,
+            representation: enumeration.representation,
+            kind: enumeration.kind,
+            specified: enumeration.specified,
+            members: enumeration.members,
+            span: Span::new(start, self.tokens[self.at - 1].span.end),
+        })
+    }
+    /// Anonymous annotations leave the surrounding declaration terminator unread.
+    fn enum_type(&mut self) -> Result<EnumTypeSyntax, Diagnostic> {
+        let start = self.token().span.start;
         let kind = if self.keyword(Keyword::Enum) {
             EnumKind::Values
         } else if self.keyword(Keyword::EnumFlags) {
@@ -359,9 +482,7 @@ impl Parser<'_> {
                 span: Span::new(start, self.tokens[self.at - 1].span.end),
             });
         }
-        self.take(Punct::Semicolon);
-        Ok(EnumDeclaration {
-            name,
+        Ok(EnumTypeSyntax {
             representation,
             kind,
             specified,
@@ -375,6 +496,31 @@ impl Parser<'_> {
         start: usize,
     ) -> Result<Expression, Diagnostic> {
         self.need(Punct::StructLiteral)?;
+        if !self.is(Punct::CloseBrace) && !self.named_prefix(Punct::Assign) {
+            let mut values = Vec::new();
+            loop {
+                values.push(self.expression(0)?);
+                if self.take(Punct::CloseBrace) {
+                    break;
+                }
+                self.need(Punct::Comma)?;
+                if self.take(Punct::CloseBrace) {
+                    break;
+                }
+                if self.named_prefix(Punct::Assign) {
+                    return Err(
+                        self.error("named and positional struct literal members cannot be mixed")
+                    );
+                }
+            }
+            return Ok(Expression {
+                kind: ExpressionKind::PositionalStructLiteral(PositionalStructLiteral {
+                    ty,
+                    values,
+                }),
+                span: Span::new(start, self.tokens[self.at - 1].span.end),
+            });
+        }
         let mut fields = Vec::new();
         if !self.take(Punct::CloseBrace) {
             loop {
@@ -407,6 +553,7 @@ impl Parser<'_> {
 mod tests {
     use super::*;
     use jai_source::{LocatedDiagnostic, SourceMap};
+    use jai_types::{CallingConvention, ContextMode};
 
     fn file(source: &str, symbols: &mut Symbols) -> Result<ParsedFile, LocatedDiagnostic> {
         let mut sources = SourceMap::default();
@@ -437,17 +584,16 @@ mod tests {
         assert_eq!(record.kind, RecordKind::Struct);
         assert_eq!(symbols.name(record.name), "Vector");
         let names: Vec<_> = record
-            .fields
-            .iter()
+            .fields()
             .map(|field| symbols.name(field.name))
             .collect();
         assert_eq!(names, ["x", "y", "count", "active", "position"]);
         assert_eq!(
-            explicit(&record.fields[0]).as_scalar(),
+            explicit(record.fields().next().unwrap()).as_scalar(),
             Some(ScalarType::Int(IntegerType::S64))
         );
         assert!(matches!(
-            record.fields[2].binding,
+            record.fields().nth(2).unwrap().binding,
             FieldBinding::Explicit {
                 initializer: Some(Expression {
                     kind: ExpressionKind::Integer(9),
@@ -457,19 +603,22 @@ mod tests {
             }
         ));
         assert!(matches!(
-            record.fields[3].binding,
+            record.fields().nth(3).unwrap().binding,
             FieldBinding::Inferred(Expression {
                 kind: ExpressionKind::Bool(true),
                 ..
             })
         ));
-        assert!(record.fields[4].using);
-        let TypeSyntax::Named(path) = explicit(&record.fields[4]) else {
+        assert!(record.fields().nth(4).unwrap().using);
+        let TypeSyntax::Named(path) = explicit(record.fields().nth(4).unwrap()) else {
             panic!("expected named type")
         };
         assert_eq!(symbols.name(path.root), "Geometry");
         assert_eq!(symbols.name(path.members[0]), "Point");
-        assert_eq!(record.fields[0].span.text(source), "x, y: int;");
+        assert_eq!(
+            record.fields().next().unwrap().span.text(source),
+            "x, y: int;"
+        );
         assert_eq!(record.span.text(source), source);
         assert_eq!(parsed.location(record.span).source, parsed.source());
     }
@@ -481,7 +630,8 @@ mod tests {
         let FileDeclarationKind::Record(record) = declaration(&parsed, 0) else {
             panic!()
         };
-        let TypeSyntax::FixedArray { count, element } = explicit(&record.fields[0]) else {
+        let TypeSyntax::FixedArray { count, element } = explicit(record.fields().next().unwrap())
+        else {
             panic!()
         };
         assert!(matches!(
@@ -492,12 +642,12 @@ mod tests {
             matches!(element.as_ref(), TypeSyntax::Pointer(inner) if matches!(inner.as_ref(), TypeSyntax::Named(_)))
         );
         assert!(
-            matches!(explicit(&record.fields[1]), TypeSyntax::Slice(element) if element.as_scalar() == Some(ScalarType::Int(IntegerType::U8)))
+            matches!(explicit(record.fields().nth(1).unwrap()), TypeSyntax::Slice(element) if element.as_scalar() == Some(ScalarType::Int(IntegerType::U8)))
         );
         assert!(
-            matches!(explicit(&record.fields[2]), TypeSyntax::DynamicArray(element) if matches!(element.as_ref(), TypeSyntax::Pointer(inner) if matches!(inner.as_ref(), TypeSyntax::Slice(_))))
+            matches!(explicit(record.fields().nth(2).unwrap()), TypeSyntax::DynamicArray(element) if matches!(element.as_ref(), TypeSyntax::Pointer(inner) if matches!(inner.as_ref(), TypeSyntax::Slice(_))))
         );
-        let TypeSyntax::Procedure(signature) = explicit(&record.fields[3]) else {
+        let TypeSyntax::Procedure(signature) = explicit(record.fields().nth(3).unwrap()) else {
             panic!()
         };
         assert_eq!(signature.parameters.len(), 2);
@@ -507,27 +657,27 @@ mod tests {
         assert_eq!(symbols.name(signature.results[0].name.unwrap()), "ok");
         assert_eq!(signature.convention, CallingConvention::C);
         assert_eq!(signature.context, ContextMode::None);
-        let TypeSyntax::Procedure(signature) = explicit(&record.fields[4]) else {
+        let TypeSyntax::Procedure(signature) = explicit(record.fields().nth(4).unwrap()) else {
             panic!()
         };
         assert_eq!(signature.results.len(), 2);
         assert!(matches!(
-            explicit(&record.fields[5]),
+            explicit(record.fields().nth(5).unwrap()),
             TypeSyntax::Builtin(BuiltinType::String)
         ));
         assert!(matches!(
-            explicit(&record.fields[6]),
+            explicit(record.fields().nth(6).unwrap()),
             TypeSyntax::Builtin(BuiltinType::Float(FloatType::F32))
         ));
         assert!(matches!(
-            explicit(&record.fields[7]),
+            explicit(record.fields().nth(7).unwrap()),
             TypeSyntax::Builtin(BuiltinType::Float(FloatType::F64))
         ));
         assert!(
-            matches!(explicit(&record.fields[8]), TypeSyntax::Pointer(inner) if matches!(inner.as_ref(), TypeSyntax::Builtin(BuiltinType::Void)))
+            matches!(explicit(record.fields().nth(8).unwrap()), TypeSyntax::Pointer(inner) if matches!(inner.as_ref(), TypeSyntax::Builtin(BuiltinType::Void)))
         );
         assert!(matches!(
-            explicit(&record.fields[9]),
+            explicit(record.fields().nth(9).unwrap()),
             TypeSyntax::Builtin(BuiltinType::Type)
         ));
     }
@@ -577,7 +727,8 @@ mod tests {
         let FileDeclarationKind::Procedure(procedure) = declaration(&parsed, 0) else {
             panic!()
         };
-        let Statement::Declare(Declaration::Inferred { initializer, .. }) = &procedure.body[0]
+        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
+            &procedure.body[0].kind
         else {
             panic!()
         };
@@ -595,11 +746,11 @@ mod tests {
             &literal.fields[1].value.kind,
             ExpressionKind::StructLiteral(StructLiteral { ty: None, .. })
         ));
-        let Statement::Declare(Declaration::UnresolvedExplicit {
+        let StatementKind::Declare(Declaration::UnresolvedExplicit {
             ty,
             initializer: Some(initializer),
             ..
-        }) = &procedure.body[1]
+        }) = &procedure.body[1].kind
         else {
             panic!()
         };
@@ -607,7 +758,7 @@ mod tests {
         assert!(
             matches!(&initializer.kind, ExpressionKind::StructLiteral(StructLiteral { ty: None, fields }) if fields.is_empty())
         );
-        let Statement::Return(Some(expression)) = &procedure.body[2] else {
+        let StatementKind::Return(Some(expression)) = &procedure.body[2].kind else {
             panic!()
         };
         let ExpressionKind::Binary(BinaryOp::Add, left, right) = &expression.kind else {
@@ -636,6 +787,7 @@ mod tests {
             name,
             ty: TypeSyntax::Named(path),
             initializer,
+            ..
         } = &global.declaration
         else {
             panic!()
@@ -665,6 +817,153 @@ mod tests {
     }
 
     #[test]
+    fn any_annotations_are_builtin_tags_instead_of_named_spelling_checks() {
+        let parsed = file(
+            "values:[]Any; take::(args:..Any){}",
+            &mut Symbols::default(),
+        )
+        .unwrap();
+        let FileDeclarationKind::Global(GlobalDeclaration {
+            declaration:
+                Declaration::UnresolvedExplicit {
+                    ty: TypeSyntax::Slice(element),
+                    ..
+                },
+            ..
+        }) = declaration(&parsed, 0)
+        else {
+            panic!("expected slice annotation")
+        };
+        assert!(matches!(
+            element.as_ref(),
+            TypeSyntax::Builtin(BuiltinType::Any)
+        ));
+        let FileDeclarationKind::Procedure(procedure) = declaration(&parsed, 1) else {
+            panic!("expected procedure")
+        };
+        assert!(procedure.parameters[0].variadic);
+        assert!(matches!(
+            procedure.parameters[0].binding,
+            ParameterBinding::RequiredType(TypeSyntax::Builtin(BuiltinType::Any))
+        ));
+    }
+
+    #[test]
+    fn grouped_field_defaults_preserve_the_shared_initializer_span() {
+        let text = "Texture :: struct { width,height,depth:s32 = 1; }";
+        let parsed = file(text, &mut Symbols::default()).unwrap();
+        let FileDeclarationKind::Record(record) = declaration(&parsed, 0) else {
+            panic!("expected record")
+        };
+        assert_eq!(record.fields().count(), 3);
+        let mut initializer_spans = Vec::new();
+        for field in record.fields() {
+            let FieldBinding::Explicit {
+                initializer: Some(initializer),
+                ..
+            } = &field.binding
+            else {
+                panic!("expected initializer")
+            };
+            assert!(matches!(initializer.kind, ExpressionKind::Integer(1)));
+            initializer_spans.push(initializer.span);
+        }
+        assert_eq!(initializer_spans, vec![initializer_spans[0]; 3]);
+        assert_eq!(initializer_spans[0].text(text), "1");
+    }
+
+    #[test]
+    fn record_layout_inline_fields_and_variant_aliases_preserve_source_structure() {
+        let source = "Handle :: #type,distinct u32; Filename :: #type,isa string; Packed :: struct #type_info_none { pointer: *int #align 4; _context: struct { value: int; } @JsonName(context) } #no_padding @Serializable";
+        let parsed = file(source, &mut Symbols::default()).unwrap();
+        let FileDeclarationKind::TypeAlias(handle) = declaration(&parsed, 0) else {
+            panic!("expected alias")
+        };
+        assert!(matches!(
+            handle.ty,
+            TypeSyntax::Variant {
+                kind: TypeVariantKind::Distinct,
+                ..
+            }
+        ));
+        let FileDeclarationKind::TypeAlias(filename) = declaration(&parsed, 1) else {
+            panic!("expected alias")
+        };
+        assert!(matches!(
+            filename.ty,
+            TypeSyntax::Variant {
+                kind: TypeVariantKind::IsA,
+                ..
+            }
+        ));
+        let FileDeclarationKind::Record(record) = declaration(&parsed, 2) else {
+            panic!("expected record")
+        };
+        assert!(matches!(
+            record.attributes.as_slice(),
+            [RecordAttribute::TypeInfoNone, RecordAttribute::NoPadding]
+        ));
+        assert!(matches!(
+            record.fields().next().unwrap().attributes.as_slice(),
+            [FieldAttribute::Alignment(Expression {
+                kind: ExpressionKind::Integer(4),
+                ..
+            })]
+        ));
+        let TypeSyntax::InlineRecord(inline) = explicit(record.fields().nth(1).unwrap()) else {
+            panic!("expected inline record")
+        };
+        assert_eq!(inline.fields().count(), 1);
+        assert!(inline.notes.is_empty());
+        assert_eq!(record.fields().nth(1).unwrap().notes.len(), 1);
+        assert_eq!(record.notes.len(), 1);
+    }
+
+    #[test]
+    fn local_nominal_declarations_and_positional_literals_are_ordered() {
+        let parsed = file("main :: () { Local :: struct { x,y:int; } Status :: enum { READY; } Count :: int; callback :: () -> int { return 3; } external :: () #foreign Lib; point := Local.{1,2,}; }", &mut Symbols::default()).unwrap();
+        let FileDeclarationKind::Procedure(procedure) = declaration(&parsed, 0) else {
+            panic!("expected procedure")
+        };
+        assert!(matches!(procedure.body[0].kind, StatementKind::Record(_)));
+        assert!(matches!(procedure.body[1].kind, StatementKind::Enum(_)));
+        assert!(matches!(
+            procedure.body[2].kind,
+            StatementKind::TypeAlias(_)
+        ));
+        assert!(matches!(
+            procedure.body[3].kind,
+            StatementKind::Procedure(_)
+        ));
+        assert!(matches!(
+            procedure.body[4].kind,
+            StatementKind::ProcedurePrototype(_)
+        ));
+        let StatementKind::Declare(Declaration::Inferred { initializer, .. }) =
+            &procedure.body[5].kind
+        else {
+            panic!("expected local")
+        };
+        let ExpressionKind::PositionalStructLiteral(literal) = &initializer.kind else {
+            panic!("expected positional literal")
+        };
+        assert!(literal.ty.is_some());
+        assert!(matches!(
+            literal.values.as_slice(),
+            [
+                Expression {
+                    kind: ExpressionKind::Integer(1),
+                    ..
+                },
+                Expression {
+                    kind: ExpressionKind::Integer(2),
+                    ..
+                }
+            ]
+        ));
+    }
+
+    #[test]
     fn malformed_and_unimplemented_aggregate_syntax_has_located_errors() {
         for source in [
             "Point :: struct { x: int;",
@@ -674,25 +973,22 @@ mod tests {
             "Point :: struct { x: [] ; }",
             "Point :: struct { x: [3 int; }",
             "Point :: struct { x: *; }",
-            "Point :: struct { x: #type int; }",
+            "Point :: struct { x: #type,unknown int; }",
             "Point :: struct { x: () ->; }",
             "Point :: struct { x: (int; }",
-            "Point :: struct { x: int = ---; }",
             "Point :: struct { x, y := 1; }",
-            "Point :: struct { x, y: int = 1; }",
+            "Point :: struct { x, y: int = ; }",
             "Point :: struct { using x, y: int; }",
-            "Point :: struct { x :: 1; }",
-            "Point :: struct #align 16 { x: int; }",
+            "Point :: struct #align { x: int; }",
             "Fruit :: enum { APPLE, BANANA }",
             "Fruit :: enum { APPLE = 1; }",
             "Fruit :: enum { APPLE;",
             "x := Point.{x=};",
-            "x := Point.{1,2};",
+            "x := Point.{1,x=2};",
             "x := .{x=1 y=2};",
             "x := 1.{x=2};",
             "x := Point.{x=1;",
-            "main :: () { p.x = 1; }",
-            "main :: () { Local :: struct { x: int; } }",
+            "main :: () { Local :: struct { x: int; } value := Local.{1,; }",
         ] {
             let error = file(source, &mut Symbols::default()).unwrap_err();
             assert!(error.location.span.start <= source.len(), "{source}");

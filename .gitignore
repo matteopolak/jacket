@@ -3,5 +3,6 @@
 /corpus/upstream/
 **/__pycache__/
 *.jai-output
+/rustc-ice-*.txt
 /TODO.md
 /HANDOFF.md

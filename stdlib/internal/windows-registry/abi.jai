@@ -1,0 +1,42 @@
+#assert OS == .WINDOWS;
+LSTATUS :: s32;
+REGSAM :: u32;
+RegCloseKey :: (hKey: HKEY) -> LSTATUS #foreign advapi;
+RegEnumKeyExA :: (hKey: HKEY, dwIndex: DWORD, lpName: *u8, lpcchName: *DWORD, lpReserved: *DWORD, lpClass: *u8, lpcchClass: *DWORD, lpftLastWriteTime: *FILETIME) -> LSTATUS #foreign advapi;
+RegGetValueA :: (hkey: HKEY, lpSubKey: *u8, lpValue: *u8, dwFlags: DWORD, pdwType: *DWORD, pvData: *void, pcbData: *DWORD) -> LSTATUS #foreign advapi;
+RegOpenKeyExA :: (hKey: HKEY, lpSubKey: *u8, ulOptions: DWORD, samDesired: REGSAM, phkResult: *HKEY) -> LSTATUS #foreign advapi;
+RegOpenKeyExW :: (hKey: HKEY, lpSubKey: *u16, ulOptions: DWORD, samDesired: REGSAM, phkResult: *HKEY) -> LSTATUS #foreign advapi;
+RegQueryValueExA :: (hkey: HKEY, lpValueName: *u8, lpReserved: *DWORD, lpType: *DWORD, lpData: *u8, lpcbData: *DWORD) -> LSTATUS #foreign advapi;
+RegQueryValueExW :: (hkey: HKEY, lpValueName: *u16, lpReserved: *DWORD, lpType: *DWORD, lpData: *u8, lpcbData: *DWORD) -> LSTATUS #foreign advapi;
+KEY_CREATE_SUB_KEY :: 0x4;
+KEY_ENUMERATE_SUB_KEYS :: 0x8;
+KEY_EXECUTE :: KEY_READ;
+KEY_NOTIFY :: 0x0010;
+KEY_QUERY_VALUE :: 0x1;
+KEY_READ :: 0x20019;
+KEY_SET_VALUE :: 0x2;
+KEY_WOW64_32KEY :: 0x0200;
+KEY_WOW64_64KEY :: 0x0100;
+KEY_WRITE :: 0x20006;
+RRF_RT_DWORD :: 0x00000018;
+RRF_RT_QWORD :: 0x00000048;
+RRF_RT_REG_DWORD :: 0x00000010;
+RRF_RT_REG_SZ :: 0x00000002;
+HKEY_CLASSES_ROOT :: cast(HKEY) 0x80000000;
+HKEY_CURRENT_CONFIG :: cast(HKEY) 0x80000005;
+HKEY_CURRENT_USER :: cast(HKEY) 0x80000001;
+HKEY_CURRENT_USER_LOCAL_SETTINGS :: cast(HKEY) 0x80000007;
+HKEY_DYN_DATA :: cast(HKEY) 0x80000006;
+HKEY_LOCAL_MACHINE :: cast(HKEY) 0x80000002;
+HKEY_PERFORMANCE_DATA :: cast(HKEY) 0x80000004;
+HKEY_PERFORMANCE_NLSTEXT :: cast(HKEY) 0x80000060;
+HKEY_PERFORMANCE_TEXT :: cast(HKEY) 0x80000050;
+HKEY_USERS :: cast(HKEY) 0x80000003;
+
+#scope_file
+W :: #import "Windows";
+
+HKEY :: W.HKEY;
+DWORD :: W.DWORD;
+FILETIME :: W.FILETIME;
+advapi :: #system_library "advapi32";

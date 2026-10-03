@@ -1,0 +1,721 @@
+{
+  "format": 1,
+  "provenance": "All fixtures are self-written acceptance contracts; none are extracted reference or upstream source.",
+  "review": "Positive fixtures are bounded pure generated programs with only fingerprinted self-written source dependencies, no foreign libraries, file/network effects or SDK dependencies. Runtime is a host behavior assertion, not VM isolation or a complete upstream project build.",
+  "cases": [
+    {
+      "id": "integer-control",
+      "source": "positive/integer-control.jai",
+      "sha256": "e5b783de9010c0669583afdd212f041dd09349ec7e3158d810f0cd741990102b",
+      "suite": "core",
+      "feature": "integers, loops, calls",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 30,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "short-circuit",
+      "source": "positive/short-circuit.jai",
+      "sha256": "35455da1f2cc22c23224db60520ef2597ca5c5b9b961569d7bf4f7d0aabbd290",
+      "suite": "core",
+      "feature": "boolean short circuit",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 12,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "recursion",
+      "source": "positive/recursion.jai",
+      "sha256": "556998ff164f5370cba55e210eb16de46367083a65b7e5a7100d2e378acc45cc",
+      "suite": "core",
+      "feature": "recursive procedures",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 21,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "float-conversion",
+      "source": "positive/float-conversion.jai",
+      "sha256": "41c274b0edabea7dcf2d9b83e802a7fda8cc1ee543fec188c6c2050d12b3fbf4",
+      "suite": "expanded",
+      "feature": "float arithmetic and explicit conversions",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 11,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "record-defaults",
+      "source": "positive/record-defaults.jai",
+      "sha256": "8e5e686aa0a31fe503ad5a405d1b872e30e3fd67dfd907d11e7321c9e571d538",
+      "suite": "expanded",
+      "feature": "records, default fields, compound places",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 15,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "fixed-array-copy",
+      "source": "positive/fixed-array-copy.jai",
+      "sha256": "19f91484fe32a4cd72f36ed7a9f2df70f10738d4d1396703e764e495700fdc69",
+      "suite": "expanded",
+      "feature": "fixed arrays and value copies",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 15,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "slice-alias",
+      "source": "positive/slice-alias.jai",
+      "sha256": "e1e11e49932c7bc1b662820d211f9129d6c205a3124359aed8bb20e4349cadfa",
+      "suite": "expanded",
+      "feature": "slice coercion and alias writes",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 20,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "string-bytes",
+      "source": "positive/string-bytes.jai",
+      "sha256": "9c6279df498c9351ec24bd93bc00c554a8c34ccf13e36342d906e0f0f01cc4a3",
+      "suite": "expanded",
+      "feature": "byte strings including embedded NUL",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 20,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "pointer-write",
+      "source": "positive/pointer-write.jai",
+      "sha256": "c33bac3b0e494ba5697fefd26cbe8f5b1005f2c9b948aa94b838fca091a67a5d",
+      "suite": "expanded",
+      "feature": "address, dereference, null",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 15,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "pointer-offset",
+      "source": "positive/pointer-offset.jai",
+      "sha256": "ca0a8f5f4240d0a60697da84dde6b4dbb06dc116968fa5ff8605b8ee8209da73",
+      "suite": "expanded",
+      "feature": "typed pointer arithmetic",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 23,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "polymorphic-call",
+      "source": "positive/polymorphic-call.jai",
+      "sha256": "a3b98c145a0e441dce59979932e44e6f770095d44c7a9ef72ca837c26798ce19",
+      "suite": "expanded",
+      "feature": "generic procedure specialization",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 18,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "overload-choice",
+      "source": "positive/overload-choice.jai",
+      "sha256": "833f6f0750dd15c2b92022d3ba241eba1437250736cd0f3d9e41b19f7a639813",
+      "suite": "expanded",
+      "feature": "same-name typed overload resolution",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 26,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "named-default-call",
+      "source": "positive/named-default-call.jai",
+      "sha256": "2aa8ab06586ef9b8c2f0872c6df12578839f6ba9284f1194efcb0252b0d2dbd8",
+      "suite": "expanded",
+      "feature": "named arguments and defaults",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 26,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "multiple-results",
+      "source": "positive/multiple-results.jai",
+      "sha256": "609647cd010703e79857d80b95a0637e2262e1ad83c013ffefd37125d72d2750",
+      "suite": "expanded",
+      "feature": "multiple results and tuple declaration",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 19,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "enum-values",
+      "source": "positive/enum-values.jai",
+      "sha256": "3e0b89b559d0a5be6160abc3558b929e129dab9192aab82feff8ab15b9e75738",
+      "suite": "expanded",
+      "feature": "enum namespace and underlying casts",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 11,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "union-storage",
+      "source": "positive/union-storage.jai",
+      "sha256": "8096994a43851dda2e0c9dd1cb41badf10422ebb9e10678437a43437a6d63222",
+      "suite": "expanded",
+      "feature": "union storage overlay",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 27,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "using-fields",
+      "source": "positive/using-fields.jai",
+      "sha256": "5b38f099ba45208eb3843ebd0c0dd438af4fb667871be9bef9c29e76986d31ad",
+      "suite": "expanded",
+      "feature": "using field promotion",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 31,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "compile-time-call",
+      "source": "positive/compile-time-call.jai",
+      "sha256": "5828dd1e90792889d0750167b8a4a823fac0e42644302ac21b310db6524c628f",
+      "suite": "expanded",
+      "feature": "pure compile-time procedure execution",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 21,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "reflection-layout",
+      "source": "positive/reflection-layout.jai",
+      "sha256": "11e466eb46f4361f70dd5b7f2d4665e327bece6356eb8308e16ca684e4edc7c0",
+      "suite": "expanded",
+      "feature": "size_of aggregate layout",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 8,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "defer-return",
+      "source": "positive/defer-return.jai",
+      "sha256": "0b1470e9edca30a05d42e6074533dd4876a12131e024dbbfc71908fbeb062606",
+      "suite": "expanded",
+      "feature": "defer and return capture",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 9,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "unknown-runtime-name",
+      "source": "negative/unknown-runtime-name.jai",
+      "sha256": "7b54010dd6c6b8e1ca14419e15a7900b6bf7e53a60f1cbfbe7e49a7e6f5543de",
+      "suite": "negative",
+      "feature": "unknown-runtime-name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown name 'missing_runtime'"
+      }
+    },
+    {
+      "id": "unknown-compile-time-call",
+      "source": "negative/unknown-compile-time-call.jai",
+      "sha256": "58a982ae755dde5e478e15cd48aa8e80d41e13cdaabd43388048dcdde69308ab",
+      "suite": "negative",
+      "feature": "unknown-compile-time-call",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown name 'missing_compile_time'"
+      }
+    },
+    {
+      "id": "unknown-reflection-call",
+      "source": "negative/unknown-reflection-call.jai",
+      "sha256": "f9f13b66c0418ba4361499f27bb9fd4281f4f94d70eb34e66a59836471394fd3",
+      "suite": "negative",
+      "feature": "unknown-reflection-call",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown name 'invented_reflection'"
+      }
+    },
+    {
+      "id": "unknown-compiler-call",
+      "source": "negative/unknown-compiler-call.jai",
+      "sha256": "811b58d64f845dc69fa47026f8166afe45bc0f1a0a626cddc9d2b576f8dfa067",
+      "suite": "negative",
+      "feature": "unknown-compiler-call",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown name 'compiler_invented_effect'"
+      }
+    },
+    {
+      "id": "unknown-module-member",
+      "source": "negative/unknown-module-member.jai",
+      "sha256": "de36fac1e9924bee4235f40903e136f1a91213d49ec7e43d72cbb7c8b0ea1aa7",
+      "suite": "negative",
+      "feature": "unknown-module-member",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown name 'absent_module'"
+      }
+    },
+    {
+      "id": "unknown-named-argument",
+      "source": "negative/unknown-named-argument.jai",
+      "sha256": "bb7cafe39fb1de38e3708f8e2acf002a2faae00357738f31c45baa4507169de8",
+      "suite": "negative",
+      "feature": "unknown-named-argument",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown named argument"
+      }
+    },
+    {
+      "id": "non-place-assignment",
+      "source": "negative/non-place-assignment.jai",
+      "sha256": "e1c19038dd4f2f80fb4849dd500373e75a8b1e0496c948d5fd1e844dd920d88e",
+      "suite": "negative",
+      "feature": "non-place-assignment",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "parse": "assignment requires a place"
+      }
+    },
+    {
+      "id": "unterminated-string",
+      "source": "negative/unterminated-string.jai",
+      "sha256": "ebae82b9c34f9710bf2e50f53b5124531c405b339ae1f61476fe807c0f018905",
+      "suite": "negative",
+      "feature": "unterminated-string",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "lex": "unterminated string"
+      }
+    },
+    {
+      "id": "reflection-initializer",
+      "source": "positive/reflection-initializer.jai",
+      "sha256": "66de80ef1b56ef469b263e344ba7efa481d27550288f67c89b63f1b9bb4acf2e",
+      "suite": "expanded",
+      "feature": "reflection, type_of and initializer_of",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 16,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "source-code-capture",
+      "source": "positive/source-code-capture.jai",
+      "sha256": "9ca02fbea63ff62e2a2155f1283fb91077a7f20a4366b51d25c95c46b27fc95d",
+      "suite": "expanded",
+      "feature": "captured lexical scope during source insertion",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 5,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "conditional-source",
+      "source": "positive/conditional-source.jai",
+      "sha256": "d65f295e8a9d5f68bfbf8845ca8484fbe3d59df36eaf94314c5e897e263c0a29",
+      "suite": "expanded",
+      "feature": "conditional source selection",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 13,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "module-instance-parameters",
+      "source": "positive/module-instance-parameters.jai",
+      "sha256": "b4eefd6a75e8675692bb06e76bdec8ef1057ce3aa390be6befdcd04d57b1a898",
+      "suite": "expanded",
+      "feature": "separate module instances with parameters",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [
+        "self-written parameterized module"
+      ],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 22,
+        "stdout": "",
+        "stderr": ""
+      },
+      "support_sources": [
+        {
+          "source": "positive/support/scaled.jai",
+          "sha256": "7ab460e45c061d81295d1474791d43d398cef850728bc9f80ab898d3830d2a7b"
+        }
+      ]
+    },
+    {
+      "id": "compile-time-expression",
+      "source": "positive/compile-time-expression.jai",
+      "sha256": "5a7455676ebf81ae19dd7ca342913cf80a1ecfd14cc5d3d0c0c083ceaafb521d",
+      "suite": "expanded",
+      "feature": "pure compile-time result inside runtime expression",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 21,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "empty-descriptors",
+      "source": "positive/empty-descriptors.jai",
+      "sha256": "122318b43eee9a214e6de989ed286dd282d9d60edc6395b1fe9bfe841b8fb2fe",
+      "suite": "expanded",
+      "feature": "zero initialized slice, dynamic array and string descriptors",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 14,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "case-selection",
+      "source": "positive/case-selection.jai",
+      "sha256": "b9c40a0103d87d6a4ad2b9c398eb42bb4cfbe4f68a51d14639fe73e9ebc67558",
+      "suite": "expanded",
+      "feature": "case branch and default control flow",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 26,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "unknown-file-directive",
+      "source": "negative/unknown-file-directive.jai",
+      "sha256": "9a37697cf9f16e1bdd140934e63b1784ce65edf267b128bc179f2039f3c1987d",
+      "suite": "negative",
+      "feature": "unknown-file-directive",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "parse": "unknown directive '#invented_file_directive'"
+      }
+    },
+    {
+      "id": "unknown-compile-directive",
+      "source": "negative/unknown-compile-directive.jai",
+      "sha256": "0ea5cd10af19ce9b37575d66979de85da43df142874eeeeb5327d1a0997ccf29",
+      "suite": "negative",
+      "feature": "unknown-compile-directive",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "parse": "unknown directive '#invented_compile_directive'"
+      }
+    },
+    {
+      "id": "ordered-results",
+      "source": "positive/ordered-results.jai",
+      "sha256": "9b1c09682cd4df0b9016a29e8ad210f85c05343234d0048375d6953c8d604789",
+      "suite": "expanded",
+      "feature": "source ordered named returns, parallel assignment and single call evaluation",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 22,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "context-threaded-call",
+      "source": "positive/context-threaded-call.jai",
+      "sha256": "8f718382259e58fe2bc3c685ab1c7b06e6a378596ab495f4f0993af86e32aeaf",
+      "suite": "expanded",
+      "feature": "implicit context threading across ordinary procedure calls",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 42,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "c-callback-context",
+      "source": "positive/c-callback-context.jai",
+      "sha256": "d0f8580a2dc0d7dee873c01dc75f82463994480940f0111b1b8610c12866209d",
+      "suite": "expanded",
+      "feature": "C ABI callback with explicit context establishment",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 42,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "baked-record-defaults",
+      "source": "positive/baked-record-defaults.jai",
+      "sha256": "aafaf997f7132ce0e1a2be81cd0e03fb2943adc4d55238b0c492391eb8f0361e",
+      "suite": "expanded",
+      "feature": "baked typed aggregate defaults",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 26,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "contextual-overload",
+      "source": "positive/contextual-overload.jai",
+      "sha256": "725e5451f14bfd274bb3546c3f74246d2760a1a9be5a3e02c0116ed044aeb23f",
+      "suite": "expanded",
+      "feature": "contextual aggregate overload selection",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 13,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "generic-intrinsic",
+      "source": "positive/generic-intrinsic.jai",
+      "sha256": "44cd52a21e7d076088ec3bd8a2ede733c185936e51a72bd1ead3824d16b8e807",
+      "suite": "expanded",
+      "feature": "polymorphic compare-and-swap intrinsic",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 7,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "operator-overloads",
+      "source": "positive/operator-overloads.jai",
+      "sha256": "fbaeabd39d1267e3b0dfea2abb8ce8270e11bcbf2fa1c2eb1a79f5f0a8a1a78e",
+      "suite": "expanded",
+      "feature": "custom operator overloads, compound assignment and symmetric operands",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 29,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "operator-index-updates",
+      "source": "positive/operator-index-updates.jai",
+      "sha256": "5a4f1637baaba4636f26e42b81699790ef3b1b6e937f1d8aa3bbb55d76e55d4a",
+      "suite": "expanded",
+      "feature": "operator getter/setter compound updates and evaluation order",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 11,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "operator-record-floats",
+      "source": "positive/operator-record-floats.jai",
+      "sha256": "eb614dffda31e9ec13bd435a45d1802564308468b4ab041e0370bd964ba238d2",
+      "suite": "expanded",
+      "feature": "floating record and symmetric operator overloads",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 24,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  ]
+}

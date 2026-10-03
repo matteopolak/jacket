@@ -39,6 +39,7 @@ class Evidence:
     exit_code: int | None = None
     diagnostic: str = ''
     output_sha256: str | None = None
+    environment: dict[str, str] = field(default_factory=dict)
 
 @dataclass
 class Source:
@@ -136,35 +137,88 @@ def classify(returncode: int, diagnostic: str, expected: str | None) -> Status:
     return Status.PASSED if returncode == 0 else Status.FAILED
 
 
+def module_search_paths(source: Source) -> list[Path]:
+    base = ROOT / 'reference' if source.project == 'reference' else ROOT / 'corpus/upstream' / source.project.replace('/', '--')
+    candidates = []
+    for parent in source.path.resolve().parents:
+        if not parent.is_relative_to(base.resolve()):
+            break
+        actual_names = {child.name for child in parent.iterdir()}
+        for name in ('modules', 'Modules'):
+            candidate = parent / name
+            if name in actual_names and candidate.is_dir():
+                candidates.append(candidate.resolve())
+    if standard.is_dir():
+        candidates.append(standard.resolve())
+    return list(dict.fromkeys(candidates))
+
+
+def fresh_artifact_path(output: Path, source: Source, compiler: Path, artifact_root: Path | None) -> Path:
+    """Only remove the exact generated leaf inside the caller's scratch root."""
+    root = (artifact_root or output.parent).resolve()
+    parent = output.parent.resolve()
+    if parent != root or not output.name or output.name in ('.', '..'):
+        raise ValueError('artifact must be a direct child of its owned scratch root')
+    scratch = Path(tempfile.gettempdir()).resolve()
+    target = (ROOT / 'target').resolve()
+    if not (root.is_relative_to(scratch) or root.is_relative_to(target)):
+        raise ValueError('artifact scratch root must be temporary or repository target storage')
+    path = parent / output.name
+    aliases_input = path.exists() and any(candidate.exists() and path.samefile(candidate)
+                                         for candidate in (source.path, compiler))
+    if path.is_symlink() or aliases_input or path.resolve() in (source.path.resolve(), compiler.resolve()):
+        raise ValueError('artifact path aliases source/compiler or is a symlink')
+    for forbidden in (ROOT / 'reference', ROOT / 'corpus', ROOT / 'vendor'):
+        if path.is_relative_to(forbidden.resolve()):
+            raise ValueError('artifact cannot replace source corpus')
+    if path.exists() and not path.is_file():
+        raise ValueError('artifact path must be a regular file')
+    path.unlink(missing_ok=True)
+    return path
+
+
 def execute(compiler: Path, source: Source, stage: Stage, timeout: float,
-            output: Path, expected: str | None = None, *, library: bool = False) -> Evidence:
+            output: Path, expected: str | None = None, *, library: bool = False, bootstrap: str = 'off', artifact_root: Path | None = None) -> Evidence:
     action = {Stage.LEX: 'lex', Stage.PARSE: 'parse', Stage.CHECK: 'check', Stage.CODEGEN: 'emit-llvm', Stage.BUILD: 'build'}[stage]
     if stage == Stage.CHECK and library:
         action = 'check-library'
     command = [str(compiler), action, str(source.path)]
     if stage in (Stage.CODEGEN, Stage.BUILD):
         command.append(str(output))
+    recorded_environment = {'JAI_RS_MODULE_PATH': os.pathsep.join(str(p) for p in module_search_paths(source)),
+                            'JAI_RS_PRELOAD': bootstrap, 'JAI_RS_RUNTIME_SUPPORT': 'off'}
+    if bootstrap == 'search':
     try:
+        if stage in (Stage.CODEGEN, Stage.BUILD):
+            output = fresh_artifact_path(output, source, compiler, artifact_root)
+            command[-1] = str(output)
         environment = os.environ.copy()
+        environment.pop('JAI_RS_STDLIB', None)
+        environment.update(recorded_environment)
         if stage == Stage.BUILD:
             # Never inherit a user-supplied backend pointing at corpus tooling.
             environment['JAI_RS_CLANG'] = '/usr/bin/clang'
+            recorded_environment['JAI_RS_CLANG'] = '/usr/bin/clang'
         run = subprocess.run(command, capture_output=True, timeout=timeout, cwd=output.parent, env=environment)
         # Reports retain diagnostics only, never compiler stdout containing source/IR.
         diagnostic = run.stderr.decode('utf-8', errors='replace')[:8192]
         status = classify(run.returncode, diagnostic, expected)
-        output_hash = digest(output) if run.returncode == 0 and output.is_file() else None
+        output_hash = digest(output) if stage in (Stage.CODEGEN, Stage.BUILD) and run.returncode == 0 and output.is_file() and not output.is_symlink() else None
         if stage in (Stage.CODEGEN, Stage.BUILD) and status == Status.PASSED and not output_hash:
-            return Evidence(Status.FAILED, 'compiler did not produce output', command, run.returncode, diagnostic)
-        return Evidence(status, '', command, run.returncode, diagnostic, output_hash)
+            return Evidence(Status.FAILED, 'compiler did not produce output', command, run.returncode, diagnostic, environment=recorded_environment)
+        if stage == Stage.BUILD and status == Status.PASSED and not os.access(output, os.X_OK):
+            return Evidence(Status.FAILED, 'build artifact is not executable', command, run.returncode, diagnostic, output_hash, recorded_environment)
+        return Evidence(status, '', command, run.returncode, diagnostic, output_hash, recorded_environment)
+    except ValueError as error:
+        return Evidence(Status.BLOCKED, str(error), command, environment=recorded_environment)
     except subprocess.TimeoutExpired:
-        return Evidence(Status.FAILED, 'compiler timeout', command)
+        return Evidence(Status.FAILED, 'compiler timeout', command, environment=recorded_environment)
     except OSError as error:
-        return Evidence(Status.BLOCKED, str(error), command)
+        return Evidence(Status.BLOCKED, str(error), command, environment=recorded_environment)
 
 
 def evaluate(source: Source, case: dict, compiler: Path, through: Stage, timeout: float,
-             output: Path) -> Result:
+             output: Path, *, bootstrap: str = 'off') -> Result:
     stages = {s.value: Evidence() for s in Stage}
     result = Result(source.id, str(source.path), source.sha256, case.get('kind', 'support-file'),
                     case.get('target', 'unspecified'), case.get('dependencies', []), stages)
@@ -180,7 +234,7 @@ def evaluate(source: Source, case: dict, compiler: Path, through: Stage, timeout
             break
         expected = case.get('negative', {}).get(stage.value)
         evidence = execute(compiler, source, stage, timeout, output, expected,
-                           library=case.get('kind') == 'module')
+                           library=case.get('kind', 'support-file') in ('module', 'support-file'), bootstrap=bootstrap, artifact_root=output.parent)
         stages[stage.value] = evidence
         if evidence.status != Status.PASSED:
             break
@@ -197,20 +251,35 @@ def compiler_fingerprint(root: Path, compiler: Path) -> dict:
     paths += sorted((root / 'crates').rglob('Cargo.toml'))
     records = {str(p.relative_to(root)): digest(p) for p in paths if p.is_file()}
     return {'binary': str(compiler), 'binary_sha256': digest(compiler), 'inputs': records,
-            'inputs_sha256': hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()}
+            'inputs_sha256': hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest(),
+            'inputs_provenance': 'observed-worktree', 'build_inputs_verified': False}
+
+
+def annotate_observed_compiler_inputs(report: dict) -> None:
+    """Clarify an existing capture without replacing its originally observed hashes."""
+    compiler = report['compiler']
+    binary = Path(compiler['binary'])
+    if not binary.is_file() or digest(binary) != compiler['binary_sha256']:
+        raise ValueError('cannot annotate compiler inputs: recorded binary is missing or changed')
+    compiler['inputs_provenance'] = 'observed-worktree'
+    compiler['build_inputs_verified'] = False
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compiler', type=Path, default=ROOT / 'target/debug/jai-rs')
+    parser.add_argument('--frontend-adapter', action='store_true', help='label isolated frontend adapter evidence; only lex/parse allowed')
     parser.add_argument('--manifest', type=Path, default=ROOT / 'corpus/acceptance.json')
     parser.add_argument('--report', type=Path, default=ROOT / 'artifacts/corpus-acceptance.json')
     parser.add_argument('--through', type=Stage, choices=[Stage.LEX, Stage.PARSE, Stage.CHECK, Stage.CODEGEN, Stage.BUILD], default=Stage.CHECK)
+    parser.add_argument('--bootstrap', choices=['off', 'search'], default='off', help='off: diagnostic checking without Preload; search: real reference stdlib Preload')
     parser.add_argument('--all', action='store_true', help='attempt every inventoried source, including support files; not project build coverage')
     parser.add_argument('--select', action='append', default=[], help='exact source id; may repeat')
     parser.add_argument('--timeout', type=float, default=10)
     args = parser.parse_args()
     compiler = args.compiler.resolve()
+    if args.frontend_adapter and args.through not in (Stage.LEX, Stage.PARSE):
+        parser.error('frontend adapter cannot establish check/codegen/build acceptance')
     if not compiler.is_relative_to((ROOT / 'target').resolve()) or compiler.name != 'jai-rs':
         parser.error('compiler must be the repository-built target/.../jai-rs')
     if not compiler.is_file():
@@ -235,19 +304,30 @@ def main() -> int:
         for index, source in enumerate(sources):
             if source.id in selected:
                 results.append(evaluate(source, cases.get(source.id, {}), compiler, args.through,
-                                        args.timeout, Path(directory) / f'{index}.output'))
+                                        args.timeout, Path(directory) / f'{index}.output', bootstrap=args.bootstrap))
             else:
                 results.append(Result(source.id, str(source.path), source.sha256, cases.get(source.id, {}).get('kind', 'support-file'),
                                       cases.get(source.id, {}).get('target', 'unspecified'), cases.get(source.id, {}).get('dependencies', []),
                                       {s.value: Evidence(Status.NOT_RUN, 'not selected') for s in Stage}))
-    payload = {'format': 1, 'compiler': compiler_fingerprint(ROOT, compiler),
+    fingerprint = compiler_fingerprint(ROOT, compiler)
+    fingerprint['evidence_kind'] = 'isolated-frontend-adapter' if args.frontend_adapter else 'integrated-cli'
+    if args.frontend_adapter:
+        for name in ['artifacts/frontend-adapter/Cargo.toml', 'artifacts/frontend-adapter/Cargo.lock', 'artifacts/frontend-adapter/src/main.rs']:
+            path = ROOT / name
+            if path.is_file():
+                fingerprint['inputs'][name] = digest(path)
+        fingerprint['inputs_sha256'] = hashlib.sha256(json.dumps(fingerprint['inputs'], sort_keys=True).encode()).hexdigest()
+    payload = {'format': 1, 'compiler': fingerprint,
                'manifest_sha256': digest(args.manifest), 'input_manifests': {p: digest(ROOT / p) for p in ['corpus/reference-inputs.json', 'corpus/upstreams.json']},
                'source_inventory_sha256': hashlib.sha256(json.dumps([(s.id, s.sha256) for s in sources]).encode()).hexdigest(),
-               'inventory': len(sources), 'selected': len(selected), 'through': args.through.value,
+               'inventory': len(sources), 'selected': len(selected), 'through': args.through.value, 'bootstrap': args.bootstrap,
                'totals': totals(results), 'results': [asdict(r) for r in results],
                'project_build_successes': 0,
                'limitations': ['support-file checks are not project builds', 'no runtime or upstream build scripts executed',
-                               'module roots and target SDK selection are not implemented by CLI', 'manifest host_build_reviewed requires audited pure generated IR and trusted system backend']}
+                               'CLI check uses NoEffects compile-time policy; checking does not establish metaprogram/native effects or runtime behavior', 'target SDK selection is not implemented by CLI', 'manifest host_build_reviewed requires audited pure generated IR and trusted system backend']}
+    payload['limitations'].insert(0, 'Bootstrap profile: ' + args.bootstrap + '; off is diagnostic checking only without Preload; search selects actual reference stdlib Preload. Runtime_Support remains disabled and runtime acceptance unverified.')
+    if args.frontend_adapter:
+        payload['limitations'].insert(0, 'Isolated frontend adapter: syntax evidence only, not integrated CLI acceptance; see compiler evidence_kind and adapter source fingerprints.')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps(payload, indent=2) + '\n')
     print(json.dumps({'inventory': len(sources), 'selected': len(selected), 'totals': payload['totals'], 'report': str(report)}))

@@ -1,8 +1,40 @@
 //! Type identities and checked values shared by compiler phases.
+mod build;
+pub use build::*;
+mod floats;
+pub use floats::*;
+mod operators;
+pub use operators::*;
+mod cast_modifiers;
+pub use cast_modifiers::{CastModifier, CastModifiers, CastModifiersError};
+mod storage_bitcast;
+pub use storage_bitcast::{StorageBitcast, StorageBitcastError, StorageBitcastStrength};
+mod safety_checks;
+pub use safety_checks::CheckMode;
+mod inline_hints;
+pub use inline_hints::InlineHint;
+mod execution_phase;
+pub use execution_phase::ProcedureExecution;
+mod debug_policy;
+pub use debug_policy::DebugPolicy;
 mod registry;
 pub use registry::*;
+mod any;
+pub use any::*;
+mod allocator;
+pub use allocator::*;
+mod runtime_types;
+pub use runtime_types::*;
+mod runtime_info;
+pub use runtime_info::*;
 mod layout;
 pub use layout::*;
+mod reflection;
+pub use reflection::*;
+mod record_reflection;
+pub use record_reflection::*;
+mod code_values;
+pub use code_values::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IntegerType {
@@ -60,13 +92,15 @@ pub enum ReturnType {
     Void,
     Value(ScalarType),
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CastMode {
     Checked,
     Unchecked,
+    Truncate,
+    Force(StorageBitcastStrength),
 }
 /// A normalized fixed-width bit pattern. Construction states whether loss is allowed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Integer {
     ty: IntegerType,
     bits: u64,

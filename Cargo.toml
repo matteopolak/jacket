@@ -3,12 +3,15 @@ resolver = "3"
 members = [
     "crates/jai-source",
     "crates/jai-types",
+    "crates/jai-ir",
+    "crates/jai-vm",
     "crates/jai-lexer",
     "crates/jai-syntax",
     "crates/jai-modules",
     "crates/jai-eval",
     "crates/jai-sema",
     "crates/jai-codegen",
+    "crates/jai-llvm",
     "crates/jai-driver",
     "crates/jai-cli",
     "crates/jai-bench",
@@ -24,12 +27,16 @@ jai-modules = { path = "crates/jai-modules" }
 jai-driver = { path = "crates/jai-driver" }
 jai-source = { path = "crates/jai-source" }
 jai-types = { path = "crates/jai-types" }
+jai-ir = { path = "crates/jai-ir" }
+jai-vm = { path = "crates/jai-vm" }
 jai-lexer = { path = "crates/jai-lexer" }
 jai-syntax = { path = "crates/jai-syntax" }
 jai-eval = { path = "crates/jai-eval" }
 jai-sema = { path = "crates/jai-sema" }
 jai-codegen = { path = "crates/jai-codegen" }
+jai-llvm = { path = "crates/jai-llvm" }
 divan = "0.1.21"
+sha2 = { version = "0.11", default-features = false }
 inkwell = { version = "0.10.0", default-features = false, features = ["llvm22-1-prefer-dynamic"] }
 
 [workspace.lints.rust]
@@ -37,3 +44,15 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
+
+[profile.rust-debug]
+inherits = "dev"
+debug = 2

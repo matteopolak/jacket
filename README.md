@@ -4,7 +4,7 @@
 
 An independent Jai compiler written in Rust. The goal is to compile existing Jai programs and libraries, with a clean implementation that is easy to test, understand, and improve.
 
-**Early development:** small programs compile and run today. The standard library and larger Jai projects still need substantial language support before they can build.
+**In development:** the compiler runs a growing set of Jai programs, including records, generics and compile-time code. Full standard-library and larger-project builds are still pending.
 
 ```jai
 sum_to :: (n: int) -> int {
@@ -25,27 +25,45 @@ main :: () -> int {
 
 | Area | Status |
 | --- | --- |
-| Signed/unsigned integers and Booleans | All eight integer widths supported |
-| Procedures, arguments, return values, recursion | Supported; scalar constant defaults and named arguments |
-| Local variables, nested scopes, scalar casts | Supported |
-| Scalar constants and global variables | Supported with constant global initializers |
-| Arithmetic, comparisons, compound assignment | Supported |
-| `if`, `while`, short-circuit `&&` and `\|\|` | Supported |
-| `ifx` conditional values | Scalar expression arms supported |
-| Scalar case statements, `#through`, Boolean `#complete` | Supported |
-| Integer range loops, reverse iteration, named `break`/`continue` | Supported |
-| `defer` on scope exits and returns | Supported for the scalar subset |
-| Native compilation | Small programs tested on ARM64 macOS and x86_64 Linux |
-| Strings, arrays, pointers, structs, enums | Not implemented in compilation yet |
-| Recursive top-level literal `#load` | Driver resolves relative paths, deduplicates files, rejects cycles, and maps diagnostics |
-| Imports and module/file visibility | Unparameterized modules supported |
-| Generics, overloads, parameterized modules | Not implemented yet |
-| Compile-time execution and compiler APIs | Not implemented yet |
-| Full standard library and reference examples | Not compiling yet |
+| Numbers and Booleans | Integer widths, floating point, casts and comparisons tested |
+| Strings, arrays and pointers | VM and native tests; descriptor copies, iteration and pointer operations |
+| Records, unions and enums | Nominal types, defaults, copies, packed layouts and static pointer data tested |
+| Procedures | Named/default arguments, multiple results, callbacks and recursion tested |
+| Generics and overloads | Procedure and record specialization tested; remaining forms need coverage |
+| Context and `Any` | Context overrides, variadic forwarding and value boxing tested |
+| Control flow | Conditions, cases, loops, named exits and lexical `defer` tested |
+| Modules | Loads, scoped imports, visibility and scalar/enum/type parameters tested; advanced parameters in progress |
+| Compile-time code | Source `#run`, reflection and code insertion tested; broader metaprogramming in progress |
+| Compiler APIs | Workspace scheduling and selected CLI artifacts tested; broader API integration in progress |
+| Foreign calls and native builds | LLVM library backend; host ABI tests and selected system-library calls |
+| Debugging | Line tables, locals, records and recursive pointers tested |
+| Compiler bootstrap | Independently authored source prelude type-checks; runtime integration in progress |
+| Independent standard library | Authored modules included; full compilation and behavior testing pending |
+| Reference examples | Source checks in progress; complete coverage pending |
 | Focus, Jails, jaison, and other recent projects | Source checks only; full builds pending |
-| Windows, mobile, WebAssembly | Planned; runtime compatibility unverified |
+| Windows, mobile, WebAssembly | C ABI and object tests; runtime compatibility unverified |
 
-The lexer currently accepts **702 local reference files** and **1,440 files from seven recent upstream projects**. These checks test reading and tokenizing source, not successful compilation. [Compatibility coverage](docs/reference-compatibility.md) explains the remaining work.
+The compatibility corpus contains **702 local reference files** and **1,440 files from seven recent upstream projects**. The latest recorded compiler parses **1,784 files** and checks **101 support files** with the included Preload. A separate feature snapshot passes all **36 positive contracts** through native execution, with **10 expected rejections** also passing. Full library and project builds remain pending. The table describes tested features in the working tree; [compatibility coverage](docs/reference-compatibility.md) explains the remaining work.
+
+For example, record specialization and compile-time execution can work together:
+
+```jai
+Node :: struct(T: Type) {
+    next: *Node(T);
+    value: T = 19;
+}
+
+answer :: () -> int { return 23; }
+
+main :: () -> int {
+    node: Node(int);
+    return node.value + #run answer(); // Exit status: 42
+}
+```
+
+This example is included as [compile-time-record.jai](examples/compile-time-record.jai).
+
+An independently authored standard library is included in [`stdlib/`](stdlib/). Its [coverage report](docs/stdlib/api-coverage.md) records implemented APIs, source checks, and the remaining work.
 
 ## Try it
 
@@ -83,7 +101,6 @@ The local Jai distribution helps establish language behavior. Newer, maintained 
 
 Tests cover rejected programs and the behavior of newly compiled programs. Benchmarks measure compiler time and Rust allocations so performance work can be based on measurements. Unsupported features produce errors instead of counting as successful builds.
 
-The compiler implementation and standard library are maintained here.
 
 ## Working on the compiler
 
@@ -91,13 +108,13 @@ For a public checkout:
 
 ```sh
 cargo test --workspace --locked -- \
-  --skip lex_entire_reference_without_executing_it \
-  --skip supplied_executable_is_rejected_before_backend_execution
+  --skip lex_entire_reference_without_executing_it
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo bench -p jai-bench --bench compiler --locked -- --test --skip reference_lex
+cargo bench -p jai-bench --bench vm --locked -- --test
 ```
 
-The two skipped tests require the separately supplied reference files. Local reference checks run them without those filters.
+The skipped lexer test requires the separately supplied reference files. Native-path rejection tests run in public checkouts too. Local reference checks run without the lexer filter.
 
 Start with the [developer guide](docs/README.md) for architecture, language coverage, benchmarks, and dependency policy. Rustfmt keeps code formatting consistent, and Cargo enforces a minimum dependency release age of 14 days.

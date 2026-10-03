@@ -1,0 +1,10 @@
+--- a/rpmalloc.c
++++ b/rpmalloc.c
+@@ -1940,0 +1941,7 @@
++		/* Heap storage is span-sized, but every mapping must contain whole
++		 * configured pages, including when several spans fit in one page. */
++		if (block_size % _memory_page_size) {
++			block_size += _memory_page_size - (block_size % _memory_page_size);
++			span_count = block_size / _memory_span_size;
++		}
++

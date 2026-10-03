@@ -1,0 +1,10 @@
+#load "../internal/media/mpeg/buffer.jai";
+#load "../internal/media/mpeg/pixels.jai";
+#load "../internal/media/mpeg/tables.jai";
+#load "../internal/media/mpeg/idct.jai";
+#load "../internal/media/mpeg/video.jai";
+#load "../internal/media/mpeg/motion.jai";
+#load "../internal/media/mpeg/reconstruction.jai";
+#load "../internal/media/mpeg/synthesis.jai";
+#load "../internal/media/mpeg/audio.jai";
+#load "../internal/media/mpeg/program.jai";
