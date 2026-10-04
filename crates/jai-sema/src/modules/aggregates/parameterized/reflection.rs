@@ -105,7 +105,8 @@ pub(super) fn record_body_metadata(
         unsupported_members: record.members.iter().any(|member| {
             !matches!(
                 member,
-                syntax::RecordMember::Field(_)
+                syntax::RecordMember::Using(_)
+                    | syntax::RecordMember::Field(_)
                     | syntax::RecordMember::Placement(_)
                     | syntax::RecordMember::AnonymousRecord(_)
                     | syntax::RecordMember::DefaultOverride { .. }

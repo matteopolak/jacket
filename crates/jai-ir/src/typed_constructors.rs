@@ -80,6 +80,17 @@ pub struct TypedConstructorDefaultScope {
     pub declaration: Option<DeclarationId>,
     pub identity: SourceProcedureIdentity,
 }
+/// Inputs to a checked initializer binding, kept together when rebinding the
+/// same source declaration into another type/procedure arena.
+#[derive(Clone, Debug)]
+pub struct TypedConstructorBinding {
+    pub constructor: TypedConstructorSource,
+    pub initializer: TypedConstructorSource,
+    pub scope: TypedConstructorDefaultScope,
+    pub storage: TypeId,
+    pub pointer: TypeId,
+    pub parameter: Option<ParameterId>,
+}
 #[derive(Clone, Debug)]
 pub enum TypedConstructorInitialization {
     Uninitialized,
@@ -105,14 +116,17 @@ struct InitializationStep {
 }
 impl CheckedTypedConstructorInitializationStep {
     pub fn from_checked_binding(
-        constructor: TypedConstructorSource,
-        initializer: TypedConstructorSource,
-        scope: TypedConstructorDefaultScope,
-        storage: TypeId,
-        pointer: TypeId,
-        parameter: Option<ParameterId>,
+        binding: TypedConstructorBinding,
         types: &dyn TypeView,
     ) -> Result<Self, TypedConstructorError> {
+        let TypedConstructorBinding {
+            constructor,
+            initializer,
+            scope,
+            storage,
+            pointer,
+            parameter,
+        } = binding;
         let result = Self(Arc::new(InitializationStep {
             source_issuance: Arc::new(()),
             constructor,
@@ -154,30 +168,17 @@ impl CheckedTypedConstructorInitializationStep {
     }
     pub fn rebind_checked_binding(
         &self,
-        constructor: TypedConstructorSource,
-        initializer: TypedConstructorSource,
-        scope: TypedConstructorDefaultScope,
-        storage: TypeId,
-        pointer: TypeId,
-        parameter: Option<ParameterId>,
+        binding: TypedConstructorBinding,
         types: &dyn TypeView,
     ) -> Result<Self, TypedConstructorError> {
-        if !self.constructor().same_definition(&constructor)
-            || !self.initializer().same_definition(&initializer)
-            || !same_default_scope(self.default_scope(), &scope)
-            || self.initializer_parameter() != parameter
+        if !self.constructor().same_definition(&binding.constructor)
+            || !self.initializer().same_definition(&binding.initializer)
+            || !same_default_scope(self.default_scope(), &binding.scope)
+            || self.initializer_parameter() != binding.parameter
         {
             return Err(TypedConstructorError::ChangedSource);
         }
-        let mut rebound = Self::from_checked_binding(
-            constructor,
-            initializer,
-            scope,
-            storage,
-            pointer,
-            parameter,
-            types,
-        )?;
+        let mut rebound = Self::from_checked_binding(binding, types)?;
         Arc::get_mut(&mut rebound.0)
             .expect("new constructor initialization issuance")
             .source_issuance = self.0.source_issuance.clone();
@@ -205,10 +206,9 @@ impl CheckedTypedConstructorInitializationStep {
         if let TypedConstructorOwner::Procedure {
             signature, ..
         } = self.constructor().owner()
+            && types.procedure_definition(signature)?.results.as_ref() != [self.pointer_type()]
         {
-            if types.procedure_definition(signature)?.results.as_ref() != [self.pointer_type()] {
-                return Err(TypedConstructorError::ConstructorSignature);
-            }
+            return Err(TypedConstructorError::ConstructorSignature);
         }
         match self.initializer().owner() {
             TypedConstructorOwner::Procedure {
@@ -243,10 +243,9 @@ impl CheckedTypedConstructorInitializationStep {
                 signature,
                 ..
             } = source.owner()
+                && signatures.get(&procedure) != Some(&signature)
             {
-                if signatures.get(&procedure) != Some(&signature) {
-                    return Err(TypedConstructorError::ChangedProcedure);
-                }
+                return Err(TypedConstructorError::ChangedProcedure);
             }
         }
         Ok(())
@@ -301,7 +300,7 @@ impl CheckedTypedConstructorReceipt {
         let mut engine = LayoutEngine::new(types, layout);
         let storage_layout = engine
             .layout(storage)
-            .map_err(|error| TypedConstructorError::Layout(error))?;
+            .map_err(TypedConstructorError::Layout)?;
         let result = Self(Arc::new(Receipt {
             source_issuance: Arc::new(()),
             constructor,
@@ -426,17 +425,16 @@ impl CheckedTypedConstructorReceipt {
         let mut engine = LayoutEngine::new(types, self.layout_policy());
         let layout = engine
             .layout(self.storage())
-            .map_err(|error| TypedConstructorError::Layout(error))?;
+            .map_err(TypedConstructorError::Layout)?;
         if layout.size != self.extent() || layout.alignment != self.alignment() {
             return Err(TypedConstructorError::ChangedLayout);
         }
         if let TypedConstructorOwner::Procedure {
             signature, ..
         } = self.constructor().owner()
+            && types.procedure_definition(signature)?.results.as_ref() != [self.pointer_type()]
         {
-            if types.procedure_definition(signature)?.results.as_ref() != [self.pointer_type()] {
-                return Err(TypedConstructorError::ConstructorSignature);
-            }
+            return Err(TypedConstructorError::ConstructorSignature);
         }
         if let TypedConstructorInitialization::Default {
             initializer,
@@ -484,10 +482,9 @@ impl CheckedTypedConstructorReceipt {
                 signature,
                 ..
             } = source.owner()
+                && signatures.get(&procedure) != Some(&signature)
             {
-                if signatures.get(&procedure) != Some(&signature) {
-                    return Err(TypedConstructorError::ChangedProcedure);
-                }
+                return Err(TypedConstructorError::ChangedProcedure);
             }
         }
         Ok(())

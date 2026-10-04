@@ -307,7 +307,21 @@ impl Analysis {
                     symbols,
                     limits,
                 ) {
-                    for member in &e.members {
+                    let mut enum_items: Vec<_> = e.members.iter().rev().collect();
+                    while let Some(item) = enum_items.pop() {
+                        let member = match item {
+                            jai_syntax::EnumBodyItem::Member(member) => member,
+                            jai_syntax::EnumBodyItem::Conditional {
+                                then_items,
+                                else_items,
+                                ..
+                            } => {
+                                enum_items.extend(else_items.iter().rev());
+                                enum_items.extend(then_items.iter().rev());
+                                continue;
+                            }
+                            jai_syntax::EnumBodyItem::Insert(_) => continue,
+                        };
                         self.add(
                             member.name,
                             SymbolKind::EnumMember,

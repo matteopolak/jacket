@@ -21,6 +21,9 @@ members = [
     "crates/jai-runtime",
     "crates/jai-wasm",
     "crates/jai-language-server",
+    "crates/jaic",
+    "crates/jaic-llvm",
+    "crates/jaic-cli",
 ]
 
 [workspace.package]
@@ -44,6 +47,7 @@ jai-eval = { path = "crates/jai-eval" }
 jai-sema = { path = "crates/jai-sema" }
 jai-codegen = { path = "crates/jai-codegen" }
 jai-llvm = { path = "crates/jai-llvm" }
+jai-runtime = { path = "crates/jai-runtime" }
 divan = "0.1.21"
 sha2 = { version = "0.11", default-features = false }
 inkwell = { version = "0.10.0", default-features = false, features = ["llvm22-1-prefer-dynamic"] }

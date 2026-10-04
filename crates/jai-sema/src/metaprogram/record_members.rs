@@ -6,6 +6,7 @@ const MAX_MEMBERS: usize = 65_536;
 
 enum Completion<'a> {
     Root,
+    Using(syntax::UsingDirective),
     Then {
         condition: &'a syntax::Expression,
         else_body: &'a [syntax::Statement],
@@ -66,6 +67,23 @@ pub(crate) fn literal_record_members(
             let frame = frames.pop().unwrap();
             match frame.completion {
                 Completion::Root => return Ok(frame.result),
+                Completion::Using(directive) => {
+                    let mut members = frame.result;
+                    if members.len() != 1 {
+                        return Err(Diagnostic::new(
+                            directive.span,
+                            "record using declaration requires one original child",
+                        ));
+                    }
+                    if let syntax::RecordMember::Field(field) = &mut members[0] {
+                        field.using = true;
+                        field.using_selection = directive.selection;
+                        field.span = directive.span;
+                    } else {
+                        members.push(syntax::RecordMember::Using(directive));
+                    }
+                    frames.last_mut().unwrap().result.extend(members);
+                }
                 Completion::Then {
                     condition,
                     else_body,
@@ -172,12 +190,20 @@ pub(crate) fn literal_record_members(
         }
         let member = match &statement.kind {
             syntax::StatementKind::UsingDeclaration {
-                ..
+                declaration, ..
             } => {
-                return Err(Diagnostic::new(
-                    statement.span,
-                    "record insertion cannot preserve a using declaration's member selection yet",
-                ));
+                let directive = statement.using_declaration_directive().ok_or_else(|| {
+                    Diagnostic::new(
+                        statement.span,
+                        "record using requires one named original declaration",
+                    )
+                })?;
+                frames.push(MemberFrame {
+                    pending: vec![(declaration, depth + 1)],
+                    result: Vec::new(),
+                    completion: Completion::Using(directive),
+                });
+                continue;
             }
             syntax::StatementKind::CompileTimeCases(cases) => {
                 visited = visited
@@ -297,12 +323,14 @@ pub(crate) fn literal_record_members(
                     name: declaration.name(),
                     binding,
                     using: false,
+                    using_selection: syntax::UsingSelection::All,
                     conversion: syntax::FieldConversion::None,
                     span: statement.span,
                     attributes,
                     notes: Vec::new(),
                 })
             }
+            syntax::StatementKind::Using(value) => syntax::RecordMember::Using(value.clone()),
             syntax::StatementKind::Assign(name, value) => {
                 syntax::RecordMember::DefaultOverride {
                     target: syntax::PlaceSyntax {
@@ -377,6 +405,8 @@ fn record_cases(
 ) -> syntax::RecordMember {
     syntax::RecordMember::CompileTimeCases {
         cases: syntax::CompileTimeCases {
+            default_position: source.default_position,
+            default_through: source.default_through,
             value: source.value.clone(),
             operator: source.operator,
             arms,
@@ -495,28 +525,19 @@ mod tests {
     }
 
     #[test]
-    fn using_declarations_reject_before_losing_their_child_or_selection() {
+    fn using_declarations_retain_their_child_and_selection() {
         let text = "members::#code{using,only(value) base:Base;};";
         let body = quote(text);
-        let error = literal_record_members(&body).unwrap_err();
-        assert_eq!(error.span.text(text), "using,only(value) base:Base;");
-        assert!(error.message.contains("member selection"), "{error}");
-        let syntax::CodeBody::Block(statements) = body else {
-            panic!("block quotation");
+        let members = literal_record_members(&body).unwrap();
+        let [syntax::RecordMember::Field(field)] = members.as_slice() else {
+            panic!("original physical child retained");
         };
-        let syntax::StatementKind::UsingDeclaration {
-            declaration,
-            selection,
-            ..
-        } = &statements[0].kind
-        else {
-            panic!("retained promotion wrapper");
-        };
+        assert!(field.using);
         assert!(matches!(
-            &declaration.kind,
-            syntax::StatementKind::Declare(_)
+            field.using_selection,
+            syntax::UsingSelection::Only(_)
         ));
-        assert!(matches!(selection, syntax::UsingSelection::Only(_)));
+        assert_eq!(field.span.text(text), "using,only(value) base:Base;");
     }
 
     #[test]

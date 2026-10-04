@@ -1,0 +1,13 @@
+[
+  {"id": "jaison-tests", "path": "rluba--jaison/tests.jai", "mode": "run"},
+  {"id": "jaison-example", "path": "rluba--jaison/examples/example.jai", "mode": "run"},
+  {"id": "ttwj-30.1-workspaces", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/30.1_workspaces.jai", "mode": "check"},
+  {"id": "ttwj-30.3-build", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/30.3_build.jai", "mode": "check"},
+  {"id": "ttwj-30.5-intercept", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/30.5_compiler_intercept.jai", "mode": "check"},
+  {"id": "ttwj-30.6-build-and-run", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/30.6_build_and_run.jai", "mode": "check"},
+  {"id": "ttwj-30.11-notes", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/30.11_using_notes.jai", "mode": "check"},
+  {"id": "ttwj-30.12-placeholder", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/30.12_placeholder.jai", "mode": "run"},
+  {"id": "jails-build", "path": "SogoCZE--Jails/build.jai", "mode": "check"},
+  {"id": "sgpu-build", "path": "roeyb1--sgpu/examples/build.jai", "mode": "check"},
+  {"id": "focus-build", "path": "focus-editor--focus/first.jai", "mode": "check"}
+]

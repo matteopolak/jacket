@@ -161,30 +161,47 @@ impl<'ctx> Generator<'ctx, '_, '_> {
         ty: TypeId,
         initializers: impl IntoIterator<Item = (jai_types::FieldId, &'a ValueExpr)>,
     ) -> Result<BasicValueEnum<'ctx>, Error> {
-        if self
-            .types
-            .record_storage_definition(ty)?
+        let storage = self.lowerer.basic(ty)?;
+        let layout = self.lowerer.semantic_layout(ty)?;
+        let definition = self.types.record_storage_definition(ty)?;
+        let field_types = definition.fields.to_vec();
+        let placed = definition
             .layout
             .field_placements
             .iter()
-            .any(Option::is_some)
-        {
-            return Err(types::Error::UnsupportedPlacement(ty).into());
-        }
-        let storage = self.lowerer.basic(ty)?;
-        let layout = self.lowerer.semantic_layout(ty)?;
-        let field_types = self.types.record_storage_definition(ty)?.fields.to_vec();
-        let mut fields = field_types
-            .iter()
-            .map(|&ty| self.lowerer.basic(ty).map(|ty| ty.const_zero()))
-            .collect::<Result<Vec<_>, _>>()?;
+            .any(Option::is_some);
+        let mut fields = if placed {
+            Vec::new()
+        } else {
+            field_types
+                .iter()
+                .map(|&ty| self.lowerer.basic(ty).map(|ty| ty.const_zero()))
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        let mut writes = Vec::new();
         for (field, initializer) in initializers {
             if self.types.validate_field(ty, field)? != initializer.type_id(self.types) {
                 return Err(Error::Invariant);
             }
-            fields[field.index()] = self.value(initializer)?;
+            if placed {
+                let offset = *layout
+                    .field_offsets
+                    .get(field.index())
+                    .ok_or(Error::Invariant)?;
+                let field_type = self.lowerer.basic(initializer.type_id(self.types))?;
+                let extent = self.target.data.get_abi_size(&field_type);
+                if offset
+                    .checked_add(extent)
+                    .is_none_or(|end| end > layout.size)
+                {
+                    return Err(Error::Invariant);
+                }
+                writes.push((offset, initializer));
+            } else {
+                fields[field.index()] = self.value(initializer)?;
+            }
         }
-        if fields.iter().all(|field| field.is_const()) {
+        if !placed && fields.iter().all(|field| field.is_const()) {
             let constant = constant(
                 self.context,
                 &self.target.data,
@@ -204,15 +221,30 @@ impl<'ctx> Generator<'ctx, '_, '_> {
             storage.const_zero(),
             layout.alignment,
         )?;
-        for (index, value) in fields.into_iter().enumerate() {
-            let offset = *layout.field_offsets.get(index).ok_or(Error::Invariant)?;
-            let pointer = field_pointer(self.context, &self.builder, temporary, offset)?;
-            memory::store(
-                &self.builder,
-                pointer,
-                value,
-                memory::offset_alignment(layout.alignment, offset),
-            )?;
+        if placed {
+            // Placed fields may overlap. Keep initializer order so later
+            // writes replace earlier bytes at the selected storage offset.
+            for (offset, initializer) in writes {
+                let value = self.value(initializer)?;
+                let pointer = field_pointer(self.context, &self.builder, temporary, offset)?;
+                memory::store(
+                    &self.builder,
+                    pointer,
+                    value,
+                    memory::offset_alignment(layout.alignment, offset),
+                )?;
+            }
+        } else {
+            for (index, value) in fields.into_iter().enumerate() {
+                let offset = *layout.field_offsets.get(index).ok_or(Error::Invariant)?;
+                let pointer = field_pointer(self.context, &self.builder, temporary, offset)?;
+                memory::store(
+                    &self.builder,
+                    pointer,
+                    value,
+                    memory::offset_alignment(layout.alignment, offset),
+                )?;
+            }
         }
         memory::load(
             &self.builder,

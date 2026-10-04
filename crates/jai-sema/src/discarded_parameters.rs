@@ -45,7 +45,7 @@ impl Resolver<'_> {
             let actual = literal
                 .ty
                 .as_ref()
-                .map(|path| self.local_type_name(path, expression.span))
+                .map(|source| self.preview_annotation(source, expression.span))
                 .transpose()?
                 .unwrap_or(expected);
             let metadata = self.record_metadata(actual, expression.span)?;

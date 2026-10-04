@@ -5,9 +5,10 @@ mod declaration_insertions;
 mod import_cycles;
 mod insertion_admission;
 mod session;
+mod string_imports;
 mod suspended_imports;
 use super::*;
-use crate::params::{Argument, ModuleKey};
+use crate::params::{Argument, ModuleKey, ModuleSourceKey};
 use jai_source::Identities;
 use jai_syntax::{FileItem, ImportDeclaration, ImportMode};
 use std::collections::HashSet;
@@ -29,21 +30,22 @@ pub(super) struct Builder<'a> {
     options: GraphOptions,
     sources: HashMap<PathBuf, SourceId>,
     syntax: HashMap<SourceId, ParsedFile>,
+    string_imports: HashMap<(SourceId, usize, usize), SourceId>,
     modules: HashMap<ModuleKey, ModuleId>,
     requests: HashMap<ModuleId, ParameterRequests>,
-    program: HashMap<PathBuf, Option<Vec<Argument>>>,
+    program: HashMap<ModuleSourceKey, Option<Vec<Argument>>>,
     pending: HashMap<ModuleId, Vec<(FileInstanceId, PathBuf, FileItem)>>,
-    initialized_program: HashSet<PathBuf>,
+    initialized_program: HashSet<SourceId>,
     completed_modules: HashSet<ModuleId>,
     entry_modules: Vec<(ModuleId, PathBuf)>,
     initialized_files: HashSet<FileInstanceId>,
     file_origins: HashMap<FileInstanceId, Option<SourceSpan>>,
     pending_diagnostics: Vec<DeferredDependency>,
-    first_import: HashMap<PathBuf, SourceSpan>,
-    pending_imports: HashMap<PathBuf, SourceSpan>,
-    files: HashMap<(ModuleId, PathBuf), FileInstanceId>,
+    first_import: HashMap<ModuleSourceKey, SourceSpan>,
+    pending_imports: HashMap<ModuleSourceKey, SourceSpan>,
+    files: HashMap<(ModuleId, ModuleSourceKey), FileInstanceId>,
     active_modules: HashSet<ModuleId>,
-    active_files: HashSet<(ModuleId, PathBuf)>,
+    active_files: HashSet<(ModuleId, ModuleSourceKey)>,
     callable_aliases: Vec<callable_aliases::DeferredAlias>,
     published_imports: Vec<import_cycles::PublishedImport>,
     has_import_backedges: bool,
@@ -111,6 +113,7 @@ impl<'a> Builder<'a> {
             options,
             sources: HashMap::new(),
             syntax: HashMap::new(),
+            string_imports: HashMap::new(),
             modules: HashMap::new(),
             requests: HashMap::new(),
             program: HashMap::new(),
@@ -226,7 +229,12 @@ impl<'a> Builder<'a> {
     }
     fn module_files(&mut self, module: ModuleId, path: &Path) -> Result<(), GraphError> {
         let mut imports = Vec::new();
-        let entry = self.file(module, path, None, &mut imports)?;
+        let embedded = self
+            .graph
+            .source_requests
+            .get(&module)
+            .and_then(|key| key.embedded);
+        let entry = self.file_source(module, path, None, &mut imports, embedded)?;
         self.graph.modules[module.index()].entry = Some(entry);
         loop {
             let mut progressed = false;
@@ -294,8 +302,28 @@ impl<'a> Builder<'a> {
         origin: Option<SourceSpan>,
         _imports: &mut Vec<(FileInstanceId, ImportDeclaration)>,
     ) -> Result<FileInstanceId, GraphError> {
-        let path = self.canonical(path)?;
-        let key = (module, path.clone());
+        self.file_source(module, path, origin, _imports, None)
+    }
+    fn file_source(
+        &mut self,
+        module: ModuleId,
+        path: &Path,
+        origin: Option<SourceSpan>,
+        _imports: &mut Vec<(FileInstanceId, ImportDeclaration)>,
+        embedded: Option<SourceId>,
+    ) -> Result<FileInstanceId, GraphError> {
+        let path = if embedded.is_some() {
+            path.to_owned()
+        } else {
+            self.canonical(path)?
+        };
+        let key = (
+            module,
+            ModuleSourceKey {
+                path: path.clone(),
+                embedded,
+            },
+        );
         if self.active_files.contains(&key) {
             return Err(self.cycle(DependencyKind::Load, path, origin));
         }
@@ -303,7 +331,11 @@ impl<'a> Builder<'a> {
             return Ok(file);
         }
         self.active_files.insert(key.clone());
-        let syntax = self.parse(&path)?;
+        let syntax = if let Some(source) = embedded {
+            self.syntax[&source].clone()
+        } else {
+            self.parse(&path)?
+        };
         let id = FileInstanceId(self.graph.files.len());
         self.graph.files.push(FileInstance {
             id,
@@ -341,6 +373,14 @@ impl<'a> Builder<'a> {
                 .cloned()
                 .map(|item| (id, path.clone(), item)),
         );
+        let origin = origin.or_else(|| {
+            embedded.and_then(|source| {
+                self.graph
+                    .sources
+                    .get(source)
+                    .and_then(|record| record.importing_site())
+            })
+        });
         self.file_origins.insert(id, origin);
         self.active_files.remove(&key);
         match self.initialize_file(id) {
@@ -360,6 +400,12 @@ impl<'a> Builder<'a> {
         let source = file.source;
         let syntax = file.syntax.clone();
         let path = self.graph.sources.get(source).unwrap().path().to_owned();
+        let source_key = self
+            .graph
+            .source_requests
+            .get(&module)
+            .map(ModuleKey::source_key)
+            .unwrap_or_else(|| path.clone().into());
         let parameters = syntax.items().iter().find_map(|item| {
             if let FileItem::Parameters(parameters) = item {
                 Some(parameters)
@@ -370,7 +416,7 @@ impl<'a> Builder<'a> {
         if let Some(parameters) = parameters {
             let (instance, program) = self.requests.get(&module).cloned().unwrap_or_default();
             self.bind_parameters(id, parameters, instance.as_deref(), program.as_deref())?;
-            if self.initialized_program.insert(path.clone()) {
+            if self.initialized_program.insert(source) {
                 let bound = self
                     .graph
                     .parameters
@@ -381,7 +427,7 @@ impl<'a> Builder<'a> {
                         value: p.value.clone(),
                     })
                     .collect();
-                self.program.insert(path, Some(bound));
+                self.program.insert(source_key, Some(bound));
             }
         } else if self.graph.modules[module.index()].files[0] == id
             && self.requests.get(&module).is_some_and(|(a, b)| {
@@ -479,7 +525,7 @@ impl<'a> Builder<'a> {
                     let module = self.graph.files[file.0].module;
                     let target = self.file(
                         module,
-                        &path.parent().unwrap().join(&load.target),
+                        &self.graph.sources.get(self.graph.files[file.index()].source).unwrap().resolution_path().parent().unwrap().join(&load.target),
                         Some(load.location),
                         imports,
                     )?;
@@ -659,6 +705,12 @@ impl<'a> Builder<'a> {
                             .map(|item| (file, path.to_owned(), item)),
                     );
                 }
+                FileItem::Library { location, .. } => return Err(self.located(*location,
+                    "anonymous library directive requires an unnamed source-library metadata producer")),
+                FileItem::PokeName { location, .. } => return Err(self.located(*location,
+                    "#poke_name requires a checked cross-module name publication producer")),
+                FileItem::Execute { location, .. } => return Err(self.located(*location,
+                    "file executable item requires a checked file-scope execution producer")),
                 FileItem::Parameters(parameters) => {
                     if !self.graph.files[file.0].syntax.items().iter().any(|item| matches!(item, FileItem::Parameters(p) if p.location == parameters.location)) {
                         return Err(self.located(parameters.location, "#module_parameters cannot occur in a conditional or nested declaration block"));
@@ -799,7 +851,7 @@ impl<'a> Builder<'a> {
             .then_some(members)
     }
     fn import_path(
-        &self,
+        &mut self,
         file: FileInstanceId,
         import: &ImportDeclaration,
     ) -> Result<PathBuf, GraphError> {
@@ -808,7 +860,7 @@ impl<'a> Builder<'a> {
             .sources
             .get(self.graph.files[file.0].source)
             .unwrap();
-        let parent = source.path().parent().unwrap();
+        let parent = source.resolution_path().parent().unwrap();
         match import.mode {
             ImportMode::File => self
                 .canonical(&parent.join(&import.target))
@@ -835,10 +887,9 @@ impl<'a> Builder<'a> {
                     ),
                 ))
             }
-            ImportMode::String => Err(self.located(
-                import.location,
-                "string imports are not implemented in the module graph",
-            )),
+            ImportMode::String => self
+                .string_import_source(file, import)
+                .map(|source| self.graph.sources.get(source).unwrap().path().to_owned()),
         }
     }
     fn import(
@@ -870,16 +921,26 @@ impl<'a> Builder<'a> {
             return Ok(module);
         }
         let path = self.import_path(file, import)?;
-        let active_path = self
-            .modules
-            .iter()
-            .any(|(key, module)| key.path == path && self.active_modules.contains(module));
+        let embedded = (import.mode == ImportMode::String).then(|| {
+            self.string_imports[&(
+                import.location.source,
+                import.location.span.start,
+                import.location.span.end,
+            )]
+        });
+        let source_key = ModuleSourceKey {
+            path: path.clone(),
+            embedded,
+        };
+        let active_path = self.modules.iter().any(|(key, module)| {
+            key.source_key() == source_key && self.active_modules.contains(module)
+        });
         self.first_import
-            .entry(path.clone())
+            .entry(source_key.clone())
             .or_insert(import.location);
         if self
             .pending_imports
-            .get(&path)
+            .get(&source_key)
             .is_some_and(|location| *location != import.location)
             && !active_path
         {
@@ -894,7 +955,8 @@ impl<'a> Builder<'a> {
             });
         }
         if !active_path {
-            self.pending_imports.insert(path.clone(), import.location);
+            self.pending_imports
+                .insert(source_key.clone(), import.location);
         }
         let arguments =
             self.evaluate_arguments(file, &import.arguments.instance, import.location)?;
@@ -904,8 +966,8 @@ impl<'a> Builder<'a> {
             return Err(self.located(import.location, "program module parameters must be supplied before the module begins dependency expansion"));
         }
         if supplied_program.is_some()
-            && self.program.contains_key(&path)
-            && self.first_import.get(&path) != Some(&import.location)
+            && self.program.contains_key(&source_key)
+            && self.first_import.get(&source_key) != Some(&import.location)
         {
             return Err(self.located(import.location, "program module parameters may be supplied once, before every other import of that module"));
         }
@@ -917,11 +979,12 @@ impl<'a> Builder<'a> {
         }
         let program = self
             .program
-            .entry(path.clone())
+            .entry(source_key.clone())
             .or_insert_with(|| supplied_program.clone())
             .clone();
         let key = ModuleKey {
             path: path.clone(),
+            embedded,
             arguments: arguments.clone(),
         };
         let module = if let Some(&module) = self.modules.get(&key) {
@@ -933,11 +996,9 @@ impl<'a> Builder<'a> {
             }
             module
         } else {
-            if self
-                .modules
-                .iter()
-                .any(|(key, module)| key.path == path && self.active_modules.contains(module))
-            {
+            if self.modules.iter().any(|(key, module)| {
+                key.source_key() == source_key && self.active_modules.contains(module)
+            }) {
                 return Err(self.cycle(DependencyKind::Import, path, Some(import.location)));
             }
             let module = self.identities.module();
@@ -958,7 +1019,10 @@ impl<'a> Builder<'a> {
             self.expand_import_module(file, import, module, &path, scope)?;
         }
         if !active_path {
-            self.pending_imports.remove(&path);
+            self.pending_imports.remove(&ModuleSourceKey {
+                path,
+                embedded,
+            });
         }
         Ok(module)
     }

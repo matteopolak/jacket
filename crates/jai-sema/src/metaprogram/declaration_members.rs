@@ -39,6 +39,8 @@ fn declaration(
         S::Declare(declaration) => D::Global(syntax::GlobalDeclaration {
             declaration: declaration.clone(),
             span: statement.span,
+            reset_policy: syntax::GlobalResetPolicy::Reset,
+            reset_policy_span: None,
         }),
         S::Constant(constant) => D::Constant(constant.clone()),
         S::Library(library) => D::Library(library.clone()),
@@ -164,6 +166,8 @@ fn convert(
                     .transpose()?;
                 FileItem::CompileTimeCases {
                     cases: syntax::CompileTimeCases {
+                        default_position: cases.default_position,
+                        default_through: cases.default_through,
                         value: cases.value.clone(),
                         operator: cases.operator,
                         arms,

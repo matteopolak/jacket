@@ -35,6 +35,7 @@ class BenchmarkProvenanceTests(unittest.TestCase):
             tool.write_bytes(b'own inert tool path fixture')
             environment = {'JAI_RS_CLANG': str(tool), 'LLVM_SYS_221_PREFIX': str(root / 'missing')}
             self.assertEqual(benchmark.native_tool_candidate(environment, root), tool.resolve())
+            self.assertEqual(benchmark.native_tool_candidate({'JAI_RS_CLANG': 'independent/bin/clang'}, root), tool.resolve())
             protected = root / 'vendor/clang'
             protected.parent.mkdir()
             protected.write_bytes(b'original inert fixture')

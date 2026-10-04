@@ -160,13 +160,13 @@ where
             } => self.resolve(file, ty, Some(substitution), expression.span),
             E::StructLiteral(literal) if literal.ty.is_some() => self.resolve(
                 file,
-                &syntax::TypeSyntax::Named(literal.ty.clone().unwrap()),
+                literal.ty.as_ref().unwrap(),
                 Some(substitution),
                 expression.span,
             ),
             E::PositionalStructLiteral(literal) if literal.ty.is_some() => self.resolve(
                 file,
-                &syntax::TypeSyntax::Named(literal.ty.clone().unwrap()),
+                literal.ty.as_ref().unwrap(),
                 Some(substitution),
                 expression.span,
             ),

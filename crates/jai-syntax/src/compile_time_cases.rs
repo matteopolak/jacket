@@ -15,6 +15,8 @@ pub struct CompileTimeCaseDefault<T> {
 }
 #[derive(Clone, Debug)]
 pub struct CompileTimeCases<T> {
+    pub default_position: Option<usize>,
+    pub default_through: bool,
     pub value: Expression,
     pub operator: CaseOperator,
     pub arms: Vec<CompileTimeCaseArm<T>>,
@@ -64,13 +66,12 @@ impl Parser<'_> {
         self.need(Punct::OpenBrace)?;
         let mut arms = Vec::new();
         let mut default = None;
+        let mut default_position = None;
+        let mut default_through = false;
         while !self.take(Punct::CloseBrace) {
             let label_start = self.token().span.start;
             if !self.keyword(Keyword::Case) {
                 return Err(self.error("expected case label"));
-            }
-            if default.is_some() {
-                return Err(self.error("default case must be last"));
             }
             let label = if self.is(Punct::Semicolon) {
                 None
@@ -102,9 +103,11 @@ impl Parser<'_> {
                     span,
                 }),
                 None => {
-                    if falls_through {
-                        return Err(self.error("default case cannot #through"));
+                    if default.is_some() {
+                        return Err(self.error("duplicate default case"));
                     }
+                    default_position = Some(arms.len());
+                    default_through = falls_through;
                     default = Some(CompileTimeCaseDefault {
                         body,
                         span,
@@ -112,7 +115,17 @@ impl Parser<'_> {
                 }
             }
         }
+        let final_through = if default_position == Some(arms.len()) {
+            default_through
+        } else {
+            arms.last().is_some_and(|arm| arm.falls_through)
+        };
+        if final_through {
+            return Err(self.error("last case cannot #through without a following case"));
+        }
         Ok(CompileTimeCases {
+            default_position,
+            default_through,
             value,
             operator,
             arms,
@@ -191,26 +204,39 @@ impl<T> CompileTimeCases<T> {
         }
     }
     pub fn selected_body_refs(&self, choice: CompileTimeCaseChoice) -> Option<Vec<&T>> {
-        match choice {
-            CompileTimeCaseChoice::None => Some(Vec::new()),
-            CompileTimeCaseChoice::Default => {
-                self.default.as_ref().map(|arm| arm.body.iter().collect())
-            }
-            CompileTimeCaseChoice::Arm(index) => {
-                let mut result = Vec::new();
-                let mut index = index;
-                loop {
+        use jai_types::{CaseOrder, CaseTarget};
+        let order = CaseOrder::new(
+            self.arms.len(),
+            self.default
+                .as_ref()
+                .map(|_| self.default_position.unwrap_or(self.arms.len())),
+        )
+        .ok()?;
+        let mut target = match choice {
+            CompileTimeCaseChoice::None => return Some(Vec::new()),
+            CompileTimeCaseChoice::Default => CaseTarget::Default,
+            CompileTimeCaseChoice::Arm(index) => CaseTarget::Arm(index),
+        };
+        let mut result = Vec::new();
+        loop {
+            let through = match target {
+                CaseTarget::End => return Some(result),
+                CaseTarget::Default => {
+                    result.extend(&self.default.as_ref()?.body);
+                    self.default_through
+                }
+                CaseTarget::Arm(index) => {
                     let arm = self.arms.get(index)?;
                     result.extend(&arm.body);
-                    if !arm.falls_through {
-                        return Some(result);
-                    }
-                    index += 1;
-                    if index == self.arms.len() {
-                        result.extend(&self.default.as_ref()?.body);
-                        return Some(result);
-                    }
+                    arm.falls_through
                 }
+            };
+            if !through {
+                return Some(result);
+            }
+            target = order.following(target).ok()?;
+            if target == CaseTarget::End {
+                return None;
             }
         }
     }
@@ -301,7 +327,7 @@ mod tests {
     fn malformed_inactive_case_bodies_are_still_parsed() {
         for text in [
             "main::(){#if 1 == {case 1; return;case 2; broken:=;}}",
-            "#if true == {case; VALUE::1;case true; VALUE::2;}",
+            "#if true == {case; VALUE::1;case; VALUE::2;}",
             "main::(){#if 1 == {case 1; #through; bad();}}",
         ] {
             let mut sources = SourceMap::default();

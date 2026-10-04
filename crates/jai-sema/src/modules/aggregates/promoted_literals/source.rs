@@ -13,7 +13,7 @@ impl Resolver<'_> {
         ty: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
-        crate::record_placements::require_record_construction_recipe(self.types, ty, span)?;
+        crate::record_placements::require_record_storage_ready(self.types, ty, span)?;
         let (plan, targets) = self.prepare_promoted_literal(literal, ty, span)?;
         let producers = literal
             .fields

@@ -2,6 +2,8 @@
 use super::*;
 impl Generator<'_, '_, '_> {
     pub(super) fn cases(&mut self, case: &jai_ir::Cases) -> Result<(), Error> {
+        use jai_types::CaseTarget;
+        let order = case.order().map_err(|_| Error::Invariant)?;
         let previous = self.builder.get_current_debug_location();
         if let Some(debug) = &self.debug {
             debug
@@ -50,7 +52,14 @@ impl Generator<'_, '_, '_> {
                 .is_some_and(|block| block.get_terminator().is_none())
             {
                 let next = if arm.through {
-                    bodies.get(i + 1).copied().or(default)
+                    match order
+                        .following(CaseTarget::Arm(i))
+                        .map_err(|_| Error::Invariant)?
+                    {
+                        CaseTarget::Arm(index) => bodies.get(index).copied(),
+                        CaseTarget::Default => default,
+                        CaseTarget::End => None,
+                    }
                 } else {
                     end
                 };
@@ -66,8 +75,20 @@ impl Generator<'_, '_, '_> {
                 .get_insert_block()
                 .is_some_and(|block| block.get_terminator().is_none())
             {
+                let next = if case.default_through {
+                    match order
+                        .following(CaseTarget::Default)
+                        .map_err(|_| Error::Invariant)?
+                    {
+                        CaseTarget::Arm(index) => bodies.get(index).copied(),
+                        CaseTarget::Default => return Err(Error::Invariant),
+                        CaseTarget::End => None,
+                    }
+                } else {
+                    end
+                };
                 self.builder
-                    .build_unconditional_branch(end.ok_or(Error::Invariant)?)?;
+                    .build_unconditional_branch(next.ok_or(Error::Invariant)?)?;
             }
         }
         if let Some(impossible) = impossible {

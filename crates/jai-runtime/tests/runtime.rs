@@ -135,6 +135,65 @@ fn runtime_refuses_compile_time_only_direct_and_indirect_calls() {
 }
 
 #[test]
+fn phase_survives_retained_state_and_resumable_plans() {
+    let script = Script::from_source(
+        "main :: () -> int { if #compile_time return 700; return 42; }",
+        Options::default(),
+    )
+    .unwrap();
+    let mut vm = jai_vm::Vm::new_with_execution_phase(
+        script.library(),
+        jai_vm::NoEffects,
+        jai_vm::Limits::default(),
+        jai_vm::ByteTarget::default(),
+        jai_vm::ExecutionPhase::Runtime,
+    )
+    .unwrap();
+    assert_eq!(
+        vm.start_resumable_procedure(script.entry().procedure, vec![])
+            .outcome,
+        jai_vm::ResumableOutcome::AwaitingPublication
+    );
+    assert_eq!(
+        vm.resumable_values().unwrap()[0].integer().unwrap().value(),
+        42
+    );
+    assert!(matches!(
+        vm.finish_resumable_validated(|_, _| Ok(())).outcome,
+        jai_vm::Outcome::Complete(_)
+    ));
+    let state = vm.into_state();
+    let mut vm = jai_vm::Vm::with_state(
+        script.library(),
+        jai_vm::NoEffects,
+        jai_vm::Limits::default(),
+        state,
+    )
+    .unwrap();
+    assert_eq!(vm.execution_phase(), jai_vm::ExecutionPhase::Runtime);
+    assert_eq!(
+        vm.execute(script.entry().procedure, vec![]).outcome,
+        jai_vm::Outcome::Complete(vec![jai_vm::Value::Int(
+            jai_types::Integer::checked(jai_types::IntegerType::S64, 42).unwrap()
+        )])
+    );
+    let mut compile_time = jai_vm::Vm::new(
+        script.library(),
+        jai_vm::NoEffects,
+        jai_vm::Limits::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        compile_time
+            .execute(script.entry().procedure, vec![])
+            .outcome,
+        jai_vm::Outcome::Complete(vec![jai_vm::Value::Int(
+            jai_types::Integer::checked(jai_types::IntegerType::S64, 700).unwrap()
+        )])
+    );
+}
+
+#[test]
 fn virtual_bundle_names_keep_one_closed_posix_identity() {
     let mut bundle = SourceBundle::default();
     let path = bundle

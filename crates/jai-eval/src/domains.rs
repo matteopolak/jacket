@@ -254,9 +254,37 @@ impl<'a> DomainInference<'a> {
                 }
             }
             ExpressionKind::Conditional(value) => {
-                child(&value.condition)?;
-                let yes = child(&value.then_value)?;
-                let no = value.else_value.as_ref().map(|e| child(e)).transpose()?;
+                drop(child);
+                let condition = Self::infer_inner(&value.condition, lookup, typed)?;
+                let explicit = if value.is_implicit() {
+                    None
+                } else {
+                    Some(Self::infer_inner(value.then_source(), lookup, typed)?)
+                };
+                let yes = match &explicit {
+                    Some(value) => value.domain,
+                    None => condition
+                        .source_node(value.then_source())
+                        .ok_or_else(|| {
+                            Diagnostic::new(
+                                span,
+                                "implicit ifx scalar subject is absent from its checked condition",
+                            )
+                        })?
+                        .domain,
+                };
+                children.push(condition);
+                children.extend(explicit);
+                let no = value
+                    .else_value
+                    .as_ref()
+                    .map(|e| {
+                        let value = Self::infer_inner(e, lookup, typed)?;
+                        let domain = value.domain;
+                        children.push(value);
+                        Ok::<_, Diagnostic>(domain)
+                    })
+                    .transpose()?;
                 if yes.is_float() || no.is_some_and(D::is_float) {
                     yes.numeric_common(no.unwrap_or(D::IntegerLiteral), span)?
                 } else if yes == D::Bool {
@@ -316,14 +344,33 @@ impl<'a> DomainInference<'a> {
         }
         value.evaluate(Some(target), self.expression.span)
     }
+    fn source_node(&self, source: &Expression) -> Option<&Self> {
+        if std::ptr::eq(self.expression, source) {
+            return Some(self);
+        }
+        self.children
+            .iter()
+            .find_map(|child| child.source_node(source))
+    }
     fn bind_selected(
         &self,
         overflow_check: CheckMode,
         lookup: &mut impl FnMut(&NamePath, Span) -> Result<Value, Diagnostic>,
     ) -> Result<Expr, Diagnostic> {
+        self.bind_captured(overflow_check, lookup, &mut Vec::new())
+    }
+    fn bind_captured(
+        &self,
+        overflow_check: CheckMode,
+        lookup: &mut impl FnMut(&NamePath, Span) -> Result<Value, Diagnostic>,
+        captures: &mut Vec<implicit_conditionals::SourceCapture>,
+    ) -> Result<Expr, Diagnostic> {
+        if let Some(value) = implicit_conditionals::captured(self.expression, captures) {
+            return Ok(value);
+        }
         let span = self.expression.span;
-        let child = |index: usize, lookup: &mut _| {
-            self.children[index].bind_selected(overflow_check, lookup)
+        let child = |index: usize, lookup: &mut _, captures: &mut _| {
+            self.children[index].bind_captured(overflow_check, lookup, captures)
         };
         let value = match &self.expression.kind {
             ExpressionKind::Name(root) => literal(lookup(
@@ -335,10 +382,43 @@ impl<'a> DomainInference<'a> {
             )?),
             ExpressionKind::QualifiedName(path) => literal(lookup(path, span)?),
             ExpressionKind::Conditional(value) => {
-                if child(0, lookup)?.condition().evaluate()? {
-                    child(1, lookup)?
+                let (condition, subject) = if value.is_implicit() {
+                    let subject = self.children[0]
+                        .source_node(value.then_source())
+                        .ok_or_else(|| {
+                            Diagnostic::new(
+                                span,
+                                "implicit ifx scalar subject is absent from its checked condition",
+                            )
+                        })?;
+                    let checked = subject.bind_captured(overflow_check, lookup, captures)?;
+                    let checked = literal(finish(checked, subject.expression.span)?);
+                    let checkpoint = captures.len();
+                    captures.push(implicit_conditionals::SourceCapture {
+                        node: std::ptr::NonNull::from(subject.expression),
+                        value: checked.clone(),
+                    });
+                    let condition = child(0, lookup, captures);
+                    captures.truncate(checkpoint);
+                    (condition?.condition().evaluate()?, Some(checked))
+                } else {
+                    (child(0, lookup, captures)?.condition().evaluate()?, None)
+                };
+                if condition {
+                    match subject {
+                        Some(value) => value,
+                        None => child(1, lookup, captures)?,
+                    }
                 } else if value.else_value.is_some() {
-                    child(2, lookup)?
+                    child(
+                        if value.is_implicit() {
+                            1
+                        } else {
+                            2
+                        },
+                        lookup,
+                        captures,
+                    )?
                 } else {
                     literal(match self.domain {
                         ScalarDomain::Bool => Value::Bool(false),
@@ -348,7 +428,7 @@ impl<'a> DomainInference<'a> {
                 }
             }
             ExpressionKind::Binary(op, _, _) => {
-                let lhs = child(0, lookup)?;
+                let lhs = child(0, lookup, captures)?;
                 match Operator::from(*op) {
                     Operator::And if !lhs.clone().condition().evaluate()? => {
                         literal(Value::Bool(false))
@@ -359,14 +439,14 @@ impl<'a> DomainInference<'a> {
                     _ => bound_values::bind_binary(
                         *op,
                         lhs,
-                        child(1, lookup)?,
+                        child(1, lookup, captures)?,
                         overflow_check,
                         span,
                     )?,
                 }
             }
             ExpressionKind::Unary(op, _) => {
-                let value = child(0, lookup)?;
+                let value = child(0, lookup, captures)?;
                 if matches!(value, Expr::Float(_)) && *op != UnaryOp::LogicalNot {
                     floats::unary(op, value, span)?
                 } else if *op == UnaryOp::LogicalNot {
@@ -392,9 +472,9 @@ impl<'a> DomainInference<'a> {
                 mode,
                 ty,
                 ..
-            } => floats::cast(ty, child(0, lookup)?, *mode, span)?,
+            } => floats::cast(ty, child(0, lookup, captures)?, *mode, span)?,
             ExpressionKind::Cast(mode, ty, _) => {
-                let value = child(0, lookup)?;
+                let value = child(0, lookup, captures)?;
                 match ty {
                     ScalarType::Bool => Expr::Bool(value.condition()),
                     ScalarType::Int(ty) => Expr::Number(NumberExpr {

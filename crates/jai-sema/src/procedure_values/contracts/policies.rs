@@ -368,7 +368,7 @@ impl Resolver<'_> {
                 .preview_source_contract(callee, depth + 1)?
                 .and_then(|contract| contract.result(0)),
             syntax::ExpressionKind::Conditional(branches) => match (
-                self.preview_source_contract(&branches.then_value, depth + 1)?,
+                self.preview_source_contract(branches.then_source(), depth + 1)?,
                 branches
                     .else_value
                     .as_deref()

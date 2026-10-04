@@ -281,6 +281,7 @@ fn source_field(
         name: declaration.name(),
         binding,
         using: false,
+        using_selection: syntax::UsingSelection::All,
         conversion: syntax::FieldConversion::None,
         span,
         attributes: declaration

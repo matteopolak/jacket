@@ -4,7 +4,7 @@ use super::*;
 impl Parser<'_> {
     pub(super) fn anonymous_record(&mut self) -> Result<RecordMember, Diagnostic> {
         let mut record = self.record_type()?;
-        record.notes = self.notes()?;
+        record.notes.extend(self.notes()?);
         self.take(Punct::Semicolon);
         record.span.end = self.tokens[self.at - 1].span.end;
         Ok(RecordMember::AnonymousRecord(Box::new(record)))

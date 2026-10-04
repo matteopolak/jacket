@@ -8,6 +8,9 @@ impl Resolver<'_> {
         &mut self,
         loop_: &syntax::ArrayLoop,
     ) -> Result<Statement, Diagnostic> {
+        match loop_.policy {
+            syntax::IterationPolicy::Current | syntax::IterationPolicy::Version2 => {}
+        }
         let span = loop_.sequence.span;
         let direction =
             self.iteration_direction(loop_.direction, loop_.reverse_control.as_ref())?;

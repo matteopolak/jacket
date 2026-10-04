@@ -133,7 +133,7 @@ impl Resolver<'_> {
                         fields.push(FieldSource::AnonymousRecord(record.as_ref().clone()));
                         continue;
                     }
-                    syntax::RecordMember::Placement(_) => continue,
+                    syntax::RecordMember::Placement(_) | syntax::RecordMember::Using(_) => continue,
                     syntax::RecordMember::Assert {
                         ..
                     }
@@ -149,6 +149,12 @@ impl Resolver<'_> {
                         return Err(Diagnostic::new(
                             *span,
                             "record conditional was not selected before shape binding",
+                        ));
+                    }
+                    syntax::RecordMember::Import(value) => {
+                        return Err(Diagnostic::new(
+                            value.span,
+                            "record import requires a checked record-source namespace producer",
                         ));
                     }
                     syntax::RecordMember::Insert(value) => {
@@ -212,6 +218,24 @@ impl Resolver<'_> {
                 .cloned()
                 .collect();
             self.resolve_local_declaration_batch(depth, &ready_declarations)?;
+            for member in selected.iter() {
+                if let syntax::RecordMember::Using(directive) = member {
+                    let names = crate::record_using::target_names(&directive.target)?;
+                    if !fields
+                        .iter()
+                        .any(|field| field.as_ref().name() == Some(names[0]))
+                    {
+                        let target = self.expr(&directive.target)?;
+                        if !matches!(target, Expr::Type(_)) {
+                            return Err(Diagnostic::new(
+                                directive.span,
+                                "record namespace using requires a checked type target",
+                            ));
+                        }
+                        self.using_directive(directive)?;
+                    }
+                }
+            }
             self.check_local_record_assertions(&selected)?;
             if !methods.is_empty() && !self.meta.local_declarations.method_body_demand.covers_all()
             {

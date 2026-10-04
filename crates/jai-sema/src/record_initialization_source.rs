@@ -118,6 +118,12 @@ pub(crate) fn selected_journal(
                     "record construction requires selected source members",
                 ));
             }
+            RecordMember::Import(import) => {
+                return Err(Diagnostic::new(
+                    import.span,
+                    "record import requires a checked record-source namespace producer",
+                ));
+            }
             RecordMember::Insert(directive) => {
                 return Err(Diagnostic::new(
                     directive.span,
@@ -125,7 +131,8 @@ pub(crate) fn selected_journal(
                 ));
             }
             // These namespace declarations/assertions do not create physical writes.
-            RecordMember::Placement(_)
+            RecordMember::Using(_)
+            | RecordMember::Placement(_)
             | RecordMember::Assert {
                 ..
             }

@@ -170,6 +170,8 @@ fn selection_budget(span: Span) -> Diagnostic {
 fn member_span(member: &syntax::RecordMember) -> Span {
     use syntax::RecordMember as M;
     match member {
+        M::Import(value) => value.span,
+        M::Using(value) => value.span,
         M::Placement(value) => value.span,
         M::Field(value) => value.span,
         M::AnonymousRecord(value) => value.span,

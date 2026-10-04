@@ -32,9 +32,7 @@ impl Nominals<'_> {
                 .expect("enum namespace lookup retains declaration");
             match &source.syntax().kind {
                 FileDeclarationKind::Enum(enumeration) => {
-                    if !enumeration
-                        .members
-                        .iter()
+                    if !syntax::EnumMemberSyntax::new(&enumeration.members)
                         .any(|source| source.name == member)
                     {
                         return Err(Diagnostic::new(span, "unknown enum member"));

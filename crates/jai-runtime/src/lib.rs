@@ -129,6 +129,9 @@ impl fmt::Display for Error {
             Self::Source(error) => error.fmt(f),
             Self::Diagnostic(text) | Self::Types(text) => f.write_str(text),
             Self::Entry(text) | Self::Arguments(text) => f.write_str(text),
+            Self::Execution(jai_vm::Error::Limit(kind)) => {
+                write!(f, "script execution exceeded {kind:?} limit")
+            }
             Self::Execution(error) => write!(f, "script execution failed: {error}"),
             Self::Pending(dependencies) => write!(
                 f,

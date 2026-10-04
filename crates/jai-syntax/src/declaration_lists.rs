@@ -4,6 +4,14 @@ use std::sync::Arc;
 
 impl Parser<'_> {
     pub(super) fn file_data_declarations(&mut self) -> Result<Vec<GlobalOrConstant>, Diagnostic> {
+        self.file_data_declarations_with_reset_policy(GlobalResetPolicy::Reset, None)
+    }
+
+    pub(super) fn file_data_declarations_with_reset_policy(
+        &mut self,
+        reset_policy: GlobalResetPolicy,
+        reset_policy_span: Option<Span>,
+    ) -> Result<Vec<GlobalOrConstant>, Diagnostic> {
         let mut names = vec![(self.name()?, self.tokens[self.at - 1].span)];
         while self.take(Punct::Comma) {
             let span = self.token().span;
@@ -16,6 +24,8 @@ impl Parser<'_> {
                 StatementKind::Declare(source) => GlobalOrConstant::Global(GlobalDeclaration {
                     declaration: source,
                     span: declaration.span,
+                    reset_policy,
+                    reset_policy_span,
                 }),
                 StatementKind::Constant(source) => GlobalOrConstant::Constant(source),
                 _ => unreachable!("data declaration has one typed source result"),
@@ -87,6 +97,8 @@ impl Parser<'_> {
                         group: Arc::clone(&group),
                     },
                     span: Span::new(span.start, declaration_span.end),
+                    reset_policy,
+                    reset_policy_span,
                 })
             })
             .collect())

@@ -1238,7 +1238,18 @@ pub(super) fn apply_place<P: ProcedureProvider + ?Sized, E: CompilerEffects>(
                     .globals()
                     .get(id.index())
                     .ok_or(Error::InvalidIr("missing global definition"))?;
-                let value = vm.global_value(global.initializer(), depth + 1)?;
+                let initializer = if vm.execution_phase == crate::ExecutionPhase::Runtime {
+                    global
+                        .runtime_initializer()
+                        .cloned()
+                        .map(jai_ir::GlobalInitializer::Value)
+                } else {
+                    None
+                };
+                let value = vm.global_value(
+                    initializer.as_ref().unwrap_or_else(|| global.initializer()),
+                    depth + 1,
+                )?;
                 let value = vm.normalize_storage_value(value, depth + 1)?;
                 vm.prepare_layout(global.ty())?;
                 let pointer = vm.memory.allocate_with_alignment(

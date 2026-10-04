@@ -6,7 +6,7 @@ use crate::overloads::{
 use crate::polymorphism::BakedValue;
 use crate::{Binding, Resolver, ScalarConstant, Signature};
 use jai_ir::{ConstantKind, ConstantValue};
-use jai_source::{Diagnostic, Span};
+use jai_source::{Diagnostic, Span, Symbol};
 use jai_syntax::{self as syntax, Expression, ExpressionKind as E, NamePath, UnaryOp};
 use jai_types::{FloatType, FloatValue, IntegerType, ScalarType, TypeId, TypeKind, TypeView};
 
@@ -118,6 +118,29 @@ impl NominalView for Resolver<'_> {
                 ty: field.ty,
             })
             .collect())
+    }
+    fn record_field_path(
+        &self,
+        ty: TypeId,
+        name: Symbol,
+        span: Span,
+    ) -> Result<Vec<jai_types::FieldId>, Diagnostic> {
+        self.field_path(ty, name, span)
+    }
+    fn field_construction_overlay(
+        &self,
+        field: jai_types::FieldId,
+        span: Span,
+    ) -> Result<Option<ConstantValue>, Diagnostic> {
+        Resolver::field_construction_overlay(self, field, span)
+    }
+    fn literal_element_default(
+        &self,
+        _: jai_types::FieldId,
+        ty: TypeId,
+        span: Span,
+    ) -> Result<ConstantValue, Diagnostic> {
+        self.default_value(ty, span)
     }
     fn field_default(
         &self,
@@ -860,7 +883,7 @@ impl Resolver<'_> {
             }
             E::Conditional(value) => {
                 let _ = self.describe_argument(&value.condition)?;
-                let lhs = self.describe_argument(&value.then_value)?;
+                let lhs = self.describe_argument(value.then_source())?;
                 let rhs =
                     self.describe_argument(value.else_value.as_ref().ok_or_else(|| {
                         Diagnostic::new(span, "conditional argument requires an else value")
@@ -955,14 +978,14 @@ impl Resolver<'_> {
                     ty: literal
                         .ty
                         .as_ref()
-                        .map(|path| self.local_type_name(path, span))
+                        .map(|ty| self.lexical_annotation(ty, span))
                         .transpose()?,
                     fields: literal
                         .fields
                         .iter()
                         .map(|field| {
                             Ok(RecordArgumentField {
-                                name: field.name,
+                                target: self.describe_record_argument_target(&field.target)?,
                                 value: self.describe_argument(&field.value)?,
                                 span: field.span,
                             })
@@ -972,10 +995,7 @@ impl Resolver<'_> {
                 constant: None,
             },
             E::PositionalStructLiteral(literal) if literal.ty.is_some() => {
-                let scope = self
-                    .graph_scope
-                    .ok_or_else(|| Diagnostic::new(span, "record requires a graph scope"))?;
-                ArgumentInfo::typed(scope.type_name(literal.ty.as_ref().unwrap(), span)?)
+                ArgumentInfo::typed(self.lexical_annotation(literal.ty.as_ref().unwrap(), span)?)
             }
             E::ArrayLiteral(literal) => {
                 let explicit = literal

@@ -3,6 +3,7 @@ name = "jai-wasm"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -10,9 +11,11 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 jai-runtime = { path = "../jai-runtime" }
 jai-language-server = { path = "../jai-language-server" }
+jaic = { path = "../jaic" }
 
-# Export-name attributes are the only permitted unsafe syntax, in exports.rs and language_server.rs.
-# The interpreter and bridge use no unsafe blocks or raw host memory pointers.
+# Export-name attributes are the only permitted unsafe syntax, in the *exports.rs and
+# language_server.rs modules. The interpreter and bridge use no unsafe blocks or raw host
+# memory pointers (the jaic interpreter's own unsafe stays inside that crate).
 [lints.rust]
 unsafe_code = "deny"
 [lints.clippy]

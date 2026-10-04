@@ -220,6 +220,7 @@ impl Job {
         let empty_signatures = HashMap::new();
         let empty_values = HashMap::new();
         let mut resolver = Resolver {
+            conditional_subjects: Vec::new(),
             expression_owner: Some(self.owner),
             debug: crate::debug_capture::Capture::default(),
             checks: crate::safety_checks::ActiveChecks::default(),

@@ -103,8 +103,14 @@ pub struct ArrayLiteral {
 #[derive(Clone, Debug)]
 pub struct ConditionalExpression {
     pub condition: Box<Expression>,
-    pub then_value: Box<Expression>,
+    pub then_value: ConditionalThenValue,
     pub else_value: Option<Box<Expression>>,
+}
+
+#[derive(Clone, Debug)]
+pub enum ConditionalThenValue {
+    Expression(Box<Expression>),
+    ImplicitSubject,
 }
 
 impl Parser<'_> {
@@ -175,7 +181,7 @@ impl Parser<'_> {
             self.need(Punct::CloseParen)?;
             e.span = Span::new(span.start, self.tokens[self.at - 1].span.end);
             e
-        } else if self.is(Punct::StructLiteral) {
+        } else if self.is(Punct::StructLiteral) || self.is(Punct::OpenBrace) {
             if !self.allow_qualified {
                 return Err(self.error("struct literals require aggregate type resolution"));
             }
@@ -381,29 +387,7 @@ impl Parser<'_> {
         } else if token.kind == Kind::Directive(Directive::Run) {
             self.compile_time()?
         } else if self.keyword(Keyword::Ifx) {
-            let condition = Box::new(self.expression(0)?);
-            if self.is(Punct::OpenBrace) {
-                return Err(self.error("ifx case expressions are not implemented"));
-            }
-            self.keyword(Keyword::Then);
-            if self.token().kind == Kind::Keyword(Keyword::Else) {
-                return Err(self.error("implicit then values in ifx are not implemented yet"));
-            }
-            let then_value = Box::new(self.expression(0)?);
-            let else_value = if self.keyword(Keyword::Else) {
-                Some(Box::new(self.expression(0)?))
-            } else {
-                None
-            };
-            let end = else_value.as_ref().unwrap_or(&then_value).span.end;
-            Expression {
-                span: Span::new(span.start, end),
-                kind: ExpressionKind::Conditional(ConditionalExpression {
-                    condition,
-                    then_value,
-                    else_value,
-                }),
-            }
+            self.conditional_expression(span)?
         } else if self.keyword(Keyword::AutoCast) {
             if !self.allow_qualified {
                 return Err(Diagnostic::new(
@@ -508,15 +492,9 @@ impl Parser<'_> {
                 if !self.allow_qualified {
                     return Err(self.error("struct literals require aggregate type resolution"));
                 }
-                let ty = match lhs.kind {
-                    ExpressionKind::Name(root) => NamePath {
-                        root,
-                        members: Vec::new(),
-                    },
-                    ExpressionKind::QualifiedName(path) => path,
-                    _ => return Err(self.error("struct literal type must be a named type")),
-                };
-                lhs = self.struct_literal(Some(ty), lhs.span.start)?;
+                let start = lhs.span.start;
+                let ty = self.literal_type_target(lhs)?;
+                lhs = self.struct_literal(Some(ty), start)?;
                 continue;
             }
             if self.is(Punct::Dot) && minimum <= 23 {

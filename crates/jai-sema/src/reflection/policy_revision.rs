@@ -1,10 +1,34 @@
 //! Policy revisions publish fresh descriptors without mutating earlier graphs.
 use super::*;
-use jai_types::{RecordReflectionCommit, RecordReflectionTransaction};
+use jai_types::{
+    PreparedRecordReflectionTransaction, RecordReflectionCommit, RecordReflectionTransaction,
+};
 
 const MAX_DESCRIPTOR_POLICY_REVISIONS: u64 = 65_536;
 
+/// Both exclusive owners remain borrowed through host publication. All checks
+/// and allocations have completed; applying the receipt cannot fail or race a
+/// source policy update in the canonical arena.
+pub(crate) struct PreparedReflectionPolicy<'a> {
+    meta: &'a mut MetaContext,
+    transaction: PreparedRecordReflectionTransaction<'a>,
+}
+impl PreparedReflectionPolicy<'_> {
+    pub(crate) fn apply(self) -> RecordReflectionCommit {
+        let commit = self.transaction.apply();
+        if !commit.is_empty() {
+            self.meta.revise_reflection_storage();
+        }
+        commit
+    }
+}
+
 impl MetaContext {
+    #[cfg(test)]
+    pub(crate) fn reflection_policy_epoch(&self) -> u64 {
+        self.descriptor_policy_epoch
+    }
+
     pub(crate) fn validate_reflection_policy_transaction(
         &self,
         types: &TypeRegistry,
@@ -33,14 +57,25 @@ impl MetaContext {
         transaction: RecordReflectionTransaction,
         location: jai_source::SourceSpan,
     ) -> Result<RecordReflectionCommit, Diagnostic> {
+        Ok(self
+            .prepare_reflection_policy_transaction(types, transaction, location)?
+            .apply())
+    }
+
+    pub(crate) fn prepare_reflection_policy_transaction<'a>(
+        &'a mut self,
+        types: &'a mut TypeRegistry,
+        transaction: RecordReflectionTransaction,
+        location: jai_source::SourceSpan,
+    ) -> Result<PreparedReflectionPolicy<'a>, Diagnostic> {
         self.validate_reflection_policy_transaction(types, &transaction, location)?;
-        let commit = transaction
-            .commit(types)
+        let transaction = transaction
+            .prepare(types)
             .map_err(|error| Diagnostic::at_source(location, error.to_string()))?;
-        if !commit.is_empty() {
-            self.revise_reflection_storage();
-        }
-        Ok(commit)
+        Ok(PreparedReflectionPolicy {
+            meta: self,
+            transaction,
+        })
     }
 
     /// Source directives can change a policy before a compiler journal exists.

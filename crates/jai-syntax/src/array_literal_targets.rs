@@ -51,7 +51,7 @@ impl Parser<'_> {
         })
     }
 
-    fn literal_named_type(&self, path: NamePath) -> TypeSyntax {
+    pub(super) fn literal_named_type(&self, path: NamePath) -> TypeSyntax {
         if path.members.is_empty()
             && let Some(builtin) = BuiltinType::from_spelling(self.symbols.name(path.root))
         {

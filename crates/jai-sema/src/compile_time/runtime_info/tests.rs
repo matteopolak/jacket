@@ -62,7 +62,13 @@ fn preparation() -> (
 fn checkpoint() -> Arc<RuntimeInfoCheckpoint> {
     let (types, schema, mut meta, _sources, location) = preparation();
     let ReflectionReadiness::Ready(checkpoint) = meta
-        .runtime_info_checkpoint(&types, schema, Some(LayoutPolicy::lp64()), location)
+        .runtime_info_checkpoint(
+            &types,
+            schema,
+            Some(LayoutPolicy::lp64()),
+            &jai_types::ReflectionMetadata::default(),
+            location,
+        )
         .unwrap()
     else {
         panic!("canonical ready schema")
@@ -130,7 +136,7 @@ fn released_and_foreign_registry_tokens_never_select_another_checkpoint() {
 }
 
 #[test]
-fn incomplete_source_frontier_issues_no_demand_until_its_real_definition_is_ready() {
+fn incomplete_source_frontier_retains_the_first_demand_through_definition_waiting() {
     let (mut types, schema, mut meta, sources, location) = preparation();
     let record = types.reserve_record(RecordKind::Struct);
     meta.register_reflection_source_type(
@@ -142,7 +148,7 @@ fn incomplete_source_frontier_issues_no_demand_until_its_real_definition_is_read
     .unwrap();
     let metadata = jai_types::ReflectionMetadata::default();
     let mut demands = RuntimeInfoDemands::default();
-    let result = demands
+    let id = demands
         .prepare_requested(
             workspace(35),
             schema,
@@ -155,18 +161,40 @@ fn incomplete_source_frontier_issues_no_demand_until_its_real_definition_is_read
             },
         )
         .unwrap();
+    let original = demands.frontier(id, workspace(35)).unwrap();
+    let waiting = demands
+        .service(
+            id,
+            workspace(35),
+            RuntimeInfoService {
+                meta: &mut meta,
+                types: &mut types,
+                metadata: &metadata,
+                location,
+            },
+        )
+        .unwrap();
     assert!(
-        matches!(result, ReflectionReadiness::Pending(ref dependencies) if dependencies.contains(&jai_types::ReflectionDependency::Definition(record)))
+        matches!(waiting, ReflectionReadiness::Pending(ref dependencies)
+        if dependencies.contains(&jai_types::ReflectionDependency::Definition(record)))
     );
-    assert!(demands.active.is_empty());
+    assert_eq!(demands.active.len(), 1);
+    let unrelated = types.reserve_record(RecordKind::Struct);
+    types.define_record(unrelated, []).unwrap();
+    meta.register_reflection_source_type(
+        &types,
+        unrelated,
+        sources.get(location.source).unwrap(),
+        location.span,
+    )
+    .unwrap();
     types
         .define_record(record, [types.scalar(ScalarType::Bool)])
         .unwrap();
-    let result = demands
-        .prepare_requested(
+    let error = demands
+        .service(
+            id,
             workspace(35),
-            schema,
-            Some(LayoutPolicy::lp64()),
             RuntimeInfoService {
                 meta: &mut meta,
                 types: &mut types,
@@ -174,12 +202,18 @@ fn incomplete_source_frontier_issues_no_demand_until_its_real_definition_is_read
                 location,
             },
         )
-        .unwrap();
-    let ReflectionReadiness::Ready(id) = result else {
-        panic!("completed source frontier must issue the checkpoint");
-    };
+        .unwrap_err();
+    assert!(error.message.contains("descriptor schema is not adopted"));
+    let ready = demands.checkpoint(id, workspace(35)).unwrap();
+    assert!(ready.represented_types().contains(&record));
+    assert!(!ready.represented_types().contains(&unrelated));
+    assert!(Arc::ptr_eq(
+        &original,
+        &demands.frontier(id, workspace(35)).unwrap()
+    ));
     assert!(
-        matches!(demands.availability_for(id, workspace(35), schema).unwrap(), RuntimeInfoDemandAvailability::Requested(request) if request == id)
+        matches!(demands.availability_for(id, workspace(35), schema).unwrap(),
+        RuntimeInfoDemandAvailability::Requested(request) if request == id)
     );
 }
 
@@ -201,7 +235,7 @@ fn failed_materialization_does_not_publish_or_replace_the_retained_checkpoint() 
     let (mut types, schema, mut meta, _sources, location) = preparation();
     let metadata = jai_types::ReflectionMetadata::default();
     let mut demands = RuntimeInfoDemands::default();
-    let ReflectionReadiness::Ready(id) = demands
+    let id = demands
         .prepare_requested(
             workspace(37),
             schema,
@@ -213,11 +247,8 @@ fn failed_materialization_does_not_publish_or_replace_the_retained_checkpoint() 
                 location,
             },
         )
-        .unwrap()
-    else {
-        panic!("ready source frontier");
-    };
-    let original = demands.checkpoint(id, workspace(37)).unwrap();
+        .unwrap();
+    let original = demands.frontier(id, workspace(37)).unwrap();
     let error = demands
         .service(
             id,
@@ -233,7 +264,7 @@ fn failed_materialization_does_not_publish_or_replace_the_retained_checkpoint() 
     assert!(error.message.contains("descriptor schema is not adopted"));
     assert!(Arc::ptr_eq(
         &original,
-        &demands.checkpoint(id, workspace(37)).unwrap()
+        &demands.frontier(id, workspace(37)).unwrap()
     ));
     assert!(
         matches!(demands.availability_for(id, workspace(37), schema).unwrap(), RuntimeInfoDemandAvailability::Requested(request) if request == id)
@@ -246,7 +277,7 @@ fn another_source_catalog_cannot_service_a_same_registry_checkpoint() {
     let (mut types, schema, mut original_meta, _sources, location) = preparation();
     let metadata = jai_types::ReflectionMetadata::default();
     let mut demands = RuntimeInfoDemands::default();
-    let ReflectionReadiness::Ready(id) = demands
+    let id = demands
         .prepare_requested(
             workspace(38),
             schema,
@@ -258,10 +289,7 @@ fn another_source_catalog_cannot_service_a_same_registry_checkpoint() {
                 location,
             },
         )
-        .unwrap()
-    else {
-        panic!("ready source frontier");
-    };
+        .unwrap();
     let mut foreign_meta = crate::reflection::MetaContext::default();
     let error = demands
         .service(

@@ -697,21 +697,13 @@ impl Resolver<'_> {
             }
             syntax::ExpressionKind::StructLiteral(literal) => {
                 if let Some(path) = &literal.ty {
-                    return self.annotation_value_contract(
-                        value.type_id(self.types),
-                        &syntax::TypeSyntax::Named(path.clone()),
-                        span,
-                    );
+                    return self.annotation_value_contract(value.type_id(self.types), path, span);
                 }
                 self.callback_value_contract(value, span)
             }
             syntax::ExpressionKind::PositionalStructLiteral(literal) => {
                 if let Some(path) = &literal.ty {
-                    return self.annotation_value_contract(
-                        value.type_id(self.types),
-                        &syntax::TypeSyntax::Named(path.clone()),
-                        span,
-                    );
+                    return self.annotation_value_contract(value.type_id(self.types), path, span);
                 }
                 self.callback_value_contract(value, span)
             }
@@ -804,7 +796,7 @@ impl Resolver<'_> {
                 } = value
                 {
                     let left = self.callback_expression_contract_inner(
-                        &source.then_value,
+                        source.then_source(),
                         &expression.then_value,
                         span,
                         depth + 1,

@@ -44,11 +44,48 @@ fn aggregate<'ctx>(
     values: Vec<BasicValueEnum<'ctx>>,
     lowerer: &mut TypeLowerer<'ctx, '_>,
 ) -> inkwell::values::StructValue<'ctx> {
-    lowerer
-        .basic(ty)
+    lowerer.record_constant(ty, &values).unwrap()
+}
+fn field<'ctx>(
+    ty: TypeId,
+    value: inkwell::values::StructValue<'ctx>,
+    index: usize,
+    lowerer: &mut TypeLowerer<'ctx, '_>,
+    builder: &inkwell::builder::Builder<'ctx>,
+    name: &str,
+) -> BasicValueEnum<'ctx> {
+    let field = lowerer.registry().field(ty, index).unwrap().id;
+    let path = lowerer.record_field_path(ty, field).unwrap();
+    let payload = builder
+        .build_extract_value(value, path[0], "record.payload")
         .unwrap()
-        .into_struct_type()
-        .const_named_struct(&values)
+        .into_struct_value();
+    builder.build_extract_value(payload, path[1], name).unwrap()
+}
+fn runtime_record<'ctx>(
+    ty: TypeId,
+    values: &[BasicValueEnum<'ctx>],
+    lowerer: &mut TypeLowerer<'ctx, '_>,
+    builder: &inkwell::builder::Builder<'ctx>,
+) -> inkwell::values::StructValue<'ctx> {
+    let mut record = lowerer.basic(ty).unwrap().into_struct_type().const_zero();
+    let mut payload = builder
+        .build_extract_value(record, 1, "record.payload")
+        .unwrap()
+        .into_struct_value();
+    for (index, &value) in values.iter().enumerate() {
+        let id = lowerer.registry().field(ty, index).unwrap().id;
+        let path = lowerer.record_field_path(ty, id).unwrap();
+        payload = builder
+            .build_insert_value(payload, value, path[1], "record.field")
+            .unwrap()
+            .into_struct_value();
+    }
+    record = builder
+        .build_insert_value(record, payload, 1, "record.value")
+        .unwrap()
+        .into_struct_value();
+    record
 }
 fn execute(module: &inkwell::module::Module<'_>, fixture: &str) -> i32 {
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -68,26 +105,60 @@ fn execute(module: &inkwell::module::Module<'_>, fixture: &str) -> i32 {
     let c = scratch.0.join("fixture.c");
     let executable = scratch.0.join("program");
     module.verify().unwrap();
-    jai_codegen::target::NativeTarget::new()
-        .unwrap()
-        .write_object(module, &object)
-        .unwrap();
     fs::write(&c, fixture).unwrap();
-    let compiled = native_tools::clang_command()
-        .arg(&object)
-        .arg(&c)
-        .arg("-o")
-        .arg(&executable)
-        .output()
-        .unwrap();
-    assert!(
-        compiled.status.success(),
-        "{}\n{}",
-        String::from_utf8_lossy(&compiled.stderr),
-        module.print_to_string()
-    );
-    let status = Command::new(&executable).status().unwrap();
-    status.code().expect("fixture terminated by signal")
+    let mut first = None;
+    for optimization in [
+        jai_types::BitcodeOptimization::O0,
+        jai_types::BitcodeOptimization::O2,
+    ] {
+        let target =
+            jai_codegen::target::NativeTarget::select(&jai_codegen::target::TargetOptions {
+                optimization: jai_codegen::optimization::Optimization {
+                    bitcode: optimization,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .unwrap();
+        target.write_object(module, &object).unwrap();
+        let compiled = native_tools::clang_command()
+            .arg(&object)
+            .arg(&c)
+            .arg(if optimization == jai_types::BitcodeOptimization::O0 {
+                "-O0"
+            } else {
+                "-O2"
+            })
+            .arg("-o")
+            .arg(&executable)
+            .output()
+            .unwrap();
+        assert!(
+            compiled.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&compiled.stderr),
+            module.print_to_string()
+        );
+        let mut child = Command::new(&executable).spawn().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let code = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status.code().expect("fixture terminated by signal");
+            }
+            if std::time::Instant::now() >= deadline {
+                child.kill().unwrap();
+                child.wait().unwrap();
+                panic!("C ABI fixture timed out");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        if let Some(first) = first {
+            assert_eq!(code, first, "O0/O2 C ABI outcomes differ");
+        } else {
+            first = Some(code);
+        }
+    }
+    first.unwrap()
 }
 
 #[test]
@@ -436,23 +507,23 @@ fn aggregates_roundtrip_through_real_c_abi_including_unions_hfa_and_sret() {
             .into_struct_value();
         let (member, expected) = match index {
             0 => (
-                builder.build_extract_value(value, 2, "odd").unwrap(),
+                field(ty, value, 2, &mut lowerer, &builder, "odd"),
                 context.i8_type().const_int(5, false).into(),
             ),
             1 => (
-                builder.build_extract_value(value, 1, "pair").unwrap(),
+                field(ty, value, 1, &mut lowerer, &builder, "pair"),
                 context.i64_type().const_int(22, false).into(),
             ),
             2 => (
-                builder.build_extract_value(value, 0, "mixed").unwrap(),
+                field(ty, value, 0, &mut lowerer, &builder, "mixed"),
                 context.f64_type().const_float(3.0).into(),
             ),
             3 => (
-                builder.build_extract_value(value, 2, "hfa").unwrap(),
+                field(ty, value, 2, &mut lowerer, &builder, "hfa"),
                 context.f32_type().const_float(6.0).into(),
             ),
             4 => (
-                builder.build_extract_value(value, 2, "large").unwrap(),
+                field(ty, value, 2, &mut lowerer, &builder, "large"),
                 context.i64_type().const_int(33, false).into(),
             ),
             5 => (
@@ -464,7 +535,7 @@ fn aggregates_roundtrip_through_real_c_abi_including_unions_hfa_and_sret() {
                 context.f64_type().const_float(5.0).into(),
             ),
             _ => (
-                builder.build_extract_value(value, 3, "double_hfa").unwrap(),
+                field(ty, value, 3, &mut lowerer, &builder, "double_hfa"),
                 context.f64_type().const_float(8.0).into(),
             ),
         };
@@ -799,14 +870,12 @@ fn universal_any_descriptor_roundtrips_through_actual_c_argument_and_result_abi(
     builder
         .build_store(payload, context.i64_type().const_int(41, false))
         .unwrap();
-    let storage = lowerer.basic(any).unwrap().into_struct_type();
-    let argument = builder
-        .build_insert_value(storage.get_undef(), descriptor, 0, "any.type")
-        .unwrap();
-    let argument = builder
-        .build_insert_value(argument, payload, 1, "any.payload")
-        .unwrap()
-        .into_struct_value();
+    let argument = runtime_record(
+        any,
+        &[descriptor.into(), payload.into()],
+        &mut lowerer,
+        &builder,
+    );
     let function = foreign::declare(
         &module,
         &types,
@@ -829,14 +898,10 @@ fn universal_any_descriptor_roundtrips_through_actual_c_argument_and_result_abi(
         .value
         .unwrap()
         .into_struct_value();
-    let returned_descriptor = builder
-        .build_extract_value(returned, 0, "returned.type")
-        .unwrap()
-        .into_pointer_value();
-    let returned_payload = builder
-        .build_extract_value(returned, 1, "returned.payload")
-        .unwrap()
-        .into_pointer_value();
+    let returned_descriptor =
+        field(any, returned, 0, &mut lowerer, &builder, "returned.type").into_pointer_value();
+    let returned_payload =
+        field(any, returned, 1, &mut lowerer, &builder, "returned.payload").into_pointer_value();
     let pointer_type = context.ptr_sized_int_type(&target.data, None);
     let equal_type = builder
         .build_int_compare(

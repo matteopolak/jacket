@@ -184,6 +184,8 @@ impl Builder<'_> {
     }
 
     fn cases(&mut self, cases: &Cases, depth: usize) -> Result<CasesCode, Error> {
+        // Both lowered policy fields and the later source clone stay reserved.
+        self.reserve(2, depth)?;
         self.reserve(cases.arms.len(), depth)?;
         let subject = self.subject(&cases.subject, depth + 1)?;
         let mut arms = Vec::with_capacity(cases.arms.len());
@@ -200,6 +202,8 @@ impl Builder<'_> {
             .map(|block| self.block(block, depth + 1))
             .transpose()?;
         Ok(CasesCode {
+            default_position: cases.default_position,
+            default_through: cases.default_through,
             subject,
             arms: arms.into(),
             default,

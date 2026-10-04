@@ -1,5 +1,5 @@
 //! Ordered source construction follows genuine promoted physical field paths.
-use jai_modules::{GraphOptions, ModuleGraph};
+use jai_modules::{Filesystem, GraphDiscovery, GraphOptions, ModuleGraph};
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicUsize, Ordering},
@@ -18,7 +18,40 @@ impl Fixture {
         Self(path)
     }
     fn graph(&self) -> ModuleGraph {
-        ModuleGraph::load(&self.0.join("main.jai"), GraphOptions::default()).unwrap()
+        let mut discovery = GraphDiscovery::new(
+            &self.0.join("main.jai"),
+            GraphOptions::default(),
+            &Filesystem,
+        )
+        .unwrap();
+        loop {
+            let status = discovery.advance().unwrap();
+            if status.is_complete() {
+                return discovery.into_graph().unwrap();
+            }
+            let requests = discovery.pending_using_requests();
+            assert!(!requests.is_empty(), "{status:?}");
+            let outcome = jai_sema::resolve_discovery_using(
+                discovery.graph(),
+                &requests,
+                &jai_sema::ResolveOptions::default(),
+                &mut jai_vm::NoEffects,
+            )
+            .unwrap();
+            let mut progressed = false;
+            for key in outcome.specializations {
+                progressed |= discovery.discover_specialization(key).unwrap();
+            }
+            for (request, decision) in outcome.decisions {
+                discovery.resolve_using(request, decision).unwrap();
+                progressed = true;
+            }
+            assert!(
+                progressed,
+                "typed using remains pending: {:?}",
+                outcome.pending
+            );
+        }
     }
 }
 impl Drop for Fixture {
@@ -73,6 +106,17 @@ tick::(state:*int,n:int)->int{state.*=state.* * 10+n;return n;}
 main::()->int{state:=0;value:Owner=.{x=tick(*state,1),middle=tick(*state,2),y=tick(*state,3)};if state!=123 || value.x!=1 || value.middle!=2 || value.y!=3 return 1;return 42;}
 "###),
         42
+    );
+}
+
+#[test]
+fn placed_record_literals_materialize_overlapping_fields_in_record_order() {
+    assert_eq!(
+        run(r###"
+Storage::struct{first:u32;#place first;second:u32;}
+main::()->int{value:Storage=.{first=1,second=42};return cast(int)value.first+cast(int)value.second;}
+"###),
+        84
     );
 }
 
@@ -234,4 +278,91 @@ Owner::struct{struct{x:int;}}main::(){value:Owner=.{x="wrong"};}
     );
     let error = jai_sema::resolve_graph(&fixture.graph()).unwrap_err();
     assert!(error.message.contains("type"), "{:?}", error);
+}
+
+#[test]
+fn typed_generic_target_and_contextual_bare_value_use_the_real_specialization() {
+    assert_eq!(
+        run(r#"
+Pair::struct(T:Type){left:T;right:T;}
+make::(value:Pair(int))->int{return value.left+value.right;}
+main::()->int{typed:=Pair(int).{left=20,right=22};return make({left=typed.left,right=typed.right});}
+"#),
+        42
+    );
+}
+
+#[test]
+fn indexed_defaults_preserve_untouched_values_and_written_source_order() {
+    assert_eq!(
+        run(r#"
+Owner::struct{values:[3]int=.[10,20,30];tail:int;}
+tick::(state:*int,n:int)->int{state.*=state.* * 10+n;return n;}
+main::()->int{state:=0;value:=Owner.{values[2]=tick(*state,1),tail=tick(*state,2),values[0]=tick(*state,3)};if state!=123 || value.values[1]!=20 || value.tail!=2 return 1;return 42;}
+"#),
+        42
+    );
+}
+
+#[test]
+fn canonical_default_application_uses_preceding_actual_type_formals() {
+    assert_eq!(
+        run(r#"
+Pair::struct(T:Type,U:Type=T){left:T;right:U;}
+Holder::struct{pair:Pair(int)=Pair(int).{left=20,right=22};}
+main::()->int{value:Holder;return value.pair.left+value.pair.right;}
+"#),
+        42
+    );
+}
+
+#[test]
+fn selected_field_promotion_hides_excluded_names_before_ambiguity_checks() {
+    assert_eq!(
+        run(r#"
+Child::struct{value:int=1;length:int=99;}
+Owner::struct{using,except(length) child:Child;length:int=2;}
+main::()->int{item:=Owner.{value=40,length=2};using item;return value+length;}
+"#),
+        42
+    );
+}
+
+#[test]
+fn bare_record_promotion_and_nested_enum_namespace_keep_real_owners() {
+    assert_eq!(
+        run(r#"
+Child::struct{x:int=20;y:int=99;}
+Owner::struct{child:Child;using,only(x) child;using Codes::enum{ANSWER::22;OTHER::1;}}
+main::()->int{value:Owner;return value.x+cast(int) Owner.ANSWER;}
+"#),
+        42
+    );
+}
+
+#[test]
+fn malformed_path_is_rejected_before_compile_time_initializer_execution() {
+    let source = "Owner::struct{values:[2]int;} trap::()->int{return 1/0;} main::()->int{value:=Owner.{values[2]=#run trap()};return 42;}";
+    let fixture = Fixture::new(source);
+    let error = jai_sema::resolve_graph(&fixture.graph()).unwrap_err();
+    assert!(error.message.contains("index"), "{error:?}");
+    assert!(!error.message.contains("zero divisor"), "{error:?}");
+}
+
+#[test]
+fn excluded_field_and_overlapping_literal_paths_do_not_gain_authority() {
+    for (source, message) in [
+        (
+            "Child::struct{x:int;}Owner::struct{using,except(x) child:Child;}main::()->int{value:=Owner.{x=42};return 42;}",
+            "unknown",
+        ),
+        (
+            "Child::struct{x:int;}Owner::struct{child:Child;}main::()->int{value:=Owner.{child=.{x=1},child.x=2};return 42;}",
+            "overlap",
+        ),
+    ] {
+        let fixture = Fixture::new(source);
+        let error = jai_sema::resolve_graph(&fixture.graph()).unwrap_err();
+        assert!(error.message.contains(message), "{error:?}");
+    }
 }

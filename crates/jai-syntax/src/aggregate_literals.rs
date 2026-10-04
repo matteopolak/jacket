@@ -45,21 +45,14 @@ impl Parser<'_> {
         })
     }
 
-    fn literal_named_type(&self, path: NamePath) -> TypeSyntax {
-        if path.members.is_empty()
-            && let Some(builtin) = BuiltinType::from_spelling(self.symbols.name(path.root))
-        {
-            return TypeSyntax::Builtin(builtin);
-        }
-        TypeSyntax::Named(path)
-    }
-
     pub(super) fn struct_literal(
         &mut self,
         ty: Option<TypeSyntax>,
         start: usize,
     ) -> Result<Expression, Diagnostic> {
-        self.need(Punct::StructLiteral)?;
+        if !self.take(Punct::StructLiteral) {
+            self.need(Punct::OpenBrace)?;
+        }
         if self.take(Punct::CloseBrace) {
             return Ok(Expression {
                 kind: ExpressionKind::StructLiteral(StructLiteral {

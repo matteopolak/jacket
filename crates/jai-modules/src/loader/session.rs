@@ -52,6 +52,7 @@ impl Builder<'_> {
         let root = self.graph.root;
         self.modules.insert(
             ModuleKey {
+                embedded: None,
                 path: path.clone(),
                 arguments: None,
             },
@@ -86,13 +87,14 @@ impl Builder<'_> {
                 self.graph.prelude = Some(module);
                 self.modules.insert(
                     ModuleKey {
+                        embedded: None,
                         path: preload.clone(),
                         arguments: None,
                     },
                     module,
                 );
                 self.requests.insert(module, (None, None));
-                self.program.insert(preload.clone(), None);
+                self.program.insert(preload.clone().into(), None);
                 self.entry_modules.push((module, preload));
             }
         }
@@ -153,13 +155,14 @@ impl Builder<'_> {
                 self.graph.runtime_support = Some(module);
                 self.modules.insert(
                     ModuleKey {
+                        embedded: None,
                         path: runtime_path.clone(),
                         arguments: Some(arguments.clone()),
                     },
                     module,
                 );
                 self.requests.insert(module, (Some(arguments), None));
-                self.program.insert(runtime_path.clone(), None);
+                self.program.insert(runtime_path.clone().into(), None);
                 self.entry_modules.push((module, runtime_path));
             }
         }

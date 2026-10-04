@@ -674,7 +674,7 @@ impl Builder<'_> {
             ModuleType::Procedure(ModuleProcedureType {
                 parameters: bound_parameters,
                 results: bound_results,
-                return_abi: return_abi,
+                return_abi,
                 convention,
                 context,
                 variadic,

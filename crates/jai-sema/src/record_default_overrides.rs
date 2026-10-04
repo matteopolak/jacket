@@ -9,8 +9,19 @@ pub(crate) fn find_field_path(
     name: jai_source::Symbol,
     span: Span,
     types: &dyn TypeView,
-    mut metadata: impl FnMut(TypeId) -> Result<crate::local_declarations::RecordMetadata, Diagnostic>,
+    metadata: impl FnMut(TypeId) -> Result<crate::local_declarations::RecordMetadata, Diagnostic>,
 ) -> Result<Vec<FieldId>, Diagnostic> {
+    optional_field_path(ty, name, span, types, metadata)?
+        .ok_or_else(|| Diagnostic::new(span, "unknown record default field"))
+}
+
+pub(crate) fn optional_field_path(
+    ty: TypeId,
+    name: jai_source::Symbol,
+    span: Span,
+    types: &dyn TypeView,
+    mut metadata: impl FnMut(TypeId) -> Result<crate::local_declarations::RecordMetadata, Diagnostic>,
+) -> Result<Option<Vec<FieldId>>, Diagnostic> {
     let mut pending = vec![(ty, Vec::new(), std::collections::HashSet::new())];
     let mut found = None;
     let mut visited = 0usize;
@@ -32,7 +43,7 @@ pub(crate) fn find_field_path(
         for field in record.fields.iter().rev() {
             let canonical = types
                 .validate_field(ty, field.id)
-                .map_err(|error| Diagnostic::new(span, error.to_string()))?;
+                .map_err(|e| Diagnostic::new(span, e.to_string()))?;
             if canonical != field.ty {
                 return Err(Diagnostic::new(
                     span,
@@ -46,14 +57,30 @@ pub(crate) fn find_field_path(
                     return Err(Diagnostic::new(span, "ambiguous promoted record member"));
                 }
             }
-            if field.syntax.using() {
+            if field.syntax.using()
+                && crate::record_using::selected(
+                    field.syntax.using_selection(),
+                    name,
+                    field.syntax.span(),
+                )?
+            {
                 let mut path = prefix.clone();
                 path.push(field.id);
                 pending.push((field.ty, path, ancestors.clone()));
             }
         }
+        for directive in &record.using {
+            if crate::record_using::selected(&directive.selection, name, directive.span)?
+                && let Some((child, relative)) =
+                    crate::record_using::target_path(ty, &directive.target, types, &mut metadata)?
+            {
+                let mut path = prefix.clone();
+                path.extend(relative);
+                pending.push((child, path, ancestors.clone()));
+            }
+        }
     }
-    found.ok_or_else(|| Diagnostic::new(span, "unknown record default field"))
+    Ok(found)
 }
 
 pub(crate) fn replace_constant(

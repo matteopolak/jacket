@@ -138,11 +138,7 @@ pub(super) fn prepare(
                 },
             }),
             syntax::ExpressionKind::StructLiteral(literal) => match &literal.ty {
-                Some(path) => Some(resolve(
-                    &syntax::TypeSyntax::Named(path.clone()),
-                    types,
-                    &mut meta.record_specializations,
-                )?),
+                Some(path) => Some(resolve(path, types, &mut meta.record_specializations)?),
                 None => Some(resolve(
                     expected.ok_or_else(|| {
                         located(

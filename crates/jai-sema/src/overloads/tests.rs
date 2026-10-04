@@ -838,7 +838,7 @@ fn contextual_records_validate_fields_and_canonicalize_baked_defaults() {
         constant: None,
     };
     let field = |name, value| RecordArgumentField {
-        name,
+        target: RecordArgumentTarget::field(name),
         value: ArgumentInfo::integer_literal(value),
         span: Span::default(),
     };

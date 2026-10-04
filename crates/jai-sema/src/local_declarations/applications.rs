@@ -150,7 +150,9 @@ impl Resolver<'_> {
                 }
                 E::Conditional(conditional) => {
                     expressions.push(&conditional.condition);
-                    expressions.push(&conditional.then_value);
+                    if let Some(value) = conditional.explicit_then() {
+                        expressions.push(value);
+                    }
                     if let Some(value) = &conditional.else_value {
                         expressions.push(value);
                     }
@@ -188,7 +190,10 @@ impl Resolver<'_> {
                 }
                 E::ArrayLiteral(array) => expressions.extend(&array.elements),
                 E::StructLiteral(record) => {
-                    expressions.extend(record.fields.iter().map(|field| &field.value))
+                    for field in &record.fields {
+                        expressions.extend(crate::modules::aggregates::promoted_literals::target_expressions::index_expressions(&field.target)?);
+                        expressions.push(&field.value);
+                    }
                 }
                 E::PositionalStructLiteral(record) => expressions.extend(&record.values),
                 _ => {}

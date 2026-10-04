@@ -102,6 +102,7 @@ pub struct FieldDeclaration {
     pub name: Symbol,
     pub binding: FieldBinding,
     pub using: bool,
+    pub using_selection: UsingSelection,
     pub conversion: FieldConversion,
     pub span: Span,
     pub attributes: Vec<FieldAttribute>,
@@ -154,6 +155,7 @@ pub struct EnumMember {
     pub name: Symbol,
     pub initializer: Option<Expression>,
     pub span: Span,
+    pub notes: Vec<NoteSyntax>,
 }
 #[derive(Clone, Debug)]
 pub struct EnumDeclaration {
@@ -161,32 +163,34 @@ pub struct EnumDeclaration {
     pub representation: Option<TypeSyntax>,
     pub kind: EnumKind,
     pub specified: bool,
-    pub members: Vec<EnumMember>,
+    pub members: Vec<EnumBodyItem>,
     pub span: Span,
+    pub notes: Vec<NoteSyntax>,
 }
 #[derive(Clone, Debug)]
 pub struct EnumTypeSyntax {
     pub representation: Option<TypeSyntax>,
     pub kind: EnumKind,
     pub specified: bool,
-    pub members: Vec<EnumMember>,
+    pub members: Vec<EnumBodyItem>,
     pub span: Span,
+    pub notes: Vec<NoteSyntax>,
 }
 
 #[derive(Clone, Debug)]
 pub struct StructLiteralField {
-    pub name: Symbol,
+    pub target: PlaceSyntax,
     pub value: Expression,
     pub span: Span,
 }
 #[derive(Clone, Debug)]
 pub struct StructLiteral {
-    pub ty: Option<NamePath>,
+    pub ty: Option<TypeSyntax>,
     pub fields: Vec<StructLiteralField>,
 }
 #[derive(Clone, Debug)]
 pub struct PositionalStructLiteral {
-    pub ty: Option<NamePath>,
+    pub ty: Option<TypeSyntax>,
     pub values: Vec<Expression>,
 }
 
@@ -387,7 +391,7 @@ impl Parser<'_> {
         let name = self.name()?;
         self.need(Punct::Constant)?;
         let mut record = self.record_type()?;
-        record.notes = self.notes()?;
+        record.notes.extend(self.notes()?);
         self.take(Punct::Semicolon);
         Ok(RecordDeclaration {
             name,
@@ -410,7 +414,21 @@ impl Parser<'_> {
             return Err(self.error("expected struct or union"));
         };
         let parameters = self.record_parameters()?;
-        let mut attributes = self.record_attributes()?;
+        let mut notes = Vec::new();
+        let mut attributes = Vec::new();
+        loop {
+            let before = self.at;
+            notes.extend(self.notes()?);
+            let next = self.record_attributes()?;
+            metadata::merge_record_attributes(
+                &mut attributes,
+                next,
+                Span::new(start, self.tokens[self.at - 1].span.end),
+            )?;
+            if before == self.at {
+                break;
+            }
+        }
         let modify = self.modify_directive()?;
         let members = self.record_members()?;
         let suffix = self.record_attributes()?;
@@ -419,12 +437,13 @@ impl Parser<'_> {
             suffix,
             Span::new(start, self.tokens[self.at - 1].span.end),
         )?;
+        notes.extend(self.notes()?);
         Ok(RecordTypeSyntax {
             kind,
             members,
             parameters,
             attributes,
-            notes: Vec::new(),
+            notes,
             modify,
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
@@ -441,6 +460,7 @@ impl Parser<'_> {
             kind: enumeration.kind,
             specified: enumeration.specified,
             members: enumeration.members,
+            notes: enumeration.notes,
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
     }
@@ -454,6 +474,7 @@ impl Parser<'_> {
         } else {
             return Err(self.error("expected enum or enum_flags"));
         };
+        let mut notes = self.notes()?;
         let representation = if self.is(Punct::OpenBrace)
             || self.token().kind == Kind::Directive(Directive::Specified)
         {
@@ -461,103 +482,21 @@ impl Parser<'_> {
         } else {
             Some(self.type_syntax()?)
         };
+        notes.extend(self.notes()?);
         let specified = self.token().kind == Kind::Directive(Directive::Specified);
         if specified {
             self.at += 1;
         }
+        notes.extend(self.notes()?);
         self.need(Punct::OpenBrace)?;
-        let mut members = Vec::new();
-        while !self.take(Punct::CloseBrace) {
-            // Extra separators do not declare members or advance enum values.
-            if self.take(Punct::Semicolon) {
-                continue;
-            }
-            if self.token().kind == Kind::Eof {
-                return Err(self.error("unterminated enum declaration"));
-            }
-            let start = self.token().span.start;
-            let name = self.name()?;
-            let initializer = if self.take(Punct::Constant) {
-                Some(self.expression(0)?)
-            } else {
-                None
-            };
-            self.need(Punct::Semicolon)?;
-            members.push(EnumMember {
-                name,
-                initializer,
-                span: Span::new(start, self.tokens[self.at - 1].span.end),
-            });
-        }
+        let members = self.enum_body_items(0)?;
+        notes.extend(self.notes()?);
         Ok(EnumTypeSyntax {
+            notes,
             representation,
             kind,
             specified,
             members,
-            span: Span::new(start, self.tokens[self.at - 1].span.end),
-        })
-    }
-    pub(super) fn struct_literal(
-        &mut self,
-        ty: Option<NamePath>,
-        start: usize,
-    ) -> Result<Expression, Diagnostic> {
-        self.need(Punct::StructLiteral)?;
-        if !self.is(Punct::CloseBrace) && !self.named_prefix(Punct::Assign) {
-            let mut values = Vec::new();
-            loop {
-                values.push(self.expression(0)?);
-                if self.take(Punct::CloseBrace) {
-                    break;
-                }
-                self.need(Punct::Comma)?;
-                if self.take(Punct::CloseBrace) {
-                    break;
-                }
-                if self.named_prefix(Punct::Assign) {
-                    return Err(
-                        self.error("named and positional struct literal members cannot be mixed")
-                    );
-                }
-            }
-            return Ok(Expression {
-                kind: ExpressionKind::PositionalStructLiteral(PositionalStructLiteral {
-                    ty,
-                    values,
-                }),
-                span: Span::new(start, self.tokens[self.at - 1].span.end),
-            });
-        }
-        let mut fields = Vec::new();
-        if !self.take(Punct::CloseBrace) {
-            loop {
-                let field_start = self.token().span.start;
-                if !self.named_prefix(Punct::Assign) {
-                    return Err(self.error("only named struct literal fields are implemented"));
-                }
-                let name = self.name()?;
-                self.need(Punct::Assign)?;
-                let value = self.expression(0)?;
-                let span = Span::new(field_start, value.span.end);
-                fields.push(StructLiteralField {
-                    name,
-                    value,
-                    span,
-                });
-                if self.take(Punct::CloseBrace) {
-                    break;
-                }
-                self.need(Punct::Comma)?;
-                if self.take(Punct::CloseBrace) {
-                    break;
-                }
-            }
-        }
-        Ok(Expression {
-            kind: ExpressionKind::StructLiteral(StructLiteral {
-                ty,
-                fields,
-            }),
             span: Span::new(start, self.tokens[self.at - 1].span.end),
         })
     }
@@ -716,21 +655,31 @@ mod tests {
             Some(ScalarType::Int(IntegerType::U32))
         );
         assert_eq!(
-            fruit
-                .members
-                .iter()
+            EnumMemberSyntax::new(&fruit.members)
                 .map(|member| symbols.name(member.name))
                 .collect::<Vec<_>>(),
             ["BANANA", "APPLE", "APRICOT"]
         );
-        assert!(fruit.members[1].initializer.is_none());
+        assert!(
+            EnumMemberSyntax::new(&fruit.members)
+                .nth(1)
+                .unwrap()
+                .initializer
+                .is_none()
+        );
         let FileDeclarationKind::Enum(bits) = declaration(&parsed, 1) else {
             panic!()
         };
         assert_eq!(bits.kind, EnumKind::Flags);
         assert!(bits.specified);
         assert!(matches!(
-            bits.members[2].initializer.as_ref().unwrap().kind,
+            EnumMemberSyntax::new(&bits.members)
+                .nth(2)
+                .unwrap()
+                .initializer
+                .as_ref()
+                .unwrap()
+                .kind,
             ExpressionKind::Binary(BinaryOp::BitOr, _, _)
         ));
         let FileDeclarationKind::Enum(default) = declaration(&parsed, 2) else {
@@ -756,11 +705,11 @@ mod tests {
         let ExpressionKind::StructLiteral(literal) = &initializer.kind else {
             panic!()
         };
-        assert_eq!(symbols.name(literal.ty.as_ref().unwrap().root), "Geometry");
-        assert_eq!(
-            symbols.name(literal.ty.as_ref().unwrap().members[0]),
-            "Point"
-        );
+        let TypeSyntax::Named(path) = literal.ty.as_ref().unwrap() else {
+            panic!("named target")
+        };
+        assert_eq!(symbols.name(path.root), "Geometry");
+        assert_eq!(symbols.name(path.members[0]), "Point");
         assert_eq!(literal.fields.len(), 2);
         assert_eq!(literal.fields[0].span.text(source), "x=1");
         assert!(matches!(

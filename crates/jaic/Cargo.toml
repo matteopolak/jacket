@@ -1,0 +1,16 @@
+[package]
+name = "jaic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Jai compiler core: lexer, parser, demand-driven semantic analysis, IR and interpreter."
+
+[dependencies]
+
+[lints.rust]
+# The interpreter executes Jai code against real memory (like the reference
+# compiler's #run), so raw pointer access is confined to `interp::memory`.
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "warn"

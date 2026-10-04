@@ -272,6 +272,49 @@ where
                         .filter(|field| field.syntax.using())
                         .map(|field| field.ty),
                 );
+                for directive in &record.shape.using {
+                    if let Some((child, _)) = crate::record_using::target_path(
+                        owner,
+                        &directive.target,
+                        self.types,
+                        &mut |ty| {
+                            self.records
+                                .record(ty)
+                                .map(|record| record.shape.clone())
+                                .or_else(|| {
+                                    self.nominals.records.get(&ty).map(|record| {
+                                        crate::local_declarations::RecordMetadata {
+                                            name: None,
+                                            kind: record.kind,
+                                            using: Vec::new(),
+                                            fields: record
+                                                .fields
+                                                .iter()
+                                                .map(|field| {
+                                                    crate::local_declarations::FieldMetadata {
+                                                        name: Some(field.name),
+                                                        id: field.id,
+                                                        ty: field.ty,
+                                                        syntax: field.syntax.clone().into(),
+                                                    }
+                                                })
+                                                .collect(),
+                                        }
+                                    })
+                                })
+                                .ok_or_else(|| {
+                                    Diagnostic::new(
+                                        span,
+                                        "using field requires a ready record schema",
+                                    )
+                                })
+                        },
+                    )
+                    .map_err(|e| failure(self.graph, file, e))?
+                    {
+                        pending.push(child);
+                    }
+                }
             } else if let Some(record) = self.nominals.records.get(&owner) {
                 query_charge(self.graph, file, remaining, record.fields.len(), span)?;
                 pending.extend(

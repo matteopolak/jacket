@@ -450,7 +450,9 @@ impl<'a> Constants<'a> {
                                 if let Some(otherwise) = &conditional.else_value {
                                     expressions.push(otherwise);
                                 }
-                                expressions.push(&conditional.then_value);
+                                if let Some(value) = conditional.explicit_then() {
+                                    expressions.push(value);
+                                }
                                 expressions.push(&conditional.condition);
                                 None
                             }

@@ -80,10 +80,33 @@ pub(super) struct Argument {
     pub name: Option<Symbol>,
     pub value: ParameterValue,
 }
+/// Embedded entry identities never alias a provider's physical file at the diagnostic label.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(super) struct ModuleSourceKey {
+    pub path: PathBuf,
+    pub embedded: Option<SourceId>,
+}
+impl From<PathBuf> for ModuleSourceKey {
+    fn from(path: PathBuf) -> Self {
+        Self {
+            path,
+            embedded: None,
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) struct ModuleKey {
     pub path: PathBuf,
     pub arguments: Option<Vec<Argument>>,
+    pub embedded: Option<SourceId>,
+}
+impl ModuleKey {
+    pub fn source_key(&self) -> ModuleSourceKey {
+        ModuleSourceKey {
+            path: self.path.clone(),
+            embedded: self.embedded,
+        }
+    }
 }
 
 impl Builder<'_> {
@@ -630,13 +653,7 @@ fn unsupported_expression(expression: &Expression) -> Option<jai_source::Span> {
         ExpressionKind::Binary(_, lhs, rhs) => {
             unsupported_expression(lhs).or_else(|| unsupported_expression(rhs))
         }
-        ExpressionKind::Conditional(e) => unsupported_expression(&e.condition)
-            .or_else(|| unsupported_expression(&e.then_value))
-            .or_else(|| {
-                e.else_value
-                    .as_ref()
-                    .and_then(|e| unsupported_expression(e))
-            }),
+        ExpressionKind::Conditional(e) => e.expressions().find_map(unsupported_expression),
         _ => Some(expression.span),
     }
 }

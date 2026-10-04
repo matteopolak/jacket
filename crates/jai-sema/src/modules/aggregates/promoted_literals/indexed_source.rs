@@ -14,7 +14,7 @@ enum Pending<'a> {
 
 /// Index facts must already be ready in the defining environment. The callback
 /// may inspect checked constants, but must not run source effects or `#run`.
-pub(super) fn resolve(
+pub(in crate::modules::aggregates) fn resolve(
     root: TypeId,
     source: &PlaceSyntax,
     types: &dyn TypeView,

@@ -20,14 +20,224 @@
           "sha256": "9de2ff5452b28ee180d93af0c4653e6658d79c91a0460fd6d8259dd053e5fcbc"
         },
         {
+          "path": "config/default.focus-config",
+          "bytes": 22402,
+          "sha256": "692ad2502488573160acfedf7c7642200b1dc21fa4e355948553bd046ba62440"
+        },
+        {
+          "path": "config/default_macos.focus-config",
+          "bytes": 22513,
+          "sha256": "c189468ae8a1d82ab955a635f766ef5090372a9c07ff26bd822c5713329d8feb"
+        },
+        {
+          "path": "config/example-project.focus-config",
+          "bytes": 2940,
+          "sha256": "13971ad4b121b9f586c7d074d6982171c0d1af01d83fbf9c096fafecd48ff34c"
+        },
+        {
+          "path": "config/themes/basic-light.focus-theme",
+          "bytes": 4964,
+          "sha256": "861cd4fed1a6cd30df9e46656548c77cb1e4cf8a50716b1c9cbd1d51be205279"
+        },
+        {
+          "path": "config/themes/catppuccin-frappe.focus-theme",
+          "bytes": 5013,
+          "sha256": "a3eef307a748e4fee08499343f9164e652c6fdd0eb4970e4d1583f0c7d46b1f0"
+        },
+        {
+          "path": "config/themes/catppuccin-latte.focus-theme",
+          "bytes": 5013,
+          "sha256": "3a74b886a6a0c3f329c530a5caae89104a09c6a9584f5474f3c499e5a201b7c1"
+        },
+        {
+          "path": "config/themes/catppuccin-macchiato.focus-theme",
+          "bytes": 5013,
+          "sha256": "b432ff96a713dfedc4ba081514945ba5dc80067e4542dffd542469ecf7cf7566"
+        },
+        {
+          "path": "config/themes/catppuccin-mocha.focus-theme",
+          "bytes": 5014,
+          "sha256": "eaed6b32ae69f604178aa0df985a16ea7603956f54474a92a75a1660f40ddd6d"
+        },
+        {
+          "path": "config/themes/everforest-hard.focus-theme",
+          "bytes": 5042,
+          "sha256": "aff800a7a4f17a9dd4edfd2bd400cb13f2ae1009747af4524042cf690c30475c"
+        },
+        {
+          "path": "config/themes/gruber-darker.focus-theme",
+          "bytes": 5052,
+          "sha256": "175d0dac45b655ab1a553bd9665b715495a9852e8ec6df7420777c71741c1223"
+        },
+        {
+          "path": "config/themes/gruvbox-flat.focus-theme",
+          "bytes": 4954,
+          "sha256": "9fb351425d35e4bfe5b2a781941c1bc251882327ec651c6beb2c3629f9c574ec"
+        },
+        {
+          "path": "config/themes/halogen.focus-theme",
+          "bytes": 4954,
+          "sha256": "d533dbb60838c4737e8d88084e724fbcc98efcdd894b634d69d12ebb1cb4c3dd"
+        },
+        {
+          "path": "config/themes/handmade-hero.focus-theme",
+          "bytes": 5168,
+          "sha256": "9fcb63a6137c82fc2d7de0c598d00bbb668c253660c82debdb6538af43513d92"
+        },
+        {
+          "path": "config/themes/jblow-nostalgia.focus-theme",
+          "bytes": 4954,
+          "sha256": "6617d2958d509919cc7bd941b34dc00be458251c362337a96cd947f8ee0776a6"
+        },
+        {
+          "path": "config/themes/jblowtorch.focus-theme",
+          "bytes": 4953,
+          "sha256": "3d15e1054b278915e5b9dfd6fe67701a6eac191883a405b7d6b0b83644a1beaa"
+        },
+        {
+          "path": "config/themes/jellybeans.focus-theme",
+          "bytes": 5015,
+          "sha256": "3f7c3bf8c8c72f5c1c3909f4677f6b4e282b2f84882ea14f2e5ca4e77da381a6"
+        },
+        {
+          "path": "config/themes/kanagawa.focus-theme",
+          "bytes": 5013,
+          "sha256": "c7346df06b8a6da89e2bafb63e1d06e2c1a7b80bfa3c9def6de10ad2f6d653c3"
+        },
+        {
+          "path": "config/themes/kujukuju.focus-theme",
+          "bytes": 5032,
+          "sha256": "2047edef921cc96f20c57da30ad9ee040e8bc64d50805163151ab4dc127a432d"
+        },
+        {
+          "path": "config/themes/nord-midnight.focus-theme",
+          "bytes": 4953,
+          "sha256": "93606bf7c38343bcfe28c34f4dbd4e3c56c3980e7166ddbfb4ec2a6220534a65"
+        },
+        {
+          "path": "config/themes/nord.focus-theme",
+          "bytes": 4953,
+          "sha256": "246e684c3471a68d5052ffda73ff47c88740c809df1ac34312b203708bf84911"
+        },
+        {
+          "path": "config/themes/redshift.focus-theme",
+          "bytes": 4954,
+          "sha256": "a1b4449fbac00796570abd9e8193b522c6ceb629490b529dd3e11b6175edfa46"
+        },
+        {
+          "path": "config/themes/rose-pine-dawn.focus-theme",
+          "bytes": 4971,
+          "sha256": "361ce88d167eeb7b360305dc8ccd30d2ee26d709e750673b409b3df72fb1e8a7"
+        },
+        {
+          "path": "config/themes/rose-pine-moon.focus-theme",
+          "bytes": 4999,
+          "sha256": "e28a66db626fafefa03111c698a1d74b49bddd7f27beffa65d92a14684d0bfe1"
+        },
+        {
+          "path": "config/themes/rose-pine.focus-theme",
+          "bytes": 4999,
+          "sha256": "8babde94e73b236d9de19d0343fb4446e80145fd60f5bb8d662a7b8a22497eee"
+        },
+        {
+          "path": "config/themes/solarized-dark.focus-theme",
+          "bytes": 4953,
+          "sha256": "e029bd92a6a5bf8210c3f8252a9418cf68f63831742e286c3f45bc4565e71b80"
+        },
+        {
+          "path": "config/themes/spacemacs-light.focus-theme",
+          "bytes": 5085,
+          "sha256": "1df6b96bc8ef69a59bf843b608e914e27d4e6f262c9ad23c81644d8b7a2f3833"
+        },
+        {
+          "path": "config/themes/steel-breeze.focus-theme",
+          "bytes": 5824,
+          "sha256": "6820193c637c194b1ff237376943b66beba46f72d23d469599a418dff5b2d4fe"
+        },
+        {
+          "path": "config/themes/tokyo-night-light.focus-theme",
+          "bytes": 5002,
+          "sha256": "c173e1e5c2242c56d17ea93a44f3fefc069078b7bcf719487b4e416dae8acb26"
+        },
+        {
+          "path": "config/themes/tokyo-night.focus-theme",
+          "bytes": 5002,
+          "sha256": "a350ee936994a6b114539dda558396ddb36982bab3012f14337b45de8d10ea25"
+        },
+        {
+          "path": "config/themes/vscode-dark.focus-theme",
+          "bytes": 4997,
+          "sha256": "ed5120ce237356daaa44c7613ae8b4f15d7d171878132dbe01a4d5feb64b2b26"
+        },
+        {
+          "path": "config/themes/zenburn.focus-theme",
+          "bytes": 5065,
+          "sha256": "4ddeb58f03ef3f4fafc75ec9602362e937fdb594b95d23b7b2b50f36b35c2166"
+        },
+        {
           "path": "first.jai",
           "bytes": 19271,
           "sha256": "e1d2c3e97ae016a2c5c77261f90402035002933d78d733f523947db8bd8820d2"
         },
         {
+          "path": "fonts/FiraCode-LICENSE.txt",
+          "bytes": 4389,
+          "sha256": "1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c"
+        },
+        {
+          "path": "fonts/FiraCode-Retina.ttf",
+          "bytes": 295252,
+          "sha256": "e8aad8140dd254b73bac71205ec4e0cc3f1c3914aa73f514e2cc4b3cf937d35d"
+        },
+        {
+          "path": "fonts/OFL.txt",
+          "bytes": 4390,
+          "sha256": "c4be6ba9d030c3339a91881884f90b82f80b0671a20c248ed6ce694fd3937f22"
+        },
+        {
+          "path": "fonts/OpenSans-Regular.ttf",
+          "bytes": 122120,
+          "sha256": "325f509becc84d3f07bcc20775bee09691bdb24c236381f1508f3fb7cce00496"
+        },
+        {
+          "path": "fonts/OpenSans-SemiBold.ttf",
+          "bytes": 122064,
+          "sha256": "0ea1ffaea1f2177f2e66c3aae6e2120f2ca427237d796bfd052b5e507b7bc11b"
+        },
+        {
+          "path": "fonts/OpenSans-SemiBoldItalic.ttf",
+          "bytes": 127600,
+          "sha256": "9554199e6f0a110b8a28bf6db1770024c7b8451fc2df40dc83a352e8ad414e3c"
+        },
+        {
+          "path": "fonts/font-awesome/Font Awesome 6 Brands-Regular-400.otf",
+          "bytes": 515644,
+          "sha256": "f9cacc94082dd4efe4c89ad1cf4c803fac22b4a35367d83b783385be3bc2675c"
+        },
+        {
+          "path": "fonts/font-awesome/Font Awesome 6 Free-Regular-400.otf",
+          "bytes": 173956,
+          "sha256": "ee80f7707493e0fcb38f86bebc067ff569bfa57099a87b35526c83d6cd288b4f"
+        },
+        {
+          "path": "fonts/font-awesome/Font Awesome 6 Free-Solid-900.otf",
+          "bytes": 999396,
+          "sha256": "ca3ad79717f000ebba39f9206a7feeb1e1a5124831d2bd32da2b6ab60383edd0"
+        },
+        {
           "path": "fonts/font-awesome/LICENSE.txt",
           "bytes": 7427,
           "sha256": "de784a808496d49f5f80dd9d1d6e9a51cff712cfbc339e7c25155631ae3cdb5d"
+        },
+        {
+          "path": "images/focus.png",
+          "bytes": 72333,
+          "sha256": "3f9a1ae0ff10cedaa5542e91ebff162ad4a859b3cac495edb576a883ab7f3f49"
+        },
+        {
+          "path": "images/mac.png",
+          "bytes": 1862365,
+          "sha256": "10052bad8b43718e663f8b6d285b9dd5b1ece99fa79b3d6782c95ee3022b35f5"
         },
         {
           "path": "modules/Clipboard/Clipboard.jai",
@@ -7402,6 +7612,308 @@
           "path": "textures.jai",
           "bytes": 10801,
           "sha256": "b34de08d7a2d5f92e320eace4cd3e26a409cc27c09a9bfa4c288aa0f13504e7d"
+        }
+      ]
+    },
+    {
+      "repository": "SogoCZE/jai_parser",
+      "revision": "a06033e0f2a2e8f26c9129a58a7d67cbf28ff98a",
+      "latest_jai_change": "2026-10-04T04:16:49+02:00",
+      "source_of_truth": "https://github.com/SogoCZE/jai_parser/tree/a06033e0f2a2e8f26c9129a58a7d67cbf28ff98a",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1070,
+          "sha256": "8888194504ea1fa66803505375f27e0f3912ba989b8282a1ba8b8f4e6e1101dc"
+        },
+        {
+          "path": "ast_print.jai",
+          "bytes": 12075,
+          "sha256": "ad239fd732d0d9f001b9cda0d77d3464b61ca8e082dd65ea9dad440af966bbbb"
+        },
+        {
+          "path": "cmd/build.jai",
+          "bytes": 2171,
+          "sha256": "8eda76707d8e549c3c3c2be86cc1b960f24b5231c2f6897202af4675e15f8a40"
+        },
+        {
+          "path": "cmd/src/json_export.jai",
+          "bytes": 8021,
+          "sha256": "95aad720a3c83842368e6cf6a642156e940b34b047f12b75a2f154c9f627ecb8"
+        },
+        {
+          "path": "cmd/src/main.jai",
+          "bytes": 4378,
+          "sha256": "360303ef9d5e86f5571c29d845bccbcdb50890302be4c69f19cc1bdc1638a200"
+        },
+        {
+          "path": "lexer.jai",
+          "bytes": 35594,
+          "sha256": "70d9acebcf9a2fc54169c22d50a9f555cc7e23fac9bab9092d12ae57c3e7195e"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 161,
+          "sha256": "d06c3f30152d9ebcfe43e9cb1a425b6f7553eaa673c98e8cb0f3be7d2aded146"
+        },
+        {
+          "path": "parser.jai",
+          "bytes": 121870,
+          "sha256": "bf53a6cbefaf50aa26081f5c15735aa470bbcb937bdca14fbc08edf8c4c33e49"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 12663,
+          "sha256": "0ebefc4e524b9e56aa3d99422456506da14b0b93803d694edeadb47b49baf0a9"
+        },
+        {
+          "path": "tests/basic.jai",
+          "bytes": 289,
+          "sha256": "79cfe3cdda7e4e5e69054e4fde42c155207159b6c21d2e51975dc80183366f1a"
+        },
+        {
+          "path": "tests/comma_seperated.jai",
+          "bytes": 115,
+          "sha256": "e4976043f17107f24ee6003a74a55713f034a39f56ec5620e4af77f70e3791fd"
+        },
+        {
+          "path": "tests/directive_context.jai",
+          "bytes": 52,
+          "sha256": "5c3299b6bae49ee99a683b3f28db19634a7f6b838b48afbf9b10dd292376f1b7"
+        },
+        {
+          "path": "tests/discard.jai",
+          "bytes": 109,
+          "sha256": "301620c47c08d7cdc6c2f767b96882d291c95c486a41c993a992aeef12756539"
+        },
+        {
+          "path": "tests/dot.jai",
+          "bytes": 347,
+          "sha256": "a0c2687704d1348f5ff140f4f527efa449638ceb2fe3e62297459584007cff5a"
+        },
+        {
+          "path": "tests/dotless_struct_literal.jai",
+          "bytes": 542,
+          "sha256": "f4a7e97cd494b17a16b311cf06000d1a30017976f32b3900f3e7c8509cf2d98d"
+        },
+        {
+          "path": "tests/example.jai",
+          "bytes": 370,
+          "sha256": "db34be60804b7f888997e4917cb88ec732a1702360c8320332c5c13874f434c4"
+        },
+        {
+          "path": "tests/exists_directive.jai",
+          "bytes": 89,
+          "sha256": "5a5f10573575ba21b59726e5410bb424007e809c77bab1a0b3b7b7b0cb1b1982"
+        },
+        {
+          "path": "tests/hang.jai",
+          "bytes": 503,
+          "sha256": "580322b7b4500ce5cd1c5f3514335bae6c9c8342538baa15c9177e666eff2332"
+        },
+        {
+          "path": "tests/here_string.jai",
+          "bytes": 1663,
+          "sha256": "18d2914f5248064c91c495cb081829308fc8bcbaf452ea15415015a1ef6d9e5e"
+        },
+        {
+          "path": "tests/ifx.jai",
+          "bytes": 89,
+          "sha256": "9017ca448fbe467e7928d0dba7d8faad15a118049e8b383da2d65b3a2e5ed1b8"
+        },
+        {
+          "path": "tests/import_with_arguments.jai",
+          "bytes": 78,
+          "sha256": "240ef36ed5dbac4728fa16f2eeec0e038b20bea0fa8b17ffb1dea78d12742705"
+        },
+        {
+          "path": "tests/inline_asm.jai",
+          "bytes": 546,
+          "sha256": "9f0fa1ebd5203d12c3332c2e519b0aecc9dff1c864c9bb09aadd1d89827ad1bd"
+        },
+        {
+          "path": "tests/issue_10.jai",
+          "bytes": 10,
+          "sha256": "2c7f141613a1c9d5688bff52f15b505f75328d53b9102ff7449511f9ec1a8df5"
+        },
+        {
+          "path": "tests/issue_7.jai",
+          "bytes": 133,
+          "sha256": "fcbb862313e696551f9e5a0e7cba78481ca629b5a3c06a1b79fca34123d2ceb5"
+        },
+        {
+          "path": "tests/issue_8.jai",
+          "bytes": 48,
+          "sha256": "d04d9c39e4816786ad0afa5c1c2c28501c332bc872c626fdd274188b681ca938"
+        },
+        {
+          "path": "tests/issue_9.jai",
+          "bytes": 58,
+          "sha256": "98d0085ec49d92c24793517fe3d53d74cc642bd43d9a3221f99011bd8fcb0ed5"
+        },
+        {
+          "path": "tests/issue_jails_24.jai",
+          "bytes": 40,
+          "sha256": "43e4ff4c4317796a6270230336b565a42d469b41274e782d05c02057dafe89a0"
+        },
+        {
+          "path": "tests/issue_jails_25.jai",
+          "bytes": 207,
+          "sha256": "b969b1aed158e63dcc7f35e2cc8b14a1f90255660f39d355e4927ba3426c9d41"
+        },
+        {
+          "path": "tests/library_directive.jai",
+          "bytes": 69,
+          "sha256": "120ac703fb9c123f760f2cb7396d28b5dce3c5e6a130a496f06e6a342632ae03"
+        },
+        {
+          "path": "tests/multiple_array_subscript.jai",
+          "bytes": 30,
+          "sha256": "2d23942f5f418b60c58cfdc62d38a28c805797488d263dd2b7713fc5223ac72a"
+        },
+        {
+          "path": "tests/named_returns.jai",
+          "bytes": 77,
+          "sha256": "421f8ecafe8d78383773bb9095aa3799651ee6677c1420bdf025c56888205830"
+        },
+        {
+          "path": "tests/named_returns_two.jai",
+          "bytes": 133,
+          "sha256": "e5d49008b15755b9534af0c6d3354f35d0336ecf57ec1cf75f357ee4921487f6"
+        },
+        {
+          "path": "tests/new_cast.jai",
+          "bytes": 46,
+          "sha256": "596d7a5b6f1ac563e6c2a99c7336706e16cc3fad20b46f138b1580bafaa422ac"
+        },
+        {
+          "path": "tests/performance_test.jai",
+          "bytes": 1960,
+          "sha256": "2c4bc7fdf8e977e6bdc6c477d91ab2ea76f7aad3fd9f898b03519514402cbfed"
+        },
+        {
+          "path": "tests/playground.jai",
+          "bytes": 107,
+          "sha256": "5c63d821d76b46071cf2dbb66ce3e964c0a091f24a7f9d21fe133675d8775b28"
+        },
+        {
+          "path": "tests/prefix_deref.jai",
+          "bytes": 308,
+          "sha256": "3ffaa32ec008737dc9d5f244e7fc4196dd6b37ff91d4f2a7bda12f3e19e6c5a0"
+        },
+        {
+          "path": "tests/push_context_on_procedure_call.jai",
+          "bytes": 83,
+          "sha256": "45e7f9660f3d958824e0fa4e4a23c7affbaebf133cd82871cb957d261b3f7351"
+        },
+        {
+          "path": "tests/tagged_union.jai",
+          "bytes": 288,
+          "sha256": "556ffad35997f207344fe15bc618f5b2bec68c3a4ee7ac307d95ae6f0af3a42c"
+        },
+        {
+          "path": "tests/test.jai",
+          "bytes": 565,
+          "sha256": "9f607c23e0ad2f7c682e655d66d197f6eee71cc4372280edc71b967be499cd16"
+        },
+        {
+          "path": "tests/type_inst.jai",
+          "bytes": 476,
+          "sha256": "4c046c35437ec47c8a7ce024ee70bba3aeddec3a84d533038f5e0aa3b75647f3"
+        },
+        {
+          "path": "tests/v2_for.jai",
+          "bytes": 21,
+          "sha256": "73839f7975a97a804c4c6515d6df92a014142c7d771ec9da48abe599a2a05c13"
+        }
+      ]
+    },
+    {
+      "repository": "ostef/Linalg",
+      "revision": "5f60c11f057787a804ce9582c5daeccc0e8de89a",
+      "latest_jai_change": "2026-08-05T13:53:07+02:00",
+      "source_of_truth": "https://github.com/ostef/Linalg/tree/5f60c11f057787a804ce9582c5daeccc0e8de89a",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1063,
+          "sha256": "70dc98b66cb89b6c33af937cf6221a5f5abd93006f87d5263eb5561f013ffbf2"
+        },
+        {
+          "path": "README.md",
+          "bytes": 59,
+          "sha256": "c12f6d269f40936b56cdc6c2bef74cf49a99e5ff81d06feb32f3a14c737556bd"
+        },
+        {
+          "path": "euler_angles.jai",
+          "bytes": 3976,
+          "sha256": "78409f935e6726d89d0eafd2442a7859ff25c38b84440fc7797a300a1d1fb7d7"
+        },
+        {
+          "path": "matrix.jai",
+          "bytes": 27830,
+          "sha256": "3c4639fd0044f5602c070853664dac0bd8a73c2ea8dd59ccb18fc0b3e2a3ebb9"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 5054,
+          "sha256": "d951e4bb38135ff99d91d40bde3dcf8ea3dd09ba01da7df1d10469019c5e527c"
+        },
+        {
+          "path": "quaternion.jai",
+          "bytes": 12807,
+          "sha256": "2153b5aba1688320ccb25f6c8d2a2fda66eff9ded36046cd32dde8fda9fae628"
+        },
+        {
+          "path": "utils.jai",
+          "bytes": 4624,
+          "sha256": "6da30257554d4b6d490d707318baa4e403b3a6cec8115a4fefe053fa0ea69b8a"
+        },
+        {
+          "path": "vector.jai",
+          "bytes": 15755,
+          "sha256": "a2c9a5aee1c9281582ffd2d6960b8de1cb31028e7ef6fa861be2f07c73f02658"
+        }
+      ]
+    },
+    {
+      "repository": "ostef/Jolt-Jai",
+      "revision": "56d1cd47b92d6c08ecdab5b9057addce35dab41a",
+      "latest_jai_change": "2026-08-10T23:13:56+02:00",
+      "source_of_truth": "https://github.com/ostef/Jolt-Jai/tree/56d1cd47b92d6c08ecdab5b9057addce35dab41a",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "Examples/hello_world.jai",
+          "bytes": 5976,
+          "sha256": "dfa38847ec1583de149278a1a993a66315c648ac7d680c5cca195732073e7b84"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1074,
+          "sha256": "299d655e83913c5f8fd1a20d8bf1285041211501d147db3bfb707079aa23eae9"
+        },
+        {
+          "path": "README.md",
+          "bytes": 298,
+          "sha256": "1b2504ad2d456e53bba965ac4671c3c339388605525c2085457edf74e4db96d1"
+        },
+        {
+          "path": "generate.jai",
+          "bytes": 12632,
+          "sha256": "55aad4da47c9ca56e9a35edfec5bb0618ed29756ab1c6950f78a076fc62ff660"
+        },
+        {
+          "path": "jolt.jai",
+          "bytes": 159889,
+          "sha256": "cc990fc4baf70c8456abb8ee362b5b05d660b81ad2e1ca1fe57ce237030b9e8b"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 2929,
+          "sha256": "b49def9d0e30e9329081b3b623a0eec91f60b62c7d6d111e02d1e69910381430"
         }
       ]
     }

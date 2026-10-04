@@ -92,7 +92,11 @@ fn push_procedures(procedures: Vec<Procedure>, pending: &mut Vec<Work>) {
 
 fn push_globals(globals: Vec<Global>, pending: &mut Vec<Work>) {
     for global in globals {
+        let runtime_initializer = global.runtime_initializer().cloned();
         if let GlobalInitializer::Value(value) = global.into_initializer() {
+            pending.push(Work::Constant(value));
+        }
+        if let Some(value) = runtime_initializer {
             pending.push(Work::Constant(value));
         }
     }

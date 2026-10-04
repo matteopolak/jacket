@@ -65,6 +65,21 @@ fn root_call(value: &ValueExpr, span: Span) -> Result<Option<&Call>, Diagnostic>
             ValueExpr::Call {
                 call, ..
             } => return Ok(Some(call)),
+            ValueExpr::Int(integer) => match integer.kind() {
+                IntExprKind::Value(inner) => value = inner,
+                IntExprKind::Call(call) => return Ok(Some(call)),
+                _ => return Ok(None),
+            },
+            ValueExpr::Float(float) => match float.kind() {
+                FloatExprKind::Value(inner) => value = inner,
+                FloatExprKind::Call(call) => return Ok(Some(call)),
+                _ => return Ok(None),
+            },
+            ValueExpr::Bool(boolean) => match boolean {
+                BoolExpr::Value(inner) => value = inner,
+                BoolExpr::Call(call) => return Ok(Some(call)),
+                _ => return Ok(None),
+            },
             ValueExpr::Bind {
                 bindings,
                 body,

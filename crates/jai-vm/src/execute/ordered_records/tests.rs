@@ -119,6 +119,28 @@ fn ordinary_and_resumable_preserve_repeated_alias_write_order() {
         (42, 42)
     );
 }
+
+#[test]
+fn record_build_uses_placed_offsets_for_overlapping_fields() {
+    let mut p = provider();
+    let owner = overlapping(&mut p);
+    let first = p.types.field(owner, 0).unwrap().id;
+    let second = p.types.field(owner, 1).unwrap().id;
+    let expression = ValueExpr::RecordBuild {
+        ty: owner,
+        initializers: vec![
+            (first, ValueExpr::Int(integer(1))),
+            (second, ValueExpr::Int(integer(42))),
+        ],
+    };
+    let mut vm = Vm::new(&p, crate::NoEffects, Limits::default()).unwrap();
+    let snapshot = result(vm.evaluate(&expression));
+    assert_eq!(
+        (read(&snapshot, &p.types, 0), read(&snapshot, &p.types, 1)),
+        (42, 42)
+    );
+}
+
 #[test]
 fn nested_write_retains_unknown_sibling_without_parent_read() {
     let mut p = provider();

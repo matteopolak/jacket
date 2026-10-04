@@ -60,6 +60,7 @@ impl Resolver<'_> {
             scope.substitution = substitution;
         }
         let mut child = Resolver {
+            conditional_subjects: Vec::new(),
             debug: std::mem::take(&mut self.debug),
             checks: self.checks,
             context: self.context,

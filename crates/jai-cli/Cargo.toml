@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 jai-driver.workspace = true
+jai-platform.workspace = true
 jai-source.workspace = true
 jai-lexer.workspace = true
 jai-syntax.workspace = true

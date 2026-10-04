@@ -297,6 +297,8 @@ mod tests {
                         body: leaf(),
                     },
                     Statement::Cases(Cases {
+                        default_position: None,
+                        default_through: false,
                         subject: Box::new(Statement::Block(leaf())),
                         arms: vec![CaseArm {
                             condition: BoolExpr::Constant(true),

@@ -13,6 +13,7 @@ impl Statement {
             StatementKind::Enum(value) => Some(value.name),
             StatementKind::TypeAlias(value) => Some(value.name),
             StatementKind::Library(value) => Some(value.name),
+            StatementKind::Import(value) => value.namespace,
             _ => None,
         }
     }
@@ -100,6 +101,22 @@ impl Parser<'_> {
         let start = self.token().span.start;
         self.at += 1;
         let selection = self.using_selection()?;
+        if self.import_prefix() {
+            let target_span = self.token().span;
+            let import = self.scoped_import_declaration()?;
+            if import.namespace.is_none() {
+                return Err(self.error("selected using import requires a namespace binding"));
+            }
+            let span = import.span;
+            return Ok(StatementKind::UsingDeclaration {
+                declaration: Box::new(Statement {
+                    kind: StatementKind::Import(import),
+                    span,
+                }),
+                selection,
+                target_span,
+            });
+        }
         if !self.using_declaration_prefix() {
             return Ok(StatementKind::Using(self.using_target(start, selection)?));
         }

@@ -379,6 +379,8 @@ fn cleanup_self_dependency_inside_cases_subject_is_rejected() {
     proc.cleanups.push(
         block(
             vec![Statement::Cases(Cases {
+                default_position: None,
+                default_through: false,
                 subject: Box::new(Statement::Cleanup(CleanupId::new(0))),
                 arms: vec![],
                 default: Some(block(vec![], Flow::FallsThrough)),
@@ -417,6 +419,8 @@ fn boolean_case_exhaustiveness_requires_stable_local_subject() {
         sig,
         block(
             vec![Statement::Cases(Cases {
+                default_position: None,
+                default_through: false,
                 subject: Box::new(Statement::StoreBool(place, BoolExpr::Constant(true))),
                 arms,
                 default: None,
@@ -817,4 +821,65 @@ fn type_depth_accepts_shorter_overlapping_chain_in_both_orders() {
             .is_ok()
         );
     }
+}
+
+
+#[test]
+fn forged_default_position_and_last_default_through_are_rejected() {
+    for (position, through) in [(Some(2), false), (Some(1), true)] {
+        let mut types = TypeRegistry::new();
+        let sig = signature(&mut types, &[], &[]);
+        let cases = Cases {
+            subject: Box::new(Statement::Block(block(vec![], Flow::FallsThrough))),
+            arms: vec![CaseArm {
+                condition: BoolExpr::Constant(true),
+                body: block(vec![], Flow::FallsThrough),
+                through: false,
+            }],
+            default: Some(block(vec![], Flow::FallsThrough)),
+            default_position: position,
+            default_through: through,
+            exhaustive: false,
+            flow: Flow::FallsThrough,
+        };
+        let proc = procedure(
+            0,
+            sig,
+            block(vec![Statement::Cases(cases)], Flow::FallsThrough),
+        );
+        assert!(matches!(
+            ProgramBuilder::new(types.freeze().unwrap())
+                .procedures(vec![proc])
+                .finish_library(),
+            Err(IrError::InvalidFlow)
+        ));
+    }
+}
+
+#[test]
+fn default_first_through_chain_proves_real_return_flow() {
+    let mut types = TypeRegistry::new();
+    let sig = signature(&mut types, &[], &[]);
+    let cases = Cases {
+        subject: Box::new(Statement::Block(block(vec![], Flow::FallsThrough))),
+        arms: vec![CaseArm {
+            condition: BoolExpr::Constant(false),
+            body: block(vec![exit(Transfer::ReturnVoid)], Flow::Terminates),
+            through: false,
+        }],
+        default: Some(block(vec![], Flow::FallsThrough)),
+        default_position: Some(0),
+        default_through: true,
+        exhaustive: false,
+        flow: Flow::Terminates,
+    };
+    let proc = procedure(
+        0,
+        sig,
+        block(vec![Statement::Cases(cases)], Flow::Terminates),
+    );
+    ProgramBuilder::new(types.freeze().unwrap())
+        .procedures(vec![proc])
+        .finish_library()
+        .unwrap();
 }

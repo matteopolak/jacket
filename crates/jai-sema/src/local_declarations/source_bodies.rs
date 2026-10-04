@@ -49,6 +49,7 @@ impl Resolver<'_> {
         let debug_policy = self.debug.policy().nested(source.debug);
         let procedure = (|| {
             let mut child = Resolver {
+                conditional_subjects: Vec::new(),
                 debug: crate::debug_capture::Capture::new(self.debug.source()),
                 checks: self.checks.overridden(source.checks),
                 context: self.context,

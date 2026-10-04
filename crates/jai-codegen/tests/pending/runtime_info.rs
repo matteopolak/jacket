@@ -27,6 +27,7 @@ const SOURCE: &str = r#"
 #import "Compiler";
 Pair :: struct { byte:u8; value:s64; }
 owned: u64 = 37;
+zero_owned: u64;
 unprovided_foreign: u64 #elsewhere;
 verify :: () -> int {
     info := runtime_catalog();
@@ -53,14 +54,27 @@ verify :: () -> int {
         if info.global_data_info == null return 8;
         if info.global_data_info.version_stamp != 1 return 9;
         found_owned := false;
+        found_zero := false;
+        found_metadata := false;
         for segment: info.global_data_info.segment_info {
             if cast(*void)segment.data.data == cast(*void)*owned {
                 if segment.data.count != 8 return 10;
                 if segment.segment_tag != .DATA return 11;
                 found_owned = true;
             }
+            if cast(*void)segment.data.data == cast(*void)*zero_owned {
+                if segment.data.count != 8 return 13;
+                if segment.segment_tag != .BSS return 14;
+                found_zero = true;
+            }
+            if cast(*void)segment.data.data == cast(*void)info.global_data_info {
+                if segment.data.count != 24 return 15;
+                if segment.segment_tag != .RDATA return 16;
+                found_metadata = true;
+            }
         }
         if !found_owned return 12;
+        if !found_zero || !found_metadata return 17;
     }
     return 42;
 }
@@ -95,6 +109,13 @@ impl Fixture {
         &self,
         target: &jai_codegen::target::NativeTarget,
     ) -> Result<jai_ir::Program, String> {
+        self.resolve_with_target(Some(target))
+    }
+    fn resolve_with_target(
+        &self,
+        target: Option<&jai_codegen::target::NativeTarget>,
+    ) -> Result<jai_ir::Program, String> {
+        let build_target = target.map(|target| target.build_target().unwrap());
         let roots = vec![self.0.join("modules")];
         let graph = jai_modules::ModuleGraph::load_with_bootstrap(
             &self.0.join("main.jai"),
@@ -103,12 +124,12 @@ impl Fixture {
             },
             jai_modules::PreludeSource::Search,
             &jai_modules::Filesystem,
-            Some(target.build_target().unwrap()),
+            build_target.clone(),
         )
         .unwrap();
         let options = jai_sema::ResolveOptions {
-            target: Some(target.build_target().unwrap()),
-            layout: Some(target.layout_policy().unwrap()),
+            target: build_target,
+            layout: target.map(|target| target.layout_policy().unwrap()),
             compiler: Some(jai_sema::CompilerBindingContext::from_graph(
                 &graph,
                 &roots,
@@ -134,7 +155,7 @@ fn source_vm_and_native_table_share_typed_descriptor_identity_and_owned_ranges()
     assert_eq!(program.library().native_runtime_info().len(), 1);
     let publication = &program.library().native_runtime_info()[0];
     assert_eq!(publication.data().symbol(), "fresh_program_catalog");
-    assert!(publication.snapshot().represented_types().len() > 3);
+    assert!(publication.snapshot().unwrap().represented_types().len() > 3);
     let context = jai_codegen::Context::create();
     let module = jai_codegen::lower_for_target(&context, &program, &target).unwrap();
     let binding = module.get_global("fresh_program_catalog").unwrap();
@@ -237,4 +258,36 @@ fn runtime_catalog_cannot_adopt_owned_zero_file_external_or_extra_read() {
             "{error}"
         );
     }
+}
+
+#[test]
+fn unselected_target_is_pending_only_when_native_runtime_info_is_demanded() {
+    let fixture = Fixture::new();
+    fs::write(
+        fixture.0.join("main.jai"),
+        "#import \"Compiler\"; main::()->int{return 42;}",
+    )
+    .unwrap();
+    let unused = fixture.resolve_with_target(None).unwrap();
+    assert!(matches!(
+        unused.library().native_runtime_info()[0].snapshot(),
+        Err(jai_ir::NativeRuntimeInfoPending::TargetLayout)
+    ));
+    let target = jai_codegen::target::NativeTarget::new().unwrap();
+    let context = jai_codegen::Context::create();
+    jai_codegen::lower_for_target(&context, &unused, &target)
+        .unwrap()
+        .verify()
+        .unwrap();
+    fs::write(
+        fixture.0.join("main.jai"),
+        "#import \"Compiler\"; main::()->int{runtime_catalog();return 42;}",
+    )
+    .unwrap();
+    let demanded = fixture.resolve_with_target(None).unwrap();
+    let error = jai_codegen::lower_for_target(&context, &demanded, &target).unwrap_err();
+    assert!(
+        matches!(error, jai_codegen::Error::RuntimeInfo(ref message) if message.contains("selected source target layout")),
+        "{error}"
+    );
 }

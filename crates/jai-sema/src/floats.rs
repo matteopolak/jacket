@@ -3,6 +3,7 @@ use super::*;
 use jai_syntax::{DecimalLiteral, FloatLiteral};
 use jai_types::{FloatOp, FloatType, FloatValue};
 
+#[derive(Clone)]
 pub(super) enum WeakFloat {
     Bound(std::sync::Arc<jai_eval::floats::WeakFloatValue>),
     Decimal(DecimalLiteral),

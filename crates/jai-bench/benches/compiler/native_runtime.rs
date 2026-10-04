@@ -1,5 +1,5 @@
 //! Time batches of own generated native code, including process startup.
-use super::whole_module::{Fixture, target};
+use super::mixed_module::{Fixture, target};
 use divan::{Bencher, counter::ItemsCount};
 use jai_codegen::optimization::BitcodeOptimization;
 use std::{

@@ -13,6 +13,7 @@ pub enum LoopControlReplacementBody {
     Code(CodeBody),
     Assert {
         condition: Box<Expression>,
+        message: Option<Box<Expression>>,
         span: Span,
     },
 }
@@ -71,11 +72,11 @@ impl Parser<'_> {
         }
         if self.token().kind == Kind::Directive(Directive::Assert) {
             let start = self.token().span.start;
-            self.at += 1;
-            let condition = self.expression(0)?;
+            let (condition, message) = self.assertion_operands(false)?;
             return Ok(LoopControlReplacementBody::Assert {
-                span: Span::new(start, condition.span.end),
+                span: Span::new(start, self.tokens[self.at - 1].span.end),
                 condition: Box::new(condition),
+                message: message.map(Box::new),
             });
         }
         let kind = match self.token().kind {
@@ -89,11 +90,6 @@ impl Parser<'_> {
             self.at += 1;
             let target = if self.token().kind == Kind::Ident {
                 LoopTarget::Named(self.name()?)
-            } else if kind == JumpKind::Remove {
-                return Err(Diagnostic::new(
-                    token_span,
-                    "remove requires an array iterator name",
-                ));
             } else {
                 LoopTarget::Innermost
             };

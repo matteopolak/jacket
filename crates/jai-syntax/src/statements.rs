@@ -320,6 +320,12 @@ impl Parser<'_> {
             return Ok(StatementKind::While(condition, self.body()?));
         }
         if self.keyword(Keyword::For) {
+            let policy = if self.token().kind == Kind::Directive(Directive::V2) {
+                self.at += 1;
+                IterationPolicy::Version2
+            } else {
+                IterationPolicy::Current
+            };
             let mut direction = Direction::Forward;
             let mut by_pointer = false;
             let mut reverse_control = None;
@@ -382,6 +388,7 @@ impl Parser<'_> {
                     return Err(self.error("array iteration requires sequence type resolution"));
                 }
                 return Ok(StatementKind::ArrayLoop(ArrayLoop {
+                    policy,
                     expansion,
                     iterator,
                     iterator_export,
@@ -403,6 +410,7 @@ impl Parser<'_> {
             }
             let end = self.expression(0)?;
             return Ok(StatementKind::Range(RangeLoop {
+                policy,
                 iterator,
                 iterator_export,
                 start,
@@ -423,11 +431,6 @@ impl Parser<'_> {
             self.at += 1;
             let target = if self.token().kind == Kind::Ident {
                 LoopTarget::Named(self.name()?)
-            } else if kind == JumpKind::Remove {
-                return Err(Diagnostic::new(
-                    span,
-                    "remove requires an array iterator name",
-                ));
             } else {
                 LoopTarget::Innermost
             };
@@ -693,12 +696,11 @@ impl Parser<'_> {
         self.need(Punct::OpenBrace)?;
         let mut arms = Vec::new();
         let mut default = None;
+        let mut default_position = None;
+        let mut default_through = false;
         while !self.take(Punct::CloseBrace) {
             if !self.keyword(Keyword::Case) {
                 return Err(self.error("expected case label"));
-            }
-            if default.is_some() {
-                return Err(self.error("default case must be last"));
             }
             let label = if self.is(Punct::Semicolon) {
                 None
@@ -728,13 +730,20 @@ impl Parser<'_> {
             if let Some(label) = label {
                 arms.push((label, body, through));
             } else {
-                if through {
-                    return Err(self.error("default case cannot #through"));
+                if default.is_some() {
+                    return Err(self.error("duplicate default case"));
                 }
+                default_position = Some(arms.len());
+                default_through = through;
                 default = Some(body);
             }
         }
+        if default_position == Some(arms.len()) && default_through {
+            return Err(self.error("last default case cannot #through"));
+        }
         Ok(StatementKind::Cases(CaseStatement {
+            default_position,
+            default_through,
             value,
             operator,
             arms,

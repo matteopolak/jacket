@@ -9,9 +9,11 @@ impl FileScope<'_> {
         &self,
         types: &TypeRegistry,
         constants: &crate::typed_constants::ConstantPool,
+        records: &aggregates::parameterized::RecordSpecializations,
         demand: SourceSpan,
     ) -> Result<Vec<(TypeId, SourceSpan)>, Diagnostic> {
         let mut facts = Vec::new();
+        let mut owner_locations = HashMap::new();
         let mut visited = 0usize;
         // Declaration IDs retain actual source discovery order. An alias does
         // not fabricate a new type, and a generic template has no row until an
@@ -20,6 +22,7 @@ impl FileScope<'_> {
             let id = declaration.id();
             let location = declaration.location();
             if let Some(&ty) = self.declarations.nominals.declarations.get(&id) {
+                owner_locations.entry(ty).or_insert(location);
                 source_fact(types, &mut facts, ty, location)?;
             }
             if let Some(&ty) = self.declarations.nominals.value_types.get(&id) {
@@ -71,6 +74,54 @@ impl FileScope<'_> {
                 )
             })?;
             source_fact(types, &mut facts, ty, parameter.location)?;
+        }
+        // Nested Type constants are checked source values too. Their actual
+        // namespace storage is published independently of catalog admission.
+        let mut namespaces = Vec::new();
+        let mut namespace_facts = 0usize;
+        for (owner, names) in records.source_namespaces() {
+            let Some(namespace) = records.member_bindings(owner) else {
+                continue;
+            };
+            let mut values = Vec::new();
+            for name in names {
+                if let Some(crate::polymorphism::BakedValue::Type(ty)) = namespace.constant(*name) {
+                    namespace_facts += 1;
+                    if namespace_facts > MAX_SOURCE_FACTS.saturating_sub(facts.len()) {
+                        return Err(Diagnostic::at_source(
+                            demand,
+                            "source reflection namespaces exceed their fact limit",
+                        ));
+                    }
+                    values.push(*ty);
+                }
+            }
+            if values.is_empty() {
+                continue;
+            }
+            let location = records
+                .source_location(owner)
+                .or_else(|| owner_locations.get(&owner).copied())
+                .ok_or_else(|| {
+                    Diagnostic::at_source(
+                        demand,
+                        "source reflection namespace has no original checked owner location",
+                    )
+                })?;
+            namespaces.push((location, owner, values));
+        }
+        namespaces.sort_by_key(|(location, owner, _)| {
+            (
+                location.source.index(),
+                location.span.start,
+                location.span.end,
+                owner.index(),
+            )
+        });
+        for (location, _, values) in namespaces {
+            for ty in values {
+                source_fact(types, &mut facts, ty, location)?;
+            }
         }
         Ok(facts)
     }

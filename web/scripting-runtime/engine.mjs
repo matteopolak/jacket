@@ -32,7 +32,27 @@ export async function createEngine(wasmBytes) {
   }
   function languageCheck(status) { if (status !== 0) throw new Error(readLanguage("diagnostic", 2 * 1024 * 1024) || "Language boundary rejected the request."); }
   if (supportsLsp) languageCheck(api.jai_lsp_reset());
+  const supportsPlay = ["reset", "push", "finish_file", "run", "output_len", "output_byte", "error_len", "error_byte"].every(name => typeof api[`jai_play_${name}`] === "function");
+  function playRead(kind) {
+    const length = api[`jai_play_${kind}_len`]();
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) bytes[i] = api[`jai_play_${kind}_byte`](i);
+    return decoder.decode(bytes);
+  }
+  function playCheck(status) { if (status !== 0) throw new Error(playRead("error") || "Playground boundary rejected the request."); }
+  function playPush(channel, text) { for (const byte of encoder.encode(text)) playCheck(api.jai_play_push(channel, byte)); }
   return {
+    ...(supportsPlay ? { play(files, main) {
+      if (typeof main !== "string" || !files || typeof files !== "object") throw new TypeError("play needs a file map and a main path.");
+      playCheck(api.jai_play_reset());
+      for (const [name, text] of Object.entries(files)) {
+        if (typeof text !== "string") throw new TypeError("Every supplied source file must be text.");
+        playPush(0, name); playPush(1, text); playCheck(api.jai_play_finish_file());
+      }
+      playPush(2, main);
+      playCheck(api.jai_play_run());
+      return JSON.parse(playRead("output"));
+    } } : {}),
     ...(supportsLsp ? { lsp(message) {
       const text = JSON.stringify(message);
       if (typeof text !== "string" || text.length > 1024 * 1024) throw new Error("Language message byte limit exceeded.");

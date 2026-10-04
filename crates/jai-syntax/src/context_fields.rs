@@ -24,6 +24,8 @@ impl Parser<'_> {
                 ContextFieldDeclaration::Variable(GlobalDeclaration {
                     declaration,
                     span,
+                    reset_policy: GlobalResetPolicy::Reset,
+                    reset_policy_span: None,
                 })
             }
             StatementKind::Constant(declaration) => ContextFieldDeclaration::Constant(declaration),

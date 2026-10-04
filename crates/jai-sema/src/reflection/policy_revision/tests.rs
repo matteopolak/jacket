@@ -183,3 +183,35 @@ fn changed_policy_publishes_an_independent_descriptor_and_retains_the_old_graph(
     old_data.validate(&types).unwrap();
     current_data.validate(&types).unwrap();
 }
+
+#[test]
+fn rejected_host_publication_drops_prepared_policy_and_epoch_together() {
+    let mut types = TypeRegistry::new();
+    let record = types.reserve_record(RecordKind::Struct);
+    types.define_record(record, []).unwrap();
+    let mut meta = MetaContext::default();
+    let flags = RecordReflectionPolicy::from_flags([RecordReflectionFlag::NoTypeInfo]);
+    let mut transaction = RecordReflectionTransaction::default();
+    transaction.stage(&types, record, flags).unwrap();
+    let prepared = meta
+        .prepare_reflection_policy_transaction(&mut types, transaction, location())
+        .unwrap();
+    // The real host service is independent of these exclusive semantic owners.
+    let host_publication: Result<(), ()> = Err(());
+    assert!(host_publication.is_err());
+    drop(prepared);
+    assert_eq!(
+        types.record_reflection_policy(record).unwrap(),
+        RecordReflectionPolicy::default()
+    );
+    assert_eq!(meta.descriptor_policy_epoch, 0);
+    let mut transaction = RecordReflectionTransaction::default();
+    transaction.stage(&types, record, flags).unwrap();
+    let prepared = meta
+        .prepare_reflection_policy_transaction(&mut types, transaction, location())
+        .unwrap();
+    let receipt = prepared.apply();
+    assert_eq!(receipt.len(), 1);
+    assert_eq!(types.record_reflection_policy(record).unwrap(), flags);
+    assert_eq!(meta.descriptor_policy_epoch, 1);
+}

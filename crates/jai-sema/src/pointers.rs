@@ -12,10 +12,13 @@ impl Resolver<'_> {
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
+        if expression.is_implicit() {
+            return self.source_conditional(expression, expected, span);
+        }
         let condition = self.condition_expression(&expression.condition)?;
         let yes = match expected {
-            Some(ty) => self.expr_expected(&expression.then_value, ty)?,
-            None => self.expr(&expression.then_value)?,
+            Some(ty) => self.expr_expected(expression.then_source(), ty)?,
+            None => self.expr(expression.then_source())?,
         };
         let no = expression
             .else_value

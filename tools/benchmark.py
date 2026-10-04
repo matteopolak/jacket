@@ -42,7 +42,7 @@ def source_files(root: Path) -> list[Path]:
              if path.is_file() and (path.suffix in {
                  '.rs', '.toml', '.jai', '.json', '.c', '.cc', '.cpp', '.h', '.hh', '.hpp', '.s', '.S', '.ll', '.inc',
              } or path.name.endswith('.jai.pending'))]
-    files.extend(path for path in (root / 'prelude').glob('*.jai') if path.is_file())
+    files.extend(path for path in (root / 'prelude').rglob('*.jai') if path.is_file())
     files.extend(root / name for name in (
         'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml',
         'tools/benchmark.py', 'tools/benchmark_resources.py', 'tools/check_dependency_age.py',
@@ -101,7 +101,8 @@ def native_tool_candidate(environment: dict[str, str], repository: Path) -> Path
         candidate = shutil.which('clang-22', path=environment.get('PATH')) or shutil.which('clang', path=environment.get('PATH'))
     if not candidate:
         raise ValueError('independent native benchmark Clang was not found')
-    tool = Path(candidate).resolve(strict=True)
+    selected = Path(candidate)
+    tool = (selected if selected.is_absolute() else repository / selected).resolve(strict=True)
     for protected in ('reference', 'corpus', 'vendor', '.git'):
         if tool.is_relative_to((repository / protected).resolve()):
             raise ValueError('native benchmark tool is inside protected inputs')

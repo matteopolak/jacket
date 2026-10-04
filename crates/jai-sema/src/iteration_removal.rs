@@ -84,24 +84,23 @@ impl Resolver<'_> {
         target: syntax::LoopTarget,
         span: Span,
     ) -> Result<Statement, Diagnostic> {
-        let name = match target {
-            syntax::LoopTarget::Named(name) => name,
+        let (loop_index, active) = match target {
+            syntax::LoopTarget::Named(name) => self
+                .loops
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, loop_)| loop_.name == Some(name)),
             syntax::LoopTarget::Innermost => {
-                return Err(Diagnostic::new(
-                    span,
-                    "remove requires an array iterator name",
-                ));
+                self.loops.last().map(|loop_| (self.loops.len() - 1, loop_))
             }
-        };
-        let (loop_index, active) = self
-            .loops
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, loop_)| loop_.name == Some(name))
-            .ok_or_else(|| {
-                Diagnostic::new(span, "remove must name an active enclosing array iterator")
-            })?;
+        }
+        .ok_or_else(|| {
+            Diagnostic::new(
+                span,
+                "remove must target an active enclosing array iterator",
+            )
+        })?;
         if self
             .cleanup_context
             .is_some_and(|context| loop_index < context.loop_depth)

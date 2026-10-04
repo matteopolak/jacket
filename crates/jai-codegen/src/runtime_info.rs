@@ -13,7 +13,40 @@ struct Pending<'ctx, 'a> {
     segments: GlobalValue<'ctx>,
 }
 
+/// Emit the selected snapshot closure before the native Type identity ledger
+/// is published. Its lookup table then becomes owned storage in our catalog.
+pub(super) fn prepare_tables<'ctx>(
+    library: &jai_ir::Library,
+    reachable: &native_reachability::Reachable,
+    lowerer: &mut types::TypeLowerer<'ctx, '_>,
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+    target: &target::NativeTarget,
+    functions: &HashMap<jai_ir::ProcedureId, FunctionValue<'ctx>>,
+) -> Result<(), Error> {
+    for publication in library
+        .native_runtime_info()
+        .iter()
+        .filter(|publication| reachable.contains(publication.procedure()))
+    {
+        let snapshot = ready_snapshot(publication)?;
+        snapshot
+            .revalidate(library.types(), target.layout_policy()?)
+            .map_err(|error| Error::RuntimeInfo(error.to_string()))?;
+        static_data::runtime_info_table_constant(
+            lowerer,
+            snapshot,
+            context,
+            module,
+            functions,
+            library.signatures(),
+        )?;
+    }
+    Ok(())
+}
+
 /// Run after every procedure and entry bridge has emitted its lazy static data.
+/// Publish the Type identity table between `prepare_tables` and this step.
 /// Reserve the catalog's own globals before measuring the complete owned set.
 pub(super) fn publish<'ctx>(
     library: &jai_ir::Library,
@@ -23,6 +56,7 @@ pub(super) fn publish<'ctx>(
     module: &Module<'ctx>,
     target: &target::NativeTarget,
     functions: &HashMap<jai_ir::ProcedureId, FunctionValue<'ctx>>,
+    declarations: &external_data::Declarations<'_, 'ctx>,
 ) -> Result<(), Error> {
     let publications = library
         .native_runtime_info()
@@ -34,21 +68,21 @@ pub(super) fn publish<'ctx>(
     }
     let mut prepared = Vec::new();
     for publication in publications {
-        publication
-            .snapshot()
+        let snapshot = ready_snapshot(publication)?;
+        snapshot
             .revalidate(library.types(), target.layout_policy()?)
             .map_err(|error| Error::RuntimeInfo(error.to_string()))?;
         let table = static_data::runtime_info_table_constant(
             lowerer,
-            publication.snapshot(),
+            snapshot,
             context,
             module,
             functions,
             library.signatures(),
         )?;
-        let binding = module
-            .get_global(publication.data().symbol())
-            .ok_or(Error::Invariant)?;
+        let binding = declarations
+            .binding(publication.global(), publication.data())
+            .map_err(Error::ExternalData)?;
         if binding.get_initializer().is_some() {
             return Err(Error::RuntimeInfo(
                 "native runtime-info external already has owned storage".into(),
@@ -219,4 +253,18 @@ fn is_zero(value: BasicValueEnum<'_>) -> bool {
         BasicValueEnum::VectorValue(value) => value.is_null(),
         BasicValueEnum::ScalableVectorValue(_) => false,
     }
+}
+
+fn ready_snapshot(
+    publication: &jai_ir::NativeRuntimeInfoPublication,
+) -> Result<&jai_ir::RuntimeInfoSnapshot, Error> {
+    publication
+        .snapshot()
+        .map(|snapshot| snapshot.as_ref())
+        .map_err(|prerequisite| {
+            Error::RuntimeInfo(format!(
+                "native runtime-info for {:?} is waiting for {prerequisite}",
+                publication.data().symbol()
+            ))
+        })
 }

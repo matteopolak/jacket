@@ -467,7 +467,9 @@ fn collect_expression_variables(
         }
         ExpressionKind::Conditional(conditional) => {
             collect_expression_variables(&conditional.condition, variables, generic);
-            collect_expression_variables(&conditional.then_value, variables, generic);
+            if let Some(value) = conditional.explicit_then() {
+                collect_expression_variables(value, variables, generic);
+            }
             if let Some(value) = &conditional.else_value {
                 collect_expression_variables(value, variables, generic);
             }
@@ -671,7 +673,9 @@ fn expression_mentions_variable(expression: &Expression, variables: &HashSet<Sym
         }
         ExpressionKind::Conditional(conditional) => {
             expression_mentions_variable(&conditional.condition, variables)
-                || expression_mentions_variable(&conditional.then_value, variables)
+                || conditional
+                    .explicit_then()
+                    .is_some_and(|value| expression_mentions_variable(value, variables))
                 || conditional
                     .else_value
                     .as_ref()

@@ -210,6 +210,7 @@ dependencies = [
  "jai-codegen",
  "jai-driver",
  "jai-lexer",
+ "jai-platform",
  "jai-sema",
  "jai-source",
  "jai-syntax",
@@ -375,6 +376,28 @@ version = "0.1.0"
 dependencies = [
  "jai-language-server",
  "jai-runtime",
+ "jaic",
+]
+
+[[package]]
+name = "jaic"
+version = "0.1.0"
+
+[[package]]
+name = "jaic-cli"
+version = "0.1.0"
+dependencies = [
+ "jaic",
+ "jaic-llvm",
+ "serde_json",
+]
+
+[[package]]
+name = "jaic-llvm"
+version = "0.1.0"
+dependencies = [
+ "inkwell",
+ "jaic",
 ]
 
 [[package]]

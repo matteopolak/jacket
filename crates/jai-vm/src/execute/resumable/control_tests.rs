@@ -702,6 +702,8 @@ fn cases_subject_and_through_progress_survive_two_pending_boundaries() {
             vec![],
             vec![
                 Statement::Cases(Cases {
+                    default_position: None,
+                    default_through: false,
                     subject: Box::new(append(trace, 1)),
                     arms: vec![
                         CaseArm {
@@ -920,4 +922,121 @@ fn pending_cleanup_retains_captured_procedure_and_outer_push_contexts() {
             .outcome,
         Outcome::Complete(vec![value(50)])
     );
+}
+
+#[test]
+fn middle_default_fallthrough_survives_actual_pending_boundaries() {
+    for matches in [false, true] {
+        let mut types = TypeRegistry::new();
+        let word = types.scalar(ScalarType::Int(IntegerType::S64));
+        let boolean = types.scalar(ScalarType::Bool);
+        let scalar = signature(&mut types, vec![], vec![word], ContextMode::None);
+        let boolean_signature = signature(&mut types, vec![], vec![boolean], ContextMode::None);
+        let (global, trace) = global(&types);
+        let main = procedure(
+            0,
+            scalar,
+            vec![],
+            vec![],
+            vec![
+                Statement::Cases(Cases {
+                    default_position: Some(1),
+                    default_through: true,
+                    subject: Box::new(append(trace, 1)),
+                    arms: vec![
+                        CaseArm {
+                            condition: BoolExpr::Call(Call::new(ProcedureId::new(1), vec![])),
+                            body: falls(vec![append(trace, 2)]),
+                            through: true,
+                        },
+                        CaseArm {
+                            condition: BoolExpr::Call(Call::new(ProcedureId::new(3), vec![])),
+                            body: falls(vec![append(trace, 3), Statement::DiscardInt(call_int(2))]),
+                            through: false,
+                        },
+                    ],
+                    default: Some(falls(vec![append(trace, 4)])),
+                    flow: Flow::FallsThrough,
+                    exhaustive: false,
+                }),
+                ret(IntExpr::load(trace)),
+            ],
+        );
+        let condition = procedure(
+            1,
+            boolean_signature,
+            vec![],
+            vec![],
+            vec![Statement::Exit(Exit {
+                cleanups: vec![],
+                transfer: Transfer::ReturnBool(BoolExpr::Constant(matches)),
+            })],
+        );
+        let wait = procedure(2, scalar, vec![], vec![], vec![ret(int(0))]);
+        let skipped_condition = procedure(
+            3,
+            boolean_signature,
+            vec![],
+            vec![],
+            vec![
+                append(trace, 9),
+                Statement::Exit(Exit {
+                    cleanups: vec![],
+                    transfer: Transfer::ReturnBool(BoolExpr::Constant(false)),
+                }),
+            ],
+        );
+        let provider = Provider {
+            library: ProgramBuilder::new(types.freeze().unwrap())
+                .globals(vec![global])
+                .procedures(vec![main, condition, wait, skipped_condition])
+                .finish_library()
+                .unwrap(),
+            pending: Cell::new(Some(ProcedureId::new(1))),
+        };
+        let mut vm = Vm::new(&provider, crate::NoEffects, Limits::default()).unwrap();
+        let outcome = vm
+            .start_resumable_procedure(ProcedureId::new(0), vec![])
+            .outcome;
+        assert_suspended(&vm, outcome, 1);
+        assert_eq!(read_global(&vm), value(1));
+        provider.pending.set(Some(ProcedureId::new(2)));
+        let resumed = vm.resume_resumable().outcome;
+        let expected = if matches {
+            assert_suspended(&vm, resumed, 2);
+            assert_eq!(read_global(&vm), value(1243));
+            provider.pending.set(None);
+            assert_eq!(
+                vm.resume_resumable().outcome,
+                ResumableOutcome::AwaitingPublication
+            );
+            1243
+        } else {
+            assert_suspended(&vm, resumed, 2);
+            assert_eq!(read_global(&vm), value(1943));
+            provider.pending.set(None);
+            assert_eq!(
+                vm.resume_resumable().outcome,
+                ResumableOutcome::AwaitingPublication
+            );
+            1943
+        };
+        assert_eq!(
+            vm.statistics.calls,
+            if matches {
+                3
+            } else {
+                4
+            }
+        );
+        finish(&mut vm, expected);
+        provider.pending.set(None);
+        assert_eq!(
+            Vm::new(&provider, crate::NoEffects, Limits::default())
+                .unwrap()
+                .execute(ProcedureId::new(0), vec![])
+                .outcome,
+            Outcome::Complete(vec![value(expected)])
+        );
+    }
 }

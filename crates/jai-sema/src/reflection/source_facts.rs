@@ -9,7 +9,12 @@ impl MetaContext {
         types: &TypeRegistry,
         location: SourceSpan,
     ) -> Result<(), Diagnostic> {
-        let facts = scope.reflection_source_facts(types, &self.constants, location)?;
+        let facts = scope.reflection_source_facts(
+            types,
+            &self.constants,
+            &self.record_specializations,
+            location,
+        )?;
         let mut sources = Vec::with_capacity(facts.len());
         for (ty, location) in facts {
             let source = scope.source_record(location.source).ok_or_else(|| {

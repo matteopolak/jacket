@@ -108,6 +108,11 @@ impl<A> Visitor<'_, A> {
             this.node(depth)?;
             match &argument.value {
                 NoteValue::Word(_) => Ok(()),
+                NoteValue::Selector(selector) => {
+                    this.sequence(&selector.components, depth, |this, _, depth| {
+                        this.node(depth)
+                    })
+                }
                 NoteValue::Expression(value) => this.expression(value, depth + 1),
             }
         })
@@ -199,7 +204,7 @@ impl<A> Visitor<'_, A> {
     fn enum_body<E>(
         &mut self,
         representation: &Option<TypeSyntax>,
-        members: &Vec<EnumMember>,
+        members: &Vec<EnumBodyItem>,
         depth: usize,
     ) -> Result<E>
     where
@@ -208,13 +213,33 @@ impl<A> Visitor<'_, A> {
         if let Some(ty) = representation {
             self.ty(ty, depth + 1)?;
         }
-        self.sequence(members, depth, |this, member, depth| {
-            this.node(depth)?;
-            if let Some(value) = &member.initializer {
-                this.expression(value, depth + 1)?;
+        self.sequence(members, depth, Self::enum_item)
+    }
+
+    fn enum_item<E>(&mut self, item: &EnumBodyItem, depth: usize) -> Result<E>
+    where
+        A: FnMut(usize, usize) -> std::result::Result<(), E>,
+    {
+        self.node(depth)?;
+        match item {
+            EnumBodyItem::Member(member) => {
+                if let Some(value) = &member.initializer {
+                    self.expression(value, depth + 1)?;
+                }
+                self.sequence(&member.notes, depth, Self::note)
             }
-            Ok(())
-        })
+            EnumBodyItem::Conditional {
+                condition,
+                then_items,
+                else_items,
+                ..
+            } => {
+                self.expression(condition, depth + 1)?;
+                self.sequence(then_items, depth, Self::enum_item)?;
+                self.sequence(else_items, depth, Self::enum_item)
+            }
+            EnumBodyItem::Insert(directive) => self.insert(directive, depth + 1),
+        }
     }
 
     pub(super) fn inline_enum<E>(&mut self, source: &EnumTypeSyntax, depth: usize) -> Result<E>
@@ -222,7 +247,8 @@ impl<A> Visitor<'_, A> {
         A: FnMut(usize, usize) -> std::result::Result<(), E>,
     {
         self.node(depth)?;
-        self.enum_body(&source.representation, &source.members, depth)
+        self.enum_body(&source.representation, &source.members, depth)?;
+        self.sequence(&source.notes, depth, Self::note)
     }
 
     pub(super) fn enumeration<E>(&mut self, source: &EnumDeclaration, depth: usize) -> Result<E>
@@ -230,7 +256,8 @@ impl<A> Visitor<'_, A> {
         A: FnMut(usize, usize) -> std::result::Result<(), E>,
     {
         self.node(depth)?;
-        self.enum_body(&source.representation, &source.members, depth)
+        self.enum_body(&source.representation, &source.members, depth)?;
+        self.sequence(&source.notes, depth, Self::note)
     }
 
     pub(super) fn field<E>(&mut self, source: &FieldDeclaration, depth: usize) -> Result<E>
@@ -238,6 +265,7 @@ impl<A> Visitor<'_, A> {
         A: FnMut(usize, usize) -> std::result::Result<(), E>,
     {
         self.node(depth)?;
+        self.selection(&source.using_selection, depth + 1)?;
         match &source.binding {
             FieldBinding::Explicit {
                 ty,
@@ -268,6 +296,14 @@ impl<A> Visitor<'_, A> {
     {
         self.node(depth)?;
         match source {
+            RecordMember::Import(import) => {
+                self.text(&import.target)?;
+                self.import_arguments(&import.arguments, depth + 1)
+            }
+            RecordMember::Using(source) => {
+                self.expression(&source.target, depth + 1)?;
+                self.selection(&source.selection, depth + 1)
+            }
             RecordMember::Placement(source) => self.place(&source.target, depth + 1),
             RecordMember::AnonymousRecord(record) => {
                 self.boxed(record.as_ref(), depth, Self::inline_record)

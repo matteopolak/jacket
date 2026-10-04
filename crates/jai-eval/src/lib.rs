@@ -1,6 +1,7 @@
 //! Pure constant evaluation with typed nodes and no host effects.
 mod bound_values;
 mod domains;
+mod implicit_conditionals;
 mod retained_metadata;
 pub use retained_metadata::EvalRetainedMetadataError;
 pub mod floats;
@@ -111,11 +112,10 @@ pub fn evaluate_paths_with_overflow_check(
     overflow_check: CheckMode,
     mut lookup: impl FnMut(&NamePath, Span) -> Result<Value, Diagnostic>,
 ) -> Result<Value, Diagnostic> {
-    match bind(expression, overflow_check, &mut lookup)? {
-        Expr::Number(e) => e.evaluate(),
-        Expr::Bool(e) => e.evaluate().map(Value::Bool),
-        Expr::Float(e) => e.into_value(expression.span),
-    }
+    finish_bound(
+        bind(expression, overflow_check, &mut lookup)?,
+        expression.span,
+    )
 }
 /// Fold untyped literal operands without materializing them as s64 storage.
 pub fn binary_literals(
@@ -434,11 +434,29 @@ fn number_pair(
     let ty = lhs.ty.common(rhs.ty, span)?;
     Ok((ty, lhs.convert(ty, span), rhs.convert(ty, span)))
 }
+fn finish_bound(value: Expr, span: Span) -> Result<Value, Diagnostic> {
+    match value {
+        Expr::Number(value) => value.evaluate(),
+        Expr::Bool(value) => value.evaluate().map(Value::Bool),
+        Expr::Float(value) => value.into_value(span),
+    }
+}
 fn bind(
     expression: &Expression,
     overflow_check: CheckMode,
     lookup: &mut impl FnMut(&NamePath, Span) -> Result<Value, Diagnostic>,
 ) -> Result<Expr, Diagnostic> {
+    bind_captured(expression, overflow_check, lookup, &mut Vec::new())
+}
+fn bind_captured(
+    expression: &Expression,
+    overflow_check: CheckMode,
+    lookup: &mut impl FnMut(&NamePath, Span) -> Result<Value, Diagnostic>,
+    captures: &mut Vec<implicit_conditionals::SourceCapture>,
+) -> Result<Expr, Diagnostic> {
+    if let Some(value) = implicit_conditionals::captured(expression, captures) {
+        return Ok(value);
+    }
     let span = expression.span;
     Ok(match &expression.kind {
         ExpressionKind::Integer(n) => literal(Value::Literal(*n)),
@@ -478,7 +496,12 @@ fn bind(
             mode,
             ty,
             value,
-        } => floats::cast(ty, bind(value, overflow_check, lookup)?, *mode, span)?,
+        } => floats::cast(
+            ty,
+            bind_captured(value, overflow_check, lookup, captures)?,
+            *mode,
+            span,
+        )?,
         ExpressionKind::BakeArguments(_) => {
             return Err(Diagnostic::new(
                 span,
@@ -546,7 +569,7 @@ fn bind(
                     "trunc cast to bool has no established source policy",
                 ));
             }
-            let value = bind(e, overflow_check, lookup)?;
+            let value = bind_captured(e, overflow_check, lookup, captures)?;
             if *mode == CastMode::Truncate && matches!(value, Expr::Bool(_)) {
                 return Err(Diagnostic::new(
                     span,
@@ -567,7 +590,7 @@ fn bind(
             }
         }
         ExpressionKind::Unary(op, e) => {
-            let value = bind(e, overflow_check, lookup)?;
+            let value = bind_captured(e, overflow_check, lookup, captures)?;
             if matches!(value, Expr::Float(_)) && *op != UnaryOp::LogicalNot {
                 return floats::unary(op, value, span);
             }
@@ -590,12 +613,18 @@ fn bind(
             }
         }
         ExpressionKind::Conditional(e) => {
-            let condition = bind(&e.condition, overflow_check, lookup)?.condition();
-            let then_value = bind(&e.then_value, overflow_check, lookup)?;
+            let (condition, then_value) = if e.is_implicit() {
+                implicit_conditionals::bind_subject(e, overflow_check, lookup, captures)?
+            } else {
+                (
+                    bind_captured(&e.condition, overflow_check, lookup, captures)?.condition(),
+                    bind_captured(e.then_source(), overflow_check, lookup, captures)?,
+                )
+            };
             let else_value = e
                 .else_value
                 .as_ref()
-                .map(|e| bind(e, overflow_check, lookup))
+                .map(|e| bind_captured(e, overflow_check, lookup, captures))
                 .transpose()?;
             if matches!(then_value, Expr::Float(_)) || matches!(else_value, Some(Expr::Float(_))) {
                 return floats::conditional(condition, then_value, else_value, span);
@@ -635,8 +664,8 @@ fn bind(
             }
         }
         ExpressionKind::Binary(op, lhs, rhs) => {
-            let lhs = bind(lhs, overflow_check, lookup)?;
-            let rhs = bind(rhs, overflow_check, lookup)?;
+            let lhs = bind_captured(lhs, overflow_check, lookup, captures)?;
+            let rhs = bind_captured(rhs, overflow_check, lookup, captures)?;
             bound_values::bind_binary(*op, lhs, rhs, overflow_check, span)?
         }
     })

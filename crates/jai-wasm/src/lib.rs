@@ -9,3 +9,9 @@ pub use exports::*;
 #[allow(unsafe_code)]
 mod language_server;
 pub use language_server::*;
+
+/// Playground run through the `jaic` core (interpreter backend) with the bundled stdlib.
+pub mod play;
+#[allow(unsafe_code)]
+mod play_exports;
+pub use play_exports::*;

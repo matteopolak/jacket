@@ -712,8 +712,8 @@ impl StaticData {
                     .ok_or(StaticDataError::Limit("validation work"))?,
             )?;
         }
-        // Each immutable descriptor object has its own binding. Historical
-        // revisions may represent one canonical type; validate every object.
+        // Multiple immutable revisions may certify the same nominal type.
+        // Validate every exact object receipt and charge all retained payloads.
         let mut descriptor_work = self.limits.value_nodes;
         for object in &self.objects {
             if let Some(binding) = object.descriptor_binding() {

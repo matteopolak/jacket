@@ -98,6 +98,8 @@ pub struct RangeLoop {
 
 #[derive(Clone, Debug)]
 pub struct Cases {
+    pub default_position: Option<usize>,
+    pub default_through: bool,
     pub subject: Box<Statement>,
     pub arms: Vec<CaseArm>,
     pub default: Option<Block>,
@@ -109,4 +111,18 @@ pub struct CaseArm {
     pub condition: BoolExpr,
     pub body: Block,
     pub through: bool,
+}
+
+impl Cases {
+    pub fn order(&self) -> Result<jai_types::CaseOrder, jai_types::CaseOrderError> {
+        if self.default.is_none() && (self.default_position.is_some() || self.default_through) {
+            return Err(jai_types::CaseOrderError::DefaultMetadataMismatch);
+        }
+        jai_types::CaseOrder::new(
+            self.arms.len(),
+            self.default
+                .as_ref()
+                .map(|_| self.default_position.unwrap_or(self.arms.len())),
+        )
+    }
 }

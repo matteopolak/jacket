@@ -105,6 +105,41 @@ pub trait NominalView {
             "record literal metadata is unavailable",
         ))
     }
+    fn record_field_path(
+        &self,
+        ty: TypeId,
+        name: Symbol,
+        span: Span,
+    ) -> Result<Vec<jai_types::FieldId>, Diagnostic> {
+        let fields = self.record_fields(ty, span)?;
+        let mut matches = fields.iter().filter(|field| field.name == Some(name));
+        let field = matches
+            .next()
+            .ok_or_else(|| Diagnostic::new(span, "unknown record literal field"))?;
+        if matches.next().is_some() {
+            return Err(Diagnostic::new(span, "ambiguous record literal field"));
+        }
+        Ok(vec![field.id])
+    }
+    /// Only an actual source initializer or override supplies an inherited overlay.
+    fn field_construction_overlay(
+        &self,
+        _: jai_types::FieldId,
+        _: Span,
+    ) -> Result<Option<jai_ir::ConstantValue>, Diagnostic> {
+        Ok(None)
+    }
+    fn literal_element_default(
+        &self,
+        _: jai_types::FieldId,
+        _: TypeId,
+        span: Span,
+    ) -> Result<jai_ir::ConstantValue, Diagnostic> {
+        Err(Diagnostic::new(
+            span,
+            "literal element default requires its original field environment",
+        ))
+    }
     fn field_default(
         &self,
         _: jai_types::FieldId,
@@ -217,7 +252,7 @@ pub enum ArgumentType {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecordArgumentField {
-    pub name: Symbol,
+    pub target: RecordArgumentTarget,
     pub value: ArgumentInfo,
     pub span: Span,
 }
@@ -2463,6 +2498,9 @@ fn integer_float(value: i128, ty: FloatType, span: Span) -> Result<FloatValue, D
 mod boxing;
 mod casts;
 mod literals;
+mod record_literals;
+mod record_targets;
+pub use record_targets::{RecordArgumentStep, RecordArgumentTarget};
 mod procedures;
 mod restrictions;
 pub(crate) use procedures::infer_lambda_result;

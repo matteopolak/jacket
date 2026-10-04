@@ -26,7 +26,8 @@ where
                     ..
                 }
                 | M::AnonymousRecord(_)
-                | M::Placement(_) => continue,
+                | M::Placement(_)
+                | M::Using(_) => continue,
                 M::Field(field) => (field.name, field.span),
                 M::Constant(value) => (value.name, value.span),
                 M::TypeAlias(value) => (value.name, value.span),
@@ -34,6 +35,16 @@ where
                 M::Procedure(value) => (value.name, value.span),
                 M::ProcedurePrototype(value) => (value.name, value.span),
                 M::Enum(value) => (value.name, value.span),
+                M::Import(value) => {
+                    return Err(failure(
+                        self.graph,
+                        file,
+                        Diagnostic::new(
+                            value.span,
+                            "record import requires a checked record-source namespace producer",
+                        ),
+                    ));
+                }
                 M::Insert(value) => {
                     return Err(failure(
                         self.graph,
@@ -197,6 +208,14 @@ where
                 self.bind_nested_record(owner, origin, index, file, nested, &scope)?;
             }
         }
+        self.promote_source_using_members(
+            file,
+            record,
+            &mut scope,
+            &mut names,
+            &mut source_members,
+        )?;
+        self.records.reserve_namespace(owner, scope.clone());
         self.records.define_source_members(owner, source_members);
         Ok(scope)
     }
@@ -255,7 +274,7 @@ where
     }
 }
 
-fn shadow(substitution: &mut Substitution, name: jai_source::Symbol, value: BakedValue) {
+pub(super) fn shadow(substitution: &mut Substitution, name: jai_source::Symbol, value: BakedValue) {
     substitution
         .constants
         .retain(|binding| binding.name != name);

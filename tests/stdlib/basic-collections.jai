@@ -20,16 +20,16 @@ main :: () -> s64 {
     Bits.init_bit_array(*bits,67);
     defer Bits.deinit(*bits);
     Bits.set_bit(*bits,66); Bits.toggle_bit(*bits,0);
-    if !Bits.get_bit(*bits,66) || !Bits.get_bit(*bits,0) return 4;
+    if !bits[66] || !bits[0] return 4;
     Bits.clear_bit(*bits,66);
-    if Bits.get_bit(*bits,66) return 5;
+    if bits[66] return 5;
 
     table:Tables.Table(string,s64);
     defer Tables.deinit(*table);
     Tables.table_add(*table,"one",1);
-    Tables.table_add(*table,"one",2);
+    Tables.table_set(*table,"one",2);
     Tables.table_set(*table,"two",3);
-    found,ok:=Tables.table_find(*table,"one");
+    ok,found:=Tables.table_find(*table,"one");
     if !ok || found!=2 || table.count!=2 return 6;
     removed,saved:=Tables.table_remove(*table,"one");
     if !removed || saved!=2 || Tables.table_contains(*table,"one") return 7;

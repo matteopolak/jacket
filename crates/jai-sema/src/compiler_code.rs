@@ -701,7 +701,9 @@ fn admit_native_source(source: &syntax::Expression) -> Result<(), Diagnostic> {
             }
             E::Conditional(condition) => {
                 pending.push(&condition.condition);
-                pending.push(&condition.then_value);
+                if let Some(value) = condition.explicit_then() {
+                    pending.push(value);
+                }
                 if let Some(no) = &condition.else_value {
                     pending.push(no);
                 }

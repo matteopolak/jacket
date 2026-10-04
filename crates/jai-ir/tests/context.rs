@@ -357,6 +357,8 @@ fn context_schema_does_not_hide_cleanup_cycle_in_cases_subject() {
     let mut procedure = fixture.procedure(block(vec![]));
     procedure.cleanups.push(Cleanup {
         body: block(vec![Statement::Cases(Cases {
+            default_position: None,
+            default_through: false,
             subject: Box::new(Statement::Cleanup(CleanupId::new(0))),
             arms: vec![],
             default: Some(block(vec![])),

@@ -398,6 +398,8 @@ fn through_case_enters_next_body_without_evaluating_its_condition() {
     let mut f = fixture();
     let n = local(&f, 0, 0);
     let cases = Cases {
+        default_position: None,
+        default_through: false,
         subject: Box::new(Statement::StoreInt(n.place(), int(1))),
         arms: vec![
             CaseArm {

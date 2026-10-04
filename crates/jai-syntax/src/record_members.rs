@@ -3,7 +3,9 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub enum RecordMember {
+    Import(ScopedImportDeclaration),
     Placement(RecordPlacementSyntax),
+    Using(UsingDirective),
     AnonymousRecord(Box<RecordTypeSyntax>),
     DefaultOverride {
         target: PlaceSyntax,
@@ -46,8 +48,18 @@ impl Parser<'_> {
     }
 
     pub(super) fn record_member_group(&mut self) -> Result<Vec<RecordMember>, Diagnostic> {
+        if self.token().kind == Kind::Keyword(Keyword::Using)
+            && let Some(members) = self.record_using_group()?
+        {
+            return Ok(members);
+        }
         if self.token().kind == Kind::Eof {
             return Err(self.error("unterminated record declaration"));
+        }
+        if self.import_prefix() {
+            return Ok(vec![RecordMember::Import(
+                self.scoped_import_declaration()?,
+            )]);
         }
         if self.token().kind == Kind::Directive(Directive::Place) {
             return Ok(vec![RecordMember::Placement(self.record_placement()?)]);
@@ -174,6 +186,11 @@ impl Parser<'_> {
                 initializer,
             }
         };
+        let suffix_attributes = self.field_attributes()?;
+        if !attributes.is_empty() && !suffix_attributes.is_empty() {
+            return Err(self.error("duplicate field alignment attribute"));
+        }
+        attributes.extend(suffix_attributes);
         if matches!(
             &binding,
             FieldBinding::Explicit {
@@ -196,6 +213,7 @@ impl Parser<'_> {
                 name,
                 binding: binding.clone(),
                 using,
+                using_selection: prefix.using_selection.clone(),
                 conversion: prefix.qualifiers.conversion,
                 span: Span::new(name_span.start, span.end),
                 attributes: attributes.clone(),

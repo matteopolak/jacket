@@ -9,6 +9,7 @@ pub enum FieldPlacementSyntax {
 #[derive(Clone, Debug)]
 pub struct PlacedFieldPrefix {
     pub qualifiers: FieldPrefix,
+    pub using_selection: UsingSelection,
     pub placement: Option<FieldPlacementSyntax>,
 }
 
@@ -16,6 +17,7 @@ impl Parser<'_> {
     pub(super) fn placed_field_prefix(&mut self) -> Result<PlacedFieldPrefix, Diagnostic> {
         let mut qualifiers = FieldPrefix::default();
         let mut placement = None;
+        let mut using_selection = UsingSelection::All;
         loop {
             let before = self.at;
             let next = field_prefix::field_prefix(&self.tokens, &mut self.at)?;
@@ -29,6 +31,7 @@ impl Parser<'_> {
                     return Err(Diagnostic::new(span, "duplicate using field qualifier"));
                 }
                 qualifiers.using = true;
+                using_selection = self.using_selection()?;
             }
             if next.conversion == FieldConversion::Implicit {
                 if qualifiers.conversion == FieldConversion::Implicit {
@@ -41,6 +44,15 @@ impl Parser<'_> {
                 qualifiers.conversion_span = next.conversion_span;
             }
             let token = self.token();
+            // A selector can separate `using` from another real field qualifier.
+            if self.at != before
+                && matches!(
+                    token.kind,
+                    Kind::Keyword(Keyword::Using) | Kind::Directive(Directive::As)
+                )
+            {
+                continue;
+            }
             if token.kind != Kind::UnknownDirective || token.spelling(self.source) != "#overlay" {
                 break;
             }
@@ -63,6 +75,7 @@ impl Parser<'_> {
         }
         Ok(PlacedFieldPrefix {
             qualifiers,
+            using_selection,
             placement,
         })
     }

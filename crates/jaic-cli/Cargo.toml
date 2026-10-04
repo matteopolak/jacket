@@ -1,0 +1,23 @@
+[package]
+name = "jaic-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Command line driver for the jaic compiler core."
+
+[[bin]]
+name = "jaic"
+path = "src/main.rs"
+
+[dependencies]
+jaic = { path = "../jaic" }
+jaic-llvm = { path = "../jaic-llvm" }
+
+[dev-dependencies]
+serde_json = "=1.0.151"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"

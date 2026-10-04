@@ -11,6 +11,7 @@ mod declarations;
 mod deferred_context;
 mod deprecation_warnings;
 mod discarded_parameters;
+mod enum_conditions;
 mod floats;
 mod local_declarations;
 mod loops;
@@ -33,6 +34,7 @@ mod enum_operators;
 mod enum_values;
 mod expression_bindings;
 mod field_conversions;
+mod implicit_conditionals;
 mod inferred_casts;
 mod iteration_removal;
 pub mod metaprogram;
@@ -44,6 +46,7 @@ mod procedure_notes;
 mod procedure_values;
 mod record_default_overrides;
 mod record_placements;
+mod record_using;
 mod reflection;
 mod restriction_facts;
 mod result_obligations;
@@ -159,6 +162,7 @@ struct ResultSignature {
     ty: TypeId,
     default: Option<jai_ir::ConstantValue>,
 }
+#[derive(Clone)]
 enum Expr {
     Code(jai_types::CodeValueId),
     Type(TypeId),
@@ -313,6 +317,28 @@ impl Expr {
                 value,
             } if matches!(types.kind(ty), Ok(jai_types::TypeKind::Procedure(_))) => {
                 Ok(BoolExpr::FromPointer(Box::new(value)))
+            }
+            Self::Typed {
+                ty,
+                value,
+            } if matches!(
+                types.kind(ty),
+                Ok(jai_types::TypeKind::String
+                    | jai_types::TypeKind::Slice(_)
+                    | jai_types::TypeKind::DynamicArray(_)
+                    | jai_types::TypeKind::FixedArray { .. })
+            ) =>
+            {
+                let integer = IntegerType::S64;
+                let ty = types.scalar(ScalarType::Int(integer));
+                Ok(BoolExpr::FromInt(Box::new(IntExpr::new(
+                    integer,
+                    IntExprKind::Value(Box::new(ValueExpr::SequenceField {
+                        base: Box::new(value),
+                        field: jai_ir::SequenceField::Count,
+                        ty,
+                    })),
+                ))))
             }
             Self::Typed {
                 ..
@@ -522,6 +548,7 @@ pub fn resolve(module: &syntax::Module) -> Result<Program, Diagnostic> {
         let signature = &signatures[&procedure.name];
         meta.remember_inline_hint(signature.id, procedure.inline_hint);
         let mut resolver = Resolver {
+            conditional_subjects: Vec::new(),
             expression_owner: Some(signature.id),
             debug: debug_capture::Capture::default(),
             checks: safety_checks::ActiveChecks::default().overridden(procedure.checks),
@@ -605,6 +632,7 @@ struct CleanupControlContext {
     loop_depth: usize,
 }
 struct Resolver<'a> {
+    conditional_subjects: Vec<implicit_conditionals::CapturedConditionalSubject>,
     expression_owner: Option<ProcedureId>,
     debug: debug_capture::Capture,
     checks: safety_checks::ActiveChecks,
@@ -1328,6 +1356,9 @@ impl Resolver<'_> {
         })
     }
     fn expr(&mut self, expr: &syntax::Expression) -> Result<Expr, Diagnostic> {
+        if let Some(value) = self.captured_conditional_subject(expr) {
+            return Ok(value);
+        }
         let span = expr.span;
         Ok(match &expr.kind {
             syntax::ExpressionKind::BakeArguments(source) => {
@@ -1463,102 +1494,7 @@ impl Resolver<'_> {
                 self.cast_expression(value, target, *mode, span)?
             }
             syntax::ExpressionKind::Conditional(e) => {
-                let condition = self.condition_expression(&e.condition)?;
-                let yes = self.expr(&e.then_value)?;
-                let no = e.else_value.as_ref().map(|e| self.expr(e)).transpose()?;
-                if matches!(yes, Expr::Pointer { .. } | Expr::Null)
-                    || no
-                        .as_ref()
-                        .is_some_and(|value| matches!(value, Expr::Pointer { .. } | Expr::Null))
-                {
-                    return self.pointer_conditional_pair(
-                        condition,
-                        yes,
-                        no.unwrap_or(Expr::Null),
-                        None,
-                        span,
-                    );
-                }
-                if yes.has_float() || no.as_ref().is_some_and(Expr::has_float) {
-                    return Ok(Expr::WeakConditional(Box::new(Conditional {
-                        condition,
-                        then_value: yes,
-                        else_value: no.unwrap_or(Expr::Literal(0)),
-                    })));
-                }
-                if matches!(yes, Expr::Type(_)) {
-                    let ty = self.types.meta_type();
-                    let yes = self.runtime_type_expression(yes, span)?;
-                    let no = no
-                        .map(|value| self.runtime_type_expression(value, span))
-                        .transpose()?;
-                    return self.value_conditional_pair(condition, yes, no, ty, span);
-                }
-                if matches!(yes, Expr::Typed { .. } | Expr::Enum { .. }) {
-                    let ty = self.expression_type(&yes, span)?;
-                    let no = if ty == self.types.meta_type() {
-                        no.map(|value| self.runtime_type_expression(value, span))
-                            .transpose()?
-                    } else {
-                        no
-                    };
-                    return self.value_conditional_pair(condition, yes, no, ty, span);
-                }
-                match yes {
-                    Expr::Bool(yes) => Expr::Bool(BoolExpr::Conditional(Box::new(Conditional {
-                        condition,
-                        then_value: yes,
-                        else_value: match no {
-                            Some(e) => e.bool(span)?,
-                            None => BoolExpr::Constant(false),
-                        },
-                    }))),
-                    Expr::Type(_)
-                    | Expr::Code(_)
-                    | Expr::Typed {
-                        ..
-                    }
-                    | Expr::Enum {
-                        ..
-                    }
-                    | Expr::Pointer {
-                        ..
-                    }
-                    | Expr::Null => {
-                        return Err(Diagnostic::new(
-                            span,
-                            "nominal conditional values are not implemented",
-                        ));
-                    }
-                    Expr::Void(_)
-                    | Expr::IndirectVoid {
-                        ..
-                    } => {
-                        return Err(Diagnostic::new(
-                            span,
-                            "void call cannot supply an ifx result",
-                        ));
-                    }
-                    yes => {
-                        let no = no.unwrap_or(Expr::Literal(0));
-                        if yes.weak_integer() && no.weak_integer() {
-                            return Ok(Expr::WeakConditional(Box::new(Conditional {
-                                condition,
-                                then_value: yes,
-                                else_value: no,
-                            })));
-                        }
-                        let (yes, no) = Self::integer_pair(yes, no, span)?;
-                        Expr::Int(IntExpr::new(
-                            yes.ty(),
-                            IntExprKind::Conditional(Box::new(Conditional {
-                                condition,
-                                then_value: yes,
-                                else_value: no,
-                            })),
-                        ))
-                    }
-                }
+                return self.source_conditional(e, None, span);
             }
             syntax::ExpressionKind::Unary(op, e) => {
                 if let Some(result) =

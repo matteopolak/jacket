@@ -430,6 +430,7 @@ impl Resolver<'_> {
         let result = {
             let debug_policy = self.debug.policy().nested(environment.debug);
             let mut child = Resolver {
+                conditional_subjects: Vec::new(),
                 debug: crate::debug_capture::Capture::new(environment.source),
                 checks: environment.checks,
                 context: self.context,

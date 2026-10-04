@@ -34,6 +34,7 @@ mod lexical;
 pub(crate) use lexical::{LexicalTypeArgument, LexicalTypeArguments};
 mod procedure_patterns;
 mod using;
+mod using_members;
 pub(crate) use procedure_patterns::{
     FormalPatternRequest, formal_pattern, procedure_application_patterns, procedure_patterns,
     prototype_patterns,

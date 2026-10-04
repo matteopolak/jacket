@@ -5,14 +5,15 @@ import hashlib
 import json
 from pathlib import Path
 import re
-from fetch_upstreams import ROOT, REPOSITORIES, safe_path
+from fetch_upstreams import ROOT, REPOSITORIES, DEPENDENCIES, safe_path
 
 def verify(root: Path = ROOT) -> tuple[int, int]:
     manifest = json.loads((root / 'corpus/upstreams.json').read_text())
     if manifest['format'] != 1: raise ValueError('unsupported manifest format')
     cutoff = datetime.fromisoformat(manifest['minimum_source_date'])
     projects = manifest['projects']
-    if {p['repository'] for p in projects} != set(REPOSITORIES) or len(projects) != len(REPOSITORIES):
+    expected = REPOSITORIES + DEPENDENCIES
+    if {p['repository'] for p in projects} != set(expected) or len(projects) != len(expected):
         raise ValueError('repository set does not match compatibility targets')
     sources = 0
     for project in projects:

@@ -627,7 +627,8 @@ pub(super) fn valid_source_member(graph: &ModuleGraph, owner: DeclarationId, nam
     };
     match &declaration.syntax().kind {
         FileDeclarationKind::Enum(enumeration) => {
-            enumeration.members.iter().any(|member| member.name == name)
+            jai_syntax::EnumMemberSyntax::new(&enumeration.members)
+                .any(|member| member.name == name)
         }
         FileDeclarationKind::Record(record) => record_static_member(&record.members, name),
         _ => false,

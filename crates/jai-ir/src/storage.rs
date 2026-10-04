@@ -623,11 +623,21 @@ pub enum GlobalInitializer {
     Value(ConstantValue),
     External(crate::ExternalData),
 }
+/// Selects whether native startup uses the source initializer or the final
+/// compile-time contents of a global cell.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum GlobalResetPolicy {
+    #[default]
+    Reset,
+    Preserve,
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Global {
     id: GlobalId,
     ty: TypeId,
     initializer: GlobalInitializer,
+    reset_policy: GlobalResetPolicy,
+    runtime_initializer: Option<ConstantValue>,
 }
 impl Global {
     #[doc(hidden)]
@@ -642,6 +652,8 @@ impl Global {
             id: GlobalId::new(index),
             ty,
             initializer,
+            reset_policy: GlobalResetPolicy::Reset,
+            runtime_initializer: None,
         }
     }
     pub fn new_typed(
@@ -659,12 +671,37 @@ impl Global {
             types,
         ))
     }
+    pub fn with_reset_policy(mut self, policy: GlobalResetPolicy) -> Self {
+        self.reset_policy = policy;
+        if policy == GlobalResetPolicy::Reset {
+            self.runtime_initializer = None;
+        }
+        self
+    }
+    /// Retain the final typed compile-time contents for native startup.
+    pub fn with_runtime_initializer(
+        mut self,
+        initializer: ConstantValue,
+        types: &dyn TypeView,
+    ) -> Result<Self, IrError> {
+        if self.reset_policy != GlobalResetPolicy::Preserve {
+            return Err(IrError::InvalidValue(self.ty));
+        }
+        if initializer.ty != self.ty {
+            return Err(IrError::InvalidValue(initializer.ty));
+        }
+        crate::verify::constant(types, &initializer)?;
+        self.runtime_initializer = Some(initializer);
+        Ok(self)
+    }
     /// External storage is already checked and has no fabricated initial value.
     pub fn new_external(index: usize, data: crate::ExternalData) -> Self {
         Self {
             id: GlobalId::new(index),
             ty: data.ty(),
             initializer: GlobalInitializer::External(data),
+            reset_policy: GlobalResetPolicy::Reset,
+            runtime_initializer: None,
         }
     }
     pub fn id(&self) -> GlobalId {
@@ -675,6 +712,22 @@ impl Global {
     }
     pub fn initializer(&self) -> &GlobalInitializer {
         &self.initializer
+    }
+    pub fn reset_policy(&self) -> GlobalResetPolicy {
+        self.reset_policy
+    }
+    pub fn runtime_initializer(&self) -> Option<&ConstantValue> {
+        self.runtime_initializer.as_ref()
+    }
+    pub fn startup_initializer(&self) -> Option<&ConstantValue> {
+        self.runtime_initializer
+            .as_ref()
+            .or_else(|| match &self.initializer {
+                GlobalInitializer::Value(value) => Some(value),
+                GlobalInitializer::Int(_)
+                | GlobalInitializer::Bool(_)
+                | GlobalInitializer::External(_) => None,
+            })
     }
     pub(crate) fn into_initializer(self) -> GlobalInitializer {
         self.initializer

@@ -108,7 +108,18 @@ fn global_initializer(
         }
     };
     expressions::constant_with_closures(types, value, closures)?;
-    expressions::constant_procedures_with_closures(types, value, signatures, closures)
+    expressions::constant_procedures_with_closures(types, value, signatures, closures)?;
+    if let Some(runtime_initializer) = global.runtime_initializer() {
+        same_type(global.ty(), runtime_initializer.ty)?;
+        expressions::constant_with_closures(types, runtime_initializer, closures)?;
+        expressions::constant_procedures_with_closures(
+            types,
+            runtime_initializer,
+            signatures,
+            closures,
+        )?;
+    }
+    Ok(())
 }
 fn globals(
     types: &dyn TypeView,

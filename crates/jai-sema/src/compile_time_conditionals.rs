@@ -15,7 +15,8 @@ pub(crate) fn has_contextual_member(source: &syntax::Expression) -> bool {
             } => pending.push(value),
             E::Binary(_, lhs, rhs) => pending.extend([lhs.as_ref(), rhs.as_ref()]),
             E::Conditional(value) => {
-                pending.extend([value.condition.as_ref(), value.then_value.as_ref()]);
+                pending.push(value.condition.as_ref());
+                pending.extend(value.explicit_then());
                 if let Some(value) = &value.else_value {
                     pending.push(value);
                 }
@@ -295,10 +296,7 @@ impl Resolver<'_> {
                     index: rhs,
                 } => pending.extend([lhs.as_mut(), rhs.as_mut()]),
                 E::Conditional(value) => {
-                    pending.extend([value.condition.as_mut(), value.then_value.as_mut()]);
-                    if let Some(value) = &mut value.else_value {
-                        pending.push(value);
-                    }
+                    pending.extend(value.expressions_mut());
                 }
                 _ => {}
             }
@@ -419,7 +417,8 @@ impl Resolver<'_> {
                     index: rhs,
                 } => pending.extend([lhs.as_ref(), rhs.as_ref()]),
                 E::Conditional(value) => {
-                    pending.extend([value.condition.as_ref(), value.then_value.as_ref()]);
+                    pending.push(value.condition.as_ref());
+                    pending.extend(value.explicit_then());
                     if let Some(value) = &value.else_value {
                         pending.push(value);
                     }

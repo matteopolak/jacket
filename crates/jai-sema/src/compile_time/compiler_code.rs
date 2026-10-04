@@ -635,6 +635,7 @@ impl crate::Resolver<'_> {
             budget.retain_metadata(self.debug.caller_origins().len(), 0, span)?;
         }
         let mut resolver = crate::Resolver {
+            conditional_subjects: Vec::new(),
             expression_owner: self.expression_owner,
             debug: crate::debug_capture::Capture::new(Some(key.location().source)),
             checks,

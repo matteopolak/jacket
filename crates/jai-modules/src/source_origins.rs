@@ -553,15 +553,33 @@ impl<'a, 'm, E> Encoder<'a, 'm, E> {
             }
         }
     }
-    fn source(&mut self, id: SourceId) -> Result<(), SourceOriginAdmissionError<E>> {
-        self.step()?;
-        let source = self
-            .graph
-            .sources
-            .get(id)
-            .ok_or(SourceOriginError::UnknownFile)?;
-        self.data(source.path().as_os_str().as_encoded_bytes())?;
-        Ok(())
+    fn source(&mut self, mut id: SourceId) -> Result<(), SourceOriginAdmissionError<E>> {
+        loop {
+            self.step()?;
+            let source = self
+                .graph
+                .sources
+                .get(id)
+                .ok_or(SourceOriginError::UnknownFile)?;
+            self.data(source.path().as_os_str().as_encoded_bytes())?;
+            match source.kind() {
+                jai_source::SourceRecordKind::File => {
+                    self.tag(0)?;
+                    return Ok(());
+                }
+                jai_source::SourceRecordKind::Embedded {
+                    importing,
+                    resolution_path,
+                } => {
+                    self.tag(1)?;
+                    self.data(source.text().as_bytes())?;
+                    self.data(resolution_path.as_os_str().as_encoded_bytes())?;
+                    self.number(importing.span.start as u64)?;
+                    self.number(importing.span.end as u64)?;
+                    id = importing.source;
+                }
+            }
+        }
     }
     fn source_slice(&mut self, location: SourceSpan) -> Result<(), SourceOriginAdmissionError<E>> {
         self.step()?;

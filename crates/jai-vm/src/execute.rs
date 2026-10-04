@@ -436,8 +436,7 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                 return Err(Error::InvalidIr("global IDs are not dense"));
             }
             if let Some(old) = state.definitions.get(index)
-                && (old.ty() != global.ty()
-                    || !same_initializer(old.initializer(), global.initializer()))
+                && (old.ty() != global.ty() || old != global)
             {
                 return Err(Error::InvalidIr("VM state global definition changed"));
             }
@@ -1286,7 +1285,18 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
                         .globals()
                         .get(id.index())
                         .ok_or(Error::InvalidIr("missing global definition"))?;
-                    let value = self.global_value(global.initializer(), depth + 1)?;
+                    let initializer = if self.execution_phase == ExecutionPhase::Runtime {
+                        global
+                            .runtime_initializer()
+                            .cloned()
+                            .map(GlobalInitializer::Value)
+                    } else {
+                        None
+                    };
+                    let value = self.global_value(
+                        initializer.as_ref().unwrap_or_else(|| global.initializer()),
+                        depth + 1,
+                    )?;
                     let value = self.normalize_storage_value(value, depth + 1)?;
                     self.prepare_layout(global.ty())?;
                     let pointer = self.memory.allocate_with_alignment(
@@ -2001,24 +2011,46 @@ impl<'a, P: ProcedureProvider + ?Sized, E: CompilerEffects> Vm<'a, P, E> {
         if !matches!(self.statement(&cases.subject, depth + 1)?, Control::Next) {
             return Err(Error::InvalidIr("case subject transferred control").into());
         }
-        let mut through = false;
-        for arm in &cases.arms {
-            if through || self.boolean(&arm.condition, depth + 1)? {
-                match self.block(&arm.body, depth + 1)? {
-                    Control::Next => {}
-                    control => return Ok(control),
-                }
-                if !arm.through {
-                    return Ok(Control::Next);
-                }
-                through = true;
+        use jai_types::CaseTarget;
+        let order = cases
+            .order()
+            .map_err(|_| Error::InvalidIr("invalid case order"))?;
+        let mut target = CaseTarget::End;
+        for (index, arm) in cases.arms.iter().enumerate() {
+            if self.boolean(&arm.condition, depth + 1)? {
+                target = CaseTarget::Arm(index);
+                break;
             }
         }
-        if let Some(default) = &cases.default {
-            return self.block(default, depth + 1);
+        if target == CaseTarget::End {
+            if cases.default.is_some() {
+                target = CaseTarget::Default;
+            } else if cases.exhaustive {
+                return Err(Error::InvalidIr("exhaustive case did not match").into());
+            }
         }
-        if cases.exhaustive {
-            return Err(Error::InvalidIr("exhaustive case did not match").into());
+        while target != CaseTarget::End {
+            let (body, through) = match target {
+                CaseTarget::Arm(index) => (&cases.arms[index].body, cases.arms[index].through),
+                CaseTarget::Default => (
+                    cases
+                        .default
+                        .as_ref()
+                        .ok_or(Error::InvalidIr("missing case default"))?,
+                    cases.default_through,
+                ),
+                CaseTarget::End => unreachable!(),
+            };
+            match self.block(body, depth + 1)? {
+                Control::Next => {}
+                control => return Ok(control),
+            }
+            if !through {
+                break;
+            }
+            target = order
+                .following(target)
+                .map_err(|_| Error::InvalidIr("invalid case successor"))?;
         }
         Ok(Control::Next)
     }
@@ -2048,15 +2080,6 @@ fn preflight_provider(
     Ok(())
 }
 
-fn same_initializer(a: &GlobalInitializer, b: &GlobalInitializer) -> bool {
-    match (a, b) {
-        (GlobalInitializer::Int(a), GlobalInitializer::Int(b)) => a == b,
-        (GlobalInitializer::Bool(a), GlobalInitializer::Bool(b)) => a == b,
-        (GlobalInitializer::Value(a), GlobalInitializer::Value(b)) => a == b,
-        (GlobalInitializer::External(a), GlobalInitializer::External(b)) => a == b,
-        _ => false,
-    }
-}
 
 fn verification_outcome(error: IrError) -> Execution {
     let outcome = match error {

@@ -422,7 +422,16 @@ pub(super) fn validate_code(
                     }
                     *location
                 }
-                FileItem::Insert {
+                FileItem::Library {
+                    location, ..
+                }
+                | FileItem::PokeName {
+                    location, ..
+                }
+                | FileItem::Execute {
+                    location, ..
+                }
+                | FileItem::Insert {
                     location, ..
                 }
                 | FileItem::ContextField {

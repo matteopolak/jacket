@@ -55,6 +55,8 @@ impl Fixture {
                     block(vec![store()]),
                 ),
                 Statement::Cases(Cases {
+                    default_position: None,
+                    default_through: false,
                     subject: Box::new(store()),
                     arms: vec![CaseArm {
                         condition: BoolExpr::Constant(true),

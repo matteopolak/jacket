@@ -23,7 +23,12 @@ enum Node<'a> {
     RecordType(&'a syntax::RecordTypeSyntax),
     Member(&'a syntax::RecordMember),
     Field(&'a syntax::FieldDeclaration),
-    Enum(Option<&'a syntax::TypeSyntax>, &'a [syntax::EnumMember]),
+    Enum(
+        Option<&'a syntax::TypeSyntax>,
+        &'a [syntax::EnumBodyItem],
+        &'a [syntax::NoteSyntax],
+    ),
+    EnumItem(&'a syntax::EnumBodyItem),
     Insert(&'a syntax::InsertDirective),
     Note(&'a syntax::NoteSyntax),
     Selection(&'a syntax::UsingSelection),
@@ -380,22 +385,25 @@ impl<'a> Budget<'a> {
                 }
                 E::StructLiteral(value) => {
                     if let Some(ty) = &value.ty {
-                        self.path(ty)?;
+                        self.push(Node::Type(ty), d)?;
                     }
                     self.charge(value.fields.len())?;
                     for field in &value.fields {
+                        self.push(Node::Place(&field.target), d)?;
                         self.push(Node::Expression(&field.value), d)?;
                     }
                 }
                 E::PositionalStructLiteral(value) => {
                     if let Some(ty) = &value.ty {
-                        self.path(ty)?;
+                        self.push(Node::Type(ty), d)?;
                     }
                     self.expressions(&value.values, d)?;
                 }
                 E::Conditional(value) => {
                     self.push(Node::Expression(&value.condition), d)?;
-                    self.push(Node::Expression(&value.then_value), d)?;
+                    if let Some(value) = value.explicit_then() {
+                        self.push(Node::Expression(value), d)?;
+                    }
                     self.optional_expression(value.else_value.as_deref(), d)?;
                 }
             },
@@ -411,9 +419,10 @@ impl<'a> Budget<'a> {
                     self.push(Node::Type(ty), d)?;
                 }
                 T::InlineRecord(value) => self.push(Node::RecordType(value), d)?,
-                T::InlineEnum(value) => {
-                    self.push(Node::Enum(value.representation.as_ref(), &value.members), d)?
-                }
+                T::InlineEnum(value) => self.push(
+                    Node::Enum(value.representation.as_ref(), &value.members, &value.notes),
+                    d,
+                )?,
                 T::Variant {
                     base, ..
                 }
@@ -585,6 +594,7 @@ impl<'a> Budget<'a> {
                 self.members(&value.members, d)?;
             }
             Node::Field(value) => {
+                self.push(Node::Selection(&value.using_selection), d)?;
                 self.charge(value.attributes.len())?;
                 for attribute in &value.attributes {
                     match attribute {
@@ -612,14 +622,53 @@ impl<'a> Budget<'a> {
                     }
                 }
             }
-            Node::Enum(representation, members) => {
+            Node::Enum(representation, members, notes) => {
                 self.optional_type(representation, d)?;
-                self.charge(members.len())?;
+                self.notes(notes, d)?;
                 for member in members {
-                    self.optional_expression(member.initializer.as_ref(), d)?;
+                    self.push(Node::EnumItem(member), d)?;
                 }
             }
+            Node::EnumItem(item) => match item {
+                syntax::EnumBodyItem::Member(member) => {
+                    self.optional_expression(member.initializer.as_ref(), d)?;
+                    self.notes(&member.notes, d)?;
+                }
+                syntax::EnumBodyItem::Conditional {
+                    condition,
+                    then_items,
+                    else_items,
+                    ..
+                } => {
+                    self.push(Node::Expression(condition), d)?;
+                    for item in then_items.iter().chain(else_items) {
+                        self.push(Node::EnumItem(item), d)?;
+                    }
+                }
+                syntax::EnumBodyItem::Insert(directive) => self.push(Node::Insert(directive), d)?,
+            },
             Node::Member(value) => match value {
+                syntax::RecordMember::Import(import) => {
+                    self.bytes(import.target.len())?;
+                    for argument in import
+                        .arguments
+                        .instance
+                        .iter()
+                        .chain(import.arguments.program.iter())
+                        .flatten()
+                    {
+                        if let syntax::ModuleArgumentValue::Expression(expression) = &argument.value
+                        {
+                            self.push(Node::Expression(expression), d)?;
+                        } else if let syntax::ModuleArgumentValue::String(value) = &argument.value {
+                            self.bytes(value.len())?;
+                        }
+                    }
+                }
+                syntax::RecordMember::Using(value) => {
+                    self.push(Node::Expression(&value.target), d)?;
+                    self.push(Node::Selection(&value.selection), d)?;
+                }
                 syntax::RecordMember::Placement(placement) => {
                     self.push(Node::Place(&placement.target), d)?
                 }
@@ -673,9 +722,10 @@ impl<'a> Budget<'a> {
                     self.push(Node::Prototype(value), d)?
                 }
                 syntax::RecordMember::Record(value) => self.push(Node::Record(value), d)?,
-                syntax::RecordMember::Enum(value) => {
-                    self.push(Node::Enum(value.representation.as_ref(), &value.members), d)?
-                }
+                syntax::RecordMember::Enum(value) => self.push(
+                    Node::Enum(value.representation.as_ref(), &value.members, &value.notes),
+                    d,
+                )?,
                 syntax::RecordMember::Insert(value) => self.push(Node::Insert(value), d)?,
             },
             Node::Insert(value) => {
@@ -687,16 +737,27 @@ impl<'a> Budget<'a> {
                             self.push(Node::Code(body), d)?
                         }
                         syntax::LoopControlReplacementBody::Assert {
-                            condition, ..
-                        } => self.push(Node::Expression(condition), d)?,
+                            condition,
+                            message,
+                            ..
+                        } => {
+                            self.push(Node::Expression(condition), d)?;
+                            self.optional_expression(message.as_deref(), d)?;
+                        }
                     }
                 }
             }
             Node::Note(value) => {
                 self.charge(value.arguments.len())?;
                 for arg in &value.arguments {
-                    if let syntax::NoteValue::Expression(value) = &arg.value {
-                        self.push(Node::Expression(value), d)?;
+                    match &arg.value {
+                        syntax::NoteValue::Expression(value) => {
+                            self.push(Node::Expression(value), d)?
+                        }
+                        syntax::NoteValue::Selector(value) => {
+                            self.charge(value.components.len())?
+                        }
+                        syntax::NoteValue::Word(_) => {}
                     }
                 }
             }
@@ -784,9 +845,10 @@ impl<'a> Budget<'a> {
                 S::Procedure(value) => self.push(Node::Procedure(value), d)?,
                 S::ProcedurePrototype(value) => self.push(Node::Prototype(value), d)?,
                 S::Record(value) => self.push(Node::Record(value), d)?,
-                S::Enum(value) => {
-                    self.push(Node::Enum(value.representation.as_ref(), &value.members), d)?
-                }
+                S::Enum(value) => self.push(
+                    Node::Enum(value.representation.as_ref(), &value.members, &value.notes),
+                    d,
+                )?,
                 S::TypeAlias(value) => self.push(Node::Type(&value.ty), d)?,
                 S::Insert(value) => self.push(Node::Insert(value), d)?,
                 S::Declare(value) => self.push(Node::Declaration(value), d)?,
@@ -949,7 +1011,7 @@ impl CompilerQuoteBudget {
         span: Span,
     ) -> Result<(), Diagnostic> {
         self.admit_node(
-            Node::Enum(value.representation.as_ref(), &value.members),
+            Node::Enum(value.representation.as_ref(), &value.members, &value.notes),
             span,
         )
     }

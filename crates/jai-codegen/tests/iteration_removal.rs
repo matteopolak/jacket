@@ -215,7 +215,7 @@ fn unsupported_removal_and_readonly_mutations_are_located() {
     for (source, message, token) in [
         (
             "main :: () -> int { remove it; return 0; }",
-            "remove must name an active enclosing array iterator",
+            "remove must target an active enclosing array iterator",
             "remove",
         ),
         (
@@ -318,4 +318,87 @@ fn unsupported_removal_and_readonly_mutations_are_located() {
         assert!(error.message.contains(message), "{}", error.message);
         assert_eq!(error.location.span.text(source), token);
     }
+}
+
+
+#[test]
+fn v2_reverse_range_snapshots_both_endpoints_once() {
+    execute(
+        "calls:=0; low::()->int {calls+=1;return 1;} high::()->int {calls+=1;return 3;} main::()->int {n:=0;for #v2 < low()..high() {n=n*10+it;} if n!=321 return 1;return calls+40;}",
+        42,
+    );
+}
+
+#[test]
+fn implicit_remove_preserves_snapshot_address_latch_and_cleanup() {
+    execute(
+        "calls:=0;slot::()->int{calls+=1;return 0;}main::()->int{a:[4]int=.[2,4,5,7];d:[1][]int;d[0]=a;cleanups:=0;sum:=0;for #v2 value:d[slot()] {defer cleanups+=1;if (value&1)==0 {remove;continue;}sum+=value;}return calls+cleanups+sum+d[0].count*10+5;}",
+        42,
+    );
+}
+
+#[test]
+fn nested_implicit_remove_selects_inner_iterator_and_outer_continue_cleanup() {
+    execute(
+        "main::()->int{a:[2]int=.[2,7];outer:[2]int=.[10,20];s:[]int=a;trace:=0;for item:outer {defer trace+=1;for inner:s {defer trace+=2;if inner==2 {remove;continue;}continue item;}}return trace+s.count*10+s[0]+17;}",
+        42,
+    );
+}
+
+#[test]
+fn implicit_reverse_remove_does_not_revisit_tail() {
+    execute(
+        "main::()->int{a:[4]int=.[2,4,5,7];s:[]int=a;n:=0;sum:=0;for #v2 < value:s {n+=1;if (value&1)==0 remove;else sum+=value;}return n+sum+s.count*10+6;}",
+        42,
+    );
+}
+
+#[test]
+fn default_first_is_fallback_and_middle_through_observes_physical_order() {
+    execute(
+        "calls:=0;subject::()->int{calls+=1;return 1;}main::()->int{n:=0;if subject()=={case 1;n=1;#through;case;n=n*10+2;#through;case 2;n=n*10+3;}if n!=123 return 1;if 2=={case;return 2;case 2;n=41;}return n+calls;}",
+        42,
+    );
+}
+
+#[test]
+fn default_fallthrough_enters_next_body_without_testing_its_label() {
+    execute(
+        "main::()->int{n:=0;if 9=={case;n=20;#through;case 1;n+=22;case 2;n=1;}return n;}",
+        42,
+    );
+}
+
+#[test]
+fn fallthrough_runs_each_arm_cleanup_before_next_body() {
+    execute(
+        "main::()->int{trace:=0;if 1=={case 1;defer trace=trace*10+2;trace=1;#through;case;defer trace=trace*10+4;trace=trace*10+3;#through;case 2;if trace!=1234 return 1;}return 42;}",
+        42,
+    );
+}
+
+#[test]
+fn default_through_return_chain_has_real_terminating_native_flow() {
+    execute("main::()->int{if 8=={case;#through;case 1;return 42;}}", 42);
+}
+
+#[test]
+fn implicit_remove_rejects_non_iterator_and_deferred_targets() {
+    for source in [
+        "main::()->int{remove;return 0;}",
+        "main::()->int{a:[1]int;s:[]int=a;for value:s for 0..1 remove;return 0;}",
+        "main::()->int{a:[1]int;s:[]int=a;for value:s while false remove;return 0;}",
+        "main::()->int{a:[1]int;s:[]int=a;for value:s {defer remove;}return 0;}",
+    ] {
+        assert!(program(source).is_err(), "{source}");
+    }
+}
+
+
+#[test]
+fn compile_time_default_fallthrough_publishes_original_selected_chain() {
+    execute(
+        "#if 8=={case; BASE::20;#through;case 1;EXTRA::22;case 2;UNSELECTED::missing_name;}main::()->int{return BASE+EXTRA;}",
+        42,
+    );
 }

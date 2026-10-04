@@ -2,7 +2,7 @@
 //!
 //! This module is deliberately not registered while the shared VM dependency
 //! carrier is frozen. No source name or replay request grants this capability.
-use crate::reflection::RuntimeInfoCheckpoint;
+use crate::reflection::{RuntimeInfoCheckpoint, RuntimeInfoFrontier};
 use jai_ir::RuntimeInfoSnapshot;
 use jai_types::{ReflectionReadiness, TypeView};
 use jai_vm::WorkspaceId;
@@ -21,8 +21,46 @@ pub(crate) struct RuntimeInfoDemandId(NonZeroU64);
 
 struct Demand {
     workspace: WorkspaceId,
-    checkpoint: Arc<RuntimeInfoCheckpoint>,
+    frontier: Arc<RuntimeInfoFrontier>,
+    checkpoint: Option<Arc<RuntimeInfoCheckpoint>>,
     snapshot: Option<Arc<RuntimeInfoSnapshot>>,
+}
+
+/// Only an exact, already published demand can create this immutable carrier.
+/// Bound providers retain it without consulting current catalog or cache state.
+#[derive(Clone)]
+pub(crate) struct RuntimeInfoDemandReceipt {
+    workspace: WorkspaceId,
+    frontier: Arc<RuntimeInfoFrontier>,
+    checkpoint: Arc<RuntimeInfoCheckpoint>,
+    snapshot: Arc<RuntimeInfoSnapshot>,
+}
+impl RuntimeInfoDemandReceipt {
+    pub(crate) fn workspace(&self) -> WorkspaceId {
+        self.workspace
+    }
+    pub(crate) fn schema(&self) -> jai_types::RuntimeInfoSchema {
+        self.frontier.schema()
+    }
+    pub(crate) fn snapshot(&self) -> &Arc<RuntimeInfoSnapshot> {
+        &self.snapshot
+    }
+    pub(crate) fn validate_owner(
+        &self,
+        types: &dyn TypeView,
+        policy: jai_types::LayoutPolicy,
+    ) -> Result<(), RuntimeInfoDemandError> {
+        if self.frontier.schema() != self.checkpoint.schema() || policy != self.checkpoint.policy()
+        {
+            return Err(RuntimeInfoDemandError::ForeignSchema);
+        }
+        self.checkpoint
+            .validate_snapshot(&self.snapshot)
+            .map_err(|error| RuntimeInfoDemandError::InvalidSnapshot(error.to_string()))?;
+        self.snapshot
+            .validate_owner(types, policy)
+            .map_err(|error| RuntimeInfoDemandError::InvalidSnapshot(error.to_string()))
+    }
 }
 
 #[derive(Default)]
@@ -53,6 +91,7 @@ pub(crate) enum RuntimeInfoDemandError {
     ForeignWorkspace,
     ForeignSchema,
     ChangedCheckpoint,
+    PendingCheckpoint,
     ChangedSnapshot,
     InvalidSnapshot(String),
 }
@@ -66,6 +105,7 @@ impl fmt::Display for RuntimeInfoDemandError {
                 f.write_str("runtime-info demand belongs to another workspace")
             }
             Self::ForeignSchema => f.write_str("runtime-info demand uses another source schema"),
+            Self::PendingCheckpoint => f.write_str("runtime-info checkpoint is still pending"),
             Self::ChangedCheckpoint => f.write_str("runtime-info demand checkpoint changed"),
             Self::ChangedSnapshot => f.write_str("runtime-info demand snapshot changed"),
             Self::InvalidSnapshot(error) => {
@@ -76,35 +116,48 @@ impl fmt::Display for RuntimeInfoDemandError {
 }
 
 impl RuntimeInfoDemands {
-    /// Resolve an actually observed preparation request before issuing a token.
-    /// An incomplete frontier stays in the normal definition readiness domain.
+    /// Issue a token on the first actually executed request. The original
+    /// source frontier is retained even if nominal definitions are incomplete.
     pub(crate) fn prepare_requested(
         &mut self,
         workspace: WorkspaceId,
         schema: jai_types::RuntimeInfoSchema,
         policy: Option<jai_types::LayoutPolicy>,
         service: RuntimeInfoService<'_>,
-    ) -> Result<ReflectionReadiness<RuntimeInfoDemandId>, crate::Diagnostic> {
+    ) -> Result<RuntimeInfoDemandId, crate::Diagnostic> {
         let RuntimeInfoService {
             meta,
             types,
             location,
             ..
         } = service;
-        let checkpoint = match meta.runtime_info_checkpoint(types, schema, policy, location)? {
-            ReflectionReadiness::Ready(checkpoint) => checkpoint,
-            ReflectionReadiness::Pending(dependencies) => {
-                return Ok(ReflectionReadiness::Pending(dependencies));
-            }
-        };
-        let id = self
-            .prepare(workspace, Arc::new(checkpoint))
-            .map_err(|error| crate::Diagnostic::at_source(location, error.to_string()))?;
-        Ok(ReflectionReadiness::Ready(id))
+        let frontier = meta.runtime_info_frontier(types, schema, policy, location)?;
+        self.prepare_frontier(workspace, Arc::new(frontier))
+            .map_err(|error| crate::Diagnostic::at_source(location, error.to_string()))
     }
 
     /// Called only after the VM provider borrow has ended and the typed demand
     /// was actually observed. Readiness does not reseal the source frontier.
+    pub(crate) fn prepare_requested_with_overlay(
+        &mut self,
+        workspace: WorkspaceId,
+        schema: jai_types::RuntimeInfoSchema,
+        policy: Option<jai_types::LayoutPolicy>,
+        overlay: super::reflection_journal::ReflectionPolicyOverlay,
+        service: RuntimeInfoService<'_>,
+    ) -> Result<RuntimeInfoDemandId, crate::Diagnostic> {
+        let RuntimeInfoService {
+            meta,
+            types,
+            location,
+            ..
+        } = service;
+        let frontier =
+            meta.runtime_info_frontier_with_overlay(types, schema, policy, overlay, location)?;
+        self.prepare_frontier(workspace, Arc::new(frontier))
+            .map_err(|error| crate::Diagnostic::at_source(location, error.to_string()))
+    }
+
     pub(crate) fn service(
         &mut self,
         id: RuntimeInfoDemandId,
@@ -117,10 +170,43 @@ impl RuntimeInfoDemands {
             metadata,
             location,
         } = service;
-        let checkpoint = self
-            .checkpoint(id, workspace)
+        let demand = self
+            .demand(id, workspace)
             .map_err(|error| crate::Diagnostic::at_source(location, error.to_string()))?;
-        let snapshot = match meta.runtime_info_snapshot(types, &checkpoint, metadata, location)? {
+        if let Some(snapshot) = &demand.snapshot {
+            let checkpoint = demand
+                .checkpoint
+                .as_ref()
+                .expect("published demand has a sealed checkpoint");
+            meta.validate_runtime_info_checkpoint(types, checkpoint, location)?;
+            checkpoint
+                .validate_snapshot(snapshot)
+                .map_err(|error| crate::Diagnostic::at_source(location, error.to_string()))?;
+            snapshot
+                .validate_owner(types, checkpoint.policy())
+                .map_err(|error| crate::Diagnostic::at_source(location, error.to_string()))?;
+            return Ok(ReflectionReadiness::Ready(()));
+        }
+        let checkpoint = match &demand.checkpoint {
+            Some(checkpoint) => Arc::clone(checkpoint),
+            None => {
+                let frontier = Arc::clone(&demand.frontier);
+                let checkpoint = match meta
+                    .complete_runtime_info_frontier(types, &frontier, metadata, location)?
+                {
+                    ReflectionReadiness::Ready(checkpoint) => Arc::new(checkpoint),
+                    ReflectionReadiness::Pending(dependencies) => {
+                        return Ok(ReflectionReadiness::Pending(dependencies));
+                    }
+                };
+                self.active
+                    .get_mut(&id)
+                    .expect("validated active demand")
+                    .checkpoint = Some(Arc::clone(&checkpoint));
+                checkpoint
+            }
+        };
+        let snapshot = match meta.runtime_info_snapshot(types, &checkpoint, location)? {
             ReflectionReadiness::Ready(snapshot) => snapshot,
             ReflectionReadiness::Pending(dependencies) => {
                 return Ok(ReflectionReadiness::Pending(dependencies));
@@ -131,31 +217,63 @@ impl RuntimeInfoDemands {
         Ok(ReflectionReadiness::Ready(()))
     }
 
-    /// Allocate once per drive. Callers retain this key and exact Arc through
-    /// suspension; concurrent drives sharing one checkpoint remain independent.
+    /// Seed an already sealed checkpoint. Source execution ordinarily uses
+    /// `prepare_requested` so pending frontiers are retained from the start.
     pub(crate) fn prepare(
         &mut self,
         workspace: WorkspaceId,
         checkpoint: Arc<RuntimeInfoCheckpoint>,
     ) -> Result<RuntimeInfoDemandId, RuntimeInfoDemandError> {
+        let id = self.prepare_frontier(workspace, Arc::new(checkpoint.frontier()))?;
+        self.active
+            .get_mut(&id)
+            .expect("new active demand")
+            .checkpoint = Some(checkpoint);
+        Ok(id)
+    }
+
+    fn prepare_frontier(
+        &mut self,
+        workspace: WorkspaceId,
+        frontier: Arc<RuntimeInfoFrontier>,
+    ) -> Result<RuntimeInfoDemandId, RuntimeInfoDemandError> {
         if self.active.len() >= MAX_ACTIVE_DEMANDS {
             return Err(RuntimeInfoDemandError::Limit);
         }
-        let previous = NEXT_DEMAND
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
-                value.checked_add(1)
-            })
-            .map_err(|_| RuntimeInfoDemandError::IdentityExhausted)?;
+        let mut previous = NEXT_DEMAND.load(Ordering::Relaxed);
+        loop {
+            let next = previous
+                .checked_add(1)
+                .ok_or(RuntimeInfoDemandError::IdentityExhausted)?;
+            match NEXT_DEMAND.compare_exchange_weak(
+                previous,
+                next,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(current) => previous = current,
+            }
+        }
         let id = RuntimeInfoDemandId(NonZeroU64::new(previous + 1).expect("checked nonzero nonce"));
         self.active.insert(
             id,
             Demand {
                 workspace,
-                checkpoint,
+                frontier,
+                checkpoint: None,
                 snapshot: None,
             },
         );
         Ok(id)
+    }
+
+    pub(crate) fn frontier(
+        &self,
+        id: RuntimeInfoDemandId,
+        workspace: WorkspaceId,
+    ) -> Result<Arc<RuntimeInfoFrontier>, RuntimeInfoDemandError> {
+        Ok(Arc::clone(&self.demand(id, workspace)?.frontier))
     }
 
     /// Clone the receipt, then drop the registry borrow before invoking the
@@ -165,7 +283,11 @@ impl RuntimeInfoDemands {
         id: RuntimeInfoDemandId,
         workspace: WorkspaceId,
     ) -> Result<Arc<RuntimeInfoCheckpoint>, RuntimeInfoDemandError> {
-        Ok(Arc::clone(&self.demand(id, workspace)?.checkpoint))
+        self.demand(id, workspace)?
+            .checkpoint
+            .as_ref()
+            .map(Arc::clone)
+            .ok_or(RuntimeInfoDemandError::PendingCheckpoint)
     }
 
     pub(crate) fn availability(
@@ -183,13 +305,35 @@ impl RuntimeInfoDemands {
         })
     }
 
+    /// An unreached, pending or failed request grants no ready receipt.
+    pub(crate) fn published_receipt(
+        &self,
+        id: RuntimeInfoDemandId,
+        workspace: WorkspaceId,
+    ) -> Result<Option<RuntimeInfoDemandReceipt>, RuntimeInfoDemandError> {
+        let demand = self.demand(id, workspace)?;
+        let Some(snapshot) = &demand.snapshot else {
+            return Ok(None);
+        };
+        let checkpoint = demand
+            .checkpoint
+            .as_ref()
+            .ok_or(RuntimeInfoDemandError::PendingCheckpoint)?;
+        Ok(Some(RuntimeInfoDemandReceipt {
+            workspace,
+            frontier: Arc::clone(&demand.frontier),
+            checkpoint: Arc::clone(checkpoint),
+            snapshot: Arc::clone(snapshot),
+        }))
+    }
+
     pub(crate) fn availability_for(
         &self,
         id: RuntimeInfoDemandId,
         workspace: WorkspaceId,
         schema: jai_types::RuntimeInfoSchema,
     ) -> Result<RuntimeInfoDemandAvailability<'_>, RuntimeInfoDemandError> {
-        if self.demand(id, workspace)?.checkpoint.schema() != schema {
+        if self.demand(id, workspace)?.frontier.schema() != schema {
             return Err(RuntimeInfoDemandError::ForeignSchema);
         }
         self.availability(id, workspace)
@@ -206,7 +350,11 @@ impl RuntimeInfoDemands {
         types: &dyn TypeView,
     ) -> Result<(), RuntimeInfoDemandError> {
         let demand = self.demand(id, workspace)?;
-        if !Arc::ptr_eq(checkpoint, &demand.checkpoint) {
+        if !demand
+            .checkpoint
+            .as_ref()
+            .is_some_and(|retained| Arc::ptr_eq(checkpoint, retained))
+        {
             return Err(RuntimeInfoDemandError::ChangedCheckpoint);
         }
         checkpoint

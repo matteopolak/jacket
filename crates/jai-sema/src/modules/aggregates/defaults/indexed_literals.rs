@@ -129,43 +129,46 @@ impl Defaults<'_, '_> {
         source: &Expression,
     ) -> Result<Option<jai_types::Integer>, Diagnostic> {
         let value = match &self.scalar_source {
-            ScalarSource::Constants(constants) => constants
+            ScalarSource::Constants(constants) if self.literal_scopes.is_empty() => constants
                 .evaluate(file, source)
                 .map_err(|error| Diagnostic::at_source(error.location, error.message))?,
-            ScalarSource::Evaluate(_) => jai_eval::evaluate_paths_with_overflow_check(
-                source,
-                jai_types::CheckMode::Enabled,
-                |path, span| {
-                    if path.members.is_empty()
-                        && let Some(value) = self
-                            .substitution
-                            .as_ref()
-                            .and_then(|scope| scope.constant(path.root))
-                    {
-                        return baked_scalar(value).ok_or_else(|| {
-                            Diagnostic::new(span, "literal index requires an integer constant")
-                        });
-                    }
-                    let id = declaration_id(self.graph, file, path, span)?;
-                    let value = self
-                        .named
-                        .get(&id)
-                        .or_else(|| self.nominals.value_constants.get(&id))
-                        .ok_or_else(|| {
-                            Diagnostic::new(
+            ScalarSource::Constants(_) | ScalarSource::Evaluate(_) => {
+                jai_eval::evaluate_paths_with_overflow_check(
+                    source,
+                    jai_types::CheckMode::Enabled,
+                    |path, span| {
+                        if path.members.is_empty()
+                            && let Some(value) = self.literal_parameter(path.root).or_else(|| {
+                                self.substitution
+                                    .as_ref()
+                                    .and_then(|scope| scope.constant(path.root))
+                            })
+                        {
+                            return baked_scalar(value).ok_or_else(|| {
+                                Diagnostic::new(span, "literal index requires an integer constant")
+                            });
+                        }
+                        let id = declaration_id(self.graph, file, path, span)?;
+                        let value = self
+                            .named
+                            .get(&id)
+                            .or_else(|| self.nominals.value_constants.get(&id))
+                            .ok_or_else(|| {
+                                Diagnostic::new(
+                                    span,
+                                    "literal index requires an already checked constant",
+                                )
+                            })?;
+                        match &value.kind {
+                            ConstantKind::Int(value) => Ok(ScalarConstant::Int(*value)),
+                            _ => Err(Diagnostic::new(
                                 span,
-                                "literal index requires an already checked constant",
-                            )
-                        })?;
-                    match &value.kind {
-                        ConstantKind::Int(value) => Ok(ScalarConstant::Int(*value)),
-                        _ => Err(Diagnostic::new(
-                            span,
-                            "literal index requires an integer constant",
-                        )),
-                    }
-                },
-            )?,
+                                "literal index requires an integer constant",
+                            )),
+                        }
+                    },
+                )?
+            }
         };
         match value {
             ScalarConstant::Int(value) => Ok(Some(value)),

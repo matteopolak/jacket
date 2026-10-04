@@ -598,7 +598,7 @@ impl<'a> FileScope<'a> {
         active: &mut std::collections::HashSet<TypeId>,
         remaining: &mut usize,
     ) -> Result<jai_ir::ConstantValue, Diagnostic> {
-        crate::record_placements::require_record_construction_recipe(types, ty, span)?;
+        crate::record_placements::require_record_storage_ready(types, ty, span)?;
         if active.len() >= crate::constant_limits::MAX_CONSTANT_DEPTH {
             return Err(Diagnostic::new(
                 span,

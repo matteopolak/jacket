@@ -8,10 +8,12 @@ if (!path) throw new Error("usage: node tools/check_scripting_wasm.mjs <jai_wasm
 const engine = await createEngine(await readFile(path));
 const fixtures = [
   ["integer entry", "main :: () -> int { return 42; }", {}, 42n],
+  ["wide signed result", "main :: () -> int { return -9007199254740993; }", {}, -9007199254740993n],
   ["runtime phase and compile-time source run", "seed :: #run answer(); answer :: () -> int { if #compile_time return 40; return 900; } main :: () -> int { if #compile_time return 700; return seed + 2; }", {}, 42n],
   ["wasm32 layout", "main :: () -> int { return size_of(*int) + 38; }", {}, 42n],
   ["arguments", 'main :: (args: []string) -> int { if args.count != 2 return 1; if args[0] != "two words" return 2; if args[1] != "" return 3; return 42; }', { arguments: ["two words", ""] }, 42n],
   ["source bundle", '#load "helper.jai"; main :: () -> int { return answer; }', { files: { "helper.jai": "answer :: 42;" } }, 42n],
+  ["nested source import", 'Lib :: #import,file "lib/helper.jai"; main :: () -> int { return Lib.answer; }', { files: { "lib/helper.jai": '#load "../values.jai";', "values.jai": "answer :: 42;" } }, 42n],
   ["isolated globals", "counter: int = 41; main :: () -> int { counter += 1; return counter; }", {}, 42n],
   ["void entry", "main :: () {}", {}, 0n],
 ];

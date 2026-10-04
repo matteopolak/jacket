@@ -63,6 +63,7 @@ impl Resolver<'_> {
             .map(|context| context.for_source(context.owner, file, source));
         let result = {
             let mut definition = Resolver {
+                conditional_subjects: Vec::new(),
                 debug: crate::debug_capture::Capture::new(Some(source)),
                 checks: crate::safety_checks::ActiveChecks::default(),
                 context: self.context,
@@ -1114,6 +1115,7 @@ impl Resolver<'_> {
             let mut debug = crate::debug_capture::Capture::new(self.debug.source());
             debug.enter_policy(self.debug.policy());
             let mut child = Resolver {
+                conditional_subjects: Vec::new(),
                 debug,
                 checks: self.checks,
                 context: self.context,

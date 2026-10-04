@@ -7,8 +7,13 @@ use std::sync::Arc;
 pub(in crate::modules) struct PreparedRuntimeInfo {
     roles: Vec<(
         native_runtime_info::NativeRuntimeInfoRole,
-        Arc<jai_ir::RuntimeInfoSnapshot>,
+        PreparedRuntimeInfoState,
     )>,
+}
+
+enum PreparedRuntimeInfoState {
+    PendingTargetLayout,
+    Ready(Arc<jai_ir::RuntimeInfoSnapshot>),
 }
 
 pub(in crate::modules) struct RuntimeInfoPublicationInput<'a> {
@@ -80,6 +85,10 @@ pub(in crate::modules) fn prepare(
                     .diagnostic(location, "runtime-info binding lost its exact source role")
             })?
         };
+        if input.layout.is_none() {
+            roles.push((role, PreparedRuntimeInfoState::PendingTargetLayout));
+            continue;
+        }
         let scope = FileScope {
             declarations: input.declarations,
             file: declaration.file(),
@@ -96,7 +105,7 @@ pub(in crate::modules) fn prepare(
             context.append_reflection_metadata(&mut metadata, input.graph.symbols());
         }
         let checkpoint = match meta
-            .runtime_info_checkpoint(types, role.schema(), input.layout, location)
+            .runtime_info_checkpoint(types, role.schema(), input.layout, &metadata, location)
             .map_err(|error| input.graph.diagnostic(location, error.message))?
         {
             ReflectionReadiness::Ready(checkpoint) => checkpoint,
@@ -109,7 +118,7 @@ pub(in crate::modules) fn prepare(
         };
         let snapshot =
             match meta
-                .runtime_info_snapshot(types, &checkpoint, &metadata, location)
+                .runtime_info_snapshot(types, &checkpoint, location)
                 .map_err(|error| input.graph.diagnostic(location, error.message))?
             {
                 ReflectionReadiness::Ready(snapshot) => snapshot,
@@ -120,7 +129,7 @@ pub(in crate::modules) fn prepare(
                     ),
                 )),
             };
-        roles.push((role, snapshot));
+        roles.push((role, PreparedRuntimeInfoState::Ready(snapshot)));
     }
     Ok(PreparedRuntimeInfo {
         roles,
@@ -132,14 +141,16 @@ impl PreparedRuntimeInfo {
         self,
         mut library: Library,
     ) -> Result<Library, LocatedDiagnostic> {
-        for (role, snapshot) in self.roles {
+        for (role, state) in self.roles {
             let location = role.source().location();
-            let publication =
-                role.publication(&library, snapshot)
-                    .map_err(|error| LocatedDiagnostic {
-                        location,
-                        message: error.to_string(),
-                    })?;
+            let publication = match state {
+                PreparedRuntimeInfoState::PendingTargetLayout => role.pending_publication(&library),
+                PreparedRuntimeInfoState::Ready(snapshot) => role.publication(&library, snapshot),
+            }
+            .map_err(|error| LocatedDiagnostic {
+                location,
+                message: error.to_string(),
+            })?;
             library = library
                 .with_native_runtime_info(publication)
                 .map_err(|error| LocatedDiagnostic {

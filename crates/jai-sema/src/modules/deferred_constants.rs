@@ -156,7 +156,9 @@ pub(super) fn visit(
             }
             E::Conditional(value) => {
                 work.push(&value.condition);
-                work.push(&value.then_value);
+                if let Some(value) = value.explicit_then() {
+                    work.push(value);
+                }
                 if let Some(otherwise) = &value.else_value {
                     work.push(otherwise);
                 }
@@ -179,9 +181,101 @@ pub(super) fn visit(
                 work.extend(args.iter().map(|argument| &argument.value));
             }
             E::ArrayLiteral(value) => work.extend(&value.elements),
-            E::StructLiteral(value) => work.extend(value.fields.iter().map(|field| &field.value)),
-            E::PositionalStructLiteral(value) => work.extend(&value.values),
+            E::StructLiteral(value) => {
+                if let Some(ty) = &value.ty {
+                    literal_type_dependencies(ty, &mut work);
+                }
+                for field in &value.fields {
+                    literal_target_dependencies(&field.target, &mut work);
+                    work.push(&field.value);
+                }
+            }
+            E::PositionalStructLiteral(value) => {
+                if let Some(ty) = &value.ty {
+                    literal_type_dependencies(ty, &mut work);
+                }
+                work.extend(&value.values);
+            }
             _ => {}
+        }
+    }
+}
+
+// This readiness classifier borrows source operands; field names are relative
+// selectors, while their indices and type application arguments are lexical.
+fn literal_target_dependencies<'a>(
+    target: &'a syntax::PlaceSyntax,
+    work: &mut Vec<&'a syntax::Expression>,
+) {
+    let mut expressions = Vec::new();
+    match &target.kind {
+        syntax::PlaceKind::Member {
+            base, ..
+        } => expressions.push(base.as_ref()),
+        syntax::PlaceKind::Index {
+            base,
+            index,
+        } => {
+            expressions.push(base.as_ref());
+            work.push(index);
+        }
+        _ => {} // Invalid runtime roots are rejected by the checked literal target binder.
+    }
+    while let Some(source) = expressions.pop() {
+        match &source.kind {
+            syntax::ExpressionKind::Member {
+                base, ..
+            } => expressions.push(base.as_ref()),
+            syntax::ExpressionKind::Index {
+                base,
+                index,
+            } => {
+                expressions.push(base.as_ref());
+                work.push(index);
+            }
+            _ => {}
+        }
+    }
+}
+fn literal_type_dependencies<'a>(
+    source: &'a syntax::TypeSyntax,
+    work: &mut Vec<&'a syntax::Expression>,
+) {
+    let mut types = vec![source];
+    while let Some(source) = types.pop() {
+        use syntax::TypeSyntax as T;
+        match source {
+            T::TypeOf(value) => work.push(value),
+            T::Pointer(inner)
+            | T::Slice(inner)
+            | T::DynamicArray(inner)
+            | T::Variant {
+                base: inner, ..
+            } => types.push(inner),
+            T::FixedArray {
+                count,
+                element,
+            } => {
+                work.push(count);
+                types.push(element);
+            }
+            T::Application(value) => {
+                types.push(&value.base);
+                work.extend(value.arguments.iter().map(|argument| &argument.value));
+            }
+            T::Procedure(value) => {
+                types.extend(value.parameters.iter().map(|parameter| &parameter.ty));
+                types.extend(value.results.iter().map(|result| &result.ty));
+            }
+            T::This
+            | T::Builtin(_)
+            | T::Named(_)
+            | T::Variable(_)
+            | T::Restricted {
+                ..
+            }
+            | T::InlineRecord(_)
+            | T::InlineEnum(_) => {} // Nominal bodies have their own source readiness jobs.
         }
     }
 }

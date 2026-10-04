@@ -6,9 +6,9 @@ The public compiler workflow checks the repository on native macOS and Linux run
 
 ## How it works
 
-Each job verifies public source inputs and dependency ages, installs the pinned Rust toolchain and LLVM 22, and checks its actual host architecture. Formatting and Clippy record their original outcomes while subsequent test steps run. The final enforcement step fails the job if either failed, even when correctness tests pass. This keeps both style gates required while collecting compiler and runtime evidence from the same checkout. A formatting-scope error is also retained as a failure; the workflow does not bypass the scope guard.
+Each job verifies public source inputs and dependency ages, installs the pinned Rust toolchain and LLVM 22, and checks its actual host architecture. Formatting, Clippy, correctness tests, policy tests and benchmark smoke record their original outcomes independently. Cargo uses `--no-fail-fast` to execute all compiled test binaries even when one fails. Later independent steps still run, and the final enforcement step fails the job if any of the five checks failed. This collects actionable failures from one checkout while keeping every check required. A formatting-scope error is also retained as a failure; the workflow does not bypass the scope guard.
 
-A correctness-test failure still fails the job and prevents subsequent ordinary steps. Cancellation does not start additional enforcement work. Original reference lexer inputs are absent from public checkouts, so that one source-dependent test is explicitly skipped; protected-tool rejection tests remain active. These jobs execute the repository's compiler and generated test code, never the supplied reference binaries.
+A correctness-test failure is retained while policy and benchmark checks continue. A compilation failure can prevent dependent tests from running; their absence is not a pass. Dependency-age and source-input admission failures stop before building. Cancellation does not start additional enforcement work. Original reference lexer inputs are absent from public checkouts, so that one source-dependent test is explicitly skipped; protected-tool rejection tests remain active. These jobs execute the repository's compiler and generated test code, never the supplied reference binaries.
 
 ## How to change it
 
@@ -17,7 +17,7 @@ Add new target checks with their actual SDK/toolchain requirements. Corpus, nati
 
 ## Configuration
 
-The current matrix uses `macos-15` (ARM64), `macos-15-intel`, `ubuntu-24.04` and `ubuntu-24.04-arm`, with a 30-minute job timeout and `fail-fast: false`. `CARGO_INCREMENTAL=0` controls build storage. The workflow installs `nightly-2026-08-29`, sets `LLVM_SYS_221_PREFIX` per platform, uses `--locked`, and treats Clippy warnings as errors. Benchmark smoke uses `--test` without a timing threshold on shared runners.
+The current matrix uses `macos-15` (ARM64), `macos-15-intel`, `ubuntu-24.04` and `ubuntu-24.04-arm`, with a 30-minute job timeout and `fail-fast: false`. `CARGO_INCREMENTAL=0` controls build storage. The workflow installs `nightly-2026-08-29`, sets `LLVM_SYS_221_PREFIX` per platform, uses `--locked` and Cargo test `--no-fail-fast`, and treats Clippy warnings as errors. Benchmark smoke uses `--test` without a timing threshold on shared runners.
 
 ## Dependencies
 

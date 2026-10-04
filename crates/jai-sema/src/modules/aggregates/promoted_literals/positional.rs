@@ -11,7 +11,7 @@ impl Resolver<'_> {
         ty: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
-        crate::record_placements::require_record_construction_recipe(self.types, ty, span)?;
+        crate::record_placements::require_record_storage_ready(self.types, ty, span)?;
         let mut leaves = Vec::with_capacity(literal.values.len());
         let mut producers = Vec::with_capacity(literal.values.len());
         for (index, source) in literal.values.iter().enumerate() {

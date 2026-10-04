@@ -16,7 +16,27 @@ pub struct NativeRuntimeInfoPublication {
     global: GlobalId,
     data: ExternalData,
     source: SourceProcedureIdentity,
-    snapshot: Arc<RuntimeInfoSnapshot>,
+    schema: RuntimeInfoSchema,
+    storage: NativeRuntimeInfoStorage,
+}
+
+#[derive(Clone, Debug)]
+enum NativeRuntimeInfoStorage {
+    Ready(Arc<RuntimeInfoSnapshot>),
+    Pending(NativeRuntimeInfoPending),
+}
+
+/// A real prerequisite of a proved source role, never an empty native table.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeRuntimeInfoPending {
+    TargetLayout,
+}
+impl fmt::Display for NativeRuntimeInfoPending {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TargetLayout => f.write_str("a selected source target layout"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -43,8 +63,28 @@ impl NativeRuntimeInfoPublication {
         source: SourceProcedureIdentity,
         snapshot: Arc<RuntimeInfoSnapshot>,
     ) -> Result<Self, NativeRuntimeInfoError> {
+        snapshot
+            .revalidate(checked.types(), snapshot.policy())
+            .map_err(|error| NativeRuntimeInfoError(error.to_string()))?;
+        let mut publication =
+            Self::new_pending_checked(checked, global, source, snapshot.schema())?;
+        publication.storage = NativeRuntimeInfoStorage::Ready(snapshot);
+        Ok(publication)
+    }
+
+    /// Source-only checks can retain the exact selected role before a target
+    /// is selected. Native demand reports that prerequisite instead of
+    /// attempting to initialize the external or silently dropping the role.
+    pub fn new_pending_checked(
+        checked: &CheckedProcedure<'_>,
+        global: GlobalId,
+        source: SourceProcedureIdentity,
+        schema: RuntimeInfoSchema,
+    ) -> Result<Self, NativeRuntimeInfoError> {
         let procedure = checked.procedure();
-        let schema = snapshot.schema();
+        schema
+            .revalidate(checked.types())
+            .map_err(|error| NativeRuntimeInfoError(error.to_string()))?;
         let signature = checked
             .types()
             .procedure_definition(procedure.signature)
@@ -62,9 +102,6 @@ impl NativeRuntimeInfoPublication {
                 "native runtime-info requires the canonical (s64) -> Runtime_Info ABI",
             ));
         }
-        snapshot
-            .revalidate(checked.types(), snapshot.policy())
-            .map_err(|error| NativeRuntimeInfoError(error.to_string()))?;
         if direct_return(&procedure.body).map(|place| (place.kind(), place.ty()))
             != Some((PlaceKind::Global(global), schema.ty()))
         {
@@ -104,7 +141,8 @@ impl NativeRuntimeInfoPublication {
             global,
             data: data.clone(),
             source,
-            snapshot,
+            schema,
+            storage: NativeRuntimeInfoStorage::Pending(NativeRuntimeInfoPending::TargetLayout),
         })
     }
     pub fn procedure(&self) -> ProcedureId {
@@ -120,10 +158,13 @@ impl NativeRuntimeInfoPublication {
         &self.source
     }
     pub fn schema(&self) -> RuntimeInfoSchema {
-        self.snapshot.schema()
+        self.schema
     }
-    pub fn snapshot(&self) -> &Arc<RuntimeInfoSnapshot> {
-        &self.snapshot
+    pub fn snapshot(&self) -> Result<&Arc<RuntimeInfoSnapshot>, NativeRuntimeInfoPending> {
+        match &self.storage {
+            NativeRuntimeInfoStorage::Ready(snapshot) => Ok(snapshot),
+            NativeRuntimeInfoStorage::Pending(prerequisite) => Err(*prerequisite),
+        }
     }
 
     pub(crate) fn validate(&self, library: &crate::Library) -> Result<(), NativeRuntimeInfoError> {
@@ -132,12 +173,17 @@ impl NativeRuntimeInfoPublication {
                 "native runtime-info fallback is absent from publication",
             )
         })?;
-        let renewed = Self::new_checked(
-            &checked,
-            self.global,
-            self.source.clone(),
-            Arc::clone(&self.snapshot),
-        )?;
+        let renewed = match &self.storage {
+            NativeRuntimeInfoStorage::Ready(snapshot) => Self::new_checked(
+                &checked,
+                self.global,
+                self.source.clone(),
+                Arc::clone(snapshot),
+            )?,
+            NativeRuntimeInfoStorage::Pending(NativeRuntimeInfoPending::TargetLayout) => {
+                Self::new_pending_checked(&checked, self.global, self.source.clone(), self.schema)?
+            }
+        };
         if renewed.data != self.data {
             return Err(NativeRuntimeInfoError::invalid(
                 "native runtime-info external changed after checking",

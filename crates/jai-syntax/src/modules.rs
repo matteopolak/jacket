@@ -123,6 +123,18 @@ impl ContextFieldDeclaration {
 }
 #[derive(Clone, Debug)]
 pub enum FileItem {
+    Library {
+        declaration: AnonymousLibraryDeclaration,
+        location: SourceSpan,
+    },
+    PokeName {
+        directive: PokeNameDirective,
+        location: SourceSpan,
+    },
+    Execute {
+        expression: Expression,
+        location: SourceSpan,
+    },
     Insert {
         directive: InsertDirective,
         location: SourceSpan,
@@ -264,6 +276,10 @@ impl Parser<'_> {
                 return Ok(items);
             }
             let start = self.token().span.start;
+            if let Some(item) = self.source_file_item(source, nested)? {
+                items.push(item);
+                continue;
+            }
             if self.token().kind == Kind::UnknownDirective && self.text() == "#placeholder" {
                 let marker = self.placeholder_declaration()?;
                 items.push(FileItem::Declaration(FileDeclaration {
@@ -277,11 +293,35 @@ impl Parser<'_> {
             if self.token().kind == Kind::UnknownDirective {
                 return Err(self.error(format!("unknown directive '{}'", self.text())));
             }
+            let reset_policy_span = if self.token().kind == Kind::Directive(Directive::NoReset) {
+                let span = self.token().span;
+                self.at += 1;
+                Some(span)
+            } else {
+                None
+            };
+            let reset_policy = if reset_policy_span.is_some() {
+                GlobalResetPolicy::Preserve
+            } else {
+                GlobalResetPolicy::Reset
+            };
             let program_export = if self.token().kind == Kind::Directive(Directive::ProgramExport) {
                 Some(self.program_export()?)
             } else {
                 None
             };
+            if reset_policy_span.is_some() && program_export.is_some() {
+                return Err(Diagnostic::new(
+                    reset_policy_span.unwrap(),
+                    "#no_reset cannot be combined with #program_export",
+                ));
+            }
+            if reset_policy_span.is_some() && self.token().kind != Kind::Ident {
+                return Err(Diagnostic::new(
+                    reset_policy_span.unwrap(),
+                    "#no_reset requires a file global declaration",
+                ));
+            }
             if program_export.is_some() && self.import_prefix() {
                 return Err(self.error("#program_export cannot annotate an import"));
             }
@@ -399,6 +439,30 @@ impl Parser<'_> {
             let using_declaration = if self.token().kind == Kind::Keyword(Keyword::Using) {
                 self.at += 1;
                 let selection = self.using_selection()?;
+                if self.import_prefix() {
+                    if program_export.is_some() {
+                        return Err(self.error("#program_export cannot annotate an import"));
+                    }
+                    let target_span = self.token().span;
+                    let import = self.import_declaration(source, visibility)?;
+                    let namespace = import.namespace.ok_or_else(|| {
+                        self.error("selected using import requires a namespace binding")
+                    })?;
+                    items.push(FileItem::Import(import));
+                    items.push(FileItem::Using {
+                        directive: UsingDirective {
+                            target: Expression {
+                                kind: ExpressionKind::Name(namespace),
+                                span: target_span,
+                            },
+                            selection,
+                            span: self.location_from(source, start).span,
+                        },
+                        visibility,
+                        location: self.location_from(source, start),
+                    });
+                    continue;
+                }
                 if self.using_declaration_prefix() {
                     Some((selection, self.token().span))
                 } else {
@@ -428,13 +492,21 @@ impl Parser<'_> {
                         self.error("using and #program_export require an individual declaration")
                     );
                 }
-                for member in self.file_data_declarations()? {
+                for member in
+                    self.file_data_declarations_with_reset_policy(reset_policy, reset_policy_span)?
+                {
                     let (kind, span) = match member {
                         declaration_lists::GlobalOrConstant::Global(global) => {
                             let span = global.span;
                             (FileDeclarationKind::Global(global), span)
                         }
                         declaration_lists::GlobalOrConstant::Constant(constant) => {
+                            if let Some(span) = reset_policy_span {
+                                return Err(Diagnostic::new(
+                                    span,
+                                    "#no_reset requires a file global declaration",
+                                ));
+                            }
                             let span = constant.span;
                             (FileDeclarationKind::Constant(constant), span)
                         }
@@ -475,6 +547,8 @@ impl Parser<'_> {
                         FileDeclarationKind::Global(GlobalDeclaration {
                             declaration,
                             span,
+                            reset_policy,
+                            reset_policy_span,
                         })
                     }
                     StatementKind::Constant(declaration) => {
@@ -483,6 +557,12 @@ impl Parser<'_> {
                     _ => unreachable!("data declaration produces declaration"),
                 }
             };
+            if reset_policy_span.is_some() && !matches!(kind, FileDeclarationKind::Global(_)) {
+                return Err(Diagnostic::new(
+                    reset_policy_span.unwrap(),
+                    "#no_reset requires a file global declaration",
+                ));
+            }
             let declaration = FileDeclaration {
                 program_export: match (&kind, program_export) {
                     (
@@ -593,7 +673,20 @@ impl Parser<'_> {
         } else {
             ImportMode::Search
         };
-        let target = self.module_string()?;
+        let target = if mode == ImportMode::String && self.token().kind == Kind::HereString {
+            let token = self.token();
+            let literal = literals::here_string(self.text(), token.span)?;
+            let source = String::from_utf8(literal.bytes).map_err(|_| {
+                Diagnostic::new(
+                    token.span,
+                    "module source, path or argument string must contain UTF-8",
+                )
+            })?;
+            self.at += 1;
+            source
+        } else {
+            self.module_string()?
+        };
         let instance = if self.is(Punct::OpenParen) {
             Some(self.import_arguments()?)
         } else {
@@ -621,12 +714,14 @@ impl Parser<'_> {
         if self.token().kind != Kind::String {
             return Err(self.error("expected literal module source or path string"));
         }
-        let raw = self.text();
-        let value = &raw[1..raw.len() - 1];
-        if value.contains('\\') {
-            return Err(self.error("escaped module strings are not implemented"));
-        }
-        let value = value.to_owned();
+        let span = self.token().span;
+        let bytes = literals::string(self.text(), span)?;
+        let value = String::from_utf8(bytes).map_err(|_| {
+            Diagnostic::new(
+                span,
+                "module source, path or argument string must contain UTF-8",
+            )
+        })?;
         self.at += 1;
         Ok(value)
     }

@@ -311,6 +311,7 @@ pub(super) fn with_source_resolver<T>(
     let signatures = HashMap::new();
     let globals = HashMap::new();
     let mut resolver = Resolver {
+        conditional_subjects: Vec::new(),
         expression_owner: Some(context.owner),
         debug: crate::debug_capture::Capture::default(),
         checks: crate::safety_checks::ActiveChecks::default(),

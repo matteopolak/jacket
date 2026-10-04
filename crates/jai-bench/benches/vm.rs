@@ -1,4 +1,8 @@
 use divan::{Bencher, counter::ItemsCount};
+#[path = "fixtures/mixed_module.rs"]
+mod mixed_module;
+#[path = "vm/mixed_runtime.rs"]
+mod mixed_runtime;
 #[path = "vm/sequence_indices.rs"]
 mod sequence_indices;
 use jai_ir::*;

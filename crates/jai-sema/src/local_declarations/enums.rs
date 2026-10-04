@@ -7,7 +7,7 @@ struct EnumSource<'a> {
     representation: Option<&'a syntax::TypeSyntax>,
     kind: syntax::EnumKind,
     specified: bool,
-    members: &'a [syntax::EnumMember],
+    members: &'a [syntax::EnumBodyItem],
     span: Span,
 }
 
@@ -98,7 +98,26 @@ impl Resolver<'_> {
         } else {
             0i128
         });
-        for member in source_members {
+        let mut cursor = syntax::EnumMemberCursor::new(source_members);
+        while let Some(member) = cursor.next_member(
+            |expression| {
+                let value = jai_eval::evaluate_paths(expression, |path, span| {
+                    let own = if path.members.is_empty() {
+                        Some(path.root)
+                    } else if name == Some(path.root) && path.members.len() == 1 {
+                        Some(path.members[0])
+                    } else {
+                        None
+                    };
+                    if let Some(value) = own.and_then(|name| members.get(&name)).copied() {
+                        return Ok(ScalarConstant::Int(value));
+                    }
+                    self.local_scalar_path(path, span)
+                })?;
+                crate::enum_conditions::truth(value, expression.span)
+            },
+            |error| error,
+        )? {
             if members.contains_key(&member.name) {
                 return Err(Diagnostic::new(member.span, "duplicate enum member"));
             }

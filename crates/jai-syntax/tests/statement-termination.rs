@@ -133,8 +133,11 @@ fn extra_enum_separators_do_not_create_or_renumber_members() {
         panic!()
     };
     assert_eq!(enumeration.members.len(), 3);
-    assert_eq!(symbols.name(enumeration.members[1].name), "B");
-    assert!(enumeration.members[1].initializer.is_none());
+    let second = jai_syntax::EnumMemberSyntax::new(&enumeration.members)
+        .nth(1)
+        .unwrap();
+    assert_eq!(symbols.name(second.name), "B");
+    assert!(second.initializer.is_none());
 }
 
 #[test]

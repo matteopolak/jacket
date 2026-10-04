@@ -279,42 +279,34 @@ impl Resolver<'_> {
             .into_iter()
             .map(|(name, binding)| UsingMember::named(self.symbols, name, binding))
             .collect::<Vec<_>>();
-        let mut pending = vec![(base.ty(), Vec::new(), HashSet::new())];
+        let visible = crate::record_using::visible_names(base.ty(), span, self.types, |ty| {
+            self.record_metadata(ty, span)
+        })?;
+        let mut visible: Vec<_> = visible.into_iter().collect();
+        visible.sort_by(|a, b| self.symbols.name(*a).cmp(self.symbols.name(*b)));
         let mut seen = candidates
             .iter()
             .map(|member| member.name.clone())
             .collect::<HashSet<_>>();
-        while let Some((ty, prefix, mut ancestors)) = pending.pop() {
-            if !ancestors.insert(ty) {
-                return Err(Diagnostic::new(span, "cyclic using field promotion"));
+        for name in visible {
+            let path = self.field_path(base.ty(), name, span)?;
+            if !seen.insert(self.symbols.name(name).as_bytes().to_vec()) {
+                return Err(Diagnostic::new(span, "ambiguous using member"));
             }
-            let record = self.record_metadata(ty, span)?;
-            for field in record.fields {
-                let mut path = prefix.clone();
-                path.push(field.id);
-                if let Some(name) = field.name {
-                    if !seen.insert(self.symbols.name(name).as_bytes().to_vec()) {
-                        return Err(Diagnostic::new(span, "ambiguous using member"));
-                    }
-                    let mut place = base;
-                    for id in &path {
-                        place = self
-                            .places
-                            .field(place, *id, self.types)
-                            .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-                    }
-                    let storage = Storage::from_place(place, self.types)
-                        .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-                    candidates.push(UsingMember::named(
-                        self.symbols,
-                        name,
-                        Binding::Storage(storage),
-                    ));
-                }
-                if field.syntax.using() {
-                    pending.push((field.ty, path, ancestors.clone()));
-                }
+            let mut place = base;
+            for field in path {
+                place = self
+                    .places
+                    .field(place, field, self.types)
+                    .map_err(|e| Diagnostic::new(span, e.to_string()))?;
             }
+            let storage = Storage::from_place(place, self.types)
+                .map_err(|e| Diagnostic::new(span, e.to_string()))?;
+            candidates.push(UsingMember::named(
+                self.symbols,
+                name,
+                Binding::Storage(storage),
+            ));
         }
         Ok((candidates, setup))
     }

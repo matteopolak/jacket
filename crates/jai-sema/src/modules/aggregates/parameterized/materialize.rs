@@ -469,6 +469,17 @@ where
                 .collect(),
         );
         let shape = RecordMetadata {
+            using: record
+                .members
+                .iter()
+                .filter_map(|member| {
+                    if let syntax::RecordMember::Using(value) = member {
+                        Some(value.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
             name: record.name,
             kind: record.kind,
             fields,

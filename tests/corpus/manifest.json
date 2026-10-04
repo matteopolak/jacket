@@ -716,6 +716,102 @@
         "stdout": "",
         "stderr": ""
       }
+    },
+    {
+      "id": "module-literal-arguments",
+      "source": "positive/module-literal-arguments.jai",
+      "sha256": "51eb823af66b3099e6d27c54e0a434c343683ef715779874c34672598f634365",
+      "suite": "expanded",
+      "feature": "enum and array literal module arguments",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [
+        "self-written parameterized module"
+      ],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 15,
+        "stdout": "",
+        "stderr": ""
+      },
+      "support_sources": [
+        {
+          "source": "positive/support/literal-params.jai",
+          "sha256": "653ea48c98eb9d13cca0e68ed0fc2249c2fc8fe29c26da5ead81e00192427fee"
+        }
+      ]
+    },
+    {
+      "id": "ifx-without-else",
+      "source": "positive/ifx-without-else.jai",
+      "sha256": "ce4c6f7ab4d21860a34bc92cf308f79a46b439cd1d59fdc54dae26b032d6d008",
+      "suite": "expanded",
+      "feature": "ifx without else yields zero of the then type",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 6,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "named-import-using",
+      "source": "positive/named-import-using.jai",
+      "sha256": "6d9e8025d4425bc2da2db1560e4f16dfba7b0f2d099f93d0696e5c4a9dba7e16",
+      "suite": "expanded",
+      "feature": "using filter on a named import",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [
+        "self-written parameterized module"
+      ],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 15,
+        "stdout": "",
+        "stderr": ""
+      },
+      "support_sources": [
+        {
+          "source": "positive/support/scaled.jai",
+          "sha256": "7ab460e45c061d81295d1474791d43d398cef850728bc9f80ab898d3830d2a7b"
+        }
+      ]
+    },
+    {
+      "id": "enum-value-member",
+      "source": "positive/enum-value-member.jai",
+      "sha256": "43d11bec085a88dcf80f3503de7ef292f7c14de39e6aa35edd92331b6bb00dcb",
+      "suite": "expanded",
+      "feature": "enum member access through an enum value",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 3,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "implicit-int-to-float",
+      "source": "positive/implicit-int-to-float.jai",
+      "sha256": "f91d2b70312454c5f206691822e6d33a878271c7b4625a1e0b0c763dd00d9883",
+      "suite": "expanded",
+      "feature": "range-preserving implicit integer to float conversion",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 12,
+        "stdout": "",
+        "stderr": ""
+      }
     }
   ]
 }

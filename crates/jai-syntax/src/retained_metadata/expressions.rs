@@ -121,22 +121,25 @@ impl<A> Visitor<'_, A> {
             }
             ExpressionKind::StructLiteral(literal) => {
                 if let Some(ty) = &literal.ty {
-                    self.path(ty, depth + 1)?;
+                    self.ty(ty, depth + 1)?;
                 }
                 self.sequence(&literal.fields, depth, |this, field, depth| {
                     this.node(depth)?;
+                    this.place(&field.target, depth + 1)?;
                     this.expression(&field.value, depth + 1)
                 })
             }
             ExpressionKind::PositionalStructLiteral(literal) => {
                 if let Some(ty) = &literal.ty {
-                    self.path(ty, depth + 1)?;
+                    self.ty(ty, depth + 1)?;
                 }
                 self.sequence(&literal.values, depth, Self::expression)
             }
             ExpressionKind::Conditional(source) => {
                 self.boxed(source.condition.as_ref(), depth, Self::expression)?;
-                self.boxed(source.then_value.as_ref(), depth, Self::expression)?;
+                if let Some(value) = source.explicit_then() {
+                    self.boxed(value, depth, Self::expression)?;
+                }
                 if let Some(value) = &source.else_value {
                     self.boxed(value.as_ref(), depth, Self::expression)?;
                 }
@@ -207,8 +210,16 @@ impl<A> Visitor<'_, A> {
             match &replacement.body {
                 LoopControlReplacementBody::Code(code) => this.code(code, depth + 1),
                 LoopControlReplacementBody::Assert {
-                    condition, ..
-                } => this.boxed(condition.as_ref(), depth, Self::expression),
+                    condition,
+                    message,
+                    ..
+                } => {
+                    this.boxed(condition.as_ref(), depth, Self::expression)?;
+                    if let Some(message) = message {
+                        this.boxed(message.as_ref(), depth, Self::expression)?;
+                    }
+                    Ok(())
+                }
             }
         })
     }

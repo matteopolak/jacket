@@ -1,5 +1,7 @@
 //! Sequence values retain their element identities and ordered initialization.
 use super::*;
+#[path = "sequences/typed_literals.rs"]
+mod typed_literals;
 use jai_ir::SequenceField;
 use jai_types::TypeKind;
 mod positional_literals;
@@ -249,35 +251,7 @@ impl Resolver<'_> {
             "sequence value has a different element type or length",
         ))
     }
-    pub(crate) fn sequence_literal(
-        &mut self,
-        literal: &syntax::StructLiteral,
-        ty: TypeId,
-        span: Span,
-    ) -> Result<Expr, Diagnostic> {
-        let mut initializers = Vec::new();
-        let mut fields = std::collections::HashSet::new();
-        for initializer in &literal.fields {
-            let (field, field_ty) =
-                self.sequence_field_type(ty, initializer.name, initializer.span)?;
-            if !fields.insert(field) {
-                return Err(Diagnostic::new(
-                    initializer.span,
-                    "duplicate sequence descriptor field",
-                ));
-            }
-            let value = self.expr_expected(&initializer.value, field_ty)?;
-            initializers.push((field, self.coerce_value(value, field_ty, initializer.span)?));
-        }
-        self.typed_value(
-            ValueExpr::SequenceBuild {
-                ty,
-                initializers,
-            },
-            ty,
-            span,
-        )
-    }
+
 
     fn sequence_field_type(
         &mut self,

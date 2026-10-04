@@ -49,12 +49,14 @@ fn step(
     pointer: TypeId,
 ) -> CheckedTypedConstructorInitializationStep {
     CheckedTypedConstructorInitializationStep::from_checked_binding(
-        constructor,
-        initializer,
-        scope,
-        ty,
-        pointer,
-        None,
+        TypedConstructorBinding {
+            constructor,
+            initializer,
+            scope,
+            storage: ty,
+            pointer,
+            parameter: None,
+        },
         types,
     )
     .unwrap()
@@ -175,7 +177,17 @@ fn rebind_cannot_substitute_a_fresh_initializer_event_with_equal_policy() {
         Err(TypedConstructorError::ChangedSource)
     ));
     let rebound_step = original_step
-        .rebind_checked_binding(constructor, initializer, scope, ty, pointer, None, &types)
+        .rebind_checked_binding(
+            TypedConstructorBinding {
+                constructor,
+                initializer,
+                scope,
+                storage: ty,
+                pointer,
+                parameter: None,
+            },
+            &types,
+        )
         .unwrap();
     assert!(original_step.same_source_issuance(&rebound_step));
     assert!(!original_step.same_issuance(&rebound_step));

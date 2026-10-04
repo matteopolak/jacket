@@ -1,6 +1,8 @@
 //! Physical record fields retain their actual named or unnamed source node.
 use super::*;
 
+static ALL_FIELD_MEMBERS: syntax::UsingSelection = syntax::UsingSelection::All;
+
 #[derive(Clone)]
 pub(crate) enum FieldSource {
     Named(syntax::FieldDeclaration),
@@ -25,6 +27,9 @@ impl FieldSource {
     }
     pub(crate) fn using(&self) -> bool {
         self.as_ref().using()
+    }
+    pub(crate) fn using_selection(&self) -> &syntax::UsingSelection {
+        self.as_ref().using_selection()
     }
     pub(crate) fn conversion(&self) -> syntax::FieldConversion {
         self.as_ref().conversion()
@@ -63,6 +68,12 @@ impl<'a> FieldSourceRef<'a> {
         match self {
             Self::Named(field) => field.using,
             Self::AnonymousRecord(_) => true,
+        }
+    }
+    pub(crate) fn using_selection(self) -> &'a syntax::UsingSelection {
+        match self {
+            Self::Named(field) => &field.using_selection,
+            Self::AnonymousRecord(_) => &ALL_FIELD_MEMBERS,
         }
     }
     pub(crate) fn conversion(self) -> syntax::FieldConversion {

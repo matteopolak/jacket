@@ -11,7 +11,7 @@ use jai_source::{SourceId, Symbols};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(super) enum ApplicationEnvironment {
+pub(crate) enum ApplicationEnvironment {
     Graph,
     Lexical {
         procedure: jai_ir::ProcedureId,
@@ -21,7 +21,7 @@ pub(super) enum ApplicationEnvironment {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum ApplicationAnnotationOwner {
+pub(crate) enum ApplicationAnnotationOwner {
     None,
     Record(TypeId),
     Forbidden,
@@ -41,14 +41,14 @@ pub(super) struct ApplicationProofKey {
     substitution: Option<Substitution>,
 }
 
-pub(super) struct ApplicationProofSite<'a> {
-    pub(super) file: FileInstanceId,
-    pub(super) source: &'a syntax::TypeApplicationSyntax,
-    pub(super) environment: ApplicationEnvironment,
-    pub(super) owner: ApplicationAnnotationOwner,
-    pub(super) enclosing_record: Option<TypeId>,
-    pub(super) target: Option<jai_types::LayoutPolicy>,
-    pub(super) substitution: Option<&'a Substitution>,
+pub(crate) struct ApplicationProofSite<'a> {
+    pub(crate) file: FileInstanceId,
+    pub(crate) source: &'a syntax::TypeApplicationSyntax,
+    pub(crate) environment: ApplicationEnvironment,
+    pub(crate) owner: ApplicationAnnotationOwner,
+    pub(crate) enclosing_record: Option<TypeId>,
+    pub(crate) target: Option<jai_types::LayoutPolicy>,
+    pub(crate) substitution: Option<&'a Substitution>,
 }
 
 impl ApplicationProofKey {
@@ -156,6 +156,23 @@ impl ApplicationProofs {
 
     pub(super) fn ready(&self, key: &ApplicationProofKey) -> Option<&ReadyApplicationProof> {
         self.ready.get(key)
+    }
+}
+
+impl RecordSpecializations {
+    /// Returns only the result checked at this original source site and environment.
+    /// A cache miss is a typed preparation dependency, never permission to infer
+    /// this target from the constructor's expected value type.
+    pub(crate) fn ready_application(
+        &self,
+        site: ApplicationProofSite<'_>,
+        symbols: &Symbols,
+    ) -> Result<Option<TypeId>, Diagnostic> {
+        let key = ApplicationProofKey::new(site, symbols);
+        Ok(self
+            .application_proofs
+            .ready(&key)
+            .map(ReadyApplicationProof::ty))
     }
 }
 

@@ -379,7 +379,7 @@ fn incomplete_runtime_source_reports_required_preload_context_without_an_artifac
         authored_preload_with_helper("bootstrap_value :: 30;"),
     )
     .unwrap();
-    fs::write(modules.join("Runtime_Support.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool); #if DEFINE_INITIALIZATION { runtime_value :: 17; } else { runtime_value :: 3; }").unwrap();
+    fs::write(modules.join("Runtime_Support.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool, TEMPORARY_STORAGE_SIZE: s32 = 32768); #if DEFINE_INITIALIZATION { runtime_value :: 17; } else { runtime_value :: 3; }").unwrap();
     let output = fixture
         .command("build")
         .env("JAI_RS_STDLIB", &modules)
@@ -409,7 +409,7 @@ fn authored_runtime_context_and_typed_bootstrap_parameters_reach_native_executio
         authored_preload_with_helper("bootstrap_value :: 30;"),
     )
     .unwrap();
-    fs::write(modules.join("Runtime_Support.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool); Context_Base :: struct { runtime_marker: int = 1; } #if DEFINE_INITIALIZATION { runtime_value :: 17; } else { runtime_value :: 3; }").unwrap();
+    fs::write(modules.join("Runtime_Support.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool, TEMPORARY_STORAGE_SIZE: s32 = 32768); Context_Base :: struct { runtime_marker: int = 1; } #if DEFINE_INITIALIZATION { runtime_value :: 17; } else { runtime_value :: 3; }").unwrap();
     let output = fixture
         .command("build")
         .env("JAI_RS_STDLIB", &modules)

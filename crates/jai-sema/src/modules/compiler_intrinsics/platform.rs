@@ -37,7 +37,9 @@ impl CompilerModuleOrigins {
         if let Some(module) = graph.prelude() {
             origins.register(module, CompilerModuleOrigin::Preload);
         }
-        origins.register_selected_runtime_support(graph);
+        if let Some(module) = graph.runtime_support() {
+            origins.register(module, CompilerModuleOrigin::RuntimeSupport);
+        }
         origins
     }
 }

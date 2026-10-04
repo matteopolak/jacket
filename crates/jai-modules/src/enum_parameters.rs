@@ -248,7 +248,62 @@ impl Builder<'_> {
             0i128
         });
         let mut found = None;
-        for member in &enumeration.members {
+        let mut cursor = jai_syntax::EnumMemberCursor::new(&enumeration.members);
+        while let Some(member) = cursor.next_member(
+            |expression| {
+                let mut dependency = None;
+                let result = jai_eval::evaluate_paths(expression, |path, span| {
+                    let own = if path.members.is_empty() {
+                        Some(path.root)
+                    } else if path.root == enumeration.name && path.members.len() == 1 {
+                        Some(path.members[0])
+                    } else {
+                        None
+                    };
+                    if let Some(value) = own.and_then(|name| previous.get(&name)).copied() {
+                        return Ok(Value::Int(value));
+                    }
+                    self.constant_path(declaration_data.file, path, &mut vec![declaration], span)
+                        .map_err(|error| {
+                            dependency = Some(error);
+                            Diagnostic::new(span, "enum guard dependency is pending")
+                        })
+                });
+                if let Some(error) = dependency {
+                    return Err(error);
+                }
+                let value = result.map_err(|error| {
+                    self.located(
+                        SourceSpan {
+                            source: declaration_data.location().source,
+                            span: error.span,
+                        },
+                        error.message,
+                    )
+                })?;
+                match value {
+                    Value::Bool(value) => Ok(value),
+                    Value::Literal(value) => Ok(value != 0),
+                    Value::Int(value) => Ok(value.value() != 0),
+                    _ => Err(self.located(
+                        SourceSpan {
+                            source: declaration_data.location().source,
+                            span: expression.span,
+                        },
+                        "enum #if condition requires a scalar boolean or integer",
+                    )),
+                }
+            },
+            |error| {
+                self.located(
+                    SourceSpan {
+                        source: declaration_data.location().source,
+                        span: error.span,
+                    },
+                    error.message,
+                )
+            },
+        )? {
             let number = if let Some(expression) = &member.initializer {
                 let mut dependency = None;
                 let result = jai_eval::evaluate_paths(expression, |path, span| {
@@ -351,10 +406,8 @@ impl Builder<'_> {
                 **value = self.enum_tests(file, value)?;
             }
             ExpressionKind::Conditional(value) => {
-                *value.condition = self.enum_tests(file, &value.condition)?;
-                *value.then_value = self.enum_tests(file, &value.then_value)?;
-                if let Some(no) = value.else_value.as_mut() {
-                    **no = self.enum_tests(file, no)?;
+                for expression in value.expressions_mut() {
+                    *expression = self.enum_tests(file, expression)?;
                 }
             }
             _ => {}

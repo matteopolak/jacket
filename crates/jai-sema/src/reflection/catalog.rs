@@ -3,6 +3,7 @@ use jai_source::{SourceRecord, SourceSpan, Span};
 use jai_types::{FloatType, IntegerType, ScalarType, TypeError, TypeId, TypeKind, TypeRegistry};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 const MAX_VISIBLE_TYPES: usize = 65_536;
@@ -23,6 +24,7 @@ pub(crate) struct SourceTypeCatalog {
     origins: HashMap<TypeId, Origin>,
     generation: u64,
     cached: Option<CatalogCheckpoint>,
+    completions: HashMap<CatalogCheckpointId, CatalogCheckpoint>,
     published_rows: usize,
 }
 
@@ -31,11 +33,33 @@ pub(crate) struct SourceTypeCatalog {
 #[derive(Clone)]
 pub(crate) struct CatalogCheckpoint {
     owner: Arc<()>,
+    identity: CatalogCheckpointId,
     generation: u64,
     types: Arc<[TypeId]>,
+    origins: Arc<[Origin]>,
     incomplete: Arc<[TypeId]>,
 }
+
+/// Receipt identity distinguishes completion of one retained source frontier
+/// from another frontier with the same original source generation.
+#[derive(Clone)]
+pub(crate) struct CatalogCheckpointId(Arc<()>);
+impl PartialEq for CatalogCheckpointId {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+impl Eq for CatalogCheckpointId {
+}
+impl Hash for CatalogCheckpointId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.0).hash(state);
+    }
+}
 impl CatalogCheckpoint {
+    pub(crate) fn identity(&self) -> CatalogCheckpointId {
+        self.identity.clone()
+    }
     pub(crate) fn generation(&self) -> u64 {
         self.generation
     }
@@ -86,6 +110,15 @@ impl std::error::Error for CatalogError {
 }
 
 impl SourceTypeCatalog {
+    pub(crate) fn charge_retained_policies(&mut self, count: usize) -> Result<(), CatalogError> {
+        let total = self
+            .published_rows
+            .checked_add(count)
+            .filter(|total| *total <= MAX_PUBLISHED_ROWS)
+            .ok_or(CatalogError::SnapshotLimit)?;
+        self.published_rows = total;
+        Ok(())
+    }
     pub(crate) fn validate_checkpoint(
         &self,
         types: &TypeRegistry,
@@ -199,7 +232,7 @@ impl SourceTypeCatalog {
             };
             staged.published_rows = staged
                 .published_rows
-                .checked_add(new_rows)
+                .checked_add(new_rows.saturating_mul(2))
                 .and_then(|count| count.checked_add(incomplete.len()))
                 .filter(|count| *count <= MAX_PUBLISHED_ROWS)
                 .ok_or(CatalogError::SnapshotLimit)?;
@@ -209,16 +242,94 @@ impl SourceTypeCatalog {
             } else {
                 Arc::from(staged.ordered.as_slice())
             };
+            let origins = if reuse_rows {
+                Arc::clone(
+                    &staged
+                        .cached
+                        .as_ref()
+                        .expect("reusable catalog checkpoint")
+                        .origins,
+                )
+            } else {
+                staged.ordered.iter().map(|ty| staged.origins[ty]).collect()
+            };
             let checkpoint = CatalogCheckpoint {
                 owner: Arc::clone(&staged.owner),
+                identity: CatalogCheckpointId(Arc::new(())),
                 generation: staged.generation,
                 types: rows,
+                origins,
                 incomplete: incomplete.into(),
             };
             staged.cached = Some(checkpoint.clone());
             checkpoint
         };
         *self = staged;
+        Ok(checkpoint)
+    }
+
+    /// Complete only the retained frontier's real nominal dependencies. Later
+    /// source admissions and descriptor backing types do not enter this table.
+    /// The source generation remains the request's generation, while the opaque
+    /// identity seals the resulting ordered rows independently of that number.
+    pub(crate) fn complete_checkpoint(
+        &mut self,
+        types: &TypeRegistry,
+        original: &CatalogCheckpoint,
+    ) -> Result<CatalogCheckpoint, CatalogError> {
+        self.validate_checkpoint(types, original)?;
+        let retained_frontier = self.completions.get(&original.identity).unwrap_or(original);
+        if retained_frontier.incomplete.is_empty() {
+            return Ok(retained_frontier.clone());
+        }
+        let mut retained = SourceTypeCatalog {
+            owner: Arc::clone(&self.owner),
+            registry_anchor: self.registry_anchor,
+            ordered: retained_frontier.types.to_vec(),
+            origins: retained_frontier
+                .types
+                .iter()
+                .copied()
+                .zip(retained_frontier.origins.iter().copied())
+                .collect(),
+            generation: original.generation,
+            cached: None,
+            completions: HashMap::new(),
+            published_rows: 0,
+        };
+        let roots = retained_frontier
+            .types
+            .iter()
+            .copied()
+            .zip(retained_frontier.origins.iter().copied())
+            .collect();
+        let incomplete = retained.close(types, roots)?;
+        if retained.ordered.as_slice() == retained_frontier.types.as_ref()
+            && incomplete.as_slice() == retained_frontier.incomplete.as_ref()
+        {
+            return Ok(retained_frontier.clone());
+        }
+        let published_rows = self
+            .published_rows
+            .checked_add(retained.ordered.len().saturating_mul(2))
+            .and_then(|count| count.checked_add(incomplete.len()))
+            .filter(|count| *count <= MAX_PUBLISHED_ROWS)
+            .ok_or(CatalogError::SnapshotLimit)?;
+        let checkpoint = CatalogCheckpoint {
+            owner: Arc::clone(&self.owner),
+            identity: CatalogCheckpointId(Arc::new(())),
+            generation: original.generation,
+            types: retained.ordered.as_slice().into(),
+            origins: retained
+                .ordered
+                .iter()
+                .map(|ty| retained.origins[ty])
+                .collect(),
+            incomplete: incomplete.into(),
+        };
+        self.published_rows = published_rows;
+        self.completions
+            .insert(original.identity(), checkpoint.clone());
         Ok(checkpoint)
     }
 
@@ -278,6 +389,7 @@ impl SourceTypeCatalog {
             // Its identity does not change; eligibility is monotone.
             if matches!(previous, Origin::Builtin) && matches!(origin, Origin::Source(_)) {
                 *previous = origin;
+                self.cached = None;
             }
             return Ok(());
         }
@@ -381,6 +493,82 @@ mod tests {
     use super::*;
     use jai_source::SourceMap;
     use jai_types::RecordKind;
+
+    #[test]
+    fn pending_checkpoint_completes_only_its_original_source_dependencies() {
+        let mut types = TypeRegistry::new();
+        let mut catalog = SourceTypeCatalog::default();
+        let root = types.reserve_record(RecordKind::Struct);
+        let child = types.reserve_record(RecordKind::Struct);
+        let unrelated = types.reserve_record(RecordKind::Struct);
+        types.define_record(unrelated, Vec::new()).unwrap();
+        let (sources, id) = source("Root::struct{}");
+        let source = sources.get(id).unwrap();
+        catalog
+            .register_source(&types, root, source, Span::new(0, 14))
+            .unwrap();
+        let original = catalog.checkpoint(&types).unwrap();
+        assert!(original.incomplete_definitions().contains(&root));
+        let waiting = catalog.complete_checkpoint(&types, &original).unwrap();
+        assert!(waiting.identity() == original.identity());
+        catalog
+            .register_source(&types, unrelated, source, Span::new(0, 14))
+            .unwrap();
+        types
+            .define_record(child, [types.scalar(ScalarType::Bool)])
+            .unwrap();
+        let pointer = types.pointer(child).unwrap();
+        types.define_record(root, [pointer]).unwrap();
+        let complete = catalog.complete_checkpoint(&types, &original).unwrap();
+        assert_eq!(complete.generation(), original.generation());
+        assert!(complete.identity() != original.identity());
+        assert!(complete.incomplete_definitions().is_empty());
+        assert!(complete.types().contains(&root));
+        assert!(complete.types().contains(&child));
+        assert!(complete.types().contains(&pointer));
+        assert!(!complete.types().contains(&unrelated));
+        assert!(!original.types().contains(&child));
+        assert!(
+            catalog
+                .checkpoint(&types)
+                .unwrap()
+                .types()
+                .contains(&unrelated)
+        );
+        assert!(matches!(
+            SourceTypeCatalog::default().complete_checkpoint(&types, &original),
+            Err(CatalogError::ForeignCheckpoint)
+        ));
+    }
+
+    #[test]
+    fn partial_completion_reuses_its_receipt_until_a_definition_changes() {
+        let mut types = TypeRegistry::new();
+        let mut catalog = SourceTypeCatalog::default();
+        let root = types.reserve_record(RecordKind::Struct);
+        let child = types.reserve_record(RecordKind::Struct);
+        let (sources, id) = source("Root::struct{}");
+        catalog
+            .register_source(&types, root, sources.get(id).unwrap(), Span::new(0, 14))
+            .unwrap();
+        let original = catalog.checkpoint(&types).unwrap();
+        let pointer = types.pointer(child).unwrap();
+        types.define_record(root, [pointer]).unwrap();
+        let partial = catalog.complete_checkpoint(&types, &original).unwrap();
+        assert_eq!(partial.incomplete_definitions(), &[child]);
+        let charged = catalog.published_rows;
+        for _ in 0..100 {
+            let retry = catalog.complete_checkpoint(&types, &original).unwrap();
+            assert!(retry.identity() == partial.identity());
+            assert!(Arc::ptr_eq(&retry.types, &partial.types));
+            assert_eq!(catalog.published_rows, charged);
+        }
+        types.define_record(child, []).unwrap();
+        let complete = catalog.complete_checkpoint(&types, &original).unwrap();
+        assert!(complete.incomplete_definitions().is_empty());
+        assert!(complete.identity() != partial.identity());
+        assert_eq!(complete.generation(), original.generation());
+    }
 
     #[test]
     fn retained_checkpoint_is_catalog_owned_and_keeps_its_original_frontier() {

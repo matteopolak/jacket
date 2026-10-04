@@ -315,7 +315,9 @@ impl FileScope<'_> {
                         unsupported_members: syntax.members.iter().any(|member| {
                             !matches!(
                                 member,
-                                syntax::RecordMember::Field(_) | syntax::RecordMember::Placement(_)
+                                syntax::RecordMember::Using(_)
+                                    | syntax::RecordMember::Field(_)
+                                    | syntax::RecordMember::Placement(_)
                             )
                         }),
                         textual_flags,
@@ -355,12 +357,12 @@ impl FileScope<'_> {
                     metadata.enumeration(
                         ty,
                         ReflectedEnumMetadata {
-                            members: syntax
-                                .members
+                            members: enumeration
+                                .source_members
                                 .iter()
                                 .zip(enumeration.values.iter())
-                                .map(|(member, &value)| ReflectedEnumMember {
-                                    name: Some(graph.symbols().name(member.name).as_bytes().into()),
+                                .map(|(&name, &value)| ReflectedEnumMember {
+                                    name: Some(graph.symbols().name(name).as_bytes().into()),
                                     value,
                                 })
                                 .collect(),

@@ -2,6 +2,7 @@
 use super::*;
 use inkwell::{
     module::Linkage,
+    types::AnyType,
     values::{GlobalValue, PointerValue},
 };
 use jai_ir::{
@@ -168,12 +169,31 @@ fn reserve<'ctx>(
     for object in data.objects() {
         let name = format!("jai.static.{}.{}", data.identity(), object.id().index());
         let ty = generator.lowerer.basic(object.ty())?;
+        let alignment = generator
+            .lowerer
+            .target_data()
+            .ok_or(Error::Invariant)?
+            .get_abi_alignment(&ty);
         let global = match generator.module.get_global(&name) {
-            Some(global) => global,
+            Some(global)
+                if global.get_linkage() == Linkage::Private
+                    && global.is_constant()
+                    && global.get_value_type() == ty.as_any_type_enum()
+                    && global.get_alignment() == alignment =>
+            {
+                global
+            }
+            // A source extern or unrelated definition cannot acquire owned
+            // immutable storage merely by claiming a generated symbol name.
+            Some(_) => return Err(Error::Invariant),
             None => {
+                if generator.module.get_function(&name).is_some() {
+                    return Err(Error::Invariant);
+                }
                 let global = generator.module.add_global(ty, None, &name);
                 global.set_constant(true);
                 global.set_linkage(Linkage::Private);
+                global.set_alignment(alignment);
                 global
             }
         };
@@ -313,3 +333,6 @@ fn project<'ctx>(
     }
     Ok(pointer)
 }
+
+#[cfg(test)]
+mod tests;

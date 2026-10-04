@@ -18,6 +18,7 @@ pub(super) fn check(
     let globals = HashMap::new();
     let mut places = PlaceRegistry::new();
     let mut resolver = Resolver {
+        conditional_subjects: Vec::new(),
         expression_owner: None,
         debug: crate::debug_capture::Capture::default(),
         checks: crate::safety_checks::ActiveChecks::default(),

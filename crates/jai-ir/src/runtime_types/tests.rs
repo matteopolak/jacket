@@ -587,3 +587,56 @@ fn immutable_descriptor_objects_share_nominal_identity_but_foreign_bindings_fail
     old.validate(&catalog.types).unwrap();
     new.validate(&catalog.types).unwrap();
 }
+
+#[test]
+fn immutable_descriptor_revisions_share_nominal_identity_but_foreign_bindings_fail() {
+    let catalog = Catalog::new();
+    let foreign = Catalog::new();
+    let mut builder = StaticDataBuilder::new();
+    let first = builder.reserve(catalog.integer, &catalog.types).unwrap();
+    assert!(matches!(
+        builder.define_type_descriptor(
+            first,
+            catalog.value(0, 4, true),
+            &foreign.graph,
+            foreign.graph.root(),
+            &catalog.types
+        ),
+        Err(StaticDataError::Type(jai_types::TypeError::ForeignType(_)))
+    ));
+    builder
+        .define_type_descriptor(
+            first,
+            catalog.value(0, 4, true),
+            &catalog.graph,
+            catalog.graph.root(),
+            &catalog.types,
+        )
+        .unwrap();
+    let published = Arc::new(
+        builder
+            .publish(&catalog.types, StaticDataLimits::default())
+            .unwrap(),
+    );
+    let duplicate = builder.reserve(catalog.integer, &catalog.types).unwrap();
+    builder
+        .define_type_descriptor(
+            duplicate,
+            catalog.value(0, 4, true),
+            &catalog.graph,
+            catalog.graph.root(),
+            &catalog.types,
+        )
+        .unwrap();
+    let later = Arc::new(
+        builder
+            .publish(&catalog.types, StaticDataLimits::default())
+            .unwrap(),
+    );
+    assert_eq!(later.objects().len(), 2);
+    let first = RuntimeTypeConstant::new(published, first, &catalog.types).unwrap();
+    let second = RuntimeTypeConstant::new(later, duplicate, &catalog.types).unwrap();
+    assert_eq!(first.identity().ty(), second.identity().ty());
+    assert_ne!(first.identity().object(), second.identity().object());
+    assert_ne!(first.address(), second.address());
+}

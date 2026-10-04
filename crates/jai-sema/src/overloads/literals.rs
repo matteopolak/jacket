@@ -1,7 +1,6 @@
 //! Contextual literal validation uses immutable typed declaration metadata.
 use super::*;
 use jai_ir::{ConstantKind, ConstantValue};
-use jai_types::RecordKind;
 
 pub(super) fn default_type(source: &ArgumentType) -> Option<TypeId> {
     match source {
@@ -53,64 +52,7 @@ pub(super) fn concrete(
                     ))
                 };
             }
-            let definition = types
-                .record_storage_definition(target)
-                .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-            let metadata = nominals.record_fields(target, span)?;
-            if metadata.len() != definition.fields.len() {
-                return Err(Diagnostic::new(
-                    span,
-                    "record literal metadata does not match its checked fields",
-                ));
-            }
-            if definition.kind == RecordKind::Union && fields.len() != 1 {
-                return Err(Diagnostic::new(
-                    span,
-                    "union literal requires exactly one explicit alternative",
-                ));
-            }
-            let mut initialized = HashSet::new();
-            let mut rank = if ty.is_some() {
-                ConversionRank::Exact
-            } else {
-                ConversionRank::Literal
-            };
-            for field in fields {
-                let target = metadata
-                    .iter()
-                    .find(|candidate| candidate.name == Some(field.name))
-                    .ok_or_else(|| Diagnostic::new(field.span, "unknown record literal field"))?;
-                if !initialized.insert(target.id) {
-                    return Err(Diagnostic::new(
-                        field.span,
-                        "duplicate record literal field",
-                    ));
-                }
-                rank = rank.max(compatible(
-                    types,
-                    nominals,
-                    &TypePattern::Concrete(target.ty),
-                    &field.value.ty,
-                    &Substitution::default(),
-                    true,
-                    field.span,
-                )?);
-            }
-            if definition.kind == RecordKind::Struct {
-                for field in metadata
-                    .iter()
-                    .filter(|field| !initialized.contains(&field.id))
-                {
-                    let value = nominals.field_default(field.id, span)?;
-                    if value.ty != field.ty {
-                        return Err(Diagnostic::new(
-                            span,
-                            "record literal default has a different field type",
-                        ));
-                    }
-                }
-            }
-            Ok(rank)
+            super::record_literals::compatible(types, nominals, target, fields, ty.is_some(), span)
         }
         ArgumentType::ArrayLiteral {
             explicit,
@@ -251,54 +193,7 @@ pub(super) fn bake(
     let kind = match source {
         ArgumentType::RecordLiteral {
             fields, ..
-        } => {
-            let definition = types
-                .record_storage_definition(target)
-                .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-            let metadata = nominals.record_fields(target, span)?;
-            let values = metadata.iter().map(|field| {
-                if let Some(initializer) = fields
-                    .iter()
-                    .find(|initializer| Some(initializer.name) == field.name)
-                {
-                    super::bake_with_nominals(
-                        types,
-                        nominals,
-                        &TypePattern::Concrete(field.ty),
-                        &initializer.value,
-                        &Substitution::default(),
-                        initializer.span,
-                    )?
-                    .into_runtime(field.ty, types)
-                    .map_err(|error| Diagnostic::new(initializer.span, error.to_string()))
-                } else {
-                    nominals.field_default(field.id, span)
-                }
-            });
-            if definition.kind == RecordKind::Union {
-                let initialized = &fields[0];
-                let field = metadata
-                    .iter()
-                    .find(|field| field.name == Some(initialized.name))
-                    .expect("literal compatibility checked the alternative");
-                let value = super::bake_with_nominals(
-                    types,
-                    nominals,
-                    &TypePattern::Concrete(field.ty),
-                    &initialized.value,
-                    &Substitution::default(),
-                    initialized.span,
-                )?
-                .into_runtime(field.ty, types)
-                .map_err(|error| Diagnostic::new(initialized.span, error.to_string()))?;
-                ConstantKind::Union {
-                    field: field.id,
-                    value: Box::new(value),
-                }
-            } else {
-                ConstantKind::Record(values.collect::<Result<_, _>>()?)
-            }
-        }
+        } => super::record_literals::bake(types, nominals, target, fields, span)?.kind,
         ArgumentType::ArrayLiteral {
             elements, ..
         } => {

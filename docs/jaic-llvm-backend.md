@@ -1,0 +1,55 @@
+# jaic LLVM backend
+
+## What it is
+
+`crates/jaic-llvm` translates the `jaic::ir::Program` produced by the new compiler core into LLVM IR, writes a native object file, and links it with the system `cc`. `crates/jaic-cli` (binary `jaic`) exposes it as `jaic build <file.jai> [-o out]`; `jaic run` still uses the interpreter and `jaic check` only type-checks.
+
+## How it works
+
+`emit_object(program, options, path)` (in `lib.rs`):
+
+1. Creates a target machine for the host (or `Options::target`), sets triple and data layout.
+2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in global initializers, then defines function bodies.
+3. Verifies the module, optionally runs the `default<On>` pipeline, writes the object.
+
+Lowering rules (`lower.rs`):
+
+- Each IR `Val` is an LLVM SSA value. Blocks are emitted in reverse post-order from the entry, so a value's definition always precedes its uses; unreachable IR blocks are skipped. No phis are needed because the IR keeps mutable state in slots.
+- `Slot`s become allocas in a dedicated first `allocas` block that branches to IR block 0. Temporaries used for ABI marshalling are allocated there too.
+- Pointers are opaque; `PtrAdd` is an `i8` GEP. Loads and stores carry natural alignment.
+- Integer semantics follow the interpreter: division by zero traps (`llvm.trap`), `INT_MIN / -1` wraps, shifts of `>= bits` give 0 (`AShr` clamps), float to int conversions saturate, `FNe` is unordered-not-equal.
+- Globals are packed structs of byte runs and pointer relocations (`Reloc`), with the IR alignment and `read_only` flag. `#program_export` names stay external; everything else is internal and suffixed with its index.
+- Foreign functions/variables are external declarations, de-duplicated by symbol. All calls are emitted as indirect calls with a function type computed from the call's `Sig`, so one symbol can be called with several signatures.
+- `Conv::Jai` functions map parameters and scalar results 1:1 (several results become a struct return).
+- Intrinsics: `Memcpy` is `memmove`, `Memcmp` calls libc `memcmp` and normalizes to -1/0/1 (`I16`), `CompilerWrite` calls `write(1|2, ...)`, `CompareAndSwap` is a seq_cst `cmpxchg` whose width comes from the operand type, `IsCompileTime` is the constant 0, `CycleCounter` reads `cntvct_el0` on AArch64 and `rdtsc` on x86-64. `Loc` markers are ignored (no debug info yet).
+
+### C ABI (`abi.rs`)
+
+`Conv::C` signatures with `Sig::c_abi` set use the real calling convention for by-value aggregates:
+
+| | AArch64 | x86-64 System V |
+|---|---|---|
+| <= 16 bytes | `i64` chunks in x registers; homogeneous float aggregates (<= 4 members) as separate `float`/`double` scalars | per eightbyte: `i64`, `double`, `float` or `<2 x float>` |
+| > 16 bytes arg | caller copy, pointer passed | `byval` pointer |
+| return | chunk(s) in registers, else `sret` | same |
+
+The IR passes aggregates by pointer, so the call site copies into a scratch temp, loads the chunks and passes them as separate LLVM arguments; returned chunks are stored to a temp and copied through the IR out-pointer (the last IR parameter, which is dropped from the LLVM signature). Variadic calls use a vararg function type.
+
+## How to change it
+
+- New IR instruction/intrinsic: extend `Backend::inst` or `Backend::intrinsic` in `lower.rs`; keep semantics identical to `interp/mod.rs`.
+- New target architecture: add an `Arch` variant and classification in `abi.rs`, plus the inline-asm intrinsics in `lower.rs`.
+- Debug info: handle `Inst::Loc` (currently a no-op).
+- Gotchas: *defining* a function whose own signature has by-value C aggregates (for example a callback that C calls with a struct) is rejected; only calling foreign code with them is supported. Small signed integers are not sign/zero-extended according to the C ABI because the IR does not carry signedness. Windows is not supported.
+
+## Configuration
+
+- `jaic_llvm::Options { opt_level, target, emit_ir }`; CLI flags `-O0..-O3`, `--emit-ir file.ll`, `-o output`, `-I dir`.
+- `JAIC_STDLIB` overrides the standard library directory (as for `jaic run`).
+- `LLVM_SYS_221_PREFIX` must point at an LLVM 22 install when building (for example `/opt/homebrew/opt/llvm`).
+
+## Dependencies
+
+- `inkwell` (workspace dependency, LLVM 22) and the system `cc` for linking.
+- `jaic` for the IR. Libraries come from `Program::libraries`; only those referenced by a foreign symbol are linked (`-l<name>`, or by path when a non-system library sits next to its source). `libc` is implicit.
+- Tests: `cargo test -p jaic-cli --test native` builds every `tests/corpus/manifest.json` case that passes under the interpreter and compares exit code and stdout; `abi.rs` has unit tests for the classification.

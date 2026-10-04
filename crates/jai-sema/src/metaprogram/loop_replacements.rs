@@ -42,8 +42,19 @@ impl Resolver<'_> {
                 }
                 syntax::LoopControlReplacementBody::Assert {
                     condition,
+                    message,
                     span,
-                } => (syntax::CodeBody::Expression(condition.clone()), true, *span),
+                } => (
+                    syntax::CodeBody::Statement(Box::new(syntax::Statement::new(
+                        *span,
+                        syntax::StatementKind::CompileTimeAssert {
+                            condition: (**condition).clone(),
+                            message: message.as_deref().cloned(),
+                        },
+                    ))),
+                    true,
+                    *span,
+                ),
             };
             let Expr::Code(code) = self.capture_code(&body, span)? else {
                 unreachable!("source capture produces Code")
@@ -179,15 +190,27 @@ impl Resolver<'_> {
         let caller_loops = self.loops.split_off(loop_depth);
         let result = (|| {
             if replacement.assertion {
-                let syntax::CodeBody::Expression(condition) = &code.body else {
-                    unreachable!("assertion capture retains its condition")
+                let syntax::CodeBody::Statement(statement) = &code.body else {
+                    unreachable!("assertion capture retains both operands")
                 };
-                if !self.compile_time_condition(condition)? {
-                    return Err(Diagnostic::new(
-                        capture.location.span,
-                        "loop-control insertion replacement assertion failed",
-                    ));
-                }
+                let syntax::StatementKind::CompileTimeAssert {
+                    condition,
+                    message,
+                } = &statement.kind
+                else {
+                    unreachable!("assertion capture retains typed assertion syntax")
+                };
+                self.compile_time_assertion(condition, message.as_ref(), capture.location.span)
+                    .map_err(|mut error| {
+                        if let Some(suffix) =
+                            error.message.strip_prefix("compile-time assertion failed")
+                        {
+                            error.message = format!(
+                                "loop-control insertion replacement assertion failed{suffix}"
+                            );
+                        }
+                        error
+                    })?;
                 return Ok(Statement::Block(Block {
                     statements: Vec::new(),
                     flow: Flow::FallsThrough,

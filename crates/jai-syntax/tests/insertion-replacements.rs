@@ -43,6 +43,7 @@ fn replacement_bodies_preserve_their_original_spans_and_typed_jump_kinds() {
     let LoopControlReplacementBody::Assert {
         span,
         condition,
+        ..
     } = &directive.replacements[2].body
     else {
         panic!()

@@ -24,6 +24,7 @@ use std::rc::Rc;
 mod owners;
 pub(crate) mod prototypes;
 mod provider;
+pub(crate) mod reflection_journal;
 mod results;
 mod suspension;
 pub use provider::ReadyProcedures;
@@ -892,7 +893,9 @@ pub(crate) fn is_run_constant(expression: &jai_syntax::Expression) -> bool {
             }
             E::Conditional(value) => {
                 work.push(&value.condition);
-                work.push(&value.then_value);
+                if let Some(value) = value.explicit_then() {
+                    work.push(value);
+                }
                 if let Some(value) = &value.else_value {
                     work.push(value);
                 }

@@ -1683,16 +1683,54 @@ impl Machine {
                 let StatementCode::Cases(cases) = &code.blocks[block.index()].statements[pc] else {
                     unreachable!()
                 };
-                if index == cases.arms.len() {
-                    if let Some(default) = cases.default {
-                        self.block(vm, code.clone(), default, depth + 1)?;
-                    } else if cases.exhaustive {
-                        return Err(Error::InvalidIr("exhaustive cases did not match").into());
-                    }
+                if !through && index < cases.arms.len() {
+                    self.push(
+                        vm,
+                        Some(code.clone()),
+                        depth,
+                        Action::CasesDecision {
+                            block,
+                            pc,
+                            index,
+                        },
+                        0,
+                    )?;
+                    self.eval(vm, code.clone(), cases.arms[index].condition, depth + 1)?;
                 } else {
-                    let arm = cases.arms[index];
-                    if through {
-                        if arm.through {
+                    use jai_types::{CaseOrder, CaseTarget};
+                    let order = CaseOrder::new(
+                        cases.arms.len(),
+                        cases
+                            .default
+                            .map(|_| cases.default_position.unwrap_or(cases.arms.len())),
+                    )
+                    .map_err(|_| Error::InvalidIr("invalid case order"))?;
+                    let target = if index == cases.arms.len() {
+                        CaseTarget::Default
+                    } else {
+                        CaseTarget::Arm(index)
+                    };
+                    let (body, falls_through) = match target {
+                        CaseTarget::Arm(index) => {
+                            (Some(cases.arms[index].body), cases.arms[index].through)
+                        }
+                        CaseTarget::Default => (cases.default, cases.default_through),
+                        CaseTarget::End => unreachable!(),
+                    };
+                    if let Some(body) = body {
+                        if falls_through {
+                            let next = match order
+                                .following(target)
+                                .map_err(|_| Error::InvalidIr("invalid case successor"))?
+                            {
+                                CaseTarget::Arm(index) => index,
+                                CaseTarget::Default => cases.arms.len(),
+                                CaseTarget::End => {
+                                    return Err(
+                                        Error::InvalidIr("last case cannot fall through").into()
+                                    );
+                                }
+                            };
                             self.push(
                                 vm,
                                 Some(code.clone()),
@@ -1700,26 +1738,15 @@ impl Machine {
                                 Action::CasesNext {
                                     block,
                                     pc,
-                                    index: index + 1,
+                                    index: next,
                                     through: true,
                                 },
                                 0,
                             )?;
                         }
-                        self.block(vm, code.clone(), arm.body, depth + 1)?;
-                    } else {
-                        self.push(
-                            vm,
-                            Some(code.clone()),
-                            depth,
-                            Action::CasesDecision {
-                                block,
-                                pc,
-                                index,
-                            },
-                            0,
-                        )?;
-                        self.eval(vm, code.clone(), arm.condition, depth + 1)?;
+                        self.block(vm, code.clone(), body, depth + 1)?;
+                    } else if cases.exhaustive {
+                        return Err(Error::InvalidIr("exhaustive cases did not match").into());
                     }
                 }
             }
@@ -1729,26 +1756,19 @@ impl Machine {
                 index,
             } => {
                 let code = code.unwrap();
-                let StatementCode::Cases(cases) = &code.blocks[block.index()].statements[pc] else {
-                    unreachable!()
-                };
-                let arm = cases.arms[index];
                 if self.pop(vm)?.into_value()?.boolean()? {
-                    if arm.through {
-                        self.push(
-                            vm,
-                            Some(code.clone()),
-                            depth,
-                            Action::CasesNext {
-                                block,
-                                pc,
-                                index: index + 1,
-                                through: true,
-                            },
-                            0,
-                        )?;
-                    }
-                    self.block(vm, code.clone(), arm.body, depth + 1)?;
+                    self.push(
+                        vm,
+                        Some(code.clone()),
+                        depth,
+                        Action::CasesNext {
+                            block,
+                            pc,
+                            index,
+                            through: true,
+                        },
+                        0,
+                    )?;
                 } else {
                     self.push(
                         vm,

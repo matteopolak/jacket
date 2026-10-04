@@ -122,6 +122,7 @@ impl Schema {
             origins,
             notes,
             metadata: crate::local_declarations::RecordMetadata {
+                using: Vec::new(),
                 name: None,
                 kind: jai_types::RecordKind::Struct,
                 fields: metadata,

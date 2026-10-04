@@ -6,6 +6,8 @@ use std::{fs, path::Path};
 #[path = "compiler/float_aliases.rs"]
 mod float_aliases;
 
+#[path = "fixtures/mixed_module.rs"]
+mod mixed_module;
 #[path = "compiler/native_runtime.rs"]
 mod native_runtime;
 #[path = "compiler/whole_module.rs"]

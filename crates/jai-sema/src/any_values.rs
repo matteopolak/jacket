@@ -1,5 +1,7 @@
 //! Universal conversion borrows actual storage and retains canonical type descriptors.
 use super::*;
+#[path = "any_values/typed_literals.rs"]
+mod typed_literals;
 use jai_types::{AnyConversion, AnyField, AnySchema, TypeKind};
 
 impl Resolver<'_> {
@@ -22,7 +24,7 @@ impl Resolver<'_> {
         if let syntax::ExpressionKind::StructLiteral(literal) = &source.kind {
             let descriptor_literal = match &literal.ty {
                 None => true,
-                Some(path) => self.local_type_name(path, source.span)? == ty,
+                Some(path) => self.lexical_annotation(path, source.span)? == ty,
             };
             if descriptor_literal {
                 return self.any_literal(literal, ty, source.span);
@@ -205,62 +207,6 @@ impl Resolver<'_> {
             _ => return Err(Diagnostic::new(span, "unknown Any descriptor member")),
         };
         Ok(Some(self.any_schema(ty, span)?.field(field).id))
-    }
-
-    pub(crate) fn any_literal(
-        &mut self,
-        literal: &syntax::StructLiteral,
-        ty: TypeId,
-        span: Span,
-    ) -> Result<Expr, Diagnostic> {
-        let schema = self.any_schema(ty, span)?;
-        let mut initializers = Vec::new();
-        let mut seen = [false; 2];
-        for initializer in &literal.fields {
-            let field = match self.symbols.name(initializer.name) {
-                "type" => AnyField::Type,
-                "value_pointer" => AnyField::ValuePointer,
-                _ => {
-                    return Err(Diagnostic::new(
-                        initializer.span,
-                        "unknown Any descriptor member",
-                    ));
-                }
-            };
-            let index = match field {
-                AnyField::Type => 0,
-                AnyField::ValuePointer => 1,
-            };
-            if std::mem::replace(&mut seen[index], true) {
-                return Err(Diagnostic::new(
-                    initializer.span,
-                    "duplicate Any descriptor member",
-                ));
-            }
-            let field = schema.field(field);
-            let value = self.expr_expected(&initializer.value, field.ty)?;
-            initializers.push((
-                field.id,
-                self.coerce_value(value, field.ty, initializer.span)?,
-            ));
-        }
-        for (index, choice) in [AnyField::Type, AnyField::ValuePointer]
-            .into_iter()
-            .enumerate()
-        {
-            if !seen[index] {
-                let field = schema.field(choice);
-                initializers.push((field.id, ValueExpr::Zero(field.ty)));
-            }
-        }
-        self.typed_value(
-            ValueExpr::RecordBuild {
-                ty,
-                initializers,
-            },
-            ty,
-            span,
-        )
     }
 }
 

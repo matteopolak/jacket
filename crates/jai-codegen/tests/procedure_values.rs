@@ -52,7 +52,7 @@ fn graph_operator_returns_keep_source_casts_and_compact_baked_slots() {
         );
     }
     execute_fixture_with_optimizations(
-        "Optional::#type(value:int)->int;Required::#type(value:int)->int #must;counter:int;answer::(value:int)->int{counter+=1;return value;}Holder::struct(T:Type){callback:T;}operator +::(a:$T,b:int)->T #symmetric{return a;}main::()->int{required_receiver:Holder(Required);required_receiver.callback=answer;optional_receiver:Holder(Optional);optional_receiver.callback=answer;required:=1+required_receiver;optional:=optional_receiver+2;optional.callback(value=0);return required.callback(value=40)+counter;}",
+        "Optional::#type(value:int)->int;Required::#type(value:int)->int #must;counter:int;answer::(value:int)->int{counter+=1;return value;}Holder::struct(T:Type){callback:T;}operator +::(a:$T,b:int)->T #symmetric{return a;}main::()->int{required_receiver:Holder(Required);required_receiver.callback=answer;optional_receiver:Holder(Optional);optional_receiver.callback=answer;required:=1+required_receiver;optional:=optional_receiver+2;optional.callback(value=0);value:=required.callback(value=40);return value+counter;}",
         &[],
         false,
         &[
@@ -74,7 +74,7 @@ fn omitted_generic_callback_defaults_keep_the_defining_cast_in_vm_and_native_cal
         ],
     );
     execute_fixture_with_optimizations(
-        "Dependency::#import \"Dependency\";Required::#type(other:int)->int;main::()->int{callback:=Dependency.forward();return callback(value=42);}",
+        "Dependency::#import,file \"Dependency.jai\";Required::#type(other:int)->int;main::()->int{callback:=Dependency.forward();return callback(value=42);}",
         &[(
             "Dependency.jai",
             "#scope_file Required::#type(value:int)->int #must;answer::(value:int)->int{return value;}#scope_export forward::(callback:$F=cast(Required)answer)->F{return callback;}",

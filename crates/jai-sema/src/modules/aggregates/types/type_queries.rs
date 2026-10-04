@@ -121,58 +121,57 @@ impl Nominals<'_> {
             }
             return Ok(result);
         }
-        let mut pending = vec![(ty, HashSet::new())];
-        let mut found = None;
-        while let Some((owner, mut ancestors)) = pending.pop() {
-            charge(remaining, 1, span)?;
-            if !ancestors.insert(owner) {
-                return Err(Diagnostic::new(span, "cyclic using field promotion"));
-            }
-            if ancestors.len() > MAX_QUERY_PATH {
-                return Err(Diagnostic::new(
-                    span,
-                    "annotation type_of exceeds using promotion depth limit",
-                ));
-            }
-            let fields = if let Some(record) = records.and_then(|records| records.record(owner)) {
-                charge(remaining, record.shape.fields.len(), span)?;
-                record
-                    .shape
-                    .fields
-                    .iter()
-                    .map(|field| (field.name, field.id, field.syntax.using()))
-                    .collect::<Vec<_>>()
-            } else if let Some(record) = self.records.get(&owner) {
+        let path = crate::record_default_overrides::optional_field_path(
+            ty,
+            member,
+            span,
+            types,
+            |owner| {
+                charge(remaining, 1, span)?;
+                if let Some(record) = records.and_then(|records| records.record(owner)) {
+                    charge(
+                        remaining,
+                        record
+                            .shape
+                            .fields
+                            .len()
+                            .saturating_add(record.shape.using.len()),
+                        span,
+                    )?;
+                    return Ok(record.shape.clone());
+                }
+                let record = self.records.get(&owner).ok_or_else(|| {
+                    Diagnostic::new(
+                        span,
+                        "annotation type_of is waiting for ready record declaration metadata",
+                    )
+                })?;
                 charge(remaining, record.fields.len(), span)?;
-                record
-                    .fields
-                    .iter()
-                    .map(|field| (Some(field.name), field.id, field.syntax.using))
-                    .collect::<Vec<_>>()
-            } else {
-                return Err(Diagnostic::new(
-                    span,
-                    "annotation type_of is waiting for ready record declaration metadata",
-                ));
-            };
-            for (name, field, using) in fields {
-                if name == Some(member) {
-                    let field_type = types
-                        .field_type(field)
-                        .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-                    if found.replace(field_type).is_some() {
-                        return Err(Diagnostic::new(span, "ambiguous promoted record member"));
-                    }
-                }
-                if using {
-                    let field_type = types
-                        .field_type(field)
-                        .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-                    pending.push((field_type, ancestors.clone()));
-                }
-            }
+                Ok(crate::local_declarations::RecordMetadata {
+                    name: None,
+                    kind: record.kind,
+                    using: Vec::new(),
+                    fields: record
+                        .fields
+                        .iter()
+                        .map(|field| crate::local_declarations::FieldMetadata {
+                            name: Some(field.name),
+                            id: field.id,
+                            ty: field.ty,
+                            syntax: field.syntax.clone().into(),
+                        })
+                        .collect(),
+                })
+            },
+        )?
+        .ok_or_else(|| Diagnostic::new(span, "unknown record member in annotation type_of"))?;
+        let mut result = ty;
+        for field in path {
+            result = types
+                .validate_field(result, field)
+                .map_err(|e| Diagnostic::new(span, e.to_string()))?;
         }
-        found.ok_or_else(|| Diagnostic::new(span, "unknown record member in annotation type_of"))
+        Ok(result)
     }
 
     pub(super) fn annotation_type_of(

@@ -242,14 +242,24 @@ impl Context<'_> {
             }
             terminal_arms &= arm.through || flow == Flow::Terminates;
         }
-        if cases.arms.last().is_some_and(|arm| arm.through) && cases.default.is_none() {
+        let order = cases.order().map_err(|_| IrError::InvalidFlow)?;
+        let final_through = match order.last() {
+            jai_types::CaseTarget::Arm(index) => cases.arms[index].through,
+            jai_types::CaseTarget::Default => cases.default_through,
+            jai_types::CaseTarget::End => false,
+        };
+        if final_through {
             return Err(IrError::InvalidFlow);
         }
         if cases.exhaustive && !boolean_coverage(cases) {
             return Err(IrError::InvalidExhaustiveness);
         }
         let terminal_default = if let Some(default) = &cases.default {
-            self.block(default)? == Flow::Terminates
+            let flow = self.block(default)?;
+            if cases.default_through && flow == Flow::Terminates {
+                return Err(IrError::InvalidFlow);
+            }
+            cases.default_through || flow == Flow::Terminates
         } else {
             cases.exhaustive
         };

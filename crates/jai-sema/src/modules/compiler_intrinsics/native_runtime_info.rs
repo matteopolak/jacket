@@ -149,6 +149,26 @@ impl NativeRuntimeInfoRole {
         }
         Ok(publication)
     }
+
+    pub(crate) fn pending_publication(
+        &self,
+        library: &jai_ir::Library,
+    ) -> Result<jai_ir::NativeRuntimeInfoPublication, String> {
+        let checked = library
+            .checked_procedure(self.procedure)
+            .ok_or("runtime-info selected fallback is absent from the final library")?;
+        let publication = jai_ir::NativeRuntimeInfoPublication::new_pending_checked(
+            &checked,
+            self.global,
+            self.source.clone(),
+            self.schema,
+        )
+        .map_err(|error| error.to_string())?;
+        if publication.data() != &self.data {
+            return Err("runtime-info selected external changed before publication".into());
+        }
+        Ok(publication)
+    }
 }
 
 /// Only inert declaration blocks and the one cleanup-free returned load fit

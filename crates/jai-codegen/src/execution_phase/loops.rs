@@ -117,19 +117,32 @@ fn statement_paths(statement: &Statement, facts: &PhaseBindings) -> Paths {
 }
 
 fn case_paths(case: &Cases, facts: &PhaseBindings) -> Paths {
-    let mut result = case
-        .default
-        .as_ref()
-        .map_or_else(Paths::open, |block| block_paths(block, facts));
-    let mut next_falls_through = result.falls_through;
-    if case.default.is_none() {
-        result.falls_through = !case.exhaustive;
-    }
-    for arm in case.arms.iter().rev() {
-        let mut paths = block_paths(&arm.body, facts);
-        paths.falls_through &= !arm.through || next_falls_through;
+    use jai_types::CaseTarget;
+    let Ok(order) = case.order() else {
+        return Paths::open();
+    };
+    let mut result = Paths {
+        falls_through: !case.exhaustive && case.default.is_none(),
+        breaks: HashSet::new(),
+    };
+    let mut next_falls_through = true;
+    let mut target = order.last();
+    while target != CaseTarget::End {
+        let (body, through) = match target {
+            CaseTarget::Arm(index) => (&case.arms[index].body, case.arms[index].through),
+            CaseTarget::Default => (
+                case.default.as_ref().expect("checked physical default"),
+                case.default_through,
+            ),
+            CaseTarget::End => unreachable!(),
+        };
+        let mut paths = block_paths(body, facts);
+        paths.falls_through &= !through || next_falls_through;
         next_falls_through = paths.falls_through;
         result.merge(paths);
+        target = order
+            .preceding(target)
+            .expect("checked physical predecessor");
     }
     result
 }

@@ -15,6 +15,7 @@ mod casts;
 mod code_syntax;
 mod compile_time;
 mod compile_time_cases;
+mod conditional_expressions;
 mod insert_replacements;
 mod procedure_notes;
 mod source_procedure_headers;
@@ -25,15 +26,20 @@ mod declaration_lists;
 mod deferred_context;
 mod deprecation;
 mod file_conditional_bodies;
+mod source_file_items;
 pub use deprecation::Deprecation;
+pub use source_file_items::{PokeNameDirective, PokedName};
+mod aggregate_literals;
 mod expressions;
 mod external_data;
 pub use external_data::{ExternalDataBinding, ExternalDataSource};
 mod field_placement;
 pub use field_placement::FieldPlacementSyntax;
+mod enum_body_items;
 mod field_prefix;
 mod instruction_bytes;
 mod libraries;
+pub use enum_body_items::{EnumBodyItem, EnumMemberCursor, EnumMemberSyntax};
 mod literals;
 mod metadata;
 mod modules;
@@ -66,6 +72,7 @@ mod run_flags;
 mod safety_checks;
 mod source_contracts;
 pub use run_flags::RunFlags;
+mod record_using;
 mod short_lambdas;
 mod simd;
 mod statement_conditionals;
@@ -200,6 +207,8 @@ impl Module {
 pub struct GlobalDeclaration {
     pub declaration: Declaration,
     pub span: Span,
+    pub reset_policy: GlobalResetPolicy,
+    pub reset_policy_span: Option<Span>,
 }
 #[derive(Clone, Debug)]
 pub struct ConstantDeclaration {
@@ -365,8 +374,16 @@ pub enum WhileCondition {
         initializer: Expression,
     },
 }
+/// Explicit transition spelling for the current captured-endpoint loop policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IterationPolicy {
+    Current,
+    Version2,
+}
+
 #[derive(Clone, Debug)]
 pub struct RangeLoop {
+    pub policy: IterationPolicy,
     pub iterator: Symbol,
     pub iterator_export: bool,
     pub start: Expression,
@@ -377,6 +394,7 @@ pub struct RangeLoop {
 }
 #[derive(Clone, Debug)]
 pub struct ArrayLoop {
+    pub policy: IterationPolicy,
     pub expansion: Option<NamePath>,
     pub iterator: Symbol,
     pub iterator_export: bool,
@@ -396,6 +414,9 @@ pub enum CaseOperator {
 }
 #[derive(Clone, Debug)]
 pub struct CaseStatement {
+    /// Number of labeled arms preceding the default in the original source.
+    pub default_position: Option<usize>,
+    pub default_through: bool,
     pub value: Expression,
     pub operator: CaseOperator,
     pub arms: Vec<(Expression, Vec<Statement>, bool)>,
@@ -686,7 +707,6 @@ mod tests {
             "main :: () { for 1.. {} }",
             "main :: () { for 1 {} }",
             "main :: () { break 1; }",
-            "main :: () { for #v2 < 1..3 {} }",
         ] {
             assert!(parse(invalid).is_err(), "{invalid}");
         }
@@ -721,7 +741,7 @@ mod tests {
             outer.else_value.as_ref().unwrap().kind,
             ExpressionKind::Integer(3)
         ));
-        let ExpressionKind::Conditional(inner) = &outer.then_value.kind else {
+        let ExpressionKind::Conditional(inner) = &outer.then_source().kind else {
             panic!()
         };
         assert!(matches!(
@@ -731,7 +751,6 @@ mod tests {
         assert!(parse("main :: ()->int { return ifx true then 1; }").is_ok());
         for source in [
             "main :: ()->int { return ifx true then else 1; }",
-            "main :: ()->int { return ifx true else 1; }",
             "main :: ()->int { return ifx true then 1 else; }",
         ] {
             assert!(parse(source).is_err(), "{source}");
@@ -744,7 +763,7 @@ mod case_parser_tests {
     #[test]
     fn rejects_invalid_case_structure_and_expression_cases() {
         for source in [
-            "main :: () { if 1 == { case; case 1; } }",
+            "main :: () { if 1 == { case; case; } }",
             "main :: () { if 1 == { case 1; #through; n := 1; case; } }",
             "main :: () { if 1 == { case; #through; } }",
             "main :: () { if 1 == { n := 1; } }",
@@ -756,3 +775,6 @@ mod case_parser_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod loop_case_policy_tests;

@@ -432,6 +432,7 @@ pub(super) fn bind_procedures_resumable<'graph>(
                     worklist::canonical_constant(declaration, declarations, types);
                 let result = {
                     let mut resolver = Resolver {
+                        conditional_subjects: Vec::new(),
                         expression_owner: Some(context.owner),
                         debug: crate::debug_capture::Capture::default(),
                         checks: crate::safety_checks::ActiveChecks::default(),
@@ -927,6 +928,7 @@ pub(super) fn bind_procedures_resumable<'graph>(
                     }
                     meta.storage_alignments.clear_procedure(signature.id);
                     let mut resolver = Resolver {
+                        conditional_subjects: Vec::new(),
                         expression_owner: Some(signature.id),
                         debug: crate::debug_capture::Capture::default(),
                         checks: crate::safety_checks::ActiveChecks::default()
@@ -1337,6 +1339,7 @@ pub(super) fn bind_procedures_resumable<'graph>(
                         pending_field_defaults: RefCell::new(vec![]),
                     };
                     let mut resolver = Resolver {
+                        conditional_subjects: Vec::new(),
                         expression_owner: Some(context.owner),
                         debug: crate::debug_capture::Capture::default(),
                         checks: crate::safety_checks::ActiveChecks::default(),

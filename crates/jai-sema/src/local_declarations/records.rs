@@ -149,6 +149,16 @@ impl Resolver<'_> {
         self.meta.local_declarations.records.insert(
             ty,
             RecordMetadata {
+                using: members
+                    .iter()
+                    .filter_map(|member| {
+                        if let syntax::RecordMember::Using(value) = member {
+                            Some(value.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
                 name,
                 kind,
                 fields: metadata.clone(),

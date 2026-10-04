@@ -32,6 +32,7 @@ pub(crate) struct EnumInfo {
     pub flags: bool,
     pub members: HashMap<Symbol, Integer>,
     pub values: Vec<Integer>,
+    pub source_members: Vec<Symbol>,
 }
 pub(crate) struct Nominals<'a> {
     annotation_target: std::cell::Cell<Option<jai_types::LayoutPolicy>>,
@@ -892,12 +893,8 @@ impl<'a> Nominals<'a> {
                         if let Some(path) = literal_type {
                             field_types.push(super::parameterized::resolve_type(
                                 graph,
-                                super::parameterized::TypeRequest::new(
-                                    file,
-                                    &TypeSyntax::Named(path.clone()),
-                                    field.span,
-                                )
-                                .with_substitution(None),
+                                super::parameterized::TypeRequest::new(file, path, field.span)
+                                    .with_substitution(None),
                                 types,
                                 self,
                                 records,
@@ -1025,7 +1022,29 @@ impl<'a> Nominals<'a> {
             } else {
                 0i128
             });
-            for member in &enumeration.members {
+            let mut source_members = Vec::new();
+            let mut cursor = syntax::EnumMemberCursor::new(&enumeration.members);
+            while let Some(member) = cursor.next_member(
+                |expression| {
+                    let value = jai_eval::evaluate_paths(expression, |path, span| {
+                        let own = if path.members.is_empty() {
+                            Some(path.root)
+                        } else if path.root == enumeration.name && path.members.len() == 1 {
+                            Some(path.members[0])
+                        } else {
+                            None
+                        };
+                        if let Some(value) = own.and_then(|name| members.get(&name)).copied() {
+                            return Ok(ConstantValue::Int(value));
+                        }
+                        evaluate(declaration.file(), path, span)
+                    })
+                    .and_then(|value| crate::enum_conditions::truth(value, expression.span));
+                    value.map_err(|error| located(graph, declaration.file(), error))
+                },
+                |error| located(graph, declaration.file(), error),
+            )? {
+                source_members.push(member.name);
                 if members.contains_key(&member.name) {
                     return Err(located(
                         graph,
@@ -1104,6 +1123,7 @@ impl<'a> Nominals<'a> {
                     flags: enumeration.kind == EnumKind::Flags,
                     members,
                     values,
+                    source_members,
                 },
             );
         }

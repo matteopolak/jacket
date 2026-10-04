@@ -114,11 +114,11 @@ pub(super) fn constant_procedures_with_closures(
         if depth >= MAX_CONSTANT_DEPTH {
             return Err(IrError::VerificationDepth);
         }
-        let children: &[ConstantValue] = match &value.kind {
+        let children: Vec<&ConstantValue> = match &value.kind {
             ConstantKind::RuntimeType(value) => {
                 closures.procedures(value.data(), types, signatures)?;
                 value.validate_identity(types)?;
-                &[]
+                vec![]
             }
             ConstantKind::Procedure(procedure) => {
                 let &signature = signatures
@@ -126,26 +126,28 @@ pub(super) fn constant_procedures_with_closures(
                     .ok_or_else(|| unknown("constant procedure", procedure.index()))?;
                 same_type(signature, value.ty)?;
                 types.procedure_definition(signature)?;
-                &[]
+                vec![]
             }
-            ConstantKind::Record(children) | ConstantKind::Array(children) => children,
+            ConstantKind::Record(children) | ConstantKind::Array(children) => {
+                children.iter().collect()
+            }
             ConstantKind::Union {
                 value, ..
             }
-            | ConstantKind::Distinct(value) => std::slice::from_ref(value.as_ref()),
+            | ConstantKind::Distinct(value) => vec![value.as_ref()],
             ConstantKind::Int(_)
             | ConstantKind::NativePointer(_)
             | ConstantKind::Float(_)
             | ConstantKind::Bool(_)
             | ConstantKind::StringBytes(_)
             | ConstantKind::Enum(_)
-            | ConstantKind::Zero => &[],
+            | ConstantKind::Zero => vec![],
         };
         nodes = nodes
             .checked_add(children.len())
             .filter(|count| *count <= 1_048_576)
             .ok_or(IrError::VerificationDepth)?;
-        pending.extend(children.iter().map(|child| (child, depth + 1)));
+        pending.extend(children.into_iter().map(|child| (child, depth + 1)));
     }
     Ok(())
 }

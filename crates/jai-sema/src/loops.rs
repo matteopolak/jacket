@@ -75,6 +75,9 @@ impl Resolver<'_> {
         &mut self,
         range: &syntax::RangeLoop,
     ) -> Result<Statement, Diagnostic> {
+        match range.policy {
+            syntax::IterationPolicy::Current | syntax::IterationPolicy::Version2 => {}
+        }
         // Resolve endpoints before introducing the iterator; outer names stay visible.
         let direction =
             self.iteration_direction(range.direction, range.reverse_control.as_ref())?;

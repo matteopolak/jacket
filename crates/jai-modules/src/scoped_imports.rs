@@ -118,6 +118,13 @@ impl Builder<'_> {
             );
             for member in &selected.members {
                 let result = match member {
+                    RecordMember::Import(import) => Err(self.located(
+                        SourceSpan {
+                            source: self.graph.files[file.index()].source,
+                            span: import.span,
+                        },
+                        "record import requires a checked record-source namespace producer",
+                    )),
                     RecordMember::Procedure(procedure) if contains_import(&procedure.body) => {
                         if !self.scan_source_procedure(owner, file, procedure) {
                             continue;
@@ -1053,10 +1060,8 @@ impl Builder<'_> {
                 **rhs = self.expand_local(file, rhs, scopes, active)?;
             }
             ExpressionKind::Conditional(value) => {
-                *value.condition = self.expand_local(file, &value.condition, scopes, active)?;
-                *value.then_value = self.expand_local(file, &value.then_value, scopes, active)?;
-                if let Some(no) = &mut value.else_value {
-                    **no = self.expand_local(file, no, scopes, active)?;
+                for expression in value.expressions_mut() {
+                    *expression = self.expand_local(file, expression, scopes, active)?;
                 }
             }
             _ => {}
@@ -1251,7 +1256,9 @@ fn retain_record_bindings(scope: &mut LocalScope, members: &[RecordMember]) {
                     StatementKind::Enum(value.clone()),
                 ))
             }
-            RecordMember::Placement(_)
+            RecordMember::Import(_)
+            | RecordMember::Using(_)
+            | RecordMember::Placement(_)
             | RecordMember::Insert(_)
             | RecordMember::DefaultOverride {
                 ..
@@ -1355,6 +1362,7 @@ fn record_contains_physical_fields(members: &[RecordMember]) -> bool {
 
 fn record_contains_import(members: &[RecordMember]) -> bool {
     members.iter().any(|member| match member {
+        RecordMember::Import(_) => true,
         RecordMember::Procedure(procedure) => contains_import(&procedure.body),
         RecordMember::Record(record) => record_contains_import(&record.members),
         RecordMember::AnonymousRecord(record) => record_contains_import(&record.members),

@@ -169,8 +169,11 @@ impl Resolver<'_> {
         target: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
+        if source.is_implicit() {
+            return self.source_conditional(source, Some(target), span);
+        }
         let condition = self.condition_expression(&source.condition)?;
-        let yes = self.expr_expected(&source.then_value, target)?;
+        let yes = self.expr_expected(source.then_source(), target)?;
         let no = match &source.else_value {
             Some(source) => self.expr_expected(source, target)?,
             None => self.typed_value(ValueExpr::Zero(target), target, span)?,
@@ -327,7 +330,7 @@ pub(crate) fn needs_cast_context(expression: &syntax::Expression) -> bool {
             ..
         } => true,
         E::Conditional(value) => {
-            needs_cast_context(&value.then_value)
+            needs_cast_context(value.then_source())
                 || value
                     .else_value
                     .as_ref()

@@ -582,6 +582,53 @@ fn ordered_nested_overlapping_paths_preserve_interleaving_o0_o2() {
 }
 
 #[test]
+fn placed_record_build_applies_overlapping_fields_in_initializer_order_o0_o2() {
+    let mut types = TypeRegistry::new();
+    let word = types.scalar(ScalarType::Int(IntegerType::U32));
+    let record = types.reserve_record(RecordKind::Struct);
+    types
+        .define_record_with_placements(
+            record,
+            [word, word],
+            RecordLayout::default(),
+            [None, Some(0)],
+        )
+        .unwrap();
+    let first = types.field(record, 0).unwrap().id;
+    let second = types.field(record, 1).unwrap().id;
+    let snapshot = ValueExpr::RecordBuild {
+        ty: record,
+        initializers: vec![
+            (first, integer(IntegerType::U32, 1)),
+            (second, integer(IntegerType::U32, 42)),
+        ],
+    };
+    let selected = ValueExpr::Field {
+        base: Box::new(snapshot),
+        field: first,
+        ty: word,
+    };
+    execute(
+        &finish(
+            types,
+            vec![returned(IntExpr::new(
+                IntegerType::S64,
+                IntExprKind::Cast(
+                    CastMode::Checked,
+                    Box::new(IntExpr::new(
+                        IntegerType::U32,
+                        IntExprKind::Value(Box::new(selected)),
+                    )),
+                ),
+            ))],
+            vec![],
+            Places::default(),
+        ),
+        Some(42),
+    );
+}
+
+#[test]
 fn ordered_uninitialized_backing_writes_only_the_selected_field_o0_o2() {
     let mut types = TypeRegistry::new();
     let byte = types.scalar(ScalarType::Int(IntegerType::U8));

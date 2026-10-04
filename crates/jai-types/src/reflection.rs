@@ -640,8 +640,8 @@ fn describe(
             } else {
                 0
             };
-            // These source bits describe the policy observed by this immutable
-            // graph. Preserve every other genuine source metadata flag.
+            // These three source bits describe the policy observed by this
+            // immutable graph, including a retained demand's policy view.
             record_metadata.textual_flags =
                 (record_metadata.textual_flags & !(8 | 16 | 32)) | reductions;
             DescriptorKind::Record {

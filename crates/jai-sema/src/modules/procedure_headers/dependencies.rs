@@ -157,7 +157,8 @@ pub(in crate::modules) fn dependencies(
                 None
             }
             E::Conditional(branch) => {
-                pending.extend([branch.condition.as_ref(), branch.then_value.as_ref()]);
+                pending.push(branch.condition.as_ref());
+                pending.extend(branch.explicit_then());
                 pending.extend(branch.else_value.as_deref());
                 None
             }

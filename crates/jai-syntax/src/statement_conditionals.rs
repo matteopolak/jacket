@@ -6,23 +6,43 @@ impl Parser<'_> {
     pub(super) fn assertion_arguments(
         &mut self,
     ) -> Result<(Expression, Option<Expression>), Diagnostic> {
+        let operands = self.assertion_operands(true)?;
+        self.need(Punct::Semicolon)?;
+        Ok(operands)
+    }
+
+    /// Replacement directives omit the terminator and reserve bare commas for their list.
+    pub(super) fn assertion_operands(
+        &mut self,
+        comma_message: bool,
+    ) -> Result<(Expression, Option<Expression>), Diagnostic> {
         if !self.allow_qualified {
             return Err(self.error("#assert requires source condition resolution"));
         }
         self.at += 1;
-        let mut depth = 0;
+        let mut closes = Vec::new();
         let mut comma_arguments = false;
         if self.is(Punct::OpenParen) {
             for token in &self.tokens[self.at..] {
                 match token.kind {
-                    Kind::Punctuation(Punct::OpenParen) => depth += 1,
-                    Kind::Punctuation(Punct::CloseParen) => {
-                        depth -= 1;
-                        if depth == 0 {
+                    Kind::Punctuation(Punct::OpenParen) => closes.push(Punct::CloseParen),
+                    Kind::Punctuation(Punct::OpenBracket | Punct::ArrayLiteral) => {
+                        closes.push(Punct::CloseBracket)
+                    }
+                    Kind::Punctuation(Punct::OpenBrace | Punct::StructLiteral) => {
+                        closes.push(Punct::CloseBrace)
+                    }
+                    Kind::Punctuation(
+                        close @ (Punct::CloseParen | Punct::CloseBracket | Punct::CloseBrace),
+                    ) => {
+                        if closes.pop() != Some(close) {
+                            break;
+                        }
+                        if closes.is_empty() {
                             break;
                         }
                     }
-                    Kind::Punctuation(Punct::Comma) if depth == 1 => comma_arguments = true,
+                    Kind::Punctuation(Punct::Comma) if closes.len() == 1 => comma_arguments = true,
                     _ => {}
                 }
             }
@@ -36,12 +56,11 @@ impl Parser<'_> {
             let message = self.expression(0)?;
             self.need(Punct::CloseParen)?;
             Some(message)
-        } else if self.token().kind == Kind::String {
+        } else if (comma_message && self.take(Punct::Comma)) || self.token().kind == Kind::String {
             Some(self.expression(0)?)
         } else {
             None
         };
-        self.need(Punct::Semicolon)?;
         Ok((condition, message))
     }
 

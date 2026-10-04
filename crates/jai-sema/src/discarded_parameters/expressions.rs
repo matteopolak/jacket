@@ -95,7 +95,9 @@ impl Resolver<'_> {
                 self.validate_discarded_expression_inner(&value.condition, depth + 1)?;
                 let condition = self.describe_argument(&value.condition)?;
                 self.check_discarded_condition(&condition, value.condition.span)?;
-                self.validate_discarded_expression_inner(&value.then_value, depth + 1)?;
+                if let Some(value) = value.explicit_then() {
+                    self.validate_discarded_expression_inner(value, depth + 1)?;
+                }
                 if let Some(value) = &value.else_value {
                     self.validate_discarded_expression_inner(value, depth + 1)?;
                 }
@@ -182,6 +184,9 @@ impl Resolver<'_> {
             }
             E::StructLiteral(value) => {
                 for field in &value.fields {
+                    for index in crate::modules::aggregates::promoted_literals::target_expressions::index_expressions(&field.target)? {
+                        self.validate_discarded_expression_inner(index, depth + 1)?;
+                    }
                     self.validate_discarded_expression_inner(&field.value, depth + 1)?;
                 }
             }

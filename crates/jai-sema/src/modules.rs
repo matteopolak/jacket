@@ -98,7 +98,7 @@ fn infer_constant_type(
     graph: &ModuleGraph,
     file: FileInstanceId,
     expression: &syntax::Expression,
-    types: &TypeRegistry,
+    types: &mut TypeRegistry,
     nominals: &Nominals<'_>,
     constants: &Constants<'_>,
 ) -> Result<TypeId, LocatedDiagnostic> {
@@ -107,26 +107,23 @@ fn infer_constant_type(
             Ok(types.string())
         }
         syntax::ExpressionKind::StructLiteral(literal) => {
-            let path = literal.ty.as_ref().ok_or_else(|| {
+            let annotation = literal.ty.as_ref().ok_or_else(|| {
                 located(
                     graph,
                     file,
                     Diagnostic::new(expression.span, "record literal requires a contextual type"),
                 )
             })?;
-            let id = declaration_id(graph, file, path, expression.span)
-                .map_err(|error| located(graph, file, error))?;
-            nominals.declarations.get(&id).copied().ok_or_else(|| {
-                located(
-                    graph,
-                    file,
-                    Diagnostic::new(
-                        expression.span,
-                        "literal declaration does not denote a type",
-                    ),
-                )
-            })
+            nominals.resolve_type(
+                graph,
+                file,
+                annotation,
+                types,
+                expression.span,
+                &mut |file, source| constants.evaluate(file, source),
+            )
         }
+
         syntax::ExpressionKind::Name(name) => infer_name_constant(
             graph,
             file,

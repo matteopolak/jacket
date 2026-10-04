@@ -77,6 +77,7 @@ pub(super) fn collect(
                         .map(|record| record.shape.clone())
                         .or_else(|| {
                             nominals.records.get(&ty).map(|record| RecordMetadata {
+                                using: Vec::new(),
                                 name: None,
                                 kind: record.kind,
                                 fields: record

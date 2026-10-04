@@ -803,27 +803,35 @@ fn graph_operator_results_retain_each_original_callback_cast_contract() {
 
 #[test]
 fn required_graph_operator_results_cannot_be_discarded_at_root_destinations() {
-    let declarations =
-        "Box::struct{value:int;}operator []::(a:Box,index:int)->int #must{return a.value+index;}";
-    check(&format!(
-        "{declarations}main::()->int{{return Box.{{value=40}}[2];}}"
-    ))
-    .unwrap();
-    for discard in [
-        "Box.{value=40}[2];",
-        "_:=Box.{value=40}[2];",
-        "_=Box.{value=40}[2];",
+    for (ty, result) in [
+        ("int", "a.value+index"),
+        ("float64", "1.5"),
+        ("bool", "true"),
     ] {
-        let source = format!("{declarations}main::(){{{discard}}}");
-        let error = check(&source)
-            .err()
-            .expect("required operator result root discard");
-        assert!(error.message.contains("#must"), "{error:?}");
-        let call = "Box.{value=40}[2]";
-        let start = source.rfind(call).unwrap();
-        assert_eq!(error.location.span.start, start, "{error:?}");
-        assert_eq!(error.location.span.end, start + call.len(), "{error:?}");
+        let declarations = format!(
+            "Box::struct{{value:int;}}operator []::(a:Box,index:int)->{ty} #must{{return {result};}}"
+        );
+        check(&format!(
+            "{declarations}main::()->{ty}{{return Box.{{value=40}}[2];}}"
+        ))
+        .unwrap();
+        for discard in [
+            "Box.{value=40}[2];",
+            "_:=Box.{value=40}[2];",
+            "_=Box.{value=40}[2];",
+        ] {
+            let source = format!("{declarations}main::(){{{discard}}}");
+            let error = check(&source)
+                .err()
+                .unwrap_or_else(|| panic!("required operator result root discard: {source}"));
+            assert!(error.message.contains("#must"), "{error:?}");
+            let call = "Box.{value=40}[2]";
+            let start = source.rfind(call).unwrap();
+            assert_eq!(error.location.span.start, start, "{error:?}");
+            assert_eq!(error.location.span.end, start + call.len(), "{error:?}");
+        }
     }
+    check("Box::struct{value:int;}operator []::(a:Box,index:int)->int #must{return a.value+index;}main::(){_:=Box.{value=40}[2]+1;}").unwrap();
 }
 
 #[test]
@@ -831,8 +839,7 @@ fn generic_omitted_callback_defaults_keep_their_defining_cast_contract() {
     let declarations = "Required::#type(value:int)->int #must;Optional::#type(value:int)->int;answer::(value:int)->int{return value;}forward::(callback:$F=cast(Required)answer)->F{return callback;}";
     let body = "required:=forward();optional:=forward(cast(Optional)answer);optional(value=0);";
     let accepted = format!("{declarations}main::()->int{{{body}return required(value=42);}}");
-    let library = check(&accepted).unwrap();
-    assert_eq!(library.procedures().len(), 3);
+    check(&accepted).unwrap();
     let rejected = format!("{declarations}main::()->int{{{body}required(value=42);return 0;}}");
     let error = check(&rejected)
         .err()

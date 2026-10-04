@@ -325,6 +325,7 @@ pub(crate) struct RecordMetadata {
     pub(crate) name: Option<Symbol>,
     pub(crate) kind: RecordKind,
     pub(crate) fields: Vec<FieldMetadata>,
+    pub(crate) using: Vec<syntax::UsingDirective>,
 }
 #[derive(Clone)]
 pub(crate) struct SelectedLocalRecordSource {

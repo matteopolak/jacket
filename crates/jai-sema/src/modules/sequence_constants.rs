@@ -70,11 +70,33 @@ pub(super) fn infer<'a>(
         constants,
         visiting: HashSet::new(),
         depth: 0,
+        records: None,
+    }
+    .expression(file, expression, types)
+}
+
+pub(super) fn infer_with_records<'a>(
+    graph: &'a ModuleGraph,
+    file: FileInstanceId,
+    expression: &syntax::Expression,
+    types: &mut TypeRegistry,
+    nominals: &Nominals<'a>,
+    constants: &Constants<'a>,
+    records: &mut aggregates::parameterized::RecordSpecializations,
+) -> Result<Option<TypeId>, LocatedDiagnostic> {
+    LiteralInference {
+        graph,
+        nominals,
+        constants,
+        visiting: HashSet::new(),
+        depth: 0,
+        records: Some(records),
     }
     .expression(file, expression, types)
 }
 
 struct LiteralInference<'graph, 'metadata> {
+    records: Option<&'metadata mut aggregates::parameterized::RecordSpecializations>,
     graph: &'graph ModuleGraph,
     nominals: &'metadata Nominals<'graph>,
     constants: &'metadata Constants<'graph>,
@@ -181,7 +203,7 @@ impl LiteralInference<'_, '_> {
                 ty,
                 ..
             }) => {
-                let path = ty.as_ref().ok_or_else(|| {
+                let annotation = ty.as_ref().ok_or_else(|| {
                     located(
                         self.graph,
                         file,
@@ -191,18 +213,27 @@ impl LiteralInference<'_, '_> {
                         ),
                     )
                 })?;
-                let id = declaration_id(self.graph, file, path, expression.span)
-                    .map_err(|error| located(self.graph, file, error))?;
-                *self.nominals.declarations.get(&id).ok_or_else(|| {
-                    located(
+                match &mut self.records {
+                    Some(records) => self.nominals.resolve_type_with_specializations(
+                        self.graph,
+                        aggregates::parameterized::TypeRequest::new(
+                            file,
+                            annotation,
+                            expression.span,
+                        ),
+                        types,
+                        records,
+                        &mut |file, expression| self.constants.evaluate(file, expression),
+                    )?,
+                    None => self.nominals.resolve_type(
                         self.graph,
                         file,
-                        Diagnostic::new(
-                            expression.span,
-                            "record literal declaration does not denote a type",
-                        ),
-                    )
-                })?
+                        annotation,
+                        types,
+                        expression.span,
+                        &mut |file, expression| self.constants.evaluate(file, expression),
+                    )?,
+                }
             }
             syntax::ExpressionKind::Name(name) => {
                 return self.name(file, &path(*name), expression.span, types);
@@ -326,7 +357,10 @@ fn bind_one<'a>(
                 None
             }
             syntax::ExpressionKind::StructLiteral(literal) => {
-                pending.extend(literal.fields.iter().map(|field| &field.value));
+                for field in &literal.fields {
+                    pending.extend(crate::modules::aggregates::promoted_literals::target_expressions::index_expressions(&field.target).map_err(|e| located(declarations.graph, declaration.file(), e))?);
+                    pending.push(&field.value);
+                }
                 None
             }
             syntax::ExpressionKind::PositionalStructLiteral(literal) => {

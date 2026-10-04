@@ -23,6 +23,14 @@ pub struct LibraryDeclaration {
     pub span: Span,
 }
 
+#[derive(Clone, Debug)]
+pub struct AnonymousLibraryDeclaration {
+    pub kind: LibraryKind,
+    pub target: String,
+    pub options: LibraryOptions,
+    pub span: Span,
+}
+
 impl Parser<'_> {
     pub(super) fn starts_library(&self) -> bool {
         self.token().kind == Kind::Ident
@@ -42,6 +50,19 @@ impl Parser<'_> {
         let start = self.token().span.start;
         let name = self.name()?;
         self.need(Punct::Constant)?;
+        let library = self.anonymous_library_declaration()?;
+        Ok(LibraryDeclaration {
+            name,
+            kind: library.kind,
+            target: library.target,
+            options: library.options,
+            span: Span::new(start, library.span.end),
+        })
+    }
+    pub(super) fn anonymous_library_declaration(
+        &mut self,
+    ) -> Result<AnonymousLibraryDeclaration, Diagnostic> {
+        let start = self.token().span.start;
         let mut kind = match self.token().kind {
             Kind::Directive(Directive::Library) => LibraryKind::Local,
             Kind::Directive(Directive::SystemLibrary) => LibraryKind::System,
@@ -76,8 +97,7 @@ impl Parser<'_> {
             return Err(self.error("library target must be nonempty and contain no NUL"));
         }
         self.need(Punct::Semicolon)?;
-        Ok(LibraryDeclaration {
-            name,
+        Ok(AnonymousLibraryDeclaration {
             kind,
             target,
             options,

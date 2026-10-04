@@ -173,7 +173,12 @@ where
         let mut values = Vec::new();
         let mut names = HashSet::new();
         let mut scope = scope.clone();
-        for member in &enumeration.members {
+        let graph = self.graph;
+        let mut cursor = syntax::EnumMemberCursor::new(&enumeration.members);
+        while let Some(member) = cursor.next_member(
+            |expression| self.record_condition(file, expression, &scope),
+            |error| failure(graph, file, error),
+        )? {
             if !names.insert(member.name) {
                 return Err(failure(
                     self.graph,

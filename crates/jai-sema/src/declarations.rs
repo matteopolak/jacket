@@ -196,7 +196,9 @@ impl<'a> Constants<'a> {
                                 if let Some(otherwise) = &e.else_value {
                                     expressions.push(otherwise);
                                 }
-                                expressions.push(&e.then_value);
+                                if let Some(value) = e.explicit_then() {
+                                    expressions.push(value);
+                                }
                                 expressions.push(&e.condition);
                             }
                             syntax::ExpressionKind::Integer(_)
@@ -388,7 +390,11 @@ pub(super) fn resolve_globals(
             shared_values.insert(std::sync::Arc::as_ptr(group), initializer.clone());
         }
         let span = global.span;
-        let global = Global::new(globals.len(), initializer, types);
+        let reset_policy = match global.reset_policy {
+            syntax::GlobalResetPolicy::Reset => jai_ir::GlobalResetPolicy::Reset,
+            syntax::GlobalResetPolicy::Preserve => jai_ir::GlobalResetPolicy::Preserve,
+        };
+        let global = Global::new(globals.len(), initializer, types).with_reset_policy(reset_policy);
         if let Some(alignment) = alignment {
             alignments
                 .set_global(global.id(), alignment)

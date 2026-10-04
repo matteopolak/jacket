@@ -1,5 +1,7 @@
 //! Source-level declaration notes and record attributes remain unresolved metadata.
 use super::*;
+#[path = "source_note_forms.rs"]
+mod source_note_forms;
 
 #[derive(Clone, Debug)]
 pub struct NoteSyntax {
@@ -16,6 +18,14 @@ pub struct NoteArgument {
 pub enum NoteValue {
     Expression(Expression),
     Word(Symbol),
+    /// Objective-C selector spelling is metadata, never a name lookup or call.
+    Selector(NoteSelectorSyntax),
+}
+#[derive(Clone, Debug)]
+pub struct NoteSelectorSyntax {
+    /// Every retained selector component ends in a colon in the original source.
+    pub components: Vec<Symbol>,
+    pub span: Span,
 }
 #[derive(Clone, Debug)]
 pub enum RecordAttribute {
@@ -61,13 +71,7 @@ impl Parser<'_> {
         let mut notes = Vec::new();
         while self.token().kind == Kind::Note {
             let span = self.token().span;
-            let canonical = self.token().spelling(self.source);
-            let spelling = canonical.strip_prefix('@').unwrap_or_default();
-            if spelling.is_empty() {
-                return Err(self.error("expected a note name after '@'"));
-            }
-            let name = self.symbols.intern(spelling);
-            self.at += 1;
+            let name = self.source_note_name()?;
             let mut arguments = Vec::new();
             if self.take(Punct::OpenParen) && !self.take(Punct::CloseParen) {
                 loop {
@@ -77,11 +81,14 @@ impl Parser<'_> {
                     if word && next == Some(Kind::Punctuation(Punct::Assign)) {
                         return Err(self.error("named note arguments are not implemented"));
                     }
-                    let value = if word
+                    let value = if word && next == Some(Kind::Punctuation(Punct::Colon)) {
+                        NoteValue::Selector(self.source_note_selector()?)
+                    } else if word
                         && matches!(
                             next,
                             Some(Kind::Punctuation(Punct::Comma | Punct::CloseParen))
-                        ) {
+                        )
+                    {
                         // Notes such as @JsonName(context) contain words, not keyword expressions.
                         let symbol = self.symbols.intern(&current.spelling(self.source));
                         self.at += 1;

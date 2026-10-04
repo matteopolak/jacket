@@ -252,10 +252,10 @@ impl Resolver<'_> {
             syntax::ExpressionKind::CallerLocation => self.caller_location_type(expression.span),
             syntax::ExpressionKind::Code(_) => Ok(self.types.code_type()),
             syntax::ExpressionKind::StructLiteral(literal) if literal.ty.is_some() => {
-                self.local_type_name(literal.ty.as_ref().unwrap(), expression.span)
+                self.lexical_annotation(literal.ty.as_ref().unwrap(), expression.span)
             }
             syntax::ExpressionKind::PositionalStructLiteral(literal) if literal.ty.is_some() => {
-                self.local_type_name(literal.ty.as_ref().unwrap(), expression.span)
+                self.lexical_annotation(literal.ty.as_ref().unwrap(), expression.span)
             }
             syntax::ExpressionKind::CompileTime(syntax::CompileTimeRun {
                 body: syntax::CompileTimeBody::Expression(value),

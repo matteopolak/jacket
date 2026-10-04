@@ -40,6 +40,15 @@ impl<A> Visitor<'_, A> {
     {
         self.node(depth)?;
         match source {
+            FileItem::Library {
+                declaration, ..
+            } => self.text(&declaration.target),
+            FileItem::PokeName {
+                directive, ..
+            } => self.path(&directive.namespace, depth + 1),
+            FileItem::Execute {
+                expression, ..
+            } => self.expression(expression, depth + 1),
             FileItem::Scope {
                 ..
             } => Ok(()),

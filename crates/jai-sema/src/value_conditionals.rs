@@ -8,8 +8,11 @@ impl Resolver<'_> {
         ty: TypeId,
         span: Span,
     ) -> Result<Expr, Diagnostic> {
+        if source.is_implicit() {
+            return self.source_conditional(source, Some(ty), span);
+        }
         let condition = self.condition_expression(&source.condition)?;
-        let yes = self.expr_expected(&source.then_value, ty)?;
+        let yes = self.expr_expected(source.then_source(), ty)?;
         let no = source
             .else_value
             .as_ref()

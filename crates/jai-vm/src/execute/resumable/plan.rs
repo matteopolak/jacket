@@ -171,6 +171,8 @@ pub(super) struct RangeCode {
 }
 #[derive(Debug)]
 pub(super) struct CasesCode {
+    pub(super) default_position: Option<usize>,
+    pub(super) default_through: bool,
     pub(super) subject: BlockId,
     pub(super) arms: Box<[CaseCode]>,
     pub(super) default: Option<BlockId>,

@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use syntax::{Expression, ExpressionKind};
 mod inferred_casts;
 mod native_pointer_constants;
+#[path = "defaults/indexed_literals.rs"]
 mod promoted_literals;
 
 enum ScalarSource<'a, 'b> {
@@ -32,6 +33,7 @@ pub(crate) struct Defaults<'a, 'b> {
     specializations: Option<&'b RecordSpecializations>,
     context: Option<&'b crate::context::Schema>,
     substitution: Option<Substitution>,
+    literal_scopes: Vec<(&'a [syntax::RecordParameter], &'b [BakedValue], usize)>,
     conversion_fields: Option<&'b HashMap<TypeId, Vec<(FieldId, TypeId)>>>,
     pub fields: HashMap<FieldId, TypedConstant>,
     pub named: HashMap<DeclarationId, TypedConstant>,
@@ -112,6 +114,7 @@ impl<'a, 'b> Defaults<'a, 'b> {
             specializations: None,
             context: None,
             substitution: None,
+            literal_scopes: Vec::new(),
             conversion_fields: None,
             fields: HashMap::new(),
             named: nominals.value_constants.clone(),
@@ -138,6 +141,7 @@ impl<'a, 'b> Defaults<'a, 'b> {
             specializations: None,
             context: None,
             substitution: None,
+            literal_scopes: Vec::new(),
             conversion_fields: None,
             fields: HashMap::new(),
             named: nominals.value_constants.clone(),
@@ -190,6 +194,7 @@ impl<'a, 'b> Defaults<'a, 'b> {
             file: record.file,
             substitution: None,
             shape: RecordMetadata {
+                using: Vec::new(),
                 name: None,
                 kind: record.kind,
                 fields: record
@@ -206,6 +211,29 @@ impl<'a, 'b> Defaults<'a, 'b> {
         })
     }
     fn literal_type(
+        &mut self,
+        file: FileInstanceId,
+        source: &syntax::TypeSyntax,
+        expected: TypeId,
+        span: Span,
+    ) -> Result<TypeId, LocatedDiagnostic> {
+        if let syntax::TypeSyntax::Named(path) = source {
+            return self.named_literal_type(file, path, span);
+        }
+        if self.annotation_matches(file, source, expected, span)? {
+            Ok(expected)
+        } else {
+            Err(located(
+                self.graph,
+                file,
+                Diagnostic::new(
+                    span,
+                    "literal type annotation differs from its checked context",
+                ),
+            ))
+        }
+    }
+    fn named_literal_type(
         &self,
         file: FileInstanceId,
         path: &syntax::NamePath,
@@ -259,16 +287,31 @@ impl<'a, 'b> Defaults<'a, 'b> {
                 )
             })
     }
+    fn literal_parameter(&self, name: Symbol) -> Option<&BakedValue> {
+        self.literal_scopes
+            .iter()
+            .rev()
+            .find_map(|(parameters, arguments, count)| {
+                parameters[..*count]
+                    .iter()
+                    .position(|parameter| parameter.name == name)
+                    .map(|index| &arguments[index])
+            })
+    }
     fn scalar(
         &mut self,
         file: FileInstanceId,
         expression: &Expression,
     ) -> Result<ConstantValue, LocatedDiagnostic> {
         let substitution = self.substitution.clone();
-        if let Some(substitution) = substitution {
+        if substitution.is_some() || !self.literal_scopes.is_empty() {
             return jai_eval::evaluate_paths(expression, |path, span| {
                 if path.members.is_empty()
-                    && let Some(value) = substitution.constant(path.root)
+                    && let Some(value) = self.literal_parameter(path.root).or_else(|| {
+                        substitution
+                            .as_ref()
+                            .and_then(|scope| scope.constant(path.root))
+                    })
                 {
                     return baked_scalar(value).ok_or_else(|| {
                         Diagnostic::new(span, "baked template value requires a scalar constant")
@@ -561,7 +604,7 @@ impl<'a, 'b> Defaults<'a, 'b> {
         span: Span,
         anonymous_member: bool,
     ) -> Result<TypedConstant, LocatedDiagnostic> {
-        crate::record_placements::require_record_construction_recipe(self.types, ty, span)
+        crate::record_placements::require_record_storage_ready(self.types, ty, span)
             .map_err(|error| located(self.graph, file, error))?;
         let kind = match self
             .types
@@ -753,6 +796,29 @@ impl<'a, 'b> Defaults<'a, 'b> {
                 syntax::BuiltinType::Context => self.nominals.context_type_id() == Some(expected),
             },
             syntax::TypeSyntax::Named(path) => {
+                if path.members.is_empty() {
+                    if let Some(BakedValue::Type(ty)) = self.literal_parameter(path.root) {
+                        return Ok(*ty == expected);
+                    }
+                    if let Some(builtin) =
+                        syntax::BuiltinType::from_spelling(self.graph.symbols().name(path.root))
+                    {
+                        return self.annotation_matches(
+                            file,
+                            &syntax::TypeSyntax::Builtin(builtin),
+                            expected,
+                            span,
+                        );
+                    }
+                }
+                if path.members.is_empty()
+                    && let Some(ty) = self
+                        .substitution
+                        .as_ref()
+                        .and_then(|scope| scope.ty(path.root))
+                {
+                    return Ok(ty == expected);
+                }
                 if let Some(BakedValue::Type(ty)) = self.specializations.and_then(|records| {
                     super::parameterized::member_value(
                         self.graph,
@@ -770,6 +836,9 @@ impl<'a, 'b> Defaults<'a, 'b> {
                     .ok()
                     .and_then(|id| self.nominals.declarations.get(&id).copied())
                     == Some(expected)
+            }
+            syntax::TypeSyntax::Application(application) => {
+                self.literal_application_matches(file, application, expected, span)?
             }
             syntax::TypeSyntax::Pointer(inner) => match actual {
                 TypeKind::Pointer(element) => {
@@ -892,6 +961,139 @@ impl<'a, 'b> Defaults<'a, 'b> {
                 ));
             }
         })
+    }
+    fn literal_application_matches(
+        &mut self,
+        file: FileInstanceId,
+        source: &syntax::TypeApplicationSyntax,
+        expected: TypeId,
+        span: Span,
+    ) -> Result<bool, LocatedDiagnostic> {
+        let Some(records) = self.specializations else {
+            return Err(located(
+                self.graph,
+                file,
+                Diagnostic::new(
+                    span,
+                    "literal application requires its checked specialization context",
+                ),
+            ));
+        };
+        let Some(key) = records.key_for_type(expected) else {
+            return Ok(false);
+        };
+        let syntax::TypeSyntax::Named(path) = source.base.as_ref() else {
+            return Err(located(
+                self.graph,
+                file,
+                Diagnostic::new(
+                    span,
+                    "literal application requires an original nominal template",
+                ),
+            ));
+        };
+        let declaration = declaration_id(self.graph, file, path, span)
+            .map_err(|e| located(self.graph, file, e))?;
+        if declaration != key.template.0 {
+            return Ok(false);
+        }
+        let definition = self
+            .graph
+            .declaration(declaration)
+            .expect("checked template is retained");
+        let syntax::FileDeclarationKind::Record(template) = &definition.syntax().kind else {
+            return Ok(false);
+        };
+        self.charge(
+            file,
+            span,
+            template
+                .parameters
+                .len()
+                .saturating_add(source.arguments.len()),
+        )?;
+        let arguments = super::parameterized::binder::bind_arguments(
+            &template.parameters,
+            &source.arguments,
+            source.span,
+        )
+        .map_err(|e| located(self.graph, file, e))?;
+        if arguments.len() != key.arguments.len() {
+            return Ok(false);
+        }
+        for (index, (argument, accepted)) in arguments.into_iter().zip(&key.arguments).enumerate() {
+            // Explicit arguments use the literal's defining scope. Defaults are
+            // evaluated in the original declaration scope with preceding accepted formals.
+            let argument_file = if argument.defaulted {
+                definition.file()
+            } else {
+                file
+            };
+            if argument.defaulted {
+                self.charge(argument_file, argument.expression.span, 1)?;
+                self.literal_scopes
+                    .push((&template.parameters, &key.arguments, index));
+            }
+            let checked = (|| -> Result<bool, LocatedDiagnostic> {
+                Ok(match accepted {
+                    BakedValue::Type(ty) => {
+                        let annotation = super::parameterized::type_expression(argument.expression)
+                            .ok_or_else(|| {
+                                located(
+                                    self.graph,
+                                    argument_file,
+                                    Diagnostic::new(
+                                        argument.expression.span,
+                                        "literal Type argument requires source type syntax",
+                                    ),
+                                )
+                            })?;
+                        self.annotation_matches(
+                            argument_file,
+                            &annotation,
+                            *ty,
+                            argument.expression.span,
+                        )?
+                    }
+                    BakedValue::Value(value) => {
+                        self.expression(argument_file, argument.expression, value.ty)? == *value
+                    }
+                    BakedValue::Float(value) => {
+                        let actual = self.expression(
+                            argument_file,
+                            argument.expression,
+                            self.types.float(value.ty()),
+                        )?;
+                        matches!(actual.kind, ConstantKind::Float(actual) if actual == *value)
+                    }
+                    BakedValue::String(value) => {
+                        let actual = self.expression(
+                            argument_file,
+                            argument.expression,
+                            self.types.string(),
+                        )?;
+                        matches!(actual.kind, ConstantKind::StringBytes(actual) if actual.as_slice() == value.as_ref())
+                    }
+                    BakedValue::Code(_) => {
+                        return Err(located(
+                            self.graph,
+                            argument_file,
+                            Diagnostic::new(
+                                argument.expression.span,
+                                "literal Code template arguments require retained source binding",
+                            ),
+                        ));
+                    }
+                })
+            })();
+            if argument.defaulted {
+                self.literal_scopes.pop();
+            }
+            if !checked? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
     fn expression_inner(
         &mut self,
@@ -1109,7 +1311,13 @@ impl<'a, 'b> Defaults<'a, 'b> {
             _ => None,
         };
         if let Some(value) = parameter_name
-            .and_then(|name| self.substitution.as_ref()?.constant(name))
+            .and_then(|name| {
+                self.literal_parameter(name).or_else(|| {
+                    self.substitution
+                        .as_ref()
+                        .and_then(|scope| scope.constant(name))
+                })
+            })
             .cloned()
         {
             let value = match value {
@@ -1259,15 +1467,11 @@ impl<'a, 'b> Defaults<'a, 'b> {
             _ => {}
         }
         if let ExpressionKind::PositionalStructLiteral(literal) = &expression.kind {
-            crate::record_placements::require_record_construction_recipe(
-                self.types,
-                ty,
-                expression.span,
-            )
-            .map_err(|error| located(self.graph, file, error))?;
+            crate::record_placements::require_record_storage_ready(self.types, ty, expression.span)
+                .map_err(|error| located(self.graph, file, error))?;
             let actual = match &literal.ty {
                 None => ty,
-                Some(path) => self.literal_type(file, path, expression.span)?,
+                Some(path) => self.literal_type(file, path, ty, expression.span)?,
             };
             if actual != ty {
                 let value = self.expression(file, expression, actual)?;
@@ -1318,15 +1522,11 @@ impl<'a, 'b> Defaults<'a, 'b> {
             });
         }
         if let ExpressionKind::StructLiteral(literal) = &expression.kind {
-            crate::record_placements::require_record_construction_recipe(
-                self.types,
-                ty,
-                expression.span,
-            )
-            .map_err(|error| located(self.graph, file, error))?;
+            crate::record_placements::require_record_storage_ready(self.types, ty, expression.span)
+                .map_err(|error| located(self.graph, file, error))?;
             let actual = match &literal.ty {
                 None => ty,
-                Some(path) => self.literal_type(file, path, expression.span)?,
+                Some(path) => self.literal_type(file, path, ty, expression.span)?,
             };
             if actual != ty {
                 let value = self.expression(file, expression, actual)?;

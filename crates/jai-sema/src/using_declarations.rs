@@ -64,7 +64,7 @@ impl Resolver<'_> {
         }
         let mut statements = Vec::with_capacity(2);
         match &declaration.kind {
-            syntax::StatementKind::Declare(_) => {
+            syntax::StatementKind::Declare(_) | syntax::StatementKind::Import(_) => {
                 statements.push(self.statement(declaration)?);
                 self.debug.attach_completed_statement_in_block(
                     &[jai_ir::DebugPathStep::Child(jai_ir::DebugBranch::Block)],

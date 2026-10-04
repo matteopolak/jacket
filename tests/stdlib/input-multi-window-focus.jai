@@ -2,6 +2,7 @@
 // they are not native handles, and this witness never invokes a native pump.
 Input :: #import "Input"(ENABLE_NATIVE_INPUT_ADAPTERS=false);
 #import "Basic";
+#import "Window_Type";
 
 press :: (key:Input.Key_Code) -> Input.Event {
     event:Input.Event; event.type=.KEYBOARD; event.key_code=key; event.key_pressed=true;
@@ -16,8 +17,8 @@ is_down :: (key:Input.Key_Code) -> bool {
 }
 main :: () {
     Input.input_event_source=null;
-    first:Input.Window_Type=1001;
-    second:Input.Window_Type=1002;
+    first:=cast(Window_Type)1001;
+    second:=cast(Window_Type)1002;
     key:Input.Key_Code=.ARROW_LEFT;
     Input.set_input_focus(false);
     Input.update_window_events();

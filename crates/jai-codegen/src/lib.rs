@@ -371,21 +371,35 @@ fn lower_unit<'ctx>(
                     alignment,
                 });
             }
-            let initializer: BasicValueEnum<'ctx> = match global.initializer() {
-                GlobalInitializer::External(_) => return Err(Error::Invariant),
-                GlobalInitializer::Int(n) => ty.into_int_type().const_int(n.bits(), false).into(),
-                GlobalInitializer::Bool(b) => {
-                    ty.into_int_type().const_int(u64::from(*b), false).into()
-                }
-                GlobalInitializer::Value(value) => aggregates::constant(
-                    &mut lowerer,
-                    value,
-                    context,
-                    &module,
-                    &functions,
-                    library.signatures(),
-                )?,
-            };
+            let initializer: BasicValueEnum<'ctx> =
+                if let Some(value) = global.runtime_initializer() {
+                    aggregates::constant(
+                        &mut lowerer,
+                        value,
+                        context,
+                        &module,
+                        &functions,
+                        library.signatures(),
+                    )?
+                } else {
+                    match global.initializer() {
+                        GlobalInitializer::External(_) => return Err(Error::Invariant),
+                        GlobalInitializer::Int(n) => {
+                            ty.into_int_type().const_int(n.bits(), false).into()
+                        }
+                        GlobalInitializer::Bool(b) => {
+                            ty.into_int_type().const_int(u64::from(*b), false).into()
+                        }
+                        GlobalInitializer::Value(value) => aggregates::constant(
+                            &mut lowerer,
+                            value,
+                            context,
+                            &module,
+                            &functions,
+                            library.signatures(),
+                        )?,
+                    }
+                };
             let symbol = native_symbols.global(global.id());
             external_declarations
                 .check_owned_symbol(&module, global.id(), &symbol)

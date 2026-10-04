@@ -95,10 +95,9 @@ pub(crate) fn source_reflection_policy(
     }))
 }
 
-/// Until ordered recipes are bound, reject whole placed constructors before a
-/// semantic field map can erase overlapping write order. Field-default jobs
-/// and shape registration may still finish independently of construction.
-pub(crate) fn require_record_construction_recipe(
+/// Placed records are materialized through their semantic field offsets. Their
+/// source initializer sequence must be preserved by each storage consumer.
+pub(crate) fn require_record_storage_ready(
     types: &dyn jai_types::TypeView,
     ty: jai_types::TypeId,
     span: jai_source::Span,
@@ -106,19 +105,12 @@ pub(crate) fn require_record_construction_recipe(
     let kind = types
         .kind(ty)
         .map_err(|error| Diagnostic::new(span, error.to_string()))?;
-    if kind.record_storage_id().is_some()
-        && types
+    if kind.record_storage_id().is_some() {
+        // Resolve the complete definition here so incomplete records fail at
+        // the source construction site before an initializer is evaluated.
+        types
             .record_storage_definition(ty)
-            .map_err(|error| Diagnostic::new(span, error.to_string()))?
-            .layout
-            .field_placements
-            .iter()
-            .any(Option::is_some)
-    {
-        return Err(Diagnostic::new(
-            span,
-            "placed record construction requires an ordered storage initialization recipe",
-        ));
+            .map_err(|error| Diagnostic::new(span, error.to_string()))?;
     }
     Ok(())
 }
@@ -207,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    fn complete_placed_construction_is_guarded_without_suppressing_shape_readiness() {
+    fn placed_construction_is_admitted_after_nominal_layout_is_ready() {
         use jai_types::{IntegerType, RecordKind, RecordLayout, ScalarType, TypeRegistry};
         let mut types = TypeRegistry::new();
         let word = types.scalar(ScalarType::Int(IntegerType::U64));
@@ -223,11 +215,9 @@ mod tests {
         let ordinary = types.reserve_record(RecordKind::Struct);
         types.define_record(ordinary, [word]).unwrap();
         let span = Span::new(12, 24);
-        let error = require_record_construction_recipe(&types, placed, span).unwrap_err();
-        assert_eq!(error.span, span);
-        assert!(error.message.contains("ordered storage initialization"));
+        require_record_storage_ready(&types, placed, span).unwrap();
         assert!(types.record_definition(placed).is_ok());
-        require_record_construction_recipe(&types, ordinary, span).unwrap();
-        require_record_construction_recipe(&types, word, span).unwrap();
+        require_record_storage_ready(&types, ordinary, span).unwrap();
+        require_record_storage_ready(&types, word, span).unwrap();
     }
 }

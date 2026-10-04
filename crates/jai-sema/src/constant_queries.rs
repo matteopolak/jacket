@@ -5,7 +5,7 @@ use jai_source::{Diagnostic, Span};
 use jai_syntax::{self as syntax, ExpressionKind as E};
 
 impl Resolver<'_> {
-    fn is_constant_query(&self, path: &syntax::NamePath) -> bool {
+    pub(crate) fn is_constant_query(&self, path: &syntax::NamePath) -> bool {
         path.members.is_empty()
             && self.symbols.name(path.root) == "is_constant"
             && !self.local_name_present(path.root)
@@ -140,11 +140,9 @@ impl Resolver<'_> {
                 .source_constantness(left, next)?
                 .combine(self.source_constantness(right, next)?),
             E::Conditional(value) => {
-                let mut result = self
-                    .source_constantness(&value.condition, next)?
-                    .combine(self.source_constantness(&value.then_value, next)?);
-                if let Some(value) = &value.else_value {
-                    result = result.combine(self.source_constantness(value, next)?);
+                let mut result = Constantness::Constant;
+                for expression in value.expressions() {
+                    result = result.combine(self.source_constantness(expression, next)?);
                 }
                 result
             }
@@ -158,6 +156,9 @@ impl Resolver<'_> {
             E::StructLiteral(value) => {
                 let mut result = Constantness::Constant;
                 for field in &value.fields {
+                    for index in crate::modules::aggregates::promoted_literals::target_expressions::index_expressions(&field.target)? {
+                        result = result.combine(self.source_constantness(index, next)?);
+                    }
                     result = result.combine(self.source_constantness(&field.value, next)?);
                 }
                 result

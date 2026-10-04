@@ -91,7 +91,26 @@ impl Resolver<'_> {
         } else {
             None
         };
-        if arms.last().is_some_and(|a| a.through) && default.is_none() {
+        let order = jai_types::CaseOrder::new(
+            arms.len(),
+            default
+                .as_ref()
+                .map(|_| case.default_position.unwrap_or(arms.len())),
+        )
+        .map_err(|_| Diagnostic::new(span, "invalid default case position"))?;
+        if case.default_through
+            && default
+                .as_ref()
+                .is_some_and(|body| body.flow == Flow::Terminates)
+        {
+            return Err(Diagnostic::new(span, "unreachable #through"));
+        }
+        let final_through = match order.last() {
+            jai_types::CaseTarget::Arm(index) => arms[index].through,
+            jai_types::CaseTarget::Default => case.default_through,
+            jai_types::CaseTarget::End => false,
+        };
+        if final_through {
             return Err(Diagnostic::new(
                 span,
                 "last case cannot #through without a following case",
@@ -110,9 +129,9 @@ impl Resolver<'_> {
             }
         }
         let exhaustive = case.complete;
-        let terminal_fallback = default
-            .as_ref()
-            .map_or(exhaustive, |b| b.flow == Flow::Terminates);
+        let terminal_fallback = default.as_ref().map_or(exhaustive, |b| {
+            case.default_through || b.flow == Flow::Terminates
+        });
         let flow = if terminal_fallback
             && arms
                 .iter()
@@ -123,6 +142,8 @@ impl Resolver<'_> {
             Flow::FallsThrough
         };
         Ok(Statement::Cases(Cases {
+            default_position: case.default_position,
+            default_through: case.default_through,
             subject: Box::new(subject),
             arms,
             default,

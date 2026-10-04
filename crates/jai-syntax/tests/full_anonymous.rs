@@ -52,3 +52,19 @@ fn return_and_immediate_call_remain_expressions() {
         "Callback::()->s32; factory::()->Callback { return ()->s32 { return 42; }; } main::()->s32 {return (() -> s32 {return 42;})();}",
     );
 }
+
+#[test]
+fn grouped_conditions_before_blocks_remain_expressions() {
+    let file = parse(
+        "main::(){if (basename && (basename[basename.count-1] == #char \"/\")) {return;} while (ready) {return;} }",
+    );
+    let FileItem::Declaration(declaration) = &file.items()[0] else {
+        panic!("declaration")
+    };
+    let FileDeclarationKind::Procedure(procedure) = &declaration.kind else {
+        panic!("procedure")
+    };
+    assert!(
+        matches!(&procedure.body[0].kind,StatementKind::If(condition,..) if matches!(condition.kind,ExpressionKind::Binary(..)))
+    );
+}

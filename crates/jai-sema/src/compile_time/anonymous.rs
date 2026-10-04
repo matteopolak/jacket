@@ -133,6 +133,7 @@ impl Resolver<'_> {
         let body_context = context.for_source(id, context.file, location.source);
         let procedure = (|| {
             let mut resolver = Resolver {
+                conditional_subjects: Vec::new(),
                 expression_owner: Some(id),
                 debug: crate::debug_capture::Capture::new(self.debug.source()),
                 checks: self.checks,

@@ -356,6 +356,7 @@ impl Resolver<'_> {
         let debug_policy = self.debug.policy();
         let result = (|| {
             let mut child = Resolver {
+                conditional_subjects: Vec::new(),
                 debug: crate::debug_capture::Capture::new(Some(scope.source())),
                 checks: crate::safety_checks::ActiveChecks::default(),
                 context: self.context,

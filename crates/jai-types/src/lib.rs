@@ -1,4 +1,6 @@
 //! Type identities and checked values shared by compiler phases.
+mod case_order;
+pub use case_order::{CaseOrder, CaseOrderError, CaseTarget};
 mod build;
 pub use build::*;
 mod floats;
