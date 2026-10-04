@@ -15,6 +15,7 @@ impl Compiler {
             returns: vec![],
             conv: ir::Conv::Jai,
             c_varargs: false,
+            c_fixed: 0,
             c_abi: None,
         };
         let mut f = FnCtx::new(name.into(), sig, file);
@@ -88,9 +89,13 @@ impl Compiler {
         self.program.funcs[id.0 as usize] = Some(func);
         let deferred = self.drain_bodies_lenient();
         let ctx = self.compile_time_context(span)?;
+        self.enable_stack_traces(span);
         self.interp.compile_time = true;
         let result = self.interp.call(&self.program, id, &[ctx]);
         self.flush_interp_output();
+        if !self.interp.pending_type_flags.is_empty() {
+            self.apply_type_info_flags(span)?;
+        }
         match result {
             Ok(values) => Ok(values),
             Err(_) if deferred.is_some() => Err(deferred.unwrap()),
@@ -286,14 +291,25 @@ impl Compiler {
     pub fn run_top_level(&mut self) -> Result<()> {
         while self.runs_done < self.top_level_runs.len() {
             let (expr, scope) = self.top_level_runs[self.runs_done].clone();
+            let misses = self.placeholder_misses;
+            let result = self.eval_const(scope, &expr, None);
+            // Needs a `#placeholder` a metaprogram may define later: retry at the next settle.
+            if result.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
+                return Ok(());
+            }
             self.runs_done += 1;
-            self.eval_const(scope, &expr, None)?;
+            result?;
             self.pull_workspace_sources()?;
         }
         while self.asserts_done < self.asserts.len() {
             let (cond, message, scope) = self.asserts[self.asserts_done].clone();
+            let misses = self.placeholder_misses;
+            let holds = self.eval_static_condition(scope, &cond);
+            if holds.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
+                return Ok(());
+            }
             self.asserts_done += 1;
-            if !self.eval_static_condition(scope, &cond)? {
+            if !holds? {
                 let msg = match message {
                     Some(m) => match self.eval_const_value(scope, &m)? {
                         Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
@@ -553,9 +569,12 @@ impl Compiler {
                 let p = self.interp.read_u64(addr);
                 self.type_at(p, span).map(Value::Type)
             }
-            TypeKind::Code => Ok(Value::Code(
-                value::CodeId(self.interp.read_u64(addr) as u32),
-            )),
+            TypeKind::Code => {
+                self.adopt_made_codes();
+                Ok(Value::Code(
+                    value::CodeId(self.interp.read_u64(addr) as u32),
+                ))
+            }
             TypeKind::String => {
                 let count = self.interp.read_u64(addr) as usize;
                 let data = self.interp.read_u64(addr + 8);
@@ -749,6 +768,11 @@ impl Compiler {
                 target: ir::RelocTarget::Global(g),
                 addend: off as i64,
             });
+            return Ok(());
+        }
+        if p < 0x10000 || p.wrapping_neg() < 0x10000 {
+            // Integers cast to pointers (handle-like constants such as `cast(*void) 32512`) have no memory to freeze.
+            agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
             return Ok(());
         }
         if bytes == 0 && count > 0 {

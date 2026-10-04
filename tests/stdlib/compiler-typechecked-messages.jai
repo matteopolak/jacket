@@ -1,5 +1,5 @@
 // TYPECHECKED, FILE and IMPORT messages built from compiler records, compiler_get_nodes,
-// compiler_modify_procedure and add_build_string into a module (docs/compiler-records.md).
+// compiler_modify_procedure and add_build_string into a module (docs/metaprogramming/compiler-records.md).
 #import "Basic";
 #import "Compiler";
 

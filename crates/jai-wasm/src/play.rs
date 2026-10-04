@@ -1,7 +1,6 @@
 //! Playground entry point: compile and run a set of files with the `jaic` core.
 use jaic::build::{BuildEnv, Workspaces};
-use jaic::interp::{Host, SandboxHost};
-use jaic::ir;
+use jaic::interp::{Host, SandboxHost, SharedHost};
 use jaic::sema::{Compiler, FileSystem, Options, TargetCpu, TargetOs, VirtualFs};
 use jaic::source::{Diagnostic, Severity};
 use std::cell::RefCell;
@@ -91,25 +90,6 @@ fn json_string(out: &mut String, text: &str) {
     out.push('"');
 }
 
-/// Shares a `SandboxHost` with the caller so output can be read after the run.
-struct SharedHost(Rc<RefCell<SandboxHost>>);
-impl Host for SharedHost {
-    fn write(&mut self, bytes: &[u8], to_stderr: bool) {
-        self.0.borrow_mut().write(bytes, to_stderr);
-    }
-    fn foreign(
-        &mut self,
-        symbol: &str,
-        args: &[u64],
-        sig: &ir::Sig,
-    ) -> Option<Result<Vec<u64>, String>> {
-        self.0.borrow_mut().foreign(symbol, args, sig)
-    }
-    fn native_linking(&self) -> bool {
-        false
-    }
-}
-
 fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
     let mut fs = VirtualFs::default();
     for (name, bytes) in BUNDLED {
@@ -124,11 +104,16 @@ fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
     fs
 }
 
-fn options() -> Options {
+fn options(main: &str) -> Options {
     let mut options = Options::host();
     options.os = TargetOs::Wasm;
     options.cpu = TargetCpu::Wasm;
-    options.import_paths = vec![PathBuf::from(STDLIB_ROOT)];
+    // Like the command line: the `modules` folder next to the main file is searched before the stdlib.
+    let main_dir = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')))
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(WORKSPACE_ROOT));
+    options.import_paths = vec![main_dir.join("modules"), PathBuf::from(STDLIB_ROOT)];
     options.preload = Some(PathBuf::from(format!("{STDLIB_ROOT}/module.jai")));
     options
 }
@@ -196,14 +181,17 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
         });
         return result;
     }
-    let host = Rc::new(RefCell::new(SandboxHost::default()));
     let fs: Rc<dyn FileSystem> = Rc::new(virtual_fs(files));
+    let host = Rc::new(RefCell::new(SandboxHost::with_files(
+        fs.clone(),
+        WORKSPACE_ROOT,
+    )));
     // Metaprogram workspaces are checked (no output backend in the browser).
     let workspace_host = host.clone();
     let reports = host.clone();
     let workspaces = Workspaces::new(BuildEnv {
         fs: fs.clone(),
-        options: options(),
+        options: options(main),
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move || Box::new(SharedHost(workspace_host.clone()))),
@@ -213,7 +201,7 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
                 .write(format!("{text}\n").as_bytes(), true)
         }),
     });
-    let mut compiler = Compiler::new(options(), fs);
+    let mut compiler = Compiler::new(options(main), fs);
     compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
@@ -295,5 +283,52 @@ mod tests {
             r.diagnostics
         );
         assert!(d.message.contains("missing"));
+    }
+
+    #[test]
+    fn threads_run_cooperatively_and_files_live_in_memory() {
+        let r = single(
+            r##"#import "Basic";
+#import "File";
+#import "Thread";
+total: s64;
+mutex: Mutex;
+worker :: (thread: *Thread) -> s64 {
+    for 0..9 { lock(*mutex); total += 1; unlock(*mutex); }
+    return 0;
+}
+main :: () {
+    init(*mutex);
+    threads: [3] Thread;
+    for *threads { thread_init(it, worker); thread_start(it); }
+    for *threads thread_deinit(it);
+    assert(total == 30);
+    assert(write_entire_file("/tmp/x.txt", "data"));
+    text, ok := read_entire_file("/tmp/x.txt");
+    assert(ok && text == "data");
+    own, own_ok := read_entire_file("main.jai");
+    assert(own_ok && own.count > 10);
+    print("ok\n");
+}
+"##,
+        );
+        assert_eq!(r.stdout, "ok\n", "{:?}\n{}", r.diagnostics, r.rendered);
+        assert_eq!(r.exit_code, Some(0));
+    }
+
+    #[test]
+    fn modules_folder_next_to_main_is_searched() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.jai".to_string(),
+            b"#import \"Basic\";\n#import \"Local\";\nmain :: () { print(\"%\\n\", from_local()); }\n"
+                .to_vec(),
+        );
+        files.insert(
+            "modules/Local/module.jai".to_string(),
+            b"from_local :: () -> int { return 7; }\n".to_vec(),
+        );
+        let r = run(&files, "main.jai");
+        assert_eq!(r.stdout, "7\n", "{:?}\n{}", r.diagnostics, r.rendered);
     }
 }

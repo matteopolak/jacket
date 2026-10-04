@@ -1,16 +1,92 @@
-//! Source facts come from compiler tokens and parsed nodes; no evaluator runs here.
+//! Source facts come from the `jaic` lexer and parser; no evaluator runs here.
 use crate::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, SymbolKind,
     position::LineIndex,
 };
-use jai_lexer::{Keyword, Kind, Punct, Token};
-use jai_source::{SourceId, SourceRecord, SourceSpan, Span, Symbol, Symbols};
-use jai_syntax::{FileDeclarationKind, FileItem, RecordMember, Statement, StatementKind};
+use jaic::ast::{Block, Decl, DeclKind, EnumItem, ExprKind, ScopeKind, Stmt, StmtKind, StructLit};
+use jaic::intern::Sym;
+use jaic::lexer::{P, Tok};
+use jaic::source::{Diagnostic as CompilerDiagnostic, FileId, Severity};
+
+/// Byte range into the document text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+impl Span {
+    pub fn new(start: usize, end: usize) -> Self {
+        Self {
+            start,
+            end,
+        }
+    }
+}
+
+/// Words the `jaic` lexer emits as plain identifiers but that the language reserves.
+pub const KEYWORDS: &[&str] = &[
+    "for",
+    "if",
+    "ifx",
+    "then",
+    "else",
+    "case",
+    "return",
+    "struct",
+    "while",
+    "break",
+    "continue",
+    "remove",
+    "using",
+    "defer",
+    "size_of",
+    "type_of",
+    "code_of",
+    "initializer_of",
+    "type_info",
+    "null",
+    "enum",
+    "true",
+    "false",
+    "inline",
+    "no_inline",
+    "cast",
+    "xx",
+    "context",
+    "push_context",
+    "operator",
+    "is_constant",
+    "enum_flags",
+    "union",
+    "interface",
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TokenKind {
+    Ident,
+    Keyword,
+    String,
+    Number,
+    /// `#directive` or `@note`.
+    Directive,
+    Dot,
+    Punctuation,
+}
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Token {
+    pub span: Span,
+    pub kind: TokenKind,
+}
+impl Token {
+    pub fn spelling<'a>(&self, text: &'a str) -> &'a str {
+        &text[self.span.start..self.span.end]
+    }
+}
 
 pub(crate) struct SymbolRow {
-    pub name: Symbol,
+    pub name: Sym,
     pub kind: SymbolKind,
-    pub location: SourceSpan,
+    pub location: Span,
     pub selection: Span,
     pub scope: Span,
     pub parent: Option<usize>,
@@ -19,7 +95,6 @@ pub(crate) struct SymbolRow {
     pub readonly: bool,
 }
 pub(crate) struct Analysis {
-    pub source: SourceId,
     pub tokens: Vec<Token>,
     pub rows: Vec<SymbolRow>,
     pub diagnostics: Vec<Diagnostic>,
@@ -27,17 +102,20 @@ pub(crate) struct Analysis {
     pub opaque_scopes: Vec<Span>,
     pub complete: bool,
 }
+
+fn span_of(span: jaic::source::Span) -> Span {
+    Span::new(span.start as usize, span.end as usize)
+}
+
+struct Context<'a> {
+    text: &'a str,
+    limits: Limits,
+}
+
 impl Analysis {
-    pub fn build(
-        record: &SourceRecord,
-        uri: &DocumentUri,
-        symbols: &mut Symbols,
-        limits: Limits,
-    ) -> Self {
-        let text = record.text();
+    pub fn build(text: &str, uri: &DocumentUri, limits: Limits) -> Self {
         let index = LineIndex::new(text);
         let mut result = Self {
-            source: record.id(),
             tokens: vec![],
             rows: vec![],
             diagnostics: vec![],
@@ -45,22 +123,36 @@ impl Analysis {
             opaque_scopes: vec![],
             complete: false,
         };
-        let tokens = match jai_lexer::lex(text) {
+        let file = FileId(0);
+        let tokens = match jaic::lexer::lex(file, text) {
             Ok(tokens) => tokens,
             Err(error) => {
-                result.diagnostic(
-                    &index,
-                    text,
-                    error.span,
-                    DiagnosticSeverity::Error,
-                    DiagnosticCode::Lexer,
-                    &error.message,
-                );
+                result.compiler_diagnostic(&index, text, &error, DiagnosticCode::Lexer);
                 return result;
             }
         };
-        if tokens.len() > limits.tokens {
-            let at = tokens[limits.tokens].span;
+        let mut converted: Vec<Token> = tokens
+            .iter()
+            .filter_map(|token| {
+                let span = span_of(token.span);
+                let kind = match &token.tok {
+                    Tok::Ident(name) if KEYWORDS.contains(&name.as_str()) => TokenKind::Keyword,
+                    Tok::Ident(_) => TokenKind::Ident,
+                    Tok::Directive(_) | Tok::Note(_) => TokenKind::Directive,
+                    Tok::Int(_) | Tok::Float(_) => TokenKind::Number,
+                    Tok::Str(_) => TokenKind::String,
+                    Tok::Punct(P::Dot) => TokenKind::Dot,
+                    Tok::Punct(_) => TokenKind::Punctuation,
+                    Tok::Eof => return None,
+                };
+                Some(Token {
+                    span,
+                    kind,
+                })
+            })
+            .collect();
+        if converted.len() > limits.tokens {
+            let at = converted[limits.tokens].span;
             result.diagnostic(
                 &index,
                 text,
@@ -69,12 +161,12 @@ impl Analysis {
                 DiagnosticCode::Limit,
                 "Token budget exceeded; syntax navigation is unavailable for this version.",
             );
-            result.tokens = tokens.into_iter().take(limits.tokens).collect();
+            converted.truncate(limits.tokens);
+            result.tokens = converted;
             return result;
         }
-        let recursive = tokens.iter().filter(|token| recursive(token.kind)).count();
-        result.tokens = tokens;
-        if recursive > limits.recursive_tokens {
+        result.tokens = converted;
+        if nesting(&tokens) > limits.recursive_tokens {
             result.diagnostic(
                 &index,
                 text,
@@ -85,57 +177,20 @@ impl Analysis {
             );
             return result;
         }
-        let file = match jai_syntax::parse_file(record, symbols) {
-            Ok(file) => file,
+        let parsed = match jaic::parser::parse_file(file, text) {
+            Ok(parsed) => parsed,
             Err(error) => {
-                result.diagnostic(
-                    &index,
-                    text,
-                    error.location.span,
-                    DiagnosticSeverity::Error,
-                    DiagnosticCode::Parser,
-                    &error.message,
-                );
+                result.compiler_diagnostic(&index, text, &error, DiagnosticCode::Parser);
                 return result;
             }
         };
-        for item in file.items() {
-            match item {
-                FileItem::Declaration(declaration)
-                | FileItem::UsingDeclaration {
-                    declaration, ..
-                } => {
-                    let span = declaration.location.span;
-                    let private = declaration.visibility == jai_syntax::Visibility::File;
-                    result.declaration(
-                        &declaration.kind,
-                        span,
-                        Span::new(0, text.len()),
-                        None,
-                        false,
-                        private,
-                        text,
-                        symbols,
-                        limits,
-                    );
-                }
-                FileItem::Load(load) => {
-                    if let Ok(target) = uri.load(&load.target) {
-                        result.loads.push((target, load.location.span));
-                    } else {
-                        result.diagnostic(
-                            &index,
-                            text,
-                            load.location.span,
-                            DiagnosticSeverity::Warning,
-                            DiagnosticCode::Source,
-                            "This #load target is unavailable in the closed document VFS.",
-                        );
-                    }
-                }
-                _ => {}
-            }
-        }
+        let context = Context {
+            text,
+            limits,
+        };
+        let whole = Span::new(0, text.len());
+        let mut private = false;
+        result.top_level(&parsed.stmts, whole, &mut private, uri, &index, &context);
         if result.rows.len() >= limits.symbols {
             result.diagnostic(
                 &index,
@@ -150,6 +205,26 @@ impl Analysis {
         }
         result
     }
+    fn compiler_diagnostic(
+        &mut self,
+        index: &LineIndex,
+        text: &str,
+        error: &CompilerDiagnostic,
+        code: DiagnosticCode,
+    ) {
+        let severity = match error.severity {
+            Severity::Error => DiagnosticSeverity::Error,
+            Severity::Warning | Severity::Note => DiagnosticSeverity::Warning,
+        };
+        self.diagnostic(
+            index,
+            text,
+            span_of(error.span),
+            severity,
+            code,
+            &error.message,
+        );
+    }
     pub fn diagnostic(
         &mut self,
         index: &LineIndex,
@@ -159,6 +234,7 @@ impl Analysis {
         code: DiagnosticCode,
         message: &str,
     ) {
+        let span = Span::new(span.start.min(text.len()), span.end.min(text.len()));
         if let Ok(range) = index.range(text, span) {
             let end = message.floor_char_boundary(message.len().min(2048));
             self.diagnostics.push(Diagnostic {
@@ -172,40 +248,28 @@ impl Analysis {
     #[allow(clippy::too_many_arguments)]
     fn add(
         &mut self,
-        name: Symbol,
+        name: Sym,
         kind: SymbolKind,
-        span: Span,
+        location: Span,
+        selection: Span,
         scope: Span,
         parent: Option<usize>,
         local: bool,
         private: bool,
         readonly: bool,
-        text: &str,
-        symbols: &Symbols,
-        limits: Limits,
+        context: &Context,
     ) -> Option<usize> {
-        if self.rows.len() >= limits.symbols {
+        if self.rows.len() >= context.limits.symbols
+            || selection.end > context.text.len()
+            || location.end > context.text.len()
+        {
             return None;
         }
-        let spelling = symbols.name(name);
-        let selection = self
-            .tokens
-            .iter()
-            .find(|token| {
-                token.kind == Kind::Ident
-                    && token.span.start >= span.start
-                    && token.span.end <= span.end
-                    && token.spelling(text) == spelling
-            })?
-            .span;
         let id = self.rows.len();
         self.rows.push(SymbolRow {
             name,
             kind,
-            location: SourceSpan {
-                source: self.source,
-                span,
-            },
+            location,
             selection,
             scope,
             parent,
@@ -215,373 +279,361 @@ impl Analysis {
         });
         Some(id)
     }
-    #[allow(clippy::too_many_arguments)]
-    fn declaration(
+    fn top_level(
         &mut self,
-        declaration: &FileDeclarationKind,
-        span: Span,
+        stmts: &[Stmt],
         scope: Span,
-        parent: Option<usize>,
-        local: bool,
-        private: bool,
-        text: &str,
-        symbols: &Symbols,
-        limits: Limits,
+        private: &mut bool,
+        uri: &DocumentUri,
+        index: &LineIndex,
+        context: &Context,
     ) {
-        match declaration {
-            FileDeclarationKind::Procedure(p) => {
-                if let Some(id) = self.add(
-                    p.name,
-                    SymbolKind::Function,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    false,
-                    text,
-                    symbols,
-                    limits,
-                ) {
-                    for parameter in &p.parameters {
+        for stmt in stmts {
+            match &stmt.kind {
+                StmtKind::Scope(kind) => *private = *kind == ScopeKind::File,
+                StmtKind::Decl(decl) => {
+                    self.declaration(
+                        decl,
+                        span_of(stmt.span),
+                        scope,
+                        None,
+                        false,
+                        *private,
+                        context,
+                    );
+                }
+                StmtKind::Import(import) => {
+                    if let Some(name) = import.name {
                         self.add(
-                            parameter.name,
-                            SymbolKind::Variable,
-                            parameter.span,
+                            name.name,
+                            SymbolKind::Namespace,
+                            span_of(stmt.span),
+                            span_of(name.span),
+                            scope,
+                            None,
+                            false,
+                            *private,
+                            true,
+                            context,
+                        );
+                    }
+                }
+                StmtKind::StaticIf {
+                    then_branch,
+                    else_branch,
+                    ..
+                } => {
+                    let mut inner = *private;
+                    self.top_level(then_branch, scope, &mut inner, uri, index, context);
+                    let mut inner = *private;
+                    self.top_level(else_branch, scope, &mut inner, uri, index, context);
+                }
+                StmtKind::Load {
+                    path,
+                    span,
+                } => {
+                    let span = span_of(*span);
+                    if let Ok(target) = uri.load(path) {
+                        self.loads.push((target, span));
+                    } else {
+                        self.diagnostic(
+                            index,
+                            context.text,
                             span,
-                            Some(id),
-                            true,
-                            true,
-                            false,
-                            text,
-                            symbols,
-                            limits,
+                            DiagnosticSeverity::Warning,
+                            DiagnosticCode::Source,
+                            "This #load target is unavailable in the closed document VFS.",
                         );
                     }
-                    self.statements(&p.body, span, Some(id), text, symbols, limits);
-                }
-            }
-            FileDeclarationKind::ProcedurePrototype(p) => {
-                self.add(
-                    p.name,
-                    SymbolKind::Function,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    false,
-                    text,
-                    symbols,
-                    limits,
-                );
-            }
-            FileDeclarationKind::Record(r) => {
-                if let Some(id) = self.add(
-                    r.name,
-                    SymbolKind::Struct,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    false,
-                    text,
-                    symbols,
-                    limits,
-                ) {
-                    self.record(&r.members, r.span, id, text, symbols, limits);
-                }
-            }
-            FileDeclarationKind::Enum(e) => {
-                if let Some(id) = self.add(
-                    e.name,
-                    SymbolKind::Enum,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    false,
-                    text,
-                    symbols,
-                    limits,
-                ) {
-                    let mut enum_items: Vec<_> = e.members.iter().rev().collect();
-                    while let Some(item) = enum_items.pop() {
-                        let member = match item {
-                            jai_syntax::EnumBodyItem::Member(member) => member,
-                            jai_syntax::EnumBodyItem::Conditional {
-                                then_items,
-                                else_items,
-                                ..
-                            } => {
-                                enum_items.extend(else_items.iter().rev());
-                                enum_items.extend(then_items.iter().rev());
-                                continue;
-                            }
-                            jai_syntax::EnumBodyItem::Insert(_) => continue,
-                        };
-                        self.add(
-                            member.name,
-                            SymbolKind::EnumMember,
-                            member.span,
-                            e.span,
-                            Some(id),
-                            false,
-                            true,
-                            true,
-                            text,
-                            symbols,
-                            limits,
-                        );
-                    }
-                }
-            }
-            FileDeclarationKind::Global(g) => {
-                self.add(
-                    g.declaration.name(),
-                    SymbolKind::Variable,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    false,
-                    text,
-                    symbols,
-                    limits,
-                );
-            }
-            FileDeclarationKind::Constant(c) => {
-                self.add(
-                    c.name,
-                    SymbolKind::Constant,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    true,
-                    text,
-                    symbols,
-                    limits,
-                );
-            }
-            FileDeclarationKind::TypeAlias(t) => {
-                self.add(
-                    t.name,
-                    SymbolKind::TypeAlias,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    false,
-                    text,
-                    symbols,
-                    limits,
-                );
-            }
-            FileDeclarationKind::Library(l) => {
-                self.add(
-                    l.name,
-                    SymbolKind::Namespace,
-                    span,
-                    scope,
-                    parent,
-                    local,
-                    private,
-                    true,
-                    text,
-                    symbols,
-                    limits,
-                );
-            }
-            // Placeholder/operator aliases need authentic semantic publication before binding.
-            _ => {}
-        }
-    }
-    fn record(
-        &mut self,
-        members: &[RecordMember],
-        scope: Span,
-        parent: usize,
-        text: &str,
-        symbols: &Symbols,
-        limits: Limits,
-    ) {
-        for member in members {
-            match member {
-                RecordMember::Field(f) => {
-                    self.add(
-                        f.name,
-                        SymbolKind::Property,
-                        f.span,
-                        scope,
-                        Some(parent),
-                        false,
-                        true,
-                        false,
-                        text,
-                        symbols,
-                        limits,
-                    );
-                }
-                RecordMember::Constant(c) => {
-                    self.add(
-                        c.name,
-                        SymbolKind::Constant,
-                        c.span,
-                        scope,
-                        Some(parent),
-                        false,
-                        true,
-                        true,
-                        text,
-                        symbols,
-                        limits,
-                    );
-                }
-                RecordMember::Record(r) => {
-                    if let Some(id) = self.add(
-                        r.name,
-                        SymbolKind::Struct,
-                        r.span,
-                        scope,
-                        Some(parent),
-                        false,
-                        true,
-                        false,
-                        text,
-                        symbols,
-                        limits,
-                    ) {
-                        self.record(&r.members, r.span, id, text, symbols, limits);
-                    }
-                }
-                RecordMember::TypeAlias(t) => {
-                    self.add(
-                        t.name,
-                        SymbolKind::TypeAlias,
-                        t.span,
-                        scope,
-                        Some(parent),
-                        false,
-                        true,
-                        false,
-                        text,
-                        symbols,
-                        limits,
-                    );
                 }
                 _ => {}
             }
         }
     }
-    fn statements(
+    /// The declaration's value decides the symbol kind: a procedure, struct, enum, type, library
+    /// or plain constant.
+    fn kind_of(decl: &Decl) -> (SymbolKind, bool) {
+        if decl.kind == DeclKind::Var {
+            return (SymbolKind::Variable, false);
+        }
+        let kind = match decl.value.as_ref().map(|value| &value.kind) {
+            Some(
+                ExprKind::Proc(_)
+                | ExprKind::Lambda {
+                    ..
+                }
+                | ExprKind::ProcType(_),
+            ) => SymbolKind::Function,
+            Some(ExprKind::Struct(_)) => SymbolKind::Struct,
+            Some(ExprKind::Enum(_)) => SymbolKind::Enum,
+            Some(
+                ExprKind::TypeDirective {
+                    ..
+                }
+                | ExprKind::ArrayType {
+                    ..
+                }
+                | ExprKind::Unary(jaic::ast::UnOp::Star, _),
+            ) => SymbolKind::TypeAlias,
+            Some(ExprKind::UnknownDirective {
+                name, ..
+            }) if matches!(
+                name.name.as_str(),
+                "library" | "system_library" | "foreign_library" | "foreign_system_library"
+            ) =>
+            {
+                SymbolKind::Namespace
+            }
+            _ => SymbolKind::Constant,
+        };
+        (
+            kind,
+            matches!(kind, SymbolKind::Constant | SymbolKind::Namespace),
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn declaration(
         &mut self,
-        body: &[Statement],
+        decl: &Decl,
+        span: Span,
         scope: Span,
         parent: Option<usize>,
-        text: &str,
-        symbols: &Symbols,
-        limits: Limits,
+        local: bool,
+        private: bool,
+        context: &Context,
     ) {
-        for statement in body {
-            match &statement.kind {
-                StatementKind::Declare(d) => {
+        let (kind, readonly) = Self::kind_of(decl);
+        for name in &decl.names {
+            let Some(id) = self.add(
+                name.name,
+                kind,
+                span,
+                span_of(name.span),
+                scope,
+                parent,
+                local,
+                private,
+                readonly,
+                context,
+            ) else {
+                continue;
+            };
+            let Some(value) = &decl.value else {
+                continue;
+            };
+            match &value.kind {
+                ExprKind::Proc(lit) => {
+                    let inner = span_of(lit.header.span.to(value.span));
+                    for param in &lit.header.params {
+                        if let Some(param_name) = param.name {
+                            self.add(
+                                param_name.name,
+                                SymbolKind::Variable,
+                                span_of(param.span),
+                                span_of(param_name.span),
+                                inner,
+                                Some(id),
+                                true,
+                                true,
+                                false,
+                                context,
+                            );
+                        }
+                    }
+                    if let Some(body) = &lit.body {
+                        self.block(body, Some(id), context);
+                    }
+                }
+                ExprKind::Struct(record) => self.record(record, id, context),
+                ExprKind::Enum(lit) => {
+                    let mut pending: Vec<&EnumItem> = lit.items.iter().rev().collect();
+                    while let Some(item) = pending.pop() {
+                        match item {
+                            EnumItem::Member(member) => {
+                                self.add(
+                                    member.name.name,
+                                    SymbolKind::EnumMember,
+                                    span_of(member.name.span),
+                                    span_of(member.name.span),
+                                    span_of(lit.span),
+                                    Some(id),
+                                    false,
+                                    true,
+                                    true,
+                                    context,
+                                );
+                            }
+                            EnumItem::If {
+                                then_items,
+                                else_items,
+                                ..
+                            } => {
+                                pending.extend(else_items.iter().rev());
+                                pending.extend(then_items.iter().rev());
+                            }
+                            EnumItem::Insert(_) => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    fn record(&mut self, record: &StructLit, parent: usize, context: &Context) {
+        let scope = span_of(record.span);
+        let mut pending: Vec<&Stmt> = record.body.iter().rev().collect();
+        while let Some(stmt) = pending.pop() {
+            match &stmt.kind {
+                StmtKind::Decl(decl) => {
+                    let (kind, readonly) = Self::kind_of(decl);
+                    let kind = if kind == SymbolKind::Variable {
+                        SymbolKind::Property
+                    } else {
+                        kind
+                    };
+                    for name in &decl.names {
+                        let Some(id) = self.add(
+                            name.name,
+                            kind,
+                            span_of(stmt.span),
+                            span_of(name.span),
+                            scope,
+                            Some(parent),
+                            false,
+                            true,
+                            readonly,
+                            context,
+                        ) else {
+                            continue;
+                        };
+                        if let Some(ExprKind::Struct(nested)) = decl.value.as_ref().map(|v| &v.kind)
+                        {
+                            self.record(nested, id, context);
+                        }
+                    }
+                }
+                StmtKind::StaticIf {
+                    then_branch,
+                    else_branch,
+                    ..
+                } => {
+                    pending.extend(else_branch.iter().rev());
+                    pending.extend(then_branch.iter().rev());
+                }
+                _ => {}
+            }
+        }
+    }
+    fn block(&mut self, block: &Block, parent: Option<usize>, context: &Context) {
+        self.statements(&block.stmts, span_of(block.span), parent, context);
+    }
+    fn statements(&mut self, body: &[Stmt], scope: Span, parent: Option<usize>, context: &Context) {
+        for stmt in body {
+            self.statement(stmt, scope, parent, context);
+        }
+    }
+    fn nested(&mut self, stmt: &Stmt, parent: Option<usize>, context: &Context) {
+        let scope = span_of(stmt.span);
+        match &stmt.kind {
+            StmtKind::Block(block) => self.statements(&block.stmts, scope, parent, context),
+            _ => self.statement(stmt, scope, parent, context),
+        }
+    }
+    fn statement(&mut self, stmt: &Stmt, scope: Span, parent: Option<usize>, context: &Context) {
+        match &stmt.kind {
+            StmtKind::Decl(decl) => {
+                self.declaration(decl, span_of(stmt.span), scope, parent, true, true, context);
+            }
+            StmtKind::If {
+                then_branch,
+                else_branch,
+                ..
+            } => {
+                self.nested(then_branch, parent, context);
+                if let Some(branch) = else_branch {
+                    self.nested(branch, parent, context);
+                }
+            }
+            StmtKind::Block(block) => {
+                self.statements(&block.stmts, span_of(stmt.span), parent, context);
+            }
+            StmtKind::While {
+                body, ..
+            }
+            | StmtKind::Defer {
+                body, ..
+            }
+            | StmtKind::PushContext {
+                body, ..
+            } => self.nested(body, parent, context),
+            StmtKind::For(for_loop) => {
+                let span = span_of(stmt.span);
+                for name in [for_loop.it, for_loop.index].into_iter().flatten() {
                     self.add(
-                        d.name(),
+                        name.name,
                         SymbolKind::Variable,
-                        statement.span,
-                        scope,
+                        span,
+                        span_of(name.span),
+                        span,
                         parent,
                         true,
                         true,
                         false,
-                        text,
-                        symbols,
-                        limits,
+                        context,
                     );
                 }
-                StatementKind::Constant(c) => {
-                    self.add(
-                        c.name,
-                        SymbolKind::Constant,
-                        statement.span,
-                        scope,
-                        parent,
-                        true,
-                        true,
-                        true,
-                        text,
-                        symbols,
-                        limits,
-                    );
-                }
-                StatementKind::If(_, yes, no) => {
-                    for branch in [yes, no] {
-                        if let (Some(first), Some(last)) = (branch.first(), branch.last()) {
-                            self.statements(
-                                branch,
-                                Span::new(first.span.start, last.span.end),
-                                parent,
-                                text,
-                                symbols,
-                                limits,
-                            );
-                        }
-                    }
-                }
-                StatementKind::Block(body)
-                | StatementKind::CheckScope {
-                    body, ..
-                }
-                | StatementKind::PushContext {
-                    body, ..
-                } => {
-                    self.statements(body, statement.span, parent, text, symbols, limits);
-                }
-                StatementKind::Return(_)
-                | StatementKind::ReturnValues(_)
-                | StatementKind::Expression(_)
-                | StatementKind::Assign(_, _)
-                | StatementKind::Update(_, _, _)
-                | StatementKind::AssignPlace {
-                    ..
-                }
-                | StatementKind::UpdatePlace {
-                    ..
-                } => {}
-                // Unknown scope producers must not let a global masquerade as a local binding.
-                _ => self.opaque_scopes.push(statement.span),
+                self.nested(&for_loop.body, parent, context);
             }
+            StmtKind::Switch {
+                cases, ..
+            } => {
+                for case in cases {
+                    self.statements(&case.body, span_of(case.span), parent, context);
+                }
+            }
+            StmtKind::Expr(_)
+            | StmtKind::Assign {
+                ..
+            }
+            | StmtKind::Return {
+                ..
+            }
+            | StmtKind::Break(_)
+            | StmtKind::Continue(_)
+            | StmtKind::Remove(_)
+            | StmtKind::Empty => {}
+            // Unknown scope producers must not let a global masquerade as a local binding.
+            _ => self.opaque_scopes.push(span_of(stmt.span)),
         }
     }
 }
-fn recursive(kind: Kind) -> bool {
-    matches!(
-        kind,
-        Kind::Punctuation(
-            Punct::OpenParen
-                | Punct::OpenBrace
-                | Punct::OpenBracket
-                | Punct::StructLiteral
-                | Punct::ArrayLiteral
-                | Punct::Sub
-                | Punct::Not
-                | Punct::Complement
-                | Punct::Mul
-        ) | Kind::Keyword(
-            Keyword::If
-                | Keyword::Ifx
-                | Keyword::While
-                | Keyword::For
-                | Keyword::Struct
-                | Keyword::Union
-                | Keyword::Cast
-                | Keyword::TypeOf
-        )
-    )
+
+/// Deepest bracket nesting plus the longest run of prefix operators: the shapes that make a
+/// recursive-descent parser recurse deeply on a small input.
+fn nesting(tokens: &[jaic::lexer::Token]) -> usize {
+    let (mut depth, mut deepest, mut run, mut longest) = (0usize, 0usize, 0usize, 0usize);
+    for token in tokens {
+        let prefix = match &token.tok {
+            Tok::Punct(P::Minus | P::Bang | P::Tilde | P::Star) => true,
+            Tok::Ident(name) => {
+                matches!(name.as_str(), "cast" | "type_of" | "ifx" | "if" | "while")
+            }
+            _ => false,
+        };
+        run = if prefix {
+            run + 1
+        } else {
+            0
+        };
+        longest = longest.max(run);
+        match &token.tok {
+            Tok::Punct(P::LParen | P::LBrace | P::LBracket | P::DotBrace | P::DotBracket) => {
+                depth += 1;
+                deepest = deepest.max(depth);
+            }
+            Tok::Punct(P::RParen | P::RBrace | P::RBracket) => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    deepest.max(longest)
 }

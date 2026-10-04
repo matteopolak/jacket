@@ -5,7 +5,6 @@
 //! every `Slot` an entry-block alloca, and every aggregate stays in memory.
 //! `Conv::C` signatures are translated to the real C ABI by [`Backend::lower_sig`].
 #![allow(clippy::too_many_arguments)]
-use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use inkwell::AddressSpace;
 use inkwell::AtomicOrdering;
 use inkwell::FloatPredicate;
@@ -23,6 +22,7 @@ use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue,
     IntValue, PointerValue, ValueKind,
 };
+use jaic::abi::{self, Arch, Passing, Piece, PieceTy};
 use jaic::ir::{
     AggLayout, BinOp, BlockId, Callee, CmpOp, Conv, ConvOp, Foreign, Func, Global, Inst, Intrinsic,
     Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val,
@@ -120,6 +120,8 @@ struct FnState<'ctx> {
     blocks: Vec<Option<BasicBlock<'ctx>>>,
     /// Builder positioned in the dedicated alloca block.
     allocas: Builder<'ctx>,
+    /// A C aggregate returned in registers: its pieces and the memory the IR writes it to.
+    reg_ret: Option<(Vec<Piece>, PointerValue<'ctx>)>,
 }
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
@@ -191,7 +193,12 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             None => RetPlan::Scalars(sig.returns.clone()),
         };
         let mut params = Vec::new();
+        // Variadic arguments are not part of the LLVM function type.
+        let mut fixed = None;
         for (i, &ty) in sig.params.iter().enumerate() {
+            if sig.c_varargs && i == sig.c_fixed as usize {
+                fixed = Some(llvm_params.len());
+            }
             if ret_agg.is_some() && i + 1 == sig.params.len() {
                 params.push(ParamPlan::Dropped);
                 continue;
@@ -223,13 +230,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 }
             }
         }
+        let fixed_params = &llvm_params[..fixed.unwrap_or(llvm_params.len())];
         let fn_ty = match &ret {
-            RetPlan::Scalars(tys) => self.fn_type(self.ret_type(tys), &llvm_params, sig.c_varargs),
+            RetPlan::Scalars(tys) => self.fn_type(self.ret_type(tys), fixed_params, sig.c_varargs),
             RetPlan::Registers(_, pieces) => {
                 let tys: Vec<BasicTypeEnum> = pieces.iter().map(|p| self.piece_ty(p.ty)).collect();
-                self.fn_type(self.ret_type_of(&tys), &llvm_params, sig.c_varargs)
+                self.fn_type(self.ret_type_of(&tys), fixed_params, sig.c_varargs)
             }
-            RetPlan::Sret => self.fn_type(None, &llvm_params, sig.c_varargs),
+            RetPlan::Sret => self.fn_type(None, fixed_params, sig.c_varargs),
         };
         Lowered {
             fn_ty,
@@ -294,17 +302,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.funcs.push(None);
                 continue;
             };
-            if func
-                .sig
-                .c_abi
-                .as_ref()
-                .is_some_and(|c| c.ret.is_some() || c.params.iter().any(Option::is_some))
-            {
-                return Err(Error(format!(
-                    "'{}': defining functions with by-value C aggregates is not supported",
-                    func.name
-                )));
-            }
             let lowered = self.lower_sig(&func.sig);
             let (name, linkage) = match &func.linkage {
                 IrLinkage::Export(name) => (name.clone(), Linkage::External),
@@ -313,6 +310,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             let f = self
                 .module
                 .add_function(&name, lowered.fn_ty, Some(linkage));
+            self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
             self.funcs.push(Some(f));
         }
         Ok(())
@@ -474,10 +472,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             slots: Vec::new(),
             blocks,
             allocas,
+            reg_ret: None,
         };
-        for (i, p) in function.get_param_iter().enumerate() {
-            st.vals[i] = Some(p);
-        }
+        self.bind_params(&mut st, func, alloca_block)?;
         for slot in &func.slots {
             let p = self.entry_alloca(&st, slot.size, slot.align)?;
             st.slots.push(p);
@@ -493,6 +490,56 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         }
         let entry = st.blocks[0].expect("entry block is reachable");
         st.allocas.build_unconditional_branch(entry)?;
+        Ok(())
+    }
+
+    /// Bind the IR parameters to the LLVM ones. With the C ABI, by-value aggregates arrive
+    /// in registers (stored to memory here), by `byval` pointer or as a caller copy; the IR
+    /// sees a pointer to each. An aggregate result is written through the IR's last
+    /// parameter: the `sret` pointer, or memory `Term::Ret` returns in registers.
+    fn bind_params(&self, st: &mut FnState<'ctx>, func: &Func, entry: BasicBlock<'ctx>) -> R<()> {
+        let lowered = self.lower_sig(&func.sig);
+        let params: Vec<BasicValueEnum<'ctx>> = st.function.get_param_iter().collect();
+        let mut k = 0;
+        if matches!(lowered.ret, RetPlan::Sret) {
+            k = 1;
+        }
+        self.builder.position_at_end(entry);
+        for (i, plan) in lowered.params.iter().enumerate() {
+            let value: BasicValueEnum<'ctx> = match plan {
+                ParamPlan::Scalar(_) => {
+                    k += 1;
+                    params[k - 1]
+                }
+                ParamPlan::Agg(layout, passing) => match passing {
+                    Passing::ByVal | Passing::Indirect => {
+                        k += 1;
+                        params[k - 1]
+                    }
+                    Passing::Registers(pieces) => {
+                        let tmp = self.call_temp(st, layout.size, layout.align)?;
+                        for p in pieces {
+                            self.builder
+                                .build_store(self.gep_const(tmp, p.offset)?, params[k])?;
+                            k += 1;
+                        }
+                        tmp.into()
+                    }
+                },
+                ParamPlan::Dropped => match &lowered.ret {
+                    RetPlan::Sret => params[0],
+                    RetPlan::Registers(layout, pieces) => {
+                        let tmp = self.call_temp(st, layout.size, layout.align)?;
+                        st.reg_ret = Some((pieces.clone(), tmp));
+                        tmp.into()
+                    }
+                    RetPlan::Scalars(_) => {
+                        return Err("aggregate out-pointer without a C return".into());
+                    }
+                },
+            };
+            st.vals[i] = Some(value);
+        }
         Ok(())
     }
 
@@ -1051,6 +1098,20 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .collect::<R<Vec<_>>>()?;
                 b.build_switch(v, block(default)?, &cases)?;
             }
+            Term::Ret(_) if st.reg_ret.is_some() => {
+                let (pieces, tmp) = st.reg_ret.as_ref().expect("checked");
+                let parts = pieces
+                    .iter()
+                    .map(|p| {
+                        Ok(b.build_load(self.piece_ty(p.ty), self.gep_const(*tmp, p.offset)?, "")?)
+                    })
+                    .collect::<R<Vec<_>>>()?;
+                match parts.as_slice() {
+                    [] => b.build_return(None)?,
+                    [one] => b.build_return(Some(one))?,
+                    many => b.build_aggregate_return(many)?,
+                };
+            }
             Term::Ret(values) => {
                 let tys = &func.sig.returns;
                 let vals = values
@@ -1193,7 +1254,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         args: &[BasicValueEnum<'ctx>],
         want: &[Ty],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
-        let _ = st;
         let b = &self.builder;
         let i64t = self.ctx.i64_type();
         let ptr_arg = |i: usize| {
@@ -1268,6 +1328,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             Intrinsic::Trap => {
                 self.call_intrinsic("llvm.trap", &[], &[])?;
+                Ok(vec![])
+            }
+            Intrinsic::BoundsCheck => {
+                // Unsigned compare: a negative index is out of range too.
+                let index = self.i64_of(self.as_int(args[0])?)?;
+                let count = self.i64_of(self.as_int(args[1])?)?;
+                let out = b.build_int_compare(IntPredicate::UGE, index, count, "")?;
+                self.trap_if(st, out)?;
                 Ok(vec![])
             }
             Intrinsic::CompilerWrite => {
@@ -1357,6 +1425,33 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .call_intrinsic(name, &[ty], &[args[0].into(), no_poison.into()])?
                     .ok_or("bit intrinsic produced no value")?;
                 Ok(vec![v])
+            }
+            Intrinsic::SAddOverflow
+            | Intrinsic::UAddOverflow
+            | Intrinsic::SSubOverflow
+            | Intrinsic::USubOverflow
+            | Intrinsic::SMulOverflow
+            | Intrinsic::UMulOverflow => {
+                // (a, b, width_bytes) -> overflowed, through the `*.with.overflow` intrinsics.
+                let name = match op {
+                    Intrinsic::SAddOverflow => "llvm.sadd.with.overflow",
+                    Intrinsic::UAddOverflow => "llvm.uadd.with.overflow",
+                    Intrinsic::SSubOverflow => "llvm.ssub.with.overflow",
+                    Intrinsic::USubOverflow => "llvm.usub.with.overflow",
+                    Intrinsic::SMulOverflow => "llvm.smul.with.overflow",
+                    _ => "llvm.umul.with.overflow",
+                };
+                let x = self.as_int(args[0])?;
+                let y = self.as_int(args[1])?;
+                let pair = self
+                    .call_intrinsic(name, &[x.get_type().into()], &[x.into(), y.into()])?
+                    .ok_or("overflow intrinsic produced no value")?;
+                let flag = b
+                    .build_extract_value(pair.into_struct_value(), 1, "")?
+                    .into_int_value();
+                Ok(vec![
+                    b.build_int_z_extend(flag, self.ctx.i8_type(), "")?.into(),
+                ])
             }
             Intrinsic::IsCompileTime => {
                 let ty = want.first().copied().unwrap_or(Ty::I8);

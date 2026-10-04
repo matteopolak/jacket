@@ -14,5 +14,14 @@ main :: () {
     p: Value; p.kind = .PAIR; p.pair.b = 9;
     assert(v.kind == .INT && v.int_value == 42 && t.text == "hi" && p.pair.b == 9);
     assert(size_of(Value) == 24 && type_info(Value).type == .STRUCT);
+    flags := type_info(Value).textual_flags;
+    assert(flags & .UNION && flags & .UNION_IS_TAGGED);
+    // Type info lists the tag, then each variant, with the tag values selecting them.
+    info := type_info(Value);
+    assert(info.members.count == 4 && info.members[0].name == "kind" && info.members[2].name == "text");
+    assert(info.members[2].offset_in_bytes == 8);
+    assert(info.tagged_union_bindings.count == 3);
+    b := info.tagged_union_bindings[1];
+    assert(b.constant_value == xx Kind.TEXT && b.member_index == 2);
 
 }

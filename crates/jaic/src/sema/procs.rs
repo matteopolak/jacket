@@ -19,6 +19,8 @@ pub struct ParamInfo {
     pub default: Option<ast::Expr>,
     pub variadic: bool,
     pub using: bool,
+    /// `#discard`: callers pass no real value and the body may not name it.
+    pub discard: bool,
     pub span: Span,
 }
 
@@ -224,6 +226,7 @@ impl Compiler {
             );
         }
         if self.proc(id).sig_resolving {
+            self.in_progress_misses += 1;
             return err(
                 self.proc(id).span,
                 format!("signature of '{}' depends on itself", self.proc(id).name),
@@ -237,6 +240,53 @@ impl Compiler {
         Ok(sig)
     }
 
+    /// Does type `t` name one of the parameters (`-> type_of(asset)`, `p: cache.Proc`)?
+    fn mentions_param(&self, t: &ast::Expr, params: &[ParamInfo]) -> bool {
+        if (t.span.file.0 as usize) >= self.sources.len() {
+            return false;
+        }
+        let text = self.sources.snippet(t.span);
+        let word = |c: char| c.is_alphanumeric() || c == '_';
+        text.split(|c: char| !word(c)).any(|w| {
+            params
+                .iter()
+                .any(|p| p.name.is_some_and(|n| n.as_str() == w))
+        })
+    }
+
+    /// A parameter or result type naming parameters: checked with the parameters in scope
+    /// (only their types are known).
+    fn type_from_params(
+        &mut self,
+        scope: ScopeId,
+        t: &ast::Expr,
+        params: &[ParamInfo],
+    ) -> Result<TypeId> {
+        let module = self.scope(scope).module;
+        let inner = self.new_scope(ScopeKind::Block, Some(scope), module, None);
+        let mut scratch = self.scratch_ctx(inner);
+        let depth = self.scope(inner).proc_depth;
+        for param in params {
+            let Some(name) = param.name else {
+                continue;
+            };
+            let addr = scratch.b.iconst(ir::Ty::Ptr, 0);
+            self.add_entity(
+                inner,
+                name,
+                param.span,
+                EntityKind::Local {
+                    ty: param.ty,
+                    addr,
+                    depth,
+                },
+                false,
+            );
+        }
+        let op = self.check_expr(&mut scratch, inner, t, Some(TypeId::TYPE))?;
+        self.operand_as_type(op, t.span)
+    }
+
     fn build_signature(&mut self, id: ProcId) -> Result<Signature> {
         let p = self.proc(id);
         let header = p.lit.header.clone();
@@ -248,6 +298,9 @@ impl Compiler {
                 continue;
             }
             let ty = match (&param.ty, &param.default) {
+                (Some(t), _) if self.mentions_param(t, &params) => {
+                    self.type_from_params(scope, t, &params)?
+                }
                 (Some(t), _) => self.eval_type(scope, t)?,
                 (None, Some(d)) if matches!(d.kind, ast::ExprKind::CallerCode) => TypeId::CODE,
                 (None, Some(d)) => {
@@ -266,7 +319,9 @@ impl Compiler {
                 }
                 (None, None) => return err(param.span, "parameter needs a type"),
             };
-            let ty = if param.variadic && !(header.flags.c_call || header.foreign.is_some()) {
+            let ty = if param.variadic
+                && !(header.flags.c_call || header.flags.cpp_method || header.foreign.is_some())
+            {
                 self.types.array(ty, ArrayKind::View)
             } else {
                 ty
@@ -277,6 +332,7 @@ impl Compiler {
                 default: param.default.clone(),
                 variadic: param.variadic,
                 using: param.using,
+                discard: param.discard,
                 span: param.span,
             });
         }
@@ -284,6 +340,9 @@ impl Compiler {
         let mut return_names = Vec::new();
         for r in &header.returns {
             let ty = match (&r.ty, &r.default) {
+                (Some(t), _) if self.mentions_param(t, &params) => {
+                    self.type_from_params(scope, t, &params)?
+                }
                 (Some(t), _) => self.eval_type(scope, t)?,
                 (None, Some(d)) => match self.eval_const(scope, d, None)? {
                     Operand::Const {
@@ -306,7 +365,7 @@ impl Compiler {
             returns.push(ty);
             return_names.push(None);
         }
-        let c_call = header.flags.c_call || header.foreign.is_some();
+        let c_call = header.flags.c_call || header.flags.cpp_method || header.foreign.is_some();
         let c_varargs = c_call && params.last().is_some_and(|p| p.variadic);
         let has_context = !c_call && !header.flags.no_context && !header.flags.intrinsic;
         let proc_type = ProcType {
@@ -320,6 +379,7 @@ impl Compiler {
             c_varargs,
             c_call,
             no_context: !has_context,
+            non_pod_return: header.flags.cpp_return_type_is_non_pod,
         };
         let ty = self.types.intern(TypeKind::Proc(Rc::new(proc_type)));
         Ok(Signature {
@@ -385,6 +445,7 @@ impl Compiler {
                     params.push(Ty::Ptr);
                     if p.c_call && i == 0 {
                         c_abi.ret = Some(self.agg_layout(t, span)?);
+                        c_abi.ret_indirect = p.non_pod_return;
                     }
                     c_abi.params.push(None);
                 }
@@ -392,6 +453,7 @@ impl Compiler {
         }
         let needs_abi =
             p.c_call && (c_abi.ret.is_some() || c_abi.params.iter().any(Option::is_some));
+        let c_fixed = params.len() as u32;
         Ok(Sig {
             params,
             returns,
@@ -401,6 +463,7 @@ impl Compiler {
                 Conv::Jai
             },
             c_varargs: p.c_varargs,
+            c_fixed,
             c_abi: needs_abi.then(|| Box::new(c_abi)),
         })
     }
@@ -639,13 +702,34 @@ impl Compiler {
     }
 
     /// Lower all queued procedure bodies.
+    /// A body that fails is retried while other bodies still lower: one lowered later may
+    /// declare what it needs (`#insert,scope(...)` into a file). The first error of a pass
+    /// that made no progress is reported. Only bodies that existed when the pass started
+    /// count as progress: a failing body re-creates its nested procedures on every retry,
+    /// and lowering those must not keep the loop alive.
     pub fn drain_bodies(&mut self) -> Result<()> {
-        while let Some(id) = self.body_queue.pop() {
-            if self.proc(id).body_state == BodyState::Queued {
-                self.lower_body(id)?;
+        loop {
+            let mut failed = Vec::new();
+            let mut progress = false;
+            let existing = self.procs.len();
+            while let Some(id) = self.body_queue.pop() {
+                if self.proc(id).body_state != BodyState::Queued {
+                    continue;
+                }
+                match self.lower_body(id) {
+                    Ok(()) => progress |= (id.0 as usize) < existing,
+                    Err(e) => failed.push((id, e)),
+                }
             }
+            if failed.is_empty() {
+                return Ok(());
+            }
+            if !progress {
+                return Err(failed.into_iter().next().unwrap().1);
+            }
+            self.body_queue
+                .extend(failed.into_iter().rev().map(|(id, _)| id));
         }
-        Ok(())
     }
 
     /// Lower the queued bodies that can be lowered now, for compile-time code running in the
@@ -656,15 +740,45 @@ impl Compiler {
         let mut first = None;
         let mut retry = Vec::new();
         while let Some(id) = self.body_queue.pop() {
-            if self.proc(id).body_state == BodyState::Queued
-                && let Err(e) = self.lower_body(id)
+            if self.proc(id).body_state != BodyState::Queued {
+                continue;
+            }
+            // A body that failed is only worth another attempt once something it could be
+            // waiting for happened (code added, a compile-time run finished). Otherwise every
+            // compile-time call redoes the failing work, which compounds when that work itself
+            // runs compile-time code (a body using a module that did not load).
+            let epoch = self.lower_epoch();
+            if let Some((at, err)) = self.lenient_failures.get(&id)
+                && *at == epoch
             {
-                first.get_or_insert(e);
+                first.get_or_insert_with(|| err.clone());
                 retry.push(id);
+                continue;
+            }
+            let misses = (self.placeholder_misses, self.in_progress_misses);
+            match self.lower_body(id) {
+                Ok(()) => {
+                    self.lenient_failures.remove(&id);
+                }
+                Err(e) => {
+                    // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
+                    // something in progress (a signature, a layout) by the caller finishing.
+                    if (self.placeholder_misses, self.in_progress_misses) == misses {
+                        let epoch = self.lower_epoch();
+                        self.lenient_failures.insert(id, (epoch, e.clone()));
+                    }
+                    first.get_or_insert(e);
+                    retry.push(id);
+                }
             }
         }
         self.body_queue.extend(retry);
         first
+    }
+
+    /// Counts the events after which a body that failed to lower may succeed.
+    fn lower_epoch(&self) -> u64 {
+        (self.added_sources + self.files.len() + self.modules.len() + self.runs_done) as u64
     }
 
     /// Lower one procedure body to IR.
@@ -680,30 +794,53 @@ impl Compiler {
     }
 
     fn lower_body_inner(&mut self, id: ProcId) -> Result<()> {
-        let span = self.proc(id).span;
-        let sig = self.signature(id, span)?;
         let Some(ProcTarget::Func(func_id)) = self.proc(id).target else {
             return Ok(());
         };
+        self.lower_body_code(id, Some(func_id))
+    }
+
+    /// Lower a body into `func_id`, or only typecheck it (`None`: the code is dropped).
+    fn lower_body_code(&mut self, id: ProcId, func_id: Option<ir::FuncId>) -> Result<()> {
+        let span = self.proc(id).span;
+        let sig = self.signature(id, span)?;
         let lit = self.proc(id).lit.clone();
         let header = lit.header.clone();
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let file = self.scope_file(sig.scope);
-        let mut f = FnCtx::new(
-            self.program.func_names[func_id.0 as usize].clone(),
-            ir_sig,
-            file,
-        );
+        let name = match func_id {
+            Some(func_id) => self.program.func_names[func_id.0 as usize].clone(),
+            None => "typecheck".into(),
+        };
+        let mut f = FnCtx::new(name, ir_sig, file);
         f.proc = Some(id);
+        f.no_abc = header.flags.no_abc || !self.options.array_bounds_check;
+        f.no_aoc = header.flags.no_aoc;
         if let Some(name) = &self.proc(id).export {
             f.b.func.linkage = ir::Linkage::Export(name.clone());
         }
         f.b.func.source_file = file.0;
+        if sig.has_context
+            && func_id.is_some()
+            && header.flags.inline != ast::CallHintFlag::Inline
+            && !header.flags.no_debug
+        {
+            let (line, col) = self.sources.get(span.file).line_col(span.start);
+            f.b.func.trace = Some(ir::TraceInfo {
+                name: self.proc(id).name.to_string(),
+                file: span.file.0,
+                line,
+                col,
+            });
+        }
         let module = self.scope(sig.scope).module;
         let scope = self.new_scope(ScopeKind::Proc, Some(sig.scope), module, None);
         self.scope_mut(scope).proc = Some(id);
         let Some(body) = &lit.body else {
             // Intrinsic or #compiler without a body: synthesize a forwarding body.
+            let Some(func_id) = func_id else {
+                return Ok(());
+            };
             return self.lower_intrinsic_wrapper(id, func_id, f, &sig, &header);
         };
         let mut next = 0usize;
@@ -714,6 +851,13 @@ impl Compiler {
         for param in &sig.params {
             let incoming = f.b.param(next);
             next += 1;
+            if param.discard {
+                if let Some(name) = param.name {
+                    let e = self.add_const(scope, name, param.span, Value::Int(0), TypeId::S64);
+                    self.discard_params.insert(e);
+                }
+                continue;
+            }
             let addr = if self.is_memory_type(param.ty) {
                 incoming
             } else {
@@ -799,7 +943,9 @@ impl Compiler {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
         let func = f.b.finish();
-        self.program.funcs[func_id.0 as usize] = Some(func);
+        if let Some(func_id) = func_id {
+            self.program.funcs[func_id.0 as usize] = Some(func);
+        }
         Ok(())
     }
 
@@ -850,8 +996,14 @@ impl Compiler {
             "debug_break" | "compile_time_debug_break" => ir::Intrinsic::DebugBreak,
             _ => ir::Intrinsic::Trap,
         };
-        let results = f.b.intrinsic(op, args, &returns);
-        f.b.ret(results);
+        if op == ir::Intrinsic::Trap {
+            // Compile-time-only primitives (`#compiler` hooks) have no runtime body.
+            f.b.intrinsic(op, Vec::new(), &[]);
+            f.b.terminate(ir::Term::Unreachable);
+        } else {
+            let results = f.b.intrinsic(op, args, &returns);
+            f.b.ret(results);
+        }
         self.program.funcs[func_id.0 as usize] = Some(f.b.finish());
         Ok(())
     }

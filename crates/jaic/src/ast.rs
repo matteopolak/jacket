@@ -256,6 +256,8 @@ pub enum ExprKind {
     /// `#placeholder`-style or unrecognized directive with an optional operand.
     UnknownDirective {
         name: Ident,
+        /// `#library,system,link_always "x"`: the comma flags.
+        flags: Vec<Ident>,
         operand: Option<Box<Expr>>,
     },
     /// `` `x ``: refer to the macro caller's scope.
@@ -290,7 +292,17 @@ pub struct AsmInst {
     /// `.q`, `.64` or `?T` operand size.
     pub size: Option<AsmSize>,
     pub operands: Vec<AsmOperand>,
+    /// EVEX decorations: `{k}` masking (`v: &* mask`) and SAE / rounding (`v !z`).
+    pub evex: AsmEvex,
     pub span: Span,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct AsmEvex {
+    /// `&` (merging) or `&*` (zeroing, `true`) with the mask register operand.
+    pub mask: Option<(Box<AsmOperand>, bool)>,
+    /// `!` / `!n` / `!d` / `!u` / `!z`: the mode letter, or `None` for plain SAE.
+    pub round: Option<Option<char>>,
 }
 
 #[derive(Clone, Debug)]
@@ -331,6 +343,8 @@ pub enum AsmPin {
 #[derive(Clone, Debug)]
 pub struct AsmMem {
     pub terms: Vec<AsmMemTerm>,
+    /// `[mem]!`: EVEX broadcast of a single element.
+    pub broadcast: bool,
     pub span: Span,
 }
 
@@ -363,6 +377,8 @@ pub struct Param {
     pub name: Option<Ident>,
     /// `$name: T` (the parameter's value must be a compile-time constant).
     pub baked: bool,
+    /// `$$name: T`: baked when the call's argument is a constant, else a runtime parameter.
+    pub auto_bake: bool,
     pub using: bool,
     /// `using,except(x) q: T`
     pub using_filter: Option<UsingFilter>,
@@ -549,6 +565,10 @@ pub struct EnumLit {
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,
+    /// `#no_abc { ... }`, or the body of a loop / `if` flagged `#no_abc`: no array bounds checks.
+    pub no_abc: bool,
+    /// `#no_aoc { ... }`, or the body of a loop / `if` flagged `#no_aoc`: no arithmetic overflow checks.
+    pub no_aoc: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -707,6 +727,8 @@ pub enum StmtKind {
     },
     While {
         label: Option<Ident>,
+        /// `while name := cond`: `name` also holds the condition's value inside the loop.
+        bind_label: bool,
         cond: Expr,
         body: Box<Stmt>,
     },

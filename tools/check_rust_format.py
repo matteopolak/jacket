@@ -7,7 +7,7 @@ import sys
 import tomllib
 
 
-STANDALONE_MANIFESTS = ("fuzz/Cargo.toml",)
+STANDALONE_MANIFESTS: tuple[str, ...] = ()
 
 
 def standalone_manifests(root: Path) -> list[str]:

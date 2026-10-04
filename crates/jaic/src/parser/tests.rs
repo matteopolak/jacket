@@ -93,7 +93,8 @@ fn header_with_body_is_a_procedure() {
     assert!(h.params[2].baked);
     assert!(h.params[3].using);
     assert!(h.params[4].variadic);
-    assert!(!h.params[5].baked); // `$$k` is passed at runtime.
+    assert!(!h.params[5].baked); // `$$k` bakes per call, not in the header.
+    assert!(h.params[5].auto_bake);
     assert_eq!(h.returns.len(), 2);
     assert!(h.returns[1].must);
     assert!(lit.body.is_some());
@@ -559,7 +560,7 @@ fn here_string_argument_in_call() {
     else {
         panic!()
     };
-    assert!(matches!(&args[0].value.kind, ExprKind::Str(s) if &**s == b"hello"));
+    assert!(matches!(&args[0].value.kind, ExprKind::Str(s) if &**s == b"hello\n"));
     // A here-string ends its statement without a semicolon.
     assert!(matches!(
         decl(&stmts[1]).value.as_ref().unwrap().kind,

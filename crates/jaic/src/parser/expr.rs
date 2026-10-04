@@ -702,6 +702,10 @@ impl Parser<'_> {
             self.eat_kw("then");
             Some(Box::new(self.parse_branch_value()?))
         };
+        // `#ifx c then a; else b;` (seen in older code): the `;` before `else` is dropped.
+        if is_static && matches!(self.tok(), Tok::Punct(P::Semi)) && self.kw_at(1) == Some("else") {
+            self.bump();
+        }
         let else_value = if self.eat_kw("else") {
             Some(Box::new(self.parse_branch_value()?))
         } else {

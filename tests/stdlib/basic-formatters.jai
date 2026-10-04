@@ -35,12 +35,12 @@ main :: () -> s64 {
     sample := Sample_Record.{count = 3, name = "x"};
     legacy_struct := formatStruct(sample);
     if legacy_struct.value.type != type_info(Sample_Record) || legacy_struct.use_long_form_if_more_than_this_many_members != 5 return 12;
-    expected := "{count = 3, name = \"x\"}";
+    expected := "{3, \"x\"}";
     if tprint("%", legacy_struct) != expected || tprint("%", formatStruct(sample)) != expected return 13;
     if tprint("%2:%1:\%", "first", "second") != "second:first:%" return 14;
     if tprint("%", cast(Sample_Flags) 9) != "A | 0x8" return 15;
     if tprint("%", cast(Sample_Flags) 0) != "0" return 16;
-    if type_to_string(Procedure_Kind) != "(s64) -> bool" return 17;
+    if type_to_string(Procedure_Kind) != "procedure (s64) -> bool" return 17;
     if tprint("%", formatStruct(*sample)) != expected return 18;
     return 0;
 }

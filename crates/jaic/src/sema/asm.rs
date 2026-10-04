@@ -19,8 +19,10 @@
 //!   flags not yet set in the block read as 0. `setcc`/`cmovcc` read them.
 //! - `lock_`-prefixed read-modify-write instructions on memory use a
 //!   compare-and-swap loop, so they are atomic on native targets.
-//! - Anything else (SIMD, string ops, division, ...) is a compile error naming
-//!   the instruction.
+//! - Vector instructions (`vec` registers, SSE/AVX/AVX-512 mnemonics) are lowered
+//!   lane by lane in `asm/vec.rs`.
+//! - Anything else (string ops, division, x87, mask registers, ...) is a compile
+//!   error naming the instruction.
 use super::lower::{FnCtx, Operand};
 use super::scope::{EntityKind, Found};
 use super::*;
@@ -28,6 +30,8 @@ use crate::ast::{
     AsmBlock, AsmDecl, AsmInst, AsmItem, AsmMem, AsmOperand, AsmSize, CodeBody, Expr, ExprKind as E,
 };
 use crate::ir::{BinOp, BlockId, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
+
+mod vec;
 
 /// Feature-set modifiers accepted after `#asm` (they never change lowering).
 const FEATURES: &[&str] = &[
@@ -88,7 +92,9 @@ const FEATURES: &[&str] = &[
 pub enum AsmReg {
     /// General-purpose register: a 64-bit local.
     Gpr,
-    /// Vector / x87 / mask register: declarable, but no instruction can use it.
+    /// Vector register: a 64-byte local (zmm-sized; xmm/ymm use its low bytes).
+    Vec,
+    /// x87 / mask register: declarable, but no instruction can use it.
     Unsupported,
 }
 
@@ -309,6 +315,10 @@ struct Flags {
 struct AsmCtx {
     scope: ScopeId,
     flags: Flags,
+    /// Default vector operand size in bytes: 16, 32 with AVX, 64 with AVX-512.
+    vec_width: u64,
+    /// VEX/EVEX encoding (AVX and up): vector writes zero the rest of the register.
+    vex: bool,
 }
 
 /// An in-progress read-modify-write of one operand.
@@ -462,9 +472,24 @@ impl Compiler {
                 );
             }
         }
+        let has = |prefix: &str| {
+            block
+                .features
+                .iter()
+                .any(|f| f.name.as_str().starts_with(prefix))
+        };
+        let vex = has("AVX");
         let mut cx = AsmCtx {
             scope,
             flags: Flags::default(),
+            vec_width: if has("AVX512") {
+                64
+            } else if vex {
+                32
+            } else {
+                16
+            },
+            vex,
         };
         for item in &block.items {
             match item {
@@ -482,7 +507,7 @@ impl Compiler {
     /// `x: gpr;`, `x: gpr === a;` and `x === a;` as statements.
     fn asm_decl_item(&mut self, f: &mut FnCtx, cx: &AsmCtx, decl: &AsmDecl) -> Result<()> {
         if decl.colon {
-            self.asm_declare(f, cx, decl)?;
+            self.asm_declare(f, cx, decl, "gpr")?;
             return Ok(());
         }
         // `x === a` pins an existing variable.
@@ -496,12 +521,20 @@ impl Compiler {
     }
 
     /// Declare the register named by `decl` in the enclosing scope (reusing an earlier
-    /// declaration of the same name in that scope).
-    fn asm_declare(&mut self, f: &mut FnCtx, cx: &AsmCtx, decl: &AsmDecl) -> Result<(AsmReg, Val)> {
-        let class = decl.class.map_or("gpr", |c| c.name.as_str());
+    /// declaration of the same name in that scope). `default_class` applies to `name:`
+    /// without a class (`vec` in a vector operand position).
+    fn asm_declare(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &AsmCtx,
+        decl: &AsmDecl,
+        default_class: &str,
+    ) -> Result<(AsmReg, Val)> {
+        let class = decl.class.map_or(default_class, |c| c.name.as_str());
         let (kind, size) = match class {
             "gpr" => (AsmReg::Gpr, 8),
-            "vec" | "str" | "omr" => (AsmReg::Unsupported, 64),
+            "vec" => (AsmReg::Vec, 64),
+            "str" | "omr" | "kmask" => (AsmReg::Unsupported, 64),
             other => {
                 return err(
                     decl.class.map_or(decl.name.span, |c| c.span),
@@ -537,13 +570,20 @@ impl Compiler {
         Ok((kind, addr))
     }
 
-    fn asm_gpr_opd(&self, kind: AsmReg, addr: Val, span: Span) -> Result<Opd> {
-        if kind == AsmReg::Unsupported {
-            return err(
+    /// Errors unless `kind` is a general-purpose register.
+    fn asm_require_gpr(kind: AsmReg, span: Span) -> Result<()> {
+        match kind {
+            AsmReg::Gpr => Ok(()),
+            AsmReg::Vec => err(
                 span,
-                "vector registers are not supported in #asm (jaic lowers scalar general-purpose instructions only)",
-            );
+                "a vector register is not valid in a general-purpose instruction",
+            ),
+            AsmReg::Unsupported => err(span, "x87 and mask registers are not supported in #asm"),
         }
+    }
+
+    fn asm_gpr_opd(&self, kind: AsmReg, addr: Val, span: Span) -> Result<Opd> {
+        Self::asm_require_gpr(kind, span)?;
         Ok(Opd::Reg(RegPlace {
             addr,
             storage: Ty::I64,
@@ -557,7 +597,7 @@ impl Compiler {
             AsmOperand::Value(e) => self.asm_value(f, cx.scope, e, 0),
             AsmOperand::Mem(m) => Ok(Opd::Mem(self.asm_mem(f, cx.scope, m)?)),
             AsmOperand::Decl(d) if d.colon => {
-                let (kind, addr) = self.asm_declare(f, cx, d)?;
+                let (kind, addr) = self.asm_declare(f, cx, d, "gpr")?;
                 self.asm_gpr_opd(kind, addr, d.name.span)
             }
             AsmOperand::Decl(d) => err(
@@ -576,12 +616,7 @@ impl Compiler {
             && let Some(&kind) = self.asm_regs.get(&id)
         {
             is_gpr = true;
-            if kind == AsmReg::Unsupported {
-                return err(
-                    e.span,
-                    "vector registers are not supported in #asm (jaic lowers scalar general-purpose instructions only)",
-                );
-            }
+            Self::asm_require_gpr(kind, e.span)?;
         }
         let op = self.check_expr(f, scope, e, None)?;
         match op {
@@ -948,11 +983,12 @@ impl Compiler {
         };
         let span = inst.span;
         let Some(op) = lookup_op(base) else {
+            if !lock && self.asm_vec_inst(f, cx, inst, base)? {
+                return Ok(());
+            }
             return err(
                 inst.mnemonic.span,
-                format!(
-                    "unsupported #asm instruction '{name}' (jaic lowers scalar general-purpose instructions only)"
-                ),
+                format!("unsupported #asm instruction '{name}'"),
             );
         };
         let mut opds = Vec::with_capacity(inst.operands.len());

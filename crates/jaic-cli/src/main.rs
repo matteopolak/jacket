@@ -1,8 +1,8 @@
 //! `jaic` command line: `jaic <run|check|build> <file.jai> [-I dir]... [-o out]`.
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
-use jaic::interp::NativeHost;
-use jaic::sema::{Compiler, FileSystem, NativeFs, Options};
-use jaic_llvm::OptLevel;
+use jaic::interp::{NativeHost, SandboxHost, SharedHost};
+use jaic::sema::{Compiler, FileSystem, NativeFs, Options, TargetOs};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
@@ -14,8 +14,30 @@ fn stdlib_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
 }
 
+/// Where `tools/build_native_libs.py` puts third-party libraries for this host, or the
+/// `JAIC_NATIVE_LIBS` path list.
+fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
+    if let Some(dirs) = std::env::var_os("JAIC_NATIVE_LIBS") {
+        return std::env::split_paths(&dirs).collect();
+    }
+    let os = match std::env::consts::OS {
+        "macos" => "macos",
+        "linux" => "linux",
+        _ => return Vec::new(),
+    };
+    let arch = match std::env::consts::ARCH {
+        "aarch64" => "arm64",
+        "x86_64" => "x64",
+        _ => return Vec::new(),
+    };
+    let dir = stdlib.join(format!("../artifacts/native-libs/{os}-{arch}"));
+    dir.canonicalize().map(|d| vec![d]).unwrap_or_default()
+}
+
 fn usage() -> ExitCode {
-    eprintln!("usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [- metaprogram args...]");
+    eprintln!(
+        "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...]"
+    );
     eprintln!(
         "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll]"
     );
@@ -35,11 +57,13 @@ struct Cli {
     file: String,
     imports: Vec<PathBuf>,
     output: Option<PathBuf>,
-    /// `None`: what the metaprogram chose (default: unoptimized).
-    opt_level: Option<OptLevel>,
+    /// `-O0`..`-O3`; `None`: what the metaprogram chose (default: unoptimized).
+    opt_level: Option<&'static str>,
     emit_ir: Option<PathBuf>,
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
     command_line: Vec<String>,
+    /// `-os`: the target `OS` when it is not the host (checking code for another platform).
+    os: Option<TargetOs>,
 }
 
 fn parse(args: &[String]) -> Option<Cli> {
@@ -57,6 +81,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         opt_level: None,
         emit_ir: None,
         command_line: Vec::new(),
+        os: None,
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -65,14 +90,23 @@ fn parse(args: &[String]) -> Option<Cli> {
                 cli.command_line.extend(rest.by_ref().cloned());
             }
             "-I" | "-import_dir" => cli.imports.extend(rest.next().map(PathBuf::from)),
+            "-os" => {
+                cli.os = Some(match rest.next()?.as_str() {
+                    "linux" => TargetOs::Linux,
+                    "windows" => TargetOs::Windows,
+                    "macos" => TargetOs::MacOS,
+                    "wasm" => TargetOs::Wasm,
+                    _ => return None,
+                })
+            }
             "-o" if command == Command::Build => cli.output = Some(PathBuf::from(rest.next()?)),
             "--emit-ir" if command == Command::Build => {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
             }
-            "-O0" if command == Command::Build => cli.opt_level = Some(OptLevel::O0),
-            "-O1" if command == Command::Build => cli.opt_level = Some(OptLevel::O1),
-            "-O2" if command == Command::Build => cli.opt_level = Some(OptLevel::O2),
-            "-O3" if command == Command::Build => cli.opt_level = Some(OptLevel::O3),
+            "-O0" if command == Command::Build => cli.opt_level = Some("O0"),
+            "-O1" if command == Command::Build => cli.opt_level = Some("O1"),
+            "-O2" if command == Command::Build => cli.opt_level = Some("O2"),
+            "-O3" if command == Command::Build => cli.opt_level = Some("O3"),
             _ => return None,
         }
     }
@@ -85,17 +119,27 @@ fn main() -> ExitCode {
         return usage();
     };
     // Deeply recursive programs and checking need a large stack.
-    let worker = std::thread::Builder::new()
-        .stack_size(1 << 30)
-        .spawn(move || run(cli));
-    match worker.map(|h| h.join()) {
-        Ok(Ok(code)) => code,
-        _ => ExitCode::from(101),
+    // On macOS the main thread stays free to run the program's foreign calls (AppKit only
+    // works there); see `jaic::interp::main_thread`.
+    #[cfg(target_os = "macos")]
+    {
+        jaic::interp::main_thread::serve(1 << 30, move || run(cli)).unwrap_or(ExitCode::from(101))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let worker = std::thread::Builder::new()
+            .stack_size(1 << 30)
+            .spawn(move || run(cli));
+        match worker.map(|h| h.join()) {
+            Ok(Ok(code)) => code,
+            _ => ExitCode::from(101),
+        }
     }
 }
 
 fn run(mut cli: Cli) -> ExitCode {
     let stdlib = stdlib_dir();
+    jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
     let path = std::fs::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     // Like `jai`, run from the main file's directory (so the program's meaning does not
     // depend on where the compiler was started); paths given on the command line stay
@@ -110,6 +154,9 @@ fn run(mut cli: Cli) -> ExitCode {
         return ExitCode::from(1);
     }
     let mut options = Options::host();
+    if let Some(os) = cli.os {
+        options.os = os;
+    }
     // The local `modules` folder is searched first, then `-import_dir`s, then the stdlib.
     options.import_paths = vec![main_dir.join("modules")];
     options.import_paths.extend(cli.imports.iter().cloned());
@@ -117,20 +164,33 @@ fn run(mut cli: Cli) -> ExitCode {
     options.preload = Some(stdlib.join("prelude/module.jai"));
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
     // Workspaces created by metaprograms are written only by `build`.
-    let backend: Option<Box<dyn OutputBackend>> = (cli.command == Command::Build).then(|| {
-        Box::new(LlvmBackend {
-            emit_ir: cli.emit_ir.clone(),
-        }) as Box<dyn OutputBackend>
+    let backend: Option<Box<dyn OutputBackend>> = (cli.command == Command::Build)
+        .then(|| Box::new(native_backend(&cli)) as Box<dyn OutputBackend>);
+    // `-os wasm` runs the program the way the browser does: in the sandbox host (virtual clock and
+    // files, cooperative threads), with its output printed when the run ends.
+    let sandbox = (options.os == TargetOs::Wasm).then(|| {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        Rc::new(RefCell::new(SandboxHost::with_files(
+            fs.clone(),
+            &cwd.to_string_lossy(),
+        )))
     });
+    let workspace_sandbox = sandbox.clone();
     let workspaces = Workspaces::new(BuildEnv {
         fs: fs.clone(),
         options: options.clone(),
         backend,
         command_line: cli.command_line.clone(),
-        make_host: Box::new(|| Box::new(NativeHost)),
+        make_host: Box::new(move || match &workspace_sandbox {
+            Some(host) => Box::new(SharedHost(host.clone())),
+            None => Box::new(NativeHost),
+        }),
         report: Box::new(|text| eprintln!("{text}")),
     });
     let mut compiler = Compiler::new(options, fs);
+    if let Some(host) = &sandbox {
+        compiler.interp.host = Box::new(SharedHost(host.clone()));
+    }
     compiler.attach_workspaces(workspaces.clone());
     if let Err(d) = compiler.compile_program(&path) {
         eprintln!("{}", compiler.render(&d));
@@ -146,18 +206,27 @@ fn run(mut cli: Cli) -> ExitCode {
     let settings = workspaces.borrow().top_level_settings();
     match cli.command {
         Command::Check => ExitCode::SUCCESS,
-        Command::Run => match compiler.run_program() {
-            Ok(code) => ExitCode::from(code as u8),
-            Err(d) => {
-                eprintln!("{}", compiler.render(&d));
-                ExitCode::from(1)
+        Command::Run => {
+            let outcome = compiler.run_program();
+            if let Some(host) = &sandbox {
+                use std::io::Write;
+                let host = host.borrow();
+                let _ = std::io::stdout().write_all(&host.stdout);
+                let _ = std::io::stderr().write_all(&host.stderr);
             }
-        },
+            match outcome {
+                Ok(code) => ExitCode::from(code as u8),
+                Err(d) => {
+                    eprintln!("{}", compiler.render(&d));
+                    ExitCode::from(1)
+                }
+            }
+        }
         // A metaprogram that turned its own output off has nothing to write.
         Command::Build if !settings.do_output || settings.output_type == OutputType::NoOutput => {
             ExitCode::SUCCESS
         }
-        Command::Build => match build(&compiler, &cli, &path, settings) {
+        Command::Build => match build(&mut compiler, &cli, &path, settings) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
                 eprintln!("error: {message}");
@@ -169,7 +238,7 @@ fn run(mut cli: Cli) -> ExitCode {
 
 /// Write the top-level program. `-o`/`-O` override what the metaprogram set.
 fn build(
-    compiler: &Compiler,
+    compiler: &mut Compiler,
     cli: &Cli,
     source: &Path,
     mut settings: BuildSettings,
@@ -190,25 +259,48 @@ fn build(
         PathBuf::from(&settings.output_path).join(name)
     });
     if let Some(level) = cli.opt_level {
-        settings.optimization = match level {
-            OptLevel::O0 => "O0",
-            OptLevel::O1 => "O1",
-            OptLevel::O2 => "O2",
-            OptLevel::O3 => "O3",
-        }
-        .into();
+        settings.optimization = level.into();
     }
+    compiler.prepare_compiled_output();
+    native_backend(cli).write_output(&compiler.program, &settings, &output)
+}
+
+#[cfg(feature = "llvm")]
+fn native_backend(cli: &Cli) -> LlvmBackend {
     LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
     }
-    .write_output(&compiler.program, &settings, &output)
+}
+
+/// Without the `llvm` feature (an interpreter-only build, e.g. for a host without LLVM
+/// libraries) `build` reports that it cannot write native output.
+#[cfg(not(feature = "llvm"))]
+fn native_backend(_cli: &Cli) -> NoBackend {
+    NoBackend
+}
+
+#[cfg(not(feature = "llvm"))]
+struct NoBackend;
+
+#[cfg(not(feature = "llvm"))]
+impl OutputBackend for NoBackend {
+    fn write_output(
+        &mut self,
+        _program: &jaic::ir::Program,
+        _settings: &BuildSettings,
+        _output: &Path,
+    ) -> Result<(), String> {
+        Err("this jaic was built without the `llvm` feature and cannot write native output".into())
+    }
 }
 
 /// Native output through `jaic-llvm` and the system linker.
+#[cfg(feature = "llvm")]
 struct LlvmBackend {
     emit_ir: Option<PathBuf>,
 }
 
+#[cfg(feature = "llvm")]
 impl OutputBackend for LlvmBackend {
     fn write_output(
         &mut self,
@@ -230,6 +322,7 @@ impl OutputBackend for LlvmBackend {
         } else {
             with_ext(".o")
         };
+        use jaic_llvm::OptLevel;
         let opt_level = match settings.optimization.as_str() {
             // `llvm_options.bitcode_optimization_setting` member names.
             "O1" => OptLevel::O1,

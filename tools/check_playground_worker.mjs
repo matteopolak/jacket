@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Worker } from "node:worker_threads";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 export async function checkWorkers(directory) {
   const workers = new Set();
   function start() {
@@ -12,12 +13,14 @@ export async function checkWorkers(directory) {
     return { worker, send: value => worker.postMessage(value), wait(type, id) { return new Promise((resolve, reject) => { const item = { type, id, resolve, reject, timer: setTimeout(() => { pending.delete(item); reject(new Error(`Real worker timed out: ${type}`)); }, 20000) }; pending.add(item); }); } };
   }
   async function initialize(client) { const ready = client.wait("init"); client.send({ type: "init" }); const response = await ready; assert.equal(response.error, undefined); assert.equal(response.capabilities.languageServer, true); }
-  async function run(client, id, source, options) { const finished = client.wait("run", id); client.send({ type: "run", id, source, options }); const result = await finished; assert.equal(result.error, undefined); return result.result; }
+  // Workers answer with the jaic playground result (`play`).
+  function exitCodeOf(message) { return String(message.play.exitCode); }
+  async function run(client, id, source, options) { const finished = client.wait("run", id); client.send({ type: "run", id, source, options }); const result = await finished; assert.equal(result.error, undefined); return result.play; }
   try {
     const execution = start(), language = start(); await Promise.all([initialize(execution), initialize(language)]);
     const snapshot = { type: "run", id: 1, source: '#load "lib/helper.jai"; main :: () -> int { return answer(); }', options: { files: { "lib/helper.jai": "answer :: () -> int { return 42; }" }, fuel: 1000000 } };
     const finished = execution.wait("run", 1); execution.send(snapshot); snapshot.options.files["lib/helper.jai"] = "answer :: () -> int { return 9; }";
-    assert.equal((await finished).result.exitCode, "42", "Actual worker uses its immutable cloned VFS snapshot");
+    assert.equal(exitCodeOf(await finished), "42", "Actual worker uses its immutable cloned VFS snapshot");
     let rpcId = 0;
     async function request(method, params) { const id = ++rpcId; const response = language.wait("lsp", id); language.send({ type: "lsp", id, message: { jsonrpc: "2.0", id, method, params } }); const envelope = await response; assert.equal(envelope.error, undefined); const message = envelope.messages.find(value => value.id === id); assert(message && !message.error); return message.result; }
     const initialized = await request("initialize", { capabilities: {} }); assert.equal(initialized.capabilities.hoverProvider, true);
@@ -28,8 +31,27 @@ export async function checkWorkers(directory) {
     const started = execution.wait("run-started", 2); execution.send({ type: "run", id: 2, source: "main :: () { while true {} }", options: { fuel: 0xffffffff } }); await started;
     await execution.worker.terminate(); workers.delete(execution.worker);
     const hover = await request("textDocument/hover", { textDocument: { uri }, position: { line: 1, character: "main :: () -> int { return answer(); }".indexOf("answer") + 1 } }); assert.match(hover.contents.value, /answer/);
-    const restarted = start(); await initialize(restarted); assert.equal((await run(restarted, 3, "main :: () -> int { return 42; }", { fuel: 1000000 })).exitCode, "42");
-    return { actualWorker: true, immutableVfsSnapshot: true, actualLanguageWorker: true, executionCancellation: true, freshWorkerRestart: true };
+    const restarted = start(); await initialize(restarted); assert.equal(String((await run(restarted, 3, "main :: () -> int { return 42; }", { fuel: 1000000 })).exitCode), "42");
+    // Recent-feature smoke tests: stdlib containers, compile-time metaprograms, empty views, the virtual clock,
+    // and clean failure of native-only features.
+    const features = [
+      ['#import "Basic"; #import "Hash_Table"; main :: () { t: Table(int, string); table_set(*t, 1, "one"); ok, v := table_find(*t, 1); print("% %\\n", v, ok); }', "one true\n"],
+      ['#import "Basic"; #import "Compiler"; #run { w := compiler_create_workspace("w"); opts := get_build_options(w); opts.output_type = .NO_OUTPUT; set_build_options(opts, w); compiler_begin_intercept(w); add_build_string("main :: () {}", w); while true { m := compiler_wait_for_message(); if m.kind == .COMPLETE break; } compiler_end_intercept(w); print("meta ok\\n"); } main :: () {}', "meta ok\n"],
+      ['#import "Basic"; main :: () { a := NewArray(0, s64); if a.data print("bad\\n"); else print("null\\n"); }', "null\n"],
+      ['#import "Basic"; main :: () { t := current_time_monotonic(); print("time\\n"); }', "time\n"],
+    ];
+    let featureId = 10;
+    for (const [source, stdout] of features) {
+      const result = await run(restarted, ++featureId, source, { fuel: 1000000 });
+      assert.deepEqual(result.diagnostics, [], source);
+      assert.equal(result.stdout, stdout, source);
+    }
+    const foreign = await run(restarted, 20, 'puts :: (s: *u8) -> s32 #foreign libc; libc :: #library "libc"; main :: () { puts("x"); }', { fuel: 1000000 });
+    assert.equal(foreign.exitCode, null); assert(foreign.diagnostics.length > 0, "Native-only #foreign must fail with a diagnostic, not a crash");
+    // Every tests/stdlib program runs in a fresh engine; the pass set must equal tools/playground_stdlib_expected.json.
+    const sweep = spawnSync(process.execPath, [fileURLToPath(new URL("./check_playground_stdlib.mjs", import.meta.url)), path.resolve(directory)], { encoding: "utf8" });
+    assert.equal(sweep.status, 0, `stdlib pass set check failed:\n${sweep.stdout}${sweep.stderr}`);
+    return { stdlibPassSet: sweep.stdout.trim(), actualWorker: true, immutableVfsSnapshot: true, actualLanguageWorker: true, executionCancellation: true, freshWorkerRestart: true };
   } finally { await Promise.all([...workers].map(worker => worker.terminate())); }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

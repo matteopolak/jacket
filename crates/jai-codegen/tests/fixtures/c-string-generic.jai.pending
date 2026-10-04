@@ -1,6 +1,0 @@
-inspect::(bytes:*$T)->int {
-    if size_of(T)!=1 return 1;
-    if bytes[0]!=65 || bytes[1]!=0 || bytes[2]!=66 || bytes[3]!=0 return 2;
-    return 42;
-}
-main::()->int { return inspect("A\0B"); }

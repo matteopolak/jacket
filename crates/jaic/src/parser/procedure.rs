@@ -19,6 +19,7 @@ const HEADER_DIRECTIVES: &[&str] = &[
     "foreign",
     "symmetric",
     "cpp_method",
+    "cpp_return_type_is_non_pod",
     "runtime_support",
     "no_debug",
     "no_abc",
@@ -185,6 +186,7 @@ impl Parser<'_> {
         header.params.push(Param {
             name: Some(name),
             baked: false,
+            auto_bake: false,
             using: false,
             using_filter: None,
             discard: false,
@@ -254,9 +256,9 @@ impl Parser<'_> {
         Ok(params)
     }
 
-    /// A parameter's type. A bare parenthesized list, as in `f: (*Vector3)`, is a procedure type
+    /// A parameter or declaration type. A bare parenthesized list, as in `f: (*Vector3)`, is a procedure type
     /// returning nothing; parentheses around a type mean nothing here.
-    fn parse_param_type(&mut self) -> PResult<Expr> {
+    pub(super) fn parse_param_type(&mut self) -> PResult<Expr> {
         if self.at(P::LParen) && !self.paren_starts_header(0) {
             let closes_type = self.matching_paren(0).is_some_and(|close| {
                 matches!(
@@ -295,6 +297,7 @@ impl Parser<'_> {
             out.push(Param {
                 name: None,
                 baked: false,
+                auto_bake: false,
                 using,
                 using_filter,
                 discard,
@@ -308,13 +311,13 @@ impl Parser<'_> {
         }
         let mut names = Vec::new();
         loop {
-            // `$$x` bakes only constant arguments; jaic passes it at runtime
-            // (the body sees `is_constant(x) == false`).
+            // `$$x` bakes only constant arguments (decided per call in sema).
             let baked = matches!(self.tok(), Tok::Punct(P::Dollar));
-            if baked || matches!(self.tok(), Tok::Punct(P::DollarDollar)) {
+            let auto = matches!(self.tok(), Tok::Punct(P::DollarDollar));
+            if baked || auto {
                 self.bump();
             }
-            names.push((self.ident("as parameter name")?, baked));
+            names.push((self.ident("as parameter name")?, baked, auto));
             if !self.eat(P::Comma) {
                 break;
             }
@@ -337,11 +340,12 @@ impl Parser<'_> {
         }
         let notes = self.parse_notes();
         let end = self.prev_span();
-        for (name, baked) in names {
+        for (name, baked, auto_bake) in names {
             let (ty, default, notes) = (ty.clone(), default.clone(), notes.clone());
             out.push(Param {
                 name: Some(name),
                 baked,
+                auto_bake,
                 using,
                 using_filter: using_filter.clone(),
                 discard,
@@ -469,6 +473,8 @@ impl Parser<'_> {
         Ok(crate::ast::Block {
             stmts: vec![statement],
             span,
+            no_abc: false,
+            no_aoc: false,
         })
     }
 

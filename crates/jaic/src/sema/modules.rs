@@ -13,6 +13,10 @@ pub trait FileSystem {
     fn canonical(&self, path: &Path) -> PathBuf {
         normalize(path)
     }
+    /// Names (and whether each is a directory) directly inside `path`; used by the sandbox host.
+    fn list_dir(&self, _path: &Path) -> Vec<(String, bool)> {
+        Vec::new()
+    }
 }
 
 pub struct NativeFs;
@@ -28,6 +32,20 @@ impl FileSystem for NativeFs {
     }
     fn canonical(&self, path: &Path) -> PathBuf {
         std::fs::canonicalize(path).unwrap_or_else(|_| normalize(path))
+    }
+    fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+        let Ok(entries) = std::fs::read_dir(path) else {
+            return Vec::new();
+        };
+        entries
+            .filter_map(|e| e.ok())
+            .map(|e| {
+                (
+                    e.file_name().to_string_lossy().into_owned(),
+                    e.path().is_dir(),
+                )
+            })
+            .collect()
     }
 }
 
@@ -51,6 +69,24 @@ impl FileSystem for VirtualFs {
         let p = normalize(path);
         self.files.keys().any(|k| k.starts_with(&p) && k != &p)
     }
+    fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+        let p = normalize(path);
+        let mut out: std::collections::BTreeMap<String, bool> = Default::default();
+        for key in self.files.keys() {
+            let Ok(rest) = key.strip_prefix(&p) else {
+                continue;
+            };
+            let mut parts = rest.components();
+            let Some(first) = parts.next() else {
+                continue;
+            };
+            let nested = parts.next().is_some();
+            let name = first.as_os_str().to_string_lossy().into_owned();
+            let entry = out.entry(name).or_insert(false);
+            *entry |= nested;
+        }
+        out.into_iter().collect()
+    }
 }
 
 /// Lexically normalize `a/./b/../c` without touching the filesystem.
@@ -60,7 +96,9 @@ pub fn normalize(path: &Path) -> PathBuf {
         match component {
             std::path::Component::CurDir => {}
             std::path::Component::ParentDir => {
-                if !out.pop() {
+                // `/..` is `/`, as on a real filesystem; a relative path keeps leading `..`.
+                if out.has_root() && out.parent().is_none() {
+                } else if !out.pop() {
                     out.push("..");
                 }
             }
@@ -152,6 +190,7 @@ impl Compiler {
             param_entities: Vec::new(),
             program_params: Vec::new(),
             exported_usings: Vec::new(),
+            exported_using_imports: Vec::new(),
             files: Vec::new(),
         });
         self.module_cache.insert(key, id);
@@ -371,10 +410,21 @@ impl Compiler {
         match &stmt.kind {
             ast::StmtKind::Scope(kind) => return Ok(*kind),
             ast::StmtKind::Decl(decl) => {
+                // `using _ :: struct {...}` may appear many times: each gets its own name.
+                let entity_name = |c: &Self, name: Sym| {
+                    if decl.using && name.as_str() == "_" {
+                        Sym::intern(&format!("__using_{}", c.entities.len()))
+                    } else {
+                        name
+                    }
+                };
+                let mut using_name = None;
                 for (index, name) in decl.names.iter().enumerate() {
+                    let named = entity_name(self, name.name);
+                    using_name.get_or_insert(named);
                     let id = self.add_entity(
                         target,
-                        name.name,
+                        named,
                         name.span,
                         EntityKind::Decl {
                             decl: decl.clone(),
@@ -389,6 +439,18 @@ impl Compiler {
                         ..
                     }) = &decl.value
                         && lit.header.flags.program_export.is_some()
+                    {
+                        self.export_entities.push(id);
+                    }
+                    // `L :: #library,link_always "x"` is linked even if nothing names it.
+                    if let Some(ast::Expr {
+                        kind:
+                            ast::ExprKind::UnknownDirective {
+                                flags, ..
+                            },
+                        ..
+                    }) = &decl.value
+                        && flags.iter().any(|f| f.name.as_str() == "link_always")
                     {
                         self.export_entities.push(id);
                     }
@@ -453,7 +515,6 @@ impl Compiler {
                         self.entity_mut(id).home = file_scope;
                     }
                 } else if decl.using
-                    && decl.kind == ast::DeclKind::Const
                     && let [name] = decl.names.as_slice()
                 {
                     // `using E :: enum {...}`: also bring the type's members into scope.
@@ -461,7 +522,7 @@ impl Compiler {
                         stmt: ast::Stmt {
                             kind: ast::StmtKind::Using {
                                 value: ast::Expr {
-                                    kind: ast::ExprKind::Ident(name.name),
+                                    kind: ast::ExprKind::Ident(using_name.unwrap_or(name.name)),
                                     span: name.span,
                                 },
                                 filter: ast::UsingFilter::None,
@@ -487,7 +548,15 @@ impl Compiler {
                     );
                     self.entity_mut(id).home = file_scope;
                     if let Some(filter) = &import.using {
-                        // `using Name :: #import "M"` also brings the module's names into scope.
+                        // `using Name :: #import "M"` also brings the module's names into scope;
+                        // at module level (exported) they become the module's members too.
+                        if exported && self.scope(target).kind == ScopeKind::Module {
+                            let index = self.scope(target).imports.len();
+                            let module = self.scope(target).module;
+                            self.modules[module.0 as usize]
+                                .exported_using_imports
+                                .push(index);
+                        }
                         self.scope_mut(target).imports.push(ImportEntry {
                             import: import.clone(),
                             module: None,
@@ -964,6 +1033,7 @@ impl Compiler {
             param_entities: Vec::new(),
             program_params: Vec::new(),
             exported_usings: Vec::new(),
+            exported_using_imports: Vec::new(),
             files: Vec::new(),
         });
         id

@@ -2,8 +2,6 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, Limits, Position, Range,
     SemanticTokenKind, Session, SymbolKind, TextChange,
 };
-use jai_source::SourceProvider;
-use std::path::Path;
 fn uri(name: &str) -> DocumentUri {
     DocumentUri::parse(&format!("file:///workspace/{name}")).unwrap()
 }
@@ -75,16 +73,9 @@ fn utf16_crlf_surrogates_and_versioned_edits_are_atomic() {
         session.change(&name, 2, &[]),
         Err(Error::StaleVersion)
     ));
-    assert_eq!(
-        pinned.read(Path::new("/workspace/main.jai")).unwrap(),
-        original.as_bytes()
-    );
-    assert!(pinned.read(Path::new("/etc/passwd")).is_err());
-    assert!(
-        pinned
-            .retain_decoded_text(Path::new("/workspace/main.jai"), "different")
-            .is_err()
-    );
+    assert_eq!(pinned.read("/workspace/main.jai"), Some(original));
+    assert_eq!(pinned.read("/etc/passwd"), None);
+    assert_eq!(pinned.read("/workspace/../../etc/passwd"), None);
 }
 #[test]
 fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
@@ -285,4 +276,51 @@ fn resource_admission_and_source_symbol_ranges_are_bounded() {
     assert!(DocumentUri::parse("file://remote/etc/passwd").is_err());
     assert!(DocumentUri::parse("file:///../escape.jai").is_err());
     assert!(DocumentUri::parse("file:///workspace/bad%00name.jai").is_err());
+}
+#[test]
+fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
+    let mut session = Session::new(Limits::default());
+    let main = uri("main.jai");
+    let helper = uri("helper.jai");
+    let text = "#load \"helper.jai\";\nColor :: enum { RED; GREEN; }\nLib :: #import \"Basic\";\nmain :: () -> int { for i: 0..3 { } return shared(); }";
+    session.open(main.clone(), 1, text.into()).unwrap();
+    session
+        .open(
+            helper.clone(),
+            1,
+            "shared :: () -> int { return 1; }\n#scope_file\nhidden :: () -> int { return 2; }"
+                .into(),
+        )
+        .unwrap();
+    assert!(session.diagnostics(&main).unwrap().is_empty());
+    let symbols = session.document_symbols(&main).unwrap();
+    let color = symbols.iter().find(|s| s.name == "Color").unwrap();
+    assert_eq!(color.kind, SymbolKind::Enum);
+    assert_eq!(color.children.len(), 2);
+    assert_eq!(color.children[0].kind, SymbolKind::EnumMember);
+    assert_eq!(
+        symbols.iter().find(|s| s.name == "Lib").unwrap().kind,
+        SymbolKind::Namespace
+    );
+    assert_eq!(
+        symbols.iter().find(|s| s.name == "main").unwrap().kind,
+        SymbolKind::Function
+    );
+    let items = session.completion(&main, at(text, "shared")).unwrap().items;
+    assert!(items.iter().any(|item| item.label == "shared"));
+    let all = session
+        .completion(
+            &main,
+            Position {
+                line: 3,
+                character: 0,
+            },
+        )
+        .unwrap()
+        .items;
+    assert!(
+        !all.iter().any(|item| item.label == "hidden"),
+        "#scope_file names stay private"
+    );
+    assert!(all.iter().any(|item| item.label == "Color"));
 }

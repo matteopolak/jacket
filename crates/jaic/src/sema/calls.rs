@@ -9,6 +9,20 @@ use crate::ast::ExprKind as E;
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};
 
+/// How a `$$` parameter is treated at one call.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AutoBake {
+    Runtime,
+    Baked,
+    /// Constant argument with no `Value` (`"str".data`): runtime, but `is_constant` is true.
+    ConstRuntime,
+}
+
+/// The hidden constant marking parameter `name` as constant in an auto-bake variant.
+fn const_marker(name: Sym) -> Sym {
+    Sym::intern(&format!("$const:{name}"))
+}
+
 /// A call argument: either already checked, or deferred until the parameter
 /// type is known (`.MEMBER`, `.{...}`, `xx value`...).
 #[derive(Clone)]
@@ -34,6 +48,8 @@ struct Candidate {
     proc: ProcId,
     slots: Vec<Slot>,
     cost: u32,
+    /// How much type structure a polymorphic header pins down (`*$T` beats `$T`).
+    specificity: u32,
 }
 
 fn is_deferred(expr: &ast::Expr) -> bool {
@@ -115,17 +131,24 @@ impl Compiler {
             Operand::Builtin(b) => self.check_builtin(f, scope, b, args, expected, span),
             Operand::PolyStruct(ps) => {
                 let mut values = Vec::new();
-                for a in args {
+                for (i, a) in args.iter().enumerate() {
+                    let expected = if matches!(a.value.kind, E::InferredMember(_)) {
+                        self.poly_struct_param_type(ps, i, a.name.map(|n| n.name))
+                    } else {
+                        None
+                    };
                     values.push((
                         a.name.map(|n| n.name),
-                        self.eval_const_or_run(scope, &a.value, None)?,
+                        self.eval_const_or_run(scope, &a.value, expected)?,
                     ));
                 }
                 Ok(Operand::Type(self.instantiate_struct(ps, values, span)?))
             }
             Operand::Procs(procs) => {
                 let as_code = self.macro_code_args(&procs, args);
-                let call_args = self.precheck_args_deferring(f, scope, args, &as_code)?;
+                let discarded = self.discarded_args(&procs, args);
+                let call_args =
+                    self.precheck_args_deferring(f, scope, args, &as_code, &discarded)?;
                 let wants_code = procs.iter().any(|&p| {
                     let header = &self.proc(p).lit.header;
                     header.params.iter().any(|p| {
@@ -199,7 +222,27 @@ impl Compiler {
         scope: ScopeId,
         args: &[ast::Arg],
     ) -> Result<Vec<CallArg>> {
-        self.precheck_args_deferring(f, scope, args, &[])
+        self.precheck_args_deferring(f, scope, args, &[], &[])
+    }
+
+    /// Arguments passed to a `#discard` parameter of one of `procs`: they are typechecked
+    /// but generate no code.
+    fn discarded_args(&self, procs: &[ProcId], args: &[ast::Arg]) -> Vec<bool> {
+        args.iter()
+            .enumerate()
+            .map(|(i, arg)| {
+                procs.iter().any(|&p| {
+                    let params = &self.proc(p).lit.header.params;
+                    let param = match arg.name {
+                        Some(n) => params
+                            .iter()
+                            .find(|p| p.name.map(|pn| pn.name) == Some(n.name)),
+                        None => params.get(i),
+                    };
+                    param.is_some_and(|p| p.discard)
+                })
+            })
+            .collect()
     }
 
     /// Arguments that a macro among `procs` takes as a `Code` parameter: they are
@@ -231,11 +274,14 @@ impl Compiler {
         scope: ScopeId,
         args: &[ast::Arg],
         defer: &[bool],
+        discard: &[bool],
     ) -> Result<Vec<CallArg>> {
         let mut out = Vec::new();
         for (i, a) in args.iter().enumerate() {
             let op = if is_deferred(&a.value) || defer.get(i).copied().unwrap_or(false) {
                 None
+            } else if discard.get(i).copied().unwrap_or(false) {
+                Some(self.check_expr_no_emit(scope, &a.value)?)
             } else {
                 Some(self.check_expr(f, scope, &a.value, None)?)
             };
@@ -341,7 +387,12 @@ impl Compiler {
         }
         if best.len() > 1 {
             // Prefer non-polymorphic and more specific candidates; otherwise take the first.
-            best.sort_by_key(|c| self.proc(c.proc).bindings.is_some() as u32);
+            best.sort_by_key(|c| {
+                (
+                    self.proc(c.proc).bindings.is_some() as u32,
+                    std::cmp::Reverse(c.specificity),
+                )
+            });
         }
         let chosen = best.swap_remove(0);
         self.emit_call(f, scope, chosen, args, span)
@@ -357,9 +408,43 @@ impl Compiler {
             Vec::new()
         };
         let slots = assign_slots(&header.params, args, &poly_vars, span)?;
+        // `$$x` parameters receiving a constant argument: match a variant with them baked.
+        if header.params.iter().any(|p| p.auto_bake) {
+            let mut mask = vec![AutoBake::Runtime; header.params.len()];
+            for (i, p) in header.params.iter().enumerate() {
+                let Slot::Arg(a) = &slots[i] else {
+                    continue;
+                };
+                if !p.auto_bake {
+                    continue;
+                }
+                let arg = &args[*a];
+                mask[i] = match &arg.op {
+                    Some(op) if op.is_const() || matches!(op, Operand::Procs(_)) => AutoBake::Baked,
+                    Some(op) => match &arg.expr {
+                        Some(e) if self.is_constant_pointer(arg.scope, e, op) => {
+                            AutoBake::ConstRuntime
+                        }
+                        _ => AutoBake::Runtime,
+                    },
+                    None => AutoBake::Runtime,
+                };
+            }
+            if mask.iter().any(|&b| b != AutoBake::Runtime) {
+                let variant = self.auto_bake_variant(proc, mask);
+                return self.match_candidate(variant, args, span);
+            }
+        }
         let mut proc_id = proc;
         let mut extra = 0;
+        let mut specificity = 0;
         if self.proc(proc).is_poly {
+            specificity = header
+                .params
+                .iter()
+                .filter_map(|p| p.ty.as_ref())
+                .map(pattern_specificity)
+                .sum();
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
             proc_id = self.instantiate(proc, bindings, span)?;
             extra = 1;
@@ -404,7 +489,132 @@ impl Compiler {
             proc: proc_id,
             slots,
             cost,
+            specificity,
         })
+    }
+
+    /// The copy of `proc` with the `$$` parameters flagged in `mask` turned into `$` ones.
+    fn auto_bake_variant(&mut self, proc: ProcId, mask: Vec<AutoBake>) -> ProcId {
+        if let Some(&v) = self.auto_bake_variants.get(&(proc, mask.clone())) {
+            return v;
+        }
+        let p = self.proc(proc);
+        let (name, lit, scope, span) =
+            (p.name, p.lit.clone(), p.bindings.unwrap_or(p.scope), p.span);
+        let mut header = (*lit.header).clone();
+        let mut consts = Vec::new();
+        for (param, &bake) in header.params.iter_mut().zip(&mask) {
+            match bake {
+                AutoBake::Baked => {
+                    param.baked = true;
+                    param.auto_bake = false;
+                }
+                AutoBake::ConstRuntime => {
+                    param.auto_bake = false;
+                    if let Some(n) = param.name {
+                        consts.push((const_marker(n.name), Value::Bool(true), TypeId::BOOL));
+                    }
+                }
+                AutoBake::Runtime => {}
+            }
+        }
+        header.flags.program_export = None;
+        let lit = Rc::new(ast::ProcLit {
+            header: Rc::new(header),
+            body: lit.body.clone(),
+        });
+        let scope = if consts.is_empty() {
+            scope
+        } else {
+            self.const_scope(scope, consts, span)
+        };
+        let v = self.new_proc(name, lit, scope, span);
+        self.auto_bake_variants.insert((proc, mask), v);
+        v
+    }
+
+    /// Constant expressions that have no `Value` to bake (addresses of globals, `.data` of
+    /// constants, `type_info(T)`...). `is_constant` is true for them; a `$$` parameter
+    /// receiving one stays a runtime parameter, marked constant.
+    pub(super) fn is_constant_pointer(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        op: &Operand,
+    ) -> bool {
+        match &expr.kind {
+            E::Ident(name) => self
+                .lookup(scope, const_marker(*name))
+                .is_ok_and(|v| !v.is_empty()),
+            E::Member(base, member) => match member.name.as_str() {
+                "data" if self.types.is_pointer(op.ty()) => {
+                    let Ok(b) = self.check_expr_no_emit(scope, base) else {
+                        return false;
+                    };
+                    let fixed = matches!(
+                        self.types.kind(self.types.repr(b.ty())),
+                        TypeKind::Array {
+                            kind: ArrayKind::Fixed(_),
+                            ..
+                        }
+                    );
+                    b.is_const() || (fixed && self.is_global_var(scope, base))
+                }
+                // `type_info(T).type` / `.runtime_size` are constant.
+                "type" | "runtime_size" => {
+                    matches!(&base.kind, E::Call { callee, .. }
+                        if matches!(&callee.kind, E::Ident(n) if n.as_str() == "type_info"))
+                }
+                _ => false,
+            },
+            E::Unary(ast::UnOp::Star, inner) => self.is_global_var(scope, inner),
+            E::Cast {
+                value, ..
+            } if self.types.is_pointer(op.ty()) => self.is_constant_expr(scope, value),
+            E::Binary(ast::BinOp::Add | ast::BinOp::Sub, a, b)
+                if self.types.is_pointer(op.ty()) =>
+            {
+                self.is_constant_expr(scope, a) && self.is_constant_expr(scope, b)
+            }
+            E::Index(base, index) => {
+                let Ok(b) = self.check_expr_no_emit(scope, base) else {
+                    return false;
+                };
+                matches!(
+                    self.types.kind(self.types.repr(b.ty())),
+                    TypeKind::Array { .. } | TypeKind::String
+                ) && self.is_constant_expr(scope, base)
+                    && self.is_constant_expr(scope, index)
+            }
+            E::Call {
+                callee, ..
+            } => matches!(&callee.kind, E::Ident(n)
+                if matches!(n.as_str(), "type_info" | "initializer_of")),
+            _ => false,
+        }
+    }
+
+    fn is_constant_expr(&mut self, scope: ScopeId, expr: &ast::Expr) -> bool {
+        let Ok(op) = self.check_expr_no_emit(scope, expr) else {
+            return false;
+        };
+        op.is_const()
+            || matches!(op, Operand::Procs(_))
+            || self.is_constant_pointer(scope, expr, &op)
+    }
+
+    /// Is `expr` the name of a global variable (not a local or constant)?
+    fn is_global_var(&mut self, scope: ScopeId, expr: &ast::Expr) -> bool {
+        let E::Ident(name) = &expr.kind else {
+            return false;
+        };
+        let Ok(ids) = self.lookup(scope, *name) else {
+            return false;
+        };
+        matches!(ids[..], [id] if matches!(
+            &self.entity(id).kind,
+            EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Var
+        ))
     }
 
     /// A `*Struct` argument passed to a by-value `Struct` parameter is dereferenced.
@@ -519,6 +729,7 @@ impl Compiler {
             }
         );
         match op {
+            Operand::Void => return err(arg.span, "the argument has no value"),
             Operand::Type(_) if param == TypeId::TYPE => return Ok(convert::EXACT),
             Operand::Type(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
             Operand::Procs(procs) => {
@@ -587,6 +798,15 @@ impl Compiler {
                 value: Value::String(_),
                 ..
             } if self.types.pointee(param) == Some(TypeId::U8) => return Ok(convert::POINTER),
+            // A string literal converts to a `#type,distinct` / `#type,isa` string variant.
+            Operand::Const {
+                value: Value::String(_),
+                ..
+            } if matches!(self.types.kind(param), TypeKind::Distinct(_))
+                && self.types.repr(param) == TypeId::STRING =>
+            {
+                return Ok(convert::LITERAL);
+            }
             _ => {}
         }
         let from = op.ty();
@@ -627,6 +847,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Vec<(Sym, Value, TypeId)>> {
         let mut bindings: Vec<(Sym, Value, TypeId)> = Vec::new();
+        let mut deferred_procs = Vec::new();
         let mut null_patterns: Vec<ast::Expr> = Vec::new();
         let def_scope = self.proc(proc).scope;
         let poly_vars = header_poly_names(header);
@@ -661,16 +882,42 @@ impl Compiler {
                 let name = param.name.map(|n| n.name).unwrap();
                 let Some(arg) = arg_ops.first() else {
                     if let Some(d) = &param.default {
-                        // `$type: Query = .X`: the default takes the declared type.
+                        // `$type: Query = .X`: the default takes the declared type. A type
+                        // naming earlier bindings (`$compare: (T, T) -> bool = ...`) is read
+                        // in a scope holding them.
+                        let mut scope = def_scope;
+                        if !bindings.is_empty() {
+                            // One scope per set of bindings, so a lambda default
+                            // (`$compare := (a, b) => a == b`) is the same procedure on every
+                            // call and the instance is found again.
+                            let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
+                            scope = match self.default_scopes.get(&key) {
+                                Some(&s) => s,
+                                None => {
+                                    let module = self.scope(def_scope).module;
+                                    let s = self.new_scope(
+                                        ScopeKind::Block,
+                                        Some(def_scope),
+                                        module,
+                                        None,
+                                    );
+                                    for (n, v, t) in &bindings {
+                                        self.add_const(s, *n, span, v.clone(), *t);
+                                    }
+                                    self.default_scopes.insert(key, s);
+                                    s
+                                }
+                            };
+                        }
                         let declared = match &param.ty {
-                            Some(t) if !procs::has_poly(t) => Some(self.eval_type(def_scope, t)?),
+                            Some(t) if !procs::has_poly(t) => Some(self.eval_type(scope, t)?),
                             _ => None,
                         };
                         let (v, ty) = match declared {
-                            Some(t) => (self.const_value_of_type(def_scope, d, t)?, t),
+                            Some(t) => (self.const_value_of_type(scope, d, t)?, t),
                             None => {
-                                let ty = self.eval_const(def_scope, d, None)?.ty();
-                                (self.const_value_of_type(def_scope, d, ty)?, ty)
+                                let ty = self.eval_const(scope, d, None)?.ty();
+                                (self.const_value_of_type(scope, d, ty)?, ty)
                             }
                         };
                         bindings.push((name, v, ty));
@@ -755,7 +1002,11 @@ impl Compiler {
                 if let Some(t) = &param.ty
                     && procs::has_poly(t)
                 {
-                    let vt = self.type_of_value(&value);
+                    // Aggregate constants (`.[1, 2]`) carry no type of their own.
+                    let vt = match self.type_of_value(&value) {
+                        TypeId::VOID => op_ty,
+                        vt => vt,
+                    };
                     self.match_pattern(t, vt, &mut bindings, def_scope)?;
                 }
                 bindings.push((name, value, ty));
@@ -784,6 +1035,15 @@ impl Compiler {
                 ) && !param.variadic
                 {
                     null_patterns.push(pattern.clone());
+                    continue;
+                }
+                // An overloaded or polymorphic procedure passed for a procedure-typed
+                // parameter is resolved once the other bindings are known.
+                if let Operand::Procs(ps) = op
+                    && (ps.len() > 1 || self.proc(ps[0]).is_poly)
+                    && matches!(pattern.kind, E::ProcType(_))
+                {
+                    deferred_procs.push((pattern.clone(), ps.clone(), arg.span));
                     continue;
                 }
                 let mut ty = match op {
@@ -865,6 +1125,34 @@ impl Compiler {
                     *span,
                 )?;
             }
+        }
+        for (pattern, ps, arg_span) in deferred_procs {
+            let E::ProcType(ph) = &pattern.kind else {
+                continue;
+            };
+            let known = self.const_scope(def_scope, bindings.clone(), arg_span);
+            let mut params = Vec::new();
+            for p in &ph.params {
+                let Some(t) = &p.ty else {
+                    return err(
+                        arg_span,
+                        "cannot infer the parameter types of this procedure",
+                    );
+                };
+                params.push(self.eval_type(known, t)?);
+            }
+            let mut matched = None;
+            for p in ps {
+                if let Some(inst) = self.proc_for_param_types(p, &params, arg_span) {
+                    matched = Some(inst);
+                    break;
+                }
+            }
+            let Some(inst) = matched else {
+                return err(arg_span, "no overload matches the procedure parameter");
+            };
+            let ty = self.proc_type(inst, arg_span)?;
+            self.match_pattern(&pattern, ty, &mut bindings, def_scope)?;
         }
         // A type variable seen only through `null` is `*void`.
         let void_ptr = self.types.pointer(TypeId::VOID);
@@ -954,11 +1242,53 @@ impl Compiler {
     /// Match a polymorphic type pattern against a concrete type, adding bindings.
     /// `ty` if it is an instance of `ps`, else the first `#as` member (searched
     /// depth-first) that is one.
+    /// Whether struct `ty` is `want` or reaches it through `#as` members.
+    fn has_as_base(&mut self, ty: TypeId, want: TypeId) -> bool {
+        if ty == want {
+            return true;
+        }
+        let Some(s) = self.types.as_struct(ty) else {
+            return false;
+        };
+        if self.layout_struct(s, Span::default()).is_err() {
+            return false;
+        }
+        let fields = self.types.struct_info(s).fields.clone();
+        fields
+            .iter()
+            .filter(|f| f.as_)
+            .any(|f| self.has_as_base(f.ty, want))
+    }
+
+    /// The polymorphic struct a type expression names, if it is a bare identifier for one.
+    fn ident_poly_struct_expr(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+    ) -> Result<Option<value::PolyStructId>> {
+        match &expr.kind {
+            E::Ident(name) => self.ident_poly_struct(scope, *name),
+            _ => Ok(None),
+        }
+    }
+
     fn instance_or_as_base(&mut self, ps: value::PolyStructId, ty: TypeId) -> Option<TypeId> {
-        if self.poly_structs[ps.0 as usize]
+        // A `#bake_arguments` struct's instances are its origin's with the baked values.
+        let poly = &self.poly_structs[ps.0 as usize];
+        let (origin, baked) = match poly.origin {
+            Some(origin) => (origin, poly.baked.clone()),
+            None => (ps, Vec::new()),
+        };
+        if self.poly_structs[origin.0 as usize]
             .instances
             .values()
             .any(|&t| t == ty)
+            && (baked.is_empty() || {
+                let bindings = self.poly_struct_bindings(self.types.as_struct(ty)?);
+                baked.iter().all(|(name, value, _)| {
+                    bindings.iter().any(|(n, v, _)| n == name && v == value)
+                })
+            })
         {
             return Some(ty);
         }
@@ -1030,18 +1360,41 @@ impl Compiler {
                 restriction,
                 interface,
             } => {
-                // `$T/Table`: T must be an instance of the polymorphic struct `Table`.
+                // `$T/Table`: T must be an instance of the polymorphic struct `Table` (or hold one
+                // as an `#as` member).
+                let mut ty = ty;
                 if !interface
                     && let E::Ident(r) = &restriction.kind
                     && let Some(ps) = self.ident_poly_struct(scope, *r)?
-                    && !self.poly_structs[ps.0 as usize]
-                        .instances
-                        .values()
-                        .any(|&t| t == ty)
+                    && self.instance_or_as_base(ps, ty).is_none()
+                {
+                    // A `*Instance` argument is dereferenced for a by-value parameter.
+                    match self.types.pointee(ty) {
+                        Some(p) if self.instance_or_as_base(ps, p).is_some() => ty = p,
+                        _ => {
+                            return err(
+                                span,
+                                format!("{} is not an instance of '{r}'", self.types.name(ty)),
+                            );
+                        }
+                    }
+                }
+                // `$T/Entity`: a struct argument must be `Entity` or have it as an `#as` base.
+                if !interface
+                    && let E::Ident(_) | E::Member(..) = &restriction.kind
+                    && self.ident_poly_struct_expr(scope, restriction)?.is_none()
+                    && let Ok(want) = self.eval_type(scope, restriction)
+                    && self.types.as_struct(want).is_some()
+                    && self.types.as_struct(ty).is_some()
+                    && !self.has_as_base(ty, want)
                 {
                     return err(
                         span,
-                        format!("{} is not an instance of '{r}'", self.types.name(ty)),
+                        format!(
+                            "{} does not satisfy the restriction '{}'",
+                            self.types.name(ty),
+                            self.types.name(want)
+                        ),
                     );
                 }
                 bind(self, bindings, *name, Value::Type(ty), TypeId::TYPE)
@@ -1164,8 +1517,69 @@ impl Compiler {
         }
     }
 
-    /// Emit a resolved call.
+    /// Emit a resolved call, recording which of its results are `#must`.
     fn emit_call(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        c: Candidate,
+        args: Vec<CallArg>,
+        span: Span,
+    ) -> Result<Operand> {
+        let proc = c.proc;
+        let header = self.proc(proc).lit.header.clone();
+        let must: Vec<bool> = header.returns.iter().map(|r| r.must).collect();
+        let name = self.proc(proc).name;
+        // `pa + pb` on `#type,isa` variants of a base type calls the base's operator; a result
+        // of exactly the base type is cast back up to the variant.
+        let variant = args.iter().find_map(|a| {
+            let ty = a.op.as_ref()?.ty();
+            match self.types.kind(ty) {
+                TypeKind::Distinct(d) if self.types.distincts[d.0 as usize].isa => {
+                    Some((ty, self.types.distincts[d.0 as usize].base))
+                }
+                _ => None,
+            }
+        });
+        let is_macro = self.proc(proc).is_macro;
+        let result = self.emit_call_inner(f, scope, c, args, span);
+        let result = match (result, variant) {
+            (
+                Ok(Operand::Value {
+                    ty,
+                    val,
+                }),
+                Some((variant, base)),
+            ) if ty == base && !is_macro && header.returns.len() == 1 => Ok(Operand::Value {
+                ty: variant,
+                val,
+            }),
+            (result, _) => result,
+        };
+        self.last_call_must = must.iter().any(|&m| m).then_some((span, name, must));
+        result
+    }
+
+    /// Error when a call at `call_span` leaves one of its `#must` results unused; only the
+    /// first `used` results are taken (0 for a call statement). Checked when the call's code
+    /// is generated, so a violation inside never-expanded macro code is harmless.
+    pub(super) fn check_must_used(&mut self, call_span: Span, used: usize) -> Result<()> {
+        let Some((span, name, must)) = self.last_call_must.take() else {
+            return Ok(());
+        };
+        if span != call_span {
+            return Ok(());
+        }
+        if must.iter().skip(used).any(|&m| m) {
+            return err(
+                call_span,
+                format!("the result of '{name}' is marked #must and cannot be discarded"),
+            );
+        }
+        Ok(())
+    }
+
+    fn emit_call_inner(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
@@ -1305,6 +1719,10 @@ impl Compiler {
         args: &[CallArg],
         span: Span,
     ) -> Result<ir::Val> {
+        if param.discard {
+            // `#discard`: the argument (or default) is typechecked, never evaluated.
+            return self.zero_param(f, param.ty, span);
+        }
         let op = match slot {
             Slot::Arg(a) | Slot::Spread(a) => {
                 let op = self.arg_operand(f, &args[*a], Some(param.ty))?;
@@ -1365,6 +1783,23 @@ impl Compiler {
             let (_, v) = self.rvalue(f, op, span)?;
             Ok(v)
         }
+    }
+
+    /// An all-zero value of a parameter type, passed where an argument is discarded.
+    fn zero_param(&mut self, f: &mut FnCtx, ty: TypeId, span: Span) -> Result<ir::Val> {
+        if self.is_memory_type(ty) {
+            let size = self.size_of(ty, span)?;
+            let align = self.align_of(ty, span)?;
+            let slot = f.b.alloca(size.max(1), align);
+            f.b.zero(slot, size);
+            return Ok(slot);
+        }
+        let t = self.ir_ty(ty).unwrap_or(Ty::I64);
+        Ok(if t.is_float() {
+            f.b.fconst(t, 0.0)
+        } else {
+            f.b.iconst(t, 0)
+        })
     }
 
     /// Place named arguments of a call through a procedure value and fill in the defaults its
@@ -1548,6 +1983,11 @@ impl Compiler {
             .iter()
             .map(|&t| self.ir_ty(t).unwrap_or(Ty::Ptr))
             .collect();
+        if op == ir::Intrinsic::CompareAndSwap && values.len() == 3 {
+            // The interpreter needs the operand width: 1, 2, 4 or 8 bytes.
+            let width = self.size_of(sig.params[1].ty, span)?;
+            values.push(f.b.iconst(Ty::I64, width));
+        }
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
         Ok(self.call_results(&sig.returns, results, outs))
@@ -1600,7 +2040,13 @@ impl Compiler {
                 if let Some(t) = self.outer_local_type(scope, &arg.value)? {
                     return Ok(Operand::Type(t));
                 }
-                let op = self.check_expr_no_emit(scope, &arg.value)?;
+                let op = match self.check_expr_no_emit(scope, &arg.value) {
+                    Ok(op) => op,
+                    Err(e) => match self.enclosing_struct_field_type(scope, &arg.value)? {
+                        Some(t) => return Ok(Operand::Type(t)),
+                        None => return Err(e),
+                    },
+                };
                 let ty = match op {
                     Operand::Type(_) => TypeId::TYPE,
                     Operand::Const {
@@ -1608,6 +2054,9 @@ impl Compiler {
                         value,
                         untyped: true,
                     } => self.default_untyped(ty, &value),
+                    Operand::Procs(p) if p.len() == 1 && self.proc(p[0]).is_poly => {
+                        self.poly_proc_type(p[0])
+                    }
                     Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
                     other => other.ty(),
                 };
@@ -1645,9 +2094,10 @@ impl Compiler {
             }
             BuiltinProc::IsConstant => {
                 let op = self.check_expr_no_emit(scope, &arg.value)?;
-                Ok(Operand::bool(
-                    op.is_const() || matches!(op, Operand::Procs(_)),
-                ))
+                let constant = op.is_const()
+                    || matches!(op, Operand::Procs(_))
+                    || self.is_constant_pointer(scope, &arg.value, &op);
+                Ok(Operand::bool(constant))
             }
             BuiltinProc::InitializerOf => {
                 let ty = self.eval_type_in(f, scope, &arg.value)?;
@@ -1685,8 +2135,29 @@ impl Compiler {
         Ok(None)
     }
 
+    /// `type_of(x)` inside a procedure nested in a struct: `x` is a field of that struct, which
+    /// has a type though not a value.
+    fn enclosing_struct_field_type(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+    ) -> Result<Option<TypeId>> {
+        if let E::Ident(name) = &expr.kind {
+            let mut s = Some(scope);
+            while let Some(sid) = s {
+                if let ScopeKind::Struct(t) = self.scope(sid).kind
+                    && let Some((_, fty)) = self.find_member(t, *name, expr.span)?
+                {
+                    return Ok(Some(fty));
+                }
+                s = self.scope(sid).parent;
+            }
+        }
+        Ok(None)
+    }
+
     /// A throwaway function context for checking code whose output is discarded.
-    fn scratch_ctx(&self, scope: ScopeId) -> FnCtx {
+    pub(super) fn scratch_ctx(&self, scope: ScopeId) -> FnCtx {
         let file = self.scope_file(scope);
         let mut scratch = FnCtx::new(
             "scratch".into(),
@@ -1695,6 +2166,7 @@ impl Compiler {
                 returns: vec![],
                 conv: ir::Conv::Jai,
                 c_varargs: false,
+                c_fixed: 0,
                 c_abi: None,
             },
             file,
@@ -1721,11 +2193,55 @@ impl Compiler {
         let TypeKind::Proc(info) = self.types.kind(target).clone() else {
             return None;
         };
+        let inst = self.proc_for_param_types(proc, &info.params, span)?;
+        let ty = self.proc_type(inst, span).ok()?;
+        (ty == target || self.proc_types_compatible(ty, target)).then_some(inst)
+    }
+
+    /// The type of a polymorphic procedure for compile-time inspection (`type_of(poly)`):
+    /// parameters and results that mention a type variable are shown as `void`.
+    fn poly_proc_type(&mut self, proc: ProcId) -> TypeId {
+        let header = self.proc(proc).lit.header.clone();
+        let scope = self.proc(proc).scope;
+        let eval = |c: &mut Self, t: &Option<ast::Expr>| match t {
+            Some(t) if !procs::has_poly(t) => c.eval_type(scope, t).unwrap_or(TypeId::VOID),
+            _ => TypeId::VOID,
+        };
+        let params: Vec<TypeId> = header
+            .params
+            .iter()
+            .filter(|p| !p.baked)
+            .map(|p| eval(self, &p.ty))
+            .collect();
+        let returns: Vec<TypeId> = header
+            .returns
+            .iter()
+            .map(|r| eval(self, &r.ty))
+            .filter(|&t| t != TypeId::VOID)
+            .collect();
+        self.types
+            .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
+                params,
+                returns,
+                variadic: false,
+                c_varargs: false,
+                c_call: false,
+                no_context: false,
+                non_pod_return: false,
+            })))
+    }
+
+    /// The instance of `proc` (or `proc` itself) callable with arguments of the given types.
+    pub fn proc_for_param_types(
+        &mut self,
+        proc: ProcId,
+        params: &[TypeId],
+        span: Span,
+    ) -> Option<ProcId> {
         let scope = self.proc(proc).scope;
         let scratch = self.scratch_ctx(scope);
         let placeholder = scratch.b.param(0);
-        let args: Vec<CallArg> = info
-            .params
+        let args: Vec<CallArg> = params
             .iter()
             .map(|&ty| CallArg {
                 name: None,
@@ -1739,9 +2255,7 @@ impl Compiler {
                 scope,
             })
             .collect();
-        let candidate = self.match_candidate(proc, &args, span).ok()?;
-        let ty = self.proc_type(candidate.proc, span).ok()?;
-        (ty == target || self.proc_types_compatible(ty, target)).then_some(candidate.proc)
+        Some(self.match_candidate(proc, &args, span).ok()?.proc)
     }
 
     pub fn check_procedure_of_call(
@@ -1762,7 +2276,9 @@ impl Compiler {
         let Operand::Procs(procs) = callee_op else {
             return err(call.span, "#procedure_of_call needs a procedure call");
         };
-        let call_args = self.precheck_args(f, scope, args)?;
+        // Only the argument types matter: runtime locals are fine in a constant.
+        let mut scratch = self.scratch_ctx(scope);
+        let call_args = self.precheck_args(&mut scratch, scope, args)?;
         for &p in &procs {
             if let Ok(c) = self.match_candidate(p, &call_args, call.span) {
                 return Ok(Operand::Procs(vec![c.proc]));
@@ -1781,6 +2297,10 @@ impl Compiler {
     fn text_may_write(&self, body: &ast::Block, name: Sym) -> bool {
         let text = &self.sources.get(body.span.file).text;
         let text = &text.as_bytes()[body.span.start as usize..body.span.end as usize];
+        // `#asm` operands may write any name they mention.
+        if text.windows(4).any(|w| w == b"#asm") {
+            return true;
+        }
         let name = name.as_str();
         let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
         let skip_ws = |mut i: usize| {
@@ -1867,6 +2387,11 @@ impl Compiler {
             let Some(name) = param.name else {
                 continue;
             };
+            if param.discard {
+                let e = self.add_const(mscope, name, param.span, Value::Int(0), TypeId::S64);
+                self.discard_params.insert(e);
+                continue;
+            }
             if param.ty == TypeId::CODE {
                 // Code arguments are passed unevaluated, bound to the caller's scope.
                 let code = match slot {
@@ -1882,11 +2407,52 @@ impl Compiler {
                         let Some(expr) = args[*a].expr.clone() else {
                             return err(args[*a].span, "Code parameter needs a code argument");
                         };
-                        let body = match &expr.kind {
-                            E::Code(c) => c.clone(),
-                            _ => Rc::new(ast::CodeBody::Expr(expr)),
+                        // A name of a `#code` constant passes that code; a name of a
+                        // `Code` variable passes its value.
+                        let mut runtime_code = false;
+                        let named = match &expr.kind {
+                            E::Ident(_) | E::Member(..) => {
+                                match self.check_expr_no_emit(args[*a].scope, &expr) {
+                                    Ok(Operand::Const {
+                                        value: Value::Code(code),
+                                        ..
+                                    }) => Some(code),
+                                    Ok(op) if op.ty() == TypeId::CODE => {
+                                        runtime_code = true;
+                                        None
+                                    }
+                                    _ => None,
+                                }
+                            }
+                            _ => None,
                         };
-                        self.add_code(body, caller)
+                        match named {
+                            Some(code) => code,
+                            None if runtime_code => {
+                                let v = self.param_value(f, &sig, &param, slot, &args, span)?;
+                                let addr = self.spill(f, param.ty, v, span)?;
+                                let depth = self.scope(mscope).proc_depth;
+                                self.add_entity(
+                                    mscope,
+                                    name,
+                                    param.span,
+                                    EntityKind::Local {
+                                        ty: param.ty,
+                                        addr,
+                                        depth,
+                                    },
+                                    false,
+                                );
+                                continue;
+                            }
+                            None => {
+                                let body = match &expr.kind {
+                                    E::Code(c) => c.clone(),
+                                    _ => Rc::new(ast::CodeBody::Expr(expr)),
+                                };
+                                self.add_code(body, caller)
+                            }
+                        }
                     }
                     Slot::Default
                         if param
@@ -1966,11 +2532,13 @@ impl Compiler {
                         && self.types.is_integer(param.ty)))
             {
                 self.local_consts.insert(e, (value.clone(), param.ty));
-                // A constant string argument the body never writes keeps a constant `count`.
-                if let Value::String(s) = value
-                    && !self.text_may_write(&body, name)
+                // A constant argument the body never writes stays a constant.
+                if matches!(
+                    value,
+                    Value::String(_) | Value::Int(_) | Value::Bool(_) | Value::Float(_)
+                ) && !self.text_may_write(&body, name)
                 {
-                    self.const_string_params.insert(e, s.len() as i64);
+                    self.const_macro_params.insert(e, (value.clone(), param.ty));
                 }
             }
             if param.using {
@@ -1998,7 +2566,10 @@ impl Compiler {
             caller_macro_depth: f.macros.len(),
             for_body: f.pending_for_body.take(),
         });
+        // Backticks inside this expansion refer to its caller, not to a running `` `defer ``.
+        let saved_backtick = f.backtick_scope.take();
         let result = self.check_block_stmts(f, mscope, &body.stmts);
+        f.backtick_scope = saved_backtick;
         let frame = f.macros.pop().unwrap();
         result?;
         if !f.b.is_terminated() {
@@ -2108,7 +2679,13 @@ impl Compiler {
         }
         let text = binop_text(op);
         let procs = self.operator_candidates(scope, text, &[lt, rt])?;
-        if procs.is_empty() {
+        // `a != b` without a matching `operator !=` is `!(a == b)`.
+        let ne_fallback = if op == ast::BinOp::Ne {
+            self.operator_candidates(scope, "==", &[lt, rt])?
+        } else {
+            Vec::new()
+        };
+        if procs.is_empty() && ne_fallback.is_empty() {
             return Ok(None);
         }
         let args = vec![
@@ -2129,8 +2706,24 @@ impl Compiler {
                 scope,
             },
         ];
-        if let Ok(r) = self.try_call(f, scope, &procs, args.clone(), span) {
+        if !procs.is_empty()
+            && let Ok(r) = self.try_call(f, scope, &procs, args.clone(), span)
+        {
             return Ok(Some(r));
+        }
+        if !ne_fallback.is_empty()
+            && let Ok(r) = self.try_call(f, scope, &ne_fallback, args.clone(), span)
+        {
+            let (ty, v) = self.rvalue(f, r, span)?;
+            let b = self.truthy(f, ty, v, span)?;
+            let one = f.b.iconst(ir::Ty::I8, 1);
+            return Ok(Some(Operand::Value {
+                ty: TypeId::BOOL,
+                val: f.b.bin(ir::BinOp::Xor, ir::Ty::I8, b, one),
+            }));
+        }
+        if procs.is_empty() {
+            return Ok(None);
         }
         // #symmetric operators accept swapped operands.
         let symmetric: Vec<ProcId> = procs
@@ -2355,6 +2948,29 @@ fn poly_names(expr: &ast::Expr) -> Vec<Sym> {
     out
 }
 
+/// Type constructors wrapped around the polymorphic variables of a parameter type.
+fn pattern_specificity(expr: &ast::Expr) -> u32 {
+    match &expr.kind {
+        E::PolyRestricted {
+            ..
+        } => 1,
+        E::Unary(_, x) => 1 + pattern_specificity(x),
+        E::ArrayType {
+            elem, ..
+        } => 1 + pattern_specificity(elem),
+        E::Call {
+            args, ..
+        } => {
+            1 + args
+                .iter()
+                .map(|a| pattern_specificity(&a.value))
+                .sum::<u32>()
+        }
+        E::ProcType(_) => 1,
+        _ => 0,
+    }
+}
+
 /// Map call arguments onto declared parameters.
 /// Every `$T` binder in a header's parameter and result types.
 pub(super) fn header_poly_names(header: &ast::ProcHeader) -> Vec<Sym> {
@@ -2409,9 +3025,11 @@ fn assign_slots(
                 Slot::Arg(i)
             });
             // Positional arguments after a named one continue from the next parameter.
-            if Some(p) != variadic_index {
-                positional = p + 1;
-            }
+            positional = if Some(p) == variadic_index {
+                p
+            } else {
+                p + 1
+            };
             continue;
         }
         while positional < params.len()

@@ -333,7 +333,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown name 'missing_runtime'"
+        "check": "unknown identifier 'missing_runtime'"
       }
     },
     {
@@ -346,7 +346,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown name 'missing_compile_time'"
+        "check": "unknown identifier 'missing_compile_time'"
       }
     },
     {
@@ -359,7 +359,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown name 'invented_reflection'"
+        "check": "unknown identifier 'invented_reflection'"
       }
     },
     {
@@ -372,7 +372,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown name 'compiler_invented_effect'"
+        "check": "unknown identifier 'compiler_invented_effect'"
       }
     },
     {
@@ -385,7 +385,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown name 'absent_module'"
+        "check": "unknown identifier 'absent_module'"
       }
     },
     {
@@ -398,7 +398,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown named argument"
+        "check": "no parameter named"
       }
     },
     {
@@ -411,7 +411,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "assignment requires a place"
+        "parse": "cannot assign to constant"
       }
     },
     {
@@ -557,7 +557,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "unknown directive '#invented_file_directive'"
+        "parse": "this statement is not allowed at file scope"
       }
     },
     {
@@ -570,7 +570,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "unknown directive '#invented_compile_directive'"
+        "parse": "expected ';' after statement"
       }
     },
     {
@@ -811,6 +811,136 @@
         "exit_code": 12,
         "stdout": "",
         "stderr": ""
+      }
+    },
+    {
+      "id": "discard-parameter-reference",
+      "source": "negative/discard-parameter-reference.jai",
+      "sha256": "0a60e552724d8b3840ea12c5243d51477231c3e7725a592281f4e3b7d5a2305d",
+      "suite": "negative",
+      "feature": "discard-parameter-reference",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "'value' is a #discard parameter"
+      }
+    },
+    {
+      "id": "discard-macro-parameter-reference",
+      "source": "negative/discard-macro-parameter-reference.jai",
+      "sha256": "ad1040f178a2bc2188cba062ae317a166d46cd95e30b46bd07bc829e156bfc45",
+      "suite": "negative",
+      "feature": "discard-macro-parameter-reference",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "'value' is a #discard parameter"
+      }
+    },
+    {
+      "id": "must-discarded-call",
+      "source": "negative/must-discarded-call.jai",
+      "sha256": "9c44d3e714c7a7c7d1404af6850f1a090ab09ebe63f61d9df6cd854698666250",
+      "suite": "negative",
+      "feature": "must-discarded-call",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the result of 'only' is marked #must"
+      }
+    },
+    {
+      "id": "must-partial-results",
+      "source": "negative/must-partial-results.jai",
+      "sha256": "f2597f1ab21738c751b025318217624186637b9e896dac5da5f02647f15bd0a0",
+      "suite": "negative",
+      "feature": "must-partial-results",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the result of 'two' is marked #must"
+      }
+    },
+    {
+      "id": "must-discarded-macro",
+      "source": "negative/must-discarded-macro.jai",
+      "sha256": "4c5507ddbf722d7744b2221fea4fe08788d09cf0985a4bdd0ddc446dab039e46",
+      "suite": "negative",
+      "feature": "must-discarded-macro",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the result of 'm' is marked #must"
+      }
+    },
+    {
+      "id": "aoc-fatal-add",
+      "source": "negative/aoc-fatal-add.jai",
+      "sha256": "f9beec8f78719d2251d80473efa1a180fa4d8d5ab0b59bbd7a53b68a27957490",
+      "suite": "negative",
+      "feature": "aoc-fatal-add",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "arithmetic overflow computing 250 + 10 as u8"
+      }
+    },
+    {
+      "id": "aoc-fatal-sub",
+      "source": "negative/aoc-fatal-sub.jai",
+      "sha256": "16d3ff9fb665adff790b3237bf08983eec6716e4d1ce359babdecf9bd11f5c3d",
+      "suite": "negative",
+      "feature": "aoc-fatal-sub",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "arithmetic overflow computing -120 - 20 as s8"
+      }
+    },
+    {
+      "id": "aoc-fatal-mul",
+      "source": "negative/aoc-fatal-mul.jai",
+      "sha256": "5b17b799d6a04fb5916f97b10526a7a2bb6f71158f940fdfa1ad1bc54931fb10",
+      "suite": "negative",
+      "feature": "aoc-fatal-mul",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "arithmetic overflow computing 100000 * 100000 as s32"
+      }
+    },
+    {
+      "id": "aoc-fatal-after-no-aoc",
+      "source": "negative/aoc-fatal-after-no-aoc.jai",
+      "sha256": "e38a0e662574a26777c8fda894e8ac7b1d87d42dbe8f7d15a9f8c00fa7409a7b",
+      "suite": "negative",
+      "feature": "aoc-fatal-after-no-aoc",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "arithmetic overflow computing 251 + 10 as u8"
+      }
+    },
+    {
+      "id": "failing-body-with-nested-procs",
+      "source": "negative/failing-body-with-nested-procs.jai",
+      "sha256": "70f0ab2125f473cd0090170f0a466baae0e30665fd93b6563b5fae9e69e91b62",
+      "suite": "negative",
+      "feature": "failing-body-with-nested-procs",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'undefined_name_here'"
       }
     }
   ]

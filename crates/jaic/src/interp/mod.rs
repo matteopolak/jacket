@@ -9,10 +9,17 @@
 #![allow(unsafe_code)]
 
 mod native;
-
+mod sandbox;
+#[cfg(not(target_arch = "wasm32"))]
+mod threads;
+mod threads_inline;
 use crate::ir::{
     self, BinOp, Callee, CmpOp, ConvOp, ForeignId, FuncId, GlobalId, Inst, Program, Term, Ty, UnOp,
 };
+#[cfg(target_os = "macos")]
+pub use native::main_thread;
+pub use native::{library_dirs, set_library_dirs};
+pub use sandbox::{SandboxHost, SharedHost};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -50,6 +57,18 @@ pub trait Host {
     ) -> Option<Result<Vec<u64>, String>>;
     /// Whether foreign symbols may be resolved through the native dynamic linker.
     fn native_linking(&self) -> bool;
+    /// Run threads on the interpreter's own stack, one after another (no OS threads); see
+    /// `threads_inline.rs`. The sandbox says yes.
+    fn cooperative_threads(&self) -> bool {
+        false
+    }
+    /// Move the virtual clock forward (sleeping). Hosts with a real clock ignore it.
+    fn advance_clock(&mut self, _nanoseconds: u64) {
+    }
+    /// The virtual clock's reading, nanoseconds since the epoch, if the host has one.
+    fn virtual_now_ns(&mut self) -> Option<u64> {
+        None
+    }
 }
 
 /// Writes to the process's stdout/stderr and links natively.
@@ -78,109 +97,6 @@ impl Host for NativeHost {
     }
 }
 
-/// Collects output in memory and implements a small libc for sandboxed runs.
-#[derive(Default)]
-pub struct SandboxHost {
-    pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>,
-    allocations: HashMap<u64, (Box<[u64]>, usize)>,
-}
-
-impl Host for SandboxHost {
-    fn write(&mut self, bytes: &[u8], to_stderr: bool) {
-        if to_stderr {
-            self.stderr.extend_from_slice(bytes);
-        } else {
-            self.stdout.extend_from_slice(bytes);
-        }
-    }
-    fn foreign(
-        &mut self,
-        symbol: &str,
-        args: &[u64],
-        _sig: &ir::Sig,
-    ) -> Option<Result<Vec<u64>, String>> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
-        Some(Ok(vec![match symbol {
-            "write" => {
-                let (fd, ptr, len) = (arg(0), arg(1), arg(2) as usize);
-                let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }.to_vec();
-                self.write(&bytes, fd == 2);
-                len as u64
-            }
-            "wasm_write_string" => {
-                let (len, ptr, to_stderr) = (arg(0) as usize, arg(1), arg(2) & 1 != 0);
-                let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }.to_vec();
-                self.write(&bytes, to_stderr);
-                0
-            }
-            "malloc" => self.alloc(arg(0) as usize),
-            "calloc" => self.alloc(arg(0) as usize * arg(1) as usize),
-            "realloc" => {
-                let (old, size) = (arg(0), arg(1) as usize);
-                let new = self.alloc(size);
-                if let Some((_, old_size)) = self.allocations.get(&old) {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            old as *const u8,
-                            new as *mut u8,
-                            (*old_size).min(size),
-                        )
-                    };
-                    self.allocations.remove(&old);
-                }
-                new
-            }
-            "free" => {
-                self.allocations.remove(&arg(0));
-                0
-            }
-            "memcpy" | "memmove" => {
-                unsafe { std::ptr::copy(arg(1) as *const u8, arg(0) as *mut u8, arg(2) as usize) };
-                arg(0)
-            }
-            "memset" => {
-                unsafe { std::ptr::write_bytes(arg(0) as *mut u8, arg(1) as u8, arg(2) as usize) };
-                arg(0)
-            }
-            "strlen" => {
-                let mut n = 0;
-                while unsafe { *((arg(0) + n) as *const u8) } != 0 {
-                    n += 1;
-                }
-                n
-            }
-            "exit" | "_exit" => return Some(Err(format!("exit({})", arg(0) as i32))),
-            "abort" => return Some(Err("abort()".into())),
-            "pthread_mutex_lock"
-            | "pthread_mutex_unlock"
-            | "pthread_mutex_init"
-            | "pthread_mutex_destroy" => 0,
-            "isatty" => 0,
-            _ => return None,
-        }]))
-    }
-    fn native_linking(&self) -> bool {
-        false
-    }
-}
-
-impl SandboxHost {
-    fn alloc(&mut self, size: usize) -> u64 {
-        let words = size.div_ceil(8).max(1) + 1;
-        let mut block = vec![0u64; words].into_boxed_slice();
-        // 16-byte alignment: skip one word when needed.
-        let base = block.as_mut_ptr() as u64;
-        let addr = if base % 16 == 0 {
-            base
-        } else {
-            base + 8
-        };
-        self.allocations.insert(addr, (block, size));
-        addr
-    }
-}
-
 /// A runtime failure inside interpreted code.
 #[derive(Debug, Clone)]
 pub struct Trap {
@@ -195,6 +111,9 @@ struct Frame {
     offsets: Vec<u64>,
     size: u64,
 }
+
+/// Size of a `Stack_Trace_Node`.
+const TRACE_NODE_SIZE: u64 = 32;
 
 struct GlobalMem {
     _storage: Box<[u64]>,
@@ -214,12 +133,32 @@ pub struct Interp {
     pub host: Box<dyn Host>,
     depth: usize,
     loc: Option<(u32, u32, u32)>,
+    /// Inside procedures without a stack trace node (`Some`): the location of the call that
+    /// entered them from a traced procedure. A traced call made there reports that line for
+    /// the caller's node, not a line of the untraced callee's source.
+    trace_loc: Option<Option<(u32, u32, u32)>>,
     /// True while evaluating compile-time code (`#compile_time`).
     pub compile_time: bool,
+    /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
+    pub pending_type_flags: Vec<(GlobalId, u32)>,
     /// Workspace registry for the `Compiler` module, when the embedder has one.
     pub workspaces: Option<crate::build::SharedWorkspaces>,
     /// Bodies and source text of the compiler's `Code` values, by `CodeId`.
     pub codes: Vec<(std::rc::Rc<crate::ast::CodeBody>, std::rc::Rc<str>)>,
+    /// Codes made by compile-time code (`compiler_get_code`): their index and the
+    /// index of the code whose scope they take. The compiler adopts them lazily.
+    pub made_codes: Vec<(usize, usize)>,
+    /// Set in the child process after compile-time code calls `fork`.
+    forked_child: bool,
+    /// Stack trace node data per procedure (`Stack_Trace_Procedure_Info`), built on first call.
+    trace_infos: HashMap<FuncId, u64>,
+    /// Threads of the running program (created by the first `pthread_*` call).
+    #[cfg(not(target_arch = "wasm32"))]
+    sched: Option<Box<threads::Sched>>,
+    /// Threads of the running program when the host schedules them cooperatively.
+    isched: Option<Box<threads_inline::InlineSched>>,
+    /// More than one thread exists: `run` offers the baton to the others now and then.
+    multi: bool,
 }
 
 impl Default for Interp {
@@ -242,9 +181,18 @@ impl Interp {
             host,
             depth: 0,
             loc: None,
+            trace_loc: None,
             compile_time: true,
+            pending_type_flags: Vec::new(),
             workspaces: None,
             codes: Vec::new(),
+            made_codes: Vec::new(),
+            forked_child: false,
+            trace_infos: HashMap::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            sched: None,
+            isched: None,
+            multi: false,
         }
     }
 
@@ -296,6 +244,62 @@ impl Interp {
             unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
         }
         Ok(addr)
+    }
+
+    /// Reload an already materialized global from its (rebuilt) initial contents, in place.
+    pub fn refresh_global(&mut self, program: &Program, g: GlobalId) -> Res<()> {
+        let i = g.0 as usize;
+        let Some(Some(m)) = self.globals.get(i) else {
+            return Ok(());
+        };
+        let addr = m.addr;
+        let global = &program.globals[i];
+        unsafe {
+            std::ptr::write_bytes(addr as *mut u8, 0, global.size as usize);
+            std::ptr::copy_nonoverlapping(
+                global.init.as_ptr(),
+                addr as *mut u8,
+                global.init.len().min(global.size as usize),
+            )
+        };
+        for r in &global.relocs {
+            let target = match r.target {
+                ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
+                ir::RelocTarget::Func(f) => FUNC_TAG | f.0 as u64,
+                ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
+            };
+            let value = target.wrapping_add(r.addend as u64);
+            unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
+        }
+        Ok(())
+    }
+
+    /// Put every resettable global back to its initial contents (compile-time execution
+    /// leaves no state behind in the program that then runs; `#no_reset` opts out).
+    pub fn reset_globals(&mut self, program: &Program) -> Res<()> {
+        for &g in &program.reset_globals {
+            let i = g.0 as usize;
+            let Some(Some(m)) = self.globals.get(i) else {
+                continue;
+            };
+            let addr = m.addr;
+            let global = &program.globals[i];
+            let init = global.init.len().min(global.size as usize);
+            unsafe {
+                std::ptr::write_bytes(addr as *mut u8, 0, global.size as usize);
+                std::ptr::copy_nonoverlapping(global.init.as_ptr(), addr as *mut u8, init);
+            }
+            for r in &global.relocs {
+                let target = match r.target {
+                    ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
+                    ir::RelocTarget::Func(f) => FUNC_TAG | f.0 as u64,
+                    ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
+                };
+                let value = target.wrapping_add(r.addend as u64);
+                unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
+            }
+        }
+        Ok(())
     }
 
     /// The global containing `addr`, with the offset into it.
@@ -432,6 +436,16 @@ impl Interp {
         sig: &ir::Sig,
     ) -> Res<Vec<u64>> {
         let symbol = program.foreigns[id.0 as usize].symbol.clone();
+        if self.host.cooperative_threads() {
+            if let Some(result) = self.inline_thread_foreign(program, &symbol, args) {
+                return result;
+            }
+        } else {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(result) = self.thread_foreign(program, &symbol, args) {
+                return result;
+            }
+        }
         if let Some(result) = self.host.foreign(&symbol, args, sig) {
             return result.map_err(|m| Trap {
                 message: m,
@@ -444,16 +458,57 @@ impl Interp {
                 "foreign procedure '{symbol}' is not available here"
             ));
         }
-        self.call_native(addr, args, sig)
+        #[cfg(target_os = "macos")]
+        native::main_thread::note_symbol(&symbol);
+        #[cfg(target_os = "macos")]
+        let result = if matches!(&*symbol, "fork" | "vfork") {
+            native::main_thread::direct(|| self.call_native(program, addr, args, sig))?
+        } else {
+            self.call_native(program, addr, args, sig)?
+        };
+        #[cfg(not(target_os = "macos"))]
+        let result = self.call_native(program, addr, args, sig)?;
+        if &*symbol == "fork" && result.first() == Some(&0) {
+            self.forked_child = true;
+            #[cfg(target_os = "macos")]
+            native::main_thread::disable();
+        }
+        Ok(result)
     }
 
-    fn call_native(&mut self, addr: u64, args: &[u64], sig: &ir::Sig) -> Res<Vec<u64>> {
-        if let Some(abi) = &sig.c_abi
-            && (abi.ret.is_some() || abi.params.iter().any(Option::is_some))
-        {
-            return self.trap("calling foreign procedures with by-value structs is not supported by the interpreter yet");
+    fn call_native(
+        &mut self,
+        program: &Program,
+        addr: u64,
+        args: &[u64],
+        sig: &ir::Sig,
+    ) -> Res<Vec<u64>> {
+        // `#c_call` procedures handed to C become native thunks that call back in here.
+        let mut argv = args.to_vec();
+        for v in &mut argv {
+            if *v & TAG_MASK != FUNC_TAG {
+                continue;
+            }
+            let id = FuncId((*v & !TAG_MASK) as u32);
+            let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
+                continue;
+            };
+            if func.sig.conv == ir::Conv::C {
+                let identity = program as *const Program as u64;
+                *v = native::callback_addr(identity, id, &func.sig).map_err(|m| Trap {
+                    message: m,
+                    loc: self.loc,
+                })?;
+            }
         }
-        native::call(addr, args, sig).map_err(|m| Trap {
+        let me: *mut Interp = self;
+        let mut reenter = |func: FuncId, args: &[u64]| {
+            // SAFETY: this interpreter is suspended in the native call below; C calls back on
+            // this thread before that call returns.
+            let interp = unsafe { &mut *me };
+            interp.exec(program, func, args).map_err(|t| t.message)
+        };
+        native::call(addr, &argv, sig, &mut reenter).map_err(|m| Trap {
             message: m,
             loc: self.loc,
         })
@@ -469,7 +524,23 @@ impl Interp {
             self.stack = vec![0u64; STACK_SIZE / 8].into_boxed_slice();
             self.sp = 0;
         }
-        self.exec(program, func, args)
+        let result = self.exec(program, func, args);
+        if self.forked_child {
+            // Compile-time code forked and the child came back here (its `exec*` failed
+            // or it trapped): it must not go on compiling alongside the parent.
+            if let Err(t) = &result {
+                eprintln!(
+                    "error in a process forked by compile-time code: {}",
+                    t.message
+                );
+            }
+            exit_forked_child(if result.is_ok() {
+                0
+            } else {
+                127
+            });
+        }
+        result
     }
 
     fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Vec<u64>> {
@@ -491,16 +562,111 @@ impl Interp {
         }
         let frame = self.frame(program, id);
         let base = self.sp;
-        if base + frame.size > (self.stack.len() * 8) as u64 {
+        let traced = func.trace.is_some() && program.stack_trace_offset.is_some();
+        let node_size = if traced {
+            TRACE_NODE_SIZE
+        } else {
+            0
+        };
+        if base + frame.size + node_size > (self.stack.len() * 8) as u64 {
             return self.trap("interpreter stack overflow");
         }
-        self.sp += frame.size;
+        self.sp += frame.size + node_size;
         self.depth += 1;
         let stack_base = self.stack.as_mut_ptr() as u64 + base;
+        let saved_loc = self.loc;
+        let saved_trace_loc = self.trace_loc;
+        let pushed = if traced {
+            self.trace_enter(program, id, func, args, stack_base + frame.size)
+        } else {
+            None
+        };
+        if traced {
+            self.trace_loc = None;
+        } else if self.trace_loc.is_none() {
+            self.trace_loc = Some(self.loc);
+        }
         let result = self.run(program, func, &frame, stack_base, args);
+        if let Some((slot, previous)) = pushed {
+            unsafe { std::ptr::write_unaligned(slot as *mut u64, previous) };
+        }
+        self.loc = saved_loc;
+        self.trace_loc = saved_trace_loc;
         self.depth -= 1;
         self.sp = base;
         result
+    }
+
+    /// Push this call onto `context.stack_trace`: the node lives in the caller-visible stack
+    /// frame at `node`, and the caller's node learns the line the call was made from.
+    /// Returns the context slot and the previous top, to restore on return.
+    fn trace_enter(
+        &mut self,
+        program: &Program,
+        id: FuncId,
+        func: &ir::Func,
+        args: &[u64],
+        node: u64,
+    ) -> Option<(u64, u64)> {
+        let offset = program.stack_trace_offset?;
+        let info = func.trace.as_ref()?;
+        let context = *args.first()?;
+        if context == 0 {
+            return None;
+        }
+        let slot = context + offset;
+        let line = self
+            .trace_loc
+            .unwrap_or(self.loc)
+            .map_or(0, |(_, line, _)| line);
+        unsafe {
+            let previous = std::ptr::read_unaligned(slot as *const u64);
+            let (mut depth, mut hash) = (1u32, 0xcbf2_9ce4_8422_2325u64);
+            if previous != 0 {
+                std::ptr::write_unaligned((previous + 28) as *mut u32, line);
+                depth = std::ptr::read_unaligned((previous + 24) as *const u32).wrapping_add(1);
+                hash = std::ptr::read_unaligned((previous + 16) as *const u64);
+            }
+            hash = (hash ^ (id.0 as u64) ^ ((line as u64) << 32)).wrapping_mul(0x0100_0000_01b3);
+            let info_addr = self.trace_info(program, id, info);
+            std::ptr::write_unaligned(node as *mut u64, previous);
+            std::ptr::write_unaligned((node + 8) as *mut u64, info_addr);
+            std::ptr::write_unaligned((node + 16) as *mut u64, hash);
+            std::ptr::write_unaligned((node + 24) as *mut u32, depth);
+            std::ptr::write_unaligned((node + 28) as *mut u32, info.line);
+            std::ptr::write_unaligned(slot as *mut u64, node);
+            Some((slot, previous))
+        }
+    }
+
+    /// The `Stack_Trace_Procedure_Info` of a procedure (name, declaration site, address).
+    fn trace_info(&mut self, program: &Program, id: FuncId, info: &ir::TraceInfo) -> u64 {
+        if let Some(&addr) = self.trace_infos.get(&id) {
+            return addr;
+        }
+        fn leak(text: &str) -> u64 {
+            Box::leak(text.as_bytes().to_vec().into_boxed_slice()).as_ptr() as u64
+        }
+        let path = program
+            .file_paths
+            .get(info.file as usize)
+            .map_or("", String::as_str);
+        let words: [u64; 7] = [
+            leak(&info.name),
+            info.name.len() as u64,
+            leak(path),
+            path.len() as u64,
+            info.line as u64,
+            info.col as u64,
+            FUNC_TAG | id.0 as u64,
+        ];
+        // `name` is {count, data}.
+        let layout = [
+            words[1], words[0], words[3], words[2], words[4], words[5], words[6],
+        ];
+        let addr = Box::leak(Box::new(layout)).as_ptr() as u64;
+        self.trace_infos.insert(id, addr);
+        addr
     }
 
     fn run_hook(&mut self, hook: Hook, args: &[u64]) -> Res<Vec<u64>> {
@@ -556,6 +722,14 @@ impl Interp {
             .copy_from_slice(&args[..args.len().min(func.sig.params.len())]);
         let mut block = 0usize;
         loop {
+            if self.multi {
+                if self.host.cooperative_threads() {
+                    self.inline_preempt(program)?;
+                } else {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    self.preempt(program)?;
+                }
+            }
             let b = &func.blocks[block];
             for inst in &b.insts {
                 self.step(program, inst, &mut vals, frame, stack_base)?;
@@ -745,7 +919,7 @@ impl Interp {
                             _ if addr < 4096 => {
                                 return self.trap("call through a null procedure pointer");
                             }
-                            _ => self.call_native(addr, &argv, sig)?,
+                            _ => self.call_native(program, addr, &argv, sig)?,
                         }
                     }
                 };
@@ -759,8 +933,6 @@ impl Interp {
                 args,
             } => {
                 let argv: Vec<u64> = args.iter().map(|a| vals[a.0 as usize]).collect();
-                let tys: Vec<Ty> = args.iter().map(|_| Ty::I64).collect();
-                let _ = tys;
                 let out = self.intrinsic(*op, &argv, results.first().map(|_| ()).is_some())?;
                 for (r, v) in results.iter().zip(out) {
                     vals[r.0 as usize] = v;
@@ -897,6 +1069,16 @@ impl Interp {
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => return self.trap("runtime check failed"),
+            I::BoundsCheck => {
+                let (index, count) = (a[0] as i64, a[1] as i64);
+                if index < 0 || index >= count {
+                    return self.trap(format!(
+                        "array bounds check failed: index {index} is outside an array of {count} element{}",
+                        if count == 1 { "" } else { "s" }
+                    ));
+                }
+                vec![]
+            }
             I::CompilerWrite => {
                 let bytes = self.read(a[0], a[1] as usize);
                 self.host.write(&bytes, a.get(2).is_some_and(|&v| v != 0));
@@ -911,11 +1093,7 @@ impl Interp {
             I::Trunc => vec![f64_of(a[0]).trunc().to_bits()],
             I::Fabs => vec![f64_of(a[0]).abs().to_bits()],
             I::ReturnAddress => vec![0],
-            I::CycleCounter => vec![
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |d| d.as_nanos() as u64),
-            ],
+            I::CycleCounter => vec![cycle_counter()],
             I::Pause => vec![],
             I::Popcount => vec![a[0].count_ones() as u64],
             I::Ctlz => {
@@ -930,7 +1108,54 @@ impl Interp {
             I::Cttz => vec![(a[0].trailing_zeros()).min(a[1] as u32) as u64],
             I::Bswap => vec![a[0].swap_bytes() >> (64 - a[1] as u32)],
             I::IsCompileTime => vec![self.compile_time as u64],
+            I::SAddOverflow | I::SSubOverflow | I::SMulOverflow => {
+                let bits = (a[2] as u32 * 8).min(64);
+                let wide = |v: u64| (((v as i128) << (128 - bits)) >> (128 - bits)) as i128;
+                let (x, y) = (wide(a[0]), wide(a[1]));
+                let r = match op {
+                    I::SAddOverflow => x + y,
+                    I::SSubOverflow => x - y,
+                    _ => x * y,
+                };
+                let limit = 1i128 << (bits - 1);
+                vec![(r < -limit || r >= limit) as u64]
+            }
+            I::UAddOverflow | I::USubOverflow | I::UMulOverflow => {
+                let bits = (a[2] as u32 * 8).min(64);
+                let keep = if bits == 64 {
+                    u64::MAX
+                } else {
+                    (1u64 << bits) - 1
+                };
+                let (x, y) = ((a[0] & keep) as i128, (a[1] & keep) as i128);
+                let r = match op {
+                    I::UAddOverflow => x + y,
+                    I::USubOverflow => x - y,
+                    _ => x * y,
+                };
+                vec![(r < 0 || r > keep as i128) as u64]
+            }
         })
+    }
+}
+
+/// Native: nanoseconds since the epoch. wasm32 has no clock (`SystemTime::now` panics there), so
+/// it counts calls instead.
+fn cycle_counter() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use std::cell::Cell;
+        thread_local! { static TICKS: Cell<u64> = const { Cell::new(0) }; }
+        TICKS.with(|t| {
+            t.set(t.get() + 1);
+            t.get()
+        })
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos() as u64)
     }
 }
 
@@ -1024,4 +1249,17 @@ fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
         ConvOp::FExt | ConvOp::FTrunc => out_f(f(v)),
         ConvOp::Bitcast => mask(to, v),
     }
+}
+
+/// Leave a process forked by compile-time code without running the parent's cleanup.
+fn exit_forked_child(code: i32) -> ! {
+    #[cfg(unix)]
+    {
+        unsafe extern "C" {
+            fn _exit(code: i32) -> !;
+        }
+        unsafe { _exit(code) }
+    }
+    #[cfg(not(unix))]
+    std::process::exit(code)
 }

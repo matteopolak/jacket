@@ -9,9 +9,7 @@ name = "jai-lsp"
 path = "src/main.rs"
 
 [dependencies]
-jai-source.workspace = true
-jai-lexer.workspace = true
-jai-syntax.workspace = true
+jaic = { path = "../jaic" }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
 

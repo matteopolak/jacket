@@ -146,14 +146,24 @@ impl Compiler {
         self.with_deferred_errors(result)
     }
 
-    fn finish_program_inner(&mut self) -> Result<()> {
+    /// Lower the procedures reachable from the program's exports, without generating
+    /// the program: their bodies may declare more (`#insert,scope(...)`) for a
+    /// metaprogram to see before it stops adding code.
+    /// Lenient: a body that fails (it may need a `#placeholder` the metaprogram defines
+    /// later) stays queued, and `finish_program` reports it if it still fails.
+    pub fn lower_reachable(&mut self) {
+        let _ = self.lower_reachable_inner(true);
+    }
+
+    /// False when there is no program to lower.
+    fn lower_reachable_inner(&mut self, lenient: bool) -> Result<bool> {
         // A program made only of `#run`/`#assert` directives has nothing to lower.
         let Some(m) = self.main_module else {
-            return Ok(());
+            return Ok(false);
         };
         let scope = self.modules[m.0 as usize].scope;
         if self.lookup(scope, Sym::intern("main"))?.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
         let mut i = 0;
         while i < self.export_entities.len() {
@@ -167,8 +177,21 @@ impl Compiler {
             self.proc_func(p, self.proc(p).span)?;
             i += 1;
         }
-        self.drain_bodies()?;
-        self.fill_runtime_info();
+        if lenient {
+            self.drain_bodies_lenient();
+        } else {
+            self.drain_bodies()?;
+        }
+        Ok(true)
+    }
+
+    fn finish_program_inner(&mut self) -> Result<()> {
+        // No more code is coming: items still waiting for a `#placeholder` fail now.
+        self.placeholders_final = true;
+        self.settle()?;
+        if self.lower_reachable_inner(false)? {
+            self.fill_runtime_info();
+        }
         Ok(())
     }
 
@@ -203,6 +226,48 @@ impl Compiler {
             })
     }
 
+    /// Tell the interpreter where `context.stack_trace` is and how to name source files.
+    pub(super) fn enable_stack_traces(&mut self, span: Span) {
+        if !self.options.stack_trace {
+            return;
+        }
+        if self.program.stack_trace_offset.is_some()
+            && self.program.file_paths.len() == self.sources.len()
+        {
+            return;
+        }
+        let Ok(context) = self.context_type(span) else {
+            return;
+        };
+        let Ok(Some((path, _))) = self.find_member(context, Sym::intern("stack_trace"), span)
+        else {
+            return;
+        };
+        let offset = path
+            .iter()
+            .map(|step| {
+                if let structs::PathStep::Offset(o) = step {
+                    *o
+                } else {
+                    0
+                }
+            })
+            .sum();
+        self.program.file_paths = (0..self.sources.len())
+            .map(|i| self.sources.get(FileId(i as u32)).path.clone())
+            .collect();
+        self.program.stack_trace_offset = Some(offset);
+    }
+
+    /// Before a backend writes the program: compiled code keeps `context.stack_trace` itself
+    /// (`stack_trace::instrument`; the interpreter does it at run time). Idempotent.
+    pub fn prepare_compiled_output(&mut self) {
+        self.enable_stack_traces(Span::default());
+        if let Some(offset) = self.program.stack_trace_offset {
+            crate::stack_trace::instrument(&mut self.program, offset);
+        }
+    }
+
     /// Run the compiled program in the interpreter; returns its exit code.
     pub fn run_program(&mut self) -> Result<i32> {
         let Some(main) = self.exported_func("main") else {
@@ -216,18 +281,19 @@ impl Compiler {
             );
         };
         self.interp.compile_time = false;
+        self.enable_stack_traces(Span::default());
+        if let Err(trap) = self.interp.reset_globals(&self.program) {
+            return err(Span::default(), format!("runtime error: {}", trap.message));
+        }
         let result = self.interp.call(&self.program, main, &[0, 0]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
             Err(trap) => {
-                let mut msg = format!("runtime error: {}", trap.message);
-                if let Some((file, line, col)) = trap.loc {
-                    msg = format!(
-                        "{}:{line}:{col}: {msg}",
-                        self.sources.get(FileId(file)).path
-                    );
-                }
-                err(Span::default(), msg)
+                let span = trap.loc.map_or(Span::default(), |(file, line, col)| {
+                    let at = self.sources.get(FileId(file)).offset_of(line, col) as usize;
+                    Span::new(FileId(file), at, at + 1)
+                });
+                err(span, format!("runtime error: {}", trap.message))
             }
         }
     }

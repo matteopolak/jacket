@@ -418,7 +418,12 @@ impl Compiler {
                         .procs
                         .iter()
                         .any(|p| p.body_state == super::procs::BodyState::Lowering);
+                let misses = self.placeholder_misses;
                 let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
+                if result.is_err() && self.waits_for_placeholder(misses) {
+                    self.scope_mut(scope).pending[i].state = PendingState::Waiting;
+                    return Ok(());
+                }
                 if reentrant && let Err(e) = result {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     self.deferred_pending.push(scope);
@@ -455,11 +460,21 @@ impl Compiler {
             self.scope_mut(scope).pending[i].state = PendingState::Expanding;
             let item = &self.scope(scope).pending[i];
             let (stmt, exported, file_scope) = (item.stmt.clone(), item.exported, item.file_scope);
+            let misses = self.placeholder_misses;
             let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
+            if result.is_err() && self.waits_for_placeholder(misses) {
+                self.scope_mut(scope).pending[i].state = PendingState::Waiting;
+                continue;
+            }
             self.scope_mut(scope).pending[i].state = PendingState::Done;
             result?;
         }
         Ok(())
+    }
+
+    /// Did an item's failed expansion reach an undefined `#placeholder` (since `before`)?
+    fn waits_for_placeholder(&self, before: u64) -> bool {
+        !self.placeholders_final && self.placeholder_misses != before
     }
 
     /// Look up `name` starting at `scope`, ignoring `using` struct members.
@@ -620,7 +635,7 @@ impl Compiler {
     pub fn module_exports(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
         let scope = self.modules[module.0 as usize].scope;
         self.expand_pending(scope)?;
-        Ok(self
+        let own: Vec<EntityId> = self
             .scope(scope)
             .names
             .get(&name)
@@ -630,7 +645,33 @@ impl Compiler {
                     .filter(|&e| self.entity(e).exported)
                     .collect()
             })
-            .unwrap_or_default())
+            .unwrap_or_default();
+        if !own.is_empty() {
+            return Ok(own);
+        }
+        // Names of modules this one re-exports with `using M :: #import "M";` (each module
+        // once per lookup, so re-export cycles end).
+        if self.reexport_visiting.contains(&module) {
+            return Ok(own);
+        }
+        self.reexport_visiting.push(module);
+        let mut result = Ok(own);
+        for index in self.modules[module.0 as usize]
+            .exported_using_imports
+            .clone()
+        {
+            let ids = match self.import_module(scope, index) {
+                Ok(Some(inner)) => self.module_exports(inner, name),
+                Ok(None) => continue,
+                Err(e) => Err(e),
+            };
+            if !matches!(&ids, Ok(ids) if ids.is_empty()) {
+                result = ids;
+                break;
+            }
+        }
+        self.reexport_visiting.pop();
+        result
     }
 
     /// Names visible inside a module from one of its files (export + module scope).

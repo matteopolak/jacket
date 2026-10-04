@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 from fetch_upstreams import ROOT, REPOSITORIES, DEPENDENCIES, safe_path
 
-def verify(root: Path = ROOT) -> tuple[int, int]:
+def verify(root: Path = ROOT) -> tuple[int, int, list[str]]:
     manifest = json.loads((root / 'corpus/upstreams.json').read_text())
     if manifest['format'] != 1: raise ValueError('unsupported manifest format')
     cutoff = datetime.fromisoformat(manifest['minimum_source_date'])
@@ -16,6 +16,7 @@ def verify(root: Path = ROOT) -> tuple[int, int]:
     if {p['repository'] for p in projects} != set(expected) or len(projects) != len(expected):
         raise ValueError('repository set does not match compatibility targets')
     sources = 0
+    extra = []
     for project in projects:
         if not re.fullmatch(r'[0-9a-f]{40}', project['revision']): raise ValueError('invalid commit SHA')
         if project['selection'] == 'stale-excluded':
@@ -34,8 +35,12 @@ def verify(root: Path = ROOT) -> tuple[int, int]:
                 raise ValueError(f'changed source: {destination}/{path}')
             if path.suffix == '.jai': sources += 1
         actual = {p.relative_to(destination).as_posix() for p in destination.rglob('*') if p.is_file()}
-        if actual != {str(p) for p in listed}: raise ValueError(f'unlisted or missing files in {destination}')
-    return len(projects), sources
+        # Builds of the projects (native libraries, executables, generated bindings) leave files
+        # next to the sources; they are reported, not errors. Every pinned file was checked above.
+        extra += sorted(f'{destination.name}/{p}' for p in actual - {p.as_posix() for p in listed})
+    return len(projects), sources, extra
 if __name__ == '__main__':
-    projects, sources = verify()
+    projects, sources, extra = verify()
     print(f'Verified {projects} pinned projects, {sources} Jai sources; no code executed')
+    if extra:
+        print(f'{len(extra)} unlisted files (build outputs), e.g. ' + ', '.join(extra[:3]))

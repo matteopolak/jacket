@@ -118,6 +118,9 @@ pub struct InsertReplacements {
 pub struct DeferEntry {
     pub stmt: ast::Stmt,
     pub scope: ScopeId,
+    /// For a `` `defer `` in a macro: the caller's scope, where backtick names in the
+    /// deferred code resolve once the macro has returned.
+    pub caller_scope: Option<ScopeId>,
 }
 
 /// State for lowering one procedure body (or a compile-time thunk).
@@ -146,9 +149,15 @@ pub struct FnCtx {
     /// Checking only for the type of an expression (`type_of`, `size_of`): no code is kept, so
     /// names that only exist as types, such as the fields of a struct being laid out, resolve.
     pub type_only: bool,
+    /// Scope backtick names resolve in outside a macro (while a `` `defer `` runs).
+    pub backtick_scope: Option<ScopeId>,
     /// Block constants already declared ahead of their statement (`check_block_stmts`), per block scope (a
     /// macro body expanded twice declares its constants in each expansion).
     pub hoisted_consts: std::collections::HashSet<(ScopeId, ast::AstId)>,
+    /// Array bounds checks are off (`#no_abc` on the procedure or an enclosing `for`).
+    pub no_abc: bool,
+    /// Arithmetic overflow checks are off (`#no_aoc` on the procedure, a block or a loop).
+    pub no_aoc: bool,
 }
 
 #[derive(Clone)]
@@ -192,7 +201,10 @@ impl FnCtx {
             insert_replacements: Vec::new(),
             pending_for_body: None,
             type_only: false,
+            backtick_scope: None,
             hoisted_consts: Default::default(),
+            no_abc: false,
+            no_aoc: false,
         }
     }
 }
@@ -314,6 +326,8 @@ impl Compiler {
     /// The natural type of an untyped literal.
     pub fn default_untyped(&self, ty: TypeId, value: &Value) -> TypeId {
         match value {
+            // `float64` only for literals too precise for `float32` (`float_literal_type`).
+            Value::Float(_) if ty == TypeId::F64 => ty,
             Value::Float(_) => TypeId::F32,
             Value::Int(_) if self.types.is_float(ty) => ty,
             Value::Int(_) => TypeId::S64,

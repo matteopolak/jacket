@@ -4,10 +4,6 @@
 **/__pycache__/
 *.jai-output
 /rustc-ice-*.txt
-/fuzz/target/
-/fuzz/corpus/
-/fuzz/artifacts/
-/fuzz/coverage/
 /node_modules/
 /editor-build.json
 /editor-dependency-age.json

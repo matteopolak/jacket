@@ -22,6 +22,28 @@ struct PlayState {
 
 thread_local! {
     static STATE: RefCell<PlayState> = RefCell::new(PlayState::default());
+    /// Last panic message. Kept apart from `STATE` because a panic can happen while that is borrowed.
+    static PANIC: RefCell<String> = const { RefCell::new(String::new()) };
+}
+
+/// Record panic messages so the host can report why the module trapped (wasm32 panics abort, so
+/// the module is unusable afterwards, but its memory can still be read).
+fn install_panic_hook() {
+    if !cfg!(target_arch = "wasm32") {
+        return; // native keeps the default hook
+    }
+    use std::sync::Once;
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        std::panic::set_hook(Box::new(|info| {
+            let text = info.to_string();
+            PANIC.with(|p| {
+                if let Ok(mut p) = p.try_borrow_mut() {
+                    *p = text;
+                }
+            });
+        }));
+    });
 }
 
 fn with<T>(f: impl FnOnce(&mut PlayState) -> T) -> T {
@@ -37,6 +59,7 @@ impl PlayState {
 
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_play_reset() -> u32 {
+    install_panic_hook();
     with(|s| {
         *s = PlayState::default();
         0
@@ -109,6 +132,23 @@ pub extern "C" fn jai_play_error_len() -> u32 {
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_play_error_byte(index: u32) -> u32 {
     with(|s| s.error.get(index as usize).copied().map_or(256, u32::from))
+}
+
+/// Length of the last recorded panic message (0 when none).
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_play_panic_len() -> u32 {
+    PANIC.with(|p| u32::try_from(p.borrow().len()).unwrap_or(u32::MAX))
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_play_panic_byte(index: u32) -> u32 {
+    PANIC.with(|p| {
+        p.borrow()
+            .as_bytes()
+            .get(index as usize)
+            .copied()
+            .map_or(256, u32::from)
+    })
 }
 
 #[cfg(test)]

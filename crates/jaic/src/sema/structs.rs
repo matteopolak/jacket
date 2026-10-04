@@ -32,6 +32,46 @@ pub struct PolyStruct {
     pub origin: Option<PolyStructId>,
 }
 
+/// Names of a struct that stand for members reached through a path of its fields
+/// (`using,only(width, height) texture.desc;`).
+#[derive(Clone, Debug)]
+pub struct MemberAlias {
+    /// Field names from the struct to the member whose members are reused.
+    pub path: Vec<Sym>,
+    pub filter: ast::UsingFilter,
+}
+
+impl MemberAlias {
+    /// The member of the target that `name` stands for, if the filter lets it through.
+    fn target_name(&self, name: Sym) -> Option<Sym> {
+        match &self.filter {
+            ast::UsingFilter::None => Some(name),
+            ast::UsingFilter::Only(names) => names.iter().any(|n| n.name == name).then_some(name),
+            ast::UsingFilter::Except(names) => {
+                (!names.iter().any(|n| n.name == name)).then_some(name)
+            }
+            ast::UsingFilter::Map(pairs) => pairs
+                .iter()
+                .find(|(new, _)| new.name == name)
+                .map(|(_, old)| old.name),
+            ast::UsingFilter::Computed(_) => None,
+        }
+    }
+}
+
+/// The names of a member path expression (`a.b.c`), or `None`.
+fn member_path(e: &ast::Expr) -> Option<Vec<Sym>> {
+    match &e.kind {
+        E::Ident(name) => Some(vec![*name]),
+        E::Member(base, field) => {
+            let mut path = member_path(base)?;
+            path.push(field.name);
+            Some(path)
+        }
+        _ => None,
+    }
+}
+
 /// One step of a member path through `using` fields.
 #[derive(Clone, Copy, Debug)]
 pub enum PathStep {
@@ -54,6 +94,8 @@ struct FieldDecl {
 
 enum FieldItem {
     Field(FieldDecl),
+    /// `using,only(a, b) field.inner;`: names reached through a path of members.
+    Alias(MemberAlias),
     /// `#place f;`: following fields start at `f`'s offset.
     Place(Sym, Span),
     /// `#overlay(f)`: the next field shares `f`'s storage.
@@ -182,6 +224,29 @@ impl Compiler {
         }
     }
 
+    /// The declared type of a polymorphic struct's value parameter (by position or name), when
+    /// it can be evaluated outside the parameter scope; used to type `.MEMBER` arguments.
+    pub fn poly_struct_param_type(
+        &mut self,
+        ps: PolyStructId,
+        index: usize,
+        name: Option<Sym>,
+    ) -> Option<TypeId> {
+        let (lit, scope) = {
+            let p = &self.poly_structs[ps.0 as usize];
+            (p.lit.clone(), p.scope)
+        };
+        let param = match name {
+            Some(n) => lit
+                .params
+                .iter()
+                .find(|p| p.name.map(|i| i.name) == Some(n))?,
+            None => lit.params.get(index)?,
+        };
+        let ty = param.ty.as_ref()?;
+        self.eval_type(scope, ty).ok()
+    }
+
     pub fn instantiate_struct(
         &mut self,
         ps: PolyStructId,
@@ -235,6 +300,29 @@ impl Compiler {
         let mut key = Vec::new();
         for (i, p) in lit.params.iter().enumerate() {
             let pname = p.name.map(|n| n.name).unwrap_or_else(|| Sym::intern("_"));
+            // `x: $T`: the argument's type binds `T` (also `[$N] $T` and other patterns).
+            if let Some(t) = &p.ty
+                && super::procs::has_poly(t)
+                && let Some(op) = &values[i]
+            {
+                let arg_ty = match op {
+                    Operand::Const {
+                        ty,
+                        value,
+                        untyped: true,
+                    } => self.default_untyped(*ty, value),
+                    Operand::Procs(procs) if procs.len() == 1 => self.proc_type(procs[0], span)?,
+                    Operand::Type(_) => TypeId::TYPE,
+                    other => other.ty(),
+                };
+                let mut found = Vec::new();
+                self.match_pattern(t, arg_ty, &mut found, param_scope)?;
+                for (n, v, vty) in found {
+                    self.add_const(param_scope, n, p.span, v.clone(), vty);
+                    key.push(v.clone());
+                    bindings.push((n, v, vty));
+                }
+            }
             let ty = match &p.ty {
                 Some(t) => self.eval_type(param_scope, t)?,
                 None => TypeId::VOID,
@@ -242,7 +330,12 @@ impl Compiler {
             let value = match values[i].take() {
                 Some(op) => self.struct_arg_value(param_scope, op, ty, p.span)?,
                 None => match &p.default {
-                    Some(d) => self.eval_const_value(param_scope, d)?,
+                    Some(d) => {
+                        // The declared type lets `.FIRST` defaults find their enum.
+                        let expected = (ty != TypeId::VOID).then_some(ty);
+                        let op = self.eval_const_or_run(param_scope, d, expected)?;
+                        self.struct_arg_value(param_scope, op, ty, d.span)?
+                    }
                     None => {
                         return err(
                             span,
@@ -263,6 +356,13 @@ impl Compiler {
             self.add_const(param_scope, pname, p.span, value.clone(), ty);
             key.push(value.clone());
             bindings.push((pname, value, ty));
+        }
+        if let Some(block) = &lit.modify {
+            let baked = self.poly_structs[ps.0 as usize].baked.len();
+            let params = bindings.split_off(baked);
+            let modified = self.run_struct_modify(def_scope, name, block, params, span)?;
+            key = modified.iter().map(|(_, v, _)| v.clone()).collect();
+            bindings.extend(modified);
         }
         if let Some(&t) = self.poly_structs[ps.0 as usize].instances.get(&key) {
             return Ok(t);
@@ -368,7 +468,8 @@ impl Compiler {
                     self.types.enums[e.0 as usize].members = out.clone();
                 }
                 ast::EnumItem::Insert(e) => {
-                    return err(e.span, "#insert inside an enum body is not supported yet");
+                    let inserted = self.eval_insert_enum_items(scope, e)?;
+                    self.enum_items(&inserted, scope, ty, flags, next, out)?;
                 }
                 ast::EnumItem::If {
                     cond,
@@ -394,6 +495,37 @@ impl Compiler {
         Ok(())
     }
 
+    /// The members an enum-body `#insert` of a string produces.
+    fn eval_insert_enum_items(
+        &mut self,
+        scope: ScopeId,
+        value: &ast::Expr,
+    ) -> Result<Vec<ast::EnumItem>> {
+        let Operand::Const {
+            value: Value::String(s),
+            ..
+        } = self.eval_insert_operand(scope, value)?
+        else {
+            return err(value.span, "#insert in an enum body needs a string");
+        };
+        let text = format!(
+            "__jaic_enum :: enum {{\n{}\n}};",
+            String::from_utf8_lossy(&s)
+        );
+        let file = self.sources.add(
+            format!("<#insert at {}>", self.sources.get(value.span.file).path),
+            text.clone().into(),
+        );
+        let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
+        match ast.stmts.first().map(|s| &s.kind) {
+            Some(ast::StmtKind::Decl(d)) => match d.value.as_ref().map(|v| &v.kind) {
+                Some(E::Enum(lit)) => Ok(lit.items.clone()),
+                _ => err(value.span, "could not parse inserted enum members"),
+            },
+            _ => err(value.span, "could not parse inserted enum members"),
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Layout
     // -----------------------------------------------------------------------
@@ -402,6 +534,7 @@ impl Compiler {
         match self.types.struct_info(s).layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {
+                self.in_progress_misses += 1;
                 let name = self.types.struct_info(s).name;
                 return err(
                     span,
@@ -468,8 +601,10 @@ impl Compiler {
         let mut end = 0u64;
         let mut align = 1u64;
         let mut overlay = None;
+        let mut aliases = Vec::new();
         for item in items {
             match item {
+                FieldItem::Alias(alias) => aliases.push(alias),
                 FieldItem::Place(name, span) | FieldItem::Overlay(name, span) => {
                     let Some(f) = fields.iter().find(|f: &&Field| f.name == Some(name)) else {
                         return err(span, format!("no field named '{name}' before this point"));
@@ -523,6 +658,9 @@ impl Compiler {
         };
         let info = self.types.struct_info_mut(s);
         info.fields = fields;
+        if !aliases.is_empty() {
+            self.member_aliases.insert(s, aliases);
+        }
         info.size = size;
         info.align = align;
         info.layout = LayoutState::Done;
@@ -600,8 +738,21 @@ impl Compiler {
                     _ => return err(e.span, "unexpected expression in struct body"),
                 },
                 ast::StmtKind::Using {
-                    value, ..
+                    value,
+                    filter,
                 } => {
+                    // `using inner.member;` naming fields of this struct: an alias.
+                    if let Some(path) = member_path(value)
+                        && out.iter().any(
+                            |item| matches!(item, FieldItem::Field(d) if d.name == Some(path[0])),
+                        )
+                    {
+                        out.push(FieldItem::Alias(MemberAlias {
+                            path,
+                            filter: filter.clone(),
+                        }));
+                        continue;
+                    }
                     // `using Other_Struct;` imports another struct's fields.
                     let t = self.eval_type(scope, value)?;
                     out.push(FieldItem::Field(FieldDecl {
@@ -794,6 +945,32 @@ impl Compiler {
                 return Ok(Some((full, t)));
             }
         }
+        let aliases = self.member_aliases.get(&s).cloned().unwrap_or_default();
+        for alias in aliases {
+            let Some(target) = alias.target_name(name) else {
+                continue;
+            };
+            let mut full = Vec::new();
+            let mut at = ty;
+            for &step in alias.path.iter().chain([&target]) {
+                // A pointer field on the path is followed.
+                if let Some(p) = self.types.pointee(at)
+                    && self.types.as_struct(p).is_some()
+                {
+                    full.push(PathStep::Deref);
+                    at = p;
+                }
+                let Some((mut path, t)) = self.find_member(at, step, span)? else {
+                    return err(
+                        span,
+                        format!("'{step}' is not a member of {}", self.types.name(at)),
+                    );
+                };
+                full.append(&mut path);
+                at = t;
+            }
+            return Ok(Some((full, at)));
+        }
         Ok(None)
     }
 
@@ -948,8 +1125,16 @@ impl Compiler {
             match name.as_str() {
                 "count" => return Ok(Operand::untyped_int(n as i128)),
                 "data" => {
-                    let (_, addr) = self.address_of(f, base, span)?;
                     let p = self.types.pointer(elem);
+                    // An empty array has no storage: its data is null, as for an empty view.
+                    if n == 0 {
+                        return Ok(Operand::Const {
+                            ty: p,
+                            value: Value::Null,
+                            untyped: false,
+                        });
+                    }
+                    let (_, addr) = self.address_of(f, base, span)?;
                     return Ok(Operand::Value {
                         ty: p,
                         val: addr,
@@ -1054,6 +1239,11 @@ impl Compiler {
                 if let Some(ids) = self.struct_constant(t, name)? {
                     return self.entities_operand(f, scope, &ids, span);
                 }
+                // `Type.field` without an instance names the field's type, for reaching its
+                // constants (`Anim.joint_map.Entry`).
+                if let Some((_, field_ty)) = self.find_member(t, name, span)? {
+                    return Ok(Operand::Type(field_ty));
+                }
                 err(
                     span,
                     format!(
@@ -1152,6 +1342,84 @@ impl Compiler {
     // Default values
     // -----------------------------------------------------------------------
 
+    /// Offset and type of the member `name` of a `using` field of `s` (searched through nested `using`s).
+    fn find_used_member(
+        &mut self,
+        s: StructId,
+        name: Sym,
+        span: Span,
+    ) -> Result<Option<(u64, TypeId)>> {
+        self.layout_struct(s, span)?;
+        let fields = self.types.struct_info(s).fields.clone();
+        for f in fields.iter().filter(|f| f.using) {
+            let Some(inner) = self.types.as_struct(f.ty) else {
+                continue;
+            };
+            self.layout_struct(inner, span)?;
+            let inner_fields = self.types.struct_info(inner).fields.clone();
+            if let Some(m) = inner_fields.iter().find(|m| m.name == Some(name)) {
+                return Ok(Some((f.offset + m.offset, m.ty)));
+            }
+            if let Some((o, t)) = self.find_used_member(inner, name, span)? {
+                return Ok(Some((f.offset + o, t)));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Offset and type of the member a struct-body override assigns: `name` (a member of a
+    /// `using` field) or a path into a field (`base.callback`).
+    fn override_target(
+        &mut self,
+        s: StructId,
+        lhs: &ast::Expr,
+        span: Span,
+    ) -> Result<Option<(u64, TypeId)>> {
+        match &lhs.kind {
+            E::Ident(name) => self.find_used_member(s, *name, span),
+            E::Member(base, name) => {
+                let Some((offset, ty)) = self.override_path(s, base, span)? else {
+                    return Ok(None);
+                };
+                let Some(inner) = self.types.as_struct(ty) else {
+                    return Ok(None);
+                };
+                Ok(self
+                    .struct_member(inner, name.name, span)?
+                    .map(|(o, t)| (offset + o, t)))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// `override_target` for an intermediate path segment, which may also be a direct field.
+    fn override_path(
+        &mut self,
+        s: StructId,
+        expr: &ast::Expr,
+        span: Span,
+    ) -> Result<Option<(u64, TypeId)>> {
+        if let E::Ident(name) = &expr.kind {
+            return self.struct_member(s, *name, span);
+        }
+        self.override_target(s, expr, span)
+    }
+
+    /// A field of `s` by name, directly or through `using` fields.
+    fn struct_member(
+        &mut self,
+        s: StructId,
+        name: Sym,
+        span: Span,
+    ) -> Result<Option<(u64, TypeId)>> {
+        self.layout_struct(s, span)?;
+        let fields = self.types.struct_info(s).fields.clone();
+        if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
+            return Ok(Some((f.offset, f.ty)));
+        }
+        self.find_used_member(s, name, span)
+    }
+
     /// Constant image of a default-initialized value (`None` = all zero).
     pub fn default_initializer(&mut self, ty: TypeId, span: Span) -> Result<Option<Rc<Aggregate>>> {
         if let Some(img) = self.default_images.get(&ty) {
@@ -1182,6 +1450,30 @@ impl Compiler {
                                 nonzero = true;
                             }
                         }
+                    }
+                }
+                // `member = value;` in the body overrides the default of a member
+                // reached through a `using` field.
+                let (lit, scope) = {
+                    let src = &self.struct_asts[&s];
+                    (src.lit.clone(), src.scope)
+                };
+                for stmt in &lit.body {
+                    let ast::StmtKind::Assign {
+                        op: ast::AssignOp::Assign,
+                        lhs,
+                        rhs,
+                    } = &stmt.kind
+                    else {
+                        continue;
+                    };
+                    let ([l], [r]) = (lhs.as_slice(), rhs.as_slice()) else {
+                        continue;
+                    };
+                    if let Some((offset, fty)) = self.override_target(s, l, span)? {
+                        let value = self.const_value_of_type(scope, r, fty)?;
+                        self.write_value(&mut agg, offset, &value, fty, r.span)?;
+                        nonzero = true;
                     }
                 }
                 nonzero.then(|| Rc::new(agg))
@@ -1240,6 +1532,7 @@ impl Compiler {
                 returns: vec![],
                 conv: ir::Conv::Jai,
                 c_varargs: false,
+                c_fixed: 0,
                 c_abi: None,
             },
             file,
@@ -1316,6 +1609,7 @@ impl Compiler {
                 c_varargs: false,
                 c_call: false,
                 no_context: true,
+                non_pod_return: false,
             })));
         if let Some(&func) = self.initializers.get(&ty) {
             return Ok((func, proc_ty));
@@ -1328,6 +1622,7 @@ impl Compiler {
             returns: vec![],
             conv: ir::Conv::Jai,
             c_varargs: false,
+            c_fixed: 0,
             c_abi: None,
         };
         let mut f = FnCtx::new(name, sig, FileId(0));
@@ -1562,7 +1857,15 @@ impl Compiler {
             );
         };
         let n = ops.len() as u64;
-        let ty = self.types.array(elem, ArrayKind::Fixed(n));
+        let mut ty = self.types.array(elem, ArrayKind::Fixed(n));
+        // `g: Grid3i = .[1, 4, 9]`: a literal takes a `#type,distinct` variant of its own type.
+        if ty_expr.is_none()
+            && let Some(e) = expected
+            && matches!(self.types.kind(e), TypeKind::Distinct(_))
+            && self.types.repr(e) == ty
+        {
+            ty = e;
+        }
         let esize = self.size_of(elem, span)?;
         if ops
             .iter()
@@ -1614,6 +1917,9 @@ impl Compiler {
         let size = self.size_of(ty, span)?;
         let o = offset as usize;
         let r = self.types.repr(ty);
+        // Overwriting (a literal field over the struct's default): drop the old pointers there.
+        agg.relocs
+            .retain(|reloc| reloc.offset < offset || reloc.offset >= offset + size);
         match value {
             Value::Int(i) => {
                 if self.types.is_float(r) {

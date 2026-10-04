@@ -273,7 +273,7 @@ impl Parser<'_> {
     fn parse_typed_decl_rest(&mut self, decl: &mut Decl) -> PResult<()> {
         self.expect(P::Colon, "after the declaration name")?;
         if !matches!(self.tok(), Tok::Punct(P::Eq | P::Colon)) {
-            decl.ty = Some(self.parse_expr()?);
+            decl.ty = Some(self.parse_param_type()?);
         }
         self.parse_decl_suffix(decl)?;
         if self.eat(P::Eq) {

@@ -1,7 +1,7 @@
 // Authored consumers: original records, weighted tiling, borders, multiple displays.
 #import "Basic";
 T :: #import "Treemap";
-L :: #import "legacy/Bucket_Array";
+L :: #import "Bucket_Array";
 M :: #import "Math";
 #load "storage-allocator-tracker.jai";
 

@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "sources": {
+    "stb": {
+      "repository": "nothings/stb",
+      "revision": "2c980bb59875b0d32144a71867fbdebb2f77cd20",
+      "files": {
+        "stb_image.h": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+        "stb_image_write.h": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
+        "deprecated/stb_image_resize.h": "6a0e75adbabb48df9031c2e39ccd97437bb226fe31e7d4a01c7bf70a18d32ec6",
+        "stb_vorbis.c": "4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636"
+      }
+    },
+    "rpmalloc": {
+      "repository": "mjansson/rpmalloc",
+      "revision": "e4393ff85585d91400bcbad2e7266c011075b673",
+      "files": {
+        "rpmalloc/rpmalloc.c": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
+        "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1"
+      }
+    }
+  },
+  "libraries": {
+    "stb_image": {"source": "stb", "code": "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"\n"},
+    "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
+    "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
+    "stb_vorbis": {"source": "stb", "code": "#include \"stb_vorbis.c\"\n"},
+    "rpmalloc": {"source": "rpmalloc", "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"}
+  }
+}

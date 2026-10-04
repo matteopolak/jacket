@@ -5,7 +5,7 @@ Input :: #import "Input"(ENABLE_NATIVE_INPUT_ADAPTERS=false);
 #import "Window_Type";
 
 press :: (key:Input.Key_Code) -> Input.Event {
-    event:Input.Event; event.type=.KEYBOARD; event.key_code=key; event.key_pressed=true;
+    event:Input.Event; event.type=.KEYBOARD; event.key_code=key; event.key_pressed=1;
     return event;
 }
 release :: (key:Input.Key_Code) -> Input.Event {
@@ -64,7 +64,7 @@ main :: () {
     assert((Input.input_button_states[cast(u32)key]&.END)==0);
     assert(Input.routed_events_this_frame.count==1);
     assert(Input.routed_events_this_frame[0].window==first);
-    assert(!Input.routed_events_this_frame[0].event.key_pressed);
+    assert(Input.routed_events_this_frame[0].event.key_pressed == 0);
     Input.set_input_focus(second,false);
     Input.update_window_events();
     assert(!Input.input_application_has_focus);
@@ -85,11 +85,11 @@ main :: () {
     assert(is_down(key));
     assert(Input.routed_events_this_frame.count==3);
     assert(Input.routed_events_this_frame[0].window==first);
-    assert(Input.routed_events_this_frame[0].event.key_pressed);
+    assert(Input.routed_events_this_frame[0].event.key_pressed != 0);
     assert(Input.routed_events_this_frame[1].window==second);
-    assert(Input.routed_events_this_frame[1].event.key_pressed);
+    assert(Input.routed_events_this_frame[1].event.key_pressed != 0);
     assert(Input.routed_events_this_frame[2].window==first);
-    assert(!Input.routed_events_this_frame[2].event.key_pressed);
+    assert(Input.routed_events_this_frame[2].event.key_pressed == 0);
     Input.set_input_focus(second,false);
     Input.update_window_events();
 
@@ -124,7 +124,7 @@ main :: () {
     assert(Input.events_this_frame.count==3);
     assert(Input.routed_events_this_frame[0].window==first);
     assert(Input.routed_events_this_frame[1].window==second);
-    for event:Input.events_this_frame assert(!event.key_pressed);
+    for event:Input.events_this_frame assert(event.key_pressed == 0);
 
     // Unscoped input stays down when a scoped owner releases the same key.
     Input.queue_input_event(first,press(key));

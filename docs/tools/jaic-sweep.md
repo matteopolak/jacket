@@ -1,0 +1,44 @@
+# jaic regression sweep
+
+## What it is
+
+`tools/jaic-sweep.py` runs the `jaic` binary over sets of Jai programs and reports pass/fail. It is the main regression gate for compiler and stdlib changes.
+
+## How it works
+
+Each set yields `(id, path, mode, expectation, extra args)`; the tool runs `jaic <mode> <path> <args>` from the file's directory and compares the exit code (and stdout, for `corpus` cases with a recorded runtime expectation).
+
+| set | source | mode |
+|---|---|---|
+| `corpus` | `tests/corpus/manifest.json` cases with a `runtime` record | run, exact stdout + exit code |
+| `negative` | `kind: negative` cases of `tests/corpus/manifest.json` (`tests/corpus/negative/*.jai`) | check, non-zero exit and the recorded text in stderr |
+| `stdlib` | `tests/stdlib/*.jai` | run, exit code 0 |
+| `modules` | the stdlib's own tests: `stdlib/<Module>/tests/*.jai`, `stdlib/tests/**/*.jai` (not under a `modules/` folder, which holds a test directory's mock modules) | run, exit code 0 |
+| `upstream` | `tools/upstream-cases.json` (paths under `corpus/upstream/`; every The_Way_to_Jai example that works, plus project entry points) | per case (`run` or `check`, optional `args`), exit code 0 |
+| a path | that file | run |
+
+Expected result of `corpus negative stdlib modules upstream howto`: everything passes except `getrect-rh-negative-control`, a negative control that must fail.
+
+## How to change it
+
+- New negative program (must be rejected): drop it in `tests/corpus/negative/`, add a `kind: negative` entry with `sha256` and a `negative.check` string that appears in the diagnostic to `tests/corpus/manifest.json`.
+- New regression program: drop a self-checking `tests/stdlib/<name>.jai` (return non-zero / `assert` on failure).
+- An upstream case may list `setup` commands (argv lists, run once in the case's directory before the cases
+  start), e.g. compiling the C++ library `ttwj-30-cpp-library-main` loads.
+- An upstream entry point started working: add it to `tools/upstream-cases.json` so it stays working.
+- `build` cases (`focus-native-build`, `jails-native-build`, `jaison-native-build`) produce native executables and
+  need LLVM plus the third-party libraries from `python3 tools/build_native_libs.py` (see [native libs](native-libs.md)).
+
+## Configuration
+
+`--jaic PATH` (default `/Volumes/CodexBuilds/targets/jai-dev/debug/jaic`), `--filter TEXT`, `--verbose`, `--timeout SECONDS` (default 60; HANDOFF uses 900), `--jobs N` (cases run at once, default the CPU count; cases run with stdin closed).
+
+```sh
+python3 tools/jaic-sweep.py --jaic /path/to/target/debug/jaic corpus stdlib --timeout 900
+```
+
+The `upstream` set needs `python3 tools/fetch_upstreams.py` first (the corpus is gitignored).
+
+## Dependencies
+
+Python 3 standard library, a built `jaic-cli`.

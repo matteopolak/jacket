@@ -77,6 +77,12 @@ pub struct Options {
     /// Load Runtime_Support (entry point, context initialization) for programs.
     pub runtime_support: bool,
     pub temporary_storage_size: i64,
+    /// Emit array bounds checks (`Build_Options.array_bounds_check != .OFF`).
+    pub array_bounds_check: bool,
+    /// `Build_Options.arithmetic_overflow_check`: 0 = off, 1 = nonfatal, 2 = fatal.
+    pub arithmetic_overflow_check: u8,
+    /// Maintain `context.stack_trace` while the program runs (`Build_Options.stack_trace`).
+    pub stack_trace: bool,
 }
 
 impl Options {
@@ -104,6 +110,9 @@ impl Options {
             preload: None,
             runtime_support: true,
             temporary_storage_size: 32768,
+            array_bounds_check: true,
+            arithmetic_overflow_check: 0,
+            stack_trace: true,
         }
     }
 }
@@ -129,6 +138,9 @@ pub struct Module {
     pub program_params: Vec<Sym>,
     /// Exported top-level `using global;`: the global's members are visible to importers.
     pub exported_usings: Vec<scope::UsingEntry>,
+    /// Import entries (indexes into the module scope's `imports`) of exported
+    /// `using Name :: #import "M";` declarations: M's names are members of this module too.
+    pub exported_using_imports: Vec<usize>,
     pub files: Vec<FileId>,
 }
 
@@ -170,6 +182,12 @@ pub struct Compiler {
     pub workspace: i64,
     /// Sources added so far (labels of added strings).
     added_sources: usize,
+    /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
+    lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
+    /// Scopes holding the bindings that a polymorphic parameter's default is evaluated in.
+    default_scopes: HashMap<(ScopeId, Vec<Value>), ScopeId>,
+    /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
+    auto_bake_variants: HashMap<(ProcId, Vec<calls::AutoBake>), ProcId>,
     /// Body `#import`s already added to their file scope (by statement span).
     hoisted_imports: HashSet<Span>,
     /// Procedures that need their bodies lowered.
@@ -177,6 +195,8 @@ pub struct Compiler {
     pub interp: crate::interp::Interp,
     /// Type_Info globals per type.
     pub type_infos: HashMap<TypeId, ir::GlobalId>,
+    /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
+    pub type_info_flags: HashMap<TypeId, u32>,
     /// String literal globals, deduplicated.
     pub strings: HashMap<Rc<[u8]>, ir::GlobalId>,
     pub output: Vec<u8>,
@@ -193,12 +213,24 @@ pub struct Compiler {
     /// innermost one. Only calls to procedures that use `#caller_code` are recorded.
     pub calls_in_flight: Vec<(Rc<ast::Expr>, ScopeId)>,
     pub local_consts: HashMap<EntityId, (Value, TypeId)>,
-    /// Macro parameters bound to a constant string the macro never writes: `name.count`
-    /// is a constant (`write(fd, message.data, message.count)` into a `u64`).
-    pub const_string_params: HashMap<EntityId, i64>,
+    /// `#discard` parameters: naming one in the body is an error.
+    pub discard_params: HashSet<EntityId>,
+    /// The most recently emitted call that has `#must` results: call span, procedure name, and
+    /// which results are `#must`.
+    pub last_call_must: Option<(Span, Sym, Vec<bool>)>,
+    /// Macro parameters bound to a constant argument the macro never writes: reading them
+    /// gives the constant (`#if n <= 1` in a recursive macro; `message.count` of a constant
+    /// string fits a `u64` parameter).
+    pub const_macro_params: HashMap<EntityId, (Value, TypeId)>,
+    /// Modules whose re-exports a `module_exports` call is searching.
+    pub reexport_visiting: Vec<ModuleId>,
+    /// Types of local variable declarations, by declaration (first name), once lowered.
+    pub local_decl_types: HashMap<ast::AstId, TypeId>,
     pub anonymous_types: HashMap<(ast::AstId, ScopeId), TypeId>,
     /// Scope each `Code` value was written in (parallel to `codes`).
     pub code_scopes: Vec<ScopeId>,
+    /// `using,only(...) field.path;` aliases declared in struct bodies.
+    pub member_aliases: HashMap<crate::types::StructId, Vec<structs::MemberAlias>>,
     pub default_images: HashMap<TypeId, Option<Rc<value::Aggregate>>>,
     pub default_globals: HashMap<TypeId, ir::GlobalId>,
     pub initializers: HashMap<TypeId, ir::FuncId>,
@@ -207,7 +239,8 @@ pub struct Compiler {
     pub thunk_scopes: HashMap<ScopeId, ScopeId>,
     /// Interpreter address of the compile-time `#Context`.
     pub ct_context: Option<u64>,
-    /// Declarations of `#program_export` procedures (resolved by the driver).
+    /// Declarations the driver resolves even when unreferenced: `#program_export`
+    /// procedures and `link_always` libraries.
     pub export_entities: Vec<EntityId>,
     /// Locals declared by `#asm` register declarations (`x: gpr`).
     pub asm_regs: HashMap<EntityId, asm::AsmReg>,
@@ -228,6 +261,14 @@ pub struct Compiler {
     pub program_param_settings: Vec<(PathBuf, Sym, ast::Expr, ScopeId)>,
     /// Set while `expand_all` retries deferred items: failures are then final.
     pub retrying_pending: bool,
+    /// Lookups that reached an undefined `#placeholder`: a pending top-level item whose
+    /// expansion did so waits (a metaprogram may define it later) until `finish_program`.
+    pub placeholder_misses: u64,
+    /// Lookups that reached something still being computed (a signature, entity or layout in
+    /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
+    pub in_progress_misses: u64,
+    /// Set by `finish_program`: pending items no longer wait for placeholders.
+    pub placeholders_final: bool,
 }
 
 /// Names and default values of a procedure type's parameters (defaults evaluate in `scope`).
@@ -273,13 +314,17 @@ impl Compiler {
             asserts: Vec::new(),
             runs_done: 0,
             asserts_done: 0,
-            workspace: 1,
+            workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
             added_sources: 0,
+            lenient_failures: HashMap::new(),
+            default_scopes: HashMap::new(),
+            auto_bake_variants: HashMap::new(),
             hoisted_imports: HashSet::new(),
             body_queue: Vec::new(),
             interp: crate::interp::Interp::default(),
             type_infos: HashMap::new(),
+            type_info_flags: HashMap::new(),
             strings: HashMap::new(),
             output: Vec::new(),
             warnings: Vec::new(),
@@ -289,9 +334,14 @@ impl Compiler {
             anonymous_procs: HashMap::new(),
             calls_in_flight: Vec::new(),
             local_consts: HashMap::new(),
-            const_string_params: HashMap::new(),
+            discard_params: HashSet::new(),
+            last_call_must: None,
+            const_macro_params: HashMap::new(),
+            reexport_visiting: Vec::new(),
+            local_decl_types: HashMap::new(),
             anonymous_types: HashMap::new(),
             code_scopes: Vec::new(),
+            member_aliases: HashMap::new(),
             default_images: HashMap::new(),
             default_globals: HashMap::new(),
             initializers: HashMap::new(),
@@ -306,6 +356,9 @@ impl Compiler {
             proc_type_params: HashMap::new(),
             program_param_settings: Vec::new(),
             retrying_pending: false,
+            placeholder_misses: 0,
+            in_progress_misses: 0,
+            placeholders_final: false,
         };
         c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();
@@ -315,6 +368,7 @@ impl Compiler {
     /// A new `Code` value. The interpreter keeps the body and its text too
     /// (`compiler_get_nodes` exports it from compile-time code).
     pub fn add_code(&mut self, body: Rc<ast::CodeBody>, scope: ScopeId) -> value::CodeId {
+        self.adopt_made_codes();
         let id = value::CodeId(self.codes.len() as u32);
         let span = match &*body {
             ast::CodeBody::Expr(e) => e.span,
@@ -329,6 +383,33 @@ impl Compiler {
         self.codes.push(body);
         self.code_scopes.push(scope);
         id
+    }
+
+    /// Take over the codes compile-time code made (`compiler_get_code`), parsing their
+    /// text again as a registered source so diagnostics can point into it.
+    pub fn adopt_made_codes(&mut self) {
+        while self.codes.len() < self.interp.codes.len() {
+            let id = self.codes.len();
+            let text = self.interp.codes[id].1.clone();
+            let from = self
+                .interp
+                .made_codes
+                .iter()
+                .find(|(made, _)| *made == id)
+                .map(|&(_, from)| from);
+            let scope = from
+                .and_then(|f| self.code_scopes.get(f).copied())
+                .unwrap_or(self.root_scope);
+            let file = self.sources.add(
+                format!("<compiler_get_code {id}>"),
+                format!("__jaic_code :: #code {text};\n").into(),
+            );
+            let body = crate::build::parse_code_text(file, &text)
+                .unwrap_or_else(|_| self.interp.codes[id].0.clone());
+            self.interp.codes[id].0 = body.clone();
+            self.codes.push(body);
+            self.code_scopes.push(scope);
+        }
     }
 
     pub fn render(&self, d: &Diagnostic) -> String {

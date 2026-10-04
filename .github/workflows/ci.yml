@@ -21,9 +21,9 @@ jobs:
         run: |
           python3 tools/check_dependency_age.py
           python3 tools/check_ci_sources.py
-      - name: Verify the native scripting API and wasm boundary
-        run: cargo test --locked -j 1 -p jai-runtime -p jai-wasm
-      - name: Build the real WebAssembly interpreter without the native backend
+      - name: Verify the wasm boundary and language server
+        run: cargo test --locked -j 1 -p jai-language-server -p jai-wasm
+      - name: Build the real WebAssembly compiler without the native backend
         run: cargo build --locked -j 1 -p jai-wasm --target wasm32-unknown-unknown
       - name: Execute the real WebAssembly module
         run: |
@@ -98,12 +98,8 @@ jobs:
         id: policy
         continue-on-error: true
         run: python3 -m unittest discover -s tools -p 'test_*.py'
-      - name: Benchmark smoke checks (no timing gate on shared runners)
-        id: benchmarks
-        continue-on-error: true
-        run: cargo bench -p jai-bench --bench compiler --bench vm --bench discovery --locked -- --test --skip reference_lex
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.benchmarks.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

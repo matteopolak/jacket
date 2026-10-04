@@ -1,3 +1,4 @@
+use crate::analysis::{KEYWORDS, Span, Token, TokenKind};
 use crate::{
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
     DocumentSymbol, DocumentUri, Error, Hover, Limits, Location, MarkupContent, Position,
@@ -5,23 +6,17 @@ use crate::{
     analysis::{Analysis, SymbolRow},
     position::LineIndex,
 };
-use jai_lexer::{Keyword, Kind};
-use jai_source::{SourceMap, SourceTextSnapshot, Span, Symbols};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-};
+use jaic::intern::Sym;
+use std::collections::{BTreeMap, BTreeSet};
 
 struct Document {
     version: i32,
-    text: SourceTextSnapshot,
+    text: String,
     index: LineIndex,
 }
 pub struct Session {
     limits: Limits,
     documents: BTreeMap<DocumentUri, Document>,
-    sources: SourceMap,
-    symbols: Symbols,
     analyses: BTreeMap<DocumentUri, Analysis>,
 }
 impl Session {
@@ -29,28 +24,23 @@ impl Session {
         Self {
             limits,
             documents: BTreeMap::new(),
-            sources: SourceMap::default(),
-            symbols: Symbols::default(),
             analyses: BTreeMap::new(),
         }
     }
     pub fn limits(&self) -> Limits {
         self.limits
     }
-    pub fn source_map(&self) -> &SourceMap {
-        &self.sources
-    }
     pub fn source_snapshot(&self) -> VirtualSources {
         VirtualSources {
             files: self
                 .documents
                 .iter()
-                .map(|(uri, doc)| (PathBuf::from(uri.path()), doc.text.clone()))
+                .map(|(uri, doc)| (uri.path().to_owned(), doc.text.clone()))
                 .collect(),
         }
     }
     pub fn document_text(&self, uri: &DocumentUri) -> Result<&str, Error> {
-        Ok(self.document(uri)?.text.text())
+        Ok(self.document(uri)?.text.as_str())
     }
     pub fn version(&self, uri: &DocumentUri) -> Result<i32, Error> {
         Ok(self.document(uri)?.version)
@@ -68,7 +58,7 @@ impl Session {
             Document {
                 version,
                 index: LineIndex::new(&text),
-                text: SourceTextSnapshot::new(text),
+                text,
             },
         );
         self.rebuild();
@@ -87,8 +77,8 @@ impl Session {
         if changes.len() > self.limits.edits {
             return Err(Error::Limit("incremental edit count exceeded"));
         }
-        let old_bytes = document.text.text().len() + uri.as_str().len();
-        let mut text = document.text.text().to_owned();
+        let old_bytes = document.text.len() + uri.as_str().len();
+        let mut text = document.text.to_owned();
         for change in changes {
             let index = LineIndex::new(&text);
             let (start, end) = if let Some(range) = change.range {
@@ -125,7 +115,7 @@ impl Session {
         *current = Document {
             version,
             index: LineIndex::new(&text),
-            text: SourceTextSnapshot::new(text),
+            text,
         };
         self.rebuild();
         Ok(())
@@ -159,7 +149,7 @@ impl Session {
             .documents
             .iter()
             .try_fold(0usize, |n, (name, doc)| {
-                n.checked_add(name.as_str().len() + doc.text.text().len())
+                n.checked_add(name.as_str().len() + doc.text.len())
             })
             .ok_or(Error::Limit("workspace byte overflow"))?;
         let total = current
@@ -175,41 +165,29 @@ impl Session {
         self.documents.get(uri).ok_or(Error::MissingDocument)
     }
     fn rebuild(&mut self) {
-        let mut sources = SourceMap::default();
-        let mut symbols = Symbols::default();
         let mut analyses = BTreeMap::new();
         for (uri, document) in &self.documents {
-            let id = sources.insert_snapshot(PathBuf::from(uri.path()), document.text.clone());
-            let analysis = Analysis::build(
-                sources.get(id).expect("actual source"),
-                uri,
-                &mut symbols,
-                self.limits,
+            analyses.insert(
+                uri.clone(),
+                Analysis::build(&document.text, uri, self.limits),
             );
-            analyses.insert(uri.clone(), analysis);
         }
         for (uri, analysis) in &mut analyses {
             let document = &self.documents[uri];
             for (target, span) in analysis.loads.clone() {
                 if !self.documents.contains_key(&target) {
-                    analysis.diagnostic(&document.index,document.text.text(),span,DiagnosticSeverity::Warning,DiagnosticCode::Source,"The #load file is not open in this session; no filesystem fallback is permitted.");
+                    analysis.diagnostic(&document.index,&document.text,span,DiagnosticSeverity::Warning,DiagnosticCode::Source,"The #load file is not open in this session; no filesystem fallback is permitted.");
                 }
             }
         }
-        self.sources = sources;
-        self.symbols = symbols;
         self.analyses = analyses;
     }
-    fn source_detail<'a>(&'a self, row: &SymbolRow) -> &'a str {
-        let text = self
-            .sources
-            .get(row.location.source)
-            .expect("retained compiler source")
-            .text();
-        let span = row.location.span;
+    fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
+        let text = &self.documents[uri].text;
+        let span = row.location;
         let end =
             text.floor_char_boundary(span.end.min(span.start.saturating_add(256)).min(text.len()));
-        text[span.start..end].trim()
+        text[span.start..end.max(span.start)].trim()
     }
     pub fn document_symbols(&self, uri: &DocumentUri) -> Result<Vec<DocumentSymbol>, Error> {
         let doc = self.document(uri)?;
@@ -219,26 +197,27 @@ impl Session {
             rows: &[SymbolRow],
             doc: &Document,
             session: &Session,
+            uri: &DocumentUri,
         ) -> Result<DocumentSymbol, Error> {
             let row = &rows[id];
             Ok(DocumentSymbol {
-                name: session.symbols.name(row.name).into(),
-                detail: session.source_detail(row).into(),
+                name: row.name.as_str().into(),
+                detail: session.source_detail(uri, row).into(),
                 kind: row.kind,
-                range: doc.index.range(doc.text.text(), row.location.span)?,
-                selection_range: doc.index.range(doc.text.text(), row.selection)?,
+                range: doc.index.range(&doc.text, row.location)?,
+                selection_range: doc.index.range(&doc.text, row.selection)?,
                 children: rows
                     .iter()
                     .enumerate()
                     .filter(|(_, row)| row.parent == Some(id))
-                    .map(|(child, _)| tree(child, rows, doc, session))
+                    .map(|(child, _)| tree(child, rows, doc, session, uri))
                     .collect::<Result<_, _>>()?,
             })
         }
         rows.iter()
             .enumerate()
             .filter(|(_, row)| row.parent.is_none())
-            .map(|(id, _)| tree(id, rows, doc, self))
+            .map(|(id, _)| tree(id, rows, doc, self, uri))
             .collect()
     }
     fn reachable(&self, uri: &DocumentUri) -> Vec<&DocumentUri> {
@@ -256,13 +235,9 @@ impl Session {
         }
         out
     }
-    fn word(
-        &self,
-        uri: &DocumentUri,
-        position: Position,
-    ) -> Result<Option<(usize, jai_lexer::Token)>, Error> {
+    fn word(&self, uri: &DocumentUri, position: Position) -> Result<Option<(usize, Token)>, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(doc.text.text(), position)?;
+        let byte = doc.index.byte(&doc.text, position)?;
         Ok(self.analyses[uri]
             .tokens
             .iter()
@@ -270,7 +245,7 @@ impl Session {
             .find(|(_, token)| {
                 token.span.start <= byte
                     && byte <= token.span.end
-                    && matches!(token.kind, Kind::Ident | Kind::Keyword(_))
+                    && matches!(token.kind, TokenKind::Ident | TokenKind::Keyword)
             })
             .map(|(at, token)| (at, *token)))
     }
@@ -280,7 +255,7 @@ impl Session {
         position: Position,
     ) -> Result<Vec<(&DocumentUri, &SymbolRow)>, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(doc.text.text(), position)?;
+        let byte = doc.index.byte(&doc.text, position)?;
         let Some((at, token)) = self.word(uri, position)? else {
             return Ok(vec![]);
         };
@@ -295,7 +270,7 @@ impl Session {
                 row,
             )]);
         }
-        if at > 0 && analysis.tokens[at - 1].kind == Kind::Punctuation(jai_lexer::Punct::Dot) {
+        if at > 0 && analysis.tokens[at - 1].kind == TokenKind::Dot {
             return Ok(vec![]);
         }
         if analysis
@@ -305,9 +280,7 @@ impl Session {
         {
             return Ok(vec![]);
         }
-        let Some(name) = self.symbols.find(&token.spelling(doc.text.text())) else {
-            return Ok(vec![]);
-        };
+        let name = Sym::intern(token.spelling(&doc.text));
         let mut locals = analysis
             .rows
             .iter()
@@ -357,7 +330,7 @@ impl Session {
                     range: self
                         .document(target)?
                         .index
-                        .range(self.document(target)?.text.text(), row.selection)?,
+                        .range(&self.document(target)?.text, row.selection)?,
                 })
             })
             .collect()
@@ -371,10 +344,10 @@ impl Session {
         let value = if rows.len() == 1 {
             format!(
                 "{}\n\nSource syntax declaration. Type evaluation and compile-time execution are disabled during editing.",
-                self.source_detail(rows[0].1)
+                self.source_detail(rows[0].0, rows[0].1)
             )
-        } else if let Kind::Keyword(keyword) = token.kind {
-            format!("Jai keyword {}", keyword.spelling())
+        } else if token.kind == TokenKind::Keyword {
+            format!("Jai keyword {}", token.spelling(&doc.text))
         } else {
             return Ok(None);
         };
@@ -382,7 +355,7 @@ impl Session {
             contents: MarkupContent {
                 value,
             },
-            range: doc.index.range(doc.text.text(), token.span)?,
+            range: doc.index.range(&doc.text, token.span)?,
         }))
     }
     pub fn completion(
@@ -391,17 +364,18 @@ impl Session {
         position: Position,
     ) -> Result<CompletionList, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(doc.text.text(), position)?;
+        let byte = doc.index.byte(&doc.text, position)?;
         let analysis = &self.analyses[uri];
         let prefix = self
             .word(uri, position)?
-            .filter(|(_, token)| token.kind == Kind::Ident)
+            .filter(|(_, token)| token.kind == TokenKind::Ident)
             .map_or("", |(_, token)| {
-                &doc.text.text()[token.span.start..byte.min(token.span.end)]
+                &doc.text[token.span.start..byte.min(token.span.end)]
             });
-        if self.word(uri, position)?.is_some_and(|(at, _)| {
-            at > 0 && analysis.tokens[at - 1].kind == Kind::Punctuation(jai_lexer::Punct::Dot)
-        }) {
+        if self
+            .word(uri, position)?
+            .is_some_and(|(at, _)| at > 0 && analysis.tokens[at - 1].kind == TokenKind::Dot)
+        {
             return Ok(CompletionList {
                 is_incomplete: true,
                 items: vec![],
@@ -416,7 +390,7 @@ impl Session {
                 } else {
                     row.parent.is_none() && (candidate == uri || !row.file_private)
                 };
-                let name = self.symbols.name(row.name);
+                let name = row.name.as_str();
                 if visible && name.starts_with(prefix) && items.len() < self.limits.symbols {
                     let kind = match row.kind {
                         SymbolKind::Function => CompletionKind::Function,
@@ -429,14 +403,14 @@ impl Session {
                     items.entry(name.to_owned()).or_insert(CompletionItem {
                         label: name.into(),
                         kind,
-                        detail: self.source_detail(row).into(),
+                        detail: self.source_detail(candidate, row).into(),
                     });
                 } else if visible && items.len() >= self.limits.symbols {
                     incomplete = true;
                 }
             }
         }
-        for (name, _) in Keyword::SPELLINGS {
+        for name in KEYWORDS {
             if name.starts_with(prefix) && items.len() < self.limits.symbols {
                 items.entry((*name).into()).or_insert(CompletionItem {
                     label: (*name).into(),
@@ -452,16 +426,16 @@ impl Session {
     }
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
         let doc = self.document(uri)?;
-        let text = doc.text.text();
+        let text = doc.text.as_str();
         let analysis = &self.analyses[uri];
         let mut output = vec![];
         for token in &analysis.tokens {
             let row = analysis.rows.iter().find(|row| row.selection == token.span);
             let ty = match token.kind {
-                Kind::Keyword(_) => SemanticTokenKind::Keyword,
-                Kind::String | Kind::HereString => SemanticTokenKind::String,
-                Kind::Number => SemanticTokenKind::Number,
-                Kind::Ident => match row.map(|row| row.kind) {
+                TokenKind::Keyword => SemanticTokenKind::Keyword,
+                TokenKind::String => SemanticTokenKind::String,
+                TokenKind::Number => SemanticTokenKind::Number,
+                TokenKind::Ident => match row.map(|row| row.kind) {
                     Some(SymbolKind::Function) => SemanticTokenKind::Function,
                     Some(SymbolKind::Struct | SymbolKind::Enum | SymbolKind::TypeAlias) => {
                         SemanticTokenKind::Type
@@ -474,11 +448,8 @@ impl Session {
                     }
                     _ => SemanticTokenKind::Variable,
                 },
-                Kind::Directive(_) | Kind::UnknownDirective | Kind::Note => {
-                    SemanticTokenKind::Macro
-                }
-                Kind::Punctuation(_) => SemanticTokenKind::Operator,
-                Kind::Eof => continue,
+                TokenKind::Directive => SemanticTokenKind::Macro,
+                TokenKind::Dot | TokenKind::Punctuation => SemanticTokenKind::Operator,
             };
             let first = doc.index.position(text, token.span.start)?.line as usize;
             let last = doc.index.position(text, token.span.end)?.line as usize;

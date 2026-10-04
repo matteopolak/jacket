@@ -42,6 +42,8 @@ impl Parser<'_> {
         Ok(Block {
             stmts,
             span: start.to(end),
+            no_abc: false,
+            no_aoc: false,
         })
     }
 
@@ -225,9 +227,14 @@ impl Parser<'_> {
         if self.at(P::EqEq) {
             return self.parse_switch(start, cond, complete_first);
         }
-        self.skip_check_flags(&mut Vec::new());
+        let mut flags = Vec::new();
+        self.skip_check_flags(&mut flags);
         self.eat_kw("then");
-        let then_branch = Box::new(self.parse_stmt()?);
+        let then_branch = Box::new(no_checks_if(
+            self.parse_stmt()?,
+            has_flag(&flags, "no_abc"),
+            has_flag(&flags, "no_aoc"),
+        ));
         let else_branch = if self.eat_kw("else") {
             Some(Box::new(self.parse_stmt()?))
         } else {
@@ -326,6 +333,7 @@ impl Parser<'_> {
         };
         // `while name := cond` labels the loop for `break name`.
         let tick = usize::from(self.at(P::Backtick));
+        let mut bind_label = false;
         let label = if label.is_none()
             && matches!(self.tok_at(tick), Tok::Ident(_))
             && self.at_n(tick + 1, P::ColonEq)
@@ -333,18 +341,25 @@ impl Parser<'_> {
             self.eat(P::Backtick);
             let name = self.ident("as loop name")?;
             self.bump();
+            bind_label = true;
             Some(name)
         } else {
             label
         };
         let cond = self.parse_expr()?;
-        self.skip_check_flags(&mut Vec::new());
+        let mut flags = Vec::new();
+        self.skip_check_flags(&mut flags);
         self.eat_kw("then");
-        let body = Box::new(self.parse_stmt()?);
+        let body = Box::new(no_checks_if(
+            self.parse_stmt()?,
+            has_flag(&flags, "no_abc"),
+            has_flag(&flags, "no_aoc"),
+        ));
         let span = start.to(self.prev_span());
         Ok(stmt(
             StmtKind::While {
                 label,
+                bind_label,
                 cond,
                 body,
             },
@@ -597,5 +612,39 @@ impl Parser<'_> {
             "except" => UsingFilter::Except(names),
             _ => UsingFilter::Map(pairs),
         })
+    }
+}
+
+fn has_flag(flags: &[Ident], name: &str) -> bool {
+    flags.iter().any(|f| f.name.as_str() == name)
+}
+
+/// `body` as a block with bounds checks (`no_abc`) and / or arithmetic overflow checks (`no_aoc`) off
+/// (`#no_abc { }`, a flagged loop or `if`).
+pub(super) fn no_checks_if(body: Stmt, no_abc: bool, no_aoc: bool) -> Stmt {
+    if !no_abc && !no_aoc {
+        return body;
+    }
+    match body.kind {
+        StmtKind::Block(mut block) => {
+            block.no_abc |= no_abc;
+            block.no_aoc |= no_aoc;
+            Stmt {
+                kind: StmtKind::Block(block),
+                ..body
+            }
+        }
+        _ => {
+            let span = body.span;
+            stmt(
+                StmtKind::Block(Block {
+                    stmts: vec![body],
+                    span,
+                    no_abc,
+                    no_aoc,
+                }),
+                span,
+            )
+        }
     }
 }

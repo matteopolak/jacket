@@ -36,15 +36,13 @@ main :: () -> int {
 | Compile-time code | Source `#run`, reflection and code insertion tested; broader metaprogramming in progress |
 | Compiler APIs | Workspace scheduling and selected CLI artifacts tested; broader API integration in progress |
 | Foreign calls and native builds | LLVM library backend; host ABI tests and selected system-library calls |
-| Debugging | Line tables, locals, records and recursive pointers tested |
-| Compiler bootstrap | Independently authored source prelude type-checks; runtime integration in progress |
-| Independent standard library | Authored modules included; full compilation and behavior testing pending |
+| Independent standard library | Authored modules in `stdlib/`, regression-tested by `tests/stdlib/` |
 | Reference examples | Source checks in progress; complete coverage pending |
-| Focus, Jails, jaison, and other recent projects | Source checks only; full builds pending |
+| Focus, Jails, jaison, sgpu, Vk-Engine | Build natively or check; see `HANDOFF.md` for per-project status |
 | Browser editor | Real Wasm runs, file tree, source editor and shared source LSP tested; host services and full standard library pending |
 | Windows and mobile | C ABI and object tests; runtime compatibility unverified |
 
-The compatibility corpus contains **702 local reference files** and **1,440 files from seven recent upstream projects**. The latest recorded snapshot tokenizes all **2,603 files**, including our library and prelude, and parses **2,451** completely, with 102 more accepted files and no regressions in the same cohort. The earlier body sweep checked **103 pinned support files** with the included Preload; that stage has not been rerun for this snapshot. Full standard-library and upstream project builds remain pending. See the [latest measured frontier](docs/corpus-breadth-frontier.md) and [earlier baseline](docs/corpus-breadth-baseline.md) for the separate stage results.
+The compatibility corpus is the set of real-world Jai projects pinned in `corpus/upstreams.json` (see [upstream corpus](docs/tools/upstream-corpus.md)); `HANDOFF.md` records which of them currently check and build.
 
 For example, record specialization and compile-time execution can work together:
 
@@ -64,68 +62,44 @@ main :: () -> int {
 
 This example is included as [compile-time-record.jai](examples/compile-time-record.jai).
 
-An independently authored standard library is included in [`stdlib/`](stdlib/). Its [coverage report](docs/stdlib/api-coverage.md) records implemented APIs, source checks, and the remaining work.
+An independently authored standard library is included in [`stdlib/`](stdlib/). See [the stdlib docs](docs/stdlib/architecture.md).
 
 ## Try it
 
-You need [Rustup](https://rustup.rs/), Python 3.11 or newer, and an independently installed LLVM 22 with Clang. Rustup uses this repository's pinned toolchain automatically.
-
-On macOS, install LLVM with Homebrew and set `LLVM_SYS_221_PREFIX` to its installation directory. See the [LLVM setup guide](docs/llvm-backend.md) for exact commands and troubleshooting.
+You need [Rustup](https://rustup.rs/) (it picks up this repository's pinned toolchain) and, for native builds, an independently installed LLVM 22 with Clang; see the [LLVM setup guide](docs/tools/llvm-setup.md).
 
 ```sh
 git clone https://github.com/matteopolak/jai.git
 cd jai
-
-# Check dependency release dates before building.
-python3 tools/check_dependency_age.py
-cargo build -p jai-cli --locked
+cargo build -p jaic-cli --locked
 ```
 
-The example above is included as `examples/sum.jai`:
+The example above is included as `examples/sum.jai`. `jaic run` executes it in the interpreter, `check` only type-checks it:
 
 ```sh
-cargo run -p jai-cli -- check examples/sum.jai
-cargo run -p jai-cli -- build examples/sum.jai sum
-./sum
-echo $? # 45
+cargo run -p jaic-cli -- check examples/sum.jai
+cargo run -p jaic-cli -- run examples/sum.jai
 ```
 
-The source interpreter can run the same authored example without the native backend:
+To build and serve the standalone browser playground, follow the [browser playground docs](docs/browser/playground.md). Its compiler and language service run locally in WebAssembly.
 
-```sh
-cargo run -p jai-runtime --bin jai-script -- run examples/sum.jai --fuel 1000000
-```
-
-To build and serve the standalone browser playground, follow the [browser editor setup](docs/browser-editor.md). Its compiler and language service run locally in WebAssembly.
-
-You can inspect tokens with `lex`, check one file's syntax with `parse`, or save its LLVM output with `emit-llvm`:
-
-```sh
-cargo run -p jai-cli -- emit-llvm examples/sum.jai sum.ll
-```
+The same lexer and parser power the `jai-lsp` language server (`cargo run -p jai-language-server --bin jai-lsp`); see [language-server.md](docs/compiler/language-server.md).
 
 ## Compatibility and performance
 
-The local Jai distribution helps establish language behavior. Newer, maintained Jai projects guide compatibility when they differ from that older reference. The [upstream corpus](docs/upstream-corpus.md) records the projects and exact revisions used.
+The local Jai distribution helps establish language behavior. Newer, maintained Jai projects guide compatibility when they differ from that older reference. The [upstream corpus](docs/tools/upstream-corpus.md) records the projects and exact revisions used.
 
-Tests cover rejected programs and the behavior of newly compiled programs. Benchmarks cover compiler stages, module discovery, interpreter execution, and memory use; broader native workloads are being verified. Unsupported features produce errors instead of counting as successful builds.
+Tests cover rejected programs and the behavior of newly compiled programs. Unsupported features produce errors instead of counting as successful builds.
 
+The compiler loads an independently authored prelude from `prelude/` and standard library from `stdlib/`; supplied source distributions remain external compatibility inputs.
 
 ## Working on the compiler
 
-For a public checkout:
-
 ```sh
-cargo test --workspace --locked --no-fail-fast -- \
-  --skip lex_entire_reference_without_executing_it
+cargo test --workspace --locked --no-fail-fast
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo bench -p jai-bench --bench compiler --locked -- --test --skip reference_lex
-cargo bench -p jai-bench --bench vm --locked -- --test
+python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --timeout 900   # expect only the negative control to fail
 ```
 
-The skipped lexer test requires the separately supplied reference files. Native-path rejection tests run in public checkouts too. Local reference checks run without the lexer filter.
-
-The standalone [fuzz targets](docs/fuzz-targets.md) exercise lexer/parser source, closed virtual module loading, constants and the checked IR interpreter with authored seeds, bounded resources and AddressSanitizer. Their mutable corpora and crash inputs are retained separately from benchmarks; completed campaigns and deterministic replay provide different evidence from build or target registration.
-
-Start with the [developer guide](docs/README.md) for architecture, language coverage, benchmarks, and dependency policy. Rustfmt keeps code formatting consistent, and Cargo enforces a minimum dependency release age of 14 days.
+The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server` and `crates/jai-wasm` (browser build). Start with the [developer guide](docs/README.md) and [compiler architecture](docs/compiler/architecture.md). Rustfmt keeps code formatting consistent, and Cargo enforces a minimum dependency release age of 14 days.

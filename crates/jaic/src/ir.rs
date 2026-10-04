@@ -139,6 +139,8 @@ pub enum Intrinsic {
     DebugBreak,
     /// Abort with a runtime error (bounds check, unreachable case...).
     Trap,
+    /// (index: s64, count: s64): trap unless `0 <= index < count`.
+    BoundsCheck,
     /// (ptr: *u8, count: s64, to_stderr: bool): compile-time `write_string`.
     CompilerWrite,
     Sqrt,
@@ -163,6 +165,14 @@ pub enum Intrinsic {
     Bswap,
     /// 1 when executing at compile time (`#compile_time`).
     IsCompileTime,
+    /// `(a, b, width_bytes) -> bool`: 1 when the signed (`S`) or unsigned (`U`) operation does not
+    /// fit in `width_bytes` bytes. Used by arithmetic overflow checks.
+    SAddOverflow,
+    UAddOverflow,
+    SSubOverflow,
+    USubOverflow,
+    SMulOverflow,
+    UMulOverflow,
 }
 
 #[derive(Clone, Debug)]
@@ -179,8 +189,10 @@ pub struct Sig {
     pub params: Vec<Ty>,
     pub returns: Vec<Ty>,
     pub conv: Conv,
-    /// C variadic: `params` lists only the fixed parameters.
+    /// C variadic. A call site appends its variadic arguments' classes to `params`; the first
+    /// `c_fixed` are the declared parameters (Apple arm64 passes the rest on the stack).
     pub c_varargs: bool,
+    pub c_fixed: u32,
     /// Per-parameter C ABI aggregate descriptions (for by-value structs in C calls).
     pub c_abi: Option<Box<CAbi>>,
 }
@@ -193,6 +205,9 @@ pub struct CAbi {
     pub params: Vec<Option<AggLayout>>,
     /// The single C return value is an aggregate returned through the last IR param (out-pointer).
     pub ret: Option<AggLayout>,
+    /// The aggregate result is returned through a hidden result pointer whatever its
+    /// size (`#cpp_return_type_is_non_pod`).
+    pub ret_indirect: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -353,6 +368,18 @@ pub struct Func {
     pub vals: Vec<Ty>,
     /// The first `sig.params.len()` vals are the parameters, in order.
     pub source_file: u32,
+    /// Present for procedures that take a context: what a stack trace node says about it.
+    pub trace: Option<TraceInfo>,
+}
+
+/// Name and declaration site of a procedure, for `context.stack_trace` nodes.
+#[derive(Clone, Debug)]
+pub struct TraceInfo {
+    /// Empty for an anonymous procedure.
+    pub name: String,
+    pub file: u32,
+    pub line: u32,
+    pub col: u32,
 }
 
 impl Func {
@@ -415,6 +442,8 @@ pub struct Library {
     /// Name as written (`"libc"`, `"SDL2"`, path...).
     pub name: String,
     pub system: bool,
+    /// Linked even when no foreign procedure names it (`#library,link_always`).
+    pub link_always: bool,
     /// Directory of the declaring source file (for relative library paths).
     pub base_dir: String,
 }
@@ -427,6 +456,13 @@ pub struct Program {
     pub globals: Vec<Global>,
     pub foreigns: Vec<Foreign>,
     pub libraries: Vec<Library>,
+    /// Variables whose compile-time state is discarded when the program runs
+    /// (every user global except those declared `#no_reset`).
+    pub reset_globals: Vec<GlobalId>,
+    /// Path of each source file by `FileId`, for stack trace nodes.
+    pub file_paths: Vec<String>,
+    /// Byte offset of `stack_trace` in the Context (`None`: stack traces are off).
+    pub stack_trace_offset: Option<u64>,
 }
 
 impl Program {
@@ -472,6 +508,7 @@ impl Builder {
             }],
             vals,
             source_file: 0,
+            trace: None,
         };
         Self {
             func,

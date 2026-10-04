@@ -14,7 +14,7 @@ async function fixture() {
   await writeFile(path.join(directory, "editor.mjs"), 'import "./workspace.mjs"; new Worker(new URL("./worker.mjs", import.meta.url));');
   await writeFile(path.join(directory, "workspace.mjs"), "// own closed fixture\n");
   await writeFile(path.join(directory, "worker.mjs"), 'import "./engine.mjs"; fetch(new URL("./jai_wasm.wasm", import.meta.url));');
-  await writeFile(path.join(directory, "engine.mjs"), 'export async function createEngine(bytes) { const module = await WebAssembly.compile(bytes); const instance = await WebAssembly.instantiate(module, {}); return { run() { return instance.exports.missing(); } }; }');
+  await writeFile(path.join(directory, "engine.mjs"), 'export async function createEngine(bytes) { const module = await WebAssembly.compile(bytes); const instance = await WebAssembly.instantiate(module, {}); return { play() { return instance.exports.missing(); } }; }');
   await writeFile(path.join(directory, "jai_wasm.wasm"), Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]));
   await writeFile(path.join(directory, "release.json"), JSON.stringify({ schema_version: 1, commit: "a".repeat(40) }));
   return { temporary, directory };

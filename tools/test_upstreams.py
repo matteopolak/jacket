@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from fetch_upstreams import REPOSITORIES, safe_path
+from fetch_upstreams import DEPENDENCIES, REPOSITORIES, safe_path
 from verify_upstreams import verify
 
 class CorpusTests(unittest.TestCase):
@@ -15,7 +15,7 @@ class CorpusTests(unittest.TestCase):
     def fixture(self, root):
         data = b'main :: () {}'
         projects = []
-        for repo in REPOSITORIES:
+        for repo in REPOSITORIES + DEPENDENCIES:
             destination = root / 'corpus/upstream' / repo.replace('/', '--')
             destination.mkdir(parents=True)
             (destination / 'main.jai').write_bytes(data)
@@ -24,16 +24,18 @@ class CorpusTests(unittest.TestCase):
         (root / 'corpus/upstreams.json').write_text(json.dumps({'format':1,'minimum_source_date':'2025-10-01T00:00:00+00:00','projects':projects}))
         return root / 'corpus/upstream' / REPOSITORIES[0].replace('/', '--')
 
-    def test_changed_and_unlisted_inputs_are_rejected(self):
+    def test_changed_inputs_are_rejected_and_unlisted_reported(self):
         with TemporaryDirectory() as directory:
             root = Path(directory); project = self.fixture(root)
-            self.assertEqual(verify(root), (7, 7))
+            self.assertEqual(verify(root), (len(REPOSITORIES + DEPENDENCIES),) * 2 + ([],))
             (project / 'main.jai').write_bytes(b'modified')
             with self.assertRaises(ValueError): verify(root)
         with TemporaryDirectory() as directory:
             root = Path(directory); project = self.fixture(root)
             (project / 'extra.jai').write_text('unlisted')
-            with self.assertRaises(ValueError): verify(root)
+            self.assertEqual(verify(root)[2], [project.name + '/extra.jai'])
+            (project / 'main.jai').unlink()
+            with self.assertRaises(FileNotFoundError): verify(root)
 
     def test_stale_selection_is_rejected(self):
         with TemporaryDirectory() as directory:

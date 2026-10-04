@@ -57,6 +57,11 @@ impl SourceFile {
         };
         (line as u32 + 1, offset - self.line_starts[line] + 1)
     }
+    /// Byte offset of a one-based line and column (clamped to the file).
+    pub fn offset_of(&self, line: u32, col: u32) -> u32 {
+        let index = (line.max(1) as usize - 1).min(self.line_starts.len() - 1);
+        (self.line_starts[index] + col.max(1) - 1).min(self.text.len() as u32)
+    }
     pub fn line_text(&self, line: u32) -> &str {
         let start = self.line_starts[(line - 1) as usize] as usize;
         let end = self

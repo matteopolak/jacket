@@ -1,0 +1,67 @@
+# Threads under `jaic run`
+
+## What it is
+
+Programs that use `Thread` (`pthread_create`, mutexes, condition variables, `sleep`) run in the
+interpreter on a cooperative scheduler. There are two implementations, chosen by `Host::cooperative_threads()`:
+
+- native `jaic run` (this page, first half): several OS threads exist, but only the one holding the
+  "baton" executes interpreted code;
+- the sandbox host (browser, `jaic run -os wasm`): no OS threads; see "Inline threads" below.
+
+## How it works
+
+- `interp/threads.rs` intercepts the pthread/mutex/cond foreign calls in `call_foreign`
+  (`thread_foreign`). `pthread_create` spawns an OS thread (256 MiB native stack, 8 MiB
+  interpreter value stack) that waits for the baton.
+- The baton moves only when a thread joins, blocks on a mutex or condition variable, sleeps,
+  yields, or has executed `PREEMPT_TICKS` basic blocks (`preempt`, called from the `run` loop
+  while `Interp.multi` is set). The preemption is what lets busy waits on an atomic progress.
+- Per-thread interpreter state (value stack, `sp`, call depth, current line) is swapped in and out
+  of `Interp` on a switch. Mutexes and condition variables are emulated in the scheduler, never
+  passed to libc, so a blocked thread cannot hold the baton. If every thread is blocked the
+  scheduler wakes one with a deadlock error.
+- Output order of racing threads is deterministic apart from sleep timing, but differs from a real
+  run.
+- The `compare_and_swap` intrinsic takes a 4th argument, the operand width in bytes
+  (`emit_intrinsic` in `sema/calls.rs`, `asm.rs`). Without it a `bool` field was compared as 8
+  bytes and `atomic_swap` spun forever.
+
+## Inline threads (sandbox host, browser)
+
+`interp/threads_inline.rs` replaces the baton scheduler when the host returns `cooperative_threads() == true`
+(`SandboxHost`, `SharedHost`). wasm32 has no `std::thread`, so nothing runs concurrently and a started
+thread cannot be suspended: the interpreter is recursive Rust and a blocked thread keeps its Rust frames.
+
+- `pthread_create` only records `(func, argument)`; the thread is `Pending`.
+- A pending thread runs to completion *on top of the stack of the thread that blocks first*: at
+  `pthread_join`, a contended mutex, `pthread_cond_wait`/`timedwait`, `sleep`/`usleep`/`nanosleep`, `sched_yield`,
+  and every `PREEMPT_TICKS` basic blocks while pending threads exist (so a busy wait on an atomic progresses).
+  The set of started threads is therefore a stack (`levels`), main at the bottom.
+- `wait_until` is the single blocking primitive. If the wait is not satisfied and nothing is pending:
+  a timed wait times out at once and advances the virtual clock (`Host::advance_clock`); otherwise it looks for
+  the nearest thread lower on the stack whose own wait is over and *abandons* every thread above it (they are
+  unwound with a special trap, their mutexes released, and they count as finished); with no such thread it
+  reports `deadlock: every thread is blocked`.
+- Abandoning is what lets a `Thread_Group` worker, parked on its semaphore with no work, hand control back to
+  the main thread that polls for results. Limitation: an abandoned thread never resumes, so work added to a
+  group *after* its workers were abandoned is never processed (the program ends in a deadlock error or keeps
+  polling). `thread_is_done` (stdlib/Thread/primitives.jai) asks `pthread_tryjoin_np` on WASM so that
+  `shutdown` still succeeds for abandoned workers.
+- Output order is deterministic. Sleeping never takes real time.
+- `Thread` on WASM uses the Linux x86-64 POSIX layouts (`POSIX_THREADS` includes `OS == .WASM`).
+
+## How to change it
+
+New blocking primitives need a `Block` variant and a case in the scheduler's wake-up scan. Keep
+all `Interp` access on the baton holder. For the inline scheduler add a `Wait` variant, its `satisfied` rule,
+and a case in `inline_thread_foreign`.
+
+## Configuration
+
+None. `mod threads` (OS threads) is cfg-gated off on wasm32; `mod threads_inline` is always built.
+
+## Dependencies
+
+`stdlib/Thread/`, `stdlib/Atomics.jai`. Tests: `tests/stdlib/threads-cooperative.jai`,
+`tests/stdlib/threads-group-and-condition.jai` (both run natively and in the playground).

@@ -1,394 +1,120 @@
 # Developer documentation
 
-- [Persistent source checkpoints](source-checkpoints.md)
-- [Build storage](build-storage.md)
+Start with [compiler architecture](compiler/architecture.md); current status and open work are in `../HANDOFF.md`.
 
-- [Browser source workspace](browser-workspace.md)
-- [Shared native and WebAssembly language server](language-server.md)
-- [Browser compiler releases](browser-compiler-releases.md)
-- [Browser editor](browser-editor.md)
-- [Browser playground (jaic backend)](specs/jai/README.md)
+## Language
 
-- [Code formatting](code-formatting.md)
+Jai language behavior as implemented by `jaic`.
 
-- [Platform source and host services](platform-services.md)
+- [Casts and conversions](language/casts-and-conversions.md)
+- [The implicit context](language/context.md)
+- [Control flow: loops, cases and defer](language/control-flow.md)
+- [Declarations, constants and globals](language/declarations-and-constants.md)
+- [Statement directives, flags and notes](language/directives-and-notes.md)
+- [Enums](language/enums.md)
+- [External data](language/external-data.md)
+- [Compiler intrinsics](language/intrinsics.md)
+- [Lambdas and anonymous procedures](language/lambdas.md)
+- [Macros and custom iteration](language/macros-and-custom-iteration.md)
+- [`#must` results and `#discard` parameters](language/must-and-discard.md)
+- [Module parameters](language/module-parameters.md)
+- [Modules and imports](language/modules-and-imports.md)
+- [Arithmetic overflow checks and `#no_aoc`](language/arithmetic-overflow-checks.md)
+- [Integers, floats and numeric literals](language/numbers.md)
+- [Operator overloading](language/operator-overloading.md)
+- [Pointers, arrays and bounds checks](language/pointers-and-arrays.md)
+- [Polymorphism and baking](language/polymorphism.md)
+- [Procedures and calls](language/procedures.md)
+- [Scoping: visibility, using and conditional declarations](language/scoping.md)
+- [SIMD and `#asm`](language/simd-asm.md)
+- [Strings and literals](language/strings-and-literals.md)
+- [Structs and aggregate literals](language/structs.md)
+- [Type values, identity and type info](language/type-values-and-info.md)
+- [Unions and tagged unions](language/unions.md)
+- [using](language/using.md)
 
-- [Independent standard library](specs/stdlib/README.md)
-- [Standard-library API coverage](specs/stdlib/README.md)
-- [Selected standard-library protocol profiles](specs/stdlib/README.md)
+## Metaprogramming
 
-- [Declarations, polymorphism and #modify in sema](jaic-sema-poly-and-declarations.md)
-- [Modules, imports and top-level expansion in sema](jaic-sema-modules.md)
+Compile-time execution, the `Compiler` module, reflection and code values.
 
-- [Deferred context pushes](deferred-context.md)
+- [Code values and #insert](metaprogramming/code-values-and-insertion.md)
+- [Compile-time values, globals and runtime info](metaprogramming/compile-time-data-and-state.md)
+- [Compile-time execution (`#run`)](metaprogramming/compile-time-execution.md)
+- [Compiler module (Jai side)](metaprogramming/compiler-module.md)
+- [Compiler records (messages, syntax trees, type descriptors)](metaprogramming/compiler-records.md)
+- [Preload and Runtime_Support bootstrap](specs/jai/README.md)
+- [Reflection and Type_Info](metaprogramming/reflection-and-type-info.md)
+- [Workspaces and metaprograms](metaprogramming/workspaces.md)
 
-- [Runtime parameter defaults](runtime-parameter-defaults.md)
+## Compiler internals
 
-- [Original input protection](original-input-policy.md)
+How `crates/jaic`, the interpreter and the language server work.
 
-- [Reviewed source-built native linking](reviewed-native-linking.md)
-- [Reviewed SDK source ABI witnesses](native-sdk-proofs.md)
+- [Compiler architecture](compiler/architecture.md)
+- [jaic `#asm` blocks](compiler/asm.md)
+- [Threads under `jaic run`](compiler/interpreter-threads.md)
+- [jaic interpreter](compiler/interpreter.md)
+- [Low-level IR](compiler/ir.md)
+- [Shared Jai language server](compiler/language-server.md)
+- [Parser](compiler/parser.md)
+- [Sema: module loading and top-level expansion](compiler/sema-modules.md)
+- [Sema: polymorphism and declarations](compiler/sema-polymorphism-and-declarations.md)
+- [Stack traces (`context.stack_trace`)](compiler/stack-traces.md)
 
-- [Completion and acceptance plan](completion-plan.md)
-- [Compiler stage strategy](compiler-stage-strategy.md)
-- [Parallel implementation and acceptance](parallel-workstreams.md)
-- [Independent frozen component checks](parallel-component-checks.md)
-- [Callable aliases in overload groups](callable-overload-aliases.md)
-- [Source declaration phases](source-declaration-phases.md)
-- [Retained global initializer jobs](global-initializer-jobs.md)
-- [Type restriction facts](type-restriction-facts.md)
-- [Source procedure contracts](source-procedure-contracts.md)
-- [Procedure source queries](procedure-source-queries.md)
-- [Integer types and conversions](integer-types.md)
-- [Language conversions and assignment forms](language-conversions.md)
-- [Scoped arithmetic and array safety checks](safety-checks.md)
-- [Record conditionals and assertions](record-conditionals.md)
-- [Enum bodies and source file items](enum-file-items.md)
-- [Record default overrides](record-default-overrides.md)
-- [Anonymous record members](anonymous-record-members.md)
-- [Promoted record literals](promoted-record-literals.md)
-- [Immutable expression bindings](expression-bindings.md)
-- [Newer project entrypoints](newer-project-entrypoints.md)
-- [Lexical using directives](using-directives.md)
-- [Using declarations](using-declarations.md)
-- [Discarded parameters](discarded-parameters.md)
-- [Callback source policies](callback-source-policies.md)
-- [Caller defer exports](caller-defer-exports.md)
-- [Caller returns](caller-returns.md)
-- [Compile-time run flags](run-flags.md)
-- [Deprecated procedures](deprecated-procedures.md)
-- [Padded identifiers](padded-identifiers.md)
-- [Typed float values and conversions](float-values.md)
-- [Shared type registry](type-registry.md)
-- [Canonical allocator schema](allocator-schema.md)
-- [Record reflection policy](record-reflection-policy.md)
-- [Record namespace reflection](record-namespace-reflection.md)
-- [Static object reservation identities](static-object-identities.md)
-- [Immutable byte views](immutable-byte-views.md)
-- [Source placeholders](source-placeholders.md)
-- [Aggregate literal source targets](aggregate-literal-source-targets.md)
-- [Frontend header grammar](frontend-header-grammar.md)
-- [Remaining frontend grammar](frontend-grammar-frontiers.md)
-- [Target type layouts](type-layout.md)
-- [Record placement layout](record-placement-layout.md)
-- [Record overlays](record-overlays.md)
-- [Ordered record initialization](ordered-record-initialization.md)
-- [Selected record initialization source](selected-record-initialization-source.md)
-- [Aggregate storage snapshots](aggregate-storage-snapshots.md)
-- [Demanded target layout cache](target-layout-cache.md)
-- [File and module scope foundation](module-scopes.md)
-- [File conditional bodies](file-conditionals.md)
-- [Procedure and block scoped imports](scoped-imports.md)
-- [Module parameters and target selection](module-parameters.md)
-- [Semantic module parameter discovery](module-parameter-discovery.md)
-- [Module source origins for effect replay](module-source-origins.md)
-- [Suspended module imports](suspended-module-imports.md)
-- [Aggregate type syntax](aggregate-types.md)
-- [Closed SIMD assembly syntax](simd-source-syntax.md)
-- [SIMD virtual execution](simd-vm.md)
-- [Closed SIMD assembly checking and lowering](simd-assembly.md)
-- [Checked machine instruction bytes](instruction-bytes.md)
-- [Anonymous field types](inline-types.md)
-- [Source type aliases](type-aliases.md)
-- [Procedure calls](procedure-calls.md)
-- [Anonymous source procedures](anonymous-procedures.md)
-- [jaic lambdas, #insert procedures and #caller_code](jaic-lambdas-and-insert-blocks.md)
-- [Procedure source notes](procedure-notes.md)
-- [Baked procedure arguments (staged)](baked-procedure-arguments.md)
-- [Short lambdas and contextual inference](short-lambdas.md)
-- [Canonical callback preview](callback-preview.md)
-- [Compilation units](compilation-units.md)
-- [Context bootstrap registration](context-bootstrap.md)
-- [Filesystem and generated source providers](source-providers.md)
-- [Incremental source discovery](source-discovery.md)
-- [Declaration insertion](declaration-insertion.md)
-- [Insertion admission](insertion-admission.md)
-- [Compiler Code results](compiler-code-results.md)
-- [Corpus feature inventory and acceptance matrix](corpus-feature-matrix.md)
-- [Recent-project requirements and parallel ownership](project-requirements.md)
-- [Procedure results and bindings](procedure-results.md)
-- [Required procedure results and per-call callback contracts](result-obligations.md)
-- [Procedure overloads and polymorphic specialization](procedure-overloads.md)
-- [Source compiler intrinsics](source-compiler-intrinsics.md)
-- [Compiler API capabilities](compiler-api-capabilities.md) — static contract inventory and proof requirements for remaining APIs.
-- [Strings and arrays](sequences.md)
-- [String content comparison](string-comparison.md)
-- [Pointers and places](specs/jai/README.md)
-- [Pointer integer conversions](pointer-integer-conversions.md)
-- [Contextual casts](contextual-casts.md)
-- [Cast modifiers and truncation](cast-modifiers.md)
-- [Storage bitcasts](storage-bitcasts.md)
-- [Type values](type-values.md)
-- [Canonical Type equality](canonical-type-equality.md) — nominal equality across immutable descriptor revisions and physical pointer casts.
-- [Using record fields](using-fields.md)
-- [Aggregate type resolution](aggregate-type-resolution.md)
-- [Constants and global storage](constants-and-globals.md)
-- [Typed constant annotations](typed-constant-annotations.md)
-- [Record self types](record-self-types.md)
-- [Variable storage alignment](storage-alignment.md)
-- [Conditional expressions](conditional-expressions.md)
-- [Case control flow](case-control-flow.md)
-- [Compile-time case discovery](compile-time-cases.md)
-- [Compiler architecture and current support](compiler-architecture.md)
-- [Reference compatibility and acceptance](specs/jai/README.md)
-- [Staged corpus acceptance harness](specs/jai/README.md)
-- [Source-free corpus stage reports](corpus-stage-reports.md)
-- [Complete corpus breadth baseline](corpus-breadth-baseline.md)
-- [CLI source and artifact boundaries](cli-source-boundaries.md)
-- [Reviewed native corpus examples](native-corpus-examples.md)
-- [Focus and Jaison acceptance](focus-and-jaison-acceptance.md)
-- [Source forms from recent projects](project-source-forms.md)
-- [Static binary inspection](binary-inspection.md)
-- [Recorded reference inspection results](inspection-results.md)
-- [Native VM isolation](vm-isolation.md)
-- [Dependencies and build policy](dependency-policy.md)
-- [Compiler build profiles](compiler-build-profiles.md)
-- [Typed compiler boundaries](type-safety.md)
-- [Compiler, VM and discovery benchmarks](benchmarks.md)
-- [Bounded compiler and interpreter fuzzing](fuzz-targets.md)
-- [Recent upstream source corpus](upstream-corpus.md)
-- [Native project dependencies and source rebuild evidence](native-project-dependencies.md)
-- [Fresh SDL2 source and CPU SDK witness](native-sdl-witness.md)
-- [Cross-target acceptance](cross-target-acceptance.md)
-- [Open Jai library compatibility](open-jai-libraries.md)
-- [GitHub checks and inspection](github-analysis.md)
-- [Range loops and named loop control](loop-control.md)
-- [Deferred cleanup](deferred-cleanup.md)
-- [LLVM backend and setup](llvm-backend.md)
-- [Checked LLVM operations](llvm-bridge.md)
-- [LLVM type lowering](llvm-types.md)
-- [Aggregate LLVM code generation](aggregate-codegen.md)
-- [Native record storage](native-record-storage.md)
-- [Native procedure reachability and phase separation](native-reachability.md)
-- [Native branch and loop emission](native-control-flow.md)
-- [Foreign function ABI](foreign-abi.md)
-- [Union storage](union-storage.md)
-- [Compiler effects and workspaces](compiler-effects.md)
-- [Compile-time host file and process effects](compile-time-host-io.md)
-- [Virtual stdio state](virtual-stdio.md)
-- [Virtual C allocator storage and source receipts](virtual-heap.md)
-- [Opaque numeric pointer values](opaque-numeric-pointers.md)
-- [Pool allocation intrinsics](pool-intrinsics.md)
-- [Virtual POSIX process execution protocol](virtual-process-protocol.md)
-- [Process ABI binding proofs](process-abi-bindings.md)
-- [Typed process source adapter](process-source-adapter.md)
-- [Typed Process descriptor flags](process-descriptor-flags.md)
-- [Typed Process socket ABI](process-socket-abi.md)
-- [Workspace source scheduling](workspace-scheduler.md)
-- [Compiler transaction continuations](compiler-continuations.md)
-- [Retained semantic preparation and header readiness](semantic-preparation.md)
-- [Initial type readiness](initial-type-readiness.md)
-- [Retained source-run prefix](source-run-prefix.md)
-- [Workspace lifecycle](workspace-lifecycle.md)
-- [Compiler implementation version](compiler-version.md) — checked version string and caller-owned Version_Info writes.
-- [Compiler message interception](compiler-message-interception.md) — checked event schemas, owned responses, and VM message snapshots.
-- [Compiler runtime information](compiler-runtime-info.md) — certified type-table snapshots and explicit external program-data boundaries.
-- [Native runtime-info publication](native-runtime-info-publication.md) — exact fallback ownership, shared descriptor relocations and actual global byte ranges.
-- [Reflection source catalog](reflection-source-catalog.md) — source-visible type promotion and bounded immutable checkpoints.
-- [Reflection publication](reflection-publication.md) — owned VM detachment and prepared source policy guards.
-- [Static catalog ownership](static-catalog-ownership.md) — complete immutable allocation footprints and cumulative retained-root admission.
-- [Compiler API coverage and extension boundaries](compiler-api-coverage.md)
-- [CLI workspace artifacts](workspace-artifacts.md)
-- [Program exports](program-exports.md)
-- [Compile-time source execution](compile-time-execution.md)
-- [Compile-time replay identity](run-replay-identity.md)
-- [Compile-time conditional statements](compile-time-conditionals.md)
-- [Execution phase predicate](execution-phase.md)
-- [Semantic source discovery and owned graph jobs](semantic-source-discovery.md)
-- [Scoped semantic resolution](scoped-semantics.md)
-- [Local nominal types and declarations](local-declarations.md)
-- [Native host checks and LLVM setup](native-hosts.md)
-- [Native test tools](native-test-tools.md)
+## Native builds
 
-Public source corpora are input data.
-- [Semantic IR](semantic-ir.md): frozen type ownership and shared checked storage/place representation.
-- [Compile-time VM](compile-time-vm.md)
-- [Resumable VM execution](resumable-vm.md)
-- [Private VM fork snapshots](private-vm-fork-snapshots.md)
-- [VM snapshot budgets](vm-snapshot-budgets.md)
-- [Compile-time sequences](compile-time-sequences.md)
-- [Virtual byte memory](virtual-byte-memory.md)
-- [Virtual code addresses](virtual-code-addresses.md)
-- [Floating-point source pipeline](floating-point-pipeline.md)
-- [Exact weak-float replay encoding](weak-float-key-encoding.md)
-- [Native targets, optimization and linking](native-build.md)
-- [Aggregate values and storage](aggregate-values.md)
-- [Positional record literals](positional-record-literals.md)
-- [Declaration notes and attributes](declaration-metadata.md)
-- [Source implicit context](implicit-context.md)
-- [Literal syntax](literal-syntax.md)
-- [Native implicit context](native-context.md)
-- [Procedure values and signatures](procedure-values-and-context.md)
-- [Procedure constants and callback defaults](procedure-constants.md)
-- [Source and caller locations](caller-locations.md)
-- [Source procedure and call inlining policy](specs/jai/README.md)
-- [Nominal type variants](type-variants.md)
-- [Foreign library declarations](foreign-libraries.md)
-- [Reflection and code values](reflection-and-code-values.md)
-- [Caller reference syntax](caller-reference-syntax.md)
+The LLVM backend, C ABI and linking.
 
-- [Native custom record regression tests](native-custom-records.md)
-- [Thread placement acceptance](thread-placement-acceptance.md)
-- [Record placement syntax](record-placement-syntax.md)
-- [Ordered record source metadata](ordered-record-source-metadata.md)
-- [Custom record C ABI verification](native-custom-record-abi.md)
+- [C ABI, callbacks and C++ methods](native/c-abi.md)
+- [jaic LLVM backend](native/llvm-backend.md)
+- [Native build and linking](native/native-linking.md)
+- [Vk-Engine corpus project](native/vk-engine.md)
 
-- [Native source debug information](native-debug-information.md)
-- [Native aggregate and procedure debug types](native-debug-types.md)
-- [Debug suppression](debug-suppression.md)
-- [Statement source spans](statement-source-spans.md)
-- [Emitted source provenance](emitted-source-provenance.md)
-- [Source diagnostic origins](source-diagnostic-origins.md)
+## Standard library
 
-- [Universal values](specs/jai/README.md)
-- [Any values at the standard output boundary](stdio-any.md)
+The independently written `stdlib/`.
 
-- [Embedded field conversions](field-conversions.md)
-
-- [Parameterized records](parameterized-records.md)
-- [Record instance namespaces](record-instance-namespaces.md)
-- [Deferred record field defaults](record-field-default-jobs.md)
-
-- [Implicit Preload bootstrap](specs/jai/README.md)
-- [Compiler prelude](specs/jai/README.md)
-- [Scripting runtime](scripting-runtime.md)
-- [Source-only compatibility probes](specs/jai/README.md)
-
-- [Runtime intrinsics](specs/jai/README.md)
-- [Array iteration and removal](array-iteration-and-removal.md)
-- [Custom iteration](custom-iteration.md)
-- [Baked macro targets](baked-macro-targets.md)
-- [Insertion loop control](insertion-loop-control.md)
-- [Collection iteration source acceptance](collection-iteration-source-acceptance.md)
-- [Native runtime intrinsic code generation](native-runtime-intrinsics.md)
-
-- [Compile-time static data](compile-time-static-data.md)
-- [Compile-time variadic packs](compile-time-variadic-packs.md)
-- [Compile-time address integers](compile-time-address-integers.md)
-- [Compile-time Type values](compile-time-type-values.md)
-- [Specialization modifiers](specialization-modifiers.md): checked VM execution and atomic draft binding publication.
-
-- [OS library acceptance](os-library-acceptance.md)
-- [External global data](external-global-data.md)
-- [Source external data](source-external-data.md) — stable local declaration identities, append-only global storage, and preparation readiness.
-- [Flags operators](flags-operators.md)
-- [User-defined operators and namespace aliases](operator-overloads.md)
-- [Standard library source acceptance](standard-library-acceptance.md)
-- [C++ method calls](cpp-methods.md)
-- [Graphics project acceptance](graphics-project-acceptance.md)
-
-- [Compile-time assertions](compile-time-assertions.md)
-- [Cast dialects and modifiers](cast-dialects.md)
-- [Opaque procedure addresses](procedure-addresses.md)
-- [C string literals](c-string-literals.md)
-- [Native pointer constants](native-pointer-constants.md)
-
-- [Source context bindings](context-source-bindings.md) — ordinary lexical and global context names preserve their own storage and type.
-
-- [OS resource lifecycle fixtures](os-resource-lifecycle.md)
-- [Compiler checkpoints](compiler-checkpoints.md)
-- [Compiler Code continuations](compiler-code-continuations.md)
-- [Scalar domain inference](scalar-domain-inference.md)
-- [Float and SIMD source validation](float-simd-source-validation.md)
-- [Constant slices](constant-slices.md)
-- [Constant capture admission](constant-capture-admission.md) — complete retained-root quotas and cumulative fuel for selected compiler constants.
-
+- [Standard library layout](specs/stdlib/README.md)
 - [Basic and collection modules](specs/stdlib/README.md)
+- [Basic calendar time, working directory and platform exports](specs/stdlib/README.md)
+- [Binary formats and checksums](specs/stdlib/README.md)
+- [Bindings_Generator](specs/stdlib/README.md)
+- [Command_Line](specs/stdlib/README.md)
+- [Compiler API, reflection and metaprogram support](specs/stdlib/README.md)
+- [Files, processes and OS services](specs/stdlib/README.md)
+- [GetRect](specs/stdlib/README.md)
+- [Iprof profiler module](specs/stdlib/README.md)
+- [Math, random numbers and color/float helpers](specs/stdlib/README.md)
+- [Memory, allocators and hashing](specs/stdlib/README.md)
+- [Native and platform bindings](specs/stdlib/README.md)
+- [Program_Print](specs/stdlib/README.md)
+- [Strings, Unicode and text files](specs/stdlib/README.md)
+- [Threads, atomics, sockets and input](specs/stdlib/README.md)
+- [Tooling modules: Debug, MacOS_Bundler, BuildCpp, Autorun, Performance_Report](specs/stdlib/README.md)
+- [Drawing, windows and audio](specs/stdlib/README.md)
+- [Simp (2D renderer)](specs/stdlib/README.md)
 
-- [Binary formats and hashing](specs/stdlib/README.md)
+## Browser
 
-- [Codec and native bindings](specs/stdlib/README.md)
+The WebAssembly playground, editor and release bundle.
 
-- [Command-line arguments](specs/stdlib/README.md)
+- [Browser compiler releases](browser/compiler-releases.md)
+- [Browser editor](browser/editor.md)
+- [Browser playground (jaic backend)](browser/playground.md)
 
-- [Metaprogram tooling](specs/stdlib/README.md)
+## Tools and workflow
 
-- [Window and audio bindings](specs/stdlib/README.md)
+Scripts, CI and project policies.
 
-- [Allocation, memory, and hashing](specs/stdlib/README.md)
-
-- [Math and numeric modules](specs/stdlib/README.md)
-
-- [Platform SDK bindings](specs/stdlib/README.md)
-
-- [Strings, Unicode, and text files](specs/stdlib/README.md)
-
-- [UI widgets, drawing, fonts, and textures](specs/stdlib/README.md)
-
-- [Compiler and reflection support](specs/stdlib/README.md)
-
-- [Files, processes, and OS services](specs/stdlib/README.md)
-
-- [Threads, sockets, and input](specs/stdlib/README.md)
-
-- [Native platform and graphics bindings](specs/stdlib/README.md)
-- [Source parameter defaults](source-parameter-defaults.md) — selected original ordinary defaults retained through early type preparation and source-prefix publication.
-- [Initializer source lookup](initializer-source-lookup.md) — original initializer and selected body lookup demands before genuine source-run publication.
-- [Compile-time resource limits](compile-time-resource-limits.md)
-- [Continuous integration](continuous-integration.md) — hosted correctness checks and strict lint enforcement.
-- [Source expression parsing](source-expression-parsing.md)
-- [Reference corpus tests](specs/jai/README.md)
-- [Historical right-handed GetRect](specs/stdlib/README.md) — versioned geometry and focused source overlay.
-- [Historical right-handed UI](specs/stdlib/README.md) — retained widgets, upward-positive layout, and cached resource reads.
-
-- [Enum source namespaces](enum-source-namespaces.md) — original enum alias type facts for inferred source header defaults.
-
-- [Nested source namespaces](nested-source-namespaces.md) — canonical nested type reservations through original early source aliases.
-
-- [Return type parameters](return-type-parameters.md)
-- [Source allocation origins](source-allocation-origins.md)
-- [Retained source identity](retained-source-identity.md)
-- [Retained source providers](retained-source-providers.md)
-- [C++ record return ABI](cpp-return-abi.md) — typed foreign return policy and paired native result carriers.
-- [Microsoft C++ result classification](cpp-return-classification.md)
-- [Platform and native host boundary](platform-native-host-boundary.md)
-- [Native library source bindings](native-library-source-bindings.md)
-- [Typed heap constructor receipts](typed-heap-constructor-receipts.md)
-
-- [Baked argument syntax](baked-argument-syntax.md)
-
-- [Platform source and host services](platform-services.md)
-- [Selected standard-library protocol profiles](specs/stdlib/README.md)
-- [Retained global initializer jobs](global-initializer-jobs.md)
-- [Frontend header grammar](frontend-header-grammar.md)
-- [Remaining frontend grammar](frontend-grammar-frontiers.md)
-- [Baked procedure arguments (staged)](baked-procedure-arguments.md)
-- [Canonical Type equality](canonical-type-equality.md) — nominal equality across immutable descriptor revisions and physical pointer casts.
-- [Opaque numeric pointer values](opaque-numeric-pointers.md)
-- [Initial type readiness](initial-type-readiness.md)
-- [Retained source-run prefix](source-run-prefix.md)
-- [Reflection publication](reflection-publication.md) — owned VM detachment and prepared source policy guards.
-- [Static catalog ownership](static-catalog-ownership.md) — complete immutable allocation footprints and cumulative retained-root admission.
-- [Constant capture admission](constant-capture-admission.md) — complete retained-root quotas and cumulative fuel for selected compiler constants.
-- [Source expression parsing](source-expression-parsing.md)
-
-- [Source syntax retention](source-syntax-retention.md)
-- [Scalar source retention](scalar-source-retention.md)
-- [Graph source retention](graph-source-retention.md)
-- [Metered source environments](metered-source-environments.md)
-- [Source reflection factory](reflection-source-factory.md)
-
-- [Latest corpus frontier](corpus-breadth-frontier.md) — matched source cohorts, stage results, and remaining language coverage.
-
-- [Declaration lists](declaration-lists.md)
-- [Statement termination](statement-termination.md)
-- [Runtime support bootstrap](runtime-support-bootstrap.md)
-- [Loop and case policy](loop-and-case-policy.md) — ordered defaults, fallthrough, transition loop policy, and implicit iterator removal.
-- [Source notes and compile-time assertions](source-notes-and-assertions.md) — retained names/selectors, nominal/member notes, selected assertion messages and postfix field alignment.
-- [Aggregate literals and selected record using](aggregate-literals-and-record-using.md)
-
-- [String source imports](string-source-imports.md) — Literal module sources, identities and relative resolution.
-
-- [jaic parser](jaic-parser.md) — Recursive-descent parser of the new compiler core: lookahead rules, terminators, and how to extend it.
-- [jaic LLVM backend](jaic-llvm-backend.md) — Native backend of the new compiler core: IR to LLVM lowering, C ABI for by-value aggregates, linking, and the `jaic build` command.
-- [jaic `#asm` blocks](jaic-asm.md) — x64 inline assembly lowered to IR on Jai variables: syntax, instruction table, flags, atomics, and how to add instructions.
-- [jaic compiler workspaces](jaic-workspaces.md) — Workspace registry, `__jaic_*` Compiler-module primitives, events and output backends.
-- [Compiler module (Jai side)](compiler-module.md) — Jai implementation of the `Compiler` module API over the `__jaic_*` primitives: option store, message interception, stubs.
-- [Compiler records](compiler-records.md) — Messages, Code_* syntax trees and target Type_Info exported as records; compiler_get_nodes and compiler_modify_procedure.
-- [jaic regression sweep](jaic-sweep.md) — `tools/jaic-sweep.py` sets (corpus, stdlib, upstream) and how to extend them.
-- [Basic calendar time and platform exports](stdlib-basic-time-and-platform.md) — to_calendar/calendar_to_apollo, working directory in Basic, Machine_X64 hooks, String scan, Bucket_Array shape.
-- [Iprof profiler](iprof.md) — Instrumenting frame-based profiler: runtime, drawing callbacks, metaprogram plugin, import-mode gotchas.
-- [Tooling modules](stdlib-tooling-modules.md) — Debug, MacOS_Bundler, BuildCpp, Autorun, Performance_Report, plus small Simp/Input/Socket/File compatibility additions.
+- [Build storage and target directories](tools/build-storage.md)
+- [Code formatting](tools/code-formatting.md)
+- [Continuous integration](tools/continuous-integration.md)
+- [Dependency policy](tools/dependency-policy.md)
+- [jaic regression sweep](tools/jaic-sweep.md)
+- [LLVM setup](tools/llvm-setup.md)
+- [Third-party native libraries](tools/native-libs.md)
+- [open-jai expectation harness](tools/openjai-expectations.md)
+- [Upstream corpus](tools/upstream-corpus.md)
 
 ## Language and library specifications
 

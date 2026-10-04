@@ -115,3 +115,313 @@ fn hello_world_builds_and_prints() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "hello 42!\n");
     assert_eq!(output.status.code(), Some(0));
 }
+
+/// Self-checking stdlib tests whose bugs showed only in compiled code; each prints "ok".
+#[test]
+fn stdlib_tests_run_natively() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stdlib-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in [
+        "struct-literal-overrides-default-string",
+        "array-literal-view-lifetime",
+    ] {
+        let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
+        let output = build_and_run(&source, &dir, name).unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "ok\n",
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+/// Compiled code maintains `context.stack_trace` (`jaic::stack_trace::instrument`): call lines, depth,
+/// a trace through an inline procedure, and the trace an assertion prints.
+#[test]
+fn stack_traces() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stack-trace");
+    std::fs::create_dir_all(&dir).unwrap();
+    let ok = repo_root().join("tests/stdlib/stack-trace-line-through-inline.jai");
+    let output = build_and_run(&ok, &dir, "through-inline").unwrap();
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+    let source = dir.join("trace.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         depth :: () -> int { n := 0; node := context.stack_trace; while node { n += 1; node = node.next; } return n; }\n\
+         inner :: () -> int { return depth(); }\n\
+         main :: () {\n\
+             print(\"% %\\n\", depth(), inner());\n\
+             assert(false, \"boom\");\n\
+         }\n",
+    )
+    .unwrap();
+    let output = build_and_run(&source, &dir, "trace").unwrap();
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "2 3\n");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Stack trace:"), "{stderr}");
+    assert!(stderr.contains("trace.jai:6: main"), "{stderr}");
+    assert!(!output.status.success());
+}
+
+/// C structs by value across the C ABI: foreign calls from the interpreter and from native code, and
+/// native `#c_call` definitions called back from C. Skipped when no C compiler is installed.
+#[test]
+fn c_structs_by_value() {
+    let fixture = repo_root().join("tests/native/c-structs-by-value");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-structs");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in [
+        "structs.c",
+        "types.jai",
+        "foreign_calls.jai",
+        "callbacks.jai",
+    ] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let lib = if cfg!(target_os = "macos") {
+        "libstructs.dylib"
+    } else {
+        "libstructs.so"
+    };
+    let mut cc = Command::new("cc");
+    cc.args(["-shared", "-fPIC", "-o", lib, "structs.c"]);
+    if cfg!(target_os = "macos") {
+        // Found through the executable's rpath rather than relative to the working directory.
+        cc.arg("-Wl,-install_name,@rpath/libstructs.dylib");
+    }
+    let Ok(cc) = cc.current_dir(&dir).output() else {
+        eprintln!("skipping: no C compiler");
+        return;
+    };
+    assert!(
+        cc.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cc.stderr)
+    );
+    let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n";
+    let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n";
+    let run_interp = |name: &str| {
+        let output = Command::new(JAIC)
+            .args(["run", &format!("{name}.jai")])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert_eq!(run_interp("foreign_calls"), calls);
+    assert_eq!(run_interp("callbacks"), callbacks);
+    let run_native = |name: &str| {
+        let output = build_and_run(&dir.join(format!("{name}.jai")), &dir, name).unwrap();
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert_eq!(run_native("foreign_calls"), calls);
+    assert_eq!(run_native("callbacks"), callbacks);
+}
+
+/// C variadic foreign calls in a native build (Apple arm64 passes variadic arguments on the stack).
+#[test]
+fn c_variadic_calls() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-varargs");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/stdlib/c-variadic-foreign-calls.jai");
+    let output = build_and_run(&source, &dir, "varargs").unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "ok\n",
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// A program that imports the Bindings_Generator module builds natively (its libclang bridge
+/// primitives are compile-time only and get trapping stubs), and the bindings it generated at
+/// compile time work in the native binary.
+fn native_bindings_generator_test(name: &str) {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-{name}"));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
+    let output = build_and_run(&source, &dir, name).unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "ok\n",
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn bindings_generator_bitfields() {
+    native_bindings_generator_test("bindings-generator-bitfields");
+}
+
+#[test]
+fn bindings_generator_cpp_raw() {
+    native_bindings_generator_test("bindings-generator-cpp-raw");
+}
+
+#[test]
+fn bindings_generator_objc() {
+    native_bindings_generator_test("bindings-generator-objc");
+}
+
+/// Arithmetic overflow checks in a native build: `Build_Options.arithmetic_overflow_check` on a
+/// workspace that writes an executable, and `#no_aoc` switching them off again.
+#[test]
+fn arithmetic_overflow_checks() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-overflow");
+    std::fs::create_dir_all(&dir).unwrap();
+    // (name, mode, body of main, run succeeds, stdout, text stderr must contain)
+    let cases: [(&str, &str, &str, bool, &str, &str); 8] = [
+        (
+            "off",
+            "OFF",
+            "x: u8 = 250; y: u8 = 10; print(\"%\\n\", x + y);",
+            true,
+            "4\n",
+            "",
+        ),
+        (
+            "nonfatal",
+            "NONFATAL",
+            "x: u8 = 250; y: u8 = 10; print(\"%\\n\", x + y);",
+            true,
+            "4\n",
+            "arithmetic overflow computing 250 + 10 as u8",
+        ),
+        (
+            "fatal-add",
+            "FATAL",
+            "x: u8 = 250; y: u8 = 10; print(\"%\\n\", x + y);",
+            false,
+            "",
+            "arithmetic overflow computing 250 + 10 as u8",
+        ),
+        (
+            "fatal-sub",
+            "FATAL",
+            "x: s64 = -0x7fff_ffff_ffff_ffff; y: s64 = 5; print(\"%\\n\", x - y);",
+            false,
+            "",
+            "as s64",
+        ),
+        (
+            "fatal-mul",
+            "FATAL",
+            "x: u32 = 70000; print(\"%\\n\", x * x);",
+            false,
+            "",
+            "70000 * 70000 as u32",
+        ),
+        (
+            "in-range",
+            "FATAL",
+            "x: s16 = 32000; y: s16 = 767; a: u64 = 3; print(\"% %\\n\", x + y, a - 3);",
+            true,
+            "32767 0\n",
+            "",
+        ),
+        (
+            "no-aoc-block",
+            "FATAL",
+            "x: u8 = 250; y: u8 = 10; z: u8; #no_aoc { z = x + y; } print(\"%\\n\", z);",
+            true,
+            "4\n",
+            "",
+        ),
+        (
+            "no-aoc-loop",
+            "FATAL",
+            "x: u8 = 250; for 1..2 #no_aoc { x += 10; } print(\"%\\n\", x);",
+            true,
+            "14\n",
+            "",
+        ),
+    ];
+    for (name, mode, body, ok, stdout, stderr) in cases {
+        let meta = dir.join(format!("{name}.jai"));
+        std::fs::write(
+            &meta,
+            format!(
+                r##"#import "Basic";
+#import "Compiler";
+
+SOURCE :: #string END
+#import "Basic";
+main :: () {{
+    {body}
+}}
+END
+
+#run {{
+    set_build_options_dc(.{{do_output = false}});
+    w := compiler_create_workspace("prog");
+    options := get_build_options(w);
+    options.output_type = .EXECUTABLE;
+    options.output_executable_name = "{name}-prog";
+    options.output_path = ".";
+    options.arithmetic_overflow_check = .{mode};
+    set_build_options(options, w);
+    add_build_string(SOURCE, w);
+}}
+"##
+            ),
+        )
+        .unwrap();
+        let build = Command::new(JAIC)
+            .arg("build")
+            .arg(&meta)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "{name}: build failed: {}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let run = Command::new(dir.join(format!("{name}-prog")))
+            .output()
+            .unwrap();
+        let err = String::from_utf8_lossy(&run.stderr);
+        assert_eq!(
+            run.status.success(),
+            ok,
+            "{name}: status {:?}\n{err}",
+            run.status
+        );
+        assert_eq!(String::from_utf8_lossy(&run.stdout), stdout, "{name}");
+        assert!(err.contains(stderr), "{name}: stderr was {err:?}");
+        if stderr.is_empty() {
+            assert!(
+                !err.contains("overflow"),
+                "{name}: unexpected report {err:?}"
+            );
+        }
+    }
+}
+
+/// Window programs using Simp's automatic GL context creation type-check for every desktop
+/// OS (the GLX/WGL paths cannot run here, but they must keep compiling).
+#[test]
+fn simp_window_program_checks_on_desktop_oses() {
+    let source = repo_root().join("tests/stdlib/simp-window-program.jai");
+    for os in ["linux", "windows", "macos"] {
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .args(["-os", os])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{os}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}

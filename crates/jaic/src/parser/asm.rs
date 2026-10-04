@@ -15,8 +15,8 @@
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
-    AsmBlock, AsmDecl, AsmInst, AsmItem, AsmMem, AsmMemTerm, AsmOperand, AsmPin, AsmSize, Expr,
-    ExprKind, Ident,
+    AsmBlock, AsmDecl, AsmEvex, AsmInst, AsmItem, AsmMem, AsmMemTerm, AsmOperand, AsmPin, AsmSize,
+    Expr, ExprKind, Ident,
 };
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
@@ -74,9 +74,12 @@ impl Parser<'_> {
         let mnemonic = self.ident("as an instruction mnemonic")?;
         let size = self.parse_asm_size()?;
         let mut operands = Vec::new();
+        let mut evex = AsmEvex::default();
         if !self.at(P::Semi) && !self.at(P::RBrace) {
             loop {
-                operands.push(self.parse_asm_operand()?);
+                let mut operand = self.parse_asm_operand()?;
+                self.parse_asm_evex(&mut operand, &mut evex)?;
+                operands.push(operand);
                 if !self.eat(P::Comma) {
                     break;
                 }
@@ -86,8 +89,36 @@ impl Parser<'_> {
             mnemonic,
             size,
             operands,
+            evex,
             span: mnemonic.span.to(self.prev_span()),
         }))
+    }
+
+    /// EVEX decorations after an operand: `[mem]!` (broadcast), `!z` (rounding), `&* mask`.
+    fn parse_asm_evex(&mut self, operand: &mut AsmOperand, evex: &mut AsmEvex) -> PResult<()> {
+        if self.at(P::Bang) {
+            let bang = self.span();
+            self.bump();
+            if let AsmOperand::Mem(m) = operand {
+                m.broadcast = true;
+            } else {
+                let mut mode = None;
+                if let Tok::Ident(name) = self.tok().clone()
+                    && self.span().start == bang.end
+                    && matches!(name.as_str(), "n" | "d" | "u" | "z")
+                {
+                    self.bump();
+                    mode = name.as_str().chars().next();
+                }
+                evex.round = Some(mode);
+            }
+        }
+        if self.eat(P::Amp) {
+            let zeroing = self.eat(P::Star);
+            let mask = self.parse_asm_operand()?;
+            evex.mask = Some((Box::new(mask), zeroing));
+        }
+        Ok(())
     }
 
     /// `.q` / `.64` / `?T` after a mnemonic.
@@ -183,6 +214,7 @@ impl Parser<'_> {
         let end = self.expect(P::RBracket, "to close the memory operand")?;
         Ok(AsmOperand::Mem(AsmMem {
             terms,
+            broadcast: false,
             span: start.to(end),
         }))
     }

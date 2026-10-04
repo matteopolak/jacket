@@ -72,7 +72,7 @@ impl LineIndex {
             character,
         })
     }
-    pub(crate) fn range(&self, text: &str, span: jai_source::Span) -> Result<Range, Error> {
+    pub(crate) fn range(&self, text: &str, span: crate::analysis::Span) -> Result<Range, Error> {
         Ok(Range {
             start: self.position(text, span.start)?,
             end: self.position(text, span.end)?,

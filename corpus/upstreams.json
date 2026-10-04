@@ -440,6 +440,16 @@
           "sha256": "4f3b414e275e088a41eba61a2c5d7fbb80d9ae55f9bbd0e87b83a2d377905383"
         },
         {
+          "path": "modules/Objective_C/LightweightRenderingView/LightweightRenderingView.h",
+          "bytes": 344,
+          "sha256": "fc76f7dfeeaa5df73f39fb934a6872d0eea1d8c77a309d7da48b54158c5abf1e"
+        },
+        {
+          "path": "modules/Objective_C/LightweightRenderingView/LightweightRenderingView.m",
+          "bytes": 811,
+          "sha256": "52b0777fc72f805026fe88ca2fa43f5a7293949d6348a5bbffcf53e05a462557"
+        },
+        {
           "path": "modules/Objective_C/LightweightRenderingView/build.jai",
           "bytes": 1790,
           "sha256": "8dd7e4a746040bd403d9701149f06d3437dabaff9323efbb3a0d15451dc20501"
@@ -2479,6 +2489,11 @@
           "sha256": "aae2b093b4d3f640cebd6c729aa3c850f4c7dd7e5a7f1f8ac3687293fa6f8483"
         },
         {
+          "path": "examples/29/mylib/my.c",
+          "bytes": 108,
+          "sha256": "a5cd296228877f826ed2002a73b61683b2daf216880cf80431d95c584b4717d2"
+        },
+        {
           "path": "examples/30/30.10_generate_llvm_bitcode.jai",
           "bytes": 849,
           "sha256": "d411d08e026cfce88cf58e873d2a361b402ce4e5e864c09eac16bc523faa56c5"
@@ -2564,6 +2579,16 @@
           "sha256": "93949ea11af9b9654b507614e885475f624151edfd170f63d51a7f2f002613ea"
         },
         {
+          "path": "examples/30/cpp_library/cpp_library.cpp",
+          "bytes": 1417,
+          "sha256": "bd31d524ad82c930b13c91bc12d2d47bc02fb68d8b2f81dfd107c9599307f3e2"
+        },
+        {
+          "path": "examples/30/cpp_library/cpp_library.h",
+          "bytes": 1098,
+          "sha256": "0b095fd905f1e6d96c634881efd03f40ea91373c864279ba85781649f0790265"
+        },
+        {
           "path": "examples/30/cpp_library/first.jai",
           "bytes": 2672,
           "sha256": "8816dbffef2fd313eedfde535afa26ac14e9135f0e4fc1d51b211ab3e675846e"
@@ -2617,6 +2642,21 @@
           "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/README.md",
           "bytes": 70,
           "sha256": "146cb8846d804c3ba33b8354da4f1afc3f59e912e9754b0823b51d84544644d1"
+        },
+        {
+          "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/include/raylib.h",
+          "bytes": 115591,
+          "sha256": "ca2f6d7bcdf139a70561d7ef998566ffc6b773bb0780297e431a3d1683bb14dc"
+        },
+        {
+          "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/include/raymath.h",
+          "bytes": 60715,
+          "sha256": "51c8f8eeb7c968079e66a8799767622f0af661cb4a3075d34222112a6e8baa69"
+        },
+        {
+          "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/include/rlgl.h",
+          "bytes": 216336,
+          "sha256": "d0f9b3bd2365a25c1ba1628661fc8f9054be955462f6701b59009613c9ffebce"
         },
         {
           "path": "examples/30/main.jai",
@@ -4516,6 +4556,11 @@
           "sha256": "aae2b093b4d3f640cebd6c729aa3c850f4c7dd7e5a7f1f8ac3687293fa6f8483"
         },
         {
+          "path": "examples/29/mylib/my.c",
+          "bytes": 108,
+          "sha256": "a5cd296228877f826ed2002a73b61683b2daf216880cf80431d95c584b4717d2"
+        },
+        {
           "path": "examples/30/30.10_generate_llvm_bitcode.jai",
           "bytes": 849,
           "sha256": "d411d08e026cfce88cf58e873d2a361b402ce4e5e864c09eac16bc523faa56c5"
@@ -4601,6 +4646,16 @@
           "sha256": "93949ea11af9b9654b507614e885475f624151edfd170f63d51a7f2f002613ea"
         },
         {
+          "path": "examples/30/cpp_library/cpp_library.cpp",
+          "bytes": 1417,
+          "sha256": "bd31d524ad82c930b13c91bc12d2d47bc02fb68d8b2f81dfd107c9599307f3e2"
+        },
+        {
+          "path": "examples/30/cpp_library/cpp_library.h",
+          "bytes": 1098,
+          "sha256": "0b095fd905f1e6d96c634881efd03f40ea91373c864279ba85781649f0790265"
+        },
+        {
           "path": "examples/30/cpp_library/first.jai",
           "bytes": 2672,
           "sha256": "8816dbffef2fd313eedfde535afa26ac14e9135f0e4fc1d51b211ab3e675846e"
@@ -4654,6 +4709,21 @@
           "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/README.md",
           "bytes": 70,
           "sha256": "146cb8846d804c3ba33b8354da4f1afc3f59e912e9754b0823b51d84544644d1"
+        },
+        {
+          "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/include/raylib.h",
+          "bytes": 115591,
+          "sha256": "ca2f6d7bcdf139a70561d7ef998566ffc6b773bb0780297e431a3d1683bb14dc"
+        },
+        {
+          "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/include/raymath.h",
+          "bytes": 60715,
+          "sha256": "51c8f8eeb7c968079e66a8799767622f0af661cb4a3075d34222112a6e8baa69"
+        },
+        {
+          "path": "examples/30/jai_raylib/vendor/raylib_4.2.0_win64_msvc16/include/rlgl.h",
+          "bytes": 216336,
+          "sha256": "d0f9b3bd2365a25c1ba1628661fc8f9054be955462f6701b59009613c9ffebce"
         },
         {
           "path": "examples/30/main.jai",
@@ -6650,14 +6720,104 @@
           "sha256": "ba3761d39294c9b2ebc289abdf3874b488793b00cedb32885a2390539037cf5f"
         },
         {
+          "path": "Modules/ImGui/Source/imconfig.h",
+          "bytes": 11426,
+          "sha256": "d45f0b86b02f14b2e079609a866707d090742c2d35072eae4d4b8c78fbdcdeab"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui.cpp",
+          "bytes": 1109097,
+          "sha256": "f9f4795e82cedbfe9dd42b91d32bf59da3b76196263a351ee9475da0d049473d"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui.h",
+          "bytes": 361255,
+          "sha256": "23266bcc23f307e7015e05cefb590230e57f388785a6d15e98e2e34ed59403b4"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui_demo.cpp",
+          "bytes": 458877,
+          "sha256": "3dea81b2bf011a37f9a5629b4af4444d1e07d8ab8b3bb9140d0e0d747b534715"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui_draw.cpp",
+          "bytes": 222958,
+          "sha256": "384d48618ef74fc41ea987570cd978e2958cd1df49ed55277d13a2ee15b3a685"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui_internal.h",
+          "bytes": 289840,
+          "sha256": "0a8de5f5cac9e363283758d1adcd9abe2d9b1582cf16174ff7f6870745b06b0e"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui_tables.cpp",
+          "bytes": 237948,
+          "sha256": "f2ed29a8eb6ef19883a80bf1727120ed2962c0a28e584d4cf70f34f8d061f567"
+        },
+        {
+          "path": "Modules/ImGui/Source/imgui_widgets.cpp",
+          "bytes": 450767,
+          "sha256": "0f28d49020a302f6710f27576d264eab5ea03fd2341ac6c5c3e9d1a3acb7cb68"
+        },
+        {
+          "path": "Modules/ImGui/Source/imstb_rectpack.h",
+          "bytes": 20344,
+          "sha256": "2efa3d5f7d003c19743b15155dad9f46d9f9fc783a18893d703b431d3c990972"
+        },
+        {
+          "path": "Modules/ImGui/Source/imstb_textedit.h",
+          "bytes": 55207,
+          "sha256": "6cb9de88e714f42bdbdc25ba190f01e346a2b6eba727c2044acccc7e70966c70"
+        },
+        {
+          "path": "Modules/ImGui/Source/imstb_truetype.h",
+          "bytes": 199484,
+          "sha256": "5b7693f174b0458c7bec5522c8d6be4fe606d3f5da5082351959c14e59269b53"
+        },
+        {
+          "path": "Modules/ImGui/Source/misc/cpp/imgui_stdlib.cpp",
+          "bytes": 3357,
+          "sha256": "42a0d3681b4b36f90319781e270d3d929bf6e7a4910e0fcf7e909ab1d1a3b81f"
+        },
+        {
+          "path": "Modules/ImGui/Source/misc/cpp/imgui_stdlib.h",
+          "bytes": 1172,
+          "sha256": "0fbdaacb828e8bf8e061bde0f4eb6c81e1fea128eb405ba866113f38bf1fe3f5"
+        },
+        {
+          "path": "Modules/ImGui/Source/misc/fonts/binary_to_compressed_c.cpp",
+          "bytes": 13792,
+          "sha256": "7bcd5f00dfb4b30724881e91d7a1e613cd3be1f4b0329bb0d574992c29a0cf52"
+        },
+        {
           "path": "Modules/ImGui/Source/misc/freetype/README.md",
           "bytes": 2502,
           "sha256": "8afc3cab3fb3f0a285cb48108be41adb98362173721a185bda3142d09b954c2e"
         },
         {
+          "path": "Modules/ImGui/Source/misc/freetype/imgui_freetype.cpp",
+          "bytes": 46376,
+          "sha256": "f6bd843e7337f7c5b5e8129919f2c2257dc60b1676c31791ef8579083ac853f3"
+        },
+        {
+          "path": "Modules/ImGui/Source/misc/freetype/imgui_freetype.h",
+          "bytes": 3599,
+          "sha256": "3ffa4d9197822fb2c040633206c1a8340794ed13f8832ec5f561c927ec6d650d"
+        },
+        {
+          "path": "Modules/ImGui/Source/misc/single_file/imgui_single_file.h",
+          "bytes": 994,
+          "sha256": "a42f63e51656ee69a9dcc47aec31c0ddb518b593e3455dfe3e9a1b8cf4c71197"
+        },
+        {
           "path": "Modules/ImGui/generate.jai",
           "bytes": 11643,
           "sha256": "9d888e11faabcadb9cd95b7d082d6665f0b70b07bbeb26cb46ab510ab053e5ba"
+        },
+        {
+          "path": "Modules/ImGui/imconfig.h",
+          "bytes": 11426,
+          "sha256": "d45f0b86b02f14b2e079609a866707d090742c2d35072eae4d4b8c78fbdcdeab"
         },
         {
           "path": "Modules/ImGui/imgui_linux.jai",
@@ -6823,6 +6983,66 @@
           "path": "Modules/Vulkan/README.md",
           "bytes": 2740,
           "sha256": "e414b74afd33bdb5ced3c463fa4a46e511933722d2469285943e46519ab0d2f4"
+        },
+        {
+          "path": "Modules/Vulkan/Source/VulkanMemoryAllocator/vk_mem_alloc.cpp",
+          "bytes": 53,
+          "sha256": "c5784cb2d475291fc68735ab32357a7a739d4257f7956b7edc5ba265ab1fc3c5"
+        },
+        {
+          "path": "Modules/Vulkan/Source/VulkanMemoryAllocator/vk_mem_alloc.h",
+          "bytes": 771977,
+          "sha256": "8487b7995ad3b263eb73bc5b9a77d71aa69b6bef5d58a715c02d2663afd81f1a"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_platform.h",
+          "bytes": 2828,
+          "sha256": "c2aa81456e5d24f5931f9b2052aaeb85d1a6362abac9ee5fb2029a57579e03a7"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codec_h264std.h",
+          "bytes": 13700,
+          "sha256": "5725db044ee674d308e2647cb6d56f21564d53a58411ecc61e3492729fa734fd"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codec_h264std_decode.h",
+          "bytes": 2591,
+          "sha256": "a3697b4e76eb974fcd441d68c1e7fc5dc2613bd7165e85a859744d3952f8344f"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codec_h264std_encode.h",
+          "bytes": 6563,
+          "sha256": "aa8bc568831090917b0985d5ae0f317b530aed62a1d5ccad27556faea5032dbb"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codec_h265std.h",
+          "bytes": 23243,
+          "sha256": "95d87a19ff10f24fd2d040b4cd57b178c8f6eb92cae8fb8baa2a3db5205c76b5"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codec_h265std_decode.h",
+          "bytes": 2297,
+          "sha256": "66bdaae65aeb18af3451e8f3e0608dac57437285008c7e26d1e0ad519e774769"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codec_h265std_encode.h",
+          "bytes": 7311,
+          "sha256": "e71726a811ec651cd3de03ae99e3db9a056b6b423db5112f5ee291153185bae2"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vk_video/vulkan_video_codecs_common.h",
+          "bytes": 515,
+          "sha256": "5aedcf62bd0c68036e58fee76654261c54a10b3cbc1de4ac215b837685098a55"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vulkan.h",
+          "bytes": 1555,
+          "sha256": "74d7a953a9e02b0f8c6edb8dd3304428ad9cfb14697e50bd5da46c7666717787"
+        },
+        {
+          "path": "Modules/Vulkan/Source/vulkan/vulkan_core.h",
+          "bytes": 865861,
+          "sha256": "ce0a0c0212956816bbad9cdc69ffde35ec348bd2bdf592c18e39050ec7f83944"
         },
         {
           "path": "Modules/Vulkan/generate.jai",
@@ -7459,6 +7679,61 @@
           "sha256": "c70758835280fd09696e7f6d78c846af6913ad3c9dd45dfad2b911442c166c55"
         },
         {
+          "path": "examples/sample.png",
+          "bytes": 59277,
+          "sha256": "5dc155999348fd0bdf8add6ffee11feb853dd2fcf556a97804a38301bd0bdb13"
+        },
+        {
+          "path": "examples/shaders/bindless.slang",
+          "bytes": 2511,
+          "sha256": "ef71b5a1f2bc96d5a62f21fcc06b4ec21343b54d139b113bd3c6a4a224d74a08"
+        },
+        {
+          "path": "examples/shaders/common.slang",
+          "bytes": 411,
+          "sha256": "ac5cb3be22d9e6583e0e079e3f3f064eed5e3b09cb52517f8fe03bb12e1a89ec"
+        },
+        {
+          "path": "examples/shaders/compute.slang",
+          "bytes": 273,
+          "sha256": "52a487fc473fb1a4281f846bee29faab179d698f6f8feb337733ba16e9bd0e09"
+        },
+        {
+          "path": "examples/shaders/hello_square_ps.slang",
+          "bytes": 332,
+          "sha256": "6cab2f767e82aeae39c60c76e6e1dd72cd6c50062c57f01f5fc8fccabebfa430"
+        },
+        {
+          "path": "examples/shaders/hello_square_vs.slang",
+          "bytes": 458,
+          "sha256": "31d0b67f3682868b42a5eeee98cbc33a4e518cd6e56509f807b8492a140a3645"
+        },
+        {
+          "path": "examples/shaders/indirect_verify.slang",
+          "bytes": 208,
+          "sha256": "dbae80a9a9e0cd5e7fff08dba2a4c1da50cb13f923357f441f4a72d65c20dcb6"
+        },
+        {
+          "path": "examples/shaders/meshlets_ms.slang",
+          "bytes": 1018,
+          "sha256": "062b721cac91bfeda05003e44a2c0e89c2f53083e35ee3a3b5dc0d3b8b0e27f4"
+        },
+        {
+          "path": "examples/shaders/meshlets_ps.slang",
+          "bytes": 250,
+          "sha256": "2bbbaf1065530749ec78299b3bb8bf3afd921e39be91debce363399b8d7cc36c"
+        },
+        {
+          "path": "examples/shaders/textured_ps.slang",
+          "bytes": 364,
+          "sha256": "66237fba3cf181a7c4717e00a324a4a40b5e0114beef6916322c21a306930005"
+        },
+        {
+          "path": "examples/shaders/textured_vs.slang",
+          "bytes": 441,
+          "sha256": "5878b845fa6a82b2bce9381b7a561e2244f2eb9940cd9e2cbd981a48618c6d30"
+        },
+        {
           "path": "examples/textures.jai",
           "bytes": 5870,
           "sha256": "82b1739b47a2b8f14b1fd944018a1f8a304960d0820c9e9a68b27377a0cb13a6"
@@ -7524,6 +7799,101 @@
           "sha256": "e00f6b683fa0561fd2aa67a1d8eb6121d1456fbd14995bdcca7808c1621bda9a"
         },
         {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_platform.h",
+          "bytes": 2828,
+          "sha256": "2fa47dd60cd94eb6fd8d7615953878f5664eb57fdff3b1b9b856c1d8f1496737"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_av1std.h",
+          "bytes": 16687,
+          "sha256": "3443226503a8bcd6b828dabacb8ebe40ece32d6d37274ffd2d855a504629c968"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_av1std_decode.h",
+          "bytes": 4250,
+          "sha256": "2b912389d39d6627ee8af01e052e9557d213b27c0b79a0e25f5366cfe1942f1a"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_av1std_encode.h",
+          "bytes": 5979,
+          "sha256": "93ad363de123988cd7b27acc7930f7f93497bc2e5d74f8420ee8ba18e8746e0a"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_h264std.h",
+          "bytes": 13861,
+          "sha256": "0b715c26af3eecc950ebedcf6831fd8b8a7d6c662780fd8b8a37d9082ac07fae"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_h264std_decode.h",
+          "bytes": 2723,
+          "sha256": "9667ecc76eaba22e311e5d2d48b38af47ca307865ae35477897790343ba3ad14"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_h264std_encode.h",
+          "bytes": 6878,
+          "sha256": "c68a1fa4ebadd1b50992a61fb93310a6686d5ea932b91b850d3ad9bc8dec488e"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_h265std.h",
+          "bytes": 23439,
+          "sha256": "42a2daf1b396f1071f1855262bcadedd544b90da67e2c90d24885720177adf83"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_h265std_decode.h",
+          "bytes": 2429,
+          "sha256": "38a7c0d6688280795efe00f9ce8506795afbbe558300c9f7eacd764daa42f7e2"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_h265std_encode.h",
+          "bytes": 7462,
+          "sha256": "aa8c75beac0962abf752a5ec741a42b1a108ee28fb6b3abcdc995e57e20c6c14"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_vp9std.h",
+          "bytes": 5384,
+          "sha256": "80df697fad03a9acddadb8ae4944bb25b5df4b1a427157ad7fbdeb77112a3c89"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codec_vp9std_decode.h",
+          "bytes": 2371,
+          "sha256": "318a21532405f31a7b977c340effbf5bff30790734153c29ed6ad9a8230efbaf"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vk_video/vulkan_video_codecs_common.h",
+          "bytes": 660,
+          "sha256": "7afc98e84d3bea72e40a65161463abbd4be2ff1e1853eca3f8c331afb7329a8b"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vulkan.h",
+          "bytes": 1616,
+          "sha256": "20c7e1ac42fe62b3ed526612c52ddfc21e2265f5c69ca9a5e9dd182cc4c8625b"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vulkan_core.h",
+          "bytes": 1238668,
+          "sha256": "b8b28ddcc5c7d86165e919b75f8473766f8611bd148190ee892c622c6df6c242"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vulkan_macos.h",
+          "bytes": 1384,
+          "sha256": "45b7c4d4b4cd414fc39e41280e30904b9c5fbd2144a2a03ff7067f8d38f3b365"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan/vulkan_metal.h",
+          "bytes": 8066,
+          "sha256": "afa55b54122a392523867f1816894af6a631de3ea88dca4b3d1cbb1042519575"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan_memory_allocator/vk_mem_alloc.cpp",
+          "bytes": 623695,
+          "sha256": "7e810883655bd8fc0b1463da4a5873f953d2637aa130b686861015d7ecfe75f3"
+        },
+        {
+          "path": "modules/Vulkan_With_VMA/source/vulkan_memory_allocator/vk_mem_alloc.h",
+          "bytes": 129136,
+          "sha256": "037faa56bc0efde4d60f0e24657d9a801001dffd6a7bc52672e6af6b6cd2300d"
+        },
+        {
           "path": "modules/Vulkan_With_VMA/windows_extras.jai",
           "bytes": 6007,
           "sha256": "676646b3df117fb1e4917b37619a52f4e442a6b10ab0d5418baa078d0c4869de"
@@ -7539,6 +7909,11 @@
           "sha256": "30f9e8e4e66519e491e9a41f2a76557508b036bb9352ce0b31aa89f1f614870c"
         },
         {
+          "path": "modules/renderdoc/renderdoc_app.h",
+          "bytes": 31692,
+          "sha256": "e090464ca63e63a1a087e30875a0447aad30eadae4d5bff75b6731cd1643c310"
+        },
+        {
           "path": "modules/slang/generate.jai",
           "bytes": 3833,
           "sha256": "a2ee688aa8060e517fe59fe66d3280dac368408bb3928e8cf009116ec2e7a73c"
@@ -7547,6 +7922,86 @@
           "path": "modules/slang/lib/LICENSE",
           "bytes": 1128,
           "sha256": "82d04e80c7b7ba0f524851a62abd2fa63770349f37773152de0ac1e4965a91a3"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-com-helper.h",
+          "bytes": 8538,
+          "sha256": "3ee0330120b31ecf926fbdb1abefa1b3b678bfa5ce7906362d1d114fb560175a"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-com-ptr.h",
+          "bytes": 5776,
+          "sha256": "0349ac574becdb76406fcc944ff084c0ed5c5180d08abc7b047fbfb0372610b7"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-host-prelude.h",
+          "bytes": 1589,
+          "sha256": "c35720012479357aee70914c6c8cf86af1c934007275f753c8c6101cfa53b465"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-prelude.h",
+          "bytes": 8862,
+          "sha256": "9d37f2811125877a5fc7ef763632fa1ab27fda83b2bce1379a829bc1760f1868"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-scalar-intrinsics.h",
+          "bytes": 21291,
+          "sha256": "4505bb0d8c4c3365f0c804e3244a614de1d910f36091cc95c129ed0fbb2ff282"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-types-core.h",
+          "bytes": 24361,
+          "sha256": "9f94149f7b218d0df9842ef1b90a68d599445930104ed552ceb998c01023d76f"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-types.h",
+          "bytes": 39223,
+          "sha256": "1de53b1426834f8a01dfa674a5031f07750e94fd5e9563a5cdb73e84b8be4a57"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cuda-prelude.h",
+          "bytes": 230991,
+          "sha256": "e144f078ac0e05a07cc94a43e81c50639fb5aac5802a8cecc6dfd970e491b7db"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-deprecated.h",
+          "bytes": 71276,
+          "sha256": "d5928c1adf63159cb3c35d0e73937b41abe86304ade540893457336acf49fc2e"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-gfx.h",
+          "bytes": 97385,
+          "sha256": "12020780e2320c9adf8423a162971d35bfefec2310d0bd2c8321cdc88d8f8924"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-hlsl-prelude.h",
+          "bytes": 214,
+          "sha256": "410b08865422c9e5ecccdfde70a8e461ad66f1a0ba8c8ae678d808e7f6e4891d"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-image-format-defs.h",
+          "bytes": 2471,
+          "sha256": "184948d16aaf606399748273e329b0b4715145b5e1475cb7f9b0b3eaee37ad3d"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-llvm.h",
+          "bytes": 12457,
+          "sha256": "f3b43240c90ce7471299cc8601950386834740b09f35abf891ac977bc9bb35e2"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-tag-version.h",
+          "bytes": 82,
+          "sha256": "f9b7c4da77fcd1dbd492a6a9f13af72970171207033ca283a2bd1f680324aa05"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-torch-prelude.h",
+          "bytes": 5305,
+          "sha256": "a19c113cfd092063af24159ad0f25bbdd71217ea997c9d23b3623921ed53b7be"
+        },
+        {
+          "path": "modules/slang/lib/include/slang.h",
+          "bytes": 183886,
+          "sha256": "78a6a4e36cb73a6426252786ea918b67d10f3564e4cc4fc24747e7ee8a9d7307"
         },
         {
           "path": "modules/slang/linux.jai",
@@ -7914,6 +8369,135 @@
           "path": "module.jai",
           "bytes": 2929,
           "sha256": "b49def9d0e30e9329081b3b623a0eec91f60b62c7d6d111e02d1e69910381430"
+        }
+      ]
+    },
+    {
+      "repository": "ostef/JoltC",
+      "revision": "d395f4138e1d29dfd46884f6ba00ff865248af08",
+      "latest_jai_change": "2026-09-08T12:40:39+02:00",
+      "source_of_truth": "https://github.com/ostef/JoltC/tree/d395f4138e1d29dfd46884f6ba00ff865248af08",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "CMakeLists.txt",
+          "bytes": 7536,
+          "sha256": "c73615d115c7233906fdd1ddde2296d50d870a1ce37c51c8b710954fe6b97176"
+        },
+        {
+          "path": "Examples/HelloWorld.c",
+          "bytes": 7052,
+          "sha256": "af50c8994f6cd5f03ad71e417405c72e2c8d0ad864f7356e8f789cbf9a247777"
+        },
+        {
+          "path": "Examples/HelloWorld.cmake",
+          "bytes": 295,
+          "sha256": "532ae7975e1eb93cc5247b6836f33b47cf48fd74742c15253a5775f76d88929b"
+        },
+        {
+          "path": "JoltC.h",
+          "bytes": 372,
+          "sha256": "a0a21a683f895d9586d8627abab87d6f39ddc975ae59b875d444ff7e95c41274"
+        },
+        {
+          "path": "JoltC.hpp",
+          "bytes": 17156,
+          "sha256": "4c856ee88637ab049abcc878a74762169a1bbf8a7a0ea86218e4fd099a7552af"
+        },
+        {
+          "path": "JoltC_ABITests.cpp",
+          "bytes": 11862,
+          "sha256": "1fbbfee0c60dcb83479dcf6940ed65386053e261eacf3c999b510c0dad50f791"
+        },
+        {
+          "path": "JoltC_Body.cpp",
+          "bytes": 38223,
+          "sha256": "bc7fd7c0203c68706fadd2a15aacc0b75ee20cacee3f08f09cf334d8617c3d63"
+        },
+        {
+          "path": "JoltC_Body.h",
+          "bytes": 26800,
+          "sha256": "92b1691bd4d46f676ba1d38a7764a85f1b5a08652be73af24c66b248ca04c41a"
+        },
+        {
+          "path": "JoltC_Character.cpp",
+          "bytes": 29849,
+          "sha256": "b38e0f928fa78aaadc9febc31d029ed94240426ccc66ed5fa11e3b4fec1f5d04"
+        },
+        {
+          "path": "JoltC_Character.h",
+          "bytes": 18058,
+          "sha256": "5abc0e5db92beb69c909f99426884b1835552e10d4befaac8d3c06197af5f5ab"
+        },
+        {
+          "path": "JoltC_Collision.cpp",
+          "bytes": 31745,
+          "sha256": "6ba1c3556e3929aa81a25d86232c7f8d1f2748352c1cedf7e273a6f9c9ae4ad8"
+        },
+        {
+          "path": "JoltC_Collision.h",
+          "bytes": 23052,
+          "sha256": "21de7f03dafd806630eb59d6067265d3846a149e6ee67346d1530dc3bc4dd76a"
+        },
+        {
+          "path": "JoltC_Constraints.cpp",
+          "bytes": 46317,
+          "sha256": "2d662252532238c2a0274288c1edafa2b4103c3908ff4df2c86d71ffe0a46873"
+        },
+        {
+          "path": "JoltC_Constraints.h",
+          "bytes": 30571,
+          "sha256": "2ba4a6245ece2dd386dbb7718133ceeb4c38642b8b55523fdb7a6c5ba271d2e7"
+        },
+        {
+          "path": "JoltC_Core.cpp",
+          "bytes": 7237,
+          "sha256": "ac4d44a4a7931646cf54efffb0052add88d0a107410c2155b1abb6c140209811"
+        },
+        {
+          "path": "JoltC_Core.h",
+          "bytes": 13778,
+          "sha256": "8503094a14fbfb1f43bab2aaf2488bc9ae0b2965b5c26fbc3728c77c5bd4c52e"
+        },
+        {
+          "path": "JoltC_DebugRenderer.cpp",
+          "bytes": 2177,
+          "sha256": "f07bdf5c59139b9fcfb907b58447cc42fca63710acede377cb0b898bccf2407a"
+        },
+        {
+          "path": "JoltC_DebugRenderer.h",
+          "bytes": 3673,
+          "sha256": "713cbccd4983bbfb30ecec7d1da06d7f06269420536619494385636208db35ab"
+        },
+        {
+          "path": "JoltC_Shapes.cpp",
+          "bytes": 39675,
+          "sha256": "89f65524f9485ff45cc96e9354f814959a2a56dc0ea74ffa82aa9a3adfa18e2e"
+        },
+        {
+          "path": "JoltC_Shapes.h",
+          "bytes": 26419,
+          "sha256": "e0445d1c7e7afbecc35afb207de6c7172ad04eb225344b21f25a782d0a6c1f01"
+        },
+        {
+          "path": "JoltC_System.cpp",
+          "bytes": 9635,
+          "sha256": "f0fd02df07a0fe9b0580979d581002b425ba8ad5e9947c73896ba64e692d05e5"
+        },
+        {
+          "path": "JoltC_System.h",
+          "bytes": 7528,
+          "sha256": "6dc669a9214708d5c05920a99e06149f9d0cb397d8cd9a65d90037e0176de79b"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1074,
+          "sha256": "299d655e83913c5f8fd1a20d8bf1285041211501d147db3bfb707079aa23eae9"
+        },
+        {
+          "path": "README.md",
+          "bytes": 1078,
+          "sha256": "d789f21ebc222241c8afd6a5278b9a6df51b59af5e30335f49e3a239dd6f5330"
         }
       ]
     }

@@ -1,6 +1,7 @@
 //! Runtime type information: one read-only `Type_Info_*` descriptor global
 //! per type, laid out with Preload's reflection structs. A `Type` value at
 //! runtime is the address of its descriptor.
+use super::scope::EntityKind;
 use super::value::Aggregate;
 use super::*;
 use crate::types::{ArrayKind, TypeKind};
@@ -35,7 +36,7 @@ impl Compiler {
                 ..
             } => "Type_Info_Float",
             TypeKind::String => "Type_Info_String",
-            TypeKind::Pointer(_) => "Type_Info_Pointer",
+            TypeKind::Pointer(_) | TypeKind::Null => "Type_Info_Pointer",
             TypeKind::Proc(_) => "Type_Info_Procedure",
             TypeKind::Struct(_) => "Type_Info_Struct",
             TypeKind::Array {
@@ -270,6 +271,9 @@ impl Compiler {
                 signed, ..
             } => self.set_field(&mut agg, desc, "signed", Value::Bool(signed), span)?,
             TypeKind::Pointer(to) => self.set_info_ptr(&mut agg, desc, "pointer_to", to, span)?,
+            TypeKind::Null => {
+                self.set_info_ptr(&mut agg, desc, "pointer_to", TypeId::VOID, span)?
+            }
             TypeKind::Array {
                 elem,
                 kind,
@@ -378,21 +382,47 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let info = self.types.struct_info(s).clone();
+                // Anonymous structs are named after the keyword internally; at runtime
+                // they have no name.
+                let name = match info.name.as_str() {
+                    "struct" | "union" => "",
+                    name => name,
+                };
                 self.set_field(
                     &mut agg,
                     desc,
                     "name",
-                    Value::String(info.name.as_str().as_bytes().into()),
+                    Value::String(name.as_bytes().into()),
                     span,
                 )?;
                 let member_ty = self.preload_type("Type_Info_Struct_Member", span)?;
                 let msize = self.size_of(member_ty, span)?;
                 let malign = self.align_of(member_ty, span)?;
+                // `Type_Info_Flags` from `compiler_set_type_info_flags` plus the directives.
+                let mut tflags = self.type_info_flags.get(&ty).copied().unwrap_or(0);
+                if let Some(src) = self.struct_asts.get(&s) {
+                    if src.lit.flags.type_info_none {
+                        tflags |= 0x1;
+                    }
+                    if src.lit.flags.type_info_procedures_are_void_pointers {
+                        tflags |= 0x2;
+                    }
+                }
+                let (mut fields, bindings) = self.tagged_union_members(s, &info.fields, span)?;
+                if tflags & 0x1 != 0 {
+                    fields.clear();
+                } else if tflags & 0x2 != 0 {
+                    for field in fields.iter_mut() {
+                        if matches!(self.types.kind(field.ty), TypeKind::Proc(_)) {
+                            field.ty = TypeId::VOID_PTR;
+                        }
+                    }
+                }
                 let mut members = Aggregate {
-                    bytes: vec![0; (msize as usize) * info.fields.len()],
+                    bytes: vec![0; (msize as usize) * fields.len()],
                     relocs: Vec::new(),
                 };
-                for (i, field) in info.fields.iter().enumerate() {
+                for (i, field) in fields.iter().enumerate() {
                     let mut m = Aggregate {
                         bytes: vec![0; msize as usize],
                         relocs: Vec::new(),
@@ -437,13 +467,45 @@ impl Compiler {
                     &mut agg,
                     desc,
                     "members",
-                    info.fields.len(),
+                    fields.len(),
                     members,
                     malign,
                     span,
                 )?;
-                if info.is_union {
-                    self.set_field(&mut agg, desc, "textual_flags", Value::Int(0x2), span)?;
+                if !bindings.is_empty() {
+                    self.set_tagged_union_bindings(&mut agg, desc, &bindings, span)?;
+                }
+                // A tagged union (`union(tag) {..}`) is laid out as a struct.
+                let tagged = self
+                    .struct_asts
+                    .get(&s)
+                    .is_some_and(|src| src.lit.tag.is_some());
+                if info.is_union || tagged {
+                    let flags = if tagged {
+                        0x42
+                    } else {
+                        0x2
+                    };
+                    self.set_field(&mut agg, desc, "textual_flags", Value::Int(flags), span)?;
+                }
+                if !info.poly_args.is_empty() {
+                    self.poly_struct_info(&mut agg, desc, s, span)?;
+                }
+                // Notes written on the struct itself: `S :: struct @thing { ... }`.
+                let struct_notes: Vec<Rc<[u8]>> = self
+                    .struct_asts
+                    .get(&s)
+                    .map(|src| {
+                        src.lit
+                            .notes
+                            .iter()
+                            .map(|n| Rc::from(n.text.as_bytes()))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if !struct_notes.is_empty() {
+                    let data = self.string_view(&struct_notes, span)?;
+                    self.set_view(&mut agg, desc, "notes", struct_notes.len(), data, 8, span)?;
                 }
                 let (func, _) = self.initializer_proc(ty, span)?;
                 let Some((path, _)) = self.find_member(desc, Sym::intern("initializer"), span)?
@@ -469,6 +531,289 @@ impl Compiler {
             _ => {}
         }
         Ok(agg)
+    }
+
+    /// The members a struct's type info lists. A tagged union lists its tag, then each
+    /// variant member directly (not the anonymous union holding them), with the
+    /// `(tag value, member index)` pairs selecting them.
+    #[allow(clippy::type_complexity)]
+    fn tagged_union_members(
+        &mut self,
+        s: crate::types::StructId,
+        fields: &[crate::types::Field],
+        span: Span,
+    ) -> Result<(Vec<crate::types::Field>, Vec<(i128, usize)>)> {
+        let Some(src) = self.struct_asts.get(&s).cloned() else {
+            return Ok((fields.to_vec(), Vec::new()));
+        };
+        let (Some(_), [tag, variants]) = (&src.lit.tag, fields) else {
+            return Ok((fields.to_vec(), Vec::new()));
+        };
+        let Some(vs) = self.types.as_struct(variants.ty) else {
+            return Ok((fields.to_vec(), Vec::new()));
+        };
+        self.layout_struct(vs, span)?;
+        let mut flat = vec![tag.clone()];
+        for f in &self.types.struct_info(vs).fields {
+            let mut f = f.clone();
+            f.offset += variants.offset;
+            flat.push(f);
+        }
+        let tag_members = match self.types.kind(tag.ty) {
+            TypeKind::Enum(e) => self.types.enum_info(*e).members.clone(),
+            _ => Vec::new(),
+        };
+        let mut bindings = Vec::new();
+        for stmt in &src.lit.body {
+            let ast::StmtKind::Decl(d) = &stmt.kind else {
+                continue;
+            };
+            let Some(t) = d.union_tag else {
+                continue;
+            };
+            let Some(&(_, value)) = tag_members.iter().find(|(n, _)| *n == t.name) else {
+                continue;
+            };
+            for n in &d.names {
+                if let Some(index) = flat.iter().position(|f| f.name == Some(n.name)) {
+                    bindings.push((value, index));
+                }
+            }
+        }
+        Ok((flat, bindings))
+    }
+
+    /// `tagged_union_bindings` of a tagged union's descriptor.
+    fn set_tagged_union_bindings(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        bindings: &[(i128, usize)],
+        span: Span,
+    ) -> Result<()> {
+        let binding_ty = self.preload_type("Type_Info_Tagged_Union_Binding", span)?;
+        let size = self.size_of(binding_ty, span)?;
+        let align = self.align_of(binding_ty, span)?;
+        let mut items = Aggregate {
+            bytes: vec![0; size as usize * bindings.len()],
+            relocs: Vec::new(),
+        };
+        for (i, &(value, index)) in bindings.iter().enumerate() {
+            let mut b = Aggregate {
+                bytes: vec![0; size as usize],
+                relocs: Vec::new(),
+            };
+            self.set_field(
+                &mut b,
+                binding_ty,
+                "constant_value",
+                Value::Int(value),
+                span,
+            )?;
+            self.set_field(
+                &mut b,
+                binding_ty,
+                "member_index",
+                Value::Int(index as i128),
+                span,
+            )?;
+            structs::write_agg(&mut items, i as u64 * size, &b);
+        }
+        self.set_view(
+            agg,
+            desc,
+            "tagged_union_bindings",
+            bindings.len(),
+            items,
+            align,
+            span,
+        )
+    }
+
+    /// The parameter bindings of a polymorphic struct instance, in declaration
+    /// order (baked ones from `#bake_arguments` first).
+    pub(super) fn poly_struct_bindings(
+        &self,
+        s: crate::types::StructId,
+    ) -> Vec<(Sym, Value, TypeId)> {
+        let Some(scope) = self.struct_asts.get(&s).map(|src| src.scope) else {
+            return Vec::new();
+        };
+        let mut bindings: Vec<(EntityId, Sym, Value, TypeId)> = self
+            .scope(scope)
+            .names
+            .iter()
+            .flat_map(|(&name, ids)| ids.iter().map(move |&e| (name, e)))
+            .filter_map(|(name, e)| match &self.entity(e).kind {
+                EntityKind::Const {
+                    value,
+                    ty,
+                } => Some((e, name, value.clone(), *ty)),
+                _ => None,
+            })
+            .collect();
+        bindings.sort_by_key(|b| b.0);
+        bindings.into_iter().map(|(_, n, v, t)| (n, v, t)).collect()
+    }
+
+    /// `specified_parameters`, `constant_storage` and `polymorph_source_struct`
+    /// of a polymorphic struct instance's runtime descriptor.
+    fn poly_struct_info(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        s: crate::types::StructId,
+        span: Span,
+    ) -> Result<()> {
+        let member_ty = self.preload_type("Type_Info_Struct_Member", span)?;
+        let msize = self.size_of(member_ty, span)?;
+        let malign = self.align_of(member_ty, span)?;
+        let mut storage = Aggregate {
+            bytes: Vec::new(),
+            relocs: Vec::new(),
+        };
+        let mut members = Aggregate {
+            bytes: Vec::new(),
+            relocs: Vec::new(),
+        };
+        let mut count = 0;
+        for (name, value, mut ty) in self.poly_struct_bindings(s) {
+            if self.size_of(ty, span).is_err() {
+                ty = self.type_of_value(&value); // Untyped literal arguments.
+            }
+            let (Ok(size), Ok(align)) = (self.size_of(ty, span), self.align_of(ty, span)) else {
+                continue;
+            };
+            let offset = storage.bytes.len().next_multiple_of(align.max(1) as usize);
+            storage.bytes.resize(offset + size as usize, 0);
+            if let Value::Type(t) = value {
+                let g = self.type_info_global(t, span)?;
+                storage.relocs.push(ir::Reloc {
+                    offset: offset as u64,
+                    target: ir::RelocTarget::Global(g),
+                    addend: 0,
+                });
+            } else if self
+                .write_value(&mut storage, offset as u64, &value, ty, span)
+                .is_err()
+            {
+                storage.bytes.truncate(offset);
+                continue;
+            }
+            let mut m = Aggregate {
+                bytes: vec![0; msize as usize],
+                relocs: Vec::new(),
+            };
+            self.set_field(
+                &mut m,
+                member_ty,
+                "name",
+                Value::String(name.as_str().as_bytes().into()),
+                span,
+            )?;
+            self.set_info_ptr(&mut m, member_ty, "type", ty, span)?;
+            self.set_field(&mut m, member_ty, "flags", Value::Int(0x1), span)?;
+            self.set_field(
+                &mut m,
+                member_ty,
+                "offset_into_constant_storage",
+                Value::Int(offset as i128),
+                span,
+            )?;
+            let at = members.bytes.len() as u64;
+            members.bytes.resize(at as usize + msize as usize, 0);
+            structs::write_agg(&mut members, at, &m);
+            count += 1;
+        }
+        self.set_view(
+            agg,
+            desc,
+            "specified_parameters",
+            count,
+            members,
+            malign,
+            span,
+        )?;
+        let storage_len = storage.bytes.len();
+        self.set_view(agg, desc, "constant_storage", storage_len, storage, 8, span)?;
+
+        // A stand-in descriptor for the generic struct, carrying its name.
+        let size = self.size_of(desc, span)?;
+        let mut generic = Aggregate {
+            bytes: vec![0; size as usize],
+            relocs: Vec::new(),
+        };
+        let name = self.types.struct_info(s).name;
+        self.set_field(&mut generic, desc, "type", Value::Int(tag::STRUCT), span)?;
+        self.set_field(
+            &mut generic,
+            desc,
+            "name",
+            Value::String(name.as_str().as_bytes().into()),
+            span,
+        )?;
+        self.set_field(
+            &mut generic,
+            desc,
+            "nontextual_flags",
+            Value::Int(0x100),
+            span,
+        )?;
+        let align = self.align_of(desc, span)?;
+        let g = self.program.add_global(ir::Global {
+            name: format!("type_info.generic.{}", name.as_str()),
+            size,
+            align,
+            init: generic.bytes,
+            relocs: generic.relocs,
+            read_only: true,
+            export: None,
+        });
+        let Some((path, _)) =
+            self.find_member(desc, Sym::intern("polymorph_source_struct"), span)?
+        else {
+            return Ok(());
+        };
+        let offset = path
+            .iter()
+            .map(|s| {
+                if let structs::PathStep::Offset(o) = s {
+                    *o
+                } else {
+                    0
+                }
+            })
+            .sum();
+        agg.relocs.push(ir::Reloc {
+            offset,
+            target: ir::RelocTarget::Global(g),
+            addend: 0,
+        });
+        Ok(())
+    }
+
+    /// Apply `compiler_set_type_info_flags` calls made by the `#run` that just returned:
+    /// the struct's flags are or-ed in and an already built descriptor is rebuilt.
+    pub fn apply_type_info_flags(&mut self, span: Span) -> Result<()> {
+        for (g, flags) in std::mem::take(&mut self.interp.pending_type_flags) {
+            let Some(ty) = self.type_from_info_global(g) else {
+                continue;
+            };
+            if !matches!(self.types.kind(ty), TypeKind::Struct(_)) {
+                continue;
+            }
+            *self.type_info_flags.entry(ty).or_insert(0) |= flags;
+            let desc = self.type_info_struct_type(ty, span)?;
+            let size = self.size_of(desc, span)?;
+            let agg = self.build_type_info(ty, desc, size, span)?;
+            let global = &mut self.program.globals[g.0 as usize];
+            global.init = agg.bytes;
+            global.relocs = agg.relocs;
+            self.interp
+                .refresh_global(&self.program, g)
+                .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+        }
+        Ok(())
     }
 
     /// Map a type-info descriptor address back to its type (compile-time reads).

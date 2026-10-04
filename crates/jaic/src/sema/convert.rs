@@ -20,7 +20,8 @@ impl Compiler {
         if from == to {
             return Some(EXACT);
         }
-        if to == TypeId::ANY && from != TypeId::VOID && from != TypeId::COMPILE_TIME {
+        // A `void` variable boxes too; a call without a value is rejected by the caller.
+        if to == TypeId::ANY && from != TypeId::COMPILE_TIME {
             return Some(TO_ANY);
         }
         let fk = self.types.kind(from).clone();
@@ -34,14 +35,25 @@ impl Compiler {
                 )
                 .then_some(LITERAL);
             }
+            // Between float overloads a literal prefers float32 (`log(2)` is `log(float32)`).
+            let float_cost = |c: &Self| {
+                if c.types.repr(to) == TypeId::F64 {
+                    LITERAL + 1
+                } else {
+                    LITERAL
+                }
+            };
             if self.types.is_integer(from) {
-                if self.types.is_integer(to) || self.types.is_float(to) {
+                if self.types.is_integer(to) {
                     return Some(LITERAL);
+                }
+                if self.types.is_float(to) {
+                    return Some(float_cost(self));
                 }
                 return None;
             }
             if self.types.is_float(from) {
-                return self.types.is_float(to).then_some(LITERAL);
+                return self.types.is_float(to).then(|| float_cost(self));
             }
         }
         match (&fk, &tk) {
@@ -131,11 +143,28 @@ impl Compiler {
                     kind: ArrayKind::View,
                 },
             ) if fe == te => Some(POINTER),
+            // A fixed array decays to a pointer to its first element (`to_string(props.name)` on a
+            // C `char[256]` field); ranked below view conversions but above boxing into `Any`.
+            (
+                TypeKind::Array {
+                    elem: fe,
+                    kind: ArrayKind::Fixed(_),
+                },
+                TypeKind::Pointer(te),
+            ) if fe == te => Some(INT_TO_FLOAT),
             (TypeKind::Distinct(d), _) if self.types.distincts[d.0 as usize].isa => {
                 let base = self.types.distincts[d.0 as usize].base;
                 self.implicit_cost(base, false, to).map(|c| c + 1)
             }
             (TypeKind::Struct(_), _) => self.as_offset(from, to).map(|_| SUBTYPE),
+            // Auto-dereference: `*Thing` → `Thing` (structs only), also through `#as`.
+            (TypeKind::Pointer(f), TypeKind::Struct(_)) => {
+                let f = *f;
+                if f == to {
+                    return Some(SUBTYPE + 1);
+                }
+                self.as_offset(f, to).map(|_| SUBTYPE + 1)
+            }
             (TypeKind::Proc(a), TypeKind::Proc(b)) => (a == b).then_some(EXACT),
             _ => None,
         }
@@ -374,7 +403,35 @@ impl Compiler {
                 },
             ) => {
                 let n = *n;
-                let (_, addr) = self.address_of(f, op, span)?;
+                // A constant literal viewed as `[] T` lives in its own writable global, as in jai:
+                // the view outlives the procedure (`return .["a", "b"];`) and may be written.
+                let addr = match &op {
+                    Operand::Const {
+                        value: Value::Bytes(agg),
+                        ..
+                    } if n > 0 => {
+                        let size = self.size_of(from, span)?;
+                        let align = self.align_of(from, span)?;
+                        let name = format!("array_literal.{}", self.program.globals.len());
+                        let global = self.program.add_global(ir::Global {
+                            name,
+                            size,
+                            align,
+                            init: agg.bytes.clone(),
+                            relocs: agg.relocs.clone(),
+                            read_only: false,
+                            export: None,
+                        });
+                        f.b.global_addr(global)
+                    }
+                    _ => self.address_of(f, op, span)?.1,
+                };
+                // An empty array views no storage (`.[]` is a null view, not a dangling address).
+                let addr = if n == 0 {
+                    f.b.iconst(Ty::Ptr, 0)
+                } else {
+                    addr
+                };
                 let view = f.b.alloca(16, 8);
                 let count = f.b.iconst(Ty::I64, n);
                 f.b.store(Ty::I64, view, count);
@@ -402,6 +459,19 @@ impl Compiler {
                     val: addr,
                 })
             }
+            (
+                TypeKind::Array {
+                    kind: ArrayKind::Fixed(_),
+                    ..
+                },
+                TypeKind::Pointer(_),
+            ) => {
+                let (_, addr) = self.address_of(f, op, span)?;
+                Ok(Operand::Value {
+                    ty: to,
+                    val: addr,
+                })
+            }
             (TypeKind::Struct(_), _) => {
                 let offset = self.as_offset(from, to).unwrap();
                 let (_, addr) = self.address_of(f, op, span)?;
@@ -409,6 +479,18 @@ impl Compiler {
                 Ok(Operand::Place {
                     ty: to,
                     addr: field,
+                })
+            }
+            (TypeKind::Pointer(inner), TypeKind::Struct(_)) => {
+                let offset = if *inner == to {
+                    0
+                } else {
+                    self.as_offset(*inner, to).unwrap()
+                };
+                let (_, v) = self.rvalue(f, op, span)?;
+                Ok(Operand::Place {
+                    ty: to,
+                    addr: f.b.ptr_offset(v, offset),
                 })
             }
             (TypeKind::Pointer(inner), TypeKind::Pointer(target))
@@ -614,6 +696,27 @@ impl Compiler {
             return Ok(Operand::Value {
                 ty: to,
                 val,
+            });
+        }
+        // A string constant cast to a fixed byte array of matching length.
+        if let Operand::Const {
+            value: Value::String(bytes),
+            ..
+        } = &op
+            && let TypeKind::Array {
+                elem,
+                kind: ArrayKind::Fixed(n),
+            } = self.types.kind(tr).clone()
+            && (elem == TypeId::U8 || elem == TypeId::S8)
+            && n as usize == bytes.len()
+        {
+            return Ok(Operand::Const {
+                ty: to,
+                value: Value::Bytes(std::rc::Rc::new(crate::sema::value::Aggregate {
+                    bytes: bytes.to_vec(),
+                    relocs: Vec::new(),
+                })),
+                untyped: false,
             });
         }
         // Strings and arrays cast to `bool` as "is non-empty".

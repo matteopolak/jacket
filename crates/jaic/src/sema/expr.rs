@@ -52,7 +52,7 @@ impl Compiler {
                 }
             }
             E::Float(v) => Ok(Operand::Const {
-                ty: TypeId::F32,
+                ty: self.float_literal_type(*v, expr.span),
                 value: Value::Float(*v),
                 untyped: true,
             }),
@@ -97,12 +97,13 @@ impl Compiler {
                 if let Some(op) = self.enclosing_local_constant(f, scope, base, member)? {
                     return Ok(op);
                 }
-                if !self.const_string_params.is_empty()
+                if !self.const_macro_params.is_empty()
                     && member.name.as_str() == "count"
                     && let E::Ident(name) = &base.kind
                     && let Some(&id) = self.lookup(scope, *name)?.first()
-                    && let Some(&count) = self.const_string_params.get(&id)
+                    && let Some((Value::String(s), _)) = self.const_macro_params.get(&id)
                 {
+                    let count = s.len();
                     return Ok(Operand::Const {
                         ty: TypeId::S64,
                         value: Value::Int(count as i128),
@@ -113,6 +114,7 @@ impl Compiler {
                 // (`#if table.FLAG`): only the local's type is needed.
                 if f.compile_time
                     && let Some(ty) = self.outer_local_type(scope, base)?
+                    && !self.names_field(self.types.pointee(ty).unwrap_or(ty), member.name)?
                     && let Ok(op) = self.member_access(
                         f,
                         scope,
@@ -267,9 +269,18 @@ impl Compiler {
                 })
             }
             E::Insert {
-                value, ..
+                value,
+                flags,
+                scope: target,
+                ..
             } => {
                 let (inserted, at) = self.eval_insert_expr(scope, value)?;
+                // `#insert,scope() code` resolves names at the insertion site.
+                let at = if target.is_none() && flags.iter().any(|fl| fl.name.as_str() == "scope") {
+                    scope
+                } else {
+                    at
+                };
                 self.check_expr(f, at, &inserted, expected)
             }
             E::Location(target) => {
@@ -316,7 +327,21 @@ impl Compiler {
                     untyped: false,
                 })
             }
-            E::This => self.check_this(scope, span),
+            E::This => {
+                // In a macro body `#this` is the procedure the macro expanded into.
+                let mut result = self.check_this(scope, span);
+                for frame in f.macros.iter().rev() {
+                    if result.is_ok() {
+                        break;
+                    }
+                    result = self.check_this(frame.caller_scope, span);
+                }
+                if let (Err(_), Some(caller)) = (&result, f.backtick_scope) {
+                    // A deferred macro statement runs after its frame is gone.
+                    result = self.check_this(caller, span);
+                }
+                result
+            }
             E::CompileTime => {
                 if f.compile_time {
                     return Ok(Operand::bool(true));
@@ -335,12 +360,35 @@ impl Compiler {
                 };
                 Ok(Operand::bool(exists))
             }
-            E::Bytes(e) => self.check_expr(f, scope, e, expected),
+            E::Bytes(e) => {
+                // Raw machine code cannot run here; the debug-trap encodings (x64 `int3`,
+                // arm64 `brk #0`) still trap.
+                if let E::ArrayLit {
+                    elems, ..
+                } = &e.kind
+                {
+                    let bytes: Vec<u128> = elems
+                        .iter()
+                        .filter_map(|el| match el.kind {
+                            E::Int(v) => Some(v),
+                            _ => None,
+                        })
+                        .collect();
+                    if bytes == [0xCC] || bytes == [0x20, 0x00, 0x20, 0xD4] {
+                        f.b.intrinsic(ir::Intrinsic::DebugBreak, Vec::new(), &[]);
+                        return Ok(Operand::Void);
+                    }
+                }
+                self.check_expr(f, scope, e, expected)
+            }
             E::Backtick(inner) => {
-                let Some(frame) = f.macros.last() else {
-                    return err(span, "backtick names are only valid inside macros");
+                let caller = match (f.macros.last(), f.backtick_scope) {
+                    (_, Some(s)) => s,
+                    (Some(frame), None) => frame.caller_scope,
+                    (None, None) => {
+                        return err(span, "backtick names are only valid inside macros");
+                    }
                 };
-                let caller = frame.caller_scope;
                 self.check_expr(f, caller, inner, expected)
             }
             E::Bake {
@@ -543,12 +591,28 @@ impl Compiler {
         id: EntityId,
         span: Span,
     ) -> Result<Operand> {
+        if self.discard_params.contains(&id) {
+            return err(
+                span,
+                format!(
+                    "'{}' is a #discard parameter and cannot be used in the procedure",
+                    self.entity(id).name
+                ),
+            );
+        }
         match self.entity(id).kind.clone() {
             EntityKind::Local {
                 ty,
                 addr,
                 depth,
             } => {
+                if let Some((value, ty)) = self.const_macro_params.get(&id).cloned() {
+                    return Ok(Operand::Const {
+                        ty,
+                        value,
+                        untyped: false,
+                    });
+                }
                 if depth != self.scope(scope).proc_depth {
                     if let Some((value, ty)) = self.local_consts.get(&id).cloned() {
                         return Ok(Operand::Const {
@@ -649,6 +713,13 @@ impl Compiler {
         }
     }
 
+    /// Is `name` a field (not a constant) of struct type `ty`? Reading one needs a value.
+    fn names_field(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
+        Ok(self.types.as_struct(ty).is_some()
+            && self.struct_constant(ty, name)?.is_none()
+            && self.find_member(ty, name, Span::default())?.is_some())
+    }
+
     /// `local.CONSTANT` where `local` belongs to an enclosing procedure: compile-time code
     /// (an `#insert` procedure) may read a constant member of the local's struct type,
     /// since that needs the type but not the value.
@@ -680,7 +751,7 @@ impl Compiler {
             return Ok(None);
         }
         let ty = self.types.pointee(ty).unwrap_or(ty);
-        if self.types.as_struct(ty).is_none() {
+        if self.types.as_struct(ty).is_none() || self.names_field(ty, member.name)? {
             return Ok(None);
         }
         Ok(self
@@ -718,7 +789,8 @@ impl Compiler {
         scope: ScopeId,
         header: &ast::ProcHeader,
     ) -> Result<TypeId> {
-        let c_call = header.flags.c_call || header.foreign.is_some();
+        // `#cpp_method` procedures use the C calling convention with the object as first argument.
+        let c_call = header.flags.c_call || header.flags.cpp_method || header.foreign.is_some();
         let mut params = Vec::new();
         let mut variadic = false;
         let mut c_varargs = false;
@@ -760,6 +832,7 @@ impl Compiler {
             c_varargs,
             c_call,
             no_context: c_call || header.flags.no_context,
+            non_pod_return: header.flags.cpp_return_type_is_non_pod,
         })));
         if header.params.iter().any(|p| p.default.is_some()) {
             let info = ProcTypeParams {
@@ -853,9 +926,7 @@ impl Compiler {
                         format!("cannot dereference a value of type {}", self.types.name(ty)),
                     );
                 };
-                if pointee == TypeId::VOID {
-                    return err(span, "cannot dereference *void");
-                }
+                // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
                 Ok(Operand::Place {
                     ty: pointee,
                     addr: v,
@@ -962,6 +1033,31 @@ impl Compiler {
     }
 
     /// Give an untyped constant a concrete type from context (or its default).
+    /// The default type of a float literal: `float32`, unless the literal has more significant
+    /// figures than `float32` holds (`12342345234.0`), which makes it `float64` as in Jai.
+    fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
+        if (v as f32) as f64 == v {
+            return TypeId::F32;
+        }
+        let text = self.sources.snippet(span);
+        if text.starts_with("0h") || text.starts_with("0H") {
+            return TypeId::F32;
+        }
+        let mantissa = text.split(['e', 'E']).next().unwrap_or("");
+        let digits: Vec<u8> = mantissa.bytes().filter(u8::is_ascii_digit).collect();
+        let first = digits.iter().position(|&d| d != b'0');
+        let last = digits.iter().rposition(|&d| d != b'0');
+        let significant = match (first, last) {
+            (Some(a), Some(b)) => b - a + 1,
+            _ => 0,
+        };
+        if significant > 7 {
+            TypeId::F64
+        } else {
+            TypeId::F32
+        }
+    }
+
     pub fn settle_untyped(&self, op: Operand, expected: Option<TypeId>) -> Operand {
         match op {
             Operand::Const {
@@ -1079,7 +1175,20 @@ impl Compiler {
         } else {
             expected
         };
-        let mut lhs = self.check_expr(f, scope, a, lhs_expected)?;
+        // `.FIRST == x`: an inferred member on the left takes the right operand's type, so
+        // the right side is checked first.
+        let mut early_rhs = None;
+        let mut lhs = if is_cmp
+            && matches!(a.kind, E::InferredMember(_))
+            && !matches!(b.kind, E::InferredMember(_))
+        {
+            let r = self.check_expr(f, scope, b, None)?;
+            let l = self.check_expr(f, scope, a, Some(r.ty()))?;
+            early_rhs = Some(r);
+            l
+        } else {
+            self.check_expr(f, scope, a, lhs_expected)?
+        };
         // Inferred enum members on the right take the left operand's type.
         let pointer_offset = matches!(op, BinOp::Add | BinOp::Sub)
             && self.types.is_pointer(self.types.repr(lhs.ty()));
@@ -1099,16 +1208,19 @@ impl Compiler {
                 )
             })
         };
-        let mut rhs = self.check_expr(
-            f,
-            scope,
-            b,
-            rhs_expected.or(if is_cmp || is_shift {
-                None
-            } else {
-                expected
-            }),
-        )?;
+        let mut rhs = match early_rhs {
+            Some(r) => r,
+            None => self.check_expr(
+                f,
+                scope,
+                b,
+                rhs_expected.or(if is_cmp || is_shift {
+                    None
+                } else {
+                    expected
+                }),
+            )?,
+        };
         // `s[0] == "-"`: a one-byte string constant compares as that byte.
         if is_cmp {
             let byte_of = |c: &Compiler, op: &Operand, other: &Operand| match op {
@@ -1173,6 +1285,25 @@ impl Compiler {
             && let Some(folded) = self.fold_binary(op, &lhs, &rhs, expected, span)?
         {
             return Ok(folded);
+        }
+        // Two procedure names compare as their addresses.
+        if let (Operand::Procs(l), Operand::Procs(r)) = (&lhs, &rhs)
+            && l.len() == 1
+            && r.len() == 1
+        {
+            let (lt, rt) = (self.proc_type(l[0], span)?, self.proc_type(r[0], span)?);
+            let converted = self.convert(f, lhs, lt, span)?;
+            let (ty, val) = self.rvalue(f, converted, span)?;
+            lhs = Operand::Value {
+                ty,
+                val,
+            };
+            let converted = self.convert(f, rhs, rt, span)?;
+            let (ty, val) = self.rvalue(f, converted, span)?;
+            rhs = Operand::Value {
+                ty,
+                val,
+            };
         }
         // Procedure names compared with procedure values take the value's type.
         if matches!(rhs, Operand::Procs(_)) && !matches!(lhs, Operand::Procs(_)) {
@@ -1279,6 +1410,12 @@ impl Compiler {
         if int_to_float(self, &rhs) {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
+        if ty == TypeId::VOID_PTR && matches!(self.types.kind(lhs.ty()), TypeKind::Proc(_)) {
+            lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
+        }
+        if ty == TypeId::VOID_PTR && matches!(self.types.kind(rhs.ty()), TypeKind::Proc(_)) {
+            rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
+        }
         let lhs = self.convert(f, lhs, ty, span)?;
         let rhs = self.convert(f, rhs, rhs_ty, span)?;
         let (_, x) = self.rvalue(f, lhs, span)?;
@@ -1356,10 +1493,99 @@ impl Compiler {
         } else {
             y
         };
+        let val = f.b.bin(ir_op, t, x, y);
+        if self.options.arithmetic_overflow_check != 0
+            && !f.no_aoc
+            && !f.type_only
+            && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub | ir::BinOp::Mul)
+            && self.types.is_integer(ty)
+            && !matches!(self.types.kind(ty), TypeKind::Enum(_))
+        {
+            self.emit_overflow_check(f, ir_op, signed, t, x, y, span)?;
+        }
         Ok(Operand::Value {
             ty,
-            val: f.b.bin(ir_op, t, x, y),
+            val,
         })
+    }
+
+    /// After `x op y` on integers of IR type `t`: call the runtime's `__arithmetic_overflow`
+    /// when the result did not fit (`Build_Options.arithmetic_overflow_check`).
+    #[allow(clippy::too_many_arguments)]
+    fn emit_overflow_check(
+        &mut self,
+        f: &mut FnCtx,
+        op: ir::BinOp,
+        signed: bool,
+        t: Ty,
+        x: ir::Val,
+        y: ir::Val,
+        span: Span,
+    ) -> Result<()> {
+        use ir::Intrinsic as I;
+        let (intrinsic, operator) = match (op, signed) {
+            (ir::BinOp::Add, true) => (I::SAddOverflow, 1u64),
+            (ir::BinOp::Add, false) => (I::UAddOverflow, 1),
+            (ir::BinOp::Sub, true) => (I::SSubOverflow, 2),
+            (ir::BinOp::Sub, false) => (I::USubOverflow, 2),
+            (ir::BinOp::Mul, true) => (I::SMulOverflow, 3),
+            _ => (I::UMulOverflow, 3),
+        };
+        let Some(runtime) = self.runtime_support else {
+            return Ok(());
+        };
+        let handler = self.module_exports(runtime, Sym::intern("__arithmetic_overflow"))?;
+        let Some(&entity) = handler.first() else {
+            return err(
+                span,
+                "Runtime_Support does not define '__arithmetic_overflow'",
+            );
+        };
+        let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
+            return err(span, "'__arithmetic_overflow' is not a procedure");
+        };
+        let super::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
+            return err(span, "'__arithmetic_overflow' must be defined in Jai");
+        };
+        let width = f.b.iconst(Ty::I64, t.size());
+        let overflowed = f.b.intrinsic(intrinsic, vec![x, y, width], &[Ty::I8])[0];
+        let fail = f.b.new_block();
+        let cont = f.b.new_block();
+        f.b.branch(overflowed, fail, cont);
+        f.b.switch_to(fail);
+        let widen = if signed {
+            ir::ConvOp::SExt
+        } else {
+            ir::ConvOp::ZExt
+        };
+        let (left, right) = if t == Ty::I64 {
+            (x, y)
+        } else {
+            (
+                f.b.conv(widen, t, Ty::I64, x),
+                f.b.conv(widen, t, Ty::I64, y),
+            )
+        };
+        // Same layout as the reference: bit 15 fatal, bit 14 signed, bits 7-8 operator, low bits size.
+        let code = (u64::from(self.options.arithmetic_overflow_check == 2) << 15)
+            | (u64::from(signed) << 14)
+            | (operator << 7)
+            | t.size();
+        let code = f.b.iconst(Ty::I16, code);
+        let file = self.sources.get(span.file);
+        let (line, _) = file.line_col(span.start);
+        let path: Rc<[u8]> = Rc::from(file.path.as_bytes());
+        let line = f.b.iconst(Ty::I64, line as u64);
+        let global = self.string_global(&path);
+        let filename = f.b.global_addr(global);
+        f.b.call(
+            ir::Callee::Func(func),
+            vec![left, right, code, line, filename],
+            &[],
+        );
+        f.b.jump(cont);
+        f.b.switch_to(cont);
+        Ok(())
     }
 
     /// The type an untyped literal takes next to a typed operand: the operand's
@@ -1530,6 +1756,13 @@ impl Compiler {
                     } else {
                         rt
                     });
+                }
+                // A procedure value meets a `*void` as an address (`proc == get_caller_address()`).
+                let is_proc = |c: &Self, t| matches!(c.types.kind(t), TypeKind::Proc(_));
+                if (is_proc(self, lt) && rt == TypeId::VOID_PTR)
+                    || (is_proc(self, rt) && lt == TypeId::VOID_PTR)
+                {
+                    return Ok(TypeId::VOID_PTR);
                 }
                 err(
                     span,
@@ -2030,23 +2263,37 @@ impl Compiler {
             span,
         )?;
         let (_, idx) = self.rvalue(f, index_op, span)?;
+        // Views, dynamic arrays and strings start with their count.
+        let check = !f.no_abc && !f.type_only;
         let (elem, data) = match self.types.kind(self.types.repr(bty)).clone() {
             TypeKind::Array {
                 elem,
-                kind: ArrayKind::Fixed(_),
+                kind: ArrayKind::Fixed(n),
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
+                if check {
+                    let count = f.b.iconst(Ty::I64, n as u64);
+                    f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
+                }
                 (elem, addr)
             }
             TypeKind::Array {
                 elem, ..
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
+                if check {
+                    let count = f.b.load(Ty::I64, addr);
+                    f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
+                }
                 let p = f.b.ptr_offset(addr, 8);
                 (elem, f.b.load(Ty::Ptr, p))
             }
             TypeKind::String => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
+                if check {
+                    let count = f.b.load(Ty::I64, addr);
+                    f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
+                }
                 let p = f.b.ptr_offset(addr, 8);
                 (TypeId::U8, f.b.load(Ty::Ptr, p))
             }

@@ -549,6 +549,7 @@ impl<'a> Lexer<'a> {
     /// `#string TERMINATOR` (optionally `#string,cr TERM` or `#string,\% TERM`).
     fn here_string(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
         let mut escape_percent = false;
+        let mut cr = false;
         loop {
             while matches!(self.peek(0), b' ' | b'\t') {
                 self.at += 1;
@@ -567,7 +568,7 @@ impl<'a> Lexer<'a> {
                 }
                 self.at += 1;
             } else {
-                self.ident();
+                cr |= self.ident() == "cr";
             }
         }
         let tag = self.ident();
@@ -594,10 +595,15 @@ impl<'a> Lexer<'a> {
             let trimmed = &line[indent..];
             if trimmed.starts_with(tag) && trimmed.get(tag.len()).is_none_or(|&c| !is_ident_char(c))
             {
-                let body_end = self.at.saturating_sub(1).max(body_start);
-                let mut body = self.src[body_start..body_end].to_vec();
-                if body.last() == Some(&b'\r') {
-                    body.pop();
+                // Every line ending, including the one before the terminator line, is part of
+                // the string, normalized to `\n` (`\r\n` with `#string,cr`).
+                let mut body = Vec::with_capacity(self.at - body_start);
+                for &c in &self.src[body_start..self.at] {
+                    match c {
+                        b'\r' => {}
+                        b'\n' if cr => body.extend_from_slice(b"\r\n"),
+                        c => body.push(c),
+                    }
                 }
                 if escape_percent {
                     let mut out = Vec::with_capacity(body.len());
@@ -656,8 +662,10 @@ mod tests {
     #[test]
     fn here_strings() {
         let t = kinds("s :: #string END\nhello\n  world\nEND;");
-        assert_eq!(t[2], Tok::Str(b"hello\n  world".as_slice().into()));
+        assert_eq!(t[2], Tok::Str(b"hello\n  world\n".as_slice().into()));
         assert_eq!(t[3], Tok::Punct(P::Semi));
+        let t = kinds("s :: #string,cr END\r\na\r\nb\n  END");
+        assert_eq!(t[2], Tok::Str(b"a\r\nb\r\n".as_slice().into()));
     }
     #[test]
     fn nested_comments_and_escapes() {

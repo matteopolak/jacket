@@ -9,12 +9,11 @@ build = "build.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-jai-runtime = { path = "../jai-runtime" }
 jai-language-server = { path = "../jai-language-server" }
 jaic = { path = "../jaic" }
 
-# Export-name attributes are the only permitted unsafe syntax, in the *exports.rs and
-# language_server.rs modules. The interpreter and bridge use no unsafe blocks or raw host
+# Export-name attributes are the only permitted unsafe syntax, in the play_exports.rs and
+# language_server.rs modules. The playground and language-server bridges use no unsafe blocks or raw host
 # memory pointers (the jaic interpreter's own unsafe stays inside that crate).
 [lints.rust]
 unsafe_code = "deny"

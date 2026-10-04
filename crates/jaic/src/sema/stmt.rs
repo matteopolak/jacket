@@ -30,10 +30,89 @@ impl Compiler {
                 self.declare_local_consts(scope, scope, decl);
             }
         }
-        for stmt in stmts {
+        for (i, stmt) in stmts.iter().enumerate() {
+            if let S::PushContextDefer {
+                context,
+            } = &stmt.kind
+            {
+                // `push_context,defer_pop ctx;` holds for the rest of the block.
+                let current = ast::Expr {
+                    kind: E::Context,
+                    span: stmt.span,
+                };
+                let addr = self.push_context_addr(
+                    f,
+                    scope,
+                    context.as_ref().unwrap_or(&current),
+                    stmt.span,
+                )?;
+                let saved = f.context.replace(addr);
+                let result = self.check_block_stmts_from(f, scope, &stmts[i + 1..]);
+                f.context = saved;
+                return result;
+            }
             self.check_stmt(f, scope, stmt)?;
         }
         Ok(())
+    }
+
+    /// The tail of a block: its constants and imports were already hoisted.
+    fn check_block_stmts_from(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        stmts: &[ast::Stmt],
+    ) -> Result<()> {
+        for (i, stmt) in stmts.iter().enumerate() {
+            if matches!(stmt.kind, S::PushContextDefer { .. }) {
+                return self.check_block_stmts(f, scope, &stmts[i..]);
+            }
+            self.check_stmt(f, scope, stmt)?;
+        }
+        Ok(())
+    }
+
+
+    /// The address of the context a `push_context` installs.
+    fn push_context_addr(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        context: &ast::Expr,
+        span: Span,
+    ) -> Result<crate::ir::Val> {
+        let ctx_ty = self.context_type(span)?;
+        let op = if matches!(context.kind, E::Context) && f.context.is_none() {
+            // `push_context { }` in #c_call code: a fresh default context.
+            let size = self.size_of(ctx_ty, span)?;
+            let align = self.align_of(ctx_ty, span)?;
+            let addr = f.b.alloca(size, align);
+            self.init_default(f, ctx_ty, addr, span)?;
+            Operand::Place {
+                ty: ctx_ty,
+                addr,
+            }
+        } else {
+            self.check_expr(f, scope, context, None)?
+        };
+        let op = match op.ty() {
+            t if t == ctx_ty => op,
+            t if self.types.pointee(t) == Some(ctx_ty) => {
+                let (_, p) = self.rvalue(f, op, span)?;
+                Operand::Place {
+                    ty: ctx_ty,
+                    addr: p,
+                }
+            }
+            t => {
+                return err(
+                    context.span,
+                    format!("push_context needs a Context, found {}", self.types.name(t)),
+                );
+            }
+        };
+        let (_, addr) = self.address_of(f, op, span)?;
+        Ok(addr)
     }
 
     /// Declare the names of a local constant declaration in `target` (and `scope`).
@@ -67,6 +146,14 @@ impl Compiler {
         let inner = self.new_block_scope(scope);
         let depth = f.defers.len();
         match &stmt.kind {
+            S::Block(b) if (b.no_abc && !f.no_abc) || (b.no_aoc && !f.no_aoc) => {
+                let saved = (f.no_abc, f.no_aoc);
+                f.no_abc |= b.no_abc;
+                f.no_aoc |= b.no_aoc;
+                let result = self.check_block_stmts(f, inner, &b.stmts);
+                (f.no_abc, f.no_aoc) = saved;
+                result?
+            }
             S::Block(b) => self.check_block_stmts(f, inner, &b.stmts)?,
             _ => self.check_stmt(f, inner, stmt)?,
         }
@@ -86,7 +173,11 @@ impl Compiler {
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
             S::Expr(e) => {
+                self.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
+                if matches!(e.kind, E::Call { .. }) {
+                    self.check_must_used(e.span, 0)?;
+                }
                 Ok(())
             }
             S::Assign {
@@ -115,12 +206,16 @@ impl Compiler {
             S::Overlay(_) => err(span, "#overlay is not supported"),
             S::PushContextDefer {
                 ..
-            } => err(span, "push_context without a block is not supported yet"),
+            } => err(
+                span,
+                "push_context,defer_pop must be a statement of a block",
+            ),
             S::While {
                 label,
+                bind_label,
                 cond,
                 body,
-            } => self.check_while(f, scope, label.map(|l| l.name), cond, body),
+            } => self.check_while(f, scope, label.map(|l| l.name), *bind_label, cond, body),
             S::For(for_) => self.check_for(f, scope, for_, span),
             S::Break(label) => {
                 let label = label.map(|l| l.name);
@@ -154,6 +249,11 @@ impl Compiler {
                 let entry = DeferEntry {
                     stmt: (**body).clone(),
                     scope,
+                    caller_scope: f
+                        .macros
+                        .last()
+                        .filter(|_| *backtick)
+                        .map(|m| m.caller_scope),
                 };
                 if *backtick && let Some(frame) = f.macros.last_mut() {
                     // Runs when the macro caller's block exits.
@@ -172,37 +272,7 @@ impl Compiler {
                 context,
                 body,
             } => {
-                let ctx_ty = self.context_type(span)?;
-                let op = if matches!(context.kind, E::Context) && f.context.is_none() {
-                    // `push_context { }` in #c_call code: a fresh default context.
-                    let size = self.size_of(ctx_ty, span)?;
-                    let align = self.align_of(ctx_ty, span)?;
-                    let addr = f.b.alloca(size, align);
-                    self.init_default(f, ctx_ty, addr, span)?;
-                    Operand::Place {
-                        ty: ctx_ty,
-                        addr,
-                    }
-                } else {
-                    self.check_expr(f, scope, context, None)?
-                };
-                let op = match op.ty() {
-                    t if t == ctx_ty => op,
-                    t if self.types.pointee(t) == Some(ctx_ty) => {
-                        let (_, p) = self.rvalue(f, op, span)?;
-                        Operand::Place {
-                            ty: ctx_ty,
-                            addr: p,
-                        }
-                    }
-                    t => {
-                        return err(
-                            context.span,
-                            format!("push_context needs a Context, found {}", self.types.name(t)),
-                        );
-                    }
-                };
-                let (_, addr) = self.address_of(f, op, span)?;
+                let addr = self.push_context_addr(f, scope, context, span)?;
                 let saved = f.context.replace(addr);
                 let result = self.check_scoped(f, scope, body);
                 f.context = saved;
@@ -449,6 +519,8 @@ impl Compiler {
                 }
                 (None, None) => return err(span, "declaration needs a type or a value"),
             };
+            // Metaprograms read local declaration types from the exported syntax tree.
+            self.local_decl_types.entry(decl.id).or_insert(ty);
             let size = self.size_of(ty, span)?;
             let mut align = self.align_of(ty, span)?;
             if let Some(a) = &decl.align {
@@ -551,7 +623,12 @@ impl Compiler {
             }
             return Ok(values);
         }
-        Ok(match self.check_expr(f, scope, first, declared)? {
+        self.last_call_must = None;
+        let first_op = self.check_expr(f, scope, first, declared)?;
+        if matches!(first.kind, E::Call { .. }) {
+            self.check_must_used(first.span, names)?;
+        }
+        Ok(match first_op {
             Operand::Multi(vals) if names > 1 => vals
                 .into_iter()
                 .map(|(ty, val)| {
@@ -1027,6 +1104,34 @@ impl Compiler {
                     entity: e,
                 }
             }
+            Operand::Const {
+                ty, ..
+            } if self.types.as_struct(ty).is_some() => {
+                // `using Ice_Cream.{...};`: the literal lives in an anonymous local.
+                let (ty, v) = self.rvalue(f, op, value.span)?;
+                let size = self.size_of(ty, value.span)?;
+                let align = self.align_of(ty, value.span)?;
+                let addr = f.b.alloca(size.max(1), align);
+                self.store_value(f, ty, addr, v, value.span)?;
+                let ptr = self.types.pointer(ty);
+                let slot = self.spill(f, ptr, addr, value.span)?;
+                let depth = self.scope(scope).proc_depth;
+                let e = self.add_entity(
+                    scope,
+                    Sym::intern("\u{0}using"),
+                    value.span,
+                    EntityKind::Local {
+                        ty: ptr,
+                        addr: slot,
+                        depth,
+                    },
+                    false,
+                );
+                UsingEntry::Place {
+                    ty: ptr,
+                    entity: e,
+                }
+            }
             other => {
                 return err(
                     value.span,
@@ -1260,6 +1365,7 @@ impl Compiler {
         f: &mut FnCtx,
         scope: ScopeId,
         label: Option<Sym>,
+        bind_label: bool,
         cond: &ast::Expr,
         body: &ast::Stmt,
     ) -> Result<()> {
@@ -1268,7 +1374,33 @@ impl Compiler {
         let exit = f.b.new_block();
         f.b.jump(head);
         f.b.switch_to(head);
-        let c = self.check_condition(f, scope, cond)?;
+        let (scope, c) = match label.filter(|_| bind_label) {
+            Some(name) => {
+                // `while s := next()`: the value is a local of the loop, besides being its label.
+                let op = self.check_expr(f, scope, cond, Some(TypeId::BOOL))?;
+                let op = self.settle_untyped(op, None);
+                let (ty, v) = self.rvalue(f, op, cond.span)?;
+                let size = self.size_of(ty, cond.span)?;
+                let align = self.align_of(ty, cond.span)?;
+                let addr = f.b.alloca(size.max(1), align);
+                self.store_value(f, ty, addr, v, cond.span)?;
+                let inner = self.new_block_scope(scope);
+                let depth = self.scope(inner).proc_depth;
+                self.add_entity(
+                    inner,
+                    name,
+                    cond.span,
+                    EntityKind::Local {
+                        ty,
+                        addr,
+                        depth,
+                    },
+                    false,
+                );
+                (inner, self.truthy(f, ty, v, cond.span)?)
+            }
+            None => (scope, self.check_condition(f, scope, cond)?),
+        };
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
         f.loops.push(LoopFrame {
@@ -1395,6 +1527,15 @@ impl Compiler {
                 resolved.reverse |= self.eval_static_condition(scope, &cond)?;
             }
             return self.check_for(f, scope, &resolved, span);
+        }
+        let flagged = |name: &str| for_.flags.iter().any(|fl| fl.name.as_str() == name);
+        if (!f.no_abc && flagged("no_abc")) || (!f.no_aoc && flagged("no_aoc")) {
+            let saved = (f.no_abc, f.no_aoc);
+            f.no_abc |= flagged("no_abc");
+            f.no_aoc |= flagged("no_aoc");
+            let result = self.check_for(f, scope, for_, span);
+            (f.no_abc, f.no_aoc) = saved;
+            return result;
         }
         let it_name = for_.it.map_or_else(|| Sym::intern("it"), |i| i.name);
         let index_name = for_
@@ -1593,10 +1734,7 @@ impl Compiler {
                 }
             }
             let wants_pointer = by_pointer && !by_value;
-            let op = if wants_pointer
-                && matches!(op, Operand::Place { .. })
-                && !self.types.is_pointer(cty)
-            {
+            let op = if wants_pointer && !self.types.is_pointer(cty) {
                 let (_, addr) = self.address_of(f, op, span)?;
                 Operand::Value {
                     ty: self.types.pointer(cty),
@@ -1825,6 +1963,8 @@ impl Compiler {
             Rc::new(ast::CodeBody::Block(ast::Block {
                 stmts: vec![(*for_.body).clone()],
                 span: for_.body.span,
+                no_abc: false,
+                no_aoc: false,
             })),
             loop_scope,
         );
@@ -1880,7 +2020,31 @@ impl Compiler {
         replacements: &[ast::Arg],
         span: Span,
     ) -> Result<()> {
-        let op = self.eval_insert_operand(scope, value)?;
+        let mut op = self.eval_insert_operand(scope, value)?;
+        // `#insert,scope(code) "text"`: the text becomes Code inserted there.
+        if target.is_some()
+            && matches!(
+                op,
+                Operand::Const {
+                    value: Value::String(_),
+                    ..
+                }
+            )
+        {
+            let stmts = self.insert_stmts_from(op, value.span)?;
+            let block = ast::Block {
+                stmts,
+                span: value.span,
+                no_abc: false,
+                no_aoc: false,
+            };
+            let code = self.add_code(Rc::new(ast::CodeBody::Block(block)), scope);
+            op = Operand::Const {
+                ty: TypeId::CODE,
+                value: Value::Code(code),
+                untyped: false,
+            };
+        }
         if let Operand::Const {
             value: Value::Code(code),
             ..
@@ -1921,8 +2085,32 @@ impl Compiler {
                 None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
                 None => self.code_scopes[code.0 as usize],
             };
+            // `Top :: #code()` is evaluated in its file's constant-thunk scope: that file.
+            let code_scope = match self.scope(code_scope).parent {
+                Some(parent) if self.thunk_scopes.get(&parent) == Some(&code_scope) => parent,
+                _ => code_scope,
+            };
             let inner = self.new_block_scope(code_scope);
             self.scopes[inner.0 as usize].proc_depth = self.scope(scope).proc_depth;
+            // Constants inserted into a file or module scope are declared there (and
+            // reported to the metaprogram like any top-level declaration).
+            if target.is_some()
+                && matches!(
+                    self.scope(code_scope).kind,
+                    ScopeKind::File | ScopeKind::Module
+                )
+                && let ast::CodeBody::Block(b) = &*body
+            {
+                for stmt in &b.stmts {
+                    if let S::Decl(decl) = &stmt.kind
+                        && decl.kind == ast::DeclKind::Const
+                        && !decl.backtick
+                        && f.hoisted_consts.insert((inner, decl.id))
+                    {
+                        self.declare_local_consts(code_scope, code_scope, decl);
+                    }
+                }
+            }
             return match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
                 ast::CodeBody::Block(b) => self.check_block_stmts(f, inner, &b.stmts),
@@ -1941,20 +2129,50 @@ impl Compiler {
     ) -> Result<()> {
         let frame: MacroFrame = f.macros[frame_index].clone();
         let body = frame.for_body.clone().unwrap();
-        // Alias custom iterator names to the macro's `it` / `it_index`.
+        // A for_expansion that forwards its body (`for_expansion(*inner, body, flags)`):
+        // the macro inserting it declared `it` / `it_index` in its own caller's scope.
+        let mut borrowed = Vec::new();
+        if frame_index + 1 < f.macros.len() {
+            let inserter = f.macros.last().unwrap().caller_scope;
+            for name in ["it", "it_index"] {
+                let name = Sym::intern(name);
+                let missing = self
+                    .scope(body.scope)
+                    .names
+                    .get(&name)
+                    .is_none_or(|ids| ids.is_empty());
+                let found = self
+                    .scope(inserter)
+                    .names
+                    .get(&name)
+                    .and_then(|ids| ids.last().copied());
+                if missing && let Some(id) = found {
+                    let kind = self.entity(id).kind.clone();
+                    borrowed.push((name, self.add_entity(body.scope, name, span, kind, false)));
+                }
+            }
+        }
+        // Alias custom iterator names to the macro's `it` / `it_index`. The renamed
+        // originals are hidden from the body, so an enclosing `it_index` stays visible.
+        let mut hidden = Vec::new();
         for (alias, original) in [(body.it_name, "it"), (body.index_name, "it_index")] {
             if alias.as_str() == original {
                 continue;
             }
+            let original = Sym::intern(original);
             let ids = self
                 .scope(body.scope)
                 .names
-                .get(&Sym::intern(original))
+                .get(&original)
                 .cloned()
                 .unwrap_or_default();
             if let Some(&id) = ids.last() {
                 let kind = self.entity(id).kind.clone();
                 self.add_entity(body.scope, alias, span, kind, false);
+                if let Some(names) = self.scope_mut(body.scope).names.get_mut(&original) {
+                    names.retain(|&e| e != id);
+                }
+                hidden.push((original, id));
             }
         }
         // break/continue in the body target the macro's innermost loop.
@@ -1972,6 +2190,18 @@ impl Compiler {
         let saved = f.macros.split_off(frame_index);
         f.insert_replacements.push(replacements);
         let result = self.check_scoped(f, body.scope, &body.body);
+        for (original, id) in hidden {
+            self.scope_mut(body.scope)
+                .names
+                .entry(original)
+                .or_default()
+                .push(id);
+        }
+        for (name, id) in borrowed {
+            if let Some(names) = self.scope_mut(body.scope).names.get_mut(&name) {
+                names.retain(|&e| e != id);
+            }
+        }
         f.insert_replacements.pop();
         f.macros.extend(saved);
         f.loops.pop();
@@ -2202,7 +2432,10 @@ impl Compiler {
             f.defers.truncate(i);
             let entry = saved[i].clone();
             let inner = self.new_block_scope(entry.scope);
-            self.check_stmt(f, inner, &entry.stmt)?;
+            let saved_backtick = std::mem::replace(&mut f.backtick_scope, entry.caller_scope);
+            let result = self.check_stmt(f, inner, &entry.stmt);
+            f.backtick_scope = saved_backtick;
+            result?;
         }
         f.defers = saved;
         Ok(())

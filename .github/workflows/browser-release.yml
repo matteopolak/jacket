@@ -58,10 +58,10 @@ jobs:
           python3 -m unittest discover -s tools -p test_build_scripting_wasm.py -v
           python3 -m unittest discover -s tools -p test_cargo_build_paths.py -v
           node --test tools/test_browser_release.mjs tools/test_browser_workspace.mjs
-      - name: Test the portable runtime and Wasm boundary without LLVM
+      - name: Test the Wasm boundary and language server without LLVM
         env:
           PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
-        run: rustup run "$PINNED_TOOLCHAIN" cargo test --offline --locked -j 1 -p jai-runtime -p jai-wasm
+        run: rustup run "$PINNED_TOOLCHAIN" cargo test --offline --locked -j 1 -p jai-language-server -p jai-wasm
       - name: Build, execute and package the actual staged compiler
         run: python3 tools/package_browser_release.py --output "$RUNNER_TEMP/jai-browser-release" --target-dir "$CARGO_TARGET_DIR"
       - name: Retain the exact-commit producer assets

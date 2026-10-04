@@ -36,7 +36,7 @@ export async function inspectAssets(directory) {
     const patterns = name.endsWith(".html")
       ? [/<(?:script|link)\b[^>]*\b(?:src|href)\s*=\s*["']([^"']+)["']/gi]
       : name.endsWith(".css") ? [/url\(\s*["']?([^\s"')]+)["']?\s*\)/gi]
-        : [/\b(?:import|export)\s+(?:[^;\n]*?\sfrom\s*)?["']([^"']+)["']/g,
+        : [/(?<![#\w.])\b(?:import|export)\s+(?:[^;\n]*?\sfrom\s*)?["']([^"']+)["']/g,
            /\b(?:import|fetch|Worker|URL)\s*\(\s*["']([^"']+)["']/g];
     for (const pattern of patterns) for (const match of text.matchAll(pattern)) relativeDependency(name, match[1], files);
   }
@@ -75,21 +75,21 @@ export async function checkRelease(directory) {
   const { createEngine } = await import(pathToFileURL(path.join(directory, "engine.mjs")).href);
   assert.equal(typeof createEngine, "function");
   const engine = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")));
-  assert.equal(engine.run("main :: () -> int { return 42; }").exitCode, 42n);
-  assert.equal(engine.run("main :: () -> int { return -9007199254740993; }").exitCode, -9007199254740993n);
-  assert.equal(engine.run("main :: () -> int { return size_of(*int) + 38; }").exitCode, 42n, "Browser pointer layout must be 32-bit");
-  assert.equal(engine.run('seed :: #run answer(); answer :: () -> int { if #compile_time return 40; return 900; } main :: () -> int { if #compile_time return 700; return seed + 2; }').exitCode, 42n);
-  assert.equal(engine.run('#load "nested/helper.jai"; main :: () -> int { return answer; }', { files: { "nested/helper.jai": "answer :: 42;" } }).exitCode, 42n);
-  assert.equal(engine.run('#load "lib/one.jai"; main :: () -> int { return answer; }', { files: { "lib/one.jai": '#load "../two.jai"; answer :: result;', "two.jai": "result :: 42;" } }).exitCode, 42n, "Nested parent paths stay inside the virtual root");
-  for (const name of ["../escape.jai", "/elsewhere/extra.jai", "C:/extra.jai", "a\\b.jai"]) assert.throws(() => engine.run("main :: () -> int { return 42; }", { files: { [name]: "unused :: 1;" } }), /(?:virtual|relative|filename)/);
-  assert.throws(() => engine.run("main :: () { while true {} }", { fuel: 100 }), /Fuel/);
-  assert.throws(() => engine.run("main :: () -> int { return missing; }"), /missing/);
+  const play = (source, files = {}) => engine.play({ ...files, "main.jai": source }, "main.jai");
+  assert.equal(play("main :: () -> int { return 42; }").exitCode, 42);
+  assert.equal(play("main :: () -> int { if OS == .WASM return 42; return 1; }").exitCode, 42, "Browser builds target WASM");
+  assert.equal(play('seed :: #run answer(); answer :: () -> int { if #compile_time return 40; return 900; } main :: () -> int { if #compile_time return 700; return seed + 2; }').exitCode, 42);
+  assert.equal(play('#load "nested/helper.jai"; main :: () -> int { return answer; }', { "nested/helper.jai": "answer :: 42;" }).exitCode, 42);
+  assert.equal(play('#load "lib/one.jai"; main :: () -> int { return answer; }', { "lib/one.jai": '#load "../two.jai"; answer :: result;', "two.jai": "result :: 42;" }).exitCode, 42, "Nested parent paths stay inside the virtual root");
+  const missing = play("main :: () -> int { return missing; }");
+  assert.equal(missing.exitCode, null);
+  assert(missing.diagnostics.some(item => /missing/.test(item.message)));
   const requiresLanguageServer = await lstat(path.join(directory, "lsp-client.mjs")).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; });
   if (requiresLanguageServer) assert.equal(typeof engine.lsp, "function", "Rich editor requires the real shared language-server Wasm bridge");
   const lsp = typeof engine.lsp === "function";
   if (lsp) {
     checkLanguageServer(engine);
-    assert.equal(engine.run("main :: () -> int { return 42; }").exitCode, 42n, "LSP document state must not replace runtime source");
+    assert.equal(play("main :: () -> int { return 42; }").exitCode, 42, "LSP document state must not replace runtime source");
   }
   const worker = await checkWorkers(directory);
   return { commit: release.commit, runtime: true, lsp, worker };
@@ -99,5 +99,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
   if (!(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === "--report"))) throw new Error("usage: node tools/check_browser_release.mjs <staged-directory> [--report <json-path>]");
   const result = await checkRelease(path.resolve(process.argv[2]));
   if (process.argv[3] === "--report") await writeFile(process.argv[4], JSON.stringify(result) + "\n");
-  console.log(`PASS: staged real browser compiler ${result.commit}, runtime=true, lsp=${result.lsp}, source execution, phase, bundle, fuel and diagnostics`);
+  console.log(`PASS: staged real browser compiler ${result.commit}, runtime=true, lsp=${result.lsp}, source execution, phase, bundle and diagnostics`);
 }

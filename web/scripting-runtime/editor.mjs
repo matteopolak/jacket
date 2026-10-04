@@ -108,10 +108,7 @@ function connectRunWorker(worker) {
   worker.onmessage = ({ data }) => {
     if (data.type !== "run" || data.id !== job) return;
     if (data.play) showPlay(data.play);
-    else {
-      result.textContent = data.error ?? `Exit code: ${data.result.exitCode}\nInterpreter steps: ${data.result.steps}`;
-      if (data.consoleText) result.textContent = `${data.consoleText}\n${result.textContent}`;
-    }
+    else result.textContent = data.error ?? "The compiler returned no result.";
     idle();
   };
   worker.onerror = event => { result.textContent = event.message || "Execution worker failed."; worker.terminate(); if (runWorker === worker) runWorker = undefined; idle(); };
@@ -120,12 +117,10 @@ function connectRunWorker(worker) {
 run.onclick = async () => {
   let currentJob;
   try {
-    const args = JSON.parse($("#arguments").value); if (!Array.isArray(args) || args.some(arg => typeof arg !== "string")) throw new Error("Arguments must be a JSON array of strings.");
-    const fuel = Number($("#fuel").value); if (!Number.isInteger(fuel) || fuel < 0 || fuel > 0xffffffff) throw new Error("The execution step limit must be an integer from 0 to 4,294,967,295.");
     const snapshot = workspace.snapshot(); currentJob = ++job;
     run.disabled = true; cancel.disabled = false; outputPanel("output"); result.textContent = "Checking and running…";
     if (!runWorker) { pendingRun = new AbortController(); const initialized = await initWorker(pendingRun.signal); pendingRun = undefined; if (currentJob !== job) { initialized.worker.terminate(); return; } connectRunWorker(initialized.worker); }
-    runWorker.postMessage({ type: "run", id: currentJob, source: snapshot.source, options: { arguments: args, fuel, files: snapshot.files } });
+    runWorker.postMessage({ type: "run", id: currentJob, source: snapshot.source, options: { files: snapshot.files } });
   } catch (error) { if (currentJob !== undefined && currentJob !== job) return; result.textContent = error.message; idle(); }
 };
 cancel.onclick = () => { ++job; pendingRun?.abort(); pendingRun = undefined; runWorker?.terminate(); runWorker = undefined; result.textContent = "Cancelled."; idle(); };

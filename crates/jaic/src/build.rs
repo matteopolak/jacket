@@ -58,6 +58,10 @@ pub struct BuildSettings {
     pub optimization: String,
     pub additional_linker_arguments: Vec<String>,
     pub temporary_storage_size: Option<i64>,
+    pub array_bounds_check: Option<bool>,
+    /// 0 = OFF, 1 = NONFATAL, 2 = FATAL (`Options::arithmetic_overflow_check`).
+    pub arithmetic_overflow_check: Option<u8>,
+    pub stack_trace: Option<bool>,
 }
 
 impl Default for BuildSettings {
@@ -73,6 +77,9 @@ impl Default for BuildSettings {
             optimization: String::new(),
             additional_linker_arguments: Vec::new(),
             temporary_storage_size: None,
+            array_bounds_check: None,
+            arithmetic_overflow_check: None,
+            stack_trace: None,
         }
     }
 }
@@ -166,7 +173,8 @@ const PHASE_POST_WRITE_EXECUTABLE: i64 = 4;
 /// The workspace registry of one top-level compilation.
 pub struct Workspaces {
     env: BuildEnv,
-    /// Index = workspace id; 0 is unused, 1 is the top-level program.
+    /// Index = workspace id; 0 and 1 are unused (`jai` reserves workspace 1, so the top-level
+    /// program is workspace 2 and the first created workspace is 3).
     list: Vec<Workspace>,
     /// Workspace whose compile-time code is running.
     current: Vec<i64>,
@@ -198,7 +206,9 @@ pub enum MetaOp {
     CustomLinkComplete,
     AddStringToModule,
     CodeNodes,
+    ParseCode,
     ModifyProcedure,
+    SetTypeInfoFlags,
     RecTag,
     RecField,
     RecInt,
@@ -208,6 +218,8 @@ pub enum MetaOp {
     RecItemInt,
     RecItemString,
     RecItemRef,
+    Clang,
+    ClangText,
 }
 
 impl MetaOp {
@@ -229,7 +241,9 @@ impl MetaOp {
             "__jaic_custom_link_complete" => Self::CustomLinkComplete,
             "__jaic_workspace_add_string_to_module" => Self::AddStringToModule,
             "__jaic_code_nodes" => Self::CodeNodes,
+            "__jaic_parse_code" => Self::ParseCode,
             "__jaic_modify_procedure" => Self::ModifyProcedure,
+            "__jaic_set_type_info_flags" => Self::SetTypeInfoFlags,
             "__jaic_rec_tag" => Self::RecTag,
             "__jaic_rec_field" => Self::RecField,
             "__jaic_rec_int" => Self::RecInt,
@@ -239,32 +253,41 @@ impl MetaOp {
             "__jaic_rec_item_int" => Self::RecItemInt,
             "__jaic_rec_item_string" => Self::RecItemString,
             "__jaic_rec_item_ref" => Self::RecItemRef,
+            "__jaic_clang" => Self::Clang,
+            "__jaic_clang_text" => Self::ClangText,
             _ => return None,
         })
     }
 }
+
+/// Id of the program being compiled by the command line (workspace 1 is reserved, as in `jai`).
+pub const TOP_LEVEL_WORKSPACE: i64 = 2;
 
 pub const COMPILER_VERSION: &str = "the, jaic";
 
 impl Workspaces {
     /// A registry whose workspace 1 is the top-level program.
     pub fn new(env: BuildEnv) -> SharedWorkspaces {
-        let mut top = Workspace::new("Main Workspace".into());
+        let mut top = Workspace::new("Target Program".into());
         // The embedder compiles the top-level program itself.
         top.stage = Stage::Checked;
         Rc::new(RefCell::new(Workspaces {
             env,
-            list: vec![Workspace::new(String::new()), top],
-            current: vec![1],
+            list: vec![
+                Workspace::new(String::new()),
+                Workspace::new(String::new()),
+                top,
+            ],
+            current: vec![TOP_LEVEL_WORKSPACE],
             event: Event::default(),
             strings: Vec::new(),
             records: Records::default(),
         }))
     }
 
-    /// Settings of the top-level program (workspace 1).
+    /// Settings of the top-level program (workspace 2).
     pub fn top_level_settings(&self) -> BuildSettings {
-        self.list[1].settings.clone()
+        self.list[TOP_LEVEL_WORKSPACE as usize].settings.clone()
     }
 
     /// Whether any workspace compilation failed.
@@ -285,7 +308,7 @@ impl Workspaces {
     }
 
     fn current_id(&self) -> i64 {
-        *self.current.last().unwrap_or(&1)
+        *self.current.last().unwrap_or(&TOP_LEVEL_WORKSPACE)
     }
 
     fn set_option(&mut self, id: i64, key: &str, value: &str) -> Result<(), String> {
@@ -325,7 +348,16 @@ impl Workspaces {
             "additional_linker_arguments_clear" => s.additional_linker_arguments.clear(),
             "additional_linker_argument" => s.additional_linker_arguments.push(value.into()),
             "temporary_storage_size" => s.temporary_storage_size = value.parse().ok(),
-            // Accepted and ignored: checks, stack traces, added-string dumps...
+            "array_bounds_check" => s.array_bounds_check = Some(value != "OFF"),
+            "arithmetic_overflow_check" => {
+                s.arithmetic_overflow_check = Some(match value {
+                    "NONFATAL" => 1,
+                    "FATAL" => 2,
+                    _ => 0,
+                })
+            }
+            "stack_trace" => s.stack_trace = Some(value == "true"),
+            // Accepted and ignored: checks, added-string dumps...
             _ => {}
         }
         Ok(())
@@ -376,6 +408,15 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     if let Some(size) = settings.temporary_storage_size {
         options.temporary_storage_size = size;
     }
+    if let Some(check) = settings.array_bounds_check {
+        options.array_bounds_check = check;
+    }
+    if let Some(check) = settings.arithmetic_overflow_check {
+        options.arithmetic_overflow_check = check;
+    }
+    if let Some(trace) = settings.stack_trace {
+        options.stack_trace = trace;
+    }
     let mut compiler = Box::new(Compiler::new(options, fs));
     compiler.interp.host = host;
     compiler.workspace = id;
@@ -416,6 +457,7 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
             std::mem::take(&mut ws.modifications),
         )
     };
+    let mut lowering = false;
     let mut compiler = match compiler.take() {
         Some(c) => c,
         None => new_compiler(shared, id)?,
@@ -444,11 +486,18 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
                 events.push(phase(PHASE_TYPECHECKED_ALL_WE_CAN));
                 Stage::Checked
             }),
-        Stage::Checked => compiler.finish_program().map(|()| Stage::Done),
+        // Out of sources: lower what is reachable first; what that reports may make
+        // the metaprogram add more before the program is generated.
+        Stage::Checked => {
+            compiler.lower_reachable();
+            lowering = true;
+            Ok(Stage::Checked)
+        }
         Stage::Done => unreachable!(),
     });
     let intercepted = shared.borrow_mut().ws(id)?.intercepted;
     let mut file_events = Vec::new();
+    let mut reported = false;
     if intercepted {
         // The registry's records are taken out while the compiler exports:
         // resolving declarations may run compile-time code.
@@ -463,8 +512,10 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
                 record,
             ));
         }
-        if matches!(result, Ok(Stage::Checked)) {
+        // After the final lowering too: procedure bodies are reported once lowered.
+        if matches!(result, Ok(Stage::Checked | Stage::Done)) {
             if let Some(message) = compiler.export_typechecked(&mut records) {
+                reported = true;
                 // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
                 for (kind, record) in compiler.export_file_events(&mut records) {
                     file_events.push(record_event(
@@ -484,11 +535,21 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
         let added = std::mem::replace(&mut reg.records, records);
         debug_assert!(added.is_empty());
     }
+    // Lowering reported more: the metaprogram gets another TYPECHECKED_ALL_WE_CAN to
+    // add code. Otherwise the program is complete.
+    let result = match result {
+        Ok(_) if lowering && reported => {
+            events.push(phase(PHASE_TYPECHECKED_ALL_WE_CAN));
+            Ok(Stage::Checked)
+        }
+        Ok(_) if lowering => compiler.finish_program().map(|()| Stage::Done),
+        other => other,
+    };
     shared.borrow_mut().current.pop();
     let mut failed = false;
     let next = match result {
         Ok(Stage::Done) => {
-            failed = !write_output(shared, id, &compiler, &mut events)?;
+            failed = !write_output(shared, id, &mut compiler, &mut events)?;
             Stage::Done
         }
         Ok(next) => next,
@@ -523,7 +584,7 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
 fn write_output(
     shared: &SharedWorkspaces,
     id: i64,
-    compiler: &Compiler,
+    compiler: &mut Compiler,
     events: &mut Vec<Event>,
 ) -> Result<bool, String> {
     events.push(phase(PHASE_ALL_TARGET_CODE_BUILT));
@@ -538,6 +599,7 @@ fn write_output(
         ints: vec![PHASE_PRE_WRITE_EXECUTABLE, 0],
         strings: vec![name.clone()],
     });
+    compiler.prepare_compiled_output();
     let written = {
         let mut reg = shared.borrow_mut();
         match reg.env.backend.as_mut() {
@@ -578,7 +640,7 @@ fn output_path(settings: &BuildSettings, compiler: &Compiler) -> PathBuf {
 /// Compile every workspace created but never driven by a message loop
 /// (Jai compiles them after the metaprogram's `#run` returns).
 pub fn finish_all(shared: &SharedWorkspaces) -> Result<(), String> {
-    let mut id = 2;
+    let mut id = TOP_LEVEL_WORKSPACE + 1;
     while id < shared.borrow().list.len() as i64 {
         while shared.borrow().list[id as usize].stage != Stage::Done {
             step(shared, id)?;
@@ -630,6 +692,14 @@ pub fn call(
         interp.write(out + 8, &data.to_le_bytes());
     };
     match op {
+        MetaOp::SetTypeInfoFlags => {
+            // (type: Type, flags): applied by the compiler after the running `#run` returns.
+            let Some((global, 0)) = interp.global_at(arg(0)) else {
+                return Err(trap("compiler_set_type_info_flags: not a type".into()));
+            };
+            interp.pending_type_flags.push((global, arg(1) as u32));
+            Ok(Vec::new())
+        }
         MetaOp::WorkspaceCreate => {
             let name = text(interp, 0);
             let mut reg = shared.borrow_mut();
@@ -683,7 +753,7 @@ pub fn call(
         }
         MetaOp::NextEvent => {
             let id = arg(0) as i64;
-            if id == shared.borrow().current_id() || id == 1 {
+            if id == shared.borrow().current_id() || id == TOP_LEVEL_WORKSPACE {
                 // A workspace cannot wait on its own compilation.
                 return Ok(vec![0]);
             }
@@ -784,6 +854,20 @@ pub fn call(
             result.ptr("root", root).refs("expressions", nodes);
             Ok(vec![reg.records.add(result) as u64])
         }
+        MetaOp::ParseCode => {
+            let (source, scope_from) = (text(interp, 0), arg(1) as usize);
+            if scope_from >= interp.codes.len() {
+                return Err(trap(
+                    "compiler_get_code: no code to take the scope from".into(),
+                ));
+            }
+            let body = parse_code_text(crate::source::FileId(u32::MAX), &source)
+                .map_err(|e| trap(format!("compiler_get_code: {e}")))?;
+            let id = interp.codes.len();
+            interp.codes.push((body, source.into()));
+            interp.made_codes.push((id, scope_from));
+            Ok(vec![id as u64])
+        }
         MetaOp::ModifyProcedure => {
             let (id, body, data, count) = (arg(0) as i64, arg(1) as i64, arg(2), arg(3));
             let stmts = (0..count)
@@ -791,6 +875,16 @@ pub fn call(
                 .collect();
             let mut reg = shared.borrow_mut();
             reg.ws(id).map_err(trap)?.modifications.push((body, stmts));
+            Ok(Vec::new())
+        }
+        MetaOp::Clang => {
+            let (name, bytes) = (text(interp, 0), string(interp, 3));
+            crate::clang::call(&name, arg(1) as i64, arg(2) as i64, &bytes)
+                .map(|v| vec![v as u64])
+                .map_err(trap)
+        }
+        MetaOp::ClangText => {
+            return_string(interp, &crate::clang::last_text(), 0);
             Ok(Vec::new())
         }
         MetaOp::RecTag => {
@@ -841,4 +935,24 @@ pub fn call(
             Ok(Vec::new())
         }
     }
+}
+
+/// Parse the source text of a `Code` value (an expression, statement or block).
+pub fn parse_code_text(
+    file: crate::source::FileId,
+    text: &str,
+) -> Result<Rc<crate::ast::CodeBody>, String> {
+    let source = format!("__jaic_code :: #code {text};\n");
+    let parsed = crate::parser::parse_file(file, &source).map_err(|d| d.message.clone())?;
+    parsed
+        .stmts
+        .into_iter()
+        .find_map(|s| match s.kind {
+            crate::ast::StmtKind::Decl(d) => match d.value.as_ref().map(|v| &v.kind) {
+                Some(crate::ast::ExprKind::Code(body)) => Some(body.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .ok_or_else(|| "could not parse the printed code".to_string())
 }

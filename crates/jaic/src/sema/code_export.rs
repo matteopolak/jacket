@@ -70,6 +70,10 @@ pub struct ExportState {
     pub bodies: HashMap<i64, ProcId>,
     /// Statement behind each exported statement record.
     pub stmts: HashMap<i64, Rc<ast::Stmt>>,
+    /// Procedures whose header went out but whose body is not lowered yet:
+    /// (procedure, header record, scope for type expressions). The body is reported
+    /// in a later TYPECHECKED message, once lowered (like Jai, unused bodies never are).
+    pending_bodies: Vec<(ProcId, i64, ScopeId)>,
 }
 
 /// A FILE or IMPORT message: (event kind, message record).
@@ -193,10 +197,35 @@ impl Compiler {
             }
             decls.push((id, decl, index, home));
         }
-        if decls.is_empty() {
+        // Bodies lowered since their header was reported.
+        let pending = std::mem::take(&mut self.export.pending_bodies);
+        let (ready, waiting): (Vec<_>, Vec<_>) = pending
+            .into_iter()
+            .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
+        self.export.pending_bodies = waiting;
+        if decls.is_empty() && ready.is_empty() {
             return None;
         }
         let mut out = Typechecked::default();
+        for (p, header_id, scope) in ready {
+            let lit = self.proc(p).lit.clone();
+            let Some(body) = &lit.body else {
+                continue;
+            };
+            let mut ex = Exporter {
+                c: Some(self),
+                r,
+                scope,
+                sub: Vec::new(),
+                out: &mut out,
+            };
+            let body_id = ex.body(body, header_id, Some(p));
+            let sub = std::mem::take(&mut ex.sub);
+            if let Some(header) = r.get_mut(header_id) {
+                header.ptr("body_or_null", body_id);
+            }
+            out.bodies.push((body_id, sub));
+        }
         for (id, decl, index, home) in decls {
             let Ok(resolved) = self.resolve_entity(id) else {
                 continue;
@@ -257,17 +286,14 @@ impl Compiler {
     /// `compiler_modify_procedure`: give the procedure of body record `body`
     /// the statements `stmts` (statement records exported from this
     /// workspace, or `#code` roots from `compiler_get_nodes`, parsed again
-    /// here). Bodies already compiled keep their code.
+    /// here). A body already lowered is lowered again.
     pub fn modify_procedure(&mut self, r: &Records, body: i64, stmts: &[i64]) -> Result<()> {
         // Bodies of procedure literals without a procedure of their own (nested
         // in other bodies) cannot be modified; they keep their code.
         let Some(&p) = self.export.bodies.get(&body) else {
             return Ok(());
         };
-        if !matches!(
-            self.proc(p).body_state,
-            procs::BodyState::NotNeeded | procs::BodyState::Queued
-        ) {
+        if self.proc(p).body_state == procs::BodyState::Lowering {
             return Ok(());
         }
         let old = self.proc(p).lit.clone();
@@ -293,9 +319,14 @@ impl Compiler {
             body: Some(ast::Block {
                 stmts: new_stmts,
                 span: old_body.span,
+                no_abc: old_body.no_abc,
+                no_aoc: old_body.no_aoc,
             }),
         };
         self.procs[p.0 as usize].lit = Rc::new(lit);
+        if self.proc(p).body_state == procs::BodyState::Done {
+            self.lower_body(p)?;
+        }
         Ok(())
     }
 
@@ -326,36 +357,16 @@ impl Compiler {
     /// (`Type` parameters) are listed in `__constant_pointers` as (offset,
     /// record) pairs for the metaprogram to patch.
     fn poly_parameters(&mut self, r: &mut Records, s: crate::types::StructId, rec: &mut Record) {
-        let Some((lit, scope)) = self
-            .struct_asts
-            .get(&s)
-            .map(|src| (src.lit.clone(), src.scope))
-        else {
+        let Some(span) = self.struct_asts.get(&s).map(|src| src.lit.span) else {
             return;
         };
-        let span = lit.span;
         let mut storage = value::Aggregate {
             bytes: Vec::new(),
             relocs: Vec::new(),
         };
         let mut params = Vec::new();
         let mut pointers = Vec::new();
-        // The bindings of the instance, baked ones (`#bake_arguments`) first.
-        let mut bindings: Vec<(EntityId, Sym, Value, TypeId)> = self
-            .scope(scope)
-            .names
-            .iter()
-            .flat_map(|(&name, ids)| ids.iter().map(move |&e| (name, e)))
-            .filter_map(|(name, e)| match &self.entity(e).kind {
-                EntityKind::Const {
-                    value,
-                    ty,
-                } => Some((e, name, value.clone(), *ty)),
-                _ => None,
-            })
-            .collect();
-        bindings.sort_by_key(|b| b.0);
-        for (_, name, value, mut ty) in bindings {
+        for (name, value, mut ty) in self.poly_struct_bindings(s) {
             if self.size_of(ty, span).is_err() {
                 ty = self.type_of_value(&value); // Untyped literal arguments.
             }
@@ -906,16 +917,7 @@ impl Exporter<'_> {
             }
             E::Block(block) => return self.block(&block.stmts, 1, block.span),
             E::Struct(lit) => return self.struct_lit(lit, None, Sym::intern("")),
-            E::Enum(lit) => {
-                let notes: Vec<&ast::Note> = lit.notes.iter().collect();
-                let notes = self.notes(&notes);
-                let mut rec = self.node("Code_Enum", node::ENUM, span);
-                rec.refs("notes", notes)
-                    .int("marked_as_complete", lit.complete as i64)
-                    .int("marked_as_specified", lit.specified as i64)
-                    .int("is_flags", lit.flags_enum as i64);
-                rec
-            }
+            E::Enum(lit) => return self.enum_lit(lit, None, span),
             E::Run {
                 ..
             } => self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span),
@@ -1195,10 +1197,14 @@ impl Exporter<'_> {
         self.add(rec)
     }
 
-    /// A declaration inside a body or struct (no resolved type).
+    /// A declaration inside a body or struct, with its type once the body was lowered.
     fn local_decl(&mut self, d: &ast::Decl) -> i64 {
         let name = d.names.first().map_or(Sym::intern(""), |n| n.name);
-        self.decl(d, name, None, None)
+        let ty = self
+            .c
+            .as_deref()
+            .and_then(|c| c.local_decl_types.get(&d.id).copied());
+        self.decl(d, name, ty, None, true)
     }
 
     fn decl(
@@ -1207,6 +1213,7 @@ impl Exporter<'_> {
         name: Sym,
         ty: Option<TypeId>,
         expression: Option<i64>,
+        statement: bool,
     ) -> i64 {
         let type_inst = d.ty.as_ref().map_or(0, |t| self.type_inst(t));
         let expression = match expression {
@@ -1239,6 +1246,9 @@ impl Exporter<'_> {
             .ptr("expression", expression)
             .int("flags", flags)
             .refs("notes", notes);
+        if statement {
+            rec.int("node_flags", 0x4); // ALLOWED_BY_CONTEXT
+        }
         self.add(rec)
     }
 
@@ -1265,6 +1275,7 @@ impl Exporter<'_> {
             } => {
                 let expression = match d.value.as_ref().map(|v| &v.kind) {
                     Some(ast::ExprKind::Struct(lit)) => Some(self.struct_lit(lit, Some(*t), name)),
+                    Some(ast::ExprKind::Enum(lit)) => Some(self.enum_lit(lit, Some(*t), span)),
                     _ => None,
                 };
                 (Some(*ty), expression)
@@ -1284,7 +1295,27 @@ impl Exporter<'_> {
             } => (Some(*ty), None),
             _ => (None, None),
         };
-        self.decl(d, name, ty, expression)
+        self.decl(d, name, ty, expression, false)
+    }
+
+    /// An enum literal; `external_type` is its type when the declaration resolved to one.
+    fn enum_lit(&mut self, lit: &ast::EnumLit, defined: Option<TypeId>, span: Span) -> i64 {
+        let notes: Vec<&ast::Note> = lit.notes.iter().collect();
+        let notes = self.notes(&notes);
+        let external = defined
+            .filter(|&t| {
+                self.c
+                    .as_deref()
+                    .is_some_and(|c| matches!(c.types.kind(t), TypeKind::Enum(_)))
+            })
+            .map_or(0, |t| self.ty(t));
+        let mut rec = self.node("Code_Enum", node::ENUM, span);
+        rec.refs("notes", notes)
+            .ptr("external_type", external)
+            .int("marked_as_complete", lit.complete as i64)
+            .int("marked_as_specified", lit.specified as i64)
+            .int("is_flags", lit.flags_enum as i64);
+        self.add(rec)
     }
 
     /// A struct literal. Without a concrete type (polymorphic structs, anonymous
@@ -1324,6 +1355,18 @@ impl Exporter<'_> {
         id
     }
 
+    /// A `Code_Procedure_Body` record for `body`, belonging to header record `header_id`.
+    fn body(&mut self, body: &ast::Block, header_id: i64, proc: Option<ProcId>) -> i64 {
+        let block = self.block(&body.stmts, 1, body.span);
+        let mut rec = self.node("Code_Procedure_Body", node::PROCEDURE_BODY, body.span);
+        rec.ptr("block", block).ptr("header", header_id);
+        let body_id = self.add(rec);
+        if let (Some(p), Some(c)) = (proc, self.c.as_deref_mut()) {
+            c.export.bodies.insert(body_id, p);
+        }
+        body_id
+    }
+
     /// A procedure header (and its body). `decl_notes` are the notes of the
     /// declaration naming it: Jai attaches notes after a body to both.
     fn proc(
@@ -1359,7 +1402,7 @@ impl Exporter<'_> {
                 span: param.span,
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
-            arguments.push(self.decl(&decl, name, ty, None));
+            arguments.push(self.decl(&decl, name, ty, None, false));
         }
         let mut returns = Vec::new();
         for (i, ret) in h.returns.iter().enumerate() {
@@ -1384,7 +1427,7 @@ impl Exporter<'_> {
                 span: ret.span,
             };
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
-            returns.push(self.decl(&decl, name, ty, None));
+            returns.push(self.decl(&decl, name, ty, None, false));
         }
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
         for n in decl_notes {
@@ -1444,16 +1487,24 @@ impl Exporter<'_> {
         }
         let header_id = self.r.reserve("Code_Procedure_Header");
         let mut body_id = 0;
-        if let Some(body) = &lit.body {
-            let block = self.block(&body.stmts, 1, body.span);
-            let mut rec = self.node("Code_Procedure_Body", node::PROCEDURE_BODY, body.span);
-            rec.ptr("block", block).ptr("header", header_id);
-            body_id = self.add(rec);
-            if let Some((p, _)) = &resolved {
-                if let Some(c) = self.c.as_deref_mut() {
-                    c.export.bodies.insert(body_id, *p);
-                }
+        // A procedure's body is reported once it is lowered; until then only its header.
+        let deferred = match (&resolved, self.c.as_deref()) {
+            (Some((p, _)), Some(c)) => {
+                let info = c.proc(*p);
+                lit.body.is_some()
+                    && !info.is_poly
+                    && !info.is_macro
+                    && info.body_state != procs::BodyState::Done
             }
+            _ => false,
+        };
+        if deferred {
+            let (p, _) = resolved.as_ref().unwrap();
+            let scope = self.scope;
+            let c = self.c.as_deref_mut().unwrap();
+            c.export.pending_bodies.push((*p, header_id, scope));
+        } else if let Some(body) = &lit.body {
+            body_id = self.body(body, header_id, resolved.as_ref().map(|(p, _)| *p));
         }
         let mut rec = self.node("Code_Procedure_Header", node::PROCEDURE_HEADER, span);
         let foreign_name = match h.foreign.as_ref().map(|f| &f.name) {
@@ -1499,6 +1550,13 @@ pub fn export_code(r: &mut Records, body: &ast::CodeBody, source: &str) -> (i64,
     };
     let root = match body {
         ast::CodeBody::Expr(e) => ex.expr(e),
+        // `#code a := 1;` without braces is the bare statement, not a block.
+        ast::CodeBody::Block(b) if b.stmts.len() == 1 && !source.trim_start().starts_with('{') => {
+            match ex.stmt(&b.stmts[0]) {
+                Some(id) => id,
+                None => ex.block(&b.stmts, 1, b.span),
+            }
+        }
         ast::CodeBody::Block(b) => ex.block(&b.stmts, 1, b.span),
     };
     let sub = std::mem::take(&mut ex.sub);

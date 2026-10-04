@@ -1,87 +1,82 @@
-// Authored consumers: exact record, real backing ownership, context allocator use.
+// Authored consumer: block headers, accounting, resize and retained blocks.
 #import "Basic";
 P :: #import "Pool";
 #load "storage-allocator-tracker.jai";
 
 Pool_Layout :: struct {
-    memblock_size: int;
-    bytes_left: int;
-    current_block: *void;
-    current_pos: int;
+    memblock_size: s64 = 65536;
+    oversized_size: s64 = 6554;
+    alignment := 8;
+    current_memblock: *void;
+    current_pos: *u8;
+    bytes_left: s64;
+    block_allocator: Allocator;
+    unused_memblocks: *void;
+    used_memblocks: *void;
+    first_used_memblock: *void;
+    out_of_band_allocations: *void;
+    overwrite_memory := false;
+    free_memblocks_on_reset := false;
+    logging_options: enum_flags u32 {
+        LOG_OVERSIZED_ALLOCATIONS :: 0x1;
+        LOG_OVERSIZED_ALLOCATIONS_AS_ERRORS :: 0x2;
+        LOG_OVERSIZED_ALLOCATIONS_STACK_TRACE :: 0x4;
+    }
 }
 #assert size_of(P.Pool) == size_of(Pool_Layout);
-
-Pool_Thing :: struct { number: int = 23; label: string = "default"; }
+#assert P.HEADER_SIZE == 8;
 
 check_pool_contract :: () -> int {
     if !storage_same_layout(P.Pool, Pool_Layout) return 1;
-    initial: P.Pool;
-    if initial.memblock_size != 0 || initial.bytes_left != 0 || initial.current_block != null || initial.current_pos != 0 return 2;
-    before := Allocator.{P.pool_allocator_proc, *initial};
-    caps, name := get_capabilities_info(before);
-    if name != "modules/Pool" || (caps & .IS_THIS_YOURS) == 0 || (caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) == 0 return 3;
-    if initial.current_block != null || (caps & .CREATE_HEAP) != 0 || (caps & .MULTIPLE_THREADS) != 0 return 4;
+    pool: P.Pool;
+    if pool.memblock_size != 65536 || pool.oversized_size != 6554 || pool.alignment != 8 || pool.block_allocator.proc || pool.overwrite_memory || pool.free_memblocks_on_reset return 2;
+    pointer_type := cast(*Type_Info_Pointer)type_of(pool.current_memblock);
+    header_type := cast(*Type_Info_Struct)pointer_type.pointer_to;
+    if header_type.runtime_size != P.HEADER_SIZE || header_type.members.count != 2 return 3;
+    if header_type.members[0].name != "next" || header_type.members[0].offset_in_bytes != 0 || header_type.members[1].name != "data" || header_type.members[1].offset_in_bytes != 8 || header_type.members[1].type.runtime_size != 0 return 4;
+    allocator := Allocator.{P.pool_allocator_proc, *pool};
+    caps, name := get_capabilities_info(allocator);
+    if name != "modules/Pool" || (caps & .IS_THIS_YOURS) == 0 || (caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) == 0 return 5;
+    allocator.proc(.STARTUP, 0, 0, null, allocator.data);
+    if pool.block_allocator.proc return 6;
 
     trace: Storage_Allocation_Trace;
     backing := storage_trace_allocator(*trace);
-    pool: P.Pool;
+    pool.memblock_size = 64;
+    pool.oversized_size = 128;
+    pool.overwrite_memory = true;
     P.set_allocators(*pool, backing);
     defer P.release(*pool);
-    pool.memblock_size = 128;
-    first := cast(*u8)P.get(*pool, 64);
-    if !first || (cast(u64)first & 7) != 0 return 5;
-    first[0] = 73;
-    second := cast(*u8)P.get(*pool, 64);
-    if !second || first == second || pool.bytes_left != 56 || pool.current_pos != 72 return 6;
-    second[0] = 91;
-    allocator := Allocator.{P.pool_allocator_proc, *pool};
-    if !allocator.proc(.IS_THIS_YOURS, 0, 0, first, allocator.data) || !allocator.proc(.IS_THIS_YOURS, 0, 0, second, allocator.data) return 7;
-    outside: u8;
-    if allocator.proc(.IS_THIS_YOURS, 0, 0, *outside, allocator.data) return 8;
+    first := cast(*u8)P.get(*pool, 16);
+    first_block := pool.current_memblock;
+    if !first || first != cast(*u8)first_block + P.HEADER_SIZE || pool.bytes_left != 40 || first[0] != 204 return 7;
+    used, oversized := P.calculate_used_memory(pool);
+    if used != 24 || oversized != 0 return 8;
+    first[0] = 37;
+    second := cast(*u8)P.get(*pool, 48);
+    if !second || second == first || pool.current_memblock.next != first_block || pool.first_used_memblock != first_block || pool.bytes_left != 8 return 9;
+    used, oversized = P.calculate_used_memory(pool);
+    if used != 120 || oversized != 0 return 10;
+    large := cast(*u8)P.get(*pool, 128);
+    if !large || !pool.out_of_band_allocations || (cast(u64)large & 7) != 0 return 11;
+    used, oversized = P.calculate_used_memory(pool);
+    if used != 120 || oversized != 1 return 12;
+    smaller := cast(*u8)allocator.proc(.RESIZE, 8, 16, first, allocator.data);
+    if !smaller || smaller == first || smaller[0] != 37 || pool.bytes_left != 0 return 13;
+    grown := cast(*u8)allocator.proc(.RESIZE, 32, 8, smaller, allocator.data);
+    if !grown || grown == smaller || grown[0] != 37 || pool.bytes_left != 24 return 14;
+    used, oversized = P.calculate_used_memory(pool);
+    if used != 168 || oversized != 1 || trace.allocations != 4 return 15;
     allocator.proc(.FREE, 0, 0, first, allocator.data);
-    if first[0] != 73 || second[0] != 91 return 9;
-    smaller := allocator.proc(.RESIZE, 8, 64, first, allocator.data);
-    if smaller != first return 10;
-    larger := cast(*u8)allocator.proc(.RESIZE, 160, 64, first, allocator.data);
-    if !larger || larger == first || larger[0] != 73 return 11;
-    if allocator.proc(.ALLOCATE, -1, 0, null, allocator.data) != null return 12;
+    allocator.proc(.SHUTDOWN, 0, 0, null, allocator.data);
+    if first[0] != 37 || trace.frees != 0 || !allocator.proc(.IS_THIS_YOURS, 0, 0, grown, allocator.data) || !allocator.proc(.IS_THIS_YOURS, 0, 0, large, allocator.data) return 16;
     P.reset(*pool);
-    reused := cast(*u8)P.get(*pool, 64);
-    if reused != first || reused[0] != 73 return 13;
-    {
-        push_allocator(allocator);
-        thing := New(Pool_Thing);
-        if !thing || thing.number != 23 || thing.label != "default" return 14;
-        if !allocator.proc(.IS_THIS_YOURS, 0, 0, thing, allocator.data) return 15;
-    }
+    if trace.frees != 1 || trace.outstanding != 3 || pool.used_memblocks || pool.first_used_memblock || pool.current_memblock || pool.current_pos || pool.bytes_left != 0 || pool.out_of_band_allocations return 17;
+    if first[0] != 204 || second[0] != 204 || smaller[0] != 204 || grown[0] != 204 || P.get(*pool, 16) != grown return 18;
     P.release(*pool);
-    if trace.outstanding != 0 || trace.allocations != trace.frees || pool.current_block != null || pool.bytes_left != 0 || pool.current_pos != 0 return 16;
-
-    limited: Storage_Allocation_Trace;
-    limited.limit = 2;
-    limited_backing := storage_trace_allocator(*limited);
-    failed: P.Pool;
-    P.set_allocators(*failed, limited_backing);
-    failed.memblock_size = 128;
-    saved := cast(*u8)P.get(*failed, 64);
-    if !saved return 17;
-    saved[0] = 31;
-    if P.get(*failed, 64) != null || saved[0] != 31 return 18;
-    P.reset(*failed);
-    if P.get(*failed, 64) != saved return 19;
-    P.release(*failed);
-    if limited.outstanding != 0 return 20;
-
-    lazy: P.Pool;
-    lazy.memblock_size = 128;
-    lazy_allocator := Allocator.{P.pool_allocator_proc, *lazy};
-    {
-        push_allocator(lazy_allocator);
-        memory := alloc(16);
-        if !memory || !lazy_allocator.proc(.IS_THIS_YOURS, 0, 0, memory, lazy_allocator.data) return 21;
-    }
-    lazy_allocator.proc(.SHUTDOWN, 0, 0, null, lazy_allocator.data);
-    if lazy.current_block != null || lazy.bytes_left != 0 return 22;
+    if trace.outstanding != 0 || trace.frees != 4 || pool.unused_memblocks || pool.used_memblocks || pool.current_pos return 19;
+    used, oversized = P.calculate_used_memory(pool);
+    if used != 0 || oversized != 0 return 20;
     return 0;
 }
 

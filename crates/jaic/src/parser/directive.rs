@@ -125,6 +125,8 @@ impl Parser<'_> {
                     RunBody::Block(Block {
                         stmts: vec![other],
                         span,
+                        no_abc: false,
+                        no_aoc: false,
                     })
                 }
             }
@@ -155,6 +157,8 @@ impl Parser<'_> {
             CodeBody::Block(Block {
                 stmts: vec![statement],
                 span,
+                no_abc: false,
+                no_aoc: false,
             })
         } else {
             // `#code a := 1` and `#code x = x + 1` are statements without a terminator.
@@ -166,6 +170,8 @@ impl Parser<'_> {
                     CodeBody::Block(Block {
                         stmts: vec![stmt],
                         span,
+                        no_abc: false,
+                        no_aoc: false,
                     })
                 }
             }
@@ -236,6 +242,8 @@ impl Parser<'_> {
             ExprKind::Block(Block {
                 stmts: vec![super::stmt::stmt(make(label), span)],
                 span,
+                no_abc: false,
+                no_aoc: false,
             }),
             span,
         ))
@@ -249,6 +257,8 @@ impl Parser<'_> {
             ExprKind::Block(Block {
                 stmts: vec![assert],
                 span,
+                no_abc: false,
+                no_aoc: false,
             }),
             span,
         ))
@@ -277,7 +287,12 @@ impl Parser<'_> {
                 _ => {}
             }
         }
-        let ty = self.parse_unary()?;
+        // `#type (...)` is always a procedure type: `#type (*T)` takes one `*T` argument.
+        let ty = if self.at(P::LParen) {
+            self.parse_proc_expr(crate::ast::CallHintFlag::None)?
+        } else {
+            self.parse_unary()?
+        };
         let span = start.to(ty.span);
         Ok(mk(
             ExprKind::TypeDirective {
@@ -383,9 +398,14 @@ impl Parser<'_> {
             name: sym,
             span: start,
         };
-        if self.flags_before_string_ahead() {
-            self.parse_directive_flags()?;
-        }
+        let flags = if self.flags_before_string_ahead() {
+            self.parse_directive_flags()?
+                .into_iter()
+                .map(|f| f.name)
+                .collect()
+        } else {
+            Vec::new()
+        };
         let operand = if matches!(self.tok(), Tok::Str(_)) {
             Some(Box::new(self.parse_primary()?))
         } else {
@@ -395,6 +415,7 @@ impl Parser<'_> {
         Ok(mk(
             ExprKind::UnknownDirective {
                 name,
+                flags,
                 operand,
             },
             start.to(end),

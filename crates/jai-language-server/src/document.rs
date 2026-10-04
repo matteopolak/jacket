@@ -1,11 +1,6 @@
 use crate::{Error, Range};
-use jai_source::{SourceProvider, SourceTextSnapshot};
 use serde::Deserialize;
-use std::{
-    collections::BTreeMap,
-    io,
-    path::{Path, PathBuf},
-};
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentUri {
@@ -130,51 +125,14 @@ pub struct TextChange {
     pub text: String,
 }
 
-/// A closed immutable source observation. It never consults an OS filesystem.
+/// A closed immutable snapshot of the open documents. It never consults an OS filesystem.
 #[derive(Clone, Debug, Default)]
 pub struct VirtualSources {
-    pub(crate) files: BTreeMap<PathBuf, SourceTextSnapshot>,
+    pub(crate) files: BTreeMap<String, String>,
 }
-impl SourceProvider for VirtualSources {
-    fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
-        let normalized = self.normalize(path)?;
-        if self.files.contains_key(&normalized) {
-            Ok(normalized)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "document is not open",
-            ))
-        }
-    }
-    fn normalize(&self, path: &Path) -> io::Result<PathBuf> {
-        let text = path.to_str().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "document path is not UTF-8")
-        })?;
-        normalize(text)
-            .map(PathBuf::from)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
-    }
-    fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
-        Ok(self
-            .files
-            .get(&self.canonicalize(path)?)
-            .expect("checked open document")
-            .text()
-            .as_bytes()
-            .to_vec())
-    }
-    fn is_file(&self, path: &Path) -> bool {
-        self.canonicalize(path).is_ok()
-    }
-    fn retain_decoded_text(&self, path: &Path, text: &str) -> io::Result<SourceTextSnapshot> {
-        let snapshot = &self.files[&self.canonicalize(path)?];
-        if snapshot.text() != text {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "decoded document does not match the pinned source observation",
-            ));
-        }
-        Ok(snapshot.clone())
+impl VirtualSources {
+    /// Text of an open document by absolute path; unopened or escaping paths are `None`.
+    pub fn read(&self, path: &str) -> Option<&str> {
+        self.files.get(&normalize(path).ok()?).map(String::as_str)
     }
 }

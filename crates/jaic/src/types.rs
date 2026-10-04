@@ -26,6 +26,9 @@ pub struct ProcType {
     pub c_varargs: bool,
     pub c_call: bool,
     pub no_context: bool,
+    /// `#cpp_return_type_is_non_pod`: a struct result is returned through a hidden
+    /// result pointer even when the C ABI would return it in registers.
+    pub non_pod_return: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
