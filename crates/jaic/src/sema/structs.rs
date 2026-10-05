@@ -617,7 +617,12 @@ impl Compiler {
                 }
                 FieldItem::Field(d) => {
                     let size = self.size_of(d.ty, d.span)?;
-                    let a = self.align_of(d.ty, d.span)?.max(d.align.unwrap_or(1));
+                    // A member's `#align N` replaces its natural alignment, also when smaller:
+                    // generated bindings use it for fields that C packs (`#pragma pack`).
+                    let a = match d.align {
+                        Some(n) if n > 0 => n,
+                        _ => self.align_of(d.ty, d.span)?,
+                    };
                     align = align.max(a);
                     let offset = if let Some(offset) = overlay.take() {
                         // Shares storage: the cursor stays where it was.
