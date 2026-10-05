@@ -9,7 +9,8 @@
 //! used as hash keys. Handles are valid until the translation unit is disposed.
 //!
 //! Only the libclang found on the host is used (`JAI_LIBCLANG`, the Xcode and
-//! Command Line Tools copies, Homebrew LLVM, then the system loader).
+//! Command Line Tools copies, Homebrew LLVM, then the system loader), preferring
+//! one new enough to report base class offsets (see `open_api`).
 #![allow(unsafe_code)]
 
 use std::cell::RefCell;
@@ -192,7 +193,7 @@ struct Api {
     objc_type_arg: unsafe extern "C" fn(CxType, c_uint) -> CxType,
     modified_type: unsafe extern "C" fn(CxType) -> CxType,
     is_virtual_base: unsafe extern "C" fn(CxCursor) -> c_uint,
-    /// libclang 16+; older ones leave virtual base offsets unknown.
+    /// libclang 20+; older ones leave virtual base offsets unknown.
     offset_of_base: Option<unsafe extern "C" fn(CxCursor, CxCursor) -> i64>,
 }
 
@@ -226,59 +227,118 @@ thread_local! {
     static STATE: RefCell<Option<State>> = const { RefCell::new(None) };
 }
 
+/// Directories under `parent` named `{prefix}{version}` (Homebrew's `llvm@22`, Debian's
+/// `llvm-18`), newest version first.
+fn versioned_dirs(parent: &str, prefix: &str) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return Vec::new();
+    };
+    let mut dirs: Vec<(u32, std::path::PathBuf)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let version = name.strip_prefix(prefix)?.split('.').next()?.parse().ok()?;
+            Some((version, e.path()))
+        })
+        .collect();
+    dirs.sort_by(|a, b| b.cmp(a));
+    dirs.into_iter().map(|(_, path)| path).collect()
+}
+
+/// Where libclang is looked for when no path is given (`JAI_LIBCLANG` comes first).
 fn candidates() -> Vec<String> {
     let mut list = Vec::new();
-    if let Ok(path) = std::env::var("JAI_LIBCLANG") {
-        list.push(path);
-    }
-    for dir in [
+    let mut dirs: Vec<String> = [
         "/Library/Developer/CommandLineTools/usr/lib",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib",
         "/opt/homebrew/opt/llvm/lib",
         "/usr/local/opt/llvm/lib",
-        "/usr/lib",
-        "/usr/lib64",
-        "/usr/lib/x86_64-linux-gnu",
-        "/usr/lib/aarch64-linux-gnu",
-    ] {
+    ]
+    .map(String::from)
+    .to_vec();
+    // Keg-only Homebrew versions (`brew install llvm@22`) are not linked to `opt/llvm`.
+    for parent in ["/opt/homebrew/opt", "/usr/local/opt"] {
+        for dir in versioned_dirs(parent, "llvm@") {
+            dirs.push(format!("{}/lib", dir.display()));
+        }
+    }
+    dirs.extend(
+        [
+            "/usr/lib",
+            "/usr/lib64",
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib/aarch64-linux-gnu",
+        ]
+        .map(String::from),
+    );
+    for dir in dirs {
         list.push(format!("{dir}/libclang.dylib"));
         list.push(format!("{dir}/libclang.so"));
     }
-    if let Ok(entries) = std::fs::read_dir("/usr/lib") {
-        let mut llvm: Vec<_> = entries
-            .flatten()
-            .filter(|e| e.file_name().to_string_lossy().starts_with("llvm-"))
-            .map(|e| e.path())
-            .collect();
-        llvm.sort();
-        llvm.reverse();
-        for dir in llvm {
-            // `libclang.so` comes with the -dev package; the runtime package has only `.so.1`.
-            list.push(format!("{}/lib/libclang.so", dir.display()));
-            list.push(format!("{}/lib/libclang.so.1", dir.display()));
-        }
+    for dir in versioned_dirs("/usr/lib", "llvm-") {
+        // `libclang.so` comes with the -dev package; the runtime package has only `.so.1`.
+        list.push(format!("{}/lib/libclang.so", dir.display()));
+        list.push(format!("{}/lib/libclang.so.1", dir.display()));
     }
     list.push("libclang.dylib".into());
     list.push("libclang.so".into());
     list
 }
 
+/// Loads libclang. An explicit path (the argument, then `JAI_LIBCLANG`) is used as is. Of the
+/// usual install locations, the first libclang that reports base class offsets
+/// (`clang_getOffsetOfBase`, libclang 20+) wins, so the generated bindings do not depend on
+/// which toolchain happens to come first (Xcode 16's libclang predates it); without one, the
+/// first that loads is used.
 fn open_api(explicit: &str) -> Result<(Api, String), String> {
-    let mut paths = Vec::new();
+    let mut chosen: Vec<String> = Vec::new();
     if !explicit.is_empty() {
-        paths.push(explicit.to_string());
+        chosen.push(explicit.to_string());
     }
-    paths.extend(candidates());
-    for path in paths {
-        let Ok(c) = CString::new(path.clone()) else {
-            continue;
+    if let Ok(path) = std::env::var("JAI_LIBCLANG")
+        && !path.is_empty()
+    {
+        chosen.push(path);
+    }
+    let mut error = None;
+    for path in chosen {
+        match load_api(&path) {
+            Ok(Some(api)) => return Ok((api, path)),
+            Ok(None) => {}
+            Err(e) => error = error.or(Some(e)),
+        }
+    }
+    let mut fallback = None;
+    for path in candidates() {
+        match load_api(&path) {
+            Ok(Some(api)) if api.offset_of_base.is_some() => return Ok((api, path)),
+            Ok(Some(api)) => {
+                if fallback.is_none() {
+                    fallback = Some((api, path));
+                }
+            }
+            Ok(None) => {}
+            Err(e) => error = error.or(Some(e)),
+        }
+    }
+    if let Some(found) = fallback {
+        return Ok(found);
+    }
+    Err(error.unwrap_or_else(|| "could not find a libclang (set JAI_LIBCLANG to its path)".into()))
+}
+
+/// The entry points of the libclang at `path` (`None` when it does not exist or will not load).
+fn load_api(path: &str) -> Result<Option<Api>, String> {
+    {
+        let Ok(c) = CString::new(path) else {
+            return Ok(None);
         };
-        if path.starts_with('/') && !std::path::Path::new(&path).exists() {
-            continue;
+        if path.starts_with('/') && !std::path::Path::new(path).exists() {
+            return Ok(None);
         }
         let handle = unsafe { dlopen(c.as_ptr(), 2) };
         if handle.is_null() {
-            continue;
+            return Ok(None);
         }
         macro_rules! sym {
             ($name:literal) => {{
@@ -400,9 +460,8 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
                 }
             },
         };
-        return Ok((api, path));
+        Ok(Some(api))
     }
-    Err("could not find a libclang (set JAI_LIBCLANG to its path)".into())
 }
 
 impl State {

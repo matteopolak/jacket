@@ -74,7 +74,9 @@ main :: () {
         assert(has(BINDINGS, "__vptr: *void; // C++ virtual bases make the class dynamic"));
         assert(has(BINDINGS, "using base: Base; // C++ virtual base"));
         assert(has(BINDINGS, "using small: Small #align 4; // C++ virtual base") || has(BINDINGS, "using small: Small; // C++ virtual base"));
-        assert(has(BINDINGS, "(virtual base) has unexpected offset"));
+        // libclang before 20 cannot report virtual base offsets (jaic prefers a newer one when
+        // several are installed); the generator then says so instead of checking the offset.
+        assert(has(BINDINGS, "(virtual base) has unexpected offset") || has(BINDINGS, "// C++ virtual base (offset unknown to this libclang)"));
         assert(has(BINDINGS, "// jai: a base class has C++ virtual bases"));
         assert(has(BINDINGS, "take :: (v: /*reference*/ *s32) -> void"));
         assert(has(BINDINGS, "take_1 :: (v: /*const reference*/ *s32) -> void"));
