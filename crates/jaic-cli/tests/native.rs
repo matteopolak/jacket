@@ -136,6 +136,28 @@ fn stdlib_tests_run_natively() {
     }
 }
 
+/// `#asm` lowers to portable IR, so the instruction tests (expectations recorded on x86 hardware, or
+/// hand-computed for AVX-512) must also pass in compiled code on any host, arm64 included.
+#[test]
+fn asm_instructions_run_natively() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-asm-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in [
+        "asm-scalar-extended",
+        "asm-simd-extended",
+        "asm-avx512-masks",
+    ] {
+        let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
+        let output = build_and_run(&source, &dir, name).unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "ok\n",
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
 /// Compiled code maintains `context.stack_trace` (`jaic::stack_trace::instrument`): call lines, depth,
 /// a trace through an inline procedure, and the trace an assertion prints.
 #[test]

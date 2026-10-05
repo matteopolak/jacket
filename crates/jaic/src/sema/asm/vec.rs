@@ -20,9 +20,11 @@ use super::*;
 use crate::ast::AsmMemTerm;
 
 #[derive(Clone, Copy)]
-enum VOpd {
+pub(super) enum VOpd {
     /// A vector register (`Ptr` to its 64 bytes).
     Reg(Val),
+    /// An op-mask register (`Ptr` to its 64-bit local).
+    Mask(Val),
     /// Memory at an `I64` address (also a Jai variable).
     Mem(Val),
     /// A general-purpose register or scalar variable.
@@ -38,7 +40,7 @@ enum VOpd {
 
 /// Lane-wise binary operations.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Lane {
+pub(super) enum Lane {
     Add,
     Sub,
     Mul,
@@ -99,8 +101,8 @@ enum VOp {
     /// (index size, element size).
     Gather(u64, u64),
     Nop,
-    /// `kmovb/w/d/q`: mask registers are 64-bit vector-class locals (bytes moved).
-    Kmov(u64),
+    /// Everything in `asm/simd.rs`.
+    Ext(simd::SOp),
 }
 
 /// Lane size in bytes, for EVEX broadcast and masking.
@@ -108,6 +110,7 @@ fn elem_size(op: VOp) -> u64 {
     match op {
         VOp::Bin(_, ty, _) | VOp::Sqrt(ty, _) | VOp::Abs(ty) | VOp::Shift(_, ty) => ty.size(),
         VOp::Broadcast(size) | VOp::Movmsk(size) => size,
+        VOp::Ext(s) => simd::elem_size(s),
         _ => 4,
     }
 }
@@ -136,8 +139,11 @@ fn lookup_vec(name: &str) -> Option<VOp> {
         "pbroadcastw" => VOp::Broadcast(2),
         "pbroadcastd" => VOp::Broadcast(4),
         "pbroadcastq" => VOp::Broadcast(8),
-        "broadcasti128" | "broadcastf128" | "broadcasti32x4" | "broadcastf32x4" => {
-            VOp::Broadcast(16)
+        "broadcasti32x2" | "broadcastf32x2" => VOp::Broadcast(8),
+        "broadcasti128" | "broadcastf128" | "broadcasti32x4" | "broadcastf32x4"
+        | "broadcasti64x2" | "broadcastf64x2" => VOp::Broadcast(16),
+        "broadcasti32x8" | "broadcastf32x8" | "broadcasti64x4" | "broadcastf64x4" => {
+            VOp::Broadcast(32)
         }
         "andps" | "andpd" | "pand" | "pandd" | "pandq" => VOp::Bin(Lane::And, Ty::I64, false),
         "orps" | "orpd" | "por" | "pord" | "porq" => VOp::Bin(Lane::Or, Ty::I64, false),
@@ -160,10 +166,6 @@ fn lookup_vec(name: &str) -> Option<VOp> {
         "gatherdpd" | "pgatherdq" => VOp::Gather(4, 8),
         "gatherqps" | "pgatherqd" => VOp::Gather(8, 4),
         "gatherqpd" | "pgatherqq" => VOp::Gather(8, 8),
-        "kmovb" => VOp::Kmov(1),
-        "kmovw" => VOp::Kmov(2),
-        "kmovd" => VOp::Kmov(4),
-        "kmovq" => VOp::Kmov(8),
         "zeroupper" | "zeroall" | "emms" => VOp::Nop,
         _ => {
             // Float arithmetic: add/sub/mul/div/min/max/sqrt + ps/pd/ss/sd.
@@ -223,44 +225,44 @@ fn lookup_vec(name: &str) -> Option<VOp> {
                     return Some(VOp::Shift(kind, ty));
                 }
             }
-            return None;
+            return simd::lookup_simd(name).map(VOp::Ext);
         }
     })
 }
 
-fn lane_addr(f: &mut FnCtx, base: Val, offset: u64) -> Val {
+pub(super) fn lane_addr(f: &mut FnCtx, base: Val, offset: u64) -> Val {
     if offset == 0 {
         base
     } else {
         f.b.ptr_offset(base, offset)
     }
 }
-fn load_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty) -> Val {
+pub(super) fn load_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty) -> Val {
     let p = lane_addr(f, base, i * ty.size());
     f.b.load(ty, p)
 }
-fn store_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty, v: Val) {
+pub(super) fn store_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty, v: Val) {
     let p = lane_addr(f, base, i * ty.size());
     f.b.store(ty, p, v);
 }
-fn bitcast(f: &mut FnCtx, from: Ty, to: Ty, v: Val) -> Val {
+pub(super) fn bitcast(f: &mut FnCtx, from: Ty, to: Ty, v: Val) -> Val {
     f.b.conv(ConvOp::Bitcast, from, to, v)
 }
 /// `cond ? a : b` for a float lane.
-fn fselect(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
+pub(super) fn fselect(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let it = Ty::int(ty.size());
     let a = bitcast(f, ty, it, a);
     let b = bitcast(f, ty, it, b);
     let r = select(f, it, cond, a, b);
     bitcast(f, it, ty, r)
 }
-fn all_ones_if(f: &mut FnCtx, ty: Ty, cond: Val) -> Val {
+pub(super) fn all_ones_if(f: &mut FnCtx, ty: Ty, cond: Val) -> Val {
     let ones = konst(f, ty, u64::MAX);
     let zero = konst(f, ty, 0);
     select(f, ty, cond, ones, zero)
 }
 /// A float math intrinsic computed in `f64` (the interpreter's float intrinsics are 64-bit).
-fn float_unary(f: &mut FnCtx, op: Intrinsic, ty: Ty, x: Val) -> Val {
+pub(super) fn float_unary(f: &mut FnCtx, op: Intrinsic, ty: Ty, x: Val) -> Val {
     let wide = if ty == Ty::F32 {
         f.b.conv(ConvOp::FExt, Ty::F32, Ty::F64, x)
     } else {
@@ -274,7 +276,7 @@ fn float_unary(f: &mut FnCtx, op: Intrinsic, ty: Ty, x: Val) -> Val {
     }
 }
 
-fn lane_op(f: &mut FnCtx, op: Lane, ty: Ty, a: Val, b: Val) -> Val {
+pub(super) fn lane_op(f: &mut FnCtx, op: Lane, ty: Ty, a: Val, b: Val) -> Val {
     match op {
         Lane::Add => bin(f, BinOp::Add, ty, a, b),
         Lane::Sub => bin(f, BinOp::Sub, ty, a, b),
@@ -321,7 +323,7 @@ fn lane_op(f: &mut FnCtx, op: Lane, ty: Ty, a: Val, b: Val) -> Val {
 }
 
 /// `f32` → `s32` the way `cvtps2dq` / `cvttps2dq` do: NaN and out-of-range give `0x8000_0000`.
-fn float_to_s32(f: &mut FnCtx, x: Val, mode: char) -> Val {
+pub(super) fn float_to_s32(f: &mut FnCtx, x: Val, mode: char) -> Val {
     let x = f.b.conv(ConvOp::FExt, Ty::F32, Ty::F64, x);
     let r = if matches!(mode, 'z' | 'd' | 'u') {
         let op = match mode {
@@ -390,6 +392,12 @@ impl Compiler {
                 "x" => 16,
                 "y" => 32,
                 "z" => 64,
+                // `.q` on a lane operation is the 64-bit MMX (`str` register) form.
+                "q" if matches!(op, VOp::Bin(..) | VOp::Abs(_) | VOp::Shift(..))
+                    || matches!(op, VOp::Ext(s) if simd::mmx_capable(s)) =>
+                {
+                    8
+                }
                 // `movq.q` / `movd.d` and friends: the vector size is the default.
                 "b" | "w" | "d" | "q" | "8" | "16" | "32" | "64" => cx.vec_width,
                 other => {
@@ -410,10 +418,36 @@ impl Compiler {
             }
             Ok(())
         };
+        // AVX-512 compares write a mask register; a fresh `name:` destination is a mask
+        // when the instruction produces one (always for 512-bit compares).
+        let dst_class = match op {
+            VOp::Bin(Lane::CmpEq | Lane::CmpGt, ..) if width == 64 => "omr",
+            VOp::Ext(s) => simd::dst_class(s, width),
+            _ => "vec",
+        };
         let mut ops: Vec<VOpd> = Vec::with_capacity(n);
-        for o in &inst.operands {
-            ops.push(self.vec_operand(f, cx, o)?);
+        for (i, o) in inst.operands.iter().enumerate() {
+            let class = if i == 0 {
+                dst_class
+            } else {
+                "vec"
+            };
+            ops.push(self.vec_operand_class(f, cx, o, class)?);
         }
+        let op = match (op, ops.first()) {
+            (VOp::Bin(lane @ (Lane::CmpEq | Lane::CmpGt), ty, false), Some(VOpd::Mask(_))) => {
+                VOp::Ext(simd::SOp::IntCmp(
+                    ty,
+                    false,
+                    if lane == Lane::CmpEq {
+                        Some(0)
+                    } else {
+                        Some(6)
+                    },
+                ))
+            }
+            _ => op,
+        };
         let es = elem_size(op);
         for (i, o) in inst.operands.iter().enumerate() {
             if let AsmOperand::Mem(m) = o
@@ -430,38 +464,50 @@ impl Compiler {
             }
         }
         // `{k}` masking: remember the destination, then merge or zero the masked-off lanes.
-        let masked = match (&inst.evex.mask, ops.first()) {
-            (Some((m, zeroing)), Some(&VOpd::Reg(dst))) => {
-                let mask = match self.vec_operand(f, cx, m)? {
-                    VOpd::Reg(p) => f.b.load(Ty::I64, p),
-                    VOpd::Gpr(opd) => self.asm_read(f, opd, Ty::I64, span)?,
+        // Instructions that write a mask register AND their result with it instead.
+        let writemask = match &inst.evex.mask {
+            Some((m, zeroing)) => {
+                let (bits, reg) = match self.vec_operand_class(f, cx, m, "omr")? {
+                    VOpd::Mask(p) | VOpd::Reg(p) => (f.b.load(Ty::I64, p), Some(p)),
+                    VOpd::Gpr(opd) => (self.asm_read(f, opd, Ty::I64, span)?, None),
                     _ => return err(span, "expected a mask register"),
                 };
-                let old = f.b.alloca(64, 16);
-                f.b.copy(old, dst, 64);
-                Some((mask, *zeroing, dst, old))
+                Some(simd::WriteMask {
+                    bits,
+                    zeroing: *zeroing,
+                    reg,
+                })
             }
+            None => None,
+        };
+        let self_masked = match op {
+            VOp::Ext(s) => simd::consumes_mask(s),
+            VOp::Gather(..) => true,
+            _ => false,
+        };
+        let masked = match (writemask, ops.first()) {
+            (Some(_), _) if self_masked => None,
+            (
+                Some(simd::WriteMask {
+                    bits: mask,
+                    zeroing,
+                    ..
+                }),
+                Some(&(VOpd::Reg(_) | VOpd::Mem(_))),
+            ) => {
+                let dst = self.vec_ptr(f, ops[0], span)?;
+                let old = f.b.alloca(64, 16);
+                f.b.copy(old, dst, width);
+                Some((mask, zeroing, dst, old))
+            }
+            (Some(_), Some(VOpd::Mask(_))) => None,
             (Some(_), _) => return err(span, "a masked instruction needs a vector destination"),
             _ => None,
         };
         let tmp = f.b.alloca(64, 16);
         match op {
             VOp::Nop => want(0, 0)?,
-            VOp::Kmov(size) => {
-                want(2, 2)?;
-                let ty = Ty::int(size);
-                let v = match ops[1] {
-                    VOpd::Reg(p) => f.b.load(ty, p),
-                    src => self.vec_scalar_read(f, src, ty, span)?,
-                };
-                match ops[0] {
-                    VOpd::Reg(p) => {
-                        f.b.zero(p, 8);
-                        f.b.store(ty, p, v);
-                    }
-                    dst => self.vec_scalar_write(f, dst, ty, v, span)?,
-                }
-            }
+            VOp::Ext(s) => self.asm_simd(f, cx, inst, s, &ops, width, writemask)?,
             VOp::Move => {
                 want(2, 2)?;
                 let src = self.vec_ptr(f, ops[1], span)?;
@@ -704,7 +750,11 @@ impl Compiler {
                 self.vec_scalar_write(f, ops[0], Ty::I64, mask, span)?;
             }
             VOp::Gather(index_size, elem_size) => {
-                want(3, 3)?;
+                // AVX2: `gatherdps dst, [vsib], vmask`; AVX-512: `gatherdps dst &k, [vsib]`.
+                want(2, 3)?;
+                if n == 2 && writemask.is_none() {
+                    return err(span, format!("'{name}' needs a mask: a vector or &k"));
+                }
                 let VOpd::Vsib {
                     base,
                     index,
@@ -718,16 +768,32 @@ impl Compiler {
                         ),
                     );
                 };
-                let mask = self.vec_ptr(f, ops[2], span)?;
+                let mask = if n == 3 {
+                    Some(self.vec_ptr(f, ops[2], span)?)
+                } else {
+                    None
+                };
                 let dst = self.vec_ptr(f, ops[0], span)?;
                 let (it, et) = (Ty::int(index_size), Ty::int(elem_size));
                 let lanes = width / index_size.max(elem_size);
                 f.b.copy(tmp, dst, 64);
                 let scale = konst(f, Ty::I64, scale);
                 for i in 0..lanes {
-                    // Only lanes whose mask element has its sign bit set load.
-                    let m = load_lane(f, mask, i, et);
-                    let on = is_neg(f, et, m);
+                    // Only lanes whose mask element has its sign bit (or mask bit) set load.
+                    let on = match (mask, writemask) {
+                        (Some(mask), _) => {
+                            let m = load_lane(f, mask, i, et);
+                            is_neg(f, et, m)
+                        }
+                        (None, Some(wm)) => {
+                            let at = konst(f, Ty::I64, i);
+                            let b = bin(f, BinOp::LShr, Ty::I64, wm.bits, at);
+                            let b = resize(f, b, Ty::I64, Ty::I8, false);
+                            let one = konst(f, Ty::I8, 1);
+                            bin(f, BinOp::And, Ty::I8, b, one)
+                        }
+                        _ => unreachable!(),
+                    };
                     let idx = load_lane(f, index, i, it);
                     let idx = resize(f, idx, it, Ty::I64, true);
                     let off = bin(f, BinOp::Mul, Ty::I64, idx, scale);
@@ -749,9 +815,14 @@ impl Compiler {
                 }
                 self.vec_store(f, cx, ops[0], tmp, lanes * elem_size, span)?;
                 // The mask is cleared once every element has been gathered.
-                let zeros = f.b.alloca(64, 16);
-                f.b.zero(zeros, 64);
-                self.vec_store(f, cx, ops[2], zeros, 64, span)?;
+                if n == 3 {
+                    let zeros = f.b.alloca(64, 16);
+                    f.b.zero(zeros, 64);
+                    self.vec_store(f, cx, ops[2], zeros, 64, span)?;
+                } else if let Some(reg) = writemask.and_then(|w| w.reg) {
+                    let z = konst(f, Ty::I64, 0);
+                    f.b.store(Ty::I64, reg, z);
+                }
             }
         }
         if let Some((mask, zeroing, dst, old)) = masked {
@@ -764,7 +835,7 @@ impl Compiler {
                 let zero = konst(f, Ty::I64, 0);
                 let on = cmp(f, CmpOp::Ne, Ty::I64, bit, zero);
                 let new = load_lane(f, dst, k, ity);
-                let prev = if zeroing {
+                let prev = if zeroing && !matches!(ops[0], VOpd::Mem(_)) {
                     konst(f, ity, 0)
                 } else {
                     load_lane(f, old, k, ity)
@@ -777,7 +848,12 @@ impl Compiler {
     }
 
     /// The two sources of a lane operation: `(dst, dst, src)` for two operands.
-    fn vec_sources(&mut self, f: &mut FnCtx, ops: &[VOpd], span: Span) -> Result<(Val, Val)> {
+    pub(super) fn vec_sources(
+        &mut self,
+        f: &mut FnCtx,
+        ops: &[VOpd],
+        span: Span,
+    ) -> Result<(Val, Val)> {
         if ops.len() == 3 {
             Ok((
                 self.vec_ptr(f, ops[1], span)?,
@@ -791,7 +867,7 @@ impl Compiler {
         }
     }
 
-    fn vec_imm(&self, o: VOpd, span: Span) -> Result<u64> {
+    pub(super) fn vec_imm(&self, o: VOpd, span: Span) -> Result<u64> {
         match o {
             VOpd::Imm(v) if (0..=255).contains(&v) => Ok(v as u64),
             _ => err(span, "expected an 8-bit immediate operand"),
@@ -799,7 +875,7 @@ impl Compiler {
     }
 
     /// A pointer to the bytes of a register or memory operand.
-    fn vec_ptr(&mut self, f: &mut FnCtx, o: VOpd, span: Span) -> Result<Val> {
+    pub(super) fn vec_ptr(&mut self, f: &mut FnCtx, o: VOpd, span: Span) -> Result<Val> {
         match o {
             VOpd::Reg(p) => Ok(p),
             VOpd::Mem(addr) => Ok(ptr_of(f, addr)),
@@ -809,7 +885,7 @@ impl Compiler {
     }
 
     /// Write `size` bytes from `src` to a register or memory destination.
-    fn vec_store(
+    pub(super) fn vec_store(
         &mut self,
         f: &mut FnCtx,
         cx: &AsmCtx,
@@ -836,7 +912,13 @@ impl Compiler {
         }
     }
 
-    fn vec_scalar_read(&mut self, f: &mut FnCtx, o: VOpd, ty: Ty, span: Span) -> Result<Val> {
+    pub(super) fn vec_scalar_read(
+        &mut self,
+        f: &mut FnCtx,
+        o: VOpd,
+        ty: Ty,
+        span: Span,
+    ) -> Result<Val> {
         match o {
             VOpd::Gpr(opd) => self.asm_read(f, opd, ty, span),
             VOpd::Mem(addr) => {
@@ -851,7 +933,7 @@ impl Compiler {
         }
     }
 
-    fn vec_scalar_write(
+    pub(super) fn vec_scalar_write(
         &mut self,
         f: &mut FnCtx,
         o: VOpd,
@@ -873,12 +955,20 @@ impl Compiler {
         }
     }
 
-    fn vec_operand(&mut self, f: &mut FnCtx, cx: &AsmCtx, o: &AsmOperand) -> Result<VOpd> {
+    /// A vector instruction operand; `name:` declares a register of `class`.
+    pub(super) fn vec_operand_class(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &AsmCtx,
+        o: &AsmOperand,
+        class: &str,
+    ) -> Result<VOpd> {
         match o {
             AsmOperand::Decl(d) if d.colon => {
-                let (kind, addr) = self.asm_declare(f, cx, d, "vec")?;
+                let (kind, addr) = self.asm_declare(f, cx, d, class)?;
                 match kind {
                     AsmReg::Vec => Ok(VOpd::Reg(addr)),
+                    AsmReg::Mask => Ok(VOpd::Mask(addr)),
                     _ => Ok(VOpd::Gpr(self.asm_gpr_opd(kind, addr, d.name.span)?)),
                 }
             }
@@ -891,6 +981,7 @@ impl Compiler {
                 if let Some((kind, addr)) = self.asm_reg_named(cx.scope, e)? {
                     return match kind {
                         AsmReg::Vec => Ok(VOpd::Reg(addr)),
+                        AsmReg::Mask => Ok(VOpd::Mask(addr)),
                         _ => Ok(VOpd::Gpr(self.asm_value(f, cx.scope, e, 0)?)),
                     };
                 }
@@ -919,7 +1010,11 @@ impl Compiler {
     }
 
     /// The register an identifier names, if it is one declared by `#asm`.
-    fn asm_reg_named(&mut self, scope: ScopeId, e: &Expr) -> Result<Option<(AsmReg, Val)>> {
+    pub(super) fn asm_reg_named(
+        &mut self,
+        scope: ScopeId,
+        e: &Expr,
+    ) -> Result<Option<(AsmReg, Val)>> {
         if let E::Ident(name) = &e.kind
             && let Found::Entities(ids) = self.lookup_full(scope, *name)?
             && let Some(&id) = ids.last()

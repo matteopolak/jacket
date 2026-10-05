@@ -20,7 +20,7 @@ It type-checks, interprets and natively builds real Jai projects, including the 
 | Compile-time execution (`#run`) | ✅ | Runs in the IR interpreter, including foreign calls |
 | Metaprograms (`Compiler` module: workspaces, message loop, build options) | ✅ | |
 | Arithmetic overflow and bounds checks | ✅ | |
-| `#asm` and SIMD | ⚠️ | Common instructions; string ops, division, x87 and mask registers are rejected |
+| `#asm` and SIMD | ✅ | Scalar, string, division, SSE–AVX2, FMA, AES and common AVX-512 with mask registers, run on any CPU; Jai has no x87 `#asm`, and a few extensions (F16C, SHA, GFNI) are rejected |
 | Reference `how_to` programs | ✅ | 56 of 56 run |
 
 ### Targets and tooling

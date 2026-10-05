@@ -21,8 +21,11 @@
 //!   compare-and-swap loop, so they are atomic on native targets.
 //! - Vector instructions (`vec` registers, SSE/AVX/AVX-512 mnemonics) are lowered
 //!   lane by lane in `asm/vec.rs`.
-//! - Anything else (string ops, division, x87, mask registers, ...) is a compile
-//!   error naming the instruction.
+//! - Division, string instructions, BMI1/BMI2, double shifts, CRC32 and the
+//!   other less common general-purpose instructions live in `asm/scalar.rs`;
+//!   mask-register (`omr`) instructions in `asm/mask.rs`.
+//! - Anything else (x87, privileged and I/O instructions, `syscall`, ...) is a
+//!   compile error naming the instruction.
 use super::lower::{FnCtx, Operand};
 use super::scope::{EntityKind, Found};
 use super::*;
@@ -31,9 +34,13 @@ use crate::ast::{
 };
 use crate::ir::{BinOp, BlockId, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 
+mod mask;
+mod scalar;
+mod simd;
 mod vec;
 
-/// Feature-set modifiers accepted after `#asm` (they never change lowering).
+/// Feature-set modifiers accepted after `#asm`: every CPUID feature-flag name, plus the older
+/// spellings without the underscore. Only `AVX*` changes lowering (the default vector width).
 const FEATURES: &[&str] = &[
     "SSE",
     "SSE2",
@@ -85,6 +92,165 @@ const FEATURES: &[&str] = &[
     "PREFETCHW",
     "MWAITX",
     "CLZERO",
+    // The remaining CPUID feature-flag names (Machine_X64 `x86_Feature_Flag`).
+    "ABM",
+    "ACPI",
+    "AESKLE",
+    "AESKLE_WIDE",
+    "AMX_BF16",
+    "AMX_INT8",
+    "AMX_TILE",
+    "APIC",
+    "ARCH_CAPABILITIES",
+    "AVX512_4FMAPS",
+    "AVX512_4VNNIW",
+    "AVX512_BF16",
+    "AVX512_FP16",
+    "AVX512_IFMA",
+    "AVX512_VBMI",
+    "AVX512_VBMI2",
+    "AVX512_VP2INTERSECT",
+    "AVX_VNNI",
+    "CET_IBT",
+    "CET_SS",
+    "CLDEMOTE",
+    "CLFLUSH",
+    "CMOV",
+    "CMP_LEGACY",
+    "CNXT_ID",
+    "CORE_CAPABILITIES",
+    "CR8_LEGACY",
+    "CX16",
+    "CX8",
+    "DBX",
+    "DCA",
+    "DE",
+    "DEP_FPU_CS_DS",
+    "DS",
+    "DS_CPL",
+    "DTEST64",
+    "EIST",
+    "ENHANCED_REP",
+    "ENQCMD",
+    "EXTAPIC",
+    "FDP_EXCPTN_ONLY",
+    "FIVE_LEVEL_PAGING",
+    "FMA4",
+    "FPU",
+    "FSRCS",
+    "FSRM",
+    "FSRS",
+    "FXSR_OPT",
+    "FZRM",
+    "GFNI",
+    "HLE",
+    "HRESET",
+    "HTT",
+    "HYBRID",
+    "HYPERVISOR",
+    "IA64",
+    "IBS",
+    "INTEL_PT",
+    "INVLPGB",
+    "INVPCID",
+    "KEY_LOCKER_MSR",
+    "KL",
+    "L1D_FLUSH",
+    "LAM",
+    "LBR",
+    "LWP",
+    "MAWAU_0",
+    "MAWAU_1",
+    "MAWAU_2",
+    "MAWAU_3",
+    "MAWAU_4",
+    "MCA",
+    "MCE",
+    "MCOMMIT",
+    "MD_CLEAR",
+    "MISALIGNED_SSE",
+    "MMX_EXT",
+    "MONITOR",
+    "MOVDIR64B",
+    "MOVDIRI",
+    "MP",
+    "MPX",
+    "MSR",
+    "MTRR",
+    "NODE_ID",
+    "NX",
+    "OSPKE",
+    "OSVW",
+    "OSXSAVE",
+    "PAE",
+    "PAT",
+    "PBE",
+    "PCID",
+    "PCOMMIT",
+    "PCONFIG",
+    "PCX_L2I",
+    "PDCM",
+    "PDPE1GB",
+    "PERFCTR_CORE",
+    "PERFCTR_NB",
+    "PERFTSC",
+    "PGE",
+    "PKS",
+    "PKU",
+    "PREFETCHWT1",
+    "PSE",
+    "PSE_36",
+    "PSN",
+    "RDPID",
+    "RDPRU",
+    "RDT_A",
+    "RDT_M",
+    "RTM",
+    "SDBG",
+    "SEP",
+    "SERIALIZE",
+    "SGX",
+    "SGX_LC",
+    "SKINIT",
+    "SMAP",
+    "SMEP",
+    "SMX",
+    "SPEC_CTRL",
+    "SRBDS_CTRL",
+    "SS",
+    "SSBD",
+    "SSE4A",
+    "STIBP",
+    "SVM",
+    "TBM",
+    "TCE",
+    "TM",
+    "TM2",
+    "TME_EN",
+    "TOPOLOGY_EXTENSIONS",
+    "TSC_ADJUST",
+    "TSC_DEADLINE",
+    "TSXLDTRK",
+    "TSX_FORCE_ABORT",
+    "UMIP",
+    "VAES",
+    "VME",
+    "VMX",
+    "VPCLMULQDQ",
+    "WAITPKG",
+    "WBNOINVD",
+    "WDT",
+    "X2APIC",
+    "XFD",
+    "XGETBV_ECX1",
+    "XOP",
+    "XSAVEC",
+    "XSAVES_XRSTORS",
+    "XTPR",
+    "_3DNOW",
+    "_3DNOW_EXT",
+    "_3DNOW_PREFETCH",
+    "_64BIT_MODE",
 ];
 
 /// What a name declared by an `#asm` register declaration is.
@@ -92,10 +258,11 @@ const FEATURES: &[&str] = &[
 pub enum AsmReg {
     /// General-purpose register: a 64-bit local.
     Gpr,
-    /// Vector register: a 64-byte local (zmm-sized; xmm/ymm use its low bytes).
+    /// Vector register: a 64-byte local (zmm-sized; xmm/ymm use its low bytes). `str`
+    /// (MMX) registers are vector registers used with the 8-byte `.q` size.
     Vec,
-    /// x87 / mask register: declarable, but no instruction can use it.
-    Unsupported,
+    /// AVX-512 op-mask register (`omr`, k0-k7): a 64-bit local.
+    Mask,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -144,6 +311,8 @@ enum Cond {
     Ge,
     Le,
     G,
+    P,
+    Np,
 }
 
 /// Instruction semantics. One entry per mnemonic family in `lookup_op`.
@@ -204,6 +373,8 @@ fn lookup_cond(name: &str) -> Option<Cond> {
         "ge" | "nl" => Cond::Ge,
         "le" | "ng" => Cond::Le,
         "g" | "nle" => Cond::G,
+        "p" | "pe" => Cond::P,
+        "np" | "po" => Cond::Np,
         _ => return None,
     })
 }
@@ -211,7 +382,7 @@ fn lookup_cond(name: &str) -> Option<Cond> {
 /// The instruction table: mnemonic (without `lock_`) to semantics.
 fn lookup_op(name: &str) -> Option<Op> {
     Some(match name {
-        "mov" => Op::Mov,
+        "mov" | "movnti" => Op::Mov,
         "movbe" => Op::Movbe,
         "lea" => Op::Lea,
         "xchg" => Op::Xchg,
@@ -250,7 +421,7 @@ fn lookup_op(name: &str) -> Option<Op> {
         "blsmsk" => Op::Blsmsk,
         "imul" => Op::Imul,
         "mul" => Op::Mul,
-        "nop" | "mfence" | "lfence" | "sfence" | "cld" | "std" => Op::Nop,
+        "nop" | "mfence" | "lfence" | "sfence" => Op::Nop,
         "pause" => Op::Pause,
         "int3" => Op::Int3,
         "clc" => Op::SetCarry(Some(false)),
@@ -258,7 +429,7 @@ fn lookup_op(name: &str) -> Option<Op> {
         "cmc" => Op::SetCarry(None),
         "rdtsc" => Op::Rdtsc,
         "rdtscp" => Op::Rdtscp,
-        "rdrand" => Op::Rdrand,
+        "rdrand" | "rdseed" => Op::Rdrand,
         "cpuid" => Op::Cpuid,
         "movsxd" => Op::Movsx,
         _ => {
@@ -310,6 +481,8 @@ struct Flags {
     zf: Option<Val>,
     sf: Option<Val>,
     of: Option<Val>,
+    /// PF as a lazily evaluated byte: the flag is set when this `I8` has even parity.
+    pf: Option<Val>,
 }
 
 struct AsmCtx {
@@ -319,6 +492,9 @@ struct AsmCtx {
     vec_width: u64,
     /// VEX/EVEX encoding (AVX and up): vector writes zero the rest of the register.
     vex: bool,
+    /// The direction flag (`std`/`cld`), tracked statically within the block. The ABI
+    /// guarantees it is clear on entry, so a block that never sets it counts upwards.
+    df: bool,
 }
 
 /// An in-progress read-modify-write of one operand.
@@ -490,6 +666,7 @@ impl Compiler {
                 16
             },
             vex,
+            df: false,
         };
         for item in &block.items {
             match item {
@@ -534,7 +711,8 @@ impl Compiler {
         let (kind, size) = match class {
             "gpr" => (AsmReg::Gpr, 8),
             "vec" => (AsmReg::Vec, 64),
-            "str" | "omr" | "kmask" => (AsmReg::Unsupported, 64),
+            "str" => (AsmReg::Vec, 64),
+            "omr" | "kmask" => (AsmReg::Mask, 8),
             other => {
                 return err(
                     decl.class.map_or(decl.name.span, |c| c.span),
@@ -578,7 +756,10 @@ impl Compiler {
                 span,
                 "a vector register is not valid in a general-purpose instruction",
             ),
-            AsmReg::Unsupported => err(span, "x87 and mask registers are not supported in #asm"),
+            AsmReg::Mask => err(
+                span,
+                "a mask register is only valid in mask (k*) and AVX-512 instructions",
+            ),
         }
     }
 
@@ -923,8 +1104,7 @@ impl Compiler {
     }
 
     fn set_zs(f: &mut FnCtx, cx: &mut AsmCtx, sz: Ty, res: Val) {
-        cx.flags.zf = Some(is_zero(f, sz, res));
-        cx.flags.sf = Some(is_neg(f, sz, res));
+        Self::set_zs_into(f, &mut cx.flags, sz, res);
     }
 
     /// Flags of a logical operation: CF = OF = 0.
@@ -968,6 +1148,11 @@ impl Compiler {
                 let le = flag_or(f, zf, l);
                 flag_not(f, le)
             }
+            Cond::P => Self::parity_flag(f, cx),
+            Cond::Np => {
+                let p = Self::parity_flag(f, cx);
+                flag_not(f, p)
+            }
         }
     }
 
@@ -983,7 +1168,13 @@ impl Compiler {
         };
         let span = inst.span;
         let Some(op) = lookup_op(base) else {
-            if !lock && self.asm_vec_inst(f, cx, inst, base)? {
+            if self.asm_scalar_inst(f, cx, inst, base, lock)? {
+                return Ok(());
+            }
+            if !lock
+                && (self.asm_mask_inst(f, cx, inst, base)?
+                    || self.asm_vec_inst(f, cx, inst, base)?)
+            {
                 return Ok(());
             }
             return err(
@@ -1073,6 +1264,7 @@ impl Compiler {
                     zf: Some(zero),
                     sf: Some(zero),
                     of: Some(zero),
+                    pf: Some(one),
                 };
             }
             Op::Cpuid => {
@@ -1226,11 +1418,13 @@ impl Compiler {
                 let zero8 = konst(f, Ty::I8, 0);
                 let res = match op {
                     Op::Popcnt => {
+                        let odd = konst(f, Ty::I8, 1);
                         cx.flags = Flags {
                             cf: Some(zero8),
                             zf: Some(src_zero),
                             sf: Some(zero8),
                             of: Some(zero8),
+                            pf: Some(odd),
                         };
                         bit_intrinsic(f, Intrinsic::Popcount, sz, src)
                     }
@@ -1623,13 +1817,27 @@ impl Compiler {
             zf: keep(f, new.zf, cx.flags.zf),
             sf: keep(f, new.sf, cx.flags.sf),
             of: keep(f, new.of, cx.flags.of),
+            pf: keep(f, new.pf, cx.flags.pf),
         };
         Ok(())
     }
 
+    /// ZF, SF and PF of a result.
     fn set_zs_into(f: &mut FnCtx, flags: &mut Flags, sz: Ty, res: Val) {
         flags.zf = Some(is_zero(f, sz, res));
         flags.sf = Some(is_neg(f, sz, res));
+        flags.pf = Some(resize(f, res, sz, Ty::I8, false));
+    }
+
+    /// PF: 1 when the low byte of the last result has an even number of set bits.
+    fn parity_flag(f: &mut FnCtx, cx: &AsmCtx) -> Val {
+        let Some(byte) = cx.flags.pf else {
+            return konst(f, Ty::I8, 0);
+        };
+        let ones = bit_intrinsic(f, Intrinsic::Popcount, Ty::I8, byte);
+        let one = konst(f, Ty::I8, 1);
+        let odd = bin(f, BinOp::And, Ty::I8, ones, one);
+        flag_not(f, odd)
     }
 
     #[allow(clippy::too_many_arguments)]

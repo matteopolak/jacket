@@ -98,7 +98,7 @@ Then open `http://127.0.0.1:8080/`. `tools/check_browser_release.mjs <staged-dir
   the pass set with `tools/playground_stdlib_expected.json` (`pass` list plus `excluded`: name to written reason). Any
   regression, any newly passing excluded test, or any test in neither list fails the check; `check_playground_worker.mjs`
   runs it. After intentionally changing the set: `--update` rewrites `pass` (new failures get a `TODO explain` reason you
-  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. Currently 136 of 146 pass. Excluded:
+  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. Currently 178 of 196 pass. Excluded:
   `bindings-generator-c`/`-cpp` (dlopen of libclang), `bindings-generator-cpp-classes` and `buildcpp-api` (start a compiler
   process), `c-variadic-foreign-calls` (native C ABI test against libc, pipe, fcntl), `simp-compat-api` and
   `getrect-right-handed-api`/`getrect-right-handed-surface` (FreeType and stb_image C libraries),

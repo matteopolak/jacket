@@ -270,6 +270,10 @@ pub struct Compiler {
     pub export_entities: Vec<EntityId>,
     /// Locals declared by `#asm` register declarations (`x: gpr`).
     pub asm_regs: HashMap<EntityId, asm::AsmReg>,
+    /// Spin lock word shared by `lock_cmpxchg8b`/`lock_cmpxchg16b` in `#asm` blocks.
+    pub asm_pair_lock: Option<ir::GlobalId>,
+    /// The AES S-boxes used by `aesenc` & co. in `#asm` blocks.
+    pub asm_aes_tables: Option<ir::GlobalId>,
     /// Syntax trees and types already handed to metaprograms as records.
     pub export: code_export::ExportState,
     /// Scopes with top-level items put back to waiting because they failed while
@@ -385,6 +389,8 @@ impl Compiler {
             ct_context: None,
             export_entities: Vec::new(),
             asm_regs: HashMap::default(),
+            asm_pair_lock: None,
+            asm_aes_tables: None,
             export: code_export::ExportState::default(),
             deferred_pending: Vec::new(),
             deferred_errors: Vec::new(),
