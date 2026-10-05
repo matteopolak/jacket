@@ -258,36 +258,10 @@ impl Compiler {
                 operand,
             } => {
                 let d = directive.name.as_str();
-                if matches!(
-                    d,
-                    "system_library" | "library" | "foreign_library" | "foreign_system_library"
-                ) {
-                    let Some(operand) = operand else {
-                        return err(value.span, "library directive needs a name");
-                    };
-                    let lib_name = match &operand.kind {
-                        ast::ExprKind::Str(s) => String::from_utf8_lossy(s).into_owned(),
-                        _ => return err(operand.span, "library name must be a string literal"),
-                    };
-                    let flag = |f: &str| flags.iter().any(|x| x.name.as_str() == f);
-                    let system = d.contains("system") || flag("system");
-                    let link_always = flag("link_always");
-                    let base_dir = self.file_dir(self.scope_file(scope)).display().to_string();
-                    let ir = self.program.libraries.len();
-                    self.program.libraries.push(ir::Library {
-                        name: lib_name.clone(),
-                        system,
-                        link_always,
-                        base_dir,
-                    });
-                    self.libraries.push(LibraryInfo {
-                        name: lib_name,
-                        system,
-                        ir,
-                    });
-                    return Ok(Resolved::Library(LibraryId(
-                        self.libraries.len() as u32 - 1,
-                    )));
+                if is_library_directive(d) {
+                    let id =
+                        self.declare_library(scope, d, flags, operand.as_deref(), value.span)?;
+                    return Ok(Resolved::Library(id));
                 }
             }
             _ => {}
@@ -718,5 +692,50 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         self.eval_const(scope, expr, expected)
+    }
+}
+
+/// `#library`, `#system_library` and their foreign variants.
+pub(super) fn is_library_directive(name: &str) -> bool {
+    matches!(
+        name,
+        "system_library" | "library" | "foreign_library" | "foreign_system_library"
+    )
+}
+
+impl Compiler {
+    /// Register a library named by a `#library`-family directive, declared in `scope`.
+    pub(super) fn declare_library(
+        &mut self,
+        scope: ScopeId,
+        directive: &str,
+        flags: &[ast::Ident],
+        operand: Option<&ast::Expr>,
+        span: Span,
+    ) -> Result<LibraryId> {
+        let Some(operand) = operand else {
+            return err(span, "library directive needs a name");
+        };
+        let lib_name = match &operand.kind {
+            ast::ExprKind::Str(s) => String::from_utf8_lossy(s).into_owned(),
+            _ => return err(operand.span, "library name must be a string literal"),
+        };
+        let flag = |f: &str| flags.iter().any(|x| x.name.as_str() == f);
+        let system = directive.contains("system") || flag("system");
+        let link_always = flag("link_always");
+        let base_dir = self.file_dir(self.scope_file(scope)).display().to_string();
+        let ir = self.program.libraries.len();
+        self.program.libraries.push(ir::Library {
+            name: lib_name.clone(),
+            system,
+            link_always,
+            base_dir,
+        });
+        self.libraries.push(LibraryInfo {
+            name: lib_name,
+            system,
+            ir,
+        });
+        Ok(LibraryId(self.libraries.len() as u32 - 1))
     }
 }

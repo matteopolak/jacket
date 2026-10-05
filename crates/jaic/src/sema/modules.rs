@@ -669,6 +669,22 @@ impl Compiler {
                 };
                 self.pokes.push((module.clone(), *poked, file_scope));
             }
+            // An unnamed `#library,link_always "c++";` is linked although nothing refers to it.
+            ast::StmtKind::Directive {
+                name,
+                flags,
+                args,
+            } if decls::is_library_directive(name.name.as_str())
+                && flags.iter().any(|f| f.name.as_str() == "link_always") =>
+            {
+                self.declare_library(
+                    file_scope,
+                    name.name.as_str(),
+                    flags,
+                    args.first(),
+                    stmt.span,
+                )?;
+            }
             ast::StmtKind::Directive {
                 ..
             }
