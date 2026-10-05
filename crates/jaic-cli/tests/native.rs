@@ -328,6 +328,16 @@ fn bindings_generator_objc_stret() {
     native_bindings_generator_test("bindings-generator-objc-stret");
 }
 
+#[test]
+fn bindings_generator_parity() {
+    native_bindings_generator_test("bindings-generator-parity");
+}
+
+#[test]
+fn bindings_generator_cpp_virtual_bases() {
+    native_bindings_generator_test("bindings-generator-cpp-virtual-bases");
+}
+
 /// Arithmetic overflow checks in a native build: `Build_Options.arithmetic_overflow_check` on a
 /// workspace that writes an executable, and `#no_aoc` switching them off again.
 #[test]

@@ -107,10 +107,10 @@ main :: () {
     #if HAVE_OBJC {
         // The generated shape: one struct per signature, shared by all its uses.
         assert(has(BINDINGS, "Block_s32_s32 :: struct {"));
-        assert(has(BINDINGS, "invoke:     #type (block: *Block_s32_s32, arg0: s32) -> s32 #c_call;"));
+        assert(has(BINDINGS, "invoke:     #type (block: *Block_s32_s32, unknown0: s32) -> s32 #c_call;"));
         assert(has(BINDINGS, "Mapper :: *Block_s32_s32;"));
         assert(has(BINDINGS, "Handler :: *Block_void_s32_float64;"));
-        assert(has(BINDINGS, "invoke:     #type (block: *Block_void_s32_float64, arg0: s32, arg1: float64) -> void #c_call;"));
+        assert(has(BINDINGS, "invoke:     #type (block: *Block_void_s32_float64, unknown0: s32, unknown1: float64) -> void #c_call;"));
         assert(has(BINDINGS, "applyInline :: inline (self: *Worker, mapper: *Block_s32_s32, value: s32) -> s32 {"));
         assert(has(BINDINGS, "recorder :: inline (self: *Worker) -> *Block_void_s32_float64 {"));
         assert(has(BINDINGS, "setCompletion :: inline (self: *Worker, completion: *Block_void) {"));
@@ -148,6 +148,37 @@ main :: () {
         assert(Worker.lastCode(cast(*Worker) w) == 31);
 
         Worker.setCompletion(cast(*Worker) w, null);
+
+        // Blocks made from Jai procedures: Objective-C calls them, also after copying them.
+        assert(has(BINDINGS, "Block_s32_s32_literal :: (invoke: #type (block: *Block_s32_s32, unknown0: s32) -> s32 #c_call, user_data: *void = null) -> *Block_s32_s32 {"));
+        add_offset :: (block: *Block_s32_s32, value: s32) -> s32 #c_call {
+            offset := cast(*s32) objc_block_user_data(block);
+            return value + offset.*;
+        }
+        offset: s32 = 100;
+        adder := Block_s32_s32_literal(add_offset, *offset);
+        assert(Worker.apply(cast(*Worker) w, adder, 5) == 105);
+        assert(Worker.applyInline(cast(*Worker) w, adder, 5) == 106);
+        offset = 1;
+        assert(adder.invoke(adder, 5) == 6);
+
+        on_done :: (block: *Block_void_s32_float64, code: s32, weight: float64) #c_call {
+            (cast(*s32) objc_block_user_data(block)).* = code;
+        }
+        seen: s32;
+        handler := Block_void_s32_float64_literal(on_done, *seen);
+        Worker.fire(cast(*Worker) w, handler, 12);
+        assert(seen == 12);
+        Worker.setOnDone(cast(*Worker) w, handler);   // Block_copy keeps the global block.
+        stored := Worker.onDone(cast(*Worker) w);
+        assert(stored == handler);
+        stored.invoke(stored, 13, 0);
+        assert(seen == 13);
+
+        completed := false;
+        complete :: (block: *Block_void) #c_call { (cast(*bool) objc_block_user_data(block)).* = true; }
+        Worker.setCompletion(cast(*Worker) w, Block_void_literal(complete, *completed));
+        assert(completed);
         print("ok\n");
     } else {
         print("ok\n");

@@ -35,7 +35,7 @@ It type-checks, interprets and natively builds real Jai projects, including the 
 | Native debug information | ✅ | DWARF on macOS (`.dSYM`) and Linux: lines, backtraces, typed locals and globals; Windows CodeView not yet |
 | Browser playground (WebAssembly) | ✅ | 168 of 186 stdlib tests run; the rest need native processes or libraries |
 | Language server (`jai-lsp`) | ✅ | Diagnostics, type-checked hover and completion, go to definition |
-| `Bindings_Generator` | ⚠️ | C, C++ and Objective-C; no virtual bases, `objc_msgSend_fpret` or block literals |
+| `Bindings_Generator` | ✅ | C, C++ (incl. virtual bases) and Objective-C (incl. block literals); the public Jai modules's generators run unchanged. 16-byte `long double` functions are stripped |
 
 ### Projects
 

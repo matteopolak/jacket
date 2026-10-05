@@ -91,6 +91,7 @@ The independently written `stdlib/`.
 - [Program_Print](specs/stdlib/README.md)
 - [Strings, Unicode and text files](specs/stdlib/README.md)
 - [Threads, atomics, sockets and input](specs/stdlib/README.md)
+- [Toolchains: macOS SDK and Android NDK helpers](specs/stdlib/README.md)
 - [Tooling modules: Debug, MacOS_Bundler, BuildCpp, Autorun, Performance_Report](specs/stdlib/README.md)
 - [Drawing, windows and audio](specs/stdlib/README.md)
 - [Simp (2D renderer)](specs/stdlib/README.md)

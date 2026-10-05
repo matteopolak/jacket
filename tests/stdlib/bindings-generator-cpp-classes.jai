@@ -175,9 +175,9 @@ HAVE_CPP :: BINDINGS.count > 0;
 #if HAVE_CPP {
     #insert BINDINGS;
 
-    live :: () -> s32 #foreign shapes "shapes_live_counters";
-    new_circle :: (id: s32, r: float) -> *Geo.Shape #foreign shapes "shapes_new_circle";
-    delete_shape :: (s: *Geo.Shape) #foreign shapes "shapes_delete";
+    live :: () -> s32 #foreign libshapes "shapes_live_counters";
+    new_circle :: (id: s32, r: float) -> *Geo.Shape #foreign libshapes "shapes_new_circle";
+    delete_shape :: (s: *Geo.Shape) #foreign libshapes "shapes_delete";
 }
 
 has :: (text: string, needle: string) -> bool { return contains(text, needle); }
@@ -185,7 +185,7 @@ has :: (text: string, needle: string) -> bool { return contains(text, needle); }
 main :: () {
     #if HAVE_CPP {
         // The generated declarations.
-        assert(has(BINDINGS, "Constructor :: (this: *Geo.Counter, start: s32) -> void #cpp_method #foreign shapes"));
+        assert(has(BINDINGS, "Constructor :: (this: *Geo.Counter, start: s32) -> void #cpp_method #foreign libshapes"));
         assert(has(BINDINGS, "Destructor_Base :: (this: *Geo.Counter)"));
         assert(has(BINDINGS, "#as using shape: Geo.Shape;"));
         assert(has(BINDINGS, "Shape_VTable :: struct #type_info_none {"));

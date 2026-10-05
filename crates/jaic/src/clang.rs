@@ -138,6 +138,8 @@ struct Api {
     argument: unsafe extern "C" fn(CxCursor, c_uint) -> CxCursor,
     cursor_variadic: unsafe extern "C" fn(CxCursor) -> c_uint,
     raw_comment: unsafe extern "C" fn(CxCursor) -> CxString,
+    comment_range: unsafe extern "C" fn(CxCursor) -> CxRange,
+    range_start: unsafe extern "C" fn(CxRange) -> CxLocation,
     macro_function_like: unsafe extern "C" fn(CxCursor) -> c_uint,
     macro_builtin: unsafe extern "C" fn(CxCursor) -> c_uint,
     mangling: unsafe extern "C" fn(CxCursor) -> CxString,
@@ -189,6 +191,9 @@ struct Api {
     objc_num_type_args: unsafe extern "C" fn(CxType) -> c_uint,
     objc_type_arg: unsafe extern "C" fn(CxType, c_uint) -> CxType,
     modified_type: unsafe extern "C" fn(CxType) -> CxType,
+    is_virtual_base: unsafe extern "C" fn(CxCursor) -> c_uint,
+    /// libclang 16+; older ones leave virtual base offsets unknown.
+    offset_of_base: Option<unsafe extern "C" fn(CxCursor, CxCursor) -> i64>,
 }
 
 #[repr(C)]
@@ -330,6 +335,8 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
             argument: sym!("clang_Cursor_getArgument"),
             cursor_variadic: sym!("clang_Cursor_isVariadic"),
             raw_comment: sym!("clang_Cursor_getRawCommentText"),
+            comment_range: sym!("clang_Cursor_getCommentRange"),
+            range_start: sym!("clang_getRangeStart"),
             macro_function_like: sym!("clang_Cursor_isMacroFunctionLike"),
             macro_builtin: sym!("clang_Cursor_isMacroBuiltin"),
             mangling: sym!("clang_Cursor_getMangling"),
@@ -381,6 +388,17 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
             objc_num_type_args: sym!("clang_Type_getNumObjCTypeArgs"),
             objc_type_arg: sym!("clang_Type_getObjCTypeArg"),
             modified_type: sym!("clang_Type_getModifiedType"),
+            is_virtual_base: sym!("clang_isVirtualBase"),
+            offset_of_base: {
+                let n = CString::new("clang_getOffsetOfBase").unwrap();
+                let p = unsafe { dlsym(handle, n.as_ptr()) };
+                if p.is_null() {
+                    None
+                } else {
+                    #[allow(clippy::missing_transmute_annotations)]
+                    Some(unsafe { std::mem::transmute(p) })
+                }
+            },
         };
         return Ok((api, path));
     }
@@ -701,6 +719,13 @@ pub fn call(op: &str, a: i64, b: i64, text: &[u8]) -> Result<i64, String> {
                 s.last_text = s.string((api.raw_comment)(s.cursor(a)));
                 0
             },
+            // Line where the cursor's attached comment starts (0 without one).
+            "comment_line" => unsafe {
+                let loc = (api.range_start)((api.comment_range)(s.cursor(a)));
+                let (mut file, mut line, mut col, mut off) = (std::ptr::null_mut(), 0, 0, 0);
+                (api.spelling_location)(loc, &mut file, &mut line, &mut col, &mut off);
+                line as i64
+            },
             "macro_function_like" => unsafe { (api.macro_function_like)(s.cursor(a)) as i64 },
             "macro_builtin" => unsafe { (api.macro_builtin)(s.cursor(a)) as i64 },
             "mangling" => unsafe {
@@ -708,6 +733,12 @@ pub fn call(op: &str, a: i64, b: i64, text: &[u8]) -> Result<i64, String> {
                 0
             },
             "field_offset" => unsafe { (api.field_offset)(s.cursor(a)) },
+            "is_virtual_base" => unsafe { (api.is_virtual_base)(s.cursor(a)) as i64 },
+            // Offset in bits of base specifier `b` in a complete object of record `a` (-1 unknown).
+            "base_offset" => match api.offset_of_base {
+                Some(f) => unsafe { f(s.cursor(a), s.cursor(b)) },
+                None => -1,
+            },
             "is_static_method" => unsafe { (api.cxx_method_static)(s.cursor(a)) as i64 },
             "is_virtual" => unsafe { (api.cxx_method_virtual)(s.cursor(a)) as i64 },
             "is_pure_virtual" => unsafe { (api.cxx_method_pure_virtual)(s.cursor(a)) as i64 },
