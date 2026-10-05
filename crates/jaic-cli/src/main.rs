@@ -33,7 +33,7 @@ fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...]"
+        "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...] [-- program args...]"
     );
     eprintln!(
         "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info]"
@@ -61,6 +61,8 @@ struct Cli {
     no_debug_info: bool,
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
     command_line: Vec<String>,
+    /// `run` only: arguments after `--`, for the program (`get_command_line_arguments`).
+    program_args: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
     os: Option<TargetOs>,
 }
@@ -81,13 +83,27 @@ fn parse(args: &[String]) -> Option<Cli> {
         emit_ir: None,
         no_debug_info: false,
         command_line: Vec::new(),
+        program_args: Vec::new(),
         os: None,
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
         match a.as_str() {
             "-" => {
-                cli.command_line.extend(rest.by_ref().cloned());
+                // Metaprogram arguments run up to a `--` (if any).
+                for arg in rest.by_ref() {
+                    if arg == "--" && command == Command::Run {
+                        cli.program_args.push(cli.file.clone());
+                        break;
+                    }
+                    cli.command_line.push(arg.clone());
+                }
+                cli.program_args.extend(rest.by_ref().cloned());
+            }
+            "--" if command == Command::Run => {
+                // argv[0] is the source file, like a built program's executable path.
+                cli.program_args.push(cli.file.clone());
+                cli.program_args.extend(rest.by_ref().cloned());
             }
             "-I" | "-import_dir" => cli.imports.extend(rest.next().map(PathBuf::from)),
             "-os" => {
@@ -219,7 +235,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     match cli.command {
         Command::Check => ExitCode::SUCCESS,
         Command::Run => {
-            let outcome = compiler.run_program();
+            // The sandbox's memory is virtual; host-allocated argv strings are not visible there.
+            let outcome = if sandbox.is_some() {
+                compiler.run_program()
+            } else {
+                compiler.run_program_with_args(&cli.program_args)
+            };
             if let Some(host) = &sandbox {
                 use std::io::Write;
                 let host = host.borrow();

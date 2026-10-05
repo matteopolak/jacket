@@ -284,6 +284,28 @@ impl Compiler {
 
     /// Run the compiled program in the interpreter; returns its exit code.
     pub fn run_program(&mut self) -> Result<i32> {
+        self.run_program_with_args(&[])
+    }
+
+    /// Run the compiled program with a C-style `argc`/`argv` (what
+    /// `get_command_line_arguments` returns). `args[0]` is conventionally the program name;
+    /// an empty slice passes `argc = 0, argv = null`. The strings live for the whole process.
+    pub fn run_program_with_args(&mut self, args: &[String]) -> Result<i32> {
+        let (argc, argv) = if args.is_empty() {
+            (0, 0)
+        } else {
+            let pointers: Vec<u64> = args
+                .iter()
+                .map(|arg| {
+                    let mut bytes = arg.as_bytes().to_vec();
+                    bytes.push(0);
+                    Box::leak(bytes.into_boxed_slice()).as_ptr() as u64
+                })
+                .chain(std::iter::once(0))
+                .collect();
+            let argv = Box::leak(pointers.into_boxed_slice()).as_ptr() as u64;
+            (args.len() as u64, argv)
+        };
         let Some(main) = self.exported_func("main") else {
             if self.exports.is_empty() {
                 // Compile-time-only program: everything already ran.
@@ -299,7 +321,7 @@ impl Compiler {
         if let Err(trap) = self.interp.reset_globals(&self.program) {
             return err(Span::default(), format!("runtime error: {}", trap.message));
         }
-        let result = self.interp.call(&self.program, main, &[0, 0]);
+        let result = self.interp.call(&self.program, main, &[argc, argv]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
             Err(trap) => {
