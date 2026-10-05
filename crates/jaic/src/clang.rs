@@ -76,12 +76,26 @@ unsafe extern "C" {
     fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
 }
 
-/// No dynamic loading off unix (the browser build): libclang is never found.
-#[cfg(not(unix))]
+#[cfg(windows)]
+unsafe extern "system" {
+    fn LoadLibraryA(name: *const c_char) -> *mut c_void;
+    fn GetProcAddress(module: *mut c_void, name: *const u8) -> *mut c_void;
+}
+#[cfg(windows)]
+unsafe fn dlopen(filename: *const c_char, _flags: c_int) -> *mut c_void {
+    unsafe { LoadLibraryA(filename) }
+}
+#[cfg(windows)]
+unsafe fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void {
+    unsafe { GetProcAddress(handle, symbol.cast()) }
+}
+
+/// No dynamic loading in the browser build: libclang is never found.
+#[cfg(not(any(unix, windows)))]
 unsafe fn dlopen(_filename: *const c_char, _flags: c_int) -> *mut c_void {
     std::ptr::null_mut()
 }
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 unsafe fn dlsym(_handle: *mut c_void, _symbol: *const c_char) -> *mut c_void {
     std::ptr::null_mut()
 }
@@ -282,6 +296,11 @@ fn candidates() -> Vec<String> {
     }
     list.push("libclang.dylib".into());
     list.push("libclang.so".into());
+    if cfg!(windows) {
+        // The LLVM installer's default location, then the DLL search path (`PATH`).
+        list.push(r"C:\Program Files\LLVM\bin\libclang.dll".into());
+        list.push("libclang.dll".into());
+    }
     list
 }
 
@@ -333,7 +352,7 @@ fn load_api(path: &str) -> Result<Option<Api>, String> {
         let Ok(c) = CString::new(path) else {
             return Ok(None);
         };
-        if path.starts_with('/') && !std::path::Path::new(path).exists() {
+        if std::path::Path::new(path).is_absolute() && !std::path::Path::new(path).exists() {
             return Ok(None);
         }
         let handle = unsafe { dlopen(c.as_ptr(), 2) };

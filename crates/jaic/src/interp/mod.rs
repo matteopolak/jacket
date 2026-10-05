@@ -95,7 +95,8 @@ impl Host for NativeHost {
         None
     }
     fn native_linking(&self) -> bool {
-        cfg!(unix)
+        // Windows: `interp/native/windows.rs` (x64 only).
+        cfg!(any(unix, all(windows, target_arch = "x86_64")))
     }
 }
 
