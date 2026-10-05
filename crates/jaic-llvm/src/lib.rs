@@ -258,37 +258,134 @@ pub fn used_libraries(program: &Program) -> Vec<Library> {
         .collect()
 }
 
-/// Link object files into an executable with the system `cc`.
+/// The linker family a target uses.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LinkFlavor {
+    /// macOS and Linux: the system `cc` driver (Clang or GCC).
+    Unix,
+    /// Windows with the MinGW-w64 runtime (`x86_64-pc-windows-gnu`): a MinGW GCC or Clang
+    /// driver. This is what cross builds from macOS and Linux use.
+    MinGw,
+    /// Windows with the Microsoft toolchain (`x86_64-pc-windows-msvc`, the default on a
+    /// Windows host): Clang's driver, `lld-link` or `link.exe`.
+    Msvc,
+}
+
+impl LinkFlavor {
+    /// The flavor for a target triple (`None`: the host).
+    pub fn for_target(target: Option<&str>) -> LinkFlavor {
+        let triple = match target {
+            Some(t) => t.to_string(),
+            None => TargetMachine::get_default_triple()
+                .as_str()
+                .to_string_lossy()
+                .into_owned(),
+        };
+        if triple.contains("windows-gnu") || triple.contains("mingw") {
+            LinkFlavor::MinGw
+        } else if triple.contains("windows") || triple.contains("win32") {
+            LinkFlavor::Msvc
+        } else {
+            LinkFlavor::Unix
+        }
+    }
+
+    pub fn is_windows(self) -> bool {
+        self != LinkFlavor::Unix
+    }
+}
+
+/// The triple `jaic build -os windows` targets from a non-Windows host: the MinGW-w64
+/// environment, whose cross toolchains are packaged for macOS and Linux.
+pub const WINDOWS_CROSS_TRIPLE: &str = "x86_64-pc-windows-gnu";
+
+/// One linker input, rendered per linker style.
+#[derive(Clone, PartialEq, Eq, Debug)]
+enum LinkArg {
+    /// A library by name (`-lname`, `name.lib`).
+    Lib(String),
+    /// A library file by path.
+    File(String),
+    /// An Apple framework.
+    Framework(String),
+    /// Runtime search directory for a shared library next to the source.
+    Rpath(String),
+    /// Link-time search directory.
+    SearchDir(String),
+}
+
+/// Link object files into an executable (or shared library) for `target` (`None`: the
+/// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
+/// see [`LinkFlavor`] and `docs/native/windows.md`.
 pub fn link(
     objects: &[PathBuf],
     libraries: &[Library],
     output: &Path,
     dynamic_library: bool,
     extra_args: &[String],
+    target: Option<&str>,
 ) -> Result<(), String> {
-    let mut cmd = Command::new("cc");
-    if dynamic_library {
-        cmd.arg("-shared");
-    }
-    cmd.args(objects).arg("-o").arg(output);
+    let flavor = LinkFlavor::for_target(target);
+    let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
     // Each library's argument group is added once (`-framework X` is two arguments).
-    let mut seen: Vec<Vec<String>> = Vec::new();
+    let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_args(lib)?;
+        let args = library_args(lib, flavor, cross)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
     }
-    cmd.args(seen.concat()).args(extra_args);
+    let (program, mut cmd) = linker_command(flavor, target)?;
+    let msvc_style = is_msvc_linker(&program);
+    if msvc_style {
+        cmd.arg("/NOLOGO")
+            .arg(format!("/OUT:{}", output.display()))
+            .args(objects);
+        cmd.arg(if dynamic_library {
+            "/DLL"
+        } else {
+            "/SUBSYSTEM:CONSOLE"
+        });
+        // The dynamic CRT; `oldnames` maps POSIX names (`write`) to the CRT's underscored
+        // ones, `legacy_stdio_definitions` keeps `printf` and friends linkable as functions.
+        cmd.args([
+            "/DEFAULTLIB:msvcrt",
+            "/DEFAULTLIB:oldnames",
+            "/DEFAULTLIB:legacy_stdio_definitions",
+        ]);
+    } else {
+        if dynamic_library {
+            cmd.arg("-shared");
+        }
+        cmd.args(objects).arg("-o").arg(output);
+        if flavor == LinkFlavor::Msvc {
+            // Clang's MSVC driver: the dynamic CRT, as above.
+            cmd.args(["-fms-runtime-lib=dll", "-llegacy_stdio_definitions"]);
+        }
+    }
+    // Windows reserves 1 MiB for the main thread's stack (and threads created without a
+    // size); reserve the 8 MiB macOS and Linux give, so deep recursion behaves the same.
+    if flavor.is_windows() && !dynamic_library {
+        cmd.arg(match (msvc_style, flavor) {
+            (true, _) => "/STACK:8388608",
+            (false, LinkFlavor::Msvc) => "-Wl,/STACK:8388608",
+            _ => "-Wl,--stack,8388608",
+        });
+    }
+    for arg in seen.concat() {
+        render_link_arg(&mut cmd, &arg, msvc_style);
+    }
+    cmd.args(extra_args);
     let out = cmd
         .output()
-        .map_err(|e| format!("could not run the system linker 'cc': {e}"))?;
+        .map_err(|e| format!("could not run the linker '{program}': {e}"))?;
     if out.status.success() {
         Ok(())
     } else {
         Err(format!(
-            "linking failed ({}):\n{}",
+            "linking failed ({}):\n{}{}",
             out.status,
+            String::from_utf8_lossy(&out.stdout),
             String::from_utf8_lossy(&out.stderr)
         ))
     }
@@ -319,11 +416,172 @@ pub fn write_dsym(output: &Path) -> Result<(), String> {
     }
 }
 
-/// Linker arguments for one Jai library reference.
-fn library_args(lib: &Library) -> Result<Vec<String>, String> {
+/// Archive object files into a static library for `target`: the system `ar` on macOS and
+/// Linux; for Windows a MinGW `ar`, `llvm-ar` or `lib.exe` (`JAIC_AR` overrides the choice).
+pub fn archive(objects: &[PathBuf], output: &Path, target: Option<&str>) -> Result<(), String> {
+    let program = match std::env::var("JAIC_AR") {
+        Ok(program) => program,
+        Err(_) if LinkFlavor::for_target(target).is_windows() => {
+            find_program(&["x86_64-w64-mingw32-ar", "llvm-ar", "llvm-lib", "lib"])
+                .ok_or("no archiver for Windows libraries found: install LLVM or mingw-w64")?
+        }
+        Err(_) => "ar".to_string(),
+    };
+    let stem = Path::new(&program)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    let mut cmd = Command::new(&program);
+    if matches!(stem.as_str(), "lib" | "llvm-lib") {
+        cmd.arg("/NOLOGO").arg(format!("/OUT:{}", output.display()));
+    } else {
+        // `ar` appends to an existing archive; start from an empty one.
+        let _ = std::fs::remove_file(output);
+        cmd.arg("rcs").arg(output);
+    }
+    let status = cmd
+        .args(objects)
+        .status()
+        .map_err(|e| format!("could not run '{program}': {e}"))?;
+    status
+        .success()
+        .then_some(())
+        .ok_or(format!("{program} failed ({status})"))
+}
+
+fn render_link_arg(cmd: &mut Command, arg: &LinkArg, msvc_style: bool) {
+    match (arg, msvc_style) {
+        (LinkArg::Lib(name), false) => cmd.arg(format!("-l{name}")),
+        (LinkArg::Lib(name), true) => cmd.arg(format!("{name}.lib")),
+        (LinkArg::File(path), _) => cmd.arg(path),
+        (LinkArg::Framework(name), _) => cmd.arg("-framework").arg(name),
+        (LinkArg::Rpath(dir), _) => cmd.arg(format!("-Wl,-rpath,{dir}")),
+        (LinkArg::SearchDir(dir), false) => cmd.arg(format!("-L{dir}")),
+        (LinkArg::SearchDir(dir), true) => cmd.arg(format!("/LIBPATH:{dir}")),
+    };
+}
+
+/// Whether `program` takes `link.exe`-style arguments rather than a C compiler driver's.
+fn is_msvc_linker(program: &str) -> bool {
+    let stem = Path::new(program)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    matches!(stem.as_str(), "link" | "lld-link")
+}
+
+/// The first of `names` found on `PATH`.
+fn find_program(names: &[&str]) -> Option<String> {
+    let path = std::env::var_os("PATH")?;
+    for name in names {
+        for dir in std::env::split_paths(&path) {
+            if dir.join(name).is_file() || dir.join(format!("{name}.exe")).is_file() {
+                return Some(name.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// The linker program and its base command. `JAIC_LINKER` overrides the choice: a program
+/// named `link` or `lld-link` gets MSVC-style arguments, anything else C-driver arguments.
+fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, Command), String> {
+    let msvc_triple = target.unwrap_or("x86_64-pc-windows-msvc");
+    if let Some(program) = std::env::var_os("JAIC_LINKER") {
+        let program = program.to_string_lossy().into_owned();
+        let mut cmd = Command::new(&program);
+        if flavor == LinkFlavor::Msvc && !is_msvc_linker(&program) {
+            cmd.arg(format!("--target={msvc_triple}"));
+        }
+        return Ok((program, cmd));
+    }
+    match flavor {
+        LinkFlavor::Unix => Ok(("cc".into(), Command::new("cc"))),
+        LinkFlavor::MinGw => {
+            let mut names = vec!["x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-clang"];
+            if cfg!(windows) {
+                names.extend(["gcc", "clang"]);
+            }
+            let program = find_program(&names).ok_or(
+                "no MinGW-w64 linker found: install mingw-w64 (it provides \
+                 x86_64-w64-mingw32-gcc) or set JAIC_LINKER",
+            )?;
+            let mut cmd = Command::new(&program);
+            if program.ends_with("clang") {
+                cmd.arg(format!(
+                    "--target={}",
+                    target.unwrap_or(WINDOWS_CROSS_TRIPLE)
+                ));
+            }
+            Ok((program, cmd))
+        }
+        LinkFlavor::Msvc => {
+            // Clang's driver finds the MSVC and Windows SDK libraries without a developer
+            // prompt; `lld-link`/`link.exe` need one (the `LIB` environment variable).
+            if let Some(program) = find_program(&["clang"]) {
+                let mut cmd = Command::new(&program);
+                cmd.arg(format!("--target={msvc_triple}"));
+                return Ok((program, cmd));
+            }
+            let program = find_program(&["lld-link", "link"]).ok_or(
+                "no MSVC linker found: install LLVM (clang) or the Visual Studio build tools, \
+                 or set JAIC_LINKER",
+            )?;
+            let cmd = Command::new(&program);
+            Ok((program, cmd))
+        }
+    }
+}
+
+/// What a native build writes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum OutputKind {
+    Executable,
+    DynamicLibrary,
+    StaticLibrary,
+}
+
+/// The file name extension an output gets on `target` when its name has none, where the
+/// platform expects one: `exe`, `dll` and `lib` on Windows.
+pub fn output_extension(target: Option<&str>, kind: OutputKind) -> Option<&'static str> {
+    if !LinkFlavor::for_target(target).is_windows() {
+        return None;
+    }
+    Some(match kind {
+        OutputKind::Executable => "exe",
+        OutputKind::DynamicLibrary => "dll",
+        OutputKind::StaticLibrary => "lib",
+    })
+}
+
+/// Linker inputs for one Jai library reference. `cross`: the target is not the host, so the
+/// host's library directories (Homebrew, native-libs builds, frameworks) do not apply.
+fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<LinkArg>, String> {
     let name = lib.name.as_str();
     // libc and friends are always linked implicitly.
     if matches!(name, "c" | "libc") {
+        return Ok(Vec::new());
+    }
+    // On Windows the toolchain picks the C runtime (see `link`); POSIX-only names are not
+    // libraries there.
+    if flavor.is_windows()
+        && matches!(
+            name.to_ascii_lowercase().as_str(),
+            "msvcrt"
+                | "ucrt"
+                | "ucrtbase"
+                | "vcruntime"
+                | "libcmt"
+                | "m"
+                | "libm"
+                | "pthread"
+                | "libpthread"
+                | "dl"
+                | "libdl"
+                | "rt"
+                | "librt"
+        )
+    {
         return Ok(Vec::new());
     }
     if !lib.system {
@@ -334,31 +592,44 @@ fn library_args(lib: &Library) -> Result<Vec<String>, String> {
             .map(|f| f.to_string_lossy().into_owned())
             .unwrap_or_default();
         let dir = Path::new(&lib.base_dir).join(path.parent().unwrap_or(Path::new("")));
-        let ext = if cfg!(target_os = "macos") {
-            "dylib"
-        } else {
-            "so"
-        };
         // Like `jai`, a static archive wins over a shared library.
-        let candidates = [
-            format!("{file}.a"),
-            format!("lib{file}.a"),
-            format!("{file}.{ext}"),
-            format!("lib{file}.{ext}"),
-        ];
+        let candidates: Vec<String> = match flavor {
+            LinkFlavor::Unix => {
+                let ext = if cfg!(target_os = "macos") {
+                    "dylib"
+                } else {
+                    "so"
+                };
+                vec![
+                    format!("{file}.a"),
+                    format!("lib{file}.a"),
+                    format!("{file}.{ext}"),
+                    format!("lib{file}.{ext}"),
+                ]
+            }
+            // `name.lib` is a static library or a DLL's import library; MinGW's `ld` also
+            // reads GNU archives and links against a DLL directly.
+            LinkFlavor::MinGw => vec![
+                format!("{file}.lib"),
+                format!("{file}.a"),
+                format!("lib{file}.a"),
+                format!("{file}.dll.a"),
+                format!("lib{file}.dll.a"),
+                format!("{file}.dll"),
+            ],
+            LinkFlavor::Msvc => vec![format!("{file}.lib"), format!("lib{file}.lib")],
+        };
         for candidate in &candidates {
             let full = dir.join(candidate);
             if !full.exists() {
                 continue;
             }
-            if candidate.ends_with(".a") {
-                return Ok(vec![full.display().to_string()]);
+            let mut args = vec![LinkArg::File(full.display().to_string())];
+            if candidate.ends_with(".dylib") || candidate.ends_with(".so") {
+                let parent = full.parent().unwrap_or(Path::new("."));
+                args.push(LinkArg::Rpath(parent.display().to_string()));
             }
-            let parent = full.parent().unwrap_or(Path::new(".")).display();
-            return Ok(vec![
-                full.display().to_string(),
-                format!("-Wl,-rpath,{parent}"),
-            ]);
+            return Ok(args);
         }
         // A path is never a system library name: report it instead of a confusing `-l`.
         if name.contains('/') {
@@ -369,26 +640,82 @@ fn library_args(lib: &Library) -> Result<Vec<String>, String> {
             ));
         }
     }
+    if flavor.is_windows() {
+        // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
+        return Ok(vec![LinkArg::Lib(name.to_string())]);
+    }
     // Apple frameworks (`AppKit`, `Metal`...) link with `-framework`; their directories exist on
     // disk even though the binaries live in the shared cache.
     if cfg!(target_os = "macos")
+        && !cross
         && Path::new(&format!("/System/Library/Frameworks/{name}.framework")).exists()
     {
-        return Ok(vec!["-framework".to_string(), name.to_string()]);
+        return Ok(vec![LinkArg::Framework(name.to_string())]);
     }
     // Jai names libraries either way (`"libobjc"` / `"objc"`); `-l` wants the bare name.
     let name = name.strip_prefix("lib").unwrap_or(name);
     // Built third-party libraries link statically, so the executable is self-contained.
-    for dir in jaic::interp::library_dirs() {
-        let archive = dir.join(format!("lib{name}.a"));
-        if archive.exists() {
-            return Ok(vec![archive.display().to_string()]);
+    if !cross {
+        for dir in jaic::interp::library_dirs() {
+            let archive = dir.join(format!("lib{name}.a"));
+            if archive.exists() {
+                return Ok(vec![LinkArg::File(archive.display().to_string())]);
+            }
         }
     }
     let mut args = Vec::new();
-    if cfg!(target_os = "macos") && Path::new("/opt/homebrew/lib").exists() {
-        args.push("-L/opt/homebrew/lib".to_string());
+    if cfg!(target_os = "macos") && !cross && Path::new("/opt/homebrew/lib").exists() {
+        args.push(LinkArg::SearchDir("/opt/homebrew/lib".to_string()));
     }
-    args.push(format!("-l{name}"));
+    args.push(LinkArg::Lib(name.to_string()));
     Ok(args)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_triples_pick_windows_linkers() {
+        assert_eq!(
+            LinkFlavor::for_target(Some("x86_64-pc-windows-gnu")),
+            LinkFlavor::MinGw
+        );
+        assert_eq!(
+            LinkFlavor::for_target(Some("x86_64-pc-windows-msvc")),
+            LinkFlavor::Msvc
+        );
+        assert_eq!(
+            LinkFlavor::for_target(Some("x86_64-unknown-linux-gnu")),
+            LinkFlavor::Unix
+        );
+        assert_eq!(
+            output_extension(Some(WINDOWS_CROSS_TRIPLE), OutputKind::Executable),
+            Some("exe")
+        );
+        assert_eq!(
+            output_extension(Some(WINDOWS_CROSS_TRIPLE), OutputKind::DynamicLibrary),
+            Some("dll")
+        );
+    }
+
+    #[test]
+    fn windows_system_libraries_link_by_name() {
+        let lib = |name: &str| Library {
+            name: name.into(),
+            system: true,
+            link_always: false,
+            base_dir: String::new(),
+        };
+        let args = |name: &str, flavor| library_args(&lib(name), flavor, true).unwrap();
+        assert_eq!(
+            args("kernel32", LinkFlavor::MinGw),
+            vec![LinkArg::Lib("kernel32".into())]
+        );
+        assert!(args("msvcrt", LinkFlavor::Msvc).is_empty());
+        assert!(args("libc", LinkFlavor::MinGw).is_empty());
+        let mut cmd = Command::new("link");
+        render_link_arg(&mut cmd, &LinkArg::Lib("user32".into()), true);
+        assert_eq!(cmd.get_args().next().unwrap(), "user32.lib");
+    }
 }

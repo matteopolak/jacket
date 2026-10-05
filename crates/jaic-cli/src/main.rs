@@ -1,7 +1,7 @@
 //! `jaic` command line: `jaic <run|check|build> <file.jai> [-I dir]... [-o out]`.
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
-use jaic::sema::{Compiler, FileSystem, NativeFs, Options, TargetOs};
+use jaic::sema::{Compiler, FileSystem, NativeFs, Options, TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -36,7 +36,7 @@ fn usage() -> ExitCode {
         "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...] [-- program args...]"
     );
     eprintln!(
-        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info]"
+        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-os windows] [-target triple]"
     );
     ExitCode::from(2)
 }
@@ -65,6 +65,53 @@ struct Cli {
     program_args: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
     os: Option<TargetOs>,
+    /// `-target`: an explicit LLVM target triple (`x86_64-pc-windows-msvc`...).
+    target: Option<String>,
+}
+
+impl Cli {
+    /// The LLVM triple to build for, `None` for the host. `-os windows` on another host
+    /// cross-compiles with MinGW-w64; other cross targets need an explicit `-target`.
+    fn target_triple(&self) -> Result<Option<String>, String> {
+        if let Some(triple) = &self.target {
+            return Ok(Some(triple.clone()));
+        }
+        let host = Options::host().os;
+        match self.os {
+            None => Ok(None),
+            Some(os) if os == host => Ok(None),
+            Some(TargetOs::Windows) => Ok(Some(WINDOWS_CROSS_TRIPLE.to_string())),
+            Some(_) if self.command != Command::Build => Ok(None),
+            Some(_) => Err(
+                "native cross-compilation is only supported for -os windows; pass -target <triple> for others"
+                    .into(),
+            ),
+        }
+    }
+}
+
+/// The MinGW triple `-os windows` builds for when the host is not Windows.
+const WINDOWS_CROSS_TRIPLE: &str = "x86_64-pc-windows-gnu";
+
+/// `OS` and `CPU` as a target triple implies them.
+fn os_and_cpu(triple: &str) -> (TargetOs, TargetCpu) {
+    let os = if triple.contains("windows") || triple.contains("mingw") {
+        TargetOs::Windows
+    } else if triple.contains("apple") || triple.contains("darwin") || triple.contains("macos") {
+        TargetOs::MacOS
+    } else if triple.starts_with("wasm") {
+        TargetOs::Wasm
+    } else {
+        TargetOs::Linux
+    };
+    let cpu = if triple.starts_with("aarch64") || triple.starts_with("arm64") {
+        TargetCpu::Arm64
+    } else if triple.starts_with("wasm") {
+        TargetCpu::Wasm
+    } else {
+        TargetCpu::X64
+    };
+    (os, cpu)
 }
 
 fn parse(args: &[String]) -> Option<Cli> {
@@ -85,6 +132,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         command_line: Vec::new(),
         program_args: Vec::new(),
         os: None,
+        target: None,
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -115,6 +163,7 @@ fn parse(args: &[String]) -> Option<Cli> {
                     _ => return None,
                 })
             }
+            "-target" | "--target" => cli.target = Some(rest.next()?.clone()),
             "-o" if command == Command::Build => cli.output = Some(PathBuf::from(rest.next()?)),
             "--emit-ir" if command == Command::Build => {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
@@ -185,6 +234,18 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     }
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
+    match cli.target_triple() {
+        Ok(Some(triple)) => {
+            let (os, cpu) = os_and_cpu(&triple);
+            options.os = os;
+            options.cpu = cpu;
+        }
+        Ok(None) => {}
+        Err(message) => {
+            eprintln!("error: {message}");
+            return ExitCode::from(2);
+        }
+    }
     // The local `modules` folder is searched first, then `-import_dir`s, then the stdlib.
     options.import_paths = vec![main_dir.join("modules")];
     options.import_paths.extend(cli.imports.iter().cloned());
@@ -303,6 +364,7 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
     LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
+        target: cli.target_triple().ok().flatten(),
     }
 }
 
@@ -333,6 +395,8 @@ impl OutputBackend for NoBackend {
 struct LlvmBackend {
     emit_ir: Option<PathBuf>,
     debug_info: bool,
+    /// Target triple; `None` for the host.
+    target: Option<String>,
 }
 
 #[cfg(feature = "llvm")]
@@ -343,6 +407,22 @@ impl OutputBackend for LlvmBackend {
         settings: &BuildSettings,
         output: &Path,
     ) -> Result<(), String> {
+        let target = self.target.as_deref();
+        // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's.
+        use jaic_llvm::OutputKind;
+        let kind = match settings.output_type {
+            OutputType::Executable => Some(OutputKind::Executable),
+            OutputType::DynamicLibrary => Some(OutputKind::DynamicLibrary),
+            OutputType::StaticLibrary => Some(OutputKind::StaticLibrary),
+            OutputType::ObjectFile | OutputType::NoOutput => None,
+        };
+        let mut output = output.to_path_buf();
+        if output.extension().is_none()
+            && let Some(ext) = kind.and_then(|k| jaic_llvm::output_extension(target, k))
+        {
+            output.set_extension(ext);
+        }
+        let output = output.as_path();
         if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir)
                 .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
@@ -369,7 +449,7 @@ impl OutputBackend for LlvmBackend {
         let debug_info = self.debug_info && settings.emit_debug_info != Some(false);
         let options = jaic_llvm::Options {
             opt_level,
-            target: None,
+            target: self.target.clone(),
             emit_ir: self.emit_ir.clone(),
             debug_info,
         };
@@ -389,14 +469,9 @@ impl OutputBackend for LlvmBackend {
                 output,
                 settings.output_type == OutputType::DynamicLibrary,
                 &settings.additional_linker_arguments,
+                target,
             ),
-            OutputType::StaticLibrary => std::process::Command::new("ar")
-                .arg("rcs")
-                .arg(output)
-                .args(&objects)
-                .status()
-                .map_err(|e| format!("could not run 'ar': {e}"))
-                .and_then(|s| s.success().then_some(()).ok_or(format!("ar failed ({s})"))),
+            OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
         };
         // macOS linkers leave DWARF in the objects; collect it into `output.dSYM` before they go.
         if debug_info

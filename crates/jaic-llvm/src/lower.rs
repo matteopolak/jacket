@@ -8,6 +8,7 @@
 use crate::debuginfo::{DebugFormat, DebugInfo, FnDebug};
 use inkwell::AddressSpace;
 use inkwell::AtomicOrdering;
+use inkwell::DLLStorageClass;
 use inkwell::FloatPredicate;
 use inkwell::GlobalVisibility;
 use inkwell::IntPredicate;
@@ -370,6 +371,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .add_function(&name, lowered.fn_ty, Some(Linkage::External));
             if func.linkage == IrLinkage::Internal {
                 self.internal_linkage(f.as_global_value());
+            } else if self.arch == Arch::Win64 && self.owns_func(i) {
+                // `#program_export`: in a DLL's export table (harmless in an executable).
+                f.as_global_value()
+                    .set_dll_storage_class(DLLStorageClass::Export);
             }
             self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
             self.funcs.push(Some(f));

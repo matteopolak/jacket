@@ -42,9 +42,14 @@ fn matches(case: &Case, output: &std::process::Output) -> bool {
         && String::from_utf8_lossy(&output.stdout) == case.stdout
 }
 
+/// The path of executable `name` in `dir` (`name.exe` on Windows, where `jaic build` adds it).
+fn exe_path(dir: &Path, name: &str) -> PathBuf {
+    dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+}
+
 /// Build `source` natively into `dir` and run it.
 fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::Output, String> {
-    let exe = dir.join(name);
+    let exe = exe_path(dir, name);
     let build = Command::new(JAIC)
         .arg("build")
         .arg(source)
@@ -207,21 +212,36 @@ fn c_structs_by_value() {
     } else {
         "libstructs.so"
     };
-    let mut cc = Command::new("cc");
-    cc.args(["-shared", "-fPIC", "-o", lib, "structs.c"]);
+    // Windows: a static `libstructs.lib` from Clang (the interpreter cannot load native
+    // libraries there, so only the native build is checked).
+    let mut steps = vec![Command::new(if cfg!(windows) {
+        "clang"
+    } else {
+        "cc"
+    })];
+    if cfg!(windows) {
+        steps[0].args(["-c", "structs.c", "-o", "structs.o"]);
+        let mut archive = Command::new("llvm-ar");
+        archive.args(["rcs", "libstructs.lib", "structs.o"]);
+        steps.push(archive);
+    } else {
+        steps[0].args(["-shared", "-fPIC", "-o", lib, "structs.c"]);
+    }
     if cfg!(target_os = "macos") {
         // Found through the executable's rpath rather than relative to the working directory.
-        cc.arg("-Wl,-install_name,@rpath/libstructs.dylib");
+        steps[0].arg("-Wl,-install_name,@rpath/libstructs.dylib");
     }
-    let Ok(cc) = cc.current_dir(&dir).output() else {
-        eprintln!("skipping: no C compiler");
-        return;
-    };
-    assert!(
-        cc.status.success(),
-        "{}",
-        String::from_utf8_lossy(&cc.stderr)
-    );
+    for step in &mut steps {
+        let Ok(output) = step.current_dir(&dir).output() else {
+            eprintln!("skipping: no C compiler");
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
     let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n";
     let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n";
     let run_interp = |name: &str| {
@@ -237,8 +257,10 @@ fn c_structs_by_value() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
-    assert_eq!(run_interp("foreign_calls"), calls);
-    assert_eq!(run_interp("callbacks"), callbacks);
+    if !cfg!(windows) {
+        assert_eq!(run_interp("foreign_calls"), calls);
+        assert_eq!(run_interp("callbacks"), callbacks);
+    }
     let run_native = |name: &str| {
         let output = build_and_run(&dir.join(format!("{name}.jai")), &dir, name).unwrap();
         String::from_utf8_lossy(&output.stdout).into_owned()
@@ -452,7 +474,7 @@ END
             "{name}: build failed: {}",
             String::from_utf8_lossy(&build.stderr)
         );
-        let run = Command::new(dir.join(format!("{name}-prog")))
+        let run = Command::new(exe_path(&dir, &format!("{name}-prog")))
             .output()
             .unwrap();
         let err = String::from_utf8_lossy(&run.stderr);
@@ -501,7 +523,7 @@ fn jaifmt_builds_and_formats() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src/skipped")).unwrap();
-    let exe = dir.join("jaifmt");
+    let exe = exe_path(&dir, "jaifmt");
     let build = Command::new(JAIC)
         .arg("build")
         .arg(repo_root().join("tools/jaifmt/main.jai"))
@@ -567,4 +589,45 @@ fn jaifmt_builds_and_formats() {
 
     std::fs::remove_file(dir.join("src/bad.jai")).unwrap();
     assert_eq!(fmt(&["--check", "src"]).status.code(), Some(0));
+}
+
+/// The Windows runtime test program: natively wherever the tests run, and cross-built with
+/// `-os windows` when a MinGW-w64 toolchain is installed (the result is checked to be an x86-64
+/// PE executable; CI runs it on Windows, see `tools/windows_cross.py`).
+#[test]
+fn windows_runtime_program() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-windows-runtime");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/native/windows/runtime.jai");
+    let output = build_and_run(&source, &dir, "runtime").unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "ok\n",
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mingw = Command::new("x86_64-w64-mingw32-gcc")
+        .arg("--version")
+        .output();
+    if cfg!(windows) || mingw.is_err() {
+        return;
+    }
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .args(["-os", "windows", "-o"])
+        .arg(dir.join("cross"))
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let image = std::fs::read(dir.join("cross.exe")).unwrap();
+    assert_eq!(&image[..2], b"MZ");
+    let pe = u32::from_le_bytes(image[0x3c..0x40].try_into().unwrap()) as usize;
+    assert_eq!(&image[pe..pe + 4], b"PE\0\0");
+    // IMAGE_FILE_MACHINE_AMD64
+    assert_eq!(u16::from_le_bytes([image[pe + 4], image[pe + 5]]), 0x8664);
 }
