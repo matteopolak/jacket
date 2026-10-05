@@ -56,7 +56,7 @@ main :: () {
     assert(has(text, "Opaque_T :: struct {"));
     assert(has(text, "Opaque :: *Opaque_T;"));
     assert(has(text, "add :: (a: s32, b: s32) -> s32 #foreign lib;"));
-    assert(has(text, "log_message_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign lib;"));
+    assert(has(text, "log_message_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign lib \"log_message\";"));
     assert(has(text, "log_message :: (fmt: string, __args: ..Any)"));
     assert(has(text, "make_opaque :: (node: *Node, color: Color, flags: Flags) -> Opaque #foreign lib;"));
     assert(has(text, "assert(size_of(Node) == 40"));

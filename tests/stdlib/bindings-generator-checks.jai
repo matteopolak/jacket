@@ -49,7 +49,7 @@ main :: () {
         assert(has(BINDINGS, "assert(((cast(*void)(*instance.weight)) - cast(*void)(*instance)) == 8, \"Point.weight has unexpected offset % instead of 8\""));
         assert(has(BINDINGS, "assert(size_of(type_of(Point.x)) == 4, \"Point.x has unexpected size % instead of 4\""));
         assert(has(BINDINGS, "assert(size_of(type_of(Point3.point)) == 16"));
-        assert(has(BINDINGS, "#import \"Basic\"; // For assert"));
+        assert(has(BINDINGS, "#import \"Basic\"; // The generated code uses assert."));
         assert(!has(WITH_INLINE, "#run {"));
         assert(!has(WITH_INLINE, "#import \"Basic\""));
 

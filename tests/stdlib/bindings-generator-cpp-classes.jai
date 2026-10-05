@@ -1,6 +1,7 @@
 // Bindings_Generator on a C++ library: member functions, constructors and destructors,
 // virtual functions through a vtable, inheritance, static members, operators, class templates
-// and by-value struct passing. A small library is built with clang++ at compile time, bindings
+// by-value struct passing and printf-like wrappers. A small library is built with clang++ at
+// compile time, bindings
 // are generated for its header (`#insert`ed into this file), and the program calls into it.
 // Skips (printing ok) when clang++ or libclang is unavailable.
 #import "Basic";
@@ -95,6 +96,7 @@ int free_function(int a, int b = 3);
 extern "C" int shapes_live_counters();
 extern "C" Geo::Shape* shapes_new_circle(int id, float r);
 extern "C" void shapes_delete(Geo::Shape* s);
+extern "C" int shapes_format(char* out, int capacity, const char* fmt, ...);
 END;
 
 SOURCE :: #string END
@@ -144,6 +146,15 @@ int free_function(int a, int b) { return a * b; }
 extern "C" int shapes_live_counters() { return Geo::Counter::live; }
 extern "C" Geo::Shape* shapes_new_circle(int id, float r) { return new Geo::Circle(id, r); }
 extern "C" void shapes_delete(Geo::Shape* s) { delete s; }
+#include <stdarg.h>
+#include <stdio.h>
+extern "C" int shapes_format(char* out, int capacity, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    int n = vsnprintf(out, capacity, fmt, args);
+    va_end(args);
+    return n;
+}
 END;
 
 build_and_generate :: () -> string {
@@ -196,6 +207,15 @@ main :: () {
         assert(has(BINDINGS, "-> Geo.Counter #cpp_return_type_is_non_pod #foreign"));
         assert(has(BINDINGS, "MAX_THINGS :: 16;"));
         assert(has(BINDINGS, "operator+ :: (this: Geo.Vec2, o: Geo.Vec2) -> Geo.Vec2 #no_context {"));
+        assert(has(BINDINGS, "// This class's own implementations of its virtual functions."));
+        assert(has(BINDINGS, "shapes_format_CFormat :: (out: *u8, capacity: s32, fmt: *u8, __args: ..Any) -> s32 #foreign libshapes \"shapes_format\";"));
+        assert(has(BINDINGS, "shapes_format :: (out: *u8, capacity: s32, fmt: string, __args: ..Any) -> s32 {"));
+
+    // A printf-like function: the wrapper formats with Jai's print and passes the text as "%s".
+    buffer: [32] u8;
+    written := shapes_format(buffer.data, buffer.count, "%-%", 12, "ab");
+    assert(written == 5);
+    assert(to_string(buffer.data) == "12-ab");
 
     // Non-virtual methods, constructors, destructors.
     c: Geo.Counter;
