@@ -872,6 +872,22 @@ impl Compiler {
         let root = self.root_scope;
         let ty = self.new_struct_type(Sym::intern("Context"), lit, root, Vec::new(), None);
         let s = self.types.as_struct(ty).unwrap();
+        // `#add_context name :: value;` adds a constant member (`#Context._Iprof.Zone()`), not a
+        // field. It is resolved where it was declared.
+        let (consts, extra): (Vec<_>, Vec<_>) = extra
+            .into_iter()
+            .partition(|(decl, _)| decl.kind == ast::DeclKind::Const);
+        let struct_scope = self.struct_asts[&s].scope;
+        for (decl, home) in consts {
+            for (index, n) in decl.names.iter().enumerate() {
+                let kind = EntityKind::Decl {
+                    decl: decl.clone(),
+                    index,
+                };
+                let id = self.add_entity(struct_scope, n.name, n.span, kind, true);
+                self.entity_mut(id).home = home;
+            }
+        }
         self.struct_asts.get_mut(&s).unwrap().extra = extra;
         self.context_type = Some(ty);
         self.layout_struct(s, span)?;

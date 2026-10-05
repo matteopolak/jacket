@@ -850,6 +850,7 @@ impl Compiler {
         let mut bindings: Vec<(Sym, Value, TypeId)> = Vec::new();
         let mut deferred_procs = Vec::new();
         let mut null_patterns: Vec<ast::Expr> = Vec::new();
+        let mut deferred_defaults: Vec<(Sym, &ast::Param, &ast::Expr)> = Vec::new();
         let def_scope = self.proc(proc).scope;
         let poly_vars = header_poly_names(header);
         for arg in args {
@@ -890,44 +891,15 @@ impl Compiler {
                 let Some(arg) = arg_ops.first() else {
                     if let Some(d) = &param.default {
                         // `$type: Query = .X`: the default takes the declared type. A type
-                        // naming earlier bindings (`$compare: (T, T) -> bool = ...`) is read
-                        // in a scope holding them.
-                        let mut scope = def_scope;
-                        if !bindings.is_empty() {
-                            // One scope per set of bindings, so a lambda default
-                            // (`$compare := (a, b) => a == b`) is the same procedure on every
-                            // call and the instance is found again.
-                            let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
-                            scope = match self.default_scopes.get(&key) {
-                                Some(&s) => s,
-                                None => {
-                                    let module = self.scope(def_scope).module;
-                                    let s = self.new_scope(
-                                        ScopeKind::Block,
-                                        Some(def_scope),
-                                        module,
-                                        None,
-                                    );
-                                    for (n, v, t) in &bindings {
-                                        self.add_const(s, *n, span, v.clone(), *t);
-                                    }
-                                    self.default_scopes.insert(key, s);
-                                    s
-                                }
-                            };
-                        }
-                        let declared = match &param.ty {
-                            Some(t) if !procs::has_poly(t) => Some(self.eval_type(scope, t)?),
-                            _ => None,
-                        };
-                        let (v, ty) = match declared {
-                            Some(t) => (self.const_value_of_type(scope, d, t)?, t),
-                            None => {
-                                let ty = self.eval_const(scope, d, None)?.ty();
-                                (self.const_value_of_type(scope, d, ty)?, ty)
+                        // naming a binding only `null` can make (`is(null)` with
+                        // `$cmp: (T, T) -> bool = null`) waits until `null` has bound it.
+                        match self.baked_default(def_scope, param, d, &bindings, span) {
+                            Ok((v, ty)) => bindings.push((name, v, ty)),
+                            Err(_) if !null_patterns.is_empty() => {
+                                deferred_defaults.push((name, param, d));
                             }
-                        };
-                        bindings.push((name, v, ty));
+                            Err(e) => return Err(e),
+                        }
                         continue;
                     }
                     return err(
@@ -1190,6 +1162,10 @@ impl Compiler {
                 bindings = probe;
             }
         }
+        for (name, param, d) in deferred_defaults {
+            let (v, ty) = self.baked_default(def_scope, param, d, &bindings, span)?;
+            bindings.push((name, v, ty));
+        }
         // Defaults of the form `$T` without arguments are an error unless bound elsewhere.
         // A `#modify` block may still bind what the arguments did not determine.
         if header.modify.is_none() {
@@ -1210,6 +1186,49 @@ impl Compiler {
             Some(block) => self.run_modify(proc, header, block, bindings, span),
             None => Ok(bindings),
         }
+    }
+
+    /// The value of a defaulted baked parameter. A declared type naming earlier bindings
+    /// (`$compare: (T, T) -> bool = ...`) is read in a scope holding them.
+    fn baked_default(
+        &mut self,
+        def_scope: ScopeId,
+        param: &ast::Param,
+        d: &ast::Expr,
+        bindings: &[(Sym, Value, TypeId)],
+        span: Span,
+    ) -> Result<(Value, TypeId)> {
+        let mut scope = def_scope;
+        if !bindings.is_empty() {
+            // One scope per set of bindings, so a lambda default
+            // (`$compare := (a, b) => a == b`) is the same procedure on every
+            // call and the instance is found again.
+            let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
+            scope = match self.default_scopes.get(&key) {
+                Some(&s) => s,
+                None => {
+                    let module = self.scope(def_scope).module;
+                    let s = self.new_scope(ScopeKind::Block, Some(def_scope), module, None);
+                    for (n, v, t) in bindings {
+                        self.add_const(s, *n, span, v.clone(), *t);
+                    }
+                    self.default_scopes.insert(key, s);
+                    s
+                }
+            };
+        }
+        let declared = match &param.ty {
+            Some(t) if !procs::has_poly(t) => Some(self.eval_type(scope, t)?),
+            _ => None,
+        };
+        let (v, ty) = match declared {
+            Some(t) => (self.const_value_of_type(scope, d, t)?, t),
+            None => {
+                let ty = self.eval_const(scope, d, None)?.ty();
+                (self.const_value_of_type(scope, d, ty)?, ty)
+            }
+        };
+        Ok((v, ty))
     }
 
     /// A baked variadic parameter given `..view`: the view must be a compile-time constant

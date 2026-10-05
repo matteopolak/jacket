@@ -2240,16 +2240,19 @@ impl Compiler {
                 hidden.push((original, id));
             }
         }
-        // break/continue in the body target the macro's innermost loop.
-        let (brk, cont) = match f.loops.last() {
-            Some(l) if f.loops.len() > frame.loop_depth => (l.break_block, l.continue_block),
-            _ => (frame.exit_block, frame.exit_block),
+        // break/continue in the body target the macro's innermost loop, and run the defers
+        // the macro registered inside it (`defer i += 1;` before `#insert body;`).
+        let (brk, cont, defer_depth) = match f.loops.last() {
+            Some(l) if f.loops.len() > frame.loop_depth => {
+                (l.break_block, l.continue_block, l.defer_depth)
+            }
+            _ => (frame.exit_block, frame.exit_block, frame.defer_depth),
         };
         f.loops.push(LoopFrame {
             label: body.label,
             break_block: brk,
             continue_block: cont,
-            defer_depth: f.defers.len(),
+            defer_depth,
             remove: None,
         });
         let saved = f.macros.split_off(frame_index);
