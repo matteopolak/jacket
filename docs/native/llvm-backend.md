@@ -30,7 +30,7 @@ Lowering rules (`lower.rs`):
 - Globals are packed structs of byte runs and pointer relocations (`Reloc`), with the IR alignment and `read_only` flag. `#program_export` names stay external; everything else is internal and suffixed with its index.
 - Foreign functions/variables are external declarations, de-duplicated by symbol. All calls are emitted as indirect calls with a function type computed from the call's `Sig`, so one symbol can be called with several signatures.
 - `Conv::Jai` functions map parameters and scalar results 1:1 (several results become a struct return).
-- Intrinsics: `Memcpy` is `memmove`, `Memcmp` calls libc `memcmp` and normalizes to -1/0/1 (`I16`), `CompilerWrite` calls `write(1|2, ...)`, `CompareAndSwap` is a seq_cst `cmpxchg` whose width comes from the operand type, `IsCompileTime` is the constant 0, `CycleCounter` reads `cntvct_el0` on AArch64 and `rdtsc` on x86-64. `Loc` markers set the debug location (see [debug info](debug-info.md)).
+- Intrinsics: `Memcpy` is `memmove`, `Memcmp` calls libc `memcmp` and normalizes to -1/0/1 (`I16`), `CompilerWrite` calls `write(1|2, ...)`, `CompareAndSwap` is a seq_cst `cmpxchg` whose width comes from the operand type, `IsCompileTime` is the constant 0, `CycleCounter` reads `cntvct_el0` on AArch64 and `rdtsc` on x86-64, `Fma` is `llvm.fma.f64` (used by `#asm` FMA instructions). `Loc` markers set the debug location (see [debug info](debug-info.md)).
 
 ### C ABI (`jaic::abi`)
 

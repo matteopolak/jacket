@@ -1463,6 +1463,17 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             Intrinsic::Round => float_unary("llvm.round"),
             Intrinsic::Trunc => float_unary("llvm.trunc"),
             Intrinsic::Fabs => float_unary("llvm.fabs"),
+            Intrinsic::Fma => {
+                let ty = args[0].get_type();
+                let v = self
+                    .call_intrinsic(
+                        "llvm.fma",
+                        &[ty],
+                        &[args[0].into(), args[1].into(), args[2].into()],
+                    )?
+                    .ok_or("fma produced no value")?;
+                Ok(vec![v])
+            }
             Intrinsic::ReturnAddress => {
                 let zero = self.ctx.i32_type().const_zero();
                 let v = self

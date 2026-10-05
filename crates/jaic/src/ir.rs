@@ -151,6 +151,8 @@ pub enum Intrinsic {
     Round,
     Trunc,
     Fabs,
+    /// `(a, b, c) -> a * b + c` with a single rounding (`F64`; `#asm` FMA instructions).
+    Fma,
     /// Return address / frame queries used by stack traces.
     ReturnAddress,
     /// Read the cycle counter (`rdtsc`).

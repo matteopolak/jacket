@@ -1226,6 +1226,7 @@ impl Interp {
             I::Round => vec![f64_of(a[0]).round().to_bits()],
             I::Trunc => vec![f64_of(a[0]).trunc().to_bits()],
             I::Fabs => vec![f64_of(a[0]).abs().to_bits()],
+            I::Fma => vec![f64_of(a[0]).mul_add(f64_of(a[1]), f64_of(a[2])).to_bits()],
             I::ReturnAddress => vec![0],
             I::CycleCounter => vec![cycle_counter()],
             I::Pause => vec![],
