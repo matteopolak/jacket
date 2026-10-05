@@ -352,6 +352,10 @@ fn bindings_generator_objc_stret() {
 
 #[test]
 fn bindings_generator_parity() {
+    // The test program writes its headers under /tmp and imports POSIX (for `FILE`).
+    if cfg!(windows) {
+        return;
+    }
     native_bindings_generator_test("bindings-generator-parity");
 }
 
@@ -520,6 +524,10 @@ fn simp_window_program_checks_on_desktop_oses() {
 /// ignore globs from the nearest jaifmt.toml apply, and malformed files are refused (exit 2).
 #[test]
 fn jaifmt_builds_and_formats() {
+    // jaifmt walks directories through the POSIX module, which has no Windows side.
+    if cfg!(windows) {
+        return;
+    }
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src/skipped")).unwrap();

@@ -47,6 +47,8 @@ Runtime (`stdlib/Runtime_Support.jai`):
 - Gotchas:
   - Foreign *data* (`#foreign` variables) imported from a DLL is not marked `dllimport`. MinGW's linker fixes such references up (auto-import); MSVC's does not, so it only works there for statically linked data.
   - The interpreter (`jaic run`, `#run`, metaprograms) on a Windows host loads DLLs with `LoadLibraryW` and calls foreign procedures with the Microsoft x64 convention (`crates/jaic/src/interp/native/windows.rs`): every argument goes through a C-variadic prototype, so the first four reach both their integer and XMM registers. Up to 20 arguments. Library-less symbols and `libc`/`msvcrt` resolve in `msvcrt.dll`, `ucrtbase.dll`, `kernel32.dll`, `ntdll.dll` and the DLLs opened so far. C calling back into interpreted `#c_call` procedures is not implemented there (`callbacks.rs` returns an error).
+  - `Bindings_Generator` on Windows loads `libclang.dll` (`JAI_LIBCLANG`, `C:\Program Files\LLVM\bin`, then the DLL search path) with `LoadLibraryA` (`crates/jaic/src/clang.rs`).
+  - Debug information: MinGW targets get DWARF in the executable; MSVC targets get CodeView in the objects, but the linker is not asked for a PDB yet, so it is dropped. No `.dSYM` is written for non-macOS targets.
   - Code compiled for Windows still runs its `#run` blocks on the build host when cross-compiling, with `OS == .WINDOWS`.
   - `#asm` and `#bytes` follow the target CPU; cross builds from arm64 hosts assemble x86-64.
 

@@ -91,6 +91,8 @@
   "insert-scope-string-top-level.jai",
   "int128-arithmetic.jai",
   "intro-sort-api.jai",
+  "iprof-call-graph.jai",
+  "iprof-instrumented-report.jai",
   "iprof-plugin.jai",
   "iprof-runtime-manual.jai",
   "jai-format-api.jai",

@@ -12,7 +12,9 @@ every tests/stdlib program that builds for Windows to `dir/<id>.exe` and writes
 docs/native/windows.md.
 """
 import argparse
+import concurrent.futures
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -34,6 +36,7 @@ NOT_ON_WINDOWS = {
     "bindings-generator-c": "writes its header to /tmp",
     "bindings-generator-cpp": "writes its header to /tmp",
     "compile-time-globals-reset": "#no_reset globals are not kept by native builds on any OS yet",
+    "simp-window-program": "needs an OpenGL context, which CI runners do not have",
 }
 
 
@@ -114,8 +117,11 @@ def build(args):
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     expected, failures, skipped = {}, [], []
-    for case_id, source, exit_code, stdout, required in cases(args.stdlib):
-        error = build_one(args, source, out / case_id)
+    all_cases = list(cases(args.stdlib))
+    # Builds are independent; run several at once (each is mostly single-threaded).
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
+        errors = list(pool.map(lambda case: build_one(args, case[1], out / case[0]), all_cases))
+    for (case_id, source, exit_code, stdout, required), error in zip(all_cases, errors):
         if error:
             (failures if required else skipped).append(f"{case_id}: {error.splitlines()[0]}")
             continue

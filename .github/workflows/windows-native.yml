@@ -106,7 +106,8 @@ jobs:
         run: |
           mkdir -p native-exes
           target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
-          python tools/windows_cross.py build --stdlib --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
-          python tools/windows_cross.py run --dir native-exes
+          python -u tools/windows_cross.py build --stdlib --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
+          python -u tools/windows_cross.py run --dir native-exes
       - name: Native backend tests
+        if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2

@@ -476,7 +476,7 @@ impl OutputBackend for LlvmBackend {
         // macOS linkers leave DWARF in the objects; collect it into `output.dSYM` before they go.
         if debug_info
             && linked.is_ok()
-            && cfg!(target_os = "macos")
+            && target.map_or(cfg!(target_os = "macos"), |t| t.contains("apple"))
             && settings.output_type != OutputType::StaticLibrary
             && let Err(message) = jaic_llvm::write_dsym(output)
         {
