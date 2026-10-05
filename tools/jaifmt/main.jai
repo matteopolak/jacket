@@ -11,9 +11,7 @@
 #import "POSIX";
 #import "Sort";
 
-#load "lexer.jai";
-#load "config.jai";
-#load "format.jai";
+#import "Jai_Format";
 
 USAGE :: #string END
 usage: jaifmt [options] <file or directory>...
@@ -72,7 +70,7 @@ main :: () {
         }
     }
 
-    explicit_config: *Config;
+    explicit_config: *Format_Config;
     if options.config_path.count {
         config, ok, message := load_config(absolute_path(options.config_path));
         if !ok {
@@ -103,7 +101,7 @@ main :: () {
         } else {
             config := config_for(path, explicit_config, *totals);
             if !config continue;
-            if is_ignored(config, path) {
+            if format_is_ignored(config.*, path) {
                 totals.ignored += 1;
                 continue;
             }
@@ -151,7 +149,7 @@ trim_trailing_slashes :: (path: string) -> string {
     return result;
 }
 
-config_for :: (path: string, explicit_config: *Config, totals: *Totals) -> *Config {
+config_for :: (path: string, explicit_config: *Format_Config, totals: *Totals) -> *Format_Config {
     if explicit_config return explicit_config;
     config, ok, message := config_for_directory(parent_directory(path));
     if !ok {
@@ -165,10 +163,10 @@ config_for :: (path: string, explicit_config: *Config, totals: *Totals) -> *Conf
 Walk :: struct {
     files: *[..] string;
     totals: *Totals;
-    explicit_config: *Config;
+    explicit_config: *Format_Config;
 }
 
-collect_files :: (directory: string, explicit_config: *Config, files: *[..] string, totals: *Totals) {
+collect_files :: (directory: string, explicit_config: *Format_Config, files: *[..] string, totals: *Totals) {
     walk: Walk;
     walk.files = files;
     walk.totals = totals;
@@ -184,7 +182,7 @@ collect_files :: (directory: string, explicit_config: *Config, files: *[..] stri
             info.descend_into_directory = false;
             return;
         }
-        if is_ignored(config, info.full_name) {
+        if format_is_ignored(config.*, info.full_name) {
             info.descend_into_directory = false;
             if !info.is_directory walk.totals.ignored += 1;
             return;
@@ -194,7 +192,7 @@ collect_files :: (directory: string, explicit_config: *Config, files: *[..] stri
     visit_files(directory, true, *walk, visitor, visit_directories = true, follow_directory_symlinks = false);
 }
 
-format_file :: (path: string, explicit_config: *Config, options: Options, totals: *Totals) {
+format_file :: (path: string, explicit_config: *Format_Config, options: Options, totals: *Totals) {
     config := config_for(path, explicit_config, totals);
     if !config return;
     source, ok := read_entire_file(path, log_errors = false);
@@ -206,26 +204,27 @@ format_file :: (path: string, explicit_config: *Config, options: Options, totals
     defer free(source);
     totals.checked += 1;
 
-    result := format_source(source, config.*);
-    if !result.ok {
-        print_error("jaifmt: %:%\n", path, result.error);
+    output, formatted, error := format_source(source, config.*);
+    if !formatted {
+        print_error("jaifmt: %:%\n", path, error);
         totals.errors += 1;
         return;
     }
-    defer free(result.output);
-    totals.long_lines += result.long_lines;
-    if options.verbose && result.long_lines {
-        print_error("jaifmt: %: % lines over % columns\n", path, result.long_lines, config.max_width);
+    defer free(output);
+    long_lines := format_count_long_lines(output, config.max_width);
+    totals.long_lines += long_lines;
+    if options.verbose && long_lines {
+        print_error("jaifmt: %: % lines over % columns\n", path, long_lines, config.max_width);
     }
-    if result.output == source return;
+    if output == source return;
 
     totals.changed += 1;
     if options.check {
-        line := first_difference_line(source, result.output);
+        line := first_difference_line(source, output);
         print("%:%\n", path, line);
         return;
     }
-    if !write_entire_file(path, result.output.data, result.output.count) {
+    if !write_entire_file(path, output.data, output.count) {
         print_error("jaifmt: %: cannot write\n", path);
         totals.errors += 1;
         return;
@@ -242,7 +241,7 @@ first_difference_line :: (a: string, b: string) -> int {
     return line;
 }
 
-format_stdin :: (explicit_config: *Config) -> int {
+format_stdin :: (explicit_config: *Format_Config) -> int {
     source := read_all_stdin();
     config := explicit_config;
     if !config {
@@ -253,12 +252,12 @@ format_stdin :: (explicit_config: *Config) -> int {
         }
         config = found;
     }
-    result := format_source(source, config.*);
-    if !result.ok {
-        print_error("jaifmt: <stdin>:%\n", result.error);
+    output, formatted, error := format_source(source, config.*);
+    if !formatted {
+        print_error("jaifmt: <stdin>:%\n", error);
         return 2;
     }
-    write(STDOUT_FILENO, result.output.data, cast(u64) result.output.count);
+    write(STDOUT_FILENO, output.data, cast(u64) output.count);
     return 0;
 }
 
@@ -273,3 +272,56 @@ read_all_stdin :: () -> string {
     }
     return builder_to_string(*builder);
 }
+
+// Finds the nearest jaifmt.toml in `directory` or its parents and loads it; returns defaults
+// when there is none. Results are cached per directory.
+config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: string {
+    for config_cache  if it.directory == directory return it.config, it.ok, it.error;
+
+    entry: Config_Cache_Entry;
+    entry.directory = copy_string(directory);
+    candidate := tprint("%/%", directory, FORMAT_CONFIG_FILE_NAME);
+    if file_exists(candidate) {
+        entry.config, entry.ok, entry.error = load_config(candidate);
+    } else {
+        parent := parent_directory(directory);
+        if parent.count && parent != directory {
+            entry.config, entry.ok, entry.error = config_for_directory(parent);
+        } else {
+            entry.config = New(Format_Config);
+            entry.ok = true;
+        }
+    }
+    array_add(*config_cache, entry);
+    return entry.config, entry.ok, entry.error;
+}
+
+load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
+    config := New(Format_Config);
+    text, read_ok := read_entire_file(path, log_errors = false);
+    if !read_ok return config, false, sprint("%: cannot read the config file", path);
+    parsed, ok, message := parse_config(text);
+    if !ok return config, false, sprint("%: %", path, message);
+    config.* = parsed;
+    config.root = copy_string(parent_directory(path));
+    return config, true, "";
+}
+
+// `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
+parent_directory :: (path: string) -> string {
+    end := path.count;
+    while end > 1 && path[end - 1] == #char "/"  end -= 1;
+    slash := find_index_from_right(slice(path, 0, end), #char "/");
+    if slash < 0 return "";
+    if slash == 0 return "/";
+    return slice(path, 0, slash);
+}
+
+Config_Cache_Entry :: struct {
+    directory: string;
+    config: *Format_Config;
+    ok: bool;
+    error: string;
+}
+
+config_cache: [..] Config_Cache_Entry;

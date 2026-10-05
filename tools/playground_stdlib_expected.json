@@ -93,6 +93,7 @@
   "intro-sort-api.jai",
   "iprof-plugin.jai",
   "iprof-runtime-manual.jai",
+  "jai-format-api.jai",
   "lang-asm.jai",
   "lang-conversions.jai",
   "lang-insert-block.jai",
