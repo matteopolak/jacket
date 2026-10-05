@@ -131,6 +131,9 @@ const UNOBSERVABLE_FOREIGNS: &[&str] = &[
 struct Frame {
     offsets: Vec<u64>,
     size: u64,
+    /// Largest slot alignment: the frame's absolute start address is a multiple of it, so
+    /// `#align 64` locals land aligned (offsets alone only align relative to the frame).
+    align: u64,
 }
 
 /// Size of a `Stack_Trace_Node`.
@@ -439,8 +442,10 @@ impl Interp {
         let func = program.funcs[i].as_ref().unwrap();
         let mut offsets = Vec::with_capacity(func.slots.len());
         let mut size = 0u64;
+        let mut frame_align = 16u64;
         for slot in &func.slots {
             let align = slot.align.clamp(8, 4096);
+            frame_align = frame_align.max(align);
             size = size.next_multiple_of(align);
             offsets.push(size);
             size += slot.size.max(1);
@@ -448,6 +453,7 @@ impl Interp {
         let frame = Rc::new(Frame {
             offsets,
             size: size.next_multiple_of(16),
+            align: frame_align,
         });
         if self.frames.len() <= i {
             self.frames.resize_with(i + 1, || None);
@@ -646,18 +652,20 @@ impl Interp {
         }
         let frame = self.frame(program, id);
         let base = self.sp;
+        let stack_start = self.stack.as_mut_ptr() as u64;
+        let start = (stack_start + base).next_multiple_of(frame.align) - stack_start;
         let traced = func.trace.is_some() && program.stack_trace_offset.is_some();
         let node_size = if traced {
             TRACE_NODE_SIZE
         } else {
             0
         };
-        if base + frame.size + node_size > (self.stack.len() * 8) as u64 {
+        if start + frame.size + node_size > (self.stack.len() * 8) as u64 {
             return self.trap("interpreter stack overflow");
         }
-        self.sp += frame.size + node_size;
+        self.sp = start + frame.size + node_size;
         self.depth += 1;
-        let stack_base = self.stack.as_mut_ptr() as u64 + base;
+        let stack_base = stack_start + start;
         let saved_loc = self.loc;
         let saved_trace_loc = self.trace_loc;
         let pushed = if traced {
