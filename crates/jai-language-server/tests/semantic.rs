@@ -182,3 +182,88 @@ fn hover_works_while_another_line_is_half_typed() {
     s.open(uri(), 1, text.clone()).unwrap();
     assert_eq!(hover(&s, after(&text, "%\\n\", total", 0, 1)), "total: s64");
 }
+
+#[test]
+fn completion_after_a_hash_lists_directives() {
+    let mut s = session();
+    let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    #ru\n");
+    s.open(uri(), 1, text.clone()).unwrap();
+    let items = labels(&s, after(&text, "#ru", 0, 0));
+    assert_eq!(
+        items.iter().map(|(l, ..)| l.as_str()).collect::<Vec<_>>(),
+        ["#run", "#runtime_support"]
+    );
+    let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    #\n");
+    s.change(
+        &uri(),
+        2,
+        &[TextChange {
+            range: None,
+            range_length: None,
+            text: text.clone(),
+        }],
+    )
+    .unwrap();
+    let items = labels(&s, after(&text, "    #", 0, 0));
+    assert!(
+        items
+            .iter()
+            .any(|(l, k, _)| l == "#import" && *k == CompletionKind::Keyword)
+    );
+    assert!(items.iter().any(|(l, ..)| l == "#insert"));
+}
+
+#[test]
+fn definition_reaches_loaded_files_and_the_stdlib() {
+    let mut s = session();
+    let other = DocumentUri::parse("file:///lsp-semantic-test/other.jai").unwrap();
+    let main = "#import \"Basic\";\n#load \"other.jai\";\nmain :: () {\n    x := twice(3);\n    print(\"%\\n\", x);\n}\n";
+    s.open(
+        other.clone(),
+        1,
+        "twice :: (n: int) -> int { return n * 2; }\n".into(),
+    )
+    .unwrap();
+    s.open(uri(), 1, main.into()).unwrap();
+    let local = s.definition(&uri(), after(main, "twice", 0, 2)).unwrap();
+    assert_eq!(local.len(), 1);
+    assert_eq!(local[0].uri, other.as_str());
+    assert_eq!(
+        (local[0].range.start.character, local[0].range.end.character),
+        (0, 5)
+    );
+    let x = s.definition(&uri(), after(main, ", x", 0, 0)).unwrap();
+    assert_eq!(x[0].uri, uri().as_str());
+    assert_eq!(x[0].range.start.line, 3);
+    let print = s.definition(&uri(), after(main, "print", 0, 1)).unwrap();
+    assert!(!print.is_empty());
+    assert!(
+        print.iter().all(|l| l.uri.contains("/stdlib/")),
+        "{print:?}"
+    );
+    // Every overload (and alias) lands on its declared name.
+    for at in &print {
+        let source = s.source(&DocumentUri::parse(&at.uri).unwrap()).unwrap();
+        let line = source.lines().nth(at.range.start.line as usize).unwrap();
+        assert!(
+            line[at.range.start.character as usize..].starts_with("print"),
+            "{line}"
+        );
+        assert!(at.range.end.character > at.range.start.character, "{line}");
+    }
+}
+
+#[test]
+fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
+    let mut s = session();
+    let helper = DocumentUri::parse("file:///lsp-semantic-test/util/helpers.jai").unwrap();
+    let local = DocumentUri::parse("file:///lsp-semantic-test/other.jai").unwrap();
+    s.open(helper, 1, "x :: 1;\n".into()).unwrap();
+    s.open(local, 1, "y :: 2;\n".into()).unwrap();
+    let text = "#import \"Bas\";\n#load \"\";\n#load \"util/h\";\n";
+    s.open(uri(), 1, text.into()).unwrap();
+    let names = |at| -> Vec<String> { labels(&s, at).into_iter().map(|l| l.0).collect() };
+    assert_eq!(names(after(text, "\"Bas", 0, 0)), ["Base64", "Basic"]);
+    assert_eq!(names(after(text, "#load \"", 0, 0)), ["other.jai", "util/"]);
+    assert_eq!(names(after(text, "util/h", 0, 0)), ["helpers.jai"]);
+}

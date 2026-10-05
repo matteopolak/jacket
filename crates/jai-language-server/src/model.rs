@@ -37,6 +37,8 @@ pub enum CompletionKind {
     Module,
     Field,
     EnumMember,
+    File,
+    Folder,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {

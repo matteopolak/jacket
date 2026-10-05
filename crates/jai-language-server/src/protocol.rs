@@ -246,7 +246,7 @@ impl JsonSession {
             self.lifecycle = Lifecycle::Running;
             return Ok(vec![
                 json!({"capabilities":{"positionEncoding":"utf-16","textDocumentSync":{"openClose":true,"change":2},"hoverProvider":true,
-                "completionProvider":{"resolveProvider":false},"definitionProvider":true,"documentSymbolProvider":true,
+                "completionProvider":{"resolveProvider":false,"triggerCharacters":[".","#","\"","/"]},"definitionProvider":true,"documentSymbolProvider":true,
                 "semanticTokensProvider":{"legend":{"tokenTypes":TOKEN_TYPES,"tokenModifiers":TOKEN_MODIFIERS},"full":true},
                 "experimental":{"jai":{"analysis":"compiler-source-syntax","compileTimeExecution":false,"typeInference":false,"filesystemReads":false,"moduleSearch":false}}},
                 "serverInfo":{"name":"jai-language-server","version":env!("CARGO_PKG_VERSION")}}),
@@ -308,6 +308,14 @@ impl JsonSession {
                             .map(location_wire)
                             .collect(),
                     )
+                }
+                // Non-standard: the text of a definition's file the client has not opened
+                // (a module or stdlib file), so a browser editor can show it read-only.
+                "jai/source" => {
+                    let p: DocumentIdentifier = decode(params)?;
+                    self.session
+                        .source(&uri(&p.uri)?)
+                        .map_or(Value::Null, Value::String)
                 }
                 _ => return Err((-32601, "Method not supported".into())),
             };
@@ -433,6 +441,8 @@ fn completion_wire(completion: &CompletionList) -> Value {
                 CompletionKind::Module => 9,
                 CompletionKind::Field => 5,
                 CompletionKind::EnumMember => 20,
+                CompletionKind::File => 17,
+                CompletionKind::Folder => 19,
             };
             json!({"label":item.label,"kind":kind,"detail":item.detail})
         })

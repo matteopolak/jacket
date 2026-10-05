@@ -247,6 +247,73 @@ impl Compiler {
         Some((r.span, text))
     }
 
+    /// Declarations the identifier at `offset` names: an entity's declaration, each procedure
+    /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
+    /// starts the declaration (`name :: ...`).
+    pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        let Some(r) = self.ide.as_ref().and_then(|ide| {
+            ide.refs
+                .iter()
+                .filter(|r| r.span.file == file && r.span.start <= offset && offset <= r.span.end)
+                .min_by_key(|r| r.span.end - r.span.start)
+                .cloned()
+        }) else {
+            return Vec::new();
+        };
+        let name = self.sources.snippet(r.span).to_string();
+        let spans: Vec<(Span, String)> = match &r.what {
+            IdeWhat::Entity(e) => vec![(self.entity(*e).span, name)],
+            // Each under its own name: an overload set can include aliases.
+            IdeWhat::Procs(ps) => ps
+                .iter()
+                .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
+                .collect(),
+            IdeWhat::Type(t) => match self.types.kind(*t) {
+                TypeKind::Struct(s) => vec![(self.types.struct_info(*s).span, name)],
+                _ => Vec::new(),
+            },
+            IdeWhat::Member(_) | IdeWhat::Module(_) => Vec::new(),
+        };
+        spans
+            .into_iter()
+            .filter(|(s, _)| s.end >= s.start)
+            .map(|(s, name)| {
+                let text = self.sources.snippet(s);
+                if let Some(at) = text.find(name.as_str())
+                    && text[..at].trim().is_empty()
+                {
+                    return Span {
+                        file: s.file,
+                        start: s.start + at as u32,
+                        end: s.start + (at + name.len()) as u32,
+                    };
+                }
+                // A procedure's span starts at its literal: find `name :` earlier on the line.
+                let file = &self.sources.get(s.file).text;
+                let line = file[..s.start as usize].rfind('\n').map_or(0, |n| n + 1);
+                let found = file[line..s.start as usize]
+                    .rmatch_indices(name.as_str())
+                    .find(|&(at, _)| {
+                        let rest = &file[line + at + name.len()..];
+                        rest.trim_start().starts_with(':')
+                            && !file[..line + at]
+                                .ends_with(|c: char| c == '_' || c.is_alphanumeric())
+                    });
+                match found {
+                    Some((at, _)) => Span {
+                        file: s.file,
+                        start: (line + at) as u32,
+                        end: (line + at + name.len()) as u32,
+                    },
+                    None => Span {
+                        end: s.start,
+                        ..s
+                    },
+                }
+            })
+            .collect()
+    }
+
     fn ide_proc_header(&self, p: ProcId) -> String {
         let info = self.proc(p);
         let header = self.sources.snippet(info.lit.header.span);
@@ -450,7 +517,7 @@ impl Compiler {
     /// enclosing declarations, imported modules' exports, Preload.
     pub fn ide_visible(&mut self, scope: ScopeId, file: FileId, offset: u32) -> Vec<IdeName> {
         let mut out: Vec<IdeName> = Vec::new();
-        let mut seen: HashSet<Sym> = HashSet::new();
+        let mut seen: HashSet<Sym> = HashSet::default();
         let depth = self.scope(scope).proc_depth;
         let mut modules = Vec::new();
         let mut current = Some(scope);
@@ -514,7 +581,7 @@ impl Compiler {
             }
             current = self.scope(sid).parent;
         }
-        let mut done = HashSet::new();
+        let mut done = HashSet::default();
         while let Some(m) = modules.pop() {
             if !done.insert(m) {
                 continue;

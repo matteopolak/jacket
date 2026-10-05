@@ -1,4 +1,4 @@
-use crate::analysis::{KEYWORDS, Span, Token, TokenKind};
+use crate::analysis::{DIRECTIVES, KEYWORDS, Span, Token, TokenKind};
 use crate::semantic::{self, Environment};
 use crate::{
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
@@ -394,6 +394,48 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<Location>, Error> {
+        let doc = self.document(uri)?;
+        let byte = doc.index.byte(&doc.text, position)?;
+        if let Some(probe) = repair(&doc.text, None) {
+            let found = self
+                .with_semantic(uri, &probe, |a, path| Some(a.definition(path, byte)))
+                .unwrap_or_default();
+            let locations: Vec<Location> = found
+                .into_iter()
+                .filter_map(|(path, text, start, end)| {
+                    let target = DocumentUri::parse(&format!("file://{path}")).ok()?;
+                    // An open document's own text and index, else the compiled file's.
+                    let range = match self.documents.get(&target) {
+                        Some(open) if *open.text == *text => open
+                            .index
+                            .range(
+                                &open.text,
+                                Span {
+                                    start,
+                                    end,
+                                },
+                            )
+                            .ok()?,
+                        _ => LineIndex::new(&text)
+                            .range(
+                                &text,
+                                Span {
+                                    start,
+                                    end,
+                                },
+                            )
+                            .ok()?,
+                    };
+                    Some(Location {
+                        uri: target.as_str().into(),
+                        range,
+                    })
+                })
+                .collect();
+            if !locations.is_empty() {
+                return Ok(locations);
+            }
+        }
         self.bindings(uri, position)?
             .iter()
             .map(|(target, row)| {
@@ -406,6 +448,15 @@ impl Session {
                 })
             })
             .collect()
+    }
+    /// Text of a file the editor may not have open (a definition in a module or the stdlib):
+    /// the open document's text, else the environment's file system.
+    pub fn source(&self, uri: &DocumentUri) -> Option<String> {
+        if let Some(doc) = self.documents.get(uri) {
+            return Some(doc.text.clone());
+        }
+        let bytes = self.environment.as_ref()?.fs.read(Path::new(uri.path()))?;
+        String::from_utf8(bytes).ok()
     }
     pub fn hover(&self, uri: &DocumentUri, position: Position) -> Result<Option<Hover>, Error> {
         let doc = self.document(uri)?;
@@ -493,6 +544,121 @@ impl Session {
         let names = self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &chain))?;
         Some((prefix, names))
     }
+    /// Inside the string of `#load "..."` (files and folders relative to the document) or
+    /// `#import "..."` (modules on the import path): the entries of the folder typed so far.
+    fn path_completion(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+    ) -> Option<CompletionList> {
+        let line = &text[text[..byte].rfind('\n').map_or(0, |n| n + 1)..byte];
+        let quote = line.rfind('"')?;
+        let before = line[..quote].trim_end();
+        // The string must be open: an even number of quotes before it on the line.
+        if !line[..quote].matches('"').count().is_multiple_of(2) {
+            return None;
+        }
+        let directive = before
+            .rsplit(|c: char| c.is_whitespace() || c == '(')
+            .next()?;
+        let load = directive.starts_with("#load");
+        if !load && !directive.starts_with("#import") {
+            return None;
+        }
+        let typed = &line[quote + 1..];
+        let (folder, partial) = typed.rsplit_once('/').unwrap_or(("", typed));
+        let here = Path::new(uri.path()).parent().unwrap_or(Path::new("/"));
+        let roots: Vec<PathBuf> = if load {
+            vec![here.join(folder)]
+        } else {
+            let options = self
+                .environment
+                .as_ref()
+                .map(|e| (e.options)(Path::new(uri.path())));
+            let mut roots: Vec<PathBuf> = options
+                .map(|o| o.import_paths)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| p.join(folder))
+                .collect();
+            roots.push(here.join("modules").join(folder));
+            roots
+        };
+        // (name, is_folder): the environment's files and the open documents under each root.
+        let mut entries = BTreeSet::new();
+        for root in &roots {
+            if let Some(environment) = &self.environment {
+                entries.extend(environment.fs.list_dir(root));
+            }
+            for open in self.documents.keys() {
+                let Ok(rest) = Path::new(open.path()).strip_prefix(root) else {
+                    continue;
+                };
+                let mut parts = rest.iter();
+                let Some(first) = parts.next() else {
+                    continue;
+                };
+                entries.insert((first.to_string_lossy().into_owned(), parts.next().is_some()));
+            }
+        }
+        let items = entries
+            .into_iter()
+            .filter(|(name, _)| name.starts_with(partial) && !name.starts_with('.'))
+            .filter_map(|(name, folder)| {
+                let jai = name.strip_suffix(".jai");
+                match (folder, jai) {
+                    (true, _) => Some(CompletionItem {
+                        label: if load {
+                            format!("{name}/")
+                        } else {
+                            name
+                        },
+                        kind: if load {
+                            CompletionKind::Folder
+                        } else {
+                            CompletionKind::Module
+                        },
+                        detail: if load {
+                            "folder"
+                        } else {
+                            "module"
+                        }
+                        .into(),
+                    }),
+                    (false, Some(stem)) => Some(CompletionItem {
+                        label: if load {
+                            name.clone()
+                        } else {
+                            stem.into()
+                        },
+                        kind: if load {
+                            CompletionKind::File
+                        } else {
+                            CompletionKind::Module
+                        },
+                        detail: if load {
+                            "file"
+                        } else {
+                            "module"
+                        }
+                        .into(),
+                    }),
+                    _ => None,
+                }
+            })
+            // Loading the file being edited would include it twice.
+            .filter(|item| !load || here.join(folder).join(&item.label) != Path::new(uri.path()))
+            .collect::<Vec<_>>();
+        let mut seen = BTreeSet::new();
+        Some(CompletionList {
+            is_incomplete: false,
+            items: items
+                .into_iter()
+                .filter(|i| seen.insert(i.label.clone()))
+                .collect(),
+        })
+    }
     pub fn completion(
         &self,
         uri: &DocumentUri,
@@ -500,6 +666,28 @@ impl Session {
     ) -> Result<CompletionList, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
+        // `#` and the start of a directive: offer directives (labels include the `#`).
+        let word_start = doc.text[..byte]
+            .rfind(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .map_or(0, |i| i + 1);
+        if doc.text[..word_start].ends_with('#') {
+            let typed = doc.text[word_start..byte].to_lowercase();
+            return Ok(CompletionList {
+                is_incomplete: false,
+                items: DIRECTIVES
+                    .iter()
+                    .filter(|(name, _)| name.starts_with(&typed))
+                    .map(|(name, detail)| CompletionItem {
+                        label: format!("#{name}"),
+                        kind: CompletionKind::Keyword,
+                        detail: (*detail).into(),
+                    })
+                    .collect(),
+            });
+        }
+        if let Some(list) = self.path_completion(uri, &doc.text, byte) {
+            return Ok(list);
+        }
         if let Some((prefix, names)) = self.semantic_completion(uri, &doc.text, byte) {
             let lower = prefix.to_lowercase();
             let mut items = BTreeMap::new();

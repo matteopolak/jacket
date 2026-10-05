@@ -6,8 +6,8 @@
 
 It has two layers:
 
-- **Syntax** (always on): lexer/parser diagnostics, semantic tokens, document symbols, go-to-definition. These come from the `jaic` lexer and parser.
-- **Semantic** (when the session has an `Environment`): hover and completion answered by actually type-checking the open documents with `jaic`. This covers locals, procedures, struct and enum types, imported modules' exports, Preload, members after `.`, and hover text with the real type (`count: s64`, `helper :: (t: *Thing) -> int`, `Thing :: struct { alpha: s64; ... }`).
+- **Syntax** (always on): lexer/parser diagnostics, semantic tokens, document symbols, and go-to-definition among the open documents. These come from the `jaic` lexer and parser.
+- **Semantic** (when the session has an `Environment`): hover, completion and go-to-definition answered by actually type-checking the open documents with `jaic`. This covers locals, procedures, struct and enum types, imported modules' exports, Preload, members after `.`, and hover text with the real type (`count: s64`, `helper :: (t: *Thing) -> int`, `Thing :: struct { alpha: s64; ... }`).
 
 ## How it works
 
@@ -35,13 +35,18 @@ For completion, the word being typed and any `a.b.` chain before it are cut out 
   - **Plain names:** `ide_visible` walks the scope chain. It includes locals of the current procedure declared before the cursor, enclosing declarations, `using` members, imported modules' exports including re-exports, and Preload.
   - **After `a.b.`:** `ide_receiver` resolves the chain and `ide_members` lists the struct fields (through `using`), enum members, struct constants, or array/string/`Any` fields.
   - Results are filtered by the typed prefix (case-insensitive), and keywords are appended.
+  - **After `#`:** the directives in `analysis.rs` `DIRECTIVES` (labels include the `#`, details are one-line descriptions), without compiling.
+  - **Inside `#load "..."`:** files (`.jai`) and folders (`name/`) relative to the document, in the folder typed so far. **Inside `#import "..."`:** modules (folders and `.jai` files) on the import path and in the document's `modules/` folder. Entries come from the environment's `FileSystem::list_dir` plus the open documents (`path_completion`).
+  - Trigger characters: `.`, `#`, `"` and `/`.
 - **Hover** finds the smallest recorded reference at the offset and formats it:
   - a local or member as `name: Type`;
   - a procedure (each overload, under the name used) as `name :: <header>`;
   - a type with its fields or members;
   - a constant with its value.
 
-When no environment is set, or the text cannot be repaired, hover and completion fall back to the syntax layer.
+- **Definition** (`ide_definition`) uses the same reference: an entity's declaration, every procedure of an overload set (aliases under their own name), or a struct. Spans are narrowed to the declared name; a procedure's span starts at its literal, so the name is found earlier on its line (`name :: (`). Targets can be modules or stdlib files the client never opened. Members and modules have no target yet.
+
+When no environment is set, or the text cannot be repaired, hover, completion and definition fall back to the syntax layer.
 
 ### Editor facts in jaic
 
@@ -62,9 +67,10 @@ Completion lists classify unresolved declarations by syntax (`ide_entity_name`):
 - lifecycle: initialize/initialized, shutdown/exit;
 - document open, change and close;
 - `semanticTokens/full`, document symbols, hover, completion and definition;
+- `jai/source` (non-standard, `{uri}` → text or `null`): the text of a definition target the client has not opened, from the open documents or the environment's file system. The browser editor uses it to show stdlib files read-only;
 - cancellation.
 
-Completion kinds map to LSP numbers in `protocol.rs`: function 3, field 5, variable 6, module 9, keyword 14, enum member 20, constant 21, struct 22. The browser editor maps those numbers to CodeMirror icons in `tools/browser-editor/editor-kit.mjs`.
+Completion kinds map to LSP numbers in `protocol.rs`: function 3, field 5, variable 6, module 9, keyword 14, file 17, folder 19, enum member 20, constant 21, struct 22. The browser editor maps those numbers to CodeMirror icons in `tools/browser-editor/editor-kit.mjs`.
 
 The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wasm/src/language_server.rs`) keeps the session in a `thread_local`, because the compiler state uses `Rc`.
 

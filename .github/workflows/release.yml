@@ -69,13 +69,16 @@ jobs:
       # The official macOS LLVM names Homebrew's static zstd (/opt/homebrew/lib/libzstd.a) in its
       # system libraries; linking the archive leaves no runtime dependency on Homebrew.
       # Its static libraries are LTO bitcode that Xcode's ld cannot read, so link with the
-      # release's own clang and lld (which run that LTO) against the Xcode SDK.
+      # release's own clang and lld (which run that LTO) against the Xcode SDK. The release also
+      # ships its own libc++ (static, and a dylib found through @rpath); removing it makes `-lc++`
+      # link the system's /usr/lib/libc++.1.dylib from the SDK.
       - name: Install static zstd and link with LLVM's lld (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install zstd
           ls -l /opt/homebrew/lib/libzstd.a
           ls "$RUNNER_TEMP/llvm/bin/ld64.lld"
+          find "$RUNNER_TEMP/llvm/lib" \( -name 'libc++*' -o -name 'libunwind*' \) -print -delete
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=$RUNNER_TEMP/llvm/bin/clang" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> "$GITHUB_ENV"

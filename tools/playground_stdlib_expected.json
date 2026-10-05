@@ -39,6 +39,7 @@
   "bucket-array-remove-it.jai",
   "bucket-array-shape.jai",
   "char-poly-argument.jai",
+  "code-visit.jai",
   "compile-time-failing-bodies.jai",
   "compile-time-globals-reset.jai",
   "compile-time-stack-trace.jai",
