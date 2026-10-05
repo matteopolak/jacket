@@ -5,8 +5,9 @@
     windows_cross.py build --host --jaic jaic.exe --out dir # on Windows, its own toolchain
     windows_cross.py run --dir dir                          # on Windows
 
-`build` compiles every corpus case with a runtime expectation (tests/corpus/manifest.json)
-plus the self-checking programs in WINDOWS_PROGRAMS to `dir/<id>.exe` and writes
+`build` compiles every corpus case with a runtime expectation (tests/corpus/manifest.json),
+the self-checking programs in WINDOWS_PROGRAMS, the C struct fixture and, with `--stdlib`,
+every tests/stdlib program that builds for Windows to `dir/<id>.exe` and writes
 `dir/expected.json`. `run` executes them and compares exit code and stdout. See
 docs/native/windows.md.
 """
@@ -28,7 +29,8 @@ WINDOWS_PROGRAMS = [
 ]
 
 
-def cases():
+def cases(stdlib):
+    """(id, source, exit code, stdout or None for "not checked", must build)."""
     manifest = json.loads((ROOT / "tests/corpus/manifest.json").read_text())
     for case in manifest["cases"]:
         runtime = case.get("runtime")
@@ -39,10 +41,20 @@ def cases():
             ROOT / "tests/corpus" / case["source"],
             runtime.get("exit_code", 0),
             runtime.get("stdout", ""),
+            True,
         )
+    listed = set()
     for program in WINDOWS_PROGRAMS:
         path = ROOT / program
-        yield path.stem, path, 0, "ok\n"
+        listed.add(path)
+        yield path.stem, path, 0, "ok\n", True
+    if not stdlib:
+        return
+    # The sweep's stdlib tests (`jaic run` must succeed): those that build for Windows must
+    # exit 0 there. Many are host- or compile-time-only and do not build; that is not a failure.
+    for path in sorted((ROOT / "tests/stdlib").glob("*.jai")):
+        if path not in listed:
+            yield f"stdlib-{path.stem}", path, 0, None, False
 
 
 # tests/native/c-structs-by-value: C structs by value both ways across the C ABI, against C
@@ -89,13 +101,15 @@ def build_one(args, source, output):
 def build(args):
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    expected, failures = {}, []
-    for case_id, source, exit_code, stdout in cases():
+    expected, failures, skipped = {}, [], []
+    for case_id, source, exit_code, stdout, required in cases(args.stdlib):
         error = build_one(args, source, out / case_id)
         if error:
-            failures.append(f"{case_id}: {error}")
+            (failures if required else skipped).append(f"{case_id}: {error.splitlines()[0]}")
             continue
-        expected[case_id] = {"exit_code": exit_code, "stdout": stdout}
+        # Programs run from their source directory (relative to the checkout), as the sweep does.
+        cwd = source.parent.relative_to(ROOT).as_posix()
+        expected[case_id] = {"exit_code": exit_code, "stdout": stdout, "cwd": cwd}
     work = out / "c-structs-src"
     shutil.copytree(ROOT / "tests/native/c-structs-by-value", work, dirs_exist_ok=True)
     error = c_structs_library(args, work)
@@ -112,7 +126,9 @@ def build(args):
                 continue
             expected[case_id] = {"exit_code": 0, "stdout": stdout}
     (out / "expected.json").write_text(json.dumps(expected, indent=2))
-    print(f"built {len(expected)} programs into {out}")
+    print(f"built {len(expected)} programs into {out}; {len(skipped)} optional ones do not build")
+    for line in skipped:
+        print(f"not built: {line}")
     for failure in failures:
         print(f"BUILD FAILED {failure}")
     return 1 if failures and not args.keep_going else 0
@@ -124,13 +140,17 @@ def run(args):
     failures = []
     for case_id, want in sorted(expected.items()):
         exe = directory / f"{case_id}.exe"
+        cwd = ROOT / want.get("cwd", ".")
         try:
-            result = subprocess.run([str(exe)], cwd=directory, capture_output=True, timeout=60)
+            result = subprocess.run(
+                [str(exe)], cwd=cwd if cwd.is_dir() else directory, capture_output=True, timeout=60
+            )
         except subprocess.TimeoutExpired:
             failures.append(f"{case_id}: timed out")
             continue
         stdout = result.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
-        if result.returncode != want["exit_code"] or stdout != want["stdout"]:
+        stdout_ok = want["stdout"] is None or stdout == want["stdout"]
+        if result.returncode != want["exit_code"] or not stdout_ok:
             failures.append(
                 f"{case_id}: exit {result.returncode} (want {want['exit_code']}), "
                 f"stdout {stdout!r} (want {want['stdout']!r}), "
@@ -150,6 +170,7 @@ def main():
     b.add_argument("--out", required=True)
     b.add_argument("--keep-going", action="store_true", help="exit 0 even if some builds fail")
     b.add_argument("--host", action="store_true", help="build for the host (on Windows) instead of -os windows")
+    b.add_argument("--stdlib", action="store_true", help="also every tests/stdlib program that builds")
     r = sub.add_parser("run")
     r.add_argument("--dir", required=True)
     args = parser.parse_args()

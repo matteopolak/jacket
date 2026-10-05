@@ -17,6 +17,8 @@ use crate::ir::{Sig, Ty};
 
 mod callbacks;
 pub use callbacks::{Reenter, callback_addr};
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod windows;
 
 #[derive(Clone)]
 pub struct Library {
@@ -111,7 +113,15 @@ impl Library {
         None
     }
 
-    #[cfg(not(unix))]
+    /// Windows: `LoadLibraryW` of `name.dll` (see `windows::open`).
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
+        windows::open(name, system, base_dir).map(|handle| Library {
+            handle,
+        })
+    }
+
+    #[cfg(not(any(unix, all(windows, target_arch = "x86_64"))))]
     pub fn open(_name: &str, _system: bool, _base_dir: &str) -> Option<Library> {
         None
     }
@@ -129,7 +139,12 @@ pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     (!p.is_null()).then_some(p as u64)
 }
 
-#[cfg(not(unix))]
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
+    windows::lookup(lib.map(|l| l.handle), symbol)
+}
+
+#[cfg(not(any(unix, all(windows, target_arch = "x86_64"))))]
 pub fn lookup(_lib: Option<&Library>, _symbol: &str) -> Option<u64> {
     None
 }
@@ -523,9 +538,11 @@ pub mod main_thread {
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
-    // The register model below is System V / AAPCS64; Windows hosts do not load native
-    // libraries in the interpreter yet (`Library::open`), so this is not reached there.
+    // The register model below is System V / AAPCS64; Windows has its own (`windows.rs`).
     if arch == Arch::Win64 {
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        return windows::call(addr, args, sig);
+        #[cfg(not(all(windows, target_arch = "x86_64")))]
         return Err(
             "the interpreter does not implement the Microsoft x64 calling convention".into(),
         );

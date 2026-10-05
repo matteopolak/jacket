@@ -54,8 +54,8 @@ static TABLE: Mutex<[Vec<Slot>; SHAPES]> = Mutex::new([const { Vec::new() }; SHA
 /// program whose function ids these are).
 pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
-    // The register model below is System V / AAPCS64; Windows hosts do not load native
-    // libraries in the interpreter yet (`Library::open`), so this is not reached there.
+    // The trampolines below receive System V / AAPCS64 registers; the Microsoft x64
+    // convention (C calling interpreted procedures on Windows) is not implemented.
     if arch == Arch::Win64 {
         return Err(
             "the interpreter does not implement the Microsoft x64 calling convention".into(),
@@ -340,8 +340,8 @@ fn invoke(
     stack: [u64; STACK_SLOTS],
 ) -> Result<Vec<u64>, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
-    // The register model below is System V / AAPCS64; Windows hosts do not load native
-    // libraries in the interpreter yet (`Library::open`), so this is not reached there.
+    // The trampolines below receive System V / AAPCS64 registers; the Microsoft x64
+    // convention (C calling interpreted procedures on Windows) is not implemented.
     if arch == Arch::Win64 {
         return Err(
             "the interpreter does not implement the Microsoft x64 calling convention".into(),

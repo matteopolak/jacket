@@ -37,7 +37,7 @@ jobs:
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Cross-build the Windows test programs
-        run: python3 tools/windows_cross.py build --jaic target/debug/jaic --out cross-exes
+        run: python3 tools/windows_cross.py build --stdlib --jaic target/debug/jaic --out cross-exes
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cross-exes
@@ -106,7 +106,7 @@ jobs:
         run: |
           mkdir -p native-exes
           target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
-          python tools/windows_cross.py build --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
+          python tools/windows_cross.py build --stdlib --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python tools/windows_cross.py run --dir native-exes
       - name: Native backend tests
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
