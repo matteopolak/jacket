@@ -8,7 +8,7 @@
 
 `emit_object(program, options, path)` (in `lib.rs`):
 
-1. Creates a target machine for the host (or `Options::target`), sets triple and data layout.
+1. Creates a target machine for the host (or `Options::target`, e.g. `x86_64-pc-windows-gnu` for `-os windows`), sets triple and data layout. The triple picks the `jaic::abi::Arch`.
 2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in global initializers, then defines function bodies.
 3. Verifies the module, optionally runs the `default<On>` pipeline, writes the object.
 
@@ -36,11 +36,11 @@ Lowering rules (`lower.rs`):
 
 `Conv::C` signatures with `Sig::c_abi` set use the real calling convention for by-value aggregates:
 
-| | AArch64 | x86-64 System V |
-|---|---|---|
-| <= 16 bytes | `i64` chunks in x registers; homogeneous float aggregates (<= 4 members) as separate `float`/`double` scalars | per eightbyte: `i64`, `double`, `float` or `<2 x float>` |
-| > 16 bytes arg | caller copy, pointer passed | `byval` pointer |
-| return | chunk(s) in registers, else `sret` | same |
+| | AArch64 | x86-64 System V | Microsoft x64 (`Win64`) |
+|---|---|---|---|
+| in registers | <= 16 bytes: `i64` chunks in x registers; homogeneous float aggregates (<= 4 members) as separate `float`/`double` scalars | <= 16 bytes, per eightbyte: `i64`, `double`, `float` or `<2 x float>` | exactly 1, 2, 4 or 8 bytes: one `i64` |
+| other args | caller copy, pointer passed | `byval` pointer | caller copy, pointer passed |
+| return | chunk(s) in registers, else `sret` | same | same |
 
 The IR passes aggregates by pointer, so the call site copies into a scratch temp, loads the chunks and passes them as separate LLVM arguments; returned chunks are stored to a temp and copied through the IR out-pointer (the last IR parameter, which is dropped from the LLVM signature). Variadic calls use a vararg function type whose parameters are only the declared ones (`Sig::c_fixed`; the call site appends the variadic arguments to `Sig::params`), so LLVM applies the platform's variadic convention (stack slots on Apple arm64). Test: `c_variadic_calls`.
 
@@ -53,12 +53,13 @@ Definitions with such signatures (`#c_call` callbacks C calls with structs) do t
 - Debug info lives in `debuginfo.rs` ([debug info](debug-info.md)); `lower.rs` only calls its hooks (`begin_function`, `declare_vars`, `enter_block`/`leave_block`, `loc`, `finish_entry`, `Backend::set` for watched addresses, `describe_globals`).
 - Anything new at module level (a global, a constructor list) must be emitted once, in unit 0, and declared in the other units. `Backend::internal_linkage` gives the linkage of internal symbols; use it for new ones so they can be referenced across units.
 - Check split codegen with `JAIC_CODEGEN_UNITS=4 cargo test -p jaic-cli --test native`. Small test programs otherwise use one unit.
-- Gotchas: Small signed integers are not sign/zero-extended according to the C ABI because the IR does not carry signedness. Windows is not supported.
+- Gotchas: Small signed integers are not sign/zero-extended according to the C ABI because the IR does not carry signedness.
+- Windows specifics (`Arch::Win64`): `#program_export` definitions are `dllexport`, `CompilerWrite` calls `_write`. See [Windows](windows.md).
 
 ## Configuration
 
 - `JAIC_CODEGEN_UNITS=N` forces the number of codegen units (`1` turns splitting off).
-- `jaic_llvm::Options { opt_level, target, emit_ir, debug_info }`; CLI flags `-O0..-O3`, `--emit-ir file.ll`, `-o output`, `-I dir`, `--no-debug-info`.
+- `jaic_llvm::Options { opt_level, target, emit_ir, debug_info }`; CLI flags `-O0..-O3`, `--emit-ir file.ll`, `-o output`, `-I dir`, `--no-debug-info`, `-os windows`, `-target triple`.
 - `JAIC_STDLIB` overrides the standard library directory (as for `jaic run`).
 - `LLVM_SYS_221_PREFIX` must point at an LLVM 22 install when building (for example `/opt/homebrew/opt/llvm`).
 

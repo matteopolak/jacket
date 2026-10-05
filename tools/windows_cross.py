@@ -93,12 +93,16 @@ def c_structs_library(args, work):
 
 def build_one(args, source, output):
     target = [] if args.host else ["-os", "windows"]
-    result = subprocess.run(
-        [str(pathlib.Path(args.jaic).resolve()), "build", str(source), *target, "-o", str(output)],
-        cwd=source.parent,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [str(pathlib.Path(args.jaic).resolve()), "build", str(source), *target, "-o", str(output)],
+            cwd=source.parent,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        return "build timed out"
     if result.returncode != 0:
         return f"exit {result.returncode}: {result.stderr.strip()}"
     if not output.with_name(output.name + ".exe").exists():

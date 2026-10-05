@@ -31,7 +31,7 @@ It type-checks, interprets and natively builds real Jai projects, including the 
 | Native executables on macOS (arm64, x86-64) | ✅ | LLVM backend |
 | Native executables on Linux (arm64, x86-64) | ✅ | LLVM backend |
 | Checking for Windows (`-os windows`) | ✅ | |
-| Native executables for Windows | ❌ | No Win64 calling convention yet |
+| Native executables for Windows (x86-64) | ✅ | LLVM backend, MSVC toolchain on Windows; cross builds from macOS/Linux with `-os windows` (MinGW-w64). See [docs/native/windows.md](docs/native/windows.md) |
 | Native debug information | ✅ | DWARF on macOS (`.dSYM`) and Linux: lines, backtraces, typed locals and globals; Windows CodeView not yet |
 | Browser playground (WebAssembly) | ✅ | 180 of 200 stdlib tests run; the rest need native processes or libraries |
 | Language server (`jai-lsp`) | ✅ | Diagnostics, type-checked hover and completion, go to definition |

@@ -70,6 +70,7 @@ The LLVM backend, C ABI and linking.
 - [Native debug information](native/debug-info.md)
 - [Native build and linking](native/native-linking.md)
 - [Vk-Engine corpus project](native/vk-engine.md)
+- [Native Windows executables](native/windows.md)
 
 ## Standard library
 
