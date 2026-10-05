@@ -67,6 +67,12 @@ jobs:
     name: jaic build on Windows (MSVC)
     runs-on: windows-2025
     timeout-minutes: 60
+    env:
+      # The official LLVM release is built against the static C runtime (/MT); mixing it with
+      # Rust's default dynamic CRT crashes at run time. An explicit target keeps the flag off
+      # build scripts and proc macros.
+      CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
     defaults:
       run:
         shell: bash
@@ -99,7 +105,8 @@ jobs:
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
-          python tools/windows_cross.py build --jaic target/debug/jaic.exe --out native-exes --host --keep-going
+          target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
+          python tools/windows_cross.py build --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python tools/windows_cross.py run --dir native-exes
       - name: Native backend tests
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2

@@ -74,12 +74,16 @@ def c_structs_library(args, work):
 def build_one(args, source, output):
     target = [] if args.host else ["-os", "windows"]
     result = subprocess.run(
-        [args.jaic, "build", str(source), *target, "-o", str(output)],
+        [str(pathlib.Path(args.jaic).resolve()), "build", str(source), *target, "-o", str(output)],
         cwd=source.parent,
         capture_output=True,
         text=True,
     )
-    return None if result.returncode == 0 else result.stderr.strip()
+    if result.returncode != 0:
+        return f"exit {result.returncode}: {result.stderr.strip()}"
+    if not output.with_name(output.name + ".exe").exists():
+        return f"no executable written (stdout {result.stdout!r}, stderr {result.stderr!r})"
+    return None
 
 
 def build(args):
