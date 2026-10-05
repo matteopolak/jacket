@@ -66,6 +66,8 @@ def main():
         destination = output / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
+    # The playground's Format button runs this driver in the engine (docs/tools/jaifmt.md).
+    shutil.copy2(root / "tools/jaifmt/playground.jai", output / "jaifmt-playground.jai")
     staged = output / "jai_wasm.wasm"
     shutil.copy2(wasm, staged)
     expected = hashlib.sha256(wasm.read_bytes()).hexdigest()
