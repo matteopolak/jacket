@@ -74,7 +74,6 @@ The LLVM backend, C ABI and linking.
 
 ## Standard library
 
-The independently written `stdlib/`.
 
 - [Standard library layout](specs/stdlib/README.md)
 - [Basic and collection modules](specs/stdlib/README.md)
