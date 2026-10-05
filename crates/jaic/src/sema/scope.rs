@@ -206,7 +206,7 @@ impl Compiler {
             parent,
             module,
             file,
-            names: HashMap::new(),
+            names: HashMap::default(),
             imports: Vec::new(),
             pending: Vec::new(),
             usings: Vec::new(),

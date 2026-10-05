@@ -182,7 +182,7 @@ impl Compiler {
             name,
             lit,
             scope,
-            instances: HashMap::new(),
+            instances: HashMap::default(),
             baked: Vec::new(),
             origin: None,
         });
@@ -927,17 +927,23 @@ impl Compiler {
                 .map(|(_, t, o)| (vec![PathStep::Offset(o)], t)));
         };
         self.layout_struct(s, span)?;
-        let fields = self.types.struct_info(s).fields.clone();
+        // Without cloning the field list: this runs for every member access.
+        let fields = &self.types.struct_info(s).fields;
         if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
             return Ok(Some((vec![PathStep::Offset(f.offset)], f.ty)));
         }
-        for f in fields.iter().filter(|f| f.using) {
-            let (inner, deref) = match self.types.pointee(f.ty) {
+        let usings: Vec<(TypeId, u64)> = fields
+            .iter()
+            .filter(|f| f.using)
+            .map(|f| (f.ty, f.offset))
+            .collect();
+        for (field_ty, offset) in usings {
+            let (inner, deref) = match self.types.pointee(field_ty) {
                 Some(p) if self.types.as_struct(p).is_some() => (p, true),
-                _ => (f.ty, false),
+                _ => (field_ty, false),
             };
             if let Some((mut path, t)) = self.find_member(inner, name, span)? {
-                let mut full = vec![PathStep::Offset(f.offset)];
+                let mut full = vec![PathStep::Offset(offset)];
                 if deref {
                     full.push(PathStep::Deref);
                 }
@@ -991,9 +997,16 @@ impl Compiler {
         }
         // Constants of `using` fields are reachable too (`context.default_allocator`).
         self.layout_struct(s, Span::default())?;
-        let fields = self.types.struct_info(s).fields.clone();
-        for f in fields.iter().filter(|f| f.using) {
-            let inner = self.types.pointee(f.ty).unwrap_or(f.ty);
+        let usings: Vec<TypeId> = self
+            .types
+            .struct_info(s)
+            .fields
+            .iter()
+            .filter(|f| f.using)
+            .map(|f| f.ty)
+            .collect();
+        for field_ty in usings {
+            let inner = self.types.pointee(field_ty).unwrap_or(field_ty);
             if inner != ty
                 && let Some(ids) = self.struct_constant(inner, name)?
             {

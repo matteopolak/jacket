@@ -38,14 +38,11 @@ fn main() -> std::process::ExitCode {
     }
 }
 /// Modules come from disk: the `modules` folder next to the main file, then the stdlib
-/// (`JAIC_STDLIB`, else the repository's).
+/// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's).
 #[cfg(not(target_arch = "wasm32"))]
 fn native_environment() -> jai_language_server::Environment {
     use std::path::PathBuf;
-    let stdlib = std::env::var_os("JAIC_STDLIB").map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        PathBuf::from,
-    );
+    let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
     jai_language_server::Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {

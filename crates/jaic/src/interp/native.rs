@@ -444,7 +444,7 @@ pub mod main_thread {
     fn needs_main_thread(addr: u64) -> bool {
         use std::collections::HashMap;
         thread_local! {
-            static CACHE: std::cell::RefCell<HashMap<u64, bool>> = std::cell::RefCell::new(HashMap::new());
+            static CACHE: std::cell::RefCell<HashMap<u64, bool>> = std::cell::RefCell::new(HashMap::default());
         }
         if let Some(known) = CACHE.with(|c| c.borrow().get(&addr).copied()) {
             return known;

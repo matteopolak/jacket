@@ -8,10 +8,7 @@ use std::process::ExitCode;
 use std::rc::Rc;
 
 fn stdlib_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("JAIC_STDLIB") {
-        return PathBuf::from(dir);
-    }
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
+    jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
 }
 
 /// Where `tools/build_native_libs.py` puts third-party libraries for this host, or the

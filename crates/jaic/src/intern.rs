@@ -1,6 +1,6 @@
 //! Global string interner. Symbols are cheap copyable handles compared by id.
+use crate::fxhash::HashMap;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

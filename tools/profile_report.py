@@ -2,11 +2,13 @@
 """Summarize a `samply record --save-only --unstable-presymbolicate` profile in the terminal.
 
     samply record --save-only --unstable-presymbolicate -o prof.json.gz -- jaic check big.jai
-    python3 tools/profile_report.py prof.json.gz [--top 30] [--thread NAME]
+    python3 tools/profile_report.py prof.json.gz [--top 30] [--thread NAME] [--within TEXT] [--without TEXT]
 
 Prints the busiest thread's functions by self samples and by inclusive samples (a function counts
 once per sample however deep it recurses). Symbols come from the `.syms.json` file samply writes next
-to the profile.
+to the profile. --within/--without keep only samples whose stack has (or lacks) a frame containing the
+text, e.g. `--within jaic::build::call --without jaic::build::step` for time in compiler primitives only.
+--callers TEXT lists who calls the matching frames instead.
 """
 import argparse
 import bisect
@@ -60,6 +62,9 @@ def main():
     ap.add_argument("profile")
     ap.add_argument("--top", type=int, default=30)
     ap.add_argument("--thread", default="", help="substring of the thread name (default: busiest)")
+    ap.add_argument("--within", default="", help="only samples with a frame containing this text")
+    ap.add_argument("--without", default="", help="skip samples with a frame containing this text")
+    ap.add_argument("--callers", default="", help="list the callers of the frames containing this text")
     a = ap.parse_args()
     profile = json.load(gzip.open(a.profile))
     syms = Path(re.sub(r"\.json(\.gz)?$", "", a.profile) + ".json.syms.json")
@@ -74,19 +79,38 @@ def main():
             names[frame] = short(resolve(thread, frame))
         return names[frame]
 
-    self_count, inclusive = collections.Counter(), collections.Counter()
+    self_count, inclusive, callers = collections.Counter(), collections.Counter(), collections.Counter()
     for stack in samples["stack"]:
         if stack is None:
             continue
-        self_count[name_of(stacks["frame"][stack])] += 1
-        seen = set()
+        leaf = name_of(stacks["frame"][stack])
+        seen, chain = set(), []
         while stack is not None:
             seen.add(name_of(stacks["frame"][stack]))
+            chain.append(name_of(stacks["frame"][stack]))
             stack = stacks["prefix"][stack]
+        if a.within and not any(a.within in n for n in seen):
+            continue
+        if a.without and any(a.without in n for n in seen):
+            continue
+        self_count[leaf] += 1
         inclusive.update(seen)
+        if a.callers:
+            # The nearest frame above the outermost consecutive match.
+            for i, name in enumerate(chain):
+                if a.callers in name:
+                    j = i
+                    while j + 1 < len(chain) and a.callers in chain[j + 1]:
+                        j += 1
+                    if j + 1 < len(chain):
+                        callers[chain[j + 1]] += 1
+                    break
     total = samples["length"]
     print(f"thread {thread['name']}: {total} samples")
-    for title, counter in (("self", self_count), ("inclusive", inclusive)):
+    sections = [("self", self_count), ("inclusive", inclusive)]
+    if a.callers:
+        sections = [(f"callers of {a.callers}", callers)]
+    for title, counter in sections:
         print(f"\n-- {title} --")
         for name, n in counter.most_common(a.top):
             print(f"{100 * n / total:6.1f}%  {name}")

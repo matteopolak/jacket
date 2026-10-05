@@ -938,7 +938,10 @@ impl Compiler {
                     // `a, b = value;` assigns the one value to every target.
                     if matches!(
                         other,
-                        Operand::Value { .. } | Operand::Place { .. } | Operand::Const { .. }
+                        Operand::Value { .. }
+                            | Operand::Place { .. }
+                            | Operand::Const { .. }
+                            | Operand::Type(_)
                     ) {
                         for l in lhs {
                             let place = self.check_expr(f, scope, l, None)?;

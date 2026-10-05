@@ -142,7 +142,7 @@ impl Compiler {
             sig_resolving: false,
             target: None,
             body_state: BodyState::NotNeeded,
-            instances: HashMap::new(),
+            instances: HashMap::default(),
             bindings: None,
             export,
         });
@@ -712,6 +712,7 @@ impl Compiler {
     /// count as progress: a failing body re-creates its nested procedures on every retry,
     /// and lowering those must not keep the loop alive.
     pub fn drain_bodies(&mut self) -> Result<()> {
+        self.unpark_bodies();
         loop {
             let mut failed = Vec::new();
             let mut progress = false;
@@ -743,6 +744,9 @@ impl Compiler {
     pub fn drain_bodies_lenient(&mut self) -> Option<Box<Diagnostic>> {
         let mut first = None;
         let mut retry = Vec::new();
+        if self.lower_epoch() != self.parked_epoch {
+            self.unpark_bodies();
+        }
         while let Some(id) = self.body_queue.pop() {
             if self.proc(id).body_state != BodyState::Queued {
                 continue;
@@ -750,13 +754,18 @@ impl Compiler {
             // A body that failed is only worth another attempt once something it could be
             // waiting for happened (code added, a compile-time run finished). Otherwise every
             // compile-time call redoes the failing work, which compounds when that work itself
-            // runs compile-time code (a body using a module that did not load).
+            // runs compile-time code (a body using a module that did not load). Such bodies are
+            // parked, so later calls in the same epoch skip them without looking.
             let epoch = self.lower_epoch();
             if let Some((at, err)) = self.lenient_failures.get(&id)
                 && *at == epoch
             {
                 first.get_or_insert_with(|| err.clone());
-                retry.push(id);
+                if epoch != self.parked_epoch {
+                    retry.append(&mut self.parked_bodies);
+                    self.parked_epoch = epoch;
+                }
+                self.parked_bodies.push(id);
                 continue;
             }
             let misses = (self.placeholder_misses, self.in_progress_misses);
@@ -777,7 +786,19 @@ impl Compiler {
             }
         }
         self.body_queue.extend(retry);
+        if first.is_none()
+            && let Some(id) = self.parked_bodies.last()
+            && let Some((_, err)) = self.lenient_failures.get(id)
+        {
+            first = Some(err.clone());
+        }
         first
+    }
+
+    /// Put the parked bodies back in the queue.
+    fn unpark_bodies(&mut self) {
+        let parked = std::mem::take(&mut self.parked_bodies);
+        self.body_queue.extend(parked);
     }
 
     /// Counts the events after which a body that failed to lower may succeed.
@@ -1045,7 +1066,7 @@ impl Compiler {
             sig_resolving: false,
             target: None,
             body_state: BodyState::NotNeeded,
-            instances: HashMap::new(),
+            instances: HashMap::default(),
             bindings: Some(scope),
             export: None,
         });

@@ -181,6 +181,10 @@ pub struct Workspaces {
     event: Event,
     /// Strings handed to Jai code; kept alive for the whole compilation.
     strings: Vec<Box<[u8]>>,
+    /// Record strings handed to Jai code without copying (the record may later drop its own).
+    kept: Vec<Rc<[u8]>>,
+    /// Record tags by `__jaic_rec_tag_id`.
+    tags: Vec<&'static str>,
     /// Messages, syntax trees and types exported to metaprograms.
     records: Records,
 }
@@ -218,6 +222,9 @@ pub enum MetaOp {
     RecItemInt,
     RecItemString,
     RecItemRef,
+    RecTagId,
+    RecFill,
+    RecFillList,
     Clang,
     ClangText,
 }
@@ -253,6 +260,9 @@ impl MetaOp {
             "__jaic_rec_item_int" => Self::RecItemInt,
             "__jaic_rec_item_string" => Self::RecItemString,
             "__jaic_rec_item_ref" => Self::RecItemRef,
+            "__jaic_rec_tag_id" => Self::RecTagId,
+            "__jaic_rec_fill" => Self::RecFill,
+            "__jaic_rec_fill_list" => Self::RecFillList,
             "__jaic_clang" => Self::Clang,
             "__jaic_clang_text" => Self::ClangText,
             _ => return None,
@@ -281,6 +291,8 @@ impl Workspaces {
             current: vec![TOP_LEVEL_WORKSPACE],
             event: Event::default(),
             strings: Vec::new(),
+            kept: Vec::new(),
+            tags: Vec::new(),
             records: Records::default(),
         }))
     }
@@ -361,6 +373,11 @@ impl Workspaces {
             _ => {}
         }
         Ok(())
+    }
+
+    fn keep_rc(&mut self, bytes: &Rc<[u8]>) -> (u64, u64) {
+        self.kept.push(bytes.clone());
+        (bytes.len() as u64, bytes.as_ptr() as u64)
     }
 
     fn keep_string(&mut self, bytes: &[u8]) -> (u64, u64) {
@@ -888,53 +905,219 @@ pub fn call(
             Ok(Vec::new())
         }
         MetaOp::RecTag => {
+            // Tags are static: hand out the text itself.
             let tag = shared
                 .borrow()
                 .records
                 .get(arg(0) as i64)
                 .map_or("", |r| r.tag);
-            return_string(interp, tag.as_bytes(), 1);
+            let out = arg(1);
+            interp.write(out, &(tag.len() as u64).to_le_bytes());
+            interp.write(out + 8, &(tag.as_ptr() as u64).to_le_bytes());
             Ok(Vec::new())
         }
-        MetaOp::RecField => {
-            let name = text(interp, 1);
+        MetaOp::RecTagId => {
+            // A small number per distinct tag, so Jai can cache tag -> struct type in an array.
+            let mut reg = shared.borrow_mut();
+            let Some(tag) = reg.records.get(arg(0) as i64).map(|r| r.tag) else {
+                return Ok(vec![u64::MAX]);
+            };
+            let id = match reg.tags.iter().position(|t| *t == tag) {
+                Some(i) => i,
+                None => {
+                    reg.tags.push(tag);
+                    reg.tags.len() - 1
+                }
+            };
+            Ok(vec![id as u64])
+        }
+        MetaOp::RecFill => {
+            let mut reg = shared.borrow_mut();
+            Ok(vec![rec_fill(&mut reg, interp, args)])
+        }
+        MetaOp::RecFillList => {
+            let mut reg = shared.borrow_mut();
+            Ok(vec![rec_fill_list(&mut reg, interp, args)])
+        }
+        MetaOp::RecField => Ok(vec![
+            shared
+                .borrow()
+                .records
+                .kind(arg(0) as i64, field_name(interp, arg(1))) as u64,
+        ]),
+        MetaOp::RecCount => {
+            let reg = shared.borrow();
             Ok(vec![
-                shared.borrow().records.kind(arg(0) as i64, &name) as u64
+                match reg.records.field(arg(0) as i64, field_name(interp, arg(1))) {
+                    Some(Field::List(items)) => items.len() as u64,
+                    _ => 0,
+                },
             ])
         }
-        MetaOp::RecCount => {
-            let name = text(interp, 1);
-            let reg = shared.borrow();
-            Ok(vec![match reg.records.field(arg(0) as i64, &name) {
-                Some(Field::List(items)) => items.len() as u64,
-                _ => 0,
-            }])
-        }
         MetaOp::RecInt | MetaOp::RecRef | MetaOp::RecItemInt | MetaOp::RecItemRef => {
-            let name = text(interp, 1);
             let index =
                 matches!(op, MetaOp::RecItemInt | MetaOp::RecItemRef).then(|| arg(2) as usize);
             let reg = shared.borrow();
-            Ok(vec![match reg.records.item(arg(0) as i64, &name, index) {
+            Ok(vec![match reg
+                .records
+                .item(arg(0) as i64, field_name(interp, arg(1)), index)
+            {
                 Some(Item::Int(v) | Item::Ref(v)) => *v as u64,
                 _ => 0,
             }])
         }
         MetaOp::RecString | MetaOp::RecItemString => {
-            let name = text(interp, 1);
             let (index, out) = if op == MetaOp::RecItemString {
                 (Some(arg(2) as usize), 3)
             } else {
                 (None, 2)
             };
-            let bytes = match shared.borrow().records.item(arg(0) as i64, &name, index) {
-                Some(Item::Str(s)) => s.to_vec(),
-                _ => Vec::new(),
-            };
-            return_string(interp, &bytes, out);
+            let mut reg = shared.borrow_mut();
+            let (count, data) =
+                match reg
+                    .records
+                    .item(arg(0) as i64, field_name(interp, arg(1)), index)
+                {
+                    Some(Item::Str(s)) => {
+                        let s = s.clone();
+                        reg.keep_rc(&s)
+                    }
+                    _ => (0, 0),
+                };
+            let out = arg(out);
+            interp.write(out, &count.to_le_bytes());
+            interp.write(out + 8, &data.to_le_bytes());
             Ok(Vec::new())
         }
     }
+}
+
+/// The Jai `string` at `p` as a field name. Field names are ASCII identifiers, so anything else
+/// (or a null string) names no field.
+fn field_name(interp: &Interp, p: u64) -> &str {
+    if p == 0 {
+        return "";
+    }
+    let bytes = interp.bytes(interp.read_u64(p + 8), interp.read_u64(p) as usize);
+    std::str::from_utf8(bytes).unwrap_or("")
+}
+
+/// Plan entry kinds shared with `Record_Plan_Entry` in `stdlib/Compiler/records.jai`.
+const PLAN_OTHER: u64 = 0;
+const PLAN_INT: u64 = 1;
+const PLAN_STRING: u64 = 2;
+const PLAN_POINTER: u64 = 3;
+
+/// Where `__jaic_rec_fill` and `__jaic_rec_fill_list` find the Jai side's `record_structs`.
+struct Built {
+    data: u64,
+    count: i64,
+}
+
+/// Write one item as a member of plan kind `kind` and `size` bytes at `target`. Returns false when
+/// Jai must fill it: a reference to a record not built yet, or a value of an unexpected shape.
+fn write_item(
+    interp: &mut Interp,
+    keep: &mut Vec<Rc<[u8]>>,
+    built: &Built,
+    kind: u64,
+    size: usize,
+    item: &Item,
+    target: u64,
+) -> bool {
+    match (kind, item) {
+        (PLAN_INT, Item::Int(v) | Item::Ref(v)) => {
+            interp.write(target, &v.to_le_bytes()[..size.min(8)]);
+            true
+        }
+        (PLAN_STRING, Item::Str(s)) => {
+            interp.write(target, &(s.len() as u64).to_le_bytes());
+            interp.write(target + 8, &(s.as_ptr() as u64).to_le_bytes());
+            keep.push(s.clone());
+            true
+        }
+        (PLAN_POINTER, Item::Ref(r)) => {
+            if *r <= 0 {
+                return true;
+            }
+            let pointer = if *r < built.count {
+                interp.read_u64(built.data + *r as u64 * 8)
+            } else {
+                0
+            };
+            interp.write(target, &pointer.to_le_bytes());
+            pointer != 0
+        }
+        (PLAN_POINTER, Item::Int(_)) => false,
+        // Mismatched shapes read as zero, and the memory is already zeroed.
+        (PLAN_INT | PLAN_STRING | PLAN_POINTER, _) => true,
+        _ => false,
+    }
+}
+
+/// `__jaic_rec_fill(record, memory, plan, plan_count, built, built_count) -> left`: write the
+/// plan's integer, string and pointer members of `memory` from the record's fields. Pointers are
+/// written only when the referenced record is already built (`built[ref]`, the Jai side's
+/// `record_structs`). Returns a bit per plan entry (first 64) that Jai must still fill itself:
+/// the field exists but is an array, an in-place struct or an unbuilt reference.
+fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
+    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+    let (id, memory, plan, count) = (arg(0) as i64, arg(1), arg(2), arg(3) as usize);
+    let built = Built {
+        data: arg(4),
+        count: arg(5) as i64,
+    };
+    let Some(record) = reg.records.get(id) else {
+        return 0;
+    };
+    let mut left = 0u64;
+    let mut keep = Vec::new();
+    // Record_Plan_Entry :: struct { offset: s64; kind: s64; size: s64; name: string; type: *Type_Info; }
+    const ENTRY: u64 = 48;
+    for k in 0..count.min(64) {
+        let entry = plan + k as u64 * ENTRY;
+        let offset = interp.read_u64(entry);
+        let kind = interp.read_u64(entry + 8);
+        let size = interp.read_u64(entry + 16) as usize;
+        let filled = match record.field(field_name(interp, entry + 24)) {
+            None => true,
+            Some(Field::Item(item)) => {
+                write_item(interp, &mut keep, &built, kind, size, item, memory + offset)
+            }
+            // A list read as a single value is zero, except as an array member.
+            Some(Field::List(_)) => kind != PLAN_OTHER,
+        };
+        if !filled {
+            left |= 1 << k;
+        }
+    }
+    reg.kept.extend(keep);
+    left
+}
+
+/// `__jaic_rec_fill_list(record, name, data, count, kind, size, built, built_count) -> left`:
+/// write the elements of list field `name` into `data` (`count` elements of `size` bytes).
+/// Returns how many elements Jai must still fill (see `write_item`).
+fn rec_fill_list(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
+    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+    let (id, data, count, kind, size) = (arg(0) as i64, arg(2), arg(3), arg(4), arg(5));
+    let built = Built {
+        data: arg(6),
+        count: arg(7) as i64,
+    };
+    let Some(Field::List(items)) = reg.records.field(id, field_name(interp, arg(1))) else {
+        return count;
+    };
+    let mut left = 0;
+    let mut keep = Vec::new();
+    for (k, item) in items.iter().take(count as usize).enumerate() {
+        let target = data + k as u64 * size;
+        if !write_item(interp, &mut keep, &built, kind, size as usize, item, target) {
+            left += 1;
+        }
+    }
+    reg.kept.extend(keep);
+    left
 }
 
 /// Parse the source text of a `Code` value (an expression, statement or block).

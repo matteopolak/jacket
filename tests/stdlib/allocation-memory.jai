@@ -21,7 +21,7 @@ check_hashes :: () -> bool {
     if Hash.djb2_hash(input) != 193485963 return false;
     if Hash.fnv1a_hash(input.data, input.count) != 0xe71fa2190541574b return false;
     scalar: s64 = 7;
-    if Hash.get_hash(*scalar) != 5381 return false;
+    if Hash.get_hash(*scalar) != cast,trunc(u32) (Hash.knuth_hash(cast(u64) *scalar ^ 5381) >> 32) return false;
     if Hash.get_hash(cast(u64) 7) != cast,trunc(u32) (Hash.knuth_hash(cast(u64) (7 ^ 5381)) >> 32) return false;
     if XXH.native_XXH32(null, 0, 0) != 0x02cc5d05 return false;
     if XXH.native_XXH64(null, 0, 0) != 0xef46db3751d8e999 return false;

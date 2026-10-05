@@ -72,6 +72,8 @@ An independently authored standard library is included in [`stdlib/`](stdlib/). 
 
 ## Try it
 
+Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64) are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md). To build from source:
+
 You need [Rustup](https://rustup.rs/) (it picks up this repository's pinned toolchain) and, for native builds, an independently installed LLVM 22 with Clang; see the [LLVM setup guide](docs/tools/llvm-setup.md).
 
 ```sh

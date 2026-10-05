@@ -15,7 +15,7 @@ rust-version = "1.95"
 
 [workspace.dependencies]
 jai-language-server = { path = "crates/jai-language-server" }
-inkwell = { version = "0.10.0", default-features = false, features = ["llvm22-1-prefer-dynamic"] }
+inkwell = { version = "0.10.0", default-features = false, features = ["llvm22-1"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -11,12 +11,15 @@ path = "src/main.rs"
 
 [dependencies]
 jaic = { path = "../jaic" }
-jaic-llvm = { path = "../jaic-llvm", optional = true }
+jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 
 [features]
-default = ["llvm"]
+default = ["dynamic-llvm"]
 # Native output (`jaic build`); without it jaic only checks and interprets.
 llvm = ["dep:jaic-llvm"]
+# LLVM as a shared library (development) or statically linked (release archives).
+dynamic-llvm = ["llvm", "jaic-llvm/dynamic"]
+static-llvm = ["llvm", "jaic-llvm/static"]
 
 [dev-dependencies]
 serde_json = "=1.0.151"

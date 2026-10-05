@@ -153,7 +153,7 @@ pub struct FnCtx {
     pub backtick_scope: Option<ScopeId>,
     /// Block constants already declared ahead of their statement (`check_block_stmts`), per block scope (a
     /// macro body expanded twice declares its constants in each expansion).
-    pub hoisted_consts: std::collections::HashSet<(ScopeId, ast::AstId)>,
+    pub hoisted_consts: crate::fxhash::HashSet<(ScopeId, ast::AstId)>,
     /// Array bounds checks are off (`#no_abc` on the procedure or an enclosing `for`).
     pub no_abc: bool,
     /// Arithmetic overflow checks are off (`#no_aoc` on the procedure, a block or a loop).

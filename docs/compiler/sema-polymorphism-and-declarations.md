@@ -89,7 +89,9 @@ procedure arguments, `#bake_constants`, `#modify`, `#poke_name` and a few operat
 - **Compile-time constants** (`eval_const`) run with the compile-time Context, so `#assert` can call procedures
   that take one. `type_of(local.*)` in compile-time code only needs the local's type.
 - **Thunks and queued bodies**: `drain_bodies_lenient` lowers what it can before a thunk runs; bodies that fail
-  (they need a layout still in progress) stay queued and are reported by the final `drain_bodies`.
+  (they need a layout still in progress) stay queued and are reported by the final `drain_bodies`. A body whose
+  failure is memoized for the current `lower_epoch` is parked (`parked_bodies`), so later thunks in the same
+  epoch skip the whole group instead of looking at each body; `drain_bodies` and a new epoch put them back.
   `drain_bodies` itself retries failed bodies while other bodies still lower, since a later body may declare
   what an earlier one uses (`#insert,scope(Top)`); only a pass with no progress reports its first error.
   Progress means a body that was queued when the pass began lowered: a failing body re-creates its nested

@@ -1,0 +1,180 @@
+name: release
+# Builds jaic and jai-lsp for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64).
+# A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
+# a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish_integrations:
+        description: Publish external editor and package integrations
+        type: boolean
+        required: false
+        default: false
+      tag:
+        description: Existing tag to publish (empty = build and test only)
+        required: false
+        default: ''
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  LLVM_VERSION: 22.1.8
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-arm64
+            runner: macos-15
+            llvm: LLVM-22.1.8-macOS-ARM64.tar.xz
+          - name: linux-x64
+            runner: ubuntu-24.04
+            llvm: LLVM-22.1.8-Linux-X64.tar.xz
+          # No LLVM backend on Windows yet (no Win64 calling convention): check and run only.
+          - name: windows-x64
+            runner: windows-2025
+            llvm: ''
+    if: github.event_name != 'push' || !github.event.forced
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Validate dependency ages before building
+        run: python3 tools/check_dependency_age.py
+      - name: Install the official LLVM release (static libraries)
+        if: matrix.llvm != ''
+        run: |
+          curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/${{ matrix.llvm }}"
+          mkdir -p "$RUNNER_TEMP/llvm"
+          tar -xJf llvm.tar.xz -C "$RUNNER_TEMP/llvm" --strip-components=1
+          rm llvm.tar.xz
+          echo "LLVM_SYS_221_PREFIX=$RUNNER_TEMP/llvm" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/llvm/bin/llvm-config" --version
+          echo "system libraries: $("$RUNNER_TEMP/llvm/bin/llvm-config" --link-static --system-libs)"
+      # The official macOS LLVM names Homebrew's static zstd (/opt/homebrew/lib/libzstd.a) in its
+      # system libraries; linking the archive leaves no runtime dependency on Homebrew.
+      # Its static libraries are LTO bitcode that Xcode's ld cannot read, so link with the
+      # release's own clang and lld (which run that LTO) against the Xcode SDK.
+      - name: Install static zstd and link with LLVM's lld (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install zstd
+          ls -l /opt/homebrew/lib/libzstd.a
+          ls "$RUNNER_TEMP/llvm/bin/ld64.lld"
+          echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=$RUNNER_TEMP/llvm/bin/clang" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> "$GITHUB_ENV"
+      - name: Install static zlib and zstd (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libzstd-dev libxml2-dev
+      - name: Build
+        run: |
+          if [ -n "${{ matrix.llvm }}" ]; then
+            cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm \
+              || { echo "::group::verbose link"; cargo rustc --release --locked -p jaic-cli --bin jaic --no-default-features --features static-llvm -- -C link-args=-v 2>&1 | tail -60; echo "::endgroup::"; exit 1; }
+          else
+            cargo build --release --locked -p jaic-cli --no-default-features
+          fi
+          cargo build --release --locked -p jai-language-server
+      - name: Package
+        run: |
+          exe=""
+          if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
+          dir="jaic-${{ matrix.name }}"
+          mkdir -p "$dir"
+          cp "target/release/jaic$exe" "target/release/jai-lsp$exe" "$dir/"
+          # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
+          cp -R stdlib "$dir/stdlib"
+          cp README.md CHANGELOG.md "$dir/"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a -tzip "$dir.zip" "$dir" > /dev/null
+            echo "ARCHIVE=$dir.zip" >> "$GITHUB_ENV"
+          else
+            tar -czf "$dir.tar.gz" "$dir"
+            echo "ARCHIVE=$dir.tar.gz" >> "$GITHUB_ENV"
+          fi
+          echo "PACKAGE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Smoke test the packaged compiler outside the checkout
+        run: |
+          exe=""
+          if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
+          work="$RUNNER_TEMP/smoke"
+          mkdir -p "$work"
+          cp examples/compile-time-record.jai "$work/main.jai"
+          jaic="$PWD/$PACKAGE_DIR/jaic$exe"
+          cd "$work"
+          set +e
+          "$jaic" run main.jai
+          status=$?
+          set -e
+          test "$status" = 42
+          if [ -n "${{ matrix.llvm }}" ]; then
+            "$jaic" build main.jai -o main
+            set +e
+            ./main
+            status=$?
+            set -e
+            test "$status" = 42
+          fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            otool -L "$jaic"
+            ! otool -L "$jaic" | grep -E '/opt/homebrew|/usr/local|@rpath'
+          fi
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            ldd "$jaic"
+            ! ldd "$jaic" | grep -i llvm
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.ARCHIVE }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release notes from CHANGELOG.md
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          version="${tag#v}"
+          # The section under "## [version]" up to the next "## [".
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          (cd dist && sha256sum * > SHA256SUMS)
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "jaic $TAG" --notes-file notes.md --latest

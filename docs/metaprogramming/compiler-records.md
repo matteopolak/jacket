@@ -36,6 +36,14 @@ The bridge that lets metaprograms see a workspace's code: `Message_File`, `Messa
   through `Type_Info_Struct`: ints/enums/bools/floats by size, strings, pointers (recursively, memoized so a
   record is one pointer forever), in-place structs and arrays of any of those. `using`/`#as using` members and
   anonymous unions are filled from the same record. `record_of(pointer)` maps back.
+- **Speed**: a large metaprogram builds hundreds of thousands of records (Focus: 300k), so the member walk is
+  split. `record_plan(info)` flattens a struct type's members once (offset, kind, size, name, type; cached by
+  `Type_Info_Struct` pointer). `__jaic_rec_fill` then writes the ints, strings and pointers to records already
+  built in one native call, and returns a bit mask of the members Jai must still fill (arrays, in-place
+  structs, records not built yet). `__jaic_rec_fill_list` does the same for an array's elements.
+  `__jaic_rec_tag_id` numbers tags so `record_type_of` caches the tag's struct type. The pointer-to-record
+  index behind `record_of` is built lazily, on the first `record_of` call. Strings handed to Jai point into
+  the records' own `Rc<[u8]>` (kept alive in `Workspaces::kept`); tags are static text.
 - **compiler_get_nodes**: `Compiler::add_code` mirrors every `Code` value (AST + source snippet) into
   `Interp::codes`; `__jaic_code_nodes` exports it without a compiler (no types or locations) and stores the
   snippet as `__source` on the root. The Jai side remembers each (root, code) pair it hands out

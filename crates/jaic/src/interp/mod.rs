@@ -14,6 +14,7 @@ mod sandbox;
 #[cfg(not(target_arch = "wasm32"))]
 mod threads;
 mod threads_inline;
+use crate::fxhash::HashMap;
 use crate::ir::{
     self, BinOp, Callee, CmpOp, ConvOp, ForeignId, FuncId, GlobalId, Inst, Program, Term, Ty, UnOp,
 };
@@ -21,7 +22,7 @@ use crate::ir::{
 pub use native::main_thread;
 pub use native::{library_dirs, set_library_dirs};
 pub use sandbox::{SandboxHost, SharedHost};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// Tag bits marking an interpreted procedure address.
@@ -128,7 +129,8 @@ pub struct Interp {
     /// start address -> (end, global) for address lookups.
     ranges: BTreeMap<u64, (u64, GlobalId)>,
     frames: Vec<Option<Rc<Frame>>>,
-    foreign_addrs: HashMap<ForeignId, u64>,
+    /// Resolved foreign symbols by `ForeignId` (0 = not resolved yet).
+    foreign_addrs: Vec<u64>,
     libraries: HashMap<usize, Option<native::Library>>,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
     pub hooks: Vec<Option<Hook>>,
@@ -153,7 +155,8 @@ pub struct Interp {
     /// Set in the child process after compile-time code calls `fork`.
     forked_child: bool,
     /// Stack trace node data per procedure (`Stack_Trace_Procedure_Info`), built on first call.
-    trace_infos: HashMap<FuncId, u64>,
+    /// `Stack_Trace_Procedure_Info` addresses by `FuncId` (0 = not made yet).
+    trace_infos: Vec<u64>,
     /// Threads of the running program (created by the first `pthread_*` call).
     #[cfg(not(target_arch = "wasm32"))]
     sched: Option<Box<threads::Sched>>,
@@ -185,8 +188,8 @@ impl Interp {
             globals: Vec::new(),
             ranges: BTreeMap::new(),
             frames: Vec::new(),
-            foreign_addrs: HashMap::new(),
-            libraries: HashMap::new(),
+            foreign_addrs: Vec::new(),
+            libraries: HashMap::default(),
             hooks: Vec::new(),
             host,
             depth: 0,
@@ -198,7 +201,7 @@ impl Interp {
             codes: Vec::new(),
             made_codes: Vec::new(),
             forked_child: false,
-            trace_infos: HashMap::new(),
+            trace_infos: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             sched: None,
             isched: None,
@@ -330,6 +333,13 @@ impl Interp {
         }
         unsafe { std::slice::from_raw_parts(addr as *const u8, len) }.to_vec()
     }
+    /// `len` bytes of program memory at `addr`, borrowed (empty for a null address).
+    pub fn bytes(&self, addr: u64, len: usize) -> &[u8] {
+        if len == 0 || addr == 0 {
+            return &[];
+        }
+        unsafe { std::slice::from_raw_parts(addr as *const u8, len) }
+    }
     pub fn read_u64(&self, addr: u64) -> u64 {
         unsafe { std::ptr::read_unaligned(addr as *const u64) }
     }
@@ -407,7 +417,9 @@ impl Interp {
     // -----------------------------------------------------------------------
 
     pub fn foreign_addr(&mut self, program: &Program, id: ForeignId) -> Res<u64> {
-        if let Some(&a) = self.foreign_addrs.get(&id) {
+        if let Some(&a) = self.foreign_addrs.get(id.0 as usize)
+            && a != 0
+        {
             return Ok(a);
         }
         let foreign = &program.foreigns[id.0 as usize];
@@ -442,7 +454,10 @@ impl Interp {
             }
             None => FOREIGN_TAG | id.0 as u64,
         };
-        self.foreign_addrs.insert(id, addr);
+        if self.foreign_addrs.len() <= id.0 as usize {
+            self.foreign_addrs.resize(id.0 as usize + 1, 0);
+        }
+        self.foreign_addrs[id.0 as usize] = addr;
         Ok(addr)
     }
 
@@ -524,7 +539,10 @@ impl Interp {
             // SAFETY: this interpreter is suspended in the native call below; C calls back on
             // this thread before that call returns.
             let interp = unsafe { &mut *me };
-            interp.exec(program, func, args).map_err(|t| t.message)
+            interp
+                .exec(program, func, args)
+                .map(Rets::into_vec)
+                .map_err(|t| t.message)
         };
         native::call(addr, &argv, sig, &mut reenter).map_err(|m| Trap {
             message: m,
@@ -542,7 +560,7 @@ impl Interp {
             self.stack = vec![0u64; STACK_SIZE / 8].into_boxed_slice();
             self.sp = 0;
         }
-        let result = self.exec(program, func, args);
+        let result = self.exec(program, func, args).map(Rets::into_vec);
         if self.forked_child {
             // Compile-time code forked and the child came back here (its `exec*` failed
             // or it trapped): it must not go on compiling alongside the parent.
@@ -561,9 +579,9 @@ impl Interp {
         result
     }
 
-    fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Vec<u64>> {
+    fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
         if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
-            return self.run_hook(hook, args);
+            return self.run_hook(hook, args).map(Rets::from);
         }
         let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
             let name = program
@@ -670,7 +688,9 @@ impl Interp {
 
     /// The `Stack_Trace_Procedure_Info` of a procedure (name, declaration site, address).
     fn trace_info(&mut self, program: &Program, id: FuncId, info: &ir::TraceInfo) -> u64 {
-        if let Some(&addr) = self.trace_infos.get(&id) {
+        if let Some(&addr) = self.trace_infos.get(id.0 as usize)
+            && addr != 0
+        {
             return addr;
         }
         fn leak(text: &str) -> u64 {
@@ -694,7 +714,10 @@ impl Interp {
             words[1], words[0], words[3], words[2], words[4], words[5], words[6],
         ];
         let addr = Box::leak(Box::new(layout)).as_ptr() as u64;
-        self.trace_infos.insert(id, addr);
+        if self.trace_infos.len() <= id.0 as usize {
+            self.trace_infos.resize(id.0 as usize + 1, 0);
+        }
+        self.trace_infos[id.0 as usize] = addr;
         addr
     }
 
@@ -745,7 +768,7 @@ impl Interp {
         frame: &Frame,
         stack_base: u64,
         args: &[u64],
-    ) -> Res<Vec<u64>> {
+    ) -> Res<Rets> {
         // Value registers come from a pool: a fresh Vec per call is a malloc/free pair.
         let mut vals = self.val_pool.pop().unwrap_or_default();
         vals.clear();
@@ -764,7 +787,7 @@ impl Interp {
         frame: &Frame,
         stack_base: u64,
         vals: &mut [u64],
-    ) -> Res<Vec<u64>> {
+    ) -> Res<Rets> {
         let mut block = 0usize;
         loop {
             if let Some(left) = self.block_budget.as_mut() {
@@ -784,6 +807,9 @@ impl Interp {
             let b = &func.blocks[block];
             self.frame_blocks += 1;
             self.frame_insts += b.insts.len() as u64;
+            if let Some(counts) = self.profile.as_mut() {
+                counts.block(b);
+            }
             for inst in &b.insts {
                 self.step(program, inst, vals, frame, stack_base)?;
             }
@@ -813,7 +839,7 @@ impl Interp {
                         .map_or(default.0, |(_, t)| t.0) as usize;
                 }
                 Term::Ret(values) => {
-                    return Ok(values.iter().map(|v| vals[v.0 as usize]).collect());
+                    return Ok(Rets::collect(values.iter().map(|v| vals[v.0 as usize])));
                 }
                 Term::Unreachable => {
                     return self.trap(format!("reached unreachable code in '{}'", func.name));
@@ -956,7 +982,7 @@ impl Interp {
                     Callee::Func(f) => self.exec(program, *f, argv)?,
                     Callee::Foreign(f) => {
                         let sig = program.foreigns[f.0 as usize].sig.clone();
-                        self.call_foreign(program, *f, argv, &sig)?
+                        self.call_foreign(program, *f, argv, &sig)?.into()
                     }
                     Callee::Indirect(target, sig) => {
                         let addr = vals[target.0 as usize];
@@ -964,20 +990,22 @@ impl Interp {
                             FUNC_TAG => {
                                 self.exec(program, FuncId((addr & !TAG_MASK) as u32), argv)?
                             }
-                            FOREIGN_TAG => self.call_foreign(
-                                program,
-                                ForeignId((addr & !TAG_MASK) as u32),
-                                argv,
-                                sig,
-                            )?,
+                            FOREIGN_TAG => self
+                                .call_foreign(
+                                    program,
+                                    ForeignId((addr & !TAG_MASK) as u32),
+                                    argv,
+                                    sig,
+                                )?
+                                .into(),
                             _ if addr < 4096 => {
                                 return self.trap("call through a null procedure pointer");
                             }
-                            _ => self.call_native(program, addr, argv, sig)?,
+                            _ => self.call_native(program, addr, argv, sig)?.into(),
                         }
                     }
                 };
-                for (r, v) in results.iter().zip(out) {
+                for (r, &v) in results.iter().zip(out.iter()) {
                     vals[r.0 as usize] = v;
                 }
             }
@@ -1317,6 +1345,60 @@ fn exit_forked_child(code: i32) -> ! {
     }
     #[cfg(not(unix))]
     std::process::exit(code)
+}
+
+/// A call's results: up to four inline. A `Vec` per call was a malloc and free on every call.
+#[derive(Debug, Default)]
+pub struct Rets {
+    len: usize,
+    inline: [u64; 4],
+    spill: Vec<u64>,
+}
+
+impl Rets {
+    fn collect(values: impl ExactSizeIterator<Item = u64>) -> Self {
+        let mut rets = Rets {
+            len: values.len(),
+            ..Default::default()
+        };
+        if rets.len <= 4 {
+            for (slot, v) in rets.inline.iter_mut().zip(values) {
+                *slot = v;
+            }
+        } else {
+            rets.spill = values.collect();
+        }
+        rets
+    }
+
+    pub fn into_vec(self) -> Vec<u64> {
+        if self.len <= 4 {
+            self.inline[..self.len].to_vec()
+        } else {
+            self.spill
+        }
+    }
+}
+
+impl From<Vec<u64>> for Rets {
+    fn from(spill: Vec<u64>) -> Self {
+        Rets {
+            len: usize::MAX,
+            inline: [0; 4],
+            spill,
+        }
+    }
+}
+
+impl std::ops::Deref for Rets {
+    type Target = [u64];
+    fn deref(&self) -> &[u64] {
+        if self.len <= 4 {
+            &self.inline[..self.len]
+        } else {
+            &self.spill
+        }
+    }
 }
 
 /// Reads an instruction's operands. Most fit in `small` on the Rust stack; longer lists use `heap`.

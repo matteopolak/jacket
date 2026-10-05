@@ -491,7 +491,7 @@ impl Program {
 pub struct Builder {
     pub func: Func,
     pub current: BlockId,
-    terminated: std::collections::HashSet<BlockId>,
+    terminated: crate::fxhash::HashSet<BlockId>,
 }
 
 impl Builder {

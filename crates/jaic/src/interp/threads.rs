@@ -96,8 +96,8 @@ impl Sched {
             }],
             current: 0,
             baton: Arc::new((Mutex::new(0), Condvar::new())),
-            mutexes: HashMap::new(),
-            cond_waiters: HashMap::new(),
+            mutexes: HashMap::default(),
+            cond_waiters: HashMap::default(),
             ticks: 0,
         }
     }

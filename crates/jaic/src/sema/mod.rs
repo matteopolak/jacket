@@ -34,6 +34,7 @@ mod structs;
 mod typeinfo;
 
 use crate::ast;
+use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
 use crate::source::{Diagnostic, FileId, SourceMap, Span};
@@ -41,7 +42,6 @@ use crate::types::{TypeId, Types};
 pub use driver::ProgramSource;
 pub use modules::{FileSystem, NativeFs, VirtualFs};
 pub use scope::{EntityId, ScopeId};
-use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 pub use value::{ModuleId, ProcId, Value};
@@ -195,6 +195,10 @@ pub struct Compiler {
     hoisted_imports: HashSet<Span>,
     /// Procedures that need their bodies lowered.
     pub body_queue: Vec<ProcId>,
+    /// Queued bodies whose last lenient attempt failed at `parked_epoch`: skipped as a group by
+    /// `drain_bodies_lenient` until the epoch moves, instead of being looked at on every call.
+    parked_bodies: Vec<ProcId>,
+    parked_epoch: u64,
     pub interp: crate::interp::Interp,
     /// Type_Info globals per type.
     pub type_infos: HashMap<TypeId, ir::GlobalId>,
@@ -298,9 +302,9 @@ impl Compiler {
             types: Types::new(),
             program: ir::Program::default(),
             files: Vec::new(),
-            file_by_path: HashMap::new(),
+            file_by_path: HashMap::default(),
             modules: Vec::new(),
-            module_cache: HashMap::new(),
+            module_cache: HashMap::default(),
             scopes: Vec::new(),
             entities: Vec::new(),
             procs: Vec::new(),
@@ -313,7 +317,7 @@ impl Compiler {
             main_module: None,
             add_contexts: Vec::new(),
             pokes: Vec::new(),
-            field_types: HashMap::new(),
+            field_types: HashMap::default(),
             context_type: None,
             top_level_runs: Vec::new(),
             asserts: Vec::new(),
@@ -322,43 +326,45 @@ impl Compiler {
             workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
             added_sources: 0,
-            lenient_failures: HashMap::new(),
-            default_scopes: HashMap::new(),
-            auto_bake_variants: HashMap::new(),
-            hoisted_imports: HashSet::new(),
+            lenient_failures: HashMap::default(),
+            default_scopes: HashMap::default(),
+            auto_bake_variants: HashMap::default(),
+            hoisted_imports: HashSet::default(),
             body_queue: Vec::new(),
+            parked_bodies: Vec::new(),
+            parked_epoch: 0,
             interp: crate::interp::Interp::default(),
-            type_infos: HashMap::new(),
-            type_info_flags: HashMap::new(),
-            strings: HashMap::new(),
+            type_infos: HashMap::default(),
+            type_info_flags: HashMap::default(),
+            strings: HashMap::default(),
             output: Vec::new(),
             warnings: Vec::new(),
-            struct_asts: HashMap::new(),
+            struct_asts: HashMap::default(),
             entry_point: None,
             exports: Vec::new(),
-            anonymous_procs: HashMap::new(),
+            anonymous_procs: HashMap::default(),
             calls_in_flight: Vec::new(),
-            local_consts: HashMap::new(),
-            discard_params: HashSet::new(),
+            local_consts: HashMap::default(),
+            discard_params: HashSet::default(),
             last_call_must: None,
-            const_macro_params: HashMap::new(),
+            const_macro_params: HashMap::default(),
             reexport_visiting: Vec::new(),
-            local_decl_types: HashMap::new(),
-            anonymous_types: HashMap::new(),
+            local_decl_types: HashMap::default(),
+            anonymous_types: HashMap::default(),
             code_scopes: Vec::new(),
-            member_aliases: HashMap::new(),
-            default_images: HashMap::new(),
-            default_globals: HashMap::new(),
-            initializers: HashMap::new(),
-            func_procs: HashMap::new(),
-            thunk_scopes: HashMap::new(),
+            member_aliases: HashMap::default(),
+            default_images: HashMap::default(),
+            default_globals: HashMap::default(),
+            initializers: HashMap::default(),
+            func_procs: HashMap::default(),
+            thunk_scopes: HashMap::default(),
             ct_context: None,
             export_entities: Vec::new(),
-            asm_regs: HashMap::new(),
+            asm_regs: HashMap::default(),
             export: code_export::ExportState::default(),
             deferred_pending: Vec::new(),
             deferred_errors: Vec::new(),
-            proc_type_params: HashMap::new(),
+            proc_type_params: HashMap::default(),
             program_param_settings: Vec::new(),
             retrying_pending: false,
             placeholder_misses: 0,
