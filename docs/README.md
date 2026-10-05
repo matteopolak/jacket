@@ -95,6 +95,7 @@ The LLVM backend, C ABI and linking.
 - [Tooling modules: Debug, MacOS_Bundler, BuildCpp, Autorun, Performance_Report](specs/stdlib/README.md)
 - [Drawing, windows and audio](specs/stdlib/README.md)
 - [Simp (2D renderer)](specs/stdlib/README.md)
+- [Sound_Player (audio mixing and output)](specs/stdlib/README.md)
 
 ## Browser
 
