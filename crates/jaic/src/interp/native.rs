@@ -523,6 +523,13 @@ pub mod main_thread {
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
+    // The register model below is System V / AAPCS64; Windows hosts do not load native
+    // libraries in the interpreter yet (`Library::open`), so this is not reached there.
+    if arch == Arch::Win64 {
+        return Err(
+            "the interpreter does not implement the Microsoft x64 calling convention".into(),
+        );
+    }
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     // `#cpp_return_type_is_non_pod` results always use the hidden result pointer.

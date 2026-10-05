@@ -1,14 +1,18 @@
 //! C ABI classification for aggregates passed or returned by value.
 //!
-//! Covers the two 64-bit ABIs the compiler targets: AArch64 AAPCS64 (Apple
-//! flavour) and x86-64 System V. The IR describes an aggregate only by its
-//! flattened scalar fields (`AggLayout`), which is all either ABI looks at.
+//! Covers the 64-bit ABIs the compiler targets: AArch64 AAPCS64 (Apple
+//! flavour), x86-64 System V and the Microsoft x64 convention (Windows). The IR
+//! describes an aggregate only by its flattened scalar fields (`AggLayout`),
+//! which is all these ABIs look at.
 use crate::ir::{AggLayout, Ty};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arch {
     Aarch64,
+    /// x86-64 System V (macOS, Linux).
     X86_64,
+    /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
+    Win64,
 }
 
 impl Arch {
@@ -16,6 +20,8 @@ impl Arch {
     pub fn host() -> Option<Arch> {
         if cfg!(target_arch = "aarch64") {
             Some(Arch::Aarch64)
+        } else if cfg!(all(target_arch = "x86_64", windows)) {
+            Some(Arch::Win64)
         } else if cfg!(target_arch = "x86_64") {
             Some(Arch::X86_64)
         } else {
@@ -25,11 +31,18 @@ impl Arch {
 
     pub fn from_triple(triple: &str) -> Option<Arch> {
         let cpu = triple.split('-').next()?;
+        let windows = triple.contains("windows") || triple.contains("mingw");
         match cpu {
-            "aarch64" | "arm64" => Some(Arch::Aarch64),
+            "aarch64" | "arm64" if !windows => Some(Arch::Aarch64),
+            "x86_64" | "amd64" if windows => Some(Arch::Win64),
             "x86_64" | "amd64" => Some(Arch::X86_64),
             _ => None,
         }
+    }
+
+    /// Whether the CPU is x86-64 (either calling convention).
+    pub fn is_x86_64(self) -> bool {
+        matches!(self, Arch::X86_64 | Arch::Win64)
     }
 }
 
@@ -57,7 +70,8 @@ pub enum Passing {
     Registers(Vec<Piece>),
     /// Copied to the stack by the callee prologue/caller (`byval`, x86-64).
     ByVal,
-    /// Caller makes a copy and passes its address (AArch64 large aggregates).
+    /// Caller makes a copy and passes its address (AArch64 large aggregates, and every
+    /// Win64 aggregate that is not 1, 2, 4 or 8 bytes).
     Indirect,
 }
 
@@ -67,7 +81,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout) -> Passing {
         Some(pieces) => Passing::Registers(pieces),
         None => match arch {
             Arch::X86_64 => Passing::ByVal,
-            Arch::Aarch64 => Passing::Indirect,
+            Arch::Aarch64 | Arch::Win64 => Passing::Indirect,
         },
     }
 }
@@ -81,6 +95,12 @@ pub fn classify_ret(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
 fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
     if layout.size == 0 {
         return Some(Vec::new());
+    }
+    // Microsoft x64: an aggregate of exactly 1, 2, 4 or 8 bytes travels as an integer of that
+    // size (in a general register even when its members are floats); anything else goes by
+    // reference to a caller copy, and is returned through a hidden pointer.
+    if arch == Arch::Win64 {
+        return matches!(layout.size, 1 | 2 | 4 | 8).then(|| int_pieces(layout.size));
     }
     if layout.size > 16 && !(arch == Arch::Aarch64 && hfa(layout).is_some()) {
         return None;
@@ -102,6 +122,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
             }
             Some(int_pieces(layout.size))
         }
+        Arch::Win64 => unreachable!("handled above"),
         Arch::X86_64 => {
             let count = layout.size.div_ceil(8);
             let mut pieces = Vec::new();
@@ -216,6 +237,49 @@ mod tests {
         assert_eq!(
             classify_ret(Arch::X86_64, &v).unwrap()[0].ty,
             PieceTy::V2F32
+        );
+    }
+
+    #[test]
+    fn win64_power_of_two_sizes_use_one_integer_register() {
+        let floats = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+        let p = classify_ret(Arch::Win64, &floats).unwrap();
+        assert_eq!(
+            p,
+            vec![Piece {
+                offset: 0,
+                ty: PieceTy::I64
+            }]
+        );
+        let small = layout(4, &[(0, Ty::I16), (2, Ty::I16)]);
+        assert!(matches!(classify_arg(Arch::Win64, &small), Passing::Registers(p) if p.len() == 1));
+    }
+
+    #[test]
+    fn win64_other_sizes_go_by_reference() {
+        let odd = layout(12, &[(0, Ty::I32), (4, Ty::I32), (8, Ty::I32)]);
+        assert_eq!(classify_arg(Arch::Win64, &odd), Passing::Indirect);
+        assert!(classify_ret(Arch::Win64, &odd).is_none());
+        let pair = layout(16, &[(0, Ty::F64), (8, Ty::F64)]);
+        assert_eq!(classify_arg(Arch::Win64, &pair), Passing::Indirect);
+        let three = layout(3, &[(0, Ty::I8), (1, Ty::I8), (2, Ty::I8)]);
+        assert_eq!(classify_arg(Arch::Win64, &three), Passing::Indirect);
+    }
+
+    #[test]
+    fn windows_triples_select_win64() {
+        assert_eq!(
+            Arch::from_triple("x86_64-pc-windows-msvc"),
+            Some(Arch::Win64)
+        );
+        assert_eq!(
+            Arch::from_triple("x86_64-w64-windows-gnu"),
+            Some(Arch::Win64)
+        );
+        assert_eq!(Arch::from_triple("x86_64-w64-mingw32"), Some(Arch::Win64));
+        assert_eq!(
+            Arch::from_triple("x86_64-unknown-linux-gnu"),
+            Some(Arch::X86_64)
         );
     }
 

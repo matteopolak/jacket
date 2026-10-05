@@ -1451,7 +1451,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     ],
                     false,
                 );
-                let f = self.libc("write", ty);
+                // The Windows C runtime spells POSIX `write` with an underscore.
+                let name = if self.arch == Arch::Win64 {
+                    "_write"
+                } else {
+                    "write"
+                };
+                let f = self.libc(name, ty);
                 b.build_call(f, &[fd.into(), ptr_arg(0)?.into(), size_arg(1)?.into()], "")?;
                 Ok(vec![])
             }
@@ -1487,14 +1493,16 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     Arch::Aarch64 => {
                         self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
                     }
-                    Arch::X86_64 => self.call_intrinsic("llvm.readcyclecounter", &[], &[])?,
+                    Arch::X86_64 | Arch::Win64 => {
+                        self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
+                    }
                 };
                 Ok(vec![v.ok_or("cycle counter produced no value")?])
             }
             Intrinsic::Pause => {
                 let asm = match self.arch {
                     Arch::Aarch64 => "yield",
-                    Arch::X86_64 => "pause",
+                    Arch::X86_64 | Arch::Win64 => "pause",
                 };
                 self.inline_asm(asm, "", None)?;
                 Ok(vec![])
