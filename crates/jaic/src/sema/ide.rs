@@ -613,10 +613,21 @@ impl Compiler {
                 more.push(inner);
             }
         }
-        ids.into_iter()
+        let mut names: Vec<IdeName> = ids
+            .into_iter()
             .filter(|&e| !self.entity(e).file_private)
             .filter_map(|e| self.ide_entity_name(e))
-            .collect()
+            .collect();
+        // Members of globals the module exports with `using` (see `module_lookup`).
+        for entry in self.modules[m.0 as usize].exported_usings.clone() {
+            if let scope::UsingEntry::Place {
+                ty, ..
+            } = entry
+            {
+                names.extend(self.ide_members(IdeReceiver::Value(ty)));
+            }
+        }
+        names
     }
 
     /// What `names[0].names[1]...` is, looked up from `scope`.
@@ -643,10 +654,18 @@ impl Compiler {
                     let _ = name;
                     IdeReceiver::Value(t)
                 }
-                IdeReceiver::Module(m) => {
-                    let ids = self.module_exports(m, *name).ok()?;
-                    self.ide_entity_receiver(*ids.first()?)?
-                }
+                IdeReceiver::Module(m) => match self.module_lookup(m, *name).ok()? {
+                    Found::Entities(ids) => self.ide_entity_receiver(*ids.first()?)?,
+                    Found::Using(entry, member) => match entry {
+                        scope::UsingEntry::Place {
+                            ty, ..
+                        }
+                        | scope::UsingEntry::Type(ty) => {
+                            IdeReceiver::Value(self.ide_field_type(ty, member)?)
+                        }
+                        scope::UsingEntry::Module(_) => return None,
+                    },
+                },
             };
         }
         Some(recv)

@@ -1564,7 +1564,7 @@ impl Compiler {
         let Some(runtime) = self.runtime_support else {
             return Ok(());
         };
-        let handler = self.module_exports(runtime, Sym::intern("__arithmetic_overflow"))?;
+        let handler = self.module_declarations(runtime, Sym::intern("__arithmetic_overflow"))?;
         let Some(&entity) = handler.first() else {
             return err(
                 span,
@@ -2366,7 +2366,7 @@ impl Compiler {
         let Some(preload) = self.preload else {
             return err(span, format!("'{name}' requires Preload"));
         };
-        let ids = self.module_exports(preload, Sym::intern(name))?;
+        let ids = self.module_declarations(preload, Sym::intern(name))?;
         let Some(&id) = ids.first() else {
             return err(span, format!("Preload does not define '{name}'"));
         };

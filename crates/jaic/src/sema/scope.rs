@@ -529,9 +529,8 @@ impl Compiler {
             for entry in self.scope(sid).usings.clone() {
                 match &entry {
                     UsingEntry::Module(m) => {
-                        let ids = self.module_exports(*m, name)?;
-                        if !ids.is_empty() && self.collect(&mut found, &ids) {
-                            return Ok(Found::Entities(found));
+                        if let Some(result) = self.merge_module_lookup(&mut found, *m, name)? {
+                            return Ok(result);
                         }
                     }
                     UsingEntry::Place {
@@ -555,21 +554,8 @@ impl Compiler {
                     if hidden {
                         continue;
                     }
-                    let ids = self.module_exports(module, name)?;
-                    if !ids.is_empty() && self.collect(&mut found, &ids) {
-                        return Ok(Found::Entities(found));
-                    }
-                    // Members of a global the module exports with `using` (GL's `using gl;`).
-                    if found.is_empty() {
-                        for entry in self.modules[module.0 as usize].exported_usings.clone() {
-                            if let UsingEntry::Place {
-                                ty, ..
-                            } = &entry
-                                && self.type_has_member(*ty, name)?
-                            {
-                                return Ok(Found::Using(entry, name));
-                            }
-                        }
+                    if let Some(result) = self.merge_module_lookup(&mut found, module, name)? {
+                        return Ok(result);
                     }
                 }
             }
@@ -579,9 +565,8 @@ impl Compiler {
                     if self.scope(sid).module == implicit {
                         continue;
                     }
-                    let ids = self.module_exports(implicit, name)?;
-                    if !ids.is_empty() && self.collect(&mut found, &ids) {
-                        return Ok(Found::Entities(found));
+                    if let Some(result) = self.merge_module_lookup(&mut found, implicit, name)? {
+                        return Ok(result);
                     }
                 }
             }
@@ -628,10 +613,18 @@ impl Compiler {
                     _ => continue,
                 }
                 if let Some(m) = self.import_module(fs, i)? {
-                    for id in self.module_exports(m, name)? {
-                        if !found.contains(&id) {
-                            found.push(id);
+                    match self.module_lookup(m, name)? {
+                        Found::Entities(ids) => {
+                            for id in ids {
+                                if !found.contains(&id) {
+                                    found.push(id);
+                                }
+                            }
                         }
+                        Found::Using(entry, member) if found.is_empty() => {
+                            return Ok(Found::Using(entry, member));
+                        }
+                        Found::Using(..) => {}
                     }
                 }
             }
@@ -657,8 +650,11 @@ impl Compiler {
         false
     }
 
-    /// Exported names of a module (after expanding its pending items).
-    pub fn module_exports(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
+    /// Exported declarations named `name` in a module or the modules it re-exports (after
+    /// expanding pending items). Only for fixed names the compiler itself looks up
+    /// (`__arithmetic_overflow` in Runtime_Support); resolving a user's name through a
+    /// module needs `module_lookup`, which also sees members of exported `using` globals.
+    pub fn module_declarations(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
         let scope = self.modules[module.0 as usize].scope;
         self.expand_pending(scope)?;
         let own: Vec<EntityId> = self
@@ -687,7 +683,7 @@ impl Compiler {
             .clone()
         {
             let ids = match self.import_module(scope, index) {
-                Ok(Some(inner)) => self.module_exports(inner, name),
+                Ok(Some(inner)) => self.module_declarations(inner, name),
                 Ok(None) => continue,
                 Err(e) => Err(e),
             };
@@ -700,8 +696,87 @@ impl Compiler {
         result
     }
 
-    /// Names visible inside a module from one of its files (export + module scope).
-    pub fn module_member(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
-        self.module_exports(module, name)
+    /// What `name` means as a member of `module`: `M.name` through a named import, `name`
+    /// in a scope that imports M or says `using M;`, and the names M re-exports. In order:
+    /// M's exported declarations (and those of modules it re-exports), members of globals
+    /// it exports with `using` (GL's `using gl;` makes `GL.glViewport` work), then module
+    /// parameters (`Basic.MEMORY_DEBUGGER`).
+    ///
+    /// Every path that resolves a name through a module must use this (or
+    /// `merge_module_lookup`), never `module_declarations` alone: separate copies of these
+    /// rules drifted apart once (`GL.glViewport` failed while `glViewport` worked).
+    /// `tests/stdlib/module-member-resolution.jai` checks that all paths agree.
+    pub fn module_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
+        let ids = self.module_declarations(module, name)?;
+        if !ids.is_empty() {
+            return Ok(Found::Entities(ids));
+        }
+        if let Some(entry) = self.module_using_member(module, name)? {
+            return Ok(Found::Using(entry, name));
+        }
+        let params: Vec<EntityId> = self.modules[module.0 as usize]
+            .param_entities
+            .iter()
+            .copied()
+            .filter(|&e| self.entity(e).name == name)
+            .collect();
+        Ok(Found::Entities(params))
+    }
+
+    /// The exported `using` entry of `module` (or of a module it re-exports) whose type has
+    /// a member `name`.
+    fn module_using_member(&mut self, module: ModuleId, name: Sym) -> Result<Option<UsingEntry>> {
+        for entry in self.modules[module.0 as usize].exported_usings.clone() {
+            if let UsingEntry::Place {
+                ty, ..
+            }
+            | UsingEntry::Type(ty) = &entry
+                && self.type_has_member(*ty, name)?
+            {
+                return Ok(Some(entry));
+            }
+        }
+        if self.reexport_visiting.contains(&module) {
+            return Ok(None);
+        }
+        self.reexport_visiting.push(module);
+        let scope = self.modules[module.0 as usize].scope;
+        let mut result = Ok(None);
+        for index in self.modules[module.0 as usize]
+            .exported_using_imports
+            .clone()
+        {
+            match self.import_module(scope, index) {
+                Ok(Some(inner)) => match self.module_using_member(inner, name) {
+                    Ok(None) => {}
+                    other => {
+                        result = other;
+                        break;
+                    }
+                },
+                Ok(None) => {}
+                Err(e) => {
+                    result = Err(e);
+                    break;
+                }
+            }
+        }
+        self.reexport_visiting.pop();
+        result
+    }
+
+    /// `module_lookup` as one step of a scope lookup: entities join the overload set in
+    /// `found`; returns the final answer when the lookup is decided.
+    fn merge_module_lookup(
+        &mut self,
+        found: &mut Vec<EntityId>,
+        module: ModuleId,
+        name: Sym,
+    ) -> Result<Option<Found>> {
+        Ok(match self.module_lookup(module, name)? {
+            Found::Entities(ids) => (!ids.is_empty() && self.collect(found, &ids))
+                .then(|| Found::Entities(found.clone())),
+            Found::Using(entry, member) => found.is_empty().then_some(Found::Using(entry, member)),
+        })
     }
 }

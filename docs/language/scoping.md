@@ -38,7 +38,7 @@ Top-level conditionals, all verified on macOS:
 
 ## How to change it
 
-Entity creation and visibility are in `declare_stmt` (`crates/jaic/src/sema/modules.rs`; `file_private`, `target_scope`). Lookup is in `crates/jaic/src/sema/scope.rs` (`Found::Using`, `module_exports`). Conditional expansion is `expand_pending` / `expand_plain_ifs` in the same file; keep `plain_condition` free of calls so the early pass stays safe.
+Entity creation and visibility are in `declare_stmt` (`crates/jaic/src/sema/modules.rs`; `file_private`, `target_scope`). Lookup is in `crates/jaic/src/sema/scope.rs` (`Found::Using`, `module_lookup`). Conditional expansion is `expand_pending` / `expand_plain_ifs` in the same file; keep `plain_condition` free of calls so the early pass stays safe.
 
 ## Configuration
 

@@ -73,6 +73,39 @@ fn run_dwarfdump(tool: &Path, args: &[&str], file: &Path) -> (bool, String) {
     (out.status.success(), text)
 }
 
+/// `llvm-dwarfdump --verify`, minus its one false positive on ELF: GNU ld (and lld at
+/// `-O2`) tail-merge the `SHF_MERGE|SHF_STRINGS` `.debug_str` section, so `count` can be
+/// stored as the tail of `ensured_count`. That is valid DWARF (every offset still reads
+/// the right NUL-terminated string, which the name checks below confirm), but the
+/// verifier's `.debug_str_offsets` check expects each DWARF 5 string offset to follow a
+/// NUL. gcc's own output never trips it: it refers to strings with `DW_FORM_strp`, which
+/// that check does not cover. Any other diagnostic, including an offset past the end of
+/// `.debug_str`, still fails.
+fn verify(tool: &Path, file: &Path) -> Result<(), String> {
+    let (ok, text) = run_dwarfdump(tool, &["--verify"], file);
+    if ok {
+        return Ok(());
+    }
+    let tail_merged = |line: &str| {
+        line.starts_with("error: .debug_str_offsets: contribution ")
+            && line.ends_with("is neither zero nor immediately following a null character")
+    };
+    let summary = |line: &str| {
+        line == "error: Aggregated error counts:"
+            || (line.starts_with("error: Section contribution contains invalid string offset")
+                && line.ends_with(" time(s)."))
+    };
+    let errors = || text.lines().filter(|l| l.starts_with("error:"));
+    let tolerated = !cfg!(target_os = "macos")
+        && errors().any(tail_merged)
+        && errors().all(|l| tail_merged(l) || summary(l));
+    if tolerated {
+        Ok(())
+    } else {
+        Err(text)
+    }
+}
+
 #[test]
 fn dwarf_describes_procedures_variables_and_types() {
     let Some(tool) = dwarfdump() else {
@@ -81,8 +114,9 @@ fn dwarf_describes_procedures_variables_and_types() {
     };
     let exe = build("debug-info-dwarf", "prog", &[], None);
     let file = debug_file(&exe);
-    let (ok, verify) = run_dwarfdump(&tool, &["--verify"], &file);
-    assert!(ok, "llvm-dwarfdump --verify failed:\n{verify}");
+    if let Err(text) = verify(&tool, &file) {
+        panic!("llvm-dwarfdump --verify failed:\n{text}");
+    }
     let (_, info) = run_dwarfdump(&tool, &["--debug-info", "--debug-line"], &file);
     for expected in [
         // Procedures, with polymorph instances under their written name.
@@ -121,8 +155,9 @@ fn dwarf_is_valid_with_split_codegen() {
     };
     let exe = build("debug-info-split", "prog", &[], Some("3"));
     let file = debug_file(&exe);
-    let (ok, verify) = run_dwarfdump(&tool, &["--verify"], &file);
-    assert!(ok, "llvm-dwarfdump --verify failed:\n{verify}");
+    if let Err(text) = verify(&tool, &file) {
+        panic!("llvm-dwarfdump --verify failed:\n{text}");
+    }
     let (_, info) = run_dwarfdump(&tool, &["--debug-info"], &file);
     assert_eq!(info.matches("DW_TAG_compile_unit").count(), 3, "{info}");
 }

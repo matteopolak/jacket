@@ -306,7 +306,7 @@ impl Compiler {
 
     /// A type exported by a module.
     pub fn module_type(&mut self, module: ModuleId, name: &str, span: Span) -> Result<TypeId> {
-        let ids = self.module_exports(module, Sym::intern(name))?;
+        let ids = self.module_declarations(module, Sym::intern(name))?;
         let Some(&id) = ids.first() else {
             return err(span, format!("'{name}' not found"));
         };

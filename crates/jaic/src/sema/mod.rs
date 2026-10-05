@@ -242,7 +242,7 @@ pub struct Compiler {
     /// gives the constant (`#if n <= 1` in a recursive macro; `message.count` of a constant
     /// string fits a `u64` parameter).
     pub const_macro_params: HashMap<EntityId, (Value, TypeId)>,
-    /// Modules whose re-exports a `module_exports` call is searching.
+    /// Modules whose re-exports a `module_declarations` call is searching.
     pub reexport_visiting: Vec<ModuleId>,
     /// Types of local variable declarations, by declaration (first name), once lowered.
     /// Types of local declarations, by declaration and name index (`a, b := f()`).

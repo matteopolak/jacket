@@ -133,7 +133,7 @@ impl Compiler {
         let Some(preload) = self.preload else {
             return err(span, format!("'{sym}' requires Preload"));
         };
-        let ids = self.module_exports(preload, Sym::intern(enum_name))?;
+        let ids = self.module_declarations(preload, Sym::intern(enum_name))?;
         let Some(&enum_entity) = ids.first() else {
             return err(span, format!("Preload does not define {enum_name}"));
         };

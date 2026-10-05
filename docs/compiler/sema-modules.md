@@ -18,8 +18,16 @@ How `crates/jaic/src/sema` loads modules, binds module parameters, and expands t
   declared type kept.
 - **Exported `using`**: a module-level `using global;` outside `#scope_file` is recorded in
   `Module.exported_usings`, so importers find the members (`Found::Using`). An exported
-  `using X :: #import "Y";` re-exports `Y`'s names (`Module.exported_using_imports`, followed by
-  `module_exports` with a cycle guard).
+  `using X :: #import "Y";` re-exports `Y`'s names (`Module.exported_using_imports`, followed with a
+  cycle guard).
+- **One member lookup** (`module_lookup` in `scope.rs`): every way of reaching a module's names — a plain
+  `#import`, `M.name` on a named import, `using M;`, a re-exporting module, sibling-file imports and IDE
+  completion — goes through `module_lookup`, which returns declarations, re-exports, exported `using`
+  members (`Found::Using`) and module parameters. `module_declarations` sees only the module's own
+  declarations and re-exports and is for fixed compiler names (`Context`, `__arithmetic_overflow`).
+  Separate per-path lookups once diverged: `GL.glViewport` failed while a plain `glViewport` worked,
+  because only the plain path knew about GL's `using gl;` procedure table.
+  `tests/stdlib/module-member-resolution.jai` checks the paths agree.
 - **Top-level expansion** (`expand_all`): first a pass over every scope expands `#if` items whose condition is a
   plain constant (`expand_plain_ifs`, no calls or `#run`), and imports. Then lookups expand pending items lazily
   (`expand_pending`). This ordering makes a module's `#if FLAG #load "x.jai"` (and an `#add_context` in it) land
@@ -40,6 +48,10 @@ How `crates/jaic/src/sema` loads modules, binds module parameters, and expands t
 New per-module state goes on `Module` (`mod.rs`). Anything that must be visible before compile-time code runs
 belongs in the plain pass of `expand_all`; keep that pass free of calls, since it runs before most declarations
 resolve.
+
+A new kind of module member (another way a module can export a name) goes into `module_lookup`, never into
+one caller; add a line for it to `tests/stdlib/module-member-resolution.jai` so every access path is checked.
+Don't call `module_declarations` for user-written names.
 
 ## Configuration
 

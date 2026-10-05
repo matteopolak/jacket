@@ -30,7 +30,7 @@ Str :: #import,string "str_val :: 11;";       // source text as a module
 
 Import loading is `Compiler::resolve_import` / `load_module` / `load_file` in `crates/jaic/src/sema/modules.rs`; `declare_stmt` there turns each top-level `Import`, `Load` and `Using` into scope entries. File access goes through the `FileSystem` trait (`NativeFs` for the CLI, `VirtualFs` for the browser and tests), so new reads must use `self.fs`, never `std::fs`.
 
-Gotchas: `#import,string` makes a fresh module each time (no caching). Re-exports through `using` chains are followed by `module_exports` in `scope.rs`; keep its cycle guard.
+Gotchas: `#import,string` makes a fresh module each time (no caching). Re-exports through `using` chains are followed by `module_lookup` in `scope.rs`, the one lookup every access path uses; keep its cycle guard.
 
 ## Configuration
 

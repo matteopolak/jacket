@@ -1,7 +1,7 @@
 //! Structs, enums and polymorphic structs: declaration, layout, member
 //! access, default initialization and aggregate literals.
 use super::lower::{FnCtx, Operand};
-use super::scope::{EntityKind, Resolved, ScopeKind, UsingEntry};
+use super::scope::{EntityKind, Found, Resolved, ScopeKind, UsingEntry};
 use super::value::{Aggregate, PolyStructId};
 use super::*;
 use crate::ast::ExprKind as E;
@@ -835,7 +835,7 @@ impl Compiler {
         self.expand_all()?;
         let mut extra: Vec<(Rc<ast::Decl>, ScopeId)> = Vec::new();
         if let Some(preload) = self.preload {
-            let ids = self.module_exports(preload, Sym::intern("FIRST_ADD_CONTEXT"))?;
+            let ids = self.module_declarations(preload, Sym::intern("FIRST_ADD_CONTEXT"))?;
             if let Some(&id) = ids.first()
                 && let Resolved::Const {
                     value: Value::Code(code),
@@ -1067,26 +1067,17 @@ impl Compiler {
         match base {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
             Operand::Module(m) => {
-                let mut ids = self.module_exports(m, name)?;
-                if ids.is_empty() {
-                    // Module parameters: `Basic.MEMORY_DEBUGGER`.
-                    ids = self.modules[m.0 as usize]
-                        .param_entities
-                        .iter()
-                        .copied()
-                        .filter(|&e| self.entity(e).name == name)
-                        .collect();
-                }
-                if ids.is_empty() {
-                    return err(
+                return match self.module_lookup(m, name)? {
+                    Found::Using(entry, member) => self.using_member(f, entry, member, span),
+                    Found::Entities(ids) if ids.is_empty() => err(
                         span,
                         format!(
                             "module '{}' has no exported member '{name}'",
                             self.modules[m.0 as usize].name
                         ),
-                    );
-                }
-                return self.entities_operand(f, scope, &ids, span);
+                    ),
+                    Found::Entities(ids) => self.entities_operand(f, scope, &ids, span),
+                };
             }
             Operand::Const {
                 value: Value::String(ref s),
@@ -1298,10 +1289,10 @@ impl Compiler {
     ) -> Result<Operand> {
         match entry {
             UsingEntry::Type(t) => self.type_member(f, ScopeId(0), t, member, span),
-            UsingEntry::Module(m) => {
-                let ids = self.module_exports(m, member)?;
-                self.entities_operand(f, ScopeId(0), &ids, span)
-            }
+            UsingEntry::Module(m) => match self.module_lookup(m, member)? {
+                Found::Using(entry, member) => self.using_member(f, entry, member, span),
+                Found::Entities(ids) => self.entities_operand(f, ScopeId(0), &ids, span),
+            },
             UsingEntry::Place {
                 ty,
                 entity,
