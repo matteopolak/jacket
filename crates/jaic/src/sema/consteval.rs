@@ -788,7 +788,11 @@ impl Compiler {
                         target: ir::RelocTarget::Func(ir::FuncId((p & 0xFFFF_FFFF) as u32)),
                         addend: 0,
                     });
-                } else if p != 0 {
+                } else if p < 0x10000 || p.wrapping_neg() < 0x10000 {
+                    // Sentinels cast to a procedure type (`SIG_IGN`, `SIG_ERR`) stay integers.
+                    agg.bytes[offset as usize..offset as usize + 8]
+                        .copy_from_slice(&p.to_le_bytes());
+                } else {
                     return err(
                         span,
                         "a compile-time value holds a foreign procedure address",
