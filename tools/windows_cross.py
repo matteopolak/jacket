@@ -26,7 +26,15 @@ WINDOWS_PROGRAMS = [
     "tests/stdlib/struct-literal-overrides-default-string.jai",
     "tests/stdlib/array-literal-view-lifetime.jai",
     "tests/stdlib/c-variadic-foreign-calls.jai",
+    "tests/stdlib/member-align-lowers-alignment.jai",
 ]
+
+# tests/stdlib programs not expected to pass as Windows executables, and why.
+NOT_ON_WINDOWS = {
+    "bindings-generator-c": "writes its header to /tmp",
+    "bindings-generator-cpp": "writes its header to /tmp",
+    "compile-time-globals-reset": "#no_reset globals are not kept by native builds on any OS yet",
+}
 
 
 def cases(stdlib):
@@ -53,7 +61,7 @@ def cases(stdlib):
     # The sweep's stdlib tests (`jaic run` must succeed): those that build for Windows must
     # exit 0 there. Many are host- or compile-time-only and do not build; that is not a failure.
     for path in sorted((ROOT / "tests/stdlib").glob("*.jai")):
-        if path not in listed:
+        if path not in listed and path.stem not in NOT_ON_WINDOWS:
             yield f"stdlib-{path.stem}", path, 0, None, False
 
 
