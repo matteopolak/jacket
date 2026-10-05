@@ -1,4 +1,5 @@
 use crate::analysis::{KEYWORDS, Span, Token, TokenKind};
+use crate::semantic::{self, Environment};
 use crate::{
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
     DocumentSymbol, DocumentUri, Error, Hover, Limits, Location, MarkupContent, Position,
@@ -7,7 +8,11 @@ use crate::{
     position::LineIndex,
 };
 use jaic::intern::Sym;
+use jaic::sema::ide::{IdeKind, IdeName};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 struct Document {
     version: i32,
@@ -18,6 +23,12 @@ pub struct Session {
     limits: Limits,
     documents: BTreeMap<DocumentUri, Document>,
     analyses: BTreeMap<DocumentUri, Analysis>,
+    /// Last analysis of each document that parsed: completion keeps offering its names while
+    /// the text being typed does not parse.
+    parsed: BTreeMap<DocumentUri, Analysis>,
+    /// Type-checked answers (absent: syntax only).
+    environment: Option<Environment>,
+    semantic: RefCell<semantic::Cache>,
 }
 impl Session {
     pub fn new(limits: Limits) -> Self {
@@ -25,6 +36,16 @@ impl Session {
             limits,
             documents: BTreeMap::new(),
             analyses: BTreeMap::new(),
+            parsed: BTreeMap::new(),
+            environment: None,
+            semantic: RefCell::default(),
+        }
+    }
+    /// A session that also type-checks the open documents against `environment`'s modules.
+    pub fn with_environment(limits: Limits, environment: Environment) -> Self {
+        Self {
+            environment: Some(environment),
+            ..Self::new(limits)
         }
     }
     pub fn limits(&self) -> Limits {
@@ -180,14 +201,65 @@ impl Session {
                 }
             }
         }
+        for (uri, analysis) in &analyses {
+            if analysis.complete {
+                self.parsed.insert(uri.clone(), analysis.clone());
+            }
+        }
+        self.parsed
+            .retain(|uri, _| self.documents.contains_key(uri));
         self.analyses = analyses;
+    }
+    /// The document a check of `uri` starts from: an open document that `#load`s it (directly or
+    /// not) and is loaded by none, else `uri` itself.
+    fn root(&self, uri: &DocumentUri) -> DocumentUri {
+        let loaded: BTreeSet<&DocumentUri> = self
+            .analyses
+            .values()
+            .flat_map(|a| a.loads.iter().map(|(target, _)| target))
+            .collect();
+        if !loaded.contains(uri) {
+            return uri.clone();
+        }
+        self.documents
+            .keys()
+            .find(|d| !loaded.contains(d) && self.reachable(d).contains(&uri))
+            .unwrap_or(uri)
+            .clone()
+    }
+    /// Run `query` on the type-checked program containing `uri`, its text replaced by `text`.
+    fn with_semantic<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<T> {
+        let environment = self.environment.as_ref()?;
+        let files: BTreeMap<PathBuf, Rc<[u8]>> = self
+            .documents
+            .iter()
+            .map(|(u, d)| {
+                let text = if u == uri {
+                    text
+                } else {
+                    d.text.as_str()
+                };
+                (PathBuf::from(u.path()), Rc::from(text.as_bytes()))
+            })
+            .collect();
+        let root = PathBuf::from(self.root(uri).path());
+        let mut cache = self.semantic.borrow_mut();
+        let analysis = cache.analyze(environment, &root, files);
+        query(analysis, Path::new(uri.path()))
     }
     fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
         let text = &self.documents[uri].text;
         let span = row.location;
+        // Rows of an older parse may point past the current text.
+        let start = text.floor_char_boundary(span.start.min(text.len()));
         let end =
             text.floor_char_boundary(span.end.min(span.start.saturating_add(256)).min(text.len()));
-        text[span.start..end.max(span.start)].trim()
+        text[start..end.max(start)].trim()
     }
     pub fn document_symbols(&self, uri: &DocumentUri) -> Result<Vec<DocumentSymbol>, Error> {
         let doc = self.document(uri)?;
@@ -340,6 +412,21 @@ impl Session {
         let Some((_, token)) = self.word(uri, position)? else {
             return Ok(None);
         };
+        let byte = doc.index.byte(&doc.text, position)?;
+        if let Some((start, end, value)) = self.semantic_hover(uri, &doc.text, byte) {
+            return Ok(Some(Hover {
+                contents: MarkupContent {
+                    value,
+                },
+                range: doc.index.range(
+                    &doc.text,
+                    Span {
+                        start,
+                        end,
+                    },
+                )?,
+            }));
+        }
         let rows = self.bindings(uri, position)?;
         let value = if rows.len() == 1 {
             format!(
@@ -358,6 +445,54 @@ impl Session {
             range: doc.index.range(&doc.text, token.span)?,
         }))
     }
+    /// Hover from the type checker: the text as typed if it parses, else with the cursor's line
+    /// blanked (offsets elsewhere stay the same).
+    fn semantic_hover(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+    ) -> Option<(usize, usize, String)> {
+        let probe = repair(text, None)?;
+        let (start, end, value) = self.with_semantic(uri, &probe, |a, path| a.hover(path, byte))?;
+        (end <= text.len() && text.is_char_boundary(start) && text.is_char_boundary(end))
+            .then_some((start, end, value))
+    }
+    /// Completion from the type checker. The word being typed (and `a.b.` before it) is cut
+    /// out, so the probe text is the same while a word is typed and its compile is reused.
+    fn semantic_completion(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+    ) -> Option<(String, Vec<IdeName>)> {
+        let bytes = text.as_bytes();
+        let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80;
+        let mut start = byte;
+        while start > 0 && ident(bytes[start - 1]) {
+            start -= 1;
+        }
+        let prefix = text[start..byte].to_owned();
+        let mut chain = Vec::new();
+        let mut at = start;
+        while at > 0 && bytes[at - 1] == b'.' {
+            let end = at - 1;
+            let mut s = end;
+            while s > 0 && ident(bytes[s - 1]) {
+                s -= 1;
+            }
+            if s == end || bytes[s].is_ascii_digit() {
+                // `.Member` with an inferred type, `f().x`, a number: nothing to offer.
+                return Some((prefix, Vec::new()));
+            }
+            chain.push(&text[s..end]);
+            at = s;
+        }
+        chain.reverse();
+        let probe = repair(&format!("{}{}", &text[..at], &text[byte..]), Some(at))?;
+        let names = self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &chain))?;
+        Some((prefix, names))
+    }
     pub fn completion(
         &self,
         uri: &DocumentUri,
@@ -365,17 +500,64 @@ impl Session {
     ) -> Result<CompletionList, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
-        let analysis = &self.analyses[uri];
+        if let Some((prefix, names)) = self.semantic_completion(uri, &doc.text, byte) {
+            let lower = prefix.to_lowercase();
+            let mut items = BTreeMap::new();
+            let mut incomplete = false;
+            let keywords = KEYWORDS.iter().map(|k| IdeName {
+                name: (*k).into(),
+                kind: IdeKind::Constant,
+                detail: "Jai keyword".into(),
+            });
+            let member = doc.text[..byte - prefix.len()].ends_with('.');
+            let all = names.into_iter().map(|n| (n, false));
+            let all: Vec<(IdeName, bool)> = if member {
+                all.collect()
+            } else {
+                all.chain(keywords.map(|k| (k, true))).collect()
+            };
+            for (name, keyword) in all {
+                if !name.name.to_lowercase().starts_with(&lower) {
+                    continue;
+                }
+                if items.len() >= self.limits.symbols {
+                    incomplete = true;
+                    break;
+                }
+                let kind = match name.kind {
+                    _ if keyword => CompletionKind::Keyword,
+                    IdeKind::Variable => CompletionKind::Variable,
+                    IdeKind::Constant => CompletionKind::Constant,
+                    IdeKind::Function => CompletionKind::Function,
+                    IdeKind::Type => CompletionKind::Struct,
+                    IdeKind::Module => CompletionKind::Module,
+                    IdeKind::Field => CompletionKind::Field,
+                    IdeKind::EnumMember => CompletionKind::EnumMember,
+                };
+                items.entry(name.name.clone()).or_insert(CompletionItem {
+                    label: name.name,
+                    kind,
+                    detail: name.detail,
+                });
+            }
+            return Ok(CompletionList {
+                is_incomplete: incomplete,
+                items: items.into_values().collect(),
+            });
+        }
+        let analysis = match self.analyses.get(uri) {
+            Some(a) if a.complete => a,
+            _ => self.parsed.get(uri).unwrap_or(&self.analyses[uri]),
+        };
         let prefix = self
             .word(uri, position)?
             .filter(|(_, token)| token.kind == TokenKind::Ident)
             .map_or("", |(_, token)| {
                 &doc.text[token.span.start..byte.min(token.span.end)]
             });
-        if self
-            .word(uri, position)?
-            .is_some_and(|(at, _)| at > 0 && analysis.tokens[at - 1].kind == TokenKind::Dot)
-        {
+        if self.word(uri, position)?.is_some_and(|(at, _)| {
+            at > 0 && self.analyses[uri].tokens[at - 1].kind == TokenKind::Dot
+        }) {
             return Ok(CompletionList {
                 is_incomplete: true,
                 items: vec![],
@@ -384,7 +566,12 @@ impl Session {
         let mut items = BTreeMap::new();
         let mut incomplete = !analysis.complete;
         for candidate in self.reachable(uri) {
-            for row in &self.analyses[candidate].rows {
+            let rows = if candidate == uri {
+                &analysis.rows
+            } else {
+                &self.analyses[candidate].rows
+            };
+            for row in rows {
                 let visible = if row.local {
                     candidate == uri && contains(row.scope, byte) && row.selection.start <= byte
                 } else {
@@ -481,6 +668,47 @@ impl Session {
         }
         Ok(output)
     }
+}
+/// `text` made to parse by blanking the lines the parser stops at (an edit in progress): first
+/// the line at `first` (the cursor's, when completing), then each reported line, or the one
+/// before it when that is empty (a missing `;` is reported on the next line). Byte offsets are
+/// kept.
+fn repair(text: &str, first: Option<usize>) -> Option<String> {
+    let mut text = text.to_owned();
+    for attempt in 0..6 {
+        let error = match semantic::parse_error(&text) {
+            None => return Some(text),
+            Some(error) => error,
+        };
+        let mut at = error.min(text.len());
+        if let (0, Some(first)) = (attempt, first) {
+            at = first;
+        } else {
+            let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+            let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+            if text[start..end].trim().is_empty() || text[start..end].trim() == "}" {
+                // Reported where the statement would have ended: blank the last non-empty line.
+                let before = text[..start].trim_end();
+                if before.is_empty() {
+                    return None;
+                }
+                at = before.len();
+            }
+        }
+        text = blank_line(&text, at);
+    }
+    semantic::parse_error(&text).is_none().then_some(text)
+}
+/// `text` with the line holding `byte` replaced by spaces (byte offsets are kept).
+fn blank_line(text: &str, byte: usize) -> String {
+    let start = text[..byte].rfind('\n').map_or(0, |i| i + 1);
+    let end = text[byte..].find('\n').map_or(text.len(), |i| byte + i);
+    format!(
+        "{}{}{}",
+        &text[..start],
+        " ".repeat(end - start),
+        &text[end..]
+    )
 }
 fn contains(span: Span, byte: usize) -> bool {
     span.start <= byte && byte <= span.end

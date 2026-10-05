@@ -46,6 +46,13 @@ export async function checkWorkers(directory) {
       assert.deepEqual(result.diagnostics, [], source);
       assert.equal(result.stdout, stdout, source);
     }
+    // Consumers get stdout/stderr separately and in write order, and can bound runaway programs.
+    const streams = await run(restarted, 18, '#import "Basic"; main :: () { print("a\\n"); log_error("b"); print("c\\n"); }', {});
+    assert.equal(streams.stdout, "a\nc\n"); assert.equal(streams.stderr, "b\n");
+    assert.deepEqual(streams.output, [{ stream: "stdout", text: "a\n" }, { stream: "stderr", text: "b\n" }, { stream: "stdout", text: "c\n" }]);
+    const bounded = await run(restarted, 19, '#import "Basic"; main :: () { print("go\\n"); while true {} }', { budget: 200000 });
+    assert.equal(bounded.stdout, "go\n"); assert.equal(bounded.exitCode, null);
+    assert(bounded.diagnostics.some(item => /execution budget exhausted/.test(item.message)), JSON.stringify(bounded.diagnostics));
     const foreign = await run(restarted, 20, 'puts :: (s: *u8) -> s32 #foreign libc; libc :: #library "libc"; main :: () { puts("x"); }', { fuel: 1000000 });
     assert.equal(foreign.exitCode, null); assert(foreign.diagnostics.length > 0, "Native-only #foreign must fail with a diagnostic, not a crash");
     // Every tests/stdlib program runs in a fresh engine; the pass set must equal tools/playground_stdlib_expected.json.

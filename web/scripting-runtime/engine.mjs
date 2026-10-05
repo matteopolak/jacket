@@ -37,8 +37,14 @@ export async function createEngine(wasmBytes) {
   }
   function playPush(channel, text) { for (const byte of encoder.encode(text)) playCheck(api.jai_play_push(channel, byte)); }
   return {
-    play(files, main) {
+    // Result: { exitCode, stdout, stderr, output: [{ stream: "stdout" | "stderr", text }], rendered, diagnostics }.
+    // `budget` bounds the interpreter (basic blocks, rounded up to thousands); a runaway program then
+    // fails with "execution budget exhausted" instead of hanging the worker.
+    play(files, main, { budget } = {}) {
       if (typeof main !== "string" || !files || typeof files !== "object") throw new TypeError("play needs a file map and a main path.");
+      if (budget !== undefined && (!Number.isSafeInteger(budget) || budget <= 0)) throw new RangeError("budget must be a positive integer.");
+      if (typeof api.jai_play_set_budget === "function") playCheck(api.jai_play_set_budget(budget === undefined ? 0 : Math.min(0xffffffff, Math.ceil(budget / 1000))));
+      else if (budget !== undefined) throw new Error("This compiler build does not support execution budgets.");
       playCheck(api.jai_play_reset());
       for (const [name, text] of Object.entries(files)) {
         if (typeof text !== "string") throw new TypeError("Every supplied source file must be text.");

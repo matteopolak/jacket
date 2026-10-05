@@ -938,6 +938,7 @@ impl Compiler {
         }
         // Parameters and named results live in an outer scope; the body may shadow them.
         let body_scope = self.new_block_scope(scope);
+        self.ide_scope_span(body_scope, body.span);
         self.check_block_stmts(&mut f, body_scope, &body.stmts)?;
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;

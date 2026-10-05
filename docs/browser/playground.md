@@ -19,15 +19,33 @@ The shared language server (`jai_lsp_*`, `crates/jai-language-server`, built on 
    (`OS == .WASM`). It installs a `SharedHost` (wraps
    `jaic::interp::SandboxHost`, which provides libc shims, an in-memory file system and captures stdout/stderr) as the interpreter host,
    calls `compile_program` then `run_program`, and returns a `PlayResult`
-   `{exitCode|null, stdout, stderr, rendered, diagnostics[{severity,file,line,column,message}]}` as JSON.
+   `{exitCode|null, stdout, stderr, output[{stream,text}], rendered, diagnostics[{severity,file,line,column,message}]}`
+   as JSON. `output` is everything the program wrote in write order, as runs of `"stdout"` or `"stderr"`
+   (`SandboxHost::order` records the run lengths). `run_with(files, main, PlayOptions { budget })` bounds the
+   main compile's interpreter to `budget` basic blocks; past it the run fails with "execution budget exhausted".
    Diagnostics with a `path:line:col:` message prefix (runtime traps) are split apart; others use the span.
 3. `src/play_exports.rs` is the pointer-free scalar ABI (same style as the other exports):
    `jai_play_reset`, `jai_play_push(channel, byte)` (0 = path, 1 = contents, 2 = main path),
-   `jai_play_finish_file`, `jai_play_run`, then `jai_play_output_len/byte` (JSON) and `jai_play_error_len/byte`.
-4. `web/scripting-runtime/engine.mjs` exposes `play(files, main)` (and `lsp(message)`); `worker.mjs` answers `run` messages with
-   `{type:"run", play}`; `editor.mjs::showPlay` prints stdout, stderr, rendered errors and
+   `jai_play_finish_file`, `jai_play_set_budget(thousands)` (0 = unbounded, kept across resets), `jai_play_run`, then `jai_play_output_len/byte` (JSON) and `jai_play_error_len/byte`.
+4. `web/scripting-runtime/engine.mjs` exposes `play(files, main, { budget })` (and `lsp(message)`); `worker.mjs` answers
+   `{type:"run", id, source, options: {files, budget}}` with `{type:"run", id, play}`; `editor.mjs::showPlay` prints the
+   `output` runs (stderr in red), rendered errors and
    the exit code in the Output panel, and puts positioned diagnostics in the Problems panel and editor
    (kept in `runDiagnostics`, separate from language-server diagnostics, cleared when the file is edited).
+
+### Capturing output in a consumer
+
+Program output is returned when the run ends; nothing streams while it runs, because the module takes no host
+imports. Read `play.stdout` / `play.stderr` for the two streams, or `play.output` for the interleaved order:
+
+```js
+const engine = await createEngine(await (await fetch("jai_wasm.wasm")).arrayBuffer());
+const play = engine.play({ "main.jai": source }, "main.jai", { budget: 50_000_000 });
+for (const { stream, text } of play.output) (stream === "stderr" ? console.error : console.log)(text);
+```
+
+An embedding page (`index.html?embed=1`) also receives each run as
+`{type: "jai-playground", state: "run", revision, exitCode, stdout, stderr, output, diagnostics}` via `postMessage`.
 
 ## Building and staging
 

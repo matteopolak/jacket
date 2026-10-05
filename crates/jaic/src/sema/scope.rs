@@ -253,6 +253,9 @@ impl Compiler {
             .entry(name)
             .or_default()
             .push(id);
+        if self.ide.is_some() {
+            self.ide_note_entity(id);
+        }
         id
     }
 

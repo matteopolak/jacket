@@ -82,7 +82,6 @@ build_and_generate :: () -> string {
     array_add(*opts.source_files, header_path);
     array_add(*opts.libpaths, dir);
     array_add(*opts.libnames, "libbits");
-    opts.generated_library_path_prefix = tprint("%/", dir);
     opts.generate_compile_time_struct_checks = true;
     builder, ok := generate_bindings(opts);
     if !ok return "";

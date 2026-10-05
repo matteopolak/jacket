@@ -79,7 +79,6 @@ build_and_generate :: () -> string {
         array_add(*opts.extra_clang_arguments, "-x", "objective-c");
         array_add(*opts.libpaths, dir);
         array_add(*opts.libnames, "libcounter");
-        opts.generated_library_path_prefix = tprint("%/", dir);
         builder, ok := generate_bindings(opts);
         if !ok return "";
         return builder_to_string(*builder);

@@ -34,6 +34,9 @@ pub enum CompletionKind {
     Keyword,
     Constant,
     Struct,
+    Module,
+    Field,
+    EnumMember,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {

@@ -32,6 +32,8 @@ pub struct PlayResult {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    /// Everything the program wrote, in order: `("stdout" | "stderr", text)` runs.
+    pub output: Vec<(&'static str, String)>,
     pub diagnostics: Vec<PlayDiagnostic>,
     /// Compiler errors rendered with source snippets.
     pub rendered: String,
@@ -50,6 +52,16 @@ impl PlayResult {
         json_string(&mut out, &self.stdout);
         out.push_str(",\"stderr\":");
         json_string(&mut out, &self.stderr);
+        out.push_str(",\"output\":[");
+        for (i, (stream, text)) in self.output.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            let _ = write!(out, "{{\"stream\":\"{stream}\",\"text\":");
+            json_string(&mut out, text);
+            out.push('}');
+        }
+        out.push(']');
         out.push_str(",\"rendered\":");
         json_string(&mut out, &self.rendered);
         out.push_str(",\"diagnostics\":[");
@@ -90,7 +102,7 @@ fn json_string(out: &mut String, text: &str) {
     out.push('"');
 }
 
-fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
+pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
     let mut fs = VirtualFs::default();
     for (name, bytes) in BUNDLED {
         fs.insert(format!("/{name}"), bytes.to_vec());
@@ -168,8 +180,21 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
     }
 }
 
+/// Limits for one playground run.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PlayOptions {
+    /// Interpreter basic blocks the main compile (its `#run`s and the program) may execute
+    /// before it traps with "execution budget exhausted". `None` runs unbounded.
+    pub budget: Option<u64>,
+}
+
 /// Compile `main` (a key of `files`) against the bundled stdlib and run it.
 pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
+    run_with(files, main, PlayOptions::default())
+}
+
+/// [`run`] with limits.
+pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
     let mut result = PlayResult::default();
     if !files.contains_key(main) {
         result.diagnostics.push(PlayDiagnostic {
@@ -203,6 +228,7 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
     });
     let mut compiler = Compiler::new(options(main), fs);
     compiler.interp.host = Box::new(SharedHost(host.clone()));
+    compiler.interp.block_budget = limits.budget;
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
     let outcome = match compiler.compile_program(&entry) {
@@ -228,6 +254,17 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
     let host = host.borrow();
     result.stdout = String::from_utf8_lossy(&host.stdout).into_owned();
     result.stderr = String::from_utf8_lossy(&host.stderr).into_owned();
+    let (mut out, mut err) = (0, 0);
+    for &(to_stderr, len) in &host.order {
+        let (stream, bytes, at) = if to_stderr {
+            ("stderr", &host.stderr, &mut err)
+        } else {
+            ("stdout", &host.stdout, &mut out)
+        };
+        let text = String::from_utf8_lossy(&bytes[*at..*at + len]).into_owned();
+        *at += len;
+        result.output.push((stream, text));
+    }
     result
 }
 
@@ -253,6 +290,46 @@ mod tests {
         assert_eq!(r.stdout, "Hello, 42!\n");
         assert_eq!(r.exit_code, Some(0));
         assert!(r.to_json().contains("\"stdout\":\"Hello, 42!\\n\""));
+    }
+
+    #[test]
+    fn output_keeps_the_order_of_stdout_and_stderr_writes() {
+        let r = single(
+            "#import \"Basic\";\nmain :: () { print(\"a\"); print(\"b\\n\"); log_error(\"bad\"); print(\"c\\n\"); }\n",
+        );
+        assert_eq!(r.stdout, "ab\nc\n", "{}", r.rendered);
+        assert_eq!(r.stderr, "bad\n");
+        assert_eq!(
+            r.output,
+            [
+                ("stdout", "ab\n".to_string()),
+                ("stderr", "bad\n".to_string()),
+                ("stdout", "c\n".to_string())
+            ]
+        );
+        assert!(r.to_json().contains(
+            "\"output\":[{\"stream\":\"stdout\",\"text\":\"ab\\n\"},{\"stream\":\"stderr\""
+        ));
+    }
+
+    #[test]
+    fn budget_stops_a_runaway_program() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.jai".to_string(),
+            b"#import \"Basic\";\nmain :: () { print(\"start\\n\"); while true {} }\n".to_vec(),
+        );
+        let r = run_with(
+            &files,
+            "main.jai",
+            PlayOptions {
+                budget: Some(100_000),
+            },
+        );
+        assert_eq!(r.stdout, "start\n");
+        assert!(r.exit_code.is_none() || r.exit_code != Some(0));
+        let text = format!("{:?}{}", r.diagnostics, r.rendered);
+        assert!(text.contains("execution budget exhausted"), "{text}");
     }
 
     #[test]

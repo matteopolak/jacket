@@ -95,13 +95,17 @@ function showPlay(play) {
   const selected = workspace.selected;
   editor.diagnostics(diagnosticsFor(selected.path.name), selected.text);
   renderProblems();
+  // Program output in write order; stderr runs are styled apart.
+  const nodes = (play.output ?? [{ stream: "stdout", text: play.stdout }, { stream: "stderr", text: play.stderr }]).filter(chunk => chunk.text).map(chunk => {
+    const span = document.createElement("span"); span.textContent = chunk.text; if (chunk.stream === "stderr") span.className = "stderr"; return span;
+  });
+  const written = nodes.map(node => node.textContent).join("");
   const parts = [];
-  if (play.stdout) parts.push(play.stdout);
-  if (play.stderr) parts.push(`[stderr]\n${play.stderr}`);
   if (play.rendered) parts.push(play.rendered);
   else for (const d of play.diagnostics) if (!d.file) parts.push(`${d.severity}: ${d.message}`);
   parts.push(play.exitCode === null ? "Compilation failed." : `Exit code: ${play.exitCode}`);
-  result.textContent = parts.join(parts.length > 1 && !(play.stdout?.endsWith("\n") ?? true) ? "\n" : "");
+  result.replaceChildren(...nodes, (written && !written.endsWith("\n") ? "\n" : "") + parts.join("\n"));
+  if (embedded) parent.postMessage({ type: "jai-playground", state: "run", revision: revision ?? "", exitCode: play.exitCode, stdout: play.stdout, stderr: play.stderr, output: play.output ?? [], diagnostics: play.diagnostics }, location.origin);
   if (play.diagnostics.length) outputPanel(play.exitCode === null ? "problems" : "output");
 }
 function connectRunWorker(worker) {

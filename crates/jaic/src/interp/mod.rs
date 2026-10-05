@@ -159,6 +159,10 @@ pub struct Interp {
     isched: Option<Box<threads_inline::InlineSched>>,
     /// More than one thread exists: `run` offers the baton to the others now and then.
     multi: bool,
+    /// Basic blocks left to run before execution traps (editors bound compile-time code).
+    pub block_budget: Option<u64>,
+    /// Reused value-register vectors (see `run`).
+    val_pool: Vec<Vec<u64>>,
 }
 
 impl Default for Interp {
@@ -193,6 +197,8 @@ impl Interp {
             sched: None,
             isched: None,
             multi: false,
+            block_budget: None,
+            val_pool: Vec::new(),
         }
     }
 
@@ -717,11 +723,33 @@ impl Interp {
         stack_base: u64,
         args: &[u64],
     ) -> Res<Vec<u64>> {
-        let mut vals = vec![0u64; func.vals.len()];
+        // Value registers come from a pool: a fresh Vec per call is a malloc/free pair.
+        let mut vals = self.val_pool.pop().unwrap_or_default();
+        vals.clear();
+        vals.resize(func.vals.len(), 0);
         vals[..args.len().min(func.sig.params.len())]
             .copy_from_slice(&args[..args.len().min(func.sig.params.len())]);
+        let result = self.run_blocks(program, func, frame, stack_base, &mut vals);
+        self.val_pool.push(vals);
+        result
+    }
+
+    fn run_blocks(
+        &mut self,
+        program: &Program,
+        func: &ir::Func,
+        frame: &Frame,
+        stack_base: u64,
+        vals: &mut Vec<u64>,
+    ) -> Res<Vec<u64>> {
         let mut block = 0usize;
         loop {
+            if let Some(left) = self.block_budget.as_mut() {
+                if *left == 0 {
+                    return self.trap("execution budget exhausted");
+                }
+                *left -= 1;
+            }
             if self.multi {
                 if self.host.cooperative_threads() {
                     self.inline_preempt(program)?;
@@ -732,7 +760,7 @@ impl Interp {
             }
             let b = &func.blocks[block];
             for inst in &b.insts {
-                self.step(program, inst, &mut vals, frame, stack_base)?;
+                self.step(program, inst, vals, frame, stack_base)?;
             }
             match &b.term {
                 Term::Jump(t) => block = t.0 as usize,
@@ -897,29 +925,30 @@ impl Interp {
                 callee,
                 args,
             } => {
-                let argv: Vec<u64> = args.iter().map(|a| vals[a.0 as usize]).collect();
+                let (mut small, mut heap) = ([0u64; 8], Vec::new());
+                let argv = gather(vals, args, &mut small, &mut heap);
                 let out = match callee {
-                    Callee::Func(f) => self.exec(program, *f, &argv)?,
+                    Callee::Func(f) => self.exec(program, *f, argv)?,
                     Callee::Foreign(f) => {
                         let sig = program.foreigns[f.0 as usize].sig.clone();
-                        self.call_foreign(program, *f, &argv, &sig)?
+                        self.call_foreign(program, *f, argv, &sig)?
                     }
                     Callee::Indirect(target, sig) => {
                         let addr = vals[target.0 as usize];
                         match addr & TAG_MASK {
                             FUNC_TAG => {
-                                self.exec(program, FuncId((addr & !TAG_MASK) as u32), &argv)?
+                                self.exec(program, FuncId((addr & !TAG_MASK) as u32), argv)?
                             }
                             FOREIGN_TAG => self.call_foreign(
                                 program,
                                 ForeignId((addr & !TAG_MASK) as u32),
-                                &argv,
+                                argv,
                                 sig,
                             )?,
                             _ if addr < 4096 => {
                                 return self.trap("call through a null procedure pointer");
                             }
-                            _ => self.call_native(program, addr, &argv, sig)?,
+                            _ => self.call_native(program, addr, argv, sig)?,
                         }
                     }
                 };
@@ -932,8 +961,9 @@ impl Interp {
                 op,
                 args,
             } => {
-                let argv: Vec<u64> = args.iter().map(|a| vals[a.0 as usize]).collect();
-                let out = self.intrinsic(*op, &argv, results.first().map(|_| ()).is_some())?;
+                let (mut small, mut heap) = ([0u64; 8], Vec::new());
+                let argv = gather(vals, args, &mut small, &mut heap);
+                let out = self.intrinsic(*op, argv, results.first().map(|_| ()).is_some())?;
                 for (r, v) in results.iter().zip(out) {
                     vals[r.0 as usize] = v;
                 }
@@ -1262,4 +1292,22 @@ fn exit_forked_child(code: i32) -> ! {
     }
     #[cfg(not(unix))]
     std::process::exit(code)
+}
+
+/// Reads an instruction's operands. Most fit in `small` on the Rust stack; longer lists use `heap`.
+fn gather<'a>(
+    vals: &[u64],
+    args: &[ir::Val],
+    small: &'a mut [u64; 8],
+    heap: &'a mut Vec<u64>,
+) -> &'a [u64] {
+    if args.len() <= small.len() {
+        for (slot, a) in small.iter_mut().zip(args) {
+            *slot = vals[a.0 as usize];
+        }
+        &small[..args.len()]
+    } else {
+        *heap = args.iter().map(|a| vals[a.0 as usize]).collect();
+        heap
+    }
 }

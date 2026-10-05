@@ -166,6 +166,8 @@ struct DirStream {
 pub struct SandboxHost {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
+    /// Write order across the two streams: `(to_stderr, bytes)` runs, adjacent runs merged.
+    pub order: Vec<(bool, usize)>,
     allocations: HashMap<u64, (Box<[u64]>, usize)>,
     /// Virtual clock ticks (nanoseconds) handed out by `clock_gettime`; the sandbox has no real
     /// time source on wasm32, so every query advances this by one microsecond.
@@ -565,10 +567,17 @@ fn parse_int_prefix(text: &str, base: u32, signed: bool) -> (i128, usize) {
 
 impl Host for SandboxHost {
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
+        if bytes.is_empty() {
+            return;
+        }
         if to_stderr {
             self.stderr.extend_from_slice(bytes);
         } else {
             self.stdout.extend_from_slice(bytes);
+        }
+        match self.order.last_mut() {
+            Some((stream, len)) if *stream == to_stderr => *len += bytes.len(),
+            _ => self.order.push((to_stderr, bytes.len())),
         }
     }
     fn foreign(

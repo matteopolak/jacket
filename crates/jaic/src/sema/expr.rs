@@ -31,6 +31,22 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
+        let result = self.check_expr_kind(f, scope, expr, expected);
+        if self.ide.is_some()
+            && let Ok(op) = &result
+        {
+            self.ide_note_expr(expr, op);
+        }
+        result
+    }
+
+    fn check_expr_kind(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+    ) -> Result<Operand> {
         let span = expr.span;
         match &expr.kind {
             E::Ident(name) => self.check_ident(f, scope, *name, span),
@@ -449,6 +465,7 @@ impl Compiler {
             return err(span, "a block used as a value must end in an expression");
         };
         let inner = self.new_block_scope(scope);
+        self.ide_scope_span(inner, span);
         let depth = f.defers.len();
         self.check_block_stmts(f, inner, rest)?;
         let mut op = self.check_expr(f, inner, last, expected)?;
@@ -532,7 +549,11 @@ impl Compiler {
                     }
                     return err(span, format!("unknown identifier '{name}'"));
                 }
-                self.entities_operand(f, scope, &ids, span)
+                let op = self.entities_operand(f, scope, &ids, span);
+                if let Some(ide) = self.ide.as_mut() {
+                    ide.last_entity = Some(ids[0]);
+                }
+                op
             }
         }
     }

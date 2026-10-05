@@ -18,6 +18,7 @@ struct PlayState {
     total: usize,
     output: Vec<u8>,
     error: Vec<u8>,
+    limits: play::PlayOptions,
 }
 
 thread_local! {
@@ -61,7 +62,10 @@ impl PlayState {
 pub extern "C" fn jai_play_reset() -> u32 {
     install_panic_hook();
     with(|s| {
-        *s = PlayState::default();
+        *s = PlayState {
+            limits: s.limits,
+            ..PlayState::default()
+        };
         0
     })
 }
@@ -99,6 +103,16 @@ pub extern "C" fn jai_play_finish_file() -> u32 {
     })
 }
 
+/// Bound the next runs to `thousands * 1000` interpreter blocks; 0 removes the bound. Survives
+/// `jai_play_reset`.
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_play_set_budget(thousands: u32) -> u32 {
+    with(|s| {
+        s.limits.budget = (thousands != 0).then(|| u64::from(thousands) * 1000);
+        0
+    })
+}
+
 /// Compile and run. Zero means the JSON result is ready (compile errors included in it).
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_play_run() -> u32 {
@@ -107,7 +121,9 @@ pub extern "C" fn jai_play_run() -> u32 {
             return s.fail("main path must be UTF-8");
         };
         let files = std::mem::take(&mut s.files);
-        s.output = play::run(&files, &main).to_json().into_bytes();
+        s.output = play::run_with(&files, &main, s.limits)
+            .to_json()
+            .into_bytes();
         s.files = files;
         0
     })

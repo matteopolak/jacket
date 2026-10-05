@@ -267,8 +267,43 @@ fn bindings_generator_cpp_raw() {
 }
 
 #[test]
+fn bindings_generator_checks() {
+    native_bindings_generator_test("bindings-generator-checks");
+}
+
+#[test]
 fn bindings_generator_objc() {
     native_bindings_generator_test("bindings-generator-objc");
+}
+
+#[test]
+fn bindings_generator_objc_generics() {
+    native_bindings_generator_test("bindings-generator-objc-generics");
+}
+
+#[test]
+fn bindings_generator_objc_ivars() {
+    native_bindings_generator_test("bindings-generator-objc-ivars");
+}
+
+#[test]
+fn bindings_generator_objc_blocks() {
+    native_bindings_generator_test("bindings-generator-objc-blocks");
+}
+
+#[test]
+fn bindings_generator_bitfields_msvc() {
+    native_bindings_generator_test("bindings-generator-bitfields-msvc");
+}
+
+#[test]
+fn bindings_generator_cpp_raw_multi() {
+    native_bindings_generator_test("bindings-generator-cpp-raw-multi");
+}
+
+#[test]
+fn bindings_generator_objc_stret() {
+    native_bindings_generator_test("bindings-generator-objc-stret");
 }
 
 /// Arithmetic overflow checks in a native build: `Build_Options.arithmetic_overflow_check` on a

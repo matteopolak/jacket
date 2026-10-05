@@ -2,43 +2,108 @@
 
 ## What it is
 
-`jai-language-server` provides one bounded source-analysis engine and JSON-RPC dispatcher for native LSP clients and the real `jai-wasm` browser adapter. The native `jai-lsp` binary adds standard `Content-Length` stdio framing; the portable library performs no stdio or filesystem operations.
+`jai-language-server` is one JSON-RPC language server used by both native editors and the browser playground. The native `jai-lsp` binary adds `Content-Length` stdio framing. The browser links the same Rust `JsonSession` into `jai_wasm.wasm`.
 
-It is built on the `jaic` lexer and parser (the same ones the compiler uses). This first protocol slice provides lexer/parser diagnostics, full semantic-token responses, source document symbols, completion, hover and definition from actual parsed declarations. It reports its analysis as source syntax. It does not execute edited `#run`, evaluate types, resolve arbitrary modules, expand generated declarations, or authorize foreign libraries.
+It has two layers:
+
+- **Syntax** (always on): lexer/parser diagnostics, semantic tokens, document symbols, go-to-definition. These come from the `jaic` lexer and parser.
+- **Semantic** (when the session has an `Environment`): hover and completion answered by actually type-checking the open documents with `jaic`. This covers locals, procedures, struct and enum types, imported modules' exports, Preload, members after `.`, and hover text with the real type (`count: s64`, `helper :: (t: *Thing) -> int`, `Thing :: struct { alpha: s64; ... }`).
 
 ## How it works
 
-`Session` admits versioned documents into a closed set of open files (`VirtualSources` is an immutable snapshot of it). Each accepted version is lexed with `jaic::lexer::lex` and parsed with `jaic::parser::parse_file`; the parser stops at its first error, so a syntax error yields one diagnostic and no declaration rows for that version. Identifier spellings go through the `jaic` global interner (`Sym`), which keeps every distinct spelling for the life of the process. Reanalysis replaces the previous index.
+### Documents and syntax
 
-Positions and ranges use UTF-16, including supplementary characters and CRLF. Incremental changes apply sequentially to a temporary version, then publish atomically. A stale version, split surrogate pair, incorrect `rangeLength`, invalid range or resource rejection preserves the previous text and version. URI paths are normalized in a target-independent namespace. An open file URI is a document key and never causes a disk read.
+`Session` admits versioned documents into a closed set of open files. Each version is lexed and parsed (`analysis.rs`) into declaration rows. The parser stops at its first error, so a version that does not parse has no rows. Completion then falls back to the rows of the last version that parsed (`Session::parsed`).
 
-Definitions follow actual unconditional file declarations, supported lexical locals and `#load` links to other open documents. Unrelated open files do not enter lookup. File-private declarations are withheld across loads; qualified members and unsupported scope producers remain unresolved instead of selecting a similarly named global. The retained index stores `Sym` names and byte spans instead of duplicating name and declaration strings. Symbol kinds and diagnostic severity/codes are domain enums; only the JSON boundary maps them to standard LSP numbers and strings. Declaration excerpts are read from their pinned source spans when a response is requested. Document symbols retain source spans from parsed nodes; the declaration's value picks the kind (procedure, struct, enum, type, library or constant), `#scope_file` marks later top-level declarations file-private, and `#if` branches are walked. Hover shows the actual source declaration as plain text. Tokens classify compiler tokens and parsed declaration sites; they do not imply evaluated type information.
+Positions use UTF-16, including supplementary characters and CRLF. Edits apply to a temporary copy and publish atomically. A stale version or invalid edit keeps the previous text.
 
-`JsonSession::handle_json` handles initialize/initialized, shutdown/exit, document open/change/close, `semanticTokens/full`, document symbols, hover, completion, definition and cancellation. Diagnostics include the current document version. Unknown notifications produce no response. Unsupported requests receive an explicit protocol error. Completed requests retain their responses; cancellation received before a queued request is dispatched returns `RequestCancelled`. Synchronous bounded analysis cannot receive another transport message during its current call.
+### Semantic hover and completion
 
-The browser worker carries `{type: "lsp", id, message}` and returns `{type: "lsp", id, messages}`. The outer ID correlates worker transport; each standard JSON-RPC ID is preserved separately. The existing execution worker and mutable language session have separate lifetimes, so cancelling a program does not erase analysis documents. Browser exports transfer bounded scalar bytes and invoke this same Rust `JsonSession`; JavaScript does not substitute a separate language implementation.
+`semantic.rs` compiles on demand, only when a hover or completion request arrives, and caches by source text:
+
+1. **Overlay.** Open documents are laid over the environment's file system (`OverlayFs`). Natively that is the disk plus the repository stdlib; in the browser it is the bundled stdlib `VirtualFs`.
+2. **Root.** The check starts from the document that `#load`s the requested one and is loaded by none (`Session::root`).
+3. **Recording.** `Compiler::ide` is set to `IdeFacts` for files under the root's directory. While checking, sema records what each identifier and member names, with its type, and the source extent of block and procedure scopes. See [Editor facts](#editor-facts-in-jaic).
+4. **All bodies.** `ide_check_all` then lowers every non-polymorphic procedure body in those files, not only what `main` reaches, so helpers nobody calls yet still have facts.
+5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging.
+
+Half-typed text usually does not parse. `repair` blanks lines with spaces, so byte offsets stay put, until the text parses: first the cursor's line (for completion), then the line the parser reports. If the error is reported on an empty line or a lone `}`, it blanks the last non-empty line before it instead, because that is where a missing `;` belongs.
+
+For completion, the word being typed and any `a.b.` chain before it are cut out of the text first. The probe text therefore stays the same while a word is typed, and the cached compile is reused for every keystroke.
+
+- **Completion** asks `ide_scope_at` for the innermost recorded scope at the cursor.
+  - **Plain names:** `ide_visible` walks the scope chain. It includes locals of the current procedure declared before the cursor, enclosing declarations, `using` members, imported modules' exports including re-exports, and Preload.
+  - **After `a.b.`:** `ide_receiver` resolves the chain and `ide_members` lists the struct fields (through `using`), enum members, struct constants, or array/string/`Any` fields.
+  - Results are filtered by the typed prefix (case-insensitive), and keywords are appended.
+- **Hover** finds the smallest recorded reference at the offset and formats it:
+  - a local or member as `name: Type`;
+  - a procedure (each overload, under the name used) as `name :: <header>`;
+  - a type with its fields or members;
+  - a constant with its value.
+
+When no environment is set, or the text cannot be repaired, hover and completion fall back to the syntax layer.
+
+### Editor facts in jaic
+
+`crates/jaic/src/sema/ide.rs` holds `IdeFacts` and the queries. The hooks are small:
+
+- `check_expr` wraps `check_expr_kind` and records `Ident`, `Member` and `InferredMember` results (`ide_note_expr`). `check_ident` leaves the resolved entity in `IdeFacts::last_entity`.
+- `add_entity` records each declaration's name span (`ide_note_entity`).
+- `ide_scope_span` is called where block scopes are made: procedure bodies, `check_scoped`, `if`/`case` arms, `while` bindings, `for` loops and block expressions.
+
+All hooks do nothing when `Compiler::ide` is `None`, which is the case outside the language server.
+
+Completion lists classify unresolved declarations by syntax (`ide_entity_name`): a procedure literal is a function, `struct`/`enum` is a type. Listing a module's exports therefore never compiles the whole module. Hover resolves the one entity it shows.
+
+### Protocol and browser
+
+`JsonSession::handle_json` handles:
+
+- lifecycle: initialize/initialized, shutdown/exit;
+- document open, change and close;
+- `semanticTokens/full`, document symbols, hover, completion and definition;
+- cancellation.
+
+Completion kinds map to LSP numbers in `protocol.rs`: function 3, field 5, variable 6, module 9, keyword 14, enum member 20, constant 21, struct 22. The browser editor maps those numbers to CodeMirror icons in `tools/browser-editor/editor-kit.mjs`.
+
+The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wasm/src/language_server.rs`) keeps the session in a `thread_local`, because the compiler state uses `Rc`.
 
 ## How to change it
 
-Extend compiler-derived facts in `analysis.rs` (an AST walk over `jaic::ast`; keywords are plain identifiers in the `jaic` lexer, so `KEYWORDS` there classifies them) and lookup rules in `session.rs`, with source-span and ambiguity witnesses. Never add name-only guesses for evaluated records, imports, generated source or overload selection. Authentic semantic snapshots can be attached later only through the compiler's actual checked ownership boundary and a mode that refuses compile-time execution during editing.
+- **Record more facts.** Add a hook in sema that calls an `ide_*` method guarded by `self.ide.is_some()`, and keep the hook cheap. To show more in hover, extend `ide_hover`/`ide_entity_hover`. For more completion sources, extend `ide_visible`/`ide_members`.
+- **Scope extents.** A new kind of block scope needs an `ide_scope_span` call, otherwise completion inside it sees the enclosing scope only.
+- **Repair heuristics** live in `session.rs` (`repair`, `blank_line`). They must keep byte offsets unchanged, because hover positions are mapped back into the real text.
+- **Environment.**
+  - Native: `main.rs` `native_environment` (import paths, Preload).
+  - Browser: `language_server.rs` `environment` (bundled stdlib, wasm target).
+  - Keep these in step with how `jaic` and the playground compile.
+- **Syntax features** stay in `analysis.rs`. Typed results live in `model.rs`; extend its enums and the wire mappings in `protocol.rs` together.
 
-Keep UTF-16 conversion and atomic document admission in `position.rs` and `document.rs`. Typed source results live in `model.rs`; extend its enums and the exhaustive wire mappings together. Standard JSON types and lifecycle/error conversion live in `protocol.rs`; native framing lives in `framing.rs` and stdio only in `main.rs`. Keep browser engine/worker capabilities and export tests paired with this protocol. Framing, Unicode/versioned edits, multi-file lookup, incomplete source, cancellation and a real native stdio session have focused tests.
+Tests:
+
+- `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
+- `crates/jai-wasm/src/language_server.rs`: the same through the wasm bridge with the bundled stdlib.
 
 ## Configuration
 
 ```sh
-cargo run --offline --locked -j 1 -p jai-language-server --bin jai-lsp
-cargo test --offline --locked -j 1 -p jai-language-server
+cargo run -p jai-language-server --bin jai-lsp
+cargo test -p jai-language-server
 ```
 
-The server accepts LSP requests on stdin and writes only framed responses/notifications to stdout. Transport failures are printed to stderr. A shutdown request followed by an exit notification returns status zero; exiting without shutdown returns one. Configure an editor's Jai language server command to invoke `jai-lsp`; documents must use absolute local `file:///...` URIs. Browser documents normally use `file:///jai-script/<relative-name>`.
-
-Default `Limits` admit 32 documents, 256 KiB per document, 4 MiB for text and URI storage, 1 MiB messages and 2 MiB output batches. Analysis admits 8,192 tokens, a nesting budget of 96 (bracket depth or a run of prefix operators) and 1,024 declaration rows per document. Edit batches and retained cancellation IDs are capped at 128. The conservative parser admission is a language-server budget, not a claim that larger source is invalid Jai. Token/declaration limit diagnostics explicitly state when navigation is unavailable or incomplete.
-
-Only UTF-8 message bytes and UTF-16 LSP positions are supported. There are no formatting, rename, type inference, workspace-module search, delta-token or native-file-loading capabilities in this slice. Native tests, a real Wasm adapter run and editor interactions are separate acceptance gates; source registration does not establish them.
+- `JAIC_STDLIB` overrides the stdlib directory the native server reads. The default is the repository's `stdlib/`.
+- A `modules/` folder next to the root document is searched first.
+- `semantic.rs` constants:
+  - `BLOCK_BUDGET`: interpreter blocks per analysis.
+  - `CACHED`: compiles kept, 3.
+- Default `Limits`:
+  - 32 documents, 256 KiB per document, 4 MiB total.
+  - 1,024 completion items, 8,192 tokens.
+- Documents must use absolute `file:///...` URIs. The browser uses `file:///jai-script/<name>`.
 
 ## Dependencies
 
-The portable library depends on `jaic` (lexer, parser, AST). Standard JSON parsing uses `serde` and `serde_json`, pinned to the newest non-yanked releases at least 14 days old when selected. The complete generated lockfile must pass the existing dependency publication-age checker before any dependency build script runs. There is no LLVM, code generation, compiler driver or host interpreter dependency in the LSP core.
-
-Native stdio uses Rust's standard library. The browser adapter links this core into the existing actual `jai_wasm.wasm` and uses standard worker/WebAssembly APIs. Protocol details follow the [official LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) and [JSON-RPC 2.0](https://www.jsonrpc.org/specification).
+- `jaic`: lexer, parser, sema with `IdeFacts`, interpreter `SandboxHost`.
+- `serde` / `serde_json` for JSON.
+- The browser adapter links into `jai_wasm.wasm`, and the editor is CodeMirror, bundled by `tools/build_browser_editor.mjs` (`npm run build`).
+- Protocol: [LSP 3.17](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) over [JSON-RPC 2.0](https://www.jsonrpc.org/specification).

@@ -20,7 +20,7 @@ self.onmessage = ({ data }) => {
       }
       self.postMessage({ type: "run-started", id: data.id });
       const files = { ...(data.options?.files ?? {}), "main.jai": data.source };
-      self.postMessage({ type: "run", id: data.id, play: runtime.play(files, "main.jai") });
+      self.postMessage({ type: "run", id: data.id, play: runtime.play(files, "main.jai", { budget: data.options?.budget }) });
     } catch (error) {
       if (error?.compilerCrashed) enginePromise = undefined; // the Wasm instance trapped; start fresh on the next request
       self.postMessage({ type: data.type ?? "run", id: data.id, error: error instanceof Error ? error.message : String(error) }); }

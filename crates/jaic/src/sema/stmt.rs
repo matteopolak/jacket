@@ -144,6 +144,7 @@ impl Compiler {
     /// Check a statement in a fresh block scope, running its defers at the end.
     fn check_scoped(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
         let inner = self.new_block_scope(scope);
+        self.ide_scope_span(inner, stmt.span);
         let depth = f.defers.len();
         match &stmt.kind {
             S::Block(b) if (b.no_abc && !f.no_abc) || (b.no_aoc && !f.no_aoc) => {
@@ -1241,6 +1242,7 @@ impl Compiler {
                 let mut i = start;
                 loop {
                     let inner = self.new_block_scope(scope);
+                    self.ide_scope_span(inner, cases[i].span);
                     let depth = f.defers.len();
                     self.check_block_stmts(f, inner, &cases[i].body)?;
                     if !f.b.is_terminated() {
@@ -1283,6 +1285,7 @@ impl Compiler {
         for (i, case) in cases.iter().enumerate() {
             f.b.switch_to(bodies[i]);
             let inner = self.new_block_scope(scope);
+            self.ide_scope_span(inner, case.span);
             let depth = f.defers.len();
             self.check_block_stmts(f, inner, &case.body)?;
             if !f.b.is_terminated() {
@@ -1385,6 +1388,7 @@ impl Compiler {
                 let addr = f.b.alloca(size.max(1), align);
                 self.store_value(f, ty, addr, v, cond.span)?;
                 let inner = self.new_block_scope(scope);
+                self.ide_scope_span(inner, cond.span.to(body.span));
                 let depth = self.scope(inner).proc_depth;
                 self.add_entity(
                     inner,
@@ -1546,6 +1550,7 @@ impl Compiler {
             ast::ForOver::Collection(c) => (None, None, Some(c)),
         };
         let loop_scope = self.new_block_scope(scope);
+        self.ide_scope_span(loop_scope, span);
         let depth = self.scope(loop_scope).proc_depth;
         if let (Some(a), Some(b)) = (lo, hi) {
             // Integer range, inclusive.

@@ -60,6 +60,11 @@ playground. Memory is real host memory; foreign procedures are called natively (
 - **macOS main thread** (`native::main_thread`): `jaic` parks the process main thread in `serve` and runs the
   compiler on a 1 GiB worker. After the first Objective-C/AppKit call (`note_symbol`), the program's foreign
   calls are handed to the main thread (AppKit and GL contexts need it); `fork` always runs on the worker.
+  Calls into libSystem and libc++ (`needs_main_thread`, decided once per address with `dladdr`) stay on the
+  worker: they are thread-safe, and the round trip made allocation-heavy programs (Focus) twice as slow.
+- **Speed**: `run` takes its value registers from `val_pool` instead of allocating per call, and `Call` /
+  `Intrinsic` gather up to 8 operands on the Rust stack (`gather`). `block_budget` (when set) counts basic
+  blocks and traps with "execution budget exhausted"; the language server and playground use it.
 
 ## How to change it
 

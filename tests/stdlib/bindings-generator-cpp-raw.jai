@@ -102,7 +102,6 @@ build_and_generate :: () -> string {
     array_add(*opts.extra_clang_arguments, "-x", "c++", "-std=c++17");
     array_add(*opts.libpaths, dir);
     array_add(*opts.libnames, "libpad");
-    opts.generated_library_path_prefix = tprint("%/", dir);
     opts.generate_compile_time_struct_checks = true;
     builder, ok := generate_bindings(opts);
     if !ok return "";

@@ -97,8 +97,15 @@ struct Envelope {
 
 impl JsonSession {
     pub fn new(limits: Limits) -> Self {
+        Self::with_session(Session::new(limits))
+    }
+    /// A session that type-checks the open documents (see `Session::with_environment`).
+    pub fn with_environment(limits: Limits, environment: crate::Environment) -> Self {
+        Self::with_session(Session::with_environment(limits, environment))
+    }
+    fn with_session(session: Session) -> Self {
         Self {
-            session: Session::new(limits),
+            session,
             lifecycle: Lifecycle::New,
             cancelled: BTreeSet::new(),
             completed: VecDeque::new(),
@@ -423,6 +430,9 @@ fn completion_wire(completion: &CompletionList) -> Value {
                 CompletionKind::Keyword => 14,
                 CompletionKind::Constant => 21,
                 CompletionKind::Struct => 22,
+                CompletionKind::Module => 9,
+                CompletionKind::Field => 5,
+                CompletionKind::EnumMember => 20,
             };
             json!({"label":item.label,"kind":kind,"detail":item.detail})
         })

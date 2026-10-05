@@ -4,7 +4,8 @@ fn main() -> std::process::ExitCode {
     use std::io::{Read, Write};
     fn serve() -> Result<u8, Box<dyn std::error::Error>> {
         let limits = jai_language_server::Limits::default();
-        let mut session = jai_language_server::JsonSession::new(limits);
+        let mut session =
+            jai_language_server::JsonSession::with_environment(limits, native_environment());
         let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
         let stdin = std::io::stdin();
         let stdout = std::io::stdout();
@@ -34,6 +35,26 @@ fn main() -> std::process::ExitCode {
             eprintln!("jai-lsp: {error}");
             std::process::ExitCode::FAILURE
         }
+    }
+}
+/// Modules come from disk: the `modules` folder next to the main file, then the stdlib
+/// (`JAIC_STDLIB`, else the repository's).
+#[cfg(not(target_arch = "wasm32"))]
+fn native_environment() -> jai_language_server::Environment {
+    use std::path::PathBuf;
+    let stdlib = std::env::var_os("JAIC_STDLIB").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        PathBuf::from,
+    );
+    jai_language_server::Environment {
+        fs: std::rc::Rc::new(jaic::sema::NativeFs),
+        options: Box::new(move |main| {
+            let mut options = jaic::sema::Options::host();
+            let dir = main.parent().map(PathBuf::from).unwrap_or_default();
+            options.import_paths = vec![dir.join("modules"), stdlib.clone()];
+            options.preload = Some(stdlib.join("prelude/module.jai"));
+            options
+        }),
     }
 }
 #[cfg(target_arch = "wasm32")]

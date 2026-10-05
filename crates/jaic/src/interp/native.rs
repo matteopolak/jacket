@@ -436,6 +436,48 @@ pub mod main_thread {
         handle.join().ok()
     }
 
+    /// libSystem (libc, libm, pthreads, libdispatch...) and libc++ are thread-safe and never
+    /// touch AppKit: calling them directly avoids a thread handoff per call. Everything else
+    /// (frameworks, and user libraries such as SDL or GLFW that call into Cocoa) is forwarded.
+    fn needs_main_thread(addr: u64) -> bool {
+        use std::collections::HashMap;
+        thread_local! {
+            static CACHE: std::cell::RefCell<HashMap<u64, bool>> = std::cell::RefCell::new(HashMap::new());
+        }
+        if let Some(known) = CACHE.with(|c| c.borrow().get(&addr).copied()) {
+            return known;
+        }
+        #[repr(C)]
+        struct DlInfo {
+            fname: *const std::ffi::c_char,
+            fbase: *mut std::ffi::c_void,
+            sname: *const std::ffi::c_char,
+            saddr: *mut std::ffi::c_void,
+        }
+        unsafe extern "C" {
+            fn dladdr(addr: *const std::ffi::c_void, info: *mut DlInfo) -> i32;
+        }
+        let mut info = DlInfo {
+            fname: std::ptr::null(),
+            fbase: std::ptr::null_mut(),
+            sname: std::ptr::null(),
+            saddr: std::ptr::null_mut(),
+        };
+        // SAFETY: dladdr only reads the loaded-image tables and fills `info`.
+        let found = unsafe { dladdr(addr as *const std::ffi::c_void, &mut info) } != 0;
+        let main = if !found || info.fname.is_null() {
+            true
+        } else {
+            // SAFETY: dladdr returns a NUL-terminated path owned by the loader.
+            let path = unsafe { std::ffi::CStr::from_ptr(info.fname) }.to_string_lossy();
+            !(path.starts_with("/usr/lib/system/")
+                || path.starts_with("/usr/lib/libSystem")
+                || path.starts_with("/usr/lib/libc++"))
+        };
+        CACHE.with(|c| c.borrow_mut().insert(addr, main));
+        main
+    }
+
     struct Carry<T>(T);
     // SAFETY: the sending thread blocks until the job finishes, so the pointers are never
     // used from two threads at once.
@@ -455,7 +497,7 @@ pub mod main_thread {
         {
             return None;
         }
-        if std::thread::current().id() != route.worker {
+        if std::thread::current().id() != route.worker || !needs_main_thread(addr) {
             return None;
         }
         let (done_tx, done_rx) = channel();

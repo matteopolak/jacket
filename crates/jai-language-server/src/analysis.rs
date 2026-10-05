@@ -83,6 +83,7 @@ impl Token {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct SymbolRow {
     pub name: Sym,
     pub kind: SymbolKind,
@@ -94,6 +95,7 @@ pub(crate) struct SymbolRow {
     pub file_private: bool,
     pub readonly: bool,
 }
+#[derive(Clone)]
 pub(crate) struct Analysis {
     pub tokens: Vec<Token>,
     pub rows: Vec<SymbolRow>,

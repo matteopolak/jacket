@@ -21,6 +21,9 @@ function textContent(value) {
   if (Array.isArray(value)) return value.map(textContent).join("\n\n");
   return typeof value?.value === "string" ? value.value : "";
 }
+// LSP CompletionItemKind -> CodeMirror completion icon.
+const COMPLETION_TYPES = { 3: "function", 5: "property", 6: "variable", 7: "type", 9: "namespace", 13: "enum", 14: "keyword", 20: "enum", 21: "constant", 22: "class" };
+function completionType(kind) { return COMPLETION_TYPES[kind] ?? "variable"; }
 export function createEditor(parent, { text, onChange, onCursor, currentDocument, service }) {
   const editable = new Compartment();
   const completions = async context => {
@@ -33,7 +36,7 @@ export function createEditor(parent, { text, onChange, onCursor, currentDocument
       const response = await client.request("textDocument/completion", { textDocument: { uri: documentUri(document.path) }, position: positionAt(context.state.doc.toString(), context.pos) }, controller.signal);
       if (currentDocument().path !== document.path || currentDocument().version !== version) return null;
       const items = Array.isArray(response) ? response : response?.items ?? [];
-      return { from: word?.from ?? context.pos, options: items.filter(item => item.insertTextFormat !== 2).map(item => ({ label: item.label, detail: item.detail, info: textContent(item.documentation), type: item.kind === 3 ? "function" : item.kind === 7 ? "class" : item.kind === 14 ? "keyword" : "variable", apply: item.insertText ?? item.label })) };
+      return { from: word?.from ?? context.pos, options: items.filter(item => item.insertTextFormat !== 2).map(item => ({ label: item.label, detail: item.detail, info: textContent(item.documentation), type: completionType(item.kind), apply: item.insertText ?? item.label })) };
     } catch { return null; }
   };
   const hover = hoverTooltip(async (view, position) => {

@@ -21,6 +21,7 @@ mod convert;
 mod decls;
 mod driver;
 mod expr;
+pub mod ide;
 mod lambda;
 mod lower;
 mod modify;
@@ -267,6 +268,8 @@ pub struct Compiler {
     /// Lookups that reached something still being computed (a signature, entity or layout in
     /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
     pub in_progress_misses: u64,
+    /// Editor facts recorded while checking (`ide.rs`); `None` outside the language server.
+    pub ide: Option<Box<ide::IdeFacts>>,
     /// Set by `finish_program`: pending items no longer wait for placeholders.
     pub placeholders_final: bool,
 }
@@ -358,6 +361,7 @@ impl Compiler {
             retrying_pending: false,
             placeholder_misses: 0,
             in_progress_misses: 0,
+            ide: None,
             placeholders_final: false,
         };
         c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);

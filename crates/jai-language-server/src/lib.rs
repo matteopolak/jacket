@@ -5,6 +5,7 @@ pub mod framing;
 mod model;
 mod position;
 mod protocol;
+mod semantic;
 mod session;
 
 pub use document::{DocumentUri, TextChange, VirtualSources};
@@ -14,6 +15,7 @@ pub use model::{
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId};
+pub use semantic::Environment;
 pub use session::Session;
 
 #[derive(Clone, Copy, Debug)]
