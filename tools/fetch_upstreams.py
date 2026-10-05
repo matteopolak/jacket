@@ -20,6 +20,13 @@ REPOSITORIES = (
 # Libraries the projects above import from git submodules: pinned like the
 # projects but exempt from the recency cutoff.
 DEPENDENCIES = ('SogoCZE/jai_parser', 'ostef/Linalg', 'ostef/Jolt-Jai', 'ostef/JoltC')
+# Metaprogramming libraries that exercise the Compiler module's node API (typed
+# compiler_get_nodes, compiler_get_code, TYPECHECKED bodies). Few change often, so they
+# are exempt from the recency cutoff too.
+LIBRARIES = (
+    'sjorsdonkers/match-jai', 'sjorsdonkers/yield-jai', 'GufNZ/JaiModules-AST_Utils',
+    'PixelRifts/Jai-Shader-Transpiler', 'Stuart-Mouse/jai-utils', 'n00bmind/unotest',
+)
 # Dependencies pinned to the consumer's submodule commit (else the newest commit).
 SUBMODULE_REVISIONS = {
     'ostef/Linalg': '5f60c11f057787a804ce9582c5daeccc0e8de89a',
@@ -44,6 +51,8 @@ MODULE_LINKS = (
     ('ostef--Vk-Engine/Modules/Linalg', 'ostef--Linalg'),
     ('ostef--Vk-Engine/Modules/JoltPhysics', 'ostef--Jolt-Jai'),
     ('ostef--Jolt-Jai/Source/JoltC', 'ostef--JoltC'),
+    # Libraries that are imported as modules by name (`#import "AST_Utils"`).
+    ('_modules/AST_Utils', 'GufNZ--JaiModules-AST_Utils'),
 )
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -89,14 +98,14 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
     if subprocess.run(['git', '--git-dir', str(cache), 'cat-file', '-e', revision + '^{commit}'], capture_output=True).returncode:
         subprocess.run(['git', '--git-dir', str(cache), 'fetch', '--filter=blob:none', '--depth=128', 'origin', revision], check=True)
     stamp = git(cache, 'log', '-1', '--format=%cI', revision, '--', '*.jai')
-    if not stamp and repo in DEPENDENCIES:
+    if not stamp and repo in DEPENDENCIES + LIBRARIES:
         stamp = git(cache, 'log', '-1', '--format=%cI', revision)  # native-only dependency (no .jai files)
     if not stamp:
         raise ValueError(f'no Jai source changes in 128 commits: {repo}')
-    source_date = datetime.fromisoformat(stamp)
+    source_date = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
     record = {'repository': repo, 'revision': revision, 'latest_jai_change': stamp,
               'source_of_truth': f'https://github.com/{repo}/tree/{revision}'}
-    if source_date < since and repo not in DEPENDENCIES:
+    if source_date < since and repo not in DEPENDENCIES + LIBRARIES:
         return record | {'selection': 'stale-excluded', 'files': []}
     paths = git(cache, 'ls-tree', '-r', '--name-only', revision).splitlines()
     selected = [p for p in paths if p.endswith('.jai') or p.endswith(NATIVE_SOURCE_SUFFIXES) or PurePosixPath(p).name.lower() in {'copying', 'readme.md'} or PurePosixPath(p).name.lower().startswith('license')
@@ -126,7 +135,7 @@ def main() -> None:
     old = json.loads(manifest.read_text()) if manifest.exists() else {'projects': []}
     pins = {p['repository']: p for p in old['projects']}
     projects = []
-    for repo in REPOSITORIES + DEPENDENCIES:
+    for repo in REPOSITORIES + DEPENDENCIES + LIBRARIES:
         record = fetch(repo, since, pins.get(repo)); projects.append(record)
         print(f"{repo}: {record['selection']}, {len(record['files'])} text files at {record['revision']}", flush=True)
     upstream = DATA / 'corpus/upstream'

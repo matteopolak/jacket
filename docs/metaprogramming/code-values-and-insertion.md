@@ -14,7 +14,7 @@
 - a string is parsed as a new source file named `<#insert at path>`, so diagnostics point into the text;
 - `void` inserts nothing; anything else is an error ("#insert needs a string or Code").
 
-In expression position (`eval_insert_expr`) a `Code` value is checked in its own defining scope and a string is parsed as a parenthesized expression and checked in the insertion scope. `#insert,scope(code)` / `#insert,scope()` checks in an explicit scope instead (`check_insert` in `sema/stmt.rs`); a string becomes `Code` there first. `#insert (break=..., continue=..., remove=...) body` replaces loop control inside an inserted `for` body (`InsertReplacements`).
+Code made by `compiler_get_code` without a scope to copy is the exception: it resolves at the insertion site, falling back on where its nodes were written (see [compiler-records](compiler-records.md)). In expression position (`eval_insert_expr`) a `Code` value is checked in its own defining scope and a string is parsed as a parenthesized expression and checked in the insertion scope. `#insert,scope(code)` / `#insert,scope()` checks in an explicit scope instead (`check_insert` in `sema/stmt.rs`); a string becomes `Code` there first. `#insert (break=..., continue=..., remove=...) body` replaces loop control inside an inserted `for` body (`InsertReplacements`).
 
 Verified output of this program:
 

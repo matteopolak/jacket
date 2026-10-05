@@ -8500,6 +8500,315 @@
           "sha256": "d789f21ebc222241c8afd6a5278b9a6df51b59af5e30335f49e3a239dd6f5330"
         }
       ]
+    },
+    {
+      "repository": "sjorsdonkers/match-jai",
+      "revision": "2befe53d6f506b8115a91bdb1c13457a692fc052",
+      "latest_jai_change": "2025-01-17T18:50:58+01:00",
+      "source_of_truth": "https://github.com/sjorsdonkers/match-jai/tree/2befe53d6f506b8115a91bdb1c13457a692fc052",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1070,
+          "sha256": "c6b55ec2eb5e15c90ab297663e64c40b0738008d71d4f8392f9b722867a7de59"
+        },
+        {
+          "path": "README.md",
+          "bytes": 910,
+          "sha256": "04c8e7d4f9264426ca5e55bc089fcfd838506bfee7121c0a910fc482bacebc3d"
+        },
+        {
+          "path": "examples/first.jai",
+          "bytes": 7514,
+          "sha256": "8d39227e469bff505fe8a4bdf849feb941be560fab0d0f75f05eac593dbf4937"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 23,
+          "sha256": "92b57d3e5309315b8548a9b72793d5614705c8d7eb6ba8735ba40bc16c1d98dd"
+        },
+        {
+          "path": "src/match.jai",
+          "bytes": 7520,
+          "sha256": "f5b2c822a4600185c462d75a928ff3b51c275d1aa602c0f82928a61ae1894c50"
+        },
+        {
+          "path": "tests.jai",
+          "bytes": 1675,
+          "sha256": "3a2a365ef2b40d5162d60daf8129118ac93f99bf7b3ec7bdf05d4172180fbf3e"
+        }
+      ]
+    },
+    {
+      "repository": "sjorsdonkers/yield-jai",
+      "revision": "337fb4e993ce613b3eea31d33033adb7539efffc",
+      "latest_jai_change": "2025-05-04T21:59:36+02:00",
+      "source_of_truth": "https://github.com/sjorsdonkers/yield-jai/tree/337fb4e993ce613b3eea31d33033adb7539efffc",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1070,
+          "sha256": "c6b55ec2eb5e15c90ab297663e64c40b0738008d71d4f8392f9b722867a7de59"
+        },
+        {
+          "path": "README.md",
+          "bytes": 12,
+          "sha256": "d2491fd775f2a5d7fd998e296539b2a6f48a654dd3b8ee7ee799121340113e7d"
+        },
+        {
+          "path": "examples/constant.jai",
+          "bytes": 1468,
+          "sha256": "6bc98200e7bf4169c0702a29dde61a5c84ee13a7a025f7aa372abda94cc679d8"
+        },
+        {
+          "path": "examples/defer.jai",
+          "bytes": 752,
+          "sha256": "71327a5dd06b74e9dfb1da9a7fe72c996da5a92050541616b35b212bb3b82b20"
+        },
+        {
+          "path": "examples/expand.jai",
+          "bytes": 3574,
+          "sha256": "59b9ee59ace54ac3db1756134ad10b0bdbfdf375f01e6fe6a8a4b3f00336596f"
+        },
+        {
+          "path": "examples/first.jai",
+          "bytes": 7893,
+          "sha256": "63f1fc1402ef3dea4cefbb67097316a9f3741311b489b9d3a0025e7a8ed84807"
+        },
+        {
+          "path": "examples/for.jai",
+          "bytes": 4143,
+          "sha256": "086cfb1c04a0801a991840fcebd346c080aaee0414179b790b00001c2196c028"
+        },
+        {
+          "path": "examples/if.jai",
+          "bytes": 4548,
+          "sha256": "3a884de550820120ee213e7495e623ce69065710e861be5789ab2e4650887865"
+        },
+        {
+          "path": "examples/if_case.jai",
+          "bytes": 1280,
+          "sha256": "4ab7daa0e64208a1a5149a3f35f0a0f68f3f34e7ec1a17827bbe6a3a3be83b0d"
+        },
+        {
+          "path": "examples/while.jai",
+          "bytes": 3698,
+          "sha256": "0fc2aea2f6dd95b2084484d7e5278990fae139655b2e57e83609f3b7ca12e8a3"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 23,
+          "sha256": "001fa5de31f9b810ed217feb63b8880358fdd72d095aca4d93c8d794556a6dff"
+        },
+        {
+          "path": "src/yield.jai",
+          "bytes": 56949,
+          "sha256": "a31cec85699be45e2623b255403c4abe62abdf74b8643908999ea5a0e870d240"
+        },
+        {
+          "path": "tests.jai",
+          "bytes": 1949,
+          "sha256": "587bf6077fd55a4635d1ddb3422e2a5b5df9a608c572f77bff9b62538638d88a"
+        }
+      ]
+    },
+    {
+      "repository": "GufNZ/JaiModules-AST_Utils",
+      "revision": "5ca4f5eeb071a5361be9efd0a7e551d0a4ae5c72",
+      "latest_jai_change": "2026-06-05T13:34:26+12:00",
+      "source_of_truth": "https://github.com/GufNZ/JaiModules-AST_Utils/tree/5ca4f5eeb071a5361be9efd0a7e551d0a4ae5c72",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "bytes": 1071,
+          "sha256": "e88b5c2adc10bd86cc2c562b30082b7b1fb22cd6d5ac46fa855f29db6ed6261e"
+        },
+        {
+          "path": "README.md",
+          "bytes": 2222,
+          "sha256": "3d56d50146c34b1bda488b5a7b128955a45567aae3a60d52050b3059bc99849d"
+        },
+        {
+          "path": "examples/astTests.jai",
+          "bytes": 152,
+          "sha256": "0af6630eb480863890a11f807dd06d77d7a299fb6e61a76e3eb766771fadc814"
+        },
+        {
+          "path": "examples/build.jai",
+          "bytes": 3258,
+          "sha256": "2e44a440002b78b0690a04f0201bb714ec290fe7cb7c027ef2321be5aa00989e"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 25373,
+          "sha256": "915786422255e42910d8032bdf9604a8e02070ee001a8804ac1b74ef46551612"
+        }
+      ]
+    },
+    {
+      "repository": "PixelRifts/Jai-Shader-Transpiler",
+      "revision": "fbc76835cbee291fe779f85b585a3fb28945e896",
+      "latest_jai_change": "2026-02-07T10:52:01+01:00",
+      "source_of_truth": "https://github.com/PixelRifts/Jai-Shader-Transpiler/tree/fbc76835cbee291fe779f85b585a3fb28945e896",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "Jai_To_Shader.jai",
+          "bytes": 9343,
+          "sha256": "5dff4e6d05c8fa8770b34b6b990cb2216739c2793e1e871fbfb66577e7e88514"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1067,
+          "sha256": "2da1ed54b589830e010ea3c4d24fc60f94a2c86e2d50176bb0b315ba8faa32c3"
+        },
+        {
+          "path": "README.md",
+          "bytes": 120,
+          "sha256": "df81dadbadc38d5b4f5c3d557b8c8ed43f98c6c14655dde5e771c8b7231f0084"
+        },
+        {
+          "path": "build.jai",
+          "bytes": 855,
+          "sha256": "e89ccce3dfd93bb45cacbf689404bd47f75e1be700c58a3f9bcbb95880e4f1b9"
+        },
+        {
+          "path": "glsl_backend.jai",
+          "bytes": 31193,
+          "sha256": "fbe4140128872d44ba9b1f1315e432fb4142a916925ac38bd566c74611ec270f"
+        },
+        {
+          "path": "hlsl_backend.jai",
+          "bytes": 19387,
+          "sha256": "c8b1de43dcaf55dfcc64dccaba90c0634ad432f22c61f9640800436bf3de4377"
+        },
+        {
+          "path": "src/backend.jai",
+          "bytes": 3384,
+          "sha256": "1ddf03dd8a09bdbed15be736e6e38c21a1232875ae3b694c01c76871bf7ed1a2"
+        },
+        {
+          "path": "src/glsl_example.jai",
+          "bytes": 3907,
+          "sha256": "e6547824d536e86eeb905d0897f7aa9bacce9d85866f8f49e40b75af3e136de0"
+        },
+        {
+          "path": "src/glsl_shaders.jai",
+          "bytes": 1723,
+          "sha256": "6deee5c37b1386fba61118a1f60c0f91c2a6a2a9360bc565fba6e0e701f29be3"
+        },
+        {
+          "path": "src/hlsl_example.jai",
+          "bytes": 796,
+          "sha256": "94ac3a2e43d9e763f3072067ff5f6a962ab33418f6c0c76bee600514dacd3e99"
+        }
+      ]
+    },
+    {
+      "repository": "Stuart-Mouse/jai-utils",
+      "revision": "dede2c77967739910dbf5b1a920e180ce2cadfd4",
+      "latest_jai_change": "2026-10-05T13:34:46-05:00",
+      "source_of_truth": "https://github.com/Stuart-Mouse/jai-utils/tree/dede2c77967739910dbf5b1a920e180ce2cadfd4",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 878,
+          "sha256": "397f16523cc30c4242fc6022b66f99bacfc0085f762f1e8e222679014e1c0340"
+        },
+        {
+          "path": "README.md",
+          "bytes": 1746,
+          "sha256": "1aa9541a9b2a948aa4312788ca68a63d8db5ae8126e95fbbca3ea6b58192f3fd"
+        },
+        {
+          "path": "arrays.jai",
+          "bytes": 2849,
+          "sha256": "07f243260dc4ff558b2aa77abac52f251fd276d45f90f40f89bc06ea95998e98"
+        },
+        {
+          "path": "bit_set.jai",
+          "bytes": 3088,
+          "sha256": "9940b7c3d747f5fd9dddf993dd3afe526da3df8e9d456d14ff0dbd5a4dc1f47b"
+        },
+        {
+          "path": "closure.jai",
+          "bytes": 5529,
+          "sha256": "aa99109ae51d8fe95be98619af51f0b71a28267b06b3754158f03657e7feb33d"
+        },
+        {
+          "path": "dynamic_procedure_call.jai",
+          "bytes": 20129,
+          "sha256": "10196249a93c9577cee110049ac69aa070c8aa8706f8eacd168d1067af4128ec"
+        },
+        {
+          "path": "fixed_bit_array.jai",
+          "bytes": 4628,
+          "sha256": "2ea18b0ddae19e1fea7a5f27183bc525db776113d6285dba6c57abe4cbd9740d"
+        },
+        {
+          "path": "generic_buffer.jai",
+          "bytes": 2009,
+          "sha256": "d007d6ee969b38f8ea5233bc3a6f3ca6a55a8d45e6eb81ff020e36880b108df0"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 4430,
+          "sha256": "a91780b2300cd80480f180cabcca810d75074e4de29265d037854d46714d91ab"
+        },
+        {
+          "path": "procedure_info.jai",
+          "bytes": 16342,
+          "sha256": "d2d751ba3af38e1224417821e172b41c704a257dca7983a50f1b407e0a5e03c5"
+        },
+        {
+          "path": "scanner.jai",
+          "bytes": 29866,
+          "sha256": "5d464d88e2e06865969959fa1ba700f059f140e66150d4716aa0b69a5ea68da0"
+        },
+        {
+          "path": "slot_array.jai",
+          "bytes": 4791,
+          "sha256": "032f07f21cf6bf47a5b32f7df403216fc1adc7825d12c81d60aa3e214bd7cbfe"
+        },
+        {
+          "path": "static_array.jai",
+          "bytes": 3211,
+          "sha256": "aea02f3caa73fcb654b02b774b6fc2fa1a405a51b2e68d70ee21f28d726287e6"
+        },
+        {
+          "path": "static_string.jai",
+          "bytes": 5735,
+          "sha256": "830628390e1eb224eae87d2ef5ce495d1eda6a3624855117e83a5afa77a3f09e"
+        }
+      ]
+    },
+    {
+      "repository": "n00bmind/unotest",
+      "revision": "2bb68d4bc6e062810a3d339d5c0c31be8294a7ac",
+      "latest_jai_change": "2025-03-15T11:03:41Z",
+      "source_of_truth": "https://github.com/n00bmind/unotest/tree/2bb68d4bc6e062810a3d339d5c0c31be8294a7ac",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1065,
+          "sha256": "cba1d867369dba828a1ffdb88154efeabcf2ce45b150334e3cf9855531d2531c"
+        },
+        {
+          "path": "README.md",
+          "bytes": 4780,
+          "sha256": "cd8dee6de00185daa85ddf1b0b00d9a2f2a1a80e9810ef07d17ddb09ac7d85f3"
+        },
+        {
+          "path": "unotest.jai",
+          "bytes": 20479,
+          "sha256": "b3d825889e30caf8a5423db71b594e874a2094076167319a0ff637efa1046c15"
+        }
+      ]
     }
   ]
 }

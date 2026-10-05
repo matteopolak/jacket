@@ -10,6 +10,7 @@ use std::rc::Rc;
 struct DeclNames {
     names: Vec<Ident>,
     existing: Vec<bool>,
+    backticks: Vec<bool>,
 }
 
 const DECL_FLAGS: &[&str] = &[
@@ -35,6 +36,9 @@ impl Parser<'_> {
         }
         let mut declared_marker = false;
         loop {
+            if i > n && matches!(self.tok_at(i), Tok::Punct(P::Backtick)) {
+                i += 1;
+            }
             if !matches!(self.tok_at(i), Tok::Ident(_)) {
                 return false;
             }
@@ -168,7 +172,15 @@ impl Parser<'_> {
         let DeclNames {
             names,
             existing,
+            backticks,
         } = self.parse_decl_names()?;
+        let backtick_names = if backticks.iter().any(|&b| b) {
+            let mut all = backticks;
+            all[0] = backtick;
+            all
+        } else {
+            Vec::new()
+        };
         let mut decl = Decl {
             id: AstId::fresh(),
             names,
@@ -182,7 +194,8 @@ impl Parser<'_> {
             using_filter: None,
             using,
             as_,
-            backtick,
+            backtick: backtick && backtick_names.is_empty(),
+            backtick_names,
             align: None,
             flags: Vec::new(),
             notes: Vec::new(),
@@ -232,11 +245,14 @@ impl Parser<'_> {
             return Ok(DeclNames {
                 names: vec![name],
                 existing: Vec::new(),
+                backticks: Vec::new(),
             });
         }
-        let (mut names, mut existing) = (Vec::new(), Vec::new());
+        let (mut names, mut existing, mut backticks) = (Vec::new(), Vec::new(), Vec::new());
         let (mut any_assigned, mut any_declared_marker) = (false, false);
         loop {
+            // `` status, `it := next() ``: a later name may go to the macro caller's scope.
+            backticks.push(!names.is_empty() && self.eat(P::Backtick));
             names.push(self.ident("as declaration name")?);
             let assigned = matches!(self.tok(), Tok::Punct(P::Eq))
                 && matches!(self.tok_at(1), Tok::Punct(P::Comma | P::ColonEq));
@@ -266,6 +282,7 @@ impl Parser<'_> {
         Ok(DeclNames {
             names,
             existing,
+            backticks,
         })
     }
 

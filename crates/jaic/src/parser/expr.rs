@@ -255,11 +255,20 @@ impl Parser<'_> {
                     self.bump();
                     self.bump();
                     let ty = self.parse_expr()?;
+                    // `value.(u32, trunc)`: cast flags after the type.
+                    let mut flags = CastFlags::default();
+                    while self.eat(P::Comma) {
+                        match self.ident("as a cast flag")?.name.as_str() {
+                            "no_check" => flags.no_check = true,
+                            "force" => flags.force = true,
+                            _ => flags.truncate = true,
+                        }
+                    }
                     let end = self.expect(P::RParen, "after the type in '.(T)'")?;
                     let kind = ExprKind::Cast {
                         ty: Some(Box::new(ty)),
                         value: Box::new(expr),
-                        flags: CastFlags::default(),
+                        flags,
                     };
                     expr = mk(kind, start.to(end));
                 }

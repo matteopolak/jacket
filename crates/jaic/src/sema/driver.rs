@@ -178,6 +178,17 @@ impl Compiler {
             i += 1;
         }
         if lenient {
+            // A metaprogram looks for procedures by their notes (`@glsl`, `@thread`) whether
+            // or not the program calls them: lower those whose headers it was shown.
+            let noted: Vec<ProcId> = (self.export.pending_procs())
+                .filter(|&p| {
+                    !self.proc(p).lit.header.notes.is_empty()
+                        || self.proc_decl_notes.contains_key(&p)
+                })
+                .collect();
+            for p in noted {
+                let _ = self.proc_func(p, self.proc(p).span);
+            }
             self.drain_bodies_lenient();
         } else {
             self.drain_bodies()?;

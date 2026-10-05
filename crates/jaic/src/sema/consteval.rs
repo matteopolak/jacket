@@ -36,16 +36,29 @@ impl Compiler {
     }
 
     /// Finish thunk `f` that computes `op`, run it, and read the result back as a constant.
-    pub fn run_thunk(&mut self, mut f: FnCtx, op: Operand, span: Span) -> Result<Operand> {
+    pub fn run_thunk(&mut self, f: FnCtx, op: Operand, span: Span) -> Result<Operand> {
+        let first = self.run_thunk_all(f, op, span)?.into_iter().next();
+        Ok(first.unwrap_or(Operand::Void))
+    }
+
+    /// `run_thunk` keeping every value of a multi-value result (`a, b :: #run f();`).
+    pub fn run_thunk_all(&mut self, mut f: FnCtx, op: Operand, span: Span) -> Result<Vec<Operand>> {
         let op = self.settle_untyped(op, None);
-        let (ty, result_global) = match &op {
-            Operand::Void => (TypeId::VOID, None),
-            Operand::Multi(values) => (values[0].0, None),
-            other => (other.ty(), None::<ir::GlobalId>),
+        let values = match op {
+            Operand::Void => Vec::new(),
+            Operand::Multi(values) => values,
+            other => {
+                let ty = other.ty();
+                if ty == TypeId::VOID {
+                    Vec::new()
+                } else {
+                    let (_, v) = self.rvalue(&mut f, other, span)?;
+                    vec![(ty, v)]
+                }
+            }
         };
-        let _ = result_global;
-        let mut out = None;
-        if ty != TypeId::VOID && !matches!(op, Operand::Void) {
+        let mut out = Vec::new();
+        for (ty, v) in values {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let g = self.program.add_global(ir::Global {
@@ -57,29 +70,28 @@ impl Compiler {
                 read_only: false,
                 export: None,
             });
-            let (_, v) = self.rvalue(&mut f, op, span)?;
             let addr = f.b.global_addr(g);
             self.store_value(&mut f, ty, addr, v, span)?;
-            out = Some(g);
+            out.push((ty, g));
         }
         f.b.ret(Vec::new());
         self.call_thunk(f, span)?;
-        let Some(g) = out else {
-            return Ok(Operand::Void);
-        };
-        let addr = self
-            .interp
-            .global_addr(&self.program, g)
-            .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
-        let value = self.read_value(addr, ty, span)?;
-        Ok(match value {
-            Value::Type(t) => Operand::Type(t),
-            value => Operand::Const {
-                ty,
-                value,
-                untyped: false,
-            },
-        })
+        let mut results = Vec::new();
+        for (ty, g) in out {
+            let addr = self
+                .interp
+                .global_addr(&self.program, g)
+                .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+            results.push(match self.read_value(addr, ty, span)? {
+                Value::Type(t) => Operand::Type(t),
+                value => Operand::Const {
+                    ty,
+                    value,
+                    untyped: false,
+                },
+            });
+        }
+        Ok(results)
     }
 
     /// Finish the compile-time function `f` and run it; returns its scalar results.
@@ -87,11 +99,65 @@ impl Compiler {
         let func = f.b.finish();
         let id = self.program.reserve_func(func.name.clone());
         self.program.funcs[id.0 as usize] = Some(func);
-        let deferred = self.drain_bodies_lenient();
+        // Inside another body's lowering, queued bodies may be unrelated code whose own
+        // compile-time runs need what is being lowered right now: lower on demand instead.
+        let nested = self.lowering_depth > 0;
+        let mut deferred = if nested {
+            self.lower_reachable_from(id)
+        } else {
+            self.drain_bodies_lenient()
+        };
         let ctx = self.compile_time_context(span)?;
         self.enable_stack_traces(span);
         self.interp.compile_time = true;
-        let result = self.interp.call(&self.program, id, &[ctx]);
+        let outer = self.interp.run_effects.replace(self.interp.effects);
+        // Typed exports belong to this run (a nested one keeps the outer run's aside).
+        let outer_exports = (
+            std::mem::take(&mut self.interp.code_exports),
+            std::mem::take(&mut self.interp.code_export_cursor),
+        );
+        let mut result = self.interp.call(&self.program, id, &[ctx]);
+        // Run again from the start while nothing observable happened, when the run
+        // - asked for a code with resolved names and types (`compiler_get_nodes`), or
+        // - called a procedure whose body is still queued (on-demand lowering).
+        for _ in 0..10_000 {
+            if result.is_ok() || self.interp.run_effects != Some(self.interp.effects) {
+                break;
+            }
+            if let Some(code) = self.interp.export_request.take() {
+                self.export_code_typed(code);
+            } else if let Some(missing) = self.interp.missing_func.take()
+                && let Some(p) = self.queued_proc_of(missing)
+            {
+                if let Some(e) = self.lower_with_callees(p) {
+                    deferred.get_or_insert(e);
+                    break;
+                }
+            } else {
+                break;
+            }
+            // The earlier attempt may have edited the nodes it got (built once per record):
+            // the next one gets them exported anew.
+            let counts: Vec<(usize, usize)> = self
+                .interp
+                .code_exports
+                .iter()
+                .map(|(&code, exports)| (code, exports.len()))
+                .collect();
+            self.interp.code_exports.clear();
+            for (code, n) in counts {
+                for _ in 0..n {
+                    self.export_code_typed(code);
+                }
+            }
+            self.interp.run_effects = Some(self.interp.effects);
+            self.interp.code_export_cursor.clear();
+            result = self.interp.call(&self.program, id, &[ctx]);
+        }
+        (self.interp.code_exports, self.interp.code_export_cursor) = outer_exports;
+        self.interp.export_request = None;
+        self.interp.missing_func = None;
+        self.interp.run_effects = outer;
         self.flush_interp_output();
         if !self.interp.pending_type_flags.is_empty() {
             self.apply_type_info_flags(span)?;
@@ -225,7 +291,11 @@ impl Compiler {
             }
         }
         // A body that fails here is reported by the final drain.
-        self.drain_bodies_lenient();
+        if self.lowering_depth > 0 {
+            self.lower_reachable_from_global(g);
+        } else {
+            self.drain_bodies_lenient();
+        }
         let addr = self
             .interp
             .global_addr(&self.program, g)
@@ -432,7 +502,7 @@ impl Compiler {
             ..
         } = &op
         {
-            let code_scope = self.code_scopes[code.0 as usize];
+            let code_scope = self.code_scope_at(*code, scope);
             return Ok((self.insert_expr_of(op, value)?, code_scope));
         }
         Ok((self.insert_expr_of(op, value)?, scope))

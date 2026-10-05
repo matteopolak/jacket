@@ -5,14 +5,14 @@ import hashlib
 import json
 from pathlib import Path
 import re
-from fetch_upstreams import ROOT, REPOSITORIES, DEPENDENCIES, safe_path
+from fetch_upstreams import ROOT, REPOSITORIES, DEPENDENCIES, LIBRARIES, safe_path
 
 def verify(root: Path = ROOT) -> tuple[int, int, list[str]]:
     manifest = json.loads((root / 'corpus/upstreams.json').read_text())
     if manifest['format'] != 1: raise ValueError('unsupported manifest format')
     cutoff = datetime.fromisoformat(manifest['minimum_source_date'])
     projects = manifest['projects']
-    expected = REPOSITORIES + DEPENDENCIES
+    expected = REPOSITORIES + DEPENDENCIES + LIBRARIES
     if {p['repository'] for p in projects} != set(expected) or len(projects) != len(expected):
         raise ValueError('repository set does not match compatibility targets')
     sources = 0
@@ -20,9 +20,11 @@ def verify(root: Path = ROOT) -> tuple[int, int, list[str]]:
     for project in projects:
         if not re.fullmatch(r'[0-9a-f]{40}', project['revision']): raise ValueError('invalid commit SHA')
         if project['selection'] == 'stale-excluded':
-            if datetime.fromisoformat(project['latest_jai_change']) >= cutoff or project['files']: raise ValueError('invalid stale exclusion')
+            if datetime.fromisoformat(project['latest_jai_change'].replace('Z', '+00:00')) >= cutoff or project['files']: raise ValueError('invalid stale exclusion')
             continue
-        if project['selection'] != 'recent-source' or datetime.fromisoformat(project['latest_jai_change']) < cutoff:
+        changed = datetime.fromisoformat(project['latest_jai_change'].replace('Z', '+00:00'))
+        exempt = project['repository'] in DEPENDENCIES + LIBRARIES
+        if project['selection'] != 'recent-source' or (changed < cutoff and not exempt):
             raise ValueError('invalid recent-source selection')
         destination = root / 'corpus/upstream' / project['repository'].replace('/', '--')
         listed = set()

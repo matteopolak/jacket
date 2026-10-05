@@ -1,7 +1,7 @@
 //! `#directive` expressions.
 use super::expr::mk;
 use super::{PResult, Parser};
-use crate::ast::{Block, CodeBody, Expr, ExprKind, Ident, RunBody, StmtKind, TypeModifier};
+use crate::ast::{Block, CodeBody, Expr, ExprKind, Ident, RunBody, Stmt, StmtKind, TypeModifier};
 use crate::lexer::{P, Tok};
 use std::rc::Rc;
 
@@ -161,8 +161,32 @@ impl Parser<'_> {
                 no_aoc: false,
             })
         } else {
-            // `#code a := 1` and `#code x = x + 1` are statements without a terminator.
-            let stmt = self.parse_simple_stmt()?;
+            // `#code a := 1` and `#code x = x + 1` are statements without a terminator;
+            // `#code if x == { ... }` (match-jai) is a whole statement.
+            let stmt = if self.at_kw("case") {
+                // `#code case 1; stmts` takes the statements up to the closing `}`.
+                let case = self.parse_case()?;
+                let span = case.span;
+                Stmt {
+                    kind: StmtKind::Case(Rc::new(case)),
+                    span,
+                    notes: Vec::new(),
+                }
+            } else if ["if", "while", "for", "return", "defer", "using"]
+                .iter()
+                .any(|k| self.at_kw(k))
+            {
+                let stmt = self.parse_stmt()?;
+                // `x := #code return 1;`: the `;` ends the enclosing statement (in
+                // `f(#code using x;)` it is the code's own).
+                if self.at_prev(P::Semi) && !matches!(self.tok(), Tok::Punct(P::RParen | P::Comma))
+                {
+                    self.pos -= 1;
+                }
+                stmt
+            } else {
+                self.parse_simple_stmt()?
+            };
             match stmt.kind {
                 StmtKind::Expr(expr) => CodeBody::Expr(expr),
                 _ => {

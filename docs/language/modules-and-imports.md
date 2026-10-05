@@ -24,6 +24,7 @@ Str :: #import,string "str_val :: 11;";       // source text as a module
 - Imports are resolved eagerly during `expand_all`, not on first use, so a module's top-level `#run`s and `#add_context` are known before they matter.
 - Only export-visibility names are reachable through the namespace (see [scoping.md](scoping.md)). `P.secret` on a `#scope_file` name fails with `module 'Plain' has no exported member 'secret'`.
 - `using,only(a, b) M;` filters what a `using` brings in; verified: `using,only(answer) M;` exposes just `answer`. The AST also has `except` and `map` filters (`ast::UsingFilter`), which I did not exercise here.
+- `using,only(a, b) #import "M";` imports with a filter (`Import::using`). The listed names resolve like any import; M's other names are still found as a last resort when nothing else binds them (`lookup_sibling_file_imports`), since libraries such as Epic_Fail list only some of the names they use. The filter's point is to keep e.g. Basic's `assert` from competing with the module's own (`tests/stdlib/using-only-import.jai`).
 
 ## How to change it
 

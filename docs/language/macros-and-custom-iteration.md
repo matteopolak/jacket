@@ -32,6 +32,8 @@ for b { s += it * 10 + it_index; }    // s == 63
 
 A named expansion is selected with `for :walk x, i: b ...` (`walk` has the same shape; with a reversed inner loop and `* 10`, the output was `30 2 20 1 10 0`). Naming the index hides the macro's `it_index` from the body (`for-expansion-renamed-index.jai`); an expansion may forward its body to another (`for-expansion-forwarded-body.jai`); several overloads on different types coexist (`for-expansion-mixed-overloads.jai`).
 
+Backticks may be per name in a multi-declaration: `` status, `it := next(); `` declares `it` in the caller and `status` in the macro (`Decl::backtick_names`). Inside a macro, `` #if #exists(`name) `` asks the caller's scope (`body_static_condition` in `sema/stmt.rs`), so a macro called twice can declare a caller variable once and assign it afterwards (Epic_Fail's `assert`). `code_of(proc)` gives the `Code` of a procedure, header included, for macros that rewrite it (yield-jai).
+
 ## How to change it
 
 - Loop-body plumbing (`break`/`continue`/`remove` as inserted bindings) is in `sema/lower.rs` (`ForBody`, around the "`#insert (break=..., continue=..., remove=...)`" comment).

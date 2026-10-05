@@ -806,10 +806,117 @@ impl Compiler {
         (self.added_sources + self.files.len() + self.modules.len() + self.runs_done) as u64
     }
 
+    /// The procedure behind IR function `func` if its body is queued (not lowered yet).
+    pub fn queued_proc_of(&self, func: ir::FuncId) -> Option<ProcId> {
+        let i = self.procs.iter().position(|p| {
+            p.body_state == BodyState::Queued
+                && matches!(p.target, Some(ProcTarget::Func(f)) if f == func)
+        })?;
+        Some(ProcId(i as u32))
+    }
+
+    /// Lower the queued bodies reachable from IR function `root` (calls, procedure addresses,
+    /// procedure pointers in globals), and nothing else. Returns the first error.
+    pub fn lower_reachable_from(&mut self, root: ir::FuncId) -> Option<Box<Diagnostic>> {
+        self.lower_reachable_roots(vec![root], Vec::new())
+    }
+
+    /// `lower_reachable_from` for what a global's initializer points at.
+    pub fn lower_reachable_from_global(&mut self, root: ir::GlobalId) -> Option<Box<Diagnostic>> {
+        self.lower_reachable_roots(Vec::new(), vec![root.0])
+    }
+
+    fn lower_reachable_roots(
+        &mut self,
+        mut work: Vec<ir::FuncId>,
+        mut global_work: Vec<u32>,
+    ) -> Option<Box<Diagnostic>> {
+        use crate::fxhash::HashSet;
+        let mut first = None;
+        let (mut funcs, mut globals) = (HashSet::default(), HashSet::default());
+        loop {
+            while let Some(g) = global_work.pop() {
+                if !globals.insert(g) {
+                    continue;
+                }
+                let global: &ir::Global = &self.program.globals[g as usize];
+                for r in &global.relocs {
+                    match r.target {
+                        ir::RelocTarget::Func(f) => work.push(f),
+                        ir::RelocTarget::Global(h) => global_work.push(h.0),
+                        ir::RelocTarget::Foreign(_) => {}
+                    }
+                }
+            }
+            let Some(f) = work.pop() else {
+                break;
+            };
+            if !funcs.insert(f) {
+                continue;
+            }
+            if self
+                .program
+                .funcs
+                .get(f.0 as usize)
+                .is_none_or(Option::is_none)
+                && let Some(p) = self.queued_proc_of(f)
+                && let Err(e) = self.lower_body(p)
+            {
+                first.get_or_insert(e);
+            }
+            let Some(Some(func)) = self.program.funcs.get(f.0 as usize) else {
+                continue;
+            };
+            for block in &func.blocks {
+                for inst in &block.insts {
+                    match inst {
+                        ir::Inst::Call {
+                            callee: ir::Callee::Func(g),
+                            ..
+                        } => work.push(*g),
+                        ir::Inst::FuncAddr {
+                            func, ..
+                        } => work.push(*func),
+                        ir::Inst::GlobalAddr {
+                            global, ..
+                        } => global_work.push(global.0),
+                        _ => {}
+                    }
+                }
+            }
+        }
+        first
+    }
+
+    /// Lower `id` and then the bodies its lowering queued (its callees, transitively), but
+    /// nothing queued before. Returns the first error.
+    pub fn lower_with_callees(&mut self, id: ProcId) -> Option<Box<Diagnostic>> {
+        let mark = self.body_queue.len();
+        if let Err(e) = self.lower_body(id) {
+            return Some(e);
+        }
+        let mut first = None;
+        let mut failed = Vec::new();
+        while self.body_queue.len() > mark {
+            let q = self.body_queue.pop().unwrap();
+            if self.proc(q).body_state != BodyState::Queued {
+                continue;
+            }
+            if let Err(e) = self.lower_body(q) {
+                first.get_or_insert(e);
+                failed.push(q);
+            }
+        }
+        self.body_queue.extend(failed);
+        first
+    }
+
     /// Lower one procedure body to IR.
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
+        self.lowering_depth += 1;
         let result = self.lower_body_inner(id);
+        self.lowering_depth -= 1;
         self.procs[id.0 as usize].body_state = if result.is_ok() {
             BodyState::Done
         } else {
@@ -1071,6 +1178,9 @@ impl Compiler {
             export: None,
         });
         self.procs[id.0 as usize].instances.insert(key, inst);
+        if let Some(notes) = self.proc_decl_notes.get(&id).cloned() {
+            self.proc_decl_notes.insert(inst, notes);
+        }
         Ok(inst)
     }
 }

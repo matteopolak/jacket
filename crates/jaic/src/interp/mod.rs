@@ -109,6 +109,24 @@ pub struct Trap {
 
 type Res<T> = std::result::Result<T, Trap>;
 
+/// C functions whose calls leave nothing observable outside the interpreter's memory, so a
+/// compile-time run that made only these can be repeated (see `Interp::effects`).
+const UNOBSERVABLE_FOREIGNS: &[&str] = &[
+    "malloc",
+    "calloc",
+    "realloc",
+    "free",
+    "posix_memalign",
+    "aligned_alloc",
+    "memcpy",
+    "memmove",
+    "memset",
+    "memcmp",
+    "strlen",
+    "strcmp",
+    "strncmp",
+];
+
 struct Frame {
     offsets: Vec<u64>,
     size: u64,
@@ -152,6 +170,24 @@ pub struct Interp {
     /// Codes made by compile-time code (`compiler_get_code`): their index and the
     /// index of the code whose scope they take. The compiler adopts them lazily.
     pub made_codes: Vec<(usize, usize)>,
+    /// Codes handed to `compiler_get_nodes`, newest last: the scopes a made code without
+    /// its own scope falls back on for names its insertion site does not have.
+    pub nodes_codes: Vec<usize>,
+    /// Observable effects so far: output, foreign calls, workspace changes. A compile-time
+    /// run is repeated (to serve `export_request`) only while this has not changed.
+    pub effects: u64,
+    /// `effects` when the current compile-time run started; `None` outside one.
+    pub run_effects: Option<u64>,
+    /// Set with a trap when `compiler_get_nodes` needs the compiler to export a code with
+    /// resolved names and types (the compiler does, then runs the code again).
+    pub export_request: Option<usize>,
+    /// The function a trap found without a body (the compiler may lower it and run again).
+    pub missing_func: Option<FuncId>,
+    /// Those typed exports (root record, node records), by code index, in the order the
+    /// run asks for them: each `compiler_get_nodes` call gets nodes of its own, which it may
+    /// edit. `code_export_cursor` counts the ones this run took; it starts over on each run.
+    pub code_exports: HashMap<usize, Vec<(i64, Vec<i64>)>>,
+    pub code_export_cursor: HashMap<usize, usize>,
     /// Set in the child process after compile-time code calls `fork`.
     forked_child: bool,
     /// Stack trace node data per procedure (`Stack_Trace_Procedure_Info`), built on first call.
@@ -200,6 +236,13 @@ impl Interp {
             workspaces: None,
             codes: Vec::new(),
             made_codes: Vec::new(),
+            nodes_codes: Vec::new(),
+            effects: 0,
+            run_effects: None,
+            export_request: None,
+            missing_func: None,
+            code_exports: HashMap::default(),
+            code_export_cursor: HashMap::default(),
             forked_child: false,
             trace_infos: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -469,6 +512,9 @@ impl Interp {
         sig: &ir::Sig,
     ) -> Res<Vec<u64>> {
         let symbol = program.foreigns[id.0 as usize].symbol.clone();
+        if !UNOBSERVABLE_FOREIGNS.contains(&symbol.as_str()) {
+            self.effects += 1;
+        }
         if self.host.cooperative_threads() {
             if let Some(result) = self.inline_thread_foreign(program, &symbol, args) {
                 return result;
@@ -584,6 +630,7 @@ impl Interp {
             return self.run_hook(hook, args).map(Rets::from);
         }
         let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
+            self.missing_func = Some(id);
             let name = program
                 .func_names
                 .get(id.0 as usize)
@@ -728,6 +775,7 @@ impl Interp {
                 let count = self.read_u64(s) as usize;
                 let data = self.read_u64(s + 8);
                 let bytes = self.read(data, count);
+                self.effects += 1;
                 self.host
                     .write(&bytes, args.get(1).is_some_and(|&v| v & 1 != 0));
             }
@@ -736,6 +784,7 @@ impl Interp {
                 let count = self.read_u64(view) as usize;
                 let data = self.read_u64(view + 8);
                 let to_stderr = args.get(1).is_some_and(|&v| v & 1 != 0);
+                self.effects += 1;
                 for i in 0..count {
                     let s = data + i as u64 * 16;
                     let n = self.read_u64(s) as usize;
@@ -1164,6 +1213,7 @@ impl Interp {
             }
             I::CompilerWrite => {
                 let bytes = self.read(a[0], a[1] as usize);
+                self.effects += 1;
                 self.host.write(&bytes, a.get(2).is_some_and(|&v| v != 0));
                 vec![]
             }

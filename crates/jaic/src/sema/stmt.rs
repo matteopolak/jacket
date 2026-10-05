@@ -3,7 +3,7 @@ use super::calls::CallArg;
 use super::lower::{
     DeferEntry, FnCtx, ForBody, InsertReplacements, LoopFrame, MacroFrame, Operand,
 };
-use super::scope::{EntityKind, Resolved, ScopeKind, UsingEntry};
+use super::scope::{EntityId, EntityKind, Resolved, ScopeKind, UsingEntry};
 use super::*;
 use crate::ast::{ExprKind as E, StmtKind as S};
 use crate::ir::{CmpOp, Ty};
@@ -136,6 +136,26 @@ impl Compiler {
         }
     }
 
+    /// A `#if` condition inside a body: `#exists(`name)` (possibly negated) looks in the
+    /// macro's caller, which constant evaluation cannot see.
+    fn body_static_condition(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        cond: &ast::Expr,
+    ) -> Result<bool> {
+        use ast::ExprKind as E;
+        match &cond.kind {
+            E::Unary(ast::UnOp::Not, inner) if matches!(inner.kind, E::Exists(_)) => {
+                Ok(!self.body_static_condition(f, scope, inner)?)
+            }
+            E::Exists(e) if matches!(e.kind, E::Backtick(_)) => {
+                Ok(self.check_expr(f, scope, e, None).is_ok())
+            }
+            _ => self.eval_static_condition(scope, cond),
+        }
+    }
+
     pub(super) fn new_block_scope(&mut self, parent: ScopeId) -> ScopeId {
         let module = self.scope(parent).module;
         self.new_scope(ScopeKind::Block, Some(parent), module, None)
@@ -173,6 +193,7 @@ impl Compiler {
         }
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
+            S::Case(_) => err(span, "'case' outside of a switch"),
             S::Expr(e) => {
                 self.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
@@ -284,7 +305,7 @@ impl Compiler {
                 then_branch,
                 else_branch,
             } => {
-                let taken = self.eval_static_condition(scope, cond)?;
+                let taken = self.body_static_condition(f, scope, cond)?;
                 self.check_block_stmts(
                     f,
                     scope,
@@ -476,6 +497,11 @@ impl Compiler {
         values.resize(decl.names.len(), None);
         let existing = |i: usize| decl.existing.get(i).copied().unwrap_or(false);
         for (i, (name, value)) in decl.names.iter().zip(values).enumerate() {
+            let target = if decl.backtick_names.get(i).copied().unwrap_or(false) {
+                f.macros.last().map_or(scope, |m| m.caller_scope)
+            } else {
+                target
+            };
             if existing(i) {
                 // `a=, b := ...` assigns to a variable that is already in scope.
                 let Some(value) = value else {
@@ -518,7 +544,7 @@ impl Compiler {
                 (None, None) => return err(span, "declaration needs a type or a value"),
             };
             // Metaprograms read local declaration types from the exported syntax tree.
-            self.local_decl_types.entry(decl.id).or_insert(ty);
+            self.local_decl_types.entry((decl.id, i)).or_insert(ty);
             let size = self.size_of(ty, span)?;
             let mut align = self.align_of(ty, span)?;
             if let Some(a) = &decl.align {
@@ -1070,6 +1096,10 @@ impl Compiler {
         let entry = match op {
             Operand::Module(m) => UsingEntry::Module(m),
             Operand::Type(t) => UsingEntry::Type(t),
+            // `using fruit.tag;` on an enum value brings in the enum's names (match-jai).
+            op if matches!(self.types.kind(op.ty()), TypeKind::Enum(_)) => {
+                UsingEntry::Type(op.ty())
+            }
             op @ (Operand::Place {
                 ..
             }
@@ -2085,11 +2115,18 @@ impl Compiler {
                     Operand::Const {
                         value: Value::Code(other),
                         ..
-                    } => self.code_scopes[other.0 as usize],
+                    } => {
+                        let target = self.code_scopes[other.0 as usize];
+                        if self.unscoped_codes.contains_key(&(code.0 as usize)) {
+                            self.code_scope_at(code, target)
+                        } else {
+                            target
+                        }
+                    }
                     _ => return err(t.span, "#insert,scope(...) needs a Code value"),
                 },
                 None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
-                None => self.code_scopes[code.0 as usize],
+                None => self.code_scope_at(code, scope),
             };
             // `Top :: #code()` is evaluated in its file's constant-thunk scope: that file.
             let code_scope = match self.scope(code_scope).parent {
@@ -2117,10 +2154,28 @@ impl Compiler {
                     }
                 }
             }
-            return match &*body {
+            let result = match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
                 ast::CodeBody::Block(b) => self.check_block_stmts(f, inner, &b.stmts),
             };
+            // Names resolve in the target's scope, but what the code declares lives where it
+            // is inserted (yield-jai: `#insert,scope(call) #run make_args();` then `Args`).
+            if code_scope != scope {
+                let declared: Vec<(Sym, Vec<EntityId>)> = self
+                    .scope(inner)
+                    .names
+                    .iter()
+                    .map(|(name, ids)| (*name, ids.clone()))
+                    .collect();
+                for (name, ids) in declared {
+                    self.scope_mut(scope)
+                        .names
+                        .entry(name)
+                        .or_default()
+                        .extend(ids);
+                }
+            }
+            return result;
         }
         let stmts = self.insert_stmts_from(op, value.span)?;
         self.check_block_stmts(f, scope, &stmts)
@@ -2283,12 +2338,20 @@ impl Compiler {
             f.b.jump(frame.exit_block);
             return Ok(());
         }
+        // `` `return `x, y; ``: returns from the caller; `` `x `` in the values still means
+        // the caller's x.
+        let caller = f.macros.last().map(|m| m.caller_scope);
         let saved_macros = if backtick {
             std::mem::take(&mut f.macros)
         } else {
             Vec::new()
         };
+        let saved_backtick = f.backtick_scope;
+        if backtick && caller.is_some() {
+            f.backtick_scope = caller;
+        }
         let result = self.check_proc_return(f, scope, values, span);
+        f.backtick_scope = saved_backtick;
         if backtick {
             f.macros = saved_macros;
         }

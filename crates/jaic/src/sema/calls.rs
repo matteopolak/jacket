@@ -261,7 +261,7 @@ impl Compiler {
                             .find(|p| p.name.map(|pn| pn.name) == Some(n.name)),
                         None => params.get(i),
                     };
-                    info.is_macro && param.is_some_and(is_code)
+                    param.is_some_and(is_code)
                 })
             })
             .collect()
@@ -653,7 +653,8 @@ impl Compiler {
                     }
                 }
             }
-            if param == TypeId::CODE && macro_call {
+            // Any expression converts to a `Code` parameter (plain procedures too).
+            if param == TypeId::CODE {
                 return Ok(convert::LITERAL);
             }
             // `ifx c then a else b`: each branch must fit (`"-->"` does not fit a `u8`).
@@ -874,6 +875,12 @@ impl Compiler {
             };
             if param.baked && param.variadic {
                 let name = param.name.map(|n| n.name).unwrap();
+                // `..names` passes on a constant view (another baked variadic) as it is.
+                if let Slot::Spread(a) = &slots[i] {
+                    let (value, ty) = self.baked_spread(def_scope, param, &args[*a])?;
+                    bindings.push((name, value, ty));
+                    continue;
+                }
                 let (value, ty) = self.baked_pack(def_scope, param, &arg_ops)?;
                 bindings.push((name, value, ty));
                 continue;
@@ -941,7 +948,25 @@ impl Compiler {
                     )
                     && let Some(expr) = &arg.expr
                 {
-                    let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr.clone())), arg.scope);
+                    // A name of a `Code` constant (another `$c: Code`) passes that code on.
+                    let named = match &expr.kind {
+                        ast::ExprKind::Ident(_) | ast::ExprKind::Member(..) => {
+                            match self.check_expr_no_emit(arg.scope, expr) {
+                                Ok(Operand::Const {
+                                    value: Value::Code(code),
+                                    ..
+                                }) => Some(code),
+                                _ => None,
+                            }
+                        }
+                        _ => None,
+                    };
+                    let id = match named {
+                        Some(code) => code,
+                        None => {
+                            self.add_code(Rc::new(ast::CodeBody::Expr(expr.clone())), arg.scope)
+                        }
+                    };
                     bindings.push((name, Value::Code(id), TypeId::CODE));
                     continue;
                 }
@@ -1185,6 +1210,28 @@ impl Compiler {
             Some(block) => self.run_modify(proc, header, block, bindings, span),
             None => Ok(bindings),
         }
+    }
+
+    /// A baked variadic parameter given `..view`: the view must be a compile-time constant
+    /// of the parameter's array type.
+    fn baked_spread(
+        &mut self,
+        def_scope: ScopeId,
+        param: &ast::Param,
+        arg: &CallArg,
+    ) -> Result<(Value, TypeId)> {
+        let elem = match &param.ty {
+            Some(t) if !procs::has_poly(t) => self.eval_type(def_scope, t)?,
+            _ => TypeId::TYPE,
+        };
+        let ty = self.types.array(elem, ArrayKind::View);
+        let op = match (&arg.op, &arg.expr) {
+            (Some(op), _) => op.clone(),
+            (None, Some(e)) => self.eval_const(arg.scope, e, Some(ty))?,
+            (None, None) => return err(arg.span, "missing value"),
+        };
+        let value = self.const_value_of_operand(arg.scope, op, ty, arg.span)?;
+        Ok((value, ty))
     }
 
     /// The value of a baked variadic parameter (`$types: ..Type`): a constant `[] T`
@@ -1724,6 +1771,24 @@ impl Compiler {
             return self.zero_param(f, param.ty, span);
         }
         let op = match slot {
+            Slot::Arg(a) if param.ty == TypeId::CODE && args[*a].op.is_none() => {
+                // An expression for a `Code` parameter is passed as code unless it is a Code.
+                let arg = &args[*a];
+                let expr = arg.expr.as_ref().unwrap();
+                match self.check_expr_no_emit(arg.scope, expr) {
+                    Ok(op) if op.ty() == TypeId::CODE => {
+                        self.arg_operand(f, arg, Some(param.ty))?
+                    }
+                    _ => {
+                        let body = Rc::new(ast::CodeBody::Expr(expr.clone()));
+                        Operand::Const {
+                            ty: TypeId::CODE,
+                            value: Value::Code(self.add_code(body, arg.scope)),
+                            untyped: false,
+                        }
+                    }
+                }
+            }
             Slot::Arg(a) | Slot::Spread(a) => {
                 let op = self.arg_operand(f, &args[*a], Some(param.ty))?;
                 if self.auto_deref_arg(op.ty(), param.ty) {
@@ -2029,6 +2094,39 @@ impl Compiler {
                     ty: TypeId::S64,
                     value: Value::Int(v as i128),
                     untyped: true,
+                })
+            }
+            BuiltinProc::CodeOf => {
+                // The code of a procedure (its header and body), else of the expression.
+                let proc = match self.check_expr_no_emit(scope, &arg.value) {
+                    Ok(Operand::Procs(p)) if p.len() == 1 => Some(p[0]),
+                    Ok(Operand::Const {
+                        value: Value::Proc(p),
+                        ..
+                    }) => Some(p),
+                    _ => None,
+                };
+                let id = match proc {
+                    Some(p) => {
+                        let (lit, span, pscope) = (
+                            self.proc(p).lit.clone(),
+                            self.proc(p).span,
+                            self.proc(p).scope,
+                        );
+                        let expr = ast::Expr {
+                            kind: ast::ExprKind::Proc(lit),
+                            span,
+                        };
+                        let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr)), pscope);
+                        self.code_procs.insert(id.0 as usize, p);
+                        id
+                    }
+                    None => self.add_code(Rc::new(ast::CodeBody::Expr(arg.value.clone())), scope),
+                };
+                Ok(Operand::Const {
+                    ty: TypeId::CODE,
+                    value: Value::Code(id),
+                    untyped: false,
                 })
             }
             BuiltinProc::TypeOf => {
@@ -2520,14 +2618,41 @@ impl Compiler {
                 },
                 false,
             );
-            if let Slot::Arg(a) = slot
-                && let Some(Operand::Const {
-                    value,
-                    ty,
-                    untyped,
-                }) = &args[*a].op
-                && (*ty == param.ty
-                    || (*untyped
+            // The argument's value when it is a constant: a literal or constant given, a
+            // procedure, or a literal default (`var_name := "var"`).
+            let constant = match slot {
+                Slot::Arg(a) => match &args[*a].op {
+                    Some(Operand::Const {
+                        value,
+                        ty,
+                        untyped,
+                    }) => Some((value.clone(), *ty, *untyped)),
+                    Some(Operand::Procs(p)) if p.len() == 1 => {
+                        Some((Value::Proc(p[0]), param.ty, false))
+                    }
+                    _ => None,
+                },
+                Slot::Default => match &header.params[i].default {
+                    Some(d)
+                        if matches!(d.kind, E::Str(_) | E::Int(_) | E::Float(_) | E::Bool(_)) =>
+                    {
+                        let pscope = self.proc(proc).scope;
+                        match self.eval_const(pscope, d, Some(param.ty)) {
+                            Ok(Operand::Const {
+                                value,
+                                ty,
+                                untyped,
+                            }) => Some((value, ty, untyped)),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                },
+                _ => None,
+            };
+            if let Some((value, ty, untyped)) = constant
+                && (ty == param.ty
+                    || (untyped
                         && matches!(value, Value::Int(_))
                         && self.types.is_integer(param.ty)))
             {
@@ -2535,10 +2660,14 @@ impl Compiler {
                 // A constant argument the body never writes stays a constant.
                 if matches!(
                     value,
-                    Value::String(_) | Value::Int(_) | Value::Bool(_) | Value::Float(_)
+                    Value::String(_)
+                        | Value::Int(_)
+                        | Value::Bool(_)
+                        | Value::Float(_)
+                        | Value::Proc(_)
                 ) && !self.text_may_write(&body, name)
                 {
-                    self.const_macro_params.insert(e, (value.clone(), param.ty));
+                    self.const_macro_params.insert(e, (value, param.ty));
                 }
             }
             if param.using {

@@ -1,4 +1,6 @@
 //! Statements and control flow.
+use std::rc::Rc;
+
 use super::{PResult, Parser};
 use crate::ast::{
     AssignOp, BinOp, Block, Case, Expr, For, ForOver, Ident, Stmt, StmtKind, UsingFilter,
@@ -121,7 +123,8 @@ impl Parser<'_> {
 
     /// Consumes the `;` ending a statement. Statements ending in `}` do not need one.
     pub(super) fn end_stmt(&mut self, context: &str) -> PResult<()> {
-        if self.eat(P::Semi) || self.ends_block() {
+        // `x = #code case 1;` before `}`: the case took the `;` (and the statements after it).
+        if self.eat(P::Semi) || self.ends_block() || (self.at_prev(P::Semi) && self.at(P::RBrace)) {
             return Ok(());
         }
         Err(self.expected("';'", context))
@@ -286,7 +289,7 @@ impl Parser<'_> {
         Ok(cases)
     }
 
-    fn parse_case(&mut self) -> PResult<Case> {
+    pub(super) fn parse_case(&mut self) -> PResult<Case> {
         let start = self.span();
         if !self.eat_kw("case") {
             return Err(self.expected("'case'", "in switch body"));
@@ -566,6 +569,17 @@ impl Parser<'_> {
         }
         self.bump();
         let filter = self.parse_using_filter()?;
+        // `using,only(a, b) #import "M";` imports just those names.
+        if self.at_directive("import") {
+            let mut import = self.parse_import(None, start)?;
+            self.end_stmt("after '#import'")?;
+            if let StmtKind::Import(i) = &mut import.kind
+                && let Some(i) = Rc::get_mut(i)
+            {
+                i.using = Some(filter);
+            }
+            return Ok(import);
+        }
         let value = self.parse_expr()?;
         self.end_stmt("after 'using'")?;
         Ok(stmt(

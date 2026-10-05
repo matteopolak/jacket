@@ -81,6 +81,9 @@ pub struct Scope {
     pub proc_depth: u32,
     /// The procedure whose parameters and body a `Proc` scope holds (for `#this`).
     pub proc: Option<ProcId>,
+    /// Scopes consulted for names nothing else binds (code made by `compiler_get_code`
+    /// falls back on the scopes its nodes were written in).
+    pub fallbacks: Vec<ScopeId>,
 }
 
 #[derive(Clone, Debug)]
@@ -102,6 +105,7 @@ pub enum BuiltinProc {
     AlignOf,
     OffsetOf,
     IsValueType,
+    CodeOf,
 }
 
 #[derive(Clone, Debug)]
@@ -212,6 +216,7 @@ impl Compiler {
             usings: Vec::new(),
             proc_depth,
             proc: None,
+            fallbacks: Vec::new(),
         });
         ScopeId(self.scopes.len() as u32 - 1)
     }
@@ -321,6 +326,7 @@ impl Compiler {
         let procs: &[(&str, BuiltinProc)] = &[
             ("size_of", BuiltinProc::SizeOf),
             ("type_of", BuiltinProc::TypeOf),
+            ("code_of", BuiltinProc::CodeOf),
             ("type_info", BuiltinProc::TypeInfo),
             ("initializer_of", BuiltinProc::InitializerOf),
             ("is_constant", BuiltinProc::IsConstant),
@@ -582,27 +588,44 @@ impl Compiler {
             current = self.scope(sid).parent;
         }
         if found.is_empty() {
+            let mut current = Some(scope);
+            while let Some(sid) = current {
+                for fallback in self.scope(sid).fallbacks.clone() {
+                    if let Found::Entities(ids) = self.lookup_full(fallback, name)?
+                        && !ids.is_empty()
+                    {
+                        return Ok(Found::Entities(ids));
+                    }
+                }
+                current = self.scope(sid).parent;
+            }
             return self.lookup_sibling_file_imports(scope, name);
         }
         Ok(Found::Entities(found))
     }
 
-    /// Last resort for an unknown name: modules imported under `#scope_file` by the other
-    /// files of the same module (code such as focus relies on these being visible
-    /// module-wide). Only reached when nothing else binds the name.
+    /// Last resort for an unknown name: modules imported under `#scope_file` by the files
+    /// of the same module, including names a `using,only` import leaves out (code such as
+    /// focus relies on these being visible module-wide). Only reached when nothing else
+    /// binds the name.
     fn lookup_sibling_file_imports(&mut self, scope: ScopeId, name: Sym) -> Result<Found> {
         let module = self.scope(scope).module;
-        let file_scopes: Vec<ScopeId> = self
-            .files
-            .iter()
+        // The module scope too: imports outside `#scope_file` live there.
+        let module_scope = self.modules.get(module.0 as usize).map(|m| m.scope);
+        let file_scopes: Vec<ScopeId> = (self.files.iter())
             .filter(|f| f.module == module)
             .map(|f| f.scope)
+            .chain(module_scope)
             .collect();
         let mut found = Vec::new();
         for fs in file_scopes {
             for i in 0..self.scope(fs).imports.len() {
-                if !matches!(self.scope(fs).imports[i].filter, ast::UsingFilter::None) {
-                    continue;
+                // `using,only(a, b) #import "M"` keeps a and b in front of everything else,
+                // but code written against it (Epic_Fail) still reaches M's other names.
+                match &self.scope(fs).imports[i].filter {
+                    ast::UsingFilter::None | ast::UsingFilter::Only(_) => {}
+                    ast::UsingFilter::Except(names) if names.iter().all(|n| n.name != name) => {}
+                    _ => continue,
                 }
                 if let Some(m) = self.import_module(fs, i)? {
                     for id in self.module_exports(m, name)? {

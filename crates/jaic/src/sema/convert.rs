@@ -120,6 +120,14 @@ impl Compiler {
                 self.as_offset(*f, *t).map(|_| SUBTYPE)
             }
             (TypeKind::Null, TypeKind::Pointer(_) | TypeKind::Proc(_)) => Some(LITERAL),
+            // `E.loose` and `E` convert to each other (a node's `operator_type` passed as
+            // `Operator_Type`).
+            (TypeKind::Enum(a), TypeKind::Enum(b))
+                if self.types.enums[a.0 as usize].loose_of == Some(to)
+                    || self.types.enums[b.0 as usize].loose_of == Some(from) =>
+            {
+                Some(WIDEN)
+            }
             // Loose enums are integer-compatible.
             (
                 TypeKind::Enum(_),

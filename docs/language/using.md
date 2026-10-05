@@ -38,6 +38,8 @@ Both `Derived` and `New(Derived)` get `kind == .B` while `extra` keeps `Base`'s 
 - `using Type.{...};` in a procedure copies the literal into an anonymous local and uses it (`check_using`, `sema/stmt.rs`); it is writable, unlike the read-only literal data real Jai uses.
 - `using name := value;` at file scope registers the `using` for variables too, not only constants (`sema/modules.rs`).
 
+`using value;` on an enum-typed value (`using basket.tag;`) brings the enum's members in by bare name, so `case MANGO;` works in a switch over it (`check_using` in `sema/stmt.rs` treats it like `using` the type).
+
 ## How to change it
 
 Member lookup order lives in `find_member`; promoted members come after direct ones, so a direct member shadows a promoted one. Default overrides resolve through `override_target`/`override_path` and are applied when the default initializer is built (`default_initializer`). Gotcha: `using` is a declaration modifier, so `#as` must appear next to it (`using #as x` and `#as using x` both parse).

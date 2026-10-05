@@ -131,7 +131,7 @@ struct Workspace {
     events: VecDeque<Event>,
     failed: bool,
     /// `compiler_modify_procedure` calls not applied yet: (body record, statement records).
-    modifications: Vec<(i64, Vec<i64>)>,
+    modifications: Vec<(i64, Vec<crate::sema::ModifiedStmt>)>,
 }
 
 impl Workspace {
@@ -186,7 +186,7 @@ pub struct Workspaces {
     /// Record tags by `__jaic_rec_tag_id`.
     tags: Vec<&'static str>,
     /// Messages, syntax trees and types exported to metaprograms.
-    records: Records,
+    pub(crate) records: Records,
 }
 
 pub type SharedWorkspaces = Rc<RefCell<Workspaces>>;
@@ -488,7 +488,8 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
         modifications
             .iter()
             .try_for_each(|(body, stmts)| compiler.modify_procedure(&reg.records, *body, stmts))
-    };
+    }
+    .and_then(|()| compiler.relower_modified());
     let result = modified.and_then(|()| match stage {
         Stage::Open => compiler.begin_sources(&pending).map(|()| {
             events.push(phase(PHASE_ALL_SOURCE_CODE_PARSED));
@@ -684,6 +685,33 @@ pub fn call(
         args
     };
     let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+    // Primitives that only read the registry (or make records nobody else sees yet) leave a
+    // compile-time run repeatable; the rest are effects.
+    if !matches!(
+        op,
+        MetaOp::CurrentWorkspace
+            | MetaOp::EventInt
+            | MetaOp::EventString
+            | MetaOp::CommandLineCount
+            | MetaOp::CommandLineArg
+            | MetaOp::CompilerVersion
+            | MetaOp::CodeNodes
+            | MetaOp::ParseCode
+            | MetaOp::RecTag
+            | MetaOp::RecField
+            | MetaOp::RecInt
+            | MetaOp::RecString
+            | MetaOp::RecRef
+            | MetaOp::RecCount
+            | MetaOp::RecItemInt
+            | MetaOp::RecItemString
+            | MetaOp::RecItemRef
+            | MetaOp::RecTagId
+            | MetaOp::RecFill
+            | MetaOp::RecFillList
+    ) {
+        interp.effects += 1;
+    }
     let string = |interp: &Interp, i: usize| -> Vec<u8> {
         let p = arg(i);
         if p == 0 {
@@ -861,10 +889,29 @@ pub fn call(
             Ok(Vec::new())
         }
         MetaOp::CodeNodes => {
-            let Some((body, text)) = interp.codes.get(arg(0) as usize).cloned() else {
+            let code = arg(0) as usize;
+            let Some((body, text)) = interp.codes.get(code).cloned() else {
                 return Err(trap("compiler_get_nodes: not a Code value".into()));
             };
+            interp.nodes_codes.retain(|&c| c != code);
+            interp.nodes_codes.push(code);
             let mut reg = shared.borrow_mut();
+            let taken = interp.code_export_cursor.entry(code).or_default();
+            if let Some((root, nodes)) = interp.code_exports.get(&code).and_then(|e| e.get(*taken))
+            {
+                *taken += 1;
+                let mut result = crate::records::Record::new("Code_Nodes");
+                result
+                    .ptr("root", *root)
+                    .refs("expressions", nodes.iter().copied());
+                return Ok(vec![reg.records.add(result) as u64]);
+            }
+            // Names and types need the compiler: while nothing observable happened in this
+            // compile-time run, ask it to export the code and run again (`call_thunk`).
+            if interp.run_effects == Some(interp.effects) {
+                interp.export_request = Some(code);
+                return Err(trap("compiler_get_nodes: typed export requested".into()));
+            }
             let (root, nodes) =
                 crate::sema::code_export::export_code(&mut reg.records, &body, &text);
             let mut result = crate::records::Record::new("Code_Nodes");
@@ -886,9 +933,21 @@ pub fn call(
             Ok(vec![id as u64])
         }
         MetaOp::ModifyProcedure => {
-            let (id, body, data, count) = (arg(0) as i64, arg(1) as i64, arg(2), arg(3));
+            let (id, body, data, sources, count) =
+                (arg(0) as i64, arg(1) as i64, arg(2), arg(3), arg(4));
+            // A statement without a record (new, or edited in place) comes as source text.
             let stmts = (0..count)
-                .map(|i| interp.read_u64(data + i * 8) as i64)
+                .map(|i| match interp.read_u64(data + i * 8) as i64 {
+                    0 => {
+                        let at = sources + i * 16;
+                        let (len, ptr) = (interp.read_u64(at), interp.read_u64(at + 8));
+                        let bytes = interp.read(ptr, len as usize);
+                        crate::sema::ModifiedStmt::Source(
+                            String::from_utf8_lossy(&bytes).into_owned(),
+                        )
+                    }
+                    r => crate::sema::ModifiedStmt::Record(r),
+                })
                 .collect();
             let mut reg = shared.borrow_mut();
             reg.ws(id).map_err(trap)?.modifications.push((body, stmts));

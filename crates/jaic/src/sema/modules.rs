@@ -571,7 +571,7 @@ impl Compiler {
                         module: None,
                         loading: false,
                         from_scope: file_scope,
-                        filter: ast::UsingFilter::None,
+                        filter: import.using.clone().unwrap_or(ast::UsingFilter::None),
                     });
                 }
             }
@@ -747,6 +747,7 @@ impl Compiler {
             using: false,
             as_: false,
             backtick: false,
+            backtick_names: Vec::new(),
             align: None,
             flags: Vec::new(),
             notes: Vec::new(),
@@ -1152,6 +1153,7 @@ fn const_alias(name: ast::Ident, value: ast::Expr) -> Rc<ast::Decl> {
         using: false,
         as_: false,
         backtick: false,
+        backtick_names: Vec::new(),
         align: None,
         flags: Vec::new(),
         notes: Vec::new(),

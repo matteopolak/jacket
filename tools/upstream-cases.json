@@ -349,5 +349,17 @@
   {"id": "ttwj-33-33.6-window-creation-events-check", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/33/33.6_window_creation_events.jai", "mode": "check", "args": ["-os", "windows"]},
   {"id": "ttwj-33-33.2C-simp-window-check", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/33/33.2C_simp_window.jai", "mode": "check", "args": ["-os", "windows"]},
   {"id": "ttwj-50-50.1-guessing-game-windows-check", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/50/50.1_guessing_game_windows.jai", "mode": "check", "args": ["-os", "windows"]},
-  {"id": "ttwj-21-21.2-leak-detect-check", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/21/21.2_leak_detect.jai", "mode": "check"}
+  {"id": "ttwj-21-21.2-leak-detect-check", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/21/21.2_leak_detect.jai", "mode": "check"},
+  {"id": "match-jai-first", "path": "sjorsdonkers--match-jai/examples/first.jai", "mode": "run"},
+  {"id": "yield-jai-constant", "path": "sjorsdonkers--yield-jai/examples/constant.jai", "mode": "run"},
+  {"id": "yield-jai-defer", "path": "sjorsdonkers--yield-jai/examples/defer.jai", "mode": "run"},
+  {"id": "yield-jai-first", "path": "sjorsdonkers--yield-jai/examples/first.jai", "mode": "run"},
+  {"id": "yield-jai-if", "path": "sjorsdonkers--yield-jai/examples/if.jai", "mode": "run"},
+  {"id": "yield-jai-if-case", "path": "sjorsdonkers--yield-jai/examples/if_case.jai", "mode": "run"},
+  {"id": "yield-jai-while", "path": "sjorsdonkers--yield-jai/examples/while.jai", "mode": "run"},
+  {"id": "ast-utils-build", "path": "GufNZ--JaiModules-AST_Utils/examples/build.jai", "mode": "run", "args": ["-I", "../../_modules"]},
+  {"id": "ast-utils-tests", "path": "GufNZ--JaiModules-AST_Utils/examples/astTests.jai", "mode": "run"},
+  {"id": "shader-transpiler-build", "path": "PixelRifts--Jai-Shader-Transpiler/build.jai", "mode": "run"},
+  {"id": "jai-utils-closure", "path": "Stuart-Mouse--jai-utils/closure.jai", "mode": "run"},
+  {"id": "unotest", "path": "n00bmind--unotest/unotest.jai", "mode": "run"}
 ]

@@ -599,6 +599,9 @@ pub struct Decl {
     pub as_: bool,
     /// `` `x := ... `` declares into the macro caller's scope.
     pub backtick: bool,
+    /// Per name of a list, `` a, `b := ... ``: which ones go to the caller's scope (empty = all
+    /// follow `backtick`).
+    pub backtick_names: Vec<bool>,
     /// `#align N`
     pub align: Option<Expr>,
     /// `#elsewhere` / `#no_reset` / other trailing flags, kept by name.
@@ -809,6 +812,9 @@ pub enum StmtKind {
     },
     /// Empty statement (`;`).
     Empty,
+    /// A lone `case x; ...` as the body of `#code case ...` (yield-jai builds switches
+    /// from them); not valid as a statement.
+    Case(Rc<Case>),
 }
 
 #[derive(Clone, Debug)]

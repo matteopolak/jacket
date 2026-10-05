@@ -184,16 +184,15 @@ impl Compiler {
         let Some(value) = &decl.value else {
             return err(decl.span, "constant declaration needs a value");
         };
-        if decl.names.len() > 1 && index > 0 {
-            // `a, b :: f()` is unusual; evaluate the whole expression and pick by index.
-            return err(
-                decl.span,
-                "multiple constant names in one declaration are not supported",
-            );
-        }
+        let multiple = decl.names.len() > 1;
         match &value.kind {
+            // `a, b :: #run f();` takes one value each (below).
+            _ if multiple => {}
             ast::ExprKind::Proc(lit) => {
                 let proc = self.new_proc(name, lit.clone(), scope, value.span);
+                if !decl.notes.is_empty() {
+                    self.proc_decl_notes.insert(proc, decl.notes.clone());
+                }
                 return Ok(Resolved::Proc(proc));
             }
             ast::ExprKind::Lambda {
@@ -297,7 +296,29 @@ impl Compiler {
             Some(t) => Some(self.eval_type(scope, t)?),
             None => None,
         };
-        let op = self.eval_const(scope, value, expected)?;
+        let op = if multiple {
+            // Evaluated once for all the names.
+            // Per scope: a macro body's declaration is evaluated per expansion.
+            let values = match self.multi_consts.get(&(decl.id, scope)) {
+                Some(values) => values.clone(),
+                None => {
+                    let values = self.eval_const_all(scope, value)?;
+                    self.multi_consts.insert((decl.id, scope), values.clone());
+                    values
+                }
+            };
+            match values.get(index) {
+                Some(op) => op.clone(),
+                None => {
+                    return err(
+                        decl.span,
+                        format!("{} names but {} values", decl.names.len(), values.len()),
+                    );
+                }
+            }
+        } else {
+            self.eval_const(scope, value, expected)?
+        };
         match op {
             Operand::Type(t) => Ok(Resolved::Const {
                 value: Value::Type(t),
@@ -657,6 +678,34 @@ impl Compiler {
                 self.run_thunk(f, op, expr.span)
             }
             other => Ok(other),
+        }
+    }
+
+    /// Every value of a constant expression (`a, b :: #run f();`).
+    fn eval_const_all(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<Vec<Operand>> {
+        // `#run f()` keeps all of f's results, not only the first.
+        let expr = match &expr.kind {
+            ast::ExprKind::Run {
+                body, ..
+            } => match &**body {
+                ast::RunBody::Expr(e) => e,
+                ast::RunBody::Block(_) => expr,
+            },
+            _ => expr,
+        };
+        let file = self.scope_file(scope);
+        let mut f = self.thunk_ctx("const", file);
+        let scope = self.thunk_scope(scope);
+        let op = self.check_expr(&mut f, scope, expr, None)?;
+        match op {
+            Operand::Value {
+                ..
+            }
+            | Operand::Place {
+                ..
+            }
+            | Operand::Multi(_) => self.run_thunk_all(f, op, expr.span),
+            other => Ok(vec![other]),
         }
     }
 

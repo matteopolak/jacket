@@ -1199,10 +1199,20 @@ impl Compiler {
         // `.FIRST == x`: an inferred member on the left takes the right operand's type, so
         // the right side is checked first.
         let mut early_rhs = None;
+        let is_xx = |e: &ast::Expr| {
+            matches!(
+                e.kind,
+                E::Cast {
+                    ty: None,
+                    ..
+                }
+            )
+        };
         let mut lhs = if is_cmp
-            && matches!(a.kind, E::InferredMember(_))
+            && (matches!(a.kind, E::InferredMember(_)) || (is_xx(a) && !is_xx(b)))
             && !matches!(b.kind, E::InferredMember(_))
         {
+            // `xx err == GL_FALSE` casts to the other operand's type too.
             let r = self.check_expr(f, scope, b, None)?;
             let l = self.check_expr(f, scope, a, Some(r.ty()))?;
             early_rhs = Some(r);

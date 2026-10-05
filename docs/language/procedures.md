@@ -35,6 +35,8 @@ h(1), h(1.0)   // 1 2
 where :: (l := #caller_location) { print("%,% in %\n", l.line_number, l.character_number, l.fully_pathed_filename); }
 ```
 
+A `Code` parameter of a plain (non-macro) procedure takes any expression as code, as with macros: `convert :: (code: Code) -> string` called as `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3`, while an argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`; `tests/stdlib/modern-library-conversions.jai`).
+
 `#deprecated "msg"` and `#no_debug` are parsed as header flags (`flags.no_debug` is read in `sema/procs.rs` and `sema/code_export.rs`). A call to a `#deprecated` procedure compiles and runs; no warning was observed in `jaic run` output.
 
 `#discard` on a parameter: the argument is typechecked but never evaluated, and the procedure cannot name the parameter. `#must` on a result: discarding it is an error. Both are described in [must-and-discard.md](must-and-discard.md).

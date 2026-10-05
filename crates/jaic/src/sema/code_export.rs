@@ -10,7 +10,7 @@
 //! `compiler_modify_procedure` can map a modified statement list back.
 use super::scope::{EntityKind, Resolved, ScopeKind};
 use super::*;
-use crate::records::{Item, Record, Records};
+use crate::records::{Field, Item, Record, Records};
 use crate::types::{ArrayKind, TypeKind};
 
 /// Values of `Message.kind`.
@@ -41,9 +41,12 @@ mod node {
     pub const PROCEDURE_HEADER: i64 = 19;
     pub const STRUCT: i64 = 20;
     pub const DECLARATION: i64 = 25;
+    pub const COMMA_SEPARATED_ARGUMENTS: i64 = 21;
+    pub const COMPOUND_DECLARATION: i64 = 48;
     pub const CAST: i64 = 26;
     pub const DIRECTIVE_IMPORT: i64 = 27;
     pub const DIRECTIVE_RUN: i64 = 31;
+    pub const DIRECTIVE_EXISTS: i64 = 55;
     pub const DIRECTIVE_CODE: i64 = 32;
     pub const DIRECTIVE_LOCATION: i64 = 44;
     pub const NOTE: i64 = 40;
@@ -52,6 +55,15 @@ mod node {
     pub const PUSH_CONTEXT: i64 = 39;
     pub const PLACEHOLDER: i64 = 51;
     pub const DIRECTIVE_INSERT: i64 = 52;
+}
+
+/// A statement of a body given to `compiler_modify_procedure`.
+#[derive(Debug, Clone)]
+pub enum ModifiedStmt {
+    /// A statement the compiler exported, unchanged.
+    Record(i64),
+    /// A new or edited statement, printed by the metaprogram.
+    Source(String),
 }
 
 /// Exporter state kept by a workspace's compiler between messages.
@@ -74,6 +86,23 @@ pub struct ExportState {
     /// (procedure, header record, scope for type expressions). The body is reported
     /// in a later TYPECHECKED message, once lowered (like Jai, unused bodies never are).
     pending_bodies: Vec<(ProcId, i64, ScopeId)>,
+    /// Records of this compiler's own type descriptors (`__address`), by type.
+    own_types: HashMap<TypeId, i64>,
+    /// Modified procedures to lower again (`relower_modified`).
+    relower: Vec<ProcId>,
+    /// The header record of each procedure (shared by `resolved_procedure_expression` and
+    /// reported headers), by procedure and whether it is for this compiler's own
+    /// compile-time code (`Exporter::own`: those types carry real descriptors).
+    resolved_headers: HashMap<(ProcId, bool), i64>,
+    /// Declarations made for `resolved_declaration` of names outside the exported tree.
+    resolved_decls: HashMap<EntityId, i64>,
+}
+
+impl ExportState {
+    /// Procedures whose header was reported and whose body is still waiting.
+    pub fn pending_procs(&self) -> impl Iterator<Item = ProcId> + '_ {
+        self.pending_bodies.iter().map(|&(p, _, _)| p)
+    }
 }
 
 /// A FILE or IMPORT message: (event kind, message record).
@@ -217,6 +246,9 @@ impl Compiler {
                 r,
                 scope,
                 sub: Vec::new(),
+                locals: Vec::new(),
+                compound_members: Vec::new(),
+                own: false,
                 out: &mut out,
             };
             let body_id = ex.body(body, header_id, Some(p));
@@ -244,6 +276,9 @@ impl Compiler {
                     r,
                     scope: home,
                     sub: Vec::new(),
+                    locals: Vec::new(),
+                    compound_members: Vec::new(),
+                    own: false,
                     out: &mut out,
                 };
                 let rec = ex.global_decl(&decl, index, &resolved);
@@ -283,11 +318,54 @@ impl Compiler {
         Some(r.add(message))
     }
 
+    /// Export `Code` value `code` with resolved names and types for `compiler_get_nodes`
+    /// (asked for by the interpreter, see `call_thunk`). The registry's records are taken
+    /// out meanwhile, as resolving declarations may run compile-time code.
+    pub fn export_code_typed(&mut self, code: usize) {
+        self.adopt_made_codes();
+        // `code_of(f)`: f's locals have types once its body is lowered.
+        if let Some(&p) = self.code_procs.get(&code)
+            && !self.proc(p).is_poly
+            && !self.proc(p).is_macro
+            && self.proc_func(p, self.proc(p).span).is_ok()
+            && self.proc(p).body_state == procs::BodyState::Queued
+        {
+            let _ = self.lower_with_callees(p);
+        }
+        let Some(shared) = self.interp.workspaces.clone() else {
+            return;
+        };
+        let (Some(body), Some(&scope), Some((_, text))) = (
+            self.codes.get(code).cloned(),
+            self.code_scopes.get(code),
+            self.interp.codes.get(code).cloned(),
+        ) else {
+            return;
+        };
+        // No further requests while exporting: nested compile-time code gets plain nodes.
+        let outer = self.interp.run_effects.take();
+        let mut records = std::mem::take(&mut shared.borrow_mut().records);
+        let exported = export_code_in(Some(self), scope, &mut records, &body, &text);
+        let added = std::mem::replace(&mut shared.borrow_mut().records, records);
+        debug_assert!(added.is_empty());
+        self.interp.run_effects = outer;
+        self.interp
+            .code_exports
+            .entry(code)
+            .or_default()
+            .push(exported);
+    }
+
     /// `compiler_modify_procedure`: give the procedure of body record `body`
     /// the statements `stmts` (statement records exported from this
     /// workspace, or `#code` roots from `compiler_get_nodes`, parsed again
     /// here). A body already lowered is lowered again.
-    pub fn modify_procedure(&mut self, r: &Records, body: i64, stmts: &[i64]) -> Result<()> {
+    pub fn modify_procedure(
+        &mut self,
+        r: &Records,
+        body: i64,
+        stmts: &[ModifiedStmt],
+    ) -> Result<()> {
         // Bodies of procedure literals without a procedure of their own (nested
         // in other bodies) cannot be modified; they keep their code.
         let Some(&p) = self.export.bodies.get(&body) else {
@@ -301,7 +379,14 @@ impl Compiler {
             return Ok(());
         };
         let mut new_stmts = Vec::new();
-        for &id in stmts {
+        for stmt in stmts {
+            let id = match stmt {
+                ModifiedStmt::Record(id) => *id,
+                ModifiedStmt::Source(text) => {
+                    new_stmts.extend(self.parse_inserted_code(text)?);
+                    continue;
+                }
+            };
             if let Some(stmt) = self.export.stmts.get(&id) {
                 new_stmts.push((**stmt).clone());
                 continue;
@@ -325,6 +410,16 @@ impl Compiler {
         };
         self.procs[p.0 as usize].lit = Rc::new(lit);
         if self.proc(p).body_state == procs::BodyState::Done {
+            self.export.relower.push(p);
+        }
+        Ok(())
+    }
+
+    /// Lower again the bodies `modify_procedure` replaced after they were lowered. Separate,
+    /// so the caller can release the registry first: the new bodies may run compile-time
+    /// code that uses it.
+    pub fn relower_modified(&mut self) -> Result<()> {
+        for p in std::mem::take(&mut self.export.relower) {
             self.lower_body(p)?;
         }
         Ok(())
@@ -584,6 +679,15 @@ pub(super) struct Exporter<'a> {
     scope: ScopeId,
     /// Every node record made for the current top-level item.
     sub: Vec<i64>,
+    /// Declaration records in scope inside the tree being exported (parameters and
+    /// earlier local declarations, innermost last): what an identifier resolves to first.
+    locals: Vec<(Sym, i64)>,
+    /// The records are for this compiler's own compile-time code (`compiler_get_nodes`):
+    /// types refer to its real descriptors.
+    own: bool,
+    /// The name declarations of the compound declaration just exported, for the block's
+    /// `members`.
+    compound_members: Vec<i64>,
     out: &'a mut Typechecked,
 }
 
@@ -673,10 +777,28 @@ impl Exporter<'_> {
     }
 
     fn ty(&mut self, ty: TypeId) -> i64 {
-        match self.c.as_deref_mut() {
-            Some(c) => c.type_record(self.r, ty),
-            None => 0,
+        let Some(c) = self.c.as_deref_mut() else {
+            return 0;
+        };
+        if self.own {
+            // Read by this compiler's own compile-time code: its real type descriptor, so
+            // `get_type` gives back a `Type` the compiler knows.
+            if let Some(&id) = c.export.own_types.get(&ty) {
+                return id;
+            }
+            let addr = c
+                .type_info_global(ty, Span::default())
+                .ok()
+                .and_then(|g| c.interp.global_addr(&c.program, g).ok());
+            if let Some(addr) = addr {
+                let mut rec = Record::new("Type_Info");
+                rec.int("__address", addr as i64);
+                let id = self.r.add(rec);
+                c.export.own_types.insert(ty, id);
+                return id;
+            }
         }
+        c.type_record(self.r, ty)
     }
 
     fn notes(&mut self, notes: &[&ast::Note]) -> Vec<i64> {
@@ -693,7 +815,208 @@ impl Exporter<'_> {
     fn ident(&mut self, name: Sym, span: Span) -> i64 {
         let mut rec = self.node("Code_Ident", node::IDENT, span);
         rec.str("name", name.as_str().as_bytes());
+        if let Some(decl) = self.resolve_name(name) {
+            rec.ptr("resolved_declaration", decl);
+            if let Some(Field::Item(Item::Ref(ty))) = self.r.field(decl, "type") {
+                rec.ptr("type", *ty);
+            }
+        }
         self.add(rec)
+    }
+
+    /// The declaration record `name` refers to here: a parameter or local of the tree being
+    /// exported, else what the scope's lookup finds (a declaration made for it once).
+    fn resolve_name(&mut self, name: Sym) -> Option<i64> {
+        if let Some(&(_, decl)) = self.locals.iter().rev().find(|(n, _)| *n == name) {
+            return Some(decl);
+        }
+        let scope = self.scope;
+        let c = self.c.as_deref_mut()?;
+        let id = *c.lookup(scope, name).ok()?.first()?;
+        if let Some(&decl) = c.export.resolved_decls.get(&id) {
+            return Some(decl);
+        }
+        let entity = c.entity(id);
+        let span = entity.span;
+        let (ty, header, flags) = match entity.kind.clone() {
+            EntityKind::Local {
+                ty, ..
+            } => (Some(ty), None, 0),
+            // Builtin procedures (`size_of`, `type_of`...) have no declaration.
+            EntityKind::Builtin(_) => return None,
+            _ => match c.resolve_entity(id).ok()? {
+                Resolved::Proc(p)
+                | Resolved::Const {
+                    value: Value::Proc(p),
+                    ..
+                } => {
+                    let ty = c.signature(p, span).ok().map(|s| s.ty);
+                    (ty, Some(p), 0x1 | 0x10_0000)
+                }
+                Resolved::ProcSet(ps) => (None, ps.first().copied(), 0x1 | 0x10_0000),
+                Resolved::Const {
+                    ty, ..
+                } => (Some(ty), None, 0x1 | 0x10_0000),
+                Resolved::Global {
+                    ty, ..
+                } => (Some(ty), None, 0x10_0000),
+                Resolved::PolyStruct(_) => (Some(TypeId::TYPE), None, 0x1 | 0x10_0000),
+                Resolved::Module(_) | Resolved::Library(_) => (None, None, 0x1 | 0x10_0000),
+            },
+        };
+        let expression = header.map_or(0, |p| self.resolved_header(p));
+        let decl = self.reference_decl(name, ty, expression, flags, span);
+        self.c
+            .as_deref_mut()?
+            .export
+            .resolved_decls
+            .insert(id, decl);
+        Some(decl)
+    }
+
+    /// A `Code_Declaration` that only describes a name (type, value) for resolution: not part
+    /// of the tree being exported, so not in `sub`.
+    fn reference_decl(
+        &mut self,
+        name: Sym,
+        ty: Option<TypeId>,
+        expression: i64,
+        flags: i64,
+        span: Span,
+    ) -> i64 {
+        let ty = ty.map_or(0, |t| self.ty(t));
+        let mut inst = self.node("Code_Type_Instantiation", node::TYPE_INSTANTIATION, span);
+        inst.ptr("result", ty).ptr("type", ty);
+        let inst = self.r.add(inst);
+        let mut rec = self.node("Code_Declaration", node::DECLARATION, span);
+        rec.str("name", name.as_str().as_bytes())
+            .ptr("type", ty)
+            .ptr(
+                "type_inst",
+                if ty != 0 {
+                    inst
+                } else {
+                    0
+                },
+            )
+            .ptr("expression", expression)
+            .int("flags", flags);
+        let id = self.r.reserve(rec.tag);
+        rec.int("serial", id);
+        *self.r.get_mut(id).unwrap() = rec;
+        id
+    }
+
+    /// The header `resolved_procedure_expression` points to: name, typed arguments and
+    /// returns, flags. Made once per procedure; no body.
+    fn resolved_header(&mut self, p: ProcId) -> i64 {
+        let own = self.own;
+        let Some(c) = self.c.as_deref_mut() else {
+            return 0;
+        };
+        if let Some(&h) = c.export.resolved_headers.get(&(p, own)) {
+            return h;
+        }
+        let id = self.r.reserve("Code_Procedure_Header");
+        c.export.resolved_headers.insert((p, own), id);
+        let info = c.proc(p);
+        let (name, lit, span, is_poly) = (info.name, info.lit.clone(), info.span, info.is_poly);
+        let sig = if is_poly {
+            None
+        } else {
+            c.signature(p, span).ok()
+        };
+        let h = &lit.header;
+        let mut arguments = Vec::new();
+        for (i, param) in h.params.iter().enumerate() {
+            let ty = sig.as_ref().and_then(|s| s.params.get(i)).map(|p| p.ty);
+            let name = param.name.map_or(Sym::intern(""), |n| n.name);
+            arguments.push(self.reference_decl(name, ty, 0, 0, param.span));
+        }
+        let mut returns = Vec::new();
+        for (i, ret) in h.returns.iter().enumerate() {
+            let ty = sig.as_ref().and_then(|s| s.returns.get(i)).copied();
+            let name = ret.name.map_or(Sym::intern(""), |n| n.name);
+            returns.push(self.reference_decl(name, ty, 0, 0, ret.span));
+        }
+        let mut flags = 0;
+        if h.flags.elsewhere.is_some() {
+            flags |= 0x1;
+        }
+        if is_poly {
+            flags |= 0x4;
+        }
+        if h.flags.c_call {
+            flags |= 0x20;
+        }
+        if h.flags.expand {
+            flags |= 0x4000;
+        }
+        let ty = sig.as_ref().map_or(0, |s| self.ty(s.ty));
+        // Checkers such as MetaThreadSafe read the callee's notes (`@thread`).
+        let decl_notes = (self.c.as_deref())
+            .and_then(|c| c.proc_decl_notes.get(&p).cloned())
+            .unwrap_or_default();
+        let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
+        for n in &decl_notes {
+            if !notes.iter().any(|m| m.span == n.span) {
+                notes.push(n);
+            }
+        }
+        let notes = self.notes(&notes);
+        let mut rec = self.node("Code_Procedure_Header", node::PROCEDURE_HEADER, span);
+        rec.refs("arguments", arguments)
+            .refs("returns", returns)
+            .refs("notes", notes)
+            .str("name", name.as_str().as_bytes())
+            .ptr("type", ty)
+            .int("procedure_flags", flags)
+            .int("serial", id);
+        *self.r.get_mut(id).unwrap() = rec;
+        id
+    }
+
+    /// The procedure a call to `callee` with `args` resolves to: the one candidate, or the
+    /// first whose parameter count fits the arguments.
+    fn resolve_call(&mut self, callee: &ast::Expr, args: usize) -> Option<ProcId> {
+        let ast::ExprKind::Ident(name) = &callee.kind else {
+            return None;
+        };
+        let name = *name;
+        if self.locals.iter().any(|(n, _)| *n == name) {
+            return None;
+        }
+        let scope = self.scope;
+        let c = self.c.as_deref_mut()?;
+        let mut procs = Vec::new();
+        for id in c.lookup(scope, name).ok()? {
+            if matches!(c.entity(id).kind, EntityKind::Builtin(_)) {
+                continue;
+            }
+            match c.resolve_entity(id) {
+                Ok(
+                    Resolved::Proc(p)
+                    | Resolved::Const {
+                        value: Value::Proc(p),
+                        ..
+                    },
+                ) => procs.push(p),
+                Ok(Resolved::ProcSet(ps)) => procs.extend(ps),
+                _ => {}
+            }
+        }
+        if procs.len() <= 1 {
+            return procs.first().copied();
+        }
+        procs.into_iter().find(|&p| {
+            let params = &c.proc(p).lit.header.params;
+            let required = params
+                .iter()
+                .filter(|p| p.default.is_none() && !p.variadic)
+                .count();
+            let variadic = params.iter().any(|p| p.variadic);
+            args >= required && (variadic || args <= params.len())
+        })
     }
 
     /// A `Code_Type_Instantiation` for a type expression, with its resolved type when it has one.
@@ -774,6 +1097,25 @@ impl Exporter<'_> {
                     .ptr("right", b);
                 rec
             }
+            // Jai folds a negated number literal into one literal (`#code case -1` is a
+            // Code_Literal whose `_s64` metaprograms overwrite).
+            E::Unary(ast::UnOp::Neg, a) if matches!(a.kind, E::Int(_) | E::Float(_)) => {
+                match &a.kind {
+                    E::Int(v) => {
+                        let mut rec = self.literal(span, 1);
+                        rec.int("_s64", (*v as i64).wrapping_neg())
+                            .int("value_flags", 0x1);
+                        rec
+                    }
+                    E::Float(v) => {
+                        let mut rec = self.literal(span, 1);
+                        rec.int("_float64", (-v).to_bits() as i64)
+                            .int("value_flags", 0x1 | 0x4);
+                        rec
+                    }
+                    _ => unreachable!(),
+                }
+            }
             E::Unary(op, a) => {
                 let a = self.expr(a);
                 let op = match op {
@@ -813,12 +1155,27 @@ impl Exporter<'_> {
                 args,
                 ..
             } => {
+                let resolved = self.resolve_call(callee, args.len());
                 let callee = self.expr(callee);
                 let (unsorted, sorted) = self.args(args);
                 let mut rec = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
                 rec.ptr("procedure_expression", callee)
                     .refs("arguments_unsorted", unsorted)
                     .refs("arguments_sorted", sorted);
+                if let Some(p) = resolved {
+                    let header = self.resolved_header(p);
+                    rec.ptr("resolved_procedure_expression", header);
+                    // The call's type: its first return.
+                    let first = match self.r.item(header, "returns", Some(0)) {
+                        Some(Item::Ref(ret)) => Some(*ret),
+                        _ => None,
+                    };
+                    if let Some(Field::Item(Item::Ref(ty))) =
+                        first.and_then(|ret| self.r.field(ret, "type"))
+                    {
+                        rec.ptr("type", *ty);
+                    }
+                }
                 rec
             }
             E::Cast {
@@ -868,7 +1225,28 @@ impl Exporter<'_> {
                 fields,
             } => {
                 let ty = ty.as_ref().map_or(0, |t| self.type_inst(t));
-                let (_, values) = self.args(fields);
+                // `name = value` fields are `=` binary operators, as in Jai.
+                let mut values = Vec::new();
+                for field in fields {
+                    let value = self.expr(&field.value);
+                    let target = match (&field.name, &field.target) {
+                        (Some(n), _) => self.ident(n.name, n.span),
+                        (None, Some(t)) => self.expr(t),
+                        (None, None) => {
+                            values.push(value);
+                            continue;
+                        }
+                    };
+                    let mut rec = self.node(
+                        "Code_Binary_Operator",
+                        node::BINARY_OPERATOR,
+                        field.value.span,
+                    );
+                    rec.int("operator_type", i64::from(b'='))
+                        .ptr("left", target)
+                        .ptr("right", value);
+                    values.push(self.add(rec));
+                }
                 let mut info = Record::new("Code_Struct_Literal_Info");
                 info.ptr("type_expression", ty).refs("arguments", values);
                 let info = self.r.add(info);
@@ -924,6 +1302,14 @@ impl Exporter<'_> {
             E::Code(body) => {
                 let expr = match &**body {
                     ast::CodeBody::Expr(e) => self.expr(e),
+                    // `#code if x == {...}`: a brace-less statement is its own node (its
+                    // block has the statement's span).
+                    ast::CodeBody::Block(b) if b.stmts.len() == 1 && b.span == b.stmts[0].span => {
+                        match self.stmt(&b.stmts[0]) {
+                            Some(id) => id,
+                            None => self.block(&b.stmts, 1, b.span),
+                        }
+                    }
                     ast::CodeBody::Block(b) => self.block(&b.stmts, 1, b.span),
                 };
                 let mut rec = self.node("Code_Directive_Code", node::DIRECTIVE_CODE, span);
@@ -949,10 +1335,55 @@ impl Exporter<'_> {
                 rec.int("is_caller_location", 1);
                 rec
             }
-            E::Backtick(e) => return self.expr(e),
+            E::Backtick(e) => {
+                let id = self.expr(e);
+                if matches!(e.kind, E::Ident(_))
+                    && let Some(rec) = self.r.get_mut(id)
+                {
+                    rec.set("flags", Field::Item(Item::Int(0x40))); // HAS_SCOPE_MODIFIER
+                }
+                return id;
+            }
+            E::Exists(query) => {
+                let query = self.expr(query);
+                let mut rec = self.node("Code_Directive_Exists", node::DIRECTIVE_EXISTS, span);
+                rec.ptr("query_expression", query);
+                rec
+            }
             _ => self.node("Code_Node", node::PLACEHOLDER, span),
         };
+        let mut rec = rec;
+        // Typechecked expressions carry their type (Epic_Fail compares operand types).
+        if rec.field("type").is_none()
+            && matches!(
+                e.kind,
+                E::Binary(..)
+                    | E::Unary(..)
+                    | E::Int(_)
+                    | E::Float(_)
+                    | E::Str(_)
+                    | E::Char(_)
+                    | E::Bool(_)
+                    | E::Index(..)
+                    | E::Member(..)
+                    | E::Cast { .. }
+            )
+            && let Some(ty) = self.expr_type(e)
+        {
+            let ty = self.ty(ty);
+            if ty != 0 {
+                rec.ptr("type", ty);
+            }
+        }
         self.add(rec)
+    }
+
+    /// The type `e` checks to in the exported code's scope, when it checks there.
+    fn expr_type(&mut self, e: &ast::Expr) -> Option<TypeId> {
+        let scope = self.scope;
+        let c = self.c.as_deref_mut()?;
+        let ty = c.check_expr_no_emit(scope, e).ok()?.ty();
+        (ty != TypeId::COMPILE_TIME).then_some(ty)
     }
 
     /// `Code_Argument` records and the argument values.
@@ -979,14 +1410,26 @@ impl Exporter<'_> {
     }
 
     fn block(&mut self, stmts: &[ast::Stmt], block_type: i64, span: Span) -> i64 {
+        let locals = self.locals.len();
+        let id = self.block_inner(stmts, block_type, span);
+        self.locals.truncate(locals);
+        id
+    }
+
+    fn block_inner(&mut self, stmts: &[ast::Stmt], block_type: i64, span: Span) -> i64 {
         let mut statements = Vec::new();
         let mut members = Vec::new();
         for s in stmts {
             let Some(id) = self.stmt(s) else {
                 continue;
             };
-            if matches!(s.kind, ast::StmtKind::Decl(_)) {
-                members.push(id);
+            if let ast::StmtKind::Decl(d) = &s.kind {
+                // A block's members are declarations: each name of `a, b := f()`.
+                if d.names.len() > 1 {
+                    members.append(&mut self.compound_members);
+                } else {
+                    members.push(id);
+                }
             }
             statements.push(id);
         }
@@ -1108,9 +1551,10 @@ impl Exporter<'_> {
                 backtick,
             } => {
                 let (unsorted, sorted) = self.args(values);
+                // Jai leaves a return's `arguments_sorted` empty (yield-jai checks).
+                let _ = sorted;
                 let mut rec = self.node("Code_Return", node::RETURN, span);
                 rec.refs("arguments_unsorted", unsorted)
-                    .refs("arguments_sorted", sorted)
                     .int("return_flags", *backtick as i64);
                 self.add(rec)
             }
@@ -1153,7 +1597,25 @@ impl Exporter<'_> {
             S::Run(e) => {
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
                 let e = self.expr(e);
-                rec.ptr("procedure", 0).ptr("__expression", e);
+                rec.ptr("expression", e);
+                self.add(rec)
+            }
+            S::Case(case) => self.case(case),
+            S::Assert {
+                cond,
+                message,
+            } => {
+                let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
+                let text = self
+                    .c
+                    .as_deref()
+                    .map_or(String::new(), |c| c.sources.snippet(cond.span).to_string());
+                let cond = self.expr(cond);
+                let message = self.opt_expr(message.as_ref());
+                rec.int("flags", 0x1) // ASSERTION
+                    .str("assertion_string", text.as_bytes())
+                    .ptr("expression", cond)
+                    .ptr("message", message);
                 self.add(rec)
             }
             S::Import(import) => {
@@ -1175,18 +1637,19 @@ impl Exporter<'_> {
         Some(id)
     }
 
+    fn case(&mut self, case: &ast::Case) -> i64 {
+        let cond = case.values.first().map_or(0, |v| self.expr(v));
+        let then_block = self.block(&case.body, 1, case.span);
+        let mut rec = self.node("Code_Case", node::CASE, case.span);
+        rec.ptr("condition", cond)
+            .ptr("then_block", then_block)
+            .int("marked_as_fallthrough", case.through as i64);
+        self.add(rec)
+    }
+
     fn switch(&mut self, value: &ast::Expr, cases: &[ast::Case], flags: i64, span: Span) -> i64 {
         let value = self.expr(value);
-        let mut case_ids = Vec::new();
-        for case in cases {
-            let cond = case.values.first().map_or(0, |v| self.expr(v));
-            let then_block = self.block(&case.body, 1, case.span);
-            let mut rec = self.node("Code_Case", node::CASE, case.span);
-            rec.ptr("condition", cond)
-                .ptr("then_block", then_block)
-                .int("marked_as_fallthrough", case.through as i64);
-            case_ids.push(self.add(rec));
-        }
+        let case_ids = cases.iter().map(|case| self.case(case)).collect::<Vec<_>>();
         let mut block = self.node("Code_Block", node::BLOCK, span);
         block.int("block_type", 1).refs("statements", case_ids);
         let block = self.add(block);
@@ -1199,12 +1662,106 @@ impl Exporter<'_> {
 
     /// A declaration inside a body or struct, with its type once the body was lowered.
     fn local_decl(&mut self, d: &ast::Decl) -> i64 {
+        if d.names.len() > 1 {
+            return self.compound_decl(d);
+        }
         let name = d.names.first().map_or(Sym::intern(""), |n| n.name);
         let ty = self
             .c
             .as_deref()
-            .and_then(|c| c.local_decl_types.get(&d.id).copied());
-        self.decl(d, name, ty, None, true)
+            .and_then(|c| c.local_decl_types.get(&(d.id, 0)).copied());
+        let rec = self.decl(d, name, ty, None, true);
+        // `x := value`: the value has the declared type (its own typing may not see locals).
+        if d.ty.is_none()
+            && let Some(Field::Item(Item::Ref(ty))) = self.r.field(rec, "type").cloned()
+            && let Some(Field::Item(Item::Ref(value))) = self.r.field(rec, "expression").cloned()
+            && value != 0
+            && let Some(value) = self.r.get_mut(value)
+            && value
+                .field("type")
+                .is_none_or(|t| matches!(t, Field::Item(Item::Ref(0))))
+        {
+            value.ptr("type", ty);
+        }
+        for n in &d.names {
+            self.locals.push((n.name, rec));
+        }
+        rec
+    }
+
+    /// `a, b := f();` / `a, b: int = 1, 2;` / `a=, b := f();`: the names (declarations, or
+    /// identifiers for `=` targets) in `comma_separated_assignment`, the shared type and
+    /// values in a nameless `declaration_properties`.
+    fn compound_decl(&mut self, d: &ast::Decl) -> i64 {
+        let values = if d.extra_values.is_empty() {
+            None
+        } else {
+            let mut ids = Vec::new();
+            for v in d.value.iter().chain(&d.extra_values) {
+                let node = self.expr(v);
+                let mut a = Record::new("Code_Comma_Separated_Argument");
+                a.ptr("node", node);
+                ids.push(self.r.add(a));
+            }
+            let mut rec = self.node(
+                "Code_Comma_Separated_Arguments",
+                node::COMMA_SEPARATED_ARGUMENTS,
+                d.span,
+            );
+            rec.refs("arguments", ids);
+            Some(self.add(rec))
+        };
+        // Before the names are in scope: the values may mention variables they shadow.
+        let properties = self.decl(d, Sym::intern(""), None, values, false);
+        let mut arguments = Vec::new();
+        let mut declared = Vec::new();
+        for (i, n) in d.names.iter().enumerate() {
+            let assign = d.existing.get(i).copied().unwrap_or(false);
+            let target = if assign {
+                self.ident(n.name, n.span)
+            } else {
+                let ty = self
+                    .c
+                    .as_deref()
+                    .and_then(|c| c.local_decl_types.get(&(d.id, i)).copied())
+                    .map_or(0, |t| self.ty(t));
+                let mut rec = self.node("Code_Declaration", node::DECLARATION, n.span);
+                rec.str("name", n.name.as_str().as_bytes())
+                    .ptr("type", ty)
+                    .int("flags", i64::from(d.kind == ast::DeclKind::Const));
+                let id = self.add(rec);
+                declared.push((n.name, id));
+                id
+            };
+            let mut a = Record::new("Code_Comma_Separated_Argument");
+            a.ptr("node", target).int(
+                "modifier",
+                if assign {
+                    2
+                } else {
+                    1
+                },
+            );
+            arguments.push(self.r.add(a));
+        }
+        self.compound_members = declared.iter().map(|&(_, id)| id).collect();
+        self.locals.extend(declared);
+        let mut names = self.node(
+            "Code_Comma_Separated_Arguments",
+            node::COMMA_SEPARATED_ARGUMENTS,
+            d.span,
+        );
+        names.refs("arguments", arguments);
+        let names = self.add(names);
+        let mut rec = self.node(
+            "Code_Compound_Declaration",
+            node::COMPOUND_DECLARATION,
+            d.span,
+        );
+        rec.ptr("comma_separated_assignment", names)
+            .ptr("declaration_properties", properties)
+            .int("node_flags", 0x4);
+        self.add(rec)
     }
 
     fn decl(
@@ -1237,6 +1794,14 @@ impl Exporter<'_> {
         }
         if matches!(&d.value, Some(v) if matches!(v.kind, ast::ExprKind::Uninit)) {
             flags |= 0x80;
+        }
+        let backticked = d.backtick
+            || d.names
+                .iter()
+                .zip(&d.backtick_names)
+                .any(|(n, &b)| b && n.name == name);
+        if backticked {
+            flags |= 0x200000; // HAS_SCOPE_MODIFIER
         }
         let ty = ty.map_or(0, |t| self.ty(t));
         let mut rec = self.node("Code_Declaration", node::DECLARATION, d.span);
@@ -1357,7 +1922,30 @@ impl Exporter<'_> {
 
     /// A `Code_Procedure_Body` record for `body`, belonging to header record `header_id`.
     fn body(&mut self, body: &ast::Block, header_id: i64, proc: Option<ProcId>) -> i64 {
+        // The header's arguments and named returns are in scope in the body.
+        let locals = self.locals.len();
+        for list in ["arguments", "returns"] {
+            let Some(Field::List(items)) = self.r.field(header_id, list) else {
+                continue;
+            };
+            let decls: Vec<i64> = items
+                .iter()
+                .filter_map(|i| match i {
+                    Item::Ref(d) => Some(*d),
+                    _ => None,
+                })
+                .collect();
+            for d in decls {
+                if let Some(Field::Item(Item::Str(name))) = self.r.field(d, "name")
+                    && !name.is_empty()
+                {
+                    let name = Sym::intern(&String::from_utf8_lossy(name));
+                    self.locals.push((name, d));
+                }
+            }
+        }
         let block = self.block(&body.stmts, 1, body.span);
+        self.locals.truncate(locals);
         let mut rec = self.node("Code_Procedure_Body", node::PROCEDURE_BODY, body.span);
         rec.ptr("block", block).ptr("header", header_id);
         let body_id = self.add(rec);
@@ -1380,6 +1968,7 @@ impl Exporter<'_> {
         let h = &lit.header;
         let sig = resolved.as_ref().and_then(|(_, s)| s.clone());
         let mut arguments = Vec::new();
+        let mut usings = Vec::new();
         for (i, param) in h.params.iter().enumerate() {
             let ty = sig.as_ref().and_then(|s| s.params.get(i)).map(|p| p.ty);
             let decl = ast::Decl {
@@ -1394,6 +1983,7 @@ impl Exporter<'_> {
                 using_filter: None,
                 as_: false,
                 backtick: false,
+                backtick_names: Vec::new(),
                 align: None,
                 flags: Vec::new(),
                 foreign: None,
@@ -1402,7 +1992,19 @@ impl Exporter<'_> {
                 span: param.span,
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
-            arguments.push(self.decl(&decl, name, ty, None, false));
+            let arg = self.decl(&decl, name, ty, None, false);
+            arguments.push(arg);
+            // `using p: T` parameters are listed again as `Code_Using` of the parameter.
+            if param.using {
+                let mut ident = self.node("Code_Ident", node::IDENT, param.span);
+                ident
+                    .str("name", name.as_str().as_bytes())
+                    .ptr("resolved_declaration", arg);
+                let ident = self.add(ident);
+                let mut using = self.node("Code_Using", node::USING, param.span);
+                using.ptr("expression", ident);
+                usings.push(self.add(using));
+            }
         }
         let mut returns = Vec::new();
         for (i, ret) in h.returns.iter().enumerate() {
@@ -1419,6 +2021,7 @@ impl Exporter<'_> {
                 using_filter: None,
                 as_: false,
                 backtick: false,
+                backtick_names: Vec::new(),
                 align: None,
                 flags: Vec::new(),
                 foreign: None,
@@ -1485,7 +2088,17 @@ impl Exporter<'_> {
             ast::CallHintFlag::NoInline => flags |= 0x200_0000,
             ast::CallHintFlag::None => {}
         }
-        let header_id = self.r.reserve("Code_Procedure_Header");
+        // One header record per procedure: calls that resolved to it before it was reported
+        // (`resolved_header`) and later ones see the reported header, body included.
+        let known = match (&resolved, self.c.as_deref()) {
+            (Some((p, _)), Some(c)) => c.export.resolved_headers.get(&(*p, self.own)).copied(),
+            _ => None,
+        };
+        let header_id = known.unwrap_or_else(|| self.r.reserve("Code_Procedure_Header"));
+        let own = self.own;
+        if let (Some((p, _)), Some(c)) = (&resolved, self.c.as_deref_mut()) {
+            c.export.resolved_headers.insert((*p, own), header_id);
+        }
         let mut body_id = 0;
         // A procedure's body is reported once it is lowered; until then only its header.
         let deferred = match (&resolved, self.c.as_deref()) {
@@ -1517,6 +2130,7 @@ impl Exporter<'_> {
             .unwrap_or("");
         let ty = sig.as_ref().map_or(0, |s| self.ty(s.ty));
         rec.refs("arguments", arguments)
+            .refs("parameter_usings", usings)
             .refs("returns", returns)
             .str("name", name.as_bytes())
             .str("foreign_function_name", &foreign_name)
@@ -1540,12 +2154,28 @@ impl Exporter<'_> {
 /// the root node (`__source` holds the code's text, so the target compiler
 /// can parse it again when the node is inserted) and every node below it.
 pub fn export_code(r: &mut Records, body: &ast::CodeBody, source: &str) -> (i64, Vec<i64>) {
+    export_code_in(None, ScopeId(0), r, body, source)
+}
+
+/// `export_code`, with names resolved and types filled in by `c` when given: identifiers
+/// get `resolved_declaration`, calls `resolved_procedure_expression`, both `type`.
+fn export_code_in(
+    c: Option<&mut Compiler>,
+    scope: ScopeId,
+    r: &mut Records,
+    body: &ast::CodeBody,
+    source: &str,
+) -> (i64, Vec<i64>) {
     let mut out = Typechecked::default();
+    let own = c.is_some();
     let mut ex = Exporter {
-        c: None,
+        c,
         r,
-        scope: ScopeId(0),
+        scope,
         sub: Vec::new(),
+        locals: Vec::new(),
+        compound_members: Vec::new(),
+        own,
         out: &mut out,
     };
     let root = match body {

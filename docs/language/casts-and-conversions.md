@@ -24,7 +24,9 @@ Observed behavior (checked with `jaic run`):
 - `cast,force` between a same-size integer and float reinterprets the bits.
 - `cast(bool) 5` is true, `cast(bool) ""` is false.
 - `*void` accepts any pointer implicitly; going back needs `cast(*T)` or `xx`.
-- The postfix form takes no modifiers: `(298).(u8, trunc)` is a parse error. Use the prefix form.
+- The postfix form takes modifiers after the type: `big.(u32, trunc)` (AST_Utils hashes `k.(*Type_Info).(u32,trunc)`).
+- In a comparison, `xx a == b` casts `a` to `b`'s type (`xx err == GL_FALSE` with `err: s32`, `GL_FALSE` a bool): the other side is checked first (`check_binary`).
+- `E.loose` and `E` convert to each other implicitly (a node's `operator_type: Operator_Type.loose` passed as `Operator_Type`).
 
 Pointers and integers convert both ways: `cast(s64) ptr`, `cast(*u8) addr`, and `cast(*u8) 0 == null`. Integer constants cast to pointers fold to constants (`tests/stdlib/const-integer-pointer.jai`). Enum conversions are covered by `tests/stdlib/lang-conversions.jai`.
 
