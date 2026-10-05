@@ -4,6 +4,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod common;
+
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
 fn repo_root() -> PathBuf {
@@ -130,6 +132,9 @@ fn stdlib_tests_run_natively() {
         "struct-literal-overrides-default-string",
         "array-literal-view-lifetime",
         "over-aligned-allocation",
+        "proc-sentinel-constant",
+        "add-context-constant",
+        "process-stdin-socket",
     ] {
         let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
@@ -639,4 +644,54 @@ fn windows_runtime_program() {
     assert_eq!(&image[pe..pe + 4], b"PE\0\0");
     // IMAGE_FILE_MACHINE_AMD64
     assert_eq!(u16::from_le_bytes([image[pe + 4], image[pe + 5]]), 0x8664);
+}
+
+/// `jaic build -plug Name` writes the program the plugin's workspace compiled.
+#[test]
+fn plug_builds_the_plugin_workspace() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-plug");
+    let source = common::write_plugin_program(&dir);
+    let exe = dir.join("uses_plugin_exe");
+    let _ = std::fs::remove_file(&exe);
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .args(["-plug", "Echo_Plugin", "-o"])
+        .arg(&exe)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&build.stdout),
+        "finished, typechecked: true\n"
+    );
+    let run = Command::new(&exe).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
+}
+
+/// An unnamed `#library,system,link_always "x";` statement (in a static `#if`, as Tracy's
+/// bindings write it) is linked although no foreign procedure names it.
+#[cfg(target_os = "macos")]
+#[test]
+fn unnamed_link_always_library_is_linked() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-link-always");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("link_always.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n#if true {\n    #library,system,link_always \"libc++\";\n}\nmain :: () { print(\"ok\\n\"); }\n",
+    )
+    .unwrap();
+    let output = build_and_run(&source, &dir, "link_always").unwrap();
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+    let libs = Command::new("otool")
+        .arg("-L")
+        .arg(dir.join("link_always"))
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&libs.stdout).contains("libc++"));
 }

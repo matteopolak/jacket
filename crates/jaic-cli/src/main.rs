@@ -1,7 +1,7 @@
 //! `jaic` command line: `jaic <run|check|build> <file.jai> [-I dir]... [-o out]`.
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
-use jaic::sema::{Compiler, FileSystem, NativeFs, Options, TargetCpu, TargetOs};
+use jaic::sema::{Compiler, FileSystem, NativeFs, Options, ProgramSource, TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -38,6 +38,9 @@ fn usage() -> ExitCode {
     eprintln!(
         "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-os windows] [-target triple]"
     );
+    eprintln!(
+        "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
+    );
     ExitCode::from(2)
 }
 
@@ -65,6 +68,11 @@ struct Cli {
     program_args: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
     os: Option<TargetOs>,
+    /// `-plug Name`: metaprogram plugin modules (`Name` may carry module parameters,
+    /// `Check(CHECK_BINDINGS=false)`).
+    plugins: Vec<String>,
+    /// Arguments jaic does not know; they are the plugins' options (an error without plugins).
+    plugin_options: Vec<String>,
     /// `-target`: an explicit LLVM target triple (`x86_64-pc-windows-msvc`...).
     target: Option<String>,
 }
@@ -133,6 +141,8 @@ fn parse(args: &[String]) -> Option<Cli> {
         program_args: Vec::new(),
         os: None,
         target: None,
+        plugins: Vec::new(),
+        plugin_options: Vec::new(),
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -173,8 +183,19 @@ fn parse(args: &[String]) -> Option<Cli> {
             "-O1" if command == Command::Build => cli.opt_level = Some("O1"),
             "-O2" if command == Command::Build => cli.opt_level = Some("O2"),
             "-O3" if command == Command::Build => cli.opt_level = Some("O3"),
+            "-plug" | "-plugin" => cli.plugins.push(rest.next()?.clone()),
+            // An unknown option and everything after it (its values) go to the plugins.
+            other if other.starts_with('-') || !cli.plugin_options.is_empty() => {
+                cli.plugin_options.push(other.to_string())
+            }
             _ => return None,
         }
+    }
+    // Plugins compile the program in a workspace of their own, which `run` cannot start.
+    if !cli.plugin_options.is_empty() && cli.plugins.is_empty()
+        || !cli.plugins.is_empty() && command == Command::Run
+    {
+        return None;
     }
     Some(cli)
 }
@@ -281,7 +302,13 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         compiler.interp.host = Box::new(SharedHost(host.clone()));
     }
     compiler.attach_workspaces(workspaces.clone());
-    if let Err(d) = compiler.compile_program(&path) {
+    let compiled = if cli.plugins.is_empty() {
+        compiler.compile_program(&path)
+    } else {
+        let source = plugin_metaprogram(&cli, &path);
+        compiler.compile_sources(&[ProgramSource::String(source)])
+    };
+    if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
         return ExitCode::from(1);
     }
@@ -328,6 +355,44 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             }
         },
     }
+}
+
+/// The metaprogram `-plug` stands for: import each plugin module, then compile `path` in a
+/// workspace with their hooks (`build_with_plugins` in `Metaprogram_Plugins`).
+fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
+    let quote = |s: &str| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""));
+    let mut text = String::from(
+        "Compiler :: #import \"Compiler\";\nPlugins :: #import \"Metaprogram_Plugins\";\n#import \"Basic\";\n",
+    );
+    for (i, plugin) in cli.plugins.iter().enumerate() {
+        // `Name(PARAM=value)` passes module parameters along.
+        let (name, params) = plugin.split_at(plugin.find('(').unwrap_or(plugin.len()));
+        text += &format!("__plugin_{i} :: #import {}{params};\n", quote(name));
+    }
+    text += "#run,stallable {\n    plugins: [..] *Compiler.Metaprogram_Plugin;\n";
+    for i in 0..cli.plugins.len() {
+        text += &format!("    array_add(*plugins, __plugin_{i}.get_plugin());\n");
+    }
+    text += "    options: [..] string;\n";
+    for option in &cli.plugin_options {
+        text += &format!("    array_add(*options, {});\n", quote(option));
+    }
+    // `-o` names the executable; otherwise it is named after the file, next to it.
+    let lossy = |p: Option<&std::ffi::OsStr>| p.map(|n| n.to_string_lossy().into_owned());
+    let (name, dir) = match &cli.output {
+        Some(out) => (
+            lossy(out.file_name()),
+            lossy(out.parent().map(|d| d.as_os_str())),
+        ),
+        None => (lossy(path.file_stem()), None),
+    };
+    text += &format!(
+        "    Plugins.build_with_plugins({}, plugins, options, {}, {});\n}}\n",
+        quote(&path.to_string_lossy()),
+        quote(&name.unwrap_or_default()),
+        quote(&dir.unwrap_or_default()),
+    );
+    text
 }
 
 /// Write the top-level program. `-o`/`-O` override what the metaprogram set.
