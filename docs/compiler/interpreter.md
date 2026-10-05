@@ -73,6 +73,10 @@ playground. Memory is real host memory; foreign procedures are called natively (
   blocks and traps with "execution budget exhausted"; the language server and playground use it.
   Hooks, `Stack_Trace_Procedure_Info` addresses and foreign symbols are `Vec`s indexed by id (they were hash
   maps hashed on every call), and call results come back as `Rets` (up to four inline, no allocation).
+- **Frames**: `frame` lays out a procedure's slots once (each at a multiple of its alignment, at least
+  8) and records the largest alignment; `exec` rounds the frame's absolute start address up to it. Offsets
+  alone only align relative to the frame, and the stack itself is only 8-aligned, so an `#align 64` local
+  used to land at any 16-byte boundary.
 - **Profile** (`interp/profile.rs`): with `JAIC_PROFILE=1`, `exec` counts calls, blocks and instructions
   per procedure (self counts), and the CLI prints the totals. See [benchmarks](../tools/benchmarks.md).
 

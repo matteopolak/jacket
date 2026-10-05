@@ -129,6 +129,7 @@ fn stdlib_tests_run_natively() {
     for name in [
         "struct-literal-overrides-default-string",
         "array-literal-view-lifetime",
+        "over-aligned-allocation",
     ] {
         let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();

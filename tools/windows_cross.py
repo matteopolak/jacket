@@ -29,6 +29,7 @@ WINDOWS_PROGRAMS = [
     "tests/stdlib/array-literal-view-lifetime.jai",
     "tests/stdlib/c-variadic-foreign-calls.jai",
     "tests/stdlib/member-align-lowers-alignment.jai",
+    "tests/stdlib/over-aligned-allocation.jai",
 ]
 
 # tests/stdlib programs not expected to pass as Windows executables, and why.
