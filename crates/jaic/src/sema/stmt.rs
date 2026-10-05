@@ -169,7 +169,7 @@ impl Compiler {
         let span = stmt.span;
         if span.file == f.file && !f.b.is_terminated() {
             let (line, col) = self.sources.get(span.file).line_col(span.start);
-            f.b.loc(span.file.0, line as u32, col as u32);
+            f.b.loc(span.file.0, line, col);
         }
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
@@ -332,18 +332,15 @@ impl Compiler {
                 Ok(())
             }
             S::Import(import) => {
-                match import.name {
-                    Some(name) => {
-                        self.add_entity(
-                            scope,
-                            name.name,
-                            name.span,
-                            EntityKind::Import(import.clone()),
-                            false,
-                        );
-                    }
-                    // Hoisted to the file scope by `check_block_stmts`.
-                    None => {}
+                // Unnamed imports are hoisted to the file scope by `check_block_stmts`.
+                if let Some(name) = import.name {
+                    self.add_entity(
+                        scope,
+                        name.name,
+                        name.span,
+                        EntityKind::Import(import.clone()),
+                        false,
+                    );
                 }
                 Ok(())
             }
@@ -2015,6 +2012,7 @@ impl Compiler {
         result.map(|_| ())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn check_insert(
         &mut self,
         f: &mut FnCtx,
@@ -2380,13 +2378,11 @@ impl Compiler {
         }
         if ops.len() < types.len() && !ops.is_empty() {
             // Remaining results take their named defaults.
-            for i in ops.len()..types.len() {
-                if f.named_results[i].is_none() {
-                    return err(
-                        span,
-                        format!("missing return value {} of {}", i + 1, types.len()),
-                    );
-                }
+            if let Some(i) = (ops.len()..types.len()).find(|&i| f.named_results[i].is_none()) {
+                return err(
+                    span,
+                    format!("missing return value {} of {}", i + 1, types.len()),
+                );
             }
         } else if ops.is_empty() && !types.is_empty() {
             return err(span, "missing return value");

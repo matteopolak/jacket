@@ -119,9 +119,9 @@ main :: () {
         assert(Counter.value(c) == 7);
         assert(Counter.add(c, 1, 2) == 10);
         assert(Counter.scale(c, 0.5) == 3.5);
-        assert(!Counter.isBig(c));
+        assert(!truth(Counter.isBig(c)));
         Counter.setValue(c, 500);
-        assert(Counter.isBig(c));
+        assert(truth(Counter.isBig(c)));
         assert(Counter.doubled(c) == 1000);       // From the category.
         assert(Greeter.greetCount(c) == 5000);    // Through the protocol.
         assert(Counter.selfAsId(c) == xx c);
@@ -137,4 +137,10 @@ main :: () {
     } else {
         print("ok\n");
     }
+}
+
+// Objective-C `BOOL` is `bool` on arm64 and `signed char` (s8) on x86-64; the bindings follow clang.
+truth :: (b: $T) -> bool {
+    #if T == bool return b;
+    else return b != 0;
 }

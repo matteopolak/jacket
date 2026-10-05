@@ -610,7 +610,11 @@ impl Compiler {
                         .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context)),
                 };
                 if let Some(hook) = hook {
-                    self.interp.hooks.insert(func, hook);
+                    let i = func.0 as usize;
+                    if self.interp.hooks.len() <= i {
+                        self.interp.hooks.resize(i + 1, None);
+                    }
+                    self.interp.hooks[i] = Some(hook);
                 }
             }
         }

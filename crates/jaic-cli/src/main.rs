@@ -137,7 +137,16 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(mut cli: Cli) -> ExitCode {
+fn run(cli: Cli) -> ExitCode {
+    let code = compile_and_run(cli);
+    // Interpreters flush their `JAIC_PROFILE` counts when dropped, which has happened by now.
+    if let Some(report) = jaic::interp::profile::report(40) {
+        eprint!("{report}");
+    }
+    code
+}
+
+fn compile_and_run(mut cli: Cli) -> ExitCode {
     let stdlib = stdlib_dir();
     jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
     let path = std::fs::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));

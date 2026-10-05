@@ -2,7 +2,7 @@
 
 ## What it is
 
-An independent Rust implementation targeting Jai source compatibility. Recent upstream applications and libraries refine the older beta  local distribution. It is **not a complete Jai implementation**; `HANDOFF.md` tracks the current status and open work.
+An independent Rust implementation targeting Jai source compatibility. Recent upstream applications and libraries refine the older beta  local distribution. It is **not a complete Jai implementation**; the [README](../../README.md#compatibility) tracks what is supported.
 
 The workspace has five crates:
 

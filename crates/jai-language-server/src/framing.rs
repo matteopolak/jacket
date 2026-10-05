@@ -81,13 +81,12 @@ impl FrameDecoder {
                         length = Some(number);
                     } else if name.eq_ignore_ascii_case("Content-Type") {
                         for option in value.split(';').skip(1) {
-                            if let Some((key, encoding)) = option.trim().split_once('=') {
-                                if key.eq_ignore_ascii_case("charset")
-                                    && !encoding.eq_ignore_ascii_case("utf-8")
-                                    && !encoding.eq_ignore_ascii_case("utf8")
-                                {
-                                    return Err(FrameError::UnsupportedEncoding);
-                                }
+                            if let Some((key, encoding)) = option.trim().split_once('=')
+                                && key.eq_ignore_ascii_case("charset")
+                                && !encoding.eq_ignore_ascii_case("utf-8")
+                                && !encoding.eq_ignore_ascii_case("utf8")
+                            {
+                                return Err(FrameError::UnsupportedEncoding);
                             }
                         }
                     }

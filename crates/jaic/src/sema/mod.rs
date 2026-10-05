@@ -47,6 +47,8 @@ use std::rc::Rc;
 pub use value::{ModuleId, ProcId, Value};
 
 pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
+/// A named compile-time argument: a module parameter or a baked procedure argument.
+pub type ConstArg = (Sym, Value, TypeId);
 
 pub fn err<T>(span: Span, message: impl Into<String>) -> Result<T> {
     Err(Box::new(Diagnostic::error(span, message)))
@@ -154,7 +156,7 @@ pub struct Compiler {
     pub files: Vec<FileInfo>,
     file_by_path: HashMap<(PathBuf, ModuleId), usize>,
     pub modules: Vec<Module>,
-    module_cache: HashMap<(PathBuf, Vec<(Sym, Value, TypeId)>), ModuleId>,
+    module_cache: HashMap<(PathBuf, Vec<ConstArg>), ModuleId>,
     pub scopes: Vec<scope::Scope>,
     pub entities: Vec<scope::Entity>,
     pub procs: Vec<procs::ProcInfo>,

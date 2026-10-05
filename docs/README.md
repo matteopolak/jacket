@@ -1,6 +1,6 @@
 # Developer documentation
 
-Start with [compiler architecture](compiler/architecture.md); current status and open work are in `../HANDOFF.md`.
+Start with [compiler architecture](compiler/architecture.md). The [README](../README.md) has the compatibility table; per-project notes are in [upstream corpus](tools/upstream-corpus.md#project-status).
 
 ## Language
 

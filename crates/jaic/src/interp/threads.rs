@@ -342,7 +342,7 @@ impl Interp {
     pub(super) fn preempt(&mut self, program: &Program) -> Res<()> {
         let sched = self.sched();
         sched.ticks += 1;
-        if sched.ticks % PREEMPT_TICKS == 0 {
+        if sched.ticks.is_multiple_of(PREEMPT_TICKS) {
             self.yield_now(program)?;
         }
         Ok(())

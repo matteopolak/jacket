@@ -99,7 +99,9 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
     );
     let data = tokens[0]["result"]["data"].as_array().unwrap();
     assert!(
-        data.chunks_exact(5)
+        data.as_chunks::<5>()
+            .0
+            .iter()
             .any(|token| token[3] == 4 && token[4] == 1)
     );
     let changed = send(

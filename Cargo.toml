@@ -31,6 +31,12 @@ incremental = false
 debug = 0
 incremental = false
 
+# Release speed with line tables, for profilers (`samply`); see docs/tools/benchmarks.md.
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"
+split-debuginfo = "packed"
+
 [profile.rust-debug]
 inherits = "dev"
 debug = 2

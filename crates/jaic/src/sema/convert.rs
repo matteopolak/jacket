@@ -853,7 +853,7 @@ pub fn int_fits(v: i128, bits: u8, signed: bool) -> bool {
         // Also accept bit patterns written as unsigned literals (e.g. 0xFFFF_FFFF for s32).
         v >= -max - 1 && v <= ((1i128 << bits) - 1)
     } else {
-        v >= -(1i128 << (bits - 1)) && v <= (1i128 << bits) - 1
+        v >= -(1i128 << (bits - 1)) && v < (1i128 << bits)
     }
 }
 

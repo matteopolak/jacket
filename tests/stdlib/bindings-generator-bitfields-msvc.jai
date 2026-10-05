@@ -143,10 +143,10 @@ main :: () {
         m: Mixed;
         ms_mixed_set(*m, 5, -9, 2);
         assert(Mixed_get_a(*m) == 5 && Mixed_get_b(*m) == -9 && Mixed_get_c(*m) == 2);
-        Mixed_set_a(*m, -4);
+        Mixed_set_a(*m, 3);   // `char` is unsigned on Linux arm64; stay in range for both.
         Mixed_set_b(*m, 15);
         Mixed_set_c(*m, 1);
-        assert(ms_mixed_get(*m, 0) == -4 && ms_mixed_get(*m, 1) == 15 && ms_mixed_get(*m, 2) == 1);
+        assert(ms_mixed_get(*m, 0) == 3 && ms_mixed_get(*m, 1) == 15 && ms_mixed_get(*m, 2) == 1);
 
         s: SameType;
         ms_same_set(*s, 0xABCDE, 0x54321, 9);

@@ -490,7 +490,7 @@ impl Compiler {
             TypeKind::Proc(p) => {
                 let args: Vec<i64> = p.params.iter().map(|&t| self.type_record(r, t)).collect();
                 let rets: Vec<i64> = p.returns.iter().map(|&t| self.type_record(r, t)).collect();
-                let flags = (p.no_context as i64) * 0x8 | (p.c_call as i64) * 0x20;
+                let flags = ((p.no_context as i64) * 0x8) | ((p.c_call as i64) * 0x20);
                 rec.refs("argument_types", args)
                     .refs("return_types", rets)
                     .int("procedure_flags", flags);
@@ -541,7 +541,7 @@ impl Compiler {
                         .int("offset_in_bytes", field.offset as i64)
                         .int(
                             "flags",
-                            (field.using as i64) * 0x4 | (field.as_ as i64) * 0x10,
+                            ((field.using as i64) * 0x4) | ((field.as_ as i64) * 0x10),
                         )
                         .list(
                             "notes",
@@ -703,12 +703,12 @@ impl Exporter<'_> {
             node::TYPE_INSTANTIATION,
             expr.span,
         );
-        if !procs::has_poly(expr) {
-            if let Some(t) = self.eval_type(expr) {
-                let t = self.ty(t);
-                rec.ptr("result", t);
-                rec.ptr("type", t);
-            }
+        if !procs::has_poly(expr)
+            && let Some(t) = self.eval_type(expr)
+        {
+            let t = self.ty(t);
+            rec.ptr("result", t);
+            rec.ptr("type", t);
         }
         let value = self.expr(expr);
         rec.ptr("type_valued_expression", value);
@@ -860,7 +860,7 @@ impl Exporter<'_> {
                 rec.ptr("condition", cond)
                     .ptr("then_block", then_block)
                     .ptr("else_block", else_block)
-                    .int("if_flags", 0x2 | (*is_static as i64) * 0x4);
+                    .int("if_flags", 0x2 | ((*is_static as i64) * 0x4));
                 rec
             }
             E::StructLit {
@@ -1043,7 +1043,7 @@ impl Exporter<'_> {
                 value,
                 cases,
                 complete,
-            } => self.switch(value, cases, 0x1 | (*complete as i64) * 0x8, span),
+            } => self.switch(value, cases, 0x1 | ((*complete as i64) * 0x8), span),
             S::StaticSwitch {
                 value,
                 cases,
@@ -1082,7 +1082,7 @@ impl Exporter<'_> {
                 let it = f.it.map_or(0, |i| self.ident(i.name, i.span));
                 let index = f.index.map_or(0, |i| self.ident(i.name, i.span));
                 let block = self.stmt_block(&f.body);
-                let flags = (f.by_pointer as i64) * 0x1 | (f.reverse as i64) * 0x2;
+                let flags = (f.by_pointer as i64) | ((f.reverse as i64) * 0x2);
                 let mut rec = self.node("Code_For", node::FOR, span);
                 rec.ptr("iteration_expression", a)
                     .ptr("iteration_expression_right", b)

@@ -108,12 +108,12 @@ impl Session {
                 }
                 let start = index.byte(&text, range.start)?;
                 let end = index.byte(&text, range.end)?;
-                if let Some(length) = change.range_length {
-                    if text[start..end].encode_utf16().count() != length as usize {
-                        return Err(Error::InvalidEdit(
-                            "rangeLength disagrees with UTF-16 range",
-                        ));
-                    }
+                if let Some(length) = change.range_length
+                    && text[start..end].encode_utf16().count() != length as usize
+                {
+                    return Err(Error::InvalidEdit(
+                        "rangeLength disagrees with UTF-16 range",
+                    ));
                 }
                 (start, end)
             } else {

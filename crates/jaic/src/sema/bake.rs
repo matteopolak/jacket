@@ -105,7 +105,7 @@ impl Compiler {
         params: &[ast::Param],
         args: &[&ast::Arg],
         span: Span,
-    ) -> Result<(Vec<ast::Param>, Vec<(Sym, Value, TypeId)>)> {
+    ) -> Result<(Vec<ast::Param>, Vec<ConstArg>)> {
         let mut baked: Vec<Option<&ast::Arg>> = vec![None; params.len()];
         for (i, &arg) in args.iter().enumerate() {
             let index = match arg.name {

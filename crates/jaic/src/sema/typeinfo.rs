@@ -135,6 +135,7 @@ impl Compiler {
     }
 
     /// Write a `[] T` view field pointing at a new read-only global.
+    #[allow(clippy::too_many_arguments)]
     fn set_view(
         &mut self,
         agg: &mut Aggregate,

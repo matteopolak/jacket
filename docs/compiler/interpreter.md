@@ -65,6 +65,9 @@ playground. Memory is real host memory; foreign procedures are called natively (
 - **Speed**: `run` takes its value registers from `val_pool` instead of allocating per call, and `Call` /
   `Intrinsic` gather up to 8 operands on the Rust stack (`gather`). `block_budget` (when set) counts basic
   blocks and traps with "execution budget exhausted"; the language server and playground use it.
+  Hooks are a `Vec` indexed by `FuncId`, checked on every call.
+- **Profile** (`interp/profile.rs`): with `JAIC_PROFILE=1`, `exec` counts calls, blocks and instructions
+  per procedure (self counts), and the CLI prints the totals. See [benchmarks](../tools/benchmarks.md).
 
 ## How to change it
 
@@ -80,7 +83,8 @@ playground. Memory is real host memory; foreign procedures are called natively (
 
 ## Configuration
 
-`STACK_SIZE` (32 MiB interpreter stack) and `MAX_DEPTH` (20,000 frames) in `interp/mod.rs`.
+`STACK_SIZE` (32 MiB interpreter stack) and `MAX_DEPTH` (20,000 frames) in `interp/mod.rs`. `JAIC_PROFILE`
+enables the per-procedure profile.
 
 ## Dependencies
 

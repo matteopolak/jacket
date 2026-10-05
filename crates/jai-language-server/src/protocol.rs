@@ -162,11 +162,11 @@ impl JsonSession {
             });
             return Ok(vec![]);
         }
-        if let Some(id) = &id {
-            if self.cancelled.remove(id) {
-                self.remember(id.clone());
-                return self.encode(vec![failure(identifier, -32800, "Request cancelled")]);
-            }
+        if let Some(id) = &id
+            && self.cancelled.remove(id)
+        {
+            self.remember(id.clone());
+            return self.encode(vec![failure(identifier, -32800, "Request cancelled")]);
         }
         let result = self.dispatch(&envelope.method, envelope.params, id.is_some());
         let output = match result {

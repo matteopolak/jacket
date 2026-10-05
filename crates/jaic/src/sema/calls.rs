@@ -1064,13 +1064,13 @@ impl Compiler {
                     }
                     other => other.ty(),
                 };
-                if param.variadic && matches!(slots[i], Slot::Spread(_)) {
-                    if let TypeKind::Array {
+                if param.variadic
+                    && matches!(slots[i], Slot::Spread(_))
+                    && let TypeKind::Array {
                         elem, ..
                     } = self.types.kind(ty)
-                    {
-                        ty = *elem;
-                    }
+                {
+                    ty = *elem;
                 }
                 if k > 0 && param.variadic {
                     // Later variadic elements must match the first binding.

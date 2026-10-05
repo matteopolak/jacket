@@ -1219,15 +1219,14 @@ impl Compiler {
             // `p += ifx c then 3 else 1`: the offset is an integer.
             Some(TypeId::S64)
         } else {
-            Some(lhs.ty()).filter(|_| {
-                !matches!(
-                    lhs,
-                    Operand::Const {
-                        untyped: true,
-                        ..
-                    }
-                )
-            })
+            (!matches!(
+                lhs,
+                Operand::Const {
+                    untyped: true,
+                    ..
+                }
+            ))
+            .then(|| lhs.ty())
         };
         let mut rhs = match early_rhs {
             Some(r) => r,
@@ -2293,7 +2292,7 @@ impl Compiler {
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
                 if check {
-                    let count = f.b.iconst(Ty::I64, n as u64);
+                    let count = f.b.iconst(Ty::I64, n);
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
                 (elem, addr)

@@ -269,9 +269,11 @@ struct FI(f64, u64);
 struct FF(f64, f64);
 #[repr(C)]
 #[derive(Clone, Copy)]
+#[allow(clippy::upper_case_acronyms)] // register classes, like `II` and `FF`
 struct FFF(f64, f64, f64);
 #[repr(C)]
 #[derive(Clone, Copy)]
+#[allow(clippy::upper_case_acronyms)]
 struct FFFF(f64, f64, f64, f64);
 /// Large aggregates come back through a hidden pointer the callee fills.
 const SRET_WORDS: usize = 64;

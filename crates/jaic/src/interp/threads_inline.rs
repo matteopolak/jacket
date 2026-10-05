@@ -343,7 +343,7 @@ impl Interp {
     pub(super) fn inline_preempt(&mut self, program: &Program) -> Res<()> {
         let sched = self.isched();
         sched.ticks += 1;
-        if sched.ticks % PREEMPT_TICKS == 0 && sched.has_pending() {
+        if sched.ticks.is_multiple_of(PREEMPT_TICKS) && sched.has_pending() {
             while self.run_pending_one(program)? {}
         }
         Ok(())

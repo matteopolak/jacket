@@ -248,7 +248,9 @@ fn candidates() -> Vec<String> {
         llvm.sort();
         llvm.reverse();
         for dir in llvm {
+            // `libclang.so` comes with the -dev package; the runtime package has only `.so.1`.
             list.push(format!("{}/lib/libclang.so", dir.display()));
+            list.push(format!("{}/lib/libclang.so.1", dir.display()));
         }
     }
     list.push("libclang.dylib".into());
@@ -280,7 +282,10 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
                 if p.is_null() {
                     return Err(format!("{path}: missing symbol {}", $name));
                 }
-                unsafe { std::mem::transmute(p) }
+                // The target is the `Api` field's function-pointer type, inferred per use.
+                #[allow(clippy::missing_transmute_annotations)]
+                let f = unsafe { std::mem::transmute(p) };
+                f
             }};
         }
         let api = Api {

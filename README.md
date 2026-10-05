@@ -4,45 +4,51 @@
 
 An independent Jai compiler written in Rust. The goal is to compile existing Jai programs and libraries, with a clean implementation that is easy to test, understand, and improve.
 
-**In development:** the compiler runs a growing set of Jai programs, including records, generics and compile-time code. Full standard-library and larger-project builds are still pending.
+It type-checks, interprets and natively builds real Jai projects, including the Focus editor, the Jails language server and the examples from *The Way to Jai*. It also runs in the browser through WebAssembly.
 
-```jai
-sum_to :: (n: int) -> int {
-    total := 0;
-    while n > 0 {
-        total += n;
-        n -= 1;
-    }
-    return total;
-}
+## Compatibility
 
-main :: () -> int {
-    return sum_to(9); // Exit status: 45
-}
-```
+✅ supported · ⚠️ partial · ❌ not supported yet
 
-## What works today
+### Language and compiler
 
-| Area | Status |
-| --- | --- |
-| Numbers and Booleans | Integer widths, floating point, casts and comparisons tested |
-| Strings, arrays and pointers | VM and native tests; descriptor copies, iteration and pointer operations |
-| Records, unions and enums | Nominal types, defaults, copies, packed layouts and static pointer data tested |
-| Procedures | Named/default arguments, multiple results, callbacks and recursion tested |
-| Generics and overloads | Procedure and record specialization tested; remaining forms need coverage |
-| Context and `Any` | Context overrides, variadic forwarding and value boxing tested |
-| Control flow | Conditions, cases, loops, named exits and lexical `defer` tested |
-| Modules | Loads, scoped imports, visibility and scalar/enum/type parameters tested; advanced parameters in progress |
-| Compile-time code | Source `#run`, reflection and code insertion tested; broader metaprogramming in progress |
-| Compiler APIs | Workspace scheduling and selected CLI artifacts tested; broader API integration in progress |
-| Foreign calls and native builds | LLVM library backend; host ABI tests and selected system-library calls |
-| Independent standard library | Authored modules in `stdlib/`, regression-tested by `tests/stdlib/` |
-| Reference examples | Source checks in progress; complete coverage pending |
-| Focus, Jails, jaison, sgpu, Vk-Engine | Build natively or check; see `HANDOFF.md` for per-project status |
-| Browser editor | Real Wasm runs, file tree, source editor and shared source LSP tested; host services and full standard library pending |
-| Windows and mobile | C ABI and object tests; runtime compatibility unverified |
+| Feature | Status | Notes |
+| --- | :---: | --- |
+| Core language (types, procedures, structs, enums, unions, control flow, `defer`, `context`, `Any`) | ✅ | |
+| Polymorphism, baking, `#modify`, `#type_info_*` | ✅ | |
+| Macros, `#code`, `#insert`, custom `for_expansion` | ✅ | |
+| Compile-time execution (`#run`) | ✅ | Runs in the IR interpreter, including foreign calls |
+| Metaprograms (`Compiler` module: workspaces, message loop, build options) | ✅ | |
+| Arithmetic overflow and bounds checks | ✅ | |
+| `#asm` and SIMD | ⚠️ | Common instructions; string ops, division, x87 and mask registers are rejected |
+| Reference `how_to` programs | ✅ | 56 of 56 run |
 
-The compatibility corpus is the set of real-world Jai projects pinned in `corpus/upstreams.json` (see [upstream corpus](docs/tools/upstream-corpus.md)); `HANDOFF.md` records which of them currently check and build.
+### Targets and tooling
+
+| Area | Status | Notes |
+| --- | :---: | --- |
+| Interpreter (`jaic run`) | ✅ | |
+| Native executables on macOS (arm64, x86-64) | ✅ | LLVM backend |
+| Native executables on Linux (arm64, x86-64) | ✅ | LLVM backend |
+| Checking for Windows (`-os windows`) | ✅ | |
+| Native executables for Windows | ❌ | No Win64 calling convention yet |
+| Native debug information | ❌ | |
+| Browser playground (WebAssembly) | ✅ | 168 of 186 stdlib tests run; the rest need native processes or libraries |
+| Language server (`jai-lsp`) | ✅ | Diagnostics, type-checked hover and completion, go to definition |
+| `Bindings_Generator` | ⚠️ | C, C++ and Objective-C; no virtual bases, `objc_msgSend_fpret` or block literals |
+
+### Projects
+
+| Project | Status | Notes |
+| --- | :---: | --- |
+| [Focus](https://github.com/focus-editor/focus) | ✅ | Builds and runs natively on macOS |
+| [Jails](https://github.com/SogoCZE/Jails) | ✅ | Builds a native language server |
+| [jaison](https://github.com/rluba/jaison) | ✅ | Tests and examples run, also natively |
+| [sgpu](https://github.com/roeyb1/sgpu) | ✅ | All examples build on macOS; mesh shaders need a driver MoltenVK lacks |
+| [The Way to Jai](https://github.com/Ivo-Balbaert/The_Way_to_Jai) | ✅ | 316 of 343 programs run; the rest check (windowed, interactive, Windows-only or deliberately failing) |
+| [Vk-Engine](https://github.com/ostef/Vk-Engine) | ⚠️ | Checks for Linux; its Vulkan, ImGui and Jolt modules have no macOS support |
+
+The exact revisions are pinned in `corpus/upstreams.json`; per-project build notes are in [upstream corpus](docs/tools/upstream-corpus.md#project-status).
 
 For example, record specialization and compile-time execution can work together:
 
@@ -94,6 +100,7 @@ Tests cover rejected programs and the behavior of newly compiled programs. Unsup
 The compiler loads an independently authored prelude from `prelude/` and standard library from `stdlib/`; supplied source distributions remain external compatibility inputs.
 
 ## Working on the compiler
+
 
 ```sh
 cargo test --workspace --locked --no-fail-fast

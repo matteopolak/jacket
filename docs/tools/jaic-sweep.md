@@ -31,7 +31,7 @@ Expected result of `corpus negative stdlib modules upstream howto`: everything p
 
 ## Configuration
 
-`--jaic PATH` (default `/Volumes/CodexBuilds/targets/jai-dev/debug/jaic`), `--filter TEXT`, `--verbose`, `--timeout SECONDS` (default 60; HANDOFF uses 900), `--jobs N` (cases run at once, default the CPU count; cases run with stdin closed).
+`--jaic PATH` (default `$CARGO_TARGET_DIR/debug/jaic`, else `target/debug/jaic`), `--filter TEXT`, `--verbose`, `--timeout SECONDS` (default 60; use 900 for the full sweep, which builds Focus and Jails), `--jobs N` (cases run at once, default the CPU count; cases run with stdin closed).
 
 ```sh
 python3 tools/jaic-sweep.py --jaic /path/to/target/debug/jaic corpus stdlib --timeout 900

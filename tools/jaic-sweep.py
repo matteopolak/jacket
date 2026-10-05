@@ -43,7 +43,8 @@ def cases(name):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
-    ap.add_argument("--jaic", default="/Volumes/CodexBuilds/targets/jai-dev/debug/jaic")
+    target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
+    ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
     ap.add_argument("--filter", default="")
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument("--timeout", type=float, default=60)

@@ -9,6 +9,7 @@
 #![allow(unsafe_code)]
 
 mod native;
+pub mod profile;
 mod sandbox;
 #[cfg(not(target_arch = "wasm32"))]
 mod threads;
@@ -129,7 +130,8 @@ pub struct Interp {
     frames: Vec<Option<Rc<Frame>>>,
     foreign_addrs: HashMap<ForeignId, u64>,
     libraries: HashMap<usize, Option<native::Library>>,
-    pub hooks: HashMap<FuncId, Hook>,
+    /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
+    pub hooks: Vec<Option<Hook>>,
     pub host: Box<dyn Host>,
     depth: usize,
     loc: Option<(u32, u32, u32)>,
@@ -163,6 +165,10 @@ pub struct Interp {
     pub block_budget: Option<u64>,
     /// Reused value-register vectors (see `run`).
     val_pool: Vec<Vec<u64>>,
+    /// Blocks and instructions run in the current frame (`JAIC_PROFILE`, see `profile`).
+    frame_blocks: u64,
+    frame_insts: u64,
+    profile: Option<Box<profile::Counts>>,
 }
 
 impl Default for Interp {
@@ -181,7 +187,7 @@ impl Interp {
             frames: Vec::new(),
             foreign_addrs: HashMap::new(),
             libraries: HashMap::new(),
-            hooks: HashMap::new(),
+            hooks: Vec::new(),
             host,
             depth: 0,
             loc: None,
@@ -199,9 +205,13 @@ impl Interp {
             multi: false,
             block_budget: None,
             val_pool: Vec::new(),
+            frame_blocks: 0,
+            frame_insts: 0,
+            profile: profile::enabled().then(Default::default),
         }
     }
 
+    #[cold]
     fn trap<T>(&self, message: impl Into<String>) -> Res<T> {
         Err(Trap {
             message: message.into(),
@@ -327,6 +337,7 @@ impl Interp {
         unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
     }
 
+    #[inline]
     fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
         if addr < 4096 {
             return self.trap(format!(
@@ -347,6 +358,7 @@ impl Interp {
         })
     }
 
+    #[inline]
     fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
         if addr < 4096 {
             return self.trap(format!(
@@ -550,7 +562,7 @@ impl Interp {
     }
 
     fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Vec<u64>> {
-        if let Some(&hook) = self.hooks.get(&id) {
+        if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
             return self.run_hook(hook, args);
         }
         let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
@@ -592,7 +604,18 @@ impl Interp {
         } else if self.trace_loc.is_none() {
             self.trace_loc = Some(self.loc);
         }
+        let outer = (self.frame_blocks, self.frame_insts);
+        (self.frame_blocks, self.frame_insts) = (0, 0);
         let result = self.run(program, func, &frame, stack_base, args);
+        if let Some(counts) = self.profile.as_mut() {
+            counts.add(
+                id.0 as usize,
+                &func.name,
+                self.frame_blocks,
+                self.frame_insts,
+            );
+        }
+        (self.frame_blocks, self.frame_insts) = outer;
         if let Some((slot, previous)) = pushed {
             unsafe { std::ptr::write_unaligned(slot as *mut u64, previous) };
         }
@@ -740,7 +763,7 @@ impl Interp {
         func: &ir::Func,
         frame: &Frame,
         stack_base: u64,
-        vals: &mut Vec<u64>,
+        vals: &mut [u64],
     ) -> Res<Vec<u64>> {
         let mut block = 0usize;
         loop {
@@ -759,6 +782,8 @@ impl Interp {
                 }
             }
             let b = &func.blocks[block];
+            self.frame_blocks += 1;
+            self.frame_insts += b.insts.len() as u64;
             for inst in &b.insts {
                 self.step(program, inst, vals, frame, stack_base)?;
             }
@@ -1140,7 +1165,7 @@ impl Interp {
             I::IsCompileTime => vec![self.compile_time as u64],
             I::SAddOverflow | I::SSubOverflow | I::SMulOverflow => {
                 let bits = (a[2] as u32 * 8).min(64);
-                let wide = |v: u64| (((v as i128) << (128 - bits)) >> (128 - bits)) as i128;
+                let wide = |v: u64| ((v as i128) << (128 - bits)) >> (128 - bits);
                 let (x, y) = (wide(a[0]), wide(a[1]));
                 let r = match op {
                     I::SAddOverflow => x + y,
@@ -1309,5 +1334,20 @@ fn gather<'a>(
     } else {
         *heap = args.iter().map(|a| vals[a.0 as usize]).collect();
         heap
+    }
+}
+
+impl Interp {
+    /// Merge this interpreter's `JAIC_PROFILE` counts into the process table (see `profile`).
+    pub fn flush_profile(&mut self) {
+        if let Some(counts) = self.profile.as_mut() {
+            counts.flush();
+        }
+    }
+}
+
+impl Drop for Interp {
+    fn drop(&mut self) {
+        self.flush_profile();
     }
 }

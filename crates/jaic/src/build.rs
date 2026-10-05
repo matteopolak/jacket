@@ -513,23 +513,23 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
             ));
         }
         // After the final lowering too: procedure bodies are reported once lowered.
-        if matches!(result, Ok(Stage::Checked | Stage::Done)) {
-            if let Some(message) = compiler.export_typechecked(&mut records) {
-                reported = true;
-                // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
-                for (kind, record) in compiler.export_file_events(&mut records) {
-                    file_events.push(record_event(
-                        if kind == crate::sema::code_export::message_kind::IMPORT {
-                            EVENT_IMPORT
-                        } else {
-                            EVENT_FILE
-                        },
-                        record,
-                    ));
-                }
-                let at = events.len().saturating_sub(1);
-                events.insert(at, record_event(EVENT_TYPECHECKED, message));
+        if matches!(result, Ok(Stage::Checked | Stage::Done))
+            && let Some(message) = compiler.export_typechecked(&mut records)
+        {
+            reported = true;
+            // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
+            for (kind, record) in compiler.export_file_events(&mut records) {
+                file_events.push(record_event(
+                    if kind == crate::sema::code_export::message_kind::IMPORT {
+                        EVENT_IMPORT
+                    } else {
+                        EVENT_FILE
+                    },
+                    record,
+                ));
             }
+            let at = events.len().saturating_sub(1);
+            events.insert(at, record_event(EVENT_TYPECHECKED, message));
         }
         let mut reg = shared.borrow_mut();
         let added = std::mem::replace(&mut reg.records, records);

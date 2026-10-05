@@ -25,7 +25,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OPENJAI = os.path.join(ROOT, "corpus/upstream/withlang-dev--open-jai")
-DEFAULT_JAIC = "/Volumes/CodexBuilds/targets/jai-dev/debug/jaic"
+DEFAULT_JAIC = os.path.join(os.environ.get("CARGO_TARGET_DIR") or os.path.join(ROOT, "target"), "debug", "jaic")
 
 CALL = re.compile(r"\b(expect_[a-z_]+)\s*\(")
 STRING = re.compile(r'"((?:[^"\\]|\\.)*)"')

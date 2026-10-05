@@ -354,9 +354,10 @@ fn invoke(
     // By-value aggregates are rebuilt in memory; the IR passes their addresses.
     let mut buffers: Vec<Vec<u64>> = Vec::new();
     let mut args = Vec::with_capacity(sig.params.len());
-    for i in 0..sig.params.len() - ret_layout.is_some() as usize {
+    let count = sig.params.len() - ret_layout.is_some() as usize;
+    for (i, param) in sig.params[..count].iter().enumerate() {
         let Some(layout) = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref) else {
-            args.push(if sig.params[i].is_float() {
+            args.push(if param.is_float() {
                 incoming.float()
             } else {
                 incoming.int()

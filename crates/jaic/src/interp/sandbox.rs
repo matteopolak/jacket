@@ -198,7 +198,7 @@ impl SandboxHost {
         let mut block = vec![0u64; words].into_boxed_slice();
         // 16-byte alignment: skip one word when needed.
         let base = block.as_mut_ptr() as u64;
-        let addr = if base % 16 == 0 {
+        let addr = if base.is_multiple_of(16) {
             base
         } else {
             base + 8
