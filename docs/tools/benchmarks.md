@@ -77,6 +77,12 @@ A second round on the front end (Focus check: 1.16B to about 0.41B interpreted i
 - **Interpreter calls** no longer allocate a `Vec` for results or SipHash the stack-trace info.
 - **Hashing**: sema, the interner, the type table and the interpreter use `jaic::fxhash` (a multiply-rotate hasher) instead of SipHash; every name lookup hashes a `Sym` several times. Member lookup no longer clones the struct's field list.
 
+A third round (Focus check 2.4s to 1.66s, 611M to 381M instructions; Focus `-O0` build 3.7s to 2.5s):
+
+- **Codegen units**: `-O0` builds split LLVM code generation across threads (see [LLVM backend](../native/llvm-backend.md)).
+- **Record memory**: built record structs come from big chunks instead of one `Default_Allocator` call each. The allocator and its ledger were about 30% of the interpreted instructions.
+- **`Default_Allocator`** checks the common modes first and keeps its table half full.
+
 What is left is the interpreter's dispatch (`Interp::exec` is about half of native time, spread over ordinary instructions) and sema spread thin over many functions. The kind breakdown shows `Loc` (source positions, 10%) and `IConst`/`SlotAddr` (17% and 9%) as candidates for a denser IR, which would be a redesign rather than a fix.
 
 ## Configuration

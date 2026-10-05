@@ -62,6 +62,8 @@ pub struct BuildSettings {
     /// 0 = OFF, 1 = NONFATAL, 2 = FATAL (`Options::arithmetic_overflow_check`).
     pub arithmetic_overflow_check: Option<u8>,
     pub stack_trace: Option<bool>,
+    /// `emit_debug_info`: `Some(false)` for `.NONE`; `None` leaves the embedder's default.
+    pub emit_debug_info: Option<bool>,
 }
 
 impl Default for BuildSettings {
@@ -80,6 +82,7 @@ impl Default for BuildSettings {
             array_bounds_check: None,
             arithmetic_overflow_check: None,
             stack_trace: None,
+            emit_debug_info: None,
         }
     }
 }
@@ -369,6 +372,7 @@ impl Workspaces {
                 })
             }
             "stack_trace" => s.stack_trace = Some(value == "true"),
+            "emit_debug_info" => s.emit_debug_info = Some(value != "NONE"),
             // Accepted and ignored: checks, added-string dumps...
             _ => {}
         }
@@ -433,6 +437,9 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     }
     if let Some(trace) = settings.stack_trace {
         options.stack_trace = trace;
+    }
+    if let Some(debug) = settings.emit_debug_info {
+        options.debug_info &= debug;
     }
     let mut compiler = Box::new(Compiler::new(options, fs));
     compiler.interp.host = host;

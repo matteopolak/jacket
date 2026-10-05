@@ -13,6 +13,7 @@ include!(concat!(env!("OUT_DIR"), "/stdlib_files.rs"));
 
 /// Virtual directory holding the user's files.
 pub const WORKSPACE_ROOT: &str = "/workspace";
+
 /// Virtual directory holding the bundled standard library.
 pub const STDLIB_ROOT: &str = "/stdlib";
 
@@ -120,7 +121,8 @@ fn options(main: &str) -> Options {
     let mut options = Options::host();
     options.os = TargetOs::Wasm;
     options.cpu = TargetCpu::Wasm;
-    // Like the command line: the `modules` folder next to the main file is searched before the stdlib.
+    // Like the command line: the `modules` folder next to the main file is searched before the
+    // stdlib.
     let main_dir = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')))
         .parent()
         .map(PathBuf::from)
@@ -294,9 +296,10 @@ mod tests {
 
     #[test]
     fn output_keeps_the_order_of_stdout_and_stderr_writes() {
-        let r = single(
-            "#import \"Basic\";\nmain :: () { print(\"a\"); print(\"b\\n\"); log_error(\"bad\"); print(\"c\\n\"); }\n",
-        );
+        let r = single(concat!(
+            "#import \"Basic\";\n",
+            "main :: () { print(\"a\"); print(\"b\\n\"); log_error(\"bad\"); print(\"c\\n\"); }\n",
+        ));
         assert_eq!(r.stdout, "ab\nc\n", "{}", r.rendered);
         assert_eq!(r.stderr, "bad\n");
         assert_eq!(
@@ -337,8 +340,13 @@ mod tests {
         let mut files = BTreeMap::new();
         files.insert(
             "main.jai".to_string(),
-            b"#import \"Basic\";\n#load \"lib/helper.jai\";\nmain :: () { print(\"%\\n\", twice(21)); }\n"
-                .to_vec(),
+            concat!(
+                "#import \"Basic\";\n",
+                "#load \"lib/helper.jai\";\n",
+                "main :: () { print(\"%\\n\", twice(21)); }\n",
+            )
+            .as_bytes()
+            .to_vec(),
         );
         files.insert(
             "lib/helper.jai".to_string(),
@@ -398,8 +406,13 @@ main :: () {
         let mut files = BTreeMap::new();
         files.insert(
             "main.jai".to_string(),
-            b"#import \"Basic\";\n#import \"Local\";\nmain :: () { print(\"%\\n\", from_local()); }\n"
-                .to_vec(),
+            concat!(
+                "#import \"Basic\";\n",
+                "#import \"Local\";\n",
+                "main :: () { print(\"%\\n\", from_local()); }\n",
+            )
+            .as_bytes()
+            .to_vec(),
         );
         files.insert(
             "modules/Local/module.jai".to_string(),

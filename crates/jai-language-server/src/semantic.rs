@@ -20,6 +20,7 @@ pub struct Environment {
 
 /// Basic blocks compile-time code may run per analysis (an edit can make a `#run` loop forever).
 const BLOCK_BUDGET: u64 = 20_000_000;
+
 /// Compilers kept for reuse: the text as typed and the completion probe.
 const CACHED: usize = 3;
 
@@ -28,6 +29,7 @@ struct OverlayFs {
     base: Rc<dyn FileSystem>,
     files: BTreeMap<PathBuf, Rc<[u8]>>,
 }
+
 impl FileSystem for OverlayFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         match self.files.get(&self.base.canonical(path)) {
@@ -35,16 +37,20 @@ impl FileSystem for OverlayFs {
             None => self.base.read(path),
         }
     }
+
     fn is_file(&self, path: &Path) -> bool {
         self.files.contains_key(&self.base.canonical(path)) || self.base.is_file(path)
     }
+
     fn is_dir(&self, path: &Path) -> bool {
         let p = self.base.canonical(path);
         self.files.keys().any(|k| k.starts_with(&p) && *k != p) || self.base.is_dir(path)
     }
+
     fn canonical(&self, path: &Path) -> PathBuf {
         self.base.canonical(path)
     }
+
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         self.base.list_dir(path)
     }
@@ -67,11 +73,13 @@ impl Analysis {
                     == want
             })
     }
+
     pub fn hover(&mut self, path: &Path, offset: usize) -> Option<(usize, usize, String)> {
         let file = self.file(path)?;
         let (span, text) = self.compiler.ide_hover(file, offset as u32)?;
         Some((span.start as usize, span.end as usize, text))
     }
+
     /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte
     /// offsets into that file's text (which may be a module or stdlib file, not an open document).
     pub fn definition(
@@ -96,6 +104,7 @@ impl Analysis {
             })
             .collect()
     }
+
     /// Completion candidates at `offset`, members of `chain` when it is not empty.
     pub fn complete(&mut self, path: &Path, offset: usize, chain: &[&str]) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;

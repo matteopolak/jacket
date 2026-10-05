@@ -7,6 +7,7 @@ pub struct DocumentUri {
     uri: String,
     path: String,
 }
+
 impl DocumentUri {
     pub fn parse(uri: &str) -> Result<Self, Error> {
         if uri.len() > 4096 {
@@ -48,12 +49,15 @@ impl DocumentUri {
             path,
         })
     }
+
     pub fn as_str(&self) -> &str {
         &self.uri
     }
+
     pub fn path(&self) -> &str {
         &self.path
     }
+
     pub(crate) fn load(&self, target: &str) -> Result<Self, Error> {
         if target.contains(['\\', '\0', ':']) || target.len() > 4096 {
             return Err(Error::Uri("unsupported #load target"));
@@ -74,6 +78,7 @@ impl DocumentUri {
         })
     }
 }
+
 fn hex(c: u8) -> Option<u8> {
     match c {
         b'0'..=b'9' => Some(c - b'0'),
@@ -82,6 +87,7 @@ fn hex(c: u8) -> Option<u8> {
         _ => None,
     }
 }
+
 fn encode(path: &str) -> String {
     let mut out = String::new();
     for byte in path.bytes() {
@@ -94,6 +100,7 @@ fn encode(path: &str) -> String {
     }
     out
 }
+
 fn normalize(path: &str) -> Result<String, Error> {
     if !path.starts_with('/') || path.contains(['\\', '\0']) {
         return Err(Error::Uri(
@@ -117,6 +124,7 @@ fn normalize(path: &str) -> Result<String, Error> {
     }
     Ok(format!("/{}", parts.join("/")))
 }
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextChange {
@@ -130,6 +138,7 @@ pub struct TextChange {
 pub struct VirtualSources {
     pub(crate) files: BTreeMap<String, String>,
 }
+
 impl VirtualSources {
     /// Text of an open document by absolute path; unopened or escaping paths are `None`.
     pub fn read(&self, path: &str) -> Option<&str> {

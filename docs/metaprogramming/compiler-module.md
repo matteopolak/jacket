@@ -40,6 +40,7 @@ Keys sent by `set_build_options` (in this order; values are text):
 | `additional_linker_argument` | one entry per call | same condition |
 | `write_added_strings` | `true` / `false` | always |
 | `stack_trace` | `true` / `false` | always |
+| `emit_debug_info` | `NONE`, `DWARF`, `CODEVIEW`, `DEFAULT` (only `NONE` matters: it turns [native debug info](../native/debug-info.md) off) | always |
 | `array_bounds_check` | `OFF`, `ON`, `ALWAYS` | always |
 | `null_pointer_check` | `OFF`, `ON` | always |
 | `arithmetic_overflow_check` | `OFF`, `NONFATAL`, `FATAL` | always |

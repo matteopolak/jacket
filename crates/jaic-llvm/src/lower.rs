@@ -5,9 +5,11 @@
 //! every `Slot` an entry-block alloca, and every aggregate stays in memory.
 //! `Conv::C` signatures are translated to the real C ABI by [`Backend::lower_sig`].
 #![allow(clippy::too_many_arguments)]
+use crate::debuginfo::{DebugFormat, DebugInfo, FnDebug};
 use inkwell::AddressSpace;
 use inkwell::AtomicOrdering;
 use inkwell::FloatPredicate;
+use inkwell::GlobalVisibility;
 use inkwell::IntPredicate;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::basic_block::BasicBlock;
@@ -48,21 +50,38 @@ impl From<&str> for Error {
 }
 type R<T> = Result<T, Error>;
 
+/// Which part of the program a module holds when codegen is split across modules.
+#[derive(Clone, Copy)]
+pub struct Shard<'p> {
+    /// The module index of each function; only the shard's own functions get bodies.
+    pub owner: &'p [u32],
+    pub index: u32,
+}
+
+/// Lower `program` into `module`. With a shard, the module defines only that shard's
+/// functions (and, in shard 0, the globals); everything else is declared, and internal
+/// symbols become hidden externals so the modules link together.
 pub fn lower_program<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     program: &Program,
     arch: Arch,
+    shard: Option<Shard>,
+    debug: Option<(DebugFormat, bool)>,
 ) -> Result<(), String> {
+    let debug = debug
+        .map(|(format, optimized)| DebugInfo::new(context, module, program, format, optimized));
     let mut backend = Backend {
         ctx: context,
         module,
         builder: context.create_builder(),
         program,
         arch,
+        shard,
         funcs: Vec::new(),
         globals: Vec::new(),
         foreigns: Vec::new(),
+        debug,
     };
     backend.run().map_err(|e| e.0)
 }
@@ -106,10 +125,13 @@ struct Backend<'ctx, 'p> {
     builder: Builder<'ctx>,
     program: &'p Program,
     arch: Arch,
+    shard: Option<Shard<'p>>,
     funcs: Vec<Option<FunctionValue<'ctx>>>,
     globals: Vec<GlobalValue<'ctx>>,
     /// Address of each foreign function or variable.
     foreigns: Vec<PointerValue<'ctx>>,
+    /// Debug info builder when the program is built with debug info (`debuginfo.rs`).
+    debug: Option<DebugInfo<'ctx, 'p>>,
 }
 
 /// Per-function lowering state.
@@ -122,6 +144,8 @@ struct FnState<'ctx> {
     allocas: Builder<'ctx>,
     /// A C aggregate returned in registers: its pieces and the memory the IR writes it to.
     reg_ret: Option<(Vec<Piece>, PointerValue<'ctx>)>,
+    /// Debug locations and variables of this function, with debug info on.
+    dbg: Option<FnDebug<'ctx>>,
 }
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
@@ -129,15 +153,35 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         self.declare_functions()?;
         self.declare_foreigns()?;
         self.declare_globals()?;
-        self.init_globals()?;
+        if self.shard.is_none_or(|s| s.index == 0) {
+            self.init_globals()?;
+            self.describe_globals();
+        }
         for (i, func) in self.program.funcs.iter().enumerate() {
-            if let Some(func) = func {
+            if let Some(func) = func
+                && self.owns_func(i)
+            {
                 let f = self.funcs[i].expect("declared");
                 self.define_function(func, f)
                     .map_err(|e| Error(format!("in '{}': {}", func.name, e.0)))?;
             }
         }
+        if let Some(debug) = &self.debug {
+            debug.finalize();
+        }
         Ok(())
+    }
+
+    /// Debug info for program globals (in the module that defines them).
+    fn describe_globals(&self) {
+        let Some(debug) = &self.debug else {
+            return;
+        };
+        for g in &self.program.debug_globals {
+            let gv = self.globals[g.global.0 as usize];
+            let local = self.program.globals[g.global.0 as usize].export.is_none();
+            debug.global(gv, &gv.get_name().to_string_lossy(), local, g);
+        }
     }
 
     // ----- types ---------------------------------------------------------
@@ -296,6 +340,20 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     // ----- module-level declarations ---------------------------------------
 
+    fn owns_func(&self, i: usize) -> bool {
+        self.shard.is_none_or(|s| s.owner[i] == s.index)
+    }
+
+    /// Linkage of an internal symbol: hidden and external when other modules refer to it.
+    fn internal_linkage(&self, gv: GlobalValue<'ctx>) {
+        if self.shard.is_some() {
+            gv.set_linkage(Linkage::External);
+            gv.set_visibility(GlobalVisibility::Hidden);
+        } else {
+            gv.set_linkage(Linkage::Internal);
+        }
+    }
+
     fn declare_functions(&mut self) -> R<()> {
         for (i, func) in self.program.funcs.iter().enumerate() {
             let Some(func) = func else {
@@ -303,13 +361,16 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 continue;
             };
             let lowered = self.lower_sig(&func.sig);
-            let (name, linkage) = match &func.linkage {
-                IrLinkage::Export(name) => (name.clone(), Linkage::External),
-                IrLinkage::Internal => (format!("{}.{i}", func.name), Linkage::Internal),
+            let name = match &func.linkage {
+                IrLinkage::Export(name) => name.clone(),
+                IrLinkage::Internal => format!("{}.{i}", func.name),
             };
             let f = self
                 .module
-                .add_function(&name, lowered.fn_ty, Some(linkage));
+                .add_function(&name, lowered.fn_ty, Some(Linkage::External));
+            if func.linkage == IrLinkage::Internal {
+                self.internal_linkage(f.as_global_value());
+            }
             self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
             self.funcs.push(Some(f));
         }
@@ -386,11 +447,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .clone()
                 .unwrap_or_else(|| format!("{}.{i}", g.name));
             let gv = self.module.add_global(ty, None, &name);
-            gv.set_linkage(if g.export.is_some() {
-                Linkage::External
-            } else {
-                Linkage::Internal
-            });
+            gv.set_linkage(Linkage::External);
+            if g.export.is_none() {
+                self.internal_linkage(gv);
+            }
             gv.set_alignment(g.align.max(1) as u32);
             gv.set_constant(g.read_only);
             self.globals.push(gv);
@@ -473,22 +533,40 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             blocks,
             allocas,
             reg_ret: None,
+            dbg: None,
         };
+        if let Some(debug) = &self.debug {
+            let local = func.linkage == IrLinkage::Internal;
+            st.dbg = Some(debug.begin_function(func, function, local, &self.builder, &st.allocas));
+        }
         self.bind_params(&mut st, func, alloca_block)?;
         for slot in &func.slots {
             let p = self.entry_alloca(&st, slot.size, slot.align)?;
             st.slots.push(p);
         }
+        if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
+            dbg.declare_vars(debug, func, &st.slots, &st.vals, &st.allocas, alloca_block);
+        }
         for &b in &order {
             let block = &func.blocks[b];
             self.builder
                 .position_at_end(st.blocks[b].expect("reachable block"));
+            if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
+                dbg.enter_block(debug, func, &self.builder, b);
+            }
             for inst in &block.insts {
                 self.inst(&mut st, func, inst)?;
             }
             self.term(&st, func, &block.term)?;
+            if let Some(dbg) = &mut st.dbg {
+                dbg.leave_block(&block.term);
+            }
         }
         let entry = st.blocks[0].expect("entry block is reachable");
+        if let Some(dbg) = &st.dbg {
+            dbg.finish_entry(&st.allocas);
+            self.builder.unset_current_debug_location();
+        }
         st.allocas.build_unconditional_branch(entry)?;
         Ok(())
     }
@@ -560,6 +638,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     fn set(&self, st: &mut FnState<'ctx>, v: Val, value: BasicValueEnum<'ctx>) {
         st.vals[v.0 as usize] = Some(value);
+        // A variable whose address is computed here: copy it where its debug info looks.
+        if let Some(slot) = st.dbg.as_ref().and_then(|d| d.watched(v)) {
+            let _ = self.builder.build_store(slot, value);
+        }
     }
 
     fn get_int(&self, st: &FnState<'ctx>, v: Val) -> R<IntValue<'ctx>> {
@@ -914,10 +996,16 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     self.set(st, *r, v);
                 }
             }
-            // Debug line markers carry no native semantics (no debug info yet).
             Inst::Loc {
+                line,
+                col,
+                scope,
                 ..
-            } => {}
+            } => {
+                if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
+                    dbg.loc(debug, func, &self.builder, *line, *col, *scope);
+                }
+            }
         }
         Ok(())
     }

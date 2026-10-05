@@ -952,6 +952,9 @@ impl Compiler {
             f.b.func.linkage = ir::Linkage::Export(name.clone());
         }
         f.b.func.source_file = file.0;
+        if func_id.is_some() {
+            self.begin_func_debug(&mut f, id, span);
+        }
         if sig.has_context
             && func_id.is_some()
             && header.flags.inline != ast::CallHintFlag::Inline
@@ -996,6 +999,7 @@ impl Compiler {
                 self.spill(&mut f, param.ty, incoming, param.span)?
             };
             if let Some(name) = param.name {
+                self.debug_var(&mut f, scope, name, param.span, param.ty, addr, next as u32);
                 let depth = self.scope(scope).proc_depth;
                 let e = self.add_entity(
                     scope,
@@ -1050,6 +1054,7 @@ impl Compiler {
                 }
                 // A result named like a parameter is only reachable through `return`.
                 if !self.scope(scope).names.contains_key(&name) {
+                    self.debug_var(&mut f, scope, name, span, rt, addr, 0);
                     let depth = self.scope(scope).proc_depth;
                     self.add_entity(
                         scope,

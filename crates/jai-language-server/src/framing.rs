@@ -9,19 +9,24 @@ pub enum FrameError {
     InvalidUtf8,
     Incomplete,
 }
+
 impl std::fmt::Display for FrameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "invalid LSP frame: {self:?}")
     }
 }
+
 impl std::error::Error for FrameError {
 }
+
 pub struct FrameDecoder {
     buffer: Vec<u8>,
     expected: Option<usize>,
     body_limit: usize,
 }
+
 const HEADER_LIMIT: usize = 8192;
+
 impl FrameDecoder {
     pub fn new(body_limit: usize) -> Self {
         Self {
@@ -30,6 +35,7 @@ impl FrameDecoder {
             body_limit,
         }
     }
+
     pub fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, FrameError> {
         let limit = self
             .body_limit
@@ -107,6 +113,7 @@ impl FrameDecoder {
         }
         Ok(messages)
     }
+
     pub fn finish(&self) -> Result<(), FrameError> {
         if self.buffer.is_empty() && self.expected.is_none() {
             Ok(())
@@ -115,6 +122,7 @@ impl FrameDecoder {
         }
     }
 }
+
 pub fn encode(message: &str) -> Vec<u8> {
     let mut output = format!("Content-Length: {}\r\n\r\n", message.len()).into_bytes();
     output.extend_from_slice(message.as_bytes());

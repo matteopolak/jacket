@@ -189,7 +189,8 @@ impl Compiler {
         let span = stmt.span;
         if span.file == f.file && !f.b.is_terminated() {
             let (line, col) = self.sources.get(span.file).line_col(span.start);
-            f.b.loc(span.file.0, line, col);
+            let debug_scope = self.debug_scope(f, scope, line, col);
+            f.b.loc(span.file.0, line, col, debug_scope);
         }
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
@@ -578,6 +579,7 @@ impl Compiler {
                 depth,
             };
             let e = self.add_entity(target, name.name, name.span, kind.clone(), false);
+            self.debug_var(f, target, name.name, name.span, ty, addr, 0);
             if target != scope {
                 // A backtick name is visible to the rest of the macro body too.
                 self.add_entity(scope, name.name, name.span, kind, false);
@@ -1431,6 +1433,7 @@ impl Compiler {
                     },
                     false,
                 );
+                self.debug_var(f, inner, name, cond.span, ty, addr, 0);
                 (inner, self.truthy(f, ty, v, cond.span)?)
             }
             None => (scope, self.check_condition(f, scope, cond)?),
@@ -1524,7 +1527,7 @@ impl Compiler {
     /// them in the scope that called the macro, where the inserted loop body can see them.
     fn declare_loop_vars(
         &mut self,
-        f: &FnCtx,
+        f: &mut FnCtx,
         loop_scope: ScopeId,
         backtick: bool,
         names: [Sym; 2],
@@ -1540,6 +1543,7 @@ impl Compiler {
             if let Some(caller) = caller {
                 self.add_entity(caller, name, span, kind.clone(), false);
             }
+            self.debug_local_kind(f, loop_scope, name, span, &kind);
             self.add_entity(loop_scope, name, span, kind, false);
         }
     }

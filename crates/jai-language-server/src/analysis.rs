@@ -14,6 +14,7 @@ pub(crate) struct Span {
     pub start: usize,
     pub end: usize,
 }
+
 impl Span {
     pub fn new(start: usize, end: usize) -> Self {
         Self {
@@ -150,11 +151,13 @@ pub(crate) enum TokenKind {
     Dot,
     Punctuation,
 }
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Token {
     pub span: Span,
     pub kind: TokenKind,
 }
+
 impl Token {
     pub fn spelling<'a>(&self, text: &'a str) -> &'a str {
         &text[self.span.start..self.span.end]
@@ -173,6 +176,7 @@ pub(crate) struct SymbolRow {
     pub file_private: bool,
     pub readonly: bool,
 }
+
 #[derive(Clone)]
 pub(crate) struct Analysis {
     pub tokens: Vec<Token>,
@@ -285,6 +289,7 @@ impl Analysis {
         }
         result
     }
+
     fn compiler_diagnostic(
         &mut self,
         index: &LineIndex,
@@ -305,6 +310,7 @@ impl Analysis {
             &error.message,
         );
     }
+
     pub fn diagnostic(
         &mut self,
         index: &LineIndex,
@@ -325,6 +331,7 @@ impl Analysis {
             });
         }
     }
+
     #[allow(clippy::too_many_arguments)]
     fn add(
         &mut self,
@@ -359,6 +366,7 @@ impl Analysis {
         });
         Some(id)
     }
+
     fn top_level(
         &mut self,
         stmts: &[Stmt],
@@ -430,6 +438,7 @@ impl Analysis {
             }
         }
     }
+
     /// The declaration's value decides the symbol kind: a procedure, struct, enum, type, library
     /// or plain constant.
     fn kind_of(decl: &Decl) -> (SymbolKind, bool) {
@@ -471,6 +480,7 @@ impl Analysis {
             matches!(kind, SymbolKind::Constant | SymbolKind::Namespace),
         )
     }
+
     #[allow(clippy::too_many_arguments)]
     fn declaration(
         &mut self,
@@ -559,6 +569,7 @@ impl Analysis {
             }
         }
     }
+
     fn record(&mut self, record: &StructLit, parent: usize, context: &Context) {
         let scope = span_of(record.span);
         let mut pending: Vec<&Stmt> = record.body.iter().rev().collect();
@@ -604,14 +615,17 @@ impl Analysis {
             }
         }
     }
+
     fn block(&mut self, block: &Block, parent: Option<usize>, context: &Context) {
         self.statements(&block.stmts, span_of(block.span), parent, context);
     }
+
     fn statements(&mut self, body: &[Stmt], scope: Span, parent: Option<usize>, context: &Context) {
         for stmt in body {
             self.statement(stmt, scope, parent, context);
         }
     }
+
     fn nested(&mut self, stmt: &Stmt, parent: Option<usize>, context: &Context) {
         let scope = span_of(stmt.span);
         match &stmt.kind {
@@ -619,6 +633,7 @@ impl Analysis {
             _ => self.statement(stmt, scope, parent, context),
         }
     }
+
     fn statement(&mut self, stmt: &Stmt, scope: Span, parent: Option<usize>, context: &Context) {
         match &stmt.kind {
             StmtKind::Decl(decl) => {

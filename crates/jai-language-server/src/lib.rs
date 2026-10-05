@@ -31,6 +31,7 @@ pub struct Limits {
     pub edits: usize,
     pub cancelled_requests: usize,
 }
+
 impl Default for Limits {
     fn default() -> Self {
         Self {
@@ -58,6 +59,7 @@ pub enum Error {
     StaleVersion,
     InvalidEdit(&'static str),
 }
+
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = match self {
@@ -69,6 +71,7 @@ impl std::fmt::Display for Error {
         f.write_str(text)
     }
 }
+
 impl std::error::Error for Error {
 }
 
@@ -84,4 +87,5 @@ pub const TOKEN_TYPES: &[&str] = &[
     "macro",
     "operator",
 ];
+
 pub const TOKEN_MODIFIERS: &[&str] = &["declaration", "readonly"];

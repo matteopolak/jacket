@@ -878,7 +878,11 @@ impl Compiler {
     // -----------------------------------------------------------------------
 
     /// Built-in aggregate members of non-struct types.
-    fn builtin_members(&mut self, ty: TypeId, span: Span) -> Result<Vec<(Sym, TypeId, u64)>> {
+    pub(super) fn builtin_members(
+        &mut self,
+        ty: TypeId,
+        span: Span,
+    ) -> Result<Vec<(Sym, TypeId, u64)>> {
         let s = |n: &str| Sym::intern(n);
         Ok(match self.types.kind(ty).clone() {
             TypeKind::String => vec![(s("count"), TypeId::S64, 0), (s("data"), TypeId::U8_PTR, 8)],

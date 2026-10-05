@@ -19,9 +19,11 @@ fn session() -> Session {
         },
     )
 }
+
 fn uri() -> DocumentUri {
     DocumentUri::parse("file:///lsp-semantic-test/main.jai").unwrap()
 }
+
 /// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
 fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
     let byte = text.match_indices(marker).nth(n).unwrap().0 + marker.len() - back;
@@ -31,6 +33,7 @@ fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
         character: prefix.rsplit('\n').next().unwrap().len() as u32,
     }
 }
+
 fn labels(session: &Session, at: Position) -> Vec<(String, CompletionKind, String)> {
     session
         .completion(&uri(), at)
@@ -40,6 +43,7 @@ fn labels(session: &Session, at: Position) -> Vec<(String, CompletionKind, Strin
         .map(|i| (i.label, i.kind, i.detail))
         .collect()
 }
+
 fn hover(session: &Session, at: Position) -> String {
     session
         .hover(&uri(), at)
@@ -217,7 +221,14 @@ fn completion_after_a_hash_lists_directives() {
 fn definition_reaches_loaded_files_and_the_stdlib() {
     let mut s = session();
     let other = DocumentUri::parse("file:///lsp-semantic-test/other.jai").unwrap();
-    let main = "#import \"Basic\";\n#load \"other.jai\";\nmain :: () {\n    x := twice(3);\n    print(\"%\\n\", x);\n}\n";
+    let main = concat!(
+        "#import \"Basic\";\n",
+        "#load \"other.jai\";\n",
+        "main :: () {\n",
+        "    x := twice(3);\n",
+        "    print(\"%\\n\", x);\n",
+        "}\n",
+    );
     s.open(
         other.clone(),
         1,

@@ -1074,6 +1074,7 @@ impl Interp {
                 line,
                 col,
                 file,
+                ..
             } => self.loc = Some((*file, *line, *col)),
         }
         Ok(())

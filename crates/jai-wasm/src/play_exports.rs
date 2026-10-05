@@ -23,7 +23,8 @@ struct PlayState {
 
 thread_local! {
     static STATE: RefCell<PlayState> = RefCell::new(PlayState::default());
-    /// Last panic message. Kept apart from `STATE` because a panic can happen while that is borrowed.
+    /// Last panic message. Kept apart from `STATE` because a panic can happen while that is
+    /// borrowed.
     static PANIC: RefCell<String> = const { RefCell::new(String::new()) };
 }
 

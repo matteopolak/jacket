@@ -311,11 +311,13 @@ pub enum Inst {
         op: Intrinsic,
         args: Vec<Val>,
     },
-    /// Source line marker for debug info and runtime error locations.
+    /// Source line marker for debug info and runtime error locations. `scope` indexes
+    /// `FuncDebug::scopes` (0: the procedure itself, and always 0 without debug info).
     Loc {
         line: u32,
         col: u32,
         file: u32,
+        scope: u32,
     },
 }
 
@@ -370,6 +372,105 @@ pub struct Func {
     pub source_file: u32,
     /// Present for procedures that take a context: what a stack trace node says about it.
     pub trace: Option<TraceInfo>,
+    /// Native debug information (named variables, lexical scopes), recorded only when the
+    /// program is built with debug info. Boxed so the interpreter's hot data stays small.
+    pub debug: Option<Box<FuncDebug>>,
+}
+
+/// Debug information of one procedure, for the native backend (`docs/native/debug-info.md`).
+#[derive(Clone, Debug, Default)]
+pub struct FuncDebug {
+    /// Procedure name as written (polymorph instances share it).
+    pub name: String,
+    pub file: u32,
+    pub line: u32,
+    /// Lexical scopes. Entry 0 is the procedure body itself; `Inst::Loc::scope` and
+    /// `DebugVar::scope` index this.
+    pub scopes: Vec<DebugScope>,
+    pub vars: Vec<DebugVar>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DebugScope {
+    /// Enclosing scope (entry 0 is its own parent).
+    pub parent: u32,
+    pub line: u32,
+    pub col: u32,
+}
+
+/// A named local variable or parameter.
+#[derive(Clone, Debug)]
+pub struct DebugVar {
+    pub name: String,
+    /// Key into `Program::debug_types` (a `TypeId`).
+    pub ty: u32,
+    /// The variable's address: usually a `SlotAddr` result, or a parameter (aggregates
+    /// arrive by pointer).
+    pub addr: Val,
+    /// 1-based parameter position; 0 for a local.
+    pub arg: u32,
+    pub scope: u32,
+    pub line: u32,
+    pub col: u32,
+}
+
+/// A global variable with debug information.
+#[derive(Clone, Debug)]
+pub struct DebugGlobal {
+    pub global: GlobalId,
+    pub name: String,
+    pub ty: u32,
+    pub file: u32,
+    pub line: u32,
+}
+
+/// Debug description of a Jai type, keyed by `TypeId` in `Program::debug_types`
+/// (plus the synthetic keys [`DEBUG_CHAR`] and [`DEBUG_CHAR_PTR`]).
+#[derive(Clone, Debug)]
+pub struct DebugType {
+    pub name: String,
+    pub size: u64,
+    pub align: u64,
+    pub kind: DebugTypeKind,
+}
+
+/// `u8` shown as a character: the pointee of `string.data`, so debuggers print text.
+pub const DEBUG_CHAR: u32 = u32::MAX - 1;
+pub const DEBUG_CHAR_PTR: u32 = u32::MAX - 2;
+
+#[derive(Clone, Debug)]
+pub enum DebugTypeKind {
+    Void,
+    Bool,
+    Int {
+        signed: bool,
+    },
+    Char,
+    Float,
+    /// Pointee key (a `Void` pointee is `*void`).
+    Pointer(u32),
+    /// Structs, unions and the built-in aggregates (`string`, `[] T`, `[..] T`, `Any`).
+    Struct {
+        fields: Vec<DebugField>,
+        union: bool,
+    },
+    Array {
+        elem: u32,
+        count: u64,
+    },
+    Enum {
+        base: u32,
+        members: Vec<(String, i64)>,
+    },
+    /// Another name for a type (`#type,distinct`, `Type`, procedure types).
+    Typedef(u32),
+}
+
+#[derive(Clone, Debug)]
+pub struct DebugField {
+    pub name: String,
+    pub ty: u32,
+    pub offset: u64,
 }
 
 /// Name and declaration site of a procedure, for `context.stack_trace` nodes.
@@ -463,6 +564,9 @@ pub struct Program {
     pub file_paths: Vec<String>,
     /// Byte offset of `stack_trace` in the Context (`None`: stack traces are off).
     pub stack_trace_offset: Option<u64>,
+    /// Types named by debug information (`FuncDebug`, `debug_globals`), by key.
+    pub debug_types: crate::fxhash::HashMap<u32, DebugType>,
+    pub debug_globals: Vec<DebugGlobal>,
 }
 
 impl Program {
@@ -509,6 +613,7 @@ impl Builder {
             vals,
             source_file: 0,
             trace: None,
+            debug: None,
         };
         Self {
             func,
@@ -751,12 +856,13 @@ impl Builder {
     pub fn ret(&mut self, values: Vec<Val>) {
         self.terminate(Term::Ret(values));
     }
-    pub fn loc(&mut self, file: u32, line: u32, col: u32) {
+    pub fn loc(&mut self, file: u32, line: u32, col: u32, scope: u32) {
         if !self.is_terminated() {
             self.push(Inst::Loc {
                 line,
                 col,
                 file,
+                scope,
             });
         }
     }

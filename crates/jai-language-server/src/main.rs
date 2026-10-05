@@ -37,6 +37,7 @@ fn main() -> std::process::ExitCode {
         }
     }
 }
+
 /// Modules come from disk: the `modules` folder next to the main file, then the stdlib
 /// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's).
 #[cfg(not(target_arch = "wasm32"))]
@@ -54,6 +55,7 @@ fn native_environment() -> jai_language_server::Environment {
         }),
     }
 }
+
 #[cfg(target_arch = "wasm32")]
 fn main() {
 }

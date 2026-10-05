@@ -18,6 +18,7 @@ mod calls;
 pub mod code_export;
 mod consteval;
 mod convert;
+mod debug_info;
 mod decls;
 mod driver;
 mod expr;
@@ -87,6 +88,9 @@ pub struct Options {
     pub arithmetic_overflow_check: u8,
     /// Maintain `context.stack_trace` while the program runs (`Build_Options.stack_trace`).
     pub stack_trace: bool,
+    /// Record variables, scopes and types for native debug information
+    /// (`Build_Options.emit_debug_info != .NONE`; only `jaic build` turns it on).
+    pub debug_info: bool,
 }
 
 impl Options {
@@ -117,6 +121,7 @@ impl Options {
             array_bounds_check: true,
             arithmetic_overflow_check: 0,
             stack_trace: true,
+            debug_info: false,
         }
     }
 }

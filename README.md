@@ -32,7 +32,7 @@ It type-checks, interprets and natively builds real Jai projects, including the 
 | Native executables on Linux (arm64, x86-64) | ✅ | LLVM backend |
 | Checking for Windows (`-os windows`) | ✅ | |
 | Native executables for Windows | ❌ | No Win64 calling convention yet |
-| Native debug information | ❌ | |
+| Native debug information | ✅ | DWARF on macOS (`.dSYM`) and Linux: lines, backtraces, typed locals and globals; Windows CodeView not yet |
 | Browser playground (WebAssembly) | ✅ | 168 of 186 stdlib tests run; the rest need native processes or libraries |
 | Language server (`jai-lsp`) | ✅ | Diagnostics, type-checked hover and completion, go to definition |
 | `Bindings_Generator` | ⚠️ | C, C++ and Objective-C; no virtual bases, `objc_msgSend_fpret` or block literals |

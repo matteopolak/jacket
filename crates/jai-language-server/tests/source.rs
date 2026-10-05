@@ -2,9 +2,11 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, Limits, Position, Range,
     SemanticTokenKind, Session, SymbolKind, TextChange,
 };
+
 fn uri(name: &str) -> DocumentUri {
     DocumentUri::parse(&format!("file:///workspace/{name}")).unwrap()
 }
+
 fn at(text: &str, name: &str) -> Position {
     let byte = text.rfind(name).unwrap();
     let prefix = &text[..byte];
@@ -13,6 +15,7 @@ fn at(text: &str, name: &str) -> Position {
         character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
     }
 }
+
 fn edit(start: Position, end: Position, text: &str) -> TextChange {
     TextChange {
         range: Some(Range {
@@ -77,6 +80,7 @@ fn utf16_crlf_surrogates_and_versioned_edits_are_atomic() {
     assert_eq!(pinned.read("/etc/passwd"), None);
     assert_eq!(pinned.read("/workspace/../../etc/passwd"), None);
 }
+
 #[test]
 fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
     let mut session = Session::new(Limits::default());
@@ -111,6 +115,7 @@ fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
     assert_eq!(session.document_text(&name).unwrap(), text);
     assert_eq!(session.version(&name).unwrap(), 1);
 }
+
 #[test]
 fn authentic_load_declarations_drive_multifile_navigation() {
     let mut session = Session::new(Limits::default());
@@ -164,6 +169,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
             .is_empty()
     );
 }
+
 #[test]
 fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
     let mut session = Session::new(Limits::default());
@@ -213,6 +219,7 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
             .is_empty()
     );
 }
+
 #[test]
 fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
     let mut session = Session::new(Limits::default());
@@ -236,6 +243,7 @@ fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
     assert!(session.diagnostics(&name).unwrap().is_empty());
     assert_eq!(session.document_symbols(&name).unwrap()[0].name, "main");
 }
+
 #[test]
 fn resource_admission_and_source_symbol_ranges_are_bounded() {
     let mut session = Session::new(Limits {
@@ -277,12 +285,18 @@ fn resource_admission_and_source_symbol_ranges_are_bounded() {
     assert!(DocumentUri::parse("file:///../escape.jai").is_err());
     assert!(DocumentUri::parse("file:///workspace/bad%00name.jai").is_err());
 }
+
 #[test]
 fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
     let mut session = Session::new(Limits::default());
     let main = uri("main.jai");
     let helper = uri("helper.jai");
-    let text = "#load \"helper.jai\";\nColor :: enum { RED; GREEN; }\nLib :: #import \"Basic\";\nmain :: () -> int { for i: 0..3 { } return shared(); }";
+    let text = concat!(
+        "#load \"helper.jai\";\n",
+        "Color :: enum { RED; GREEN; }\n",
+        "Lib :: #import \"Basic\";\n",
+        "main :: () -> int { for i: 0..3 { } return shared(); }",
+    );
     session.open(main.clone(), 1, text.into()).unwrap();
     session
         .open(

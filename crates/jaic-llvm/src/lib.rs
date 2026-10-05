@@ -1,9 +1,12 @@
 //! LLVM backend for the jaic compiler core.
 //!
 //! [`emit_object`] lowers an `ir::Program` to LLVM IR and writes a native
-//! object file; [`link`] turns object files into an executable with the
+//! object file ([`emit_objects`] splits large unoptimized builds across threads); [`link`] turns object files into an executable with the
 //! system C compiler driver.
+mod debuginfo;
 mod lower;
+
+use lower::Shard;
 
 use inkwell::OptimizationLevel;
 use inkwell::context::Context;
@@ -52,6 +55,8 @@ pub struct Options {
     pub target: Option<String>,
     /// Also write the textual LLVM IR (before optimization) to this path.
     pub emit_ir: Option<PathBuf>,
+    /// Emit native debug information (DWARF; see `docs/native/debug-info.md`).
+    pub debug_info: bool,
 }
 
 /// The host triple. On macOS LLVM's default names the Darwin kernel version, which it maps to
@@ -70,8 +75,10 @@ fn host_triple() -> TargetTriple {
     }
 }
 
-/// Translate `program` to a native object file at `path`.
-pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+/// The target machine for `options`, and the architecture it targets.
+fn target_machine(
+    options: &Options,
+) -> Result<(TargetMachine, TargetTriple, jaic::abi::Arch), String> {
     Target::initialize_all(&InitializationConfig::default());
     let host = options.target.is_none();
     let triple = match &options.target {
@@ -100,12 +107,29 @@ pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<
             CodeModel::Default,
         )
         .ok_or("could not create a target machine")?;
+    Ok((machine, triple, arch))
+}
 
+/// Lower `program` (or one shard of it) to one LLVM module and write it as an object file.
+fn emit_module(
+    program: &Program,
+    options: &Options,
+    path: &Path,
+    shard: Option<Shard>,
+) -> Result<(), String> {
+    let (machine, triple, arch) = target_machine(options)?;
     let context = Context::create();
     let module = context.create_module("jai");
     module.set_triple(&triple);
     module.set_data_layout(&machine.get_target_data().get_data_layout());
-    lower::lower_program(&context, &module, program, arch)?;
+    let debug = options.debug_info.then(|| {
+        let triple = triple.as_str().to_string_lossy();
+        (
+            debuginfo::DebugFormat::for_triple(&triple),
+            options.opt_level != OptLevel::O0,
+        )
+    });
+    lower::lower_program(&context, &module, program, arch, shard, debug)?;
     if let Some(ir_path) = &options.emit_ir {
         module.print_to_file(ir_path).map_err(|e| e.to_string())?;
     }
@@ -120,6 +144,100 @@ pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<
     machine
         .write_to_file(&module, FileType::Object, path)
         .map_err(|e| e.to_string())
+}
+
+/// Translate `program` to a single native object file at `path`.
+pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+    emit_module(program, options, path, None)
+}
+
+/// IR instructions per codegen unit below which splitting does not pay for itself.
+const INSTS_PER_UNIT: usize = 20_000;
+
+/// How many modules to split codegen into: `JAIC_CODEGEN_UNITS` when set, otherwise one
+/// per core for large unoptimized builds. Optimized builds stay whole so LLVM can inline
+/// across the program.
+fn codegen_units(program: &Program, options: &Options) -> usize {
+    if let Some(n) = std::env::var("JAIC_CODEGEN_UNITS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+    {
+        return n.max(1);
+    }
+    if options.opt_level != OptLevel::O0 || options.emit_ir.is_some() {
+        return 1;
+    }
+    let insts: usize = program.funcs.iter().flatten().map(func_weight).sum();
+    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+    (insts / INSTS_PER_UNIT).clamp(1, cores)
+}
+
+fn func_weight(func: &jaic::ir::Func) -> usize {
+    func.blocks.iter().map(|b| b.insts.len() + 1).sum()
+}
+
+/// Translate `program` to native object files, splitting codegen across threads when it
+/// is large. Returns the objects written: `path` itself, then `path.1.o`, `path.2.o`...
+pub fn emit_objects(
+    program: &Program,
+    options: &Options,
+    path: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    let units = codegen_units(program, options);
+    if units == 1 {
+        emit_object(program, options, path)?;
+        return Ok(vec![path.to_path_buf()]);
+    }
+    // Largest functions first, each to the lightest unit. Unit 0 also holds the globals.
+    let mut order: Vec<usize> = (0..program.funcs.len()).collect();
+    let weight = |i: usize| program.funcs[i].as_ref().map_or(0, func_weight);
+    order.sort_by_key(|&i| std::cmp::Reverse(weight(i)));
+    let mut load = vec![0usize; units];
+    load[0] = program
+        .globals
+        .iter()
+        .map(|g| g.init.len() / 64 + g.relocs.len())
+        .sum();
+    let mut owner = vec![0u32; program.funcs.len()];
+    for i in order {
+        let unit = (0..units).min_by_key(|&u| load[u]).unwrap_or(0);
+        owner[i] = unit as u32;
+        load[unit] += weight(i);
+    }
+    let paths: Vec<PathBuf> = (0..units)
+        .map(|u| {
+            if u == 0 {
+                return path.to_path_buf();
+            }
+            let mut name = path.to_path_buf().into_os_string();
+            name.push(format!(".{u}.o"));
+            PathBuf::from(name)
+        })
+        .collect();
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = paths
+            .iter()
+            .enumerate()
+            .map(|(u, p)| {
+                let owner = &owner;
+                scope.spawn(move || {
+                    let shard = Shard {
+                        owner,
+                        index: u as u32,
+                    };
+                    emit_module(program, options, p, Some(shard))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join()
+                    .unwrap_or_else(|_| Err("codegen thread panicked".into()))
+            })
+            .collect::<Result<Vec<()>, String>>()
+    })?;
+    Ok(paths)
 }
 
 /// The libraries from `program.libraries` that some foreign symbol uses, or that are
@@ -170,6 +288,31 @@ pub fn link(
     } else {
         Err(format!(
             "linking failed ({}):\n{}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr)
+        ))
+    }
+}
+
+/// Collect the DWARF of a linked macOS executable or library into `output.dSYM`.
+///
+/// Apple's linker does not copy debug information into its output: the binary only
+/// records which object files hold it, and the CLI deletes those objects. `dsymutil`
+/// gathers it into a bundle next to the binary, where lldb finds it by UUID.
+pub fn write_dsym(output: &Path) -> Result<(), String> {
+    let mut bundle = output.to_path_buf().into_os_string();
+    bundle.push(".dSYM");
+    let out = Command::new("dsymutil")
+        .arg(output)
+        .arg("-o")
+        .arg(&bundle)
+        .output()
+        .map_err(|e| format!("could not run 'dsymutil' for debug information: {e}"))?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "dsymutil failed ({}):\n{}",
             out.status,
             String::from_utf8_lossy(&out.stderr)
         ))

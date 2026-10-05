@@ -277,6 +277,9 @@ impl Compiler {
         if let Some(offset) = self.program.stack_trace_offset {
             crate::stack_trace::instrument(&mut self.program, offset);
         }
+        if self.options.debug_info {
+            self.collect_debug_types();
+        }
     }
 
     /// Run the compiled program in the interpreter; returns its exit code.

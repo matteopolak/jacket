@@ -158,6 +158,8 @@ pub struct FnCtx {
     pub no_abc: bool,
     /// Arithmetic overflow checks are off (`#no_aoc` on the procedure, a block or a loop).
     pub no_aoc: bool,
+    /// Debug scope index of each sema scope seen so far (`debug_info.rs`).
+    pub debug_scopes: crate::fxhash::HashMap<ScopeId, u32>,
 }
 
 #[derive(Clone)]
@@ -205,6 +207,7 @@ impl FnCtx {
             hoisted_consts: Default::default(),
             no_abc: false,
             no_aoc: false,
+            debug_scopes: Default::default(),
         }
     }
 }

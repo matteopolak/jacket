@@ -36,7 +36,7 @@ fn usage() -> ExitCode {
         "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...]"
     );
     eprintln!(
-        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll]"
+        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info]"
     );
     ExitCode::from(2)
 }
@@ -57,6 +57,8 @@ struct Cli {
     /// `-O0`..`-O3`; `None`: what the metaprogram chose (default: unoptimized).
     opt_level: Option<&'static str>,
     emit_ir: Option<PathBuf>,
+    /// `--no-debug-info`: omit native debug information (on by default, like `jai`).
+    no_debug_info: bool,
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
     command_line: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
@@ -77,6 +79,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         output: None,
         opt_level: None,
         emit_ir: None,
+        no_debug_info: false,
         command_line: Vec::new(),
         os: None,
     };
@@ -100,6 +103,7 @@ fn parse(args: &[String]) -> Option<Cli> {
             "--emit-ir" if command == Command::Build => {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
             }
+            "--no-debug-info" if command == Command::Build => cli.no_debug_info = true,
             "-O0" if command == Command::Build => cli.opt_level = Some("O0"),
             "-O1" if command == Command::Build => cli.opt_level = Some("O1"),
             "-O2" if command == Command::Build => cli.opt_level = Some("O2"),
@@ -163,6 +167,8 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     if let Some(os) = cli.os {
         options.os = os;
     }
+    // Only native output has a use for variable and type descriptions.
+    options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
     // The local `modules` folder is searched first, then `-import_dir`s, then the stdlib.
     options.import_paths = vec![main_dir.join("modules")];
     options.import_paths.extend(cli.imports.iter().cloned());
@@ -275,6 +281,7 @@ fn build(
 fn native_backend(cli: &Cli) -> LlvmBackend {
     LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
+        debug_info: !cli.no_debug_info,
     }
 }
 
@@ -304,6 +311,7 @@ impl OutputBackend for NoBackend {
 #[cfg(feature = "llvm")]
 struct LlvmBackend {
     emit_ir: Option<PathBuf>,
+    debug_info: bool,
 }
 
 #[cfg(feature = "llvm")]
@@ -336,18 +344,26 @@ impl OutputBackend for LlvmBackend {
             "O3" => OptLevel::O3,
             _ => OptLevel::O0,
         };
+        // `Build_Options.emit_debug_info = .NONE` (or `set_optimization(..., false)`) turns it off.
+        let debug_info = self.debug_info && settings.emit_debug_info != Some(false);
         let options = jaic_llvm::Options {
             opt_level,
             target: None,
             emit_ir: self.emit_ir.clone(),
+            debug_info,
         };
-        jaic_llvm::emit_object(program, &options, &object)?;
+        if matches!(
+            settings.output_type,
+            OutputType::ObjectFile | OutputType::NoOutput
+        ) {
+            return jaic_llvm::emit_object(program, &options, &object);
+        }
+        let objects = jaic_llvm::emit_objects(program, &options, &object)?;
         let libraries = jaic_llvm::used_libraries(program);
-        let objects = std::slice::from_ref(&object);
         let linked = match settings.output_type {
-            OutputType::ObjectFile | OutputType::NoOutput => return Ok(()),
+            OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
             OutputType::Executable | OutputType::DynamicLibrary => jaic_llvm::link(
-                objects,
+                &objects,
                 &libraries,
                 output,
                 settings.output_type == OutputType::DynamicLibrary,
@@ -356,12 +372,23 @@ impl OutputBackend for LlvmBackend {
             OutputType::StaticLibrary => std::process::Command::new("ar")
                 .arg("rcs")
                 .arg(output)
-                .arg(&object)
+                .args(&objects)
                 .status()
                 .map_err(|e| format!("could not run 'ar': {e}"))
                 .and_then(|s| s.success().then_some(()).ok_or(format!("ar failed ({s})"))),
         };
-        let _ = std::fs::remove_file(&object);
+        // macOS linkers leave DWARF in the objects; collect it into `output.dSYM` before they go.
+        if debug_info
+            && linked.is_ok()
+            && cfg!(target_os = "macos")
+            && settings.output_type != OutputType::StaticLibrary
+            && let Err(message) = jaic_llvm::write_dsym(output)
+        {
+            eprintln!("warning: {message}");
+        }
+        for object in &objects {
+            let _ = std::fs::remove_file(object);
+        }
         linked
     }
 }

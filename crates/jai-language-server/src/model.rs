@@ -13,11 +13,13 @@ pub enum SymbolKind {
     EnumMember,
     Struct,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiagnosticSeverity {
     Error,
     Warning,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiagnosticCode {
     Lexer,
@@ -25,6 +27,7 @@ pub enum DiagnosticCode {
     Source,
     Limit,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompletionKind {
     Function,
@@ -40,6 +43,7 @@ pub enum CompletionKind {
     File,
     Folder,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
     pub range: Range,
@@ -47,6 +51,7 @@ pub struct Diagnostic {
     pub code: DiagnosticCode,
     pub message: String,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DocumentSymbol {
     pub name: String,
@@ -56,26 +61,31 @@ pub struct DocumentSymbol {
     pub selection_range: Range,
     pub children: Vec<DocumentSymbol>,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Location {
     pub uri: String,
     pub range: Range,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MarkupContent {
     pub value: String,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hover {
     pub contents: MarkupContent,
     pub range: Range,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompletionItem {
     pub label: String,
     pub kind: CompletionKind,
     pub detail: String,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompletionList {
     pub is_incomplete: bool,
@@ -95,6 +105,7 @@ pub enum SemanticTokenKind {
     Macro,
     Operator,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SemanticToken {
     pub position: Position,

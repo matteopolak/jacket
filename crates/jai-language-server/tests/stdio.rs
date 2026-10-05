@@ -5,6 +5,7 @@ use std::{
     io::Write,
     process::{Command, Stdio},
 };
+
 #[test]
 fn native_stdio_serves_the_same_core_and_shuts_down_cleanly() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_jai-lsp"))
@@ -15,11 +16,27 @@ fn native_stdio_serves_the_same_core_and_shuts_down_cleanly() {
         .unwrap();
     let mut input = child.stdin.take().unwrap();
     let requests = [
-        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}),
-        json!({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///workspace/main.jai","version":1,"languageId":"jai","text":"answer :: 42; main :: () -> int {return answer;}"}}}),
-        json!({"jsonrpc":"2.0","id":2,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"file:///workspace/main.jai"}}}),
-        json!({"jsonrpc":"2.0","id":3,"method":"shutdown"}),
-        json!({"jsonrpc":"2.0","method":"exit"}),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": "file:///workspace/main.jai",
+                    "version": 1,
+                    "languageId": "jai",
+                    "text": "answer :: 42; main :: () -> int {return answer;}",
+                },
+            },
+        }),
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/documentSymbol",
+            "params": { "textDocument": { "uri": "file:///workspace/main.jai" } },
+        }),
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown" }),
+        json!({ "jsonrpc": "2.0", "method": "exit" }),
     ];
     for request in requests {
         for part in encode(&request.to_string()).chunks(7) {

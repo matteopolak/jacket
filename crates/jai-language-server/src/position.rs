@@ -6,6 +6,7 @@ pub struct Position {
     pub line: u32,
     pub character: u32,
 }
+
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Range {
     pub start: Position,
@@ -17,6 +18,7 @@ pub(crate) struct LineIndex {
     starts: Vec<usize>,
     ends: Vec<usize>,
 }
+
 impl LineIndex {
     pub(crate) fn new(text: &str) -> Self {
         let mut starts = vec![0];
@@ -37,6 +39,7 @@ impl LineIndex {
             ends,
         }
     }
+
     pub(crate) fn byte(&self, text: &str, position: Position) -> Result<usize, Error> {
         let line = position.line as usize;
         let start = *self
@@ -57,6 +60,7 @@ impl LineIndex {
         // LSP positions beyond a line's character count denote the line end.
         Ok(end)
     }
+
     pub(crate) fn position(&self, text: &str, byte: usize) -> Result<Position, Error> {
         if byte > text.len() || !text.is_char_boundary(byte) {
             return Err(Error::Position("byte position is outside a UTF-8 boundary"));
@@ -72,12 +76,14 @@ impl LineIndex {
             character,
         })
     }
+
     pub(crate) fn range(&self, text: &str, span: crate::analysis::Span) -> Result<Range, Error> {
         Ok(Range {
             start: self.position(text, span.start)?,
             end: self.position(text, span.end)?,
         })
     }
+
     pub(crate) fn lines(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.starts.iter().copied().zip(self.ends.iter().copied())
     }

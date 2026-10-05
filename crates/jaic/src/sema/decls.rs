@@ -432,6 +432,7 @@ impl Compiler {
             read_only: false,
             export: None,
         });
+        self.debug_global(global, name, ty, span);
         if !decl.flags.iter().any(|f| f.name.as_str() == "no_reset") {
             self.program.reset_globals.push(global);
         }

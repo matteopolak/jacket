@@ -14,12 +14,14 @@ pub enum RequestId {
     Number(i32),
     String(String),
 }
+
 #[derive(Clone, Debug)]
 pub enum ProtocolError {
     MessageLimit,
     OutputLimit,
     Serialization(String),
 }
+
 impl std::fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -29,8 +31,10 @@ impl std::fmt::Display for ProtocolError {
         }
     }
 }
+
 impl std::error::Error for ProtocolError {
 }
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Lifecycle {
     New,
@@ -38,12 +42,14 @@ enum Lifecycle {
     Shutdown,
     Exited(u8),
 }
+
 pub struct JsonSession {
     session: Session,
     lifecycle: Lifecycle,
     cancelled: BTreeSet<RequestId>,
     completed: VecDeque<RequestId>,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DocumentItem {
@@ -52,41 +58,49 @@ struct DocumentItem {
     version: i32,
     text: String,
 }
+
 #[derive(Deserialize)]
 struct DocumentIdentifier {
     uri: String,
 }
+
 #[derive(Deserialize)]
 struct VersionedIdentifier {
     uri: String,
     version: i32,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenParams {
     text_document: DocumentItem,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DocumentParams {
     text_document: DocumentIdentifier,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ChangeParams {
     text_document: VersionedIdentifier,
     content_changes: Vec<TextChange>,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PositionParams {
     text_document: DocumentIdentifier,
     position: Position,
 }
+
 #[derive(Deserialize)]
 struct CancelParams {
     id: RequestId,
 }
+
 #[derive(Deserialize)]
 struct Envelope {
     jsonrpc: String,
@@ -99,10 +113,12 @@ impl JsonSession {
     pub fn new(limits: Limits) -> Self {
         Self::with_session(Session::new(limits))
     }
+
     /// A session that type-checks the open documents (see `Session::with_environment`).
     pub fn with_environment(limits: Limits, environment: crate::Environment) -> Self {
         Self::with_session(Session::with_environment(limits, environment))
     }
+
     fn with_session(session: Session) -> Self {
         Self {
             session,
@@ -111,9 +127,11 @@ impl JsonSession {
             completed: VecDeque::new(),
         }
     }
+
     pub fn session(&self) -> &Session {
         &self.session
     }
+
     pub fn exit_status(&self) -> Option<u8> {
         if let Lifecycle::Exited(code) = self.lifecycle {
             Some(code)
@@ -121,6 +139,7 @@ impl JsonSession {
             None
         }
     }
+
     pub fn handle_json(&mut self, input: &str) -> Result<Vec<String>, ProtocolError> {
         if input.len() > self.session.limits().message_bytes {
             return Err(ProtocolError::MessageLimit);
@@ -174,7 +193,7 @@ impl JsonSession {
                 if let Some(id) = id {
                     self.remember(id);
                     let result = messages.pop().unwrap_or(Value::Null);
-                    messages.push(json!({"jsonrpc":"2.0","id":identifier,"result":result}));
+                    messages.push(json!({ "jsonrpc": "2.0", "id": identifier, "result": result }));
                 }
                 messages
             }
@@ -191,6 +210,7 @@ impl JsonSession {
         };
         self.encode(output)
     }
+
     pub fn cancel_request(&mut self, id: RequestId) -> Result<(), Error> {
         if !valid_id(&id) {
             return Err(Error::InvalidEdit("invalid cancellation id"));
@@ -206,6 +226,7 @@ impl JsonSession {
         self.cancelled.insert(id);
         Ok(())
     }
+
     fn remember(&mut self, id: RequestId) {
         let limit = self.session.limits().cancelled_requests;
         if limit == 0 {
@@ -216,6 +237,7 @@ impl JsonSession {
         }
         self.completed.push_back(id);
     }
+
     fn encode(&self, messages: Vec<Value>) -> Result<Vec<String>, ProtocolError> {
         let mut out = vec![];
         let mut bytes = 0usize;
@@ -230,6 +252,7 @@ impl JsonSession {
         }
         Ok(out)
     }
+
     fn dispatch(
         &mut self,
         method: &str,
@@ -244,13 +267,39 @@ impl JsonSession {
                 return Err((-32602, "Initialize parameters must be an object".into()));
             }
             self.lifecycle = Lifecycle::Running;
-            return Ok(vec![
-                json!({"capabilities":{"positionEncoding":"utf-16","textDocumentSync":{"openClose":true,"change":2},"hoverProvider":true,
-                "completionProvider":{"resolveProvider":false,"triggerCharacters":[".","#","\"","/"]},"definitionProvider":true,"documentSymbolProvider":true,
-                "semanticTokensProvider":{"legend":{"tokenTypes":TOKEN_TYPES,"tokenModifiers":TOKEN_MODIFIERS},"full":true},
-                "experimental":{"jai":{"analysis":"compiler-source-syntax","compileTimeExecution":false,"typeInference":false,"filesystemReads":false,"moduleSearch":false}}},
-                "serverInfo":{"name":"jai-language-server","version":env!("CARGO_PKG_VERSION")}}),
-            ]);
+            return Ok(vec![json!({
+                "capabilities": {
+                    "positionEncoding": "utf-16",
+                    "textDocumentSync": { "openClose": true, "change": 2 },
+                    "hoverProvider": true,
+                    "completionProvider": {
+                        "resolveProvider": false,
+                        "triggerCharacters": [".", "#", "\"", "/"],
+                    },
+                    "definitionProvider": true,
+                    "documentSymbolProvider": true,
+                    "semanticTokensProvider": {
+                        "legend": {
+                            "tokenTypes": TOKEN_TYPES,
+                            "tokenModifiers": TOKEN_MODIFIERS,
+                        },
+                        "full": true,
+                    },
+                    "experimental": {
+                        "jai": {
+                            "analysis": "compiler-source-syntax",
+                            "compileTimeExecution": false,
+                            "typeInference": false,
+                            "filesystemReads": false,
+                            "moduleSearch": false,
+                        },
+                    },
+                },
+                "serverInfo": {
+                    "name": "jai-language-server",
+                    "version": env!("CARGO_PKG_VERSION"),
+                },
+            })]);
         }
         if self.lifecycle == Lifecycle::New {
             return Err((-32002, "Server is not initialized".into()));
@@ -267,7 +316,12 @@ impl JsonSession {
                 "textDocument/semanticTokens/full" => {
                     let p: DocumentParams = decode(params)?;
                     let uri = uri(&p.text_document.uri)?;
-                    json!({"resultId":self.session.version(&uri).map_err(domain)?.to_string(),"data":semantic_tokens_wire(&self.session.semantic_tokens(&uri).map_err(domain)?)})
+                    let version = self.session.version(&uri).map_err(domain)?;
+                    let tokens = self.session.semantic_tokens(&uri).map_err(domain)?;
+                    json!({
+                        "resultId": version.to_string(),
+                        "data": semantic_tokens_wire(&tokens),
+                    })
                 }
                 "textDocument/documentSymbol" => {
                     let p: DocumentParams = decode(params)?;
@@ -351,7 +405,11 @@ impl JsonSession {
                 let closed = uri(&p.text_document.uri)?;
                 self.session.close(&closed).map_err(domain)?;
                 let mut publications = self.publications();
-                publications.push(json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":closed.as_str(),"diagnostics":[]}}));
+                publications.push(json!({
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/publishDiagnostics",
+                    "params": { "uri": closed.as_str(), "diagnostics": [] },
+                }));
                 return Ok(publications);
             }
             // Unknown notifications are ignored as required by JSON-RPC/LSP.
@@ -359,19 +417,35 @@ impl JsonSession {
         }
         Ok(self.publications())
     }
+
     fn publications(&self) -> Vec<Value> {
-        self.session.publications().into_iter().map(|(uri,version,diagnostics)|json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":uri,"version":version,"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()}})).collect()
+        self.session
+            .publications()
+            .into_iter()
+            .map(|(uri, version, diagnostics)| {
+                let diagnostics: Vec<Value> = diagnostics.iter().map(diagnostic_wire).collect();
+                json!({
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/publishDiagnostics",
+                    "params": { "uri": uri, "version": version, "diagnostics": diagnostics },
+                })
+            })
+            .collect()
     }
 }
+
 fn valid_id(id: &RequestId) -> bool {
-    matches!(id, RequestId::Number(_)) || matches!(id,RequestId::String(text) if text.len()<=128)
+    matches!(id, RequestId::Number(_)) || matches!(id, RequestId::String(text) if text.len() <= 128)
 }
+
 fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, (i32, String)> {
     serde_json::from_value(value).map_err(|_| (-32602, "Invalid method parameters".into()))
 }
+
 fn uri(text: &str) -> Result<DocumentUri, (i32, String)> {
     DocumentUri::parse(text).map_err(domain)
 }
+
 fn domain(error: Error) -> (i32, String) {
     let code = match error {
         Error::Limit(_) => -32803,
@@ -380,11 +454,21 @@ fn domain(error: Error) -> (i32, String) {
     };
     (code, error.to_string())
 }
+
 fn failure(id: Value, code: i32, message: &str) -> Value {
-    json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
+    json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "error": { "code": code, "message": message },
+    })
 }
+
 fn log_error(message: &str) -> Value {
-    json!({"jsonrpc":"2.0","method":"window/logMessage","params":{"type":1,"message":message}})
+    json!({
+        "jsonrpc": "2.0",
+        "method": "window/logMessage",
+        "params": { "type": 1, "message": message },
+    })
 }
 
 // Domain enums have no protocol discriminants. Only this JSON boundary maps LSP values.
@@ -399,8 +483,15 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticCode::Source => "jai-source",
         DiagnosticCode::Limit => "jai-limit",
     };
-    json!({"range":diagnostic.range,"severity":severity,"code":code,"source":"jai","message":diagnostic.message})
+    json!({
+        "range": diagnostic.range,
+        "severity": severity,
+        "code": code,
+        "source": "jai",
+        "message": diagnostic.message,
+    })
 }
+
 fn symbol_wire(symbol: &DocumentSymbol) -> Value {
     let kind = match symbol.kind {
         SymbolKind::Namespace => 2,
@@ -413,18 +504,30 @@ fn symbol_wire(symbol: &DocumentSymbol) -> Value {
         SymbolKind::EnumMember => 22,
         SymbolKind::Struct => 23,
     };
-    let mut value = json!({"name":symbol.name,"detail":symbol.detail,"kind":kind,"range":symbol.range,"selectionRange":symbol.selection_range});
+    let mut value = json!({
+        "name": symbol.name,
+        "detail": symbol.detail,
+        "kind": kind,
+        "range": symbol.range,
+        "selectionRange": symbol.selection_range,
+    });
     if !symbol.children.is_empty() {
         value["children"] = Value::Array(symbol.children.iter().map(symbol_wire).collect());
     }
     value
 }
+
 fn location_wire(location: &Location) -> Value {
-    json!({"uri":location.uri,"range":location.range})
+    json!({ "uri": location.uri, "range": location.range })
 }
+
 fn hover_wire(hover: &Hover) -> Value {
-    json!({"contents":{"kind":"plaintext","value":hover.contents.value},"range":hover.range})
+    json!({
+        "contents": { "kind": "plaintext", "value": hover.contents.value },
+        "range": hover.range,
+    })
 }
+
 fn completion_wire(completion: &CompletionList) -> Value {
     let items: Vec<Value> = completion
         .items
@@ -444,10 +547,10 @@ fn completion_wire(completion: &CompletionList) -> Value {
                 CompletionKind::File => 17,
                 CompletionKind::Folder => 19,
             };
-            json!({"label":item.label,"kind":kind,"detail":item.detail})
+            json!({ "label": item.label, "kind": kind, "detail": item.detail })
         })
         .collect();
-    json!({"isIncomplete":completion.is_incomplete,"items":items})
+    json!({ "isIncomplete": completion.is_incomplete, "items": items })
 }
 
 fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {

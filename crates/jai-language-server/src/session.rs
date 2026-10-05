@@ -19,6 +19,7 @@ struct Document {
     text: String,
     index: LineIndex,
 }
+
 pub struct Session {
     limits: Limits,
     documents: BTreeMap<DocumentUri, Document>,
@@ -30,6 +31,7 @@ pub struct Session {
     environment: Option<Environment>,
     semantic: RefCell<semantic::Cache>,
 }
+
 impl Session {
     pub fn new(limits: Limits) -> Self {
         Self {
@@ -41,6 +43,7 @@ impl Session {
             semantic: RefCell::default(),
         }
     }
+
     /// A session that also type-checks the open documents against `environment`'s modules.
     pub fn with_environment(limits: Limits, environment: Environment) -> Self {
         Self {
@@ -48,9 +51,11 @@ impl Session {
             ..Self::new(limits)
         }
     }
+
     pub fn limits(&self) -> Limits {
         self.limits
     }
+
     pub fn source_snapshot(&self) -> VirtualSources {
         VirtualSources {
             files: self
@@ -60,12 +65,15 @@ impl Session {
                 .collect(),
         }
     }
+
     pub fn document_text(&self, uri: &DocumentUri) -> Result<&str, Error> {
         Ok(self.document(uri)?.text.as_str())
     }
+
     pub fn version(&self, uri: &DocumentUri) -> Result<i32, Error> {
         Ok(self.document(uri)?.version)
     }
+
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
         if self.documents.contains_key(&uri) {
             return Err(Error::AlreadyOpen);
@@ -85,6 +93,7 @@ impl Session {
         self.rebuild();
         Ok(())
     }
+
     pub fn change(
         &mut self,
         uri: &DocumentUri,
@@ -141,11 +150,13 @@ impl Session {
         self.rebuild();
         Ok(())
     }
+
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
         self.rebuild();
         Ok(())
     }
+
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
         self.documents
             .iter()
@@ -158,10 +169,12 @@ impl Session {
             })
             .collect()
     }
+
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<&[Diagnostic], Error> {
         self.document(uri)?;
         Ok(&self.analyses[uri].diagnostics)
     }
+
     fn admit(&self, uri: &DocumentUri, bytes: usize, old: usize) -> Result<(), Error> {
         if bytes > self.limits.document_bytes {
             return Err(Error::Limit("document byte budget exceeded"));
@@ -182,9 +195,11 @@ impl Session {
         }
         Ok(())
     }
+
     fn document(&self, uri: &DocumentUri) -> Result<&Document, Error> {
         self.documents.get(uri).ok_or(Error::MissingDocument)
     }
+
     fn rebuild(&mut self) {
         let mut analyses = BTreeMap::new();
         for (uri, document) in &self.documents {
@@ -197,7 +212,15 @@ impl Session {
             let document = &self.documents[uri];
             for (target, span) in analysis.loads.clone() {
                 if !self.documents.contains_key(&target) {
-                    analysis.diagnostic(&document.index,&document.text,span,DiagnosticSeverity::Warning,DiagnosticCode::Source,"The #load file is not open in this session; no filesystem fallback is permitted.");
+                    analysis.diagnostic(
+                        &document.index,
+                        &document.text,
+                        span,
+                        DiagnosticSeverity::Warning,
+                        DiagnosticCode::Source,
+                        "The #load file is not open in this session; \
+                         no filesystem fallback is permitted.",
+                    );
                 }
             }
         }
@@ -210,6 +233,7 @@ impl Session {
             .retain(|uri, _| self.documents.contains_key(uri));
         self.analyses = analyses;
     }
+
     /// The document a check of `uri` starts from: an open document that `#load`s it (directly or
     /// not) and is loaded by none, else `uri` itself.
     fn root(&self, uri: &DocumentUri) -> DocumentUri {
@@ -227,6 +251,7 @@ impl Session {
             .unwrap_or(uri)
             .clone()
     }
+
     /// Run `query` on the type-checked program containing `uri`, its text replaced by `text`.
     fn with_semantic<T>(
         &self,
@@ -252,6 +277,7 @@ impl Session {
         let analysis = cache.analyze(environment, &root, files);
         query(analysis, Path::new(uri.path()))
     }
+
     fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
         let text = &self.documents[uri].text;
         let span = row.location;
@@ -261,6 +287,7 @@ impl Session {
             text.floor_char_boundary(span.end.min(span.start.saturating_add(256)).min(text.len()));
         text[start..end.max(start)].trim()
     }
+
     pub fn document_symbols(&self, uri: &DocumentUri) -> Result<Vec<DocumentSymbol>, Error> {
         let doc = self.document(uri)?;
         let rows = &self.analyses[uri].rows;
@@ -292,6 +319,7 @@ impl Session {
             .map(|(id, _)| tree(id, rows, doc, self, uri))
             .collect()
     }
+
     fn reachable(&self, uri: &DocumentUri) -> Vec<&DocumentUri> {
         let mut pending = vec![uri.clone()];
         let mut seen = BTreeSet::new();
@@ -307,6 +335,7 @@ impl Session {
         }
         out
     }
+
     fn word(&self, uri: &DocumentUri, position: Position) -> Result<Option<(usize, Token)>, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
@@ -321,6 +350,7 @@ impl Session {
             })
             .map(|(at, token)| (at, *token)))
     }
+
     fn bindings(
         &self,
         uri: &DocumentUri,
@@ -389,6 +419,7 @@ impl Session {
         }
         Ok(out)
     }
+
     pub fn definition(
         &self,
         uri: &DocumentUri,
@@ -449,6 +480,7 @@ impl Session {
             })
             .collect()
     }
+
     /// Text of a file the editor may not have open (a definition in a module or the stdlib):
     /// the open document's text, else the environment's file system.
     pub fn source(&self, uri: &DocumentUri) -> Option<String> {
@@ -458,6 +490,7 @@ impl Session {
         let bytes = self.environment.as_ref()?.fs.read(Path::new(uri.path()))?;
         String::from_utf8(bytes).ok()
     }
+
     pub fn hover(&self, uri: &DocumentUri, position: Position) -> Result<Option<Hover>, Error> {
         let doc = self.document(uri)?;
         let Some((_, token)) = self.word(uri, position)? else {
@@ -481,7 +514,8 @@ impl Session {
         let rows = self.bindings(uri, position)?;
         let value = if rows.len() == 1 {
             format!(
-                "{}\n\nSource syntax declaration. Type evaluation and compile-time execution are disabled during editing.",
+                "{}\n\nSource syntax declaration. \
+                 Type evaluation and compile-time execution are disabled during editing.",
                 self.source_detail(rows[0].0, rows[0].1)
             )
         } else if token.kind == TokenKind::Keyword {
@@ -496,6 +530,7 @@ impl Session {
             range: doc.index.range(&doc.text, token.span)?,
         }))
     }
+
     /// Hover from the type checker: the text as typed if it parses, else with the cursor's line
     /// blanked (offsets elsewhere stay the same).
     fn semantic_hover(
@@ -509,6 +544,7 @@ impl Session {
         (end <= text.len() && text.is_char_boundary(start) && text.is_char_boundary(end))
             .then_some((start, end, value))
     }
+
     /// Completion from the type checker. The word being typed (and `a.b.` before it) is cut
     /// out, so the probe text is the same while a word is typed and its compile is reused.
     fn semantic_completion(
@@ -544,6 +580,7 @@ impl Session {
         let names = self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &chain))?;
         Some((prefix, names))
     }
+
     /// Inside the string of `#load "..."` (files and folders relative to the document) or
     /// `#import "..."` (modules on the import path): the entries of the folder typed so far.
     fn path_completion(
@@ -659,6 +696,7 @@ impl Session {
                 .collect(),
         })
     }
+
     pub fn completion(
         &self,
         uri: &DocumentUri,
@@ -799,6 +837,7 @@ impl Session {
             items: items.into_values().collect(),
         })
     }
+
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
         let doc = self.document(uri)?;
         let text = doc.text.as_str();
@@ -857,6 +896,7 @@ impl Session {
         Ok(output)
     }
 }
+
 /// `text` made to parse by blanking the lines the parser stops at (an edit in progress): first
 /// the line at `first` (the cursor's, when completing), then each reported line, or the one
 /// before it when that is empty (a missing `;` is reported on the next line). Byte offsets are
@@ -887,6 +927,7 @@ fn repair(text: &str, first: Option<usize>) -> Option<String> {
     }
     semantic::parse_error(&text).is_none().then_some(text)
 }
+
 /// `text` with the line holding `byte` replaced by spaces (byte offsets are kept).
 fn blank_line(text: &str, byte: usize) -> String {
     let start = text[..byte].rfind('\n').map_or(0, |i| i + 1);
@@ -898,6 +939,7 @@ fn blank_line(text: &str, byte: usize) -> String {
         &text[end..]
     )
 }
+
 fn contains(span: Span, byte: usize) -> bool {
     span.start <= byte && byte <= span.end
 }

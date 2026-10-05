@@ -6,14 +6,17 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+
 const INPUT_LIMIT: usize = 1024 * 1024;
 const OUTPUT_LIMIT: usize = 2 * 1024 * 1024;
+
 struct Bridge {
     session: JsonSession,
     input: Vec<u8>,
     output: Vec<u8>,
     diagnostic: Vec<u8>,
 }
+
 impl Default for Bridge {
     fn default() -> Self {
         Self {
@@ -24,6 +27,7 @@ impl Default for Bridge {
         }
     }
 }
+
 impl Bridge {
     fn fail(&mut self, message: impl ToString) -> u32 {
         self.input.clear();
@@ -31,6 +35,7 @@ impl Bridge {
         self.diagnostic = message.to_string().into_bytes();
         1
     }
+
     fn push(&mut self, byte: u32) -> u32 {
         let Ok(byte) = u8::try_from(byte) else {
             return self.fail("language input is not a byte");
@@ -41,6 +46,7 @@ impl Bridge {
         self.input.push(byte);
         0
     }
+
     fn dispatch(&mut self) -> u32 {
         let bytes = std::mem::take(&mut self.input);
         let text = match std::str::from_utf8(&bytes) {
@@ -74,6 +80,7 @@ impl Bridge {
         0
     }
 }
+
 /// Hover and completion type-check against the bundled stdlib, as the playground compiles.
 fn environment() -> Environment {
     Environment {
@@ -89,9 +96,11 @@ fn environment() -> Environment {
         }),
     }
 }
+
 thread_local! {
     static STATE: RefCell<Bridge> = RefCell::new(Bridge::default());
 }
+
 /// Run `f` on the bridge; 1 if it is already in use (a re-entrant call).
 fn with<T>(fallback: T, f: impl FnOnce(&mut Bridge) -> T) -> T {
     STATE.with(|state| match state.try_borrow_mut() {
@@ -99,6 +108,7 @@ fn with<T>(fallback: T, f: impl FnOnce(&mut Bridge) -> T) -> T {
         Err(_) => fallback,
     })
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_reset() -> u32 {
     with(1, |bridge| {
@@ -106,6 +116,7 @@ pub extern "C" fn jai_lsp_reset() -> u32 {
         0
     })
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_begin() -> u32 {
     with(1, |bridge| {
@@ -115,18 +126,22 @@ pub extern "C" fn jai_lsp_begin() -> u32 {
         0
     })
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_push(byte: u32) -> u32 {
     with(1, |bridge| bridge.push(byte))
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_dispatch() -> u32 {
     with(1, |bridge| bridge.dispatch())
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_output_len() -> u32 {
     with(0, |bridge| bridge.output.len() as u32)
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_output_byte(index: u32) -> u32 {
     with(256, |bridge| {
@@ -137,10 +152,12 @@ pub extern "C" fn jai_lsp_output_byte(index: u32) -> u32 {
             .map_or(256, u32::from)
     })
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_diagnostic_len() -> u32 {
     with(0, |bridge| bridge.diagnostic.len() as u32)
 }
+
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_diagnostic_byte(index: u32) -> u32 {
     with(256, |bridge| {
@@ -155,6 +172,7 @@ pub extern "C" fn jai_lsp_diagnostic_byte(index: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn actual_json_core_and_pointer_free_limits_are_paired() {
         let mut bridge = Bridge::default();
@@ -200,23 +218,43 @@ mod tests {
             &mut bridge,
             r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
         );
-        let text = "#import \"Basic\";\nmain :: () {\n    count := 3;\n    print(\"%\", count);\n    \n}\n";
+        let text = concat!(
+            "#import \"Basic\";\n",
+            "main :: () {\n",
+            "    count := 3;\n",
+            "    print(\"%\", count);\n",
+            "    \n",
+            "}\n",
+        );
         let escaped = text
             .replace('\\', "\\\\")
             .replace('"', "\\\"")
             .replace('\n', "\\n");
         let open = format!(
-            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"text":"{escaped}"}}}}}}"#
+            concat!(
+                r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"#,
+                r#""uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"#,
+                r#""text":"{escaped}"}}}}}}"#,
+            ),
+            escaped = escaped,
         );
         send(&mut bridge, &open);
         let hover = send(
             &mut bridge,
-            r#"{"jsonrpc":"2.0","id":2,"method":"textDocument/hover","params":{"textDocument":{"uri":"file:///jai-script/main.jai"},"position":{"line":3,"character":18}}}"#,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":2,"method":"textDocument/hover","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":3,"character":18}}}"#,
+            ),
         );
         assert!(hover.contains("count: s64"), "{hover}");
         let completion = send(
             &mut bridge,
-            r#"{"jsonrpc":"2.0","id":3,"method":"textDocument/completion","params":{"textDocument":{"uri":"file:///jai-script/main.jai"},"position":{"line":4,"character":4}}}"#,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":3,"method":"textDocument/completion","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":4,"character":4}}}"#,
+            ),
         );
         assert!(completion.contains("\"label\":\"count\""), "{completion}");
         assert!(completion.contains("\"label\":\"print\""), "{completion}");
