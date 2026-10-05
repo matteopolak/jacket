@@ -29,6 +29,7 @@ jobs:
         run: |
           node --version
           node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/debug/jai_wasm.wasm
+          node tools/check_jai_format_wasm.mjs target/wasm32-unknown-unknown/debug/jai_wasm.wasm
   test:
     name: compiler (${{ matrix.runner }})
     strategy:

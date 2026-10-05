@@ -35,7 +35,7 @@ It type-checks, interprets and natively builds real Jai projects, including the 
 | Native debug information | ✅ | DWARF on macOS (`.dSYM`) and Linux: lines, backtraces, typed locals and globals; Windows CodeView not yet |
 | Browser playground (WebAssembly) | ✅ | 168 of 186 stdlib tests run; the rest need native processes or libraries |
 | Language server (`jai-lsp`) | ✅ | Diagnostics, type-checked hover and completion, go to definition |
-| Formatter (`jaifmt`) | ✅ | Written in Jai: indentation, spacing and braces, checked against the token stream; no line wrapping |
+| Formatter (`jaifmt`) | ✅ | Written in Jai (`Jai_Format` module, also runs in the browser): indentation, spacing and braces, checked against the token stream; no line wrapping |
 | `Bindings_Generator` | ✅ | C, C++ (incl. virtual bases) and Objective-C (incl. block literals); the public Jai modules's generators run unchanged. 16-byte `long double` functions are stripped |
 
 ### Projects

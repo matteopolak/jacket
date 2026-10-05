@@ -110,7 +110,7 @@ Then open `http://127.0.0.1:8080/`. `tools/check_browser_release.mjs <staged-dir
 - Build: `cargo build -p jai-wasm --release --target wasm32-unknown-unknown` (or
   `python3 tools/build_scripting_wasm.py --release`, which stages `web/scripting-runtime/` plus `jai_wasm.wasm`).
 - Serve the staged directory with any static server and open `index.html`.
-- Native test: `cargo test -p jai-wasm play`; `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (hello world, sibling `#load`, positioned diagnostics, scalar ABI).
+- Native test: `cargo test -p jai-wasm play`; `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (hello world, sibling `#load`, positioned diagnostics, scalar ABI). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm>` runs the formatter driver `tools/jaifmt/playground.jai` the way a Format button would ([jaifmt](../tools/jaifmt.md#browser-playground)).
 - The wasm is about 30 MB because the stdlib is embedded.
 
 ## Dependencies
