@@ -492,3 +492,79 @@ fn simp_window_program_checks_on_desktop_oses() {
         );
     }
 }
+
+/// `tools/jaifmt` builds natively and behaves as documented: `--stdin` formats to stdout,
+/// `--check` lists files that would change (exit 1) without writing, a plain run rewrites them,
+/// ignore globs from the nearest jaifmt.toml apply, and malformed files are refused (exit 2).
+#[test]
+fn jaifmt_builds_and_formats() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src/skipped")).unwrap();
+    let exe = dir.join("jaifmt");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(repo_root().join("tools/jaifmt/main.jai"))
+        .args(["-O2", "-o"])
+        .arg(&exe)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let mut child = Command::new(&exe)
+        .arg("--stdin")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    use std::io::Write;
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"f :: ()\n{\n  x:=1;\n}\n")
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "f :: () {\n    x := 1;\n}\n"
+    );
+
+    let messy = "main :: () {\nx:=1;\n}\n";
+    let bad_source = "f :: () { x := (1; }\n";
+    std::fs::write(
+        dir.join("jaifmt.toml"),
+        "indent_width = 2\nignore = [\"src/skipped\"]\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("src/a.jai"), messy).unwrap();
+    std::fs::write(dir.join("src/skipped/b.jai"), messy).unwrap();
+    std::fs::write(dir.join("src/bad.jai"), bad_source).unwrap();
+    let read = |name: &str| std::fs::read_to_string(dir.join(name)).unwrap();
+    let fmt = |args: &[&str]| {
+        Command::new(&exe)
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap()
+    };
+
+    let check = fmt(&["--check", "src/a.jai"]);
+    assert_eq!(check.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&check.stdout).contains("src/a.jai:2"));
+    assert_eq!(read("src/a.jai"), messy);
+
+    let rewrite = fmt(&["src"]);
+    assert_eq!(rewrite.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&rewrite.stderr).contains("unbalanced"));
+    assert_eq!(read("src/a.jai"), "main :: () {\n  x := 1;\n}\n");
+    assert_eq!(read("src/skipped/b.jai"), messy);
+    assert_eq!(read("src/bad.jai"), bad_source);
+
+    std::fs::remove_file(dir.join("src/bad.jai")).unwrap();
+    assert_eq!(fmt(&["--check", "src"]).status.code(), Some(0));
+}

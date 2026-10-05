@@ -98,6 +98,15 @@ jobs:
         id: policy
         continue-on-error: true
         run: python3 -m unittest discover -s tools -p 'test_*.py'
+      # Advisory until the repository's Jai code has been formatted once; then add
+      # `steps.jai-format.outcome == 'failure'` to the enforcement step below.
+      - name: Jai format check
+        id: jai-format
+        continue-on-error: true
+        run: |
+          cargo build --locked -p jaic-cli
+          target/debug/jaic build tools/jaifmt/main.jai -O2 -o target/jaifmt
+          target/jaifmt --check stdlib tests benchmarks tools examples
       - name: Enforce all recorded checks
         if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure') }}
         run: |

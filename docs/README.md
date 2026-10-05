@@ -114,6 +114,7 @@ Scripts, CI and project policies.
 - [Continuous integration](tools/continuous-integration.md)
 - [Dependency policy](tools/dependency-policy.md)
 - [jaic regression sweep](tools/jaic-sweep.md)
+- [jaifmt (Jai formatter)](tools/jaifmt.md)
 - [LLVM setup](tools/llvm-setup.md)
 - [Third-party native libraries](tools/native-libs.md)
 - [open-jai expectation harness](tools/openjai-expectations.md)

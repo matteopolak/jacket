@@ -18,6 +18,12 @@ playground. Memory is real host memory; foreign procedures are called natively (
   `while`/`if` headers flagged `#no_abc` (the parser marks those bodies `ast::Block::no_abc`; sema sets
   `FnCtx::no_abc`), and everywhere when a workspace sets `array_bounds_check = .OFF`
   (`Options::array_bounds_check`). Pointer indexing is never checked.
+- **Program arguments**: `jaic run file.jai -- a b` calls the program's exported `main` with a C-style
+  `argc`/`argv` (`Compiler::run_program_with_args`; the strings are leaked host memory), so
+  `get_command_line_arguments()` returns `[file.jai, a, b]`. Without `--` it gets `argc = 0`. Arguments after
+  `-` are the metaprogram's (`compiler_get_command_line`) up to a `--`. `-os wasm` runs in the sandbox, whose
+  memory is virtual, and passes none. The program runs in the main file's directory, so relative paths among
+  its arguments resolve there, not where `jaic` was started.
 - `Interp::call` is the entry from the compiler; `exec` / `run` / `step` interpret functions. Procedure
   values are tagged addresses (`FUNC_TAG`); foreign procedures without a native address are tagged
   `FOREIGN_TAG` and trap with "foreign procedure '...' is not available here" when called.

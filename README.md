@@ -35,6 +35,7 @@ It type-checks, interprets and natively builds real Jai projects, including the 
 | Native debug information | ✅ | DWARF on macOS (`.dSYM`) and Linux: lines, backtraces, typed locals and globals; Windows CodeView not yet |
 | Browser playground (WebAssembly) | ✅ | 168 of 186 stdlib tests run; the rest need native processes or libraries |
 | Language server (`jai-lsp`) | ✅ | Diagnostics, type-checked hover and completion, go to definition |
+| Formatter (`jaifmt`) | ✅ | Written in Jai: indentation, spacing and braces, checked against the token stream; no line wrapping |
 | `Bindings_Generator` | ✅ | C, C++ (incl. virtual bases) and Objective-C (incl. block literals); the public Jai modules's generators run unchanged. 16-byte `long double` functions are stripped |
 
 ### Projects
@@ -111,4 +112,4 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --timeout 900   # expect only the negative control to fail
 ```
 
-The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server` and `crates/jai-wasm` (browser build). Start with the [developer guide](docs/README.md) and [compiler architecture](docs/compiler/architecture.md). Rustfmt keeps code formatting consistent, and Cargo enforces a minimum dependency release age of 14 days.
+The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server` and `crates/jai-wasm` (browser build). Start with the [developer guide](docs/README.md) and [compiler architecture](docs/compiler/architecture.md). Rustfmt keeps the Rust code formatted and [jaifmt](docs/tools/jaifmt.md) the Jai code (`jaic build tools/jaifmt/main.jai -O2 -o jaifmt`, then `./jaifmt --check stdlib tests`), and Cargo enforces a minimum dependency release age of 14 days.

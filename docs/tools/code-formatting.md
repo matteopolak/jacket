@@ -2,7 +2,7 @@
 
 ## What it is
 
-Rust code is formatted with the pinned nightly `rustfmt` and the shared `rustfmt.toml`. `tools/check_rust_format.py` is the CI entry point.
+Rust code is formatted with the pinned nightly `rustfmt` and the shared `rustfmt.toml`. `tools/check_rust_format.py` is the CI entry point. Jai code is formatted with `jaifmt` and the root `jaifmt.toml`; see [jaifmt](jaifmt.md).
 
 ## How it works
 
