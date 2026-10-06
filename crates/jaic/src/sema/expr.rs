@@ -1714,17 +1714,26 @@ impl Compiler {
             return Ok(());
         };
         let handler = self.module_declarations(runtime, Sym::intern("__arithmetic_overflow"))?;
-        let Some(&entity) = handler.first() else {
-            return err(
-                span,
-                "Runtime_Support does not define '__arithmetic_overflow'",
-            );
+        let entity = match handler[..] {
+            [entity] => entity,
+            [] => {
+                return err(
+                    span,
+                    "Runtime_Support does not define `__arithmetic_overflow`",
+                );
+            }
+            _ => {
+                return err(
+                    span,
+                    "Runtime_Support defines `__arithmetic_overflow` more than once",
+                );
+            }
         };
         let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
-            return err(span, "'__arithmetic_overflow' is not a procedure");
+            return err(span, "`__arithmetic_overflow` is not a procedure");
         };
         let super::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
-            return err(span, "'__arithmetic_overflow' must be defined in Jai");
+            return err(span, "`__arithmetic_overflow` must be defined in Jai");
         };
         let width = f.b.iconst(Ty::I64, t.size());
         let overflowed = f.b.intrinsic(intrinsic, vec![x, y, width], &[Ty::I8])[0];
