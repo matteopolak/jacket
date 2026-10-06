@@ -42,6 +42,92 @@ fn run_passes_program_arguments() {
     assert_eq!(run(&["-", "meta", "--", "x"]), "[x]2\n");
 }
 
+/// The `Long_Double` extension on targets whose C `long double` is wider than float64: the
+/// interpreter's soft-float runs x87 (`x86_64-linux-gnu`, `x86_64-apple-darwin`) and binary128
+/// (`aarch64-linux-gnu`, `wasm32`) arithmetic whatever the host. The name only exists after
+/// `#import "Jaic_Extensions"`, and `#jaic_type` rejects names it does not know.
+#[test]
+fn long_double_extension_on_wide_targets() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/stdlib/jaic-extensions-long-double.jai");
+    for target in [
+        "x86_64-linux-gnu",
+        "x86_64-apple-darwin",
+        "aarch64-linux-gnu",
+        "wasm32-unknown-unknown",
+    ] {
+        let output = Command::new(JAIC)
+            .arg("run")
+            .arg(&source)
+            .args(["-target", target])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{target}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "ok wide\n",
+            "{target}"
+        );
+    }
+
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-long-double");
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, text, message) in [
+        (
+            "no_import",
+            "main :: () { x: Long_Double; }\n",
+            "unknown identifier 'Long_Double'",
+        ),
+        (
+            "unknown_name",
+            "T :: #jaic_type quad_float;\nmain :: () { x: T; }\n",
+            "unknown jaic extension type 'quad_float'",
+        ),
+        (
+            "no_name",
+            "T :: #jaic_type;\nmain :: () { x: T; }\n",
+            "#jaic_type expects a name",
+        ),
+    ] {
+        let source = dir.join(format!("{name}.jai"));
+        std::fs::write(&source, text).unwrap();
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{name}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(message), "{name}: {stderr}");
+    }
+    // A wide long double through C varargs is rejected rather than passed wrongly.
+    let source = dir.join("varargs.jai");
+    std::fs::write(
+        &source,
+        "#import \"Jaic_Extensions\";\n\
+         libc :: #system_library \"libc\";\n\
+         printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc;\n\
+         main :: () { x: Long_Double = 2.5; printf(\"%Lf\\n\", x); }\n",
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .arg("run")
+        .arg(&source)
+        .args(["-target", "x86_64-linux-gnu"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be passed to a C variadic procedure"),
+        "{stderr}"
+    );
+}
+
 /// `-plug Name` compiles the program in a workspace with the plugin's hooks; options jaic does
 /// not know go to the plugins, and `run` refuses plugins.
 #[test]

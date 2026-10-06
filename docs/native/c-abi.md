@@ -25,6 +25,14 @@ Each `Conv::C` signature may carry a `CAbi` (`params: Vec<Option<AggLayout>>`, `
 
 Variadic C calls (`args: ..Any` on a `#foreign` procedure) are passed with the platform's variadic convention, which matters on Apple arm64 where variadic arguments go on the stack, on Win64 where variadic doubles are duplicated in integer registers, and on Windows arm64 where every argument goes to general registers (above). The LLVM backend uses `classify_vararg` for every parameter of a variadic signature; the interpreter's `call_with` does the same on a Windows arm64 host (`general_only`). Regression program: `tests/stdlib/c-variadic-foreign-calls.jai`; native test `c_variadic_calls` in `crates/jaic-cli/tests/native.rs`.
 
+C `long double` ([`Long_Double`](../language/jaic-extensions.md)) is a 16-byte, memory-class value in the IR, flattened into an `AggLayout` with one `Ty::F80` (x87) or `Ty::F128` (binary128) field, so it goes through the aggregate rules:
+
+- x86-64 System V: an aggregate that is exactly one `F80` (a bare `long double` or `struct { long double v; }`) is classed `Registers([PieceTy::X87])`: passed in memory (a 16-aligned stack slot) and returned in x87 `st0`. Any other aggregate containing an `F80` is MEMORY (byval / sret), which matches clang's `x86_fp80` and `byval` lowering.
+- AArch64 (Linux): `F128` counts as a floating member of a homogeneous aggregate (up to four `q` registers, `PieceTy::F128`); a bare `long double` is one `q` register.
+- Microsoft x64 with MinGW (x87, 16 bytes): falls under "every other size", so by reference / sret.
+
+The interpreter cannot express x87 or 128-bit vector registers with plain `extern "C"` function pointers, so `interp/native.rs` hands such calls to `interp/native/wide.rs`: inline-asm call blocks that load the integer and vector argument registers and the stack words, call the target, and store `st0` (`fstp tbyte`) or `q0`-`q3` back. Callbacks from C into interpreted code with these types are rejected (`callbacks.rs`). Variadic `long double` arguments are a compile error. Fixture: `tests/native/c-long-double/` (test `c_long_double`, which also runs an x86-64 build under Rosetta on Apple silicon).
+
 `#cpp_method` procedure types are treated as `#c_call` (no implicit `context`) with the object pointer as first argument (`sema/procs.rs`, `sema/expr.rs`). The reflection flag `0x1000` is set for them (`sema/code_export.rs`). Verified in `tests/stdlib/cpp-method-and-array-decay.jai`:
 
 ```jai

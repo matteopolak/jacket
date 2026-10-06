@@ -119,22 +119,33 @@ long double get_long_double(void);
 double get_double(void);
 END;
 
-// x86-64 `long double` is 16 bytes: fields keep their layout as bytes, functions are stripped.
+// x86-64 `long double` is 16 bytes. By default it is jaic's Long_Double extension; without it,
+// fields keep their layout as bytes and functions that pass one are stripped.
 check_long_double :: () {
     header_path := "/tmp/jai_bindgen_parity_ld.h";
     assert(write_entire_file(header_path, LONG_DOUBLE_HEADER));
-    opts: Generate_Bindings_Options;
-    array_add(*opts.source_files, header_path);
-    array_add(*opts.extra_clang_arguments, "-target", "x86_64-unknown-linux-gnu");
-    opts.cpu = .X64;
-    opts.generate_library_declarations = false;
-    array_add(*opts.libraries, .{filename = "does_not_exist", identifier = "lib"});
-    builder, ok := generate_bindings(opts);
-    assert(ok);
-    text := builder_to_string(*builder);
+    generate_for_x64 :: (header_path: string, extension: bool) -> string {
+        opts: Generate_Bindings_Options;
+        array_add(*opts.source_files, header_path);
+        array_add(*opts.extra_clang_arguments, "-target", "x86_64-unknown-linux-gnu");
+        opts.cpu = .X64;
+        opts.generate_library_declarations = false;
+        opts.use_jaic_long_double = extension;
+        array_add(*opts.libraries, .{filename = "does_not_exist", identifier = "lib"});
+        builder, ok := generate_bindings(opts);
+        assert(ok);
+        return builder_to_string(*builder);
+    }
+    text := generate_for_x64(header_path, true);
+    assert(has(text, "value: Long_Double;"));
+    assert(has(text, "assert(size_of(WithLongDouble) == 32"));
+    assert(has(text, "get_long_double :: () -> Long_Double #foreign lib;"));
+    assert(has(text, "#import \"Jaic_Extensions\";"));
+    text = generate_for_x64(header_path, false);
     assert(has(text, "value: [16] u8;"));
     assert(has(text, "assert(size_of(WithLongDouble) == 32"));
     assert(!has(text, "get_long_double"));
+    assert(!has(text, "Jaic_Extensions"));
     assert(has(text, "get_double :: () -> float64 #foreign lib;"));
 }
 #run check_long_double();

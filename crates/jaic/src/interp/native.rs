@@ -17,6 +17,8 @@ use crate::ir::{Sig, Ty};
 
 mod callbacks;
 pub use callbacks::{Reenter, callback_addr};
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+mod wide;
 #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod windows;
 
@@ -173,7 +175,11 @@ const PACKED_STACK: bool = VARARGS_ON_STACK;
 /// in argument order.
 struct Regs {
     ints: [u64; 8],
-    floats: [u64; 8],
+    /// Vector registers: an `f64` (or `f32`) uses the low bits, a binary128 `long double`
+    /// all of them.
+    floats: [u128; 8],
+    /// Whether any vector register holds a 128-bit value (which `call_as` cannot pass).
+    quads: bool,
     stack: [u64; STACK_SLOTS + 8],
     ni: usize,
     nf: usize,
@@ -188,6 +194,7 @@ impl Regs {
         Regs {
             ints: [0; 8],
             floats: [0; 8],
+            quads: false,
             stack: [0; STACK_SLOTS + 8],
             ni: 0,
             nf: 0,
@@ -212,8 +219,27 @@ impl Regs {
         if self.nf == 8 {
             return self.stack(bits);
         }
-        self.floats[self.nf] = bits;
+        self.floats[self.nf] = bits as u128;
         self.nf += 1;
+        Ok(())
+    }
+    /// A binary128 value: a whole vector register, or a 16-byte aligned stack slot.
+    fn quad(&mut self, bits: u128) -> Result<(), String> {
+        if self.nf == 8 {
+            self.align_stack()?;
+            self.stack(bits as u64)?;
+            return self.stack((bits >> 64) as u64);
+        }
+        self.floats[self.nf] = bits;
+        self.quads = true;
+        self.nf += 1;
+        Ok(())
+    }
+    /// Pad the stack arguments so the next one is 16-byte aligned (slot `k` is at `sp + 8k`).
+    fn align_stack(&mut self) -> Result<(), String> {
+        if self.ns % 2 == 1 {
+            self.stack(0)?;
+        }
         Ok(())
     }
     fn stack(&mut self, v: u64) -> Result<(), String> {
@@ -252,7 +278,7 @@ impl Regs {
         ints[self.int_regs..].copy_from_slice(&self.stack[..spill]);
         let mut stack = [0; STACK_SLOTS];
         stack.copy_from_slice(&self.stack[spill..spill + STACK_SLOTS]);
-        (ints, self.floats.map(f64::from_bits), stack)
+        (ints, self.floats.map(|f| f64::from_bits(f as u64)), stack)
     }
 }
 
@@ -617,8 +643,18 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
             continue;
         };
         match abi::classify_arg(arch, layout) {
+            // An x87 `long double` is memory class: a 16-byte aligned stack slot.
+            Passing::Registers(pieces) if pieces.iter().any(|p| p.ty == PieceTy::X87) => {
+                regs.align_stack()?;
+                // SAFETY: `a` points at the 16-byte value.
+                regs.stack(unsafe { read_bytes(a, 8) })?;
+                regs.stack(unsafe { read_bytes(a + 8, 8) })?;
+            }
             Passing::Registers(pieces) if !regs.fits(&pieces) => {
                 regs.exhaust(&pieces);
+                if layout.align >= 16 {
+                    regs.align_stack()?;
+                }
                 // SAFETY: as below.
                 for k in 0..layout.size.div_ceil(8) {
                     regs.stack(unsafe { read_bytes(a + k * 8, layout.size - k * 8) })?;
@@ -628,7 +664,10 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
                 for p in pieces {
                     // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
                     let v = unsafe { read_bytes(a + p.offset, layout.size - p.offset) };
-                    if p.ty == PieceTy::I64 {
+                    if p.ty == PieceTy::F128 {
+                        let high = unsafe { read_bytes(a + p.offset + 8, 8) };
+                        regs.quad(v as u128 | (high as u128) << 64)?;
+                    } else if p.ty == PieceTy::I64 {
                         regs.int(v)?;
                     } else {
                         regs.float(v)?;
@@ -638,11 +677,14 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
             Passing::Indirect => regs.int(indirect_copy(a, layout.size, &mut copies))?,
             // x86-64 `byval`: the aggregate's bytes are copied into the stack argument area.
             Passing::ByVal => {
-                if layout.align > 8 {
+                if layout.align > 16 {
                     return Err(format!(
                         "the interpreter cannot pass a {}-byte aligned struct by value",
                         layout.align
                     ));
+                }
+                if layout.align == 16 {
+                    regs.align_stack()?;
                 }
                 for k in 0..layout.size.div_ceil(8) {
                     // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
@@ -650,6 +692,19 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
                 }
             }
         }
+    }
+    // `long double` results in `st(0)` and binary128 values in vector registers need the
+    // assembly call of `wide.rs`.
+    let wide_ret = ret_pieces.as_ref().is_some_and(|p| {
+        p.iter()
+            .any(|p| matches!(p.ty, PieceTy::X87 | PieceTy::F128))
+    });
+    if regs.quads || wide_ret {
+        let ret = ret_layout.map(|l| (l.size, ret_pieces.as_deref()));
+        // SAFETY: the callee's declared C signature matches these registers.
+        let result = unsafe { wide::call(addr, &regs, sig, ret, out_ptr) };
+        drop(copies);
+        return result;
     }
     let Some(layout) = ret_layout else {
         return Ok(scalar_call(addr, &regs, sig.returns.first().copied()));
@@ -753,19 +808,21 @@ fn scalar_call(addr: u64, regs: &Regs, ret: Option<Ty>) -> Vec<u64> {
                 bits
             }]
         }
-        Some(t) => {
-            let r = unsafe { call_as::<u64>(addr, regs) };
-            vec![match t {
-                Ty::I8 => r & 0xff,
-                Ty::I16 => r & 0xffff,
-                Ty::I32 => r & 0xffff_ffff,
-                _ => r,
-            }]
-        }
+        Some(t) => vec![mask_int(t, unsafe { call_as::<u64>(addr, regs) })],
         None => {
             unsafe { call_as::<u64>(addr, regs) };
             Vec::new()
         }
+    }
+}
+
+/// An integer result register narrowed to its type.
+fn mask_int(t: Ty, r: u64) -> u64 {
+    match t {
+        Ty::I8 => r & 0xff,
+        Ty::I16 => r & 0xffff,
+        Ty::I32 => r & 0xffff_ffff,
+        _ => r,
     }
 }
 

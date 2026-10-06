@@ -238,6 +238,7 @@ impl Compiler {
             TypeKind::Distinct(d) => self.ir_ty(self.types.distincts[d.0 as usize].base),
             TypeKind::Void | TypeKind::CompileTimeOnly => None,
             TypeKind::String
+            | TypeKind::WideFloat(_)
             | TypeKind::Any
             | TypeKind::Array {
                 ..
@@ -346,6 +347,11 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Val> {
+        if let Some(fmt) = self.wide_float(ty)
+            && let Some(bytes) = Self::wide_const(fmt, value)
+        {
+            return self.materialize(f, &bytes, ty, span);
+        }
         match value {
             Value::Int(v) => {
                 if let Some(t) = self.ir_ty(ty) {

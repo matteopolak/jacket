@@ -386,6 +386,138 @@ fn c_structs_by_value() {
     }
 }
 
+/// C `long double` (the `Long_Double` extension) across the C ABI: arguments, results and struct
+/// members through `#foreign` in the interpreter and natively. On Apple arm64 hosts that can run
+/// x86-64 code (Rosetta), the fixture is also built for x86_64-apple-darwin, where long double is
+/// the 80-bit x87 format, and the interpreter's soft-float arithmetic is compared bit for bit with
+/// the hardware's. Skipped when no C compiler is installed; not run on Windows.
+#[test]
+fn c_long_double() {
+    if cfg!(windows) {
+        return;
+    }
+    let fixture = repo_root().join("tests/native/c-long-double");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-long-double");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in [
+        "longdouble.c",
+        "longdouble.h",
+        "types.jai",
+        "foreign_calls.jai",
+        "callbacks.jai",
+        "precision.jai",
+    ] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let lib = if cfg!(target_os = "macos") {
+        "liblongdouble.dylib"
+    } else {
+        "liblongdouble.so"
+    };
+    let compile = |extra: &[&str]| {
+        let mut cc = Command::new("cc");
+        cc.args(extra)
+            .args(["-shared", "-fPIC", "-o", lib, "longdouble.c"]);
+        if cfg!(target_os = "macos") {
+            cc.arg("-Wl,-install_name,@rpath/liblongdouble.dylib");
+        }
+        cc.current_dir(&dir).output()
+    };
+    let Ok(output) = compile(&[]) else {
+        eprintln!("skipping: no C compiler");
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let calls = "third 0.333333 wide true\nadd true mix 10.5\nto_double true\nbox 6 tagged 6 true pair true 1\nspill 46.25\n";
+    let callbacks = "apply 7.5 true\nbox_apply 4.5\n";
+    let jaic = |args: &[&str]| {
+        let output = Command::new(JAIC)
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert_eq!(jaic(&["run", "foreign_calls.jai"]), calls);
+    // C calling a Jai procedure that takes a wide long double needs a native build; where long
+    // double is float64 the interpreter's callbacks work as usual.
+    if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        assert_eq!(jaic(&["run", "callbacks.jai"]), callbacks);
+    }
+    let run_native = |name: &str| {
+        let output = build_and_run(&dir.join(format!("{name}.jai")), &dir, name).unwrap();
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert_eq!(run_native("foreign_calls"), calls);
+    assert_eq!(run_native("callbacks"), callbacks);
+
+    // x86-64 under Rosetta: hardware x87 against the interpreter's soft-float.
+    let rosetta = cfg!(all(target_os = "macos", target_arch = "aarch64"))
+        && Command::new("arch")
+            .args(["-x86_64", "/usr/bin/true"])
+            .status()
+            .is_ok_and(|s| s.success());
+    if !rosetta {
+        return;
+    }
+    let output = compile(&["-arch", "x86_64"]).unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let x86 = |name: &str| {
+        jaic(&[
+            "build",
+            &format!("{name}.jai"),
+            "-target",
+            "x86_64-apple-darwin",
+            "-o",
+            name,
+        ]);
+        let output = Command::new("arch")
+            .args(["-x86_64", &format!("./{name}")])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert_eq!(x86("foreign_calls"), calls);
+    assert_eq!(x86("callbacks"), callbacks);
+    let soft = jaic(&["run", "precision.jai", "-target", "x86_64-apple-darwin"]);
+    let hard = x86("precision");
+    assert!(soft.len() > 10_000, "{soft}");
+    assert!(soft == hard, "soft-float x87 differs from the hardware");
+
+    // Bindings_Generator output for the x87 target, called from an x86-64 build.
+    let bindings = repo_root().join("tests/stdlib/bindings-generator-long-double.jai");
+    let source = std::fs::read_to_string(&bindings).unwrap().replace(
+        "#filepath",
+        &format!("\"{}\"", repo_root().join("tests/stdlib").display()),
+    );
+    std::fs::write(dir.join("bindings.jai"), source).unwrap();
+    assert_eq!(x86("bindings"), "ok\n");
+}
+
+#[test]
+fn bindings_generator_long_double() {
+    native_bindings_generator_test("bindings-generator-long-double");
+}
+
 /// C variadic foreign calls in a native build (Apple arm64 passes variadic arguments on the stack).
 #[test]
 fn c_variadic_calls() {

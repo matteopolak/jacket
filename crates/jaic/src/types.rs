@@ -42,6 +42,10 @@ pub enum TypeKind {
     Float {
         bits: u8,
     },
+    /// C `long double` where it is wider than `float64` (a jaic extension, reached only through
+    /// `#jaic_type long_double`, see `docs/language/jaic-extensions.md`). Its values live in
+    /// 16 bytes of memory, like a small struct.
+    WideFloat(crate::wide_float::WideFloat),
     String,
     /// The type of types (`Type`).
     Type,
@@ -289,6 +293,13 @@ impl Types {
     pub fn is_float(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Float { .. })
     }
+    /// The format of a wide `long double` type (through distinct wrappers).
+    pub fn wide_float(&self, ty: TypeId) -> Option<crate::wide_float::WideFloat> {
+        match self.kind(self.repr(ty)) {
+            TypeKind::WideFloat(fmt) => Some(*fmt),
+            _ => None,
+        }
+    }
     pub fn is_pointer(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Pointer(_))
     }
@@ -320,6 +331,7 @@ impl Types {
             | TypeKind::Float {
                 bits,
             } => *bits as u64 / 8,
+            TypeKind::WideFloat(_) => 16,
             TypeKind::String => 16,
             TypeKind::Type => 8,
             TypeKind::Any => 16,
@@ -354,6 +366,7 @@ impl Types {
             | TypeKind::Float {
                 bits,
             } => *bits as u64 / 8,
+            TypeKind::WideFloat(_) => 16,
             TypeKind::String | TypeKind::Any => 8,
             TypeKind::Type | TypeKind::Code => 8,
             TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => self.pointer_size,
@@ -390,6 +403,7 @@ impl Types {
             TypeKind::Float {
                 bits,
             } => format!("float{bits}"),
+            TypeKind::WideFloat(_) => "Long_Double".into(),
             TypeKind::String => "string".into(),
             TypeKind::Type => "Type".into(),
             TypeKind::Any => "Any".into(),

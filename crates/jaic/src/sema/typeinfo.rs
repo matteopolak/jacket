@@ -34,7 +34,8 @@ impl Compiler {
             } => "Type_Info_Integer",
             TypeKind::Float {
                 ..
-            } => "Type_Info_Float",
+            }
+            | TypeKind::WideFloat(_) => "Type_Info_Float",
             TypeKind::String => "Type_Info_String",
             TypeKind::Pointer(_) | TypeKind::Null => "Type_Info_Pointer",
             TypeKind::Proc(_) => "Type_Info_Procedure",
@@ -234,7 +235,8 @@ impl Compiler {
             } => tag::INTEGER,
             TypeKind::Float {
                 ..
-            } => tag::FLOAT,
+            }
+            | TypeKind::WideFloat(_) => tag::FLOAT,
             TypeKind::Bool => tag::BOOL,
             TypeKind::String => tag::STRING,
             TypeKind::Pointer(_) | TypeKind::Null => tag::POINTER,

@@ -8,6 +8,7 @@
 //! Jai calling convention (`Conv::Jai`): an optional leading context pointer,
 //! then each parameter (aggregates by pointer to a caller-owned copy), then one
 //! out-pointer per aggregate result. Scalar results are returned directly.
+pub use crate::wide_float::{Arith as WideArith, WideFloat};
 use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -33,6 +34,11 @@ pub enum Ty {
     F32,
     F64,
     Ptr,
+    /// A C `long double` wider than `f64` (x87 extended, or binary128): 16 bytes of memory.
+    /// Only aggregate layouts (`AggLayout::fields`) use these two; no `Val` has them, since
+    /// such values live in memory and the `Wide` intrinsic works on their addresses.
+    F80,
+    F128,
 }
 
 impl Ty {
@@ -42,6 +48,14 @@ impl Ty {
             Ty::I16 => 2,
             Ty::I32 | Ty::F32 => 4,
             Ty::I64 | Ty::F64 | Ty::Ptr => 8,
+            Ty::F80 | Ty::F128 => 16,
+        }
+    }
+    /// The memory-only class of a `long double` format.
+    pub fn wide(fmt: WideFloat) -> Ty {
+        match fmt {
+            WideFloat::X87 => Ty::F80,
+            WideFloat::Binary128 => Ty::F128,
         }
     }
     pub fn is_float(self) -> bool {
@@ -175,6 +189,35 @@ pub enum Intrinsic {
     USubOverflow,
     SMulOverflow,
     UMulOverflow,
+    /// `long double` operations of a wide format (`Jaic_Extensions.Long_Double`), on values in
+    /// memory; see `WideOp` for the operands.
+    Wide(WideOp, WideFloat),
+}
+
+/// Operations on wide (`long double`) floats. `dst`, `a` and `b` are addresses of 16-byte
+/// values; scalar operands and results are ordinary registers.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WideOp {
+    /// (dst, a, b)
+    Arith(WideArith),
+    /// (dst, a)
+    Neg,
+    /// (a, b) -> I8; one of the `F*` comparisons.
+    Cmp(CmpOp),
+    /// (dst, F64 x)
+    FromF64,
+    /// (dst, F32 x)
+    FromF32,
+    /// (dst, I64 x)
+    FromS64,
+    FromU64,
+    /// (a) -> F64
+    ToF64,
+    /// (a) -> F32
+    ToF32,
+    /// (a) -> I64, truncating toward zero
+    ToS64,
+    ToU64,
 }
 
 #[derive(Clone, Debug)]

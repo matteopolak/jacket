@@ -428,6 +428,13 @@ impl Compiler {
                 name, ..
             } if name.name.as_str() == "Context" => Ok(Operand::Type(self.context_type(span)?)),
             E::UnknownDirective {
+                name,
+                operand,
+                ..
+            } if name.name.as_str() == "jaic_type" => {
+                Ok(Operand::Type(self.jaic_type(operand.as_deref(), span)?))
+            }
+            E::UnknownDirective {
                 name, ..
             } => err(
                 name.span,
@@ -442,6 +449,28 @@ impl Compiler {
                 body,
             } => self.check_lambda(scope, header, body, expected, span),
             E::Block(block) => self.check_block_value(f, scope, block, expected, span),
+        }
+    }
+
+    /// `#jaic_type name`: a type only jaic has, for the `Jaic_Extensions` module to export
+    /// (`docs/language/jaic-extensions.md`). `long_double` is the target C compiler's
+    /// `long double`: `float64` where the two are the same, else the wide `Long_Double` type.
+    fn jaic_type(&mut self, operand: Option<&ast::Expr>, span: Span) -> Result<TypeId> {
+        let name = match operand.map(|e| &e.kind) {
+            Some(E::Ident(name)) => name.as_str(),
+            _ => {
+                return err(
+                    span,
+                    "#jaic_type expects a name, as in '#jaic_type long_double'",
+                );
+            }
+        };
+        match name {
+            "long_double" => Ok(match self.options.long_double {
+                Some(fmt) => self.types.intern(TypeKind::WideFloat(fmt)),
+                None => TypeId::F64,
+            }),
+            other => err(span, format!("unknown jaic extension type '{other}'")),
         }
     }
 
@@ -1019,6 +1048,10 @@ impl Compiler {
                             val: f.b.bin(ir::BinOp::Xor, Ty::I8, b, one),
                         })
                     }
+                    UnOp::Neg if self.wide_float(ty).is_some() => {
+                        let fmt = self.wide_float(ty).expect("checked above");
+                        Ok(self.wide_negate(f, fmt, ty, v))
+                    }
                     UnOp::Neg => {
                         let t = self.ir_ty(ty).ok_or_else(|| {
                             Box::new(Diagnostic::error(
@@ -1453,6 +1486,9 @@ impl Compiler {
         if ty == TypeId::STRING && is_cmp {
             return self.string_compare(f, op, x, y, span);
         }
+        if self.wide_float(ty).is_some() && !is_shift {
+            return self.wide_binary(f, ty, op, x, y, span);
+        }
         let Some(t) = self.ir_ty(ty) else {
             if is_cmp && matches!(op, BinOp::Eq | BinOp::Ne) {
                 // Aggregate equality: bytewise.
@@ -1829,6 +1865,9 @@ impl Compiler {
         else {
             return Ok(None);
         };
+        if self.wide_float(*lt).is_some() || self.wide_float(*rt).is_some() {
+            return Ok(self.wide_fold(op, (*lt, lv), (*rt, rv)));
+        }
         let untyped = *lu && *ru;
         let is_shift = matches!(op, BinOp::Shl | BinOp::Shr | BinOp::Rotl | BinOp::Rotr);
         let ty = if *lu && !*ru && !is_shift {

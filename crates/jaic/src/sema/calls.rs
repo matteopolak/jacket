@@ -3075,6 +3075,13 @@ fn c_vararg_promote(c: &mut Compiler, f: &mut FnCtx, op: Operand, span: Span) ->
     if ty == TypeId::BOOL {
         return c.explicit_cast(f, op, TypeId::S32, ast::CastFlags::default(), span);
     }
+    if c.wide_float(ty).is_some() {
+        return err(
+            span,
+            "a Long_Double wider than float64 cannot be passed to a C variadic procedure; \
+             cast it to float64 (and format it with %f or %g rather than %Lf)",
+        );
+    }
     Ok(op)
 }
 

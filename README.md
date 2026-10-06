@@ -41,7 +41,7 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 ## What is missing
 
 - On Windows x64, C code cannot yet call back into procedures that run in the compile-time interpreter (it can on Windows arm64). On Windows, programs that start threads cannot run in the interpreter, and MSVC builds produce no PDB debug file.
-- `Bindings_Generator` drops functions that use the 16-byte `long double`.
+- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Long_Double` extension](docs/language/jaic-extensions.md); C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
 - `#asm` rejects the F16C, SHA and GFNI extensions.
 
 Anything unsupported fails with a compile error rather than being silently accepted.

@@ -522,6 +522,7 @@ impl Compiler {
                 | TypeKind::Bool
                 | TypeKind::Int { .. }
                 | TypeKind::Float { .. }
+                | TypeKind::WideFloat(_)
                 | TypeKind::String
                 | TypeKind::Type
                 | TypeKind::Any
@@ -533,7 +534,8 @@ impl Compiler {
             } => ("Type_Info_Integer", 0),
             TypeKind::Float {
                 ..
-            } => ("Type_Info_Float", 1),
+            }
+            | TypeKind::WideFloat(_) => ("Type_Info_Float", 1),
             TypeKind::Bool => ("Type_Info", 2),
             TypeKind::String => ("Type_Info_String", 3),
             TypeKind::Pointer(_) | TypeKind::Null => ("Type_Info_Pointer", 4),

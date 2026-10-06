@@ -356,6 +356,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             let (os, cpu) = os_and_cpu(&triple);
             options.os = os;
             options.cpu = cpu;
+            let gnu = triple.contains("gnu") || triple.contains("mingw");
+            options.long_double = jaic::sema::long_double_for(os, cpu, gnu);
+        }
+        Ok(None) if cli.os.is_some() || cli.cpu.is_some() => {
+            // `-os`/`-cpu` for checking only: that OS and CPU, with its usual C compiler.
+            options.long_double = jaic::sema::long_double_for(options.os, options.cpu, false);
         }
         Ok(None) => {}
         Err(message) => {

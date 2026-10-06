@@ -72,6 +72,11 @@ pub enum PieceTy {
     F64,
     /// Two packed `f32`s sharing one SSE eightbyte (x86-64 only).
     V2F32,
+    /// An x87 `long double` (x86-64 System V): arguments go to the stack, 16-byte aligned,
+    /// and results come back in `st(0)`.
+    X87,
+    /// A binary128 `long double` in a 128-bit vector register (AArch64 outside Apple).
+    F128,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -142,6 +147,17 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
     }
+    // System V classes an x87 `long double` X87/X87UP: alone (a scalar, or a struct holding just
+    // one) it is passed in memory and returned in `st(0)`; mixed with anything else, the whole
+    // aggregate is MEMORY.
+    if arch == Arch::X86_64 && layout.fields.iter().any(|&(_, t)| t == Ty::F80) {
+        return (layout.size == 16 && layout.fields == [(0, Ty::F80)]).then(|| {
+            vec![Piece {
+                offset: 0,
+                ty: PieceTy::X87,
+            }]
+        });
+    }
     match arch {
         Arch::Aarch64 | Arch::Win64Arm => {
             // Homogeneous floating-point aggregates (up to four members) use vector registers.
@@ -201,10 +217,10 @@ fn int_pieces(size: u64) -> Vec<Piece> {
 }
 
 /// If the aggregate is a homogeneous float aggregate of 1..=4 members,
-/// returns the member type.
+/// returns the member type. A binary128 `long double` counts as a float member (a quad HFA).
 fn hfa(layout: &AggLayout) -> Option<PieceTy> {
     let first = layout.fields.first()?.1;
-    if layout.fields.len() > 4 || !first.is_float() {
+    if layout.fields.len() > 4 || !(first.is_float() || first == Ty::F128) {
         return None;
     }
     if layout.fields.iter().any(|&(_, t)| t != first) {
@@ -221,10 +237,10 @@ fn hfa(layout: &AggLayout) -> Option<PieceTy> {
     {
         return None;
     }
-    let ty = if first == Ty::F32 {
-        PieceTy::F32
-    } else {
-        PieceTy::F64
+    let ty = match first {
+        Ty::F32 => PieceTy::F32,
+        Ty::F128 => PieceTy::F128,
+        _ => PieceTy::F64,
     };
     Some(ty)
 }
@@ -399,6 +415,53 @@ mod tests {
             Some(Arch::Aarch64)
         );
         assert!(Arch::Win64Arm.is_aarch64() && Arch::Win64Arm.is_windows());
+    }
+
+    /// Checked against `clang -target x86_64-linux-gnu` / `aarch64-linux-gnu` /
+    /// `x86_64-w64-windows-gnu -S -emit-llvm` for `long double f(long double)` and structs
+    /// `{ long double }`, `{ char; long double }`, `{ long double a, b; }`.
+    #[test]
+    fn long_double_classes() {
+        let x87 = AggLayout {
+            size: 16,
+            align: 16,
+            fields: vec![(0, Ty::F80)],
+        };
+        let one = vec![Piece {
+            offset: 0,
+            ty: PieceTy::X87,
+        }];
+        assert_eq!(
+            classify_arg(Arch::X86_64, &x87),
+            Passing::Registers(one.clone())
+        );
+        assert_eq!(classify_ret(Arch::X86_64, &x87), Some(one));
+        let tagged = AggLayout {
+            size: 32,
+            align: 16,
+            fields: vec![(0, Ty::I8), (16, Ty::F80)],
+        };
+        assert_eq!(classify_arg(Arch::X86_64, &tagged), Passing::ByVal);
+        assert!(classify_ret(Arch::X86_64, &tagged).is_none());
+        // MinGW: by reference, returned through a hidden pointer.
+        assert_eq!(classify_arg(Arch::Win64, &x87), Passing::Indirect);
+        assert!(classify_ret(Arch::Win64, &x87).is_none());
+        let quad = |n: u64| AggLayout {
+            size: 16 * n,
+            align: 16,
+            fields: (0..n).map(|i| (i * 16, Ty::F128)).collect(),
+        };
+        let p = classify_ret(Arch::Aarch64, &quad(2)).unwrap();
+        assert!(p.len() == 2 && p.iter().all(|p| p.ty == PieceTy::F128));
+        assert!(
+            matches!(classify_arg(Arch::Aarch64, &quad(1)), Passing::Registers(p) if p.len() == 1)
+        );
+        let mixed = AggLayout {
+            size: 32,
+            align: 16,
+            fields: vec![(0, Ty::I8), (16, Ty::F128)],
+        };
+        assert_eq!(classify_arg(Arch::Aarch64, &mixed), Passing::Indirect);
     }
 
     #[test]

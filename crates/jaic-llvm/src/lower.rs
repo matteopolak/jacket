@@ -19,7 +19,7 @@ use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic as LlvmIntrinsic;
 use inkwell::module::{Linkage, Module};
 use inkwell::types::{
-    AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, PointerType,
+    AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, PointerType,
 };
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue,
@@ -28,7 +28,8 @@ use inkwell::values::{
 use jaic::abi::{self, Arch, Passing, Piece, PieceTy};
 use jaic::ir::{
     AggLayout, BinOp, BlockId, Callee, CmpOp, Conv, ConvOp, Foreign, Func, Global, Inst, Intrinsic,
-    Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val,
+    Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val, WideArith, WideFloat,
+    WideOp,
 };
 
 /// Backend error; converted to a `String` at the crate boundary.
@@ -200,6 +201,16 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             Ty::F32 => self.ctx.f32_type().into(),
             Ty::F64 => self.ctx.f64_type().into(),
             Ty::Ptr => self.ptr_ty().into(),
+            Ty::F80 => self.ctx.x86_f80_type().into(),
+            Ty::F128 => self.ctx.f128_type().into(),
+        }
+    }
+
+    /// The LLVM type of a `long double` format.
+    fn wide_ty(&self, fmt: WideFloat) -> FloatType<'ctx> {
+        match fmt {
+            WideFloat::X87 => self.ctx.x86_f80_type(),
+            WideFloat::Binary128 => self.ctx.f128_type(),
         }
     }
 
@@ -209,6 +220,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             PieceTy::F32 => self.ctx.f32_type().into(),
             PieceTy::F64 => self.ctx.f64_type().into(),
             PieceTy::V2F32 => self.ctx.f32_type().vec_type(2).into(),
+            PieceTy::X87 => self.ctx.x86_f80_type().into(),
+            PieceTy::F128 => self.ctx.f128_type().into(),
         }
     }
 
@@ -1344,6 +1357,83 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     // ----- intrinsics ------------------------------------------------------
 
+    /// `long double` operations: native `x86_fp80` / `fp128` arithmetic on values in memory.
+    fn wide(
+        &self,
+        op: WideOp,
+        fmt: WideFloat,
+        args: &[BasicValueEnum<'ctx>],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let b = &self.builder;
+        let ft = self.wide_ty(fmt);
+        let ptr = |i: usize| -> R<PointerValue<'ctx>> {
+            Ok(self.coerce(args[i], Ty::Ptr)?.into_pointer_value())
+        };
+        let load = |i: usize| -> R<inkwell::values::FloatValue<'ctx>> {
+            Ok(b.build_load(ft, ptr(i)?, "")?.into_float_value())
+        };
+        let store = |v: inkwell::values::FloatValue<'ctx>| -> R<Vec<BasicValueEnum<'ctx>>> {
+            b.build_store(ptr(0)?, v)?;
+            Ok(Vec::new())
+        };
+        let scalar = |i: usize, ty: Ty| -> R<inkwell::values::FloatValue<'ctx>> {
+            Ok(self.coerce(args[i], ty)?.into_float_value())
+        };
+        match op {
+            WideOp::Arith(kind) => {
+                let (x, y) = (load(1)?, load(2)?);
+                store(match kind {
+                    WideArith::Add => b.build_float_add(x, y, "")?,
+                    WideArith::Sub => b.build_float_sub(x, y, "")?,
+                    WideArith::Mul => b.build_float_mul(x, y, "")?,
+                    WideArith::Div => b.build_float_div(x, y, "")?,
+                })
+            }
+            WideOp::Neg => store(b.build_float_neg(load(1)?, "")?),
+            WideOp::Cmp(cmp) => {
+                let pred = match cmp {
+                    CmpOp::FEq => FloatPredicate::OEQ,
+                    CmpOp::FNe => FloatPredicate::UNE,
+                    CmpOp::FLt => FloatPredicate::OLT,
+                    CmpOp::FLe => FloatPredicate::OLE,
+                    CmpOp::FGt => FloatPredicate::OGT,
+                    CmpOp::FGe => FloatPredicate::OGE,
+                    _ => return Err("integer comparison on a long double".into()),
+                };
+                let r = b.build_float_compare(pred, load(0)?, load(1)?, "")?;
+                Ok(vec![
+                    b.build_int_z_extend(r, self.ctx.i8_type(), "")?.into(),
+                ])
+            }
+            WideOp::FromF64 => store(b.build_float_ext(scalar(1, Ty::F64)?, ft, "")?),
+            WideOp::FromF32 => store(b.build_float_ext(scalar(1, Ty::F32)?, ft, "")?),
+            WideOp::FromS64 => {
+                let v = self.i64_of(self.as_int(args[1])?)?;
+                store(b.build_signed_int_to_float(v, ft, "")?)
+            }
+            WideOp::FromU64 => {
+                let v = self.i64_of(self.as_int(args[1])?)?;
+                store(b.build_unsigned_int_to_float(v, ft, "")?)
+            }
+            WideOp::ToF64 => Ok(vec![
+                b.build_float_trunc(load(0)?, self.ctx.f64_type(), "")?
+                    .into(),
+            ]),
+            WideOp::ToF32 => Ok(vec![
+                b.build_float_trunc(load(0)?, self.ctx.f32_type(), "")?
+                    .into(),
+            ]),
+            WideOp::ToS64 => Ok(vec![
+                b.build_float_to_signed_int(load(0)?, self.ctx.i64_type(), "")?
+                    .into(),
+            ]),
+            WideOp::ToU64 => Ok(vec![
+                b.build_float_to_unsigned_int(load(0)?, self.ctx.i64_type(), "")?
+                    .into(),
+            ]),
+        }
+    }
+
     fn intrinsic(
         &self,
         st: &FnState<'ctx>,
@@ -1470,6 +1560,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 b.build_call(f, &[fd.into(), ptr_arg(0)?.into(), size_arg(1)?.into()], "")?;
                 Ok(vec![])
             }
+            Intrinsic::Wide(op, fmt) => self.wide(op, fmt, args),
             Intrinsic::Sqrt => float_unary("llvm.sqrt"),
             Intrinsic::Sin => float_unary("llvm.sin"),
             Intrinsic::Cos => float_unary("llvm.cos"),

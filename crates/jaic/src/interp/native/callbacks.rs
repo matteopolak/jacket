@@ -65,6 +65,20 @@ pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, Strin
         return Err("a variadic procedure cannot be called from C in the interpreter".into());
     }
     let cabi = sig.c_abi.as_deref();
+    // The thunks receive 64-bit float registers and cannot return in `st(0)`.
+    let wide = |l: &crate::ir::AggLayout| {
+        l.fields
+            .iter()
+            .any(|&(_, t)| matches!(t, crate::ir::Ty::F80 | crate::ir::Ty::F128))
+    };
+    if arch != Arch::Win64
+        && cabi.is_some_and(|c| c.ret.iter().chain(c.params.iter().flatten()).any(wide))
+    {
+        return Err(
+            "a procedure passing a long double wider than float64 cannot be called from C in the interpreter (it works in a native build)"
+                .into(),
+        );
+    }
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
     let (shape, sret) = match cabi.and_then(|c| c.ret.as_ref()) {
         None if sig.returns.first().is_some_and(|t| t.is_float()) => (FLOAT, false),

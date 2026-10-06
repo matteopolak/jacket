@@ -24,6 +24,9 @@ impl Compiler {
         if to == TypeId::ANY && from != TypeId::COMPILE_TIME {
             return Some(TO_ANY);
         }
+        if self.wide_float(from).is_some() || self.wide_float(to).is_some() {
+            return self.wide_implicit_cost(from, untyped, to);
+        }
         let fk = self.types.kind(from).clone();
         let tk = self.types.kind(to).clone();
         if untyped {
@@ -326,6 +329,19 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let tr = self.types.repr(to);
+        if let Some(fmt) = self.wide_float(to) {
+            if self.wide_float(ty).is_none()
+                && (untyped || self.implicit_cost(ty, false, to).is_some())
+                && let Some(value) = Self::wide_const(fmt, value)
+            {
+                return Ok(Some(Operand::Const {
+                    ty: to,
+                    value,
+                    untyped: false,
+                }));
+            }
+            return Ok(None);
+        }
         let result = match value {
             Value::Int(i)
                 if self.types.is_integer(tr)
@@ -380,6 +396,9 @@ impl Compiler {
         let from = op.ty();
         if to == TypeId::ANY {
             return self.box_any(f, op, span);
+        }
+        if let Some(converted) = self.wide_cast(f, op.clone(), to, span)? {
+            return Ok(converted);
         }
         let op = if matches!(
             op,
@@ -582,6 +601,9 @@ impl Compiler {
             )
         {
             return Ok(op);
+        }
+        if let Some(converted) = self.wide_cast(f, op.clone(), to, span)? {
+            return Ok(converted);
         }
         // Constant folding of numeric casts.
         if let Operand::Const {

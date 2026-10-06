@@ -503,7 +503,18 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
         return Ok((program, cmd));
     }
     match flavor {
-        LinkFlavor::Unix => Ok(("cc".into(), Command::new("cc"))),
+        LinkFlavor::Unix => {
+            let mut cmd = Command::new("cc");
+            // The other architecture of a Mac (`x86_64-apple-darwin` on arm64, run through
+            // Rosetta, and the reverse): Apple's `cc` is clang and links either.
+            if let Some(triple) = target
+                && cfg!(target_os = "macos")
+                && (triple.contains("apple") || triple.contains("darwin"))
+            {
+                cmd.arg(format!("--target={triple}"));
+            }
+            Ok(("cc".into(), cmd))
+        }
         LinkFlavor::MinGw => {
             // GCC only targets x64; llvm-mingw provides `-clang` (and a `-gcc` alias of it)
             // for both CPUs.

@@ -207,7 +207,8 @@ impl Compiler {
             },
             TypeKind::Float {
                 ..
-            } => DebugTypeKind::Float,
+            }
+            | TypeKind::WideFloat(_) => DebugTypeKind::Float,
             TypeKind::Pointer(t) => DebugTypeKind::Pointer(t.0),
             TypeKind::Proc(_) | TypeKind::Type | TypeKind::Code | TypeKind::Null => {
                 DebugTypeKind::Typedef(TypeId::VOID_PTR.0)

@@ -430,7 +430,9 @@ impl Parser<'_> {
                 flags.push(self.ident("as a directive flag")?);
             }
         }
-        let operand = if matches!(self.tok(), Tok::Str(_)) {
+        // `#jaic_type long_double`: a jaic extension type, named by a bare identifier.
+        let jaic_type = sym.as_str() == "jaic_type" && matches!(self.tok(), Tok::Ident(_));
+        let operand = if matches!(self.tok(), Tok::Str(_)) || jaic_type {
             Some(Box::new(self.parse_primary()?))
         } else {
             None

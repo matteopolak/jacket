@@ -23,6 +23,7 @@ Jai language behavior as implemented by `jaic`.
 - [Modules and imports](language/modules-and-imports.md)
 - [Arithmetic overflow checks and `#no_aoc`](language/arithmetic-overflow-checks.md)
 - [Integers, floats and numeric literals](language/numbers.md)
+- [jaic extensions (`Jaic_Extensions`, `Long_Double`)](language/jaic-extensions.md)
 - [Operator overloading](language/operator-overloading.md)
 - [Pointers, arrays and bounds checks](language/pointers-and-arrays.md)
 - [Polymorphism and baking](language/polymorphism.md)

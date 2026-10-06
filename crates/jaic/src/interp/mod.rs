@@ -422,6 +422,7 @@ impl Interp {
                 Ty::I16 => std::ptr::read_unaligned(p as *const u16) as u64,
                 Ty::I32 | Ty::F32 => std::ptr::read_unaligned(p as *const u32) as u64,
                 Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::read_unaligned(p as *const u64),
+                Ty::F80 | Ty::F128 => unreachable!("wide floats are never loaded into registers"),
             }
         })
     }
@@ -440,6 +441,7 @@ impl Interp {
                 Ty::I16 => std::ptr::write_unaligned(p as *mut u16, v as u16),
                 Ty::I32 | Ty::F32 => std::ptr::write_unaligned(p as *mut u32, v as u32),
                 Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::write_unaligned(p as *mut u64, v),
+                Ty::F80 | Ty::F128 => unreachable!("wide floats are never stored from registers"),
             }
         }
         Ok(())
@@ -1290,7 +1292,67 @@ impl Interp {
                 };
                 vec![(r < 0 || r > keep as i128) as u64]
             }
+            I::Wide(op, fmt) => self.wide(op, fmt, a)?,
         })
+    }
+
+    /// `long double` operations in software (`crate::wide_float`), whatever the host.
+    fn wide(&mut self, op: ir::WideOp, fmt: ir::WideFloat, a: &[u64]) -> Res<Vec<u64>> {
+        use crate::wide_float as w;
+        use ir::WideOp as W;
+        let value = |s: &Self, addr: u64| -> Res<w::Bytes> {
+            if addr < 4096 {
+                return s.trap(format!(
+                    "invalid memory read at address {addr:#x} (null pointer?)"
+                ));
+            }
+            let mut out = [0u8; 16];
+            out.copy_from_slice(&s.read(addr, 16));
+            Ok(out)
+        };
+        let put = |s: &mut Self, addr: u64, v: w::Bytes| -> Res<Vec<u64>> {
+            if addr < 4096 {
+                return s.trap(format!(
+                    "invalid memory write at address {addr:#x} (null pointer?)"
+                ));
+            }
+            s.write(addr, &v);
+            Ok(Vec::new())
+        };
+        match op {
+            W::Arith(kind) => {
+                let r = w::arith(fmt, kind, &value(self, a[1])?, &value(self, a[2])?);
+                put(self, a[0], r)
+            }
+            W::Neg => {
+                let r = w::neg(fmt, &value(self, a[1])?);
+                put(self, a[0], r)
+            }
+            W::Cmp(cmp) => {
+                use std::cmp::Ordering as O;
+                let order = w::compare(fmt, &value(self, a[0])?, &value(self, a[1])?);
+                let yes = match (cmp, order) {
+                    (CmpOp::FNe, None) => true,
+                    (_, None) => false,
+                    (CmpOp::FEq, Some(o)) => o == O::Equal,
+                    (CmpOp::FNe, Some(o)) => o != O::Equal,
+                    (CmpOp::FLt, Some(o)) => o == O::Less,
+                    (CmpOp::FLe, Some(o)) => o != O::Greater,
+                    (CmpOp::FGt, Some(o)) => o == O::Greater,
+                    (CmpOp::FGe, Some(o)) => o != O::Less,
+                    _ => return self.trap("invalid long double comparison"),
+                };
+                Ok(vec![yes as u64])
+            }
+            W::FromF64 => put(self, a[0], w::from_f64(fmt, f64::from_bits(a[1]))),
+            W::FromF32 => put(self, a[0], w::from_f32(fmt, f32::from_bits(a[1] as u32))),
+            W::FromS64 => put(self, a[0], w::from_i64(fmt, a[1] as i64)),
+            W::FromU64 => put(self, a[0], w::from_u64(fmt, a[1])),
+            W::ToF64 => Ok(vec![w::to_f64(fmt, &value(self, a[0])?).to_bits()]),
+            W::ToF32 => Ok(vec![w::to_f32(fmt, &value(self, a[0])?).to_bits() as u64]),
+            W::ToS64 => Ok(vec![w::to_i64(fmt, &value(self, a[0])?) as u64]),
+            W::ToU64 => Ok(vec![w::to_u64(fmt, &value(self, a[0])?)]),
+        }
     }
 }
 
