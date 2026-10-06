@@ -1196,3 +1196,41 @@ fn unnamed_link_always_library_is_linked() {
         .unwrap();
     assert!(String::from_utf8_lossy(&libs.stdout).contains("libc++"));
 }
+
+/// A C++ function marked `#cpp_return_type_is_non_pod` returns even a small class (one `int`)
+/// through the hidden result pointer, as C++ does for types with constructors. Found by
+/// tools/jaic-diff.py: the native build expected it in registers while the callee wrote through x8.
+#[test]
+fn bindings_generator_cpp_classes() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-bindings-generator-cpp-classes");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/stdlib/bindings-generator-cpp-classes.jai");
+    let output = build_and_run(&source, &dir, "bindings-generator-cpp-classes").unwrap();
+    assert!(
+        output.status.success() && String::from_utf8_lossy(&output.stdout).ends_with("ok\n"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// A `#compiler` primitive called from compiled code says why the program stops.
+#[test]
+fn compiler_primitive_at_run_time_explains_the_trap() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-compiler-primitive");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("primitive.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n#import \"Compiler\";\nmain :: () {\n    print(\"before\\n\");\n    compiler_create_workspace(\"late\");\n    print(\"after\\n\");\n}\n",
+    )
+    .unwrap();
+    let output = build_and_run(&source, &dir, "primitive").unwrap();
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "before\n");
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("is a compiler primitive; it runs only at compile time"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

@@ -1136,7 +1136,23 @@ impl Compiler {
             _ => ir::Intrinsic::Trap,
         };
         if op == ir::Intrinsic::Trap {
-            // Compile-time-only primitives (`#compiler` hooks) have no runtime body.
+            // Compile-time-only primitives (`#compiler` hooks) have no runtime body. The
+            // interpreter calls the hook itself, so only compiled code reaches this stub: say
+            // why it stops, instead of a bare trap.
+            let text: Rc<[u8]> = format!(
+                "runtime error: '{name}' is a compiler primitive; it runs only at compile time\n"
+            )
+            .into_bytes()
+            .into();
+            let data = self.string_global(&text);
+            let data = f.b.global_addr(data);
+            let count = f.b.iconst(Ty::I64, text.len() as u64);
+            let to_stderr = f.b.iconst(Ty::I8, 1);
+            f.b.intrinsic(
+                ir::Intrinsic::CompilerWrite,
+                vec![data, count, to_stderr],
+                &[],
+            );
             f.b.intrinsic(op, Vec::new(), &[]);
             f.b.terminate(ir::Term::Unreachable);
         } else {

@@ -40,6 +40,8 @@ IntPair :: #bake_arguments Pair(T = int);        // IntPair(3) has 3 items
 
 The target must be a single procedure or a polymorphic struct. For structs, `sema/structs.rs` records the baked constants and the origin, so instances of the baked struct are instances of the origin; a `$V/Vec3` restriction where `Vec3` is baked accepts only matching instances.
 
+An `ifx` argument is typed by its target, so inference looks at its branches instead (`ifx_binding_operand` in `sema/calls.rs`). The first branch with a type of its own binds `$T`: `mx(ifx c then x else y, y)` with `x: s16` binds `s16`. When both branches are untyped literals, the literal default applies (`tests/stdlib/poly-infer-from-ifx.jai`).
+
 ## How to change it
 
 New inference rules go in `calls.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order.

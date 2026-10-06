@@ -660,6 +660,53 @@ impl Compiler {
         self.types.pointee(from) == Some(param) && self.types.as_struct(param).is_some()
     }
 
+    /// The operand an `ifx` argument offers to polymorphic inference: its first branch with a
+    /// type of its own (`ifx c then x else y` with `x: s16` binds `$T` to `s16`), else its first
+    /// branch that checks at all (an untyped constant, defaulted like a plain literal argument).
+    fn ifx_binding_operand(&mut self, arg: &CallArg) -> Option<Operand> {
+        let Some(ast::Expr {
+            kind:
+                E::Ifx {
+                    then_value,
+                    else_value,
+                    ..
+                },
+            ..
+        }) = &arg.expr
+        else {
+            return None;
+        };
+        let mut fallback = None;
+        for branch in [then_value, else_value].into_iter().flatten() {
+            if is_deferred(branch) {
+                continue;
+            }
+            let Ok(op) = self.check_expr_no_emit(arg.scope, branch) else {
+                continue;
+            };
+            match op {
+                Operand::Const {
+                    untyped: true, ..
+                } => {
+                    fallback.get_or_insert(op);
+                }
+                Operand::Value {
+                    ..
+                }
+                | Operand::Place {
+                    ..
+                }
+                | Operand::Const {
+                    ..
+                } => {
+                    return Some(op);
+                }
+                _ => {}
+            }
+        }
+        fallback
+    }
+
     /// `macro_call`: a Code parameter of a macro also binds a variable by name.
     fn arg_cost(&mut self, arg: &CallArg, param: TypeId, macro_call: bool) -> Result<u32> {
         let Some(op) = &arg.op else {
@@ -1056,8 +1103,17 @@ impl Compiler {
                 continue;
             }
             for (k, arg) in arg_ops.iter().enumerate() {
-                let Some(op) = &arg.op else {
-                    continue;
+                let branch_op;
+                let op = match &arg.op {
+                    Some(op) => op,
+                    // `ifx` waits for a target type, but its branches can bind `$T` themselves.
+                    None => match self.ifx_binding_operand(arg) {
+                        Some(op) => {
+                            branch_op = op;
+                            &branch_op
+                        }
+                        None => continue,
+                    },
                 };
                 // `null` binds nothing until the other arguments are seen.
                 if matches!(
