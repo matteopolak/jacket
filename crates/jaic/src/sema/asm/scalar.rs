@@ -152,7 +152,8 @@ fn trap_if(f: &mut FnCtx, cond: Val) {
     let ok = f.b.new_block();
     f.b.branch(cond, bad, ok);
     f.b.switch_to(bad);
-    f.b.intrinsic(Intrinsic::Trap, Vec::new(), &[]);
+    let reason = f.b.iconst(Ty::I64, crate::ir::TRAP_ASM_DIVIDE);
+    f.b.intrinsic(Intrinsic::Trap, vec![reason], &[]);
     f.b.terminate(crate::ir::Term::Unreachable);
     f.b.switch_to(ok);
 }

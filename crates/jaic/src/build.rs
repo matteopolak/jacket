@@ -847,7 +847,7 @@ pub fn call(
     let text = |interp: &Interp, i: usize| String::from_utf8_lossy(&string(interp, i)).into_owned();
     let trap = |message: String| Trap {
         message,
-        loc: None,
+        ..Trap::default()
     };
     let return_string = |interp: &mut Interp, bytes: &[u8], out_index: usize| {
         let (count, data) = shared.borrow_mut().keep_string(bytes);

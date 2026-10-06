@@ -592,6 +592,7 @@ impl Compiler {
                             addr,
                         });
                     }
+                    self.note_unknown_name(span, scope);
                     return err(span, format!("unknown identifier '{name}'"));
                 }
                 let op = self.entities_operand(f, scope, &ids, span);

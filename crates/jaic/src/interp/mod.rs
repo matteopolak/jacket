@@ -119,11 +119,51 @@ impl Host for NativeHost {
 }
 
 /// A runtime failure inside interpreted code.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Trap {
     pub message: String,
     /// (file, line, column) of the last executed statement.
     pub loc: Option<(u32, u32, u32)>,
+    /// The interpreted procedures the failure unwound through, innermost first: each one's
+    /// name and the statement it was executing (for the callee, the call). Filled by `exec` as
+    /// the error propagates; capped at `MAX_TRAP_FRAMES`, the rest counted in `omitted_frames`.
+    pub frames: Vec<TrapFrame>,
+    pub omitted_frames: usize,
+}
+
+/// The message for a load or store at an address in the never-mapped first page.
+fn null_access(kind: &str, addr: u64) -> String {
+    if addr == 0 {
+        format!("null pointer dereference: {kind} through a null pointer")
+    } else {
+        format!(
+            "null pointer dereference: {kind} at address {addr:#x}, just past null (a member of a null struct pointer?)"
+        )
+    }
+}
+
+/// One procedure on the interpreter's call stack when a `Trap` was raised.
+#[derive(Debug, Clone)]
+pub struct TrapFrame {
+    pub name: String,
+    /// (file, line, column) of the statement this procedure was executing.
+    pub loc: Option<(u32, u32, u32)>,
+}
+
+/// How many frames a `Trap` keeps (deep recursion keeps the innermost ones).
+const MAX_TRAP_FRAMES: usize = 64;
+
+impl Trap {
+    fn push_frame(&mut self, name: &str, loc: Option<(u32, u32, u32)>) {
+        if self.frames.len() < MAX_TRAP_FRAMES {
+            self.frames.push(TrapFrame {
+                name: name.to_string(),
+                loc,
+            });
+        } else {
+            self.omitted_frames += 1;
+        }
+    }
 }
 
 type Res<T> = std::result::Result<T, Trap>;
@@ -325,6 +365,7 @@ impl Interp {
         Err(Trap {
             message: message.into(),
             loc: self.loc,
+            ..Trap::default()
         })
     }
 
@@ -471,9 +512,7 @@ impl Interp {
     #[inline]
     fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
         if addr < 4096 {
-            return self.trap(format!(
-                "invalid memory read at address {addr:#x} (null pointer?)"
-            ));
+            return self.trap(null_access("read", addr));
         }
         if addr & TAG_MASK == FUNC_TAG || addr & TAG_MASK == FOREIGN_TAG {
             return self.trap("read through a procedure address");
@@ -493,9 +532,7 @@ impl Interp {
     #[inline]
     fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
         if addr < 4096 {
-            return self.trap(format!(
-                "invalid memory write at address {addr:#x} (null pointer?)"
-            ));
+            return self.trap(null_access("write", addr));
         }
         let p = addr as *mut u8;
         unsafe {
@@ -626,6 +663,7 @@ impl Interp {
             return result.map_err(|m| Trap {
                 message: m,
                 loc: self.loc,
+                ..Trap::default()
             });
         }
         let addr = self.foreign_addr(program, id)?;
@@ -674,6 +712,7 @@ impl Interp {
                 *v = native::callback_addr(identity, id, &func.sig).map_err(|m| Trap {
                     message: m,
                     loc: self.loc,
+                    ..Trap::default()
                 })?;
             }
         }
@@ -690,6 +729,7 @@ impl Interp {
         native::call(addr, &argv, sig, &mut reenter).map_err(|m| Trap {
             message: m,
             loc: self.loc,
+            ..Trap::default()
         })
     }
 
@@ -770,7 +810,10 @@ impl Interp {
         }
         let outer = (self.frame_blocks, self.frame_insts);
         (self.frame_blocks, self.frame_insts) = (0, 0);
-        let result = self.run(program, func, &frame, stack_base, args);
+        let mut result = self.run(program, func, &frame, stack_base, args);
+        if let Err(trap) = &mut result {
+            trap.push_frame(&func.name, self.loc);
+        }
         if let Some(counts) = self.profile.as_mut() {
             counts.add(
                 id.0 as usize,
@@ -1037,7 +1080,7 @@ impl Interp {
             } => {
                 let (d, s) = (vals[dst.0 as usize], vals[src.0 as usize]);
                 if d < 4096 || s < 4096 {
-                    return self.trap("copy through a null pointer");
+                    return self.trap("null pointer dereference: memory copy through a null pointer");
                 }
                 unsafe { std::ptr::copy(s as *const u8, d as *mut u8, *size as usize) };
             }
@@ -1047,7 +1090,7 @@ impl Interp {
             } => {
                 let d = vals[dst.0 as usize];
                 if d < 4096 {
-                    return self.trap("write through a null pointer");
+                    return self.trap("null pointer dereference: memory fill through a null pointer");
                 }
                 unsafe { std::ptr::write_bytes(d as *mut u8, 0, *size as usize) };
             }
@@ -1080,7 +1123,7 @@ impl Interp {
                                 )?
                                 .into(),
                             _ if addr < 4096 => {
-                                return self.trap("call through a null procedure pointer");
+                                return self.trap("null pointer dereference: call through a null procedure pointer");
                             }
                             _ => self.call_native(program, addr, argv, sig)?.into(),
                         }
@@ -1202,18 +1245,31 @@ impl Interp {
         Ok(match op {
             I::Memcpy => {
                 if a[2] > 0 {
+                    if a[0] < 4096 || a[1] < 4096 {
+                        return self.trap(
+                            "null pointer dereference: memcpy through a null pointer",
+                        );
+                    }
                     unsafe { std::ptr::copy(a[1] as *const u8, a[0] as *mut u8, a[2] as usize) };
                 }
                 vec![]
             }
             I::Memset => {
                 if a[2] > 0 {
+                    if a[0] < 4096 {
+                        return self.trap(
+                            "null pointer dereference: memset through a null pointer",
+                        );
+                    }
                     unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, a[2] as usize) };
                 }
                 vec![]
             }
             I::Memcmp => {
                 let n = a[2] as usize;
+                if n > 0 && (a[0] < 4096 || a[1] < 4096) {
+                    return self.trap("null pointer dereference: memcmp through a null pointer");
+                }
                 let (x, y) = (self.read(a[0], n), self.read(a[1], n));
                 let r: i16 = match x.cmp(&y) {
                     std::cmp::Ordering::Less => -1,
@@ -1234,7 +1290,17 @@ impl Interp {
                 vec![success as u64, current]
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
-            I::Trap => return self.trap("runtime check failed"),
+            I::Trap => {
+                return self.trap(match a.first().copied() {
+                    Some(ir::TRAP_MISSING_RETURN) => {
+                        "reached the end of a procedure that must return a value"
+                    }
+                    Some(ir::TRAP_ASM_DIVIDE) => {
+                        "#asm division fault: the divisor is zero or the quotient does not fit"
+                    }
+                    _ => "runtime check failed",
+                });
+            }
             I::BoundsCheck => {
                 let (index, count) = (a[0] as i64, a[1] as i64);
                 if index < 0 || index >= count {
@@ -1313,9 +1379,7 @@ impl Interp {
         use ir::WideOp as W;
         let value = |s: &Self, addr: u64| -> Res<w::Bytes> {
             if addr < 4096 {
-                return s.trap(format!(
-                    "invalid memory read at address {addr:#x} (null pointer?)"
-                ));
+                return s.trap(null_access("read", addr));
             }
             let mut out = [0u8; 16];
             out.copy_from_slice(&s.read(addr, 16));
@@ -1323,9 +1387,7 @@ impl Interp {
         };
         let put = |s: &mut Self, addr: u64, v: w::Bytes| -> Res<Vec<u64>> {
             if addr < 4096 {
-                return s.trap(format!(
-                    "invalid memory write at address {addr:#x} (null pointer?)"
-                ));
+                return s.trap(null_access("write", addr));
             }
             s.write(addr, &v);
             Ok(Vec::new())

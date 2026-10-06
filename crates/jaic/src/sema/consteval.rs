@@ -167,19 +167,11 @@ impl Compiler {
             Err(_) if deferred.is_some() => Err(deferred.unwrap()),
             Err(trap) => {
                 self.ct_traps += 1;
-                let mut d = Diagnostic::error(
-                    span,
-                    format!("error during compile-time execution: {}", trap.message),
+                let d = self.trap_diagnostic(
+                    &trap,
+                    "error during compile-time execution",
+                    Some(span),
                 );
-                if let Some((file, line, _)) = trap.loc {
-                    d = d.with_note(
-                        span,
-                        format!(
-                            "while executing {}:{line}",
-                            self.sources.get(FileId(file)).path
-                        ),
-                    );
-                }
                 Err(Box::new(d))
             }
         }
@@ -350,7 +342,7 @@ impl Compiler {
         let file = self.scope_file(scope);
         match body {
             ast::RunBody::Expr(e) => {
-                let mut f = self.thunk_ctx("run", file);
+                let mut f = self.thunk_ctx("#run", file);
                 let op = self.check_expr(&mut f, tscope, e, expected)?;
                 match op {
                     Operand::Const {
@@ -362,7 +354,7 @@ impl Compiler {
                 }
             }
             ast::RunBody::Block(block) => {
-                let mut f = self.thunk_ctx("run", file);
+                let mut f = self.thunk_ctx("#run", file);
                 let module = self.scope(tscope).module;
                 let inner = self.new_scope(scope::ScopeKind::Block, Some(tscope), module, None);
                 self.check_block_stmts(&mut f, inner, &block.stmts)?;

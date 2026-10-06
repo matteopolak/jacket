@@ -150,6 +150,11 @@ pub enum Conv {
     C,
 }
 
+/// `Intrinsic::Trap` reason: a procedure with results fell off the end of its body.
+pub const TRAP_MISSING_RETURN: u64 = 1;
+/// `Intrinsic::Trap` reason: an `#asm` divide faulted (`#DE`: divisor zero or quotient too big).
+pub const TRAP_ASM_DIVIDE: u64 = 2;
+
 /// Built-in operations with backend-specific implementations.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Intrinsic {
@@ -159,7 +164,8 @@ pub enum Intrinsic {
     /// (ptr, old, new) -> (success, old_value); width from operand type.
     CompareAndSwap,
     DebugBreak,
-    /// Abort with a runtime error (bounds check, unreachable case...).
+    /// Abort with a runtime error. An optional `i64` operand says why (`TRAP_*`), for the
+    /// interpreter's message; native code ignores it.
     Trap,
     /// (index: s64, count: s64): trap unless `0 <= index < count`.
     BoundsCheck,

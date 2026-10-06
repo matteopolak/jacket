@@ -653,18 +653,12 @@ impl Compiler {
         self.interp.compile_time = false;
         self.enable_stack_traces(Span::default());
         if let Err(trap) = self.interp.reset_globals(&self.program) {
-            return err(Span::default(), format!("runtime error: {}", trap.message));
+            return Err(Box::new(self.trap_diagnostic(&trap, "runtime error", None)));
         }
         let result = self.interp.call(&self.program, main, &[argc, argv]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
-            Err(trap) => {
-                let span = trap.loc.map_or(Span::default(), |(file, line, col)| {
-                    let at = self.sources.get(FileId(file)).offset_of(line, col) as usize;
-                    Span::new(FileId(file), at, at + 1)
-                });
-                err(span, format!("runtime error: {}", trap.message))
-            }
+            Err(trap) => Err(Box::new(self.trap_diagnostic(&trap, "runtime error", None))),
         }
     }
 }

@@ -387,6 +387,7 @@ impl Interp {
                     Err(Trap {
                         message: ABANDONED.into(),
                         loc,
+                        ..Trap::default()
                     })
                 }
                 None => self.trap("deadlock: every thread is blocked"),
@@ -450,7 +451,7 @@ impl Interp {
                     .unwrap_or_default();
                 Err(Trap {
                     message: format!("runtime error in a thread: {}{at}", trap.message),
-                    loc: trap.loc,
+                    ..trap
                 })
             }
         }

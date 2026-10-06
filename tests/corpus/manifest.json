@@ -1789,7 +1789,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "runtime check failed"
+        "check": "#asm division fault: the divisor is zero"
       }
     },
     {
