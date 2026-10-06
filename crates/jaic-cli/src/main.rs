@@ -892,7 +892,6 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         unwritten_output_hint: (cli.command == Command::Check).then(|| {
             jaic::build::UnwrittenOutputHint {
                 main_file: cli.file.clone(),
-                cwd: started_in.clone(),
             }
         }),
         command_line: cli.command_line.clone(),

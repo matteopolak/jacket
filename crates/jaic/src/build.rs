@@ -135,20 +135,17 @@ pub struct BuildEnv {
 pub struct UnwrittenOutputHint {
     /// The main file as given on the command line.
     pub main_file: String,
-    /// The directory the command was started from (paths are shown relative to it).
-    pub cwd: PathBuf,
 }
 
-/// `path` relative to `base` when it lies below it.
-/// (A relative `path` is taken from the current directory, the metaprogram's.)
-fn shown_path(path: &std::path::Path, base: &std::path::Path) -> String {
+/// `path` as messages show it (`crate::display_path`). A relative `path` is taken from the
+/// current directory, the metaprogram's, which need not be where the tool started.
+fn shown_path(path: &std::path::Path) -> String {
     let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
     let path: PathBuf = absolute
         .components()
         .filter(|c| !matches!(c, std::path::Component::CurDir))
         .collect();
-    path.strip_prefix(base)
-        .map_or_else(|_| path.display().to_string(), |p| p.display().to_string())
+    crate::display_path(&path)
 }
 
 /// Hooks into the life of workspace compilers. Called without the registry borrowed, but the
@@ -748,7 +745,7 @@ fn write_output(
                         "warning: `jaic check` does not write {} (workspace `{name}` asks for \
                          {kind})\n\
                          help: `jaic build {main}` (or `jaic run {main}`) writes it",
-                        shown_path(&output, &hint.cwd),
+                        shown_path(&output),
                         main = hint.main_file,
                     ));
                 }
