@@ -60,6 +60,8 @@ jobs:
     timeout-minutes: 30
     env:
       CARGO_INCREMENTAL: '0'
+      # The wasm target tests fail, rather than skip, without node or wasm-ld.
+      JAIC_REQUIRE_WASM_TESTS: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -69,6 +71,10 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      # node 24: Memory64 without a flag, for the wasm64 modules `jaic build -os wasm` writes.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
       - name: Validate dependency ages before building
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -78,7 +84,8 @@ jobs:
       - name: Install LLVM 23 (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install llvm@23
+          # lld@23: wasm-ld, which `jaic build -os wasm` links with (docs/native/wasm-target.md).
+          brew install llvm@23 lld@23
           echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
           echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
       - name: Install LLVM 23 (Linux)
@@ -93,6 +100,7 @@ jobs:
           test "$(uname -m)" = "${{ matrix.architecture }}"
           llvm-config --version
           clang --version
+          node --version
       - name: Format check
         id: format
         continue-on-error: true
@@ -141,8 +149,20 @@ jobs:
         run: |
           cargo build --locked -p jaic-cli
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
+      - name: WebAssembly target
+        id: wasm-target
+        continue-on-error: true
+        # jaifmt compiled to wasm64 must format every golden case exactly like native jaifmt (built
+        # by the Jai format check), and WASI modules must behave like the interpreter
+        # (docs/native/wasm-target.md).
+        run: |
+          cargo build --locked -p jaic-cli
+          target/debug/jaic build tools/jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o target/jaifmt.wasm
+          ls -l target/jaifmt.wasm
+          node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
+          python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.rule-coverage.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.rule-coverage.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

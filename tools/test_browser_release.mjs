@@ -7,6 +7,7 @@ import test from "node:test";
 import { inspectAssets, checkRelease } from "./check_browser_release.mjs";
 
 const wasm = Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]);
+const formatter = Buffer.from([0, 97, 115, 109, 1, 0, 0, 0, 0, 0]);
 
 async function fixture() {
   const temporary = await mkdtemp(path.join(tmpdir(), "jai-own-release-test-"));
@@ -16,11 +17,13 @@ async function fixture() {
   await writeFile(path.join(directory, "jaifmt-playground.jai"), "main :: () {}\n");
   await writeFile(path.join(directory, "engine.mjs"), 'export async function createEngine(bytes) { const module = await WebAssembly.compile(bytes); const instance = await WebAssembly.instantiate(module, {}); return { play() { return instance.exports.missing(); } }; }');
   await writeFile(path.join(directory, "jai_wasm.wasm"), wasm);
+  await writeFile(path.join(directory, "jaifmt.wasm"), formatter);
   await mkdir(path.join(directory, "tour", "nested"), { recursive: true });
   await writeFile(path.join(directory, "tour", "main.jai"), '#load "nested/part.jai";\n');
   await writeFile(path.join(directory, "tour", "nested", "part.jai"), "main :: () {}\n");
   await writeFile(path.join(directory, "tour.json"), JSON.stringify({ schema_version: 1, main: "main.jai", files: ["main.jai", "nested/part.jai"] }));
-  const metadata = { schema_version: 1, commit: "a".repeat(40), toolchain: "nightly-2026-08-29", wasm_sha256: createHash("sha256").update(wasm).digest("hex") };
+  const metadata = { schema_version: 1, commit: "a".repeat(40), toolchain: "nightly-2026-08-29", wasm_sha256: createHash("sha256").update(wasm).digest("hex"),
+    jaifmt_wasm_sha256: createHash("sha256").update(formatter).digest("hex") };
   await writeFile(path.join(directory, "build-metadata.json"), JSON.stringify(metadata));
   return { temporary, directory };
 }

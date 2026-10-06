@@ -6,6 +6,7 @@ use std::process::Command;
 
 mod abi_layout;
 mod common;
+mod wasm_target;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 

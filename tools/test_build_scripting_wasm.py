@@ -74,6 +74,13 @@ class ScriptingWasmBuildTests(unittest.TestCase):
                     wasm.main()
                 build.assert_not_called()
 
+    def test_jaifmt_wasm_is_compiled_by_the_given_native_jaic(self):
+        command = wasm.jaifmt_wasm_command(Path('/own/jaic'), Path('/src'), Path('/out/jaifmt.wasm'))
+        self.assertEqual(command[:3], ['/own/jaic', 'build', '/src/tools/jaifmt/wasm.jai'])
+        self.assertEqual(command[command.index('-os') + 1], 'wasm')
+        self.assertEqual(command[command.index('-o') + 1], '/out/jaifmt.wasm')
+        self.assertIn('-O2', command)
+
     def test_explicit_external_target_is_in_the_pinned_build_command(self):
         prefix = ['own-rustup', 'run', 'nightly-2026-08-29', 'cargo']
         command = wasm.build_command(prefix, Path('/Volumes/CodexBuilds/targets/jai'), False)

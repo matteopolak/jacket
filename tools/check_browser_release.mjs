@@ -10,7 +10,7 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { checkExample, exampleCases } from "./examples_wasm.mjs";
 
-export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "tour.json"];
+export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "tour.json"];
 /** Example workspaces shipped as folders, each described by `<name>.json` (tools/build_scripting_wasm.py). */
 export const BUNDLE_EXAMPLES = ["tour"];
 
@@ -53,6 +53,8 @@ export async function inspectAssets(directory) {
   assert.match(metadata.commit, /^[0-9a-f]{40}$/);
   const digest = createHash("sha256").update(await readFile(path.join(directory, "jai_wasm.wasm"))).digest("hex");
   assert.equal(metadata.wasm_sha256, digest, "build-metadata.json must describe the staged module");
+  const formatter = createHash("sha256").update(await readFile(path.join(directory, "jaifmt.wasm"))).digest("hex");
+  assert.equal(metadata.jaifmt_wasm_sha256, formatter, "build-metadata.json must describe the staged jaifmt.wasm");
   const engine = await readFile(path.join(directory, "engine.mjs"), "utf8");
   assert(!/^\s*(?:import\b|export\b[^;\n]*\bfrom\b)|\bimport\s*\(/m.test(engine), "engine.mjs must be self-contained");
   return metadata;
@@ -83,6 +85,19 @@ function checkLanguageServer(engine) {
   const changed = engine.lsp({ jsonrpc: "2.0", method: "textDocument/didChange", params: { textDocument: { uri, version: 2 }, contentChanges: [{ text: "main :: () -> int { return ;" }] } });
   const diagnostic = changed.find(item => item.method === "textDocument/publishDiagnostics" && item.params.uri === uri && item.params.version === 2);
   assert(diagnostic && diagnostic.params.diagnostics.length > 0, "Changed source must produce current-version syntax diagnostics");
+}
+
+/** Formats `source` with jaifmt.wasm in a child node process (WASI preview 1, Memory64: node 24). */
+function formatWithWasi(bytes, source) {
+  const script = `
+    import { WASI } from "node:wasi";
+    const bytes = Buffer.from(process.argv[1], "base64");
+    const wasi = new WASI({ version: "preview1", args: ["jaifmt.wasm"], env: {}, returnOnExit: true });
+    const instance = await WebAssembly.instantiate(await WebAssembly.compile(bytes), wasi.getImportObject());
+    process.exitCode = wasi.start(instance);`;
+  const run = spawnSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", script, bytes.toString("base64")], { input: source, encoding: "utf8" });
+  assert.equal(run.status, 0, `jaifmt.wasm failed: ${run.stderr}`);
+  return run.stdout;
 }
 
 export async function checkRelease(directory, { stdlib = true } = {}) {
@@ -125,6 +140,8 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   const formatted = engine.play({ "__jaifmt__.jai": driver, "main.jai": "main::(){\nx:=1;\n}\n" }, "__jaifmt__.jai");
   assert.equal(formatted.exitCode, 0, formatted.stderr);
   assert.match(formatted.stdout, /^main :: \(\) \{\n\s+x := 1;\n\}\n$/);
+  // So does jaifmt.wasm, the formatter compiled to WebAssembly, reading stdin under WASI.
+  assert.equal(formatWithWasi(await readFile(path.join(directory, "jaifmt.wasm")), "main::(){\nx:=1;\n}\n"), formatted.stdout);
   // The staged tour runs as the playground opens it: its own files, under the playground's budget.
   const tours = [];
   for (const testCase of (await exampleCases()).filter(item => item.bundle)) {

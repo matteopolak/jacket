@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver, tour)."""
+"""Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver and
+jaifmt.wasm, tour)."""
 import argparse
 from datetime import date, datetime, timezone
 import hashlib
@@ -25,8 +26,8 @@ MAX_FILE_BYTES = 64 * 1024**2
 MAX_TOTAL_BYTES = 128 * 1024**2
 SUFFIXES = {'.mjs', '.wasm', '.json', '.md', '.jai'}
 FORBIDDEN = {'reference', 'corpus', 'artifacts', 'target', '.git', 'node_modules'}
-REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'jaifmt-playground.jai', 'build-metadata.json', 'README.md',
-            'tour.json', 'tour/main.jai'}
+REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'jaifmt-playground.jai', 'jaifmt.wasm', 'build-metadata.json',
+            'README.md', 'tour.json', 'tour/main.jai'}
 METADATA = 'build-metadata.json'
 
 
@@ -133,8 +134,10 @@ def require_output_space(path, reserve=0):
         raise ValueError('release output requires the 2 GiB free-space floor plus staging/archive headroom')
 
 
-def package(root, output, target_dir=None):
+def package(root, output, target_dir=None, jaic=None):
     output = checked_directory(output, root)
+    if jaic is None:
+        raise ValueError('a native jaic (--jaic) is required to compile jaifmt.wasm')
     pinned_channel(root)
     revision = clean_revision(root)
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
@@ -153,7 +156,8 @@ def package(root, output, target_dir=None):
     with tempfile.TemporaryDirectory(prefix='.jai-browser-release-', dir=output.parent) as temporary:
         working = Path(temporary)
         stage = working / 'stage'
-        command = [sys.executable, str(root / 'tools/build_scripting_wasm.py'), '--release', '--output', str(stage)]
+        command = [sys.executable, str(root / 'tools/build_scripting_wasm.py'), '--release', '--output', str(stage),
+                   '--jaic', str(jaic)]
         if target_dir is not None:
             command.extend(['--target-dir', str(target_dir)])
         subprocess.run(command, cwd=root, env=build_environment(), check=True)
@@ -162,8 +166,10 @@ def package(root, output, target_dir=None):
         receipt = json.loads(receipt_path.read_text())
         if receipt.get('wasm_sha256') != sha256((stage / 'jai_wasm.wasm').read_bytes()):
             raise ValueError('staged Wasm does not match its successful build receipt')
+        if receipt.get('jaifmt_wasm_sha256') != sha256((stage / 'jaifmt.wasm').read_bytes()):
+            raise ValueError('staged jaifmt.wasm does not match its successful build receipt')
         metadata = {'schema_version': 1, 'commit': revision, 'toolchain': pinned_channel(root),
-                    'wasm_sha256': receipt['wasm_sha256']}
+                    'wasm_sha256': receipt['wasm_sha256'], 'jaifmt_wasm_sha256': receipt['jaifmt_wasm_sha256']}
         receipt_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + '\n')
         records = assets(stage)
         # Probe the staged wrapper and real module; failures leave no release assets.
@@ -195,12 +201,15 @@ def main():
     parser.add_argument('--output', type=Path)
     parser.add_argument('--target-dir', type=Path, help='preserve the explicit Cargo target override')
     parser.add_argument('--toolchain', action='store_true', help='validate age and print the pinned nightly, without building')
+    parser.add_argument('--jaic', type=Path, help='native jaic (LLVM, wasm-ld) that compiles jaifmt.wasm')
     args = parser.parse_args()
     if args.toolchain:
         print(pinned_channel(ROOT)); return
     if args.output is None:
         parser.error('--output is required unless --toolchain is selected')
-    result = package(ROOT, args.output, args.target_dir)
+    if args.jaic is None:
+        parser.error('--jaic is required: the bundle includes jaifmt.wasm')
+    result = package(ROOT, args.output, args.target_dir, args.jaic)
     print(f"Verified browser bundle for {result['commit']}: {args.output}")
 
 

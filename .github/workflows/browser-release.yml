@@ -14,7 +14,7 @@ concurrency:
 jobs:
   package:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       COMPILER_REVISION: ${{ inputs.compiler_revision }}
       CARGO_INCREMENTAL: '0'
@@ -36,6 +36,10 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      # node 24: Memory64 without a flag, for the wasm64 modules `jaic build -os wasm` writes.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
       - name: Verify checkout and dependency ages before fetching/building
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
         env:
@@ -65,8 +69,19 @@ jobs:
         env:
           PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
         run: rustup run "$PINNED_TOOLCHAIN" cargo test --offline --locked -j 1 -p jai-language-server -p jai-wasm
+      # A native jaic (LLVM and wasm-ld) compiles jaifmt.wasm into the bundle.
+      - name: Install LLVM 23 and LLD
+        run: |
+          bash tools/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+      - name: Build the native compiler
+        env:
+          PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
+        run: rustup run "$PINNED_TOOLCHAIN" cargo build --offline --locked -p jaic-cli
       - name: Build, execute and package the actual staged compiler
-        run: python3 tools/package_browser_release.py --output "$RUNNER_TEMP/jai-browser-release" --target-dir "$CARGO_TARGET_DIR"
+        run: |
+          python3 tools/package_browser_release.py --output "$RUNNER_TEMP/jai-browser-release" --target-dir "$CARGO_TARGET_DIR" \
+            --jaic "$CARGO_TARGET_DIR/debug/jaic"
       - name: Retain the exact-commit producer assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

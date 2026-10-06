@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver, tour)."""
+"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver, tour).
+
+With --jaic (a native jaic with LLVM and wasm-ld), jaifmt compiled to a WASI module (jaifmt.wasm) is staged too.
+"""
 from pathlib import Path
 import argparse
 import hashlib
@@ -53,6 +56,12 @@ def stage_example(source, output, name, main):
     (output / f"{name}.json").write_text(json.dumps(index, indent=2) + "\n")
 
 
+def jaifmt_wasm_command(jaic, root, output):
+    """Compile the WASI jaifmt (tools/jaifmt/wasm.jai) with a native jaic; docs/tools/jaifmt.md."""
+    return [str(jaic), "build", str(root / "tools/jaifmt/wasm.jai"), "-os", "wasm", "-O2", "--no-debug-info",
+            "-o", str(output)]
+
+
 def build_command(cargo, target, release):
     command = [*cargo, "build", "--offline", "--locked", "-j", "1", "-p", "jai-wasm",
                "--target", "wasm32-unknown-unknown", "--target-dir", str(target)]
@@ -68,6 +77,7 @@ def main():
     parser.add_argument("--output", type=Path, default=root / "artifacts/scripting-runtime")
     parser.add_argument("--target-dir", type=Path,
                         help="Override CARGO_TARGET_DIR or Cargo target configuration")
+    parser.add_argument("--jaic", type=Path, help="native jaic that compiles jaifmt.wasm into the bundle")
     args = parser.parse_args()
     environment = {**os.environ, "CARGO_INCREMENTAL": "0"}
     cargo = pinned_cargo_command(root, environment)
@@ -91,6 +101,15 @@ def main():
         shutil.copy2(root / "crates/jai-wasm/js" / name, output / name)
     # Format buttons run this driver in the engine (docs/tools/jaifmt.md).
     shutil.copy2(root / "tools/jaifmt/playground.jai", output / "jaifmt-playground.jai")
+    # Or jaifmt itself, compiled to WebAssembly: much faster than interpreting the driver.
+    formatter = output / "jaifmt.wasm"
+    formatter.unlink(missing_ok=True)
+    formatter_sha256 = None
+    if args.jaic:
+        subprocess.run(jaifmt_wasm_command(args.jaic.resolve(), root, formatter), cwd=root, env=environment, check=True)
+        if formatter.read_bytes()[:8] != b"\x00asm\x01\x00\x00\x00":
+            raise SystemExit("jaifmt.wasm is not a WebAssembly module")
+        formatter_sha256 = hashlib.sha256(formatter.read_bytes()).hexdigest()
     # Example workspaces the playground opens with (examples/tour as tour/).
     for name, source, main in bundled_examples(root):
         stage_example(source, output, name, main)
@@ -102,6 +121,8 @@ def main():
     receipt = {"build_command": command, "target_directory": target.receipt(),
                "wasm_build_path": str(wasm), "wasm_staged_path": str(staged),
                "wasm_sha256": expected}
+    if formatter_sha256:
+        receipt["jaifmt_wasm_sha256"] = formatter_sha256
     (output / "build-metadata.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(f"Browser bundle: {output}")
 

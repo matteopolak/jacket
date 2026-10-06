@@ -11,6 +11,7 @@ import zipfile
 import package_browser_release as release
 
 COMMIT = 'a' * 40
+JAIC = Path('/own/native/jaic')
 
 
 def fixture(root):
@@ -25,7 +26,9 @@ def staged(stage):
         (stage / name).write_text('own inert fixture\n')
     wasm = b'\x00asm\x01\x00\x00\x00'
     (stage / 'jai_wasm.wasm').write_bytes(wasm)
-    (stage / 'build-metadata.json').write_text(json.dumps({'wasm_sha256': hashlib.sha256(wasm).hexdigest(), 'wasm_build_path': '/private/host/cache/module.wasm'}))
+    formatter = (stage / 'jaifmt.wasm').read_bytes()
+    (stage / 'build-metadata.json').write_text(json.dumps({'wasm_sha256': hashlib.sha256(wasm).hexdigest(), 'wasm_build_path': '/private/host/cache/module.wasm',
+                                                          'jaifmt_wasm_sha256': hashlib.sha256(formatter).hexdigest()}))
 
 
 class BrowserReleaseTests(unittest.TestCase):
@@ -35,13 +38,14 @@ class BrowserReleaseTests(unittest.TestCase):
             def run(command, **kwargs):
                 if '--release' in command:
                     self.assertEqual(command[command.index('--target-dir') + 1], '/Volumes/CodexBuilds/targets/jai')
+                    self.assertEqual(command[command.index('--jaic') + 1], str(JAIC))
                     staged(Path(command[command.index('--output') + 1]))
                 if '--report' in command:
                     Path(command[command.index('--report') + 1]).write_text(json.dumps({'commit': COMMIT, 'runtime': True, 'lsp': False}))
                 return subprocess.CompletedProcess(command, 0)
             with patch.object(release, 'clean_revision', return_value=COMMIT), patch.object(release.subprocess, 'run', side_effect=run) as calls:
-                one = release.package(root, base / 'one', Path('/Volumes/CodexBuilds/targets/jai'))
-                two = release.package(root, base / 'two', Path('/Volumes/CodexBuilds/targets/jai'))
+                one = release.package(root, base / 'one', Path('/Volumes/CodexBuilds/targets/jai'), JAIC)
+                two = release.package(root, base / 'two', Path('/Volumes/CodexBuilds/targets/jai'), JAIC)
             self.assertTrue(any(Path(command.args[0][0]).name == 'node' for command in calls.call_args_list))
             self.assertEqual(one, two)
             self.assertEqual((base / 'one' / release.ARCHIVE).read_bytes(), (base / 'two' / release.ARCHIVE).read_bytes())
@@ -54,6 +58,7 @@ class BrowserReleaseTests(unittest.TestCase):
                 self.assertEqual(metadata['commit'], COMMIT)
                 self.assertEqual(metadata['toolchain'], 'nightly-2026-08-29')
                 self.assertEqual(metadata['wasm_sha256'], hashlib.sha256(archive.read('jai_wasm.wasm')).hexdigest())
+                self.assertEqual(metadata['jaifmt_wasm_sha256'], hashlib.sha256(archive.read('jaifmt.wasm')).hexdigest())
                 self.assertNotIn('/private/host', archive.read('build-metadata.json').decode())
                 for item in one['files']:
                     content = archive.read(item['path'])
@@ -74,14 +79,14 @@ class BrowserReleaseTests(unittest.TestCase):
                     Path(command[command.index('--report') + 1]).write_text(json.dumps({'commit': COMMIT, 'runtime': True, 'lsp': False}))
                 return subprocess.CompletedProcess(command, 0)
             with patch.object(release, 'clean_revision', return_value=COMMIT), patch.object(release.subprocess, 'run', side_effect=run):
-                with self.assertRaises(subprocess.CalledProcessError): release.package(root, output)
+                with self.assertRaises(subprocess.CalledProcessError): release.package(root, output, jaic=JAIC)
             self.assertFalse(output.exists())
 
     def test_dirty_source_and_source_drift_cannot_claim_a_clean_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary); root = base / 'source'; fixture(root); output = base / 'output'
             with patch.object(release, 'clean_revision', side_effect=ValueError('dirty source')), patch.object(release.subprocess, 'run') as build:
-                with self.assertRaises(ValueError): release.package(root, output)
+                with self.assertRaises(ValueError): release.package(root, output, jaic=JAIC)
                 build.assert_not_called()
             def run(command, **kwargs):
                 if '--release' in command: staged(Path(command[command.index('--output') + 1]))
@@ -89,7 +94,7 @@ class BrowserReleaseTests(unittest.TestCase):
                     Path(command[command.index('--report') + 1]).write_text(json.dumps({'commit': COMMIT, 'runtime': True, 'lsp': False}))
                 return subprocess.CompletedProcess(command, 0)
             with patch.object(release, 'clean_revision', side_effect=[COMMIT, 'b' * 40]), patch.object(release.subprocess, 'run', side_effect=run):
-                with self.assertRaisesRegex(ValueError, 'source changed'): release.package(root, output)
+                with self.assertRaisesRegex(ValueError, 'source changed'): release.package(root, output, jaic=JAIC)
             self.assertFalse(output.exists())
 
     def test_archive_rejects_unsafe_paths_symlinks_native_files_and_size_overflow(self):
@@ -111,7 +116,7 @@ class BrowserReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'changed before archiving'): release.write_archive(stage, base / 'bad.zip', inventory)
             root = base / 'source'; fixture(root); output = base / 'existing'; output.mkdir(); (output / 'keep.txt').write_text('preserve')
             with patch.object(release, 'clean_revision', return_value=COMMIT), patch.object(release.subprocess, 'run') as build:
-                with self.assertRaisesRegex(ValueError, 'never overwritten'): release.package(root, output)
+                with self.assertRaisesRegex(ValueError, 'never overwritten'): release.package(root, output, jaic=JAIC)
                 build.assert_not_called()
             self.assertEqual((output / 'keep.txt').read_text(), 'preserve')
 
@@ -120,7 +125,7 @@ class BrowserReleaseTests(unittest.TestCase):
             base = Path(temporary); root = base / 'source'; fixture(root)
             with patch.object(release, 'clean_revision', return_value=COMMIT), patch.object(release.shutil, 'disk_usage') as disk, patch.object(release.subprocess, 'run') as build:
                 disk.return_value.free = 2 * 1024**3
-                with self.assertRaisesRegex(ValueError, 'headroom'): release.package(root, base / 'output')
+                with self.assertRaisesRegex(ValueError, 'headroom'): release.package(root, base / 'output', jaic=JAIC)
                 build.assert_not_called()
             self.assertFalse((base / 'output').exists())
 
@@ -131,6 +136,13 @@ class BrowserReleaseTests(unittest.TestCase):
             alias = root / 'alias'; alias.symlink_to(original)
             with patch.object(release.shutil, 'which', return_value=str(alias)), self.assertRaisesRegex(ValueError, 'protected'):
                 release.browser_tool('node', root)
+
+    def test_a_bundle_without_jaifmt_wasm_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'source'; fixture(root)
+            with patch.object(release.subprocess, 'run') as build, self.assertRaisesRegex(ValueError, 'jaifmt.wasm'):
+                release.package(root, base / 'output')
+            build.assert_not_called()
 
     def test_toolchain_age_gate_is_exact_and_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
