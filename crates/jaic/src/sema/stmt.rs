@@ -616,7 +616,6 @@ impl Compiler {
         Ok(())
     }
 
-    /// Whether `scope` itself already holds a runtime local called `name`.
     /// Where the local `name` in `scope` was declared.
     fn local_declaration(&self, scope: ScopeId, name: Sym) -> Option<Span> {
         let ids = self.scope(scope).names.get(&name)?;
@@ -668,6 +667,7 @@ impl Compiler {
         e
     }
 
+    /// Whether `scope` itself already holds a runtime local called `name`.
     fn declares_local(&self, scope: ScopeId, name: Sym) -> bool {
         self.scope(scope).names.get(&name).is_some_and(|ids| {
             ids.iter()

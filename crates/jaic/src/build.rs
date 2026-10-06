@@ -418,20 +418,8 @@ impl Workspaces {
             "additional_linker_argument" => s.additional_linker_arguments.push(value.into()),
             "temporary_storage_size" => s.temporary_storage_size = value.parse().ok(),
             "array_bounds_check" => s.array_bounds_check = Some(value != "OFF"),
-            "arithmetic_overflow_check" => {
-                s.arithmetic_overflow_check = Some(match value {
-                    "NONFATAL" => 1,
-                    "FATAL" => 2,
-                    _ => 0,
-                })
-            }
-            "cast_bounds_check" => {
-                s.cast_bounds_check = Some(match value {
-                    "NONFATAL" => 1,
-                    "FATAL" => 2,
-                    _ => 0,
-                })
-            }
+            "arithmetic_overflow_check" => s.arithmetic_overflow_check = Some(check_level(value)),
+            "cast_bounds_check" => s.cast_bounds_check = Some(check_level(value)),
             "stack_trace" => s.stack_trace = Some(value == "true"),
             "emit_debug_info" => s.emit_debug_info = Some(value != "NONE"),
             "dead_code_elimination" => s.dead_code_elimination = DeadCode::from_name(value),
@@ -454,6 +442,15 @@ impl Workspaces {
         let ptr = boxed.as_ptr() as u64;
         self.strings.push(boxed);
         (bytes.len() as u64, ptr)
+    }
+}
+
+/// A runtime check's level from its `Build_Options` enum name: 0 `OFF`, 1 `NONFATAL`, 2 `FATAL`.
+fn check_level(value: &str) -> u8 {
+    match value {
+        "NONFATAL" => 1,
+        "FATAL" => 2,
+        _ => 0,
     }
 }
 

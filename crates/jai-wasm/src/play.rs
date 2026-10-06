@@ -203,19 +203,20 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
 
 /// [`run`] with limits.
 pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
-    // The render style is process-wide, so concurrent runs (parallel tests)
-    // would otherwise render with each other's style.
-    static RUN: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _running = RUN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let mut result = PlayResult::default();
-    jaic::render::set_style(if limits.styled {
+    let style = if limits.styled {
         jaic::render::Style {
             layout: jaic::render::Layout::Unicode,
             color: true,
         }
     } else {
         jaic::render::Style::PLAIN
-    });
+    };
+    // Scoped to this thread: concurrent runs (parallel tests) keep their own style.
+    jaic::render::with_style(style, || run_styled(files, main, limits))
+}
+
+fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
+    let mut result = PlayResult::default();
     if !files.contains_key(main) {
         result.diagnostics.push(PlayDiagnostic {
             severity: "error",

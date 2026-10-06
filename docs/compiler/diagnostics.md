@@ -144,7 +144,7 @@ A Rust panic is reported as `error: internal compiler error: ...` with a note an
 - Changing an existing message breaks substring checks: `tests/corpus/manifest.json` (`negative` cases; run `python3 tools/jaic-sweep.py negative`), `tests/stdlib-targets.txt` (first errors of the stdlib target check), parser tests in `crates/jaic/src/parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, the language server's tests and docs that quote messages. `tools/jaic-diff.py` and `tools/jaic-sweep.py` match a few messages too (`has no \`main\` procedure`, `is not available here`).
 - New runtime check: give the trap a message in the interpreter (`Interp::trap`), and if it is common, a help in `help_for` (`trap_report.rs`).
 - Layout or colour changes: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable; `jailint`'s `tests/lint/*/bad.expected` and the jaic tests depend on it.
-- A command-line tool that prints errors should call `jaic::render::set_style(detect(choice))` once and print `Report`s, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` behave the same everywhere.
+- A command-line tool that prints errors should call `jaic::render::set_style(detect(choice))` once and print `Report`s, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` behave the same everywhere. Code that renders for a caller with its own choice (the browser playground's `run_with`, where tests run concurrently) wraps the work in `render::with_style(style, || ...)` instead: the style applies to that thread until the closure returns, and the process-wide one is untouched.
 
 ## Configuration
 

@@ -316,3 +316,20 @@ fn reports_from_text_split_help_and_note_lines() {
         "error: linking failed\nld: oops\nnote: why\nhelp: install it\n"
     );
 }
+
+/// `with_style` applies to its own thread and ends with the closure; another thread keeps the
+/// process-wide style meanwhile.
+#[test]
+fn scoped_style_stays_on_its_thread() {
+    let unicode = Style {
+        layout: Layout::Unicode,
+        color: true,
+    };
+    let global = style();
+    with_style(unicode, || {
+        assert_eq!(style(), unicode);
+        assert_eq!(std::thread::spawn(style).join().unwrap(), global);
+        assert!(unknown_name().render().contains('\x1b'));
+    });
+    assert_eq!(style(), global);
+}

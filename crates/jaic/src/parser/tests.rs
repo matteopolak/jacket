@@ -1036,6 +1036,7 @@ fn file_level_directives() {
         "#scope_file\n#scope_export\n#scope_module\n#add_context ctx: int = 1;\n#module_parameters (A := 1) (B := 2);\n#placeholder X;\n#assert A == 1 \"msg\";\n#run main();\n#insert \"x :: 1;\";\n#poke_name Basic operator==;\n#library \"x\";",
     );
     assert!(matches!(stmts[0].kind, StmtKind::Scope(ScopeKind::File)));
+    assert!(matches!(stmts[3].kind, StmtKind::AddContext(_)));
     assert!(
         matches!(&stmts[4].kind, StmtKind::ModuleParameters { params, runtime_params, .. } if params.len() == 1 && runtime_params.len() == 1)
     );
