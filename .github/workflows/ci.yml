@@ -84,10 +84,8 @@ jobs:
       - name: Install LLVM 23 (macOS)
         if: runner.os == 'macOS'
         run: |
-          # lld@23: wasm-ld, which `jaic build -os wasm` links with (docs/native/wasm-target.md).
-          brew install llvm@23 lld@23
-          echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+          # --lld: wasm-ld, which `jaic build -os wasm` links with (docs/native/wasm-target.md).
+          tools/install_ci_llvm_macos.sh --lld
       - name: Install LLVM 23 (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -132,15 +130,15 @@ jobs:
         continue-on-error: true  # recorded, then enforced by the last step like the other checks
         run: |
           cargo build --locked -p jaic-cli
-          target/debug/jaic build tools/jaifmt/main.jai -O2 -o target/jaifmt
-          target/jaifmt --check prelude stdlib tests benchmarks tools examples
+          target/debug/jaic build jaifmt/main.jai -O2 -o target/jaifmt
+          target/jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples
       # The repository's Jai code must be lint-free (settings: jailint.toml).
       - name: Jai lint
         id: jai-lint
         continue-on-error: true
         run: |
           cargo build --locked -p jailint
-          target/debug/jailint -D warnings -j 2 prelude stdlib examples tools tests benchmarks
+          target/debug/jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks
       - name: Backend agreement
         id: backends
         continue-on-error: true
@@ -157,7 +155,7 @@ jobs:
         # (docs/native/wasm-target.md).
         run: |
           cargo build --locked -p jaic-cli
-          target/debug/jaic build tools/jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o target/jaifmt.wasm
+          target/debug/jaic build jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
@@ -191,9 +189,7 @@ jobs:
       - name: Install LLVM 23 and its sanitizer runtimes (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install llvm@23
-          echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+          tools/install_ci_llvm_macos.sh
       - name: Install LLVM 23 and its sanitizer runtimes (Linux)
         if: runner.os == 'Linux'
         run: |

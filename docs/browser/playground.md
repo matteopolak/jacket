@@ -12,8 +12,8 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 | --- | --- | --- |
 | `jai_wasm.wasm` | `crates/jai-wasm` | Compiler, interpreter and `jai_lsp_*` language server. It takes no host imports. |
 | `engine.mjs` | `crates/jai-wasm/js/engine.mjs` | Optional glue: `createEngine(bytes)` returns `play` and `lsp`. The Node checks use it too. |
-| `jaifmt-playground.jai` | `tools/jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
-| `jaifmt.wasm` | `tools/jaifmt/wasm.jai`, built by a native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) |
+| `jaifmt-playground.jai` | `jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
+| `jaifmt.wasm` | `jaifmt/wasm.jai`, built by a native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) |
 | `build-metadata.json` | build script / packager | Local build receipt, or the commit, toolchain and Wasm SHA-256 in a release |
 | `README.md` | `crates/jai-wasm/js/README.md` | Short notice for embedders |
 | `tour.json`, `tour/**` | `examples/tour/` (cases with `bundle` in `tests/examples.json`) | The [language tour](tour.md) the playground opens with, and its file index |
@@ -53,7 +53,7 @@ for (const { stream, text } of play.output) (stream === "stderr" ? console.error
 
 ## Building and checking
 
-`python3 tools/build_scripting_wasm.py [--release] [--output <dir>]` runs an offline, locked, single-job, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header and stages the bundle (default `artifacts/scripting-runtime`, ignored by git). With `--jaic <native jaic>` it also compiles `tools/jaifmt/wasm.jai` to `jaifmt.wasm` and records its SHA-256; without it no `jaifmt.wasm` is staged. Its `build-metadata.json` records the build command, target directory selection, paths and the module SHA-256. It refuses to start below 2 GiB free on the source, build or staging volumes. Release bundles are produced by `tools/package_browser_release.py`; see [compiler releases](compiler-releases.md).
+`python3 tools/build_scripting_wasm.py [--release] [--output <dir>]` runs an offline, locked, single-job, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header and stages the bundle (default `artifacts/scripting-runtime`, ignored by git). With `--jaic <native jaic>` it also compiles `jaifmt/wasm.jai` to `jaifmt.wasm` and records its SHA-256; without it no `jaifmt.wasm` is staged. Its `build-metadata.json` records the build command, target directory selection, paths and the module SHA-256. It refuses to start below 2 GiB free on the source, build or staging volumes. Release bundles are produced by `tools/package_browser_release.py`; see [compiler releases](compiler-releases.md).
 
 ```sh
 rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29

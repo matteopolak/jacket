@@ -30,9 +30,7 @@ jobs:
           python-version: '3.14'
       - name: Install LLVM 23
         run: |
-          brew install llvm@23
-          echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+          tools/install_ci_llvm_macos.sh
       - name: Build the release compiler
         run: cargo build --locked --release -p jaic-cli
       - name: Fetch the upstream corpus and its native libraries

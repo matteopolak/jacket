@@ -1,4 +1,4 @@
-// Checks jaifmt.wasm (tools/jaifmt/wasm.jai compiled by `jaic build -os wasm`) the way a page
+// Checks jaifmt.wasm (jaifmt/wasm.jai compiled by `jaic build -os wasm`) the way a page
 // uses it: source on stdin, the jaifmt.toml text in --config, the result on stdout. Every
 // Jai_Format golden case must format to its .out.jai, and, given a native jaifmt, to exactly
 // what `jaifmt --stdin --config <file>` prints. Also checks a config error, refused input and
@@ -70,10 +70,10 @@ assert.equal(refused.exitCode, 1);
 assert.equal(refused.stdout, "");
 assert.match(refused.stderr, /^jaifmt: broken\.jai:.*unbalanced/);
 
-const large = readFileSync(path.join(root, "tools/jaifmt/main.jai"), "utf8");
+const large = readFileSync(path.join(root, "jaifmt/main.jai"), "utf8");
 const big = await format(large);
 assert.equal(big.exitCode, 0, big.stderr);
-assert.equal(big.stdout, large, "tools/jaifmt/main.jai is already formatted");
+assert.equal(big.stdout, large, "jaifmt/main.jai is already formatted");
 const again = await format(big.stdout);
 assert.equal(again.stdout, large, "formatting is idempotent");
 

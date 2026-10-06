@@ -290,7 +290,7 @@ Considered and left out:
 
 Every finding below was checked by hand. Findings that turned out wrong were fixed in the rules (the exceptions listed above), not suppressed. The repository's own Jai code now has none at the default levels:
 
-- **stdlib, examples and `tools/jaifmt`**: 84 findings were fixed in the stdlib: 74 unused variables (mostly extra results nobody read), 5 unused imports, 4 index loops and 1 shadowed `it`. `float_equality` and `lossy_xx` would add 6 and 8 hits, all deliberate (exact comparisons in tests and sorting, `xx` from floats to pixel coordinates).
+- **stdlib, examples and `jaifmt/`**: 84 findings were fixed in the stdlib: 74 unused variables (mostly extra results nobody read), 5 unused imports, 4 index loops and 1 shadowed `it`. `float_equality` and `lossy_xx` would add 6 and 8 hits, all deliberate (exact comparisons in tests and sorting, `xx` from floats to pixel coordinates).
 - **`tests/corpus/positive`**: no findings.
 - **Upstream corpus** (`tools/upstream-cases.json` entry points): 127 findings, all genuine. `lossy_xx` adds 23 deliberate narrowings.
 - **Upstream projects, whole trees** (the bug and style rules from `absurd_comparison` to `unused_result`, each project linted as a directory; `focus` and `open-jai` were skipped after 240 s): 46 findings, all genuine: `manual_assign_op` 22, `needless_bool` 13, `no_effect` 7 (`exit;` without the call, `if !ok false;` without `return`, a lone `barrier.srcAccessMask;`), and one each of `bitwise_precedence` (`a | b & c` written for C), `identical_operands` (`assert(window == window)`), `identical_branches` (two blocks a comment says should differ) and `self_assignment` (`presentMode = presentMode` where a `using` made both sides the same field). The other twelve rules found nothing. The first run's wrong hits shaped the exceptions above: `0 + ply` and `(rgb >> 0) & 0xFF` (`identity_op`), a round trip through a distinct type (`almost_swapped`), a removal loop that steps its own index back (`remove_in_for`), `height / 2` for a pixel centre (`integer_division_in_float`), guard chains (`needless_bool`) and an explicit last case before the default (`identical_branches`).
@@ -351,7 +351,7 @@ Only this subset of TOML is read. An unknown key, rule or level is an error, so 
 
 Settings live in their own file rather than `jaifmt.toml` because the formatter is written in Jai and parses its own file. Keeping the two separate means neither tool has to accept the other's keys or reject them as typos.
 
-The repository's `jailint.toml` excludes the negative compiler cases, each rule's bad cases in `tests/lint`, the formatter's golden inputs and the fuzzer seeds; everything else the repository owns is linted with the default levels. Deliberate findings in tests (a test of operator grouping, of `cast(bool) x == true`, of an empty range) carry an `allow` with the reason. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools tests benchmarks` (see [continuous integration](continuous-integration.md)).
+The repository's `jailint.toml` excludes the negative compiler cases, each rule's bad cases in `tests/lint`, the formatter's golden inputs and the fuzzer seeds; everything else the repository owns is linted with the default levels. Deliberate findings in tests (a test of operator grouping, of `cast(bool) x == true`, of an empty range) carry an `allow` with the reason. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks` (see [continuous integration](continuous-integration.md)).
 
 ## How to change it
 

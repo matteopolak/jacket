@@ -950,7 +950,7 @@ fn simp_window_program_checks_on_desktop_oses() {
     }
 }
 
-/// `tools/jaifmt` builds natively and behaves as documented: `--stdin` formats to stdout,
+/// `jaifmt/` builds natively and behaves as documented: `--stdin` formats to stdout,
 /// `--check` lists files that would change (exit 1) without writing, a plain run rewrites them,
 /// ignore globs from the nearest jaifmt.toml apply, and malformed files are refused (exit 2).
 #[test]
@@ -965,7 +965,7 @@ fn jaifmt_builds_and_formats() {
     let exe = exe_path(&dir, "jaifmt");
     let build = Command::new(JAIC)
         .arg("build")
-        .arg(repo_root().join("tools/jaifmt/main.jai"))
+        .arg(repo_root().join("jaifmt/main.jai"))
         .args(["-O2", "-o"])
         .arg(&exe)
         .output()
@@ -1044,7 +1044,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     let exe = exe_path(&dir, "jaifmt");
     let build = Command::new(JAIC)
         .arg("build")
-        .arg(repo_root().join("tools/jaifmt/main.jai"))
+        .arg(repo_root().join("jaifmt/main.jai"))
         .args(["-O2", "-o"])
         .arg(&exe)
         .output()
@@ -1073,7 +1073,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     }
     let tree = dir.join("tree");
     let mut count = 0;
-    for part in ["stdlib", "tests", "tools", "benchmarks", "examples"] {
+    for part in ["stdlib", "tests", "tools", "jaifmt", "benchmarks", "examples"] {
         let source = repo_root().join(part);
         if source.is_dir() {
             copy_jai(&source, &tree.join(part), &mut count);

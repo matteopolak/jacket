@@ -26,11 +26,12 @@
   - `stdlib/Wasi_Runtime`, written in Jai, provides `_start`, the heap, stdio, the environment and the clock on WASI preview 1; jaic adds it when the triple names WASI.
   - `wasm-ld` comes from `JAIC_WASM_LD`, the LLVM install or an LLD package (`lld`, `lld-23`). wasm32 is refused.
 - `#intrinsic "llvm.<name>"` on a bodiless procedure calls that LLVM intrinsic in native builds.
-- `jaifmt.wasm`: jaifmt compiled to WebAssembly (`tools/jaifmt/wasm.jai`): source on stdin, `--config <toml>` or `JAIFMT_CONFIG`, result on stdout. Browser bundles include it (`build_scripting_wasm.py --jaic`, required by `package_browser_release.py`). It formats about 35 times faster than the interpreted playground driver, and CI checks its output against native jaifmt on every golden case.
+- `jaifmt.wasm`: jaifmt compiled to WebAssembly (`jaifmt/wasm.jai`): source on stdin, `--config <toml>` or `JAIFMT_CONFIG`, result on stdout. Browser bundles include it (`build_scripting_wasm.py --jaic`, required by `package_browser_release.py`). It formats about 35 times faster than the interpreted playground driver, and CI checks its output against native jaifmt on every golden case.
 - `tools/jaic-diff.py` has a `wasm-native` backend, and `tools/wasi_run.mjs` runs WASI modules under node.
 
 ### Changed
 
+- The `jaifmt` program moved from `tools/jaifmt/` to a top-level `jaifmt/` directory, since `tools/` holds repository-maintenance scripts: build it with `jaic build jaifmt/main.jai -O2 -o target/jaifmt`. The formatter library is still `stdlib/Jai_Format`, and the browser bundle's `jaifmt-playground.jai` and `jaifmt.wasm` keep their names.
 - Casts no longer push their type into the operand: `cast(float32) (0 - w)` with `w: u16 = 15` subtracts in `u16` (`65521`) and then converts, where it used to compute `-15` in `float32`. Likewise an untyped literal operand takes the other operand's type rather than a declaration's or parameter's (`f: float32 = 0 - w;`). Code that relied on the old float arithmetic needs the cast on the operand: `cast(float32) 0 - w`.
 - LLVM 23: the native backend is built against LLVM 23.1 (llvm-sys 231, Inkwell from a pinned commit of its main branch until a crates.io release supports LLVM 23). Building from source needs LLVM 23 and `LLVM_SYS_231_PREFIX` instead of `LLVM_SYS_221_PREFIX`; release archives, CI and the Nix flake use LLVM 23. The `-unroll-add-parallel-reductions=false` workaround for LLVM 22's miscompiled `sub` reductions is gone, since 23.1.0 fixes the unroller.
 - `tools/check_dependency_age.py` accepts git dependencies pinned to a full commit hash on GitHub that is at least 14 days old.

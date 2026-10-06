@@ -2,10 +2,10 @@
 
 ## What it is
 
-`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the stdlib module `Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `tools/jaifmt/main.jai` is the command-line front end. It produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
+`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the stdlib module `Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
 
 ```sh
-target/debug/jaic build tools/jaifmt/main.jai -O2 -o target/jaifmt
+target/debug/jaic build jaifmt/main.jai -O2 -o target/jaifmt
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
 target/jaifmt --stdin < in.jai > out.jai   # editor integration
@@ -13,7 +13,7 @@ target/jaifmt --stdin < in.jai > out.jai   # editor integration
 
 Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`). Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change.
 
-Under the interpreter: `jaic run tools/jaifmt/main.jai -- --check "$PWD/stdlib"`. `jaic run` starts programs in the main file's directory, so pass absolute paths.
+Under the interpreter: `jaic run jaifmt/main.jai -- --check "$PWD/stdlib"`. `jaic run` starts programs in the main file's directory, so pass absolute paths.
 
 ## How it works
 
@@ -25,7 +25,7 @@ The output is canonical: it depends on the tokens, comments and blank lines of t
 - `format.jai`: two passes over the tokens. `plan_lines` decides the line structure (`breaks[i]`: line breaks before token i). The emit loop then writes each line: indentation from a stack of `Frame`s, and zero or one space between neighbors (`spacing_rule`).
 - `config.jai`: `jaifmt.toml` parsing and ignore globs (the caller reads the file).
 
-`tools/jaifmt/main.jai` adds the file side: arguments, the directory walk, upward discovery of `jaifmt.toml` (cached per directory), `--check` reporting and writing files. `tools/jaifmt/playground.jai` is the browser engine's driver and `tools/jaifmt/wasm.jai` the WASI driver compiled to `jaifmt.wasm` (see [Browser playground](#browser-playground)).
+`jaifmt/main.jai` adds the file side: arguments, the directory walk, upward discovery of `jaifmt.toml` (cached per directory), `--check` reporting and writing files. `jaifmt/playground.jai` is the browser engine's driver and `jaifmt/wasm.jai` the WASI driver compiled to `jaifmt.wasm` (see [Browser playground](#browser-playground)).
 
 **Line structure** (`plan_lines`). The source's line breaks are the starting point; then:
 
@@ -104,7 +104,7 @@ ignore = ["tests/corpus/**", "generated/*.jai"]
 
 Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more.
 
-**CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check prelude stdlib tests benchmarks tools examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
+**CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
 
 **Speed** (Apple M5, including the safety check and compiling the program where it applies):
 
@@ -133,10 +133,10 @@ formatted, ok, error := format_source(source, config); // config defaults to .{}
 
 ## Browser playground
 
-The [hosted playground](https://matteopolak.com/playground/jai) runs `tools/jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
+The [hosted playground](https://matteopolak.com/playground/jai) runs `jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
 
 ```js
-const driver = await (await fetch("jaifmt-playground.jai")).text();   // tools/jaifmt/playground.jai
+const driver = await (await fetch("jaifmt-playground.jai")).text();   // jaifmt/playground.jai
 const files = { ...workspaceFiles, "__jaifmt__.jai": driver.replace(/^TARGET :: ".*";$/m, `TARGET :: ${JSON.stringify(path)};`) };
 const result = engine.play(files, "__jaifmt__.jai");
 if (result.exitCode === 0) editor.setText(result.stdout);   // the formatted file
@@ -147,10 +147,10 @@ else showError(result.stderr);                                // "jaifmt: main.j
 
 ### WebAssembly build (`jaifmt.wasm`)
 
-`tools/jaifmt/wasm.jai` is jaifmt as a WASI command, compiled by a native `jaic` ([wasm target](../native/wasm-target.md)):
+`jaifmt/wasm.jai` is jaifmt as a WASI command, compiled by a native `jaic` ([wasm target](../native/wasm-target.md)):
 
 ```sh
-jaic build tools/jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o jaifmt.wasm
+jaic build jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o jaifmt.wasm
 node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai > out.jai
 node --no-warnings tools/check_jaifmt_wasm.mjs jaifmt.wasm target/jaifmt   # golden cases, byte-identical to native
 ```

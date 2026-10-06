@@ -1,6 +1,6 @@
 // jaifmt: a token-based formatter for Jai source. See docs/tools/jaifmt.md.
 //
-//     jaic build tools/jaifmt/main.jai -O2 -o jaifmt
+//     jaic build jaifmt/main.jai -O2 -o target/jaifmt
 //     jaifmt [--check] [--config file] [--verbose] paths...
 //     jaifmt --stdin [--config file] < in.jai > out.jai
 

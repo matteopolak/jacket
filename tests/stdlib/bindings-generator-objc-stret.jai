@@ -7,7 +7,7 @@
 #import "Basic";
 #import "String";
 #import "File";
-#import "Process";
+#import "Process"; // jailint: allow(unused_import) only the macOS bindings use it
 #import "Bindings_Generator";
 
 HEADER :: #string END

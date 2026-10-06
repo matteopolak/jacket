@@ -210,7 +210,7 @@ def train(bins, args, env, native):
     for bench in sorted((ROOT / "benchmarks").glob("*.jai")):
         steps.append((f"run {bench.name}", [bins["jaic"], "run", bench]))
     scratch = Path(tempfile.mkdtemp(prefix="jaic-pgo-"))
-    jaifmt = ROOT / "tools/jaifmt/main.jai"
+    jaifmt = ROOT / "jaifmt/main.jai"
     if native:
         steps += [(f"build jaifmt -{o}", [bins["jaic"], "build", jaifmt, f"-{o}", "-o", scratch / f"jaifmt-{o}{EXE}"])
                   for o in ("O0", "O2")]

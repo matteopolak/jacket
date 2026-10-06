@@ -20,7 +20,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             (glue / 'engine.mjs').write_text('// authored inert staging fixture\n')
             (glue / 'README.md').write_text('own bundle readme fixture\n')
             (glue / 'unrelated.mjs').write_text('not part of the bundle\n')
-            driver = root / 'tools/jaifmt/playground.jai'; driver.parent.mkdir(parents=True)
+            driver = root / 'jaifmt/playground.jai'; driver.parent.mkdir(parents=True)
             driver.write_text('// own formatter driver fixture\n')
             example = root / 'examples/walk'; (example / 'part').mkdir(parents=True)
             (example / 'main.jai').write_text('#load "part/one.jai";\n')
@@ -76,7 +76,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
 
     def test_jaifmt_wasm_is_compiled_by_the_given_native_jaic(self):
         command = wasm.jaifmt_wasm_command(Path('/own/jaic'), Path('/src'), Path('/out/jaifmt.wasm'))
-        self.assertEqual(command[:3], ['/own/jaic', 'build', '/src/tools/jaifmt/wasm.jai'])
+        self.assertEqual(command[:3], ['/own/jaic', 'build', '/src/jaifmt/wasm.jai'])
         self.assertEqual(command[command.index('-os') + 1], 'wasm')
         self.assertEqual(command[command.index('-o') + 1], '/out/jaifmt.wasm')
         self.assertIn('-O2', command)

@@ -1,4 +1,4 @@
-# jaifmt, the Jai formatter (tools/jaifmt/main.jai), compiled by the jaic package.
+# jaifmt, the Jai formatter (jaifmt/main.jai), compiled by the jaic package.
 {
   lib,
   stdenv,
@@ -10,20 +10,21 @@ stdenv.mkDerivation {
 
   src = lib.fileset.toSource {
     root = ../.;
-    fileset = ../tools/jaifmt/main.jai;
+    fileset = ../jaifmt/main.jai;
   };
 
   nativeBuildInputs = [ jaic ];
 
   buildPhase = ''
     runHook preBuild
-    jaic build tools/jaifmt/main.jai -O2 --no-debug-info -o jaifmt
+    # The source directory is named jaifmt too, so the binary is written inside it.
+    jaic build jaifmt/main.jai -O2 --no-debug-info -o jaifmt/jaifmt
     runHook postBuild
   '';
 
   installPhase = ''
     runHook preInstall
-    install -Dm755 jaifmt $out/bin/jaifmt
+    install -Dm755 jaifmt/jaifmt $out/bin/jaifmt
     runHook postInstall
   '';
 

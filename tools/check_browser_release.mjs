@@ -87,15 +87,20 @@ function checkLanguageServer(engine) {
   assert(diagnostic && diagnostic.params.diagnostics.length > 0, "Changed source must produce current-version syntax diagnostics");
 }
 
-/** Formats `source` with jaifmt.wasm in a child node process (WASI preview 1, Memory64: node 24). */
-function formatWithWasi(bytes, source) {
+/**
+ * Formats `source` with jaifmt.wasm in a child node process (WASI preview 1, Memory64: node 24).
+ * The module goes by path: Linux caps one argument at 128 KiB, so its bytes cannot.
+ */
+function formatWithWasi(wasmPath, source) {
   const script = `
+    import { readFileSync } from "node:fs";
     import { WASI } from "node:wasi";
-    const bytes = Buffer.from(process.argv[1], "base64");
+    const bytes = readFileSync(process.argv[1]);
     const wasi = new WASI({ version: "preview1", args: ["jaifmt.wasm"], env: {}, returnOnExit: true });
     const instance = await WebAssembly.instantiate(await WebAssembly.compile(bytes), wasi.getImportObject());
     process.exitCode = wasi.start(instance);`;
-  const run = spawnSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", script, bytes.toString("base64")], { input: source, encoding: "utf8" });
+  const run = spawnSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", script, path.resolve(wasmPath)], { input: source, encoding: "utf8" });
+  if (run.error) throw run.error;
   assert.equal(run.status, 0, `jaifmt.wasm failed: ${run.stderr}`);
   return run.stdout;
 }
@@ -141,7 +146,7 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   assert.equal(formatted.exitCode, 0, formatted.stderr);
   assert.match(formatted.stdout, /^main :: \(\) \{\n\s+x := 1;\n\}\n$/);
   // So does jaifmt.wasm, the formatter compiled to WebAssembly, reading stdin under WASI.
-  assert.equal(formatWithWasi(await readFile(path.join(directory, "jaifmt.wasm")), "main::(){\nx:=1;\n}\n"), formatted.stdout);
+  assert.equal(formatWithWasi(path.join(directory, "jaifmt.wasm"), "main::(){\nx:=1;\n}\n"), formatted.stdout);
   // The staged tour runs as the playground opens it: its own files, under the playground's budget.
   const tours = [];
   for (const testCase of (await exampleCases()).filter(item => item.bundle)) {

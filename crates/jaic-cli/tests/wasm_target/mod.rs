@@ -268,7 +268,7 @@ fn wasm_bare_module_imports_and_exports() {
 #[test]
 fn jaifmt_wasm_formats_the_golden_cases() {
     let dir = scratch("wasm-jaifmt");
-    let source = repo_root().join("tools/jaifmt/wasm.jai");
+    let source = repo_root().join("jaifmt/wasm.jai");
     let args = [
         "build",
         source.to_str().unwrap(),

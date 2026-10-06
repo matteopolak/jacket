@@ -1,5 +1,5 @@
 // Formats Jai through the browser engine the way a playground Format button does: the
-// tools/jaifmt/playground.jai driver runs in the wasm interpreter on files in the virtual
+// jaifmt/playground.jai driver runs in the wasm interpreter on files in the virtual
 // /workspace. Checks every Jai_Format golden case, a config error, refused input and an
 // already formatted file of several hundred lines, and prints how long each run takes. Usage:
 //   node tools/check_jai_format_wasm.mjs [jai_wasm.wasm | staged-dir]   (default artifacts/scripting-runtime)
@@ -15,7 +15,7 @@ const wasm = target.endsWith(".wasm") ? target : path.join(target, "jai_wasm.was
 const engineDirectory = target.endsWith(".wasm") ? path.join(root, "crates/jai-wasm/js") : target;
 const { createEngine } = await import(pathToFileURL(path.join(engineDirectory, "engine.mjs")).href);
 const engine = await createEngine(await readFile(wasm));
-const driver = await readFile(path.join(root, "tools/jaifmt/playground.jai"), "utf8");
+const driver = await readFile(path.join(root, "jaifmt/playground.jai"), "utf8");
 
 function format(source, { config, target = "main.jai" } = {}) {
   const files = { "__jaifmt__.jai": driver.replace(/^TARGET :: ".*";$/m, `TARGET :: ${JSON.stringify(target)};`), [target]: source };
@@ -61,10 +61,10 @@ assert.equal(refused.exitCode, 1);
 assert.equal(refused.stdout, "");
 assert.match(refused.stderr, /unbalanced/);
 
-const large = await readFile(path.join(root, "tools/jaifmt/main.jai"), "utf8");
+const large = await readFile(path.join(root, "jaifmt/main.jai"), "utf8");
 const big = format(large);
 assert.equal(big.exitCode, 0, big.stderr);
-assert.equal(big.stdout, large, "tools/jaifmt/main.jai is already formatted");
+assert.equal(big.stdout, large, "jaifmt/main.jai is already formatted");
 
 const median = times.sort((a, b) => a - b)[times.length >> 1];
 console.log(`jaifmt in the wasm engine: ${names.length} golden cases ok (median ${median.toFixed(0)} ms), ` +

@@ -57,8 +57,8 @@ def stage_example(source, output, name, main):
 
 
 def jaifmt_wasm_command(jaic, root, output):
-    """Compile the WASI jaifmt (tools/jaifmt/wasm.jai) with a native jaic; docs/tools/jaifmt.md."""
-    return [str(jaic), "build", str(root / "tools/jaifmt/wasm.jai"), "-os", "wasm", "-O2", "--no-debug-info",
+    """Compile the WASI jaifmt (jaifmt/wasm.jai) with a native jaic; docs/tools/jaifmt.md."""
+    return [str(jaic), "build", str(root / "jaifmt/wasm.jai"), "-os", "wasm", "-O2", "--no-debug-info",
             "-o", str(output)]
 
 
@@ -100,7 +100,7 @@ def main():
     for name in BUNDLED_GLUE:
         shutil.copy2(root / "crates/jai-wasm/js" / name, output / name)
     # Format buttons run this driver in the engine (docs/tools/jaifmt.md).
-    shutil.copy2(root / "tools/jaifmt/playground.jai", output / "jaifmt-playground.jai")
+    shutil.copy2(root / "jaifmt/playground.jai", output / "jaifmt-playground.jai")
     # Or jaifmt itself, compiled to WebAssembly: much faster than interpreting the driver.
     formatter = output / "jaifmt.wasm"
     formatter.unlink(missing_ok=True)

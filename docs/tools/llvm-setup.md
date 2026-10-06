@@ -6,7 +6,7 @@
 
 ## How it works
 
-`llvm-sys` finds LLVM through `LLVM_SYS_231_PREFIX` (a directory containing `bin/llvm-config` and `lib/`). CI sets it per platform: Homebrew's `llvm@23` on macOS, and `tools/install_ci_llvm_linux.sh` on Ubuntu 24.04 (x86-64 or ARM64), which adds the signed apt.llvm.org archive after checking its signing-key fingerprint and installs the 23.1 packages into `/usr/lib/llvm-23`. The script needs `sudo` and writes system apt configuration; use it on fresh CI runners only.
+`llvm-sys` finds LLVM through `LLVM_SYS_231_PREFIX` (a directory containing `bin/llvm-config` and `lib/`). CI sets it per platform: Homebrew's `llvm@23` on macOS (`tools/install_ci_llvm_macos.sh`, which runs `brew update` and retries when a runner image's Homebrew predates the `llvm@23` alias), and `tools/install_ci_llvm_linux.sh` on Ubuntu 24.04 (x86-64 or ARM64), which adds the signed apt.llvm.org archive after checking its signing-key fingerprint and installs the 23.1 packages into `/usr/lib/llvm-23`. The script needs `sudo` and writes system apt configuration; use it on fresh CI runners only.
 
 `jaic build -os wasm` also needs LLD's `wasm-ld`, which Homebrew and Debian package separately from LLVM (`lld`, `lld-23`); CI installs both ([wasm target](../native/wasm-target.md)).
 

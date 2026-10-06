@@ -7,7 +7,7 @@
 | Output | Contents |
 | --- | --- |
 | `packages.<system>.jaic` (also `default`) | `bin/jaic`, `bin/jailsp` and `bin/jailint`, with `stdlib/` and `prelude/` |
-| `packages.<system>.jaifmt` | `bin/jaifmt`, compiled from `tools/jaifmt/main.jai` by the `jaic` package |
+| `packages.<system>.jaifmt` | `bin/jaifmt`, compiled from `jaifmt/main.jai` by the `jaic` package |
 | `apps.<system>.{default,jaic,jailsp,jailint,jaifmt}` | `nix run` entry points |
 | `devShells.<system>.default` | pinned nightly Rust, LLVM 23 and Clang, Python 3.14, Node, the env vars below |
 | `overlays.default` | adds `pkgs.jaic` and `pkgs.jaifmt` |
@@ -57,7 +57,7 @@ Development shell (from a checkout): `nix develop`, then `cargo build -p jaic-cl
 - **Layout**: `jaic` finds its standard library in `stdlib/` next to the executable (`jaic::stdlib_dir`; `JAIC_STDLIB` overrides it), and `stdlib/prelude/module.jai` loads `prelude`. The real binaries therefore live in `libexec/jaic/` beside `stdlib/` and `prelude/`, the same layout as the release archives ([releases](releases.md)). `bin/` holds `makeWrapper` scripts that exec the real path.
 - **Wrapper**: `bin/jaic` sets `JAI_LIBCLANG` (only if unset) to nixpkgs' libclang 23 for the bindings generator, and appends the stdenv C compiler, its binutils (`cc`, `ar`) and, on macOS, LLVM's `dsymutil` to `PATH`. `jaic build` needs those to link. They are appended, so a `cc` already on the user's `PATH` wins.
 - **Install check**: after installing, the derivation runs `examples/compile-time-record.jai` (exit 42) and a hello world under `jaic run`, then builds and runs both natively, and lints the hello world with `jailint -D warnings`. A broken wrapper or layout fails the build.
-- **jaifmt**: `nix/jaifmt.nix` runs `jaic build tools/jaifmt/main.jai -O2 --no-debug-info` with the `jaic` package as a build input, then formats a snippet as its check.
+- **jaifmt**: `nix/jaifmt.nix` runs `jaic build jaifmt/main.jai -O2 --no-debug-info` with the `jaic` package as a build input, then formats a snippet as its check.
 - **Overlay**: `overlays.default` re-exports this flake's packages, built from the flake's own nixpkgs. It does not rebuild against the consumer's nixpkgs, because older releases have neither LLVM 23 nor the overlay's toolchain.
 
 CI: `.github/workflows/nix.yml` runs on ubuntu and macOS when the flake, `nix/`, `Cargo.lock` or `rust-toolchain.toml` change. It checks that `flake.lock` is current, runs `nix flake check` and `nix build`, then runs the result outside the checkout and enters the dev shell.
