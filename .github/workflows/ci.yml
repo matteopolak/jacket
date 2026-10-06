@@ -34,6 +34,11 @@ jobs:
         # Every test must pass: one that needs what the browser lacks (processes, native libraries,
         # windows) skips that part itself under `OS == .WASM`. The browser release runs the same check.
         run: node tools/check_playground_stdlib.mjs artifacts/ci-wasm
+      - name: Interpreter and browser engine agree (corpus and generated programs)
+        # docs/tools/differential-testing.md; the host jaic needs no LLVM to interpret.
+        run: |
+          cargo build --locked -j 2 -p jaic-cli --no-default-features
+          python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm artifacts/ci-wasm corpus gen:1:40
   test:
     name: compiler (${{ matrix.runner }})
     strategy:
@@ -119,8 +124,16 @@ jobs:
         run: |
           cargo build --locked -p jailint
           target/debug/jailint -D warnings -j 2 stdlib examples tools/jaifmt tests/corpus/positive
+      - name: Backend agreement
+        id: backends
+        continue-on-error: true
+        # The interpreter, -O0 and -O2 native builds must print the same for the corpus and a
+        # fixed set of generated programs (docs/tools/differential-testing.md has the full run).
+        run: |
+          cargo build --locked -p jaic-cli
+          python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

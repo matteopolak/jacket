@@ -4,6 +4,8 @@
 
 Coverage-guided fuzzing of the compiler with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (libFuzzer). The targets in `fuzz/` feed generated input to the lexer, parser, the whole front end with the real stdlib, the interpreter and the language server, and treat every panic, abort, stack overflow, hang and runaway allocation as a bug: bad input must produce a diagnostic, never a crash.
 
+Fuzzing looks for crashes. Wrong output is the job of [differential testing](differential-testing.md): `tools/jaigen.py` generates programs whose behaviour is fully defined, and `tools/jaic-diff.py` requires the interpreter, the native builds at `-O0` and `-O2`, and the browser engine to print the same thing for each one. The `generated` target below aims for programs that compile (and sometimes not); jaigen aims for programs that run to the end with a checked result.
+
 ## How it works
 
 `fuzz/` is its own Cargo workspace (excluded from the root one, with its own `Cargo.lock`), with two packages:
