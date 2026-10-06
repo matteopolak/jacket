@@ -179,6 +179,14 @@ fn inlay_hints_show_types_parameters_and_run_values() {
     // A named argument needs no hint, and `kind := Kind.TWO` says its type.
     assert!(!hints.iter().any(|h| h.label == "factor:"), "{hints:?}");
     assert!(!hints.iter().any(|h| h.label == ": Kind"), "{hints:?}");
+    // Only parameters sharing a type get names: `scale` has two ints, but `print`'s
+    // format string and `identity`'s single parameter are unambiguous.
+    assert!(
+        !hints
+            .iter()
+            .any(|h| h.kind == Some(InlayHintKind::Parameter) && h.label != "value:"),
+        "{hints:?}"
+    );
     assert_eq!(
         find("= 30").position,
         at(PROGRAM, "SIZE :: #run compute(3)", 0, 23)

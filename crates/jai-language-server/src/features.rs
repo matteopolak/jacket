@@ -535,6 +535,7 @@ impl Session {
         }
         for call in &calls {
             let signature = &call.signatures[call.active];
+            let ambiguous = ambiguous_params(&signature.params);
             for arg in &call.args {
                 let (s, e) = (arg.span.start as usize, arg.span.end as usize);
                 if arg.named
@@ -546,7 +547,10 @@ impl Session {
                     continue;
                 }
                 let source = &text[s..e];
-                if !literal(source) || source == arg.param_name {
+                if !literal(source)
+                    || source == arg.param_name
+                    || !ambiguous.get(arg.param).copied().unwrap_or(false)
+                {
                     continue;
                 }
                 let tooltip = signature.params.get(arg.param).cloned();
@@ -1198,6 +1202,24 @@ fn open_call(text: &str, byte: usize) -> Option<(usize, Vec<&str>, usize, Option
         .then(|| n.to_string())
     });
     Some((at, chain, commas, named))
+}
+
+/// The type written in a parameter snippet (`name: Type = default`), or `None` for `..` varargs.
+fn param_type(param: &str) -> Option<&str> {
+    let ty = param.split_once(':').map_or(param, |(_, ty)| ty);
+    let ty = ty.split_once('=').map_or(ty, |(ty, _)| ty).trim();
+    (!ty.starts_with("..")).then_some(ty)
+}
+
+/// Which parameters share their type with another one. Only those get name hints: in
+/// `print(format: string, args: ..Any)` the literal's role is obvious, in
+/// `clamp(x: float, lo: float, hi: float)` it is not.
+fn ambiguous_params(params: &[String]) -> Vec<bool> {
+    let types: Vec<Option<&str>> = params.iter().map(|p| param_type(p)).collect();
+    types
+        .iter()
+        .map(|ty| ty.is_some_and(|ty| types.iter().filter(|other| **other == Some(ty)).count() > 1))
+        .collect()
 }
 
 #[cfg(test)]

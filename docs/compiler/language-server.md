@@ -28,7 +28,7 @@ It has two layers:
 | Find references, document highlights | `textDocument/references`, `textDocument/documentHighlight` | semantic |
 | Rename (locals, globals, procedures with their overload declarations, types, modules, constants) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
 | Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
-| Inlay hints: inferred types of `x :=`, parameter names of literal arguments, `#run` values | `textDocument/inlayHint` | semantic |
+| Inlay hints: inferred types of `x :=`, parameter names of literal arguments (only for parameters that share their type with another, so `print`'s format string gets none), `#run` values | `textDocument/inlayHint` | semantic |
 | Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value | `textDocument/codeAction` | semantic |
 | Commands `jai.showExpansion`, `jai.showPolymorphs` | `workspace/executeCommand` | semantic |
 | Expansion documents (`jai-expansion:` URIs) | `jai/expansion`, `jai/source` (non-standard) | semantic |
