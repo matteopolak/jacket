@@ -23,6 +23,8 @@ main :: () {
     can_compile := OS != .WASM;
 
     if can_compile {
+        // On Windows /tmp is \tmp on the current drive, which need not exist yet.
+        make_directory_if_it_does_not_exist("/tmp");
         source := "/tmp/jaic_buildcpp_test.c";
         exe := "/tmp/jaic_buildcpp_test_exe";
         assert(write_entire_file(source, "#include <stdio.h>\nint main(void) { puts(\"from c\"); return 0; }\n"));
