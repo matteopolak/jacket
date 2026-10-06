@@ -1,5 +1,5 @@
 /*
- * llvm-config-231.exe: a front for the official Windows LLVM release's llvm-config.exe.
+ * llvm-config-23.exe: a front for the official Windows LLVM release's llvm-config.exe.
  *
  * The release's `llvm-config --system-libs` names its static zstd by the absolute path it had on
  * LLVM's build machine (`S:/llvm/.../zstd_static.lib`). llvm-sys hands every entry to Cargo as
@@ -8,7 +8,7 @@
  * path-qualified `*.lib` entry to its bare file name, which the linker then finds through the
  * LLVM `lib/` search path (tools/windows-llvm/prepare.sh puts a zstd_static.lib there).
  *
- * llvm-sys 231 tries `llvm-config-231.exe` in `$LLVM_SYS_231_PREFIX/bin` before `llvm-config.exe`,
+ * llvm-sys 231 (LLVM 23.1) tries `llvm-config-23.exe` in `$LLVM_SYS_231_PREFIX/bin` before `llvm-config.exe`,
  * so installing the shim under that name is enough; nothing else changes.
  */
 #include <fcntl.h>
