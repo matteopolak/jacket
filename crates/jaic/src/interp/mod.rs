@@ -536,7 +536,12 @@ impl Interp {
             return Ok(a);
         }
         let foreign = &program.foreigns[id.0 as usize];
-        let addr = if self.host.native_linking() {
+        let counted = (self.host.native_linking() && !foreign.is_data)
+            .then(|| crate::memory_limit::foreign_override(&foreign.symbol))
+            .flatten();
+        let addr = if counted.is_some() {
+            counted
+        } else if self.host.native_linking() {
             let lib = match foreign.library {
                 Some(l) => {
                     let lib_info = &program.libraries[l];

@@ -60,6 +60,7 @@ How `crates/jaic`, the interpreter and the language server work.
 - [Threads under `jaic run`](compiler/interpreter-threads.md)
 - [jaic interpreter](compiler/interpreter.md)
 - [Low-level IR](compiler/ir.md)
+- [Memory limit (`JAIC_MEMORY_LIMIT`)](compiler/memory-limit.md)
 - [Shared Jai language server](compiler/language-server.md): feature list, expansions, inlay hints, format strings, `#import` links
 - [Parser](compiler/parser.md)
 - [Sema: module loading and top-level expansion](compiler/sema-modules.md)

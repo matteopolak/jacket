@@ -12,6 +12,7 @@ pub mod intern;
 pub mod interp;
 pub mod ir;
 pub mod lexer;
+pub mod memory_limit;
 pub mod parser;
 pub mod records;
 pub mod sema;

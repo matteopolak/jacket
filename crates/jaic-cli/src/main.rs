@@ -7,6 +7,11 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
 
+/// Every Rust allocation goes through the counter that enforces `JAIC_MEMORY_LIMIT`; unarmed it
+/// costs one relaxed load per call.
+#[global_allocator]
+static ALLOCATOR: jaic::memory_limit::CountingAllocator = jaic::memory_limit::CountingAllocator;
+
 /// `--timings`: wall time per compiler phase, printed to stderr when the command ends.
 mod timings {
     use std::sync::Mutex;
@@ -89,6 +94,10 @@ fn usage() -> ExitCode {
         "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
     );
     eprintln!("       --timings (any command): wall time per phase on stderr");
+    eprintln!(
+        "       JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>: stop with exit status {} once that much is allocated",
+        jaic::memory_limit::EXIT_CODE
+    );
     ExitCode::from(2)
 }
 
@@ -291,6 +300,10 @@ fn parse(args: &[String]) -> Option<Cli> {
 }
 
 fn main() -> ExitCode {
+    if let Err(message) = jaic::memory_limit::arm_from_env() {
+        eprintln!("error: {message}");
+        return ExitCode::from(2);
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(cli) = parse(&args) else {
         return usage();

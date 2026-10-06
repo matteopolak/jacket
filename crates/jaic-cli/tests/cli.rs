@@ -198,3 +198,72 @@ fn timings_report_phases() {
     }
     assert!(!stderr(&[]).contains("jaic-timing"));
 }
+
+/// `JAIC_MEMORY_LIMIT` stops a run whose allocations cross it, whether the memory is the
+/// program's heap at run time (`alloc` reaches C `malloc`), the interpreter's at compile time
+/// (`#run`) or the sandbox heap (`-os wasm`), and leaves a program under it alone.
+#[test]
+fn memory_limit_stops_unbounded_allocation() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-memory-limit");
+    std::fs::create_dir_all(&dir).unwrap();
+    let grow = "grow :: () -> int {\n\
+                \x20   total := 0;\n\
+                \x20   while true { p := alloc(1 << 20); memset(p, 1, 1 << 20); total += 1; }\n\
+                \x20   return total;\n\
+                }\n";
+    let runtime = dir.join("runtime.jai");
+    std::fs::write(
+        &runtime,
+        format!("#import \"Basic\";\n{grow}main :: () {{ print(\"%\\n\", grow()); }}\n"),
+    )
+    .unwrap();
+    let compile_time = dir.join("compile_time.jai");
+    std::fs::write(
+        &compile_time,
+        format!(
+            "#import \"Basic\";\n{grow}N :: #run grow();\nmain :: () {{ print(\"%\\n\", N); }}\n"
+        ),
+    )
+    .unwrap();
+    let small = dir.join("small.jai");
+    std::fs::write(
+        &small,
+        "#import \"Basic\";\n\
+         main :: () { a: [..] int; for 1..10000 array_add(*a, it); print(\"%\\n\", a.count); }\n",
+    )
+    .unwrap();
+    let run = |source: &Path, extra: &[&str]| {
+        Command::new(JAIC)
+            .arg("run")
+            .arg(source)
+            .args(extra)
+            .env("JAIC_MEMORY_LIMIT", "128M")
+            .output()
+            .unwrap()
+    };
+    for (source, extra) in [
+        (&runtime, &[][..]),
+        (&compile_time, &[][..]),
+        (&runtime, &["-os", "wasm"][..]),
+    ] {
+        let output = run(source, extra);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.code(),
+            Some(120),
+            "{} {extra:?}: {stderr}",
+            source.display()
+        );
+        assert!(
+            stderr.contains("error: memory limit of 128 MiB exceeded"),
+            "{stderr}"
+        );
+    }
+    let output = run(&small, &[]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "10000\n");
+}

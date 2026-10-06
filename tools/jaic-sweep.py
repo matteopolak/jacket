@@ -9,7 +9,7 @@ run must succeed; a test directory's `modules/` folder holds its mock modules), 
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass), or file paths.
 """
-import argparse, json, os, shutil, subprocess, sys, tempfile, time
+import argparse, json, os, shutil, subprocess, sys, tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -91,36 +91,31 @@ def stale_sources(jaic):
                 return f.relative_to(ROOT)
     return None
 
-def resident_kib(pid):
-    r = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)], capture_output=True, text=True)
-    try:
-        return int(r.stdout.strip() or 0)
-    except ValueError:
-        return 0
+# jaic's exit status when JAIC_MEMORY_LIMIT stops it (`jaic::memory_limit::EXIT_CODE`).
+MEMORY_LIMIT_EXIT = 120
 
-def run_capped(command, cwd, timeout, limit_kib):
-    """Runs `command`, killing it on timeout or when its resident memory passes the limit."""
+def run_limited(command, cwd, timeout, limit_bytes):
+    """Runs `command` with jaic's exact allocation limit armed, killing it on timeout. Returns
+    (stdout, stderr, code), with code -1 and a one-line verdict as stderr when a limit stopped it."""
+    env = dict(os.environ, JAIC_MEMORY_LIMIT=str(limit_bytes))
+    # Output goes to files rather than pipes: a program the case launched may outlive a killed
+    # jaic and would keep a pipe open.
     with tempfile.TemporaryFile() as out_file, tempfile.TemporaryFile() as err_file:
-        proc = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out_file, stderr=err_file)
-        verdict = None
-        deadline = time.monotonic() + timeout
-        while proc.poll() is None:
-            if time.monotonic() > deadline:
-                verdict = "timeout"
-            elif resident_kib(proc.pid) > limit_kib:
-                verdict = f"memory limit: over {limit_kib // 1024} MiB resident"
-            if verdict:
-                proc.kill()
-                proc.wait()
-                break
-            time.sleep(0.25)
+        proc = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                stdout=out_file, stderr=err_file)
+        try:
+            code = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            return "", "timeout", -1
         out_file.seek(0)
         err_file.seek(0)
         out = out_file.read().decode(errors="replace")
         err = err_file.read().decode(errors="replace")
-    if verdict:
-        return "", verdict, -1
-    return out, err, proc.returncode
+    if code == MEMORY_LIMIT_EXIT and "error: memory limit of" in err:
+        return "", next(l for l in err.splitlines() if "error: memory limit of" in l), -1
+    return out, err, code
 
 def main():
     ap = argparse.ArgumentParser()
@@ -131,13 +126,13 @@ def main():
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument("--timeout", type=float, default=60)
     ap.add_argument("--memory-limit", type=float, default=3,
-                    help="GiB of resident memory a case may use before it is killed (default: 3)")
+                    help="GiB a case may allocate before jaic stops it (JAIC_MEMORY_LIMIT; default: 3)")
     ap.add_argument("--jobs", "-j", type=int, default=0,
                     help="cases run at once (default: CPU count, capped so jobs x memory limit fits in RAM)")
     ap.add_argument("--allow-stale", action="store_true",
                     help="run even if the jaic binary is older than the compiler sources")
     a = ap.parse_args()
-    limit_kib = int(a.memory_limit * 1024 * 1024)
+    limit_bytes = int(a.memory_limit * 2**30)
     if a.jobs <= 0:
         a.jobs = max(1, min(os.cpu_count() or 1, int(physical_memory_gib() // a.memory_limit)))
     if not a.allow_stale:
@@ -159,7 +154,7 @@ def main():
 
     def run(case):
         cid, path, mode, expect, extra = case
-        out, err, code = run_capped([a.jaic, mode, str(path), *extra], path.parent, a.timeout, limit_kib)
+        out, err, code = run_limited([a.jaic, mode, str(path), *extra], path.parent, a.timeout, limit_bytes)
         if expect is None:
             ok = code == 0
         elif "negative" in expect:

@@ -20,7 +20,7 @@ Each set yields `(id, path, mode, expectation, extra args)`; the tool runs `jaic
 
 Expected result of `corpus negative stdlib modules upstream examples`: everything passes. Programs that must fail to compile (including `getrect-rh-negative-control`, which proves the GetRect geometry assertions fire) live in the `negative` set, where a case passes when the compiler reports its expected error.
 
-Each case runs with a resident-memory cap (`--memory-limit`, default 3 GiB; a case over it is killed and fails with `memory limit`), and the default `--jobs` is the CPU count capped so that jobs × limit fits in physical memory. The sweep refuses to start when the `jaic` binary is older than any source in `crates/jaic`, `crates/jaic-cli` or `crates/jaic-llvm` (`--allow-stale` overrides): a stale build can lack the limits that keep negative cases such as unbounded polymorphic recursion from exhausting memory.
+Each case runs with an exact allocation cap (`--memory-limit`, default 3 GiB), which the sweep passes to `jaic` as `JAIC_MEMORY_LIMIT` (see [memory limit](../compiler/memory-limit.md)). `jaic` itself stops at the first allocation past it with exit status 120, and the case fails with `error: memory limit of 3072 MiB exceeded`; memory outside `jaic`'s allocator (LLVM, child processes) is not capped. The `--timeout` still kills a case that runs too long. The default `--jobs` is the CPU count capped so that jobs × limit fits in physical memory. The sweep refuses to start when the `jaic` binary is older than any source in `crates/jaic`, `crates/jaic-cli` or `crates/jaic-llvm` (`--allow-stale` overrides): a stale build can lack the limits that keep negative cases such as unbounded polymorphic recursion from exhausting memory.
 
 ## How to change it
 
@@ -39,7 +39,7 @@ Each case runs with a resident-memory cap (`--memory-limit`, default 3 GiB; a ca
 
 ## Configuration
 
-`--jaic PATH` (default `$CARGO_TARGET_DIR/debug/jaic`, else `target/debug/jaic`), `--filter TEXT`, `--verbose`, `--timeout SECONDS` (default 60; use 900 for the full sweep, which builds Focus and Jails), `--jobs N` (cases run at once, default the CPU count; cases run with stdin closed).
+`--jaic PATH` (default `$CARGO_TARGET_DIR/debug/jaic`, else `target/debug/jaic`), `--filter TEXT`, `--verbose`, `--timeout SECONDS` (default 60; use 900 for the full sweep, which builds Focus and Jails), `--jobs N` (cases run at once, default the CPU count capped so jobs × limit fits in RAM; cases run with stdin closed), `--memory-limit GIB` (default 3).
 
 ```sh
 python3 tools/jaic-sweep.py --jaic /path/to/target/debug/jaic corpus stdlib --timeout 900
