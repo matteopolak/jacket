@@ -1087,6 +1087,14 @@ pub fn call(
                     "compiler_get_code: no code to take the scope from".into(),
                 ));
             }
+            // A compile-time run that asks for typed nodes is run again from the start
+            // (`export_request`): the same text with the same scope must be the same code
+            // there, or each run would make a new one and ask for its nodes again.
+            if let Some(&(id, _)) = interp.made_codes.iter().find(|&&(id, scope)| {
+                scope == scope_from && interp.codes.get(id).is_some_and(|c| *c.1 == *source)
+            }) {
+                return Ok(vec![id as u64]);
+            }
             let body = parse_code_text(crate::source::FileId(u32::MAX), &source)
                 .map_err(|e| trap(format!("compiler_get_code: {e}")))?;
             let id = interp.codes.len();

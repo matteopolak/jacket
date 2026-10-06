@@ -77,7 +77,7 @@ A compile-time run inside another body's lowering (`lowering_depth > 0`, such as
 
 ### `compiler_get_code`
 
-Prints the node tree with `Program_Print` and passes the text to `__jaic_parse_code`, which parses it (`build::parse_code_text`) into a new `Interp::codes` entry and records in `Interp::made_codes` whose scope it takes (`code_to_copy_scope_from`). The compiler adopts such codes (`Compiler::adopt_made_codes`) when it reads a `Code` back or adds one of its own, re-parsing the text as a registered source so diagnostics can point into it. Node edits the printer can't express are lost (see [Program_Print](../specs/stdlib/README.md)). Names in the result resolve where the original code was written {#records.12}.
+Prints the node tree with `Program_Print` and passes the text to `__jaic_parse_code`, which parses it (`build::parse_code_text`) into a new `Interp::codes` entry and records in `Interp::made_codes` whose scope it takes (`code_to_copy_scope_from`). The compiler adopts such codes (`Compiler::adopt_made_codes`) when it reads a `Code` back or adds one of its own, re-parsing the text as a registered source so diagnostics can point into it. Node edits the printer can't express are lost (see [Program_Print](../specs/stdlib/README.md)). Names in the result resolve where the original code was written {#records.12}. The same text with the same scope gives the same code again (a lookup in `made_codes`), so a compile-time run that is repeated to serve a typed `compiler_get_nodes` sees the codes it made the first time and `code_to_string(compiler_get_code(root))` in one expression finishes {#records.29}.
 
 Without `code_to_copy_scope_from` the code is unscoped (`Compiler::unscoped_codes`) and resolves at the insertion site, as in Jai; yield-jai builds `(self: *COROUTINE) -> ...` where only the inserting macro knows `COROUTINE`. Names the site lacks fall back to the scopes of codes handed to `compiler_get_nodes` (newest first, `Interp::nodes_codes`), because official nodes keep what they resolved to where they were written: Epic_Fail's `#code` blocks call `print_to_builder`, which the inserting user never imported. `Compiler::code_scope_at` makes a block scope under the site with `Scope::fallbacks`, and `lookup_full` consults fallbacks only when nothing else binds a name.
 
@@ -94,7 +94,7 @@ The edit is queued and applied at the workspace's next step (`Compiler::modify_p
 - Only top-level statement lists can be modified; nested blocks would need their statement records mapped too.
 - Gotcha: anything the exporter resolves can run compile-time code, so never hold the registry borrow.
 
-Tests: `tests/stdlib/compiler-typechecked-messages.jai`, `compiler-resolved-nodes.jai`, `compiler-get-code.jai`, `compiler-noted-module-procs.jai`, `compiler-header-own-types.jai`.
+Tests: `tests/stdlib/compiler-typechecked-messages.jai`, `compiler-resolved-nodes.jai`, `compiler-get-code.jai`, `compiler-get-code-rerun.jai`, `compiler-noted-module-procs.jai`, `compiler-header-own-types.jai`.
 
 ## Configuration
 
