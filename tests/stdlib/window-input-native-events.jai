@@ -312,10 +312,17 @@
             return serial;
         }
         show_hand :: (window: Window) {
+            before := shown_serial();
             if !hand_cursor hand_cursor = XCreateFontCursor(x_global_display, 60); // hand2
             XDefineCursor(x_global_display, window, hand_cursor);
             XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 20, 20);
+            // The server may show the new cursor a moment later; wait for it to change.
             hand_serial = shown_serial();
+            for 1..200 {
+                if hand_serial != before break;
+                sleep_milliseconds(5);
+                hand_serial = shown_serial();
+            }
         }
         move_pointer :: (window: Window) {
             XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 30, 30);
