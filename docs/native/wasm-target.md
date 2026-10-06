@@ -64,7 +64,7 @@ jaic adds `#import "Wasi_Runtime"` to the first workspace when the target triple
 
 **Why the sandbox's `OS == .WASM` code is unaffected.** The stdlib's `OS == .WASM` branches call ordinary C names (`malloc`, `write`, `clock_gettime`, `getenv`, ...). Under the interpreter, in the browser engine and in the compile-time code of a wasm build (`make_host` gives `.WASM` workspaces the `SandboxHost`), the sandbox host answers those `#foreign` calls. In a native wasm build the same calls bind to Wasi_Runtime's exports. No stdlib code distinguishes the two, so `tools/check_playground_stdlib.mjs` sees no change.
 
-**Running.** `tools/wasi_run.mjs` runs a command with node's WASI, this process's stdio and environment, and exits with the module's status (134 and `wasm trap: ...` on a trap, 127 and `wasm link error: ...` on a missing import).
+**Running.** `tools/wasi_run.mjs` runs a command with node's WASI, this process's stdio and environment, and exits with the module's status (134 and `wasm trap: ...` on a trap, 127 and `wasm link error: missing imports a.b, c.d` naming every import the module lacks, checked before it starts).
 
 ## How to change it
 

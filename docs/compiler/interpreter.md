@@ -102,6 +102,7 @@ Not covered: variadic callbacks, and on arm64 callbacks returning a struct throu
 
 - `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000 frames) in `interp/mod.rs`.
 - `JAIC_PROFILE=1` makes `exec` count calls, blocks and instructions per procedure (`interp/profile.rs`), and the CLI prints the totals. See [benchmarks](../tools/benchmarks.md).
+- `JAIC_COVERAGE=FILE` makes `exec` note each procedure the first time it runs (`path:line name`, from the procedure's trace or debug info) and appends the set to FILE when the CLI finishes or the program calls `exit` (an `atexit` hook). The check is one `Option` test per call when unset. The [stdlib runtime tests](../tools/stdlib-runtime-tests.md) turn these records into per-module coverage.
 
 ## Dependencies
 
