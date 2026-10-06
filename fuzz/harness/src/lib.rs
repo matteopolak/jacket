@@ -10,6 +10,11 @@
 //! files, network or clock) and an interpreter block budget, so an input cannot do I/O or loop
 //! forever.
 pub mod generate;
+mod jaifmt;
+mod lsp_edits;
+
+pub use jaifmt::jaifmt;
+pub use lsp_edits::lsp_edits;
 
 use jai_language_server::{DocumentUri, Limits, Position, Session, TextChange};
 use jai_wasm::play::{PlayOptions, run_with};

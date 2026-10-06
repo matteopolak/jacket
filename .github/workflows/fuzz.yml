@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [lexer, parser, check, interp, generated, lsp, lsp_json]
+        target: [lexer, parser, check, interp, generated, lsp, lsp_json, lsp_edits, jaifmt]
     env:
       CARGO_INCREMENTAL: '0'
       SECONDS_PER_TARGET: ${{ github.event_name == 'push' && '60' || inputs.seconds || '600' }}

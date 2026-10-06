@@ -72,6 +72,7 @@ name = "jai-language-server"
 version = "0.2.0"
 dependencies = [
  "jaic",
+ "jailint",
  "serde",
  "serde_json",
 ]
@@ -87,6 +88,13 @@ dependencies = [
 [[package]]
 name = "jaic"
 version = "0.2.0"
+
+[[package]]
+name = "jailint"
+version = "0.2.0"
+dependencies = [
+ "jaic",
+]
 
 [[package]]
 name = "jobserver"

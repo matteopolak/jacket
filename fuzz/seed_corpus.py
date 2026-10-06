@@ -31,11 +31,17 @@ TARGETS = {
     "interp": (PROGRAMS, 8 << 10),
     "lsp": (PROGRAMS, 4 << 10),
     "lsp_json": (PROGRAMS, 2 << 10),
+    "lsp_edits": (PROGRAMS, 4 << 10),
+    # Formatter input: any source, and the third-party corpus when it is checked out, since nobody
+    # formatted it with jaifmt (the repository's own files are formatted already).
+    "jaifmt": (SOURCES + ["corpus/upstream"], 8 << 10),
 }
 
 
 def jai_files(trees, limit):
     for tree in trees:
+        if not (ROOT / tree).is_dir():
+            continue
         for path in sorted((ROOT / tree).rglob("*.jai")):
             if path.is_file() and path.stat().st_size <= limit:
                 yield path

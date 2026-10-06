@@ -67,3 +67,13 @@ fn lsp() {
 fn lsp_json() {
     replay("lsp_json", jai_fuzz_harness::lsp_json);
 }
+
+#[test]
+fn lsp_edits() {
+    replay("lsp_edits", jai_fuzz_harness::lsp_edits);
+}
+
+#[test]
+fn jaifmt() {
+    replay("jaifmt", jai_fuzz_harness::jaifmt);
+}

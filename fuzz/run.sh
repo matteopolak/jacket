@@ -14,7 +14,8 @@ shift $(($# < 3 ? $# : 3))
 
 case $target in
   lexer | parser) max_len=16384 timeout=5 ;;
-  lsp | lsp_json) max_len=4096 timeout=20 ;;
+  lsp | lsp_json | lsp_edits) max_len=4096 timeout=20 ;;
+  jaifmt) max_len=8192 timeout=20 ;;
   check | interp | generated) max_len=8192 timeout=10 ;;
   *) echo "unknown target $target" >&2; exit 2 ;;
 esac

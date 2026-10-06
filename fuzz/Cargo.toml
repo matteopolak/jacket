@@ -72,3 +72,17 @@ path = "fuzz_targets/lsp_json.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "jaifmt"
+path = "fuzz_targets/jaifmt.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lsp_edits"
+path = "fuzz_targets/lsp_edits.rs"
+test = false
+doc = false
+bench = false
