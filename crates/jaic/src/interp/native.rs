@@ -101,6 +101,13 @@ impl Library {
         }
         candidates.push(format!("lib{name}.{ext}"));
         candidates.push(format!("{name}.{ext}"));
+        // Without the development package only the versioned name exists (`libatomic.so.1`,
+        // which GCC links through its own `libatomic.so`).
+        if cfg!(target_os = "linux") {
+            for version in 0..=9 {
+                candidates.push(format!("lib{bare}.so.{version}"));
+            }
+        }
         if cfg!(target_os = "macos") {
             candidates.push(format!(
                 "/System/Library/Frameworks/{name}.framework/{name}"
