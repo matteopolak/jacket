@@ -25,7 +25,7 @@ jaic build jaifmt/build.jai - wasm              # target/jaifmt.wasm (WASI, same
 jaic build jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
 ```
 
-- It must be `jaic build`: `jaic run` and `jaic check` have no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
+- It must be `jaic build` (or `jaic run`): `jaic check` has no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
 - The default output is `target/` at the repository root (anchored on `#filepath`), wherever `jaic` was started. A relative `-o` path is relative to `jaifmt/`, because `jaic`, like `jai`, runs from the main file's directory. The default is not `jaifmt` at the root because that is the source directory.
 - `set_optimization(.OPTIMIZED)` means `-O2` code with bounds, null and cast checks off, as a shipping build. The plain `jaic build jaifmt/main.jai -O2` (used by CI, the Nix package and the tests) keeps the checks. Both pass the token-equivalence check, which is what guards the output.
 - The wasm build sets `os_target = .WASM`, `cpu_target = .CUSTOM` and the triple `wasm64-unknown-wasi`, which makes `jaic` link `Wasi_Runtime` exactly as `-os wasm` does.

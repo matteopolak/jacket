@@ -426,18 +426,42 @@ fn compile_time_print_precedes_program_output() {
     );
 }
 
-/// `jaic run` and `jaic check` only check workspaces: one asking for an executable compiles,
-/// writes nothing and gets a warning that points to `jaic build`. (`jaic build` writes it: `arithmetic_overflow_checks` in native.rs.)
+/// `jaic check` only checks workspaces: one asking for an executable compiles, writes nothing
+/// and gets a warning that points to `jaic build`. `jaic run -no_workspace_output` skips the
+/// output quietly. (`jaic build` and plain `jaic run` write it:
+/// `run_writes_workspace_output` in native.rs.)
 // rules: ws.15 ws.17
 #[test]
-fn run_and_check_write_no_workspace_output() {
+fn check_writes_no_workspace_output() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-workspace-no-output");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let source = dir.join("meta.jai");
-    std::fs::write(
-        &source,
-        r##"#import "Basic";
+    std::fs::write(&source, WORKSPACE_ASKING_FOR_OUTPUT).unwrap();
+    for args in [&["check"][..], &["run", "-no_workspace_output"][..]] {
+        let output = Command::new(JAIC)
+            .arg(args[0])
+            .arg(&source)
+            .args(&args[1..])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{args:?}: {stderr}");
+        let written: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .filter(|name| name.to_string_lossy().starts_with("target-prog"))
+            .collect();
+        assert!(written.is_empty(), "{args:?} wrote {written:?}");
+        // `check` says so, naming the command that would write it; the flag asked for silence.
+        let warned = stderr.contains("target-prog") && stderr.contains("`jaic build ");
+        assert_eq!(warned, args[0] == "check", "{args:?}: {stderr}");
+    }
+}
+
+/// A metaprogram whose workspace asks for an executable `target-prog` in the current directory.
+const WORKSPACE_ASKING_FOR_OUTPUT: &str = r##"#import "Basic";
 #import "Compiler";
 #run {
     set_build_options_dc(.{do_output = false});
@@ -447,39 +471,9 @@ fn run_and_check_write_no_workspace_output() {
     options.output_executable_name = "target-prog";
     options.output_path = ".";
     set_build_options(options, w);
-    add_build_string("#import \"Basic\";\nmain :: () { print(\"unused\\n\"); }\n", w);
+    add_build_string("#import \"Basic\";\nmain :: () { print(\"built\\n\"); }\n", w);
 }
-"##,
-    )
-    .unwrap();
-    for command in ["run", "check"] {
-        let output = Command::new(JAIC)
-            .arg(command)
-            .arg(&source)
-            .current_dir(&dir)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{command}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let written: Vec<_> = std::fs::read_dir(&dir)
-            .unwrap()
-            .map(|e| e.unwrap().file_name())
-            .filter(|name| name.to_string_lossy().starts_with("target-prog"))
-            .collect();
-        assert!(written.is_empty(), "{command} wrote {written:?}");
-        // ...and says so, naming the command that would write it.
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr
-                .contains("target-prog was not written: workspace `target` asks for an executable")
-                && stderr.contains("help: to write it, use `jaic build "),
-            "{command}: {stderr}"
-        );
-    }
-}
+"##;
 
 /// `-no_dce` type-checks module bodies nothing calls; by default only the program's own
 /// unreferenced bodies are checked.

@@ -1561,3 +1561,47 @@ fn backtrace_sees_compiled_callers() {
         assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n", "{opt}");
     }
 }
+
+/// `jaic run` writes what a metaprogram's workspace asks for, as `jaic build` does: only the
+/// top-level program is interpreted instead of compiled.
+// rules: ws.15
+#[test]
+fn run_writes_workspace_output() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-run-workspace-output");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("meta.jai");
+    std::fs::write(
+        &source,
+        r##"#import "Basic";
+#import "Compiler";
+#run {
+    set_build_options_dc(.{do_output = false});
+    w := compiler_create_workspace("target");
+    options := get_build_options(w);
+    options.output_type = .EXECUTABLE;
+    options.output_executable_name = "target-prog";
+    options.output_path = ".";
+    set_build_options(options, w);
+    add_build_string("#import \"Basic\";\nmain :: () { print(\"built\\n\"); }\n", w);
+}
+"##,
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .arg("run")
+        .arg(&source)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(!stderr.contains("was not written"), "{stderr}");
+    let exe = dir.join(if cfg!(windows) {
+        "target-prog.exe"
+    } else {
+        "target-prog"
+    });
+    let ran = Command::new(&exe).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&ran.stdout), "built\n");
+}

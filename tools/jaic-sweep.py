@@ -286,7 +286,9 @@ def main():
             if code == NO_EXECUTABLE:
                 return cid, None, out, err, code
         else:
-            out, err, code = run_limited([a.jaic, "check" if windowed else mode, str(path), *extra],
+            # A sweep only checks what metaprograms' workspaces produce; it writes nothing.
+            quiet = ["-no_workspace_output"] if mode == "run" and not windowed else []
+            out, err, code = run_limited([a.jaic, "check" if windowed else mode, str(path), *quiet, *extra],
                                          path.parent, a.timeout, limit_bytes)
         # `run_after`: the program the build produced is run, and the expectations apply to it.
         if code == 0 and expect and expect.get("run_after"):

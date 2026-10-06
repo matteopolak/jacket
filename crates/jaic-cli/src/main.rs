@@ -100,6 +100,9 @@ fn usage() -> ExitCode {
         "       -no_dce (any command): type-check unreferenced module code too (dead_code_elimination = .NONE)"
     );
     eprintln!(
+        "       -no_workspace_output (run): do not write the executables and libraries a metaprogram's workspaces ask for"
+    );
+    eprintln!(
         "       JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>: stop with exit status {} once that much is allocated",
         jaic::memory_limit::EXIT_CODE
     );
@@ -146,6 +149,9 @@ struct Cli {
     /// `-no_dce`: type-check every declaration, modules included
     /// (`Build_Options.dead_code_elimination = .NONE`).
     no_dce: bool,
+    /// `-no_workspace_output` (`run`): do not write what workspaces a metaprogram creates ask
+    /// for (test sweeps over many programs).
+    no_workspace_output: bool,
 }
 
 impl Cli {
@@ -251,6 +257,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         timings: false,
         sanitize: Vec::new(),
         no_dce: false,
+        no_workspace_output: false,
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -291,6 +298,7 @@ fn parse(args: &[String]) -> Option<Cli> {
             "-target" | "--target" => cli.target = Some(rest.next()?.clone()),
             "--timings" => cli.timings = true,
             "-no_dce" => cli.no_dce = true,
+            "-no_workspace_output" if command == Command::Run => cli.no_workspace_output = true,
             "-o" if command == Command::Build => cli.output = Some(PathBuf::from(rest.next()?)),
             "--emit-ir" if command == Command::Build => {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
@@ -428,9 +436,16 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     options.import_paths.push(stdlib.clone());
     options.preload = Some(stdlib.join("prelude/module.jai"));
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
-    // Workspaces created by metaprograms are written only by `build`.
-    let backend: Option<Box<dyn OutputBackend>> = (cli.command == Command::Build)
-        .then(|| Box::new(native_backend(&cli)) as Box<dyn OutputBackend>);
+    // What workspaces created by metaprograms ask for is written by `build` and `run` alike:
+    // `run` differs only in interpreting the top-level program instead of compiling it.
+    // `check` only checks.
+    let writes_workspaces = match cli.command {
+        Command::Build => true,
+        Command::Run => !cli.no_workspace_output,
+        Command::Check => false,
+    };
+    let backend: Option<Box<dyn OutputBackend>> =
+        writes_workspaces.then(|| Box::new(native_backend(&cli)) as Box<dyn OutputBackend>);
     // `OS == .WASM` code is written for the interpreter's sandbox host (virtual clock and files,
     // cooperative threads), so compile-time code of a wasm target runs there whatever the
     // command. `jaic run -os wasm` runs the program there too, the way the browser does, with its
@@ -446,7 +461,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         fs: fs.clone(),
         options: options.clone(),
         backend,
-        unwritten_output_hint: (cli.command != Command::Build)
+        unwritten_output_hint: (cli.command == Command::Check)
             .then(|| format!("jaic build {}", cli.file)),
         command_line: cli.command_line.clone(),
         make_host: Box::new(move |os| {
