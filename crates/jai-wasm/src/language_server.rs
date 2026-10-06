@@ -318,5 +318,38 @@ mod tests {
         );
         assert!(hover.contains("count: s64"), "{hover}");
         assert!(hover.contains("missing argument 2"), "{hover}");
+        // `#import "Basic"` goes to the bundled stdlib, readable through `jai/source`.
+        let definition = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":5,"method":"textDocument/definition","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":0,"character":10}}}"#,
+            ),
+        );
+        assert!(
+            definition.contains(r#""uri":"file:///stdlib/Basic/module.jai""#),
+            "{definition}"
+        );
+        let links = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":6,"method":"textDocument/documentLink","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"}}}"#,
+            ),
+        );
+        assert!(
+            links.contains(r#""target":"file:///stdlib/Basic/module.jai""#),
+            "{links}"
+        );
+        let source = send(
+            &mut bridge,
+            r#"{"jsonrpc":"2.0","id":7,"method":"jai/source","params":{"uri":"file:///stdlib/Basic/module.jai"}}"#,
+        );
+        assert!(
+            source.contains("#load"),
+            "{}",
+            &source[..source.len().min(200)]
+        );
     }
 }

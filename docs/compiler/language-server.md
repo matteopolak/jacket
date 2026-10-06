@@ -6,8 +6,39 @@
 
 It has two layers:
 
-- **Syntax** (always on): lexer/parser diagnostics, semantic tokens, document symbols, and go-to-definition among the open documents. These come from the `jaic` lexer and parser.
-- **Semantic** (when the session has an `Environment`): hover, completion and go-to-definition answered by actually type-checking the open documents with `jaic`. This covers locals, procedures, struct and enum types, imported modules' exports, Preload, members after `.`, and hover text with the real type (`count: s64`, `helper :: (t: *Thing) -> int`, `Thing :: struct { alpha: s64; ... }`).
+- **Syntax** (always on): lexer/parser diagnostics, format-string checks, semantic tokens, document and workspace symbols, folding, and go-to-definition among the open documents. These come from the `jaic` lexer and parser.
+- **Semantic** (when the session has an `Environment`): everything that needs the type checker. The open documents are compiled with `jaic`, compile-time code included, and the compiler's editor facts are queried.
+
+### Feature list
+
+| Feature | LSP method | Layer |
+|---|---|---|
+| Diagnostics: lexer and parser errors, `#load` targets, format strings | `textDocument/publishDiagnostics` | syntax |
+| Hover: types of locals, members, procedures (every overload), structs, enums, constants | `textDocument/hover` | semantic |
+| Hover on a macro call: the macro's body with the arguments substituted | `textDocument/hover` | semantic |
+| Hover on `#insert`: the inserted code | `textDocument/hover` | semantic |
+| Hover on `#run`: its value and type, and what it printed | `textDocument/hover` | semantic |
+| Hover on `#if` / `#ifx` / `#assert`: whether the condition held (per instance) | `textDocument/hover` | semantic |
+| Hover on a format string: each `%` with the argument it formats and its type | `textDocument/hover` | syntax + semantic types |
+| Completion: scope-aware names, members after `.`, directives after `#`, `#load`/`#import` paths | `textDocument/completion` | semantic, syntax fallback |
+| Go to definition (also into modules and the stdlib) | `textDocument/definition` | semantic, syntax fallback |
+| Go to the file of a `#load` / `#import` / `#import,file` / `#import,dir`, and of a module name (`B` in `B.print`) | `textDocument/definition` | environment |
+| Document links on `#load` / `#import` strings | `textDocument/documentLink` | environment |
+| Go to type definition | `textDocument/typeDefinition` | semantic |
+| Find references, document highlights | `textDocument/references`, `textDocument/documentHighlight` | semantic |
+| Rename (locals, globals, procedures with their overload declarations, types, modules, constants) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
+| Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
+| Inlay hints: inferred types of `x :=`, parameter names of literal arguments, `#run` values | `textDocument/inlayHint` | semantic |
+| Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value | `textDocument/codeAction` | semantic |
+| Commands `jai.showExpansion`, `jai.showPolymorphs` | `workspace/executeCommand` | semantic |
+| Expansion documents (`jai-expansion:` URIs) | `jai/expansion`, `jai/source` (non-standard) | semantic |
+| Code lens: how many polymorphs each polymorphic procedure has, and their bindings | `textDocument/codeLens` | semantic |
+| Semantic tokens: types, procedures, macros, `$T`, constants, enum members, modules, directives, notes, `%` | `textDocument/semanticTokens/full` | syntax, refined by semantic |
+| Document symbols (outline), workspace symbols | `textDocument/documentSymbol`, `workspace/symbol` | syntax |
+| Folding ranges: blocks and runs of `#import`/`#load` | `textDocument/foldingRange` | syntax |
+| Stdlib and module sources for read-only viewing | `jai/source` (non-standard) | environment |
+
+Not supported: renaming struct members, formatting (see [jaifmt](../tools/jaifmt.md)), pull diagnostics, type-checker diagnostics (only syntax and format-string diagnostics are published), references to struct members.
 
 ## How it works
 
@@ -17,17 +48,19 @@ It has two layers:
 
 Positions use UTF-16, including supplementary characters and CRLF. Edits apply to a temporary copy and publish atomically. A stale version or invalid edit keeps the previous text.
 
-### Semantic hover and completion
+### Semantic analysis
 
-`semantic.rs` compiles on demand, only when a hover or completion request arrives, and caches by source text:
+`semantic.rs` compiles on demand, only when a request needs it, and caches by source text:
 
 1. **Overlay.** Open documents are laid over the environment's file system (`OverlayFs`). Natively that is the disk plus the repository stdlib; in the browser it is the bundled stdlib `VirtualFs`.
 2. **Root.** The check starts from the document that `#load`s the requested one and is loaded by none (`Session::root`).
-3. **Recording.** `Compiler::ide` is set to `IdeFacts` for files under the root's directory. While checking, sema records what each identifier and member names, with its type, and the source extent of block and procedure scopes. See [Editor facts](#editor-facts-in-jaic).
+3. **Recording.** `Compiler::ide` is set to `IdeFacts` for files under the root's directory. While checking, sema records what each identifier and member names, with its type, and the source extent of block and procedure scopes. It also records expansions and calls. See [Editor facts](#editor-facts-in-jaic).
 4. **All bodies.** `ide_check_all` then lowers every non-polymorphic procedure body in those files, not only what `main` reaches, so helpers nobody calls yet still have facts.
-5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging.
+5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. The host is shared with `IdeFacts::output`, which is how a `#run` hover shows what it printed. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging.
 
-Half-typed text usually does not parse. `repair` blanks lines with spaces, so byte offsets stay put, until the text parses: first the cursor's line (for completion), then the line the parser reports. If the error is reported on an empty line or a lone `}`, it blanks the last non-empty line before it instead, because that is where a missing `;` belongs.
+Half-typed text usually does not parse. `repair` blanks lines with spaces, so byte offsets stay put, until the text parses: first the cursor's line (for completion and signature help), then the line the parser reports. If the error is reported on an empty line or a lone `}`, it blanks the last non-empty line before it instead, because that is where a missing `;` belongs. Every semantic feature goes through `Session::checked` (repair, compile or reuse the cache, look up the file), so hover, inlay hints and tokens of one version share one compile.
+
+### Hover and completion
 
 For completion, the word being typed and any `a.b.` chain before it are cut out of the text first. The probe text therefore stays the same while a word is typed, and the cached compile is reused for every keystroke.
 
@@ -38,37 +71,165 @@ For completion, the word being typed and any `a.b.` chain before it are cut out 
   - **After `#`:** the directives in `analysis.rs` `DIRECTIVES` (labels include the `#`, details are one-line descriptions), without compiling.
   - **Inside `#load "..."`:** files (`.jai`) and folders (`name/`) relative to the document, in the folder typed so far. **Inside `#import "..."`:** modules (folders and `.jai` files) on the import path and in the document's `modules/` folder. Entries come from the environment's `FileSystem::list_dir` plus the open documents (`path_completion`).
   - Trigger characters: `.`, `#`, `"` and `/`.
-- **Hover** finds the smallest recorded reference at the offset and formats it:
-  - a local or member as `name: Type`;
-  - a procedure (each overload, under the name used) as `name :: <header>`;
-  - a type with its fields or members;
-  - a constant with its value.
+- **Hover** (`Session::hover`) tries, in order:
+  1. a print-family **format string** under the cursor (`format_hover`);
+  2. a **directive** token `#insert`, `#run`, `#if`, `#ifx` or `#assert` (`directive_hover`): what it produced;
+  3. the smallest recorded **reference** at the offset: a local or member as `name: Type`, each overload of a procedure as `name :: <header>`, a type with its fields or members, a constant with its value. When the name is the callee of an `#expand` macro call, the expansion is appended (`with_macro_expansion`);
+  4. any **expansion** containing the cursor where there is no name (the string of `#insert "..."`);
+  5. the syntax layer's declaration text, or `keyword return` on a keyword (completion details say `keyword` too; hover text does not repeat the language name).
 
-- **Definition** (`ide_definition`) uses the same reference: an entity's declaration, every procedure of an overload set (aliases under their own name), or a struct. Spans are narrowed to the declared name; a procedure's span starts at its literal, so the name is found earlier on its line (`name :: (`). Targets can be modules or stdlib files the client never opened. Members and modules have no target yet.
+Hover text is plain text (`"kind": "plaintext"`).
 
-When no environment is set, or the text cannot be repaired, hover, completion and definition fall back to the syntax layer.
+Examples:
+
+```text
+square :: (x: int) -> int #expand
+
+square expands to:
+
+total += (total + 2);
+return (total + 2) * (total + 2);
+```
+
+```text
+#run = 30: s64
+
+Printed at compile time:
+computing
+```
+
+```text
+"% and %2 of %1\n"
+  %  → total: s64
+▸ %2 → s: s64
+  %1 → total: s64
+```
+
+### Definition, references and type definition
+
+- **Definition** (`ide_definition`) uses the reference at the cursor: an entity's declaration, every procedure of an overload set (aliases under their own name), or a struct. Spans are narrowed to the declared name; a procedure's span starts at its literal, so the name is found earlier on its line (`name :: (`). Targets can be modules or stdlib files the client never opened.
+- **References** (`ide_references`) map every recorded reference to a target (a local or global entity, a procedure, a type or a module) and return those sharing the cursor's. A procedure's declaration resolves to the same `ProcId` its calls name, and a struct declaration to the same `TypeId` its uses name. Only files under the root's directory are recorded, so references inside the stdlib are not listed. Struct members are not tracked (a member reference does not record its owner type). Document highlights are the references within the document.
+- **Rename** edits every reference that spells the old name (in open documents the text is checked; recorded files that are not open are edited by range). `prepareRename` refuses names the check did not record or that are members, and the new name must be an identifier that is not a keyword. A backticked caller name inside a macro body (`` `total ``) is a reference to the caller's local and is renamed with it.
+- **Module names.** A name that evaluates to a module (`B` in `B :: #import "Basic"; B.print`) goes to the start of the module's entry file (`modules[m].files[0]`). `Module.name` records what the member resolved to (procedures, a type, a nested module) rather than a plain member, so definition and references follow names reached through a module, through `using`, and through re-exports (`module_lookup`, `exported_using_imports`). Modules are never merged: each `#import` is its own module and its names are reached through it.
+- **Type definition** (`ide_type_definition`) takes the reference's type, strips pointers and arrays, and returns the struct or enum declaration.
 
 ### Editor facts in jaic
 
-`crates/jaic/src/sema/ide.rs` holds `IdeFacts` and the queries. The hooks are small:
+`crates/jaic/src/sema/ide.rs` holds `IdeFacts` and the name queries; `ide_meta.rs` holds the metaprogramming and call facts. The hooks are small:
 
 - `check_expr` wraps `check_expr_kind` and records `Ident`, `Member` and `InferredMember` results (`ide_note_expr`). `check_ident` leaves the resolved entity in `IdeFacts::last_entity`.
-- `add_entity` records each declaration's name span (`ide_note_entity`).
+- `add_entity` records each declaration's name span (`ide_note_entity`, with `IdeRef::decl` set).
 - `ide_scope_span` is called where block scopes are made: procedure bodies, `check_scoped`, `if`/`case` arms, `while` bindings, `for` loops and block expressions.
+- `eval_insert_operand` records what every `#insert` evaluated to (`ide_note_insert`): a string as is, a `Code` value as its source text (a block without its braces).
+- `check_run` records each `#run` value, its type, its literal form and what it printed (`ide_note_run`). The `#insert -> string { ... }` form runs through `check_run_inner` and is recorded as an insert only.
+- `eval_static_condition` records each `#if`, `#ifx` and `#assert` result (`ide_note_condition`). The compiler only has the condition's span, so `ide_widen` extends it back to the directive that precedes it; conditions with no directive in front (loop flags) are not recorded.
+- `expand_macro` records the macro's body with arguments substituted (`ide_note_macro`, below).
+- `call_procs` records every resolved call (`ide_note_call`): the overload set, the chosen procedure, and for each argument its span, parameter, and type.
+
+Each site keeps up to four distinct results (`MAX_VARIANTS`), because a polymorphic body or a macro inside one can expand differently per instance; hovers then list them. Totals are bounded (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_TEXT`).
+
+**Macro substitution** works on tokens of the macro body's source (`substitute`): a parameter becomes its argument's source text (parenthesized unless it is an atom), `..args` of a variadic parameter becomes the arguments, `#insert c` of a `Code` parameter becomes the code, and the backtick of a caller-scope name is dropped because after expansion the name is the caller's. Backticked `return`/`defer`/`break` keep it. A name used as a member (`p.x`) or redeclared (`x :=`) is not replaced. This is a textual view of the expansion; it does not re-run the compiler, so it shows what the code does, not the exact checked tree.
 
 All hooks do nothing when `Compiler::ide` is `None`, which is the case outside the language server.
 
 Completion lists classify unresolved declarations by syntax (`ide_entity_name`): a procedure literal is a function, `struct`/`enum` is a type. Listing a module's exports therefore never compiles the whole module. Hover resolves the one entity it shows.
 
+### Expansions: code actions, commands and documents
+
+For an `#insert`, `#run` or macro call under the cursor (`code_actions` picks the smallest expansion containing it):
+
+- **Show expansion** — a code action with the command `jai.showExpansion`, argument `{uri, position}`. Executing it returns the expansion object below; a client may instead call `jai/expansion` itself.
+- **Inline #insert** (`refactor.inline`) — replaces the directive with its code. In statement position the trailing `;` is included and the code is indented to match; in expression position the code is parenthesized. Offered when every instance inserted the same code.
+- **Replace #run with its value** (`refactor.inline`) — for a scalar, string or type result of a `#run` that printed nothing.
+
+`jai/expansion` (request, non-standard) takes `{textDocument, position}` and returns `null` or:
+
+```json
+{
+  "uri": "jai-expansion:///jai-script/main.jai?14:4",
+  "kind": "insert",
+  "text": "// Expansion of the #insert at main.jai:15:5\ninserted := 40 + 2;\n",
+  "source": { "uri": "file:///jai-script/main.jai", "range": { "start": {...}, "end": {...} } }
+}
+```
+
+`kind` is `insert`, `run`, `if` or `macro`. The URI encodes the document path and the expansion's start (0-based line and UTF-16 character), so `jai/source` with that URI recomputes the same text. Clients that open URIs lazily (VS Code `TextDocumentContentProvider`, the browser editor's read-only views) can therefore show it without keeping the response. The text is Jai with `//` comments, so it highlights as Jai.
+
+`jai.showPolymorphs` (`{uri, position}` of a code lens) returns the bindings of each instance, such as `["T = s64", "T = string"]`.
+
+### `#load` and `#import` links
+
+`links.rs` finds `#load "..."` and `#import[,file|,dir] "..."` in the token stream (so links work while the text does not parse; `#import,string` has no file). `Session::link_target` resolves each with the compiler's own functions, `jaic::sema::import_entry` and `find_module_in` (which `Compiler::find_module` and `resolve_import` also call):
+
+| Directive | Target |
+|---|---|
+| `#load "a/b.jai"` | relative to the loading file |
+| `#import "Name"` | the first of `<file's dir>/modules`, then each import path (`-import_dir`s, then the stdlib), trying `Name.jai` before `Name/module.jai` |
+| `#import,file "x.jai"` | relative to the importing file |
+| `#import,dir "x"` | `x/module.jai` relative to the importing file |
+
+Open documents count as files, so an unsaved module resolves. Import paths come from the environment's options for the check root, as for compiling; a target that does not exist gives no link.
+
+- **Definition** on the directive or its string returns the target file at line 0.
+- **`textDocument/documentLink`** returns `{range, target}` with the range on the string literal (quotes included).
+
+In the browser the stdlib is bundled under `/stdlib`, so targets are `file:///stdlib/Basic/module.jai` and the client reads them with `jai/source`, like any definition into the stdlib.
+
+### Inlay hints
+
+`Session::inlay_hints` returns, within the requested range:
+
+- **Types** (kind 1) after the name of `x := value` and `a, b := f()` (`ide_declared_types`: declaration references of locals). Skipped when the value starts with the type's name (`Thing.{}`) or casts to it, and when instances disagree.
+- **Parameter names** (kind 2) before positional literal arguments (numbers, strings, `true`/`false`/`null`, `#char`, `.ENUM`), from the call facts. Named, variadic and spread arguments get none, nor does an argument spelled like its parameter.
+- **`#run` values** after the directive's operand (`= 30`), when it computed one value and the operand is not that literal already.
+
+### Format strings
+
+`format.rs` finds print-family calls in the token stream, so it works while the text does not parse. The family is `PRINT_FAMILY`: `print`, `sprint`, `tprint`, `print_to_builder`, `print_color`, `log`, `log_error`, `log_warning`, `assert`. The format string is the first string-literal argument among the first two (`print_to_builder(builder, "...")`, `assert(cond, "...")`). Arguments after it count, except named ones and those after `,,` (context overrides).
+
+Directives follow `stdlib/Basic/Print.jai`, not older documentation:
+
+| Text | Meaning |
+|---|---|
+| `%`, `%0` | the next argument |
+| `%N` | argument N (1-based); a following `%` continues with N+1 |
+| `%%` | two directives: the next two arguments |
+| `%00` | prints nothing |
+| `\%` | a literal percent sign (not a directive) |
+
+They feed three features:
+
+- **Semantic tokens:** the string token is split, and each directive is a `formatSpecifier` token.
+- **Diagnostics** (`jai-format`): an error on a directive that refers past the last argument (printing would fail), a warning on each argument no directive uses. A `..spread` argument disables the check.
+- **Hover:** anywhere on the string, the summary shown above. Types come from the recorded call whose span contains the string (the variadic `Any` arguments keep their checked types).
+
+### Signature help
+
+`open_call` scans back from the cursor to the unmatched `(` and reads the callee (`name` or `Module.name`), the argument index, and a `name =` being typed. If the check recorded a call starting at that callee, its overload set is shown with the chosen overload active. Otherwise (the usual case while typing, when the line does not parse) the cursor's line is blanked and `ide_callee` looks the callee up in the scope at the cursor. A named argument selects its parameter; past the last parameter the last (variadic) one stays active. Triggers: `(` and `,`.
+
+### Semantic tokens
+
+The legend is append-only so older clients keep their mapping:
+
+- types: `keyword`, `string`, `number`, `variable`, `function`, `type`, `property`, `parameter`, `macro`, `operator`, `namespace`, `typeParameter`, `enumMember`, `decorator`, `formatSpecifier`;
+- modifiers: `declaration`, `readonly`, `macro`.
+
+The syntax layer classifies declarations from the parse rows. With an environment, `ide_classes` refines every recorded identifier: a use of a type is `type`, of a procedure `function`, of an `#expand` procedure `function` + `macro`, of a constant or enum member `readonly`, of a module `namespace`, of a struct field `property`. `$T` and `$$T` and every use of that name inside the procedure are `typeParameter` (from tokens, so it works without checking). Directives (`#run`) stay `macro` as before; notes (`@note`) are `decorator`.
+
+### Syntax-only extras
+
+- **Workspace symbols** search the declaration rows of every open document (top-level and nested), case-insensitive substring.
+- **Folding ranges** pair `{}`, `()` and `[]` across lines (ending on the line before the closer) and fold runs of `#import`/`#load` lines as `imports`.
+- **Code lenses** come from `ide_polymorphs`: each polymorphic procedure in the file with its instances' bindings (`T = s64`). Instances exist only for calls the check reached.
+
 ### Protocol and browser
 
-`JsonSession::handle_json` handles:
+`JsonSession::handle_json` handles the lifecycle (initialize/initialized, shutdown/exit), document open/change/close, cancellation, every method in the feature list, and two non-standard requests:
 
-- lifecycle: initialize/initialized, shutdown/exit;
-- document open, change and close;
-- `semanticTokens/full`, document symbols, hover, completion and definition;
-- `jai/source` (non-standard, `{uri}` → text or `null`): the text of a definition target the client has not opened, from the open documents or the environment's file system. A browser editor can use it to show stdlib files read-only;
-- cancellation.
+- `jai/source` (`{uri}` → text or `null`): the text of a definition target the client has not opened (a browser editor can show stdlib files read-only), from the open documents or the environment's file system, or of a `jai-expansion:` URI;
+- `jai/expansion` (`{textDocument, position}` → expansion or `null`).
+
+`initialize` advertises each provider, the token legend, the commands, and `experimental.jai.expansions: true`.
 
 Completion kinds map to LSP numbers in `protocol.rs`: function 3, field 5, variable 6, module 9, keyword 14, file 17, folder 19, enum member 20, constant 21, struct 22. Clients (including the hosted playground's editor) map those numbers to icons.
 
@@ -76,25 +237,35 @@ The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wa
 
 ## How to change it
 
-- **Record more facts.** Add a hook in sema that calls an `ide_*` method guarded by `self.ide.is_some()`, and keep the hook cheap. To show more in hover, extend `ide_hover`/`ide_entity_hover`. For more completion sources, extend `ide_visible`/`ide_members`.
+- **Record more facts.** Add a hook in sema that calls an `ide_*` method guarded by `self.ide.is_some()`, and keep the hook cheap. Name facts go in `ide.rs`; metaprogramming and call facts in `ide_meta.rs`. To show more in hover, extend `ide_hover`/`ide_entity_hover`, or `Session::describe` for expansions. For more completion sources, extend `ide_visible`/`ide_members`.
+- **New expansion kind.** Add an `IdeExpansionKind`, record it where the compiler evaluates it, and handle it in `kind_name`, `describe`, `expansion` and `code_actions` (`features.rs`).
+- **Print-family procedures** are a name list (`format::PRINT_FAMILY`), because diagnostics are published without compiling. A user wrapper is still recognized by the hover's type lookup (`IdeCallInfo::format_param`), but not by diagnostics or tokens until its name is added.
+- **Format semantics** live in `format::specs`; keep them in step with `__format_to_builder` in `stdlib/Basic/Print.jai`.
 - **Scope extents.** A new kind of block scope needs an `ide_scope_span` call, otherwise completion inside it sees the enclosing scope only.
-- **Repair heuristics** live in `session.rs` (`repair`, `blank_line`). They must keep byte offsets unchanged, because hover positions are mapped back into the real text.
+- **Repair heuristics** live in `session.rs` (`repair`, `blank_line`). They must keep byte offsets unchanged, because positions are mapped back into the real text.
+- **Token legend.** Append to `TOKEN_TYPES`/`TOKEN_MODIFIERS` in `lib.rs` and to `semantic_tokens_wire` together; never reorder.
 - **Environment.**
   - Native: `main.rs` `native_environment` (import paths, Preload).
   - Browser: `language_server.rs` `environment` (bundled stdlib, wasm target).
   - Keep these in step with how `jaic` and the playground compile.
-- **Syntax features** stay in `analysis.rs`. Typed results live in `model.rs`; extend its enums and the wire mappings in `protocol.rs` together.
+- **Syntax features** stay in `analysis.rs`/`format.rs`. Typed results live in `model.rs`; extend its types and the wire mappings in `protocol.rs` together.
 
 Tests:
 
 - `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
-- `crates/jai-wasm/src/language_server.rs`: the same through the wasm bridge with the bundled stdlib.
+- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
+- `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
+- Unit tests: `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).
+- `crates/jai-wasm/src/language_server.rs`: hover, completion, inlay hints, expansions, format strings and `#import` links into the bundled stdlib through the wasm bridge with the bundled stdlib.
+- `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>`: the same against the real WebAssembly module.
 
 ## Configuration
 
 ```sh
 cargo run -p jai-language-server --bin jai-lsp
 cargo test -p jai-language-server
+cargo build --release -p jai-wasm --target wasm32-unknown-unknown
+node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wasm.wasm
 ```
 
 - `JAIC_STDLIB` overrides the stdlib directory the native server reads. The default is the repository's `stdlib/`.
@@ -102,14 +273,16 @@ cargo test -p jai-language-server
 - `semantic.rs` constants:
   - `BLOCK_BUDGET`: interpreter blocks per analysis.
   - `CACHED`: compiles kept, 3.
+- `ide_meta.rs` constants: `MAX_EXPANSIONS` (4,096), `MAX_CALLS` (16,384), `MAX_VARIANTS` (4 per site), `MAX_TEXT` (64 KiB per expansion).
+- `features.rs`: `HINT_CHARS` (40), the longest inlay hint label.
 - Default `Limits`:
   - 32 documents, 256 KiB per document, 4 MiB total.
-  - 1,024 completion items, 8,192 tokens.
-- Documents must use absolute `file:///...` URIs. The browser uses `file:///jai-script/<name>`.
+  - 1,024 completion items and workspace symbols, 8,192 tokens.
+- Documents must use absolute `file:///...` URIs. The browser uses `file:///jai-script/<name>`. Expansion documents use `jai-expansion:///<path>?<line>:<character>`.
 
 ## Dependencies
 
-- `jaic`: lexer, parser, sema with `IdeFacts`, interpreter `SandboxHost`.
+- `jaic`: lexer, parser, sema with `IdeFacts` and `ide_meta`, interpreter `SandboxHost`.
 - `serde` / `serde_json` for JSON.
 - The browser adapter links into `jai_wasm.wasm` and is reached through `engine.lsp(message)` ([browser compiler](../browser/playground.md)). The hosted playground's editor lives in the portfolio repository.
 - Protocol: [LSP 3.17](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) over [JSON-RPC 2.0](https://www.jsonrpc.org/specification).

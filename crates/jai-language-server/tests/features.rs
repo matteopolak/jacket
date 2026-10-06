@@ -377,6 +377,7 @@ fn protocol_exposes_the_new_requests() {
         "workspaceSymbolProvider",
         "typeDefinitionProvider",
         "documentHighlightProvider",
+        "renameProvider",
     ] {
         assert!(!caps[key].is_null(), "{key}");
     }
@@ -465,6 +466,53 @@ fn protocol_exposes_the_new_requests() {
         serde_json::json!({"jsonrpc": "2.0", "id": 13, "method": "workspace/symbol", "params": {"query": "identity"}}),
     );
     assert_eq!(symbols["result"][0]["name"], "identity");
+}
+
+#[test]
+fn rename_edits_every_reference() {
+    let mut s = session();
+    s.open(uri(), 1, PROGRAM.into()).unwrap();
+    let position = at(PROGRAM, "scale(5", 0, 2);
+    let range = s.prepare_rename(&uri(), position).unwrap().unwrap();
+    assert_eq!(range.start, at(PROGRAM, "scale(5", 0, 0));
+    let edits = s.rename(&uri(), position, "resize").unwrap().unwrap();
+    assert_eq!(edits.len(), 1);
+    let starts: Vec<Position> = edits[0].1.iter().map(|e| e.range.start).collect();
+    assert_eq!(
+        starts,
+        [at(PROGRAM, "scale ::", 0, 0), at(PROGRAM, "scale(5", 0, 0)]
+    );
+    assert!(edits[0].1.iter().all(|e| e.new_text == "resize"));
+    // Locals rename too; enum members (members are not tracked) cannot.
+    let local = s
+        .rename(&uri(), at(PROGRAM, "total := 1", 0, 1), "sum")
+        .unwrap()
+        .unwrap();
+    // The declaration, two uses, and `` `total `` in the macro body (the caller's local).
+    assert_eq!(local[0].1.len(), 4, "{local:?}");
+    assert_eq!(local[0].1[0].range.start, at(PROGRAM, "total += x", 0, 0));
+    assert!(s.rename(&uri(), position, "two words").is_err());
+    assert!(
+        s.prepare_rename(&uri(), at(PROGRAM, "Kind.TWO", 0, 6))
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn keywords_are_described_without_the_language_name() {
+    let mut s = session();
+    s.open(uri(), 1, PROGRAM.into()).unwrap();
+    assert_eq!(
+        hover(&s, at(PROGRAM, "return x * x", 0, 1)),
+        "keyword return"
+    );
+    let items = s
+        .completion(&uri(), at(PROGRAM, "total := 1", 0, 0))
+        .unwrap()
+        .items;
+    let keyword = items.iter().find(|i| i.label == "return").unwrap();
+    assert_eq!(keyword.detail, "keyword");
 }
 
 const CODE_MACRO: &str = r#"#import "Basic";

@@ -3,6 +3,7 @@
 //! hints, code actions, format strings, references, signature help, folding, code lenses and
 //! workspace symbols.
 use crate::analysis::{Span, TokenKind};
+use crate::links::{Link, LinkSource};
 use crate::semantic;
 use crate::session::{Session, contains, repair};
 use crate::{
@@ -11,9 +12,10 @@ use crate::{
     SymbolInformation, TextEdit,
 };
 use jaic::intern::Sym;
+use jaic::sema::FileSystem;
 use jaic::sema::ide_meta::{IdeCallInfo, IdeClass, IdeExpansion, IdeExpansionKind};
 use jaic::source::FileId;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 /// URI scheme of expansion documents.
@@ -53,6 +55,9 @@ fn clip(text: &str, chars: usize) -> String {
         one_line
     }
 }
+
+/// Rename edits grouped by document URI.
+pub type RenameEdits = Vec<(String, Vec<TextEdit>)>;
 
 impl Session {
     /// Run `query` on the type-checked program, the document's text repaired to parse.
@@ -610,6 +615,77 @@ impl Session {
             .collect())
     }
 
+    /// The name at `position`, when it can be renamed: the check recorded what it names, and
+    /// that is not a struct member (member references are not tracked).
+    pub fn prepare_rename(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Option<Range>, Error> {
+        let doc = self.document(uri)?;
+        let Some((_, token)) = self.word(uri, position)? else {
+            return Ok(None);
+        };
+        if token.kind != TokenKind::Ident {
+            return Ok(None);
+        }
+        let range = doc.index.range(&doc.text, token.span)?;
+        let found = self.references(uri, position, true)?;
+        Ok(found
+            .iter()
+            .any(|l| l.uri == uri.as_str() && l.range == range)
+            .then_some(range))
+    }
+
+    /// Edits renaming what the name at `position` names, in every file the check recorded,
+    /// grouped by document; `None` when it cannot be renamed.
+    pub fn rename(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+        new_name: &str,
+    ) -> Result<Option<RenameEdits>, Error> {
+        let valid = new_name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_')
+            && new_name.chars().all(|c| c.is_alphanumeric() || c == '_');
+        if !valid || crate::analysis::KEYWORDS.contains(&new_name) {
+            return Err(Error::InvalidEdit("the new name is not an identifier"));
+        }
+        let Some(range) = self.prepare_rename(uri, position)? else {
+            return Ok(None);
+        };
+        let doc = self.document(uri)?;
+        let old = {
+            let start = doc.index.byte(&doc.text, range.start)?;
+            let end = doc.index.byte(&doc.text, range.end)?;
+            doc.text[start..end].to_string()
+        };
+        let mut edits: Vec<(String, Vec<TextEdit>)> = Vec::new();
+        for location in self.references(uri, position, true)? {
+            // In an open document, edit only spans that spell the old name.
+            if let Ok(target) = DocumentUri::parse(&location.uri)
+                && let Some(open) = self.documents.get(&target)
+            {
+                let start = open.index.byte(&open.text, location.range.start)?;
+                let end = open.index.byte(&open.text, location.range.end)?;
+                if open.text.get(start..end) != Some(old.as_str()) {
+                    continue;
+                }
+            }
+            let edit = TextEdit {
+                range: location.range,
+                new_text: new_name.into(),
+            };
+            match edits.iter_mut().find(|(u, _)| *u == location.uri) {
+                Some((_, list)) => list.push(edit),
+                None => edits.push((location.uri, vec![edit])),
+            }
+        }
+        Ok(Some(edits))
+    }
+
     /// References within the document itself.
     pub fn document_highlights(
         &self,
@@ -721,6 +797,72 @@ impl Session {
             active_signature: active,
             active_parameter,
         }))
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // `#load` / `#import` links
+    // ---------------------------------------------------------------------------------------
+
+    /// The file a `#load` or `#import` of `uri` brings in, resolved as the compiler does:
+    /// `#load` relative to the loading file; a module in `modules/` next to the file, then on
+    /// the import path (`Name.jai` before `Name/module.jai`); `,file` and `,dir` relative to
+    /// the file. Open documents count as files.
+    fn link_target(&self, uri: &DocumentUri, link: &Link) -> Option<DocumentUri> {
+        let files = OpenFiles {
+            session: self,
+        };
+        let path = match &link.source {
+            LinkSource::Load(path) => PathBuf::from(uri.load(path).ok()?.path()),
+            LinkSource::Import(source) => {
+                let root = PathBuf::from(self.root(uri).path());
+                let import_paths = self
+                    .environment
+                    .as_ref()
+                    .map(|e| (e.options)(&root).import_paths)
+                    .unwrap_or_default();
+                let dir = Path::new(uri.path()).parent()?;
+                jaic::sema::import_entry(&files, &import_paths, source, dir)?
+            }
+        };
+        if !files.is_file(&path) {
+            return None;
+        }
+        let path = self
+            .environment
+            .as_ref()
+            .map_or(path.clone(), |e| e.fs.canonical(&path));
+        DocumentUri::parse(&format!("file://{}", path.to_string_lossy())).ok()
+    }
+
+    /// Each `#load` / `#import` string of the document with the file it brings in.
+    pub fn document_links(&self, uri: &DocumentUri) -> Result<Vec<(Range, String)>, Error> {
+        self.document(uri)?;
+        let links = self.analyses[uri].links.clone();
+        Ok(links
+            .iter()
+            .filter_map(|link| {
+                let target = self.link_target(uri, link)?;
+                Some((
+                    self.range_of(uri, link.string)?,
+                    target.as_str().to_string(),
+                ))
+            })
+            .collect())
+    }
+
+    /// Definition of a `#load` / `#import` directive or its string: the start of the file.
+    pub(crate) fn link_definition(&self, uri: &DocumentUri, byte: usize) -> Option<Location> {
+        let link = self
+            .analyses
+            .get(uri)?
+            .links
+            .iter()
+            .find(|l| l.directive.start <= byte && byte <= l.directive.end)?;
+        let target = self.link_target(uri, link)?;
+        Some(Location {
+            uri: target.as_str().into(),
+            range: Range::default(),
+        })
     }
 
     // ---------------------------------------------------------------------------------------
@@ -891,6 +1033,42 @@ impl Session {
             .into_iter()
             .map(|(s, c)| (Span::new(s.start as usize, s.end as usize), c))
             .collect()
+    }
+}
+
+/// The open documents over the environment's file system, for resolving links.
+struct OpenFiles<'a> {
+    session: &'a Session,
+}
+
+impl OpenFiles<'_> {
+    fn open(&self, path: &Path) -> bool {
+        self.session
+            .documents
+            .keys()
+            .any(|d| Path::new(d.path()) == path)
+    }
+}
+
+impl jaic::sema::FileSystem for OpenFiles<'_> {
+    fn read(&self, path: &Path) -> Option<Vec<u8>> {
+        self.session.environment.as_ref()?.fs.read(path)
+    }
+
+    fn is_file(&self, path: &Path) -> bool {
+        self.open(path)
+            || self
+                .session
+                .environment
+                .as_ref()
+                .is_some_and(|e| e.fs.is_file(path))
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        self.session
+            .environment
+            .as_ref()
+            .is_some_and(|e| e.fs.is_dir(path))
     }
 }
 

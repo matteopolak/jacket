@@ -432,6 +432,9 @@ impl Session {
     ) -> Result<Vec<Location>, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
+        if let Some(location) = self.link_definition(uri, byte) {
+            return Ok(vec![location]);
+        }
         if let Some(probe) = repair(&doc.text, None) {
             let found = self
                 .with_semantic(uri, &probe, |a, path| Some(a.definition(path, byte)))
@@ -548,7 +551,7 @@ impl Session {
                 self.source_detail(rows[0].0, rows[0].1)
             )
         } else if token.kind == TokenKind::Keyword {
-            format!("Jai keyword {}", token.spelling(&doc.text))
+            format!("keyword {}", token.spelling(&doc.text))
         } else {
             return Ok(None);
         };
@@ -762,7 +765,7 @@ impl Session {
             let keywords = KEYWORDS.iter().map(|k| IdeName {
                 name: (*k).into(),
                 kind: IdeKind::Constant,
-                detail: "Jai keyword".into(),
+                detail: "keyword".into(),
             });
             let member = doc.text[..byte - prefix.len()].ends_with('.');
             let all = names.into_iter().map(|n| (n, false));
@@ -857,7 +860,7 @@ impl Session {
                 items.entry((*name).into()).or_insert(CompletionItem {
                     label: (*name).into(),
                     kind: CompletionKind::Keyword,
-                    detail: "Jai keyword".into(),
+                    detail: "keyword".into(),
                 });
             }
         }

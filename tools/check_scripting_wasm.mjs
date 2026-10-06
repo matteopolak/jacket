@@ -67,4 +67,8 @@ assert(hover.contents.value.includes("count: s64") && hover.contents.value.inclu
 const tokens = request("textDocument/semanticTokens/full", { textDocument }).data;
 const kinds = new Set(); for (let i = 3; i < tokens.length; i += 5) kinds.add(legend.tokenTypes[tokens[i]]);
 assert(kinds.has("formatSpecifier"), [...kinds].join(","));
-console.log("PASS: real WebAssembly language server (expansions, inlay hints, code actions, format strings)");
+const stdlibBasic = "file:///stdlib/Basic/module.jai";
+assert.deepEqual(request("textDocument/definition", { textDocument, position: { line: 0, character: 10 } }).map(l => l.uri), [stdlibBasic]);
+assert(request("textDocument/documentLink", { textDocument }).some(l => l.target === stdlibBasic), "#import strings are links");
+assert(typeof request("jai/source", { uri: stdlibBasic }) === "string", "bundled stdlib files are readable");
+console.log("PASS: real WebAssembly language server (expansions, inlay hints, code actions, format strings, import links)");

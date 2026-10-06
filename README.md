@@ -32,7 +32,7 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 **Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals).
 
 **Tools.**
-- A [language server](docs/compiler/language-server.md) (`jai-lsp`) with diagnostics, type-checked hover and completion, go to definition and rename.
+- A [language server](docs/compiler/language-server.md) (`jai-lsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
 - A [formatter](docs/tools/jaifmt.md) (`jaifmt`), written in Jai, that runs natively and in the browser. Its output is canonical and idempotent, like rustfmt.
 - A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai).
 

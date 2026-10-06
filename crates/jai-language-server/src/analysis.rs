@@ -186,6 +186,8 @@ pub(crate) struct Analysis {
     pub opaque_scopes: Vec<Span>,
     /// Print-family calls with a literal format string.
     pub format_calls: Vec<crate::format::FormatCall>,
+    /// `#load` / `#import` strings.
+    pub links: Vec<crate::links::Link>,
     pub complete: bool,
 }
 
@@ -208,6 +210,7 @@ impl Analysis {
             loads: vec![],
             opaque_scopes: vec![],
             format_calls: vec![],
+            links: vec![],
             complete: false,
         };
         let file = FileId(0);
@@ -254,6 +257,7 @@ impl Analysis {
         }
         result.tokens = converted;
         result.format_calls = crate::format::calls(&tokens, text);
+        result.links = crate::links::links(&tokens);
         result.format_diagnostics(&index, text);
         if nesting(&tokens) > limits.recursive_tokens {
             result.diagnostic(
