@@ -149,6 +149,8 @@ fn host_triple() -> TargetTriple {
 /// them for `sub` recurrences — `a -= b` in a loop of unknown trip count ended with the
 /// accumulators subtracted from each other (4097 + 4*31 came out as -4097). Found by
 /// `tools/jaic-diff.py` on a `tools/jaigen.py` program; see `docs/tools/differential-testing.md`.
+/// Upstream: llvm/llvm-project#201065, fixed in LLVM 23.1.0 and not backported to 22.x. Drop
+/// the flag when jaic moves to LLVM 23.
 fn configure_llvm() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {

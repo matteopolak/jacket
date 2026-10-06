@@ -104,7 +104,7 @@ ignore = ["tests/corpus/**", "generated/*.jai"]
 
 Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more.
 
-**CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check stdlib tests benchmarks tools examples`. The step is advisory (`continue-on-error`, not in the enforcement step) until the repository has been formatted once; then add `steps.jai-format.outcome == 'failure'` to the final step's condition.
+**CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check stdlib tests benchmarks tools examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
 
 **Speed** (Apple M5, including the safety check and compiling the program where it applies):
 

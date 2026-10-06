@@ -113,8 +113,7 @@ jobs:
         id: rule-coverage
         continue-on-error: true
         run: python3 tools/check_rule_coverage.py --list-uncovered
-      # Advisory until the repository's Jai code has been formatted once; then add
-      # `steps.jai-format.outcome == 'failure'` to the enforcement step below.
+      # The repository's Jai code must be formatted (settings: jaifmt.toml).
       - name: Jai format check
         id: jai-format
         continue-on-error: true  # recorded, then enforced by the last step like the other checks

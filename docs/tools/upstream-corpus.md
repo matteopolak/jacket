@@ -77,12 +77,13 @@ project. That driver makes the same test workspace calls. The suite found these 
 - `.FLAG & x.flags` inside `cast(int)`: the inferred member took `int`, not the flags type;
 - `compiler_get_struct_location` (it used to be unsupported): `tests/stdlib/compiler-struct-location.jai`.
 
-Known flake: about one run in five, `TestNestedType` crashes in `array_resize` on a view. The binary
-reader resizes the outer `[..]` array with `initialized = false`, then resizes each element's
-`nums: [] s32`. Our `array_resize` on a view copies and frees the old elements, and here those come
-from recycled heap memory: lldb shows `old.data` holding bytes of the test's own strings. Whether the
-official `array_resize` on a view reads the old contents is not established, so the stdlib is
-unchanged. Rerun the case before treating a `-11` as a regression.
+reflector's readers call `Reset( d, count, initialized = false )` on arrays of structs, then
+resize each element's `[] T` view. Those views are uninitialised memory, so the second resize reads a
+garbage pointer. The official `array_resize` on a view `realloc`s the old data and its default
+allocator doesn't zero memory either, so this is undefined behaviour in reflector itself; it only
+works when the allocator happens to hand out fresh pages. The case's `setup` patches the scratch copy
+to initialise those arrays (`Reset( d, count )`). Without it, `TestNestedType` crashed about one run
+in five.
 
 toml-jai's examples (run by its `tests.jai`) found three more, also fixed:
 
