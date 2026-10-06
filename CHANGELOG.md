@@ -2,8 +2,15 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-06
+
 ### Added
 
+- `jailsp`: macro, `#insert`, `#run` and `#if` expansions on hover and as documents, inlay hints (inferred types, parameter names where parameters share a type, `#run` values), format-string checks and hovers, `#import`/`#load` links, references, rename, signature help, folding, code lenses for polymorph instances, workspace symbols and type definitions.
+- A language tour (`examples/tour/`) that the browser playground opens by default.
+- Fuzzing: cargo-fuzz targets for the lexer, parser, checker, interpreter, generated programs and the language server, with nightly CI and a regression replay on every push.
+- A C ABI check compares the stdlib's hand-written system bindings with the real C headers on every CI host (sizes, alignment, field offsets, constants).
+- `jaic --timings` prints wall time per compile phase; `tools/compile_bench.py` benchmarks compile times on real projects.
 - Native Windows executables (x86-64): `jaic build` on Windows writes `.exe`/`.dll`/`.lib` files using the Microsoft x64 calling convention, linked with clang (or `lld-link`/`link.exe`) against the MSVC runtime. From macOS and Linux, `jaic build file.jai -os windows` cross-compiles with MinGW-w64; `-target <triple>` picks any LLVM triple. The Windows archive now includes the LLVM backend. See `docs/native/windows.md`.
 - Windows on arm64: `jaic build` on an arm64 Windows host writes arm64 executables, DLLs and libraries (MSVC runtime, via clang or `lld-link`), and `jaic build file.jai -os windows -cpu arm64` cross-compiles from macOS and Linux with llvm-mingw (`-target aarch64-pc-windows-msvc` or `aarch64-w64-mingw32` also work). C calls follow AAPCS64 with the Windows variadic rule (every argument of a variadic call in general registers, no float-aggregate treatment). The interpreter there calls C libraries, including variadic ones, and C can call back into interpreted `#c_call` procedures. `Windows.jai` declares the arm64 `CONTEXT`. Releases include a `windows-arm64` archive. `-cpu x64|arm64` is new; `-os windows` alone still means x64 when cross-compiling.
 - Windows runtime: UTF-8 command-line arguments, a crash handler that prints the exception and a backtrace, and `#program_export` procedures exported from DLLs.
@@ -35,6 +42,11 @@
 
 ### Fixed
 
+- `#complete` switches report a missing enum case.
+- A struct member with an undefined type is an error; the struct silently came out empty. Every declared struct is now laid out, as in Jai.
+- Linux arm64 and other system bindings had x86-64 layouts (`stat`, pthread types, `ipc_perm`, signal contexts, `epoll_event` and more), found by the C ABI check.
+- `push_allocator(proc, data)` takes effect.
+- Crashes and hangs found by fuzzing: deep nesting, nested `#assert(`, oversized types and allocations, constant-folding overflow, `using` pointer cycles, unbounded polymorphic recursion and `#insert` recursion, pointer cycles in `#run` values.
 - A top-level `#insert` that builds declarations from a metaprogram-filled `#placeholder` runs once the placeholder is defined (it could be dropped after a failed retry), and a placeholder reached through an import gives way to its definition. Vk-Engine's Editor module checks again.
 - `pointer & int`, `pointer | int` and `pointer ^ int` are defined and keep the pointer type (`cast(u64) p & MASK`).
 - `cast(bool)` of a number, enum or pointer tests for non-zero; it kept the low byte, so `!cast(bool) 2` was true.

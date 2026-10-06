@@ -69,7 +69,7 @@ dependencies = [
 
 [[package]]
 name = "jai-language-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "jaic",
  "serde",
@@ -78,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "jai-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "jai-language-server",
  "jaic",
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "jaic"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "jobserver"
