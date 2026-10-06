@@ -3,6 +3,8 @@
 //!
 //! - A directory stands for the `.jai` files under it; a file for itself.
 //! - Files another listed file `#load`s are compiled as part of it, not on their own.
+//! - A file a module's `module.jai` `#load`s is compiled as part of that module even when only
+//!   the file is listed: as a program of its own, its exported procedures would look unused.
 //! - `module.jai` (and a `.jai` file directly in an import directory, such as the stdlib) is
 //!   a module: it is compiled by importing it from an empty program, and every procedure in
 //!   it is checked, called or not.
@@ -139,6 +141,26 @@ fn module_of(file: &Path, import_dirs: &[PathBuf]) -> Option<Root> {
     })
 }
 
+/// For a file that is not a module entry: the module whose `module.jai` (in the file's directory
+/// or one above it) `#load`s it.
+fn enclosing_module(file: &Path, import_dirs: &[PathBuf]) -> Option<Root> {
+    for dir in file.parent()?.ancestors() {
+        let entry = dir.join("module.jai");
+        if !entry.is_file() {
+            continue;
+        }
+        let entry = canonical(&entry);
+        let mut loaded = BTreeSet::new();
+        loads(&entry, &mut loaded);
+        return if loaded.contains(file) {
+            module_of(&entry, import_dirs)
+        } else {
+            None
+        };
+    }
+    None
+}
+
 /// Roots to compile and the files to report on.
 fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
     let mut listed = BTreeSet::new();
@@ -154,9 +176,14 @@ fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
     let mut roots: Vec<Root> = listed
         .iter()
         .filter(|f| !loaded_by_listed.contains(*f))
-        .map(|f| module_of(f, &import_dirs).unwrap_or_else(|| Root::Program(f.clone())))
+        .map(|f| {
+            module_of(f, &import_dirs)
+                .or_else(|| enclosing_module(f, &import_dirs))
+                .unwrap_or_else(|| Root::Program(f.clone()))
+        })
         .collect();
     roots.sort();
+    roots.dedup();
     let mut report = listed;
     report.extend(loaded_by_listed);
     report.retain(|f| !options.config.excluded(f));

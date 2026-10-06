@@ -308,7 +308,7 @@ Every finding below was checked by hand. Findings that turned out wrong were fix
 
 ## How it works
 
-1. **Plan** (`driver.rs`). Paths become `.jai` files, minus `exclude`. A file that another listed file `#load`s is compiled as part of it. `module.jai`, or a file directly in an import directory, is a module: it is compiled by importing it from an empty program, so every procedure is checked whether or not anything calls it. Anything else is a program.
+1. **Plan** (`driver.rs`). Paths become `.jai` files, minus `exclude`. A file that another listed file `#load`s is compiled as part of it. `module.jai`, or a file directly in an import directory, is a module: it is compiled by importing it from an empty program, so every procedure is checked whether or not anything calls it. A file the `module.jai` of its directory (or one above) `#load`s is compiled as that module even when only the file is listed (`enclosing_module`): compiled as a program, the module's exported procedures would have every caller in view and `unused_parameter` would flag their interface (`stdlib/Compiler/workspace.jai`'s `get_runtime_info(w)` did). Anything else is a program.
 2. **Compile** with lint facts on (`facts::enable` sets `IdeFacts::lint`). On top of the editor facts (`jaic::sema::ide`), the checker then records:
    - each expression's type and constness (`exprs`; marked conflicting when polymorph instances disagree);
    - each cast's source and target types (`casts`);

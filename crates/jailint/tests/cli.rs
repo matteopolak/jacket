@@ -1,5 +1,6 @@
-//! Mistakes on jailint's command line and in `jailint.toml`: each says what is wrong and how to
-//! fix it, and exits with status 2.
+//! jailint from the command line: which files it compiles as what, and mistakes on its command
+//! line and in `jailint.toml`, each of which says what is wrong and how to fix it, and exits
+//! with status 2.
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -101,4 +102,28 @@ fn config_mistakes_name_the_line_and_the_fix() {
         text.contains("error: could not read config `missing.toml`: no such file or directory"),
         "{text}"
     );
+}
+
+#[test]
+fn a_file_a_module_loads_is_checked_as_part_of_the_module() {
+    let dir = scratch("module-part");
+    let module = dir.join("Thing");
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(module.join("module.jai"), "#load \"part.jai\";\n").unwrap();
+    // `get` is exported: its parameter belongs to the module's interface even when unused.
+    std::fs::write(
+        module.join("part.jai"),
+        "get :: (w: int = -1) -> int { return 4; }\n\
+         twice :: () -> int { unused := 1; return get() * 2; }\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
+        .args(["-D", "warnings", "Thing/part.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(!text.contains("unused parameter"), "{text}");
+    assert!(text.contains("unused variable `unused`"), "{text}");
+    assert_eq!(output.status.code(), Some(1), "{text}");
 }
