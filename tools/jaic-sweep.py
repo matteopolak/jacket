@@ -158,9 +158,14 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes):
     """Build `path` natively with `build_flags` and run the executable in the source's directory.
     Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
     an `error:` line first in stderr."""
+    # A case's extra arguments are `jaic run` options; the program's own come after `--`.
+    split = extra.index("--") if "--" in extra else len(extra)
+    jaic_args, program_args = extra[:split], extra[split + 1:]
+    if any(a in jaic_args for a in ("-os", "-cpu", "-target", "--target")):
+        return "", "", NO_EXECUTABLE  # built for another platform
     exe = Path(tempfile.mkdtemp(dir=scratch)) / path.stem
     try:
-        _, err, code = run_limited([jaic, "build", str(path), "-o", str(exe), *build_flags],
+        _, err, code = run_limited([jaic, "build", str(path), "-o", str(exe), *build_flags, *jaic_args],
                                    path.parent, timeout, limit_bytes)
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
@@ -170,7 +175,7 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes):
             return "", f"error: native build failed (exit {code})\n{err}", code
         if not exe.exists():
             return "", "", NO_EXECUTABLE
-        out, err, code = run_limited([str(exe), *extra], path.parent, timeout, limit_bytes)
+        out, err, code = run_limited([str(exe), *program_args], path.parent, timeout, limit_bytes)
         report = sanitizer_report(err)
         if report:
             return out, f"error: sanitizer: {report}\n{err}", code if code != 0 else 1
@@ -199,6 +204,8 @@ def main():
     ap.add_argument("--opt", default="", choices=["", "O0", "O1", "O2", "O3"],
                     help="optimization level of native builds (default: what the program asks for)")
     a = ap.parse_args()
+    # Cases run in their own directory, so a relative path would not resolve there.
+    a.jaic = str(Path(a.jaic).resolve())
     if a.sanitize or a.opt:
         a.native = True
     build_flags = (["-sanitize", a.sanitize] if a.sanitize else []) + ([f"-{a.opt}"] if a.opt else [])
@@ -272,7 +279,7 @@ def main():
     for cid, msg in failed:
         print(f"FAIL {cid}: {msg[:220]}")
     if no_exe:
-        print(f"\nnot run natively (compile-time only or interpreter-only): {', '.join(no_exe)}")
+        print(f"\nnot run natively (compile-time only, interpreter-only or another platform): {', '.join(no_exe)}")
     print(f"\n{passed} passed, {len(failed)} failed" + (f", {len(no_exe)} not run natively" if no_exe else ""))
     # A failing status lets CI use the sweep directly.
     sys.exit(1 if failed else 0)

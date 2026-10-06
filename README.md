@@ -36,6 +36,8 @@ The compiler, language server and formatter also run in the browser through WebA
 | Linux | ✅ | ✅ |
 | Windows | ✅ (MSVC, or cross-built with MinGW-w64 via `-os windows`) | ✅ (MSVC, or cross-built with llvm-mingw via `-os windows -cpu arm64`) |
 
+On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitizer and LLVM's bounds checks ([sanitizers](docs/native/sanitizers.md)); CI runs the test programs that way.
+
 **Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals).
 
 **Tools.**

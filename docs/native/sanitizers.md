@@ -20,7 +20,7 @@ Compile side (`Sanitize` in `crates/jaic-llvm/src/lib.rs`, applied in `emit_modu
 - `undefined`: the `bounds-checking<rt-abort>` function pass (Clang's `-fsanitize=local-bounds`): an access outside an object whose size LLVM can see (an alloca, a global, a `malloc` result) calls `__ubsan_handle_local_out_of_bounds_abort`. At `-O0` every value lives in a stack slot and the pass cannot trace a pointer to its object, so `sroa` runs first.
 - Both: the bounds checks run before `asan`, so ASan does not instrument the checks themselves.
 
-Other UBSan checks are deliberately absent. Clang implements most of them in its front end, not as IR passes, and most do not map to Jai: signed overflow wraps in Jai (overflow checks are the language's own `#no_aoc` machinery, see [arithmetic overflow checks](../language/arithmetic-overflow-checks.md)), shifts and float-to-int conversions are defined (see [LLVM backend](llvm-backend.md#lowering-rules-lowerrs)), and division by zero already traps. An alignment check would flag every `<< cast(*u32) byte_pointer`, which Jai programs use freely, so it would only produce noise.
+Other UBSan checks are deliberately absent. Clang implements most of them in its front end, not as IR passes, and most do not map to Jai: signed overflow wraps in Jai (overflow checks are the language's own `#no_aoc` machinery, see [arithmetic overflow checks](../language/arithmetic-overflow-checks.md)), shifts and float-to-int conversions are defined (see [LLVM backend](llvm-backend.md#lowering-rules-lowerrs)), and division by zero already traps. An alignment check would flag unaligned reads like `<< cast(*u32) byte_pointer`, which Jai programs make on purpose, so it would mostly produce noise.
 
 Link side (`link`): a sanitized build links with a Clang driver from the LLVM install jaic was built against and passes `-fsanitize=address,undefined`, which makes the driver add the runtime (`libclang_rt.asan_osx_dynamic.dylib` on macOS, the static `libclang_rt.asan.a` plus its dynamic-list flags on Linux). The instrumentation and the runtime must come from the same LLVM: Apple's `cc` ships an older runtime and GCC's `libasan` is a different implementation. The driver is found in this order: `JAIC_SANITIZER_CC`; `$LLVM_SYS_221_PREFIX/bin/clang` (at run time, then the value jaic was compiled with); `llvm-config-22 --bindir` / `llvm-config --bindir`; `clang-22` or `clang` on `PATH`.
 
@@ -28,7 +28,9 @@ Jai's `Default_Allocator` calls C `malloc`/`free`, so ASan sees every heap block
 
 ### The sweep
 
-`tools/jaic-sweep.py --sanitize address,undefined corpus stdlib modules` builds every `run` case with `jaic build -sanitize ...` into a scratch directory, runs the executable from the source's directory and applies the same expectation as the interpreter run (exact stdout and exit code for `corpus`, exit 0 otherwise). A case also fails when stderr holds a sanitizer report, whatever its exit code; the report's first line is shown as the failure. `--native` does the same without sanitizers, and `--opt O2` picks the optimization level (default: what the program's metaprogram asks for, usually `-O0`). `check` cases (`negative`) are unchanged.
+`tools/jaic-sweep.py --sanitize address,undefined corpus stdlib modules` builds every `run` case with `jaic build -sanitize ...` into a scratch directory, runs the executable from the source's directory and applies the same expectation as the interpreter run (exact stdout and exit code for `corpus`, exit 0 otherwise). A case also fails when stderr holds a sanitizer report, whatever its exit code; the report's first line is shown as the failure. `--native` does the same without sanitizers, and `--opt O2` picks the optimization level (default: what the program's metaprogram asks for, usually `-O0`). `check` cases (`negative`) are unchanged. A case's extra arguments go to `jaic build` (those after `--` to the executable); a case built for another platform (`-os`, `-cpu`, `-target`) is listed as not run natively.
+
+`examples` and `upstream` run the same way but are not expected to pass in full: some upstream `run` entry points do not fit a native build (a build script linking a Windows-only library, a library the interpreter only finds when loading it at run time, SDL window loops that never exit on their own), and two The_Way_to_Jai examples (`ttwj-10-10.4-dangling-pointers`, `ttwj-18-18.8-array-view-misuse`) read freed memory on purpose to show the bug, which ASan reports.
 
 The sweep sets these runtime options unless they are already in the environment:
 
@@ -38,8 +40,9 @@ The sweep sets these runtime options unless they are already in the environment:
 
 ## How to change it
 
-- Another IR-level sanitizer pass (for example `tysan`): add a field to `Sanitize`, its name to `Sanitize::parse` and `driver_flag`, and its pass to `Sanitize::passes`. Check the pass needs a function attribute (like `sanitize_address`) and add it in `emit_module`.
+- Another IR-level sanitizer pass (for example `tysan`): add a field to `Sanitize`, its name to `Sanitize::parse` and `driver_flag`, and its pass to `Sanitize::passes`. If the pass needs a function attribute (like `sanitize_address`) and add it in `emit_module`.
 - A report from the sweep is a jaic codegen/ABI bug, a stdlib bug or a test bug: fix the cause and add a regression test (`tests/stdlib/*.jai`, or `crates/jaic-cli/tests/native.rs` for code that only misbehaves when compiled). Do not silence a report unless it is proven to be a false positive, and then document why here.
+- A `run` case that cannot work as an executable (it calls into the compiler at run time, like Bindings_Generator) goes in `INTERPRETER_ONLY` in `tools/jaic-sweep.py` with the reason. Programs without `main` (all checks in `#run`) are detected and listed as not run natively; about 30 stdlib and module tests are like that and get no native coverage.
 - Unsupported targets fail early in `check_sanitizer_target`: cross builds (`-os windows`, `-target ...`, wasm) and Windows hosts. Supporting Windows would mean driving `clang-cl /fsanitize=address` and its runtime DLLs; wasm has no ASan runtime.
 - Static libraries and object files (`OutputType.STATIC_LIBRARY`, `.OBJECT_FILE`) come out instrumented but nothing is linked; whoever links them must pass `-fsanitize=...` to a Clang of the same LLVM version.
 
@@ -53,4 +56,4 @@ The sweep sets these runtime options unless they are already in the environment:
 
 ## Dependencies
 
-LLVM 22's `asan` and `bounds-checking` passes (through `inkwell`), and the compiler-rt sanitizer runtimes of the same LLVM: included in Homebrew's `llvm`, `libclang-rt-22-dev` on apt.llvm.org. CI runs the sweep under ASan and UBSan on Linux; see [continuous integration](../tools/continuous-integration.md).
+LLVM 22's `asan` and `bounds-checking` passes (through `inkwell`), and the compiler-rt sanitizer runtimes of the same LLVM: included in Homebrew's `llvm`, `libclang-rt-22-dev` on apt.llvm.org. CI runs the sweep under ASan and UBSan on Linux and macOS, at `-O0` and `-O2`; see [continuous integration](../tools/continuous-integration.md).
