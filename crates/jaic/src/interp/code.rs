@@ -248,6 +248,8 @@ struct Builder<'a> {
     uses: Vec<u32>,
     known: Vec<Known>,
     offsets: Vec<Option<Offset>>,
+    /// The values with an entry in `offsets`, cleared at the end of each block.
+    offset_vals: Vec<u32>,
     ops: Vec<Op>,
     /// The value each op defines, when the op has no other effect (so it can be dropped).
     pure_def: Vec<Option<u32>>,
@@ -297,6 +299,7 @@ pub(super) fn build(func: &ir::Func, frame_offsets: &[u64]) -> Code {
         uses,
         known,
         offsets: vec![None; n],
+        offset_vals: Vec::new(),
         ops: Vec::new(),
         pure_def: Vec::new(),
         block_start_mark: 0,
@@ -310,8 +313,8 @@ pub(super) fn build(func: &ir::Func, frame_offsets: &[u64]) -> Code {
         }
         let end_op = b.end(block);
         // Offsets are only trusted inside the block that computed them.
-        for v in b.offsets.iter_mut() {
-            *v = None;
+        for v in std::mem::take(&mut b.offset_vals) {
+            b.offsets[v as usize] = None;
         }
         blocks.push(CodeBlock {
             start,
@@ -900,6 +903,7 @@ impl Builder<'_> {
                     base: root,
                     off: total,
                 });
+                self.offset_vals.push(dst.0);
             }
             if let Ok(imm) = i32::try_from(x) {
                 self.fold(offset);
