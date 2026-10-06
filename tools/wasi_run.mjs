@@ -2,7 +2,10 @@
 // this process's stdin, stdout, stderr and environment, and exits with the module's exit code.
 // Usage: node --no-warnings tools/wasi_run.mjs module.wasm [args...]
 // Needs node 24 or newer: jaic's modules use 64-bit memory (Memory64).
-// See docs/native/wasm-target.md.
+//
+// A trap (`unreachable`, an out-of-bounds access, a stack overflow) prints `wasm trap: ...` and
+// exits 134, like an abort. A module that imports something the host lacks prints
+// `wasm link error: ...` and exits 127. See docs/native/wasm-target.md.
 import { readFileSync } from 'node:fs';
 import { WASI } from 'node:wasi';
 
@@ -18,5 +21,18 @@ const wasi = new WASI({
   returnOnExit: true,
 });
 const module = await WebAssembly.compile(readFileSync(path));
-const instance = await WebAssembly.instantiate(module, wasi.getImportObject());
-process.exitCode = wasi.start(instance);
+let instance;
+try {
+  instance = await WebAssembly.instantiate(module, wasi.getImportObject());
+} catch (e) {
+  if (!(e instanceof WebAssembly.LinkError)) throw e;
+  console.error(`wasm link error: ${e.message}`);
+  process.exit(127);
+}
+try {
+  process.exitCode = wasi.start(instance);
+} catch (e) {
+  if (!(e instanceof WebAssembly.RuntimeError || e instanceof RangeError)) throw e;
+  console.error(`wasm trap: ${e.message}`);
+  process.exitCode = 134;
+}

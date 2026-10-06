@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Differential testing: run each program through every jaic backend and require the same result.
 
-Usage: tools/jaic-diff.py [--backends interp,native,native-O2,wasm] [--wasm BUNDLE] SET...
+Usage: tools/jaic-diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
 Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (tests/stdlib),
 modules (stdlib/*/tests and stdlib/tests), gen:SEED:COUNT (COUNT programs from tools/jaigen.py starting at
 SEED; reproduce one with `tools/jaigen.py SEED`), or file paths.
@@ -12,6 +12,8 @@ Backends:
   native-O2  the same with -O2
   wasm       the browser engine (crates/jai-wasm in node, tools/jaic_diff_wasm.mjs): the interpreter compiled
              to wasm32, target OS .WASM, sandboxed host
+  wasm-native  `jaic build -os wasm` (LLVM, wasm64 with Wasi_Runtime) run by node's WASI
+             (tools/wasi_run.mjs); only when asked for, it needs wasm-ld and node 24
 
 A result is (status, stdout, stderr). Status is `exit N` or `runtime error` (an interpreter runtime error,
 a native trap or signal: the backends report these differently, so only the fact is compared). stdout must
@@ -28,7 +30,7 @@ _spec = importlib.util.spec_from_file_location("jaic_sweep", ROOT / "tools/jaic-
 sweep = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sweep)
 
-ALL_BACKENDS = ["interp", "native", "native-O2", "wasm"]
+ALL_BACKENDS = ["interp", "native", "native-O2", "wasm", "wasm-native"]
 
 # The wasm engine says so when a program needs a host service the sandbox lacks: these mean
 # "cannot run here", never "ran differently". Source: SandboxHost in crates/jaic/src/interp.
@@ -114,7 +116,7 @@ class Result:
 
 
 def runtime_error_text(err):
-    return "runtime error" in err or "panic" in err.lower()
+    return "runtime error" in err or "panic" in err.lower() or "wasm trap" in err
 
 
 class WasmPool:
@@ -200,10 +202,11 @@ class Runner:
             return Result("compile error", note=err.strip()[:300])
         return self.classify(out, err, code)
 
-    def run_native(self, case, opt):
-        exe = self.work / "bin" / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', case.id)}-{opt}"
+    def run_native(self, case, opt, wasm=False):
+        exe = self.work / "bin" / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', case.id)}-{opt}{'.wasm' if wasm else ''}"
         exe.parent.mkdir(parents=True, exist_ok=True)
-        bout, berr, bcode = self.capped([self.jaic, "build", case.path, "-o", exe, f"-{opt}"], case.path.parent)
+        target = ["-os", "wasm"] if wasm else []
+        bout, berr, bcode = self.capped([self.jaic, "build", case.path, "-o", exe, f"-{opt}", *target], case.path.parent)
         if bcode != 0:
             if bcode == -1:
                 return Result("timeout" if berr == "timeout" else "memory", note=berr)
@@ -216,8 +219,12 @@ class Runner:
             # A metaprogram that takes over the build (its own workspaces, NO_OUTPUT) decides what gets
             # written; the program it compiled is not this executable.
             return Result("unsupported", note="the build wrote no executable at -o (the program's metaprogram controls output)")
-        out, err, code = self.capped([exe, *case.args], case.path.parent)
+        run = ["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", exe] if wasm else [exe]
+        out, err, code = self.capped([*run, *case.args], case.path.parent)
         exe.unlink(missing_ok=True)
+        if wasm and (missing := re.search(r"wasm link error: .*", err)):
+            # The program calls a C function Wasi_Runtime does not provide.
+            return Result("unsupported", note=missing.group(0)[:200])
         r = self.classify(bout + out, berr + err, code)
         if r.status == "runtime error" and COMPILE_TIME_ONLY in err:
             return Result("unsupported", note=err.strip().splitlines()[-1][:200])
@@ -245,6 +252,8 @@ class Runner:
                 results[b] = self.run_native(case, "O0")
             elif b == "native-O2":
                 results[b] = self.run_native(case, "O2")
+            elif b == "wasm-native":
+                results[b] = self.run_native(case, "O0", wasm=True)
             elif b == "wasm":
                 results[b] = Result("unsupported", note="needs program arguments") if case.args else self.wasm.run(case)
             results[b] = self.normalize(case, results[b])
@@ -268,7 +277,7 @@ def verdict(case, results):
         return "invalid"
     with_stderr = all(r.status.startswith("exit") for r in live.values())
     with_output = case.id not in OUTPUT_VARIES
-    keys = {r.key(with_stderr, with_output and not (b == "wasm" and case.target_aware))
+    keys = {r.key(with_stderr, with_output and not (b.startswith("wasm") and case.target_aware))
             for b, r in live.items()}
     if len({k if isinstance(k, str) else k[0] for k in keys}) > 1:
         return "DISAGREE"
@@ -289,7 +298,8 @@ def add_backend_arguments(ap):
 
 
 def chosen_backends(a):
-    backends = a.backends.split(",") if a.backends else [b for b in ALL_BACKENDS if b != "wasm" or a.wasm]
+    backends = a.backends.split(",") if a.backends else [b for b in ALL_BACKENDS
+                                                        if (b != "wasm" or a.wasm) and b != "wasm-native"]
     for b in backends:
         if b not in ALL_BACKENDS:
             sys.exit(f"unknown backend {b}")
