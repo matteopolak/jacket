@@ -1,17 +1,17 @@
 //! Native entry points for interpreted `#c_call` procedures handed to C code (`qsort`
 //! comparators, GLFW and SDL callbacks...).
 //!
-//! A procedure value is a tagged address only the interpreter can call, so when one is passed
-//! to a foreign procedure it is swapped for a thunk: a real C function with the same fixed
-//! prototype `call_as` uses (8 integer and 8 float registers, then stack slots) that unpacks
-//! its arguments the way `call` packs them and re-enters the interpreter. Thunks come in one
-//! family per return shape, each with `SLOTS` entries assigned to procedures on first use.
+//! The value of a `#c_call` procedure is a thunk (`Interp::proc_value`): a real C function with
+//! the same fixed prototype `call_as` uses (8 integer and 8 float registers, then stack slots)
+//! that unpacks its arguments the way `call` packs them and re-enters the interpreter through
+//! its `Gate`, from whichever thread C calls it on. Thunks come in one family per return
+//! shape, each with `SLOTS` entries assigned to procedures on first use.
 //! Windows x64 passes arguments by position instead, which needs its own thunks (`win64.rs`).
 use super::{FF, FFF, FFFF, FI, IF, II, STACK_SLOTS, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::ir::{FuncId, Sig};
 use std::cell::Cell;
-use std::sync::Mutex;
+use std::sync::{Arc, Condvar, Mutex};
 
 #[cfg(all(windows, target_arch = "x86_64"))]
 mod win64;
@@ -20,20 +20,142 @@ mod win64;
 pub type Reenter<'a> = dyn FnMut(FuncId, &[u64]) -> Result<Vec<u64>, String> + 'a;
 
 thread_local! {
-    /// The interpreter suspended in a native call on this thread, which thunks call back into.
-    static REENTER: Cell<Option<*mut Reenter<'static>>> = const { Cell::new(None) };
+    /// Native calls the interpreter has in progress on this thread. A thunk entered while
+    /// this is 0 was called on a thread the interpreter is not waiting on (an audio thread).
+    static CALLING_OUT: Cell<u32> = const { Cell::new(0) };
 }
 
-/// Run `f` (a native call) with `reenter` available to the thunks it may call.
-pub(super) fn with_reenter<T>(reenter: &mut Reenter<'_>, f: impl FnOnce() -> T) -> T {
-    let ptr: *mut Reenter<'_> = reenter;
-    // SAFETY: the pointer is only dereferenced while `f` runs, during which `reenter` is
-    // exclusively borrowed by this frame.
-    let ptr: *mut Reenter<'static> = unsafe { std::mem::transmute(ptr) };
-    let previous = REENTER.with(|r| r.replace(Some(ptr)));
+/// Run `f`, a native call made by the interpreter, on this thread.
+pub(super) fn calling_out<T>(f: impl FnOnce() -> T) -> T {
+    CALLING_OUT.with(|c| c.set(c.get() + 1));
     let out = f();
-    REENTER.with(|r| r.set(previous));
+    CALLING_OUT.with(|c| c.set(c.get() - 1));
     out
+}
+
+/// Whether a callback now starting runs on a thread other than one the interpreter is
+/// suspended on in a native call.
+pub fn on_foreign_thread() -> bool {
+    CALLING_OUT.with(Cell::get) == 0
+}
+
+struct Runner(*mut Reenter<'static>);
+
+// SAFETY: the runner is only called by the thread holding the gate (see `Gate`).
+unsafe impl Send for Runner {
+}
+
+struct GateState {
+    /// Some thread is running interpreted code.
+    busy: bool,
+    /// The interpreter is gone; its callbacks can no longer run.
+    dead: bool,
+    /// How to run a procedure, left by the last thread that released the gate for a native
+    /// call (it stays valid until that thread has the gate again).
+    runner: Option<Runner>,
+}
+
+/// One interpreter's lock: interpreted code runs only on the thread holding it. The
+/// interpreter's own thread holds it from the start and releases it for each native call, so
+/// a thunk called from C, on that thread or on any other, waits until the interpreter is
+/// inside a native call and then runs with the gate held.
+pub struct Gate {
+    state: Mutex<GateState>,
+    cv: Condvar,
+}
+
+impl Gate {
+    /// A gate held by the calling thread.
+    pub fn new() -> Arc<Gate> {
+        Arc::new(Gate {
+            state: Mutex::new(GateState {
+                busy: true,
+                dead: false,
+                runner: None,
+            }),
+            cv: Condvar::new(),
+        })
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, GateState> {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Release the gate for a native call; callbacks run through `runner` until `enter`.
+    pub fn leave(&self, runner: &mut Reenter<'_>) {
+        let runner: *mut Reenter<'_> = runner;
+        // SAFETY: only dereferenced by a thread holding the gate, and the caller takes the
+        // gate back (`enter`) before `runner` goes out of scope.
+        let runner: *mut Reenter<'static> = unsafe { std::mem::transmute(runner) };
+        let mut state = self.lock();
+        state.busy = false;
+        state.runner = Some(Runner(runner));
+        drop(state);
+        self.cv.notify_all();
+    }
+
+    /// Take the gate back after a native call.
+    pub fn enter(&self) {
+        let mut state = self.lock();
+        while state.busy {
+            state = self.cv.wait(state).unwrap_or_else(|e| e.into_inner());
+        }
+        state.busy = true;
+        state.runner = None;
+    }
+
+    /// The interpreter is being dropped.
+    pub fn close(&self) {
+        self.lock().dead = true;
+        self.cv.notify_all();
+    }
+
+    /// Run `f` with the gate held and the current runner.
+    fn run<T>(&self, f: impl FnOnce(&mut Reenter<'_>) -> T) -> T {
+        let runner = {
+            let mut state = self.lock();
+            loop {
+                if state.dead {
+                    drop(state);
+                    fatal("C called a procedure of an interpreter that has finished")
+                }
+                if !state.busy {
+                    break;
+                }
+                state = self.cv.wait(state).unwrap_or_else(|e| e.into_inner());
+            }
+            let Some(runner) = state.runner.take() else {
+                drop(state);
+                fatal("C called an interpreted procedure before the interpreter called C")
+            };
+            state.busy = true;
+            runner
+        };
+        // SAFETY: see `leave`; this thread now holds the gate.
+        let out = f(unsafe { &mut *runner.0 });
+        {
+            let mut state = self.lock();
+            state.busy = false;
+            state.runner = Some(runner);
+        }
+        self.cv.notify_all();
+        out
+    }
+}
+
+/// Free every thunk made for `gate`'s interpreter.
+pub fn release(gate: &Arc<Gate>) {
+    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    for family in table.iter_mut() {
+        for slot in family.iter_mut() {
+            if slot.as_ref().is_some_and(|s| Arc::ptr_eq(&s.gate, gate)) {
+                *slot = None;
+            }
+        }
+    }
+    drop(table);
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    win64::release(gate);
 }
 
 /// Thunks per return shape.
@@ -47,17 +169,24 @@ const SHAPES: usize = 8;
 
 struct Slot {
     program: u64,
+    gate: Arc<Gate>,
     func: FuncId,
     sig: Sig,
     /// x86-64 hidden result pointer: the first integer argument, returned in `rax`.
     sret: bool,
 }
 
-static TABLE: Mutex<[Vec<Slot>; SHAPES]> = Mutex::new([const { Vec::new() }; SHAPES]);
+static TABLE: Mutex<[Vec<Option<Slot>>; SHAPES]> = Mutex::new([const { Vec::new() }; SHAPES]);
 
 /// The C-callable address for interpreted procedure `func` of `program` (an identity for the
-/// program whose function ids these are).
-pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, String> {
+/// program whose function ids these are), run by the interpreter behind `gate`. The same
+/// procedure always gets the same address while that interpreter lives.
+pub fn callback_addr(
+    gate: &Arc<Gate>,
+    program: u64,
+    func: FuncId,
+    sig: &Sig,
+) -> Result<u64, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
     if sig.c_varargs {
         return Err("a variadic procedure cannot be called from C in the interpreter".into());
@@ -65,7 +194,7 @@ pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, Strin
     // The thunks below receive System V / AAPCS64 registers; Microsoft x64 has its own.
     if arch == Arch::Win64 {
         #[cfg(all(windows, target_arch = "x86_64"))]
-        return win64::callback_addr(program, func, sig);
+        return win64::callback_addr(gate, program, func, sig);
         #[cfg(not(all(windows, target_arch = "x86_64")))]
         return Err("Microsoft x64 callbacks need a Windows x64 host".into());
     }
@@ -102,10 +231,11 @@ pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, Strin
     };
     let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
     let slots = &mut table[shape];
-    let k = match slots
-        .iter()
-        .position(|s| s.program == program && s.func == func && s.sig == *sig)
-    {
+    let existing = slots.iter().position(|s| {
+        s.as_ref()
+            .is_some_and(|s| s.program == program && s.func == func && s.sig == *sig)
+    });
+    let k = match existing.or_else(|| slots.iter().position(Option::is_none)) {
         Some(k) => k,
         None if slots.len() == SLOTS => {
             return Err(format!(
@@ -113,15 +243,18 @@ pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, Strin
             ));
         }
         None => {
-            slots.push(Slot {
-                program,
-                func,
-                sig: sig.clone(),
-                sret,
-            });
+            slots.push(None);
             slots.len() - 1
         }
     };
+    // A later interpreter running the same program takes the thunk over.
+    slots[k] = Some(Slot {
+        program,
+        gate: gate.clone(),
+        func,
+        sig: sig.clone(),
+        sret,
+    });
     Ok(thunk_addr(shape, k) as u64)
 }
 
@@ -293,17 +426,16 @@ fn dispatch(
     floats: [u64; 8],
     stack: [u64; STACK_SLOTS],
 ) -> Vec<u64> {
-    let (func, sig, sret) = {
+    let (gate, func, sig, sret) = {
         let table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
-        let slot = &table[shape][k];
-        (slot.func, slot.sig.clone(), slot.sret)
+        let Some(slot) = &table[shape][k] else {
+            drop(table);
+            fatal("C called a procedure of an interpreter that has finished")
+        };
+        (slot.gate.clone(), slot.func, slot.sig.clone(), slot.sret)
     };
-    let Some(reenter) = REENTER.with(Cell::get) else {
-        fatal("C called an interpreted procedure outside a foreign call on its thread")
-    };
-    // SAFETY: set by `with_reenter` on this thread for the native call now in progress.
-    let reenter = unsafe { &mut *reenter };
-    invoke(reenter, func, &sig, sret, ints, floats, stack).unwrap_or_else(|m| fatal(&m))
+    gate.run(|reenter| invoke(reenter, func, &sig, sret, ints, floats, stack))
+        .unwrap_or_else(|m| fatal(&m))
 }
 
 /// Arguments in the order the C ABI assigns them, consumed like `Regs` fills them.

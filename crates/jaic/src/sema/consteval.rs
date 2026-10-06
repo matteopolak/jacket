@@ -3,7 +3,7 @@
 use super::lower::{FnCtx, Operand};
 use super::value::Aggregate;
 use super::*;
-use crate::interp::FUNC_TAG;
+
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};
 
@@ -672,11 +672,10 @@ impl Compiler {
                 if p == 0 {
                     return Ok(Value::Null);
                 }
-                if p & 0xFFFF_0000_0000_0000 == FUNC_TAG {
-                    let func = ir::FuncId((p & 0xFFFF_FFFF) as u32);
-                    if let Some(&proc) = self.func_procs.get(&func) {
-                        return Ok(Value::Proc(proc));
-                    }
+                if let Some(func) = self.interp.func_of(p)
+                    && let Some(&proc) = self.func_procs.get(&func)
+                {
+                    return Ok(Value::Proc(proc));
                 }
                 self.read_aggregate(addr, ty, span)
             }
@@ -802,10 +801,10 @@ impl Compiler {
             TypeKind::Proc(_) => {
                 let p = self.interp.read_u64(addr);
                 agg.bytes[offset as usize..offset as usize + 8].fill(0);
-                if p & 0xFFFF_0000_0000_0000 == FUNC_TAG {
+                if let Some(func) = self.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
                         offset,
-                        target: ir::RelocTarget::Func(ir::FuncId((p & 0xFFFF_FFFF) as u32)),
+                        target: ir::RelocTarget::Func(func),
                         addend: 0,
                     });
                 } else if is_integer_handle(p) {

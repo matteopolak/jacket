@@ -23,6 +23,10 @@ Win32 counterparts on Windows) run in the interpreter on a cooperative scheduler
   scheduler wakes one with a deadlock error.
 - Output order of racing threads is deterministic apart from sleep timing, but differs from a real
   run.
+- Threads C starts itself (an audio render thread calling a `#c_call` procedure) are not scheduler
+  threads: they run the callback when the interpreter's gate is free, between the baton holder's
+  native calls, and cannot block on the scheduler (`block` traps, `yield_now` returns at once). See
+  [callbacks from C](interpreter.md#callbacks-from-c).
 
 ### Win32 (Windows hosts)
 

@@ -5,7 +5,8 @@
 //! in host allocations, and foreign procedures are called natively (or
 //! through `Host` shims where no dynamic linker exists, e.g. wasm). Procedure
 //! values are tagged non-canonical addresses that only the interpreter can
-//! call.
+//! call, except `#c_call` procedures under native linking, whose values are
+//! C-callable thunks (`native/callbacks.rs`).
 #![allow(unsafe_code)]
 
 mod code;
@@ -319,7 +320,31 @@ pub struct Interp {
     frame_blocks: u64,
     frame_insts: u64,
     profile: Option<Box<profile::Counts>>,
+    /// Serializes this interpreter with C calling its `#c_call` procedures back, possibly
+    /// from other threads; made with the first thunk (see `call_native`).
+    gate: Option<std::sync::Arc<native::Gate>>,
+    /// The value of each procedure in interpreted code, by `FuncId` (0 = not decided yet):
+    /// see `proc_value`.
+    proc_values: Vec<u64>,
+    /// Thunk address -> procedure, for every thunk this interpreter made.
+    thunk_funcs: HashMap<u64, FuncId>,
+    /// Value stacks for procedures C calls back, reused.
+    callback_stacks: Vec<Box<[u64]>>,
+    /// Running a procedure C called on a thread the interpreter did not start, which must
+    /// not wait for interpreted threads.
+    foreign_callback: bool,
 }
+
+/// What a thread running interpreted code keeps of `Interp` while another thread has it.
+struct ExecState {
+    stack: Box<[u64]>,
+    sp: u64,
+    depth: usize,
+    loc: Option<(u32, u32, u32)>,
+    trace_loc: Option<Option<(u32, u32, u32)>>,
+    foreign_callback: bool,
+}
+
 
 impl Default for Interp {
     fn default() -> Self {
@@ -367,6 +392,11 @@ impl Interp {
             frame_blocks: 0,
             frame_insts: 0,
             profile: profile::enabled().then(Default::default),
+            gate: None,
+            proc_values: Vec::new(),
+            thunk_funcs: HashMap::default(),
+            callback_stacks: Vec::new(),
+            foreign_callback: false,
         }
     }
 
@@ -420,7 +450,7 @@ impl Interp {
         for r in &global.relocs {
             let target = match r.target {
                 ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
-                ir::RelocTarget::Func(f) => FUNC_TAG | f.0 as u64,
+                ir::RelocTarget::Func(f) => self.proc_value(program, f),
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
             let value = target.wrapping_add(r.addend as u64);
@@ -448,7 +478,7 @@ impl Interp {
         for r in &global.relocs {
             let target = match r.target {
                 ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
-                ir::RelocTarget::Func(f) => FUNC_TAG | f.0 as u64,
+                ir::RelocTarget::Func(f) => self.proc_value(program, f),
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
             let value = target.wrapping_add(r.addend as u64);
@@ -475,7 +505,7 @@ impl Interp {
             for r in &global.relocs {
                 let target = match r.target {
                     ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
-                    ir::RelocTarget::Func(f) => FUNC_TAG | f.0 as u64,
+                    ir::RelocTarget::Func(f) => self.proc_value(program, f),
                     ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
                 };
                 let value = target.wrapping_add(r.addend as u64);
@@ -575,7 +605,16 @@ impl Interp {
             offsets.push(size);
             size += slot.size.max(1);
         }
-        let code = code::build(func, &offsets);
+        // `#c_call` procedures may be thunks (`proc_value`).
+        let native = self.host.native_linking();
+        let late_value = |f: FuncId| {
+            native
+                && program
+                    .funcs
+                    .get(f.0 as usize)
+                    .is_none_or(|g| g.as_ref().is_none_or(|g| g.sig.conv == ir::Conv::C))
+        };
+        let code = code::build(func, &offsets, &late_value);
         let frame = Rc::new(Frame {
             offsets,
             size: size.next_multiple_of(16),
@@ -708,6 +747,7 @@ impl Interp {
         sig: &ir::Sig,
     ) -> Res<Vec<u64>> {
         // `#c_call` procedures handed to C become native thunks that call back in here.
+        // Most already are (`proc_value`); this catches values made before their body was.
         let mut argv = args.to_vec();
         for v in &mut argv {
             if *v & TAG_MASK != FUNC_TAG {
@@ -718,28 +758,134 @@ impl Interp {
                 continue;
             };
             if func.sig.conv == ir::Conv::C {
-                let identity = program as *const Program as u64;
-                *v = native::callback_addr(identity, id, &func.sig).map_err(|m| Trap {
+                *v = self.thunk(program, id, &func.sig).map_err(|m| Trap {
                     message: m,
                     loc: self.loc,
                     ..Trap::default()
                 })?;
             }
         }
+        let trap = |m: String, loc| Trap {
+            message: m,
+            loc,
+            ..Trap::default()
+        };
+        let Some(gate) = self.gate.clone() else {
+            // No thunks exist, so nothing can call back.
+            return native::call(addr, &argv, sig).map_err(|m| trap(m, self.loc));
+        };
         let me: *mut Interp = self;
         let mut reenter = |func: FuncId, args: &[u64]| {
-            // SAFETY: this interpreter is suspended in the native call below; C calls back on
-            // this thread before that call returns.
+            // SAFETY: the thread calling this holds the gate, which this frame released for
+            // the native call below and takes back before `reenter` goes out of scope.
             let interp = unsafe { &mut *me };
-            interp
-                .exec(program, func, args)
-                .map(Rets::into_vec)
-                .map_err(|t| t.message)
+            interp.run_callback(program, func, args)
         };
-        native::call(addr, &argv, sig, &mut reenter).map_err(|m| Trap {
-            message: m,
+        let mine = self.take_exec_state();
+        let loc = mine.loc;
+        gate.leave(&mut reenter);
+        let result = native::call(addr, &argv, sig);
+        gate.enter();
+        self.put_exec_state(mine);
+        result.map_err(|m| trap(m, loc))
+    }
+
+    /// The value of procedure `id` in interpreted code (`FuncAddr`, relocations). A `#c_call`
+    /// procedure is a native thunk wherever the host links natively, so C can call it
+    /// wherever the program stores it (struct fields, globals, arrays); interpreted calls
+    /// through a thunk address are mapped back to the procedure. Anything else is a tagged
+    /// id. A procedure keeps one value for the interpreter's lifetime.
+    fn proc_value(&mut self, program: &Program, id: FuncId) -> u64 {
+        let i = id.0 as usize;
+        if let Some(&v) = self.proc_values.get(i)
+            && v != 0
+        {
+            return v;
+        }
+        let tagged = FUNC_TAG | id.0 as u64;
+        let Some(func) = program.funcs.get(i).and_then(Option::as_ref) else {
+            // Not lowered yet: decide when it is.
+            return tagged;
+        };
+        let value = if func.sig.conv == ir::Conv::C && self.host.native_linking() {
+            // A procedure C cannot call (variadic, `long double`, out of thunks) stays tagged;
+            // passing it to C directly reports why.
+            self.thunk(program, id, &func.sig).unwrap_or(tagged)
+        } else {
+            tagged
+        };
+        if self.proc_values.len() <= i {
+            self.proc_values.resize(i + 1, 0);
+        }
+        self.proc_values[i] = value;
+        value
+    }
+
+    /// A C-callable thunk for `#c_call` procedure `id`.
+    fn thunk(&mut self, program: &Program, id: FuncId, sig: &ir::Sig) -> Result<u64, String> {
+        let gate = self.gate.get_or_insert_with(native::Gate::new).clone();
+        let addr = native::callback_addr(&gate, program as *const Program as u64, id, sig)?;
+        self.thunk_funcs.insert(addr, id);
+        Ok(addr)
+    }
+
+    /// The interpreted procedure a procedure value names: a tagged id, or a thunk this
+    /// interpreter made.
+    pub fn func_of(&self, value: u64) -> Option<FuncId> {
+        if value & TAG_MASK == FUNC_TAG {
+            return Some(FuncId((value & 0xFFFF_FFFF) as u32));
+        }
+        self.thunk_funcs.get(&value).copied()
+    }
+
+    fn take_exec_state(&mut self) -> ExecState {
+        ExecState {
+            stack: std::mem::take(&mut self.stack),
+            sp: self.sp,
+            depth: self.depth,
             loc: self.loc,
-            ..Trap::default()
+            trace_loc: self.trace_loc,
+            foreign_callback: self.foreign_callback,
+        }
+    }
+
+    fn put_exec_state(&mut self, state: ExecState) {
+        self.stack = state.stack;
+        self.sp = state.sp;
+        self.depth = state.depth;
+        self.loc = state.loc;
+        self.trace_loc = state.trace_loc;
+        self.foreign_callback = state.foreign_callback;
+    }
+
+    /// Run `func` for C, on whichever thread now holds the gate: on a value stack of its own,
+    /// since the thread that released the gate keeps its frames.
+    fn run_callback(
+        &mut self,
+        program: &Program,
+        func: FuncId,
+        args: &[u64],
+    ) -> Result<Vec<u64>, String> {
+        let stack = self
+            .callback_stacks
+            .pop()
+            .unwrap_or_else(|| vec![0u64; STACK_SIZE / 8].into_boxed_slice());
+        let outer = self.take_exec_state();
+        self.put_exec_state(ExecState {
+            stack,
+            sp: 0,
+            depth: 0,
+            loc: None,
+            trace_loc: None,
+            foreign_callback: outer.foreign_callback || native::on_foreign_thread(),
+        });
+        let result = self.exec(program, func, args);
+        let mine = self.take_exec_state();
+        self.put_exec_state(outer);
+        self.callback_stacks.push(mine.stack);
+        result.map(Rets::into_vec).map_err(|t| match t.loc {
+            Some((_, line, col)) => format!("{} (line {line}, column {col})", t.message),
+            None => t.message,
         })
     }
 
@@ -1085,7 +1231,7 @@ impl Interp {
             Inst::FuncAddr {
                 dst,
                 func,
-            } => vals[dst.0 as usize] = FUNC_TAG | func.0 as u64,
+            } => vals[dst.0 as usize] = self.proc_value(program, *func),
             Inst::ForeignAddr {
                 dst,
                 foreign,
@@ -1159,7 +1305,11 @@ impl Interp {
                             _ if addr < 4096 => {
                                 return self.trap("null pointer dereference: call through a null procedure pointer");
                             }
-                            _ => self.call_native(program, addr, argv, sig)?.into(),
+                            _ => match self.thunk_funcs.get(&addr) {
+                                // A thunk this interpreter made: no need to go through C.
+                                Some(&f) => self.exec(program, f, argv)?,
+                                None => self.call_native(program, addr, argv, sig)?.into(),
+                            },
                         }
                     }
                 };
@@ -1678,5 +1828,10 @@ impl Interp {
 impl Drop for Interp {
     fn drop(&mut self) {
         self.flush_profile();
+        // Thunks C may still hold now fail with a message instead of running a dead interpreter.
+        if let Some(gate) = self.gate.take() {
+            gate.close();
+            native::release_callbacks(&gate);
+        }
     }
 }

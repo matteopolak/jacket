@@ -461,6 +461,75 @@ fn c_structs_by_value() {
     }
 }
 
+/// `#c_call` procedures C reads from memory instead of its arguments (a struct field, a global, a
+/// `qsort` comparator in a struct), called by C on the interpreter's thread and on threads C
+/// starts, and called back through the stored pointer by Jai code. `jaic run` gives such
+/// procedures native thunk addresses (docs/compiler/interpreter.md). Skipped when no C compiler
+/// is installed.
+#[test]
+fn c_call_procedures_stored_in_memory() {
+    let fixture = repo_root().join("tests/native/c-call-stored");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-call-stored");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["stored.c", "stored.jai"] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let compile = |args: &[&str]| {
+        let mut cc = Command::new(if cfg!(windows) {
+            "clang"
+        } else {
+            "cc"
+        });
+        cc.args(args).current_dir(&dir);
+        cc.output().ok().map(|output| {
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        })
+    };
+    let built = if cfg!(target_os = "macos") {
+        compile(&[
+            "-shared",
+            "-o",
+            "libstored.dylib",
+            "stored.c",
+            "-Wl,-install_name,@rpath/libstored.dylib",
+        ])
+    } else if cfg!(windows) {
+        // One DLL (and its import library) serves both the interpreter and the native build.
+        compile(&["-shared", "stored.c", "-o", "libstored.dll"])
+    } else {
+        compile(&[
+            "-shared",
+            "-fPIC",
+            "-pthread",
+            "-o",
+            "libstored.so",
+            "stored.c",
+        ])
+    };
+    if built.is_none() {
+        eprintln!("skipping: no C compiler");
+        return;
+    }
+    let expected = "115 1006 -9\n21 -4 true true\n[9, 7, 5, 3, 1]\n133\n7 1018 8\n";
+    let output = Command::new(JAIC)
+        .args(["run", "stored.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+    let output = build_and_run(&dir.join("stored.jai"), &dir, "stored").unwrap();
+    assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+}
+
 /// `-sanitize address` reports a use after free with the Jai source line, `-sanitize undefined`
 /// an out-of-bounds stack access, and a correct program runs cleanly under both. Not supported
 /// on Windows.

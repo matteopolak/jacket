@@ -230,10 +230,9 @@ impl Interp {
         start: u64,
         argument: u64,
     ) -> Res<u64> {
-        if start & TAG_MASK != FUNC_TAG {
+        let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
-        }
-        let func = FuncId((start & 0xFFFF_FFFF) as u32);
+        };
         let id = {
             let sched = self.sched();
             sched.threads.push(GThread {
@@ -379,6 +378,10 @@ impl Interp {
 
     /// Let another runnable thread go first.
     pub(super) fn yield_now(&mut self, program: &Program) -> Res<()> {
+        // A callback on a thread of C's keeps the gate until it returns.
+        if self.foreign_callback {
+            return Ok(());
+        }
         let me = self.sched().current;
         self.switch(program, me)
     }
@@ -395,6 +398,11 @@ impl Interp {
     }
 
     fn block(&mut self, program: &Program, reason: Block) -> Res<()> {
+        if self.foreign_callback {
+            return self.trap(
+                "a procedure C called on a thread the interpreter did not start cannot wait for interpreted threads",
+            );
+        }
         let me = self.sched().current;
         self.sched().threads[me].block = reason;
         let switched = self.switch(program, me);

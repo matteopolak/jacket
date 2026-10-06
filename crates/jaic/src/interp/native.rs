@@ -16,7 +16,7 @@ use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::ir::{Sig, Ty};
 
 mod callbacks;
-pub use callbacks::{Reenter, callback_addr};
+pub use callbacks::{Gate, callback_addr, on_foreign_thread, release as release_callbacks};
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod wide;
 #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
@@ -408,19 +408,14 @@ unsafe fn call_as<R>(addr: u64, regs: &Regs) -> R {
 /// Call the C function at `addr`. Arguments are raw IR values classified by `sig`; a
 /// by-value struct argument is a pointer to its memory, and a struct result is written
 /// through the last IR argument (the out-pointer). Interpreted procedures the callee calls
-/// back (see `callback_addr`) run through `reenter`.
+/// back (see `callback_addr`) run through the interpreter's `Gate`.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub fn call(
-    addr: u64,
-    args: &[u64],
-    sig: &Sig,
-    reenter: &mut Reenter<'_>,
-) -> Result<Vec<u64>, String> {
+pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     #[cfg(target_os = "macos")]
-    if let Some(result) = main_thread::forward(addr, args, sig, reenter) {
+    if let Some(result) = main_thread::forward(addr, args, sig) {
         return result;
     }
-    callbacks::with_reenter(reenter, || call_with(addr, args, sig))
+    callbacks::calling_out(|| call_with(addr, args, sig))
 }
 
 /// AppKit only works on the process's main thread, but the interpreter runs on a worker
@@ -553,12 +548,7 @@ pub mod main_thread {
     unsafe impl<T> Send for Carry<T> {
     }
 
-    pub(super) fn forward(
-        addr: u64,
-        args: &[u64],
-        sig: &Sig,
-        reenter: &mut Reenter<'_>,
-    ) -> Option<Result<Vec<u64>, String>> {
+    pub(super) fn forward(addr: u64, args: &[u64], sig: &Sig) -> Option<Result<Vec<u64>, String>> {
         let route = ROUTE.get()?;
         if !ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
             || DISABLED.load(std::sync::atomic::Ordering::SeqCst)
@@ -570,16 +560,14 @@ pub mod main_thread {
             return None;
         }
         let (done_tx, done_rx) = channel();
-        let reenter: *mut Reenter<'_> = reenter;
-        // SAFETY: this frame waits for the job, so the callback outlives its use.
-        let reenter: *mut Reenter<'static> = unsafe { std::mem::transmute(reenter) };
-        let carried = Carry((args as *const [u64], sig as *const Sig, reenter));
+        let carried = Carry((args as *const [u64], sig as *const Sig));
         let job: Job = Box::new(move || {
             let carried = carried;
-            let (args, sig, reenter) = carried.0;
+            let (args, sig) = carried.0;
             // SAFETY: see `Carry`; the caller's borrows outlive this job.
-            let (args, sig, reenter) = unsafe { (&*args, &*sig, &mut *reenter) };
-            let result = callbacks::with_reenter(reenter, || call_with(addr, args, sig));
+            let (args, sig) = unsafe { (&*args, &*sig) };
+            // Callbacks made during the job belong to the waiting worker's call.
+            let result = callbacks::calling_out(|| call_with(addr, args, sig));
             let _ = done_tx.send(Carry(result));
         });
         route.jobs.lock().ok()?.send(job).ok()?;
@@ -847,11 +835,6 @@ fn mask_int(t: Ty, r: u64) -> u64 {
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-pub fn call(
-    _addr: u64,
-    _args: &[u64],
-    _sig: &Sig,
-    _reenter: &mut Reenter<'_>,
-) -> Result<Vec<u64>, String> {
+pub fn call(_addr: u64, _args: &[u64], _sig: &Sig) -> Result<Vec<u64>, String> {
     Err("native foreign calls are not available on this platform".into())
 }

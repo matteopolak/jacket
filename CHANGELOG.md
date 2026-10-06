@@ -20,6 +20,7 @@
 
 ### Fixed
 
+- `jaic run`: a `#c_call` procedure stored in memory C reads (a struct field such as `AURenderCallbackStruct.inputProc` or `WNDCLASSEXW.lpfnWndProc`, a global, an array) is now a real C function pointer, not an interpreter-internal value C crashed calling. C may call it from its own threads (an audio render thread); the call waits until the interpreter is inside a foreign call. Jai code calling the stored pointer, and comparing it with the procedure, still works.
 - `File_Async.initialize_queue` no longer tests the result of `Thread.init` on its condition variables, which returns nothing; any program importing `File_Async` failed to compile.
 
 ## [0.3.0] - 2026-10-06

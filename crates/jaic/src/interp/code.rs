@@ -243,6 +243,9 @@ struct Offset {
 
 struct Builder<'a> {
     func: &'a ir::Func,
+    /// Whether a procedure's value is decided at run time (`Interp::proc_value`), so its
+    /// `FuncAddr` cannot become a constant.
+    late_value: &'a dyn Fn(ir::FuncId) -> bool,
     defs: Vec<u32>,
     /// Uses not folded away yet.
     uses: Vec<u32>,
@@ -257,7 +260,11 @@ struct Builder<'a> {
     block_start_mark: usize,
 }
 
-pub(super) fn build(func: &ir::Func, frame_offsets: &[u64]) -> Code {
+pub(super) fn build(
+    func: &ir::Func,
+    frame_offsets: &[u64],
+    late_value: &dyn Fn(ir::FuncId) -> bool,
+) -> Code {
     let n = func.vals.len();
     let mut defs = vec![0u32; n];
     let mut uses = vec![0u32; n];
@@ -295,6 +302,7 @@ pub(super) fn build(func: &ir::Func, frame_offsets: &[u64]) -> Code {
     }
     let mut b = Builder {
         func,
+        late_value,
         defs,
         uses,
         known,
@@ -563,6 +571,9 @@ impl Builder<'_> {
                     None,
                 );
             }
+            Inst::FuncAddr {
+                func, ..
+            } if (self.late_value)(func) => self.push(slow, None),
             Inst::FuncAddr {
                 dst,
                 func,

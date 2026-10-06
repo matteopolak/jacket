@@ -213,10 +213,9 @@ impl Interp {
     }
 
     fn inline_create(&mut self, out: u64, start: u64, argument: u64) -> Res<u64> {
-        if start & TAG_MASK != FUNC_TAG {
+        let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
-        }
-        let func = FuncId((start & 0xFFFF_FFFF) as u32);
+        };
         let sched = self.isched();
         sched.threads.push(ThreadRec {
             func,
