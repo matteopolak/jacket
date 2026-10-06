@@ -79,3 +79,36 @@ fn plug_hooks_a_plugin_into_check() {
         .unwrap();
     assert_eq!(run.status.code(), Some(2));
 }
+
+/// `--timings` prints one `jaic-timing: <phase> <seconds> <calls>` line per phase (read by
+/// `tools/compile_bench.py`); without it nothing is printed.
+#[test]
+fn timings_report_phases() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-timings");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("timed.jai");
+    std::fs::write(&source, "main :: () {}\n").unwrap();
+    let stderr = |extra: &[&str]| {
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        String::from_utf8_lossy(&output.stderr).into_owned()
+    };
+    let report = stderr(&["--timings"]);
+    for phase in ["front end", "workspaces", "total"] {
+        let line = report
+            .lines()
+            .find(|l| l.starts_with(&format!("jaic-timing: {phase} ")))
+            .unwrap_or_else(|| panic!("no {phase} line in {report}"));
+        let fields: Vec<&str> = line.rsplitn(3, ' ').collect();
+        assert!(
+            fields[1].parse::<f64>().is_ok() && fields[0] == "1",
+            "{line}"
+        );
+    }
+    assert!(!stderr(&[]).contains("jaic-timing"));
+}

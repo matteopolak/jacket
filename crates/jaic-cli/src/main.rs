@@ -7,6 +7,52 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
 
+/// `--timings`: wall time per compiler phase, printed to stderr when the command ends.
+mod timings {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    static ENABLED: AtomicBool = AtomicBool::new(false);
+    /// Phases in first-seen order; a phase that runs more than once (one backend call per
+    /// workspace) accumulates.
+    static PHASES: Mutex<Vec<(&'static str, Duration, u32)>> = Mutex::new(Vec::new());
+
+    pub fn enable() {
+        ENABLED.store(true, Ordering::Relaxed);
+    }
+
+    /// Run `f`, adding its wall time to `phase`.
+    pub fn time<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
+        if !ENABLED.load(Ordering::Relaxed) {
+            return f();
+        }
+        let start = Instant::now();
+        let result = f();
+        let elapsed = start.elapsed();
+        let mut phases = PHASES.lock().unwrap();
+        match phases.iter_mut().find(|(name, ..)| *name == phase) {
+            Some((_, total, count)) => {
+                *total += elapsed;
+                *count += 1;
+            }
+            None => phases.push((phase, elapsed, 1)),
+        }
+        result
+    }
+
+    /// One `jaic-timing: <phase> <seconds> <calls>` line per phase (tools/compile_bench.py
+    /// parses them).
+    pub fn report() {
+        if !ENABLED.load(Ordering::Relaxed) {
+            return;
+        }
+        for (name, total, count) in PHASES.lock().unwrap().iter() {
+            eprintln!("jaic-timing: {name} {:.6} {count}", total.as_secs_f64());
+        }
+    }
+}
+
 fn stdlib_dir() -> PathBuf {
     jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
 }
@@ -41,6 +87,7 @@ fn usage() -> ExitCode {
     eprintln!(
         "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
     );
+    eprintln!("       --timings (any command): wall time per phase on stderr");
     ExitCode::from(2)
 }
 
@@ -75,6 +122,8 @@ struct Cli {
     plugin_options: Vec<String>,
     /// `-target`: an explicit LLVM target triple (`x86_64-pc-windows-msvc`...).
     target: Option<String>,
+    /// `--timings`: report the wall time of each phase on stderr.
+    timings: bool,
 }
 
 impl Cli {
@@ -143,6 +192,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         target: None,
         plugins: Vec::new(),
         plugin_options: Vec::new(),
+        timings: false,
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -174,6 +224,7 @@ fn parse(args: &[String]) -> Option<Cli> {
                 })
             }
             "-target" | "--target" => cli.target = Some(rest.next()?.clone()),
+            "--timings" => cli.timings = true,
             "-o" if command == Command::Build => cli.output = Some(PathBuf::from(rest.next()?)),
             "--emit-ir" if command == Command::Build => {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
@@ -225,7 +276,11 @@ fn main() -> ExitCode {
 }
 
 fn run(cli: Cli) -> ExitCode {
-    let code = compile_and_run(cli);
+    if cli.timings {
+        timings::enable();
+    }
+    let code = timings::time("total", || compile_and_run(cli));
+    timings::report();
     // Interpreters flush their `JAIC_PROFILE` counts when dropped, which has happened by now.
     if let Some(report) = jaic::interp::profile::report(40) {
         eprint!("{report}");
@@ -303,16 +358,18 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     }
     compiler.attach_workspaces(workspaces.clone());
     let compiled = if cli.plugins.is_empty() {
-        compiler.compile_program(&path)
+        timings::time("front end", || compiler.compile_program(&path))
     } else {
         let source = plugin_metaprogram(&cli, &path);
-        compiler.compile_sources(&[ProgramSource::String(source)])
+        timings::time("front end", || {
+            compiler.compile_sources(&[ProgramSource::String(source)])
+        })
     };
     if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
         return ExitCode::from(1);
     }
-    if let Err(message) = jaic::build::finish_all(&workspaces) {
+    if let Err(message) = timings::time("workspaces", || jaic::build::finish_all(&workspaces)) {
         eprintln!("error: {message}");
         return ExitCode::from(1);
     }
@@ -324,11 +381,13 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Command::Check => ExitCode::SUCCESS,
         Command::Run => {
             // The sandbox's memory is virtual; host-allocated argv strings are not visible there.
-            let outcome = if sandbox.is_some() {
-                compiler.run_program()
-            } else {
-                compiler.run_program_with_args(&cli.program_args)
-            };
+            let outcome = timings::time("run", || {
+                if sandbox.is_some() {
+                    compiler.run_program()
+                } else {
+                    compiler.run_program_with_args(&cli.program_args)
+                }
+            });
             if let Some(host) = &sandbox {
                 use std::io::Write;
                 let host = host.borrow();
@@ -420,7 +479,7 @@ fn build(
     if let Some(level) = cli.opt_level {
         settings.optimization = level.into();
     }
-    compiler.prepare_compiled_output();
+    timings::time("prepare output", || compiler.prepare_compiled_output());
     native_backend(cli).write_output(&compiler.program, &settings, &output)
 }
 
@@ -522,11 +581,15 @@ impl OutputBackend for LlvmBackend {
             settings.output_type,
             OutputType::ObjectFile | OutputType::NoOutput
         ) {
-            return jaic_llvm::emit_object(program, &options, &object);
+            return timings::time("codegen", || {
+                jaic_llvm::emit_object(program, &options, &object)
+            });
         }
-        let objects = jaic_llvm::emit_objects(program, &options, &object)?;
+        let objects = timings::time("codegen", || {
+            jaic_llvm::emit_objects(program, &options, &object)
+        })?;
         let libraries = jaic_llvm::used_libraries(program);
-        let linked = match settings.output_type {
+        let linked = timings::time("link", || match settings.output_type {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
             OutputType::Executable | OutputType::DynamicLibrary => jaic_llvm::link(
                 &objects,
@@ -537,13 +600,13 @@ impl OutputBackend for LlvmBackend {
                 target,
             ),
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
-        };
+        });
         // macOS linkers leave DWARF in the objects; collect it into `output.dSYM` before they go.
         if debug_info
             && linked.is_ok()
             && target.map_or(cfg!(target_os = "macos"), |t| t.contains("apple"))
             && settings.output_type != OutputType::StaticLibrary
-            && let Err(message) = jaic_llvm::write_dsym(output)
+            && let Err(message) = timings::time("debug info", || jaic_llvm::write_dsym(output))
         {
             eprintln!("warning: {message}");
         }
