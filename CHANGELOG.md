@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-06
+
 ### Added
 
 - CI type-checks every stdlib module with `-no_dce` for linux, macos, windows and wasm (`crates/jaic-cli/tests/stdlib_targets.rs`, expectations in `tests/stdlib-targets.txt`), so a type error in code for another platform or in a procedure nothing calls fails the build. See `docs/tools/stdlib-target-check.md`.
