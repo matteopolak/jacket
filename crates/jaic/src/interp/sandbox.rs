@@ -42,9 +42,56 @@ pub struct SandboxFs {
     files: BTreeMap<String, Vec<u8>>,
     dirs: BTreeSet<String>,
     removed: HashSet<String>,
+    /// Inode numbers given out by `link`, which the linked names share; other files' numbers
+    /// come from their paths.
+    inodes: HashMap<String, u64>,
+    /// Modification times: every change of a file advances a virtual clock by one second.
+    mtimes: HashMap<String, u64>,
+    clock: u64,
 }
 
+/// The modification time of a file the program has not changed.
+const BASE_MTIME: u64 = 1_700_000_000;
+
 impl SandboxFs {
+    fn inode(&self, path: &str) -> u64 {
+        if let Some(&inode) = self.inodes.get(path) {
+            return inode;
+        }
+        // FNV-1a, kept clear of the numbers `link` hands out.
+        let hash = path.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+        });
+        hash | 1 << 63
+    }
+
+    /// `path` was created, written or truncated: stamp it, and give its other names (hard
+    /// links) the same contents.
+    fn changed(&mut self, path: &str) {
+        self.clock += 1;
+        let stamp = BASE_MTIME + self.clock;
+        let inode = self.inode(path);
+        let peers: Vec<String> = self
+            .inodes
+            .iter()
+            .filter(|(p, i)| **i == inode && p.as_str() != path)
+            .map(|(p, _)| p.clone())
+            .collect();
+        if let Some(data) = self.files.get(path).cloned() {
+            for peer in peers {
+                self.mtimes.insert(peer.clone(), stamp);
+                self.files.insert(peer, data.clone());
+            }
+        }
+        self.mtimes.insert(path.to_string(), stamp);
+    }
+
+    /// `path` no longer names a file (its other names keep the contents).
+    fn forget(&mut self, path: &str) {
+        self.inodes.remove(path);
+        self.mtimes.remove(path);
+    }
+
     fn exists_file(&self, path: &str) -> bool {
         if self.files.contains_key(path) {
             return true;
@@ -181,6 +228,8 @@ pub struct SandboxHost {
     streams: HashMap<u64, i64>,
     dirs: HashMap<u64, DirStream>,
     errno_cell: u64,
+    /// `strerror` results by error number; they stay valid for the whole run, like libc's.
+    error_texts: HashMap<u64, u64>,
 }
 
 impl SandboxHost {
@@ -238,6 +287,7 @@ impl SandboxHost {
             self.fs.load(&path);
             if flags & O_TRUNC != 0 && writable {
                 self.fs.files.insert(path.clone(), Vec::new());
+                self.fs.changed(&path);
             }
         } else if flags & O_CREAT != 0 {
             if !self.parent_exists(&path) {
@@ -245,6 +295,7 @@ impl SandboxHost {
             }
             self.fs.removed.remove(&path);
             self.fs.files.insert(path.clone(), Vec::new());
+            self.fs.changed(&path);
         } else {
             return Err(ENOENT);
         }
@@ -312,6 +363,8 @@ impl SandboxHost {
         }
         data[file.pos..end].copy_from_slice(bytes);
         file.pos = end;
+        let path = file.path.clone();
+        self.fs.changed(&path);
         Some(bytes.len())
     }
 
@@ -339,6 +392,12 @@ impl SandboxHost {
     }
 
     fn fill_stat(&self, path: &str, out: u64) -> Result<(), u64> {
+        let links = 1 + self
+            .fs
+            .inodes
+            .iter()
+            .filter(|(p, i)| **i == self.fs.inode(path) && p.as_str() != path)
+            .count() as u64;
         let (mode, size) = if self.fs.is_dir(path) {
             (S_IFDIR | 0o755, 4096)
         } else if self.fs.exists_file(path) {
@@ -365,12 +424,14 @@ impl SandboxHost {
                     width,
                 )
             };
-            put(16, 1, 8); // st_nlink
+            put(0, 1, 8); // st_dev
+            put(8, self.fs.inode(path), 8); // st_ino
+            put(16, links, 8); // st_nlink
             put(24, mode as u64, 4);
             put(48, size as u64, 8);
             put(56, 4096, 8); // st_blksize
             put(64, (size as u64).div_ceil(512), 8); // st_blocks
-            let mtime = 1_700_000_000u64;
+            let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
             for off in [72, 88, 104] {
                 put(off, mtime, 8);
             }
@@ -704,6 +765,35 @@ impl Host for SandboxHost {
             | "pthread_mutex_destroy" => 0,
             "isatty" => 0,
             "getenv" => 0,
+            "strerror" => {
+                let code = arg(0) as u32 as u64;
+                if let Some(&text) = self.error_texts.get(&code) {
+                    return Some(Ok(vec![text]));
+                }
+                let message = match code {
+                    0 => "Success".to_string(),
+                    ENOENT => "No such file or directory".to_string(),
+                    EBADF => "Bad file descriptor".to_string(),
+                    EEXIST => "File exists".to_string(),
+                    ENOTDIR => "Not a directory".to_string(),
+                    EISDIR => "Is a directory".to_string(),
+                    EINVAL => "Invalid argument".to_string(),
+                    ENOTEMPTY => "Directory not empty".to_string(),
+                    other => format!("Unknown error {other}"),
+                };
+                let text = self.alloc(message.len() + 1);
+                if text != 0 {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            message.as_ptr(),
+                            text as *mut u8,
+                            message.len(),
+                        )
+                    };
+                    self.error_texts.insert(code, text);
+                }
+                text
+            }
             "wasm_debug_break" => return Some(Err("debug_break() was called".into())),
             "nanosleep" => {
                 // struct timespec { tv_sec; tv_nsec }: sleeping only moves the virtual clock.
@@ -795,7 +885,10 @@ impl Host for SandboxHost {
                 value as i64 as u64
             }
             "__errno_location" => {
-                self.set_errno(0);
+                // The cell keeps the last error: reading it must not clear it.
+                if self.errno_cell == 0 {
+                    self.errno_cell = self.alloc(8);
+                }
                 self.errno_cell
             }
             "getcwd" => {
@@ -1011,6 +1104,7 @@ impl Host for SandboxHost {
                 }
                 if self.fs.exists_file(&path) {
                     self.fs.files.remove(&path);
+                    self.fs.forget(&path);
                     self.fs.removed.insert(path);
                     0
                 } else {
@@ -1022,6 +1116,15 @@ impl Host for SandboxHost {
                 if self.fs.exists_file(&from) {
                     self.fs.load(&from);
                     let data = self.fs.files.remove(&from).unwrap_or_default();
+                    // The file keeps its identity and time under the new name.
+                    let inode = self.fs.inode(&from);
+                    let stamp = self.fs.mtimes.get(&from).copied();
+                    self.fs.forget(&from);
+                    self.fs.forget(&to);
+                    self.fs.inodes.insert(to.clone(), inode);
+                    if let Some(stamp) = stamp {
+                        self.fs.mtimes.insert(to.clone(), stamp);
+                    }
                     self.fs.removed.insert(from);
                     self.fs.removed.remove(&to);
                     self.fs.files.insert(to, data);
@@ -1039,8 +1142,16 @@ impl Host for SandboxHost {
                 } else if self.fs.exists_file(&to) {
                     self.set_errno(EEXIST)
                 } else {
+                    // A second name for the same file: writes through either show in both.
                     self.fs.load(&from);
                     let data = self.fs.files.get(&from).cloned().unwrap_or_default();
+                    let inode = self.fs.inode(&from);
+                    self.fs.inodes.insert(from.clone(), inode);
+                    self.fs.inodes.insert(to.clone(), inode);
+                    let stamp = self.fs.mtimes.get(&from).copied();
+                    if let Some(stamp) = stamp {
+                        self.fs.mtimes.insert(to.clone(), stamp);
+                    }
                     self.fs.removed.remove(&to);
                     self.fs.files.insert(to, data);
                     0
