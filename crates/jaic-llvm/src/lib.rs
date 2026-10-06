@@ -527,7 +527,16 @@ pub fn link(
         render_link_arg(&mut cmd, &arg, msvc_style);
     }
     cmd.args(extra_args);
-    let out = cmd.output().map_err(|e| linker_not_run(&program, &e))?;
+    let install = if cfg!(target_os = "macos") {
+        "install the Xcode command line tools (`xcode-select --install`), or name a linker with the JAIC_LINKER environment variable"
+    } else if cfg!(windows) {
+        "install LLVM (clang) or the Visual Studio build tools, or name a linker with the JAIC_LINKER environment variable"
+    } else {
+        "install a C compiler (clang or gcc, e.g. `apt install clang`), or name a linker with the JAIC_LINKER environment variable"
+    };
+    let out = cmd
+        .output()
+        .map_err(|e| linker_not_run(&program, &e, install))?;
     if out.status.success() {
         Ok(())
     } else {
@@ -536,20 +545,14 @@ pub fn link(
 }
 
 /// The error for a linker that could not be started, with how to get one.
-pub fn linker_not_run(program: &str, e: &std::io::Error) -> String {
+/// The error for a linker that could not be started; `install` says how to get one.
+pub fn linker_not_run(program: &str, e: &std::io::Error, install: &str) -> String {
     if e.kind() != std::io::ErrorKind::NotFound {
         return format!("could not run the linker `{program}`: {e}");
     }
-    let install = if cfg!(target_os = "macos") {
-        "install the Xcode command line tools (`xcode-select --install`)"
-    } else if cfg!(windows) {
-        "install LLVM (clang) or the Visual Studio build tools"
-    } else {
-        "install a C compiler (clang or gcc, e.g. `apt install clang`)"
-    };
     format!(
         "could not find the linker `{program}`, which `jaic build` uses to write executables\n\
-         help: {install}, or name a linker with the JAIC_LINKER environment variable\n\
+         help: {install}\n\
          help: `jaic run` needs no linker: it runs the program in the interpreter"
     )
 }

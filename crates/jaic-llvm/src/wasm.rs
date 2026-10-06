@@ -60,7 +60,7 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     let program = wasm_ld.display().to_string();
     let out = cmd
         .output()
-        .map_err(|e| crate::linker_not_run(&program, &e))?;
+        .map_err(|e| crate::linker_not_run(&program, &e, WASM_LD_INSTALL))?;
     if out.status.success() {
         Ok(())
     } else {
@@ -93,11 +93,14 @@ pub fn find_wasm_ld() -> Result<PathBuf, String> {
     if let Some(program) = std::env::var_os("JAIC_WASM_LD") {
         return Ok(PathBuf::from(program));
     }
-    find_llvm_tool("wasm-ld").map(PathBuf::from).ok_or_else(|| {
-        "wasm-ld not found: install LLD (Homebrew `lld`, Debian `lld-23`) or set JAIC_WASM_LD"
-            .to_string()
-    })
+    find_llvm_tool("wasm-ld")
+        .map(PathBuf::from)
+        .ok_or_else(|| format!("wasm-ld not found: {WASM_LD_INSTALL}"))
 }
+
+/// How to get `wasm-ld`.
+const WASM_LD_INSTALL: &str =
+    "install LLD (Homebrew `lld`, Debian `lld-23`) or set JAIC_WASM_LD to its path";
 
 /// An LLVM tool (`wasm-ld`, `llvm-ar`) from the LLVM or LLD installs jaic knows about.
 pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
