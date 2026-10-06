@@ -2,9 +2,9 @@
 
 ## What it is
 
-Coverage-guided fuzzing of the compiler with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (libFuzzer). The targets in `fuzz/` feed generated input to the lexer, parser, the whole front end with the real stdlib, the interpreter and the language server, and treat every panic, abort, stack overflow, hang and runaway allocation as a bug: bad input must produce a diagnostic, never a crash.
+Coverage-guided fuzzing of the compiler with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (libFuzzer). The targets in `fuzz/` feed generated input to the lexer, parser, the whole front end with the real stdlib, the interpreter, the language server and the `jaifmt` formatter, and treat every panic, abort, stack overflow, hang and runaway allocation as a bug: bad input must produce a diagnostic, never a crash.
 
-Fuzzing looks for crashes. Wrong output is the job of [differential testing](differential-testing.md): `tools/jaigen.py` generates programs whose behaviour is fully defined, and `tools/jaic-diff.py` requires the interpreter, the native builds at `-O0` and `-O2`, and the browser engine to print the same thing for each one. The `generated` target below aims for programs that compile (and sometimes not); jaigen aims for programs that run to the end with a checked result.
+Fuzzing looks for crashes, plus one round-trip property: `jaifmt` must not change what a program means. Wrong output is the job of [differential testing](differential-testing.md): `tools/jaigen.py` generates programs whose behaviour is fully defined, and `tools/jaic-diff.py` requires the interpreter, the native builds at `-O0` and `-O2`, and the browser engine to print the same thing for each one. The `generated` target below aims for programs that compile (and sometimes not); jaigen aims for programs that run to the end with a checked result.
 
 ## How it works
 
@@ -24,12 +24,14 @@ The harnesses call library entry points directly. Nothing on these paths uses `c
 | `generated` | bytes chosen by `arbitrary` | `harness::generate::program` renders a Jai program, then as `interp` |
 | `lsp` | bytes as a document | `jai_language_server::Session` with the playground environment: diagnostics, symbols, semantic tokens, hover and definition at ~60 offsets, completion at 4, then an edit and the same again |
 | `lsp_json` | newline-separated JSON-RPC | `JsonSession::handle_json` after an `initialize` handshake (non-UTF-8 input goes to the frame decoder instead) |
+| `lsp_edits` | a document, then optionally a NUL and script bytes | a `Session` with two open documents driven by up to 24 random steps (`harness/src/lsp_edits.rs`): incremental and whole-document edits, every request at random positions, close and reopen |
+| `jaifmt` | bytes as a Jai file | `Jai_Format` under the playground interpreter, twice, checked against the compiler's lexer and parser (`harness/src/jaifmt.rs`) |
 
 ### Sandboxing
 
 Compile-time execution and `main` run through the browser playground's sandbox, the same one `jaic run -os wasm` uses: target OS/CPU `wasm`, the stdlib from an in-memory file system, and `SandboxHost`, a small in-memory libc with no dynamic linker, real files, network or clock. `BLOCK_BUDGET` (2M interpreter basic blocks per input) stops infinite loops in `#run` and `main` with an "execution budget exhausted" diagnostic. Any hang that is left is in the compiler itself.
 
-Compiling harnesses (`check`, `interp`, `generated`, `lsp`, `lsp_json`) run on a 256 MiB thread, the stack the wasm build links with. The native CLI and `jailsp` use 1 GiB. `lexer` and `parser` run on libFuzzer's main thread (8 MiB).
+Compiling harnesses (`check`, `interp`, `generated`, `lsp`, `lsp_json`, `lsp_edits`, `jaifmt`) run on a 256 MiB thread, the stack the wasm build links with. The native CLI and `jailsp` use 1 GiB. `lexer` and `parser` run on libFuzzer's main thread (8 MiB).
 
 The interpreter uses real memory, so a mutated program that builds a pointer from an integer and writes through it can crash the fuzzer process. That is the program's bug, not the compiler's. Before treating a `SEGV` in `interp`/`check` as a compiler bug, check whether the input forms a pointer itself (`cast(*T)`, `xx`, `---`, pointer arithmetic). The generator never emits these forms.
 
@@ -38,6 +40,24 @@ The interpreter uses real memory, so a mutated program that builds a pointer fro
 Random bytes rarely get past the parser. `harness/src/generate.rs` reads the fuzzer's bytes through `arbitrary::Unstructured` and uses them to choose productions of a small typed grammar: enums (`enum`, `enum u8`, `enum_flags`, explicit values), structs (`using` bases, defaults, `#place`), a polymorphic struct `Box(T)`, procedures with typed parameters and returns, polymorphic procedures (`$T`), `#expand` macros (with `Code` arguments and backticks), constants (`#run` initializers), globals, `#if`/`else` declarations and `#run` blocks. `main` calls every procedure, because sema is demand-driven and checks only what is reachable. The generator tracks the locals in scope and builds expressions of a requested type, so about 70% of programs compile cleanly. One program in eight is a "chaos" program that sometimes uses a value of the wrong type, which keeps the error paths covered.
 
 One top-level declaration in eleven is an "edge" production (`edge_decl`): a shape that crashed the compiler before, filled with numbers from the input (`0`, `-1`, powers of two up to `1 << 62`, `i64::MAX`, small negatives). These shapes are polymorphic struct and `$N` procedure recursion, `using` pointer cycles with `#align`, self-inserting strings, a cyclic `#run` pointer ring, nested huge arrays, `#no_padding` structs, shift/divide constant arithmetic, out-of-range enum values, `cast(Type) n`, distinct type cycles and inserted strings. `main` names each one with `type_of`, so sema reaches it.
+
+### Edit scripts (`lsp_edits`)
+
+`lsp` queries one document and applies one edit; an editor sends long runs of small edits, each answered while the text is half-typed. `lsp_edits` reads the input as a document, a NUL byte and a script. Plain Jai seeds have no NUL, so their script comes from a hash of the text, and every seed still drives edits. The script is read through `arbitrary::Unstructured`: each step is an edit (1-3 ranged changes in one notification, now and then with a stale version, or a whole-document replacement), a request (hover, definition, type definition, references, highlights, prepare-rename and rename with valid and invalid names, signature help, completion, expansion, polymorphs, code actions, inlay hints, symbols, semantic tokens, folding ranges, code lenses, links, workspace symbols) or a close with an optional reopen. Positions are mostly on existing lines but include offsets past the line end, inside a surrogate pair (the snippets insert `𝄞`), past the last line and `u32::MAX`; ranges are sometimes reversed. A second document (`b.jai`, the first half of the input) gets a fifth of the steps. Every result is ignored: errors are fine, panics are not.
+
+### Formatter round trip (`jaifmt`)
+
+`jaifmt` is a Jai program, so the target runs it the way the browser does: the playground compiles a small driver (embedded in `harness/src/jaifmt.rs`) against the bundled stdlib and interprets it. The driver reads the input and a `jaifmt.toml` from the sandbox, formats the input, formats the result again and reports by exit code. A hash of the input picks one of four configs (default, 2-space with `case_indent = 0`, `brace_style = "preserve"` with no blank lines, 8-space). Compiling the driver and formatting an input take about 30 ms, so the target gets tens of executions per second per worker.
+
+The harness panics (a finding) when:
+
+- the formatter's own token check fails ("internal error"), or it refuses its own output;
+- the second pass changes the text (not idempotent);
+- `jaic::lexer` lexes the output to a different token sequence than the input;
+- the input parses with `jaic::parser` and the output does not, or the two syntax trees differ. Trees are compared through their `Debug` text with span offsets and `AstId`s blanked, so line breaks the parser looks at (`newline_before`) are covered;
+- the driver runs out of its interpreter budget (`FORMAT_BUDGET`): formatting is linear, so that is a hang.
+
+Input the formatter refuses (it does not lex, or brackets do not balance) is not a finding. The seeds include `corpus/upstream` when it is checked out: third-party code nobody formatted with jaifmt.
 
 ### Corpora and dictionary
 
@@ -52,7 +72,7 @@ fuzz/run.sh check 1200 4      # target, seconds, parallel workers
 fuzz/run.sh lexer 600
 ```
 
-`run.sh` seeds an empty corpus, builds without a sanitizer but with debug assertions (arithmetic overflow panics), and runs libFuzzer in fork mode. Crashes, timeouts and OOMs are collected in `fuzz/artifacts/<target>/` without stopping the run. Per-target limits: `-max_len` 16 KiB (lexer/parser), 8 KiB (compiling targets), 4 KiB (LSP); `-timeout` 5/10/20 s; `-rss_limit_mb=4096`.
+`run.sh` seeds an empty corpus, builds without a sanitizer but with debug assertions (arithmetic overflow panics), and runs libFuzzer in fork mode. Crashes, timeouts and OOMs are collected in `fuzz/artifacts/<target>/` without stopping the run. Per-target limits: `-max_len` 16 KiB (lexer/parser), 8 KiB (compiling targets and `jaifmt`), 4 KiB (LSP targets); `-timeout` 5/10/20 s (`jaifmt` 20 s); `-rss_limit_mb=4096`.
 
 ASan is off on purpose. The compiler is safe Rust apart from the interpreter's program memory, and the interpreted program's own raw memory use (which ASan would flag) is not a compiler bug.
 
@@ -102,13 +122,17 @@ These explain the limits listed under Configuration; each has a regression test.
 - **Compile-time images:** every struct's default value was built in memory at the struct's full size, so a legal struct of 2^48 bytes with all-zero defaults aborted the compiler. The LSP target found this. Default images are now built only when a field has a nonzero default. Constants, initializers and default images over `MAX_IMAGE` are a diagnostic.
 - **Constant folding:** `i64::MIN / -1`, `% -1`, negation and negative shift amounts overflowed or panicked.
 - **Unbounded compile-time recursion:** polymorphic recursion (each instance creating a new one), a string that `#insert`s itself, and `using` pointer cycles in member lookup. These are now capped by `MAX_INSTANCES`, `MAX_INSERT_DEPTH` and a visited set.
+- **Formatter:** a directive at the very start of a file had its flags spaced (`#library,link_always` became `#library, link_always`, which the parser no longer reads as flags), because `directive_zone` marked token 0 only after reading it. The formatter's own token check uses the same zones, so only the compiler's parser could see it (`jaifmt` target, on `corpus/upstream`).
+- **Formatter, more (`jaifmt`):** `1.2.3` (`1.2`, `.`, `3`) was spaced to `1.2 .3`, where `.3` lexes as a float; and a note with an open `(` (`@Note(x`) swallowed the trailing blank lines the formatter trims. Both were caught by the formatter's own token check, so the tool refused valid input with an "internal error" instead of corrupting it.
+- **Signature help (`lsp_edits`):** a call whose callee starts at byte 0 underflowed computing the callee's start, and in text that does not parse the callee lookup resolved a builtin procedure (`type_info(`) as a declaration, which the resolver treated as unreachable.
 - **Compile-time values:** a `#run` result holding a pointer cycle was copied into the program recursively until the stack overflowed. An integer cast to `Code` indexed past the code table. `#align` accepted values that broke layout arithmetic.
 
 ## How to change it
 
 - New target: add a `pub fn <name>(data: &[u8])` to `harness/src/lib.rs`, a two-line file in `fuzz_targets/`, a `[[bin]]` in `fuzz/Cargo.toml`, a case in `run.sh` and `seed_corpus.py`, a `#[test]` in `harness/tests/regressions.rs`, the replay example's match, and the CI matrix.
 - Generator: `generate.rs` is one `Gen` struct. Add a statement kind in `stmt`, an expression form in `expr` (keep it type-correct for the requested `Ty`), or a declaration in `top_decl`. Check validity with the `show` and `check` replay modes over random inputs. Never generate forms that make a pointer from an integer (see Sandboxing).
-- The `jaifmt` formatter (stdlib `Jai_Format` run through the interpreter) has no target. A whole compile per input is too slow for libFuzzer. A slow periodic job would be the way to add it.
+- `jaifmt`: a new oracle goes after the exit-code checks in `harness/src/jaifmt.rs`; a new formatter config goes in `CONFIGS`. Formatter changes reach the target through `jai-wasm`'s bundled stdlib, so rebuild the fuzz binary after editing `stdlib/Jai_Format`.
+- `lsp_edits`: a new request is one more arm in `Script::step`; new insertable text goes in `SNIPPETS`. Keep `MAX_STEPS` small: every step that needs types compiles the document.
 
 ## Configuration
 
@@ -123,7 +147,9 @@ These explain the limits listed under Configuration; each has a regression test.
 | Largest compile-time value (constant, initializer, default image) | `jaic::sema::value::MAX_IMAGE` | 4 GiB |
 | `#align` range | `eval_align` in `sema/structs.rs` | 0..=2^30 |
 | `-max_len`, `-timeout`, `-rss_limit_mb` | `fuzz/run.sh` | see above |
-| Print diagnostics / generated source | `JAI_FUZZ_VERBOSE` env var | off |
+| Interpreter budget for formatting one input twice | `FORMAT_BUDGET` in `harness/src/jaifmt.rs` | 400,000,000 blocks |
+| Steps per `lsp_edits` input | `MAX_STEPS` in `harness/src/lsp_edits.rs` | 24 |
+| Print diagnostics / generated source (`jaifmt`: the formatted text and both syntax trees) | `JAI_FUZZ_VERBOSE` env var | off |
 | Seconds per target in CI | `workflow_dispatch` input `seconds` | 600 |
 
 ## Dependencies
