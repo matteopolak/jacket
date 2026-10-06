@@ -32,7 +32,7 @@ fn main() -> std::process::ExitCode {
     match serve() {
         Ok(code) => std::process::ExitCode::from(code),
         Err(error) => {
-            eprintln!("jai-lsp: {error}");
+            eprintln!("jailsp: {error}");
             std::process::ExitCode::FAILURE
         }
     }

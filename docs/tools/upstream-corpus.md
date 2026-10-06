@@ -151,7 +151,12 @@ The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
     Vk-Engine note above) is an upstream API mismatch, so the sweep cases keep the generators from running. Behind it,
     Core failed with `unknown identifier 'CSprint'`: since 13c74c8c jaic lowered every uncalled noted procedure for
     metaprograms, including `Common`'s `@PrintLike` `FormatToCString`, whose body is stale. Only procedures in the
-    program's own files are lowered that way now (`tests/stdlib/compiler-noted-module-procs.jai`).
+    program's own files are lowered that way now (`tests/stdlib/compiler-noted-module-procs.jai`). After main
+    started checking every declared struct (cf802e06), Editor failed on `'EntityTypeId' is a #placeholder that was
+    never defined` in the unused `GameModule` struct: the `#insert` that builds `EntityTypeId` from the generated
+    `Entity_Types` had been dropped after one failed retry, and lookups through `#import "Game"` returned the
+    `Entity_Categories` placeholder before its definition. Both are fixed
+    (`tests/stdlib/compiler-module-placeholder-insert.jai`).
 
 Vk-Engine needs a `--release` build (about 45 s per module):
 `cd corpus/upstream/ostef--Vk-Engine && jaic check Build.jai -I Modules -I Source -os linux - Core|Renderer|Game|Editor`.

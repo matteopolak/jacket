@@ -1,4 +1,4 @@
-# jaic and jai-lsp, built with the LLVM 22 backend and installed next to `stdlib/` and
+# jaic and jailsp, built with the LLVM 22 backend and installed next to `stdlib/` and
 # `prelude/` the way the release archives lay them out (see docs/tools/nix.md).
 {
   lib,
@@ -82,12 +82,12 @@ rustPlatform.buildRustPackage {
   postInstall = ''
     dir=$out/libexec/jaic
     mkdir -p $dir
-    mv $out/bin/jaic $out/bin/jai-lsp $dir/
+    mv $out/bin/jaic $out/bin/jailsp $dir/
     cp -R stdlib prelude $dir/
     makeWrapper $dir/jaic $out/bin/jaic \
       --set-default JAI_LIBCLANG ${libclang} \
       --suffix PATH : ${toolPath}
-    makeWrapper $dir/jai-lsp $out/bin/jai-lsp
+    makeWrapper $dir/jailsp $out/bin/jailsp
   '';
 
   # Run and natively build two programs with the installed wrapper, outside the source tree.

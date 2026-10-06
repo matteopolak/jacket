@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "jai-lsp"
+name = "jailsp"
 path = "src/main.rs"
 
 [dependencies]

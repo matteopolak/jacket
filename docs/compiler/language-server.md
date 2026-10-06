@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jai-language-server` is one JSON-RPC language server used by both native editors and the browser playground. The native `jai-lsp` binary adds `Content-Length` stdio framing. The browser links the same Rust `JsonSession` into `jai_wasm.wasm`.
+`jai-language-server` is one JSON-RPC language server used by both native editors and the browser playground. The native `jailsp` binary adds `Content-Length` stdio framing. The browser links the same Rust `JsonSession` into `jai_wasm.wasm`.
 
 It has two layers:
 
@@ -262,7 +262,7 @@ Tests:
 ## Configuration
 
 ```sh
-cargo run -p jai-language-server --bin jai-lsp
+cargo run -p jai-language-server --bin jailsp
 cargo test -p jai-language-server
 cargo build --release -p jai-wasm --target wasm32-unknown-unknown
 node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wasm.wasm

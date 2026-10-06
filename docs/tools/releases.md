@@ -2,7 +2,7 @@
 
 ## What it is
 
-`.github/workflows/release.yml` builds `jaic` and `jai-lsp` for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64), smoke-tests each archive, and publishes a GitHub release when a `v*` tag is pushed. Release notes come from the tag's section of `CHANGELOG.md`.
+`.github/workflows/release.yml` builds `jaic` and `jailsp` for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64), smoke-tests each archive, and publishes a GitHub release when a `v*` tag is pushed. Release notes come from the tag's section of `CHANGELOG.md`.
 
 ## How it works
 
@@ -10,7 +10,7 @@ Each platform job:
 
 1. Downloads the official LLVM 22 release for the platform (`LLVM-<version>-macOS-ARM64.tar.xz`, `LLVM-<version>-Linux-X64.tar.xz`, `clang+llvm-<version>-x86_64-pc-windows-msvc.tar.xz`, `clang+llvm-<version>-aarch64-pc-windows-msvc.tar.xz`) and points `LLVM_SYS_221_PREFIX` at it. Those tarballs carry LLVM's static libraries. Homebrew's and apt's LLVM link Z3 and zstd as shared libraries, so a binary built against them would only run where those are installed.
 2. Builds `jaic-cli --no-default-features --features static-llvm`, which links LLVM statically, on every platform. A matrix row with an empty `llvm` would build without the backend (`--no-default-features`).
-3. Packages `jaic`, `jai-lsp`, `stdlib/`, `README.md` and `CHANGELOG.md` as `jaic-<platform>.tar.gz` (`.zip` on Windows).
+3. Packages `jaic`, `jailsp`, `stdlib/`, `README.md` and `CHANGELOG.md` as `jaic-<platform>.tar.gz` (`.zip` on Windows).
 4. Smoke-tests the packaged `jaic` from a directory outside the checkout: `run` (and `build`, where LLVM is linked) of `examples/compile-time-record.jai` must exit with 42. It also checks that the macOS binary links nothing from Homebrew and the Linux one no shared LLVM.
 
 The `publish` job then collects the archives, writes `SHA256SUMS`, extracts the `## [x.y.z]` section of `CHANGELOG.md` and runs `gh release create`.

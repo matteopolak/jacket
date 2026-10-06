@@ -20,7 +20,7 @@ pub mod stack_trace;
 pub mod types;
 pub mod wide_float;
 
-/// The standard library directory for a native `jaic` or `jai-lsp`: `JAIC_STDLIB`, else `stdlib/`
+/// The standard library directory for a native `jaic` or `jailsp`: `JAIC_STDLIB`, else `stdlib/`
 /// next to the executable (release archives), else `fallback` (the repository's, for development).
 pub fn stdlib_dir(fallback: std::path::PathBuf) -> std::path::PathBuf {
     if let Some(dir) = std::env::var_os("JAIC_STDLIB") {

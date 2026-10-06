@@ -59,7 +59,7 @@
         {
           default = app packages.jaic "jaic";
           jaic = app packages.jaic "jaic";
-          jai-lsp = app packages.jaic "jai-lsp";
+          jailsp = app packages.jaic "jailsp";
           jaifmt = app packages.jaifmt "jaifmt";
         }
       );

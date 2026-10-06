@@ -127,6 +127,11 @@ procedure arguments, `#bake_constants`, `#modify`, `#poke_name`, declaration che
   top-level item, top-level `#run` or `#assert` whose failure reached one stays waiting (a metaprogram may
   define the name at `TYPECHECKED_ALL_WE_CAN`) and is retried at the next settle; `finish_program` sets
   `placeholders_final` and settles once more, so a placeholder never defined is still an error.
+  A failed top-level `#insert` always waits until then: its generator body may have been parked by an
+  earlier placeholder miss, so the retry fails without looking the placeholder up again (Vk-Engine's
+  `EntityTypeId :: enum` built from the generated `Entity_Types`). `lookup_full` drops a placeholder
+  found together with its definition, which happens when the name comes through an import of the module
+  the metaprogram filled (`tests/stdlib/compiler-module-placeholder-insert.jai`).
 - **`using _ :: struct {...}`** at top level may repeat: each gets a hidden entity name (`__using_N`).
 - **Declared structs are always checked**: sema is demand-driven, so a struct nothing needs would never be
   laid out. Jai type-checks every declaration (its dead-code elimination only skips *procedure bodies*, and

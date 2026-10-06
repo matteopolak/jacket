@@ -8,7 +8,7 @@ use std::{
 
 #[test]
 fn native_stdio_serves_the_same_core_and_shuts_down_cleanly() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_jai-lsp"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_jailsp"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

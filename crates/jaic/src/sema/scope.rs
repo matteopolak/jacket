@@ -429,7 +429,12 @@ impl Compiler {
                         .any(|p| p.body_state == super::procs::BodyState::Lowering);
                 let misses = self.placeholder_misses;
                 let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
-                if result.is_err() && self.waits_for_placeholder(misses) {
+                // A top-level `#insert` whose generator failed may be waiting for a
+                // `#placeholder` without having looked it up this time (its body failed
+                // earlier and was parked): it gets another try once code stops coming.
+                let insert_waits =
+                    !self.placeholders_final && matches!(stmt.kind, ast::StmtKind::Insert { .. });
+                if result.is_err() && (insert_waits || self.waits_for_placeholder(misses)) {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
@@ -535,6 +540,30 @@ impl Compiler {
     /// set; any other binding shadows everything outside it. `using` entries
     /// of a scope are consulted after its own names.
     pub fn lookup_full(&mut self, scope: ScopeId, name: Sym) -> Result<Found> {
+        let found = self.lookup_full_raw(scope, name)?;
+        // A `#placeholder` reached through an import gives way to its definition (added
+        // to the module by a metaprogram) found along with it.
+        Ok(match found {
+            Found::Entities(ids)
+                if ids.len() > 1
+                    && ids
+                        .iter()
+                        .any(|&e| matches!(self.entity(e).kind, EntityKind::Placeholder))
+                    && ids
+                        .iter()
+                        .any(|&e| !matches!(self.entity(e).kind, EntityKind::Placeholder)) =>
+            {
+                Found::Entities(
+                    ids.into_iter()
+                        .filter(|&e| !matches!(self.entity(e).kind, EntityKind::Placeholder))
+                        .collect(),
+                )
+            }
+            other => other,
+        })
+    }
+
+    fn lookup_full_raw(&mut self, scope: ScopeId, name: Sym) -> Result<Found> {
         let mut found: Vec<EntityId> = Vec::new();
         let mut current = Some(scope);
         while let Some(sid) = current {

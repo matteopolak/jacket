@@ -2,13 +2,13 @@
 
 ## What it is
 
-`flake.nix` packages `jaic` (with the LLVM 22 backend), the `jai-lsp` language server and the `jaifmt` formatter for Nix users, and provides a development shell with the pinned toolchain. It supports `x86_64-linux`, `aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`.
+`flake.nix` packages `jaic` (with the LLVM 22 backend), the `jailsp` language server and the `jaifmt` formatter for Nix users, and provides a development shell with the pinned toolchain. It supports `x86_64-linux`, `aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`.
 
 | Output | Contents |
 | --- | --- |
-| `packages.<system>.jaic` (also `default`) | `bin/jaic` and `bin/jai-lsp`, with `stdlib/` and `prelude/` |
+| `packages.<system>.jaic` (also `default`) | `bin/jaic` and `bin/jailsp`, with `stdlib/` and `prelude/` |
 | `packages.<system>.jaifmt` | `bin/jaifmt`, compiled from `tools/jaifmt/main.jai` by the `jaic` package |
-| `apps.<system>.{default,jaic,jai-lsp,jaifmt}` | `nix run` entry points |
+| `apps.<system>.{default,jaic,jailsp,jaifmt}` | `nix run` entry points |
 | `devShells.<system>.default` | pinned nightly Rust, LLVM 22 and Clang, Python 3.14, Node, the env vars below |
 | `overlays.default` | adds `pkgs.jaic` and `pkgs.jaifmt` |
 | `checks.<system>` | builds both packages (their install checks run programs) |

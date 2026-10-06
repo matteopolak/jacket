@@ -1,5 +1,5 @@
 name: release
-# Builds jaic and jai-lsp for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64).
+# Builds jaic and jailsp for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
 on:
@@ -129,7 +129,7 @@ jobs:
           dir="jaic-${{ matrix.name }}"
           mkdir -p "$dir"
           out="target/${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}release"
-          cp "$out/jaic$exe" "$out/jai-lsp$exe" "$dir/"
+          cp "$out/jaic$exe" "$out/jailsp$exe" "$dir/"
           # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
