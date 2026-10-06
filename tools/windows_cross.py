@@ -120,7 +120,7 @@ def build_one(args, source, output):
     except subprocess.TimeoutExpired:
         return "build timed out"
     # A program without `main`, or whose metaprogram writes no output, did its work at compile time.
-    if result.returncode != 0 and "no exported 'main'" in result.stderr:
+    if result.returncode != 0 and ("no exported 'main'" in result.stderr or "has no `main` procedure" in result.stderr):
         return COMPILE_TIME_ONLY
     if result.returncode != 0:
         return f"exit {result.returncode}: {result.stderr.strip()}"
