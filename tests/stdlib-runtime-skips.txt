@@ -32,6 +32,7 @@ threads-group-and-condition * wasm-native WASI preview 1 has no threads
 threads-synchronization * wasm-native WASI preview 1 has no threads
 threads-group-work * wasm-native WASI preview 1 has no threads
 threads-allocators * wasm-native WASI preview 1 has no threads
+threads-switch-while-locked * wasm-native WASI preview 1 has no threads
 atomics-contention * wasm-native WASI preview 1 has no threads
 
 # WASI builds have no file system: Wasi_Runtime provides stdio, the clock and the working

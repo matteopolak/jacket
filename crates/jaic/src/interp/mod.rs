@@ -1673,6 +1673,13 @@ impl Interp {
                 if success {
                     self.store(ty, a[0], a[2])?;
                 }
+                // A failed or no-op swap is a thread waiting for another one.
+                if self.multi
+                    && self.host.cooperative_threads()
+                    && (!success || mask(ty, a[2]) == current)
+                {
+                    self.inline_poll();
+                }
                 vec![success as u64, current]
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
@@ -1705,7 +1712,12 @@ impl Interp {
             I::Fma => vec![f64_of(a[0]).mul_add(f64_of(a[1]), f64_of(a[2])).to_bits()],
             I::ReturnAddress => vec![0],
             I::CycleCounter => vec![cycle_counter()],
-            I::Pause => vec![],
+            I::Pause => {
+                if self.multi && self.host.cooperative_threads() {
+                    self.inline_poll();
+                }
+                vec![]
+            }
             I::Popcount => vec![a[0].count_ones() as u64],
             I::Ctlz => {
                 let bits = a[1] as u32;

@@ -175,6 +175,7 @@
 - Metaprograms see `.VARARGS` in a variadic parameter's `type_inst.inst_flags`, so the Check module accepts @PrintLike procedures. Every one was reported as missing a format string before its varargs.
 - An untyped 16-digit `0h` literal (`0h7FEFFFFF_FFFFFFFF`) is `float64`; an 8-digit one stays `float32`. The long form defaulted to `float32`, so `x := 0h7FEFFFFF_FFFFFFFF` became inf, `0h00100000_00000000` became 0 and overloads picked `float32`.
 - `push_context,defer_pop;` without a context is an error ("'push_context,defer_pop' needs the context to push"). It compiled, and changes the block made to `context` leaked out of it.
+- `jaic run -os wasm` and the browser no longer start a pending thread while the running thread holds a mutex or spin lock: the new thread blocked on the lock and was abandoned, losing its work, or spun forever. Pending threads now get a turn when a thread polls (a failed or no-op `compare_and_swap`, a busy `trylock`) instead of after a fixed number of basic blocks, so `threads-synchronization`, `threads-group-work` and `threads-allocators` pass there every time.
 
 ## [0.2.0] - 2026-10-06
 

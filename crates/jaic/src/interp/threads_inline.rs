@@ -2,8 +2,8 @@
 //!
 //! `pthread_create` only records the thread. A recorded thread runs, to completion, on top of the
 //! interpreter stack of whichever thread blocks first: at `pthread_join`, a contended mutex, a
-//! condition wait, `sleep`/`nanosleep`/`sched_yield`, and now and then while a thread keeps
-//! running (so busy-waiting on an atomic makes progress). Because a thread that has started can
+//! condition wait, `sleep`/`nanosleep`/`sched_yield`, and while a thread keeps polling (so
+//! busy-waiting on an atomic makes progress), but not while a mutex is held. Because a thread that has started can
 //! only continue after everything stacked above it has returned, the schedule is a stack:
 //!
 //! * A wait that nothing runnable can satisfy but that a thread lower on the stack could end
@@ -25,8 +25,8 @@ const EBUSY: u64 = 16;
 const EINVAL: u64 = 22;
 const ETIMEDOUT: u64 = 110;
 
-/// Block transitions between preemption checks.
-const PREEMPT_TICKS: u64 = 20_000;
+/// Polls (see `inline_poll`) after which a running thread gives pending threads a turn.
+const POLLS_BEFORE_SWITCH: u64 = 1_000;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -70,7 +70,11 @@ pub(super) struct InlineSched {
     cond_waiters: HashMap<u64, VecDeque<u64>>,
     woken: HashSet<u64>,
     next_token: u64,
-    ticks: u64,
+    /// Polls since pending threads last had a turn.
+    polls: u64,
+    /// A preemption came while a running thread held a mutex; pending threads start at the
+    /// next unlock that leaves no mutex held.
+    preempt_due: bool,
     /// While unwinding abandoned threads: the level that continues.
     unwind_to: Option<usize>,
 }
@@ -92,7 +96,8 @@ impl InlineSched {
             cond_waiters: HashMap::default(),
             woken: HashSet::default(),
             next_token: 1,
-            ticks: 0,
+            polls: 0,
+            preempt_due: false,
             unwind_to: None,
         }
     }
@@ -115,6 +120,24 @@ impl InlineSched {
 
     fn has_pending(&self) -> bool {
         self.threads.iter().any(|t| t.state == State::Pending)
+    }
+
+    /// Whether a started thread holds a mutex. A pending thread started then could need that
+    /// mutex, and since the holder is below it on the stack it would have to be abandoned (its
+    /// work lost) instead of waiting for the unlock.
+    fn mutex_held(&self) -> bool {
+        self.mutexes.values().any(|m| {
+            m.owner.is_some_and(|t| {
+                self.threads
+                    .get(t)
+                    .is_some_and(|t| t.state == State::Running)
+            })
+        })
+    }
+
+    /// Whether an optional switch (preemption, yield, sleep) may start pending threads now.
+    fn may_start_pending(&self) -> bool {
+        self.has_pending() && !self.mutex_held()
     }
 }
 
@@ -146,7 +169,10 @@ impl Interp {
                         }
                         Ok(0)
                     }
-                    Some(_) => Ok(EBUSY),
+                    Some(_) => {
+                        self.inline_poll();
+                        Ok(EBUSY)
+                    }
                     None => Ok(EINVAL),
                 }
             }
@@ -169,10 +195,14 @@ impl Interp {
                     state.count += 1;
                     Ok(0)
                 } else {
+                    self.inline_poll();
                     Ok(EBUSY)
                 }
             }
-            "pthread_mutex_unlock" => Ok(self.inline_unlock(arg(0)).err().unwrap_or(0)),
+            "pthread_mutex_unlock" => match self.inline_unlock(arg(0)) {
+                Ok(()) => self.inline_unlocked(program).map(|_| 0),
+                Err(code) => Ok(code),
+            },
             "pthread_cond_init" | "pthread_cond_destroy" => {
                 self.isched().cond_waiters.remove(&arg(0));
                 Ok(0)
@@ -325,23 +355,58 @@ impl Interp {
         }
     }
 
-    /// Sleeping lets every pending thread run, then moves the virtual clock.
+    /// Sleeping lets every pending thread run, then moves the virtual clock. While a mutex is
+    /// held they wait for its unlock instead (see `mutex_held`).
     fn inline_sleep(&mut self, program: &Program, nanoseconds: u64) -> Res<u64> {
-        while self.run_pending_one(program)? {}
+        if self.isched().mutex_held() {
+            self.isched().preempt_due = true;
+        } else {
+            while self.run_pending_one(program)? {}
+        }
         self.host.advance_clock(nanoseconds);
         Ok(0)
     }
 
     pub(super) fn inline_yield(&mut self, program: &Program) -> Res<()> {
-        self.run_pending_one(program)?;
+        if self.isched().may_start_pending() {
+            self.run_pending_one(program)?;
+        }
         Ok(())
     }
 
-    /// Called between basic blocks while threads exist: now and then, give pending threads a turn.
+    /// A sign that the running thread waits for another one: an atomic compare-and-swap that
+    /// fails or writes the value already there (`atomic_read`, a spin on a taken lock), a
+    /// `pause`, or a `trylock`/`tryjoin` that finds the mutex or thread busy.
+    pub(super) fn inline_poll(&mut self) {
+        self.isched().polls += 1;
+    }
+
+    /// Called between basic blocks while threads exist: once the running thread has polled
+    /// for a while, give pending threads a turn (after the next unlock when a mutex is held),
+    /// so a busy wait progresses. Only polling switches: a thread switched in at an arbitrary
+    /// point could need a spin lock (the allocators' `compare_and_swap` locks) or mutex the
+    /// thread below it holds, and that thread cannot run again until the new one returns.
     pub(super) fn inline_preempt(&mut self, program: &Program) -> Res<()> {
         let sched = self.isched();
-        sched.ticks += 1;
-        if sched.ticks.is_multiple_of(PREEMPT_TICKS) && sched.has_pending() {
+        if sched.polls < POLLS_BEFORE_SWITCH {
+            return Ok(());
+        }
+        sched.polls = 0;
+        if sched.has_pending() {
+            if sched.mutex_held() {
+                sched.preempt_due = true;
+            } else {
+                while self.run_pending_one(program)? {}
+            }
+        }
+        Ok(())
+    }
+
+    /// After a mutex unlock: a preemption deferred because a mutex was held happens now.
+    fn inline_unlocked(&mut self, program: &Program) -> Res<()> {
+        let sched = self.isched();
+        if sched.preempt_due && sched.may_start_pending() {
+            sched.preempt_due = false;
             while self.run_pending_one(program)? {}
         }
         Ok(())

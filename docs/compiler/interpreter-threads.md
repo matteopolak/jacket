@@ -106,8 +106,18 @@ thread cannot be suspended: the interpreter is recursive Rust and a blocked thre
 - `pthread_create` only records `(func, argument)`; the thread is `Pending`.
 - A pending thread runs to completion *on top of the stack of the thread that blocks first*: at
   `pthread_join`, a contended mutex, `pthread_cond_wait`/`timedwait`, `sleep`/`usleep`/`nanosleep`, `sched_yield`,
-  and every `PREEMPT_TICKS` basic blocks while pending threads exist (so a busy wait on an atomic progresses).
+  and after `POLLS_BEFORE_SWITCH` polls (so a busy wait on an atomic progresses). A poll (`inline_poll`) is a
+  `compare_and_swap` that fails or writes the value already there (`atomic_read`, a spin on a taken lock), a
+  `pause`, or a `trylock`/`tryjoin` that finds the mutex or thread busy.
   The set of started threads is therefore a stack (`levels`), main at the bottom.
+- Optional switches (polls, `sleep`, `sched_yield`) never start a pending thread while a started thread holds an
+  emulated mutex (`mutex_held`): the new thread could need it, and the holder below it cannot run again until the
+  new one returns, so it would be abandoned and its work lost. The switch happens at the unlock that frees the
+  last mutex instead (`preempt_due`, `inline_unlocked`). Spin locks built on `compare_and_swap` (the default
+  allocator's ledger, `Runtime_Support`'s output lock) are invisible to the scheduler, which is why switches are
+  driven by polls rather than by a basic-block count: a switch at an arbitrary block could land inside such a
+  lock and leave the new thread spinning forever. A busy wait that polls nothing (a plain, non-atomic flag) does
+  not let pending threads run.
 - `wait_until` is the single blocking primitive. If the wait is not satisfied and nothing is pending:
   a timed wait times out at once and advances the virtual clock (`Host::advance_clock`); otherwise it looks for
   the nearest thread lower on the stack whose own wait is over and *abandons* every thread above it (they are
