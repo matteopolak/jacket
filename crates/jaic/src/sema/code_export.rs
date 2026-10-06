@@ -909,6 +909,29 @@ impl Exporter<'_> {
         id
     }
 
+    /// Set `.VARARGS` in the `inst_flags` of a variadic parameter's declaration (`args: ..Any`),
+    /// which checkers such as Check's @PrintLike read; adds the instantiation when the
+    /// declaration has none (a polymorphic header's unresolved type).
+    fn mark_varargs(&mut self, decl: i64, span: Span) {
+        let inst = match self.r.get(decl).and_then(|d| d.field("type_inst")) {
+            Some(Field::Item(Item::Ref(id))) => *id,
+            _ => {
+                let rec = self.node("Code_Type_Instantiation", node::TYPE_INSTANTIATION, span);
+                let id = self.r.reserve(rec.tag);
+                let mut rec = rec;
+                rec.int("serial", id);
+                *self.r.get_mut(id).unwrap() = rec;
+                if let Some(d) = self.r.get_mut(decl) {
+                    d.set("type_inst", Field::Item(Item::Ref(id)));
+                }
+                id
+            }
+        };
+        if let Some(rec) = self.r.get_mut(inst) {
+            rec.set("inst_flags", Field::Item(Item::Int(0x1)));
+        }
+    }
+
     /// The header `resolved_procedure_expression` points to: name, typed arguments and
     /// returns, flags. Made once per procedure; no body.
     fn resolved_header(&mut self, p: ProcId) -> i64 {
@@ -933,7 +956,11 @@ impl Exporter<'_> {
         for (i, param) in h.params.iter().enumerate() {
             let ty = sig.as_ref().and_then(|s| s.params.get(i)).map(|p| p.ty);
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
-            arguments.push(self.reference_decl(name, ty, 0, 0, param.span));
+            let arg = self.reference_decl(name, ty, 0, 0, param.span);
+            if param.variadic {
+                self.mark_varargs(arg, param.span);
+            }
+            arguments.push(arg);
         }
         let mut returns = Vec::new();
         for (i, ret) in h.returns.iter().enumerate() {
@@ -1999,6 +2026,9 @@ impl Exporter<'_> {
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
             let arg = self.decl(&decl, name, ty, None, false);
+            if param.variadic {
+                self.mark_varargs(arg, param.span);
+            }
             arguments.push(arg);
             // `using p: T` parameters are listed again as `Code_Using` of the parameter.
             if param.using {

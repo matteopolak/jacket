@@ -172,6 +172,7 @@
 - Calls of a procedure with a baked variadic parameter (`$args: ..Code`, `$types: ..Type`) get their own instance per argument list. Lists of the same length shared the first call's instance, so `show(A); show(G);` ran `A`'s code twice.
 - A baked variadic `Code` parameter (`$args: ..Code`) quotes each argument expression like a single `$c: Code` does, so `print_vars(alpha, alpha + 1)` and the rest of Print_Vars work with locals. Such calls failed with "cannot use local 'alpha' in a compile-time expression".
 - Structs with a variadic parameter (`Holder :: struct(types: ..Type)`) can be instantiated: the arguments bind one constant `[] Type` and key the instance, so `Tagged_Union` works. `Holder(s64, string)` reported "too many arguments" and `Holder(s64)` bound a single `Type`.
+- Metaprograms see `.VARARGS` in a variadic parameter's `type_inst.inst_flags`, so the Check module accepts @PrintLike procedures. Every one was reported as missing a format string before its varargs.
 
 ## [0.2.0] - 2026-10-06
 
