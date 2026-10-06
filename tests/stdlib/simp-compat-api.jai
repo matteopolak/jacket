@@ -42,6 +42,21 @@
             assert(Simp.find_loaded_font(tprint("%/%", path, base)) != null);
             assert(Simp.get_character_width_in_pixels(font, "W".data, 0) > 0);
             assert(Simp.get_baseline_height(font) == 4);
+            // Memory fonts are cached per buffer and per size; a size change reuses the parse.
+            bytes := read_entire_file(it);
+            memory := cast([] u8) bytes;
+            small := Simp.get_font_at_size(memory, 12);
+            assert(small != null && Simp.get_font_at_size(memory, 12) == small);
+            large := Simp.get_font_at_size(memory, 20);
+            assert(large != null && large != small && large.loaded == small.loaded);
+            // Accumulating appends the other font's prepared glyphs, each with byte offset -1.
+            Simp.prepare_text(small, "ab");
+            Simp.prepare_text(large, "xyz");
+            offsets_before := large.temporary_glyphs_byte_offsets.count;
+            Simp.accumulate_glyphs_from_font(small, large);
+            assert(large.temporary_glyphs.count == 5 && large.temporary_glyphs[3] == small.temporary_glyphs[0]);
+            assert(large.temporary_glyphs_byte_offsets.count == offsets_before + 2);
+            for 0..1 assert(large.temporary_glyphs_byte_offsets[offsets_before + it] == -1);
             break;
         }
         print("ok\n");
