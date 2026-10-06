@@ -1,0 +1,2 @@
+#runtime_support;
+main :: () {}

@@ -220,24 +220,30 @@ impl Parser<'_> {
     /// `#assert cond ["message"]` without the terminator.
     pub(super) fn parse_assert_core(&mut self) -> PResult<Stmt> {
         let start = self.bump();
-        // `#assert(cond, "message")`: the call-like form.
-        if self.at(P::LParen) {
-            let saved = self.pos;
+        // `#assert(cond, "message")`: the call-like form, told apart by the comma inside the
+        // parentheses. Deciding up front (rather than trying it and rewinding) keeps nested
+        // `#assert(` from being parsed twice per level, which is exponential.
+        if self.at(P::LParen)
+            && self
+                .matching_paren(0)
+                .is_some_and(|close| self.has_top_level_comma(self.pos + 1, close))
+        {
             self.bump();
-            if let Ok(cond) = self.parse_expr()
-                && self.eat(P::Comma)
-            {
-                let message = self.parse_expr()?;
-                self.expect(P::RParen, "after '#assert' message")?;
-                return Ok(stmt(
-                    StmtKind::Assert {
-                        cond,
-                        message: Some(message),
-                    },
-                    start.to(self.prev_span()),
-                ));
-            }
-            self.pos = saved;
+            let cond = self.parse_expr()?;
+            // A nested `#assert` in the condition may have taken the comma and message itself.
+            let message = if self.eat(P::Comma) {
+                Some(self.parse_expr()?)
+            } else {
+                None
+            };
+            self.expect(P::RParen, "after '#assert' message")?;
+            return Ok(stmt(
+                StmtKind::Assert {
+                    cond,
+                    message,
+                },
+                start.to(self.prev_span()),
+            ));
         }
         let cond = self.parse_expr()?;
         if self.at(P::Comma) && matches!(self.tok_at(1), Tok::Str(_)) {

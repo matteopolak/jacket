@@ -1001,7 +1001,7 @@ impl Compiler {
                 } = &inner
                 {
                     let folded = match (op, value) {
-                        (UnOp::Neg, Value::Int(v)) => Some(Value::Int(-v)),
+                        (UnOp::Neg, Value::Int(v)) => Some(Value::Int(v.wrapping_neg())),
                         (UnOp::Neg, Value::Float(v)) => Some(Value::Float(-v)),
                         (UnOp::Not, Value::Bool(v)) => Some(Value::Bool(!v)),
                         (UnOp::Not, Value::Int(v)) => Some(Value::Bool(*v == 0)),
@@ -1933,17 +1933,23 @@ impl Compiler {
                         if b == 0 {
                             return err(span, "division by zero in constant expression");
                         }
-                        Some(Value::Int(a / b))
+                        Some(Value::Int(a.wrapping_div(b)))
                     }
                     BinOp::Rem => {
                         if b == 0 {
                             return err(span, "division by zero in constant expression");
                         }
-                        Some(Value::Int(a % b))
+                        Some(Value::Int(a.wrapping_rem(b)))
                     }
                     BinOp::BitAnd => Some(Value::Int(a & b)),
                     BinOp::BitOr => Some(Value::Int(a | b)),
                     BinOp::BitXor => Some(Value::Int(a ^ b)),
+                    BinOp::Shl | BinOp::Shr if b < 0 => {
+                        return err(
+                            span,
+                            format!("negative shift amount {b} in constant expression"),
+                        );
+                    }
                     BinOp::Shl => Some(Value::Int(if b >= 128 {
                         0
                     } else {

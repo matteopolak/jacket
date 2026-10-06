@@ -737,9 +737,11 @@ impl Session {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
         // `#` and the start of a directive: offer directives (labels include the `#`).
+        // Past the whole separator: it may be multi-byte (a no-break space).
         let word_start = doc.text[..byte]
-            .rfind(|c: char| !(c.is_alphanumeric() || c == '_'))
-            .map_or(0, |i| i + 1);
+            .char_indices()
+            .rfind(|&(_, c)| !(c.is_alphanumeric() || c == '_'))
+            .map_or(0, |(i, c)| i + c.len_utf8());
         if doc.text[..word_start].ends_with('#') {
             let typed = doc.text[word_start..byte].to_lowercase();
             return Ok(CompletionList {

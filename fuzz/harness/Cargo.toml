@@ -1,0 +1,14 @@
+# Harness functions shared by the libFuzzer targets and the regression replay test. No libFuzzer
+# dependency, so `cargo test` replays fuzz/regressions/ without a sanitizer build.
+[package]
+name = "jai-fuzz-harness"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+arbitrary = "1"
+jaic = { path = "../../crates/jaic" }
+jai-wasm = { path = "../../crates/jai-wasm" }
+jai-language-server = { path = "../../crates/jai-language-server" }

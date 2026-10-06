@@ -1,0 +1,2 @@
+#import "Basic";
+main :: () { p := alloc(1 << 60); q := alloc(-1); assert(p == null && q == null); }

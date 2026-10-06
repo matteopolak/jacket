@@ -1,0 +1,2 @@
+S :: struct { a: [1 << 62] int; }
+main :: () { s: S; }

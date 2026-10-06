@@ -65,7 +65,7 @@ impl Parser<'_> {
 
     /// A statement, plus any `@notes` following it (on the same or later lines).
     pub(super) fn parse_stmt(&mut self) -> PResult<Stmt> {
-        let mut statement = self.parse_stmt_inner()?;
+        let mut statement = self.nested(Self::parse_stmt_inner)?;
         let notes = self.parse_notes();
         self.attach_notes(&mut statement, notes);
         Ok(statement)

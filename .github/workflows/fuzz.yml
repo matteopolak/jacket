@@ -1,0 +1,88 @@
+name: fuzzing
+# Nightly libFuzzer runs of every target (docs/tools/fuzzing.md), plus a fast replay of the
+# saved crash inputs on every push and pull request so fixed crashes stay fixed.
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds to fuzz each target
+        default: '600'
+permissions:
+  contents: read
+jobs:
+  regressions:
+    name: replay fuzz regressions
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - name: Validate fuzz dependency ages
+        run: python3 tools/check_dependency_age.py --lockfile fuzz/Cargo.lock
+      - name: Replay fuzz/regressions through the harnesses
+        run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
+
+  fuzz:
+    name: fuzz ${{ matrix.target }}
+    # Scheduled and manual runs fuzz for real; a push to ci/fuzz runs a one-minute check of the
+    # workflow itself.
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/ci/fuzz')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [lexer, parser, check, interp, generated, lsp, lsp_json]
+    env:
+      CARGO_INCREMENTAL: '0'
+      SECONDS_PER_TARGET: ${{ github.event_name == 'push' && '60' || inputs.seconds || '600' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain and cargo-fuzz
+        run: |
+          rustup toolchain install nightly-2026-08-29 --profile minimal
+          cargo install cargo-fuzz --version 0.13.2 --locked
+      - name: Restore the corpus
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+      - name: Add seeds from the repository
+        if: matrix.target != 'generated'
+        run: python3 fuzz/seed_corpus.py ${{ matrix.target }}
+      - name: Fuzz
+        run: fuzz/run.sh ${{ matrix.target }} "$SECONDS_PER_TARGET" "$(nproc)"
+      - name: Minimize the corpus
+        if: always()
+        working-directory: fuzz
+        run: >-
+          cargo fuzz cmin --sanitizer none --debug-assertions ${{ matrix.target }}
+          corpus/${{ matrix.target }} -- -timeout=20 -rss_limit_mb=4096
+      - name: Save the corpus
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+      - name: Upload crashes
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}
+          if-no-files-found: ignore

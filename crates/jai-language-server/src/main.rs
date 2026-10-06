@@ -29,12 +29,19 @@ fn main() -> std::process::ExitCode {
             }
         }
     }
-    match serve() {
-        Ok(code) => std::process::ExitCode::from(code),
-        Err(error) => {
+    // Type checking recurses on the syntax tree: give it the compiler's stack (as `jaic` does),
+    // not the main thread's 8 MiB.
+    let worker = std::thread::Builder::new()
+        .name("jailsp".into())
+        .stack_size(1 << 30)
+        .spawn(|| serve().map_err(|error| error.to_string()));
+    match worker.map(|handle| handle.join()) {
+        Ok(Ok(Ok(code))) => std::process::ExitCode::from(code),
+        Ok(Ok(Err(error))) => {
             eprintln!("jailsp: {error}");
             std::process::ExitCode::FAILURE
         }
+        _ => std::process::ExitCode::from(101),
     }
 }
 

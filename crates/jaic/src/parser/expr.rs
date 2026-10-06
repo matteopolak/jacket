@@ -117,6 +117,10 @@ impl Parser<'_> {
     // -- unary ------------------------------------------------------------
 
     pub(super) fn parse_unary(&mut self) -> PResult<Expr> {
+        self.nested(Self::parse_unary_inner)
+    }
+
+    fn parse_unary_inner(&mut self) -> PResult<Expr> {
         let start = self.span();
         let op = match self.tok() {
             Tok::Punct(P::Minus) => UnOp::Neg,
@@ -685,6 +689,10 @@ impl Parser<'_> {
     }
 
     fn parse_element_type(&mut self) -> PResult<Expr> {
+        self.nested(Self::parse_element_type_inner)
+    }
+
+    fn parse_element_type_inner(&mut self) -> PResult<Expr> {
         if self.at(P::Star) {
             let start = self.bump();
             let inner = self.parse_element_type()?;

@@ -1163,6 +1163,149 @@
       "negative": {
         "check": "#assert failed"
       }
+    },
+    {
+      "id": "huge-array-type",
+      "source": "negative/huge-array-type.jai",
+      "sha256": "a2ce5ccadd016d2958cebc0f88755bc5aff8c78b8bb1389cfd462e4544528453",
+      "suite": "negative",
+      "feature": "array type sizes",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is too large"
+      }
+    },
+    {
+      "id": "huge-struct",
+      "source": "negative/huge-struct.jai",
+      "sha256": "5618d897344c2b05f8414c7acc19e6065521d5d382fa85e4fb6f90a1da5e63bf",
+      "suite": "negative",
+      "feature": "struct sizes",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "struct is too large"
+      }
+    },
+    {
+      "id": "deep-nesting",
+      "source": "negative/deep-nesting.jai",
+      "sha256": "ded920f053f6eda1bec1b29215cd43344228d3bdb0974e549119fdb7f109b0ac",
+      "suite": "negative",
+      "feature": "parser nesting limit",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "nested too deeply"
+      }
+    },
+    {
+      "id": "negative-constant-shift",
+      "source": "negative/negative-constant-shift.jai",
+      "sha256": "d423c6220892c373127c08b5283824e4f6574af1652aff4a2620567927662d29",
+      "suite": "negative",
+      "feature": "constant shifts",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "negative shift amount"
+      }
+    },
+    {
+      "id": "align-out-of-range",
+      "source": "negative/align-out-of-range.jai",
+      "sha256": "1ee6c7cd211b1433e786747b4ebc8bbae0eb59f68798be830a25690d78ec8bd7",
+      "suite": "negative",
+      "feature": "#align values",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "alignment -8 is out of range"
+      }
+    },
+    {
+      "id": "using-pointer-cycle",
+      "source": "negative/using-pointer-cycle.jai",
+      "sha256": "afeb84c29313e3c395e67ee3a44429d35eedded0778c4418fba442dded1b1ec4",
+      "suite": "negative",
+      "feature": "using through pointers",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "has no member 'missing'"
+      }
+    },
+    {
+      "id": "poly-proc-recursion",
+      "source": "negative/poly-proc-recursion.jai",
+      "sha256": "42b91be8da2b3b19e47d3c238d173487bde5815ba4a0b496019a9bc8c579fd16",
+      "suite": "negative",
+      "feature": "polymorphic recursion",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "polymorphic instances"
+      }
+    },
+    {
+      "id": "poly-struct-recursion",
+      "source": "negative/poly-struct-recursion.jai",
+      "sha256": "ae0c1f5b5e20f3d7dc841575ef1ab7b21035a3a7f6901bf1f658bddeccaca542",
+      "suite": "negative",
+      "feature": "polymorphic recursion",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "polymorphic instances"
+      }
+    },
+    {
+      "id": "insert-recursion",
+      "source": "negative/insert-recursion.jai",
+      "sha256": "01e10cfb536ad1127de933334a1b65b63b063fd22621de39feb70b45f2d18490",
+      "suite": "negative",
+      "feature": "#insert of strings",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "nested more than"
+      }
+    },
+    {
+      "id": "invalid-code-value",
+      "source": "negative/invalid-code-value.jai",
+      "sha256": "c90f40ff2ff4bd63782c93b07a2eb5a6d16996902d07a11e005d49bf875711b6",
+      "suite": "negative",
+      "feature": "Code values",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is not a valid Code value"
+      }
+    },
+    {
+      "id": "huge-default-value",
+      "source": "negative/huge-default-value.jai",
+      "sha256": "4c208feb99b794ac8f7eb9dae3a604c31796eadf10f08c92b721e1187bd88bab",
+      "suite": "negative",
+      "feature": "struct default values",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is too large"
+      }
     }
   ]
 }

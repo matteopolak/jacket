@@ -1305,10 +1305,7 @@ impl Compiler {
             _ => TypeId::TYPE,
         };
         let esize = self.size_of(elem, span)?;
-        let mut array = value::Aggregate {
-            bytes: vec![0; esize as usize * args.len()],
-            relocs: Vec::new(),
-        };
+        let mut array = value::Aggregate::zeroed(esize.saturating_mul(args.len() as u64), span)?;
         for (i, arg) in args.iter().enumerate() {
             let op = match (&arg.op, &arg.expr) {
                 (Some(op), _) => op.clone(),

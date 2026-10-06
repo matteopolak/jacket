@@ -1287,3 +1287,44 @@ fn asm_errors() {
     assert!(error("x := #asm { mov a, [b + ; };").contains("expected"));
     assert!(error("x := #asm { mov a, 1;").contains("unterminated"));
 }
+
+#[test]
+fn deep_nesting_is_an_error_not_a_stack_overflow() {
+    // Found by the `parser` fuzz target: a few kilobytes of `(` or `{` overflowed the stack.
+    let n = super::MAX_NESTING + 10;
+    let cases = [
+        format!("x := {}1{};", "(".repeat(n), ")".repeat(n)),
+        format!("main :: () {{{}{}}}", "{".repeat(n), "}".repeat(n)),
+        format!("x: {}int;", "*".repeat(n)),
+        format!("x: {}int;", "[1]".repeat(n)),
+        format!("A :: {}int;{}", "struct { a: ".repeat(n), "}".repeat(n)),
+    ];
+    // Reaching the limit itself takes more stack than a test thread has in a debug build.
+    std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(move || {
+            for src in &cases {
+                assert!(error(src).contains("nested too deeply"), "{src:.40}");
+            }
+            let fine = 200;
+            parse(&format!("x := {}1{};", "(".repeat(fine), ")".repeat(fine)));
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+#[test]
+fn nested_assert_is_parsed_once() {
+    // Found by the `parser` fuzz target: `#assert(` tried the `(cond, message)` form, rewound and
+    // parsed again, so every nested `#assert(` doubled the work (15 KB took minutes).
+    let n = 40;
+    let nested = format!("{}x{}", "#assert(".repeat(n), ")".repeat(n));
+    parse(&format!("#assert {nested};"));
+    parse(&format!("#assert({nested}, \"message\");"));
+    assert!(!error(&format!("#assert {};", "#assert(".repeat(n))).is_empty());
+    // Both forms still parse.
+    parse("#assert(size_of(int) == 8, \"words\");");
+    parse("#assert(f(a, b));");
+    parse("#assert (a) == b, \"m\";");
+}

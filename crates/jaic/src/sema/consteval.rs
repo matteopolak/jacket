@@ -430,10 +430,7 @@ impl Compiler {
     ) -> Result<Rc<Aggregate>> {
         let value = self.const_value_of_type(scope, expr, ty)?;
         let size = self.size_of(ty, expr.span)?;
-        let mut agg = Aggregate {
-            bytes: vec![0; size as usize],
-            relocs: Vec::new(),
-        };
+        let mut agg = Aggregate::zeroed(size, expr.span)?;
         self.write_value(&mut agg, 0, &value, ty, expr.span)?;
         Ok(Rc::new(agg))
     }
@@ -488,10 +485,7 @@ impl Compiler {
                 ..
             } => {
                 let text: Rc<str> = String::from_utf8_lossy(&s).into();
-                let file = self.sources.add(
-                    format!("<#insert at {}>", self.sources.get(span.file).path),
-                    text.clone(),
-                );
+                let file = self.insert_source(span, text.clone())?;
                 let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
                 Ok(ast.stmts)
             }
@@ -504,6 +498,29 @@ impl Compiler {
                 ),
             ),
         }
+    }
+
+    /// Register the text of an `#insert`ed string inserted at `at`. Inserted text may insert
+    /// more (`X :: "#insert X;"`), so nesting is bounded.
+    pub(super) fn insert_source(&mut self, at: Span, text: Rc<str>) -> Result<FileId> {
+        const MAX_INSERT_DEPTH: u32 = 256;
+        let depth = self.insert_depth.get(&at.file).map_or(1, |d| d + 1);
+        if depth > MAX_INSERT_DEPTH {
+            return err(
+                at,
+                format!("#insert strings are nested more than {MAX_INSERT_DEPTH} deep"),
+            );
+        }
+        // Named after the outermost real file, so nested inserts keep a short path.
+        let path = self.sources.get(at.file).path.clone();
+        let path = if depth > 1 {
+            path
+        } else {
+            format!("<#insert at {path}>")
+        };
+        let file = self.sources.add(path, text);
+        self.insert_depth.insert(file, depth);
+        Ok(file)
     }
 
     pub fn eval_insert_stmts(
@@ -562,10 +579,7 @@ impl Compiler {
                 let source = String::from_utf8_lossy(&s);
                 let source = source.trim_end().trim_end_matches(';');
                 let text = format!("__jaic_insert :: ({source});");
-                let file = self.sources.add(
-                    format!("<#insert at {}>", self.sources.get(value.span.file).path),
-                    text.clone().into(),
-                );
+                let file = self.insert_source(value.span, text.clone().into())?;
                 let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
                 match ast.stmts.first().map(|s| &s.kind) {
                     Some(ast::StmtKind::Decl(d)) if d.value.is_some() => {
@@ -667,9 +681,12 @@ impl Compiler {
             }
             TypeKind::Code => {
                 self.adopt_made_codes();
-                Ok(Value::Code(
-                    value::CodeId(self.interp.read_u64(addr) as u32),
-                ))
+                // Any integer can be cast to `Code`; only ids of real code are usable.
+                let id = self.interp.read_u64(addr);
+                if id >= self.codes.len() as u64 {
+                    return err(span, format!("{id} is not a valid Code value"));
+                }
+                Ok(Value::Code(value::CodeId(id as u32)))
             }
             TypeKind::String => {
                 let count = self.interp.read_u64(addr) as usize;
@@ -718,7 +735,10 @@ impl Compiler {
             bytes: self.interp.read(addr, size as usize),
             relocs: Vec::new(),
         };
-        self.freeze(&mut agg, 0, addr, ty, span)?;
+        self.frozen.clear();
+        let result = self.freeze(&mut agg, 0, addr, ty, span);
+        self.frozen.clear();
+        result?;
         Ok(Value::Bytes(Rc::new(agg)))
     }
 
@@ -881,6 +901,30 @@ impl Compiler {
                 "a compile-time value holds a pointer to memory of unknown size",
             );
         }
+        if let Some(&g) = self.frozen.get(&(p, bytes)) {
+            agg.relocs.push(ir::Reloc {
+                offset,
+                target: ir::RelocTarget::Global(g),
+                addend: 0,
+            });
+            return Ok(());
+        }
+        let align = if elem == TypeId::VOID {
+            8
+        } else {
+            self.align_of(elem, span)?
+        };
+        // Registered before its contents are frozen, so a pointer back to it ends the walk.
+        let g = self.program.add_global(ir::Global {
+            name: "frozen".into(),
+            size: bytes + 1,
+            align,
+            init: Vec::new(),
+            relocs: Vec::new(),
+            read_only: false,
+            export: None,
+        });
+        self.frozen.insert((p, bytes), g);
         let mut inner = Aggregate {
             bytes: self.interp.read(p, bytes as usize),
             relocs: Vec::new(),
@@ -891,22 +935,11 @@ impl Compiler {
                 self.freeze(&mut inner, i * esize, p + i * esize, elem, span)?;
             }
         }
-        let align = if elem == TypeId::VOID {
-            8
-        } else {
-            self.align_of(elem, span)?
-        };
         let mut init = inner.bytes;
         init.push(0); // NUL after frozen strings
-        let g = self.program.add_global(ir::Global {
-            name: "frozen".into(),
-            size: init.len() as u64,
-            align,
-            init,
-            relocs: inner.relocs,
-            read_only: false,
-            export: None,
-        });
+        let global = &mut self.program.globals[g.0 as usize];
+        global.init = init;
+        global.relocs = inner.relocs;
         agg.relocs.push(ir::Reloc {
             offset,
             target: ir::RelocTarget::Global(g),

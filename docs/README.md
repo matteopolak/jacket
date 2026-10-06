@@ -120,6 +120,7 @@ Scripts, CI and project policies.
 - [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`
 - [Continuous integration](tools/continuous-integration.md)
 - [Dependency policy](tools/dependency-policy.md)
+- [Fuzzing](tools/fuzzing.md)
 - [jaic regression sweep](tools/jaic-sweep.md)
 - [jaifmt (Jai formatter)](tools/jaifmt.md)
 - [LLVM setup](tools/llvm-setup.md)

@@ -419,10 +419,7 @@ impl Compiler {
             Some(v) if matches!(v.kind, ast::ExprKind::Uninit) => None,
             Some(_) if evaluated.is_some() => {
                 let size = self.size_of(ty, span)?;
-                let mut agg = super::value::Aggregate {
-                    bytes: vec![0; size as usize],
-                    relocs: Vec::new(),
-                };
+                let mut agg = super::value::Aggregate::zeroed(size, span)?;
                 self.write_value(&mut agg, 0, evaluated.as_ref().unwrap(), ty, span)?;
                 Some(Rc::new(agg))
             }

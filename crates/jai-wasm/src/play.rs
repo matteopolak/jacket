@@ -188,6 +188,9 @@ pub struct PlayOptions {
     /// Interpreter basic blocks the main compile (its `#run`s and the program) may execute
     /// before it traps with "execution budget exhausted". `None` runs unbounded.
     pub budget: Option<u64>,
+    /// Stop after compilation (every `#run` has executed); `main` is not run. The fuzz harness
+    /// uses this to exercise the front end alone.
+    pub compile_only: bool,
 }
 
 /// Compile `main` (a key of `files`) against the bundled stdlib and run it.
@@ -239,7 +242,11 @@ pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptio
                 let text = format!("error: {message}\n");
                 host.borrow_mut().write(text.as_bytes(), true);
             }
-            compiler.run_program().map(Some)
+            if limits.compile_only {
+                Ok(None)
+            } else {
+                compiler.run_program().map(Some)
+            }
         }
         Err(d) => Err(d),
     };
@@ -327,12 +334,52 @@ mod tests {
             "main.jai",
             PlayOptions {
                 budget: Some(100_000),
+                ..PlayOptions::default()
             },
         );
         assert_eq!(r.stdout, "start\n");
         assert!(r.exit_code.is_none() || r.exit_code != Some(0));
         let text = format!("{:?}{}", r.diagnostics, r.rendered);
         assert!(text.contains("execution budget exhausted"), "{text}");
+    }
+
+    #[test]
+    fn allocations_the_host_cannot_make_fail_without_aborting() {
+        // Found by fuzzing: an infallible host allocation aborted the whole compiler.
+        let r = single(concat!(
+            "#import \"Basic\";\n",
+            "BIG: [1 << 48] u8;\n",
+            "main :: () {\n",
+            "    p := alloc(1 << 60);\n",
+            "    q := alloc(-1);\n",
+            "    print(\"% %\\n\", p == null, q == null);\n",
+            "    BIG[1] = 1;\n",
+            "}\n",
+        ));
+        assert_eq!(
+            r.stdout, "true true\n",
+            "{:?}\n{}",
+            r.diagnostics, r.rendered
+        );
+        let text = format!("{:?}", r.diagnostics);
+        assert!(text.contains("cannot allocate"), "{text}");
+    }
+
+    #[test]
+    fn compile_only_skips_main() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.jai".to_string(),
+            b"#import \"Basic\";\n#run print(\"compile\\n\");\nmain :: () { print(\"run\\n\"); }\n"
+                .to_vec(),
+        );
+        let options = PlayOptions {
+            compile_only: true,
+            ..PlayOptions::default()
+        };
+        let r = run_with(&files, "main.jai", options);
+        assert_eq!(r.stdout, "compile\n", "{:?}\n{}", r.diagnostics, r.rendered);
+        assert_eq!(r.exit_code, None);
     }
 
     #[test]

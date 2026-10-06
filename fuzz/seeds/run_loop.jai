@@ -1,0 +1,2 @@
+#run { while true {} }
+main :: () {}

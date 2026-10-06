@@ -31,6 +31,11 @@ use crate::source::{Diagnostic, FileId, Span};
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
 
+/// Deepest nesting of expressions and statements the parser accepts. The parser and everything
+/// after it recurse on the tree, so without a bound a file of a few kilobytes of `(` or `{`
+/// overflows the stack. Real code stays far below this.
+pub const MAX_NESTING: usize = 1000;
+
 /// Parses one source file.
 pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
     let tokens = lex(file, text)?;
@@ -56,6 +61,8 @@ pub(crate) struct Parser<'a> {
     block_end: usize,
     /// Notes parsed in the middle of a construct, attached when it completes.
     pending_notes: Vec<Note>,
+    /// Expressions and statements currently open (see `MAX_NESTING`).
+    depth: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -69,7 +76,21 @@ impl<'a> Parser<'a> {
             pending_operator: None,
             block_end: usize::MAX,
             pending_notes: Vec::new(),
+            depth: 0,
         }
+    }
+
+    /// Run `f` one nesting level deeper, failing past `MAX_NESTING`.
+    fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> PResult<T>) -> PResult<T> {
+        if self.depth >= MAX_NESTING {
+            return Err(self.error(format!(
+                "code is nested too deeply (more than {MAX_NESTING} levels)"
+            )));
+        }
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        result
     }
 
     fn parse_file_stmts(&mut self) -> PResult<Vec<Stmt>> {

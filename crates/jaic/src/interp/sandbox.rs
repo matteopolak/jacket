@@ -168,7 +168,7 @@ pub struct SandboxHost {
     pub stderr: Vec<u8>,
     /// Write order across the two streams: `(to_stderr, bytes)` runs, adjacent runs merged.
     pub order: Vec<(bool, usize)>,
-    allocations: HashMap<u64, (Box<[u64]>, usize)>,
+    allocations: HashMap<u64, (ZeroedBlock, usize)>,
     /// Virtual clock ticks (nanoseconds) handed out by `clock_gettime`; the sandbox has no real
     /// time source on wasm32, so every query advances this by one microsecond.
     clock_ns: u64,
@@ -193,16 +193,13 @@ impl SandboxHost {
         host
     }
 
+    /// A zeroed 16-byte aligned block, or null when the request cannot be met (like `malloc`;
+    /// an infallible allocation would abort the whole compiler on `alloc(1 << 60)`).
     fn alloc(&mut self, size: usize) -> u64 {
-        let words = size.div_ceil(8).max(1) + 1;
-        let mut block = vec![0u64; words].into_boxed_slice();
-        // 16-byte alignment: skip one word when needed.
-        let base = block.as_mut_ptr() as u64;
-        let addr = if base.is_multiple_of(16) {
-            base
-        } else {
-            base + 8
+        let Some(block) = ZeroedBlock::new(size, 16) else {
+            return 0;
         };
+        let addr = block.addr();
         self.allocations.insert(addr, (block, size));
         addr
     }
@@ -612,10 +609,16 @@ impl Host for SandboxHost {
                 0
             }
             "malloc" => self.alloc(arg(0) as usize),
-            "calloc" => self.alloc(arg(0) as usize * arg(1) as usize),
+            "calloc" => (arg(0) as usize)
+                .checked_mul(arg(1) as usize)
+                .map_or(0, |size| self.alloc(size)),
             "realloc" => {
                 let (old, size) = (arg(0), arg(1) as usize);
                 let new = self.alloc(size);
+                if new == 0 {
+                    // The old block stays valid when growing fails.
+                    return Some(Ok(vec![0]));
+                }
                 if let Some((_, old_size)) = self.allocations.get(&old) {
                     unsafe {
                         std::ptr::copy_nonoverlapping(

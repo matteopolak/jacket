@@ -37,6 +37,29 @@ pub struct Aggregate {
     pub relocs: Vec<Reloc>,
 }
 
+/// The largest compile-time value the compiler builds in memory (a constant, a global's
+/// initializer, a default struct image). Types may be far larger (`types::MAX_SIZE`): this
+/// bound keeps an initializer of such a type a diagnostic instead of an allocation failure.
+pub const MAX_IMAGE: u64 = 1 << 32;
+
+impl Aggregate {
+    /// `size` zero bytes with no relocations, or an error at `span` past `MAX_IMAGE`.
+    pub fn zeroed(size: u64, span: crate::source::Span) -> super::Result<Aggregate> {
+        if size > MAX_IMAGE {
+            return super::err(
+                span,
+                format!(
+                    "a compile-time value of {size} bytes is too large (the limit is {MAX_IMAGE} bytes)"
+                ),
+            );
+        }
+        Ok(Aggregate {
+            bytes: vec![0; size as usize],
+            relocs: Vec::new(),
+        })
+    }
+}
+
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         use Value::*;

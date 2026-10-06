@@ -568,7 +568,8 @@ impl<'a> Lexer<'a> {
                 if self.peek(0) == b'%' {
                     escape_percent = true;
                 }
-                self.at += 1;
+                // The escaped character, unless the file ends at the backslash.
+                self.at = (self.at + 1).min(self.src.len());
             } else {
                 cr |= self.ident() == "cr";
             }
@@ -675,6 +676,14 @@ mod tests {
         assert_eq!(t[3], Tok::Punct(P::Semi));
         let t = kinds("s :: #string,cr END\r\na\r\nb\n  END");
         assert_eq!(t[2], Tok::Str(b"a\r\nb\r\n".as_slice().into()));
+    }
+    #[test]
+    fn here_string_flags_cut_off_by_the_end_of_file() {
+        // Found by the `lexer` fuzz target: a trailing `\` flag stepped past the end.
+        for src in ["#string,\t\t\\", "#string,\\", "#string, \\%"] {
+            let e = lex(FileId(0), src).unwrap_err();
+            assert!(e.message.contains("here-string"), "{src:?}: {}", e.message);
+        }
     }
     #[test]
     fn nested_comments_and_escapes() {

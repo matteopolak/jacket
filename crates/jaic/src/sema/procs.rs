@@ -1157,6 +1157,9 @@ impl Compiler {
         if let Some(&inst) = self.proc(id).instances.get(&key) {
             return Ok(inst);
         }
+        if self.proc(id).instances.len() >= super::MAX_INSTANCES {
+            return err(span, super::too_many_instances(self.proc(id).name));
+        }
         let parent = self.proc(id).scope;
         let module = self.scope(parent).module;
         let scope = self.new_scope(ScopeKind::Block, Some(parent), module, None);

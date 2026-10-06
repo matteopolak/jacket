@@ -49,6 +49,14 @@ fn main() {
     code.push_str("];\n");
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("stdlib_files.rs");
     std::fs::write(out, code).unwrap();
+    // cargo-fuzz builds this crate as a dependency of the fuzz harness (`--cfg fuzzing`); the
+    // unused cdylib then references libFuzzer's coverage hooks, which only the fuzz binaries
+    // define. Linux shared objects may leave them undefined; macOS needs to be told.
+    if std::env::var_os("CARGO_CFG_FUZZING").is_some()
+        && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
+    {
+        println!("cargo:rustc-link-arg-cdylib=-Wl,-undefined,dynamic_lookup");
+    }
     // The compiler recurses deeply; the default 1 MiB wasm shadow stack is too small.
     if std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("wasm32") {
         println!("cargo:rustc-link-arg-cdylib=-zstack-size=268435456");

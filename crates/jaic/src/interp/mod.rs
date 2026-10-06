@@ -146,8 +146,38 @@ struct Frame {
 const TRACE_NODE_SIZE: u64 = 32;
 
 struct GlobalMem {
-    _storage: Box<[u64]>,
+    _storage: ZeroedBlock,
     addr: u64,
+}
+
+/// Zeroed host memory for program data (globals, sandbox `malloc`), released when dropped.
+/// Allocation is fallible: a program asking for more than the host has gets an error or a null
+/// pointer instead of aborting the compiler.
+pub(crate) struct ZeroedBlock {
+    ptr: std::ptr::NonNull<u8>,
+    layout: std::alloc::Layout,
+}
+
+impl ZeroedBlock {
+    pub(crate) fn new(size: usize, align: usize) -> Option<ZeroedBlock> {
+        let layout = std::alloc::Layout::from_size_align(size.max(1), align).ok()?;
+        // Zeroed pages are mapped lazily, so a large block nobody touches costs no memory.
+        let ptr = std::ptr::NonNull::new(unsafe { std::alloc::alloc_zeroed(layout) })?;
+        Some(ZeroedBlock {
+            ptr,
+            layout,
+        })
+    }
+
+    pub(crate) fn addr(&self) -> u64 {
+        self.ptr.as_ptr() as u64
+    }
+}
+
+impl Drop for ZeroedBlock {
+    fn drop(&mut self) {
+        unsafe { std::alloc::dealloc(self.ptr.as_ptr(), self.layout) };
+    }
 }
 
 pub struct Interp {
@@ -289,11 +319,18 @@ impl Interp {
             self.globals.resize_with(i + 1, || None);
         }
         let global = &program.globals[i];
-        let align = global.align.max(8);
-        let words = (global.size + align).div_ceil(8) as usize;
-        let mut storage = vec![0u64; words.max(1)].into_boxed_slice();
-        let base = storage.as_mut_ptr() as u64;
-        let addr = base.next_multiple_of(align);
+        let align = global.align.max(8).next_power_of_two();
+        let block = usize::try_from(global.size)
+            .ok()
+            .zip(usize::try_from(align).ok())
+            .and_then(|(size, align)| ZeroedBlock::new(size, align));
+        let Some(storage) = block else {
+            return self.trap(format!(
+                "cannot allocate {} bytes for a global variable",
+                global.size
+            ));
+        };
+        let addr = storage.addr();
         unsafe {
             std::ptr::copy_nonoverlapping(
                 global.init.as_ptr(),

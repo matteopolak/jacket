@@ -172,6 +172,10 @@ impl Default for Types {
     }
 }
 
+/// Largest size in bytes of any type: a 48-bit address space, which is what 64-bit hosts
+/// actually map. Bigger arrays and structs are compile errors, so size arithmetic cannot overflow.
+pub const MAX_SIZE: u64 = 1 << 48;
+
 impl Types {
     pub fn new() -> Self {
         let kinds = builtin_kinds();
@@ -319,7 +323,8 @@ impl Types {
         }
     }
 
-    /// Size in bytes. Structs must already be laid out.
+    /// Size in bytes. Structs must already be laid out. Saturates instead of overflowing; sema
+    /// rejects types larger than `MAX_SIZE` when it lays them out.
     pub fn size_of(&self, ty: TypeId) -> u64 {
         let p = self.pointer_size;
         match self.kind(ty) {
@@ -341,7 +346,7 @@ impl Types {
                 elem,
                 kind,
             } => match kind {
-                ArrayKind::Fixed(n) => self.size_of(*elem) * n,
+                ArrayKind::Fixed(n) => self.size_of(*elem).saturating_mul(*n),
                 ArrayKind::View => 16,
                 ArrayKind::Resizable => 40,
             },

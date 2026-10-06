@@ -116,7 +116,7 @@ impl Parser<'_> {
         }
     }
 
-    fn has_top_level_comma(&self, from: usize, close: usize) -> bool {
+    pub(super) fn has_top_level_comma(&self, from: usize, close: usize) -> bool {
         let mut depth = 0usize;
         // The comma in a cast modifier (`-cast,no_check(int) x`, `xx,trunc v`) separates nothing.
         let cast_modifier = |i: usize| {

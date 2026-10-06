@@ -1,0 +1,74 @@
+# cargo-fuzz (libFuzzer) targets for the compiler. Kept out of the main workspace: it needs a
+# nightly sanitizer build and its own lock file. See docs/tools/fuzzing.md.
+[package]
+name = "jai-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+jai-fuzz-harness = { path = "harness" }
+
+[workspace]
+members = [".", "harness"]
+
+# Release speed with the checks of a debug build, so arithmetic overflow panics; the `replay`
+# example (`cargo run --release`) then behaves like the fuzz binaries.
+[profile.release]
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[[bin]]
+name = "lexer"
+path = "fuzz_targets/lexer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parser"
+path = "fuzz_targets/parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "check"
+path = "fuzz_targets/check.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "interp"
+path = "fuzz_targets/interp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "generated"
+path = "fuzz_targets/generated.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lsp"
+path = "fuzz_targets/lsp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lsp_json"
+path = "fuzz_targets/lsp_json.rs"
+test = false
+doc = false
+bench = false

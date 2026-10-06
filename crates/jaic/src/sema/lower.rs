@@ -265,8 +265,22 @@ impl Compiler {
             TypeKind::Struct(s) => self.layout_struct(s, span),
             TypeKind::Array {
                 elem,
-                kind: ArrayKind::Fixed(_),
-            } => self.ensure_complete(elem, span),
+                kind: ArrayKind::Fixed(n),
+            } => {
+                self.ensure_complete(elem, span)?;
+                let size = self.types.size_of(elem).checked_mul(n);
+                if size.is_none_or(|size| size > crate::types::MAX_SIZE) {
+                    return err(
+                        span,
+                        format!(
+                            "array type {} is too large (the limit is {} bytes)",
+                            self.types.name(ty),
+                            crate::types::MAX_SIZE
+                        ),
+                    );
+                }
+                Ok(())
+            }
             TypeKind::Distinct(d) => {
                 let base = self.types.distincts[d.0 as usize].base;
                 self.ensure_complete(base, span)

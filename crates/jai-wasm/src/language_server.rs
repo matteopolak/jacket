@@ -20,7 +20,7 @@ struct Bridge {
 impl Default for Bridge {
     fn default() -> Self {
         Self {
-            session: JsonSession::with_environment(Limits::default(), environment()),
+            session: JsonSession::with_environment(Limits::default(), lsp_environment()),
             input: Vec::new(),
             output: Vec::new(),
             diagnostic: Vec::new(),
@@ -82,7 +82,7 @@ impl Bridge {
 }
 
 /// Hover and completion type-check against the bundled stdlib, as the playground compiles.
-fn environment() -> Environment {
+pub fn lsp_environment() -> Environment {
     Environment {
         fs: Rc::new(virtual_fs(&BTreeMap::new())),
         options: Box::new(|main| {

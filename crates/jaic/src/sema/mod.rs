@@ -205,6 +205,18 @@ pub struct Module {
     pub files: Vec<FileId>,
 }
 
+/// Most instances one polymorphic procedure or struct may have. Polymorphic recursion
+/// (`f :: (x: $T) { f(*x); }`, `P :: struct (T: Type) { p: P(*T); }`) would otherwise create
+/// instances until the compiler hangs or overflows its stack.
+pub const MAX_INSTANCES: usize = 2000;
+
+fn too_many_instances(name: Sym) -> String {
+    format!(
+        "'{name}' has more than {MAX_INSTANCES} polymorphic instances (does it instantiate itself \
+         with ever new arguments?)"
+    )
+}
+
 pub struct Compiler {
     pub options: Options,
     pub fs: Rc<dyn FileSystem>,
@@ -351,6 +363,12 @@ pub struct Compiler {
     /// Lookups that reached something still being computed (a signature, entity or layout in
     /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
     pub in_progress_misses: u64,
+    /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
+    /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
+    insert_depth: HashMap<FileId, u32>,
+    /// Interpreter blocks already copied into globals while freezing one compile-time value,
+    /// by `(address, bytes)`: pointer cycles (`n.next = n`) refer back instead of recursing.
+    frozen: HashMap<(u64, u64), ir::GlobalId>,
     /// Editor facts recorded while checking (`ide.rs`); `None` outside the language server.
     pub ide: Option<Box<ide::IdeFacts>>,
     /// Set by `finish_program`: pending items no longer wait for placeholders.
@@ -460,6 +478,8 @@ impl Compiler {
             retrying_pending: false,
             placeholder_misses: 0,
             in_progress_misses: 0,
+            insert_depth: HashMap::default(),
+            frozen: HashMap::default(),
             ide: None,
             placeholders_final: false,
             lookup_without_expansion: false,
