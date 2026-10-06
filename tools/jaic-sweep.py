@@ -180,7 +180,8 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, ru
         if code != 0 and "no exported 'main'" in err:
             return "", "", NO_EXECUTABLE
         if code != 0:
-            return "", f"error: native build failed (exit {code})\n{err}", code
+            cause = next((l.strip() for l in err.splitlines() if "error" in l.lower()), "")
+            return "", f"error: native build failed (exit {code}): {cause}\n{err}", code
         if not exe.exists():
             return "", "", NO_EXECUTABLE
         if not run:

@@ -68,7 +68,7 @@ Runtime (`stdlib/Runtime_Support.jai`):
   - Debug information: MinGW targets get DWARF in the executable; MSVC targets get CodeView in the objects, but the linker is not asked for a PDB yet, so it is dropped. No `.dSYM` is written for non-macOS targets.
   - Code compiled for Windows still runs its `#run` blocks on the build host when cross-compiling, with `OS == .WINDOWS`.
   - `#bytes` is never emitted as machine code: only the debug-trap encodings (`0xCC`, arm64 `brk #1`) are recognized, as `llvm.debugtrap`, so the stdlib's `debug_break` works on every CPU. `#asm` is portable too (lowered to IR).
-  - C++ `#cpp_return_type_is_non_pod` results on arm64 Windows: MSVC passes that hidden result pointer in x0 rather than x8 (Clang's `inreg sret`). The interpreter does so (`result_in_x0` in `call_with`); the LLVM backend ignores the marker on every target (see [C ABI](c-abi.md)).
+  - C++ `#cpp_return_type_is_non_pod` results on arm64 Windows: MSVC passes that hidden result pointer in x0 rather than x8 (Clang's `inreg sret`). The interpreter does so (`result_in_x0` in `call_with`) and the LLVM backend marks that parameter `inreg sret` (see [C ABI](c-abi.md)).
 
 ## Configuration
 
