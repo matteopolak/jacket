@@ -14,7 +14,8 @@
 //! Fires when the deferred statement uses only variables declared before the loop, and none
 //! of them appears in the body before the `defer`. That leaves out the usual per-iteration
 //! pairs (`lock(*m); defer unlock(*m);`, `f := open(it); defer close(f);`), whose resource is
-//! taken in the same iteration.
+//! taken in the same iteration, and loop steps such as `while i < n { defer i += 1; ... }`,
+//! whose variable the loop's header reads.
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk, walk_node};
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
@@ -48,7 +49,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 else {
                     continue;
                 };
-                if let Some(f) = examine(cx, loop_stmt, &list[..k], deferred) {
+                if let Some(f) = examine(cx, loop_stmt, body, &list[..k], deferred) {
                     out.push(Finding {
                         start: s.span.start as usize,
                         end: deferred.span.end as usize,
@@ -61,7 +62,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     }
 }
 
-fn examine(cx: &Cx, loop_stmt: &Stmt, before: &[Stmt], deferred: &Stmt) -> Option<Finding> {
+fn examine(
+    cx: &Cx,
+    loop_stmt: &Stmt,
+    body: &Stmt,
+    before: &[Stmt],
+    deferred: &Stmt,
+) -> Option<Finding> {
     // The variables the deferred code uses, and where they were declared.
     let mut names = Vec::new();
     let mut unknown = false;
@@ -93,11 +100,16 @@ fn examine(cx: &Cx, loop_stmt: &Stmt, before: &[Stmt], deferred: &Stmt) -> Optio
         (Some(a), Some(b)) => (a.span.start, b.span.end),
         _ => (0, 0),
     };
-    if start < end
-        && names
-            .iter()
-            .any(|&n| cx.mentions(n, start, end, jaic::source::Span::default()))
+    // A variable the loop's header reads is the loop's own state: deferring its step makes
+    // `continue` take the step too.
+    let no_span = jaic::source::Span::default();
+    if names
+        .iter()
+        .any(|&n| cx.mentions(n, loop_stmt.span.start, body.span.start, no_span))
     {
+        return None;
+    }
+    if start < end && names.iter().any(|&n| cx.mentions(n, start, end, no_span)) {
         return None;
     }
     Some(Finding {

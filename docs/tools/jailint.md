@@ -113,7 +113,7 @@ for files {
 }
 ```
 
-It fires only when everything the deferred statement uses was declared before the loop and is not mentioned in the body before the `defer`. That leaves out the usual per-iteration pairs (`lock(*m); defer unlock(*m);`, `f := open(it); defer close(f);`).
+It fires only when everything the deferred statement uses was declared before the loop and is not mentioned in the body before the `defer`. That leaves out the usual per-iteration pairs (`lock(*m); defer unlock(*m);`, `f := open(it); defer close(f);`), and a deferred loop step such as `while i < n { defer i += 1; ... }`, whose variable the loop's header reads.
 
 ### duplicate_condition
 
