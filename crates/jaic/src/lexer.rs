@@ -166,6 +166,7 @@ pub struct Token {
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut lx = Lexer {
         file,
+        text,
         src: text.as_bytes(),
         at: 0,
         out: Vec::new(),
@@ -177,6 +178,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
 
 struct Lexer<'a> {
     file: FileId,
+    text: &'a str,
     src: &'a [u8],
     at: usize,
     out: Vec<Token>,
@@ -231,8 +233,8 @@ impl<'a> Lexer<'a> {
             let start = self.at;
             let c = self.src[self.at];
             if is_ident_start(c) {
-                let name = self.ident_with_separators();
-                self.push(Tok::Ident(Sym::intern(&name)), start);
+                let sym = self.ident_with_separators();
+                self.push(Tok::Ident(sym), start);
             } else if c.is_ascii_digit() || self.at_leading_dot_float() {
                 let tok = self.number(start)?;
                 self.push(tok, start);
@@ -296,7 +298,10 @@ impl<'a> Lexer<'a> {
                 self.push(Tok::Note(note), start);
             } else {
                 let rest = &self.src[self.at..];
-                let Some(&(text, p)) = PUNCT.iter().find(|(t, _)| rest.starts_with(t.as_bytes()))
+                // Most entries start with another byte: compare that before the rest.
+                let Some(&(text, p)) = PUNCT
+                    .iter()
+                    .find(|(t, _)| t.as_bytes()[0] == c && rest.starts_with(t.as_bytes()))
                 else {
                     self.at += 1;
                     return Err(self.err(start, &format!("unexpected character '{}'", c as char)));
@@ -321,14 +326,19 @@ impl<'a> Lexer<'a> {
         while self.at < self.src.len() && is_ident_char(self.src[self.at]) {
             self.at += 1;
         }
-        std::str::from_utf8(&self.src[s..self.at]).unwrap_or("?")
+        // Identifiers end at an ASCII byte (or the end), so this is a char boundary.
+        self.text.get(s..self.at).unwrap_or("?")
     }
 
     /// Identifiers may contain `\\` as an ignored visual separator: `group\\_fraction`. A trailing
     /// backslash pads a short name to line up with its neighbours (`arrow.to\\, x` next to
     /// `arrow.from, x`) and is dropped too.
-    fn ident_with_separators(&mut self) -> String {
-        let mut name = String::from(self.ident());
+    fn ident_with_separators(&mut self) -> Sym {
+        let first = self.ident();
+        if self.peek(0) != b'\\' {
+            return Sym::intern(first);
+        }
+        let mut name = String::from(first);
         while self.peek(0) == b'\\' {
             let mut skip = 1;
             while matches!(self.peek(skip), b' ' | b'\t') {
@@ -340,7 +350,7 @@ impl<'a> Lexer<'a> {
             }
             name.push_str(self.ident());
         }
-        name
+        Sym::intern(&name)
     }
 
     fn skip_trivia(&mut self) -> Result<(), Diagnostic> {
