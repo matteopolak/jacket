@@ -34,6 +34,10 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
 | `if x == {` | `peek_binary_op` refuses `==` when `{` or `#complete {` follows, so the `if` parser sees a switch. |
 | `[2]int.[1, 2]` | The array element type is parsed without `.{`/`.[` postfix, so the literal applies to the whole array type. |
 | Directive flags (`#run,stallable`) | `parse_directive_flags`: a comma hugging the directive and a following identifier. A few known flags (`distinct`, `file`, ...) may be spaced. |
+| `#library` / `#system_library` flags | Flags before the name string may be spaced after the first: `#library, system, link_always "Metal"` (`parse_unknown_directive`). |
+| `#if #complete X == {` | `parse_static_if` skips `#complete`; a static switch has no completeness check. |
+| `(-cast,no_check(int) x)` | `has_top_level_comma` ignores a comma between a cast keyword and a cast modifier, so this stays an expression, not a header. |
+| `arrow.to\,` | A `\` after an identifier is a line-joining separator (`ident_with_separators` in the lexer); a trailing one before a non-identifier is dropped. |
 | Return list commas | Inside argument/parameter lists (`in_list`) a comma ends a return type instead of adding a return value. |
 | Mixed declarations | `a=, b := f()` and `a:, b = f()` produce a `Decl` with `existing` set per name. |
 

@@ -35,6 +35,13 @@ TABLE :: #run make();
 copies its `init` bytes and re-applies relocations. `x := #run f();` keeps its value because the evaluated
 result is the initializer. `jaic build` emits only the `init` data, so the reset is implicit there.
 
+A `#no_reset` global goes to `sema.no_reset_globals` instead. Before codegen, `bake_no_reset_globals`
+(`driver.rs`, called from `prepare_compiled_output`) reads each materialized one back from the interpreter with
+`read_aggregate`, the same path `#run` constants take, and makes that its `init` and relocations. So an
+executable sees what compile-time code stored, including strings, arrays and pointers into other globals
+(chess-jai loads its network weights this way). Regression: `tests/stdlib/no-reset-globals-baked.jai` (also
+run natively).
+
 ```jai
 counter := 5;
 #no_reset keep := 0;

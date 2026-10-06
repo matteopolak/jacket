@@ -113,6 +113,7 @@ Scripts, CI and project policies.
 
 - [Benchmarks and profiling](tools/benchmarks.md)
 - [Build storage and target directories](tools/build-storage.md)
+- [Compile-time benchmark](tools/compile-time-benchmark.md): wall time, peak RSS and phases of real projects, `--timings`
 - [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`
 - [Continuous integration](tools/continuous-integration.md)
 - [Dependency policy](tools/dependency-policy.md)
@@ -121,6 +122,7 @@ Scripts, CI and project policies.
 - [LLVM setup](tools/llvm-setup.md)
 - [Nix flake](tools/nix.md)
 - [Third-party native libraries](tools/native-libs.md)
+- [Third-party smoke test](tools/third-party-smoke-test.md): finding public Jai repositories and trying them
 - [open-jai expectation harness](tools/openjai-expectations.md)
 - [Releases](tools/releases.md)
 - [Upstream corpus](tools/upstream-corpus.md)

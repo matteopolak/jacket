@@ -1,0 +1,58 @@
+name: compile-time benchmark
+# Manual only: shared runners are too noisy to gate on timings. Compare runs of this workflow
+# with each other (same runner image), not with the committed baseline from a developer machine.
+on:
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: Runs per workload (the first is the cold run)
+        default: '5'
+      only:
+        description: Substring of the workload/mode keys to run (empty for all)
+        default: ''
+permissions:
+  contents: read
+jobs:
+  bench:
+    name: compile-time benchmark (macos-15)
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install LLVM 22
+        run: |
+          brew install llvm@22
+          echo "LLVM_SYS_221_PREFIX=$(brew --prefix llvm@22)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
+      - name: Build the release compiler
+        run: cargo build --locked --release -p jaic-cli
+      - name: Fetch the upstream corpus and its native libraries
+        run: |
+          python3 tools/fetch_upstreams.py
+          python3 tools/build_native_libs.py
+      - name: Run the benchmark
+        env:
+          REPEAT: ${{ inputs.repeat }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          python3 tools/compile_bench.py --jaic target/release/jaic --repeat "$REPEAT" --only "$ONLY" \
+            --out compile-bench.json --markdown compile-bench.md
+      - name: Summary
+        if: always()
+        run: test -f compile-bench.md && cat compile-bench.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: compile-bench
+          path: |
+            compile-bench.json
+            compile-bench.md

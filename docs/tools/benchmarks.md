@@ -2,7 +2,7 @@
 
 ## What it is
 
-`tools/bench.py` times `jaic` on small interpreter and compile-time programs (`benchmarks/*.jai`) and on the larger corpus projects. `JAIC_PROFILE=1` reports where interpreted time goes, per Jai procedure. samply with `tools/profile_report.py` covers the native compiler.
+`tools/bench.py` times `jaic` on small interpreter and compile-time programs (`benchmarks/*.jai`) and on the larger corpus projects. `JAIC_PROFILE=1` reports where interpreted time goes, per Jai procedure. samply with `tools/profile_report.py` covers the native compiler. Whole-project compile times (check, `-O0`, `-O2`, peak RSS, phases) are measured by the [compile-time benchmark](compile-time-benchmark.md).
 
 ## How it works
 

@@ -2,7 +2,7 @@
 
 ## What it is
 
-`.github/workflows/ci.yml` checks every push and pull request; `.github/workflows/browser-release.yml` builds and checks the browser release bundle; `.github/workflows/windows-native.yml` tests native Windows executables.
+`.github/workflows/ci.yml` checks every push and pull request; `.github/workflows/browser-release.yml` builds and checks the browser release bundle; `.github/workflows/windows-native.yml` tests native Windows executables. `.github/workflows/compile-bench.yml` runs the [compile-time benchmark](compile-time-benchmark.md) on demand (`workflow_dispatch` only; it never gates a PR).
 
 ## How it works
 

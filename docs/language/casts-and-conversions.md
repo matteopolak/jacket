@@ -26,6 +26,9 @@ Observed behavior (checked with `jaic run`):
 - `*void` accepts any pointer implicitly; going back needs `cast(*T)` or `xx`.
 - The postfix form takes modifiers after the type: `big.(u32, trunc)` (AST_Utils hashes `k.(*Type_Info).(u32,trunc)`).
 - In a comparison, `xx a == b` casts `a` to `b`'s type (`xx err == GL_FALSE` with `err: s32`, `GL_FALSE` a bool): the other side is checked first (`check_binary`).
+- As a call argument, `xx a | b` (also `&`, `^`, and inside a macro) takes the parameter's type, and the other operand follows it (`add_piece(p, xx a1|h1)` with `enum_flags` squares): `autocast_arithmetic` defers the whole binary to the parameter (`tests/stdlib/autocast-bitwise-argument.jai`).
+- `ifx c then a else b` without an expected type takes the else-type when only the then-value converts implicitly to it (`ifx c then 0 else some_float` is a float). The then-type still wins otherwise (`tests/stdlib/ifx-widens-to-else.jai`).
+- `(-cast,no_check(int) x)` in parentheses is an expression; the comma after a cast keyword is a modifier, not a list separator (`tests/stdlib/cast-modifier-in-parens.jai`).
 - `E.loose` and `E` convert to each other implicitly (a node's `operator_type: Operator_Type.loose` passed as `Operator_Type`).
 
 Pointers and integers convert both ways: `cast(s64) ptr`, `cast(*u8) addr`, and `cast(*u8) 0 == null`. Integer constants cast to pointers fold to constants (`tests/stdlib/const-integer-pointer.jai`). Enum conversions are covered by `tests/stdlib/lang-conversions.jai`.

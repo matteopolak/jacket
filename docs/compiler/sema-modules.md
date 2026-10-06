@@ -31,7 +31,11 @@ How `crates/jaic/src/sema` loads modules, binds module parameters, and expands t
 - **Top-level expansion** (`expand_all`): first a pass over every scope expands `#if` items whose condition is a
   plain constant (`expand_plain_ifs`, no calls or `#run`), and imports. Then lookups expand pending items lazily
   (`expand_pending`). This ordering makes a module's `#if FLAG #load "x.jai"` (and an `#add_context` in it) land
-  before any `#run` lays out the Context.
+  before any `#run` lays out the Context. A static `#if X == { case ...; }` counts as plain when its value and
+  every case are plain (ui_builder picks a backend this way). While the plain pass checks a condition it sets
+  `lookup_without_expansion`, so a lookup never starts `expand_pending` (which would run compile-time code
+  early); a condition that does not resolve yet (`plain_condition_resolves`) leaves the item for the lazy
+  pass. Regression: `tests/stdlib/static-switch-add-context.jai`.
 - **Settled names**: a lookup skips `expand_pending` when the scope already binds the name to a non-overloadable,
   non-placeholder entity, so a `#if` condition reading `DEBUG` does not run every `#insert` of the scope.
 - **Sibling file imports**: an unknown name is finally looked up in the `#scope_file` imports of the module's other

@@ -29,6 +29,13 @@ Dependencies are pinned like projects: jai_parser for Jails; Linalg, Jolt-Jai an
 | [sgpu](https://github.com/roeyb1/sgpu) | ✅ | All examples build on macOS; mesh shaders need a driver MoltenVK lacks |
 | [The Way to Jai](https://github.com/Ivo-Balbaert/The_Way_to_Jai) | ✅ | 316 of 343 programs run; the rest check (windowed, interactive, Windows-only or deliberately failing) |
 | [Vk-Engine](https://github.com/ostef/Vk-Engine) | ⚠️ | Checks for Linux; its Vulkan, ImGui and Jolt modules have no macOS support |
+| [chess-jai](https://github.com/danieltan1517/chess-jai) | ✅ | UI and engine build natively; the engine plays and passes its perft suite |
+| [forbear](https://github.com/gabrielmfern/forbear) | ✅ | Builds natively; the playground app runs |
+| [rexim.github.io](https://github.com/rexim/rexim.github.io) | ✅ | `rss.jai` runs |
+| [ui_builder](https://github.com/kooparse/ui_builder) | ❌ | Stops on `cast(float) (x) & 0xFF` (cast vs `&` precedence) |
+| [Photon](https://github.com/DavidColson/Photon) | ⚠️ | Windows-only |
+| [KodaJai](https://github.com/kujukuju/KodaJai) | ⚠️ | Needs the author's other modules, which are not pinned |
+| [no_api](https://github.com/UnNabbo/no_api) | ⚠️ | Entry point imports a file missing from the repository; Windows/Linux only |
 
 The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
 
@@ -107,6 +114,32 @@ The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
     (builds both macOS archs with `BuildCpp`, regenerates `bindings.jai`); not a case because it rewrites the
     pinned `bindings.jai`, and the regenerated enums differ from upstream's (no `TracyPlotFormat` prefix
     stripping, `u32` instead of `s32`).
+
+- **20-star smoke test** (found as described in [third-party smoke test](third-party-smoke-test.md)):
+  - chess-jai: `build.jai - ui` and `- ai cpu` are check cases (`chess-jai-ui-check`, `chess-jai-engine-check`).
+    `jaic build build.jai - ui ai release` produces `chess` and the `ceij` UCI engine (both need stb_vorbis from
+    [native libraries](native-libs.md)). The engine reads its 21 MB NNUE network into a `#no_reset` global at
+    compile time, searches about 1M nodes/s, and `perft_all` passes 50 of 50 positions.
+  - forbear: `build.jai` checks and builds (`forbear-build`); its setup compiles `vendor/kb_text_shape.a` and
+    `vendor/freetype.a` with clang first, because otherwise `build.jai` regenerates `bindings-MACOS.jai` inside
+    the corpus.
+  - rexim.github.io: `rss.jai` runs (`rexim-rss`); it writes `event/<id>.json`, so the case creates `event/`.
+  - ui_builder: gets past `#add_context` in a plain `#if OS == { case }` and spaced `#library` flags, then stops
+    at `src/module.jai:3110`, `(cast(float) (hex >> 16) & 0xFF) / 255.0` ("operator BitAnd is not defined for
+    float32"). jaic binds `cast` tighter than `&`, which other code relies on (`cast(u64) p & MASK`); real Jai
+    apparently reads this line as `cast(float) ((hex >> 16) & 0xFF)`. Minimal repro:
+    `hex: u32 = 0x427b58; r := cast(float) (hex >> 16) & 0xFF;`. Open question, not fixed.
+  - Photon: Windows-only (`Ico_File` and `Windows_Resources` are imported only for Windows; `-os windows` calls
+    `MultiByteToWideChar` at compile time, which needs a Windows host).
+  - KodaJai: imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer,
+    BlockAllocatorJai, JaiMath, lz4_static and JaiParallel, none pinned. The code that parses got through after
+    two fixes (`#if #complete`, a trailing `\` identifier separator).
+  - no_api: `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies
+    DLLs and launches `wt` (Windows/Linux only).
+  - Excluded: jaithon (its own language in `.jai` files), rluba/jai-tracy (listed above).
+  - Vk-Engine (October 2026): `check Build.jai ... -os linux` now stops with "expected *Declaration, found
+    Enumerate" in `Modules/Vulkan/generate.jai:240`, also on `main` before the smoke-test fixes; the bindings
+    generator changed since the row above was written.
 
 Vk-Engine needs a `--release` build (about 45 s per module):
 `cd corpus/upstream/ostef--Vk-Engine && jaic check Build.jai -I Modules -I Source -os linux - Core|Renderer|Game|Editor`.
