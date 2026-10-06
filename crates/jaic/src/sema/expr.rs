@@ -1056,6 +1056,23 @@ impl Compiler {
                 }
                 let inner = self.settle_untyped(inner, expected);
                 let (ty, v) = self.rvalue(f, inner, span)?;
+                // `-` and `~` are arithmetic: a `Type`, `bool`, pointer or other non-number has no meaning
+                // under them, and a `Type` would otherwise become a garbage type id at run time.
+                if op != UnOp::Not
+                    && !self.types.is_integer(ty)
+                    && !self.types.is_float(ty)
+                    && self.wide_float(ty).is_none()
+                {
+                    let what = if op == UnOp::Neg {
+                        "negate"
+                    } else {
+                        "bit-complement"
+                    };
+                    return Err(Box::new(Diagnostic::error(
+                        span,
+                        format!("cannot {what} {}", self.types.name(ty)),
+                    )));
+                }
                 match op {
                     UnOp::Not => {
                         let b = self.truthy(f, ty, v, span)?;

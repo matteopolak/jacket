@@ -1,0 +1,8 @@
+#import "Basic";
+main :: () {
+    T := int;
+    x := ~T;
+    print("%\n", x);
+    y: Type = -T;
+    print("%\n", y);
+}

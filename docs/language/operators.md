@@ -26,6 +26,8 @@ A prefix cast's operand runs through the bitwise level: `cast(float) (hex >> 16)
 
 Write shifts combined with `|` with parentheses: `(a << 8) | b`. `a << 8 | b` happens to work because the shift comes first, but `b | a << 8` means `(b | a) << 8` {#ops.15}.
 
+Prefix `-` and `~` need an integer, enum or float operand, or an `operator -`/`operator ~` overload for a struct. On a `Type`, `bool`, pointer or string they are errors (`cannot negate Type`, `cannot bit-complement bool`); use `!` to invert a `bool` {#ops.16}.
+
 ### Evidence
 
 The strongest source is the recorded runtime output at the bottom of open-jai's `utils/stress.jai`, produced by Jai (its `expect` comments are wrong where they disagree with the output). The rest comes from code in the pinned corpus and the public source files that only type-checks or makes sense one way, and from the official changelog.

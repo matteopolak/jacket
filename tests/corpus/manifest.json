@@ -2123,6 +2123,32 @@
       "rules": [
         "import.16"
       ]
+    },
+    {
+      "id": "unary-operator-on-type",
+      "source": "negative/unary-operator-on-type.jai",
+      "sha256": "acbc2f8e72149f20bee9446bd742da89351aafbdbcf2f95012f8efb8b67c2121",
+      "suite": "negative",
+      "feature": "unary operators",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot bit-complement Type"
+      }
+    },
+    {
+      "id": "bit-complement-bool",
+      "source": "negative/bit-complement-bool.jai",
+      "sha256": "67cd9e8ded5e558e310d509c24a56c7590aa3fe126e90d7d2998554b8060daa6",
+      "suite": "negative",
+      "feature": "unary operators",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot bit-complement bool"
+      }
     }
   ]
 }

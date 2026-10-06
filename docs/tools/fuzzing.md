@@ -76,7 +76,7 @@ fuzz/run.sh lexer 600
 
 ASan is off on purpose. The compiler is safe Rust apart from the interpreter's program memory, and the interpreted program's own raw memory use (which ASan would flag) is not a compiler bug.
 
-Throughput differs by orders of magnitude: thousands of executions per second for `lexer` and `parser`, hundreds for `check`/`interp`, and only a handful for `lsp`, so give the compiling targets longer runs.
+Throughput differs by orders of magnitude. With three fork workers on an M-series laptop, `lexer` runs about 10,000 executions per second and `parser` several thousand. `check`, `interp` and `generated` run around 100, `lsp_edits` about 40 and `jaifmt` under 20 (each input is formatted twice by the interpreted stdlib formatter). Give the slow targets longer runs.
 
 ## Triage and minimizing
 
@@ -125,6 +125,7 @@ These explain the limits listed under Configuration; each has a regression test.
 - **Formatter:** a directive at the very start of a file had its flags spaced (`#library,link_always` became `#library, link_always`, which the parser no longer reads as flags), because `directive_zone` marked token 0 only after reading it. The formatter's own token check uses the same zones, so only the compiler's parser could see it (`jaifmt` target, on `corpus/upstream`).
 - **Formatter, more (`jaifmt`):** `1.2.3` (`1.2`, `.`, `3`) was spaced to `1.2 .3`, where `.3` lexes as a float; and a note with an open `(` (`@Note(x`) swallowed the trailing blank lines the formatter trims. Both were caught by the formatter's own token check, so the tool refused valid input with an "internal error" instead of corrupting it.
 - **Signature help (`lsp_edits`):** a call whose callee starts at byte 0 underflowed computing the callee's start, and in text that does not parse the callee lookup resolved a builtin procedure (`type_info(`) as a declaration, which the resolver treated as unreachable.
+- **Unary operators on `Type` (`interp`):** `~T` and `-T` with `T := int` type-checked and produced a garbage type id, and printing it crashed the interpreter (`~` on a `bool` likewise made the byte 254). Unary `-` and `~` now require an integer, enum or float operand unless an operator overload applies.
 - **Compile-time values:** a `#run` result holding a pointer cycle was copied into the program recursively until the stack overflowed. An integer cast to `Code` indexed past the code table. `#align` accepted values that broke layout arithmetic.
 
 ## How to change it
