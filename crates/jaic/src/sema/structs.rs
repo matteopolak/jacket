@@ -472,7 +472,14 @@ impl Compiler {
                     let TypeKind::Enum(e) = *self.types.kind(ty) else {
                         unreachable!()
                     };
-                    self.types.enums[e.0 as usize].members = out.clone();
+                    // Usually just the member before this one is missing; a full copy per
+                    // member made large enums quadratic.
+                    let visible = &mut self.types.enums[e.0 as usize].members;
+                    if visible.len() + 1 == out.len() {
+                        visible.push((m.name.name, v));
+                    } else {
+                        *visible = out.clone();
+                    }
                 }
                 ast::EnumItem::Insert(e) => {
                     let inserted = self.eval_insert_enum_items(scope, e)?;
