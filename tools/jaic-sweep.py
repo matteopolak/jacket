@@ -178,6 +178,7 @@ INTERPRETER_ONLY = {
     # Bindings_Generator drives libclang through the `__jaic_clang` compiler procedure.
     "bindings-generator-c": "runs Bindings_Generator at run time",
     "bindings-generator-cpp": "runs Bindings_Generator at run time",
+    "bindings-generator-declaration-api": "runs Bindings_Generator at run time",
 }
 
 def opens_windows(path):

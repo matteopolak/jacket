@@ -38,6 +38,7 @@ WINDOWS_PROGRAMS = [
 NOT_ON_WINDOWS = {
     "bindings-generator-c": "writes its header to /tmp",
     "bindings-generator-cpp": "writes its header to /tmp",
+    "bindings-generator-declaration-api": "writes its header to /tmp",
     "compile-time-globals-reset": "#no_reset globals are not kept by native builds on any OS yet",
     "simp-window-program": "needs an OpenGL context, which CI runners do not have",
 }
