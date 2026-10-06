@@ -694,6 +694,15 @@ fn output_path(settings: &BuildSettings, compiler: &Compiler) -> PathBuf {
 pub fn finish_all(shared: &SharedWorkspaces) -> Result<(), String> {
     let mut id = TOP_LEVEL_WORKSPACE + 1;
     while id < shared.borrow().list.len() as i64 {
+        // A workspace nobody added a file or string to has nothing to compile; building it
+        // would link an executable without `main`.
+        {
+            let mut reg = shared.borrow_mut();
+            let ws = &mut reg.list[id as usize];
+            if ws.stage == Stage::Open && ws.pending.is_empty() {
+                ws.stage = Stage::Done;
+            }
+        }
         while shared.borrow().list[id as usize].stage != Stage::Done {
             step(shared, id)?;
         }

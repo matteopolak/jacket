@@ -6,10 +6,11 @@
 
 ## How it works
 
-`ci.yml` has two kinds of job:
+`ci.yml` has three jobs:
 
 - `scripting-wasm` (ubuntu): dependency-age and include checks, `cargo test -p jai-language-server -p jai-wasm`, a release `wasm32-unknown-unknown` build staged by `tools/build_scripting_wasm.py`, then `node tools/check_scripting_wasm.mjs` executes the real module, `node tools/check_jai_format_wasm.mjs` formats the Jai_Format golden cases through it ([jaifmt](jaifmt.md#browser-playground)), and `node tools/check_playground_stdlib.mjs` runs every `tests/stdlib` program in the browser engine; any failure fails the job. The browser release (`tools/package_browser_release.py`, which the portfolio's publish workflow runs) makes the same check before it writes any asset, so a broken bundle is never published. A new stdlib test that needs processes, native libraries or windows must skip that part itself under `OS == .WASM`.
 - `test` (macOS arm64/x86-64, Linux x86-64/arm64): installs the pinned nightly and LLVM 22 ([llvm-setup](llvm-setup.md)), runs `tools/check_dependency_age.py` and `tools/check_ci_sources.py` (literal `include_str!`/`include_bytes!` inputs must exist in the checkout), then format ([code-formatting](code-formatting.md)), `cargo clippy -D warnings`, `cargo test --workspace --no-fail-fast`, and the Python tool tests (`python3 -m unittest discover -s tools -p 'test_*.py'`). Each check records its outcome independently and a final step fails the job if any failed, so one run reports every failure. A `jai-format` step then builds [jaifmt](jaifmt.md) with the debug `jaic` and runs `jaifmt --check` over the Jai trees. A `jai-lint` step builds [jailint](jailint.md) and runs `jailint -D warnings` over `stdlib`, `examples`, `tools/jaifmt` and `tests/corpus/positive`, with the repository's `jailint.toml`. Any finding fails it. Both are in the enforcement step.
+- `sanitizers` (Linux x86-64, macOS arm64): installs LLVM 22 with its compiler-rt sanitizer runtimes (`libclang-rt-22-dev` on Linux, part of Homebrew's `llvm@22`), builds the debug `jaic`, and runs `tools/jaic-sweep.py --sanitize address,undefined corpus stdlib modules` at `-O0` and again at `-O2`: every corpus runtime case, `tests/stdlib` program and stdlib module test is built natively under ASan and the IR-level UBSan checks and must give the interpreter's expected result with no sanitizer report. The sweep exits non-zero on any failure. See [sanitizers](../native/sanitizers.md).
 
 `windows-native.yml` runs on pushes to `wip/windows-native` and `ci/windows-arm64` (and by hand) that touch the compiler, stdlib or tests, once per CPU. x64: a Linux job cross-builds the corpus runtime cases and stdlib test programs with MinGW-w64 (`tools/windows_cross.py build --stdlib`), a `windows-2025` job runs them and compares output and exit codes, and a second `windows-2025` job builds `jaic` against the official LLVM, builds and runs the same programs natively (`--host`), then runs `cargo test --test native`. arm64: the same three jobs with `--cpu arm64` cross builds through llvm-mingw (a pinned release tarball, `LLVM_MINGW_VERSION`, unpacked into the runner's temp directory) and GitHub's `windows-11-arm` runner, with the official `aarch64-pc-windows-msvc` LLVM archive for the native build. See [Windows](../native/windows.md).
 
@@ -17,7 +18,7 @@
 
 `fuzz.yml` replays the saved fuzz crash inputs (`fuzz/regressions/`) on every push and pull request, and fuzzes every cargo-fuzz target nightly for 10 minutes each with a cached corpus. See [fuzzing](fuzzing.md).
 
-The corpus sweep (`tools/jaic-sweep.py`) is not part of CI because the upstream corpus is fetched, not committed; run it locally ([jaic-sweep](jaic-sweep.md)).
+The full corpus sweep (`tools/jaic-sweep.py` with the `upstream` set) is not part of CI because the upstream corpus is fetched, not committed; run it locally ([jaic-sweep](jaic-sweep.md)).
 
 ## How to change it
 
@@ -25,7 +26,7 @@ Edit the workflow files. Keep the `format`/`jai-format`/`jai-lint`/`lint`/`corre
 
 ## Configuration
 
-Runners: `macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.04-arm` (and `windows-2025`, `windows-11-arm` in `windows-native.yml`); 30 minute timeouts; `CARGO_INCREMENTAL=0`; toolchain `nightly-2026-08-29`; Python 3.14.
+Runners: `macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.04-arm` (and `windows-2025`, `windows-11-arm` in `windows-native.yml`); 30 minute timeouts (45 for `sanitizers`); `CARGO_INCREMENTAL=0`; toolchain `nightly-2026-08-29`; Python 3.14.
 
 ## Dependencies
 

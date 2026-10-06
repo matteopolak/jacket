@@ -124,3 +124,46 @@ jobs:
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1
+  sanitizers:
+    # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
+    # with the interpreter's expectations; any sanitizer report fails the case
+    # (docs/native/sanitizers.md).
+    name: native tests under ASan and UBSan (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install LLVM 22 and its sanitizer runtimes (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm@22
+          echo "LLVM_SYS_221_PREFIX=$(brew --prefix llvm@22)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
+      - name: Install LLVM 22 and its sanitizer runtimes (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          bash tools/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
+      - name: Build jaic
+        run: cargo build --locked -p jaic-cli
+      # Unoptimized code keeps every value in memory, so ASan sees each access; -O2 is where
+      # LLVM acts on undefined behaviour and the bounds checks see the most objects.
+      - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --sanitize address,undefined corpus stdlib modules
+      - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
+        if: ${{ always() && !cancelled() }}
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --sanitize address,undefined corpus stdlib modules

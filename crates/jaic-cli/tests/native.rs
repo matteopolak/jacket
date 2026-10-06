@@ -176,6 +176,22 @@ fn asm_instructions_run_natively() {
     }
 }
 
+/// Workspaces a `#run` creates without adding any source have nothing to compile: `jaic build`
+/// used to link each one as an executable without `main` and fail.
+#[test]
+fn empty_workspaces_write_no_output() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-empty-workspaces");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/stdlib/compiler-workspace-ids.jai");
+    let output = build_and_run(&source, &dir, "workspace-ids").unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// Compiled code maintains `context.stack_trace` (`jaic::stack_trace::instrument`): call lines, depth,
 /// a trace through an inline procedure, and the trace an assertion prints.
 #[test]

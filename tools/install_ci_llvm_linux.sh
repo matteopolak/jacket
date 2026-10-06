@@ -29,7 +29,9 @@ printf '%s\n' \
   "deb [arch=$package_arch signed-by=/usr/share/keyrings/jai-ci-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
   | sudo tee /etc/apt/sources.list.d/jai-ci-llvm.list > /dev/null
 sudo apt-get update
-sudo apt-get install --yes --no-install-recommends llvm-22-dev clang-22 libclang-22-dev libpolly-22-dev
+# libclang-rt-22-dev: the sanitizer runtimes `jaic build -sanitize` links.
+sudo apt-get install --yes --no-install-recommends llvm-22-dev clang-22 libclang-22-dev libpolly-22-dev \
+  libclang-rt-22-dev
 case "$(/usr/lib/llvm-22/bin/llvm-config --version)" in
   22.1.*) ;;
   *) echo 'Expected LLVM 22.1 for llvm-sys 221.' >&2; exit 1 ;;

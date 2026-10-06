@@ -33,7 +33,7 @@ The `__jaic_rec_*`, `__jaic_code_nodes`, `__jaic_parse_code` and `__jaic_modify_
 
 ### Workspace state machine
 
-`build::step` advances a workspace whenever its events are read, or from `build::finish_all` after the top-level compile for workspaces nobody intercepted. Its `Compiler` lives in the registry between steps.
+`build::step` advances a workspace whenever its events are read, or from `build::finish_all` after the top-level compile for workspaces nobody intercepted. `finish_all` skips a workspace that never got a file or string: there is nothing to compile, and building it would link an executable without `main`. Its `Compiler` lives in the registry between steps.
 
 1. **Open to Checked**: `Compiler::begin_sources` loads the bootstrap and queued sources and runs their `#run`s. Events: FILE..., PHASE `ALL_SOURCE_CODE_PARSED`, PHASE `TYPECHECKED_ALL_WE_CAN`.
 2. **Checked with new sources** (the metaprogram called `add_build_string` after `TYPECHECKED_ALL_WE_CAN`): `add_source` and `settle`, new FILE events, `TYPECHECKED_ALL_WE_CAN` again.
