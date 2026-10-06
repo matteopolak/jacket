@@ -110,6 +110,7 @@
 
 - Under `jaic run`, `get_path_of_running_executable` returns the executable `jaic build` would write for the program (`src/main` for `jaic run src/main.jai`) instead of `jaic`'s own path, so programs that load data relative to their executable (`../assets`) find it.
 - `jaic run` writes the executables and libraries a metaprogram's workspaces ask for, as `jaic build` does (it only interprets the top-level program instead of compiling it), so `jaic run first.jai` on a build script builds and can launch its program. `-no_workspace_output` skips them. `jaic check` still writes nothing, and now warns when a workspace asks for output, naming the `jaic build` command that writes it.
+- Input on Windows reports window resizes and close-button QUIT events: windows created by Window_Creation now use a window procedure that feeds Input, so messages Windows sends directly (WM_SIZE, WM_CLOSE) are no longer lost, and closing a window no longer destroys it before the program sees QUIT.
 - Compiler on Windows: relative `import_path` entries are anchored with the calling file's own separator (`C:\game\mods`), not a mix of `\` and `/`.
 - Print_Vars compiles with jaic and no longer frees names that live in constant data (a crash with "pointer is not owned by this allocator heap").
 - Jai_Lexer: `<<<`, `>>>` and `=>` are single tokens, the `` escape is recognised, and `1_000.5` lexes as one float (it lexed as 1).
