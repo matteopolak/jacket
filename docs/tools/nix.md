@@ -85,4 +85,4 @@ Gotchas:
 
 ## Dependencies
 
-nixpkgs `nixos-26.05` (`llvmPackages_23`, stdenv, `makeWrapper`, libffi, libxml2, ncurses, zlib, zstd), `oxalica/rust-overlay`, and the `cachix/install-nix-action` action for CI.
+nixpkgs `nixpkgs-unstable` (`llvmPackages_23`, stdenv, `makeWrapper`, libffi, libxml2, ncurses, zlib, zstd), `oxalica/rust-overlay`, and the `cachix/install-nix-action` action for CI. The flake follows unstable because the `nixos-26.05` release branch has no cached LLVM 23 for macOS: Nix would build LLVM from source, and its test suite fails there (`dsymutil/codesign.test`). Unstable has no cached `x86_64-darwin` LLVM 23 either, so Intel Macs still build it from source.

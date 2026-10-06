@@ -73,7 +73,7 @@ Anything unsupported fails with a compile error rather than being silently accep
 
 ## Install
 
-Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64) are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md).
+Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64) are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md). Unpack one anywhere (say `/opt/jaic`) and put `jaic` on your `PATH`, directly or through a symlink; it finds the `stdlib` folder next to the real file.
 
 With Nix (see [Nix](docs/tools/nix.md)):
 

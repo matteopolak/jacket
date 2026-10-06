@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- A release `jaic` (and `jailint`, `jailsp`) started through a symlink, e.g. unpacked into `/opt` and linked from a bin folder, now finds the `stdlib` folder next to the real file. On macOS it looked next to the link and then fell back to the CI runner's path (`could not read file /Users/runner/work/jai/jai/stdlib/prelude/module.jai`). A missing standard library is now reported as such, with how to fix it.
 - An omitted argument binds a polymorphic type its default determines: `error :: (code: int, platform_code: $T = 0)` called as `error(3)` makes `T` `s64` instead of failing with "could not infer polymorphic type".
 - `Basic.create_heap` no longer passes an `Allocator_Caps` value to `assert`'s `bool` parameter (found with `-no_dce`).
 - `jaic run` on a file without `main` that has `#program_export` procedures runs its compile-time code and exits 0 instead of asking for an exported `main`.

@@ -31,4 +31,19 @@ main :: () {
     bump(points);
     list(.["a", "b"]);
     print("% %\n", sum(xs), points[0].x);
+    tour();
+}
+
+Stop :: struct { title: string; run: () -> (); }
+
+stops :: Stop.[ .{ "one", one }, .{ "two", two } ];
+
+one :: () { print("1\n"); }
+two :: () { print("2\n"); }
+
+tour :: () {
+    for i: 0..stops.count - 1 {
+        print("% %\n", i + 1, stops[i].title);
+        stops[i].run();
+    }
 }

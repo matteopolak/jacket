@@ -51,6 +51,9 @@ fn main() -> std::process::ExitCode {
 fn native_environment() -> jai_language_server::Environment {
     use std::path::PathBuf;
     let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
+    if let Some(message) = jaic::missing_stdlib(&stdlib) {
+        eprintln!("jailsp: {message}");
+    }
     jai_language_server::Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {

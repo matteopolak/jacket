@@ -153,6 +153,7 @@ Deny by default. `print("% is %\n", name)` prints an error marker in place of th
 - the loop could change `xs` itself (assignment, `array_add`, taking its address, `remove`);
 - it walks a grid (`for c: 0..xs[i].count - 1` inside);
 - the index is used with other arrays or computed with inside an index (`ys[i]`, `xs[i + 1]`);
+- `xs` is a constant (`xs :: T.[...]`) and the suggestion would be `for *xs`, since a constant has no elements to point at.;
 - elements are filled from the index (`xs[i] = i * i`).
 
 ### infinite_loop

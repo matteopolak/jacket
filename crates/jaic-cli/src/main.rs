@@ -363,6 +363,10 @@ fn run(cli: Cli) -> ExitCode {
 
 fn compile_and_run(mut cli: Cli) -> ExitCode {
     let stdlib = stdlib_dir();
+    if let Some(message) = jaic::missing_stdlib(&stdlib) {
+        eprintln!("error: {message}");
+        return ExitCode::from(1);
+    }
     jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
     let path = std::fs::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     // Like `jai`, run from the main file's directory (so the program's meaning does not

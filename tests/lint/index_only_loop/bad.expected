@@ -37,3 +37,17 @@ help: loop over the elements: `for names`, with `it` and `it_index`
    |
    = note: `index_only_loop` is `warn` by default
 
+warning[index_only_loop]: `i` counts through `stops` to index it
+  --> tests/lint/index_only_loop/bad.jai:45:5
+   |
+45 |     for i: 0..stops.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for stops`, with `it` and `it_index`
+   |
+45 ~     for stops {
+46 ~         print("% %\n", it_index + 1, it.title);
+47 ~         it.run();
+   |
+   = note: `index_only_loop` is `warn` by default
+

@@ -13,7 +13,8 @@
 //! with the variable or compute with it inside an index (`ys[i]`, `xs[i + 1]`), or fill
 //! elements from the index (`xs[i] = i * i`): there the index is the point. Writes
 //! to elements (`xs[i] = v`, `xs[i].f = v`, `*xs[i]`, passing `xs` to a call) make the
-//! suggestion `for *xs`.
+//! suggestion `for *xs`. Constant arrays (`xs :: T.[...]`) are reported too, except where the
+//! suggestion would be `for *xs`.
 use super::{PlaceUse, is_call_argument, place_use};
 use crate::syntax::{Cx, Node, is_path, root_ident, squash, walk_node};
 use crate::{Edit, Finding, Fix};
@@ -96,9 +97,12 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     let (arr, lo, hi) = counted_array(f)?;
     // Arrays only: a string or a struct with `for_expansion` iterates differently.
     let arr_ty = cx.ty(arr)?;
-    if !matches!(cx.compiler.types.kind(arr_ty), TypeKind::Array { .. }) || cx.constant(arr) {
+    if !matches!(cx.compiler.types.kind(arr_ty), TypeKind::Array { .. }) {
         return None;
     }
+    // A constant array (`xs :: int.[1, 2]`) iterates like any other, but has no elements to
+    // point at: `for *xs` is not an option for one.
+    let constant = cx.constant(arr);
     let var = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
     let loop_vars: Vec<_> = cx
         .facts
@@ -241,7 +245,11 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     });
     // `for i: 0..xs.count-1 xs[i] = i * i;` fills the array from the index: the counting
     // loop says that as well as `for *xs it.* = it_index * it_index;` would.
-    if bail || uses.elements.is_empty() || (uses.writes && !uses.others.is_empty()) {
+    if bail
+        || uses.elements.is_empty()
+        || (uses.writes && !uses.others.is_empty())
+        || (constant && uses.by_pointer)
+    {
         return None;
     }
     let arr_src = cx.src(arr.span).trim();

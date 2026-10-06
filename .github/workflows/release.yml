@@ -184,6 +184,20 @@ jobs:
             ldd "$jaic"
             ! ldd "$jaic" | grep -i llvm
           fi
+          # Installed the usual way: unpacked elsewhere, linked from a bin folder, with no
+          # checkout to fall back on (the build's own stdlib path is baked in as the fallback).
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            mv "$GITHUB_WORKSPACE/stdlib" "$GITHUB_WORKSPACE/stdlib.hidden"
+            cp -R "$GITHUB_WORKSPACE/$PACKAGE_DIR" "$RUNNER_TEMP/opt-jaic"
+            mkdir -p "$RUNNER_TEMP/bin"
+            ln -s "$RUNNER_TEMP/opt-jaic/jaic" "$RUNNER_TEMP/bin/jaic"
+            set +e
+            "$RUNNER_TEMP/bin/jaic" run main.jai
+            status=$?
+            set -e
+            mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
+            test "$status" = 42
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.name }}

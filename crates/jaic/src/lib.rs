@@ -23,15 +23,34 @@ pub mod wide_float;
 
 /// The standard library directory for a native `jaic` or `jailsp`: `JAIC_STDLIB`, else `stdlib/`
 /// next to the executable (release archives), else `fallback` (the repository's, for development).
+/// "Next to the executable" is checked both where it was started from and, through symlinks, where
+/// it really is: an archive unpacked into `/opt` and linked from `~/bin` finds `/opt/.../stdlib`
+/// (macOS reports the symlink's path as the executable).
 pub fn stdlib_dir(fallback: std::path::PathBuf) -> std::path::PathBuf {
     if let Some(dir) = std::env::var_os("JAIC_STDLIB") {
         return dir.into();
     }
-    let beside = std::env::current_exe()
-        .ok()
-        .and_then(|exe| Some(exe.parent()?.join("stdlib")));
-    match beside {
-        Some(dir) if dir.join("prelude/module.jai").is_file() => dir,
-        _ => fallback,
+    let Ok(exe) = std::env::current_exe() else {
+        return fallback;
+    };
+    let real = std::fs::canonicalize(&exe).ok();
+    [Some(exe), real]
+        .into_iter()
+        .flatten()
+        .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
+        .find(|dir| dir.join("prelude/module.jai").is_file())
+        .unwrap_or(fallback)
+}
+
+/// The error for a standard library directory without `prelude/module.jai`, or `None` when it has one.
+pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
+    if dir.join("prelude/module.jai").is_file() {
+        return None;
     }
+    Some(format!(
+        "cannot find the standard library (looked in {}).\n\
+         Keep the `stdlib` folder from the release archive next to the executable (a symlink to \
+         the executable is fine), or set JAIC_STDLIB to its path.",
+        dir.display()
+    ))
 }

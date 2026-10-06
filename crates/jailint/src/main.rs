@@ -148,6 +148,9 @@ fn run() -> Result<ExitCode, String> {
         }
     }
     let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
+    if let Some(message) = jaic::missing_stdlib(&stdlib) {
+        return Err(message);
+    }
     let stdlib = stdlib.canonicalize().unwrap_or(stdlib);
     let options = jailint::driver::Options {
         paths: args.paths.clone(),

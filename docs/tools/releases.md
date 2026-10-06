@@ -15,7 +15,7 @@ Each platform job:
 
 The `publish` job then collects the archives, writes `SHA256SUMS`, extracts the `## [x.y.z]` section of `CHANGELOG.md` and runs `gh release create`.
 
-A packaged `jaic` (and `jailint`) finds its standard library through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` next to the executable (when it has `module.jai`), else the repository's `stdlib/` (development builds).
+A packaged `jaic` (and `jailint`, `jailsp`) finds its standard library through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` next to the executable (when it has `module.jai`), checked both beside the path it was started from and beside the real file behind any symlinks, else the repository's `stdlib/` (development builds; the path is baked in at build time, so on another machine it is the CI runner's). Symlinks matter on macOS, where the executable's path is the link's: unpacking into `/opt/jaic` and linking `~/bin/jaic` to it must still find `/opt/jaic/stdlib`. When none of these has `module.jai`, `jaic` and `jailint` stop with an error naming the directory and both fixes (`jaic::missing_stdlib`); `jailsp` logs it. The smoke test also runs the package through a symlink with the checkout's `stdlib/` moved away.
 
 ## How to change it
 

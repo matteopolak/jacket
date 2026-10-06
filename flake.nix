@@ -2,7 +2,9 @@
   description = "jaic: an independent compiler for the Jai programming language";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    # Unstable, not a release branch: nixos-26.05 has no cached LLVM 23 for macOS, and
+    # building it there fails one of LLVM's own tests (dsymutil codesign).
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     # The pinned nightly from rust-toolchain.toml (nixpkgs only ships stable Rust).
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
