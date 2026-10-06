@@ -31,6 +31,7 @@
 
 ### Fixed
 
+- Uncalled procedures with notes in imported modules are no longer type checked for intercepting metaprograms (only the program's own files are), so Vk-Engine's `Common` module, which has a stale `@PrintLike` procedure, compiles again.
 - A struct member's `#align N` now replaces its natural alignment (it could only raise it), so packed C layouts can be reproduced.
 - `New` of an `#align 64` type (and any default-allocator or `rpmalloc` block of 64 bytes or more, including `realloc` and array growth) is now 64-byte aligned; it was only 16-aligned, so such objects were misaligned intermittently. Larger alignments are not guaranteed for heap blocks.
 - `#align 64` (and larger) locals are aligned in the interpreter too; they were only aligned relative to their stack frame.

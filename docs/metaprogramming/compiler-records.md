@@ -116,6 +116,9 @@ The bridge that lets metaprograms see a workspace's code: `Message_File`, `Messa
   - Exception: procedures with notes (`@glsl`, `@thread`, header or after the body) whose headers went out are
     lowered leniently when the workspace runs out of sources (`lower_reachable_inner`), because metaprograms
     find shaders and checked procedures by note whether or not anything calls them (Jai-Shader-Transpiler).
+    Only procedures declared in the program's own files (the main module) qualify: an imported module's uncalled
+    noted procedures stay unchecked, since real code ships stale ones (Vk-Engine's `@PrintLike FormatToCString`
+    calls a procedure that does not exist; `tests/stdlib/compiler-noted-module-procs.jai`).
   - The Jai side (`workspace.jai`, TYPECHECKED) also sets `body.header.body_or_null` on the cached header
     struct: a metaprogram may hold that header from the earlier message (MetaThreadSafe checks bodies at
     COMPLETE).

@@ -28,7 +28,7 @@ Dependencies are pinned like projects: jai_parser for Jails; Linalg, Jolt-Jai an
 | [jai-tracy](https://github.com/rluba/jai-tracy) | ✅ | `-plug tracy` instruments and builds a profiled program |
 | [sgpu](https://github.com/roeyb1/sgpu) | ✅ | All examples build on macOS; mesh shaders need a driver MoltenVK lacks |
 | [The Way to Jai](https://github.com/Ivo-Balbaert/The_Way_to_Jai) | ✅ | 316 of 343 programs run; the rest check (windowed, interactive, Windows-only or deliberately failing) |
-| [Vk-Engine](https://github.com/ostef/Vk-Engine) | ⚠️ | Checks for Linux; its Vulkan, ImGui and Jolt modules have no macOS support |
+| [Vk-Engine](https://github.com/ostef/Vk-Engine) | ⚠️ | All four modules check for Linux; its Vulkan, ImGui and Jolt modules have no macOS support, and its Vulkan generator targets an older Bindings_Generator API |
 | [chess-jai](https://github.com/danieltan1517/chess-jai) | ✅ | UI and engine build natively; the engine plays and passes its perft suite |
 | [forbear](https://github.com/gabrielmfern/forbear) | ✅ | Builds natively; the playground app runs |
 | [rexim.github.io](https://github.com/rexim/rexim.github.io) | ✅ | `rss.jai` runs |
@@ -44,7 +44,13 @@ The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
   `modules/Objective_C/LightweightRenderingView/build.jai` run once (`jaic build build.jai` there). Debug builds
   need `~/Library/Application Support/dev.focus-editor` to exist (upstream creates `.../debug` non-recursively).
 - **Vk-Engine** (+ Linalg, Jolt-Jai): `jaic check Build.jai -I Modules -I Source -os linux - Core|Renderer|Game|Editor`
-  passes (the ImGui and Vulkan generators run on the real headers). Native macOS stops in about 3 s: the upstream
+  passes, as sweep cases `vk-engine-{core,renderer,game,editor}-check`. They run on a scratch copy with empty
+  `Libs/Linux` placeholders, as on a Linux machine whose libraries are built, so `Build.jai` does not regenerate
+  bindings and nothing in the corpus changes. Without the placeholders `Build.jai` runs the three generators: ImGui's
+  works, Jolt's needs `cmake`, and Vulkan's stops with "expected *Declaration, found Enumerate" at
+  `Modules/Vulkan/generate.jai:240`. That file (like sgpu's `Vulkan_With_VMA/generate.jai`) is written for an older
+  Bindings_Generator where `Enum.enumerates` held declarations; the current API (`enumerates: [..] Enumerate`, values,
+  and `Literal.enum_value: *Enum.Enumerate`, which no_api's generator uses) rejects it in real Jai too. Native macOS stops in about 3 s: the upstream
   `Vulkan`, `ImGui` and `JoltPhysics` modules and their `generate.jai` have no macOS branch (editing the upstream
   project is out of scope). `python3 tools/build_vk_engine_libs.py` builds `libImGui`, `libVkMemAlloc` and `libJoltC`
   for macOS. See [Vk-Engine](../native/vk-engine.md).
@@ -137,9 +143,11 @@ The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
   - no_api: `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies
     DLLs and launches `wt` (Windows/Linux only).
   - Excluded: jaithon (its own language in `.jai` files), rluba/jai-tracy (listed above).
-  - Vk-Engine (October 2026): `check Build.jai ... -os linux` now stops with "expected *Declaration, found
-    Enumerate" in `Modules/Vulkan/generate.jai:240`, also on `main` before the smoke-test fixes; the bindings
-    generator changed since the row above was written.
+  - Vk-Engine (October 2026): `check Build.jai ... -os linux` had two problems. The Vulkan generator error (see the
+    Vk-Engine note above) is an upstream API mismatch, so the sweep cases keep the generators from running. Behind it,
+    Core failed with `unknown identifier 'CSprint'`: since 13c74c8c jaic lowered every uncalled noted procedure for
+    metaprograms, including `Common`'s `@PrintLike` `FormatToCString`, whose body is stale. Only procedures in the
+    program's own files are lowered that way now (`tests/stdlib/compiler-noted-module-procs.jai`).
 
 Vk-Engine needs a `--release` build (about 45 s per module):
 `cd corpus/upstream/ostef--Vk-Engine && jaic check Build.jai -I Modules -I Source -os linux - Core|Renderer|Game|Editor`.

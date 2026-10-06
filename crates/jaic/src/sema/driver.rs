@@ -180,11 +180,16 @@ impl Compiler {
         }
         if lenient {
             // A metaprogram looks for procedures by their notes (`@glsl`, `@thread`) whether
-            // or not the program calls them: lower those whose headers it was shown.
+            // or not the program calls them: lower those whose headers it was shown. Only the
+            // program's own files count; a noted procedure in an imported module stays unchecked
+            // until something calls it (Vk-Engine's `Common` has an uncalled `@PrintLike`
+            // procedure whose body names a procedure that does not exist).
             let noted: Vec<ProcId> = (self.export.pending_procs())
                 .filter(|&p| {
-                    !self.proc(p).lit.header.notes.is_empty()
-                        || self.proc_decl_notes.contains_key(&p)
+                    let proc = self.proc(p);
+                    Some(self.scope(proc.scope).module) == self.main_module
+                        && (!proc.lit.header.notes.is_empty()
+                            || self.proc_decl_notes.contains_key(&p))
                 })
                 .collect();
             for p in noted {

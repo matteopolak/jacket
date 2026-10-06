@@ -26,6 +26,11 @@ Expected result of `corpus negative stdlib modules upstream examples`: everythin
 - New regression program: drop a self-checking `tests/stdlib/<name>.jai` (return non-zero / `assert` on failure).
 - An upstream case may list `setup` commands (argv lists, run once in the case's directory before the cases
   start), e.g. compiling the C++ library `ttwj-30-cpp-library-main` loads.
+- A case whose program writes into its own tree (generated bindings, `module_api.public.jai`) lists the corpus
+  directories to `copy` into a scratch directory, and the read-only siblings it reaches through relative paths to
+  `link` there. Path, setup commands and the run then use the copy, which is deleted after the sweep. Example:
+  `vk-engine-*-check` copies `ostef--Vk-Engine` and `ostef--Jolt-Jai`, and links `ostef--Linalg` and `ostef--JoltC`.
+  Never `link` a directory that a setup command or the program writes to: the link leads back into the corpus.
 - An upstream entry point started working: add it to `tools/upstream-cases.json` so it stays working.
 - `build` cases (`focus-native-build`, `jails-native-build`, `jaison-native-build`) produce native executables and
   need LLVM plus the third-party libraries from `python3 tools/build_native_libs.py` (see [native libs](native-libs.md)).

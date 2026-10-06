@@ -9,11 +9,27 @@ run must succeed; a test directory's `modules/` folder holds its mock modules), 
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass), or file paths.
 """
-import argparse, json, os, subprocess, sys
+import argparse, json, os, shutil, subprocess, sys, tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+UPSTREAM = ROOT / "corpus/upstream"
+# Upstream cases with `copy` run in a scratch copy of those project directories (`link` names
+# read-only siblings to symlink next to them), so a build that writes generated files never
+# changes the pinned corpus. Case id -> scratch root, filled before the cases start.
+WORKDIRS = {}
+
+def upstream_root(c):
+    return WORKDIRS.get(c["id"], UPSTREAM)
+
+def make_workdir(c):
+    root = Path(tempfile.mkdtemp(prefix=f"jaic-sweep-{c['id']}-"))
+    for name in c.get("copy", []):
+        shutil.copytree(UPSTREAM / name, root / name, symlinks=True)
+    for name in c.get("link", []):
+        (root / name).symlink_to(UPSTREAM / name, target_is_directory=True)
+    return root
 
 def cases(name):
     if name == "corpus":
@@ -40,7 +56,7 @@ def cases(name):
             yield c["id"], ROOT / c["directory"] / c["main"], "run", expect, c.get("args", [])
     elif name == "upstream":
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
-            yield c["id"], ROOT / "corpus/upstream" / c["path"], c["mode"], None, c.get("args", [])
+            yield c["id"], upstream_root(c) / c["path"], c["mode"], None, c.get("args", [])
     else:
         p = Path(name)
         yield p.stem, p, "run", None, []
@@ -56,15 +72,17 @@ def main():
     ap.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 1,
                     help="cases run at once (default: CPU count)")
     a = ap.parse_args()
-    todo = [c for s in a.sets for c in cases(s) if a.filter in c[0]]
     # Upstream cases may name setup commands (building a C library the program loads); they run
     # once, serially, in the case's directory before any case starts.
     if "upstream" in a.sets:
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
             if a.filter in c["id"]:
+                if "copy" in c:
+                    WORKDIRS[c["id"]] = make_workdir(c)
                 for command in c.get("setup", []):
-                    subprocess.run(command, cwd=(ROOT / "corpus/upstream" / c["path"]).parent,
+                    subprocess.run(command, cwd=(upstream_root(c) / c["path"]).parent,
                                    capture_output=True, stdin=subprocess.DEVNULL)
+    todo = [c for s in a.sets for c in cases(s) if a.filter in c[0]]
 
     def run(case):
         cid, path, mode, expect, extra = case
@@ -99,6 +117,8 @@ def main():
             failed.append((cid, first))
             if a.verbose:
                 print(f"--- {cid}\n{err[:1500]}{out[:500]}")
+    for root in WORKDIRS.values():
+        shutil.rmtree(root, ignore_errors=True)
     for cid, msg in failed:
         print(f"FAIL {cid}: {msg[:220]}")
     print(f"\n{passed} passed, {len(failed)} failed")
