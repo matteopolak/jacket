@@ -429,13 +429,37 @@ impl Session {
         Some(self.expansion(&document, position).ok()??.text)
     }
 
-    /// Show an expansion; inline an `#insert` or a `#run` value; apply a lint's fix.
+    /// Show an expansion; inline an `#insert` or a `#run` value; apply a lint's fix, or all.
     pub fn code_actions(&self, uri: &DocumentUri, range: Range) -> Result<Vec<CodeAction>, Error> {
+        self.code_actions_in(uri, range, &crate::lints::ActionContext::default())
+    }
+
+    /// [`Session::code_actions`] limited to what `context` asks for.
+    pub fn code_actions_in(
+        &self,
+        uri: &DocumentUri,
+        range: Range,
+        context: &crate::lints::ActionContext,
+    ) -> Result<Vec<CodeAction>, Error> {
+        let mut actions = self.all_code_actions(uri, range, context)?;
+        actions.retain(|a| match a.kind {
+            Some(kind) => context.wants(kind),
+            None => context.only.is_none(),
+        });
+        Ok(actions)
+    }
+
+    fn all_code_actions(
+        &self,
+        uri: &DocumentUri,
+        range: Range,
+        context: &crate::lints::ActionContext,
+    ) -> Result<Vec<CodeAction>, Error> {
         let doc = self.document(uri)?;
         let start = doc.index.byte(&doc.text, range.start)?;
         let end = doc.index.byte(&doc.text, range.end)?;
         let text = &doc.text;
-        let fixes = self.lint_fixes(uri, start, end);
+        let fixes = self.lint_actions(uri, start, end, context);
         let Some(e) = self
             .expansions(uri)
             .into_iter()
@@ -467,6 +491,7 @@ impl Session {
                     command: "jai.showExpansion".into(),
                     target: Some((uri.as_str().into(), at.start)),
                 }),
+                ..CodeAction::default()
             });
         }
         let single = e.texts.len() == 1;
@@ -495,6 +520,7 @@ impl Session {
                     }],
                 )),
                 command: None,
+                ..CodeAction::default()
             });
         }
         actions.extend(fixes);

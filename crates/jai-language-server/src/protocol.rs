@@ -109,6 +109,33 @@ struct RangeParams {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct CodeActionParams {
+    text_document: DocumentIdentifier,
+    range: Range,
+    #[serde(default)]
+    context: Option<CodeActionContext>,
+}
+
+#[derive(Deserialize, Default)]
+struct CodeActionContext {
+    #[serde(default)]
+    diagnostics: Vec<WireDiagnostic>,
+    #[serde(default)]
+    only: Option<Vec<String>>,
+}
+
+/// The parts of a client's diagnostic that identify a lint.
+#[derive(Deserialize)]
+struct WireDiagnostic {
+    range: Range,
+    #[serde(default)]
+    code: Option<Value>,
+    #[serde(default)]
+    source: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ReferenceContext {
     include_declaration: bool,
 }
@@ -343,7 +370,9 @@ impl JsonSession {
                         "triggerCharacters": ["(", ","],
                         "retriggerCharacters": [","],
                     },
-                    "codeActionProvider": { "codeActionKinds": ["quickfix", "refactor.inline"] },
+                    "codeActionProvider": {
+                        "codeActionKinds": ["quickfix", "refactor.inline", crate::lints::FIX_ALL_KIND]
+                    },
                     "codeLensProvider": { "resolveProvider": false },
                     "executeCommandProvider": { "commands": COMMANDS },
                     "semanticTokensProvider": {
@@ -543,10 +572,20 @@ impl JsonSession {
                         .map_or(Value::Null, signature_wire)
                 }
                 "textDocument/codeAction" => {
-                    let p: RangeParams = decode(params)?;
+                    let p: CodeActionParams = decode(params)?;
+                    let context = p.context.unwrap_or_default();
+                    let context = crate::lints::ActionContext {
+                        only: context.only,
+                        diagnostics: context
+                            .diagnostics
+                            .into_iter()
+                            .filter(|d| d.source.as_deref() == Some("jailint"))
+                            .filter_map(|d| Some((d.code?.as_str()?.to_string(), d.range)))
+                            .collect(),
+                    };
                     Value::Array(
                         self.session
-                            .code_actions(&uri(&p.text_document.uri)?, p.range)
+                            .code_actions_in(&uri(&p.text_document.uri)?, p.range, &context)
                             .map_err(domain)?
                             .iter()
                             .map(code_action_wire)
@@ -619,7 +658,8 @@ impl JsonSession {
             "initialized" => return Ok(vec![]),
             "textDocument/didOpen" => {
                 let p: OpenParams = decode(params)?;
-                if p.text_document.language_id != "jai" {
+                let settings = p.text_document.uri.ends_with("/jailint.toml");
+                if p.text_document.language_id != "jai" && !settings {
                     return Err((-32602, "Only Jai documents are supported".into()));
                 }
                 self.session
@@ -725,13 +765,17 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticCode::Format => ("jai-format", "jai"),
         DiagnosticCode::Lint(rule) => (rule, "jailint"),
     };
-    json!({
+    let mut value = json!({
         "range": diagnostic.range,
         "severity": severity,
         "code": code,
         "source": source,
         "message": diagnostic.message,
-    })
+    });
+    if let DiagnosticCode::Lint(rule) = diagnostic.code {
+        value["codeDescription"] = json!({ "href": crate::lints::rule_url(rule) });
+    }
+    value
 }
 
 fn symbol_wire(symbol: &DocumentSymbol) -> Value {
@@ -850,6 +894,16 @@ fn code_action_wire(action: &CodeAction) -> Value {
     }
     if let Some(command) = &action.command {
         value["command"] = command_wire(command);
+    }
+    if !action.diagnostics.is_empty() {
+        value["diagnostics"] =
+            Value::Array(action.diagnostics.iter().map(diagnostic_wire).collect());
+    }
+    if action.is_preferred {
+        value["isPreferred"] = json!(true);
+    }
+    if let Some(rule) = action.rule {
+        value["data"] = json!({ "rule": rule });
     }
     value
 }

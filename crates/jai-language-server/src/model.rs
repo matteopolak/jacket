@@ -171,13 +171,19 @@ pub struct Command {
     pub target: Option<(String, Position)>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CodeAction {
     pub title: String,
     pub kind: Option<&'static str>,
     /// Edits of one document.
     pub edit: Option<(String, Vec<TextEdit>)>,
     pub command: Option<Command>,
+    /// The diagnostics the action resolves.
+    pub diagnostics: Vec<Diagnostic>,
+    /// The action to take when several fix the same thing (a lint's safe fix).
+    pub is_preferred: bool,
+    /// The jailint rule whose fix this is (`data.rule` on the wire).
+    pub rule: Option<&'static str>,
 }
 
 /// Generated code of an `#insert`, `#run`, `#if` or macro call, shown as a read-only document.

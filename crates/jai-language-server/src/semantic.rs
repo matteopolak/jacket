@@ -162,6 +162,13 @@ fn hash(root: &Path, files: &BTreeMap<PathBuf, Rc<[u8]>>) -> u64 {
 }
 
 impl Cache {
+    /// Drop the lints found so far (their settings changed); the compiles stay.
+    pub fn forget_lints(&mut self) {
+        for entry in &mut self.entries {
+            entry.lints.clear();
+        }
+    }
+
     /// The analysis of `root` with `files` open (compiled now unless cached).
     pub fn analyze(
         &mut self,

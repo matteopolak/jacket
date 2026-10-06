@@ -6,7 +6,7 @@ pub(crate) mod format;
 pub mod framing;
 pub(crate) mod hover;
 mod links;
-mod lints;
+pub mod lints;
 mod model;
 mod position;
 mod protocol;

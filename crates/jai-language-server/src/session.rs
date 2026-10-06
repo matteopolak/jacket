@@ -32,6 +32,9 @@ pub struct Session {
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
     pub(crate) semantic: RefCell<semantic::Cache>,
+    /// Open `jailint.toml` files: settings for the lints of documents under their directory.
+    /// They are not Jai documents, so they get no analysis or diagnostics of their own.
+    pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
 }
 
 impl Session {
@@ -43,6 +46,7 @@ impl Session {
             parsed: BTreeMap::new(),
             environment: None,
             semantic: RefCell::default(),
+            lint_configs: BTreeMap::new(),
         }
     }
 
@@ -77,14 +81,21 @@ impl Session {
     }
 
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
-        if self.documents.contains_key(&uri) {
+        if self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri) {
             return Err(Error::AlreadyOpen);
         }
-        if self.documents.len() >= self.limits.documents {
+        if self.documents.len() + self.lint_configs.len() >= self.limits.documents {
             return Err(Error::Limit("open document count exceeded"));
         }
         self.admit(&uri, text.len(), 0)?;
-        self.documents.insert(
+        let map = if crate::lints::is_config(&uri) {
+            // Lints computed with the old settings are stale.
+            self.semantic.borrow_mut().forget_lints();
+            &mut self.lint_configs
+        } else {
+            &mut self.documents
+        };
+        map.insert(
             uri,
             Document {
                 version,
@@ -102,7 +113,10 @@ impl Session {
         version: i32,
         changes: &[TextChange],
     ) -> Result<(), Error> {
-        let document = self.document(uri)?;
+        let document = match self.lint_configs.get(uri) {
+            Some(config) => config,
+            None => self.document(uri)?,
+        };
         if version <= document.version {
             return Err(Error::StaleVersion);
         }
@@ -143,7 +157,16 @@ impl Session {
             self.admit(uri, bytes, old_bytes)?;
             text.replace_range(start..end, &change.text);
         }
-        let current = self.documents.get_mut(uri).expect("checked document");
+        let config = self.lint_configs.contains_key(uri);
+        if config {
+            self.semantic.borrow_mut().forget_lints();
+        }
+        let map = if config {
+            &mut self.lint_configs
+        } else {
+            &mut self.documents
+        };
+        let current = map.get_mut(uri).expect("checked document");
         *current = Document {
             version,
             index: LineIndex::new(&text),
@@ -154,6 +177,11 @@ impl Session {
     }
 
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
+        if self.lint_configs.remove(uri).is_some() {
+            self.semantic.borrow_mut().forget_lints();
+            self.rebuild();
+            return Ok(());
+        }
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
         self.rebuild();
         Ok(())
@@ -185,6 +213,7 @@ impl Session {
         let current = self
             .documents
             .iter()
+            .chain(&self.lint_configs)
             .try_fold(0usize, |n, (name, doc)| {
                 n.checked_add(name.as_str().len() + doc.text.len())
             })

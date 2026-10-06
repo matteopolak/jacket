@@ -662,10 +662,16 @@ fn lints_are_diagnostics_with_quick_fixes() {
             },
         )
         .unwrap();
-    assert_eq!(actions.len(), 1, "{actions:?}");
+    // The quick fix, then the action that applies every safe fix.
+    assert_eq!(actions.len(), 2, "{actions:?}");
     assert_eq!(actions[0].kind, Some("quickfix"));
+    assert_eq!(actions[0].title, "Write `ready`");
+    assert_eq!(actions[0].rule, Some("bool_comparison"));
+    assert!(actions[0].is_preferred);
+    assert_eq!(actions[0].diagnostics, lints);
     let (_, edits) = actions[0].edit.as_ref().unwrap();
     assert_eq!(edits[0].new_text, "ready");
+    assert_eq!(actions[1].kind, Some("source.fixAll.jailint"));
     // Over the wire: the rule is the code and jailint the source.
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
@@ -682,4 +688,194 @@ fn lints_are_diagnostics_with_quick_fixes() {
     let diagnostic = &published["params"]["diagnostics"][0];
     assert_eq!(diagnostic["code"], "bool_comparison");
     assert_eq!(diagnostic["source"], "jailint");
+    assert_eq!(
+        diagnostic["codeDescription"]["href"],
+        "https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#bool_comparison"
+    );
+}
+
+/// Send one request over the JSON protocol and return its result.
+fn request(json: &mut JsonSession, method: &str, params: serde_json::Value) -> serde_json::Value {
+    let message =
+        serde_json::json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
+    let replies = json.handle_json(&message.to_string()).unwrap();
+    replies
+        .iter()
+        .map(|m| serde_json::from_str::<serde_json::Value>(m).unwrap())
+        .find(|m| m["id"] == 7)
+        .expect("a reply")["result"]
+        .clone()
+}
+
+/// Send a notification; the messages the server sends back.
+fn notify(
+    json: &mut JsonSession,
+    method: &str,
+    params: serde_json::Value,
+) -> Vec<serde_json::Value> {
+    let message = serde_json::json!({"jsonrpc": "2.0", "method": method, "params": params});
+    json.handle_json(&message.to_string())
+        .unwrap()
+        .iter()
+        .map(|m| serde_json::from_str::<serde_json::Value>(m).unwrap())
+        .collect()
+}
+
+const TWO_LINTS: &str = r#"#import "Basic";
+flag :: () -> bool { return true; }
+main :: () {
+    a := flag();
+    b := flag();
+    if a == true print("a\n");
+    if b == false print("b\n");
+}
+"#;
+
+/// A JSON session with `text` open as `uri()`.
+fn opened(text: &str) -> JsonSession {
+    let mut json = JsonSession::with_environment(Limits::default(), environment());
+    let init = request(&mut json, "initialize", serde_json::json!({}));
+    let kinds = &init["capabilities"]["codeActionProvider"]["codeActionKinds"];
+    assert!(
+        kinds
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("source.fixAll.jailint")),
+        "{kinds}"
+    );
+    notify(
+        &mut json,
+        "textDocument/didOpen",
+        serde_json::json!({"textDocument": {
+            "uri": uri().as_str(), "languageId": "jai", "version": 1, "text": text}}),
+    );
+    json
+}
+
+fn code_actions(
+    json: &mut JsonSession,
+    range: Range,
+    context: serde_json::Value,
+) -> Vec<serde_json::Value> {
+    request(
+        json,
+        "textDocument/codeAction",
+        serde_json::json!({
+            "textDocument": {"uri": uri().as_str()}, "range": range, "context": context}),
+    )
+    .as_array()
+    .unwrap()
+    .clone()
+}
+
+fn top() -> Range {
+    let start = Position {
+        line: 0,
+        character: 0,
+    };
+    Range {
+        start,
+        end: start,
+    }
+}
+
+#[test]
+fn fix_all_merges_every_safe_fix() {
+    let mut json = opened(TWO_LINTS);
+    let all = code_actions(
+        &mut json,
+        top(),
+        serde_json::json!({"diagnostics": [], "only": ["source.fixAll"]}),
+    );
+    assert_eq!(all.len(), 1, "{all:?}");
+    assert_eq!(all[0]["kind"], "source.fixAll.jailint");
+    assert_eq!(all[0]["title"], "Fix 2 lint problems");
+    let edits = all[0]["edit"]["changes"][uri().as_str()]
+        .as_array()
+        .unwrap();
+    let texts: Vec<&str> = edits
+        .iter()
+        .map(|e| e["newText"].as_str().unwrap())
+        .collect();
+    assert_eq!(texts, ["a", "!b"]);
+    assert_eq!(all[0]["diagnostics"].as_array().unwrap().len(), 2);
+    // `only: quickfix` leaves the source action out, and no lint touches the range.
+    let quick = code_actions(
+        &mut json,
+        top(),
+        serde_json::json!({"diagnostics": [], "only": ["quickfix"]}),
+    );
+    assert!(quick.is_empty(), "{quick:?}");
+}
+
+#[test]
+fn quick_fixes_follow_the_diagnostics_they_are_asked_for() {
+    let mut json = opened(TWO_LINTS);
+    let lint = Range {
+        start: at(TWO_LINTS, "b == false", 0, 0),
+        end: at(TWO_LINTS, "b == false", 0, "b == false".len()),
+    };
+    let diagnostic = serde_json::json!({
+        "range": lint, "code": "bool_comparison", "source": "jailint", "message": ""});
+    let found = code_actions(
+        &mut json,
+        top(),
+        serde_json::json!({"diagnostics": [diagnostic], "only": ["quickfix"]}),
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    let fix = &found[0];
+    assert_eq!(fix["kind"], "quickfix");
+    assert_eq!(fix["title"], "Write `!b`");
+    assert_eq!(fix["isPreferred"], true);
+    assert_eq!(fix["data"]["rule"], "bool_comparison");
+    assert_eq!(fix["diagnostics"][0]["code"], "bool_comparison");
+    assert_eq!(fix["diagnostics"][0]["range"], serde_json::json!(lint));
+}
+
+#[test]
+fn an_open_jailint_toml_configures_the_lints() {
+    let mut json = opened(TWO_LINTS);
+    let lint_count = |messages: &[serde_json::Value]| {
+        messages
+            .iter()
+            .find(|m| {
+                m["method"] == "textDocument/publishDiagnostics"
+                    && m["params"]["uri"] == uri().as_str()
+            })
+            .map(|m| {
+                m["params"]["diagnostics"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter(|d| d["source"] == "jailint")
+                    .count()
+            })
+            .unwrap()
+    };
+    let settings = "file:///lsp-features-test/jailint.toml";
+    let published = notify(
+        &mut json,
+        "textDocument/didOpen",
+        serde_json::json!({"textDocument": {"uri": settings, "languageId": "toml",
+            "version": 1, "text": "[rules]\nbool_comparison = \"allow\"\n"}}),
+    );
+    assert_eq!(lint_count(&published), 0);
+    // The settings file is not Jai: nothing is published for it.
+    assert!(
+        published.iter().all(|m| m["params"]["uri"] != settings),
+        "{published:?}"
+    );
+    let published = notify(
+        &mut json,
+        "textDocument/didChange",
+        serde_json::json!({"textDocument": {"uri": settings, "version": 2},
+            "contentChanges": [{"text": "[rules]\nbool_comparison = \"deny\"\n"}]}),
+    );
+    assert_eq!(lint_count(&published), 2);
+    let published = notify(
+        &mut json,
+        "textDocument/didClose",
+        serde_json::json!({"textDocument": {"uri": settings}}),
+    );
+    assert_eq!(lint_count(&published), 2);
 }
