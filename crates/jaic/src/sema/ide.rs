@@ -24,6 +24,37 @@ pub struct IdeFacts {
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the identifier being checked resolved to (set by `check_ident`).
     pub(super) last_entity: Option<EntityId>,
+    /// Lint mode (`jailint`): also record the facts below.
+    pub lint: bool,
+    /// Type of each checked expression of the recorded files, by span.
+    pub exprs: HashMap<Span, IdeExprFact>,
+    /// Each `cast(T) x` / `xx x` of the recorded files whose target was known, by span.
+    pub casts: HashMap<Span, IdeCast>,
+    /// Every entity a name resolved to, in any file (a macro body elsewhere can use a caller's
+    /// local through a backtick name), and the variables a `using` member reached.
+    pub used: HashSet<EntityId>,
+    /// Imports (scope, index into its `imports`) a name lookup found something through.
+    pub used_imports: HashSet<(ScopeId, usize)>,
+}
+
+/// What checking one expression gave. A span checked several times (polymorphic instances,
+/// overload trials) with different types is `conflicting`.
+#[derive(Clone, Copy, Debug)]
+pub struct IdeExprFact {
+    pub ty: TypeId,
+    /// A compile-time constant (a literal, a named constant, a constant expression).
+    pub constant: bool,
+    pub conflicting: bool,
+}
+
+/// A cast and the types on both sides.
+#[derive(Clone, Copy, Debug)]
+pub struct IdeCast {
+    pub target: TypeId,
+    pub from: TypeId,
+    /// The operand was a compile-time constant.
+    pub from_constant: bool,
+    pub conflicting: bool,
 }
 
 impl IdeFacts {
@@ -98,6 +129,20 @@ impl Compiler {
     }
 
     pub(super) fn ide_note_expr(&mut self, expr: &ast::Expr, op: &Operand) {
+        if self.ide.as_ref().is_some_and(|i| i.lint) && self.ide_wants(expr.span.file) {
+            let ty = op.ty();
+            let constant = matches!(op, Operand::Const { .. });
+            if let Some(ide) = self.ide.as_mut() {
+                ide.exprs
+                    .entry(expr.span)
+                    .and_modify(|f| f.conflicting |= f.ty != ty || f.constant != constant)
+                    .or_insert(IdeExprFact {
+                        ty,
+                        constant,
+                        conflicting: false,
+                    });
+            }
+        }
         let (span, what) = match &expr.kind {
             ast::ExprKind::Ident(_) => {
                 let entity = self.ide.as_mut().and_then(|i| i.last_entity.take());
@@ -133,6 +178,47 @@ impl Compiler {
                 ty,
                 decl: false,
             });
+        }
+    }
+
+    /// Lint mode: `cast` at `span` converted a `from` operand to `target`.
+    pub(super) fn ide_note_cast(&mut self, span: Span, target: TypeId, op: &Operand) {
+        if !self.ide.as_ref().is_some_and(|i| i.lint) || !self.ide_wants(span.file) {
+            return;
+        }
+        let from = op.ty();
+        let from_constant = matches!(op, Operand::Const { .. });
+        if let Some(ide) = self.ide.as_mut() {
+            ide.casts
+                .entry(span)
+                .and_modify(|c| {
+                    c.conflicting |=
+                        c.target != target || c.from != from || c.from_constant != from_constant
+                })
+                .or_insert(IdeCast {
+                    target,
+                    from,
+                    from_constant,
+                    conflicting: false,
+                });
+        }
+    }
+
+    /// Lint mode: a lookup found a name through import `index` of `scope`.
+    pub(super) fn ide_note_import_use(&mut self, scope: ScopeId, index: usize) {
+        if let Some(ide) = self.ide.as_mut()
+            && ide.lint
+        {
+            ide.used_imports.insert((scope, index));
+        }
+    }
+
+    /// Lint mode: a name resolved to `id`.
+    pub(super) fn ide_note_use(&mut self, id: EntityId) {
+        if let Some(ide) = self.ide.as_mut()
+            && ide.lint
+        {
+            ide.used.insert(id);
         }
     }
 

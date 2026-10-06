@@ -625,7 +625,12 @@ impl Compiler {
                     if hidden {
                         continue;
                     }
-                    if let Some(result) = self.merge_module_lookup(&mut found, module, name)? {
+                    let before = found.len();
+                    let result = self.merge_module_lookup(&mut found, module, name)?;
+                    if result.is_some() || found.len() > before {
+                        self.ide_note_import_use(sid, i);
+                    }
+                    if let Some(result) = result {
                         return Ok(result);
                     }
                 }
@@ -684,7 +689,11 @@ impl Compiler {
                     _ => continue,
                 }
                 if let Some(m) = self.import_module(fs, i)? {
-                    match self.module_lookup(m, name)? {
+                    let result = self.module_lookup(m, name)?;
+                    if !matches!(&result, Found::Entities(ids) if ids.is_empty()) {
+                        self.ide_note_import_use(fs, i);
+                    }
+                    match result {
                         Found::Entities(ids) => {
                             for id in ids {
                                 if !found.contains(&id) {

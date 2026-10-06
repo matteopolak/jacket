@@ -162,6 +162,9 @@ impl Compiler {
                     },
                 };
                 let op = self.check_expr(f, scope, value, Some(target))?;
+                if self.ide.is_some() {
+                    self.ide_note_cast(span, target, &op);
+                }
                 self.explicit_cast(f, op, target, *flags, span)
             }
             E::Ifx {
@@ -563,7 +566,15 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         match self.lookup_full(scope, name)? {
-            Found::Using(entry, member) => self.using_member(f, entry, member, span),
+            Found::Using(entry, member) => {
+                if let scope::UsingEntry::Place {
+                    entity, ..
+                } = &entry
+                {
+                    self.ide_note_use(*entity);
+                }
+                self.using_member(f, entry, member, span)
+            }
             Found::Entities(ids) => {
                 if ids.is_empty() {
                     if f.type_only
@@ -581,6 +592,9 @@ impl Compiler {
                 let op = self.entities_operand(f, scope, &ids, span);
                 if let Some(ide) = self.ide.as_mut() {
                     ide.last_entity = Some(ids[0]);
+                    if ide.lint {
+                        ide.used.extend(ids.iter().copied());
+                    }
                 }
                 op
             }
