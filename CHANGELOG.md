@@ -110,6 +110,7 @@
 
 - Under `jaic run`, `get_path_of_running_executable` returns the executable `jaic build` would write for the program (`src/main` for `jaic run src/main.jai`) instead of `jaic`'s own path, so programs that load data relative to their executable (`../assets`) find it.
 - `jaic run` writes the executables and libraries a metaprogram's workspaces ask for, as `jaic build` does (it only interprets the top-level program instead of compiling it), so `jaic run first.jai` on a build script builds and can launch its program. `-no_workspace_output` skips them. `jaic check` still writes nothing, and now warns when a workspace asks for output, naming the `jaic build` command that writes it.
+- GetRect on Linux sets X11 stock cursors instead of asserting that the program installed a cursor provider, so GetRect programs no longer stop at the end of their first frame there; targets without stock cursors ignore cursor requests.
 - Bindings_Generator binds C++ functions to their Microsoft-mangled names (`?Button@Gui@@...`) when generating for Windows; it only recognized Itanium (`_Z`) names, so Windows bindings named symbols the DLL does not export.
 - `Clipboard.os_clipboard_get_text` on Windows returns a heap string the caller owns, as on macOS and Linux; it returned temporary storage, so freeing it failed.
 - The GetRect color animation editor no longer fails a bounds check as soon as it has keyframes (`get_sorted_keyframes` indexed an array after zeroing its count).
