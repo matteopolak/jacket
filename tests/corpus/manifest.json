@@ -814,6 +814,22 @@
       }
     },
     {
+      "id": "unrolled-sub-reduction",
+      "source": "positive/unrolled-sub-reduction.jai",
+      "sha256": "a7cdeea63681dbed7d13b76e08ec8ee936b98b42891ebc867fe8db565687f324",
+      "suite": "expanded",
+      "feature": "loop subtraction recurrence under -O2 runtime unrolling",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 0,
+        "stdout": "hex -1101\nchecksum 1d76f36f48ab187a\n",
+        "stderr": ""
+      }
+    },
+    {
       "id": "discard-parameter-reference",
       "source": "negative/discard-parameter-reference.jai",
       "sha256": "0a60e552724d8b3840ea12c5243d51477231c3e7725a592281f4e3b7d5a2305d",

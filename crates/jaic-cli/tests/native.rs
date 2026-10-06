@@ -1234,3 +1234,37 @@ fn compiler_primitive_at_run_time_explains_the_trap() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// `a -= b` in a loop of run-time length survives `-O2`: LLVM 22's runtime unroller recombined
+/// the per-copy accumulators of a `sub` recurrence wrongly until jaic turned that transformation
+/// off (`configure_llvm` in jaic-llvm). Reduced from a tools/jaigen.py program.
+#[test]
+fn optimized_sub_recurrence_matches_the_interpreter() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-sub-recurrence");
+    std::fs::create_dir_all(&dir).unwrap();
+    let case = corpus_cases()
+        .into_iter()
+        .find(|c| c.id == "unrolled-sub-reduction")
+        .unwrap();
+    let exe = exe_path(&dir, "unrolled-sub-reduction");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&case.source)
+        .args(["-O2", "-o"])
+        .arg(&exe)
+        .current_dir(case.source.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let output = Command::new(&exe).output().unwrap();
+    assert!(
+        matches(&case, &output),
+        "stdout {:?}, expected {:?}",
+        String::from_utf8_lossy(&output.stdout),
+        case.stdout
+    );
+}

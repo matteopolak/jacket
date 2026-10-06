@@ -141,11 +141,36 @@ fn host_triple() -> TargetTriple {
     }
 }
 
+/// Process-wide LLVM option overrides, applied once before the first target machine exists.
+///
+/// `-unroll-add-parallel-reductions=false`: LLVM 22's runtime unroller (on by default for
+/// Apple CPUs) splits a reduction into one accumulator per unrolled copy and miscombines
+/// them for `sub` recurrences — `a -= b` in a loop of unknown trip count ended with the
+/// accumulators subtracted from each other (4097 + 4*31 came out as -4097). Found by
+/// `tools/jaic-diff.py` on a `tools/jaigen.py` program; see `docs/tools/differential-testing.md`.
+fn configure_llvm() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let args: [&std::ffi::CStr; 2] = [c"jaic", c"-unroll-add-parallel-reductions=false"];
+        let argv: Vec<*const std::ffi::c_char> = args.iter().map(|a| a.as_ptr()).collect();
+        // SAFETY: argv holds NUL-terminated strings that outlive the call; LLVM copies what it keeps.
+        #[allow(unsafe_code)]
+        unsafe {
+            inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
+                argv.len() as i32,
+                argv.as_ptr(),
+                std::ptr::null(),
+            )
+        }
+    });
+}
+
 /// The target machine for `options`, and the architecture it targets.
 fn target_machine(
     options: &Options,
 ) -> Result<(TargetMachine, TargetTriple, jaic::abi::Arch), String> {
     Target::initialize_all(&InitializationConfig::default());
+    configure_llvm();
     let host = options.target.is_none();
     let triple = match &options.target {
         Some(t) => TargetTriple::create(t),

@@ -12,6 +12,8 @@
 2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in global initialisers, then defines function bodies.
 3. Verifies the module, optionally runs the `default<On>` pipeline, and writes the object.
 
+Before the first target machine exists, `configure_llvm` sets process-wide LLVM options once (`LLVMParseCommandLineOptions`). It currently passes `-unroll-add-parallel-reductions=false`. LLVM 22's runtime unroller, which is on by default for Apple CPUs, gives each unrolled copy of a reduction its own accumulator. For a `sub` recurrence (`a -= b` in a loop of unknown length) it then combined those accumulators wrongly, so `-O2` printed different results from `-O0` and the interpreter. `tools/jaic-diff.py` found this on a generated program; the regression is corpus case `unrolled-sub-reduction` plus the native test `optimized_sub_recurrence_matches_the_interpreter`. Once LLVM fixes the transformation, drop the flag and check that the test still passes.
+
 ### Codegen units
 
 `jaic build` calls `emit_objects`, which splits a large unoptimised program into codegen units, one LLVM context and module per thread. LLVM code generation is a large share of an `-O0` build, so this pays off on big programs like Focus.
