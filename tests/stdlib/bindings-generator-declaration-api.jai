@@ -6,6 +6,7 @@
 #import "String";
 #import "File";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 typedef enum Kind { KIND_NONE, KIND_LINE = 3, KIND_CIRCLE, KIND_INTERNAL_COUNT } Kind;
@@ -48,14 +49,14 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
     return .RECURSE;
 }
 
-main :: () {
-    // libclang is a native library and the WASM target (the browser playground) loads none.
-    if OS == .WASM {
-        print("ok\n");
-        return;
-    }
-    header_path := "/tmp/jai_bindgen_enum_decls.h";
-    output_path := "/tmp/jai_bindgen_enum_decls.jai";
+// Runs at compile time: libclang is the compiler's, and executables cannot call it.
+check_bindings :: () {
+    // The WASM target (the browser playground) loads no native libraries, so no libclang.
+    #if OS == .WASM return;
+    dir := scratch_directory("bindgen-declaration-api");
+    defer delete_directory(dir);
+    header_path := tprint("%/test.h", dir);
+    output_path := tprint("%/test.jai", dir);
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
@@ -88,5 +89,10 @@ main :: () {
     assert(contains(text, "kind: Kind = .LINE;"));
     assert(contains(text, "SAFE :: FAST << 1;"));
     assert(contains(text, "#foreign renamed_shapes;"));
+}
+
+#run check_bindings();
+
+main :: () {
     print("ok\n");
 }

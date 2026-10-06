@@ -7,15 +7,19 @@
 //! a vectored exception handler on Windows — prints the foreign procedure, the Jai line that
 //! called it and the interpreter's call stack, then exits with `CRASH_STATUS`.
 //!
+//! Several interpreted threads can be inside foreign calls at once (other threads run while
+//! one is in C), so the call in progress is kept per OS thread: these faults are delivered
+//! to the thread that caused them, which reports its own call and call stack.
+//!
 //! Faults outside a foreign call are not ours: the handler puts the previous action back and
 //! returns, so the fault repeats under it (Rust's stack overflow report, or the default).
 //! The report is built in a fixed buffer, without allocating, since the crash may have
 //! happened inside `malloc`.
 #![allow(unsafe_code)]
 
-use super::Interp;
+use super::ExecState;
 use crate::ir::Program;
-use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use std::cell::Cell;
 
 /// Exit status after a crash in native code (see docs/compiler/diagnostics.md).
 pub const CRASH_STATUS: i32 = 121;
@@ -23,56 +27,52 @@ pub const CRASH_STATUS: i32 = 121;
 /// Frames of the interpreter's call stack shown at most, innermost first.
 const MAX_SHOWN_FRAMES: usize = 24;
 
-/// The foreign call in progress, read by the fault handler: the symbol's bytes, the
-/// interpreter and the program (null when no call is in progress).
+/// The foreign call in progress, read by the fault handler: the symbol's bytes, the calling
+/// thread's interpreter state (its call stack and line) and the program (null when no call is
+/// in progress).
 #[derive(Clone, Copy)]
 struct Current {
-    symbol: (*mut u8, usize),
-    interp: *mut Interp,
-    program: *mut Program,
+    symbol: (*const u8, usize),
+    state: *const ExecState,
+    program: *const Program,
 }
 
-static SYMBOL: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
-static SYMBOL_LEN: AtomicUsize = AtomicUsize::new(0);
-static INTERP: AtomicPtr<Interp> = AtomicPtr::new(std::ptr::null_mut());
-static PROGRAM: AtomicPtr<Program> = AtomicPtr::new(std::ptr::null_mut());
+const NONE: Current = Current {
+    symbol: (std::ptr::null(), 0),
+    state: std::ptr::null(),
+    program: std::ptr::null(),
+};
+
+thread_local! {
+    // Constant-initialized and without a destructor: plain thread-local storage, which the
+    // fault handler may read.
+    static CURRENT: Cell<Current> = const { Cell::new(NONE) };
+}
 
 fn current() -> Current {
-    Current {
-        symbol: (
-            SYMBOL.load(Ordering::Relaxed),
-            SYMBOL_LEN.load(Ordering::Relaxed),
-        ),
-        interp: INTERP.load(Ordering::Relaxed),
-        program: PROGRAM.load(Ordering::SeqCst),
-    }
+    CURRENT.with(Cell::get)
 }
 
 fn publish(c: Current) {
-    // The program goes last on the way in and first on the way out, so the handler never
-    // sees it with stale companions.
-    PROGRAM.store(std::ptr::null_mut(), Ordering::SeqCst);
-    SYMBOL.store(c.symbol.0, Ordering::Relaxed);
-    SYMBOL_LEN.store(c.symbol.1, Ordering::Relaxed);
-    INTERP.store(c.interp, Ordering::Relaxed);
-    PROGRAM.store(c.program, Ordering::SeqCst);
+    CURRENT.with(|cell| cell.set(c));
 }
 
-/// Marks a foreign call in progress for as long as it lives; nested calls (C calling back
-/// into interpreted code that calls C again) restore the outer one when they end. Entering
-/// is a few stores: it happens on every foreign call.
+/// Marks a foreign call in progress on this thread for as long as it lives; nested calls (C
+/// calling back into interpreted code that calls C again) restore the outer one when they end.
+/// Entering is a few stores: it happens on every foreign call.
 pub(super) struct ForeignCall {
     previous: Current,
 }
 
 impl ForeignCall {
-    pub(super) fn enter(symbol: &str, interp: &Interp, program: &Program) -> Self {
+    /// `state` is the calling thread's interpreter state, set aside for the call.
+    pub(super) fn enter(symbol: &str, state: &ExecState, program: &Program) -> Self {
         install();
         let previous = current();
         publish(Current {
-            symbol: (symbol.as_ptr().cast_mut(), symbol.len()),
-            interp: std::ptr::from_ref(interp).cast_mut(),
-            program: std::ptr::from_ref(program).cast_mut(),
+            symbol: (symbol.as_ptr(), symbol.len()),
+            state,
+            program,
         });
         Self {
             previous,
@@ -117,12 +117,13 @@ fn shown_path(path: &str) -> &str {
 fn write_report(current: Current, what: &str, out: &mut Report) {
     use std::fmt::Write;
     // SAFETY: `current` is only published while its `ForeignCall` (and so the symbol, the
-    // interpreter and the program it points at) is alive, and the fault interrupted that call.
-    let (symbol, interp, program) = unsafe {
+    // thread's state and the program it points at) is alive, and the fault interrupted that
+    // call on this thread.
+    let (symbol, state, program) = unsafe {
         let bytes = std::slice::from_raw_parts(current.symbol.0, current.symbol.1);
         (
             std::str::from_utf8(bytes).unwrap_or("?"),
-            &*current.interp,
+            &*current.state,
             &*current.program,
         )
     };
@@ -132,7 +133,7 @@ fn write_report(current: Current, what: &str, out: &mut Report) {
             Some((shown_path(path), line, col))
         })
     };
-    if let Some((path, line, col)) = at(interp.loc) {
+    if let Some((path, line, col)) = at(state.loc) {
         let _ = write!(out, "{path}:{line}:{col}: ");
     }
     let _ = writeln!(
@@ -141,7 +142,7 @@ fn write_report(current: Current, what: &str, out: &mut Report) {
     );
     // Frame k runs `calls[k].0`; it is at the line it called frame k + 1 from, and the
     // innermost frame is at the foreign call.
-    let calls = &interp.calls;
+    let calls = &state.calls;
     let mut shown = 0;
     for k in (0..calls.len()).rev() {
         let name = program
@@ -158,7 +159,7 @@ fn write_report(current: Current, what: &str, out: &mut Report) {
             let _ = writeln!(out, "    ...");
             break;
         }
-        let loc = calls.get(k + 1).map_or(interp.loc, |c| c.1);
+        let loc = calls.get(k + 1).map_or(state.loc, |c| c.1);
         // A polymorphic instance `name#N` is `name` to the user; `#run` stays as it is.
         let name = match name.split_once('#') {
             Some((base, _)) if !base.is_empty() => base,
@@ -183,7 +184,7 @@ fn write_report(current: Current, what: &str, out: &mut Report) {
 /// Report the fault if a foreign call is in progress; false when it is not ours.
 fn report_and_exit(what: &str) -> bool {
     let current = current();
-    if current.program.is_null() || current.interp.is_null() {
+    if current.program.is_null() || current.state.is_null() {
         return false;
     }
     let mut out = Report {

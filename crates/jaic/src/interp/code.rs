@@ -1133,7 +1133,7 @@ impl Interp {
                     self.inline_preempt(program)?;
                 } else {
                     #[cfg(not(target_arch = "wasm32"))]
-                    self.preempt(program)?;
+                    self.preempt()?;
                 }
             }
             let b = &code.blocks[block];

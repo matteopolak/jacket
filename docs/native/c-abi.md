@@ -45,7 +45,7 @@ The LLVM backend uses `classify_vararg` for every parameter of a variadic signat
 
 `sema/procs.rs` attaches a `CAbi` (`params: Vec<Option<AggLayout>>`, `ret`, `ret_indirect`) to each `Conv::C` signature. The IR itself passes aggregates by pointer, so marshalling happens at the boundary:
 
-- Interpreter: `interp/native.rs` loads register pieces from the aggregate and calls the function pointer; see [interpreter](../compiler/interpreter.md#native-foreign-calls). On Windows, C can't call back into interpreted procedures (`callback_addr` returns an error for `Win64`).
+- Interpreter: `interp/native.rs` loads register pieces from the aggregate and calls the function pointer; see [interpreter](../compiler/interpreter.md#native-foreign-calls). Callbacks from C into interpreted procedures go through `interp/native/callbacks.rs` (`callbacks/win64.rs` on Windows x64).
 - LLVM: the call site and `bind_params`; see [LLVM backend](llvm-backend.md#c-abi).
 
 ### `long double`

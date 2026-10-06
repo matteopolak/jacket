@@ -4,6 +4,7 @@
 #import "String";
 #import "File";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 struct Vec2 { float x, y; };
@@ -40,15 +41,14 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
     return .RECURSE;
 }
 
-main :: () {
-    // libclang is a native library and the WASM target (the browser playground) loads none;
-    // the generator calls below are still compiled there.
-    if OS == .WASM {
-        print("ok\n");
-        return;
-    }
-    header_path := "/tmp/jai_bindgen_cpp_test.h";
-    output_path := "/tmp/jai_bindgen_cpp_test.jai";
+// Runs at compile time: libclang is the compiler's, and executables cannot call it.
+check_bindings :: () {
+    // The WASM target (the browser playground) loads no native libraries, so no libclang.
+    #if OS == .WASM return;
+    dir := scratch_directory("bindgen-cpp");
+    defer delete_directory(dir);
+    header_path := tprint("%/test.h", dir);
+    output_path := tprint("%/test.jai", dir);
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
@@ -75,5 +75,10 @@ main :: () {
     assert(contains(text, "GUI_ID_NONE :: cast,trunc(Id) -1;"));
     assert(contains(text, "GUI_INDEX_TYPE :: s32;"));
     assert(contains(text, "GUI_ID_TYPE :: Id;"));
+}
+
+#run check_bindings();
+
+main :: () {
     print("ok\n");
 }

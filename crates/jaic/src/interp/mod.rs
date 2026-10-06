@@ -313,9 +313,13 @@ pub struct Interp {
     /// Stack trace node data per procedure (`Stack_Trace_Procedure_Info`), built on first call.
     /// `Stack_Trace_Procedure_Info` addresses by `FuncId` (0 = not made yet).
     trace_infos: Vec<u64>,
-    /// Threads of the running program (created by the first `pthread_*` call).
+    /// Threads of the running program and the gate C callbacks enter through: made by the
+    /// first thread, lock or thunk (`threads::Shared`).
     #[cfg(not(target_arch = "wasm32"))]
-    sched: Option<Box<threads::Sched>>,
+    shared: Option<std::sync::Arc<threads::Shared>>,
+    /// Basic blocks run since the last preemption check (`threads::preempt`).
+    #[cfg(not(target_arch = "wasm32"))]
+    ticks: u64,
     /// Threads of the running program when the host schedules them cooperatively.
     isched: Option<Box<threads_inline::InlineSched>>,
     /// More than one thread exists: `run` offers the baton to the others now and then.
@@ -328,29 +332,26 @@ pub struct Interp {
     frame_blocks: u64,
     frame_insts: u64,
     profile: Option<Box<profile::Counts>>,
-    /// Serializes this interpreter with C calling its `#c_call` procedures back, possibly
-    /// from other threads; made with the first thunk (see `call_native`).
-    gate: Option<std::sync::Arc<native::Gate>>,
     /// The value of each procedure in interpreted code, by `FuncId` (0 = not decided yet):
     /// see `proc_value`.
     proc_values: Vec<u64>,
     /// Thunk address -> procedure, for every thunk this interpreter made.
     thunk_funcs: HashMap<u64, FuncId>,
     /// Value stacks for procedures C calls back, reused.
+    #[cfg(not(target_arch = "wasm32"))]
     callback_stacks: Vec<Box<[u64]>>,
-    /// Running a procedure C called on a thread the interpreter did not start, which must
-    /// not wait for interpreted threads.
-    foreign_callback: bool,
 }
 
-/// What a thread running interpreted code keeps of `Interp` while another thread has it.
+/// What a thread running interpreted code keeps of `Interp` while another thread has it, or
+/// while it is inside a native call.
+#[derive(Default)]
 struct ExecState {
     stack: Box<[u64]>,
     sp: u64,
     depth: usize,
+    calls: Vec<Call>,
     loc: Option<(u32, u32, u32)>,
     trace_loc: Option<Option<(u32, u32, u32)>>,
-    foreign_callback: bool,
 }
 
 
@@ -393,7 +394,9 @@ impl Interp {
             forked_child: false,
             trace_infos: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
-            sched: None,
+            shared: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            ticks: 0,
             isched: None,
             multi: false,
             block_budget: None,
@@ -401,11 +404,10 @@ impl Interp {
             frame_blocks: 0,
             frame_insts: 0,
             profile: profile::enabled().then(Default::default),
-            gate: None,
             proc_values: Vec::new(),
             thunk_funcs: HashMap::default(),
+            #[cfg(not(target_arch = "wasm32"))]
             callback_stacks: Vec::new(),
-            foreign_callback: false,
         }
     }
 
@@ -730,18 +732,20 @@ impl Interp {
                 "foreign procedure `{symbol}` is not available here"
             ));
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        let _crash_report = crash::ForeignCall::enter(&symbol, self, program);
         #[cfg(target_os = "macos")]
         native::main_thread::note_symbol(&symbol);
+        // The child of a fork has only the forking thread: it must not wait for the others.
+        let forks = matches!(&*symbol, "fork" | "vfork");
         #[cfg(target_os = "macos")]
-        let result = if matches!(&*symbol, "fork" | "vfork") {
-            native::main_thread::direct(|| self.call_native(program, addr, args, sig))?
+        let result = if forks {
+            native::main_thread::direct(|| {
+                self.call_native(program, addr, args, sig, Some(&symbol), false)
+            })?
         } else {
-            self.call_native(program, addr, args, sig)?
+            self.call_native(program, addr, args, sig, Some(&symbol), true)?
         };
         #[cfg(not(target_os = "macos"))]
-        let result = self.call_native(program, addr, args, sig)?;
+        let result = self.call_native(program, addr, args, sig, Some(&symbol), !forks)?;
         if &*symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
@@ -750,12 +754,16 @@ impl Interp {
         Ok(result)
     }
 
+    /// Call C function `addr` (foreign procedure `symbol`, when it is one). Unless `release` is
+    /// false, other threads may run interpreted code until it returns.
     fn call_native(
         &mut self,
         program: &Program,
         addr: u64,
         args: &[u64],
         sig: &ir::Sig,
+        symbol: Option<&str>,
+        release: bool,
     ) -> Res<Vec<u64>> {
         // `#c_call` procedures handed to C become native thunks that call back in here.
         // Most already are (`proc_value`); this catches values made before their body was.
@@ -776,29 +784,52 @@ impl Interp {
                 })?;
             }
         }
-        let trap = |m: String, loc| Trap {
+        let mine = self.take_exec_state();
+        let loc = mine.loc;
+        // A crash in C names `symbol` and this thread's interpreted call stack.
+        #[cfg(not(target_arch = "wasm32"))]
+        let crash_report = symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program));
+        #[cfg(target_arch = "wasm32")]
+        let _ = symbol;
+        let result = self.call_unlocked(addr, &argv, sig, release);
+        #[cfg(not(target_arch = "wasm32"))]
+        drop(crash_report);
+        self.put_exec_state(mine);
+        result.map_err(|m| Trap {
             message: m,
             loc,
             ..Trap::default()
+        })
+    }
+
+    /// `native::call`, during which other threads may take the baton (unless `release` is
+    /// false) and C may call interpreted procedures back, on this thread or on others.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn call_unlocked(
+        &mut self,
+        addr: u64,
+        argv: &[u64],
+        sig: &ir::Sig,
+        release: bool,
+    ) -> Result<Vec<u64>, String> {
+        let Some(shared) = self.shared.clone().filter(|_| release) else {
+            return native::call(addr, argv, sig);
         };
-        let Some(gate) = self.gate.clone() else {
-            // No thunks exist, so nothing can call back.
-            return native::call(addr, &argv, sig).map_err(|m| trap(m, self.loc));
-        };
-        let me: *mut Interp = self;
-        let mut reenter = |func: FuncId, args: &[u64]| {
-            // SAFETY: the thread calling this holds the gate, which this frame released for
-            // the native call below and takes back before `reenter` goes out of scope.
-            let interp = unsafe { &mut *me };
-            interp.run_callback(program, func, args)
-        };
-        let mine = self.take_exec_state();
-        let loc = mine.loc;
-        gate.leave(&mut reenter);
-        let result = native::call(addr, &argv, sig);
-        gate.enter();
-        self.put_exec_state(mine);
-        result.map_err(|m| trap(m, loc))
+        let me = shared.enter_native(self as *mut Interp as usize);
+        let result = native::calling_out((shared.key(), me), || native::call(addr, argv, sig));
+        shared.leave_native(me);
+        result
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn call_unlocked(
+        &mut self,
+        addr: u64,
+        argv: &[u64],
+        sig: &ir::Sig,
+        _release: bool,
+    ) -> Result<Vec<u64>, String> {
+        native::call(addr, argv, sig)
     }
 
     /// The value of procedure `id` in interpreted code (`FuncAddr`, relocations). A `#c_call`
@@ -833,11 +864,19 @@ impl Interp {
     }
 
     /// A C-callable thunk for `#c_call` procedure `id`.
+    #[cfg(not(target_arch = "wasm32"))]
     fn thunk(&mut self, program: &Program, id: FuncId, sig: &ir::Sig) -> Result<u64, String> {
-        let gate = self.gate.get_or_insert_with(native::Gate::new).clone();
+        let shared = self.shared();
+        shared.callbacks_possible();
+        let gate: std::sync::Arc<dyn native::Gate> = shared;
         let addr = native::callback_addr(&gate, program as *const Program as u64, id, sig)?;
         self.thunk_funcs.insert(addr, id);
         Ok(addr)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn thunk(&mut self, _program: &Program, _id: FuncId, _sig: &ir::Sig) -> Result<u64, String> {
+        Err("C cannot call interpreted procedures here".into())
     }
 
     /// The interpreted procedure a procedure value names: a tagged id, or a thunk this
@@ -854,9 +893,9 @@ impl Interp {
             stack: std::mem::take(&mut self.stack),
             sp: self.sp,
             depth: self.depth,
+            calls: std::mem::take(&mut self.calls),
             loc: self.loc,
             trace_loc: self.trace_loc,
-            foreign_callback: self.foreign_callback,
         }
     }
 
@@ -864,13 +903,14 @@ impl Interp {
         self.stack = state.stack;
         self.sp = state.sp;
         self.depth = state.depth;
+        self.calls = state.calls;
         self.loc = state.loc;
         self.trace_loc = state.trace_loc;
-        self.foreign_callback = state.foreign_callback;
     }
 
-    /// Run `func` for C, on whichever thread now holds the gate: on a value stack of its own,
-    /// since the thread that released the gate keeps its frames.
+    /// Run `func` for C, on whichever thread now holds the baton: on a value stack of its own,
+    /// since a thread inside a native call keeps its frames.
+    #[cfg(not(target_arch = "wasm32"))]
     fn run_callback(
         &mut self,
         program: &Program,
@@ -884,11 +924,7 @@ impl Interp {
         let outer = self.take_exec_state();
         self.put_exec_state(ExecState {
             stack,
-            sp: 0,
-            depth: 0,
-            loc: None,
-            trace_loc: None,
-            foreign_callback: outer.foreign_callback || native::on_foreign_thread(),
+            ..ExecState::default()
         });
         let result = self.exec(program, func, args);
         let mine = self.take_exec_state();
@@ -1321,7 +1357,9 @@ impl Interp {
                             _ => match self.thunk_funcs.get(&addr) {
                                 // A thunk this interpreter made: no need to go through C.
                                 Some(&f) => self.exec(program, f, argv)?,
-                                None => self.call_native(program, addr, argv, sig)?.into(),
+                                None => self
+                                    .call_native(program, addr, argv, sig, None, true)?
+                                    .into(),
                             },
                         }
                     }
@@ -1859,8 +1897,10 @@ impl Drop for Interp {
     fn drop(&mut self) {
         self.flush_profile();
         // Thunks C may still hold now fail with a message instead of running a dead interpreter.
-        if let Some(gate) = self.gate.take() {
-            gate.close();
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(shared) = self.shared.take() {
+            shared.close();
+            let gate: std::sync::Arc<dyn native::Gate> = shared;
             native::release_callbacks(&gate);
         }
     }

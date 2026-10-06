@@ -105,7 +105,7 @@ A metaprogram's own error (`compiler_report`, `compiler_set_workspace_status(.FA
 
 #### Crashes in native code (`interp/crash.rs`)
 
-`jaic run` and `#run` call foreign procedures in jaic's own process, so a bad pointer passed to C faults inside jaic. While a foreign call is in progress, `crash::ForeignCall` publishes the symbol, the interpreter and the program in a few atomics, and a fault handler (POSIX `sigaction` for SIGSEGV, SIGBUS, SIGILL and SIGFPE with `SA_ONSTACK`, so a native stack overflow still has a stack to report on; a vectored exception handler on Windows) prints:
+`jaic run` and `#run` call foreign procedures in jaic's own process, so a bad pointer passed to C faults inside jaic. While a foreign call is in progress, `crash::ForeignCall` publishes the symbol, the calling thread's interpreter state (`ExecState`, set aside for the call) and the program in a thread-local, and a fault handler (POSIX `sigaction` for SIGSEGV, SIGBUS, SIGILL and SIGFPE with `SA_ONSTACK`, so a native stack overflow still has a stack to report on; a vectored exception handler on Windows) prints:
 
 ```
 crash.jai:4:5: error: native code crashed (SIGSEGV, invalid memory access at address 0x10) while calling foreign procedure `strlen`
@@ -115,9 +115,9 @@ note: call stack (innermost first):
 help: check the arguments passed to `strlen` (pointers and sizes) and its `#foreign` declaration against the C signature; jaic cannot continue after a crash in native code
 ```
 
-and exits with status 121. The call stack comes from `Interp::calls` (each running procedure with the location it was called from, pushed and popped in `Interp::exec` and swapped with the rest of a thread's state by the scheduler in `threads.rs`). The report is formatted into a fixed buffer and written with `write(2)`/`WriteFile`, since the crash may have happened inside `malloc`; it has no source excerpt for the same reason.
+and exits with status 121. The call stack comes from `Interp::calls` (each running procedure with the location it was called from, pushed and popped in `Interp::exec`), which `call_native` moves into the thread's `ExecState` for the call. Other threads run interpreted code while one is in C, so the call in progress is per OS thread: the faulting thread receives the signal (or exception) and reports its own call. The report is formatted into a fixed buffer and written with `write(2)`/`WriteFile`, since the crash may have happened inside `malloc`; it has no source excerpt for the same reason.
 
-A fault outside a foreign call is not the handler's: it puts the previous action back (Rust's stack overflow report, or the default) and returns, so the fault repeats under it. The interpreter's own recursion limit (`MAX_DEPTH`) and value-stack check do not use signals and are unaffected. Not covered: a crash in a thread a C library started itself is reported against the foreign call in progress, if any.
+A fault outside a foreign call is not the handler's: it puts the previous action back (Rust's stack overflow report, or the default) and returns, so the fault repeats under it. The interpreter's own recursion limit (`MAX_DEPTH`) and value-stack check do not use signals and are unaffected. Not covered: a crash in a thread a C library started itself, outside a callback into Jai, is not reported.
 
 ### Command-line errors
 

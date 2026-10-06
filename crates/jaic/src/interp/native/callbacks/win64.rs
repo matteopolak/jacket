@@ -16,7 +16,7 @@
 //! Unlike System V there is a single family: the return shape is decided in `dispatch` (an
 //! integer or aggregate of 1, 2, 4 or 8 bytes in RAX, a float in XMM0, anything else through
 //! the hidden pointer in the first slot, also returned in RAX).
-use super::{Gate, Reenter, fatal};
+use super::{Gate, Reenter, enter, fatal, same_gate};
 use crate::abi::{self, Arch, Passing};
 use crate::interp::native::{read_bytes, write_bytes};
 use crate::ir::{FuncId, Sig, Ty};
@@ -30,7 +30,7 @@ const STUB_STRIDE: usize = 16;
 
 struct Slot {
     program: u64,
-    gate: Arc<Gate>,
+    gate: Arc<dyn Gate>,
     func: FuncId,
     sig: Sig,
 }
@@ -109,7 +109,7 @@ unsafe extern "C" fn common() {
 /// The C-callable address for interpreted procedure `func` of `program`, run by the
 /// interpreter behind `gate`.
 pub(super) fn callback_addr(
-    gate: &Arc<Gate>,
+    gate: &Arc<dyn Gate>,
     program: u64,
     func: FuncId,
     sig: &Sig,
@@ -144,13 +144,13 @@ pub(super) fn callback_addr(
 /// Called by `common`: `slots` are the positional argument slots (the caller's home area, then
 /// its stack arguments), `xmm` the first four XMM registers, `out` RAX and XMM0 to return.
 unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *mut [u64; 2]) {
-    let (gate, func, sig) = {
+    let (gate, program, func, sig) = {
         let table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
         let Some(slot) = &table[k as usize] else {
             drop(table);
             fatal("C called a procedure of an interpreter that has finished")
         };
-        (slot.gate.clone(), slot.func, slot.sig.clone())
+        (slot.gate.clone(), slot.program, slot.func, slot.sig.clone())
     };
     // SAFETY: `common` passes its caller's argument area and its own spill area; `invoke`
     // reads only the positions the procedure's signature declares.
@@ -158,18 +158,19 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
         slot: |i| unsafe { slots.add(i).read() },
         xmm: |i| unsafe { xmm.add(i).read() },
     };
-    let result = gate
-        .run(|reenter| invoke(reenter, func, &sig, &incoming))
-        .unwrap_or_else(|m| fatal(&m));
+    let result = enter(&*gate, program, |reenter| {
+        invoke(reenter, func, &sig, &incoming)
+    })
+    .unwrap_or_else(|m| fatal(&m));
     // SAFETY: `out` is the 16-byte result area in `common`'s frame.
     unsafe { out.write(result) };
 }
 
 /// Free every stub assigned to `gate`'s interpreter.
-pub(super) fn release(gate: &Arc<Gate>) {
+pub(super) fn release(gate: &Arc<dyn Gate>) {
     let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
     for slot in table.iter_mut() {
-        if slot.as_ref().is_some_and(|s| Arc::ptr_eq(&s.gate, gate)) {
+        if slot.as_ref().is_some_and(|s| same_gate(&s.gate, gate)) {
             *slot = None;
         }
     }

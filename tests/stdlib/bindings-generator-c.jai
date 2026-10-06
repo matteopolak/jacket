@@ -3,6 +3,7 @@
 #import "String";
 #import "File";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 #define LIMIT 5
@@ -30,16 +31,14 @@ has :: (text: string, needle: string) -> bool {
     return contains(text, needle);
 }
 
-main :: () {
-    // libclang is a native library and the WASM target (the browser playground) loads none;
-    // the generator calls below are still compiled there.
-    if OS == .WASM {
-        print("ok\n");
-        return;
-    }
-    dir := "/tmp";
-    header_path := tprint("%/jai_bindgen_c_test.h", dir);
-    output_path := tprint("%/jai_bindgen_c_test.jai", dir);
+// Runs at compile time: libclang is the compiler's, and executables cannot call it.
+check_bindings :: () {
+    // The WASM target (the browser playground) loads no native libraries, so no libclang.
+    #if OS == .WASM return;
+    dir := scratch_directory("bindgen-c");
+    defer delete_directory(dir);
+    header_path := tprint("%/test.h", dir);
+    output_path := tprint("%/test.jai", dir);
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
@@ -79,5 +78,10 @@ main :: () {
     assert(has(text, "log_message :: (fmt: string, __args: ..Any)"));
     assert(has(text, "make_opaque :: (node: *Node, color: Color, flags: Flags) -> Opaque #foreign lib;"));
     assert(has(text, "assert(size_of(Node) == 40"));
+}
+
+#run check_bindings();
+
+main :: () {
     print("ok\n");
 }

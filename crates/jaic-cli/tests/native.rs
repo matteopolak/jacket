@@ -535,6 +535,100 @@ fn c_call_procedures_stored_in_memory() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
 }
 
+/// A `#c_call` procedure that a thread C started calls may block on Jai threads under `jaic run`
+/// (a mutex, a condition variable, a join, a sleep), callbacks nest in C calls on every kind of
+/// thread, and a Jai thread keeps running while another one waits in a long C call; the output
+/// matches the native build (docs/compiler/interpreter-threads.md). Deadlocks among Jai threads,
+/// and between a C thread's callback and a Jai thread, are reported. Skipped when no C compiler
+/// is installed.
+#[test]
+fn c_thread_callbacks_block_on_jai_threads() {
+    let fixture = repo_root().join("tests/native/c-callback-threads");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-callback-threads");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["blocking.c", "blocking.jai", "deadlock.jai"] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let compile = |args: &[&str]| {
+        let mut cc = Command::new(if cfg!(windows) {
+            "clang"
+        } else {
+            "cc"
+        });
+        cc.args(args).current_dir(&dir);
+        cc.output().ok().map(|output| {
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        })
+    };
+    let built = if cfg!(target_os = "macos") {
+        compile(&[
+            "-shared",
+            "-o",
+            "libblocking.dylib",
+            "blocking.c",
+            "-Wl,-install_name,@rpath/libblocking.dylib",
+        ])
+    } else if cfg!(windows) {
+        compile(&["-shared", "blocking.c", "-o", "libblocking.dll"])
+    } else {
+        compile(&[
+            "-shared",
+            "-fPIC",
+            "-pthread",
+            "-o",
+            "libblocking.so",
+            "blocking.c",
+        ])
+    };
+    if built.is_none() {
+        eprintln!("skipping: no C compiler");
+        return;
+    }
+    let expected = "mutex: 42\ncondition: 42\njoin: 42\nsleep: 10\nnested: 61\n\
+                    nested on a thread of C: 61\nnested on a Jai thread: 31\n\
+                    progress while a thread waits in C: 5000050000 1\n";
+    let output = Command::new(JAIC)
+        .args(["run", "blocking.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).replace('\r', ""),
+        expected
+    );
+    let output = build_and_run(&dir.join("blocking.jai"), &dir, "blocking").unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).replace('\r', ""),
+        expected
+    );
+    for args in [
+        &["run", "deadlock.jai"][..],
+        &["run", "deadlock.jai", "--", "callback"],
+    ] {
+        let output = Command::new(JAIC)
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "{args:?} did not fail");
+        assert!(
+            stderr.contains("deadlock: every thread is blocked"),
+            "{args:?}: {stderr}"
+        );
+        assert!(output.stdout.is_empty(), "{args:?}");
+    }
+}
+
 /// `-sanitize address` reports a use after free with the Jai source line, `-sanitize undefined`
 /// an out-of-bounds stack access, and a correct program runs cleanly under both. Not supported
 /// on Windows.

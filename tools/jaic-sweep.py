@@ -172,15 +172,6 @@ def symbolizer():
 # `run_native`'s status for a program whose build writes no executable.
 NO_EXECUTABLE = "no executable"
 
-# `run` cases that cannot work as native executables, with the reason. Each one calls into the
-# compiler at run time, which only `jaic run` provides.
-INTERPRETER_ONLY = {
-    # Bindings_Generator drives libclang through the `__jaic_clang` compiler procedure.
-    "bindings-generator-c": "runs Bindings_Generator at run time",
-    "bindings-generator-cpp": "runs Bindings_Generator at run time",
-    "bindings-generator-declaration-api": "runs Bindings_Generator at run time",
-}
-
 def opens_windows(path):
     """Whether a case opens windows: it imports Window_Creation. Machines without a display or
     GPU (CI runners) can build such programs but not run them."""
@@ -276,8 +267,6 @@ def main():
 
     def run(case):
         cid, path, mode, expect, extra = case
-        if a.native and mode == "run" and cid in INTERPRETER_ONLY:
-            return cid, None, "", INTERPRETER_ONLY[cid], NO_EXECUTABLE
         windowed = a.headless and mode == "run" and opens_windows(path)
         if windowed and expect is not None:
             expect = None  # Only whether it builds is checked.

@@ -96,7 +96,7 @@ impl Interp {
         let result: Res<u64> = match symbol {
             "CreateThread" => self.create_thread(program, arg(2), arg(3), arg(4), arg(5)),
             "WaitForSingleObject" | "WaitForSingleObjectEx" if self.owns(arg(0)) => {
-                self.wait_objects(program, &[arg(0)], false, arg(1) as u32)
+                self.wait_objects(&[arg(0)], false, arg(1) as u32)
             }
             "WaitForMultipleObjects" | "WaitForMultipleObjectsEx" => {
                 let count = arg(0) as u32 as u64;
@@ -107,19 +107,19 @@ impl Interp {
                 if !handles.iter().all(|&h| self.owns(h)) {
                     return None;
                 }
-                self.wait_objects(program, &handles, arg(2) as u32 != 0, arg(3) as u32)
+                self.wait_objects(&handles, arg(2) as u32 != 0, arg(3) as u32)
             }
             "GetExitCodeThread" if self.owns(arg(0)) => {
-                let sched = self.sched();
-                let code = match sched.objects.get(&arg(0)) {
-                    Some(&Object::Thread(id)) if sched.threads[id].finished => {
-                        sched.threads[id].result as u32
+                let code = self.with_sched(|s| match s.objects.get(&arg(0)) {
+                    Some(&Object::Thread(id)) if s.threads[id].finished => {
+                        Some(s.threads[id].result as u32)
                     }
-                    Some(Object::Thread(_)) => STILL_ACTIVE,
-                    _ => {
-                        set_last_error(ERROR_INVALID_PARAMETER);
-                        return Some(Ok(vec![0]));
-                    }
+                    Some(Object::Thread(_)) => Some(STILL_ACTIVE),
+                    _ => None,
+                });
+                let Some(code) = code else {
+                    set_last_error(ERROR_INVALID_PARAMETER);
+                    return Some(Ok(vec![0]));
                 };
                 if arg(1) != 0 {
                     self.write(arg(1), &code.to_le_bytes());
@@ -127,7 +127,7 @@ impl Interp {
                 Ok(1)
             }
             "CloseHandle" if self.owns(arg(0)) => {
-                self.sched().objects.remove(&arg(0));
+                self.with_sched(|s| s.objects.remove(&arg(0)));
                 Ok(1)
             }
 
@@ -138,25 +138,15 @@ impl Interp {
             | "InitializeCriticalSectionEx"
             | "InitializeSRWLock"
             | "DeleteCriticalSection" => {
-                self.sched().mutexes.remove(&arg(0));
+                self.with_sched(|s| s.mutexes.remove(&arg(0)));
                 return None;
             }
             "EnterCriticalSection" | "AcquireSRWLockExclusive" | "AcquireSRWLockShared" => {
-                self.lock_mutex(program, arg(0), 1).map(|_| 0)
+                self.lock_mutex(arg(0), 1).map(|_| 0)
             }
             "TryEnterCriticalSection"
             | "TryAcquireSRWLockExclusive"
-            | "TryAcquireSRWLockShared" => {
-                let me = self.sched().current;
-                let state = self.sched().mutexes.entry(arg(0)).or_default();
-                if state.owner.is_none() || state.owner == Some(me) {
-                    state.owner = Some(me);
-                    state.count += 1;
-                    Ok(1)
-                } else {
-                    Ok(0)
-                }
-            }
+            | "TryAcquireSRWLockShared" => Ok(self.try_lock_mutex(arg(0)) as u64),
             "LeaveCriticalSection" | "ReleaseSRWLockExclusive" | "ReleaseSRWLockShared" => {
                 let _ = self.unlock_mutex(arg(0));
                 Ok(0)
@@ -164,7 +154,7 @@ impl Interp {
 
             // Condition variables.
             "InitializeConditionVariable" => {
-                self.sched().cond_waiters.remove(&arg(0));
+                self.with_sched(|s| s.cond_waiters.remove(&arg(0)));
                 Ok(0)
             }
             "WakeConditionVariable" => {
@@ -177,7 +167,7 @@ impl Interp {
             }
             "SleepConditionVariableCS" | "SleepConditionVariableSRW" => {
                 let deadline = deadline_after(arg(2) as u32);
-                match self.cond_wait(program, arg(0), arg(1), deadline) {
+                match self.cond_wait(arg(0), arg(1), deadline) {
                     Ok(ETIMEDOUT) => {
                         set_last_error(ERROR_TIMEOUT);
                         Ok(0)
@@ -203,22 +193,29 @@ impl Interp {
             }
             "ReleaseSemaphore" if self.owns(arg(0)) => {
                 let release = arg(1) as u32 as i32;
-                let sched = self.sched();
-                let Some(Object::Semaphore {
-                    count,
-                    max,
-                }) = sched.objects.get_mut(&arg(0))
-                else {
-                    set_last_error(ERROR_INVALID_PARAMETER);
-                    return Some(Ok(vec![0]));
+                let released = self.with_sched(|s| {
+                    let Some(Object::Semaphore {
+                        count,
+                        max,
+                    }) = s.objects.get_mut(&arg(0))
+                    else {
+                        return Err(ERROR_INVALID_PARAMETER);
+                    };
+                    let previous = *count;
+                    if release <= 0 || (*max - previous) < release as u32 {
+                        return Err(ERROR_TOO_MANY_POSTS);
+                    }
+                    *count += release as u32;
+                    s.wake_object_waiters();
+                    Ok(previous)
+                });
+                let previous = match released {
+                    Ok(previous) => previous,
+                    Err(code) => {
+                        set_last_error(code);
+                        return Some(Ok(vec![0]));
+                    }
                 };
-                let previous = *count;
-                if release <= 0 || (*max - previous) < release as u32 {
-                    set_last_error(ERROR_TOO_MANY_POSTS);
-                    return Some(Ok(vec![0]));
-                }
-                *count += release as u32;
-                sched.wake_object_waiters();
                 if arg(2) != 0 {
                     self.write(arg(2), &previous.to_le_bytes());
                 }
@@ -229,46 +226,50 @@ impl Interp {
                 set: arg(2) as u32 != 0,
             })),
             "SetEvent" | "ResetEvent" if self.owns(arg(0)) => {
-                let sched = self.sched();
-                let Some(Object::Event {
-                    set, ..
-                }) = sched.objects.get_mut(&arg(0))
-                else {
+                let now_set = symbol == "SetEvent";
+                let found = self.with_sched(|s| {
+                    let Some(Object::Event {
+                        set, ..
+                    }) = s.objects.get_mut(&arg(0))
+                    else {
+                        return false;
+                    };
+                    *set = now_set;
+                    if now_set {
+                        s.wake_object_waiters();
+                    }
+                    true
+                });
+                if !found {
                     set_last_error(ERROR_INVALID_PARAMETER);
                     return Some(Ok(vec![0]));
-                };
-                let now_set = symbol == "SetEvent";
-                *set = now_set;
-                if now_set {
-                    sched.wake_object_waiters();
                 }
                 Ok(1)
             }
 
             // Sleeping and yielding only matter once another thread exists.
             "Sleep" | "SleepEx" if started => match arg(0) as u32 {
-                0 => self.yield_now(program),
-                ms => self
-                    .sleep_for(program, Duration::from_millis(ms as u64))
-                    .map(|_| ()),
+                0 => self.yield_now(),
+                ms => self.sleep_for(Duration::from_millis(ms as u64)).map(|_| ()),
             }
             .map(|_| 0),
-            "SwitchToThread" if started => self.yield_now(program).map(|_| 1),
+            "SwitchToThread" if started => self.yield_now().map(|_| 1),
             _ => return None,
         };
         Some(result.map(|v| vec![v]))
     }
 
     fn owns(&mut self, handle: u64) -> bool {
-        handle >= HANDLE_BASE && self.sched().objects.contains_key(&handle)
+        handle >= HANDLE_BASE && self.with_sched(|s| s.objects.contains_key(&handle))
     }
 
     fn new_object(&mut self, object: Object) -> u64 {
-        let sched = self.sched();
-        let handle = HANDLE_BASE + sched.next_object * 4;
-        sched.next_object += 1;
-        sched.objects.insert(handle, object);
-        handle
+        self.with_sched(|s| {
+            let handle = HANDLE_BASE + s.next_object * 4;
+            s.next_object += 1;
+            s.objects.insert(handle, object);
+            handle
+        })
     }
 
     /// `CreateThread(attributes, stack size, start, parameter, flags, id out)`: the handle, or
@@ -285,10 +286,9 @@ impl Interp {
         if flags & CREATE_SUSPENDED != 0 {
             return self.trap("CreateThread: the interpreter cannot start a thread suspended");
         }
-        if self.thread_create(program, 0, start, parameter)? != 0 {
+        let Some(id) = self.spawn_thread(program, start, parameter)? else {
             return Ok(0);
-        }
-        let id = self.sched().threads.len() - 1;
+        };
         if id_out != 0 {
             self.write(id_out, &(id as u32 + 1).to_le_bytes());
         }
@@ -296,52 +296,53 @@ impl Interp {
     }
 
     /// `WaitForSingleObject` / `WaitForMultipleObjects` on handles the scheduler owns.
-    fn wait_objects(
-        &mut self,
-        program: &Program,
-        handles: &[u64],
-        all: bool,
-        milliseconds: u32,
-    ) -> Res<u64> {
+    fn wait_objects(&mut self, handles: &[u64], all: bool, milliseconds: u32) -> Res<u64> {
         let deadline = deadline_after(milliseconds);
         loop {
-            let sched = self.sched();
-            let mut ready = Vec::new();
-            for (i, h) in handles.iter().enumerate() {
-                let Some(object) = sched.objects.get(h) else {
-                    set_last_error(ERROR_INVALID_PARAMETER);
-                    return Ok(WAIT_FAILED);
-                };
-                if object.signaled(&sched.threads) {
-                    ready.push(i);
+            let done = self.with_sched(|s| {
+                let mut ready = Vec::new();
+                for (i, h) in handles.iter().enumerate() {
+                    let object = s.objects.get(h)?;
+                    if object.signaled(&s.threads) {
+                        ready.push(i);
+                    }
                 }
-            }
-            let done = if all {
-                ready.len() == handles.len()
-            } else {
-                !ready.is_empty()
-            };
-            if done {
+                let done = if all {
+                    ready.len() == handles.len()
+                } else {
+                    !ready.is_empty()
+                };
+                if !done {
+                    return Some(None);
+                }
                 let taken = if all {
                     &ready[..]
                 } else {
                     &ready[..1]
                 };
                 for &i in taken {
-                    if let Some(object) = sched.objects.get_mut(&handles[i]) {
+                    if let Some(object) = s.objects.get_mut(&handles[i]) {
                         object.consume();
                     }
                 }
-                return Ok(if all {
+                Some(Some(if all {
                     WAIT_OBJECT_0
                 } else {
                     WAIT_OBJECT_0 + ready[0] as u64
-                });
+                }))
+            });
+            match done {
+                None => {
+                    set_last_error(ERROR_INVALID_PARAMETER);
+                    return Ok(WAIT_FAILED);
+                }
+                Some(Some(result)) => return Ok(result),
+                Some(None) => {}
             }
             if milliseconds == 0 || deadline.is_some_and(|d| d <= Instant::now()) {
                 return Ok(WAIT_TIMEOUT);
             }
-            self.block(program, Block::Object(deadline))?;
+            self.block(Block::Object(deadline))?;
         }
     }
 }
