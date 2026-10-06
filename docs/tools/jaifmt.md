@@ -81,6 +81,7 @@ These continuation offsets are the one place where the input's layout still show
 | before `,` `;`, after `(` `[` `.[`, before `)` `]` | none: `f(a, b)`, `.[1, 2, 3]` |
 | after `,` (not a cast flag comma `cast,no_check`, not `,,` context arguments) and after `;` on a line | one space |
 | `.{` literals | spaced inside: `.{ x = 1, y = 2 }`; empty `.{}` |
+| `{` literals without the dot | like `.{`: `f({ .A, 1 })`, `return { w, h };`. A `{` after `(`, `,`, `=`, `:=`, `[` or `return` that holds no `;` is a literal (`opens_dotless_literal`); any other `{` is a block |
 | `{` `}` | one space around (`if x {`); `{}` when empty |
 | `x: int`, `N: int : 5` | the first `:` of a declaration attaches to its names, a second `:` is spaced |
 | `=` `:=` `::` `==` `!=` `<=` `>=` `&&` `\|\|` compound assignments `->` `=>` | spaced |

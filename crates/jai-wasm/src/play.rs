@@ -203,6 +203,10 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
 
 /// [`run`] with limits.
 pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
+    // The render style is process-wide, so concurrent runs (parallel tests)
+    // would otherwise render with each other's style.
+    static RUN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _running = RUN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut result = PlayResult::default();
     jaic::render::set_style(if limits.styled {
         jaic::render::Style {

@@ -6,6 +6,13 @@
 
 - jailint rule `wrapping_constant` (warn): a constant that silently wraps to the type of the other operand of `/`, `%` or an ordering comparison, such as `(0xffff_ffff - 40) / h` or `h < 0x8000_0000` with `h: s32`. The help shows the value the operator really uses and suggests computing in `s64` (or `u64`).
 - Browser build: `jai_play_set_styled(1)` renders errors with ANSI colour and box drawing, for output panes that draw them.
+- `Build_Options.cast_bounds_check` (`.FATAL` by default, `.NONFATAL`, `.OFF`): a runtime integer cast, `cast(T)` or `xx`, to a narrower type checks that the value fits, in `jaic run`, `#run` and built executables: ``error: runtime error: cast of 300 to `u8` overflows`` with a help on `cast,trunc`/`xx,trunc` and `cast,no_check`. Casts to a type at least as wide never check. See `docs/language/casts-and-conversions.md`.
+- A `#complete` switch on an enum without a default label stops the program when the value is none of the members (``no case of the `#complete` switch matches its value, 7``) instead of running no case.
+- Built executables say which check failed and where before they stop: an array index out of range (with the index and count), a cast that overflows, an unmatched `#complete` switch, an integer division by zero and a missing `return` print `path:line: error: <message>` through Runtime_Support's `runtime_support_check_failed`, in the interpreter's words. Before, they trapped silently.
+- A crash in native code that `jaic run` or `#run` called (SIGSEGV, SIGBUS, SIGILL or SIGFPE; access violations and the like on Windows) names the foreign procedure, the Jai line that called it and the interpreter's call stack, and exits with status 121, instead of killing jaic without a message.
+- `ok:, toki.str = f();`: a mixed declaration list can assign to members, indexes and dereferences alongside the names it declares.
+- Struct literals without a dot in expressions, `f({1})` and `f({.A, 1})`, which code in the upstream corpus uses.
+- A mismatched `return` value gets a note pointing at the declared return type.
 
 ### Changed
 
@@ -23,6 +30,12 @@
 
 - `jaic run`: a `#c_call` procedure stored in memory C reads (a struct field such as `AURenderCallbackStruct.inputProc` or `WNDCLASSEXW.lpfnWndProc`, a global, an array) is now a real C function pointer, not an interpreter-internal value C crashed calling. C may call it from its own threads (an audio render thread); the call waits until the interpreter is inside a foreign call. Jai code calling the stored pointer, and comparing it with the procedure, still works.
 - `Clipboard`: `os_clipboard_set_bitmap` no longer fails for every bitmap on Windows, macOS and Linux. Its overflow check divided a wrapped `0xffff_ffff - 40` (`-41` as an `s32`) by the height; found by `wrapping_constant`.
+- `#asm` instructions whose destination is a general-purpose register (`pmovmskb.x found:, v;`, `movmskps`, `cvttsd2si`, `pextrq`) accept a register declared in the destination, in the interpreter and LLVM alike.
+- Enum members written `A : :5` parse.
+- `print(..., code_to_string(compiler_get_code(root)))` in `#run` no longer reruns the compile-time code until it exhausts memory: reparsing the same code for an export request reuses its id.
+- The assertion and check reports of built executables show paths relative to the directory the build ran in, like `jaic run`.
+- `jaifmt --check` prints the files it would change relative to the current directory.
+- `jailint` given a file that a module's `module.jai` loads (`jailint stdlib/Compiler/workspace.jai`) checks it as part of that module, so the module's exported procedures are no longer reported as unused.
 - `File_Async.initialize_queue` no longer tests the result of `Thread.init` on its condition variables, which returns nothing; any program importing `File_Async` failed to compile.
 
 ## [0.3.0] - 2026-10-06

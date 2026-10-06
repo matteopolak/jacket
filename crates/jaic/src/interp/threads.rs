@@ -57,6 +57,7 @@ struct Saved {
     stack: Box<[u64]>,
     sp: u64,
     depth: usize,
+    calls: Vec<Call>,
     loc: Option<(u32, u32, u32)>,
     trace_loc: Option<Option<(u32, u32, u32)>>,
 }
@@ -103,6 +104,7 @@ impl Sched {
                     stack: Box::default(),
                     sp: 0,
                     depth: 0,
+                    calls: Vec::new(),
                     loc: None,
                     trace_loc: None,
                 },
@@ -245,6 +247,7 @@ impl Interp {
                     stack: vec![0u64; THREAD_STACK / 8].into_boxed_slice(),
                     sp: 0,
                     depth: 0,
+                    calls: Vec::new(),
                     loc: None,
                     trace_loc: None,
                 },
@@ -467,6 +470,7 @@ impl Interp {
             stack: std::mem::take(&mut self.stack),
             sp: self.sp,
             depth: self.depth,
+            calls: std::mem::take(&mut self.calls),
             loc: self.loc,
             trace_loc: self.trace_loc,
         };
@@ -491,6 +495,7 @@ impl Interp {
                     stack: Box::default(),
                     sp: 0,
                     depth: 0,
+                    calls: Vec::new(),
                     loc: None,
                     trace_loc: None,
                 },
@@ -499,6 +504,7 @@ impl Interp {
         self.stack = saved.stack;
         self.sp = saved.sp;
         self.depth = saved.depth;
+        self.calls = saved.calls;
         self.loc = saved.loc;
         self.trace_loc = saved.trace_loc;
     }

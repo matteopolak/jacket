@@ -11,11 +11,13 @@ fail :: (code: int, what: string) {
 main :: () {
     // Find the first byte equal to a needle, as a substring search does.
     bytes: [16] u8;
-    for i: 0..15  bytes[i] = cast(u8) (#char "a" + i);
+    for i: 0..15 bytes[i] = cast(u8) (#char "a" + i);
     needle: [16] u8;
     memset(needle.data, #char "f", 16);
     pb, pn := bytes.data, needle.data;
-    results: struct { index, found: u16; };
+    results: struct {
+        index, found: u16;
+    };
     pr := *results;
     #asm {
         movdqu.x  hay:, [pb];

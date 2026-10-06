@@ -10,6 +10,8 @@
 #![allow(unsafe_code)]
 
 mod code;
+#[cfg(not(target_arch = "wasm32"))]
+mod crash;
 mod executable_path;
 mod native;
 pub mod profile;
@@ -179,6 +181,9 @@ impl Trap {
 
 type Res<T> = std::result::Result<T, Trap>;
 
+/// A running procedure and the location it was called from (`Interp::calls`).
+type Call = (FuncId, Option<(u32, u32, u32)>);
+
 /// C functions whose calls leave nothing observable outside the interpreter's memory, so a
 /// compile-time run that made only these can be repeated (see `Interp::effects`).
 const UNOBSERVABLE_FOREIGNS: &[&str] = &[
@@ -259,6 +264,9 @@ pub struct Interp {
     pub hooks: Vec<Option<Hook>>,
     pub host: Box<dyn Host>,
     depth: usize,
+    /// The procedures running, outermost first, each with the location it was called from:
+    /// what a crash in native code reports (`crash.rs`).
+    calls: Vec<Call>,
     loc: Option<(u32, u32, u32)>,
     /// Inside procedures without a stack trace node (`Some`): the location of the call that
     /// entered them from a traced procedure. A traced call made there reports that line for
@@ -365,6 +373,7 @@ impl Interp {
             hooks: Vec::new(),
             host,
             depth: 0,
+            calls: Vec::new(),
             loc: None,
             trace_loc: None,
             compile_time: true,
@@ -721,6 +730,8 @@ impl Interp {
                 "foreign procedure `{symbol}` is not available here"
             ));
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        let _crash_report = crash::ForeignCall::enter(&symbol, self, program);
         #[cfg(target_os = "macos")]
         native::main_thread::note_symbol(&symbol);
         #[cfg(target_os = "macos")]
@@ -951,6 +962,7 @@ impl Interp {
         }
         self.sp = start + frame.size + node_size;
         self.depth += 1;
+        self.calls.push((id, self.loc));
         let stack_base = stack_start + start;
         let saved_loc = self.loc;
         let saved_trace_loc = self.trace_loc;
@@ -985,6 +997,7 @@ impl Interp {
         self.loc = saved_loc;
         self.trace_loc = saved_trace_loc;
         self.depth -= 1;
+        self.calls.pop();
         self.sp = base;
         result
     }

@@ -42,7 +42,7 @@ main :: () {
     if !done || tokens[2].str != "x-" fail(4, "indexed member target");
 
     // `=,` marks the existing places when the rest are declared with `:=`.
-    t.pos[0]=, rest := measure("zz");
+    t.pos[0] =, rest := measure("zz");
     if t.pos[0] != 2 || rest != "z" fail(5, "place marked with `=,`");
 
     print("ok\n");

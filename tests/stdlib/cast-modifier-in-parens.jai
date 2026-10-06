@@ -7,7 +7,7 @@ main :: () {
     loop: u64 = 12;
     lowest := loop & cast,no_check(u64) (-cast,no_check(int) loop);
     assert(lowest == 4);
-    narrow: u8 = xx,trunc (-xx,trunc loop);
+    narrow: u8 = xx,trunc(-xx,trunc loop);
     assert(narrow == 244);
     print("ok\n");
 }

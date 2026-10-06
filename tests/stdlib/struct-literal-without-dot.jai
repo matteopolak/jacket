@@ -9,7 +9,10 @@ fail :: (code: int, what: string) {
     exit(xx code);
 }
 
-Kind :: enum { GENERAL; COMPUTE; }
+Kind :: enum {
+    GENERAL;
+    COMPUTE;
+}
 
 Desc :: struct {
     kind: Kind;
@@ -26,20 +29,20 @@ describe :: (d: Desc) -> int {
 }
 
 make :: (w: int) -> Extent {
-    return {w, w * 2, {.COMPUTE, 7}};
+    return { w, w * 2, { .COMPUTE, 7 } };
 }
 
 main :: () {
-    if describe({.GENERAL, 1}) != 1 fail(1, "positional argument");
-    if describe({count = 3, kind = .COMPUTE}) != 103 fail(2, "named argument");
+    if describe({ .GENERAL, 1 }) != 1 fail(1, "positional argument");
+    if describe({ count = 3, kind = .COMPUTE }) != 103 fail(2, "named argument");
 
-    e: Extent = {1280, 720, {.COMPUTE, 2}};
+    e: Extent = { 1280, 720, { .COMPUTE, 2 } };
     if e.width != 1280 || e.height != 720 || e.desc.count != 2 fail(3, "typed declaration");
 
     e = {};
     if e.width != 0 || e.desc.kind != .GENERAL fail(4, "empty literal");
 
-    e = {width = 5};
+    e = { width = 5 };
     if e.width != 5 || e.height != 0 fail(5, "assignment");
 
     m := make(3);

@@ -106,6 +106,50 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
     );
 }
 
+/// A fault in C code that `jaic run` or `#run` called names the foreign procedure, the line
+/// that called it and the interpreter's call stack, and exits with its own status.
+#[cfg(unix)]
+#[test]
+fn crash_in_native_code_names_the_foreign_call() {
+    let dir = scratch("native-crash");
+    let source = "libc :: #system_library \"libc\";\nstrlen :: (s: *u8) -> u64 #foreign libc;\nmeasure :: (p: *u8) -> u64 {\n    return strlen(p);\n}\nwork :: () {\n    n := measure(cast(*u8) 16);\n}\n";
+    let run = jaic_on(
+        &dir,
+        "crash.jai",
+        &format!("{source}main :: () {{\n    work();\n}}\n"),
+        "run",
+        &[],
+    );
+    assert_eq!(run.status.code(), Some(121), "{}", stderr(&run));
+    assert_in_order(
+        &stderr(&run),
+        &[
+            "crash.jai:4:5: error: native code crashed (SIGSEGV, invalid memory access at address 0x10) while calling foreign procedure `strlen`",
+            "note: call stack (innermost first):",
+            "    `measure` at crash.jai:4",
+            "    `work` at crash.jai:7",
+            "    `main` at crash.jai:10",
+            "help: check the arguments passed to `strlen`",
+        ],
+    );
+    let compile_time = jaic_on(
+        &dir,
+        "compile_time.jai",
+        &format!("{source}#run work();\nmain :: () {{}}\n"),
+        "check",
+        &[],
+    );
+    assert_eq!(compile_time.status.code(), Some(121));
+    assert_in_order(
+        &stderr(&compile_time),
+        &[
+            "compile_time.jai:4:5: error: native code crashed",
+            "    `measure` at compile_time.jai:4",
+            "    `work` at compile_time.jai:7",
+        ],
+    );
+}
+
 // rules: cast.2 flow.27
 #[test]
 fn cast_and_switch_checks_say_which_value() {

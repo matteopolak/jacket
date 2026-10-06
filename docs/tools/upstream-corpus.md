@@ -190,7 +190,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **KodaJai.** Imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer, BlockAllocatorJai, JaiMath, lz4_static and JaiParallel, none pinned.
 
-**no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`.
+**no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`. Its code uses dotless struct literals (`f({1})`) and `A : :5` enum members, which jaic now accepts; checked with `-os linux` it stops at "struct `Rendering_Context` contains itself" (likely tied to its file-scope `using` of a global of that type), and its bindings generator needs `table_find_new`, which jaic's `Hash_Table` lacks.
 
 Excluded: jaithon, which is its own language in `.jai` files.
 

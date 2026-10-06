@@ -103,6 +103,22 @@ The checks' messages come from one place, `ir::check_message`, keyed by the `ir:
 
 A metaprogram's own error (`compiler_report`, `compiler_set_workspace_status(.FAILED)`) sets `Trap::reported`: it is shown as the metaprogram wrote it, at the place it named, without the compile-time-execution prefix.
 
+#### Crashes in native code (`interp/crash.rs`)
+
+`jaic run` and `#run` call foreign procedures in jaic's own process, so a bad pointer passed to C faults inside jaic. While a foreign call is in progress, `crash::ForeignCall` publishes the symbol, the interpreter and the program in a few atomics, and a fault handler (POSIX `sigaction` for SIGSEGV, SIGBUS, SIGILL and SIGFPE with `SA_ONSTACK`, so a native stack overflow still has a stack to report on; a vectored exception handler on Windows) prints:
+
+```
+crash.jai:4:5: error: native code crashed (SIGSEGV, invalid memory access at address 0x10) while calling foreign procedure `strlen`
+note: call stack (innermost first):
+    `measure` at crash.jai:4
+    `main` at crash.jai:10
+help: check the arguments passed to `strlen` (pointers and sizes) and its `#foreign` declaration against the C signature; jaic cannot continue after a crash in native code
+```
+
+and exits with status 121. The call stack comes from `Interp::calls` (each running procedure with the location it was called from, pushed and popped in `Interp::exec` and swapped with the rest of a thread's state by the scheduler in `threads.rs`). The report is formatted into a fixed buffer and written with `write(2)`/`WriteFile`, since the crash may have happened inside `malloc`; it has no source excerpt for the same reason.
+
+A fault outside a foreign call is not the handler's: it puts the previous action back (Rust's stack overflow report, or the default) and returns, so the fault repeats under it. The interpreter's own recursion limit (`MAX_DEPTH`) and value-stack check do not use signals and are unaffected. Not covered: a crash in a thread a C library started itself is reported against the foreign call in progress, if any.
+
 ### Command-line errors
 
 `jaic`'s argument parser returns a `CliError` (message + helps): unknown commands and options get the closest match, misplaced files and options say where they go, `-os`/`-cpu` list their values. Input files are checked before compiling (missing file with a close name, a directory with its entry file, permissions). `jailint`, `jaifmt` and `jailsp` follow the same rules; `jailsp` run by hand says it is a language server and how to check a file instead.
@@ -115,7 +131,7 @@ A Rust panic is reported as `error: internal compiler error: ...` with a note an
 
 | Tool | 0 | 1 | 2 | other |
 |---|---|---|---|---|
-| `jaic` | success (`run`: the program's own status) | compile error, runtime error, build or link failure, unreadable input | command-line mistake | 120 memory limit (`JAIC_MEMORY_LIMIT`), 101 internal compiler error |
+| `jaic` | success (`run`: the program's own status) | compile error, runtime error, build or link failure, unreadable input | command-line mistake | 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal compiler error |
 | `jailint` | no `deny` findings | a `deny` finding | command-line or `jailint.toml` mistake, unreadable path | |
 | `jaifmt` | success | `--check`: files would change | errors (command line, config, unreadable or unformattable files) | |
 | `jailsp` | `exit` after `shutdown` | input ended or the protocol broke | command-line mistake | |
@@ -154,9 +170,9 @@ No crates beyond the standard library: `render.rs` (layouts, colour), `suggest.r
 | 56 | unknown identifier | ``unknown identifier 'print'``, sometimes a far-fetched similar name | the build metaprogram that adds the name (`add_build_string`), else a similar name, plus the stdlib module that declares it: ``help: `print` is declared in the `Basic` module: add `#import "Basic";` `` |
 | 28 | module not found | where it looked, generic help | the folder nearby that holds the module and the `-import_dir` that finds it |
 | 11 | type has no member | ``type bool has no member 'open'`` | the closest member as a fix, or the list of members |
-| 9 | expected `;` after statement | ``found '}'`` for `f({1})` | help: struct literals in expressions start with a dot (`.{1, 2}`) |
+| 9 | expected `;` after statement | ``found '}'`` for `f({1})` | `f({1})` is now a struct literal (see [structs](../language/structs.md)); a brace that cannot be one still gets help: struct literals in expressions start with a dot (`.{1, 2}`) |
 | 8 | type mismatch: expected T, found T | the whole declaration underlined | the value underlined, the declared type as a note, a conversion help (`cast`, `.data`, `tprint`, `.*`) |
-| 7 | `#asm`: expected a general-purpose register or memory destination | - | unchanged (a jaic gap, see below) |
+| 7 | `#asm`: expected a general-purpose register or memory destination | - | fixed: `pmovmskb.x found_gpr:, v;` declares a general-purpose register (a jaic gap, see below) |
 | 5 | unknown library | ``unknown library 'x'`` | how to declare it with `#library`, and that `#if OS` declarations exist only for that OS |
 | 5 | #assert failed | `#assert failed` | the condition (`` `OS == .WINDOWS` is false ``), the target being compiled for, or what `#assert(false)` means |
 | 4 | cannot declare a variable from an expression with no value | as is | ``cannot declare `r` from `random_seed(...)`, which has no value`` + help |
@@ -167,14 +183,14 @@ No crates beyond the standard library: `render.rs` (layouts, colour), `suggest.r
 | 1 | type mismatch: `u8` and `string` | - | ``help: `"0"` is a string; for the character's code write `#char "0"` `` |
 | 1 | metaprogram marked the workspace as failed | ``error during compile-time execution: error: The workspace was marked as failed by its metaprogram.`` | ``error: the metaprogram marked the workspace as failed`` at the user's call |
 
-The rest were single occurrences. Crashes and limits (5): two segfaults inside native SDL/GL calls made by a `#run` metaprogram (a program bug, but jaic dies without a message), one timeout (a large project) and two `JAIC_MEMORY_LIMIT` stops (a jaic bug, see below).
+The rest were single occurrences. Crashes and limits (5): two segfaults inside native SDL/GL calls made by a `#run` metaprogram (a program bug; jaic now names the foreign call, its line and the call stack, see [crashes in native code](#crashes-in-native-code-interpcrashrs)), one timeout (a large project) and two `JAIC_MEMORY_LIMIT` stops (a jaic bug, fixed below).
 
-Found along the way, not fixed (jaic gaps rather than user errors):
+Found along the way (jaic gaps rather than user errors), and what became of them:
 
-- `#asm`: `pmovmskb.x found_gpr:, results_vec;` (a register declared in the destination) is rejected (`smari--jai-xml`, 7 programs).
-- Mixed declare-and-assign whose assigned target is not a plain name, `ok:, toki.str = f();`, does not parse (`sjorsdonkers--toml-jai`, 6 programs).
-- Positional struct literals without a dot, `f({1})` and `f({.A, 1})`, do not parse (`jai_parser` tests, `UnNabbo--no_api`); the error now suggests `.{...}`.
-- `stdlib/Bindings_Generator`: `Enum.enumerates` holds `Enumerate` values; generators written for it as `*Declaration`s (`ostef--Vk-Engine`) fail to type-check.
-- `print("% % %\n", root.kind, expressions.count, code_to_string(compiler_get_code(root)))` in `#run` exceeds 3 GiB; the same calls as separate statements work (`withlang-dev--open-jai`, 2 programs).
-- A fault in native code called from `#run` (here SDL/GL without initialisation) kills jaic with SIGSEGV and no message.
+- `#asm`: `pmovmskb.x found_gpr:, results_vec;` (a register declared in the destination) was rejected (`smari--jai-xml`, 7 programs). Fixed (rule `asm.27`); the programs now stop later, at `#if must` on a `$$must: bool = false` parameter whose omitted default is not baked.
+- Mixed declare-and-assign whose assigned target is not a plain name, `ok:, toki.str = f();`, did not parse (`sjorsdonkers--toml-jai`, 6 programs). Fixed (rule `decl.22`); the examples now stop at `Type_Info_Struct_Member.Flags.OVERLAY`, which jaic lacks.
+- Positional struct literals without a dot, `f({1})` and `f({.A, 1})`, did not parse (`jai_parser` tests, `UnNabbo--no_api`). They are struct literals now (rule `struct.17`): no_api's own examples and README use them, and `jai_parser` parses them. no_api also needed `A : :5` enum members (rule `enum.17`).
+- `stdlib/Bindings_Generator`: `Enum.enumerates` holds `Enumerate` values; generators written for an older API that held `*Declaration`s (`ostef--Vk-Engine`, `sgpu`) fail to type-check. Not changed: `UnNabbo--no_api`'s generator uses the current API (`for * enumerates` with `Enumerate` fields), and the two cannot both type-check. [The upstream corpus notes](../tools/upstream-corpus.md) record that Jai rejects Vk-Engine's generator too.
+- `print("% % %\n", root.kind, expressions.count, code_to_string(compiler_get_code(root)))` in `#run` exceeded 3 GiB (`withlang-dev--open-jai`, 2 programs): each rerun of the compile-time code to serve a typed `compiler_get_nodes` request made the code a new id, which asked for another export. Fixed (rule `records.29`); both programs run.
+- A fault in native code called from `#run` (here SDL/GL without initialisation) killed jaic with SIGSEGV and no message. Fixed: see [crashes in native code](#crashes-in-native-code-interpcrashrs).
 
