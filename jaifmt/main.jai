@@ -188,24 +188,42 @@ color_off :: () -> string {
     return ifx use_color() then "\e[0m" else "";
 }
 
+// `--color auto` decides as jaic and jailint do (`jaic::render::detect_with`): NO_COLOR turns
+// colour off, a FORCE_COLOR or CLICOLOR_FORCE that is not empty or "0" on, and otherwise it is
+// on for a terminal that is not "dumb" (on Windows, a console known to understand ANSI codes).
 use_color :: () -> bool {
     if color_choice == 1 return true;
     if color_choice == 2 return false;
+    if environment_set("NO_COLOR") return false;
+    if forced("FORCE_COLOR") || forced("CLICOLOR_FORCE") return true;
+    if environment_value("TERM") == "dumb" return false;
     #if OS == .WINDOWS {
-        return false;
+        ansi := environment_set("WT_SESSION") || environment_set("ANSICON") || environment_value("ConEmuANSI") == "ON" || environment_set("TERM");
+        mode: u32;
+        return ansi && Windows.GetConsoleMode(Windows.GetStdHandle(Windows.STD_ERROR_HANDLE), *mode) != 0;
     } else {
-        if environment_set("NO_COLOR") return false;
-        if environment_set("FORCE_COLOR") || environment_set("CLICOLOR_FORCE") return true;
-        term := POSIX.getenv("TERM");
-        if term && to_string(term) == "dumb" return false;
         return POSIX.isatty(2) != 0;
     }
 }
 
-#if OS != .WINDOWS {
-    environment_set :: (name: string) -> bool {
-        return POSIX.getenv(temp_c_string(name)) != null;
-    }
+forced :: (name: string) -> bool {
+    value := environment_value(name);
+    return value.count > 0 && value != "0";
+}
+
+environment_set :: (name: string) -> bool {
+    return environment_variable(name) != null;
+}
+
+// The variable's value, empty when it is not set.
+environment_value :: (name: string) -> string {
+    value := environment_variable(name);
+    return ifx value then to_string(value) else "";
+}
+
+environment_variable :: (name: string) -> *u8 {
+    #if OS == .WINDOWS return Windows.getenv(temp_c_string(name));
+    else return POSIX.getenv(temp_c_string(name));
 }
 
 print_error :: (format: string, args: ..Any) {
