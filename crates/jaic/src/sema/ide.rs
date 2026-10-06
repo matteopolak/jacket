@@ -112,9 +112,14 @@ impl Compiler {
                 };
                 (expr.span, what)
             }
-            ast::ExprKind::Member(_, name) | ast::ExprKind::InferredMember(name) => {
-                (name.span, IdeWhat::Member(name.name))
-            }
+            // `Module.name`: what the module exports, so definition and references follow it.
+            ast::ExprKind::Member(_, name) => match op {
+                Operand::Procs(p) => (name.span, IdeWhat::Procs(p.clone())),
+                Operand::Type(t) => (name.span, IdeWhat::Type(*t)),
+                Operand::Module(m) => (name.span, IdeWhat::Module(*m)),
+                _ => (name.span, IdeWhat::Member(name.name)),
+            },
+            ast::ExprKind::InferredMember(name) => (name.span, IdeWhat::Member(name.name)),
             _ => return,
         };
         if !self.ide_wants(span.file) {
@@ -275,6 +280,19 @@ impl Compiler {
         }) else {
             return Vec::new();
         };
+        // A module's name (`B` of `B.print`): the start of its entry file.
+        if let IdeWhat::Module(m) = r.what {
+            return self.modules[m.0 as usize]
+                .files
+                .first()
+                .map(|&file| Span {
+                    file,
+                    start: 0,
+                    end: 0,
+                })
+                .into_iter()
+                .collect();
+        }
         let name = self.sources.snippet(r.span).to_string();
         let spans: Vec<(Span, String)> = match &r.what {
             IdeWhat::Entity(e) => vec![(self.entity(*e).span, name)],

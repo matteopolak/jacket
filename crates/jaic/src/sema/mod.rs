@@ -43,7 +43,7 @@ use crate::source::{Diagnostic, FileId, SourceMap, Span};
 use crate::types::{TypeId, Types};
 pub use code_export::ModifiedStmt;
 pub use driver::ProgramSource;
-pub use modules::{FileSystem, NativeFs, VirtualFs};
+pub use modules::{FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
 pub use scope::{EntityId, ScopeId};
 use std::path::PathBuf;
 use std::rc::Rc;

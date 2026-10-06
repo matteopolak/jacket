@@ -108,6 +108,45 @@ pub fn normalize(path: &Path) -> PathBuf {
     out
 }
 
+/// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
+pub fn find_module_in(
+    fs: &dyn FileSystem,
+    import_paths: &[PathBuf],
+    name: &str,
+    from_dir: &Path,
+) -> Option<PathBuf> {
+    let mut dirs: Vec<PathBuf> = vec![from_dir.join("modules")];
+    dirs.extend(import_paths.iter().cloned());
+    for dir in dirs {
+        let file = dir.join(format!("{name}.jai"));
+        if fs.is_file(&file) {
+            return Some(file);
+        }
+        let entry = dir.join(name).join("module.jai");
+        if fs.is_file(&entry) {
+            return Some(entry);
+        }
+    }
+    None
+}
+
+/// The entry file an `#import` written in a file of `dir` loads: a module found on the import
+/// path, `#import,file` relative to `dir`, or `#import,dir`'s `module.jai`. `None` for an
+/// unknown module or `#import,string`. (The file itself may not exist for `,file`/`,dir`.)
+pub fn import_entry(
+    fs: &dyn FileSystem,
+    import_paths: &[PathBuf],
+    source: &ast::ImportSource,
+    dir: &Path,
+) -> Option<PathBuf> {
+    match source {
+        ast::ImportSource::Module(name) => find_module_in(fs, import_paths, name, dir),
+        ast::ImportSource::File(path) => Some(dir.join(&**path)),
+        ast::ImportSource::Dir(path) => Some(dir.join(&**path).join("module.jai")),
+        ast::ImportSource::String(_) => None,
+    }
+}
+
 /// Marks an import argument `.Member` whose type comes from the module parameter.
 const INFERRED_PARAM: &str = "\0inferred.";
 
@@ -329,19 +368,7 @@ impl Compiler {
 
     /// Find `Name.jai` or `Name/module.jai` on the import path (and next to `from_dir`).
     pub fn find_module(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
-        let mut dirs: Vec<PathBuf> = vec![from_dir.join("modules")];
-        dirs.extend(self.options.import_paths.iter().cloned());
-        for dir in dirs {
-            let file = dir.join(format!("{name}.jai"));
-            if self.fs.is_file(&file) {
-                return Some(file);
-            }
-            let entry = dir.join(name).join("module.jai");
-            if self.fs.is_file(&entry) {
-                return Some(entry);
-            }
-        }
-        None
+        find_module_in(&*self.fs, &self.options.import_paths, name, from_dir)
     }
 
     /// Declare top-level statements. Returns the visibility state at the end.
@@ -1016,12 +1043,10 @@ impl Compiler {
                 };
                 self.load_module(name, &entry, params, import.span)
             }
-            ast::ImportSource::File(path) => {
-                let entry = dir.join(&**path);
-                self.load_module(path, &entry, params, import.span)
-            }
-            ast::ImportSource::Dir(path) => {
-                let entry = dir.join(&**path).join("module.jai");
+            ast::ImportSource::File(path) | ast::ImportSource::Dir(path) => {
+                let entry =
+                    import_entry(&*self.fs, &self.options.import_paths, &import.source, &dir)
+                        .unwrap_or_default();
                 self.load_module(path, &entry, params, import.span)
             }
             ast::ImportSource::String(source) => {
