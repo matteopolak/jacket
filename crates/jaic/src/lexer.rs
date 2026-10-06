@@ -131,6 +131,21 @@ const PUNCT: &[(&str, P)] = &[
     ("?", P::Question),
 ];
 
+/// The `PUNCT` entries that start with byte `c`, longest first (`PUNCT`'s order).
+fn puncts_starting_with(c: u8) -> &'static [(&'static str, P)] {
+    static BY_FIRST: std::sync::OnceLock<[Vec<(&'static str, P)>; 256]> =
+        std::sync::OnceLock::new();
+    &BY_FIRST.get_or_init(|| {
+        std::array::from_fn(|b| {
+            PUNCT
+                .iter()
+                .copied()
+                .filter(|(t, _)| t.as_bytes()[0] as usize == b)
+                .collect()
+        })
+    })[c as usize]
+}
+
 impl P {
     pub fn text(self) -> &'static str {
         PUNCT
@@ -298,10 +313,9 @@ impl<'a> Lexer<'a> {
                 self.push(Tok::Note(note), start);
             } else {
                 let rest = &self.src[self.at..];
-                // Most entries start with another byte: compare that before the rest.
-                let Some(&(text, p)) = PUNCT
+                let Some(&(text, p)) = puncts_starting_with(c)
                     .iter()
-                    .find(|(t, _)| t.as_bytes()[0] == c && rest.starts_with(t.as_bytes()))
+                    .find(|(t, _)| rest.starts_with(t.as_bytes()))
                 else {
                     self.at += 1;
                     return Err(self.err(start, &format!("unexpected character '{}'", c as char)));
