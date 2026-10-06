@@ -15,7 +15,7 @@ Each set yields `(id, path, mode, expectation, extra args)`; the tool runs `jaic
 | `stdlib` | `tests/stdlib/*.jai` | run, exit code 0 |
 | `modules` | the stdlib's own tests: `stdlib/<Module>/tests/*.jai`, `stdlib/tests/**/*.jai` (not under a `modules/` folder, which holds a test directory's mock modules) | run, exit code 0 |
 | `examples` | `tests/examples.json` cases (`examples/tour`) | run with the case's `args`, exit code 0, every `stdout_contains` line present and no `stdout_excludes` text |
-| `upstream` | `tools/upstream-cases.json` (paths under `corpus/upstream/`; every The_Way_to_Jai example that works, plus project entry points) | per case (`run` or `check`, optional `args`), exit code 0 |
+| `upstream` | `tools/upstream-cases.json` (paths under `corpus/upstream/`; every The_Way_to_Jai example that works, plus project entry points) | per case (`run` or `check`, optional `args`), exit code 0, and the case's `expect` record if it has one |
 | a path | that file | run |
 
 Expected result of `corpus negative stdlib modules upstream examples`: everything passes. Programs that must fail to compile (including `getrect-rh-negative-control`, which proves the GetRect geometry assertions fire) live in the `negative` set, where a case passes when the compiler reports its expected error.
@@ -38,6 +38,13 @@ Each case runs with an exact allocation cap (`--memory-limit`, default 3 GiB), w
   `vk-engine-*-check` copies `ostef--Vk-Engine` and `ostef--Jolt-Jai`, and links `ostef--Linalg` and `ostef--JoltC`.
   Never `link` a directory that a setup command or the program writes to: the link leads back into the corpus.
 - An upstream entry point started working: add it to `tools/upstream-cases.json` so it stays working.
+- An upstream case may carry an `expect` record taken from the project's own documentation or tests
+  (never from jaic's output): `exit_code`, exact `stdout`, `stdout_contains` (each line present) or
+  `stdout_ordered` (each line present, in this order), plus a `source` naming where the values come from.
+  See [upstream corpus, recorded outputs](upstream-corpus.md#recorded-outputs).
+- A case may name `run_after` (argv relative to the case's directory): after a successful build, the sweep runs
+  that program, and the `expect` record applies to the program's output. With `copy`, `files` maps destinations in
+  the scratch copy to files of this repository, such as `tools/upstream-drivers/reflector-tests.jai`.
 - `build` cases (`focus-native-build`, `jails-native-build`, `jaison-native-build`) produce native executables and
   need LLVM plus the third-party libraries, which the sweep builds on first use and shares across worktrees (see [native libs](native-libs.md)).
 

@@ -2,7 +2,7 @@
 
 ## What it is
 
-Pinned snapshots of open-source Jai projects that `jaic` is measured against: applications (Focus, Jails, The Way to Jai, open-jai, Vk-Engine, sgpu, chess-jai, forbear, ...), their dependencies (jai_parser, Linalg, Jolt-Jai, Tracy's client sources) and libraries (metaprogramming libraries such as match-jai, yield-jai and AST_Utils, and rluba's family: jaison, uniform, stubborn, jai-tracy, hyperserve, cluster, ...). The full lists are `REPOSITORIES`, `DEPENDENCIES` and `LIBRARIES` in `tools/fetch_upstreams.py`.
+Pinned snapshots of open-source Jai projects that `jaic` is measured against: applications (Focus, Jails, The Way to Jai, open-jai, Vk-Engine, sgpu, chess-jai, forbear, ...), their dependencies (jai_parser, Linalg, Jolt-Jai, Tracy's client sources) and libraries (metaprogramming libraries such as match-jai, yield-jai and AST_Utils, and rluba's family: jaison, uniform, stubborn, jai-tracy, hyperserve, cluster, ...; and libraries with their own test suites: reflector, jai-format, jai-protobuf, toml-jai and jai-xml). The full lists are `REPOSITORIES`, `DEPENDENCIES` and `LIBRARIES` in `tools/fetch_upstreams.py`.
 
 The files live in the gitignored `corpus/upstream/`. The committed `corpus/upstreams.json` records exact commits and file hashes.
 
@@ -19,6 +19,72 @@ The files live in the gitignored `corpus/upstream/`. The committed `corpus/upstr
 `tools/verify_upstreams.py` re-hashes the tree against the manifest and rejects modified or missing files. Unlisted files are reported, not rejected, because building the projects (sweep `build` cases, `build_native_libs.py`, `build_vk_engine_libs.py`) leaves libraries, executables and generated files next to the sources.
 
 Entry points that work are sweep cases in `tools/upstream-cases.json`, so [jaic-sweep](jaic-sweep.md) keeps them working.
+
+### Recorded outputs
+
+A case that only has to exit 0 says little about whether jaic computes the right thing. Where a project
+documents what its programs print, the case in `tools/upstream-cases.json` also carries an `expect` record that
+[jaic-sweep](jaic-sweep.md) checks:
+
+```json
+{"id": "ttwj-16-16.3-enum-specified", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/16/16.3_enum_specified.jai",
+ "mode": "run",
+ "expect": {"stdout_ordered": ["enum 'Direction' is", "*NOT* specified.", "specified"],
+            "source": "The_Way_to_Jai `// =>` annotations: examples/16/16.3_enum_specified.jai lines 20, 22, 26"}}
+```
+
+Values must come from the project itself: its docs, test files or golden outputs, written by people who ran
+Jai. Never copy jaic's output into an expectation; that only freezes current behaviour.
+`source` names the file and lines.
+
+**The_Way_to_Jai.** The book writes the output next to the printing line as `// => text`.
+`tools/upstream_expectations.py --write` turns these into `stdout_ordered` records: 164 cases with 460 lines.
+`stdout_ordered` checks that each line appears in order, so output without an annotation does not matter.
+The tool skips:
+
+- addresses, timings and lines that describe a diagnostic rather than stdout;
+- `REJECTED`, 63 annotations that were reviewed by hand, each with a reason. Most are typos or commentary.
+  Eight are stale: written for an older Jai. For example, 15.8 assumes `for < a..b` counted down before
+  beta 0.1.094.
+
+`--verify JAIC` runs the annotated cases and lists annotations missing from stdout. Treat each one as a jaic
+bug until proven otherwise:
+
+- `enum_type_flags` lacked `#specified`/`#complete` (16.3; `tests/corpus/positive/enum-type-flags.jai`);
+- a null `Type` printed as `<null type>` instead of `(null)` (26.31; `tests/corpus/positive/print-null-type.jai`).
+
+Reject an annotation only when the book is wrong about current Jai, and say why.
+
+**Not adopted: open-jai.** open-jai ships per-example expected outputs, but it produced them with its own
+reimplementation. They are not evidence about the real compiler. One even contradicts TTWJ 14.2 and how_to 025
+(the implicit-then rule of `ifx`).
+
+**Libraries with self-checking tests.** The `reflector-tests` case builds reflector's unotest suite and runs it:
+2 compile-time tests and 10 runtime tests (binary, Glowmade, Flatbuffers and JSON reflectors). The case expects
+the suite's own `ALL PASSED.` and exit code 0. The project's `build.jai` also builds a Windows-only benchmark
+(`#foreign kernel32`), so the case copies `tools/upstream-drivers/reflector-tests.jai` into a scratch copy of the
+project. That driver makes the same test workspace calls. The suite found these jaic bugs, all fixed with tests:
+
+- a tagged-union tag with a default (`union tag := Kind.A { ... }`): `tests/stdlib/tagged-union-tag-default.jai`;
+- `for < :it_name`: `tests/stdlib/for-reverse-named-iterator.jai`;
+- `#assert` with format arguments: `tests/corpus/negative/assert-format-arguments.jai`;
+- a bare polymorphic struct parameter (`r: *BinaryReflector`) given a struct that `#as`-uses an instance. The body
+  now sees the argument's own type, and the match costs an `#as` conversion:
+  `tests/stdlib/bare-poly-struct-derived-argument.jai`;
+- `#if R.FLAG` on a macro's constant `Type` argument;
+- a parameter type that names a later parameter (`info: *r.Info, r: *$R`);
+- a macro overload taking `Code`, which stopped the other overloads from binding `$T`;
+- `.FLAG & x.flags` inside `cast(int)`: the inferred member took `int`, not the flags type;
+- `compiler_get_struct_location` (it used to be unsupported): `tests/stdlib/compiler-struct-location.jai`.
+
+toml-jai's examples (run by its `tests.jai`) found three more, also fixed:
+
+- integer and type tags on tagged unions (`4,, a: u8;`, `u16,, a: s8;`);
+- `ifx c then x = 1 else x = 2;` as a statement;
+- `ok=, p.* = f();`.
+
+All three are in `tests/stdlib/tagged-union-constant-tags.jai`. The examples still stop on
+`ok:, x.y = f();`, which declares one name and assigns to another place.
 
 ### Project status
 
@@ -44,6 +110,11 @@ Entry points that work are sweep cases in `tools/upstream-cases.json`, so [jaic-
 | [Photon](https://github.com/DavidColson/Photon) | partial | Windows-only |
 | [KodaJai](https://github.com/kujukuju/KodaJai) | partial | Needs the author's unpinned modules |
 | [no_api](https://github.com/UnNabbo/no_api) | partial | Entry point loads a file missing upstream; Windows/Linux only |
+| [reflector](https://github.com/n00bmind/reflector) | works | Its unotest suite builds natively and passes (`reflector-tests`) |
+| [jai-format](https://github.com/OrangeLightning219/jai-format) | partial | Builds a `File` from the C `stdin` (`*FILE`); jaic's `File.handle` is an `s64` descriptor |
+| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | partial | Examples stop at `ok:, x.y = f();` (declare and assign in one list) |
+| [jai-xml](https://github.com/smari/jai-xml) | partial | `test.jai` stops at inline asm: `pmovmskb.x found_gpr:, v` (a new general-purpose register as destination) |
+| [jai-protobuf](https://github.com/segcore/jai-protobuf) | partial | Pinned with its `.proto` inputs; its tests write generated code into the tree and do not pass yet |
 
 ### Notes per project
 
@@ -115,7 +186,7 @@ Excluded: jaithon, which is its own language in `.jai` files.
 
 ## How to change it
 
-Add a repository to `REPOSITORIES`, `DEPENDENCIES` or `LIBRARIES` in `fetch_upstreams.py`, run it, review the manifest diff and commit `corpus/upstreams.json` (never `corpus/upstream/`). Add entry points that compile to `tools/upstream-cases.json`, and update the status table. The search procedure for new projects is the [third-party smoke test](third-party-smoke-test.md).
+Add a repository to `REPOSITORIES`, `DEPENDENCIES` or `LIBRARIES` in `fetch_upstreams.py`, run it, review the manifest diff and commit `corpus/upstreams.json` (never `corpus/upstream/`). Add entry points that compile to `tools/upstream-cases.json`, and update the status table. Prefer projects that check themselves (test suites, golden files, documented output) and record what they promise in an `expect` record ([recorded outputs](#recorded-outputs)). After TTWJ changes, run `python3 tools/upstream_expectations.py --write` and then `--verify target/release/jaic`. The search procedure for new projects is the [third-party smoke test](third-party-smoke-test.md).
 
 ## Configuration
 

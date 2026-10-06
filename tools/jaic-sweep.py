@@ -7,7 +7,8 @@ Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corp
 run must succeed), modules (the stdlib's own tests: stdlib/tests and stdlib/<Module>/tests,
 run must succeed; a test directory's `modules/` folder holds its mock modules), examples (tests/examples.json:
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
-(tools/upstream-cases.json: upstream project entry points that must pass), or file paths.
+(tools/upstream-cases.json: upstream project entry points that must pass, with the output the
+project documents where a case has an `expect` record), or file paths.
 
 --native builds each `run` case with `jaic build` and runs the executable instead, with the
 same expectations; --sanitize address,undefined (implies --native) instruments those builds and
@@ -33,7 +34,32 @@ def make_workdir(c):
         shutil.copytree(UPSTREAM / name, root / name, symlinks=True)
     for name in c.get("link", []):
         (root / name).symlink_to(UPSTREAM / name, target_is_directory=True)
+    # Files of this repository placed into the copy (a driver for a project whose own build
+    # script cannot run here); destination relative to the scratch root -> repository path.
+    for dest, source in c.get("files", {}).items():
+        shutil.copyfile(ROOT / source, root / dest)
     return root
+
+def upstream_expect(c):
+    """An upstream case's `expect` record (output the project itself documents), in the shape
+    run() compares: exit code, exact stdout, or lines that must appear (in order or anywhere)."""
+    e = c.get("expect")
+    if not e and not c.get("run_after"):
+        return None
+    e = e or {}
+    return {"upstream": True, "exit_code": e.get("exit_code", 0), "stdout": e.get("stdout"),
+            "ordered": e.get("stdout_ordered", []), "contains": e.get("stdout_contains", []),
+            "excludes": [], "run_after": c.get("run_after")}
+
+def missing_in_order(lines, out):
+    """The first of `lines` not found after the previous one's match in `out`, or None."""
+    at = 0
+    for line in lines:
+        found = out.find(line, at)
+        if found < 0:
+            return line
+        at = found + len(line)
+    return None
 
 def cases(name):
     if name == "corpus":
@@ -60,7 +86,7 @@ def cases(name):
             yield c["id"], ROOT / c["directory"] / c["main"], "run", expect, c.get("args", [])
     elif name == "upstream":
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
-            yield c["id"], upstream_root(c) / c["path"], c["mode"], None, c.get("args", [])
+            yield c["id"], upstream_root(c) / c["path"], c["mode"], upstream_expect(c), c.get("args", [])
     else:
         p = Path(name)
         yield p.stem, p, "run", None, []
@@ -262,8 +288,23 @@ def main():
         else:
             out, err, code = run_limited([a.jaic, "check" if windowed else mode, str(path), *extra],
                                          path.parent, a.timeout, limit_bytes)
+        # `run_after`: the program the build produced is run, and the expectations apply to it.
+        if code == 0 and expect and expect.get("run_after"):
+            program = expect["run_after"]
+            out, err, code = run_limited([str(path.parent / program[0]), *program[1:]], path.parent,
+                                         a.timeout, limit_bytes)
         if expect is None:
             ok = code == 0
+        elif "upstream" in expect:
+            problems = [f"exit code {code}, expected {expect['exit_code']}"] if code != expect["exit_code"] else []
+            if expect["stdout"] is not None and out != expect["stdout"]:
+                problems.append("stdout differs from the recorded output")
+            problems += [f"stdout lacks {line!r}" for line in expect["contains"] if line not in out]
+            gap = missing_in_order(expect["ordered"], out)
+            if gap is not None:
+                problems.append(f"stdout lacks {gap!r} (in order)")
+            ok = not problems
+            err = "".join(f"error: {p}\n" for p in problems) + err
         elif "negative" in expect:
             ok = code != 0 and code != -1 and expect["negative"] in err
         elif "contains" in expect:
