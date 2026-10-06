@@ -37,7 +37,7 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
    Diagnostics with a `path:line:col:` message prefix (runtime traps) are split apart; others use the span.
 3. `src/play_exports.rs` is the pointer-free scalar ABI (same style as the other exports):
    `jai_play_reset`, `jai_play_push(channel, byte)` (0 = path, 1 = contents, 2 = main path),
-   `jai_play_finish_file`, `jai_play_set_budget(thousands)` (0 = unbounded, kept across resets), `jai_play_run`, then `jai_play_output_len/byte` (JSON) and `jai_play_error_len/byte`.
+   `jai_play_finish_file`, `jai_play_set_budget(thousands)` (0 = unbounded, kept across resets), `jai_play_set_styled(1)` (errors in `rendered` with ANSI colour and box drawing, as a terminal shows them, for an output pane that draws SGR codes; 0, the default, gives plain text; kept across resets), `jai_play_run`, then `jai_play_output_len/byte` (JSON) and `jai_play_error_len/byte`.
 4. `crates/jai-wasm/js/engine.mjs::createEngine(wasmBytes)` instantiates the module (rejecting any host import) and returns `play(files, main, { budget })` and, when the module exports it, `lsp(message)`. Both exchange bounded scalar bytes with the module; no pointers cross the boundary.
 
 ### Embedding

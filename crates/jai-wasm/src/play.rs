@@ -191,6 +191,9 @@ pub struct PlayOptions {
     /// Stop after compilation (every `#run` has executed); `main` is not run. The fuzz harness
     /// uses this to exercise the front end alone.
     pub compile_only: bool,
+    /// Render compiler and runtime errors with ANSI colour and box drawing (the browser's
+    /// output pane draws them); otherwise plain text.
+    pub styled: bool,
 }
 
 /// Compile `main` (a key of `files`) against the bundled stdlib and run it.
@@ -201,6 +204,14 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
 /// [`run`] with limits.
 pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
     let mut result = PlayResult::default();
+    jaic::render::set_style(if limits.styled {
+        jaic::render::Style {
+            layout: jaic::render::Layout::Unicode,
+            color: true,
+        }
+    } else {
+        jaic::render::Style::PLAIN
+    });
     if !files.contains_key(main) {
         result.diagnostics.push(PlayDiagnostic {
             severity: "error",
@@ -287,6 +298,33 @@ mod tests {
         let mut files = BTreeMap::new();
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         run(&files, "main.jai")
+    }
+
+    /// `styled` errors carry ANSI colour and box drawing for the browser's output pane; the
+    /// default stays plain text.
+    #[test]
+    fn styled_errors_are_coloured() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.jai".to_string(),
+            b"main :: () { x: int = \"no\"; }\n".to_vec(),
+        );
+        let styled = PlayOptions {
+            styled: true,
+            ..PlayOptions::default()
+        };
+        let r = run_with(&files, "main.jai", styled);
+        assert!(
+            r.rendered.contains("\x1b[") && r.rendered.contains('│'),
+            "{}",
+            r.rendered
+        );
+        let r = run(&files, "main.jai");
+        assert!(
+            !r.rendered.contains('\x1b') && !r.rendered.is_empty(),
+            "{}",
+            r.rendered
+        );
     }
 
     #[test]

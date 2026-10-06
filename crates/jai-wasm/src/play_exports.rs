@@ -114,6 +114,16 @@ pub extern "C" fn jai_play_set_budget(thousands: u32) -> u32 {
     })
 }
 
+/// Render the next runs' errors with ANSI colour and box drawing (`1`) or as plain text (`0`,
+/// the default). Survives `jai_play_reset`.
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_play_set_styled(styled: u32) -> u32 {
+    with(|s| {
+        s.limits.styled = styled != 0;
+        0
+    })
+}
+
 /// Compile and run. Zero means the JSON result is ready (compile errors included in it).
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_play_run() -> u32 {

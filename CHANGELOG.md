@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Browser build: `jai_play_set_styled(1)` renders errors with ANSI colour and box drawing, for output panes that draw them.
+
 ### Changed
 
 - Error messages say what is wrong and, where jaic can tell, what to change. See `docs/compiler/diagnostics.md` for the style guide, the layouts and the exit statuses.
