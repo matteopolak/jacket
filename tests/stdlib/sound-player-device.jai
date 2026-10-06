@@ -14,23 +14,7 @@
         released += 1;
     }
 
-    #if OS == .MACOS {
-        libc :: #system_library "c";
-        getenv :: (name: *u8) -> *u8 #foreign libc;
-    }
-
     main :: () {
-        #if OS == .MACOS {
-            // Core Audio calls the render callback, which sits in a struct, from its own thread;
-            // `jaic run` can call back into the program only for procedures passed as arguments,
-            // on the calling thread. Whether a device exists differs per machine, so the test
-            // decides here rather than through the skip list.
-            mode := getenv("JAIC_STDLIB_TEST_MODE");
-            if mode && to_string(mode) == "interp" {
-                print("ok\n");
-                return;
-            }
-        }
         devices := get_devices();
         for devices assert(it.name.count > 0, "device % has no name", it_index);
 

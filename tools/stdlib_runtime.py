@@ -148,7 +148,7 @@ def run_mode(args, test, path, mode, scratch):
         code, out = run_command([args.jaic, "build", str(path), *target, "-o", str(exe)], path.parent,
                                 args.timeout, env)
         # A program without `main` did all its work at compile time.
-        if code != 0 and "no exported 'main'" in out:
+        if code != 0 and ("no exported 'main'" in out or "has no `main` procedure" in out):
             return None, "no main: compile-time only"
         if code != 0:
             return False, f"build failed ({'timeout' if code is None else f'exit {code}'}):\n{out}"

@@ -11,9 +11,13 @@ main :: () {
     #if OS != .WASM {
         executable := get_path_of_running_executable();
         assert(executable.count > 0, "the running executable has a path");
-        assert(file_exists(executable), "'%' exists", executable);
-        directory, found := is_directory(executable);
-        assert(found && !directory, "'%' is a file", executable);
+        if file_exists(executable) {
+            directory, found := is_directory(executable);
+            assert(found && !directory, "'%' is a file", executable);
+        } else {
+            // Under `jaic run` it is the executable `jaic build` would write, which may not exist.
+            assert(contains(path_filename(executable), "system-info"), "'%' names the program", executable);
+        }
         #if OS == .WINDOWS {
             assert(executable.count > 3 && executable[1] == #char ":", "absolute '%'", executable);
         } else {
