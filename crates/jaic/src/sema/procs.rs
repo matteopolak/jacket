@@ -1064,11 +1064,10 @@ impl Compiler {
                 }
                 continue;
             }
-            let addr = if self.is_memory_type(param.ty) {
-                incoming
-            } else {
-                self.spill(&mut f, param.ty, incoming, param.span)?
-            };
+            // An aggregate arrives as the address of the caller's value. Parameters are
+            // values, so the procedure works on its own copy: `advance(*s, 1)` on a `string`
+            // parameter must not move the caller's string.
+            let addr = self.spill(&mut f, param.ty, incoming, param.span)?;
             if let Some(name) = param.name {
                 self.debug_var(&mut f, scope, name, param.span, param.ty, addr, next as u32);
                 let depth = self.scope(scope).proc_depth;

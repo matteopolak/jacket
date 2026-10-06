@@ -29,6 +29,8 @@ Struct parameters can declare type variables inside their type: `struct (x: $T)`
 
 A parameter typed with a bare polymorphic struct (`r: *Reflector`) makes the procedure polymorphic and accepts any instance {#poly.15}. A struct holding an instance as an `#as` member also matches and keeps its own type inside the body, so its other members stay reachable {#poly.16}.
 
+A `$$x` parameter is baked when its argument is a constant and stays a runtime parameter otherwise. An omitted argument takes the default, which is baked when it is a constant, so `#if x` works in the body: `skip :: (p: *$T, $$must := false) { #if must ... }` called as `skip(p)` {#poly.17}.
+
 ### `#bake_arguments`
 
 `check_bake` in `sema/bake.rs` binds named parameters; the result takes the remaining ones in order {#poly.7}:
@@ -52,7 +54,7 @@ An `ifx` argument is typed by its target, so inference looks at its branches ins
 
 New inference rules go in `calls.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order.
 
-Tests: `tests/stdlib/baked-default-uses-poly.jai`, `baked-struct-restriction.jai`, `baked-overload-runtime-field.jai`, `lang-poly-misc.jai`, `lang-lambdas.jai`.
+Tests: `tests/stdlib/baked-default-uses-poly.jai`, `auto-bake-omitted-default.jai`, `baked-struct-restriction.jai`, `baked-overload-runtime-field.jai`, `lang-poly-misc.jai`, `lang-lambdas.jai`.
 
 ## Dependencies
 

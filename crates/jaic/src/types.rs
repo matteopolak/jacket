@@ -82,6 +82,8 @@ pub struct Field {
     pub offset: u64,
     pub using: bool,
     pub as_: bool,
+    /// Declared after `#overlay(f)`: shares another field's storage.
+    pub overlay: bool,
     pub notes: Vec<Rc<str>>,
     /// Constant initializer bytes (or none = zero / ---).
     pub span: Span,

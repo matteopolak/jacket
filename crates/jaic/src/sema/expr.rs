@@ -1359,8 +1359,9 @@ impl Compiler {
                 }),
             )?,
         };
-        // `s[0] == "-"`: a one-byte string constant compares as that byte.
-        if is_cmp {
+        // `s[0] == "-"`, `c - "0"`: a one-byte string constant next to an integer compares
+        // and offsets as that byte.
+        if is_cmp || matches!(op, BinOp::Add | BinOp::Sub) {
             let byte_of = |c: &Compiler, op: &Operand, other: &Operand| match op {
                 Operand::Const {
                     value: Value::String(bytes),
@@ -1994,7 +1995,8 @@ impl Compiler {
                         self.types.name(rt)
                     ),
                 );
-                // `c + "0"`: a one-character string where a character code was meant.
+                // `c * "2"`: a one-character string where a character code was meant (`+` and `-`
+                // take it as the byte).
                 let one_char = |o: &Operand| match o {
                     Operand::Const {
                         value: Value::String(s),

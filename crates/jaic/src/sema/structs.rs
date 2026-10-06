@@ -667,6 +667,7 @@ impl Compiler {
                             format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
                         );
                     }
+                    let overlaid = overlay.is_some();
                     let offset = if let Some(offset) = overlay.take() {
                         // Shares storage: the cursor stays where it was.
                         end = end.max(offset + size);
@@ -688,6 +689,7 @@ impl Compiler {
                         offset,
                         using: d.using,
                         as_: d.as_,
+                        overlay: overlaid,
                         notes: d.notes,
                         span: d.span,
                     });
@@ -1113,7 +1115,12 @@ impl Compiler {
                 return Ok(Some(ids.clone()));
             }
         }
-        // Constants of `using` fields are reachable too (`context.default_allocator`).
+        // Constants of `using` fields are reachable too (`context.default_allocator`). A struct
+        // being laid out has no fields yet: a name looked up from its own field types finds
+        // only its declared constants.
+        if self.types.struct_info(s).layout == LayoutState::InProgress {
+            return Ok(None);
+        }
         self.layout_struct(s, Span::default())?;
         let usings: Vec<TypeId> = self
             .types
@@ -1144,6 +1151,16 @@ impl Compiler {
         }
         if self.struct_constant(target, name)?.is_some() {
             return Ok(true);
+        }
+        // A name looked up while this struct is being laid out, through a `using g;` of a
+        // global of its type (no_api's `using gpu_context;`): only the fields it declares by
+        // name can match, and laying it out again would be a false cycle.
+        if let Some(s) = self.types.as_struct(self.types.repr_struct(target))
+            && self.types.struct_info(s).layout == LayoutState::InProgress
+            && let Some(src) = self.struct_asts.get(&s)
+        {
+            let tag = src.lit.tag.as_ref().map(|t| t.name.name);
+            return Ok(tag == Some(name) || declares_field(&src.lit.body, name));
         }
         Ok(self.find_member(target, name, Span::default())?.is_some())
     }
@@ -2032,7 +2049,9 @@ impl Compiler {
                 }
             }
             Value::Bool(b) => agg.bytes[o] = *b as u8,
-            Value::Null | Value::Void => {}
+            // `null` over a default (a union member sharing a string's storage) clears it.
+            Value::Null => agg.bytes[o..o + size as usize].fill(0),
+            Value::Void => {}
             Value::String(s) => {
                 if r != TypeId::STRING {
                     return err(
@@ -2108,4 +2127,24 @@ fn const_operand(value: Value, ty: TypeId) -> Operand {
             untyped: false,
         },
     }
+}
+
+/// Whether a struct body declares a field called `name`, read from the source alone: both
+/// branches of an `#if`, and the members of anonymous nested structs and unions.
+fn declares_field(stmts: &[ast::Stmt], name: Sym) -> bool {
+    stmts.iter().any(|stmt| match &stmt.kind {
+        ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
+            decl.names.iter().any(|n| n.name == name)
+        }
+        ast::StmtKind::StaticIf {
+            then_branch,
+            else_branch,
+            ..
+        } => declares_field(then_branch, name) || declares_field(else_branch, name),
+        ast::StmtKind::Expr(e) => match &e.kind {
+            E::Struct(lit) => declares_field(&lit.body, name),
+            _ => false,
+        },
+        _ => false,
+    })
 }

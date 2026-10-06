@@ -33,7 +33,7 @@ NoPad :: struct #no_padding { a: u8; b: s64; }    // size_of == 9
 Al :: struct #align 16 { a: u8; b: s32; }         // size_of == 16
 ```
 
-`#place a; b: int;` overlays `b` on `a`'s offset {#struct.9}. Members of an anonymous `union { }` or `struct { }` inside a struct are reachable directly {#struct.10}; with `using c:` they are also reachable through `c` {#struct.11}:
+`#place a; b: int;` overlays `b` on `a`'s offset {#struct.9}. `#overlay(a) b: u32;` overlays only `b` and leaves the following members where they were; `b`'s `Type_Info_Struct_Member` has the `OVERLAY` flag, so serializers can skip it and print only `a` {#struct.18}. Members of an anonymous `union { }` or `struct { }` inside a struct are reachable directly {#struct.10}; with `using c:` they are also reachable through `c` {#struct.11}:
 
 ```jai
 Rgba :: struct { union { using c: struct { r, g, b, a: u8; }; v: [4] u8; packed: u32; } }
@@ -48,11 +48,11 @@ The members share storage as the comment shows {#struct.12}.
 
 `struct(T: Type, N: int)` is instantiated by `instantiate_struct` and cached per argument values (`PolyStruct::instances`), so `Gen(int)` and `Gen(s64)` are the same type {#struct.13}. Names print with parameter names: `Pair(int, 3)` shows as `Pair(T=s64, N=3)` {#struct.14}.
 
-A struct body can also hold constants (`K :: 3;`, read as `Plain.K`) {#struct.15} and default overrides like `kind = .B;` (see [using](using.md)) {#struct.16}.
+A struct body can also hold constants (`K :: 3;`, read as `Plain.K`) {#struct.15} and default overrides like `kind = .B;` (see [using](using.md)) {#struct.16}. A literal's field values replace the defaults wholly, `null` included: `U.{p = null}` clears the bytes a union's `s: string = "default"` put there {#struct.19}.
 
 ## How to change it
 
-New struct flags: parse them in `parser/aggregate.rs` next to `#no_padding` and `#align`, and apply them in `layout_struct_inner`. Tests: `tests/stdlib/poly-struct-type-names.jai`, `baked-struct-restriction.jai`, `struct-body-member-path-override.jai`.
+New struct flags: parse them in `parser/aggregate.rs` next to `#no_padding` and `#align`, and apply them in `layout_struct_inner`. Tests: `tests/stdlib/poly-struct-type-names.jai`, `baked-struct-restriction.jai`, `struct-body-member-path-override.jai`, `struct-member-overlay-flag.jai`, `struct-literal-null-over-union-default.jai`.
 
 ## Dependencies
 

@@ -480,6 +480,9 @@ impl Compiler {
                     if field.as_ {
                         flags |= 0x10;
                     }
+                    if field.overlay {
+                        flags |= 0x20;
+                    }
                     self.set_field(&mut m, member_ty, "flags", Value::Int(flags), span)?;
                     let notes: Vec<Rc<[u8]>> =
                         field.notes.iter().map(|n| Rc::from(n.as_bytes())).collect();

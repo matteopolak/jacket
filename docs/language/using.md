@@ -37,12 +37,13 @@ Elsewhere:
 - `using basket.tag;` on an enum-typed value brings in the enum's members, so `case MANGO;` works in a switch {#using.14}.
 - `using Type.{...};` in a procedure copies the literal into an anonymous local. It is writable, where Jai uses read-only data {#using.12}.
 - `using name := value;` at file scope works for variables, not only constants (`sema/modules.rs`) {#using.13}.
+- `using g;` of a global `g: *S` at file scope does not make `S` contain itself: names in `S`'s own field types are matched against the field names `S` declares, without laying `S` out again (`type_has_member`) {#using.17}.
 
 ## How to change it
 
 Member lookup order is in `find_member`: direct members come before promoted ones, so a direct member shadows a promoted one {#using.15}. Default overrides resolve through `override_target`/`override_path` and apply when `default_initializer` builds the default value.
 
-Tests: `tests/stdlib/using-pointer-member.jai`, `using-member-default-override.jai`, `struct-body-member-path-override.jai`, `module-using-global.jai`, `module-using-import-reexport.jai`, `using-discard-struct-constants.jai`.
+Tests: `tests/stdlib/using-pointer-member.jai`, `using-member-default-override.jai`, `struct-body-member-path-override.jai`, `module-using-global.jai`, `module-using-import-reexport.jai`, `using-discard-struct-constants.jai`, `using-global-of-own-struct.jai`.
 
 ## Dependencies
 

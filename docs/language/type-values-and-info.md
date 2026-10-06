@@ -23,7 +23,7 @@ An alias equals its target {#typeval.4}; a `#type,distinct` type differs from it
 
 `size_of(Type)` is 8 and `size_of(Any)` is 16 {#typeval.9}. `Any.type` is a `*Type_Info`, so compare it with `type_info(int)`, not `int` {#typeval.10}.
 
-`type_info(T)` returns the matching `Type_Info_*`: `.type` {#typeval.11}, `.name` {#typeval.12}, `.members` (with `name`, `offset_in_bytes`, `type`, `flags` such as `USING` and `AS`, and `notes`) {#typeval.13}, the struct's own `notes` {#typeval.14}, and the fields described in [enums](enums.md) and [unions](unions.md). See [reflection and Type_Info](../metaprogramming/reflection-and-type-info.md) for the runtime side.
+`type_info(T)` returns the matching `Type_Info_*`: `.type` {#typeval.11}, `.name` {#typeval.12}, `.members` (with `name`, `offset_in_bytes`, `type`, `flags` such as `USING`, `AS` and `OVERLAY`, and `notes`) {#typeval.13}, the struct's own `notes` {#typeval.14}, and the fields described in [enums](enums.md) and [unions](unions.md). See [reflection and Type_Info](../metaprogramming/reflection-and-type-info.md) for the runtime side.
 
 ## How to change it
 

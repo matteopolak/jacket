@@ -33,6 +33,8 @@ h(1), h(1.0)   // 1 2
 
 A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3` {#proc.8}. An argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`) {#proc.9}.
 
+Parameters are values: a procedure that changes a struct or string parameter, or passes its address on (`advance(*s, 1)`), changes its own copy, never the caller's variable. Aggregates arrive as a pointer to the caller's value and the procedure copies them on entry (`lower_body_code` in `sema/procs.rs`) {#proc.12}.
+
 `#deprecated "msg"` is parsed and exported to metaprograms {#proc.10}; a call to such a procedure compiles and runs {#proc.11} but produces no warning. `#no_debug` is a header flag read by `sema/procs.rs` and `sema/code_export.rs`.
 
 `#must` and `#discard` are in [must and discard](must-and-discard.md).
@@ -42,7 +44,7 @@ A `Code` parameter on a plain procedure takes any expression as code, like a mac
 - New header directive: add it to the table in `parser/procedure.rs`, add a field to the header flags in `ast.rs` (`no_debug` is the pattern), and consume it in `sema/procs.rs`.
 - Overload ranking is `arg_cost` in `sema/calls.rs`. It affects every call; run the full sweep after changing it.
 
-Tests: `tests/stdlib/proc-alias-overloads.jai`, `modern-library-conversions.jai`.
+Tests: `tests/stdlib/proc-alias-overloads.jai`, `modern-library-conversions.jai`, `aggregate-parameter-copy.jai`.
 
 ## Dependencies
 

@@ -740,6 +740,16 @@ impl Compiler {
         if let Some(converted) = self.wide_cast(f, op.clone(), to, span)? {
             return Ok(converted);
         }
+        // `cast(u8, "\u001F")`: a one-character string is its byte, as it is implicitly.
+        if let Operand::Const {
+            value: Value::String(s),
+            ..
+        } = &op
+            && s.len() == 1
+            && self.types.is_integer(self.types.repr(to))
+        {
+            return self.explicit_cast(f, Operand::untyped_int(s[0] as i128), to, flags, span);
+        }
         // Constant folding of numeric casts.
         if let Operand::Const {
             value, ..

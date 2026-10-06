@@ -17,7 +17,7 @@ The literal has count 9 and exactly those bytes {#str.3}.
 
 Escapes: `\n \r \t \0 \e \a \b \f \v \\ \" \'`, `\%` (byte 0x1f), `\xHH`, `\dDDD` (three decimal digits), `\uHHHH` and `\UHHHHHHHH` (encoded as UTF-8) {#str.4}. Anything else is a lexer error {#str.5}.
 
-`#char "A"` is the byte value `65` {#str.6}.
+`#char "A"` is the byte value `65` {#str.6}. A one-byte string constant next to an integer is that byte too: `c == "-"`, `c - "0"`, a `u8` argument (`split(s, ".")`) and `cast(u8, "\u001F")` {#str.19}.
 
 Here strings (`here_string` in `lexer.rs`):
 

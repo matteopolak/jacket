@@ -505,10 +505,11 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
             ],
         ),
         (
-            "digit :: (n: u8) -> u8 { return n + \"0\"; }\nmain :: () {}\n",
+            // `n + "0"` is a byte; `*` takes no one-character string.
+            "twice :: (n: u8) -> u8 { return n * \"2\"; }\nmain :: () {}\n",
             &[
                 "error: type mismatch: `u8` and `string` cannot be combined",
-                "help: `\"0\"` is a string; for the character's code write `#char \"0\"`",
+                "help: `\"2\"` is a string; for the character's code write `#char \"2\"`",
             ],
         ),
         (
