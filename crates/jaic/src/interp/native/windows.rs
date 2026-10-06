@@ -106,9 +106,9 @@ const LONG_DOUBLE_MATH: &str = "acos acosh asin asinh atan atan2 atanh cbrt ceil
     llrint llround log log10 log1p log2 logb lrint lround modf nearbyint nextafter pow remainder \
     remquo rint round scalbln scalbn sin sinh sqrt tan tanh tgamma trunc";
 
-/// Positional argument slots the prototype passes: four register slots and 16 stack slots.
+/// Positional argument slots the prototype passes: four register slots and 20 stack slots.
 #[cfg(target_arch = "x86_64")]
-const SLOTS: usize = 20;
+const SLOTS: usize = 24;
 
 /// Call `addr` with `slots`, reading the result as `R` (`u64` from RAX, `f64` from XMM0).
 ///
@@ -137,6 +137,10 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
         s17,
         s18,
         s19,
+        s20,
+        s21,
+        s22,
+        s23,
     ] = *slots;
     if first_float {
         type Proto<R> = unsafe extern "C" fn(f64, ...) -> R;
@@ -163,6 +167,10 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
                 s17,
                 s18,
                 s19,
+                s20,
+                s21,
+                s22,
+                s23,
             )
         }
     } else {
@@ -190,6 +198,10 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
                 s17,
                 s18,
                 s19,
+                s20,
+                s21,
+                s22,
+                s23,
             )
         }
     }
