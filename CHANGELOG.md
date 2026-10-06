@@ -43,6 +43,7 @@
 - `Clipboard`: `os_clipboard_set_bitmap` no longer fails for every bitmap on Windows, macOS and Linux. Its overflow check divided a wrapped `0xffff_ffff - 40` (`-41` as an `s32`) by the height; found by `wrapping_constant`.
 - `#asm` instructions whose destination is a general-purpose register (`pmovmskb.x found:, v;`, `movmskps`, `cvttsd2si`, `pextrq`) accept a register declared in the destination, in the interpreter and LLVM alike.
 - Enum members written `A : :5` parse.
+- `Bindings_Generator`: an enum value whose expression a visitor replaced is printed from that expression, and one left without a printable value is logged and left out, instead of being written as `0`.
 - `print(..., code_to_string(compiler_get_code(root)))` in `#run` no longer reruns the compile-time code until it exhausts memory: reparsing the same code for an export request reuses its id.
 - The assertion and check reports of built executables show paths relative to the directory the build ran in, like `jaic run`.
 - `jaifmt --check` prints the files it would change relative to the current directory.
