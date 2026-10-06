@@ -132,6 +132,7 @@ needs a reason in the commit message (for example, a procedure was removed).
 | `--timeout SECONDS` | per run (default 180) |
 | `-j N` | tests at once |
 | `JAIC_COVERAGE=FILE` | interpreter: append executed procedures to FILE |
+| `JAIC_STDLIB_TEST_MODE` | set by the harness for each run (`interp`, `native`, `wasm-interp`, `wasm-native`); a test whose outcome depends on the machine (sound-player-device: an audio device under `jaic run` on macOS) reads it instead of a skip line, which `--strict` would report as stale where the test passes |
 | `JAIC_MEMORY_LIMIT` | interpreter memory cap; the harness sets 3G unless set |
 | `JAIC_NATIVE_LIBS` | directory of built third-party libraries |
 
