@@ -5,6 +5,7 @@
 //! system C compiler driver.
 mod debuginfo;
 mod lower;
+mod split;
 
 use lower::Shard;
 
@@ -169,7 +170,9 @@ fn configure_llvm() {
 fn target_machine(
     options: &Options,
 ) -> Result<(TargetMachine, TargetTriple, jaic::abi::Arch), String> {
-    Target::initialize_all(&InitializationConfig::default());
+    // Target registration writes process-wide tables: once, not from every codegen thread.
+    static TARGETS: std::sync::Once = std::sync::Once::new();
+    TARGETS.call_once(|| Target::initialize_all(&InitializationConfig::default()));
     configure_llvm();
     let host = options.target.is_none();
     let triple = match &options.target {
@@ -202,12 +205,15 @@ fn target_machine(
 }
 
 /// Lower `program` (or one shard of it) to one LLVM module and write it as an object file.
+/// With `split_after_opt`, an optimized module large enough is written as several objects
+/// in parallel (`split.rs`); the objects written are returned.
 fn emit_module(
     program: &Program,
     options: &Options,
     path: &Path,
     shard: Option<Shard>,
-) -> Result<(), String> {
+    split_after_opt: bool,
+) -> Result<Vec<PathBuf>, String> {
     if options.sanitize.any() {
         check_sanitizer_target(options.target.as_deref())?;
     }
@@ -250,14 +256,22 @@ fn emit_module(
             .run_passes(&passes.join(","), &machine, PassBuilderOptions::create())
             .map_err(|e| e.to_string())?;
     }
+    if split_after_opt && !options.sanitize.any() {
+        let units = split::units_for(&module);
+        if units > 1 {
+            let make = || target_machine(options).map(|(machine, ..)| machine);
+            return split::emit(&module, units, path, &make);
+        }
+    }
     machine
         .write_to_file(&module, FileType::Object, path)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    Ok(vec![path.to_path_buf()])
 }
 
 /// Translate `program` to a single native object file at `path`.
 pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
-    emit_module(program, options, path, None)
+    emit_module(program, options, path, None, false).map(drop)
 }
 
 /// IR instructions per codegen unit below which splitting does not pay for itself.
@@ -294,8 +308,12 @@ pub fn emit_objects(
 ) -> Result<Vec<PathBuf>, String> {
     let units = codegen_units(program, options);
     if units == 1 {
-        emit_object(program, options, path)?;
-        return Ok(vec![path.to_path_buf()]);
+        // Optimized builds keep one module through the optimizer and split only machine
+        // code generation, unless `JAIC_CODEGEN_UNITS` asked for exactly one unit.
+        let split = options.opt_level != OptLevel::O0
+            && options.emit_ir.is_none()
+            && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
+        return emit_module(program, options, path, None, split);
     }
     // Largest functions first, each to the lightest unit. Unit 0 also holds the globals.
     let mut order: Vec<usize> = (0..program.funcs.len()).collect();
@@ -334,7 +352,7 @@ pub fn emit_objects(
                         owner,
                         index: u as u32,
                     };
-                    emit_module(program, options, p, Some(shard))
+                    emit_module(program, options, p, Some(shard), false).map(drop)
                 })
             })
             .collect();

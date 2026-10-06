@@ -42,7 +42,7 @@ interpreter profile: 460112784 instructions
  22.8%      104963618     10556416    1266718  append
 ```
 
-Polymorphic instances keep their numbered names (`NewArray#446`). A last line breaks the instructions down by kind (`Load 26.1% IConst 16.8% Store 12.1% Loc 10.3% ...`), which shows whether the IR itself is wasteful. When profiling is off the cost is one `Option` check per call and per block.
+Polymorphic instances keep their numbered names (`NewArray#446`). Two last lines break the work down by kind. The first counts IR instructions (`Load 26.1% IConst 16.8% Store 12.1% Loc 10.3% ...`) and shows whether the IR itself is wasteful. The second counts the folded ops that actually ran (`LoadFrame`, `AddImm`, `Ir`, ...; see [the interpreter's code form](../compiler/interpreter.md)), which shows what dispatch still costs after folding. Instruction counts stay comparable across interpreter changes because they count IR, not ops. When profiling is off the cost is one `Option` check per call and per block.
 
 ### Native profile
 
@@ -54,13 +54,26 @@ samply record --save-only --unstable-presymbolicate -o prof.json.gz -- target/pr
 python3 tools/profile_report.py prof.json.gz --top 30
 ```
 
-`profile_report.py` uses the busiest thread. Natively that is the 1 GiB compiler worker, not the main thread. It prints self and inclusive sample shares per function, with symbols from the `.json.syms.json` that samply writes next to the profile. `samply load prof.json.gz` opens the same file in the Firefox Profiler.
+`profile_report.py` uses the busiest thread. Natively that is the 1 GiB compiler worker, not the main thread. It prints self and inclusive sample shares per function, with symbols from the `.json.syms.json` that samply writes next to the profile. `--callers NAME` lists who calls a hot function; `--within NAME`/`--without NAME` restrict the samples to stacks that do or do not contain it. `samply load prof.json.gz` opens the same file in the Firefox Profiler.
+
+A self share on a big function such as `Interp::run_code` or `Lexer::next` does not say which line is hot, because most of the work is inlined into it. Take the hottest leaf addresses from the profile and resolve them with `atos -i -o target/profiling/jaic.dSYM -l <load address> <addresses>`. The `-i` flag lists the inlined frames, so each address maps to a source line.
+
+### Comparing two builds
+
+The machine is often shared, so a median from one run of each build can be skewed by whatever else is running. To measure a change:
+
+1. Copy the release binary before the change (`cp $CARGO_TARGET_DIR/release/jaic /tmp/jaic-before`), make the change, and rebuild.
+2. Alternate the two binaries on the same workload, at least 5 runs each, so background load hits both alike. Compare medians, and the minimums as a cross-check. `bench.py --jaic /tmp/jaic-before --out before.json` followed by `bench.py --compare before.json` is the coarse version.
+3. Record peak memory with `/usr/bin/time -l` (macOS, `maximum resident set size`) or `/usr/bin/time -v` (Linux). For whole projects, `tools/compile_bench.py` reports RSS and phases ([compile-time benchmark](compile-time-benchmark.md)).
+4. For interpreter changes, also compare the `JAIC_PROFILE` op counts. They do not depend on load.
+
+For the LLVM backend, time an `-O2` build of Jails or jaison: `compile_bench.py` reports `codegen` separately from the front end. The [LLVM backend](../native/llvm-backend.md) describes `JAIC_CODEGEN_UNITS` and `JAIC_SPLIT_UNITS`, which change how that time is split across threads.
 
 ## How to change it
 
 - **New micro-benchmark:** add `benchmarks/<name>.jai` with a `main`. It must exit 0 and print something that depends on the work, so nothing is optimized away later.
 - **New corpus workload:** add a row to `CORPUS` in `bench.py`. Only add workloads that succeed and do not write into `corpus/upstream`.
-- **Profile columns:** the interpreter counts per frame in `run_blocks` (`frame_blocks`, `frame_insts`). `Interp::exec` saves and restores them around each call, so recursion still gives self counts.
+- **Profile columns:** the interpreter counts per frame in `run_code` (`frame_blocks`, `frame_insts`; `code.rs`). `Interp::exec` saves and restores them around each call, so recursion still gives self counts.
 
 ### Known hot spots
 
@@ -70,8 +83,11 @@ Past profiles found the same patterns repeatedly, so check for them first:
 - **Linear scans in the stdlib.** `Default_Allocator`'s ledger and the memory debugger's index are hash sets, and compiler records are found through a pointer-to-id index (`record_slots`). A list scanned on every call is the usual cause of a quadratic metaprogram.
 - **Compiler records.** Filling `Code_Node`/`Type_Info` structs member by member through reflection used to dominate Focus builds. Records are now written natively from a cached per-type plan, from big chunks rather than one allocation each ([compiler records](../metaprogramming/compiler-records.md)).
 - **Wide-integer and float printing.** `U128` has a 64-bit fast path and 32-bit limbs; float digit generation runs on a `u64` and widens only on overflow.
+- **Per-element loops in the stdlib.** A loop that the interpreter runs once per element (initializing an array element by element) is millions of dispatched ops; when the element type has no initializer, one `memset` does the same work.
+- **Quadratic copies and resets in the compiler.** Copying a growing list per item (enum members) or clearing a whole per-procedure table per block (`code::build`) does not show in small tests but dominates large inputs. In a profile these show as `memcpy`/`memset` under a sema or build function.
+- **Linear token matching.** The lexer looks up punctuation through a table indexed by the first byte; scanning the whole list per token was over a tenth of a metaprogram-heavy check.
 
-What remains is the interpreter's dispatch (`Interp::exec` is about half of native time, spread over ordinary instructions) and sema spread thin over many functions. The kind breakdown points at `Loc` (source positions) and `IConst`/`SlotAddr` as candidates for a denser IR; that would be a redesign rather than a fix.
+What remains is the interpreter's dispatch, spread evenly over ordinary ops (`Loc` markers and frame loads and stores are the biggest kinds), and sema spread thin over many functions. Projects that create several workspaces lex and parse the same files again for each one. In `-O2` builds, the optimizer runs serially on one module.
 
 ## Configuration
 
