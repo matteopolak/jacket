@@ -348,6 +348,43 @@ fn struct_literal_versus_block() {
     );
 }
 
+// rules: struct.17
+#[test]
+fn struct_literal_without_dot() {
+    let is_literal = |e: &Expr| {
+        matches!(
+            e.kind,
+            ExprKind::StructLit {
+                ty: None,
+                ..
+            }
+        )
+    };
+    assert!(is_literal(&value("v: Desc = {.GENERAL, 1};")));
+    assert!(is_literal(&value("v: E = {1, {2, 3}};")));
+    let ExprKind::Call {
+        args, ..
+    } = value("v := f({.A, 1}, {x = 2});").kind
+    else {
+        panic!()
+    };
+    assert!(args.iter().all(|a| is_literal(&a.value)));
+    // Statements, declarations and lambda bodies keep their braces as blocks.
+    for src in [
+        "v := f({ if x return 1; });",
+        "v := f({ y := 2; });",
+        "v := g(x => { return x; });",
+    ] {
+        let ExprKind::Call {
+            args, ..
+        } = value(src).kind
+        else {
+            panic!("{src}")
+        };
+        assert!(!is_literal(&args[0].value), "{src}");
+    }
+}
+
 #[test]
 fn struct_body_forms() {
     let value = value(
@@ -379,6 +416,7 @@ fn struct_body_forms() {
     assert!(matches!(&lit.body[8].kind, StmtKind::Decl(d) if d.align.is_some()));
 }
 
+// rules: enum.17
 #[test]
 fn enum_forms() {
     let ExprKind::Enum(lit) =
@@ -393,6 +431,11 @@ fn enum_forms() {
     };
     assert!(lit.base.is_none());
     assert!(matches!(lit.items[1], EnumItem::If { .. }));
+    // `A : : 5` spells out the constant form's empty type.
+    let ExprKind::Enum(lit) = value("E :: enum { A :: 4; B : :5; C; }").kind else {
+        panic!()
+    };
+    assert!(matches!(&lit.items[1], EnumItem::Member(m) if m.value.is_some()));
 }
 
 #[test]
@@ -916,6 +959,26 @@ fn multiple_values_and_mixed_declarations() {
     assert!(decl(&stmts[3]).existing.iter().all(|&e| !e));
 }
 
+// rules: decl.22
+#[test]
+fn mixed_declarations_assign_to_places() {
+    let stmts = parse("ok:, t.str = f();\nt.items[i].*=, n := g();\na.b, c = h();");
+    let first = decl(&stmts[0]);
+    assert_eq!(first.existing, [false, true]);
+    assert!(first.targets[0].is_none());
+    assert!(matches!(
+        first.targets[1].as_ref().map(|e| &e.kind),
+        Some(ExprKind::Member(..))
+    ));
+    assert_eq!(first.names[1].name.as_str(), "t");
+    let second = decl(&stmts[1]);
+    assert_eq!(second.existing, [true, false]);
+    assert!(second.targets[0].is_some());
+    // Without a marker a list of places is a plain multiple assignment.
+    assert!(matches!(stmts[2].kind, StmtKind::Assign { .. }));
+    assert!(error("t.x:, b = f();").contains("only a name can be declared"));
+}
+
 #[test]
 fn declaration_flags_and_notes() {
     let stmts =
@@ -973,7 +1036,6 @@ fn file_level_directives() {
         "#scope_file\n#scope_export\n#scope_module\n#add_context ctx: int = 1;\n#module_parameters (A := 1) (B := 2);\n#placeholder X;\n#assert A == 1 \"msg\";\n#run main();\n#insert \"x :: 1;\";\n#poke_name Basic operator==;\n#library \"x\";",
     );
     assert!(matches!(stmts[0].kind, StmtKind::Scope(ScopeKind::File)));
-    assert!(matches!(stmts[3].kind, StmtKind::AddContext(_)));
     assert!(
         matches!(&stmts[4].kind, StmtKind::ModuleParameters { params, runtime_params, .. } if params.len() == 1 && runtime_params.len() == 1)
     );

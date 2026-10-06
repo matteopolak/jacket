@@ -8,7 +8,7 @@ Implementation notes for the parts of `crates/jaic/src/sema` that handle declara
 
 ### Declarations
 
-- **Locals** (`check_local_decl`, `check_decl_values` in `stmt.rs`): `a, b := 1, "x"` pairs values with names (`Decl::extra_values`); `a, b := f()` splits a multi-value call; `a=, b := ...` and `a:, b = ...` assign to names marked `Decl::existing`. Declaring a name twice in one scope is an error. A procedure body gets its own block scope, so it can shadow a parameter.
+- **Locals** (`check_local_decl`, `check_decl_values` in `stmt.rs`): `a, b := 1, "x"` pairs values with names (`Decl::extra_values`); `a, b := f()` splits a multi-value call; `a=, b := ...` and `a:, b = ...` assign to names marked `Decl::existing`; a place that is not a plain name (`ok:, t.str = f()`) is in `Decl::targets` and checked as an expression. Declaring a name twice in one scope is an error. A procedure body gets its own block scope, so it can shadow a parameter.
 - **Local constants** are hoisted by `check_block_stmts`, so a nested procedure can be called above its declaration.
 - **Compile-time code and locals**: `#run`, `#assert` and constant initialisers are checked in a thunk scope (`thunk_scope`) one procedure level deeper, so using a runtime local is a "compile-time expression" error. Exceptions that only need the local's type: `#if x.CONST` and `type_of(local.*)`.
 - **`#this`** is the enclosing struct, or inside a procedure body the procedure (`Scope::proc`).

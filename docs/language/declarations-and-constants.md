@@ -21,7 +21,7 @@ Each form above compiles and has the value it suggests {#decl.3}.
 
 - Local types, constants and procedures can refer to each other in any order: `Count :: Later + 1; Later :: 2; Local :: struct { values: [Count] int; }` works inside `main` {#decl.4}.
 - A struct body can hold constants and procedures (`Node.LIM`, `Node.read`) {#decl.5}. `TRUE : s32 : 1;` inside a struct is a constant member, so it is not in `type_info(Rec).members` or `size_of` {#decl.6}.
-- `x: int = ---;` leaves `x` uninitialised {#decl.7}; `a, b := 1, 2.5;` declares several at once {#decl.8}; struct fields with defaults (`v := 5;`) initialise on declaration {#decl.9}.
+- `x: int = ---;` leaves `x` uninitialised {#decl.7}; `a, b := 1, 2.5;` declares several at once {#decl.8}; a mixed list declares some names and assigns to existing places, which may be members, array elements or dereferences: `ok:, t.str = f();` and `t.pos[0]=, rest := g();` (the `:` marks a new name before `=`, the `=` an existing place before `:=`) {#decl.22}; struct fields with defaults (`v := 5;`) initialise on declaration {#decl.9}.
 - Assigning to a constant fails: `cannot assign to constant 3 of type s64` {#decl.10}.
 - A nested procedure sees constants, types and globals of its enclosing scope, not its locals {#decl.11}: ``cannot access local `local` of an enclosing procedure`` {#decl.12}. It is a plain procedure, not a closure.
 - `#run` initialisers run at compile time {#decl.13}. Changes other compile-time code makes to a global do not reach the running program unless the global is `#no_reset` (`tests/stdlib/compile-time-globals-reset.jai`) {#decl.14}.

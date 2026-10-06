@@ -494,7 +494,11 @@ impl Compiler {
                 let Some(value) = value else {
                     return err(name.span, "assignment needs a value");
                 };
-                let place = self.check_ident(f, scope, name.name, name.span)?;
+                // `ok:, t.str = f()` assigns to a member, index or dereference.
+                let place = match decl.targets.get(i) {
+                    Some(Some(e)) => self.check_expr(f, scope, e, None)?,
+                    _ => self.check_ident(f, scope, name.name, name.span)?,
+                };
                 let Operand::Place {
                     ty,
                     addr,

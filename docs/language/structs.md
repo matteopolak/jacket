@@ -17,6 +17,8 @@ z := Vec.{};         // all defaults
 
 Positional literals fill members in declaration order {#struct.3} and `Vec.{}` is all defaults {#struct.4}.
 
+Where a value is expected and its type is known, the dot may be left out: `gpu_init(1, {.GENERAL, 1})`, `e: Extent = {1280, 720};`, `return {w, h};`, `e = {width = 5};` and fields of another literal all build a struct like `.{...}` {#struct.17}. A `{` that starts with a statement keyword or directive, declares a name, holds a `;` or is a lambda's body (`x => { ... }`) is a block. Third-party Jai code relies on the dotless form (`UnNabbo/no_api`'s examples and README, and the `jai_parser` used by the Jails language server parses it in arguments, returns, declarations and operands).
+
 `check_struct_literal` and `literal_target` handle literals; `default_initializer` and `init_default` build default values.
 
 ### Layout

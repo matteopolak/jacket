@@ -596,12 +596,44 @@ impl Parser<'_> {
         }
     }
 
-    /// At `{` in expression position: `{ a = 1, b = 2 }` is a struct literal, a block has `;`s.
+    /// At `{` in expression position: `{ a = 1, b = 2 }` and `{1, .A}` are struct literals
+    /// written without the dot, a block has `;`s or starts with a statement keyword. A lambda's
+    /// body (`x => { ... }`) is always a block.
     fn brace_is_struct_literal(&self) -> bool {
         if self.at_n(1, P::RBrace) {
             return true;
         }
-        if !(matches!(self.tok_at(1), Tok::Ident(_)) && self.at_n(2, P::Eq)) {
+        if self.at_prev(P::FatArrow) {
+            return false;
+        }
+        let statement = matches!(
+            self.kw_at(1),
+            Some(
+                "if" | "for"
+                    | "while"
+                    | "switch"
+                    | "case"
+                    | "return"
+                    | "defer"
+                    | "using"
+                    | "break"
+                    | "continue"
+                    | "remove"
+                    | "inline"
+                    | "push_context"
+            )
+        ) || matches!(self.tok_at(1), Tok::Directive(d) if d.as_str() != "char")
+            || self.at_n(1, P::Backtick);
+        if statement {
+            return false;
+        }
+        // `{ name := ... }` declares; `{ name = 1, ... }` names a field.
+        if matches!(self.tok_at(1), Tok::Ident(_))
+            && matches!(
+                self.tok_at(2),
+                Tok::Punct(P::Colon | P::ColonColon | P::ColonEq)
+            )
+        {
             return false;
         }
         let mut depth = 0usize;

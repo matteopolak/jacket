@@ -1720,7 +1720,9 @@ impl Exporter<'_> {
         let mut declared = Vec::new();
         for (i, n) in d.names.iter().enumerate() {
             let assign = d.existing.get(i).copied().unwrap_or(false);
-            let target = if assign {
+            let target = if let Some(Some(place)) = d.targets.get(i) {
+                self.expr(place)
+            } else if assign {
                 self.ident(n.name, n.span)
             } else {
                 let ty = self
@@ -1982,6 +1984,7 @@ impl Exporter<'_> {
                 value: param.default.clone(),
                 extra_values: Vec::new(),
                 existing: Vec::new(),
+                targets: Vec::new(),
                 using: param.using,
                 using_filter: None,
                 as_: false,
@@ -2020,6 +2023,7 @@ impl Exporter<'_> {
                 value: ret.default.clone(),
                 extra_values: Vec::new(),
                 existing: Vec::new(),
+                targets: Vec::new(),
                 using: false,
                 using_filter: None,
                 as_: false,

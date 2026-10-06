@@ -1,15 +1,19 @@
 //! Declarations: names, types, values, modifiers (`using`, `#as`) and trailing flags.
 use super::stmt::stmt;
 use super::{PResult, Parser};
-use crate::ast::{AstId, Decl, DeclKind, Foreign, ForeignName, Ident, Stmt, StmtKind, UsingFilter};
+use crate::ast::{
+    AstId, Decl, DeclKind, Expr, ExprKind, Foreign, ForeignName, Ident, Stmt, StmtKind, UsingFilter,
+};
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
+use crate::source::Diagnostic;
 use std::rc::Rc;
 
 /// Directives that may trail a declaration (`x: int #align 16;`).
 struct DeclNames {
     names: Vec<Ident>,
     existing: Vec<bool>,
+    targets: Vec<Option<Expr>>,
     backticks: Vec<bool>,
 }
 
@@ -34,7 +38,7 @@ impl Parser<'_> {
         if self.kw_at(i) == Some("operator") && self.operator_end(i + 1).is_some() {
             return true;
         }
-        let mut declared_marker = false;
+        let (mut declared_marker, mut assigned_marker, mut place) = (false, false, false);
         loop {
             if i > n && matches!(self.tok_at(i), Tok::Punct(P::Backtick)) {
                 i += 1;
@@ -42,9 +46,19 @@ impl Parser<'_> {
             if !matches!(self.tok_at(i), Tok::Ident(_)) {
                 return false;
             }
-            i += 1;
+            // A mixed list may assign to a place that is not a plain name (`ok:, t.str = f()`).
+            match self.place_end(i) {
+                Some(end) if end > i + 1 => {
+                    place = true;
+                    i = end;
+                }
+                _ => i += 1,
+            }
             match (self.tok_at(i), self.tok_at(i + 1)) {
-                (Tok::Punct(P::Eq), Tok::Punct(P::Comma | P::ColonEq)) => i += 1,
+                (Tok::Punct(P::Eq), Tok::Punct(P::Comma | P::ColonEq)) => {
+                    assigned_marker = true;
+                    i += 1;
+                }
                 (Tok::Punct(P::Colon), Tok::Punct(P::Comma)) => {
                     declared_marker = true;
                     i += 1;
@@ -53,12 +67,29 @@ impl Parser<'_> {
             }
             if !matches!(self.tok_at(i), Tok::Punct(P::Comma)) {
                 return match self.tok_at(i) {
+                    // Only a mixed list assigns to places: `t.x, y := f()` is not a declaration.
+                    Tok::Punct(P::ColonEq) if place => assigned_marker,
+                    Tok::Punct(P::Colon | P::ColonColon) if place => false,
                     Tok::Punct(P::Colon | P::ColonColon | P::ColonEq) => true,
                     Tok::Punct(P::Eq) => declared_marker,
                     _ => false,
                 };
             }
             i += 1;
+        }
+    }
+
+    /// For a name at offset `n` followed by members, indexes and dereferences (`t.items[i].*`),
+    /// the offset after them.
+    fn place_end(&self, n: usize) -> Option<usize> {
+        let mut i = n + 1;
+        loop {
+            match self.tok_at(i) {
+                Tok::Punct(P::Dot) if matches!(self.tok_at(i + 1), Tok::Ident(_)) => i += 2,
+                Tok::Punct(P::DotStar) => i += 1,
+                Tok::Punct(P::LBracket) => i = self.bracket_end(i)?,
+                _ => return Some(i),
+            }
         }
     }
 
@@ -172,6 +203,7 @@ impl Parser<'_> {
         let DeclNames {
             names,
             existing,
+            targets,
             backticks,
         } = self.parse_decl_names()?;
         let backtick_names = if backticks.iter().any(|&b| b) {
@@ -189,6 +221,7 @@ impl Parser<'_> {
             value: None,
             extra_values: Vec::new(),
             existing,
+            targets,
             foreign: None,
             union_tag: None,
             using_filter: None,
@@ -245,15 +278,46 @@ impl Parser<'_> {
             return Ok(DeclNames {
                 names: vec![name],
                 existing: Vec::new(),
+                targets: Vec::new(),
                 backticks: Vec::new(),
             });
         }
         let (mut names, mut existing, mut backticks) = (Vec::new(), Vec::new(), Vec::new());
+        let mut targets: Vec<Option<Expr>> = Vec::new();
         let (mut any_assigned, mut any_declared_marker) = (false, false);
         loop {
             // `` status, `it := next() ``: a later name may go to the macro caller's scope.
             backticks.push(!names.is_empty() && self.eat(P::Backtick));
-            names.push(self.ident("as declaration name")?);
+            if matches!(self.tok(), Tok::Ident(_))
+                && matches!(
+                    self.tok_at(1),
+                    Tok::Punct(P::Dot | P::DotStar | P::LBracket)
+                )
+            {
+                // `ok:, t.str = f()`: an existing place; its `names` entry is the root variable.
+                let place = self.parse_postfix(false)?;
+                let mut root = &place;
+                while let ExprKind::Member(base, _)
+                | ExprKind::Index(base, _)
+                | ExprKind::Unary(_, base) = &root.kind
+                {
+                    root = base;
+                }
+                let ExprKind::Ident(name) = root.kind else {
+                    return Err(Diagnostic::error(
+                        place.span,
+                        "expected a name, or a variable's member, index or dereference",
+                    ));
+                };
+                names.push(Ident {
+                    name,
+                    span: place.span,
+                });
+                targets.resize(names.len() - 1, None);
+                targets.push(Some(place));
+            } else {
+                names.push(self.ident("as declaration name")?);
+            }
             let assigned = matches!(self.tok(), Tok::Punct(P::Eq))
                 && matches!(self.tok_at(1), Tok::Punct(P::Comma | P::ColonEq));
             let declared = matches!(self.tok(), Tok::Punct(P::Colon))
@@ -282,9 +346,27 @@ impl Parser<'_> {
         } else {
             Vec::new()
         };
+        if !targets.is_empty() {
+            targets.resize(names.len(), None);
+            let assigned = |i: usize| existing.get(i).copied().unwrap_or(false);
+            if let Some(place) = targets
+                .iter()
+                .enumerate()
+                .find_map(|(i, t)| t.as_ref().filter(|_| !assigned(i)))
+            {
+                return Err(Diagnostic::error(
+                    place.span,
+                    "only a name can be declared, not a member, index or dereference",
+                )
+                .with_help(
+                    "mark the new names with `:` and leave the place unmarked to assign to it: `ok:, t.x = f();`",
+                ));
+            }
+        }
         Ok(DeclNames {
             names,
             existing,
+            targets,
             backticks,
         })
     }

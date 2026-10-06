@@ -602,6 +602,10 @@ pub struct Decl {
     /// Mixed declare/assign lists, parallel to `names` (empty otherwise): `true` assigns to an
     /// existing variable, as in `a=, b := f();` or `a:, b = f();`.
     pub existing: Vec<bool>,
+    /// Mixed lists: for an existing entry that is not a plain name (`ok:, t.str = f();`), the
+    /// place assigned to; parallel to `names` (empty otherwise). Its `names` entry is the
+    /// place's root variable, spanning the whole place.
+    pub targets: Vec<Option<Expr>>,
     pub using: bool,
     /// `using,except(x) name: T;`
     pub using_filter: Option<UsingFilter>,

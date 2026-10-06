@@ -120,7 +120,7 @@ All three are in `tests/stdlib/tagged-union-constant-tags.jai`. The examples sti
 | [no_api](https://github.com/UnNabbo/no_api) | partial | Entry point loads a file missing upstream; Windows/Linux only |
 | [reflector](https://github.com/n00bmind/reflector) | works | Its unotest suite builds natively and passes (`reflector-tests`) |
 | [jai-format](https://github.com/OrangeLightning219/jai-format) | partial | Builds a `File` from the C `stdin` (`*FILE`); jaic's `File.handle` is an `s64` descriptor |
-| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | partial | Examples stop at `ok:, x.y = f();` (declare and assign in one list) |
+| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | partial | Examples stop at `Type_Info_Struct_Member.Flags.OVERLAY`, which jaic's `Type_Info_Struct_Member` lacks |
 | [jai-xml](https://github.com/smari/jai-xml) | partial | `test.jai` and the examples stop at `#if must` on a `$$must: bool = false` parameter called without that argument (the default should be baked) |
 | [jai-protobuf](https://github.com/segcore/jai-protobuf) | partial | Pinned with its `.proto` inputs; its tests write generated code into the tree and do not pass yet |
 

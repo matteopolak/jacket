@@ -171,7 +171,13 @@ impl Parser<'_> {
 
     fn parse_enum_member(&mut self) -> PResult<EnumMember> {
         let name = self.ident("as enum member name")?;
-        let value = if self.eat(P::ColonColon) || self.eat(P::Eq) {
+        // `A :: 1`, `A = 1`, and `A : : 1` (the constant form with the empty type spelled out).
+        let spaced = self.at(P::Colon) && self.at_n(1, P::Colon);
+        if spaced {
+            self.bump();
+        }
+        let value = if self.eat(P::ColonColon) || self.eat(P::Eq) || (spaced && self.eat(P::Colon))
+        {
             Some(self.parse_expr()?)
         } else {
             None

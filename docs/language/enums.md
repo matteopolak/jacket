@@ -26,6 +26,7 @@ A member prints by name, `cast(int)` gives its value, and an `enum_flags` combin
 - A polymorphic struct's enum-typed parameter types `.MEMBER` arguments and defaults (`Ticket(.SECOND)`, `struct(_order: Stuff = .FIRST)`) via `poly_struct_param_type` {#enum.15}.
 - `#insert` inside the enum body can generate members {#enum.13}.
 - A member's value may name the enum itself, whose declaration is still being resolved (`IPV6 :: LAST + cast(Sc) 50`): `new_enum_type` binds the enum's name to its type in the members' scope {#enum.16}.
+- A member's value may follow `::`, `=` or `: :` (the constant form with its empty type written out, `INVERT : :5;`) {#enum.17}.
 
 Reflection: `type_info(Color)` has `names` and `values` {#enum.10}, and `enum_type_flags` (`.FLAGS` for `enum_flags`, `.COMPLETE` for `#complete`, `.SPECIFIED` for `#specified`) {#enum.11}; `enum_highest_value(Color)` works {#enum.12}. `Color.names` is not a thing; use `type_info`.
 
