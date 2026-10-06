@@ -937,6 +937,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         Ok(self.builder.build_indirect_call(ty, ptr, args, "")?)
     }
 
+    /// An intrinsic operand sema always emits as a constant (a check's reason or fatality).
+    fn constant_operand(&self, v: BasicValueEnum<'ctx>, what: &str) -> R<u64> {
+        self.as_int(v)?
+            .get_zero_extended_constant()
+            .ok_or_else(|| format!("{what} is not a constant").into())
+    }
+
     /// Report a failed check through Runtime_Support (`Program::check_failed`) with the
     /// current source location; nothing when the program has no reporting procedure.
     fn report_check(
@@ -951,10 +958,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             return Ok(());
         };
         let Some(sig) = self.program.func(handler).map(|f| &f.sig) else {
-            return Ok(());
+            return Err("Runtime_Support's `runtime_support_check_failed` has no body".into());
         };
         if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
-            return Ok(());
+            return Err("Runtime_Support's `runtime_support_check_failed` must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
         }
         let (file, line) = st.loc;
         let name = format!("__jaic_check_file.{file}");
@@ -1767,21 +1774,22 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             Intrinsic::Trap => {
                 if let Some(&reason) = args.first() {
-                    let reason = self.as_int(reason)?.get_zero_extended_constant();
+                    let reason = self.constant_operand(reason, "trap reason")?;
                     let zero = i64t.const_zero();
                     let fatal = self.ctx.i8_type().const_int(1, false);
-                    self.report_check(st, reason.unwrap_or(0), zero, zero, fatal)?;
+                    self.report_check(st, reason, zero, zero, fatal)?;
                 }
                 self.call_intrinsic("llvm.trap", &[], &[])?;
                 Ok(vec![])
             }
             Intrinsic::CheckFailed => {
-                let reason = self.as_int(args[0])?.get_zero_extended_constant();
+                let reason = self.constant_operand(args[0], "check reason")?;
                 let a = self.i64_of(self.as_int(args[1])?)?;
                 let bv = self.i64_of(self.as_int(args[2])?)?;
-                let fatal = self.as_int(args[3])?;
-                self.report_check(st, reason.unwrap_or(0), a, bv, fatal)?;
-                if fatal.get_zero_extended_constant() != Some(0) {
+                let fatal = self.constant_operand(args[3], "check fatality")?;
+                let fatal_value = self.ctx.i8_type().const_int(fatal, false);
+                self.report_check(st, reason, a, bv, fatal_value)?;
+                if fatal != 0 {
                     self.call_intrinsic("llvm.trap", &[], &[])?;
                 }
                 Ok(vec![])
