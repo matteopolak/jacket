@@ -8,7 +8,6 @@
 #import "String";
 #import "File";
 #import "File_Utilities";
-#import "POSIX";
 #import "Sort";
 
 #import "Jai_Format";
@@ -132,14 +131,17 @@ fatal_usage :: (message: string) {
 }
 
 print_error :: (format: string, args: ..Any) {
-    text := tprint(format, ..args);
-    write(STDERR_FILENO, text.data, cast(u64) text.count);
+    print(format, ..args, to_standard_error = true);
 }
 
+// Paths are kept with forward slashes, which Windows accepts too; `C:/...` counts as absolute.
 absolute_path :: (path: string) -> string {
-    if begins_with(path, "/") return copy_string(trim_trailing_slashes(path));
-    cwd := get_working_directory();
-    return copy_string(trim_trailing_slashes(tprint("%/%", cwd, path)));
+    slashed := replace(path, "\\", "/",, temp);
+    if begins_with(slashed, "/") || (slashed.count > 1 && slashed[1] == #char ":") {
+        return copy_string(trim_trailing_slashes(slashed));
+    }
+    cwd := replace(get_working_directory(), "\\", "/",, temp);
+    return copy_string(trim_trailing_slashes(tprint("%/%", cwd, slashed)));
 }
 
 trim_trailing_slashes :: (path: string) -> string {
@@ -257,7 +259,7 @@ format_stdin :: (explicit_config: *Format_Config) -> int {
         print_error("jaifmt: <stdin>:%\n", error);
         return 2;
     }
-    write(STDOUT_FILENO, output.data, cast(u64) output.count);
+    write_string(output);
     return 0;
 }
 
@@ -266,11 +268,28 @@ read_all_stdin :: () -> string {
     builder: String_Builder;
     buffer: [65536] u8;
     while true {
-        n := read(STDIN_FILENO, buffer.data, buffer.count);
+        n := read_stdin_chunk(buffer.data, buffer.count);
         if n <= 0 break;
         append(*builder, buffer.data, n);
     }
     return builder_to_string(*builder);
+}
+
+#if OS == .WINDOWS {
+    Windows :: #import "Windows";
+
+    // A pipe at end of input reports ERROR_BROKEN_PIPE, which ends the loop like a 0 read.
+    read_stdin_chunk :: (buffer: *u8, size: int) -> int {
+        got: u32;
+        if !Windows.ReadFile(Windows.GetStdHandle(Windows.STD_INPUT_HANDLE), buffer, cast(u32) size, *got, null) return -1;
+        return got;
+    }
+} else {
+    POSIX :: #import "POSIX";
+
+    read_stdin_chunk :: (buffer: *u8, size: int) -> int {
+        return POSIX.read(POSIX.STDIN_FILENO, buffer, cast(u64) size);
+    }
 }
 
 // Finds the nearest jaifmt.toml in `directory` or its parents and loads it; returns defaults
