@@ -457,21 +457,38 @@ impl Compiler {
             if item.state != PendingState::Waiting {
                 continue;
             }
-            let ast::StmtKind::StaticIf {
-                cond, ..
-            } = &item.stmt.kind
-            else {
-                continue;
+            // `#if OS == .MACOS` and `#if OS == { case .MACOS; ... }` alike.
+            let plain = match &item.stmt.kind {
+                ast::StmtKind::StaticIf {
+                    cond, ..
+                } => plain_condition(cond),
+                ast::StmtKind::StaticSwitch {
+                    value,
+                    cases,
+                } => {
+                    plain_condition(value)
+                        && cases.iter().all(|c| c.values.iter().all(plain_condition))
+                }
+                _ => false,
             };
-            if !plain_condition(cond) {
+            if !plain {
                 continue;
             }
             self.scope_mut(scope).pending[i].state = PendingState::Expanding;
             let item = &self.scope(scope).pending[i];
             let (stmt, exported, file_scope) = (item.stmt.clone(), item.exported, item.file_scope);
+            // The condition must resolve from what is already declared; if it needs a name that
+            // another pending item declares, the item waits for the ordinary lazy expansion.
+            let saved = std::mem::replace(&mut self.lookup_without_expansion, true);
+            let ready = self.plain_condition_resolves(scope, file_scope, &stmt);
             let misses = self.placeholder_misses;
-            let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
-            if result.is_err() && self.waits_for_placeholder(misses) {
+            let result = if ready {
+                self.expand_pending_item(scope, file_scope, &stmt, exported)
+            } else {
+                Ok(())
+            };
+            self.lookup_without_expansion = saved;
+            if !ready || (result.is_err() && self.waits_for_placeholder(misses)) {
                 self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                 continue;
             }
@@ -479,6 +496,26 @@ impl Compiler {
             result?;
         }
         Ok(())
+    }
+
+    /// Does a plain `#if`/`#if x == {}` item's condition evaluate with the names declared so far?
+    fn plain_condition_resolves(
+        &mut self,
+        scope: ScopeId,
+        file_scope: ScopeId,
+        stmt: &ast::Stmt,
+    ) -> bool {
+        let eval_scope = super::modules::file_scope_for_eval(self, scope, file_scope);
+        match &stmt.kind {
+            ast::StmtKind::StaticIf {
+                cond, ..
+            } => self.eval_static_condition(eval_scope, cond).is_ok(),
+            ast::StmtKind::StaticSwitch {
+                value,
+                cases,
+            } => self.static_switch_case(eval_scope, value, cases).is_ok(),
+            _ => false,
+        }
     }
 
     /// Did an item's failed expansion reach an undefined `#placeholder` (since `before`)?
@@ -509,7 +546,7 @@ impl Compiler {
                         && !self.entity_is_overloadable(e)
                 })
             });
-            if !settled {
+            if !settled && !self.lookup_without_expansion {
                 self.expand_pending(sid)?;
             }
             if let Some(ids) = self.scope(sid).names.get(&name).cloned() {

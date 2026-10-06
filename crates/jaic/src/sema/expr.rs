@@ -2169,7 +2169,28 @@ impl Compiler {
             Some(e) => Some(self.check_expr(f, scope, e, result_ty.or(expected))?),
             None => None,
         };
-        let ty = match (result_ty, &else_op) {
+        // Without a target type, a narrower numeric then-value widens to the else-value's
+        // type (`ifx hit then entry.score_s16 else evaluate()` is an `s64`).
+        let else_wider = match (then_ty, expected, &else_op) {
+            (Some(t), None, Some(op))
+                if numeric(self, t)
+                    && !matches!(
+                        op,
+                        Operand::Const {
+                            untyped: true,
+                            ..
+                        }
+                    )
+                    && numeric(self, op.ty())
+                    && op.ty() != t
+                    && self.implicit_cost(op.ty(), false, t).is_none()
+                    && self.implicit_cost(t, false, op.ty()).is_some() =>
+            {
+                Some(op.ty())
+            }
+            _ => None,
+        };
+        let ty = match (else_wider.or(result_ty), &else_op) {
             (Some(t), _) => t,
             (None, Some(Operand::Procs(p))) if p.len() == 1 => self.proc_type(p[0], span)?,
             (None, Some(op)) => self.settle_untyped(op.clone(), None).ty(),

@@ -2218,7 +2218,8 @@ impl Compiler {
             }
         }
         // Alias custom iterator names to the macro's `it` / `it_index`. The renamed
-        // originals are hidden from the body, so an enclosing `it_index` stays visible.
+        // originals are hidden from the body, so an enclosing `it_index` stays visible. The
+        // aliases go away again afterwards: a macro may insert the body more than once.
         let mut hidden = Vec::new();
         for (alias, original) in [(body.it_name, "it"), (body.index_name, "it_index")] {
             if alias.as_str() == original {
@@ -2233,7 +2234,7 @@ impl Compiler {
                 .unwrap_or_default();
             if let Some(&id) = ids.last() {
                 let kind = self.entity(id).kind.clone();
-                self.add_entity(body.scope, alias, span, kind, false);
+                borrowed.push((alias, self.add_entity(body.scope, alias, span, kind, false)));
                 if let Some(names) = self.scope_mut(body.scope).names.get_mut(&original) {
                     names.retain(|&e| e != id);
                 }

@@ -1169,7 +1169,7 @@ impl Compiler {
 
 /// Conditions inside a module-level pending item are evaluated from the file scope
 /// that wrote them, so file-private names are visible.
-fn file_scope_for_eval(c: &Compiler, scope: ScopeId, file_scope: ScopeId) -> ScopeId {
+pub(super) fn file_scope_for_eval(c: &Compiler, scope: ScopeId, file_scope: ScopeId) -> ScopeId {
     if c.scope(scope).kind == ScopeKind::Module {
         file_scope
     } else {
