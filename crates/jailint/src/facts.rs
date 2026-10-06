@@ -36,6 +36,8 @@ pub struct Facts {
     pub procs_by_header: HashMap<Span, Vec<ProcId>>,
     /// Where each procedure is named in the recorded files.
     pub proc_uses: HashMap<ProcId, Vec<Span>>,
+    /// The procedures named at each span (the reverse of `proc_uses`).
+    proc_at: HashMap<Span, Vec<ProcId>>,
 }
 
 impl Facts {
@@ -93,6 +95,7 @@ impl Facts {
             }
         }
         let mut proc_uses: HashMap<ProcId, Vec<Span>> = HashMap::default();
+        let mut proc_at: HashMap<Span, Vec<ProcId>> = HashMap::default();
         for r in &ide.refs {
             if r.decl {
                 continue;
@@ -112,6 +115,10 @@ impl Facts {
             };
             for p in named {
                 proc_uses.entry(p).or_default().push(r.span);
+                let at = proc_at.entry(r.span).or_default();
+                if !at.contains(&p) {
+                    at.push(p);
+                }
             }
         }
         Some(Facts {
@@ -120,7 +127,13 @@ impl Facts {
             clean,
             procs_by_header,
             proc_uses,
+            proc_at,
         })
+    }
+
+    /// The procedures the name at `span` referred to.
+    pub fn procs_at(&self, span: Span) -> &[ProcId] {
+        self.proc_at.get(&span).map_or(&[], |v| v.as_slice())
     }
 
     /// The body (a block's span) was checked completely, in every instance.

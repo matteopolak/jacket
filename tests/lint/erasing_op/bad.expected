@@ -1,0 +1,27 @@
+warning[erasing_op]: `x * 0` is always `0`
+  --> tests/lint/erasing_op/bad.jai:6:10
+   |
+ 6 |     a := x * 0;
+   |          ^^^^^
+   |
+   = help: `*` with this literal erases `x`: was another value meant?
+   = note: `erasing_op` is `warn` by default
+
+warning[erasing_op]: `flags & 0` is always `0`
+  --> tests/lint/erasing_op/bad.jai:7:10
+   |
+ 7 |     b := flags & 0;
+   |          ^^^^^^^^^
+   |
+   = help: `&` with this literal erases `flags`: was another value meant?
+   = note: `erasing_op` is `warn` by default
+
+warning[erasing_op]: `x % 1` is always `0`
+  --> tests/lint/erasing_op/bad.jai:8:10
+   |
+ 8 |     c := x % 1;
+   |          ^^^^^
+   |
+   = help: `%` with this literal erases `x`: was another value meant?
+   = note: `erasing_op` is `warn` by default
+

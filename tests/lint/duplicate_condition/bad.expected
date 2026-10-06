@@ -1,0 +1,18 @@
+warning[duplicate_condition]: `key == 1` was already tested earlier in this chain
+  --> tests/lint/duplicate_condition/bad.jai:12:13
+   |
+12 |     else if key == 1 print("uno\n");
+   |             ^^^^^^^^
+   |
+   = help: this branch can never run: was another condition meant?
+   = note: `duplicate_condition` is `warn` by default
+
+warning[duplicate_condition]: `case .READ` repeats an earlier case
+  --> tests/lint/duplicate_condition/bad.jai:17:14
+   |
+17 |         case .READ; print("append\n");
+   |              ^^^^^
+   |
+   = help: only the first matching case runs: was another value meant?
+   = note: `duplicate_condition` is `warn` by default
+

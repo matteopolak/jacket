@@ -1,0 +1,24 @@
+warning[reversed_range]: the range `10..0` is empty: ranges count up
+  --> tests/lint/reversed_range/bad.jai:5:12
+   |
+ 5 |     for i: 10..0 print("%\n", i);
+   |            ^^^^^
+   |
+help: to count down, write `for < ...: 0..10`
+   |
+ 5 ~     for < i: 0..10 print("%\n", i);
+   |
+   = note: `reversed_range` is `warn` by default
+
+warning[reversed_range]: the range `xs.count - 1..0` is empty: ranges count up
+  --> tests/lint/reversed_range/bad.jai:6:12
+   |
+ 6 |     for i: xs.count - 1..0 print("%\n", xs[i]);
+   |            ^^^^^^^^^^^^^^^
+   |
+help: to count down, write `for < ...: 0..xs.count - 1`
+   |
+ 6 ~     for < i: 0..xs.count - 1 print("%\n", xs[i]);
+   |
+   = note: `reversed_range` is `warn` by default
+

@@ -1,0 +1,18 @@
+warning[min_max]: this is always `0`: the bounds are swapped
+  --> tests/lint/min_max/bad.jai:5:10
+   |
+ 5 |     a := min(0, max(100, x));
+   |          ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
+   = note: `min_max` is `warn` by default
+
+warning[min_max]: this is always `100`: the bounds are swapped
+  --> tests/lint/min_max/bad.jai:6:10
+   |
+ 6 |     b := max(100, min(x, 0));
+   |          ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
+   = note: `min_max` is `warn` by default
+

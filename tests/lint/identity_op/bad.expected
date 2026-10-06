@@ -1,0 +1,48 @@
+warning[identity_op]: `x + 0` is just `x`: `+` with this operand changes nothing
+  --> tests/lint/identity_op/bad.jai:5:10
+   |
+ 5 |     a := x + 0;
+   |          ^^^^^
+   |
+help: write `x`
+   |
+ 5 ~     a := x;
+   |
+   = note: `identity_op` is `warn` by default
+
+warning[identity_op]: `1 * x` is just `x`: `*` with this operand changes nothing
+  --> tests/lint/identity_op/bad.jai:6:10
+   |
+ 6 |     b := 1 * x;
+   |          ^^^^^
+   |
+help: write `x`
+   |
+ 6 ~     b := x;
+   |
+   = note: `identity_op` is `warn` by default
+
+warning[identity_op]: `x - 0` is just `x`: `-` with this operand changes nothing
+  --> tests/lint/identity_op/bad.jai:7:10
+   |
+ 7 |     c := x - 0;
+   |          ^^^^^
+   |
+help: write `x`
+   |
+ 7 ~     c := x;
+   |
+   = note: `identity_op` is `warn` by default
+
+warning[identity_op]: `(x | 0)` is just `x`: `|` with this operand changes nothing
+  --> tests/lint/identity_op/bad.jai:8:11
+   |
+ 8 |     d := (x | 0) * 2;
+   |           ^^^^^
+   |
+help: write `x`
+   |
+ 8 ~     d := x * 2;
+   |
+   = note: `identity_op` is `warn` by default
+

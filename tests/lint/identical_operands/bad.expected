@@ -1,0 +1,27 @@
+warning[identical_operands]: both sides of `==` are `a.y`
+  --> tests/lint/identical_operands/bad.jai:9:26
+   |
+ 9 |     return a.x == b.x && a.y == a.y;
+   |                          ^^^^^^^^^^
+   |
+   = help: the result is always `true`; was one side meant to be something else?
+   = note: `identical_operands` is `warn` by default
+
+warning[identical_operands]: both sides of `-` are `n`
+  --> tests/lint/identical_operands/bad.jai:14:13
+   |
+14 |     zero := n - n;
+   |             ^^^^^
+   |
+   = help: the result is always `0`; was one side meant to be something else?
+   = note: `identical_operands` is `warn` by default
+
+warning[identical_operands]: both sides of `||` are `ok`
+  --> tests/lint/identical_operands/bad.jai:16:44
+   |
+16 |     print("% % %\n", same(.{}, .{}), zero, ok || ok);
+   |                                            ^^^^^^^^
+   |
+   = help: the result is the operand itself; was one side meant to be something else?
+   = note: `identical_operands` is `warn` by default
+

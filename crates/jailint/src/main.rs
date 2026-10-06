@@ -69,7 +69,7 @@ fn parse_args() -> Result<Option<Args>, String> {
             }
             "--list" => {
                 for r in RULES {
-                    println!("{:<22} {:<5}  {}", r.name, r.default.as_str(), r.summary);
+                    println!("{:<26} {:<5}  {}", r.name, r.default.as_str(), r.summary);
                 }
                 return Ok(None);
             }

@@ -1,0 +1,18 @@
+warning[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this `for` walks it
+  --> tests/lint/remove_in_for/bad.jai:7:20
+   |
+ 7 |         if it == 2 array_unordered_remove_by_index(*xs, it_index);
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+   = note: `remove_in_for` is `warn` by default
+
+warning[remove_in_for]: `array_ordered_remove_by_index` changes `xs` while this `for` walks it
+  --> tests/lint/remove_in_for/bad.jai:10:20
+   |
+10 |         if it == 3 array_ordered_remove_by_index(*xs, it_index);
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+   = note: `remove_in_for` is `warn` by default
+

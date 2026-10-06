@@ -1,0 +1,27 @@
+warning[unused_result]: the result of `trim` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:7:5
+   |
+ 7 |     trim(line);
+   |     ^^^^^^^^^^
+   |
+   = help: to update the argument, write `line = trim(line);`
+   = note: `unused_result` is `warn` by default
+
+warning[unused_result]: the result of `min` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:9:5
+   |
+ 9 |     min(a, 4);
+   |     ^^^^^^^^^
+   |
+   = help: to update the argument, write `a = min(a, 4);`
+   = note: `unused_result` is `warn` by default
+
+warning[unused_result]: the result of `sqrt` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:10:5
+   |
+10 |     sqrt(2.0);
+   |     ^^^^^^^^^
+   |
+   = help: use the result, or remove the call
+   = note: `unused_result` is `warn` by default
+

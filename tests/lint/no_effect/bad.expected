@@ -1,0 +1,27 @@
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:9:5
+   |
+ 9 |     x == 5;
+   |     ^^^^^^
+   |
+   = help: to assign, write `x = 5;`
+   = note: `no_effect` is `warn` by default
+
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:10:5
+   |
+10 |     x + 1;
+   |     ^^^^^
+   |
+   = help: to update `x`, write `x += 1;`
+   = note: `no_effect` is `warn` by default
+
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:11:5
+   |
+11 |     flush;
+   |     ^^^^^
+   |
+   = help: to call it, write `flush();`
+   = note: `no_effect` is `warn` by default
+

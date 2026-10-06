@@ -1,13 +1,32 @@
 //! Applying fixes to source text.
 use crate::{Edit, Lint};
 
-/// `text` with the machine-applicable fixes of `lints` applied. A fix whose edits overlap
-/// one already taken is skipped (run again to apply it). Returns the new text and how many
-/// fixes were applied.
+/// `text` with the machine-applicable fixes of `lints` applied (those [`choose`] picks). Run
+/// again to apply the rest. Returns the new text and how many fixes were applied.
 pub fn apply(text: &str, lints: &[&Lint]) -> (String, usize) {
+    let chosen: Vec<&Lint> = choose(lints)
+        .into_iter()
+        .filter(|l| {
+            l.fix.as_ref().is_some_and(|f| {
+                f.edits
+                    .iter()
+                    .all(|e| e.end <= text.len() && e.start <= e.end)
+            })
+        })
+        .collect();
+    let edits = chosen
+        .iter()
+        .flat_map(|l| l.fix.iter().flat_map(|f| f.edits.iter().cloned()))
+        .collect();
+    (apply_edits(text, edits), chosen.len())
+}
+
+/// The lints, in order, whose machine-applicable fix does not overlap the fix of one chosen
+/// before it: the fixes that can be applied together.
+pub fn choose<'l>(lints: &[&'l Lint]) -> Vec<&'l Lint> {
     let mut taken: Vec<&Edit> = Vec::new();
-    let mut applied = 0;
-    for lint in lints {
+    let mut chosen = Vec::new();
+    for &lint in lints {
         let Some(fix) = lint.fix.as_ref().filter(|f| f.machine_applicable) else {
             continue;
         };
@@ -16,21 +35,13 @@ pub fn apply(text: &str, lints: &[&Lint]) -> (String, usize) {
                 .iter()
                 .any(|t| e.start < t.end.max(t.start + 1) && t.start < e.end.max(e.start + 1))
         });
-        if clashes
-            || fix
-                .edits
-                .iter()
-                .any(|e| e.end > text.len() || e.start > e.end)
-        {
+        if clashes || fix.edits.iter().any(|e| e.start > e.end) {
             continue;
         }
         taken.extend(&fix.edits);
-        applied += 1;
+        chosen.push(lint);
     }
-    (
-        apply_edits(text, taken.into_iter().cloned().collect()),
-        applied,
-    )
+    chosen
 }
 
 /// `text` with non-overlapping `edits` applied.

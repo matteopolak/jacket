@@ -1,0 +1,18 @@
+warning[self_assignment]: `width` is assigned to itself
+  --> tests/lint/self_assignment/bad.jai:11:5
+   |
+11 |     width = width;
+   |     ^^^^^^^^^^^^^
+   |
+   = help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+   = note: `self_assignment` is `warn` by default
+
+warning[self_assignment]: `s.height` is assigned to itself
+  --> tests/lint/self_assignment/bad.jai:12:5
+   |
+12 |     s.height = s.height;
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+   = note: `self_assignment` is `warn` by default
+

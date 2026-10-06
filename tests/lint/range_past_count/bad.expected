@@ -1,0 +1,12 @@
+warning[range_past_count]: `names.count` is one past the last index of `names`
+  --> tests/lint/range_past_count/bad.jai:5:15
+   |
+ 5 |     for i: 0..names.count {
+   |               ^^^^^^^^^^^
+   |
+help: ranges include their end: write `names.count - 1`
+   |
+ 5 ~     for i: 0..names.count - 1 {
+   |
+   = note: `range_past_count` is `warn` by default
+

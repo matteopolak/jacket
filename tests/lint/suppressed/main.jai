@@ -27,5 +27,10 @@ main :: () {
     a := 0.1;
     b := a * 3;
     if a == b print("same\n");
-    print("%\n", y);
+    n := 3;
+    n = n + 1; // jailint: allow(manual_assign_op)
+    // jailint: allow(identical_operands, needless_bool)
+    same := ifx n == n then true else false;
+    m := n << 1 + 1; // jailint: allow(bitwise_precedence)
+    print("% % % %\n", y, same, m, n);
 }

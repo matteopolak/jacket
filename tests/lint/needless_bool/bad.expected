@@ -1,0 +1,68 @@
+warning[needless_bool]: this `if` returns its own condition as a `bool`
+  --> tests/lint/needless_bool/bad.jai:4:5
+   |
+ 4 |     if n > 0 return true;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `return n > 0;`
+   |
+ 4 -     if n > 0 return true;
+ 5 -     else return false;
+ 4 +     return n > 0;
+   |
+   = note: `needless_bool` is `warn` by default
+
+warning[needless_bool]: this `if` returns its own condition as a `bool`
+  --> tests/lint/needless_bool/bad.jai:9:5
+   |
+ 9 |     if n < 10 {
+   |     ^^^^^^^^^^^
+   |
+help: write `return n >= 10;`
+   |
+ 9 -     if n < 10 {
+10 -         return false;
+11 -     }
+12 -     return true;
+ 9 +     return n >= 10;
+   |
+   = note: `needless_bool` is `warn` by default
+
+warning[needless_bool]: this `ifx` turns a condition into the same `bool`
+  --> tests/lint/needless_bool/bad.jai:17:13
+   |
+17 |     even := ifx n % 2 == 0 then true else false;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `n % 2 == 0`
+   |
+17 ~     even := n % 2 == 0;
+   |
+   = note: `needless_bool` is `warn` by default
+
+warning[needless_bool]: this `ifx` turns a condition into the same `bool`
+  --> tests/lint/needless_bool/bad.jai:18:12
+   |
+18 |     odd := ifx even then false else true;
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `!even`
+   |
+18 ~     odd := !even;
+   |
+   = note: `needless_bool` is `warn` by default
+
+warning[needless_bool]: this `if` assigns its own condition as a `bool`
+  --> tests/lint/needless_bool/bad.jai:20:5
+   |
+20 |     if n > 3 flag = true;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `flag = n > 3;`
+   |
+20 -     if n > 3 flag = true;
+21 -     else flag = false;
+20 +     flag = n > 3;
+   |
+   = note: `needless_bool` is `warn` by default
+

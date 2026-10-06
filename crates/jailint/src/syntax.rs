@@ -76,6 +76,88 @@ impl<'a> Cx<'a> {
             .unwrap_or("")
     }
 
+    /// Byte range of `span` widened to balance its parentheses. The parser leaves grouping
+    /// parentheses out of spans, so `(a + b) * c` spans `a + b) * c`.
+    pub fn whole(&self, span: Span) -> (usize, usize) {
+        let first = self.tokens.partition_point(|t| t.span.start < span.start);
+        let last = self.tokens.partition_point(|t| t.span.end <= span.end);
+        let (mut depth, mut lowest) = (0i32, 0i32);
+        for t in &self.tokens[first..last] {
+            match t.tok {
+                Tok::Punct(P::LParen) => depth += 1,
+                Tok::Punct(P::RParen) => {
+                    depth -= 1;
+                    lowest = lowest.min(depth);
+                }
+                _ => {}
+            }
+        }
+        let mut start = span.start as usize;
+        let mut end = span.end as usize;
+        // Openers before the span for the closers it has too many of.
+        let mut need = -lowest;
+        let mut i = first;
+        while need > 0 && i > 0 {
+            i -= 1;
+            if matches!(self.tokens[i].tok, Tok::Punct(P::LParen)) {
+                need -= 1;
+                start = self.tokens[i].span.start as usize;
+            }
+        }
+        let mut open = depth - lowest;
+        let mut j = last;
+        while open > 0 && j < self.tokens.len() {
+            if matches!(self.tokens[j].tok, Tok::Punct(P::RParen)) {
+                open -= 1;
+                end = self.tokens[j].span.end as usize;
+            }
+            j += 1;
+        }
+        // Parentheses written around the whole expression.
+        let mut a = self
+            .tokens
+            .partition_point(|t| (t.span.start as usize) < start);
+        let mut b = self
+            .tokens
+            .partition_point(|t| (t.span.end as usize) <= end);
+        while a > 0
+            && matches!(self.tokens[a - 1].tok, Tok::Punct(P::LParen))
+            && matches!(
+                self.tokens.get(b).map(|t| &t.tok),
+                Some(Tok::Punct(P::RParen))
+            )
+            && !self.call_paren(a - 1)
+        {
+            a -= 1;
+            start = self.tokens[a].span.start as usize;
+            end = self.tokens[b].span.end as usize;
+            b += 1;
+        }
+        (start, end)
+    }
+
+    /// The `(` at token `i` opens an argument list or a header, not a group.
+    fn call_paren(&self, i: usize) -> bool {
+        i > 0
+            && matches!(
+                self.tokens[i - 1].tok,
+                Tok::Ident(n) if !matches!(
+                    n.as_str(),
+                    "if" | "ifx" | "then" | "else" | "return" | "while" | "case" | "xx" | "for"
+                )
+            )
+            || matches!(
+                self.tokens[i - 1].tok,
+                Tok::Punct(P::RParen | P::RBracket | P::RBrace) | Tok::Directive(_)
+            )
+    }
+
+    /// The source text of [`Cx::whole`].
+    pub fn whole_src(&self, span: Span) -> &'a str {
+        let (start, end) = self.whole(span);
+        self.text.get(start..end).unwrap_or("")
+    }
+
     /// The entities the identifier at `span` resolved to.
     pub fn entities(&self, span: Span) -> &[EntityId] {
         self.facts.idents.get(&span).map_or(&[], |v| v.as_slice())

@@ -1,0 +1,60 @@
+warning[bitwise_precedence]: `<<` binds tighter than `-` in Jai, unlike in C
+  --> tests/lint/bitwise_precedence/bad.jai:7:13
+   |
+ 7 |     mask := 1 << n - 1;
+   |             ^^^^^^^^^^
+   |
+help: `<<` binds first here: write `(1 << n)`
+   |
+ 7 ~     mask := (1 << n) - 1;
+   |
+   = note: `bitwise_precedence` is `warn` by default
+
+warning[bitwise_precedence]: `|` and `<<` share a level in Jai and apply left to right; C would apply `<<` first
+  --> tests/lint/bitwise_precedence/bad.jai:8:12
+   |
+ 8 |     set := flags | 1 << 3;
+   |            ^^^^^^^^^^^^^^
+   |
+help: `|` binds first here: write `(flags | 1)`
+   |
+ 8 ~     set := (flags | 1) << 3;
+   |
+   = note: `bitwise_precedence` is `warn` by default
+
+warning[bitwise_precedence]: `&` binds tighter than `+` in Jai, unlike in C
+  --> tests/lint/bitwise_precedence/bad.jai:9:12
+   |
+ 9 |     low := x & 0xFF + 1;
+   |            ^^^^^^^^^^^^
+   |
+help: `&` binds first here: write `(x & 0xFF)`
+   |
+ 9 ~     low := (x & 0xFF) + 1;
+   |
+   = note: `bitwise_precedence` is `warn` by default
+
+warning[bitwise_precedence]: `^` and `&` share a level in Jai and apply left to right; C would apply `&` first
+  --> tests/lint/bitwise_precedence/bad.jai:10:14
+   |
+10 |     mixed := flags ^ flags & 4;
+   |              ^^^^^^^^^^^^^^^^^
+   |
+help: `^` binds first here: write `(flags ^ flags)`
+   |
+10 ~     mixed := (flags ^ flags) & 4;
+   |
+   = note: `bitwise_precedence` is `warn` by default
+
+warning[bitwise_precedence]: `>>` binds tighter than `*` in Jai, unlike in C
+  --> tests/lint/bitwise_precedence/bad.jai:11:49
+   |
+11 |     print("% % % % %\n", mask, set, low, mixed, n * 2 >> 1);
+   |                                                 ^^^^^^^^^^
+   |
+help: `>>` binds first here: write `(2 >> 1)`
+   |
+11 ~     print("% % % % %\n", mask, set, low, mixed, n * (2 >> 1));
+   |
+   = note: `bitwise_precedence` is `warn` by default
+
