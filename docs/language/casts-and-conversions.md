@@ -43,7 +43,7 @@ Observed behavior (checked with `jaic run`):
 | `+`, `-`, `*`, `/`, `%` | result | `cast(*u8) p + 1` is `(cast(*u8) p) + 1` |
 | `==`, `<`, ..., `&&`, `\|\|` | result | `cast(u8) n < 300` compares a `u8` |
 
-The bitwise and shift operators keep their usual order among themselves (`cast(u32) b << 4 | 1` is `cast(u32) ((b << 4) | 1)`). Write parentheses (`(cast(u32) b) << 16`) to widen before shifting.
+This is ordinary precedence: a prefix cast is a unary operator whose level sits between the bitwise operators and `*` (see [operators.md](operators.md)). The bitwise and shift operators share one level, left to right (`cast(u32) b << 4 | 1` is `cast(u32) ((b << 4) | 1)`). Write parentheses (`(cast(u32) b) << 16`) to widen before shifting.
 
 
 - `&` takes the value: ui_builder `(cast(float) (hex >> 16) & 0xFF) / 255.0` (float `&` is an error otherwise; it runs at compile time in the demo's theme); jai-utils `cast(bool) flags & .REVERSE` (four sites, a bool `&` an enum is an error); the reference allocators' `cast(u64) p & MASK` on pointers (about 20 lines), which also needs `pointer & integer` to be legal.
@@ -55,8 +55,6 @@ The bitwise and shift operators keep their usual order among themselves (`cast(u
 
 Because of this, `pointer & int`, `pointer | int` and `pointer ^ int` are defined and keep the pointer's type, and `cast(bool)` of a number, enum or pointer is a real non-zero test (`!cast(bool) 2` is false).
 
-Real Jai's binary table also differs from ours elsewhere (its recorded output gives `1 << 2 + 3 == 7` and `10 % 3 * 2 == 4`, i.e. shifts above `+`/`*` and `%` below `*`); jaic still uses the C-like table and that is not changed here.
-
 Pointers and integers convert both ways: `cast(s64) ptr`, `cast(*u8) addr`, and `cast(*u8) 0 == null`. Integer constants cast to pointers fold to constants (`tests/stdlib/const-integer-pointer.jai`). Enum conversions are covered by `tests/stdlib/lang-conversions.jai`.
 
 A string literal converts to `*u8`; a `string` variable does not (see [strings-and-literals.md](strings-and-literals.md)).
@@ -66,7 +64,7 @@ A string literal converts to `*u8`; a `string` variable does not (see [strings-a
 
 ## How to change it
 
-The cast reach lives in `parse_cast_value` (`crates/jaic/src/parser/expr.rs`): it parses a unary operand, then continues `parse_binary_after` with a filter that only accepts the bitwise and shift operators. To change which operators a cast absorbs, change that filter and update `tests/stdlib/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`. Our own stdlib and tests were rewritten to `(cast(T) x) op y` where they relied on the old grouping; any new code that widens before a shift needs the parentheses.
+The cast reach lives in `parse_cast_value` (`crates/jaic/src/parser/expr.rs`): it parses a unary operand, then continues `parse_binary_after` with `CAST_PREC`, so it takes exactly the operators that bind tighter than a cast in `binary_op`. To change which operators a cast absorbs, move `CAST_PREC` (or the operators) in that table and update `tests/stdlib/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`. Our own stdlib and tests were rewritten to `(cast(T) x) op y` where they relied on the old grouping; any new code that widens before a shift needs the parentheses.
 
 Add a scalar conversion in `scalar_convert`, or a new aggregate/array case in the later branches of `explicit_cast`. Implicit conversions are priced by `implicit_cost`; overload resolution uses that cost, so changing it changes which overload wins. Constant operands are folded at the top of `explicit_cast`; update that table together with the runtime path or `#run` results and runtime results will diverge.
 

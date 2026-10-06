@@ -75,6 +75,28 @@ check :: (code: Code, expected: string, loc := #caller_location) {
     c21 := #code { v := ifx a > b then 1 else 2; defer free(p); };
     check(c21, "{\n    v := ifx a > b then 1 else 2;\n    defer free(p);\n}");
 
+    // Parentheses follow Jai's precedence: bitwise and shift operators share a level above
+    // `*`, `%` sits between `*` and `+`, and a cast operand of a bitwise operator keeps its
+    // parentheses.
+    p1 := #code (a << 2) | b;
+    check(p1, "a << 2 | b");
+    p2 := #code a | (b << 2);
+    check(p2, "a | (b << 2)");
+    p3 := #code (a + b) & c;
+    check(p3, "(a + b) & c");
+    p4 := #code a * (b & c);
+    check(p4, "a * b & c");
+    p5 := #code (a % b) * c;
+    check(p5, "(a % b) * c");
+    p6 := #code a - (b % c);
+    check(p6, "a - b % c");
+    p7 := #code (a == b) < c;
+    check(p7, "(a == b) < c");
+    p8 := #code (cast(u32) b) << 4;
+    check(p8, "(cast(u32) b) << 4");
+    p9 := #code (cast(u32) b).x;
+    check(p9, "(cast(u32) b).x");
+
     // print_expression on a node below the root.
     root, exprs := compiler_get_nodes(c3);
     builder: String_Builder;

@@ -9,6 +9,11 @@ HEADER :: #string END
 #define MASK (LIMIT << 2)
 #define NAME "hello"
 #define UNKNOWN_CALL(x) ((x) + 1)
+#define PACKED_HDR (1<<24|1<<16|8<<8|10)
+#define SHIFTED_SUM (LIMIT + 1 << 2)
+#define REM_PRODUCT (LIMIT % 3 * 2)
+#define PLAIN_SUM (LIMIT + 2 * 3)
+#define CAST_OR ((unsigned int)LIMIT | 1)
 
 typedef struct Node { int value; struct Node *next; float weights[4]; void (*callback)(int code, struct Node *node); } Node;
 typedef enum Color { COLOR_RED, COLOR_GREEN = 5, COLOR_BLUE } Color;
@@ -42,6 +47,12 @@ main :: () {
     assert(has(text, "MASK :: LIMIT << 2;"));
     assert(has(text, "NAME :: \"hello\";"));
     assert(!has(text, "UNKNOWN_CALL"));
+    // C's grouping is kept where Jai's precedence would group the text differently.
+    assert(has(text, "PACKED_HDR :: 1 << 24 | (1 << 16) | (8 << 8) | 10;"));
+    assert(has(text, "SHIFTED_SUM :: (LIMIT + 1) << 2;"));
+    assert(has(text, "REM_PRODUCT :: (LIMIT % 3) * 2;"));
+    assert(has(text, "PLAIN_SUM :: LIMIT + 2 * 3;"));
+    assert(has(text, "CAST_OR :: (cast(u32) LIMIT) | 1;"));
     assert(has(text, "Node :: struct {"));
     assert(has(text, "next:     *Node;"));
     assert(has(text, "weights:  [4] float;"));

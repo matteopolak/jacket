@@ -408,31 +408,153 @@ fn tagged_unions() {
 
 // -- expressions ----------------------------------------------------------------
 
+/// `x := <expr>;` with every binary, unary and cast node parenthesized.
+fn grouped(expr: &str) -> String {
+    fn show(e: &Expr) -> String {
+        match &e.kind {
+            ExprKind::Binary(op, a, b) => {
+                let text = match op {
+                    BinOp::Add => "+",
+                    BinOp::Sub => "-",
+                    BinOp::Mul => "*",
+                    BinOp::Div => "/",
+                    BinOp::Rem => "%",
+                    BinOp::BitAnd => "&",
+                    BinOp::BitOr => "|",
+                    BinOp::BitXor => "^",
+                    BinOp::Shl => "<<",
+                    BinOp::Shr => ">>",
+                    BinOp::Rotl => "<<<",
+                    BinOp::Rotr => ">>>",
+                    BinOp::Eq => "==",
+                    BinOp::Ne => "!=",
+                    BinOp::Lt => "<",
+                    BinOp::Le => "<=",
+                    BinOp::Gt => ">",
+                    BinOp::Ge => ">=",
+                    BinOp::And => "&&",
+                    BinOp::Or => "||",
+                };
+                format!("({} {text} {})", show(a), show(b))
+            }
+            ExprKind::Unary(op, a) => {
+                let text = match op {
+                    UnOp::Neg => "-",
+                    UnOp::Not => "!",
+                    UnOp::BitNot => "~",
+                    UnOp::Star => "*",
+                    _ => "?",
+                };
+                format!("({text}{})", show(a))
+            }
+            ExprKind::Cast {
+                ty,
+                value,
+                ..
+            } => {
+                let ty = ty
+                    .as_ref()
+                    .map_or("xx".to_string(), |t| format!("cast {}", show(t)));
+                format!("({ty} {})", show(value))
+            }
+            ExprKind::Ident(name) => name.as_str().to_string(),
+            ExprKind::Int(v) => v.to_string(),
+            ExprKind::Member(base, field) => format!("{}.{}", show(base), field.name.as_str()),
+            other => format!("{other:?}"),
+        }
+    }
+    show(&value(&format!("x := {expr};")))
+}
+
 #[test]
 fn binary_precedence() {
-    let mut expr = value("x := a || b && c == d < e | f ^ g & h << i + j * k;");
-    let chain = [
-        BinOp::Or,
-        BinOp::And,
-        BinOp::Eq,
-        BinOp::Lt,
-        BinOp::BitOr,
-        BinOp::BitXor,
-        BinOp::BitAnd,
-        BinOp::Shl,
-        BinOp::Add,
-        BinOp::Mul,
-    ];
-    for op in chain {
-        let ExprKind::Binary(found, _, rhs) = expr.kind else {
-            panic!("expected {op:?}")
-        };
-        assert_eq!(found, op);
-        expr = *rhs;
-    }
-    assert!(
-        matches!(value("x := a - b - c;").kind, ExprKind::Binary(BinOp::Sub, lhs, _) if matches!(lhs.kind, ExprKind::Binary(BinOp::Sub, ..)))
+    // Loosest to tightest: `||`, `&&`, `== !=`, `< <= > >=`, `+ -`, `%`, `* /`, then the
+    // bitwise and shift operators on one level.
+    assert_eq!(
+        grouped("a || b && c == d < e + f % g * h & i"),
+        "(a || (b && (c == (d < (e + (f % (g * (h & i))))))))"
     );
+    assert_eq!(
+        grouped("a & b * c % d + e < f == g && h || i"),
+        "((((((((a & b) * c) % d) + e) < f) == g) && h) || i)"
+    );
+    // Every level is left associative.
+    for (src, want) in [
+        ("a - b - c", "((a - b) - c)"),
+        ("a / b * c", "((a / b) * c)"),
+        ("a << b << c", "((a << b) << c)"),
+        ("a || b || c", "((a || b) || c)"),
+    ] {
+        assert_eq!(grouped(src), want, "{src}");
+    }
+}
+
+#[test]
+fn binary_precedence_matches_recorded_jai_output() {
+    // Results recorded from the real compiler (open-jai `utils/stress.jai`, section 1001).
+    for (src, want) in [
+        ("1 << 2 + 3", "((1 << 2) + 3)"),            // 7
+        ("8 >> 1 + 1", "((8 >> 1) + 1)"),            // 5
+        ("1 << 2 * 3", "((1 << 2) * 3)"),            // 12
+        ("10 % 3 * 2", "(10 % (3 * 2))"),            // 4
+        ("1 | 2 & 4", "((1 | 2) & 4)"),              // 0
+        ("1 + 2 * 3 << 1", "(1 + (2 * (3 << 1)))"),  // 13
+        ("1 << 1 << 2", "((1 << 1) << 2)"),          // 8
+        ("0x0F & 0x33 == 0x03", "((15 & 51) == 3)"), // true
+    ] {
+        assert_eq!(grouped(src), want, "{src}");
+    }
+}
+
+#[test]
+fn bitwise_and_shift_operators_share_a_level() {
+    for (src, want) in [
+        ("a << b | c", "((a << b) | c)"),
+        ("a | b << c", "((a | b) << c)"),
+        ("a & b | c", "((a & b) | c)"),
+        ("a | b & c", "((a | b) & c)"),
+        ("a ^ b & c", "((a ^ b) & c)"),
+        ("a >> b & c", "((a >> b) & c)"),
+        ("a <<< b | c", "((a <<< b) | c)"),
+        ("a & b + c", "((a & b) + c)"),
+        ("a + b & c", "(a + (b & c))"),
+        ("a * b >> c", "(a * (b >> c))"),
+    ] {
+        assert_eq!(grouped(src), want, "{src}");
+    }
+}
+
+#[test]
+fn remainder_sits_between_multiplication_and_addition() {
+    for (src, want) in [
+        ("t - c % t", "(t - (c % t))"),
+        ("c % t + 1", "((c % t) + 1)"),
+        ("a % b * c", "(a % (b * c))"),
+        ("a * b % c", "((a * b) % c)"),
+        ("a % b / c", "(a % (b / c))"),
+        ("a / b % c", "((a / b) % c)"),
+        ("i % 2 == 0", "((i % 2) == 0)"),
+    ] {
+        assert_eq!(grouped(src), want, "{src}");
+    }
+}
+
+#[test]
+fn prefix_operators_bind_tighter_than_binary_ones() {
+    for (src, want) in [
+        ("-a & b", "((-a) & b)"),
+        ("~a & b", "((~a) & b)"),
+        ("-s >> 63", "((-s) >> 63)"),
+        ("!a && b", "((!a) && b)"),
+        ("-a.b * c", "((-a.b) * c)"),
+        ("*a.b", "(*a.b)"),
+        ("cast(u8) a & b + c", "((cast u8 (a & b)) + c)"),
+        ("xx a | b == c", "((xx (a | b)) == c)"),
+        ("a * cast(u8) b << c", "(a * (cast u8 (b << c)))"),
+        ("cast(u32) b << 4 | 1", "(cast u32 ((b << 4) | 1))"),
+    ] {
+        assert_eq!(grouped(src), want, "{src}");
+    }
 }
 
 /// The operator at the top of `x := <expr>;`, and whether its left operand is a cast.
@@ -474,7 +596,7 @@ fn prefix_cast_takes_bitwise_and_shift_operators() {
     ] {
         assert_eq!(cast_value_op(src), Some(op), "{src}");
     }
-    // Among themselves they keep their usual precedence: `a << 16 | b` is `(a << 16) | b`.
+    // They share one level, left associative: `a << 16 | b` is `(a << 16) | b`.
     assert_eq!(
         cast_value_op("x := cast(u32) a << 16 | b;"),
         Some(BinOp::BitOr)

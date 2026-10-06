@@ -145,6 +145,7 @@
   "objc-window-levels.jai",
   "one-char-string-as-byte.jai",
   "operator-ne-from-eq.jai",
+  "operator-precedence.jai",
   "over-aligned-allocation.jai",
   "param-type-from-param.jai",
   "performance-report-plugin.jai",

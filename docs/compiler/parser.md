@@ -15,7 +15,9 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
   `at_kw("if")`). Directives arrive as `Tok::Directive(name)`.
 - Types are ordinary expressions: `*T` is `Unary(Star)`, `[N] T` is `ArrayType`, procedure headers
   without a body are `ProcType`, `struct`/`enum` literals are expressions.
-- Expressions use precedence climbing (`expr.rs`); prefix operators, `cast`/`xx`, then a postfix loop
+- Expressions use precedence climbing (`expr.rs`) over Jai's binary table (`binary_op`; bitwise and shift
+  operators on one level above `*`, `%` between `*`/`/` and `+`/`-`, see
+  [operators.md](../language/operators.md)); prefix operators, `cast`/`xx`, then a postfix loop
   (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`, `.(T)`).
 - Statements are one shared grammar for files, struct bodies and blocks (`stmt.rs`). Declarations
   (`decl.rs`) are recognised by lookahead: `name {, name} :`, `::` or `:=`.
@@ -40,7 +42,8 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
 | `arrow.to\,` | A `\` after an identifier is a line-joining separator (`ident_with_separators` in the lexer); a trailing one before a non-identifier is dropped. |
 | Return list commas | Inside argument/parameter lists (`in_list`) a comma ends a return type instead of adding a return value. |
 | Mixed declarations | `a=, b := f()` and `a:, b = f()` produce a `Decl` with `existing` set per name. A `name:` marker only matters when the statement is an assignment (`=`); in `ok, shader:, time := f()` every name is declared. |
-| How far `cast(T)` / `xx` reach | `parse_cast_value`: the operand is a unary expression followed by any `& \| ^ << >> <<< >>>` chain (normal precedence among them); arithmetic, comparisons and logical operators apply to the cast's result. See [casts-and-conversions.md](../language/casts-and-conversions.md) for the evidence. The `cast(T, x)` form and `.(T)` are unaffected. |
+| How far `cast(T)` / `xx` reach | `parse_cast_value`: the operand is a unary expression followed by the operators above `CAST_PREC` in `binary_op`, i.e. any `& \| ^ << >> <<< >>>` chain (one level, left to right); arithmetic, comparisons and logical operators apply to the cast's result. See [casts-and-conversions.md](../language/casts-and-conversions.md) for the evidence. The `cast(T, x)` form and `.(T)` are unaffected. |
+| Binary precedence | Not C's: `1 << 2 + 3` is 7, `1 \| 2 & 4` is 0, `10 % 3 * 2` is 4, `t - c % t` takes the remainder first. Table and evidence: [operators.md](../language/operators.md). |
 
 ## How to change it
 

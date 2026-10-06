@@ -38,7 +38,7 @@ main :: () {
     assert((cast(u32) byte) << 16 == 0x660000);
     word: u32 = 0x1234;
     assert(cast(u8) word >> 8 == 0x12);
-    // Among themselves the usual precedence holds: `a << 4 | b` is `(a << 4) | b`.
+    // They share one level, left to right: `a << 4 | b` is `(a << 4) | b`.
     low: u8 = 0x3;
     assert(cast(u32) low << 4 | 1 == 0x31);
 

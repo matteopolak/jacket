@@ -12,7 +12,13 @@ pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
     }
 }
 
-/// Binary operator precedence, lowest first. Left associative.
+/// Binary operator precedence, lowest first; every level is left associative.
+///
+/// This is Jai's table, not C's: the bitwise and shift operators share one level that binds
+/// tighter than `*` (`1 << 2 + 3` is 7, `1 | 2 & 4` is 0), and `%` sits between `*`/`/`
+/// and `+`/`-` (`10 % 3 * 2` is 4, `n - i % n` takes the remainder first). Prefix operators
+/// bind tighter still; a prefix `cast`/`xx` sits at `CAST_PREC`. The evidence for each
+/// relation is in docs/language/operators.md.
 fn binary_op(p: P) -> Option<(u8, BinOp)> {
     Some(match p {
         P::OrOr => (1, BinOp::Or),
@@ -23,76 +29,60 @@ fn binary_op(p: P) -> Option<(u8, BinOp)> {
         P::Le => (4, BinOp::Le),
         P::Gt => (4, BinOp::Gt),
         P::Ge => (4, BinOp::Ge),
-        P::Pipe => (5, BinOp::BitOr),
-        P::Caret => (6, BinOp::BitXor),
-        P::Amp => (7, BinOp::BitAnd),
-        P::Shl => (8, BinOp::Shl),
-        P::Shr => (8, BinOp::Shr),
-        P::Rotl => (8, BinOp::Rotl),
-        P::Rotr => (8, BinOp::Rotr),
-        P::Plus => (9, BinOp::Add),
-        P::Minus => (9, BinOp::Sub),
-        P::Star => (10, BinOp::Mul),
-        P::Slash => (10, BinOp::Div),
-        P::Percent => (10, BinOp::Rem),
+        P::Plus => (5, BinOp::Add),
+        P::Minus => (5, BinOp::Sub),
+        P::Percent => (6, BinOp::Rem),
+        P::Star => (7, BinOp::Mul),
+        P::Slash => (7, BinOp::Div),
+        P::Amp => (BITWISE_PREC, BinOp::BitAnd),
+        P::Pipe => (BITWISE_PREC, BinOp::BitOr),
+        P::Caret => (BITWISE_PREC, BinOp::BitXor),
+        P::Shl => (BITWISE_PREC, BinOp::Shl),
+        P::Shr => (BITWISE_PREC, BinOp::Shr),
+        P::Rotl => (BITWISE_PREC, BinOp::Rotl),
+        P::Rotr => (BITWISE_PREC, BinOp::Rotr),
         _ => return None,
     })
 }
+
+/// The level of a prefix `cast(T)` / `xx`: its value takes the operators that bind tighter
+/// (the bitwise and shift level), and the cast's result is the operand of everything looser.
+const CAST_PREC: u8 = 8;
+const BITWISE_PREC: u8 = CAST_PREC + 1;
 
 impl Parser<'_> {
     pub(super) fn parse_expr(&mut self) -> PResult<Expr> {
         self.parse_binary(0)
     }
 
+    /// Precedence climbing: an operand followed by the operators that bind tighter than
+    /// `min_prec`.
     fn parse_binary(&mut self, min_prec: u8) -> PResult<Expr> {
-        self.parse_binary_of(min_prec, |_| true)
-    }
-
-    /// Precedence climbing over the operators `takes` accepts; any other operator ends
-    /// the expression and is left for the caller.
-    fn parse_binary_of(&mut self, min_prec: u8, takes: fn(BinOp) -> bool) -> PResult<Expr> {
         let lhs = self.parse_unary()?;
-        self.parse_binary_after(lhs, min_prec, takes)
+        self.parse_binary_after(lhs, min_prec)
     }
 
-    /// Continues `parse_binary_of` after its first operand.
-    fn parse_binary_after(
-        &mut self,
-        mut lhs: Expr,
-        min_prec: u8,
-        takes: fn(BinOp) -> bool,
-    ) -> PResult<Expr> {
+    /// Continues `parse_binary` after its first operand.
+    fn parse_binary_after(&mut self, mut lhs: Expr, min_prec: u8) -> PResult<Expr> {
         while let Some((prec, op)) = self.peek_binary_op() {
-            if prec <= min_prec || !takes(op) {
+            if prec <= min_prec {
                 break;
             }
             self.bump();
-            let rhs = self.parse_binary_of(prec, takes)?;
+            let rhs = self.parse_binary(prec)?;
             let span = lhs.span.to(rhs.span);
             lhs = mk(ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)), span);
         }
         Ok(lhs)
     }
 
-    /// The value of a prefix `cast(T)` or `xx`. Jai lets the bitwise and shift operators
-    /// that follow it into the value (`cast(float) (x >> 16) & 0xFF` casts the masked
-    /// integer, `cast(u32) byte << 16` shifts the byte), but stops at arithmetic,
-    /// comparison and logical operators (`cast(s64) p - cast(s64) q` subtracts two
-    /// integers). See docs/language/casts-and-conversions.md for the evidence.
+    /// The value of a prefix `cast(T)` or `xx`: a unary operand plus any bitwise and shift
+    /// operators after it (`cast(float) (x >> 16) & 0xFF` casts the masked integer), but
+    /// not `*`, `+`, comparisons or logical operators, which apply to the cast's result
+    /// (`cast(s64) p - cast(s64) q` subtracts two integers).
     fn parse_cast_value(&mut self) -> PResult<Expr> {
         let first = self.parse_unary()?;
-        self.parse_binary_after(first, 0, |op| {
-            matches!(
-                op,
-                BinOp::BitAnd
-                    | BinOp::BitOr
-                    | BinOp::BitXor
-                    | BinOp::Shl
-                    | BinOp::Shr
-                    | BinOp::Rotl
-                    | BinOp::Rotr
-            )
-        })
+        self.parse_binary_after(first, CAST_PREC)
     }
 
     fn peek_binary_op(&self) -> Option<(u8, BinOp)> {

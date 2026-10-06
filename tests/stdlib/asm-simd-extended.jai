@@ -306,9 +306,9 @@ main :: () {
         check("cmpsd le", h(16), 0x231d9e33f53fd336);
         z, c, p: u8;
         #asm AVX2 { comiss fa, fb; setz z; setc c; setp p; }
-        check("comiss", (cast(u64) z) << 16 | (cast(u64) c) << 8 | p, 0x100);
+        check("comiss", ((cast(u64) z) << 16) | ((cast(u64) c) << 8) | p, 0x100);
         #asm AVX2 { movups.x fu:, [pn + 8]; ucomiss fu, fa; setz z; setc c; setp p; }
-        check("ucomiss unordered", (cast(u64) z) << 16 | (cast(u64) c) << 8 | p, 0x10101);
+        check("ucomiss unordered", ((cast(u64) z) << 16) | ((cast(u64) c) << 8) | p, 0x10101);
         #asm AVX2 { ptest ya, yb; setz z; setc c; }
         check("ptest", (cast(u64) z) << 8 | c, 0x0);
         #asm AVX2 { pxor zz:, zz, zz; ptest zz, ya; setz z; setc c; }

@@ -25,6 +25,7 @@ Jai language behavior as implemented by `jaic`.
 - [Integers, floats and numeric literals](language/numbers.md)
 - [jaic extensions (`Jaic_Extensions`, `Long_Double`)](language/jaic-extensions.md)
 - [Operator overloading](language/operator-overloading.md)
+- [Operator precedence](language/operators.md)
 - [Pointers, arrays and bounds checks](language/pointers-and-arrays.md)
 - [Polymorphism and baking](language/polymorphism.md)
 - [Procedures and calls](language/procedures.md)
