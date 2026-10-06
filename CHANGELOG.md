@@ -173,6 +173,7 @@
 - A baked variadic `Code` parameter (`$args: ..Code`) quotes each argument expression like a single `$c: Code` does, so `print_vars(alpha, alpha + 1)` and the rest of Print_Vars work with locals. Such calls failed with "cannot use local 'alpha' in a compile-time expression".
 - Structs with a variadic parameter (`Holder :: struct(types: ..Type)`) can be instantiated: the arguments bind one constant `[] Type` and key the instance, so `Tagged_Union` works. `Holder(s64, string)` reported "too many arguments" and `Holder(s64)` bound a single `Type`.
 - Metaprograms see `.VARARGS` in a variadic parameter's `type_inst.inst_flags`, so the Check module accepts @PrintLike procedures. Every one was reported as missing a format string before its varargs.
+- An untyped 16-digit `0h` literal (`0h7FEFFFFF_FFFFFFFF`) is `float64`; an 8-digit one stays `float32`. The long form defaulted to `float32`, so `x := 0h7FEFFFFF_FFFFFFFF` became inf, `0h00100000_00000000` became 0 and overloads picked `float32`.
 
 ## [0.2.0] - 2026-10-06
 

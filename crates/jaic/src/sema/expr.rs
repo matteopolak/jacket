@@ -1144,11 +1144,18 @@ impl Compiler {
     /// The default type of a float literal: `float32`, unless the literal has more significant
     /// figures than `float32` holds (`12342345234.0`), which makes it `float64` as in Jai.
     fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
-        if (v as f32) as f64 == v {
-            return TypeId::F32;
-        }
         let text = self.sources.snippet(span);
-        if text.starts_with("0h") || text.starts_with("0H") {
+        // A `0h` bit pattern is float32 with up to 8 hex digits and float64 with more
+        // (`0h7FEFFFFF_FFFFFFFF`), whatever value it spells.
+        if let Some(hex) = text.strip_prefix("0h").or_else(|| text.strip_prefix("0H")) {
+            let digits = hex.bytes().filter(u8::is_ascii_hexdigit).count();
+            return if digits > 8 {
+                TypeId::F64
+            } else {
+                TypeId::F32
+            };
+        }
+        if (v as f32) as f64 == v {
             return TypeId::F32;
         }
         let mantissa = text.split(['e', 'E']).next().unwrap_or("");
