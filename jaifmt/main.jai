@@ -22,6 +22,7 @@ options:
   --stdin          format standard input to standard output
   --config <file>  use this config instead of the nearest jaifmt.toml
   --verbose, -v    report every file, a summary, and lines over max_width
+  --color <when>   colour errors: auto (on a terminal, unless NO_COLOR is set), always, never
   --help, -h       show this text
 
 exit status: 0 success, 1 files would change (--check), 2 errors
@@ -60,12 +61,21 @@ main :: () {
                 print("%", USAGE);
                 exit(0);
             case "--config";
-                if i >= args.count fatal_usage("--config needs a file");
+                if i >= args.count fatal_usage("`--config` needs a file", "for example `--config path/to/jaifmt.toml`");
                 options.config_path = args[i];
                 i += 1;
+            case "--color";
+                if i >= args.count fatal_usage("`--color` needs a value", "use auto, always or never");
+                set_color(args[i]);
+                i += 1;
             case;
-                if begins_with(arg, "-") fatal_usage(tprint("unknown option %", arg));
-                array_add(*options.paths, arg);
+                if begins_with(arg, "--color=") {
+                    set_color(slice(arg, 8, arg.count - 8));
+                } else if begins_with(arg, "-") {
+                    fatal_usage(tprint("unknown option `%`", arg), "`jaifmt --help` lists the options");
+                } else {
+                    array_add(*options.paths, arg);
+                }
         }
     }
 
@@ -73,17 +83,17 @@ main :: () {
     if options.config_path.count {
         config, ok, message := load_config(absolute_path(options.config_path));
         if !ok {
-            print_error("jaifmt: %\n", message);
+            report_error(message);
             exit(2);
         }
         explicit_config = config;
     }
 
     if options.stdin {
-        if options.paths.count fatal_usage("--stdin takes no paths");
+        if options.paths.count fatal_usage("`--stdin` takes no paths", "drop the paths, or drop `--stdin` to format the files in place");
         exit(cast(s32) format_stdin(explicit_config));
     }
-    if !options.paths.count fatal_usage("no paths given");
+    if !options.paths.count fatal_usage("no files to format", "pass files or directories, as in `jaifmt src`, or use `jaifmt --stdin < file.jai`");
 
     files: [..] string;
     totals: Totals;
@@ -91,7 +101,7 @@ main :: () {
         path := absolute_path(it);
         is_dir, exists := is_directory(path);
         if !exists {
-            print_error("jaifmt: %: no such file or directory\n", it);
+            report_error(tprint("`%` does not exist", it), "relative paths start from the current directory");
             totals.errors += 1;
             continue;
         }
@@ -125,9 +135,77 @@ main :: () {
     exit(0);
 }
 
-fatal_usage :: (message: string) {
-    print_error("jaifmt: %\n\n%", message, USAGE);
+fatal_usage :: (message: string, help := "") {
+    report_error(message, help);
     exit(2);
+}
+
+// Errors go to stderr as `error: ...`, then an optional `help: ...` line.
+report_error :: (message: string, help := "") {
+    print_error("%error%: %\n", color_on(ERROR_COLOR), color_off(), message);
+    if help.count print_error("%help%: %\n", color_on(HELP_COLOR), color_off(), help);
+}
+
+// A formatting error from Jai_Format starts with `line:column: ` when it has a place.
+report_format_error :: (path: string, error: string) {
+    rest := error;
+    place := 0;
+    for 1..2 {
+        digits := 0;
+        while digits < rest.count && rest[digits] >= #char "0" && rest[digits] <= #char "9" digits += 1;
+        if !digits || digits >= rest.count || rest[digits] != #char ":" break;
+        place += digits + 1;
+        rest = slice(rest, digits + 1, rest.count - digits - 1);
+    }
+    if place && begins_with(rest, " ") {
+        print_error("%:% ", shown(path), slice(error, 0, place));
+        report_error(slice(rest, 1, rest.count - 1), "the file was left unchanged; jaifmt formats only code whose brackets balance");
+        return;
+    }
+    print_error("%: ", shown(path));
+    report_error(error, "the file was left unchanged");
+}
+
+ERROR_COLOR :: "\e[1;31m";
+HELP_COLOR :: "\e[1;36m";
+
+color_choice := 0;  // 0 auto, 1 always, 2 never
+
+set_color :: (when: string) {
+    if when == {
+        case "auto";   color_choice = 0;
+        case "always"; color_choice = 1;
+        case "never";  color_choice = 2;
+        case; fatal_usage(tprint("unknown `--color` value `%`", when), "use auto, always or never");
+    }
+}
+
+color_on :: (code: string) -> string {
+    return ifx use_color() then code else "";
+}
+
+color_off :: () -> string {
+    return ifx use_color() then "\e[0m" else "";
+}
+
+use_color :: () -> bool {
+    if color_choice == 1 return true;
+    if color_choice == 2 return false;
+    #if OS == .WINDOWS {
+        return false;
+    } else {
+        if environment_set("NO_COLOR") return false;
+        if environment_set("FORCE_COLOR") || environment_set("CLICOLOR_FORCE") return true;
+        term := POSIX.getenv("TERM");
+        if term && to_string(term) == "dumb" return false;
+        return POSIX.isatty(2) != 0;
+    }
+}
+
+#if OS != .WINDOWS {
+    environment_set :: (name: string) -> bool {
+        return POSIX.getenv(temp_c_string(name)) != null;
+    }
 }
 
 print_error :: (format: string, args: ..Any) {
@@ -144,6 +222,13 @@ absolute_path :: (path: string) -> string {
     return copy_string(trim_trailing_slashes(tprint("%/%", cwd, slashed)));
 }
 
+// `path` relative to the working directory when it lies inside it, for messages.
+shown :: (path: string) -> string {
+    cwd := tprint("%/", replace(get_working_directory(), "\\", "/",, temp));
+    if begins_with(path, cwd) return slice(path, cwd.count, path.count - cwd.count);
+    return path;
+}
+
 trim_trailing_slashes :: (path: string) -> string {
     result := path;
     while result.count > 1 && result[result.count - 1] == #char "/" result.count -= 1;
@@ -155,7 +240,7 @@ config_for :: (path: string, explicit_config: *Format_Config, totals: *Totals) -
     if explicit_config return explicit_config;
     config, ok, message := config_for_directory(parent_directory(path));
     if !ok {
-        print_error("jaifmt: %\n", message);
+        report_error(message);
         totals.errors += 1;
         return null;
     }
@@ -199,7 +284,7 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
     if !config return;
     source, ok := read_entire_file(path, log_errors = false);
     if !ok {
-        print_error("jaifmt: %: cannot read\n", path);
+        report_error(tprint("could not read `%`", shown(path)), "check that the file is readable");
         totals.errors += 1;
         return;
     }
@@ -208,7 +293,7 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
 
     output, formatted, error := format_source(source, config.*);
     if !formatted {
-        print_error("jaifmt: %:%\n", path, error);
+        report_format_error(path, error);
         totals.errors += 1;
         return;
     }
@@ -227,7 +312,7 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
         return;
     }
     if !write_entire_file(path, output.data, output.count) {
-        print_error("jaifmt: %: cannot write\n", path);
+        report_error(tprint("could not write `%`", shown(path)), "check that the file and its directory are writable");
         totals.errors += 1;
         return;
     }
@@ -249,14 +334,14 @@ format_stdin :: (explicit_config: *Format_Config) -> int {
     if !config {
         found, ok, message := config_for_directory(get_working_directory());
         if !ok {
-            print_error("jaifmt: %\n", message);
+            report_error(message);
             return 2;
         }
         config = found;
     }
     output, formatted, error := format_source(source, config.*);
     if !formatted {
-        print_error("jaifmt: <stdin>:%\n", error);
+        report_format_error("<stdin>", error);
         return 2;
     }
     write_string(output);
@@ -318,9 +403,9 @@ config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: 
 load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
     config := New(Format_Config);
     text, read_ok := read_entire_file(path, log_errors = false);
-    if !read_ok return config, false, sprint("%: cannot read the config file", path);
+    if !read_ok return config, false, sprint("could not read config `%`", shown(path));
     parsed, ok, message := parse_config(text);
-    if !ok return config, false, sprint("%: %", path, message);
+    if !ok return config, false, sprint("in `%`, %", shown(path), message);
     config.* = parsed;
     config.root = copy_string(parent_directory(path));
     return config, true, "";

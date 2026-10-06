@@ -1078,7 +1078,25 @@ fn jaifmt_builds_and_formats() {
     let rewrite = fmt(&["src"]);
     assert_eq!(rewrite.status.code(), Some(2));
     let stderr = String::from_utf8_lossy(&rewrite.stderr);
-    assert!(stderr.contains("unbalanced"), "{stderr}");
+    assert!(
+        stderr
+            .contains("src/bad.jai:1:20: error: unbalanced `}`\nhelp: the file was left unchanged"),
+        "{stderr}"
+    );
+    // Command-line mistakes say what is wrong and what to do instead.
+    let missing = fmt(&["src/nope.jai"]);
+    assert_eq!(missing.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8_lossy(&missing.stderr),
+        "error: `src/nope.jai` does not exist\nhelp: relative paths start from the current directory\n"
+    );
+    let unknown = fmt(&["--chek", "src"]);
+    assert_eq!(unknown.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&unknown.stderr).starts_with(
+            "error: unknown option `--chek`\nhelp: `jaifmt --help` lists the options\n"
+        )
+    );
     assert_eq!(read("src/a.jai"), "main :: () {\n  x := 1;\n}\n");
     assert_eq!(read("src/skipped/b.jai"), messy);
     assert_eq!(read("src/bad.jai"), bad_source);
