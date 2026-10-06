@@ -62,8 +62,13 @@ main :: () {
     // C's own threads, while this one waits in C and while it runs Jai code.
     print("%\n", call_holder_on_thread(*holder, 11));
     start_background(*global_holder, 6);
+    // Each poll waits a millisecond in C, where the callback can run; give up after 10 s.
     result := background_result();
-    while result < 0 result = background_result();
+    for 1..10_000 {
+        if result >= 0 break;
+        result = background_result();
+    }
+    assert(result >= 0, "the background thread's callback never ran");
     baked := baked_holder;
     print("% % %\n", call_holder(*baked, 3), result, calls);
 }

@@ -516,6 +516,8 @@ fn c_call_procedures_stored_in_memory() {
         ])
     };
     if built.is_none() {
+        // CI hosts always have one; a missing compiler there must not pass silently.
+        assert!(std::env::var_os("CI").is_none(), "no C compiler");
         eprintln!("skipping: no C compiler");
         return;
     }

@@ -270,30 +270,24 @@ impl Compiler {
         Span::new(FileId(file), start, start + len)
     }
 
-    /// The directories of the standard library it loads.
+    /// The directories of the standard library its `module.jai` loads from
+    /// beside it, canonical through the compiler's file system (the browser's is virtual).
     fn library_roots(&self) -> Vec<PathBuf> {
         let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent) else {
             return Vec::new();
         };
-        let mut roots = vec![stdlib.to_path_buf(), stdlib.join("prelude")];
-        roots.extend(
-            roots
-                .clone()
-                .iter()
-                .filter_map(|r| std::fs::canonicalize(r).ok()),
-        );
-        roots
+        [stdlib.to_path_buf(), stdlib.join("prelude")]
+            .iter()
+            .map(|root| self.fs.canonical(root))
+            .collect()
     }
 
     fn is_library_file(&self, file: FileId, roots: &[PathBuf]) -> bool {
         if file.0 as usize >= self.sources.len() {
             return true;
         }
-        let path = Path::new(&self.sources.get(file).path);
-        let canonical = std::fs::canonicalize(path).ok();
-        roots.iter().any(|root| {
-            path.starts_with(root) || canonical.as_ref().is_some_and(|c| c.starts_with(root))
-        })
+        let path = self.fs.canonical(Path::new(&self.sources.get(file).path));
+        roots.iter().any(|root| path.starts_with(root))
     }
 }
 

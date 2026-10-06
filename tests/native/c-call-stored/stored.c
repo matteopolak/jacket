@@ -32,8 +32,8 @@ EXPORT void sort_ints(int *xs, int n, const Sorter *s) { qsort(xs, (size_t)n, si
 typedef struct {
     const Holder *holder;
     int x;
-    volatile int result;
-    volatile int done;
+    int result;
+    int done; // Set with release order after `result`, read with acquire order.
 } Job;
 
 #ifdef _WIN32
@@ -43,7 +43,7 @@ static void *job_main(void *p) {
 #endif
     Job *job = (Job *)p;
     job->result = call_holder(job->holder, job->x);
-    job->done = 1;
+    __atomic_store_n(&job->done, 1, __ATOMIC_RELEASE);
     return 0;
 }
 
@@ -68,7 +68,7 @@ static Job background;
 EXPORT void start_background(const Holder *h, int x) {
     background.holder = h;
     background.x = x;
-    background.done = 0;
+    __atomic_store_n(&background.done, 0, __ATOMIC_RELAXED);
 #ifdef _WIN32
     CloseHandle(CreateThread(NULL, 0, job_main, &background, 0, NULL));
 #else
@@ -85,5 +85,5 @@ EXPORT int background_result(void) {
 #else
     usleep(1000);
 #endif
-    return background.done ? background.result : -1;
+    return __atomic_load_n(&background.done, __ATOMIC_ACQUIRE) ? background.result : -1;
 }
