@@ -110,6 +110,8 @@
 
 - Under `jaic run`, `get_path_of_running_executable` returns the executable `jaic build` would write for the program (`src/main` for `jaic run src/main.jai`) instead of `jaic`'s own path, so programs that load data relative to their executable (`../assets`) find it.
 - `jaic run` writes the executables and libraries a metaprogram's workspaces ask for, as `jaic build` does (it only interprets the top-level program instead of compiling it), so `jaic run first.jai` on a build script builds and can launch its program. `-no_workspace_output` skips them. `jaic check` still writes nothing, and now warns when a workspace asks for output, naming the `jaic build` command that writes it.
+- `Simp.set_window_dimensions` no longer asserts when called before a shader is bound; it resizes the render target and resets the projection as `update_window` does.
+- `Clipboard.set_bitmap` on Windows accepts bitmaps again: its size check computed the 32-bit DIB limit in `s32`, which wrapped and rejected every image.
 - `jaic run` on Linux finds system libraries installed only under their versioned names (`libatomic.so.1` without the development package), so `Atomics.compare_and_swap2` runs in the interpreter.
 - WASI builds' `nanosleep` (and so `sleep_milliseconds`) sleeps until the monotonic clock reaches the deadline: Node can end a WASI poll a few microseconds early.
 - Input on Linux reports a new window's size when it is mapped: without a window manager (Xvfb, some kiosks) X11 sends no ConfigureNotify for a new window, so programs never learned its size.
