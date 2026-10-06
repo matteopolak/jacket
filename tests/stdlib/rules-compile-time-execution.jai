@@ -58,13 +58,17 @@ echo_output :: () -> string {
     if result.exit_code != 0 return "";
     return trim(output);
 }
-CHILD_OUTPUT :: #run echo_output();
+// The browser engine cannot start processes.
+#if OS != .WASM CHILD_OUTPUT :: #run echo_output();
 
-// ctexec.12: foreign procedures are callable at compile time.
-libc :: #system_library "libc";
-c_abs :: (x: s32) -> s32 #foreign libc "abs";
-FOREIGN_ABS :: #run c_abs(-12);
-#assert FOREIGN_ABS == 12;
+// ctexec.12: foreign procedures are callable at compile time. The browser engine has no C
+// library to call into.
+#if OS != .WASM {
+    libc :: #system_library "libc";
+    c_abs :: (x: s32) -> s32 #foreign libc "abs";
+    FOREIGN_ABS :: #run c_abs(-12);
+    #assert FOREIGN_ABS == 12;
+}
 
 // ctexec.13: `#run,stallable` is accepted and runs like a plain #run, synchronously.
 #no_reset stall_steps := 0;
@@ -131,7 +135,7 @@ main :: () {
 
     // ctexec.11
     assert(SOURCE_READ, "ctexec.11: read_entire_file at compile time");
-    assert(CHILD_OUTPUT == "from child", "ctexec.11: run_command output at compile time");
+    #if OS != .WASM assert(CHILD_OUTPUT == "from child", "ctexec.11: run_command output at compile time");
 
     // ctexec.13
     assert(stall_steps == 1, "ctexec.13: #run,stallable ran once");

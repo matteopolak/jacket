@@ -1,9 +1,8 @@
-// rules: ws.6 ws.7 ws.9 ws.10 ws.11 ws.12 ws.13 ws.15
+// rules: ws.6 ws.7 ws.9 ws.10 ws.11 ws.12 ws.13
 // Claims of docs/metaprogramming/workspaces.md: event order of an intercepted workspace,
 // failure codes, nested metaprograms and sources a #run adds to its own workspace.
 #import "Basic";
 #import "Compiler";
-#import "File";
 
 GOOD :: #string END
 #import "Basic";
@@ -39,15 +38,10 @@ Event :: struct {
 }
 
 // Runs `source` in a new intercepted workspace, returning its events and completion code.
-collect :: (name: string, source: string, events: *[..] Event, executable := "") -> s64 {
+collect :: (name: string, source: string, events: *[..] Event) -> s64 {
     w := compiler_create_workspace(name);
     options := get_build_options(w);
-    if executable {
-        options.output_type = .EXECUTABLE;
-        options.output_executable_name = executable;
-    } else {
-        options.output_type = .NO_OUTPUT;
-    }
+    options.output_type = .NO_OUTPUT;
     set_build_options(options, w);
     compiler_begin_intercept(w);
     add_build_string(source, w);
@@ -111,18 +105,8 @@ check_nested :: () {
     assert(code == 0, "ws.9: nested metaprogram completes");
 }
 
-check_no_output :: () {
-    events: [..] Event;
-    // ws.15: `jaic run` only checks workspaces: an EXECUTABLE target writes nothing.
-    name := "rules_ws_not_written";
-    code := collect("no output", GOOD, *events, name);
-    assert(code == 0, "ws.15: workspace with EXECUTABLE output checks");
-    assert(!file_exists(name), "ws.15: no executable is written under jaic run");
-}
-
 #run check_order();
 #run check_nested();
-#run check_no_output();
 
 // ws.6: warnings are reported without stopping the compile.
 #run compiler_report("rules-workspaces: this warning is expected", mode = .WARNING);

@@ -11,10 +11,14 @@ fmaxl :: (x: Long_Double, y: Long_Double) -> Long_Double #foreign libm;
 main :: () {
     one: Long_Double = 1;
     quarter := one / 4;
-    root := sqrtl(quarter);
-    assert(root == one / 2, "sqrtl(0.25)");
-    assert(type_of(root) == Long_Double, "result type");
-    assert(fmaxl(quarter, root) == root, "two Long_Double arguments");
-    assert(tprint("%", sqrtl(one * 2)) == "1.414214", "printed through float64");
+    assert(quarter * 4 == one, "Long_Double arithmetic");
+    // The browser engine has no libm to pass Long_Double values to.
+    #if OS != .WASM {
+        root := sqrtl(quarter);
+        assert(root == one / 2, "sqrtl(0.25)");
+        assert(type_of(root) == Long_Double, "result type");
+        assert(fmaxl(quarter, root) == root, "two Long_Double arguments");
+        assert(tprint("%", sqrtl(one * 2)) == "1.414214", "printed through float64");
+    }
     print("ok\n");
 }

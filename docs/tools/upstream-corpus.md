@@ -77,6 +77,13 @@ project. That driver makes the same test workspace calls. The suite found these 
 - `.FLAG & x.flags` inside `cast(int)`: the inferred member took `int`, not the flags type;
 - `compiler_get_struct_location` (it used to be unsupported): `tests/stdlib/compiler-struct-location.jai`.
 
+Known flake: about one run in five, `TestNestedType` crashes in `array_resize` on a view. The binary
+reader resizes the outer `[..]` array with `initialized = false`, then resizes each element's
+`nums: [] s32`. Our `array_resize` on a view copies and frees the old elements, and here those come
+from recycled heap memory: lldb shows `old.data` holding bytes of the test's own strings. Whether the
+official `array_resize` on a view reads the old contents is not established, so the stdlib is
+unchanged. Rerun the case before treating a `-11` as a regression.
+
 toml-jai's examples (run by its `tests.jai`) found three more, also fixed:
 
 - integer and type tags on tagged unions (`4,, a: u8;`, `u16,, a: s8;`);

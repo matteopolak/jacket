@@ -1259,7 +1259,14 @@ impl Compiler {
             )
         };
         // `.FLAG & x.flags` too: the member takes the flags type, not an expected `int`.
-        let bitwise = matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor);
+        // An expected enum type already names the member (`.A & ~.B` as a flags argument).
+        let bitwise = matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor)
+            && !lhs_expected.is_some_and(|t| {
+                matches!(
+                    self.types.kind(self.types.repr_struct(t)),
+                    TypeKind::Enum(_)
+                )
+            });
         let mut lhs = if ((is_cmp
             && (matches!(a.kind, E::InferredMember(_)) || (is_xx(a) && !is_xx(b))))
             || (bitwise && matches!(a.kind, E::InferredMember(_))))

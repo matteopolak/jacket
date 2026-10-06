@@ -46,7 +46,7 @@ check_options :: () -> bool {
     set_build_options(back, w);
     anchored := get_build_options(w).import_path;
     assert(anchored.count == 1, "compiler.5: one import path");
-    assert(ends_with(anchored[0], "tests/stdlib/mods_dir"), "compiler.5: anchored at this file's directory");
+    assert(anchored[0] == tprint("%mods_dir", path_strip_filename(#file)), "compiler.5: anchored at this file's directory");
 
     // compiler.6: set_build_options_dc updates the stored copy.
     set_build_options_dc(.{ do_output = false, output_path = "elsewhere" }, w);

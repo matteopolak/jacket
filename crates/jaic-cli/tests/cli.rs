@@ -425,3 +425,50 @@ fn compile_time_print_precedes_program_output() {
         "compile time\nruntime\n"
     );
 }
+
+/// `jaic run` and `jaic check` only check workspaces: one asking for an executable compiles
+/// and writes nothing. (`jaic build` writes it: `arithmetic_overflow_checks` in native.rs.)
+// rules: ws.15
+#[test]
+fn run_and_check_write_no_workspace_output() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-workspace-no-output");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("meta.jai");
+    std::fs::write(
+        &source,
+        r##"#import "Basic";
+#import "Compiler";
+#run {
+    set_build_options_dc(.{do_output = false});
+    w := compiler_create_workspace("target");
+    options := get_build_options(w);
+    options.output_type = .EXECUTABLE;
+    options.output_executable_name = "target-prog";
+    options.output_path = ".";
+    set_build_options(options, w);
+    add_build_string("#import \"Basic\";\nmain :: () { print(\"unused\\n\"); }\n", w);
+}
+"##,
+    )
+    .unwrap();
+    for command in ["run", "check"] {
+        let output = Command::new(JAIC)
+            .arg(command)
+            .arg(&source)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{command}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let written: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .filter(|name| name.to_string_lossy().starts_with("target-prog"))
+            .collect();
+        assert!(written.is_empty(), "{command} wrote {written:?}");
+    }
+}

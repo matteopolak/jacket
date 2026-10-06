@@ -2,7 +2,7 @@
 // directives across two files and conditional loads.
 #load "second.jai";
 
-#if OS == .MACOS || OS == .LINUX || OS == .WINDOWS {
+#if OS == .MACOS || OS == .LINUX || OS == .WINDOWS || OS == .WASM {
     #load "context_part.jai";
     LOADED_PART :: true;
 } else {

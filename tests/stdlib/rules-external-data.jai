@@ -13,7 +13,8 @@
     default_named :: () -> *void {
         return __stdoutp;
     }
-} else {
+} else #if OS != .WASM {
+    // The browser engine has no C library whose variables it could reach.
     c_runtime :: #system_library "libc";
     stdout: *void #elsewhere c_runtime;
     renamed_out: *void #elsewhere c_runtime "stdout";
@@ -26,10 +27,12 @@
 __runtime_info: Runtime_Info #elsewhere;
 
 main :: () {
-    // extdata.1: the variable has no initializer; its value is the library's.
-    assert(default_named() != null, "default-named foreign variable is null");
-    assert(renamed_out != null, "renamed foreign variable is null");
-    assert(renamed_out == default_named(), "both names must reach the same symbol");
+    #if OS != .WASM {
+        // extdata.1: the variable has no initializer; its value is the library's.
+        assert(default_named() != null, "default-named foreign variable is null");
+        assert(renamed_out != null, "renamed foreign variable is null");
+        assert(renamed_out == default_named(), "both names must reach the same symbol");
+    }
 
     info := __runtime_info;
     assert(info.type_table.count > 0, "runtime info has no type table");
