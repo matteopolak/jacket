@@ -1,8 +1,10 @@
 //! Standard JSON parsing belongs at this portable boundary, not in source analysis.
 use crate::{
-    CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentSymbol,
-    DocumentUri, Error, Hover, Limits, Location, Position, SemanticToken, SemanticTokenKind,
-    Session, SymbolKind, TOKEN_MODIFIERS, TOKEN_TYPES, TextChange,
+    COMMANDS, CodeAction, CodeLens, Command, CompletionKind, CompletionList, Diagnostic,
+    DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri, Error, Expansion,
+    FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, Position, Range,
+    SemanticToken, SemanticTokenKind, Session, SignatureHelp, SymbolInformation, SymbolKind,
+    TOKEN_MODIFIERS, TOKEN_TYPES, TextChange,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -94,6 +96,45 @@ struct ChangeParams {
 struct PositionParams {
     text_document: DocumentIdentifier,
     position: Position,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RangeParams {
+    text_document: DocumentIdentifier,
+    range: Range,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReferenceContext {
+    include_declaration: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReferenceParams {
+    text_document: DocumentIdentifier,
+    position: Position,
+    context: Option<ReferenceContext>,
+}
+
+#[derive(Deserialize)]
+struct WorkspaceSymbolParams {
+    query: String,
+}
+
+#[derive(Deserialize)]
+struct CommandTarget {
+    uri: String,
+    position: Position,
+}
+
+#[derive(Deserialize)]
+struct CommandParams {
+    command: String,
+    #[serde(default)]
+    arguments: Vec<CommandTarget>,
 }
 
 #[derive(Deserialize)]
@@ -277,7 +318,20 @@ impl JsonSession {
                         "triggerCharacters": [".", "#", "\"", "/"],
                     },
                     "definitionProvider": true,
+                    "typeDefinitionProvider": true,
+                    "referencesProvider": true,
+                    "documentHighlightProvider": true,
                     "documentSymbolProvider": true,
+                    "workspaceSymbolProvider": true,
+                    "foldingRangeProvider": true,
+                    "inlayHintProvider": true,
+                    "signatureHelpProvider": {
+                        "triggerCharacters": ["(", ","],
+                        "retriggerCharacters": [","],
+                    },
+                    "codeActionProvider": { "codeActionKinds": ["refactor.inline"] },
+                    "codeLensProvider": { "resolveProvider": false },
+                    "executeCommandProvider": { "commands": COMMANDS },
                     "semanticTokensProvider": {
                         "legend": {
                             "tokenTypes": TOKEN_TYPES,
@@ -292,6 +346,8 @@ impl JsonSession {
                             "typeInference": false,
                             "filesystemReads": false,
                             "moduleSearch": false,
+                            // `jai/expansion` and `jai-expansion:` documents.
+                            "expansions": true,
                         },
                     },
                 },
@@ -363,13 +419,144 @@ impl JsonSession {
                             .collect(),
                     )
                 }
+                "textDocument/typeDefinition" => {
+                    let p: PositionParams = decode(params)?;
+                    locations_wire(
+                        &self
+                            .session
+                            .type_definition(&uri(&p.text_document.uri)?, p.position)
+                            .map_err(domain)?,
+                    )
+                }
+                "textDocument/references" => {
+                    let p: ReferenceParams = decode(params)?;
+                    let declaration = p.context.is_none_or(|c| c.include_declaration);
+                    locations_wire(
+                        &self
+                            .session
+                            .references(&uri(&p.text_document.uri)?, p.position, declaration)
+                            .map_err(domain)?,
+                    )
+                }
+                "textDocument/documentHighlight" => {
+                    let p: PositionParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .document_highlights(&uri(&p.text_document.uri)?, p.position)
+                            .map_err(domain)?
+                            .into_iter()
+                            .map(|range| json!({ "range": range, "kind": 1 }))
+                            .collect(),
+                    )
+                }
+                "workspace/symbol" => {
+                    let p: WorkspaceSymbolParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .workspace_symbols(&p.query)
+                            .iter()
+                            .map(symbol_information_wire)
+                            .collect(),
+                    )
+                }
+                "textDocument/foldingRange" => {
+                    let p: DocumentParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .folding_ranges(&uri(&p.text_document.uri)?)
+                            .map_err(domain)?
+                            .iter()
+                            .map(folding_wire)
+                            .collect(),
+                    )
+                }
+                "textDocument/inlayHint" => {
+                    let p: RangeParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .inlay_hints(&uri(&p.text_document.uri)?, p.range)
+                            .map_err(domain)?
+                            .iter()
+                            .map(inlay_wire)
+                            .collect(),
+                    )
+                }
+                "textDocument/signatureHelp" => {
+                    let p: PositionParams = decode(params)?;
+                    self.session
+                        .signature_help(&uri(&p.text_document.uri)?, p.position)
+                        .map_err(domain)?
+                        .as_ref()
+                        .map_or(Value::Null, signature_wire)
+                }
+                "textDocument/codeAction" => {
+                    let p: RangeParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .code_actions(&uri(&p.text_document.uri)?, p.range)
+                            .map_err(domain)?
+                            .iter()
+                            .map(code_action_wire)
+                            .collect(),
+                    )
+                }
+                "textDocument/codeLens" => {
+                    let p: DocumentParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .code_lenses(&uri(&p.text_document.uri)?)
+                            .map_err(domain)?
+                            .iter()
+                            .map(code_lens_wire)
+                            .collect(),
+                    )
+                }
+                "workspace/executeCommand" => {
+                    let p: CommandParams = decode(params)?;
+                    let Some(target) = p.arguments.first() else {
+                        return Err((
+                            -32602,
+                            "The command needs a {uri, position} argument".into(),
+                        ));
+                    };
+                    let document = uri(&target.uri)?;
+                    match p.command.as_str() {
+                        "jai.showExpansion" => self
+                            .session
+                            .expansion(&document, target.position)
+                            .map_err(domain)?
+                            .as_ref()
+                            .map_or(Value::Null, expansion_wire),
+                        "jai.showPolymorphs" => {
+                            json!(self.session.polymorphs(&document, target.position))
+                        }
+                        _ => return Err((-32602, "Unknown command".into())),
+                    }
+                }
+                // Non-standard: the generated code of the `#insert`, `#run`, `#if` or macro
+                // call at a position, as a read-only `jai-expansion:` document.
+                "jai/expansion" => {
+                    let p: PositionParams = decode(params)?;
+                    self.session
+                        .expansion(&uri(&p.text_document.uri)?, p.position)
+                        .map_err(domain)?
+                        .as_ref()
+                        .map_or(Value::Null, expansion_wire)
+                }
                 // Non-standard: the text of a definition's file the client has not opened
-                // (a module or stdlib file), so a browser editor can show it read-only.
+                // (a module or stdlib file), so a browser editor can show it read-only; or of
+                // a `jai-expansion:` document.
                 "jai/source" => {
                     let p: DocumentIdentifier = decode(params)?;
-                    self.session
-                        .source(&uri(&p.uri)?)
-                        .map_or(Value::Null, Value::String)
+                    if p.uri.starts_with(crate::features::EXPANSION_SCHEME) {
+                        self.session
+                            .expansion_source(&p.uri)
+                            .map_or(Value::Null, Value::String)
+                    } else {
+                        self.session
+                            .source(&uri(&p.uri)?)
+                            .map_or(Value::Null, Value::String)
+                    }
                 }
                 _ => return Err((-32601, "Method not supported".into())),
             };
@@ -482,6 +669,7 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticCode::Parser => "jai-parser",
         DiagnosticCode::Source => "jai-source",
         DiagnosticCode::Limit => "jai-limit",
+        DiagnosticCode::Format => "jai-format",
     };
     json!({
         "range": diagnostic.range,
@@ -493,17 +681,7 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
 }
 
 fn symbol_wire(symbol: &DocumentSymbol) -> Value {
-    let kind = match symbol.kind {
-        SymbolKind::Namespace => 2,
-        SymbolKind::TypeAlias => 5,
-        SymbolKind::Property => 7,
-        SymbolKind::Enum => 10,
-        SymbolKind::Function => 12,
-        SymbolKind::Variable => 13,
-        SymbolKind::Constant => 14,
-        SymbolKind::EnumMember => 22,
-        SymbolKind::Struct => 23,
-    };
+    let kind = symbol_kind_wire(symbol.kind);
     let mut value = json!({
         "name": symbol.name,
         "detail": symbol.detail,
@@ -519,6 +697,120 @@ fn symbol_wire(symbol: &DocumentSymbol) -> Value {
 
 fn location_wire(location: &Location) -> Value {
     json!({ "uri": location.uri, "range": location.range })
+}
+
+fn locations_wire(locations: &[Location]) -> Value {
+    Value::Array(locations.iter().map(location_wire).collect())
+}
+
+fn symbol_kind_wire(kind: SymbolKind) -> u32 {
+    match kind {
+        SymbolKind::Namespace => 2,
+        SymbolKind::TypeAlias => 5,
+        SymbolKind::Property => 7,
+        SymbolKind::Enum => 10,
+        SymbolKind::Function => 12,
+        SymbolKind::Variable => 13,
+        SymbolKind::Constant => 14,
+        SymbolKind::EnumMember => 22,
+        SymbolKind::Struct => 23,
+    }
+}
+
+fn symbol_information_wire(symbol: &SymbolInformation) -> Value {
+    let mut value = json!({
+        "name": symbol.name,
+        "kind": symbol_kind_wire(symbol.kind),
+        "location": location_wire(&symbol.location),
+    });
+    if let Some(container) = &symbol.container {
+        value["containerName"] = json!(container);
+    }
+    value
+}
+
+fn folding_wire(range: &FoldingRange) -> Value {
+    let mut value = json!({ "startLine": range.start_line, "endLine": range.end_line });
+    if range.imports {
+        value["kind"] = json!("imports");
+    }
+    value
+}
+
+fn inlay_wire(hint: &InlayHint) -> Value {
+    let mut value = json!({
+        "position": hint.position,
+        "label": hint.label,
+        "paddingLeft": hint.padding_left,
+        "paddingRight": hint.padding_right,
+    });
+    if let Some(kind) = hint.kind {
+        value["kind"] = json!(match kind {
+            InlayHintKind::Type => 1,
+            InlayHintKind::Parameter => 2,
+        });
+    }
+    if let Some(tooltip) = &hint.tooltip {
+        value["tooltip"] = json!(tooltip);
+    }
+    value
+}
+
+fn signature_wire(help: &SignatureHelp) -> Value {
+    let signatures: Vec<Value> = help
+        .signatures
+        .iter()
+        .map(|s| {
+            let parameters: Vec<Value> =
+                s.parameters.iter().map(|p| json!({ "label": p })).collect();
+            json!({ "label": s.label, "parameters": parameters })
+        })
+        .collect();
+    json!({
+        "signatures": signatures,
+        "activeSignature": help.active_signature,
+        "activeParameter": help.active_parameter,
+    })
+}
+
+fn command_wire(command: &Command) -> Value {
+    let arguments: Vec<Value> = command
+        .target
+        .iter()
+        .map(|(uri, position)| json!({ "uri": uri, "position": position }))
+        .collect();
+    json!({ "title": command.title, "command": command.command, "arguments": arguments })
+}
+
+fn code_action_wire(action: &CodeAction) -> Value {
+    let mut value = json!({ "title": action.title });
+    if let Some(kind) = action.kind {
+        value["kind"] = json!(kind);
+    }
+    if let Some((uri, edits)) = &action.edit {
+        let edits: Vec<Value> = edits
+            .iter()
+            .map(|e| json!({ "range": e.range, "newText": e.new_text }))
+            .collect();
+        value["edit"] = json!({ "changes": { uri.clone(): edits } });
+    }
+    if let Some(command) = &action.command {
+        value["command"] = command_wire(command);
+    }
+    value
+}
+
+fn code_lens_wire(lens: &CodeLens) -> Value {
+    json!({ "range": lens.range, "command": command_wire(&lens.command) })
+}
+
+fn expansion_wire(expansion: &Expansion) -> Value {
+    json!({
+        "uri": expansion.uri,
+        "kind": expansion.kind,
+        "text": expansion.text,
+        "source": location_wire(&expansion.source),
+    })
 }
 
 fn hover_wire(hover: &Hover) -> Value {
@@ -571,6 +863,11 @@ fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
             SemanticTokenKind::Parameter => 7,
             SemanticTokenKind::Macro => 8,
             SemanticTokenKind::Operator => 9,
+            SemanticTokenKind::Namespace => 10,
+            SemanticTokenKind::TypeParameter => 11,
+            SemanticTokenKind::EnumMember => 12,
+            SemanticTokenKind::Decorator => 13,
+            SemanticTokenKind::FormatSpecifier => 14,
         };
         let line_delta = token.position.line - previous.line;
         data.extend([
@@ -582,7 +879,9 @@ fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
             },
             token.length,
             kind,
-            u32::from(token.declaration) | (u32::from(token.readonly) << 1),
+            u32::from(token.declaration)
+                | (u32::from(token.readonly) << 1)
+                | (u32::from(token.expand) << 2),
         ]);
         previous = token.position;
     }

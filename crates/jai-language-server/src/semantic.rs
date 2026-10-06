@@ -62,7 +62,7 @@ pub struct Analysis {
 }
 
 impl Analysis {
-    fn file(&self, path: &Path) -> Option<FileId> {
+    pub fn file(&self, path: &Path) -> Option<FileId> {
         let want = self.compiler.fs.canonical(path);
         (0..self.compiler.sources.len() as u32)
             .map(FileId)
@@ -72,6 +72,17 @@ impl Analysis {
                     .canonical(Path::new(&self.compiler.sources.get(f).path))
                     == want
             })
+    }
+
+    /// A span of any compiled file as (path, text, start, end).
+    pub fn location(&self, span: jaic::source::Span) -> (String, Rc<str>, usize, usize) {
+        let source = self.compiler.sources.get(span.file);
+        (
+            source.path.clone(),
+            source.text.clone(),
+            span.start as usize,
+            span.end as usize,
+        )
     }
 
     pub fn hover(&mut self, path: &Path, offset: usize) -> Option<(usize, usize, String)> {
@@ -172,13 +183,15 @@ fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -
         fs,
         &dir.to_string_lossy(),
     )));
-    compiler.interp.host = Box::new(SharedHost(host));
+    compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
     let mut prefix = env.fs.canonical(&dir).to_string_lossy().into_owned();
     if !prefix.ends_with('/') {
         prefix.push('/');
     }
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![prefix])));
+    let mut facts = IdeFacts::new(vec![prefix]);
+    facts.output = Some(host);
+    compiler.ide = Some(Box::new(facts));
     let _ = compiler.compile_program(root);
     compiler.ide_check_all();
     compiler

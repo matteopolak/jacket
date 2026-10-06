@@ -9,27 +9,28 @@ use crate::{
 };
 use jaic::intern::Sym;
 use jaic::sema::ide::{IdeKind, IdeName};
+use jaic::sema::ide_meta::IdeClass;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-struct Document {
-    version: i32,
-    text: String,
-    index: LineIndex,
+pub(crate) struct Document {
+    pub(crate) version: i32,
+    pub(crate) text: String,
+    pub(crate) index: LineIndex,
 }
 
 pub struct Session {
-    limits: Limits,
-    documents: BTreeMap<DocumentUri, Document>,
-    analyses: BTreeMap<DocumentUri, Analysis>,
+    pub(crate) limits: Limits,
+    pub(crate) documents: BTreeMap<DocumentUri, Document>,
+    pub(crate) analyses: BTreeMap<DocumentUri, Analysis>,
     /// Last analysis of each document that parsed: completion keeps offering its names while
     /// the text being typed does not parse.
-    parsed: BTreeMap<DocumentUri, Analysis>,
+    pub(crate) parsed: BTreeMap<DocumentUri, Analysis>,
     /// Type-checked answers (absent: syntax only).
-    environment: Option<Environment>,
-    semantic: RefCell<semantic::Cache>,
+    pub(crate) environment: Option<Environment>,
+    pub(crate) semantic: RefCell<semantic::Cache>,
 }
 
 impl Session {
@@ -196,7 +197,7 @@ impl Session {
         Ok(())
     }
 
-    fn document(&self, uri: &DocumentUri) -> Result<&Document, Error> {
+    pub(crate) fn document(&self, uri: &DocumentUri) -> Result<&Document, Error> {
         self.documents.get(uri).ok_or(Error::MissingDocument)
     }
 
@@ -236,7 +237,7 @@ impl Session {
 
     /// The document a check of `uri` starts from: an open document that `#load`s it (directly or
     /// not) and is loaded by none, else `uri` itself.
-    fn root(&self, uri: &DocumentUri) -> DocumentUri {
+    pub(crate) fn root(&self, uri: &DocumentUri) -> DocumentUri {
         let loaded: BTreeSet<&DocumentUri> = self
             .analyses
             .values()
@@ -253,7 +254,7 @@ impl Session {
     }
 
     /// Run `query` on the type-checked program containing `uri`, its text replaced by `text`.
-    fn with_semantic<T>(
+    pub(crate) fn with_semantic<T>(
         &self,
         uri: &DocumentUri,
         text: &str,
@@ -278,7 +279,7 @@ impl Session {
         query(analysis, Path::new(uri.path()))
     }
 
-    fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
+    pub(crate) fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
         let text = &self.documents[uri].text;
         let span = row.location;
         // Rows of an older parse may point past the current text.
@@ -320,7 +321,7 @@ impl Session {
             .collect()
     }
 
-    fn reachable(&self, uri: &DocumentUri) -> Vec<&DocumentUri> {
+    pub(crate) fn reachable(&self, uri: &DocumentUri) -> Vec<&DocumentUri> {
         let mut pending = vec![uri.clone()];
         let mut seen = BTreeSet::new();
         let mut out = vec![];
@@ -336,7 +337,11 @@ impl Session {
         out
     }
 
-    fn word(&self, uri: &DocumentUri, position: Position) -> Result<Option<(usize, Token)>, Error> {
+    pub(crate) fn word(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Option<(usize, Token)>, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
         Ok(self.analyses[uri]
@@ -493,11 +498,35 @@ impl Session {
 
     pub fn hover(&self, uri: &DocumentUri, position: Position) -> Result<Option<Hover>, Error> {
         let doc = self.document(uri)?;
-        let Some((_, token)) = self.word(uri, position)? else {
-            return Ok(None);
-        };
         let byte = doc.index.byte(&doc.text, position)?;
+        let found = |(start, end, value): (usize, usize, String)| -> Result<Option<Hover>, Error> {
+            Ok(Some(Hover {
+                contents: MarkupContent {
+                    value,
+                },
+                range: doc.index.range(
+                    &doc.text,
+                    Span {
+                        start,
+                        end,
+                    },
+                )?,
+            }))
+        };
+        if let Some(hover) = self.format_hover(uri, byte) {
+            return found(hover);
+        }
+        if let Some(hover) = self.directive_hover(uri, byte) {
+            return found(hover);
+        }
+        let Some((_, token)) = self.word(uri, position)? else {
+            return match self.expansion_hover(uri, byte) {
+                Some(hover) => found(hover),
+                None => Ok(None),
+            };
+        };
         if let Some((start, end, value)) = self.semantic_hover(uri, &doc.text, byte) {
+            let value = self.with_macro_expansion(uri, start, value);
             return Ok(Some(Hover {
                 contents: MarkupContent {
                     value,
@@ -533,7 +562,7 @@ impl Session {
 
     /// Hover from the type checker: the text as typed if it parses, else with the cursor's line
     /// blanked (offsets elsewhere stay the same).
-    fn semantic_hover(
+    pub(crate) fn semantic_hover(
         &self,
         uri: &DocumentUri,
         text: &str,
@@ -838,35 +867,151 @@ impl Session {
         })
     }
 
+    /// Tokens classified by the syntax layer, refined by the type checker when the session has
+    /// an environment: uses of types, procedures, macros, modules, constants and enum members,
+    /// `$T` parameters, notes, and the `%` directives of format strings.
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
         let doc = self.document(uri)?;
         let text = doc.text.as_str();
         let analysis = &self.analyses[uri];
-        let mut output = vec![];
-        for token in &analysis.tokens {
+        let classes: BTreeMap<usize, (usize, IdeClass)> = if self.environment.is_some() {
+            self.identifier_classes(uri)
+                .into_iter()
+                .map(|(span, class)| (span.start, (span.end, class)))
+                .collect()
+        } else {
+            BTreeMap::new()
+        };
+        // `$T` / `$$T`: the name is a type parameter throughout its procedure.
+        let mut poly: Vec<(&str, Span)> = Vec::new();
+        for pair in analysis.tokens.windows(2) {
+            let (sigil, name) = (pair[0], pair[1]);
+            if matches!(sigil.spelling(text), "$" | "$$")
+                && name.kind == TokenKind::Ident
+                && sigil.span.end == name.span.start
+                && let Some(row) = analysis
+                    .rows
+                    .iter()
+                    .filter(|r| {
+                        r.kind == SymbolKind::Function && contains(r.location, name.span.start)
+                    })
+                    .min_by_key(|r| r.location.end - r.location.start)
+            {
+                poly.push((name.spelling(text), row.location));
+            }
+        }
+        let specs: Vec<Span> = analysis
+            .format_calls
+            .iter()
+            .flat_map(|c| c.specs.iter().map(|s| s.span))
+            .collect();
+        // (span, kind, declaration, readonly, expand)
+        let mut pieces: Vec<(Span, SemanticTokenKind, bool, bool, bool)> = Vec::new();
+        for (i, token) in analysis.tokens.iter().enumerate() {
             let row = analysis.rows.iter().find(|row| row.selection == token.span);
-            let ty = match token.kind {
-                TokenKind::Keyword => SemanticTokenKind::Keyword,
-                TokenKind::String => SemanticTokenKind::String,
-                TokenKind::Number => SemanticTokenKind::Number,
-                TokenKind::Ident => match row.map(|row| row.kind) {
-                    Some(SymbolKind::Function) => SemanticTokenKind::Function,
-                    Some(SymbolKind::Struct | SymbolKind::Enum | SymbolKind::TypeAlias) => {
-                        SemanticTokenKind::Type
-                    }
-                    Some(SymbolKind::Property) => SemanticTokenKind::Property,
-                    Some(SymbolKind::Variable)
-                        if row.is_some_and(|row| row.parent.is_some() && row.local) =>
+            let declaration = row.is_some();
+            let readonly = row.is_some_and(|row| row.readonly);
+            let piece = |kind| (token.span, kind, declaration, readonly, false);
+            match token.kind {
+                TokenKind::String => {
+                    let mut at = token.span.start;
+                    for spec in specs
+                        .iter()
+                        .filter(|s| token.span.start <= s.start && s.end <= token.span.end)
                     {
-                        SemanticTokenKind::Parameter
+                        if spec.start > at {
+                            pieces.push((
+                                Span::new(at, spec.start),
+                                SemanticTokenKind::String,
+                                false,
+                                false,
+                                false,
+                            ));
+                        }
+                        pieces.push((
+                            *spec,
+                            SemanticTokenKind::FormatSpecifier,
+                            false,
+                            false,
+                            false,
+                        ));
+                        at = spec.end;
                     }
-                    _ => SemanticTokenKind::Variable,
-                },
-                TokenKind::Directive => SemanticTokenKind::Macro,
-                TokenKind::Dot | TokenKind::Punctuation => SemanticTokenKind::Operator,
-            };
-            let first = doc.index.position(text, token.span.start)?.line as usize;
-            let last = doc.index.position(text, token.span.end)?.line as usize;
+                    if at < token.span.end {
+                        pieces.push((
+                            Span::new(at, token.span.end),
+                            SemanticTokenKind::String,
+                            false,
+                            false,
+                            false,
+                        ));
+                    }
+                }
+                TokenKind::Keyword => pieces.push(piece(SemanticTokenKind::Keyword)),
+                TokenKind::Number => pieces.push(piece(SemanticTokenKind::Number)),
+                TokenKind::Directive if token.spelling(text).starts_with('@') => {
+                    pieces.push(piece(SemanticTokenKind::Decorator))
+                }
+                TokenKind::Directive => pieces.push(piece(SemanticTokenKind::Macro)),
+                TokenKind::Dot | TokenKind::Punctuation => {
+                    pieces.push(piece(SemanticTokenKind::Operator))
+                }
+                TokenKind::Ident => {
+                    let spelling = token.spelling(text);
+                    if poly.iter().any(|(name, scope)| {
+                        *name == spelling && contains(*scope, token.span.start)
+                    }) {
+                        let sigil = i > 0
+                            && matches!(analysis.tokens[i - 1].spelling(text), "$" | "$$")
+                            && analysis.tokens[i - 1].span.end == token.span.start;
+                        pieces.push((
+                            token.span,
+                            SemanticTokenKind::TypeParameter,
+                            sigil,
+                            true,
+                            false,
+                        ));
+                        continue;
+                    }
+                    let base = match row.map(|row| row.kind) {
+                        Some(SymbolKind::Function) => SemanticTokenKind::Function,
+                        Some(SymbolKind::Struct | SymbolKind::Enum | SymbolKind::TypeAlias) => {
+                            SemanticTokenKind::Type
+                        }
+                        Some(SymbolKind::Property) => SemanticTokenKind::Property,
+                        Some(SymbolKind::Namespace) => SemanticTokenKind::Namespace,
+                        Some(SymbolKind::EnumMember) => SemanticTokenKind::EnumMember,
+                        Some(SymbolKind::Variable)
+                            if row.is_some_and(|row| row.parent.is_some() && row.local) =>
+                        {
+                            SemanticTokenKind::Parameter
+                        }
+                        _ => SemanticTokenKind::Variable,
+                    };
+                    let (kind, constant, expand) = match classes.get(&token.span.start) {
+                        Some(&(end, class)) if end == token.span.end => match class {
+                            IdeClass::Variable if base == SemanticTokenKind::Parameter => {
+                                (base, false, false)
+                            }
+                            IdeClass::Variable => (SemanticTokenKind::Variable, false, false),
+                            IdeClass::Constant => (SemanticTokenKind::Variable, true, false),
+                            IdeClass::Function => (SemanticTokenKind::Function, false, false),
+                            IdeClass::Macro => (SemanticTokenKind::Function, false, true),
+                            IdeClass::Type => (SemanticTokenKind::Type, false, false),
+                            IdeClass::Module => (SemanticTokenKind::Namespace, false, false),
+                            IdeClass::Field => (SemanticTokenKind::Property, false, false),
+                            IdeClass::EnumMember => (SemanticTokenKind::EnumMember, true, false),
+                        },
+                        _ => (base, false, false),
+                    };
+                    pieces.push((token.span, kind, declaration, readonly || constant, expand));
+                }
+            }
+        }
+        let mut output = vec![];
+        for (span, kind, declaration, readonly, expand) in pieces {
+            let first = doc.index.position(text, span.start)?.line as usize;
+            let last = doc.index.position(text, span.end)?.line as usize;
             for (_, (start, end)) in doc
                 .index
                 .lines()
@@ -874,8 +1019,8 @@ impl Session {
                 .skip(first)
                 .take(last - first + 1)
             {
-                let start = start.max(token.span.start);
-                let end = end.min(token.span.end);
+                let start = start.max(span.start);
+                let end = end.min(span.end);
                 if start >= end {
                     continue;
                 }
@@ -887,9 +1032,10 @@ impl Session {
                 output.push(SemanticToken {
                     position,
                     length,
-                    kind: ty,
-                    declaration: row.is_some(),
-                    readonly: row.is_some_and(|row| row.readonly),
+                    kind,
+                    declaration,
+                    readonly,
+                    expand,
                 });
             }
         }
@@ -901,7 +1047,7 @@ impl Session {
 /// the line at `first` (the cursor's, when completing), then each reported line, or the one
 /// before it when that is empty (a missing `;` is reported on the next line). Byte offsets are
 /// kept.
-fn repair(text: &str, first: Option<usize>) -> Option<String> {
+pub(crate) fn repair(text: &str, first: Option<usize>) -> Option<String> {
     let mut text = text.to_owned();
     for attempt in 0..6 {
         let error = match semantic::parse_error(&text) {
@@ -940,6 +1086,6 @@ fn blank_line(text: &str, byte: usize) -> String {
     )
 }
 
-fn contains(span: Span, byte: usize) -> bool {
+pub(crate) fn contains(span: Span, byte: usize) -> bool {
     span.start <= byte && byte <= span.end
 }

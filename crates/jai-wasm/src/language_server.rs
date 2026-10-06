@@ -259,4 +259,64 @@ mod tests {
         assert!(completion.contains("\"label\":\"count\""), "{completion}");
         assert!(completion.contains("\"label\":\"print\""), "{completion}");
     }
+
+    #[test]
+    fn expansions_inlay_hints_and_format_strings_work_in_the_bridge() {
+        let mut bridge = Bridge::default();
+        send(
+            &mut bridge,
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+        );
+        let text = concat!(
+            "#import \"Basic\";\n",
+            "LIMIT :: #run 6 * 7;\n",
+            "main :: () {\n",
+            "    count := 3;\n",
+            "    #insert \"twice := count * 2;\";\n",
+            "    print(\"% %\\n\", count);\n",
+            "}\n",
+        );
+        let escaped = text
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n");
+        let open = format!(
+            concat!(
+                r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"#,
+                r#""uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"#,
+                r#""text":"{escaped}"}}}}}}"#,
+            ),
+            escaped = escaped,
+        );
+        let published = send(&mut bridge, &open);
+        assert!(published.contains("jai-format"), "{published}");
+        let hints = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":2,"method":"textDocument/inlayHint","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""range":{"start":{"line":0,"character":0},"end":{"line":7,"character":0}}}}"#,
+            ),
+        );
+        assert!(hints.contains("\"label\":\": s64\""), "{hints}");
+        let expansion = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":3,"method":"jai/expansion","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":4,"character":6}}}"#,
+            ),
+        );
+        assert!(expansion.contains("twice := count * 2;"), "{expansion}");
+        let hover = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":4,"method":"textDocument/hover","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":5,"character":12}}}"#,
+            ),
+        );
+        assert!(hover.contains("count: s64"), "{hover}");
+        assert!(hover.contains("missing argument 2"), "{hover}");
+    }
 }

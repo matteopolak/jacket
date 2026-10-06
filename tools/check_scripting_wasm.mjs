@@ -29,3 +29,42 @@ const missing = engine.play({ "main.jai": "main :: () -> int { return missing; }
 assert.equal(missing.exitCode, null);
 assert(missing.diagnostics.some(item => /missing/.test(item.message)), "Unknown names are reported as diagnostics");
 console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repeated runs and diagnostics)`);
+
+// The language server in the same module: metaprogram expansions, inlay hints, format strings.
+assert(engine.lsp, "the module exports the language server");
+let nextId = 0;
+const request = (method, params) => {
+  const id = ++nextId;
+  const reply = engine.lsp({ jsonrpc: "2.0", id, method, params }).find(message => message.id === id);
+  assert(reply && !reply.error, `${method}: ${JSON.stringify(reply)}`);
+  return reply.result;
+};
+const legend = request("initialize", { capabilities: {} }).capabilities.semanticTokensProvider.legend;
+assert(legend.tokenTypes.includes("formatSpecifier") && legend.tokenModifiers.includes("macro"));
+const uri = "file:///jai-script/main.jai";
+const source = [
+  '#import "Basic";',
+  "LIMIT :: #run 6 * 7;",
+  "main :: () {",
+  "    count := 3;",
+  '    #insert "twice := count * 2;";',
+  '    print("% and %\\n", count);',
+  "}",
+  "",
+].join("\n");
+const published = engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri, languageId: "jai", version: 1, text: source } } });
+assert(published.some(m => m.params?.diagnostics?.some(d => d.code === "jai-format")), "format argument mismatch is diagnosed");
+const textDocument = { uri };
+const hints = request("textDocument/inlayHint", { textDocument, range: { start: { line: 0, character: 0 }, end: { line: 7, character: 0 } } });
+assert(hints.some(h => h.label === ": s64" && h.kind === 1), JSON.stringify(hints));
+const expansion = request("jai/expansion", { textDocument, position: { line: 4, character: 6 } });
+assert(expansion.uri.startsWith("jai-expansion:") && expansion.text.includes("twice := count * 2;"), JSON.stringify(expansion));
+assert.equal(request("jai/source", { uri: expansion.uri }), expansion.text);
+const actions = request("textDocument/codeAction", { textDocument, range: { start: { line: 4, character: 6 }, end: { line: 4, character: 6 } }, context: { diagnostics: [] } });
+assert(actions.some(a => a.title === "Inline #insert" && a.edit.changes[uri][0].newText === "twice := count * 2;"), JSON.stringify(actions));
+const hover = request("textDocument/hover", { textDocument, position: { line: 5, character: 12 } });
+assert(hover.contents.value.includes("count: s64") && hover.contents.value.includes("missing argument 2"), JSON.stringify(hover));
+const tokens = request("textDocument/semanticTokens/full", { textDocument }).data;
+const kinds = new Set(); for (let i = 3; i < tokens.length; i += 5) kinds.add(legend.tokenTypes[tokens[i]]);
+assert(kinds.has("formatSpecifier"), [...kinds].join(","));
+console.log("PASS: real WebAssembly language server (expansions, inlay hints, code actions, format strings)");

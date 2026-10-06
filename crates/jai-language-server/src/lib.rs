@@ -1,6 +1,8 @@
 //! Bounded source analysis shared by native LSP and the actual WebAssembly bridge.
 mod analysis;
 mod document;
+pub(crate) mod features;
+pub(crate) mod format;
 pub mod framing;
 mod model;
 mod position;
@@ -10,8 +12,10 @@ mod session;
 
 pub use document::{DocumentUri, TextChange, VirtualSources};
 pub use model::{
-    CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    DocumentSymbol, Hover, Location, MarkupContent, SemanticToken, SemanticTokenKind, SymbolKind,
+    CodeAction, CodeLens, Command, CompletionItem, CompletionKind, CompletionList, Diagnostic,
+    DiagnosticCode, DiagnosticSeverity, DocumentSymbol, Expansion, FoldingRange, Hover, InlayHint,
+    InlayHintKind, Location, MarkupContent, SemanticToken, SemanticTokenKind, SignatureHelp,
+    SignatureInformation, SymbolInformation, SymbolKind, TextEdit,
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId};
@@ -86,6 +90,15 @@ pub const TOKEN_TYPES: &[&str] = &[
     "parameter",
     "macro",
     "operator",
+    "namespace",
+    "typeParameter",
+    "enumMember",
+    "decorator",
+    "formatSpecifier",
 ];
 
-pub const TOKEN_MODIFIERS: &[&str] = &["declaration", "readonly"];
+/// `macro` marks a procedure declared `#expand`.
+pub const TOKEN_MODIFIERS: &[&str] = &["declaration", "readonly", "macro"];
+
+/// Commands `workspace/executeCommand` runs.
+pub const COMMANDS: &[&str] = &["jai.showExpansion", "jai.showPolymorphs"];
