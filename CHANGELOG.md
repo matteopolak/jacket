@@ -110,6 +110,7 @@
 
 - Under `jaic run`, `get_path_of_running_executable` returns the executable `jaic build` would write for the program (`src/main` for `jaic run src/main.jai`) instead of `jaic`'s own path, so programs that load data relative to their executable (`../assets`) find it.
 - `jaic run` writes the executables and libraries a metaprogram's workspaces ask for, as `jaic build` does (it only interprets the top-level program instead of compiling it), so `jaic run first.jai` on a build script builds and can launch its program. `-no_workspace_output` skips them. `jaic check` still writes nothing, and now warns when a workspace asks for output, naming the `jaic build` command that writes it.
+- `jaic build`: `compare_and_swap` on `float32` and `float64` compiles (it failed with "expected an integer, found FloatValue"); the swap compares and returns the float's bits.
 - WASI builds (`jaic build -os wasm`): Wasi_Runtime provides `localtime_r`, `gmtime_r` (UTC), `gettimeofday`, `nanosleep`, `getcwd`/`chdir` (the root only), `errno` and single-threaded `pthread` mutex, condition and thread calls (starting a thread fails cleanly), so programs using Basic's calendar, sleeping, the working directory or a mutex link.
 - Remap_Context works: the first thread's context now records its type (`context_info`), which `remap_context` checks; it asserted "invalid foreign context".
 - GL on Linux: `gl_load` loads the OpenGL 1.1 procedures (`glDrawArrays`, `glBindTexture`, `glGenTextures`...), which are procedure fields there; they stayed null, so Simp crashed on its first draw.

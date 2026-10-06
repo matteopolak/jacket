@@ -1762,8 +1762,28 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             Intrinsic::CompareAndSwap => {
                 // (ptr, old, new, width_bytes) -> (success, previous); width comes from the operand type.
                 let p = ptr_arg(0)?;
-                let old = self.as_int(args[1])?;
-                let new = self.as_int(args[2])?;
+                // cmpxchg compares bits and takes only integers: a float goes through the
+                // integer of its width, and the previous value comes back as that float.
+                let float = match args[1] {
+                    BasicValueEnum::FloatValue(f) => Some(f.get_type()),
+                    _ => None,
+                };
+                let bits = |v: BasicValueEnum<'ctx>| -> R<IntValue<'ctx>> {
+                    match v {
+                        BasicValueEnum::FloatValue(f) => {
+                            let int = match f.get_type().get_bit_width() {
+                                16 => self.ctx.i16_type(),
+                                32 => self.ctx.i32_type(),
+                                64 => self.ctx.i64_type(),
+                                _ => self.ctx.i128_type(),
+                            };
+                            Ok(b.build_bit_cast(f, int, "")?.into_int_value())
+                        }
+                        other => self.as_int(other),
+                    }
+                };
+                let old = bits(args[1])?;
+                let new = bits(args[2])?;
                 let new = b.build_int_truncate_or_bit_cast(new, old.get_type(), "")?;
                 let res = b.build_cmpxchg(
                     p,
@@ -1772,7 +1792,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     AtomicOrdering::SequentiallyConsistent,
                     AtomicOrdering::SequentiallyConsistent,
                 )?;
-                let prev = b.build_extract_value(res, 0, "")?;
+                let mut prev = b.build_extract_value(res, 0, "")?;
+                if let Some(float) = float {
+                    prev = b.build_bit_cast(prev, float, "")?;
+                }
                 let ok = b.build_extract_value(res, 1, "")?.into_int_value();
                 let ok = b.build_int_z_extend(ok, self.ctx.i8_type(), "")?;
                 Ok(vec![ok.into(), prev])
