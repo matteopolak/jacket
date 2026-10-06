@@ -31,7 +31,7 @@ h(1), h(1.0)   // 1 2
 
 `#caller_location` as a default value is evaluated at the call site and gives a `Source_Code_Location` (`location_operand` in `sema/expr.rs`) {#proc.6}. `#location()`, `#file` and `#line` give the directive's own position {#proc.7}.
 
-A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3` {#proc.8}. An argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`) {#proc.9}.
+A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3` {#proc.8}. An argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`) {#proc.9}. A baked variadic `$args: ..Code` quotes each argument the same way (`quote_code_arg`), giving a constant `[] Code`; this is how Print_Vars takes its expressions.
 
 Parameters are values: a procedure that changes a struct or string parameter, or passes its address on (`advance(*s, 1)`), changes its own copy, never the caller's variable. Aggregates arrive as a pointer to the caller's value and the procedure copies them on entry (`lower_body_code` in `sema/procs.rs`) {#proc.12}.
 

@@ -25,6 +25,8 @@ These give the commented results: `$T` inferred from an argument {#poly.2}, an e
 
 Struct parameters can declare type variables inside their type: `struct (x: $T)`, `struct (x: [$N] $T)`. `instantiate_struct` matches the argument type against the pattern (`match_pattern`) and adds the bound variables to the instance key {#poly.12}.
 
+A struct parameter may be variadic: in `Holder :: struct(types: ..Type)`, `Holder(s64, string)` binds `types` to a constant `[] Type` of both arguments, and `Holder()` to an empty one. The whole list keys the instance, so `Holder(s64)` and `Holder(string)` are different types. `Tagged_Union` is declared this way. Test: `tests/stdlib/variadic-struct-parameter.jai`.
+
 `$T/Entity`, where `Entity` is a plain struct, matches only `Entity` or a struct with `Entity` as an `#as` base (`has_as_base`) {#poly.13}. A failed match lets other overloads win {#poly.14}.
 
 A parameter typed with a bare polymorphic struct (`r: *Reflector`) makes the procedure polymorphic and accepts any instance {#poly.15}. A struct holding an instance as an `#as` member also matches and keeps its own type inside the body, so its other members stay reachable {#poly.16}.

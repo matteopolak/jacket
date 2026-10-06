@@ -1244,7 +1244,10 @@ impl Compiler {
         bindings: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<ProcId> {
-        let key: Vec<Value> = bindings.iter().map(|(_, v, _)| v.clone()).collect();
+        let key: Vec<Value> = bindings
+            .iter()
+            .map(|(_, v, t)| super::instance_key_value(&self.types, v, *t))
+            .collect();
         if let Some(&inst) = self.proc(id).instances.get(&key) {
             return Ok(inst);
         }

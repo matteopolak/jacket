@@ -263,7 +263,13 @@ impl Compiler {
             // Name the arguments for the origin and add the baked ones.
             let mut named = Vec::new();
             for (i, (n, v)) in args.into_iter().enumerate() {
-                let n = n.or_else(|| lit.params.get(i).and_then(|p| p.name).map(|p| p.name));
+                let n = n.or_else(|| {
+                    lit.params
+                        .get(i)
+                        .filter(|p| !p.variadic)
+                        .and_then(|p| p.name)
+                        .map(|p| p.name)
+                });
                 named.push((n, v));
             }
             for (n, value, ty) in self.poly_structs[ps.0 as usize].baked.clone() {
@@ -274,8 +280,16 @@ impl Compiler {
         let module = self.scope(def_scope).module;
         let param_scope = self.new_scope(ScopeKind::StructParams, Some(def_scope), module, None);
         let mut values: Vec<Option<Operand>> = vec![None; lit.params.len()];
+        // `struct(types: ..Type)`: the positional arguments from the variadic parameter on
+        // become one constant `[] Type`.
+        let variadic = lit.params.iter().position(|p| p.variadic);
+        let mut pack: Vec<Operand> = Vec::new();
         let mut next = 0;
         for (n, v) in args {
+            if n.is_none() && variadic.is_some_and(|vi| next >= vi) {
+                pack.push(v);
+                continue;
+            }
             let index = match n {
                 Some(n) => lit
                     .params
@@ -329,6 +343,35 @@ impl Compiler {
                 Some(t) => self.eval_type(param_scope, t)?,
                 None => TypeId::VOID,
             };
+            if Some(i) == variadic {
+                let elem = if ty == TypeId::VOID {
+                    TypeId::TYPE
+                } else {
+                    ty
+                };
+                let mut items = std::mem::take(&mut pack);
+                if let Some(op) = values[i].take() {
+                    items.insert(0, op);
+                }
+                let count = items.len() as u64;
+                let esize = self.size_of(elem, p.span)?;
+                let mut array =
+                    value::Aggregate::zeroed(esize.saturating_mul(items.len() as u64), span)?;
+                for (k, op) in items.into_iter().enumerate() {
+                    let v = self.struct_arg_value(param_scope, op, elem, p.span)?;
+                    let v = match (v, self.types.is_float(elem)) {
+                        (Value::Int(i), true) => Value::Float(i as f64),
+                        (v, _) => v,
+                    };
+                    self.write_value(&mut array, k as u64 * esize, &v, elem, p.span)?;
+                }
+                let value = self.const_pack(elem, array, count, p.span)?;
+                let ty = self.types.array(elem, ArrayKind::View);
+                self.add_const(param_scope, pname, p.span, value.clone(), ty);
+                key.push(super::instance_key_value(&self.types, &value, ty));
+                bindings.push((pname, value, ty));
+                continue;
+            }
             let value = match values[i].take() {
                 Some(op) => self.struct_arg_value(param_scope, op, ty, p.span)?,
                 None => match &p.default {
@@ -363,7 +406,10 @@ impl Compiler {
             let baked = self.poly_structs[ps.0 as usize].baked.len();
             let params = bindings.split_off(baked);
             let modified = self.run_struct_modify(def_scope, name, block, params, span)?;
-            key = modified.iter().map(|(_, v, _)| v.clone()).collect();
+            key = modified
+                .iter()
+                .map(|(_, v, t)| super::instance_key_value(&self.types, v, *t))
+                .collect();
             bindings.extend(modified);
         }
         if let Some(&t) = self.poly_structs[ps.0 as usize].instances.get(&key) {

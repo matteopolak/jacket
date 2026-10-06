@@ -1140,34 +1140,8 @@ impl Compiler {
                 if let Some(t) = &param.ty
                     && !procs::has_poly(t)
                     && self.eval_type(def_scope, t).ok() == Some(TypeId::CODE)
-                    && !matches!(
-                        arg.op,
-                        Some(Operand::Const {
-                            value: Value::Code(_),
-                            ..
-                        })
-                    )
-                    && let Some(expr) = &arg.expr
+                    && let Some(id) = self.quote_code_arg(arg)
                 {
-                    // A name of a `Code` constant (another `$c: Code`) passes that code on.
-                    let named = match &expr.kind {
-                        ast::ExprKind::Ident(_) | ast::ExprKind::Member(..) => {
-                            match self.check_expr_no_emit(arg.scope, expr) {
-                                Ok(Operand::Const {
-                                    value: Value::Code(code),
-                                    ..
-                                }) => Some(code),
-                                _ => None,
-                            }
-                        }
-                        _ => None,
-                    };
-                    let id = match named {
-                        Some(code) => code,
-                        None => {
-                            self.add_code(Rc::new(ast::CodeBody::Expr(expr.clone())), arg.scope)
-                        }
-                    };
                     bindings.push((name, Value::Code(id), TypeId::CODE));
                     continue;
                 }
@@ -1505,6 +1479,38 @@ impl Compiler {
         Ok((v, ty))
     }
 
+    /// The code of a `Code` parameter's argument: the argument expression itself, unevaluated,
+    /// or the code a `Code` constant names (another `$c: Code` passes its code on). `None`
+    /// when the argument already is a constant `Code` value.
+    fn quote_code_arg(&mut self, arg: &CallArg) -> Option<value::CodeId> {
+        if matches!(
+            arg.op,
+            Some(Operand::Const {
+                value: Value::Code(_),
+                ..
+            })
+        ) {
+            return None;
+        }
+        let expr = arg.expr.as_ref()?;
+        let named = match &expr.kind {
+            ast::ExprKind::Ident(_) | ast::ExprKind::Member(..) => {
+                match self.check_expr_no_emit(arg.scope, expr) {
+                    Ok(Operand::Const {
+                        value: Value::Code(code),
+                        ..
+                    }) => Some(code),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        Some(match named {
+            Some(code) => code,
+            None => self.add_code(Rc::new(ast::CodeBody::Expr(expr.clone())), arg.scope),
+        })
+    }
+
     /// A baked variadic parameter given `..view`: the view must be a compile-time constant
     /// of the parameter's array type.
     fn baked_spread(
@@ -1543,6 +1549,19 @@ impl Compiler {
         let esize = self.size_of(elem, span)?;
         let mut array = value::Aggregate::zeroed(esize.saturating_mul(args.len() as u64), span)?;
         for (i, arg) in args.iter().enumerate() {
+            // `$args: ..Code` quotes each argument like a single `$c: Code` does.
+            if elem == TypeId::CODE
+                && let Some(id) = self.quote_code_arg(arg)
+            {
+                self.write_value(
+                    &mut array,
+                    i as u64 * esize,
+                    &Value::Code(id),
+                    elem,
+                    arg.span,
+                )?;
+                continue;
+            }
             let op = match (&arg.op, &arg.expr) {
                 (Some(op), _) => op.clone(),
                 (None, Some(e)) => self.eval_const(arg.scope, e, Some(elem))?,
@@ -1551,16 +1570,45 @@ impl Compiler {
             let op = self.const_value_of_operand(arg.scope, op, elem, arg.span)?;
             self.write_value(&mut array, i as u64 * esize, &op, elem, arg.span)?;
         }
+        let view = self.const_pack(elem, array, args.len() as u64, span)?;
+        Ok((view, self.types.array(elem, ArrayKind::View)))
+    }
+
+    /// A constant `[] elem` view over `count` elements laid out in `array`. Equal contents
+    /// share one read-only global, so equal argument lists key the same instance.
+    pub(super) fn const_pack(
+        &mut self,
+        elem: TypeId,
+        array: value::Aggregate,
+        count: u64,
+        span: Span,
+    ) -> Result<Value> {
         let align = self.align_of(elem, span)?;
-        let data = self.program.add_global(ir::Global {
-            name: "baked.pack".into(),
-            size: array.bytes.len().max(1) as u64,
+        let key: PackKey = (
             align,
-            init: array.bytes,
-            relocs: array.relocs,
-            read_only: true,
-            export: None,
-        });
+            array.bytes.clone(),
+            array
+                .relocs
+                .iter()
+                .map(|r| (r.offset, r.target, r.addend))
+                .collect(),
+        );
+        let data = match self.packs.get(&key) {
+            Some(&g) => g,
+            None => {
+                let g = self.program.add_global(ir::Global {
+                    name: "baked.pack".into(),
+                    size: array.bytes.len().max(1) as u64,
+                    align,
+                    init: array.bytes,
+                    relocs: array.relocs,
+                    read_only: true,
+                    export: None,
+                });
+                self.packs.insert(key, g);
+                g
+            }
+        };
         let mut view = value::Aggregate {
             bytes: vec![0; 16],
             relocs: vec![ir::Reloc {
@@ -1569,11 +1617,8 @@ impl Compiler {
                 addend: 0,
             }],
         };
-        view.bytes[..8].copy_from_slice(&(args.len() as u64).to_le_bytes());
-        Ok((
-            Value::Bytes(Rc::new(view)),
-            self.types.array(elem, ArrayKind::View),
-        ))
+        view.bytes[..8].copy_from_slice(&count.to_le_bytes());
+        Ok(Value::Bytes(Rc::new(view)))
     }
 
     /// Match a polymorphic type pattern against a concrete type, adding bindings.

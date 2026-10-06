@@ -249,6 +249,43 @@ pub struct Module {
 /// instances until the compiler hangs or overflows its stack.
 pub const MAX_INSTANCES: usize = 2000;
 
+/// Contents of a constant view's data global: alignment, bytes and relocations.
+pub type PackKey = (u64, Vec<u8>, Vec<(u64, ir::RelocTarget, i64)>);
+
+/// The form of a binding's value that keys polymorphic instances. `Value` equality looks at
+/// an aggregate's bytes only, which for a constant view (`$args: ..T`) is just its count, so
+/// the key also names the globals the view points at.
+fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> Value {
+    let view = matches!(
+        types.kind(ty),
+        crate::types::TypeKind::Array {
+            kind: crate::types::ArrayKind::View,
+            ..
+        }
+    );
+    match value {
+        Value::Bytes(agg) if view && !agg.relocs.is_empty() => {
+            let mut bytes = agg.bytes.clone();
+            for r in &agg.relocs {
+                let (kind, id) = match r.target {
+                    ir::RelocTarget::Global(g) => (0u8, g.0),
+                    ir::RelocTarget::Func(f) => (1, f.0),
+                    ir::RelocTarget::Foreign(f) => (2, f.0),
+                };
+                bytes.extend_from_slice(&r.offset.to_le_bytes());
+                bytes.push(kind);
+                bytes.extend_from_slice(&id.to_le_bytes());
+                bytes.extend_from_slice(&r.addend.to_le_bytes());
+            }
+            Value::Bytes(Rc::new(value::Aggregate {
+                bytes,
+                relocs: Vec::new(),
+            }))
+        }
+        other => other.clone(),
+    }
+}
+
 fn too_many_instances(name: Sym) -> String {
     format!(
         "`{name}` has more than {MAX_INSTANCES} polymorphic instances (does it instantiate itself \
@@ -326,6 +363,9 @@ pub struct Compiler {
     pub type_info_flags: HashMap<TypeId, u32>,
     /// String literal globals, deduplicated.
     pub strings: HashMap<Rc<[u8]>, ir::GlobalId>,
+    /// The data of constant views made from baked variadic arguments, deduplicated by
+    /// contents so that equal argument lists share one global (and one instance).
+    pub packs: HashMap<PackKey, ir::GlobalId>,
     pub output: Vec<u8>,
     pub warnings: Vec<Diagnostic>,
     /// Struct declaration AST per struct (for layout).
@@ -495,6 +535,7 @@ impl Compiler {
             failed_type_infos: HashMap::default(),
             type_info_flags: HashMap::default(),
             strings: HashMap::default(),
+            packs: HashMap::default(),
             output: Vec::new(),
             warnings: Vec::new(),
             struct_asts: HashMap::default(),

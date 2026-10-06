@@ -681,7 +681,7 @@ pub struct Reloc {
     pub addend: i64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RelocTarget {
     Global(GlobalId),
     Func(FuncId),

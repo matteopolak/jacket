@@ -169,6 +169,9 @@
 - Windows release and `windows-native` CI builds link the official LLVM 23 archive again: `tools/windows-llvm/prepare.sh` supplies the zlib, zstd and libxml2 libraries its `llvm-config` names and turns zstd's absolute build-machine path, which llvm-sys could not pass to rustc, into a library name.
 - The browser engine's sandbox implements `chmod`/`fchmod`, so `MacOS_Bundler` runs there.
 - Standard library: unused variables and imports removed, a shadowed `it` in `Compiler` named, and index loops in `Basic` and `Math` turned into element loops (found by jailint).
+- Calls of a procedure with a baked variadic parameter (`$args: ..Code`, `$types: ..Type`) get their own instance per argument list. Lists of the same length shared the first call's instance, so `show(A); show(G);` ran `A`'s code twice.
+- A baked variadic `Code` parameter (`$args: ..Code`) quotes each argument expression like a single `$c: Code` does, so `print_vars(alpha, alpha + 1)` and the rest of Print_Vars work with locals. Such calls failed with "cannot use local 'alpha' in a compile-time expression".
+- Structs with a variadic parameter (`Holder :: struct(types: ..Type)`) can be instantiated: the arguments bind one constant `[] Type` and key the instance, so `Tagged_Union` works. `Holder(s64, string)` reported "too many arguments" and `Holder(s64)` bound a single `Type`.
 
 ## [0.2.0] - 2026-10-06
 
