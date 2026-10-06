@@ -14,6 +14,9 @@
 use super::vec::{VOpd, all_ones_if, float_to_s32, fselect, lane_addr, load_lane, store_lane};
 use super::*;
 
+mod ext;
+pub(in crate::sema) use ext::{GfOp, ShaOp};
+
 /// Lane-wise binary operations beyond `vec::Lane`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(in crate::sema) enum B2 {
@@ -189,6 +192,10 @@ pub(in crate::sema) enum SOp {
     /// `pclmulqdq imm` (None) or `pclmul{l,h}q{l,h}qdq` (the immediate).
     Pclmul(Option<u8>),
     Aes(AesOp),
+    /// F16C `cvtph2ps` (false) / `cvtps2ph` (true).
+    Half(bool),
+    Sha(ShaOp),
+    Gf(GfOp),
     /// `pscatter*`/`scatter*`: (index size, element size).
     Scatter(u64, u64),
     /// `pmaskmovd/q`, `maskmovps/pd`: masked load or store with a vector mask.
@@ -238,7 +245,15 @@ pub(super) fn elem_size(op: SOp) -> u64 {
             Conv::FloatToFloat(_, to) | Conv::ScalarFloat(_, to) => to.size(),
             _ => 4,
         },
-        Palignr | ByteShift(_) | Pshufb | Aes(_) => 1,
+        Palignr | ByteShift(_) | Pshufb | Aes(_) | Gf(_) => 1,
+        Half(to_half) => {
+            if to_half {
+                2
+            } else {
+                4
+            }
+        }
+        Sha(_) => 4,
         Scatter(_, e) => e,
         _ => 4,
     }
@@ -282,7 +297,17 @@ pub(super) fn consumes_mask(op: SOp) -> bool {
             | SOp::Testm(..)
             | SOp::VecToMask(_)
             | SOp::FCmp(..)
+            | SOp::Half(true)
     )
+}
+
+/// The element an embedded broadcast (`[mem]!`) repeats; the masking element otherwise.
+pub(super) fn broadcast_size(op: SOp) -> u64 {
+    match op {
+        // The affine matrix operand is one 64-bit matrix per qword.
+        SOp::Gf(GfOp::Affine(_)) => 8,
+        _ => elem_size(op),
+    }
 }
 
 fn int_letter(c: &str) -> Option<Ty> {
@@ -452,6 +477,18 @@ pub(super) fn lookup_simd(name: &str) -> Option<SOp> {
         "aesdeclast" => Aes(AesOp::DecLast),
         "aesimc" => Aes(AesOp::Imc),
         "aeskeygenassist" => Aes(AesOp::KeygenAssist),
+        "cvtph2ps" => Half(false),
+        "cvtps2ph" => Half(true),
+        "sha1rnds4" => Sha(ShaOp::Sha1Rnds4),
+        "sha1nexte" => Sha(ShaOp::Sha1Nexte),
+        "sha1msg1" => Sha(ShaOp::Sha1Msg1),
+        "sha1msg2" => Sha(ShaOp::Sha1Msg2),
+        "sha256rnds2" => Sha(ShaOp::Sha256Rnds2),
+        "sha256msg1" => Sha(ShaOp::Sha256Msg1),
+        "sha256msg2" => Sha(ShaOp::Sha256Msg2),
+        "gf2p8mulb" => Gf(GfOp::Mul),
+        "gf2p8affineqb" => Gf(GfOp::Affine(false)),
+        "gf2p8affineinvqb" => Gf(GfOp::Affine(true)),
         "pmaskmovd" | "maskmovps" => MaskMov(Ty::I32),
         "pmaskmovq" | "maskmovpd" => MaskMov(Ty::I64),
         "pbroadcastmw2d" => BroadcastMask(Ty::I32),
@@ -747,7 +784,8 @@ fn float_to_int(f: &mut FnCtx, from: Ty, x: Val, to: Ty, mode: char, unsigned: b
     select(f, to, ok, v, bad)
 }
 
-/// The AES S-box and its inverse, generated from the field inverse and the affine map.
+/// The AES S-box, its inverse and the GF(2^8) multiplicative inverse (0 for 0, used by
+/// `gf2p8affineinvqb`), generated from the field inverse and the affine map.
 fn aes_tables() -> Vec<u8> {
     let mul = |mut a: u8, mut b: u8| {
         let mut p = 0u8;
@@ -766,6 +804,7 @@ fn aes_tables() -> Vec<u8> {
     };
     let mut sbox = [0u8; 256];
     let mut inv = [0u8; 256];
+    let mut field_inv = [0u8; 256];
     for x in 0..=255u8 {
         let mut y = 0u8;
         if x != 0 {
@@ -782,6 +821,7 @@ fn aes_tables() -> Vec<u8> {
             }
             y = acc;
         }
+        field_inv[x as usize] = y;
         let s =
             y ^ y.rotate_left(1) ^ y.rotate_left(2) ^ y.rotate_left(3) ^ y.rotate_left(4) ^ 0x63;
         sbox[x as usize] = s;
@@ -789,6 +829,7 @@ fn aes_tables() -> Vec<u8> {
     }
     let mut out = sbox.to_vec();
     out.extend_from_slice(&inv);
+    out.extend_from_slice(&field_inv);
     out
 }
 
@@ -1831,6 +1872,9 @@ impl Compiler {
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
             SOp::Cvt(conv) => self.simd_convert(f, cx, inst, conv, ops, width, tmp)?,
+            SOp::Half(to_half) => self.simd_half(f, cx, inst, to_half, ops, width, wm, tmp)?,
+            SOp::Sha(sha) => self.simd_sha(f, cx, inst, sha, ops, tmp)?,
+            SOp::Gf(gf) => self.simd_gf(f, cx, inst, gf, ops, width, tmp)?,
             SOp::FCmp(ty, scalar) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let lanes = if scalar {
@@ -2504,14 +2548,14 @@ impl Compiler {
         (f.b.load(Ty::I64, lo_s), f.b.load(Ty::I64, hi_s))
     }
 
-    /// Address of the S-box (256 bytes) followed by the inverse S-box.
+    /// Address of the S-box (256 bytes), then the inverse S-box and the field inverse.
     fn aes_table_ptr(&mut self, f: &mut FnCtx) -> Val {
         let global = match self.asm_aes_tables {
             Some(g) => g,
             None => {
                 let g = self.program.add_global(crate::ir::Global {
                     name: "__jaic_asm_aes_sbox".into(),
-                    size: 512,
+                    size: 768,
                     align: 16,
                     init: aes_tables(),
                     relocs: Vec::new(),

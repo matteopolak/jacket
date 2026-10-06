@@ -462,9 +462,13 @@ impl Compiler {
             {
                 let src = ptr_of(f, addr);
                 let buf = f.b.alloca(64, 16);
-                for k in 0..64 / es {
-                    let p = lane_addr(f, buf, k * es);
-                    f.b.copy(p, src, es);
+                let bs = match op {
+                    VOp::Ext(s) => simd::broadcast_size(s),
+                    _ => es,
+                };
+                for k in 0..64 / bs {
+                    let p = lane_addr(f, buf, k * bs);
+                    f.b.copy(p, src, bs);
                 }
                 ops[i] = VOpd::Reg(buf);
             }

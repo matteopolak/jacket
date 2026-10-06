@@ -164,6 +164,7 @@ fn asm_instructions_run_natively() {
         "asm-scalar-extended",
         "asm-simd-extended",
         "asm-avx512-masks",
+        "asm-f16c-sha-gfni",
     ] {
         let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();

@@ -2,7 +2,7 @@
 
 ## What it is
 
-Jai's `#asm { ... }` inline assembly. jaic never emits machine code for it: each x64 instruction is parsed into an AST and lowered to ordinary IR operations on the Jai variables used as operands. A block therefore behaves the same in the interpreter, the browser and the LLVM backend, on any host CPU; an arm64 Mac runs x64 `#asm` correctly. General-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AES/PCLMUL and common AVX-512 instructions, including op-mask (`k`) registers, are supported. Anything else is rejected with an error naming the instruction.
+Jai's `#asm { ... }` inline assembly. jaic never emits machine code for it: each x64 instruction is parsed into an AST and lowered to ordinary IR operations on the Jai variables used as operands. A block therefore behaves the same in the interpreter, the browser and the LLVM backend, on any host CPU; an arm64 Mac runs x64 `#asm` correctly. General-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AES/PCLMUL, SHA, F16C, GFNI and common AVX-512 instructions, including op-mask (`k`) registers, are supported. Anything else is rejected with an error naming the instruction.
 
 The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page is the reference.
 
@@ -19,7 +19,7 @@ The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page
      instructions, `cmpxchg8b/16b`, flags transfer, hints.
   3. `asm_mask_inst` (`sema/asm/mask.rs`): the `k*` op-mask instructions.
   4. `asm_vec_inst` (`sema/asm/vec.rs`): vector instructions; `lookup_vec` falls back to `simd::lookup_simd`
-     (`sema/asm/simd.rs`) for the larger SIMD set.
+     (`sema/asm/simd.rs`) for the larger SIMD set. F16C, SHA and GFNI live in `sema/asm/simd/ext.rs`.
 - **Registers.** Variables are read and written in place through their stack slots. Declared registers are locals
   added to the *enclosing* scope (blocks are not scopes; macros see them). They start at zero. Classes: `gpr` (8
   bytes), `vec` (64 bytes; `xmm/ymm/zmm` by width), `str` (MMX, a `vec` used at 8 bytes), `omr`/`kmask` (an 8-byte
@@ -68,6 +68,17 @@ The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page
   `omr` write a bit per lane, and a `&k` on them ANDs the result. Instructions that consume the mask themselves
   (compress, expand, blendm, gather, scatter) handle it directly; EVEX gather and scatter clear the mask, as hardware
   does.
+- **F16C, SHA, GFNI** (`simd/ext.rs`) are integer bit manipulation on lanes, so they are bit-exact everywhere.
+  `cvtps2ph` rounds with the imm8 mode (`0` nearest even, `1` down, `2` up, `3` toward zero; bit 2 means MXCSR,
+  which is always nearest here): it keeps the hidden bit in the significand so a rounding carry moves into the
+  exponent, rounds into half subnormals, saturates overflow to infinity or `0x7bff` by mode, and quiets NaNs keeping
+  the top 10 payload bits. `cvtph2ps` is exact (subnormals are normalized with `Ctlz`). Its EVEX form handles its
+  own `{k}` mask, because the generic merge works on the full vector width and the result is half as wide. F16C
+  and `v`-prefixed GFNI forms clear a register destination above the result (they are always VEX/EVEX); SHA and
+  legacy GFNI keep it, whatever the block's features. `sha256rnds2` takes the implicit `xmm0` as its last operand
+  (`sha256rnds2 cdgh, abef, wk`). `gf2p8affineinvqb` reads a 256-byte field-inverse table appended to the AES
+  tables; the affine matrix broadcast (`[m]!`) repeats 8 bytes while masking stays per byte
+  (`simd::broadcast_size`).
 - **IR** additions: `Intrinsic::{Popcount, Ctlz, Cttz, Bswap}` (value, width in bits) and `Intrinsic::Fma` (three
   `F64` bit patterns, single rounding). They are implemented in `interp/mod.rs` and in `jaic-llvm`
   (`llvm.ctpop/ctlz/cttz/bswap/fma`). AES S-box and inverse tables are generated in Rust into one read-only global
@@ -111,7 +122,12 @@ Vector (any `ps/pd/ss/sd` or `b/w/d/q` variant that exists on hardware):
   `movmskps/pd`, `pmovmskb`.
 - Memory: gathers (`gather*`, `pgather*`; AVX2 vector-mask and AVX-512 `&k` forms), scatters (`scatter*`,
   `pscatter*`), `maskmovps/pd`, `pmaskmovd/q`.
-- Crypto: `aesenc/aesenclast/aesdec/aesdeclast/aesimc/aeskeygenassist`, `pclmulqdq` (and the `lqlq`-style aliases).
+- Crypto: `aesenc/aesenclast/aesdec/aesdeclast/aesimc/aeskeygenassist`, `pclmulqdq` (and the `lqlq`-style aliases),
+  `sha1rnds4`, `sha1nexte`, `sha1msg1`, `sha1msg2`, `sha256rnds2 dst, src, wk`, `sha256msg1`, `sha256msg2`.
+- GFNI: `gf2p8mulb`, `gf2p8affineqb`, `gf2p8affineinvqb` (legacy two-source, VEX three-source, EVEX with `&k` /
+  `&*k` and a broadcast matrix).
+- F16C: `vcvtph2ps dst, src` and `vcvtps2ph dst, src, imm8`; the size suffix is the single-precision width
+  (`vcvtps2ph.y [m128], ymm, 0`), and the AVX-512 `.z` form takes masks.
 - `zeroupper`.
 
 EVEX decorations: `[mem]!` (embedded broadcast), `!z/!n/!d/!u` rounding on `cvtps2dq`, `&k` / `&*k` masks.
@@ -123,12 +139,12 @@ Compile error `unsupported #asm instruction 'x'`:
 - **x87** (`fld`, `fadd`, ...): Jai's `#asm` has no x87 instructions or registers (the `str` class is MMX), so there
   is nothing to accept.
 - `syscall`, `int n` other than 3, `push`/`pop`, `call`/`jmp`/`jcc` (Jai `#asm` has no labels), I/O and privileged
-  instructions, `pcmpestri/pcmpistri`, F16C (`cvtph2ps/cvtps2ph`), `getexp/getmant/scalef/fpclass/range/reduce`,
-  GFNI, SHA, `mpsadbw`, `pmadd52*`, BF16/FP16 arithmetic, AMX.
+  instructions, `pcmpestri/pcmpistri`, `getexp/getmant/scalef/fpclass/range/reduce`, `mpsadbw`, `pmadd52*`,
+  BF16/FP16 arithmetic, the SHA-512/SM3/SM4 extensions, AMX.
 
 Known differences from hardware: `rcp*/rsqrt*` return the exact result (hardware approximates to 12 or 14 bits);
 single-precision FMA computes in double and rounds once more (exact except in rare double-rounding cases); MXCSR is
-not modeled (round-to-nearest, no exceptions); `cpuid`/`xgetbv` report no features, so runtime dispatch on them picks
+not modeled (round-to-nearest, no exceptions, no DAZ/FTZ; `cvtps2ph` with imm8 bit 2 rounds to nearest); `cpuid`/`xgetbv` report no features, so runtime dispatch on them picks
 the baseline path.
 
 ## How to change it
@@ -136,6 +152,8 @@ the baseline path.
 - New integer instruction: an `Op` in `lookup_op` plus an arm in `asm_inst` (`sema/asm.rs`), or an `XOp` in
   `scalar.rs` when it has implicit operands or a loop. Reuse `asm_read`/`asm_write` (size-aware operand access),
   `rmw_begin`/`rmw_end` (atomic when `lock_`) and `asm_alu` for flag-setting arithmetic.
+- A small instruction family with its own operand rules: an `SOp` that forwards to a method in `simd/ext.rs` (as F16C,
+  SHA and GFNI do), which can reach `simd.rs` helpers because it is a child module.
 - New op-mask instruction: a `KOp` and `lookup_kop` entry in `mask.rs`.
 - New vector instruction: a `VOp`/`Lane` in `vec.rs` for the simple lane-wise forms, otherwise an `SOp` in `simd.rs`:
   add the mnemonic to `lookup_simd`, give it an element size (`elem_size`, used for masking), a destination class
@@ -145,7 +163,9 @@ the baseline path.
 - Tests: add a case to the matching `tests/stdlib/asm-*.jai`. For instructions the host can run, record the expected
   value on real hardware (an x86-64 C program with intrinsics or inline asm, run natively or under Rosetta with
   `ROSETTA_ADVERTISE_AVX=1` for AVX2/FMA/BMI) rather than deriving it from the implementation. AVX-512 has no
-  hardware here, so `asm-avx512-masks.jai` computes expectations with plain Jai code.
+  hardware here, so `asm-avx512-masks.jai` computes expectations with plain Jai code. Rosetta
+  advertises F16C (its hashes in `asm-f16c-sha-gfni.jai` were recorded there) but not SHA or GFNI, so that test
+  checks SHA through FIPS 180-4 digests and GFNI against plain Jai field arithmetic and the AES S-box.
 - Gotchas:
   - A `Val` defined inside a loop or CAS retry is only valid after the loop exit dominates it; keep loop-carried
     values in stack slots (`udiv128`, `asm_string`).
@@ -165,5 +185,6 @@ arm64 `#asm`, so there is nothing to add for arm64; x64 blocks simply run there 
 `ir` (builder, `Intrinsic::{CompareAndSwap, CycleCounter, Pause, DebugBreak, Trap, Popcount, Ctlz, Cttz, Bswap,
 Fma}`), `sema::calls` (macro expansion, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests:
 `tests/stdlib/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-evex-decorations.jai`, `asm-scalar-extended.jai`,
-`asm-simd-extended.jai`, `asm-avx512-masks.jai` (swept by `tools/jaic-sweep.py stdlib`; the last three also built and
-run natively by `asm_instructions_run_natively` in `crates/jaic-cli/tests/native.rs`) and the `asm_*` parser tests.
+`asm-simd-extended.jai`, `asm-avx512-masks.jai`, `asm-f16c-sha-gfni.jai` (swept by `tools/jaic-sweep.py stdlib`; the
+last four also built and run natively by `asm_instructions_run_natively` in `crates/jaic-cli/tests/native.rs`) and the
+`asm_*` parser tests.

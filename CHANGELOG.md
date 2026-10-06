@@ -13,6 +13,7 @@
 - `jailsp` publishes jailint's findings as diagnostics (the rule as the code, `jailint` as the source) and offers their fixes as quick-fix code actions. It reuses the compile that hover and inlay hints already use.
 - `jaic::build::WorkspaceObserver` lets embedders see each workspace's compiler.
 - Release binaries (`jaic`, `jailsp`, `jailint`) are built with profile-guided optimisation on every platform, and the Linux ones are further optimised with BOLT. `tools/build_pgo.py` builds them the same way locally. See `docs/tools/pgo-and-bolt.md`.
+- `#asm` accepts the F16C, SHA and GFNI extensions: `vcvtph2ps`/`vcvtps2ph` (all imm8 rounding modes, NaNs, subnormals and overflow as on hardware; MXCSR rounding is round-to-nearest), `sha1rnds4`, `sha1nexte`, `sha1msg1`, `sha1msg2`, `sha256rnds2` (`xmm0` as an explicit last operand), `sha256msg1`, `sha256msg2`, and `gf2p8mulb`, `gf2p8affineqb`, `gf2p8affineinvqb` in legacy, VEX and EVEX (masked, broadcast) forms. Like the rest of `#asm` they run on any host CPU.
 
 ### Changed
 
