@@ -28,6 +28,8 @@ pub enum DiagnosticCode {
     Limit,
     /// A format string disagrees with the arguments of its print-family call.
     Format,
+    /// A jailint rule, by name.
+    Lint(&'static str),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -7,13 +7,14 @@
 It has two layers:
 
 - **Syntax** (always on): lexer/parser diagnostics, format-string checks, semantic tokens, document and workspace symbols, folding, and go-to-definition among the open documents. These come from the `jaic` lexer and parser.
-- **Semantic** (when the session has an `Environment`): everything that needs the type checker. The open documents are compiled with `jaic`, compile-time code included, and the compiler's editor facts are queried.
+- **Semantic** (when the session has an `Environment`): everything that needs the type checker. The open documents are compiled with `jaic`, compile-time code included, and the compiler's editor facts are queried. This includes [jailint](../tools/jailint.md)'s lints and their quick fixes.
 
 ### Feature list
 
 | Feature | LSP method | Layer |
 |---|---|---|
 | Diagnostics: lexer and parser errors, `#load` targets, format strings | `textDocument/publishDiagnostics` | syntax |
+| Diagnostics: jailint lints (rule as `code`, `jailint` as `source`) | `textDocument/publishDiagnostics` | semantic |
 | Hover: types of locals, members, procedures (every overload), structs, enums, constants | `textDocument/hover` | semantic |
 | Hover on a macro call: the macro's body with the arguments substituted | `textDocument/hover` | semantic |
 | Hover on `#insert`: the inserted code | `textDocument/hover` | semantic |
@@ -29,7 +30,7 @@ It has two layers:
 | Rename (locals, globals, procedures with their overload declarations, types, modules, constants) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
 | Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
 | Inlay hints: inferred types of `x :=`, parameter names of literal arguments (only for parameters that share their type with another, so `print`'s format string gets none), `#run` values | `textDocument/inlayHint` | semantic |
-| Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value | `textDocument/codeAction` | semantic |
+| Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value, apply a lint's fix (`quickfix`) | `textDocument/codeAction` | semantic |
 | Commands `jai.showExpansion`, `jai.showPolymorphs` | `workspace/executeCommand` | semantic |
 | Expansion documents (`jai-expansion:` URIs) | `jai/expansion`, `jai/source` (non-standard) | semantic |
 | Code lens: how many polymorphs each polymorphic procedure has, and their bindings | `textDocument/codeLens` | semantic |
@@ -38,7 +39,7 @@ It has two layers:
 | Folding ranges: blocks and runs of `#import`/`#load` | `textDocument/foldingRange` | syntax |
 | Stdlib and module sources for read-only viewing | `jai/source` (non-standard) | environment |
 
-Not supported: renaming struct members, formatting (see [jaifmt](../tools/jaifmt.md)), pull diagnostics, type-checker diagnostics (only syntax and format-string diagnostics are published), references to struct members.
+Not supported: renaming struct members, formatting (see [jaifmt](../tools/jaifmt.md)), pull diagnostics, type-checker errors (syntax, format-string and lint diagnostics are published), references to struct members.
 
 ## How it works
 
@@ -200,6 +201,16 @@ For an `#insert`, `#run` or macro call under the cursor (`code_actions` picks th
 
 `jai.showPolymorphs` (`{uri, position}` of a code lens) returns the bindings of each instance, such as `["T = s64", "T = string"]`.
 
+### Lints and quick fixes
+
+`lints.rs` runs [jailint](../tools/jailint.md) on each open document whenever diagnostics are published:
+
+- **Compile.** `semantic.rs` always compiles with `IdeFacts::lint` set, so the facts jailint needs (expression types, casts, which names and imports were used) are recorded alongside the editor facts. `Analysis::lints` lints a file once per compile and caches the result. Diagnostics and code actions on the same text therefore reuse one compile and one lint pass, and so do hover and inlay hints.
+- **When.** Only documents that parse are linted, from their real text, never a repaired one, so a half-typed line clears the lints until it parses again. Without an `Environment` (no type checker), no lints are published.
+- **Settings.** The nearest `jailint.toml` above the document gives levels and excludes. `deny` becomes an error, `warn` a warning. `format_arg_count` is always off here, because the syntax layer's `jai-format` diagnostics already cover format strings, including while the text does not parse.
+- **Diagnostics.** The code is the rule name (`unused_variable`) and the source is `jailint`. The message is the finding followed by its help line.
+- **Quick fixes.** `code_actions` adds a `quickfix` action for each lint touching the requested range that has a machine-applicable fix. The title is the fix's description followed by the rule. Lint fixes come after the expansion actions. `codeActionKinds` advertises `quickfix` and `refactor.inline`.
+
 ### `#load` and `#import` links
 
 `links.rs` finds `#load "..."` and `#import[,file|,dir] "..."` in the token stream (so links work while the text does not parse; `#import,string` has no file). `Session::link_target` resolves each with the compiler's own functions, `jaic::sema::import_entry` and `find_module_in` (which `Compiler::find_module` and `resolve_import` also call):
@@ -283,7 +294,7 @@ The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wa
 - **Record more facts.** Add a hook in sema that calls an `ide_*` method guarded by `self.ide.is_some()`, and keep the hook cheap. Name facts go in `ide.rs`; metaprogramming and call facts in `ide_meta.rs`. To show more in hover, extend `ide_hover`/`ide_entity_hover`, or `Session::describe` for expansions. Build hover text from `hover::Block`s rather than formatting strings, so both the Markdown and the plain-text form follow; a new block kind needs a case in `HoverText::plain` and `HoverText::markdown`. For more completion sources, extend `ide_visible`/`ide_members`.
 - **New expansion kind.** Add an `IdeExpansionKind`, record it where the compiler evaluates it, and handle it in `kind_name`, `describe`, `expansion` and `code_actions` (`features.rs`).
 - **Print-family procedures** are a name list (`format::PRINT_FAMILY`), because diagnostics are published without compiling. A user wrapper is still recognized by the hover's type lookup (`IdeCallInfo::format_param`), but not by diagnostics or tokens until its name is added.
-- **Format semantics** live in `format::specs`; keep them in step with `__format_to_builder` in `stdlib/Basic/Print.jai`.
+- **Format semantics** live in `jailint::format_string` (shared with the `format_arg_count` rule; `format::specs` wraps it). Keep them in step with `__format_to_builder` in `stdlib/Basic/Print.jai`.
 - **Scope extents.** A new kind of block scope needs an `ide_scope_span` call, otherwise completion inside it sees the enclosing scope only.
 - **Repair heuristics** live in `session.rs` (`repair`, `blank_line`). They must keep byte offsets unchanged, because positions are mapped back into the real text.
 - **Token legend.** Append to `TOKEN_TYPES`/`TOKEN_MODIFIERS` in `lib.rs` and to `semantic_tokens_wire` together; never reorder.
@@ -292,11 +303,12 @@ The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wa
   - Browser: `language_server.rs` `environment` (bundled stdlib, wasm target).
   - Keep these in step with how `jaic` and the playground compile.
 - **Syntax features** stay in `analysis.rs`/`format.rs`. Typed results live in `model.rs`; extend its types and the wire mappings in `protocol.rs` together.
+- **Lints.** Rules live in `crates/jailint` (see [how to add a rule](../tools/jailint.md#how-to-change-it)); the server picks them up without changes. `lints.rs` maps findings to diagnostics and fixes, and `DiagnosticCode::Lint` carries the rule name to the wire.
 
 Tests:
 
 - `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
-- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
+- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, lint diagnostics and quick fixes, the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
 - `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
 - `crates/jai-language-server/tests/protocol.rs`: hover format negotiation (`markdown` listed or not).
 - Unit tests: `hover.rs` (escaping, fences, sections), `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).
@@ -314,6 +326,7 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
 
 - `JAIC_STDLIB` overrides the stdlib directory the native server reads. The default is the repository's `stdlib/`.
 - A `modules/` folder next to the root document is searched first.
+- `jailint.toml` (nearest above a document): lint levels and excluded paths.
 - `semantic.rs` constants:
   - `BLOCK_BUDGET`: interpreter blocks per analysis.
   - `CACHED`: compiles kept, 3.
@@ -328,6 +341,7 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
 ## Dependencies
 
 - `jaic`: lexer, parser, sema with `IdeFacts` and `ide_meta`, interpreter `SandboxHost`.
+- `jailint`: lint rules, `jailint.toml` settings and the shared format-string reader.
 - `serde` / `serde_json` for JSON.
 - The browser adapter links into `jai_wasm.wasm` and is reached through `engine.lsp(message)` ([browser compiler](../browser/playground.md)). The hosted playground's editor lives in the portfolio repository.
 - Protocol: [LSP 3.17](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) over [JSON-RPC 2.0](https://www.jsonrpc.org/specification).

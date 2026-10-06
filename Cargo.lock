@@ -65,6 +65,7 @@ name = "jai-language-server"
 version = "0.2.0"
 dependencies = [
  "jaic",
+ "jailint",
  "serde",
  "serde_json",
 ]

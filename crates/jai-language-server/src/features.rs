@@ -429,12 +429,13 @@ impl Session {
         Some(self.expansion(&document, position).ok()??.text)
     }
 
-    /// Show an expansion; inline an `#insert` or a `#run` value.
+    /// Show an expansion; inline an `#insert` or a `#run` value; apply a lint's fix.
     pub fn code_actions(&self, uri: &DocumentUri, range: Range) -> Result<Vec<CodeAction>, Error> {
         let doc = self.document(uri)?;
         let start = doc.index.byte(&doc.text, range.start)?;
         let end = doc.index.byte(&doc.text, range.end)?;
         let text = &doc.text;
+        let fixes = self.lint_fixes(uri, start, end);
         let Some(e) = self
             .expansions(uri)
             .into_iter()
@@ -444,11 +445,11 @@ impl Session {
             })
             .min_by_key(|e| e.span.end - e.span.start)
         else {
-            return Ok(Vec::new());
+            return Ok(fixes);
         };
         let span = span_of(&e);
         let Some(at) = self.range_of(uri, span) else {
-            return Ok(Vec::new());
+            return Ok(fixes);
         };
         let mut actions = Vec::new();
         if e.kind != IdeExpansionKind::If {
@@ -496,6 +497,7 @@ impl Session {
                 command: None,
             });
         }
+        actions.extend(fixes);
         Ok(actions)
     }
 

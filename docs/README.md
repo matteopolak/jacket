@@ -61,7 +61,7 @@ How `crates/jaic`, the interpreter and the language server work.
 - [jaic interpreter](compiler/interpreter.md)
 - [Low-level IR](compiler/ir.md)
 - [Memory limit (`JAIC_MEMORY_LIMIT`)](compiler/memory-limit.md)
-- [Shared Jai language server](compiler/language-server.md): feature list, expansions, inlay hints, format strings, `#import` links
+- [Shared Jai language server](compiler/language-server.md): feature list, expansions, inlay hints, format strings, lints and quick fixes, `#import` links
 - [Parser](compiler/parser.md)
 - [Sema: module loading and top-level expansion](compiler/sema-modules.md)
 - [Sema: polymorphism and declarations](compiler/sema-polymorphism-and-declarations.md)
@@ -124,6 +124,7 @@ Scripts, CI and project policies.
 - [Fuzzing](tools/fuzzing.md)
 - [jaic regression sweep](tools/jaic-sweep.md)
 - [jaifmt (Jai formatter)](tools/jaifmt.md)
+- [jailint (Jai linter)](tools/jailint.md): rules, `jailint.toml`, suppression, adding a rule
 - [LLVM setup](tools/llvm-setup.md)
 - [Nix flake](tools/nix.md)
 - [Third-party native libraries](tools/native-libs.md)

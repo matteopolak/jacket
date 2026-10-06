@@ -8,7 +8,7 @@ The Rust side of the `Compiler` module, in `crates/jaic/src/build.rs`. Metaprogr
 
 ### Registry
 
-The embedder creates `Workspaces` (shared as `SharedWorkspaces`, an `Rc<RefCell<..>>`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, command-line args after `-`, a host factory and a report sink. `Compiler::attach_workspaces` gives the compile-time interpreter access.
+The embedder creates `Workspaces` (shared as `SharedWorkspaces`, an `Rc<RefCell<..>>`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, command-line args after `-`, a host factory, a report sink, and an optional `WorkspaceObserver` that sees each workspace's compiler when it is made and gets it back when the workspace is done ([jailint](../tools/jailint.md) uses it to lint what a metaprogram builds). `Compiler::attach_workspaces` gives the compile-time interpreter access.
 
 Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`). Workspace 1 is reserved, as in Jai, so the first workspace a metaprogram creates is 3.
 

@@ -1,4 +1,4 @@
-# jaic and jailsp, built with the LLVM 22 backend and installed next to `stdlib/` and
+# jaic, jailsp and jailint, built with the LLVM 22 backend and installed next to `stdlib/` and
 # `prelude/` the way the release archives lay them out (see docs/tools/nix.md).
 {
   lib,
@@ -54,6 +54,8 @@ rustPlatform.buildRustPackage {
     "jaic-cli"
     "-p"
     "jai-language-server"
+    "-p"
+    "jailint"
   ];
   # The workspace tests need the repository's test corpus and host tools; the install
   # check below exercises the packaged compiler instead.
@@ -77,17 +79,18 @@ rustPlatform.buildRustPackage {
   env.LLVM_SYS_221_PREFIX = "${llvmPackages.llvm.dev}";
 
   # jaic looks for its standard library in `stdlib/` next to the executable, and
-  # `stdlib/prelude/module.jai` loads `prelude`, so both binaries live in libexec beside them.
+  # `stdlib/prelude/module.jai` loads `prelude`, so the binaries live in libexec beside them.
   # bin/ holds wrappers, which exec the real path, so that lookup still works.
   postInstall = ''
     dir=$out/libexec/jaic
     mkdir -p $dir
-    mv $out/bin/jaic $out/bin/jailsp $dir/
+    mv $out/bin/jaic $out/bin/jailsp $out/bin/jailint $dir/
     cp -R stdlib prelude $dir/
     makeWrapper $dir/jaic $out/bin/jaic \
       --set-default JAI_LIBCLANG ${libclang} \
       --suffix PATH : ${toolPath}
     makeWrapper $dir/jailsp $out/bin/jailsp
+    makeWrapper $dir/jailint $out/bin/jailint
   '';
 
   # Run and natively build two programs with the installed wrapper, outside the source tree.
@@ -101,6 +104,7 @@ rustPlatform.buildRustPackage {
     status=0; $out/bin/jaic run record.jai || status=$?
     test "$status" = 42
     $out/bin/jaic run hello.jai | grep -qx 'hello from nix'
+    $out/bin/jailint -D warnings hello.jai
     $out/bin/jaic build hello.jai -o hello
     ./hello | grep -qx 'hello from nix'
     $out/bin/jaic build record.jai -o record

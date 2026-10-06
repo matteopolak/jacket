@@ -343,7 +343,7 @@ impl JsonSession {
                         "triggerCharacters": ["(", ","],
                         "retriggerCharacters": [","],
                     },
-                    "codeActionProvider": { "codeActionKinds": ["refactor.inline"] },
+                    "codeActionProvider": { "codeActionKinds": ["quickfix", "refactor.inline"] },
                     "codeLensProvider": { "resolveProvider": false },
                     "executeCommandProvider": { "commands": COMMANDS },
                     "semanticTokensProvider": {
@@ -717,18 +717,19 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticSeverity::Error => 1,
         DiagnosticSeverity::Warning => 2,
     };
-    let code = match diagnostic.code {
-        DiagnosticCode::Lexer => "jai-lexer",
-        DiagnosticCode::Parser => "jai-parser",
-        DiagnosticCode::Source => "jai-source",
-        DiagnosticCode::Limit => "jai-limit",
-        DiagnosticCode::Format => "jai-format",
+    let (code, source) = match diagnostic.code {
+        DiagnosticCode::Lexer => ("jai-lexer", "jai"),
+        DiagnosticCode::Parser => ("jai-parser", "jai"),
+        DiagnosticCode::Source => ("jai-source", "jai"),
+        DiagnosticCode::Limit => ("jai-limit", "jai"),
+        DiagnosticCode::Format => ("jai-format", "jai"),
+        DiagnosticCode::Lint(rule) => (rule, "jailint"),
     };
     json!({
         "range": diagnostic.range,
         "severity": severity,
         "code": code,
-        "source": "jai",
+        "source": source,
         "message": diagnostic.message,
     })
 }

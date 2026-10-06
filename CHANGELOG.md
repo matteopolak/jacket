@@ -5,6 +5,13 @@
 ### Added
 
 - `JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>`: an exact cap on what `jaic` allocates (compiler, interpreter and the program's C `malloc` calls). Crossing it prints `error: memory limit of N MiB exceeded` and exits with status 120. The corpus sweep uses it for `--memory-limit` instead of sampling resident memory.
+- `jailint`, a linter for Jai whose rules run on the type-checked program. The rules are `index_only_loop`, `manual_index_counter`, `unused_variable`, `unused_parameter`, `unused_import`, `redundant_cast`, `bool_comparison`, `format_arg_count`, `shadowed_it`, `defer_in_loop`, `float_equality` (off by default) and `lossy_xx` (off by default).
+  - Diagnostics are printed in rustc's layout. `--fix` applies the safe fixes, `-A`/`-W`/`-D` set levels, and the exit status is non-zero when a `deny` rule fires.
+  - Settings come from `jailint.toml` (levels and excluded paths). Findings can be suppressed with `// jailint: allow(rule)`, `// jailint: allow-file(rule)` or `@jailint_allow(rule)`.
+  - Workspaces a `build.jai` metaprogram creates are linted too.
+  - Release archives and the Nix package include `jailint`, and CI lints the repository's Jai code with it. See `docs/tools/jailint.md`.
+- `jailsp` publishes jailint's findings as diagnostics (the rule as the code, `jailint` as the source) and offers their fixes as quick-fix code actions. It reuses the compile that hover and inlay hints already use.
+- `jaic::build::WorkspaceObserver` lets embedders see each workspace's compiler.
 
 ### Changed
 
@@ -13,6 +20,7 @@
 ### Fixed
 
 - The browser engine's sandbox implements `chmod`/`fchmod`, so `MacOS_Bundler` runs there.
+- Standard library: unused variables and imports removed, a shadowed `it` in `Compiler` named, and index loops in `Basic` and `Math` turned into element loops (found by jailint).
 
 ## [0.2.0] - 2026-10-06
 

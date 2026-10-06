@@ -44,12 +44,16 @@ pub struct FormatCall {
 impl FormatCall {
     /// Arguments the format string uses.
     pub fn required(&self) -> usize {
-        self.specs
+        let specs: Vec<_> = self
+            .specs
             .iter()
-            .filter_map(|s| s.index)
-            .map(|i| i + 1)
-            .max()
-            .unwrap_or(0)
+            .map(|s| jailint::format_string::Spec {
+                start: s.span.start,
+                end: s.span.end,
+                index: s.index,
+            })
+            .collect();
+        jailint::format_string::required(&specs)
     }
 }
 
@@ -163,52 +167,16 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
     out
 }
 
-/// The `%` directives of the string literal at `string` of `text`.
+/// The `%` directives of the string literal at `string` of `text` (read as jailint's
+/// `format_arg_count` reads them).
 pub fn specs(text: &str, string: Span) -> Vec<Spec> {
-    let bytes = text.as_bytes();
-    let end = string.end.saturating_sub(1).min(bytes.len());
-    let mut at = string.start + 1;
-    let mut implicit = 0usize;
-    let mut out = Vec::new();
-    while at < end {
-        match bytes[at] {
-            b'\\' => at += 2,
-            b'%' => {
-                let start = at;
-                at += 1;
-                if at + 1 < end && bytes[at] == b'0' && bytes[at + 1] == b'0' {
-                    at += 2;
-                    out.push(Spec {
-                        span: Span::new(start, at),
-                        index: None,
-                    });
-                    continue;
-                }
-                let index = if at < end && bytes[at].is_ascii_digit() && bytes[at] != b'0' {
-                    let mut n = 0usize;
-                    while at < end && bytes[at].is_ascii_digit() {
-                        n = n
-                            .saturating_mul(10)
-                            .saturating_add((bytes[at] - b'0') as usize);
-                        at += 1;
-                    }
-                    n.saturating_sub(1)
-                } else {
-                    if at < end && bytes[at] == b'0' {
-                        at += 1;
-                    }
-                    implicit
-                };
-                implicit = index.saturating_add(1);
-                out.push(Spec {
-                    span: Span::new(start, at),
-                    index: Some(index),
-                });
-            }
-            _ => at += 1,
-        }
-    }
-    out
+    jailint::format_string::specs(text, string.start, string.end)
+        .into_iter()
+        .map(|s| Spec {
+            span: Span::new(s.start, s.end),
+            index: s.index,
+        })
+        .collect()
 }
 
 #[cfg(test)]

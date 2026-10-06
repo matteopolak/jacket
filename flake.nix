@@ -60,6 +60,7 @@
           default = app packages.jaic "jaic";
           jaic = app packages.jaic "jaic";
           jailsp = app packages.jaic "jailsp";
+          jailint = app packages.jaic "jailint";
           jaifmt = app packages.jaifmt "jaifmt";
         }
       );

@@ -629,3 +629,57 @@ fn code_arguments_instances_and_untaken_branches() {
         "#if: the condition is false, the else branch is compiled"
     );
 }
+
+const LINTED: &str = r#"#import "Basic";
+main :: () {
+    leftover := 5;
+    ready := leftover > 0;
+    if ready == true print("ready\n");
+}
+"#;
+
+#[test]
+fn lints_are_diagnostics_with_quick_fixes() {
+    let mut s = session();
+    s.open(uri(), 1, LINTED.into()).unwrap();
+    let lints: Vec<_> = s
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .filter(|d| matches!(d.code, DiagnosticCode::Lint(_)))
+        .collect();
+    assert_eq!(lints.len(), 1, "{lints:?}");
+    assert_eq!(lints[0].code, DiagnosticCode::Lint("bool_comparison"));
+    assert_eq!(lints[0].severity, DiagnosticSeverity::Warning);
+    assert_eq!(lints[0].range.start, at(LINTED, "ready == true", 0, 0));
+    let cursor = at(LINTED, "== true", 0, 0);
+    let actions = s
+        .code_actions(
+            &uri(),
+            Range {
+                start: cursor,
+                end: cursor,
+            },
+        )
+        .unwrap();
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    assert_eq!(actions[0].kind, Some("quickfix"));
+    let (_, edits) = actions[0].edit.as_ref().unwrap();
+    assert_eq!(edits[0].new_text, "ready");
+    // Over the wire: the rule is the code and jailint the source.
+    let mut json = JsonSession::with_environment(Limits::default(), environment());
+    let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    json.handle_json(&init.to_string()).unwrap();
+    let open = serde_json::json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {
+        "textDocument": {"uri": uri().as_str(), "languageId": "jai", "version": 1, "text": LINTED}}});
+    let published: serde_json::Value = json
+        .handle_json(&open.to_string())
+        .unwrap()
+        .iter()
+        .map(|m| serde_json::from_str::<serde_json::Value>(m).unwrap())
+        .find(|m| m["method"] == "textDocument/publishDiagnostics")
+        .unwrap();
+    let diagnostic = &published["params"]["diagnostics"][0];
+    assert_eq!(diagnostic["code"], "bool_comparison");
+    assert_eq!(diagnostic["source"], "jailint");
+}

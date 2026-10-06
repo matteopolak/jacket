@@ -10,6 +10,7 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 | `crates/jaic-cli` | The `jaic` binary (`run`, `check`, `build`). |
 | `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 22). |
 | `crates/jai-language-server` | JSON-RPC language server on top of `jaic`. See [language server](language-server.md). |
+| `crates/jailint` | The `jailint` linter: rules over the type-checked program, also used by the language server. See [jailint](../tools/jailint.md). |
 | `crates/jai-wasm` | Browser build: `jaic` and the language server compiled to WebAssembly with the bundled `stdlib/`. See [browser compiler](../browser/playground.md). |
 
 ## How it works

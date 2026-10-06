@@ -112,8 +112,15 @@ jobs:
           cargo build --locked -p jaic-cli
           target/debug/jaic build tools/jaifmt/main.jai -O2 -o target/jaifmt
           target/jaifmt --check stdlib tests benchmarks tools examples
+      # The repository's Jai code must be lint-free (settings: jailint.toml).
+      - name: Jai lint
+        id: jai-lint
+        continue-on-error: true
+        run: |
+          cargo build --locked -p jailint
+          target/debug/jailint -D warnings -j 2 stdlib examples tools/jaifmt tests/corpus/positive
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

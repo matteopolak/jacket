@@ -3,8 +3,8 @@
 //! - `// jailint: allow(rule, ...)` on a line of its own covers the next line with code; after
 //!   code it covers its own line.
 //! - `// jailint: allow-file(rule, ...)` anywhere covers the whole file.
-//! - `@jailint_allow(rule, ...)` noted on a declaration or a procedure header covers the
-//!   declaration (all of the procedure when it is one).
+//! - `@jailint_allow(rule, ...)` noted after a declaration (for a procedure, after its body)
+//!   covers the declaration, all of the procedure when it is one.
 //!
 //! `all` stands for every rule.
 use jaic::ast::{File, Note, Stmt, StmtKind};

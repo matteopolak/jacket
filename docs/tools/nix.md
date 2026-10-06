@@ -2,13 +2,13 @@
 
 ## What it is
 
-`flake.nix` packages `jaic` (with the LLVM 22 backend), the `jailsp` language server and the `jaifmt` formatter for Nix users, and provides a development shell with the pinned toolchain. It supports `x86_64-linux`, `aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`.
+`flake.nix` packages `jaic` (with the LLVM 22 backend), the `jailsp` language server, the `jailint` linter and the `jaifmt` formatter for Nix users, and provides a development shell with the pinned toolchain. It supports `x86_64-linux`, `aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`.
 
 | Output | Contents |
 | --- | --- |
-| `packages.<system>.jaic` (also `default`) | `bin/jaic` and `bin/jailsp`, with `stdlib/` and `prelude/` |
+| `packages.<system>.jaic` (also `default`) | `bin/jaic`, `bin/jailsp` and `bin/jailint`, with `stdlib/` and `prelude/` |
 | `packages.<system>.jaifmt` | `bin/jaifmt`, compiled from `tools/jaifmt/main.jai` by the `jaic` package |
-| `apps.<system>.{default,jaic,jailsp,jaifmt}` | `nix run` entry points |
+| `apps.<system>.{default,jaic,jailsp,jailint,jaifmt}` | `nix run` entry points |
 | `devShells.<system>.default` | pinned nightly Rust, LLVM 22 and Clang, Python 3.14, Node, the env vars below |
 | `overlays.default` | adds `pkgs.jaic` and `pkgs.jaifmt` |
 | `checks.<system>` | builds both packages (their install checks run programs) |
@@ -21,6 +21,7 @@ Run without installing:
 nix run github:matteopolak/jai -- run hello.jai
 nix run github:matteopolak/jai -- build hello.jai -o hello
 nix run github:matteopolak/jai#jaifmt -- --check src
+nix run github:matteopolak/jai#jailint -- src
 ```
 
 Install into a profile: `nix profile install github:matteopolak/jai`.
@@ -49,13 +50,13 @@ Development shell (from a checkout): `nix develop`, then `cargo build -p jaic-cl
 
 ## How it works
 
-`nix/jaic.nix` is a `buildRustPackage` over the workspace (`-p jaic-cli -p jai-language-server`, default `dynamic-llvm` feature) using `cargoLock.lockFile = ./Cargo.lock`, so the build is offline against vendored crates. Every dependency comes from crates.io, so no `outputHashes` are needed.
+`nix/jaic.nix` is a `buildRustPackage` over the workspace (`-p jaic-cli -p jai-language-server -p jailint`, default `dynamic-llvm` feature) using `cargoLock.lockFile = ./Cargo.lock`, so the build is offline against vendored crates. Every dependency comes from crates.io, so no `outputHashes` are needed.
 
 - **Rust**: `rust-toolchain.toml` pins a nightly, which nixpkgs does not ship. The flake reads that file through oxalica's `rust-overlay` (`rust-bin.fromRustupToolchainFile`) and builds with `makeRustPlatform`, so Nix and rustup use the same compiler. `.cargo/config.toml` (the crate publish-age policy, which needs crates.io) is left out of the build source.
 - **LLVM**: nixpkgs' `llvmPackages_22`. `LLVM_SYS_221_PREFIX` points at `llvm.dev`, which holds `bin/llvm-config`; `libLLVM` is linked dynamically from the store.
 - **Layout**: `jaic` finds its standard library in `stdlib/` next to the executable (`jaic::stdlib_dir`; `JAIC_STDLIB` overrides it), and `stdlib/prelude/module.jai` loads `prelude`. The real binaries therefore live in `libexec/jaic/` beside `stdlib/` and `prelude/`, the same layout as the release archives ([releases](releases.md)). `bin/` holds `makeWrapper` scripts that exec the real path.
 - **Wrapper**: `bin/jaic` sets `JAI_LIBCLANG` (only if unset) to nixpkgs' libclang 22 for the bindings generator, and appends the stdenv C compiler, its binutils (`cc`, `ar`) and, on macOS, LLVM's `dsymutil` to `PATH`. `jaic build` needs those to link. They are appended, so a `cc` already on the user's `PATH` wins.
-- **Install check**: after installing, the derivation runs `examples/compile-time-record.jai` (exit 42) and a hello world under `jaic run`, then builds and runs both natively. A broken wrapper or layout fails the build.
+- **Install check**: after installing, the derivation runs `examples/compile-time-record.jai` (exit 42) and a hello world under `jaic run`, then builds and runs both natively, and lints the hello world with `jailint -D warnings`. A broken wrapper or layout fails the build.
 - **jaifmt**: `nix/jaifmt.nix` runs `jaic build tools/jaifmt/main.jai -O2 --no-debug-info` with the `jaic` package as a build input, then formats a snippet as its check.
 - **Overlay**: `overlays.default` re-exports this flake's packages, built from the flake's own nixpkgs. It does not rebuild against the consumer's nixpkgs, because older releases have neither LLVM 22 nor the overlay's toolchain.
 

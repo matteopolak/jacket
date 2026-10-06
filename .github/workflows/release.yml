@@ -1,5 +1,5 @@
 name: release
-# Builds jaic and jailsp for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64).
+# Builds jaic, jailsp and jailint for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
 on:
@@ -121,7 +121,7 @@ jobs:
           else
             cargo build --release --locked -p jaic-cli --no-default-features
           fi
-          cargo build --release --locked -p jai-language-server
+          cargo build --release --locked -p jai-language-server -p jailint
       - name: Package
         run: |
           exe=""
@@ -129,7 +129,7 @@ jobs:
           dir="jaic-${{ matrix.name }}"
           mkdir -p "$dir"
           out="target/${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}release"
-          cp "$out/jaic$exe" "$out/jailsp$exe" "$dir/"
+          cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$dir/"
           # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
@@ -149,12 +149,15 @@ jobs:
           mkdir -p "$work"
           cp examples/compile-time-record.jai "$work/main.jai"
           jaic="$PWD/$PACKAGE_DIR/jaic$exe"
+          jailint="$PWD/$PACKAGE_DIR/jailint$exe"
           cd "$work"
           set +e
           "$jaic" run main.jai
           status=$?
           set -e
           test "$status" = 42
+          # jailint finds the packaged stdlib next to itself.
+          "$jailint" -D warnings main.jai
           if [ -n "${{ matrix.llvm }}" ]; then
             "$jaic" build main.jai -o main
             set +e

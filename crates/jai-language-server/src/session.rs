@@ -163,18 +163,19 @@ impl Session {
         self.documents
             .iter()
             .map(|(uri, doc)| {
-                (
-                    uri.as_str().into(),
-                    doc.version,
-                    self.analyses[uri].diagnostics.clone(),
-                )
+                let mut diagnostics = self.analyses[uri].diagnostics.clone();
+                diagnostics.extend(self.lint_diagnostics(uri));
+                (uri.as_str().into(), doc.version, diagnostics)
             })
             .collect()
     }
 
-    pub fn diagnostics(&self, uri: &DocumentUri) -> Result<&[Diagnostic], Error> {
+    /// Syntax and source diagnostics of `uri`, then its lints.
+    pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
         self.document(uri)?;
-        Ok(&self.analyses[uri].diagnostics)
+        let mut diagnostics = self.analyses[uri].diagnostics.clone();
+        diagnostics.extend(self.lint_diagnostics(uri));
+        Ok(diagnostics)
     }
 
     fn admit(&self, uri: &DocumentUri, bytes: usize, old: usize) -> Result<(), Error> {

@@ -1,4 +1,4 @@
-# `jai{c,lsp,fmt}`
+# `jai{c,lsp,fmt,lint}`
 
 [![Compiler checks](https://github.com/matteopolak/jai/actions/workflows/ci.yml/badge.svg)](https://github.com/matteopolak/jai/actions/workflows/ci.yml)
 
@@ -6,9 +6,10 @@ An independent toolchain for the [Jai](https://en.wikipedia.org/wiki/Jai_(progra
 
 - `jaic`, a compiler that type-checks, interprets and natively builds real Jai programs and libraries, with its own standard library;
 - `jailsp`, a language server;
-- `jaifmt`, a formatter.
+- `jaifmt`, a formatter;
+- `jailint`, a linter.
 
-All three also run in the browser through WebAssembly.
+The compiler, language server and formatter also run in the browser through WebAssembly, and the language server shows jailint's findings there too.
 
 **[Try it in the browser →](https://matteopolak.com/playground/jai)**
 
@@ -16,7 +17,7 @@ All three also run in the browser through WebAssembly.
 - [What is missing](#what-is-missing)
 - [Install](#install)
 - [Usage](#usage)
-- [Language server](docs/compiler/language-server.md) · [Formatter (jaifmt)](docs/tools/jaifmt.md) · [Browser build](docs/browser/playground.md)
+- [Language server](docs/compiler/language-server.md) · [Formatter (jaifmt)](docs/tools/jaifmt.md) · [Linter (jailint)](docs/tools/jailint.md) · [Browser build](docs/browser/playground.md)
 - [Compatibility with real projects](docs/tools/upstream-corpus.md#project-status)
 - [Contributing](#contributing) · [Developer docs](docs/README.md)
 - [License](#license)
@@ -40,6 +41,7 @@ All three also run in the browser through WebAssembly.
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jailsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
 - A [formatter](docs/tools/jaifmt.md) (`jaifmt`) that runs natively and in the browser. Its output is canonical and idempotent: formatting twice changes nothing.
+- A [linter](docs/tools/jailint.md) (`jailint`) with rules that run on the type-checked program: unused variables, parameters and imports, loops that only index (`for i: 0..xs.count-1`), hand-kept counters, redundant casts, `x == true`, format strings with the wrong number of arguments, a shadowed `it`, a `defer` in a loop, and opt-in checks for exact float comparison and narrowing `xx`. It applies fixes with `--fix`, reads `jailint.toml`, honours `// jailint: allow(rule)`, and its findings and fixes also show up in editors through `jailsp`.
 - A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai), which opens with a [multi-file tour of the language](examples/tour/tour.md) (`examples/tour`).
 
 **Real projects** such as the Focus editor, the Jails language server, jaison, sgpu and the programs from *The Way to Jai* compile and run; see [the full list](docs/tools/upstream-corpus.md#project-status).
@@ -69,6 +71,7 @@ To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinn
 git clone https://github.com/matteopolak/jai.git
 cd jai
 cargo build -p jaic-cli --release --locked
+cargo build -p jai-language-server -p jailint --release --locked   # jailsp and jailint
 ```
 
 ## Usage
@@ -92,6 +95,8 @@ jaic check examples/compile-time-record.jai        # type-check only
 jaic run examples/compile-time-record.jai          # run in the interpreter
 jaic build examples/compile-time-record.jai -O2    # native executable (-os windows to cross-build)
 jaic run examples/tour/main.jai                    # the language tour the playground opens with
+jailint src/                                       # lint every .jai file under src/
+jailint src/ --fix                                 # apply the safe fixes
 ```
 
 ## Contributing
@@ -101,9 +106,10 @@ cargo test --workspace --locked --no-fail-fast
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --timeout 900   # everything should pass
+cargo run -p jailint -- -D warnings stdlib examples tools/jaifmt tests/corpus/positive
 ```
 
-The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server` and `crates/jai-wasm` (browser build). Start with the [developer docs](docs/README.md) and the [compiler architecture](docs/compiler/architecture.md).
+The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server`, `crates/jailint` (the linter) and `crates/jai-wasm` (browser build). Start with the [developer docs](docs/README.md) and the [compiler architecture](docs/compiler/architecture.md).
 
 This project is a clean-room implementation. To contribute, you must not have read the source of an official Jai distribution: its modules, `how_to` programs, compiler or any other part of it. Work only from public documentation, third-party Jai code and the behaviour of programs in this repository's tests.
 

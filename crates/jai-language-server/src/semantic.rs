@@ -59,9 +59,28 @@ impl FileSystem for OverlayFs {
 pub struct Analysis {
     pub compiler: Compiler,
     key: u64,
+    /// The program compiled without errors.
+    complete: bool,
+    /// Lints found so far, by file.
+    lints: BTreeMap<FileId, Vec<jailint::Lint>>,
 }
 
 impl Analysis {
+    /// jailint's findings in `path` (computed once per compile).
+    pub fn lints(
+        &mut self,
+        path: &Path,
+        config: &jailint::config::Config,
+    ) -> Option<Vec<jailint::Lint>> {
+        let file = self.file(path)?;
+        if let Some(found) = self.lints.get(&file) {
+            return Some(found.clone());
+        }
+        let found = jailint::lint_files(&mut self.compiler, &[file], config, self.complete);
+        self.lints.insert(file, found.clone());
+        Some(found)
+    }
+
     pub fn file(&self, path: &Path) -> Option<FileId> {
         let want = self.compiler.fs.canonical(path);
         (0..self.compiler.sources.len() as u32)
@@ -162,16 +181,20 @@ impl Cache {
             if self.entries.len() >= CACHED {
                 self.entries.remove(0);
             }
+            let (compiler, complete) = compile(env, root, files);
             self.entries.push(Analysis {
-                compiler: compile(env, root, files),
+                compiler,
                 key,
+                complete,
+                lints: BTreeMap::new(),
             });
         }
         self.entries.last_mut().expect("just pushed")
     }
 }
 
-fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -> Compiler {
+/// The compiled program, and whether it compiled without errors.
+fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -> (Compiler, bool) {
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),
         files,
@@ -191,10 +214,12 @@ fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -
     }
     let mut facts = IdeFacts::new(vec![prefix]);
     facts.output = Some(host);
+    // What jailint needs (expression types, casts, uses) on top of the editor facts.
+    facts.lint = true;
     compiler.ide = Some(Box::new(facts));
-    let _ = compiler.compile_program(root);
+    let complete = compiler.compile_program(root).is_ok();
     compiler.ide_check_all();
-    compiler
+    (compiler, complete)
 }
 
 /// Where `text` fails to lex or parse (a byte offset), if it does.
