@@ -377,9 +377,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
     match cli.target_triple() {
-        Ok(Some(triple)) if triple.starts_with("wasm32") => {
+        // The interpreter models wasm32 (the browser engine's target); LLVM output cannot.
+        Ok(Some(triple)) if triple.starts_with("wasm32") && cli.command == Command::Build => {
             eprintln!(
-                "error: jaic targets wasm64 (Memory64) only; Jai needs 8-byte pointers (use -target wasm64-unknown-wasi)"
+                "error: jaic builds wasm64 (Memory64) only; Jai needs 8-byte pointers (use -target wasm64-unknown-wasi)"
             );
             return ExitCode::from(2);
         }
