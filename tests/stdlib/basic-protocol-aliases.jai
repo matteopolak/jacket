@@ -1,4 +1,5 @@
 // Body probe for genuine Basic-qualified selected-protocol type identity.
+// jailint: allow-file(unused_variable) -- the declarations only type-check the API.
 Basic :: #import "Basic";
 Protocol :: #import "Preload";
 main :: () -> s64 {

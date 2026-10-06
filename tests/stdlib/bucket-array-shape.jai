@@ -14,7 +14,7 @@ main :: () -> s64 {
     h.pools.allocator = context.allocator;
     locs: [10] Bucket_Locator;
     for 0..9 {
-        l, p := bucket_array_add(*h.pools, .{ it });
+        l := bucket_array_add(*h.pools, .{ it });
         locs[it] = l;
     }
     if h.pools.count != 10 || h.pools.all_buckets.count != 3 return 1;

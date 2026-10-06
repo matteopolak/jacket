@@ -1,5 +1,6 @@
 // BuildCpp: typechecks the public API, finds sources with enum_cpp_files, and builds a
 // tiny C program, a static library and a dynamic library with the host C compiler.
+// jailint: allow-file(unused_variable) -- the declarations only type-check the API.
 #import "Basic";
 #import "BuildCpp";
 #import "File";

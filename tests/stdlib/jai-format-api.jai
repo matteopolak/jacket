@@ -39,7 +39,7 @@ main :: () {
     two, two_ok := format_source(SOURCE, config);
     assert(two_ok && two == EXPECTED_TWO_SPACES, two);
 
-    bad, bad_ok, bad_error := parse_config("indent_width = wide\n");
+    _, bad_ok, bad_error := parse_config("indent_width = wide\n");
     assert(!bad_ok && bad_error == "line 1: indent_width must be an integer from 1 to 16", bad_error);
 
     refused, refused_ok, refused_error := format_source("f :: () { x := (1; }\n");

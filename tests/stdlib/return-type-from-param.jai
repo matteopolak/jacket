@@ -3,7 +3,7 @@ Asset :: struct(T: Type) {
     ref_count: int;
     value: T;
 }
-add_ref :: (using asset: *Asset, location := #caller_location) -> type_of(asset) {
+add_ref :: (using asset: *Asset, _location := #caller_location) -> type_of(asset) {
     ref_count += 1;
     return asset;
 }

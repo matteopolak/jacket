@@ -22,7 +22,7 @@ check :: () -> string {
     defer file_delete(name);
     is_dir, ok = is_directory(name);
     if !ok || is_dir return "is_directory(file)";
-    modtime, size, found := file_modtime_and_size(name);
+    _, size, found := file_modtime_and_size(name);
     if !found || size != 12 return tprint("file size %", size);
 
     guarded: Guarded;

@@ -1,5 +1,3 @@
-#import "Basic";
-
 // context.stack_trace lists the active procedures, innermost first. Each node holds the
 // line of the call it is currently making.
 
@@ -34,9 +32,9 @@ main :: () -> s64 {
     // record's own node comes first, then inner (x == 0), inner (x == 1), main.
     if count != 4 return 1;
     if names[0] != "record" return 2;
-    if names[1] != "inner" || lines[1] != 26 return 3;
-    if names[2] != "inner" || lines[2] != 28 return 4;
-    if names[3] != "main" || lines[3] != 33 return 5;
+    if names[1] != "inner" || lines[1] != 24 return 3;
+    if names[2] != "inner" || lines[2] != 26 return 4;
+    if names[3] != "main" || lines[3] != 31 return 5;
     if depth_seen != 1 return 6;
     return 0;
 }

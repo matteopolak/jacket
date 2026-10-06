@@ -23,7 +23,7 @@
         loaded: Simp.Loaded_Font;
         feature: Simp.Font_Feature;
         table: Simp.Font_Coverage_Table;
-        assert(loaded.name.count == 0 && feature.expanded == false && table.format == 0);
+        assert(loaded.name.count == 0 && !feature.expanded && table.format == 0);
 
         assert(Simp.find_loaded_font("no/such/font.ttf") == null);
         assert(Simp.make_loaded_font("no/such/font.ttf") == null);

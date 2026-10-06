@@ -11,7 +11,7 @@ numbers :: () -> [] int {
 EMPTY :: string.[];
 
 main :: () {
-    ok, w := words();
+    _, w := words();
     n := numbers();
     filler: [64] int;
     for *filler it.* = -1; // reuse stack space

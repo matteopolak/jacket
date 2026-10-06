@@ -1,5 +1,4 @@
 #import "Basic";
-#import "String";
 
 // A `#cpp_method` procedure type is C-ABI like `#c_call`: calls through it pass no context pointer,
 // so the first argument the callee sees is `this`.

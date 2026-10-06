@@ -6,7 +6,7 @@ main :: () -> s64 {
     a := rdtsc();
     b := rdtsc();
     if b < a return 1;
-    stamp, msr := rdtscp();
+    stamp := rdtscp();
     if stamp < a return 2;
     pause();
     lfence();
@@ -15,8 +15,8 @@ main :: () -> s64 {
     x: int = 5;
     prefetch(*x, .T0);
     prefetch(*x, .NTA);
-    ok, value := rdrand();
-    ok2, value2 := rdseed();
+    rdrand();
+    rdseed();
     cpu := get_cpu_info();
     if cpu.vendor != .UNKNOWN && cpu.vendor != .INTEL && cpu.vendor != .AMD return 3;
     enable_feature(*cpu.feature_leaves, .AVX2);

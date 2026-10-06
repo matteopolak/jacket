@@ -52,7 +52,7 @@ main :: () {
     assert(!file_exists(tprint("%/copy.txt", root)));
 
     // Missing files fail cleanly.
-    missing, missing_ok := read_entire_file(tprint("%/missing.txt", root), false);
+    _, missing_ok := read_entire_file(tprint("%/missing.txt", root), false);
     assert(!missing_ok);
 
     assert(delete_directory(root));

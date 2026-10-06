@@ -48,7 +48,7 @@ main :: () -> s64 {
     #if OS != .WINDOWS {
         spec, spec_ok := to_timespec(APOLLO_TIME_FOR_JAN_1_1970 + seconds_to_apollo(5) + nanoseconds_to_apollo(250));
         if !spec_ok || spec.tv_sec != 5 || spec.tv_nsec != 250 return 15;
-        negative, negative_ok := to_timespec(APOLLO_TIME_FOR_JAN_1_1970 - seconds_to_apollo(1));
+        _, negative_ok := to_timespec(APOLLO_TIME_FOR_JAN_1_1970 - seconds_to_apollo(1));
         if negative_ok return 16;
     }
     print("ok\n");

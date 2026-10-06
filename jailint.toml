@@ -1,11 +1,16 @@
 # jailint settings for this repository; see docs/tools/jailint.md.
 
-# tests/corpus/negative: programs that must fail to compile.
-# stdlib/Jai_Format/tests/cases: formatter golden inputs, whose code is only there to be
-# formatted.
+# Every Jai file the repository owns is linted, except:
+# - tests/corpus/negative: programs that must fail to compile.
+# - tests/lint: each rule's bad cases, which must trigger it.
+# - stdlib/Jai_Format/tests/cases: formatter golden inputs, whose code is only there to be
+#   formatted.
+# - fuzz: fuzzer seeds and byte-exact regressions, many deliberately broken.
 exclude = [
     "tests/corpus/negative/**",
+    "tests/lint/**",
     "stdlib/Jai_Format/tests/cases/**",
+    "fuzz/**",
 ]
 
 [rules]

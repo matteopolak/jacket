@@ -1,6 +1,7 @@
 // Checks the claims of docs/language/casts-and-conversions.md, one group per rule.
 // rules: cast.1 cast.2 cast.3 cast.4 cast.5 cast.6 cast.7 cast.8 cast.9 cast.11 cast.13 cast.15 cast.21 cast.22 cast.23
 // rules: cast.25 cast.26 cast.27 cast.28
+// jailint: allow-file(bool_comparison) -- this test checks the exact value a cast to bool gives.
 #import "Basic";
 
 Mode :: enum u8 {

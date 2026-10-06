@@ -6,6 +6,14 @@ positive :: (n: int) -> bool {
     return false;
 }
 
+// The last check of a series of guards stays a guard.
+checked :: (n: int) -> bool {
+    if n < 0 return false;
+    half := n / 2;
+    if half * 2 != n return false;
+    return true;
+}
+
 main :: () {
     n := 5;
     yes := ifx n > 0 then 1 else 0;
@@ -17,5 +25,5 @@ main :: () {
         // keep this note
         return;
     }
-    print("% % % %\n", positive(n), yes, a, b);
+    print("% % % % %\n", positive(n), checked(n), yes, a, b);
 }

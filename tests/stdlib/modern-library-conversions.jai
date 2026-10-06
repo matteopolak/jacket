@@ -1,10 +1,9 @@
 // Small language rules newer libraries rely on (AST_Utils, Jai-Shader-Transpiler).
 #import "Basic";
-#import "Compiler";
 #import "Math";
 
 // Any expression passed to a plain (non-macro) `Code` parameter becomes code.
-code_kind :: (code: Code) -> bool {
+code_kind :: (_code: Code) -> bool {
     return true;
 }
 
@@ -29,7 +28,7 @@ main :: () {
 
     // `xx a == b` casts to the other operand's type.
     err: s32 = 0;
-    assert(xx err == false);
+    assert(xx err == false); // jailint: allow(bool_comparison) the comparison is what is tested
 
     // Matrices list their elements first: positional literals fill _11, _12, ...
     m := Matrix2.{ 1, 2, 3, 4 };

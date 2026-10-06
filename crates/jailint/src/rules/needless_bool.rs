@@ -8,8 +8,8 @@
 //! - an `ifx` picks between the literals `true` and `false` → `c` (or `!c`);
 //! - an `if`/`else` returns `true` in one branch and `false` in the other → `return c;`;
 //! - an `if` that returns `true` or `false` is directly followed by a `return` of the other
-//!   literal → `return c;` (unless it ends a run of such `if`s, where it reads as one more
-//!   guard);
+//!   literal → `return c;` (unless an earlier `if` in the same block returns a literal too:
+//!   then it is the last of a series of guards and reads best like the others);
 //! - an `if`/`else` assigns `true` and `false` to the same side-effect-free target →
 //!   `x = c;`.
 //!
@@ -235,16 +235,12 @@ fn sequence(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
         let [first, second] = pair else {
             continue;
         };
-        // The last of a run of guards (`if a return false; if b return false; return true;`)
-        // reads better kept like the others.
-        if i > 0
-            && let S::If {
-                then_branch,
-                else_branch: None,
-                ..
-            } = &stmts[i - 1].kind
-            && returned(then_branch).is_some()
-        {
+        // The last of a series of guards (`if a return false; x := f(); if b return false;
+        // return true;`) reads better kept like the others.
+        if stmts[..i].iter().any(|s| {
+            matches!(&s.kind, S::If { then_branch, else_branch: None, .. }
+                if returned(then_branch).is_some())
+        }) {
             continue;
         }
         let S::If {

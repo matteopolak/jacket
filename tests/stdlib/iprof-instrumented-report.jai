@@ -2,7 +2,6 @@
 // instrumented `main` runs (via #run) and its exit report is captured from the logger and checked.
 #import "Basic";
 #import "Compiler";
-#import "String";
 Iprof :: #import "Iprof";
 
 TARGET :: #string END

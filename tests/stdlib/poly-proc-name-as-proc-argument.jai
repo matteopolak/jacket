@@ -16,9 +16,10 @@ twice :: (s: string) -> string {
     return tprint("%%", s, s);
 }
 
+// `s` is only there to be named at the call.
 varargs_named :: (s: string, i: int, v: ..Any) -> int {
     return i * 100 + v.count;
-}
+} @jailint_allow(unused_parameter)
 
 main :: () {
     ints := int.[1, 2, 3];

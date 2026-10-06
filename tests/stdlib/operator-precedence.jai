@@ -3,6 +3,7 @@
 // and `/` but tighter than `+` and `-`. Checks marked `C:` give that value with C's
 // grouping. The first block repeats results recorded from the real compiler.
 // rules: ops.1 ops.3 ops.4 ops.6 ops.7 ops.8 ops.10 ops.12 ops.15
+// jailint: allow-file(bitwise_precedence, identical_operands) -- this test pins down how Jai groups operators.
 #import "Basic";
 
 main :: () {

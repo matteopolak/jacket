@@ -20,7 +20,7 @@ Outer :: struct {
 
 main :: () -> int {
     if max_of_type(u8) != 255 || max_of_type(s8) != 127 || max_of_type(u64) != 0xffff_ffff_ffff_ffff || max_of_type(s64) != 0x7fff_ffff_ffff_ffff return 1;
-    if min_of_type(s8) != -128 || min_of_type(s32) != -2147483648 || min_of_type(u16) != 0 || max_of_type(bool) != true return 2;
+    if min_of_type(s8) != -128 || min_of_type(s32) != -2147483648 || min_of_type(u16) != 0 || !max_of_type(bool) return 2;
     if max_of_type(float32) != FLOAT32_MAX || min_of_type(float64) != FLOAT64_MIN return 3;
 
     xs: [..] int;

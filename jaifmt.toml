@@ -4,7 +4,11 @@ max_width = 100
 max_blank_lines = 2
 brace_style = "same_line"
 
-# tests/corpus: fixtures pinned by sha256 in tests/corpus/manifest.json, and negative cases
-# that are deliberately malformed. stdlib/Jai_Format/tests/cases: golden inputs, kept unformatted.
-# tests/native/debug-info: the debugger test sets breakpoints at fixed line numbers.
-ignore = ["tests/corpus/**", "stdlib/Jai_Format/tests/cases/**", "tests/native/debug-info/**"]
+# Every Jai file the repository owns is formatted, except:
+# - tests/corpus: fixtures pinned by sha256 in tests/corpus/manifest.json, and negative cases
+#   that are deliberately malformed.
+# - stdlib/Jai_Format/tests/cases: golden inputs, kept unformatted.
+# - tests/native/debug-info: the debugger test sets breakpoints at fixed line numbers.
+# - fuzz: seeds are fuzzer inputs (odd layout is the point, and the jaifmt target starts from
+#   them) and regressions are byte-exact reproducers.
+ignore = ["tests/corpus/**", "stdlib/Jai_Format/tests/cases/**", "tests/native/debug-info/**", "fuzz/**"]

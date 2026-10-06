@@ -1,6 +1,7 @@
 // rules: ops.1 ops.2 ops.3 ops.4 ops.5 ops.6 ops.7 ops.8 ops.9 ops.10 ops.11 ops.12 ops.13 ops.14 ops.15
 // Self-checking program for the precedence table in docs/language/operators.md. Operands are
 // runtime variables so the parser's grouping, not constant folding, decides each result.
+// jailint: allow-file(bitwise_precedence, identical_operands) -- this test pins down how Jai groups operators.
 #import "Basic";
 
 Point :: struct {

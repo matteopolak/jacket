@@ -1,5 +1,6 @@
 // GetRect (through Simp) needs native C libraries and a window system, so the WASM target (the browser
 // playground) cannot import it: there the test is empty.
+// jailint: allow-file(unused_variable) -- the declarations only type-check the API.
 #if OS != .WASM {
     GR :: #import "GetRect";
 

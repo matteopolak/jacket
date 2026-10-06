@@ -31,7 +31,7 @@ main :: () {
     // Integer division of integers, even under a float cast.
     n: s64 = 7;
     assert(cast(float64) (n / 2) == 3);
-    assert(cast(float32) (1 / 3) == 0);
+    assert(cast(float32) (1 / 3) == 0); // jailint: allow(integer_division_in_float) tested
     // Bare and literal-only operands are constants folded at the target.
     assert(cast(float32) 3 == 3.0);
     assert(cast(u8) 255 == 255);

@@ -16,7 +16,7 @@ main :: () {
     Iprof.zones[0].name = "(global)";
     Iprof.zones[1].name = "work";
     Iprof.zones[1].hash = 12345;
-    Iprof.zones.count; // fixed-size array in manual mode
+    Iprof.zones.count; // jailint: allow(no_effect) fixed-size array in manual mode: must compile
 
     Iprof.init_runtime();
 

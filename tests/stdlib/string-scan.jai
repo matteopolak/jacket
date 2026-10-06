@@ -11,7 +11,7 @@ main :: () -> s64 {
     if !ok || values.count != 4 return 1;
     if (cast(*float) values[0].value_pointer).* != 1.5 return 2;
     if (cast(*int) values[1].value_pointer).* != 42 return 3;
-    if (cast(*bool) values[2].value_pointer).* != true return 4;
+    if !(cast(*bool) values[2].value_pointer).* return 4;
     if (cast(*string) values[3].value_pointer).* != "hi" return 5;
     bad, _ := scan("a%i", "b7");
     if bad return 6;

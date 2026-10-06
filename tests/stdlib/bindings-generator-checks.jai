@@ -19,7 +19,7 @@ generate :: (strip: Strip_Flags, checks: bool) -> string {
     make_directory_if_it_does_not_exist(dir);
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/libchecks.%", dir, ext);
-    result, output := run_command("clang++", "-shared", "-fPIC", "-o", library_path, tprint("%/checks.cpp", fixture), capture_and_return_output = true);
+    result := run_command("clang++", "-shared", "-fPIC", "-o", library_path, tprint("%/checks.cpp", fixture), capture_and_return_output = true);
     if result.exit_code != 0 return "";
 
     opts: Generate_Bindings_Options;

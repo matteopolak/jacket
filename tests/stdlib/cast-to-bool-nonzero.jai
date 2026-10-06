@@ -2,6 +2,7 @@
 // `true`, so `!` and `==` treat it like any other bool (it used to keep the low byte, and
 // `!cast(bool) 2` was true).
 // rules: cast.7 cast.22
+// jailint: allow-file(bool_comparison) -- this test checks the exact value a cast to bool gives.
 #import "Basic";
 
 Flags :: enum_flags {

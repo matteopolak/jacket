@@ -45,7 +45,7 @@ On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitiz
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jailsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
 - A [formatter](docs/tools/jaifmt.md) (`jaifmt`) that runs natively and in the browser, either interpreted or compiled to a 214 KB `jaifmt.wasm`. Its output is canonical and idempotent: formatting twice changes nothing.
-- A [linter](docs/tools/jailint.md) (`jailint`) with rules that run on the type-checked program: unused variables, parameters and imports, loops that only index (`for i: 0..xs.count-1`), hand-kept counters, redundant casts, `x == true`, format strings with the wrong number of arguments, a shadowed `it`, a `defer` in a loop, and opt-in checks for exact float comparison and narrowing `xx`. It applies fixes with `--fix`, reads `jailint.toml`, honours `// jailint: allow(rule)`, and its findings and fixes also show up in editors through `jailsp`.
+- A [linter](docs/tools/jailint.md) (`jailint`) with rules that run on the type-checked program: unused variables, parameters and imports, loops that only index (`for i: 0..xs.count-1`), hand-kept counters, redundant casts, `x == true`, format strings with the wrong number of arguments, a shadowed `it`, a `defer` in a loop, likely bugs (`u >= 0` on an unsigned value, `1 << n - 1`, `for i: 0..xs.count` indexing `xs[i]`, identical branches or operands, a `while` whose condition nothing changes, `trim(s);` with the result dropped) and unidiomatic code (`x = x + 1`, `if c return true; else return false;`), and opt-in checks for exact float comparison and narrowing `xx`. It applies fixes with `--fix`, reads `jailint.toml`, honours `// jailint: allow(rule)`, and its findings and fixes also show up in editors through `jailsp`.
 - A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai), which opens with a [multi-file tour of the language](examples/tour/tour.md) (`examples/tour`).
 
 **Real projects** such as the Focus editor, the Jails language server, jaison, sgpu and the programs from *The Way to Jai* compile and run; see [the full list](docs/tools/upstream-corpus.md#project-status).
@@ -113,7 +113,8 @@ cargo test --workspace --locked --no-fail-fast
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --timeout 900   # everything should pass
-cargo run -p jailint -- -D warnings stdlib examples tools/jaifmt tests/corpus/positive
+target/jaifmt --check prelude stdlib tests benchmarks tools examples   # build: jaic build tools/jaifmt/main.jai -O2 -o target/jaifmt
+cargo run -p jailint -- -D warnings -j 2 prelude stdlib examples tools tests benchmarks
 ```
 
 The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server`, `crates/jailint` (the linter) and `crates/jai-wasm` (browser build). Start with the [developer docs](docs/README.md) and the [compiler architecture](docs/compiler/architecture.md).

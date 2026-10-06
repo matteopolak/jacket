@@ -133,14 +133,14 @@ jobs:
         run: |
           cargo build --locked -p jaic-cli
           target/debug/jaic build tools/jaifmt/main.jai -O2 -o target/jaifmt
-          target/jaifmt --check stdlib tests benchmarks tools examples
+          target/jaifmt --check prelude stdlib tests benchmarks tools examples
       # The repository's Jai code must be lint-free (settings: jailint.toml).
       - name: Jai lint
         id: jai-lint
         continue-on-error: true
         run: |
           cargo build --locked -p jailint
-          target/debug/jailint -D warnings -j 2 stdlib examples tools/jaifmt tests/corpus/positive
+          target/debug/jailint -D warnings -j 2 prelude stdlib examples tools tests benchmarks
       - name: Backend agreement
         id: backends
         continue-on-error: true

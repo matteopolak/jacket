@@ -22,9 +22,10 @@ factorial :: (n: int) -> int {
 }
 
 // A named variadic argument takes the positional arguments that follow it.
+// `s` and `f` are only there to be named at the call.
 count_all :: (s := "", f := 0.0, v: ..string) -> int {
     return v.count;
-}
+} @jailint_allow(unused_parameter)
 
 // A parenthesized list is a procedure type; a polymorphic procedure can be passed to it.
 apply :: (f: (int) -> int, x: int) -> int {

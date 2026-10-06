@@ -83,7 +83,7 @@ main :: () {
 
     // flow.3: a range whose end is below its start runs zero times.
     runs := 0;
-    for 5..3 runs += 1;
+    for 5..3 runs += 1; // jailint: allow(reversed_range) the empty range is what is tested
     assert(runs == 0, "descending range is empty");
 
     // flow.4: `for v, i:` binds the value then the index.

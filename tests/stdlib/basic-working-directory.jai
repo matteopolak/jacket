@@ -1,7 +1,5 @@
 // get_working_directory / set_working_directory live in Basic (as in the reference), also with System and File imported.
 #import "Basic";
-#import "System";
-#import "File";
 
 main :: () -> s64 {
     original := copy_string(get_working_directory());

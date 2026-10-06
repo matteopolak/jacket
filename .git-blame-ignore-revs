@@ -6,3 +6,5 @@
 006871ddcf6e65bbffe8b4d9f9fc4c9be1242b76
 # style: format with rustfmt (blank lines between items)
 fc5a1290fd0a85a9fc677d36a80cbb0d186b9b39
+# style(prelude): format with jaifmt
+1d771bac973cc720778771f030e6994bbd323576

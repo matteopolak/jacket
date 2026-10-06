@@ -1,4 +1,3 @@
-Basic :: #import "Basic";
 Tables :: #import "Hash_Table"(COUNT_COLLISIONS = true);
 constant_hash :: (key: s64) -> u32 {
     return 9;
@@ -13,7 +12,7 @@ main :: () -> s64 {
     if table.count != 3 || table.slots_filled != 3 return 1;
     duplicates := Tables.table_find_multiple(*table, 1);
     if duplicates.count != 2 || duplicates[0] + duplicates[1] != 30 return 2;
-    removed, value := Tables.table_remove(*table, 1);
+    removed := Tables.table_remove(*table, 1);
     if !removed || table.count != 2 || table.slots_filled != 3 return 3;
     Tables.table_add(*table, 3, 40);
     if table.count != 3 || table.slots_filled != 3 return 4;

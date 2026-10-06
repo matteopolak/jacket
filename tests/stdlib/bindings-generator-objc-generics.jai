@@ -78,7 +78,7 @@ build_and_generate :: () -> string {
         library_path := tprint("%/libgenerics.dylib", dir);
         if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
-        result, output := run_command("clang", "-shared", "-fPIC", "-fno-objc-arc", "-o", library_path, source_path, "-lobjc", "-Wno-deprecated-declarations", capture_and_return_output = true);
+        result := run_command("clang", "-shared", "-fPIC", "-fno-objc-arc", "-o", library_path, source_path, "-lobjc", "-Wno-deprecated-declarations", capture_and_return_output = true);
         if result.exit_code != 0 return "";
 
         opts: Generate_Bindings_Options;

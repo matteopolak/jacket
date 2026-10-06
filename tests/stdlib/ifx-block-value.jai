@@ -10,7 +10,7 @@ main :: () {
     assert(s == "spaces" && n == 7);
     tabs = true;
     s = ifx !tabs then "spaces" else {
-        n = n / 2;
+        n /= 2;
         tprint("tabs %", n);
     }
     assert(s == "tabs 3" && n == 3);

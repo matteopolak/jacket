@@ -39,7 +39,7 @@ main :: () -> s64 {
 
     // Procedure values print as "procedure 0x" followed by the address.
     text := tprint("%", add);
-    if begins_with(text, "procedure 0x") == false return 5;
+    if !begins_with(text, "procedure 0x") return 5;
 
     // A union member prints as "(union)".
     h := Holder.{ 3, .{ i = 7 } };

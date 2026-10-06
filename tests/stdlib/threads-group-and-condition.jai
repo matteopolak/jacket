@@ -1,7 +1,6 @@
 // Condition variables, a semaphore with a timed wait, and a Thread_Group that squares numbers. Native
 // builds run these on OS threads; the browser build runs them one after another on the interpreter stack.
 #import "Basic";
-#import "Atomics";
 #import "Thread";
 
 Box :: struct {

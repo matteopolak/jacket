@@ -200,7 +200,7 @@ The condition already is the `bool`. Fixes:
 
 - `ifx c then true else false` → `c` (and `!c` for the reverse);
 - `if c return true; else return false;` → `return c;`;
-- `if c return true; return false;` → `return c;`, unless it ends a run of such guards (`if a return false; if b return false; return true;`), where it reads as one more;
+- `if c return true; return false;` → `return c;`, unless an earlier `if` in the same block returns a literal too (`if a return false; x := f(); if b return false; return true;`): it is then the last of a series of guards and reads best like the others;
 - `if c x = true; else x = false;` → `x = c;`.
 
 A negated integer comparison is flipped (`!(n < 10)` → `n >= 10`). Comments inside a rewritten `if` keep the fix from being offered.
@@ -351,7 +351,7 @@ Only this subset of TOML is read. An unknown key, rule or level is an error, so 
 
 Settings live in their own file rather than `jaifmt.toml` because the formatter is written in Jai and parses its own file. Keeping the two separate means neither tool has to accept the other's keys or reject them as typos.
 
-The repository's `jailint.toml` excludes the negative compiler cases and the formatter's golden inputs. CI runs `jailint -D warnings stdlib examples tools/jaifmt tests/corpus/positive` (see [continuous integration](continuous-integration.md)).
+The repository's `jailint.toml` excludes the negative compiler cases, each rule's bad cases in `tests/lint`, the formatter's golden inputs and the fuzzer seeds; everything else the repository owns is linted with the default levels. Deliberate findings in tests (a test of operator grouping, of `cast(bool) x == true`, of an empty range) carry an `allow` with the reason. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools tests benchmarks` (see [continuous integration](continuous-integration.md)).
 
 ## How to change it
 

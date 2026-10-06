@@ -12,9 +12,9 @@ main :: () -> s64 {
     if !truncated_ok || truncated != -1 || !rounded_ok || rounded != -2 return 2;
     positive, positive_ok := to_seconds(milliseconds_to_apollo(1500), DO_ROUNDING = true);
     if !positive_ok || positive != 2 return 3;
-    invalid, invalid_ok := to_nanoseconds(APOLLO_TIME_INVALID);
+    _, invalid_ok := to_nanoseconds(APOLLO_TIME_INVALID);
     if invalid_ok return 4;
-    out_of_range, range_ok := to_nanoseconds(seconds_to_apollo(9223372036854775807));
+    _, range_ok := to_nanoseconds(seconds_to_apollo(9223372036854775807));
     if range_ok return 5;
     float_time := to_apollo(1.5);
     millis, millis_ok := to_milliseconds(float_time);

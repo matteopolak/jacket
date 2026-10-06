@@ -14,6 +14,6 @@ libc :: #system_library "libc";
 main :: () {
     assert(join("a", "b") == "ab");
     assert(contains("hello", "ell")); // not listed: found through the fallback
-    builder: String_Builder;
+    builder: String_Builder; // jailint: allow(unused_variable) names a listed type
     print("ok\n");
 }

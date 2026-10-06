@@ -195,6 +195,7 @@ main :: () {
             pternlogd t3, zy, zy, 0xe8;
             movdqu32 [po], t3;
         }
+        // jailint: allow(identical_operands) the majority of (x, y, y), one term per pair
         for 0..15 want[it] = (X[it] & Y[it]) | (X[it] & Y[it]) | (Y[it] & Y[it]);
         check_s32("pternlogd majority", out, want);
 
