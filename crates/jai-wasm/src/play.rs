@@ -220,6 +220,7 @@ pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptio
     let workspace_host = host.clone();
     let reports = host.clone();
     let workspaces = Workspaces::new(BuildEnv {
+        unwritten_output_hint: None,
         fs: fs.clone(),
         options: options(main),
         backend: None,

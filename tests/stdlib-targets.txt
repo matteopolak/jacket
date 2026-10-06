@@ -127,7 +127,7 @@ nvidia_aftermath macos-x64: Windows.jai: #assert failed
 nvidia_aftermath wasm: Windows.jai: #assert failed
 nvtt linux-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
 nvtt macos-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
-nvtt wasm: nvtt/module.jai: #assert failed
+nvtt wasm: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
 nvtt windows-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
 stb_image wasm: stb_image/module.jai: #assert failed
 stb_image_resize wasm: stb_image_resize/bindings.jai: #assert failed

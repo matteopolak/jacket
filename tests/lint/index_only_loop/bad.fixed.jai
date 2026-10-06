@@ -34,12 +34,19 @@ main :: () {
     tour();
 }
 
-Stop :: struct { title: string; run: () -> (); }
+Stop :: struct {
+    title: string;
+    run: () -> ();
+}
 
-stops :: Stop.[ .{ "one", one }, .{ "two", two } ];
+stops :: Stop.[.{ "one", one }, .{ "two", two }];
 
-one :: () { print("1\n"); }
-two :: () { print("2\n"); }
+one :: () {
+    print("1\n");
+}
+two :: () {
+    print("2\n");
+}
 
 tour :: () {
     for stops {

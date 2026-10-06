@@ -47,8 +47,11 @@
 
 ### Fixed
 
+- `jaic run` and `jaic check` warn when a workspace a metaprogram creates asks for an executable or library, which only `jaic build` writes, and name the `jaic build` command to use. A build script run with `jaic run` used to end without output and without writing anything.
+- `Process.create_process` (and so `run_command`) logs why a program could not be started (`could not start "./build/game": No such file or directory`) instead of failing silently.
 - macOS `Input`: a click no longer quits the program, and closing a window does. The adapter watched every window in `NSApp.windows` and queued `QUIT` when one went away, but AppKit adds and drops windows of its own; closed windows were never released, so they never went away. It now follows only the windows `Window_Creation` made (`Window_Type.macos_program_windows`) and queues `QUIT` when one is no longer visible without being minimized.
 - macOS: `NSEvent.keyRepeatDelay`, `keyRepeatInterval` and `pressedMouseButtons` are class methods, as in AppKit; they were sent to an event and stopped the program. `swapBuffers` moved from `LightweightRenderingView` to `LightweightOpenGLView`, the only view that has an OpenGL context.
+- `jaic check -os wasm` and `jaic run -os wasm` set `CPU` to `.CUSTOM`, as `jaic build -os wasm` and the browser do; they kept the host's CPU, so the same program saw `.X64` on one machine and `.ARM64` on another.
 - macOS `Input.get_input_pointer_position` sent `convertPointToScreen` without its `:` and stopped the program.
 - `Input`: `update_window_events` installs the platform event adapter, which nothing installed before: programs got no window events, and on macOS the window never appeared.
 - Type errors in stdlib code that was never checked, found by the new stdlib target check: the macOS input adapter, `Window_Creation.toggle_fullscreen` on macOS (`NSWindow.screen` was missing), the x11 adapter's text input, `Foundation`/`Metal` return types that named `NSDictionary` without parameters, `File` known folders on Windows, `Socket` addresses on Windows, `GL` info logs, `Simp` font cleanup, `GetRect` color strips, text hit-testing and Windows cursors, `ImGui.CreateContext`, `Text_File_Handler.file_to_table`, the Vulkan, d3d, dxc and nvtt wrappers, `pl_mpeg`, `rpmalloc`, `Thekla_Atlas`, `Shared_Memory_Channel` on Windows and `POSIX_old`.

@@ -114,6 +114,10 @@ pub struct BuildEnv {
     /// Base options (import path, preload, target) for new workspaces.
     pub options: Options,
     pub backend: Option<Box<dyn OutputBackend>>,
+    /// Without a backend: the command that would write a workspace's output, named in a warning
+    /// when a workspace asks for one (`jaic run` and `jaic check` only check workspaces). `None`
+    /// says nothing (the browser and editors, where no output is ever expected).
+    pub unwritten_output_hint: Option<String>,
     /// Arguments after `-` on the command line (`compile_time_command_line`).
     pub command_line: Vec<String>,
     /// Host for the compile-time interpreter of each workspace, given its target `OS`
@@ -709,7 +713,25 @@ fn write_output(
         let mut reg = shared.borrow_mut();
         match reg.env.backend.as_mut() {
             Some(backend) => backend.write_output(&compiler.program, &settings, &output),
-            None => Ok(()), // No backend (browser): checking only.
+            // No backend: checking only.
+            None => {
+                if let Some(command) = reg.env.unwritten_output_hint.clone() {
+                    let name = reg.ws(id)?.name.clone();
+                    let kind = match settings.output_type {
+                        OutputType::DynamicLibrary => "a dynamic library",
+                        OutputType::StaticLibrary => "a static library",
+                        OutputType::ObjectFile => "an object file",
+                        _ => "an executable",
+                    };
+                    (reg.env.report)(&format!(
+                        "warning: {} was not written: workspace `{name}` asks for {kind}, but this \
+                         command only checks the workspaces a metaprogram creates\n\
+                         help: to write it, use `{command}`",
+                        output.display(),
+                    ));
+                }
+                Ok(())
+            }
         }
     };
     if let Err(message) = &written {

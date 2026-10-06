@@ -274,6 +274,7 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     let workspace_host = host.clone();
     let sink = reports.clone();
     let workspaces = Workspaces::new(BuildEnv {
+        unwritten_output_hint: None,
         fs: fs.clone(),
         options: copts.clone(),
         backend: None,

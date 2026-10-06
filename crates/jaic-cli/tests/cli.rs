@@ -426,9 +426,9 @@ fn compile_time_print_precedes_program_output() {
     );
 }
 
-/// `jaic run` and `jaic check` only check workspaces: one asking for an executable compiles
-/// and writes nothing. (`jaic build` writes it: `arithmetic_overflow_checks` in native.rs.)
-// rules: ws.15
+/// `jaic run` and `jaic check` only check workspaces: one asking for an executable compiles,
+/// writes nothing and gets a warning that points to `jaic build`. (`jaic build` writes it: `arithmetic_overflow_checks` in native.rs.)
+// rules: ws.15 ws.17
 #[test]
 fn run_and_check_write_no_workspace_output() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-workspace-no-output");
@@ -470,6 +470,14 @@ fn run_and_check_write_no_workspace_output() {
             .filter(|name| name.to_string_lossy().starts_with("target-prog"))
             .collect();
         assert!(written.is_empty(), "{command} wrote {written:?}");
+        // ...and says so, naming the command that would write it.
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr
+                .contains("target-prog was not written: workspace `target` asks for an executable")
+                && stderr.contains("help: to write it, use `jaic build "),
+            "{command}: {stderr}"
+        );
     }
 }
 

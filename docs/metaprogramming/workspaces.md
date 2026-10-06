@@ -55,7 +55,7 @@ IMPORT, FILE and TYPECHECKED are only produced for intercepted workspaces.
 
 ### Output
 
-When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic build` passes an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`); `jaic run`, `jaic check` and the browser pass none, so workspaces are only checked {#ws.15}.
+When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic build` passes an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`); `jaic run`, `jaic check` and the browser pass none, so workspaces are only checked {#ws.15}. Without a backend, `BuildEnv::unwritten_output_hint` decides whether a workspace that asks for output is told it was not written: `jaic run` and `jaic check` warn `warning: build/game was not written: workspace `Build` asks for an executable, ...` with `help: to write it, use `jaic build first.jai``, since a build metaprogram run with `jaic run` otherwise ends silently; the browser, jailsp and jailint set `None` and say nothing {#ws.17}.
 
 Workspace 2's own settings decide whether `jaic build` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own {#ws.16}.
 

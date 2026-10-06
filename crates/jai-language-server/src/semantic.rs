@@ -257,6 +257,7 @@ fn compile(
     // the same way, with no output, the same host and the same budget.
     let workspace_host = host.clone();
     let workspaces = Workspaces::new(BuildEnv {
+        unwritten_output_hint: None,
         fs: compiler.fs.clone(),
         options: (env.options)(root),
         backend: None,
