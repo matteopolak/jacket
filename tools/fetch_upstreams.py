@@ -16,6 +16,11 @@ import urllib.request
 REPOSITORIES = (
     'focus-editor/focus', 'Ivo-Balbaert/The_Way_to_Jai', 'SogoCZE/Jails',
     'rluba/jaison', 'withlang-dev/open-jai', 'ostef/Vk-Engine', 'roeyb1/sgpu',
+    # Smoke-test set: the language:Jai repositories with 20+ stars pushed since 2026-05-05
+    # (docs/tools/third-party-smoke-test.md explains how to refresh it). abhiramasonny/jaithon
+    # matched too but is its own language that happens to use the .jai extension.
+    'danieltan1517/chess-jai', 'gabrielmfern/forbear', 'rexim/rexim.github.io',
+    'kooparse/ui_builder', 'DavidColson/Photon', 'kujukuju/KodaJai', 'UnNabbo/no_api',
 )
 # Libraries the projects above import from git submodules: pinned like the
 # projects but exempt from the recency cutoff.
@@ -52,7 +57,14 @@ RESOURCE_PREFIXES = {
     'roeyb1/sgpu': ('examples/shaders/', 'examples/sample.png'),
     # JoltC builds with CMake (tools/build_vk_engine_libs.py); Jolt Physics itself is cloned there.
     'ostef/JoltC': ('CMakeLists.txt', 'Examples/'),
+    # chess-jai reads its NNUE network at compile time and its fonts, images and sounds at run time.
+    'danieltan1517/chess-jai': ('resources/',),
+    'kooparse/ui_builder': ('demo/assets/',),
+    'gabrielmfern/forbear': ('apps/Inter.ttf',),
 }
+# Per-repository download cap where a needed data file is bigger than the default 8 MiB
+# (chess-jai's network is 21 MB).
+MAX_FILE_BYTES = {'danieltan1517/chess-jai': 32 * 1024 * 1024}
 # Submodule mount points: (consumer directory link, target relative to corpus/upstream).
 MODULE_LINKS = (
     ('SogoCZE--Jails/modules/jaison', 'rluba--jaison'),
@@ -97,9 +109,10 @@ def download(repo: str, revision: str, path: str) -> bytes:
     safe_path(path)
     url = f'https://raw.githubusercontent.com/{repo}/{revision}/{urllib.parse.quote(path)}'
     request = urllib.request.Request(url, headers={'User-Agent': 'jai-rust-compatibility-research'})
+    limit = MAX_FILE_BYTES.get(repo, 8 * 1024 * 1024)
     with urllib.request.urlopen(request, timeout=60) as response:
-        data = response.read(8 * 1024 * 1024 + 1)
-    if len(data) > 8 * 1024 * 1024:
+        data = response.read(limit + 1)
+    if len(data) > limit:
         raise ValueError(f'oversize source: {repo}/{path}')
     return data
 

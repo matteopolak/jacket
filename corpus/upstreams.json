@@ -8071,6 +8071,4459 @@
       ]
     },
     {
+      "repository": "danieltan1517/chess-jai",
+      "revision": "ab5793b8a0e74bc49c88c924a4f050f0b8665b2d",
+      "latest_jai_change": "2026-06-18T23:10:34-07:00",
+      "source_of_truth": "https://github.com/danieltan1517/chess-jai/tree/ab5793b8a0e74bc49c88c924a4f050f0b8665b2d",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 7171,
+          "sha256": "6e38b9073fafc03449dcfe7fa49a518041a7ce75ff7696572ff3c32570e1c294"
+        },
+        {
+          "path": "build.jai",
+          "bytes": 6212,
+          "sha256": "69fccc2611fa5ab078438b17301e9ee8b02b8e5b5e5079dc863ed933b4b78f34"
+        },
+        {
+          "path": "eval.jai",
+          "bytes": 2561,
+          "sha256": "383d3ba901502228b9129a14f328991c3a81051110511965a60c1faee0ff8779"
+        },
+        {
+          "path": "linux.jai",
+          "bytes": 2211,
+          "sha256": "27946e8c4a052915be93cc2b7c1d5e6683614a8f47647fc2746d6b8eb9f0db74"
+        },
+        {
+          "path": "macos.jai",
+          "bytes": 2253,
+          "sha256": "ad14e625d5b46a13e2af5c9f49787eab2e736d7493f09459d2f5b8bb64aa15f2"
+        },
+        {
+          "path": "movegen.jai",
+          "bytes": 79994,
+          "sha256": "267a74063a0a3a34711dba06f37d82feb4edd05bc8cf7786505fc82a8b026eff"
+        },
+        {
+          "path": "nnue_avx2.jai",
+          "bytes": 23860,
+          "sha256": "dda051ffb42d4c308fafc00c865a16de44fa75cb3b3a9fa0a44c3898de3d2f25"
+        },
+        {
+          "path": "nnue_cpu.jai",
+          "bytes": 12237,
+          "sha256": "dcc03cbae11801f3ab40000e95c688ed3ec4fb2fb6809870bfd85cacfd2e2e2a"
+        },
+        {
+          "path": "nnue_probe.jai",
+          "bytes": 2521,
+          "sha256": "0233ebc85cef79252a86d19ef3ad068d7061f39f63ccb3c2fd568e2fc1bb7d8b"
+        },
+        {
+          "path": "nnue_sse.jai",
+          "bytes": 27135,
+          "sha256": "d88c774d5db6b6d5330514d0e059190ad9e98e629e8b5c6f86105fee4fe82f2a"
+        },
+        {
+          "path": "resources/AnonymousPro.ttf",
+          "bytes": 158080,
+          "sha256": "6a3502f45cd580a77e61ac5eec75a7ea699c27e295596806b514d3a04d89165b"
+        },
+        {
+          "path": "resources/capture.wav",
+          "bytes": 47148,
+          "sha256": "a3d3869a87a46fcb6b70fb6a4f0c1794ef8dca4e909467b43fde3e0c6024ab77"
+        },
+        {
+          "path": "resources/chess_pieces.png",
+          "bytes": 365341,
+          "sha256": "4bcc09a8ff923928c5f54b67ad94b4ecd7254c3e33d2f0c398604468ff27e5d0"
+        },
+        {
+          "path": "resources/move.wav",
+          "bytes": 43052,
+          "sha256": "e3f55d390af9831d33eaa169b87473d95980f6adf75fa8d89d1ed6f449ca4ce0"
+        },
+        {
+          "path": "resources/nn-04cf2b4ed1da.nnue",
+          "bytes": 21022697,
+          "sha256": "04cf2b4ed1da5af054bbba92d559b43d41be8fdbc174b63a4bdaaec140a465c2"
+        },
+        {
+          "path": "resources/settings_icon.png",
+          "bytes": 5031,
+          "sha256": "8e8a4b03078609e9be96c10350af8b1e18f86bb980fb9f8d5312e5f430bc1370"
+        },
+        {
+          "path": "search.jai",
+          "bytes": 64976,
+          "sha256": "6d7d7a43446c268c43888477c5ba4d4f1eaeb353dac4e5bd60075da768581f3a"
+        },
+        {
+          "path": "uci.jai",
+          "bytes": 8939,
+          "sha256": "1b5e801663f244a56393a4ed624e95eaa53433449883e958cff98bb0dc0bc9f2"
+        },
+        {
+          "path": "ui.jai",
+          "bytes": 67972,
+          "sha256": "eb6281a9b43ceab7778c6c6c1640ed483254035b21c787685a621f1eb6dc9e1d"
+        },
+        {
+          "path": "windows.jai",
+          "bytes": 2426,
+          "sha256": "0fa457cc3ec7455e74fac5b5f1cbba38674ab522e48d05acaccf72fecdc35d45"
+        }
+      ]
+    },
+    {
+      "repository": "gabrielmfern/forbear",
+      "revision": "3d5d731bb965eb35ef6920bf0713273d327b680d",
+      "latest_jai_change": "2026-10-03T07:08:46-03:00",
+      "source_of_truth": "https://github.com/gabrielmfern/forbear/tree/3d5d731bb965eb35ef6920bf0713273d327b680d",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 4337,
+          "sha256": "3cccb9aa739bc80d779b899fba7016e08f34163aa21e492e28fd89e06d566ff2"
+        },
+        {
+          "path": "apps/Inter.ttf",
+          "bytes": 874708,
+          "sha256": "0be2399ea925f1f83ff974764761da9860ec50742ed29a5d4c1ffd0c5c7ac3a8"
+        },
+        {
+          "path": "apps/playground.jai",
+          "bytes": 1502,
+          "sha256": "1af1aecfa0bca2d17cba396efe126828e85086519d437058e05274ac4e597dc5"
+        },
+        {
+          "path": "bindings-LINUX.jai",
+          "bytes": 510564,
+          "sha256": "89b05a81a0302d56a6ba555830375af291291fce0cc3799baf2d30723237e189"
+        },
+        {
+          "path": "bindings-MACOS.jai",
+          "bytes": 396787,
+          "sha256": "d15fd931a62f836756379b64d2f3be31ac660705ee9142c5c7ff48cc548318b7"
+        },
+        {
+          "path": "build.jai",
+          "bytes": 19337,
+          "sha256": "6aede2d45258ee09bc0147286af7bcd3094156b623b59302664e86ed3e3dee6d"
+        },
+        {
+          "path": "forbear.jai",
+          "bytes": 76618,
+          "sha256": "5654cec1a8d16d892e62c95c602c71138e0c59b1beffd2680cfaa521ffe27586"
+        },
+        {
+          "path": "vendor/freetype/LICENSE.TXT",
+          "bytes": 2149,
+          "sha256": "bd36c8b474855fa294c2ec5c184544478ef3720aad37d65a6296a4f264fd2d3b"
+        },
+        {
+          "path": "vendor/freetype/include/dlg/dlg.h",
+          "bytes": 12449,
+          "sha256": "d4b983841fd8810f4e26912a8122956d07d48ce43f07b40e7f3042be5f706925"
+        },
+        {
+          "path": "vendor/freetype/include/dlg/output.h",
+          "bytes": 7229,
+          "sha256": "d659aad12eea8c26d317ad2601bb9d2ceabff1f7dcb0fbf8ab3038f6d1c457d1"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/ftconfig.h",
+          "bytes": 1614,
+          "sha256": "9731d71090d0181237b27f9b2db8fb96c904aa07da35aad51baad6ad2d8115ea"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/ftheader.h",
+          "bytes": 23919,
+          "sha256": "0b099b85a787ef6a20774dad096bb74e6cbb89e244f198baad8b135709123d0b"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/ftmodule.h",
+          "bytes": 1443,
+          "sha256": "61c76e01106e7b7c80f39f8d6fd479b5323b54d757c9a2cb66d07064ef616649"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/ftoption.h",
+          "bytes": 41690,
+          "sha256": "9014bc786e9c20ef03bb12cf9e4d6f273f0da24af5b9291a88eda976325ef457"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/ftstdlib.h",
+          "bytes": 4576,
+          "sha256": "de81744697b6f9f7fe3a49ca320f2a7ea8f2ae905bb96ff161b5b2d1eed25fe2"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/integer-types.h",
+          "bytes": 7450,
+          "sha256": "0aeaf74f638d1584ccae37f580076a7ac24ef89049749839c3c90dcdda148d5b"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/mac-support.h",
+          "bytes": 1645,
+          "sha256": "be37d3886a1a1ab1bcf894259d6a50d90b5fc71e3284b12e818c57710a9c945d"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/config/public-macros.h",
+          "bytes": 4240,
+          "sha256": "7557630cb407f98fbc003300c507ae444b0f7449cab99d80c13f5c343710d06e"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/freetype.h",
+          "bytes": 177129,
+          "sha256": "fd45e7ee01c8f0f2419186d3fc9dd58e25cd866ef0c49f0b347c2d141665a364"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftadvanc.h",
+          "bytes": 5470,
+          "sha256": "6f0c22af9c16eb0459736db8c60e27269db6b774addd196a845e417c851d3813"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftbbox.h",
+          "bytes": 2638,
+          "sha256": "4389ec87328ba568415fe4919b9399ff38fa766956b0940e494fbccd1427a6da"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftbdf.h",
+          "bytes": 5654,
+          "sha256": "d394c0d427d75efbb04ee06d55e2793bfab969d6ca94dba9f743707b109adbcd"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftbitmap.h",
+          "bytes": 9051,
+          "sha256": "92b63e93b151d96fd985cfaba4ec60e47204bbc922f3bee82412ae2fc426fb03"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftbzip2.h",
+          "bytes": 2786,
+          "sha256": "be324bc70ad4b355d7a2ae78a540019db17146a140cdcc59676079afc174ca38"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftcache.h",
+          "bytes": 34179,
+          "sha256": "ba20c0391cc39373474ce3d57adb65559e3954d413d98c2100d77d40bf82bf07"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftchapters.h",
+          "bytes": 2933,
+          "sha256": "c7d1c2ca13903fb6d0b3b37850344d805280856fb87c7597087ce2352573f752"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftcid.h",
+          "bytes": 4022,
+          "sha256": "e71180811abd5f87bb9c5eb058904b32c037ed29f8666e8a9b3561936b5b6ecc"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftcolor.h",
+          "bytes": 50791,
+          "sha256": "217af290dc25ceba7b77ed62bf7710e17d6396d6a20438072ab3a0685f4b2137"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftdriver.h",
+          "bytes": 50570,
+          "sha256": "459e4688340c8fc66545768e360b7fa126a4939c8de33d729181ca23572cf695"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/fterrdef.h",
+          "bytes": 12559,
+          "sha256": "376e05cbda2fe270031ef19722c6f9d76b9c4c444ff9e0e9c97cf9e3a016111f"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/fterrors.h",
+          "bytes": 9301,
+          "sha256": "a7547172143ce6309f89492b47ab0e6e69c7fb7f7caa8c81635811fd42673050"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftfntfmt.h",
+          "bytes": 2213,
+          "sha256": "54f23d9c103f0c485e837ea1a9db5f0736372b7d781d1adafb8cff6aa950d4d1"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftgasp.h",
+          "bytes": 4138,
+          "sha256": "a1453a8faeba8845c7b35bcdbbfc43afcc51bfaea89470f813e344a5c9fb06af"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftglyph.h",
+          "bytes": 20912,
+          "sha256": "79a94788388fee750f7cb1deac0c2dfe23d6a6232f29eb9bc056ca4d5a74f137"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftgxval.h",
+          "bytes": 10625,
+          "sha256": "06bb3bd9450ac2534f738849df72de6e618313a61d4b4866bc0bdf44ecefdbcf"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftgzip.h",
+          "bytes": 4211,
+          "sha256": "75f54dfef82233d9a9a1f9d4b4560a258b052784aff9859137cc232f468805df"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftimage.h",
+          "bytes": 42337,
+          "sha256": "30fb302298e418986d12107f856aca8f6e290cf88fe51b6186171ca21a65d824"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftincrem.h",
+          "bytes": 10696,
+          "sha256": "073a9dd3b7585989ee68540b3688a1e11bbd3498dd8210809b0869529861df05"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftlcdfil.h",
+          "bytes": 11257,
+          "sha256": "462073b97096be0c7e485d802fee6e6046f1aa36050c14f7771c31b99bab30fa"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftlist.h",
+          "bytes": 7100,
+          "sha256": "fea6f521193148308630725ae5de0ec736c135910704239967c541c8ab3e0cd1"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftlogging.h",
+          "bytes": 4130,
+          "sha256": "3c353c71c09de36f847cdc209f6e7d92dd92304b1d11c1d8d7300d439a24ef88"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftlzw.h",
+          "bytes": 2768,
+          "sha256": "fd8b72704427c0d8d4c6f2efdd30fdbfc55a7d1246a3c627dcb82661b324aae3"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftmac.h",
+          "bytes": 7771,
+          "sha256": "4203c770c57d3f09ea16e1dd6535da3a1bda62673cb9bedaacab90ac4b736bad"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftmm.h",
+          "bytes": 27783,
+          "sha256": "5d134d486b89d9a3dbaa54e581168be3868d04951c1ec3260542d852a14dddb1"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftmodapi.h",
+          "bytes": 22544,
+          "sha256": "1e526ff1f741cce96bf8d5e935bd9f1ba8db4afdd5c76f387ac54964b25d3fde"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftmoderr.h",
+          "bytes": 6675,
+          "sha256": "b9f667a0487217b12de1390cbf08622aae39966d1ef7c0578cfdd44d7328ddb9"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftotval.h",
+          "bytes": 5346,
+          "sha256": "da5bfb9e509556bfc16ce899a161ea26555cc3ff019cdcc67e6b3af3723f6361"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftoutln.h",
+          "bytes": 17403,
+          "sha256": "db0585ea338debdb9b721adc5f6d138ec7f88df30ff44cf6fb3cac79a70982f8"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftparams.h",
+          "bytes": 5847,
+          "sha256": "4db8f53c9b62aa5adfd2f89877a96c522198e9a780402be7aafba9fdace5f485"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftpfr.h",
+          "bytes": 4908,
+          "sha256": "dd40f7a041f345c8ae12664f52d2def53ec5dd2a49e65aba2b95bdef5b63a1d0"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftrender.h",
+          "bytes": 6625,
+          "sha256": "9579d3d9ff09e98ee09a49c8588d97a910c8fe698fe465a3f33965921fea77ec"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftsizes.h",
+          "bytes": 4288,
+          "sha256": "2afecd7a4dabbf89e9f76d373829b4e8e70a5c593ecccb7646e190c47a2b398e"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftsnames.h",
+          "bytes": 7730,
+          "sha256": "621faad855dfd4cc5e9a90b5a4554b706767653c5c2d41acd1b03d2e118b52dd"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftstroke.h",
+          "bytes": 21773,
+          "sha256": "ba4ed8f81ac66e9e6a2cdf772b69da02a0085fc5576cd233e4da661c6fb1967c"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftsynth.h",
+          "bytes": 4483,
+          "sha256": "f75aa75f8cb754c37db6ac16e1c9648997e06d280d8b28490d502838e6c649ca"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftsystem.h",
+          "bytes": 8502,
+          "sha256": "9a41ef1877a9f5f7e5debbf0d701bd393e53e2ae36fb6c34faebf26b8cbc43f2"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/fttrigon.h",
+          "bytes": 7411,
+          "sha256": "924526c9b662973f64eb5b4f5034ae897684cb08b9cca7262aba097e49471ade"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/fttypes.h",
+          "bytes": 14735,
+          "sha256": "27663e885fdb62982c221cbe1dba3e2f0d2730f5aa54aec333613bc60e05d1fe"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ftwinfnt.h",
+          "bytes": 7949,
+          "sha256": "a2d77ef372f2c874d61179687b71a2d034e1d51430266c46ec0854593d02b779"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/autohint.h",
+          "bytes": 7498,
+          "sha256": "c7cbbc5a3ef63736dd7b8a297bc95067fe978a10bb969a984a8692f805bbc783"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/cffotypes.h",
+          "bytes": 2354,
+          "sha256": "f5ef8ae6a20dbf92f84e28201e038054f353513ab23c6092d2901378615d8cb8"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/cfftypes.h",
+          "bytes": 11866,
+          "sha256": "c563db1545cf8c323b5e414a606c727f7c8d040c168d24abaacdcf05dd2ac0c4"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/compiler-macros.h",
+          "bytes": 11532,
+          "sha256": "7f34bf9a86ee998fe285edfcf8e509070b10cec0ca1b08e53f4e01811ba63cef"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftcalc.h",
+          "bytes": 12767,
+          "sha256": "496ec9f724ca74a604c5363bd3f133a51d1b47053fbf5a710a018d6a1928e173"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftdebug.h",
+          "bytes": 13332,
+          "sha256": "b7d2d9f85ebf5a97c453ea6fa4dcf4325b9d3d6a3274d7ae62ede99eb207005f"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftdrv.h",
+          "bytes": 9214,
+          "sha256": "39efd6b6062cbde9c6d5e149e113de54eaacc84ddfe72d41b609d1aa1da3d4ab"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftgloadr.h",
+          "bytes": 4504,
+          "sha256": "326623def7d16cd7886459edc1843934cd134783df43741805d39448b8d37b20"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/fthash.h",
+          "bytes": 4055,
+          "sha256": "023d88d49d29ecf3833db7717a3f7ae223c17ec2012bdb5bf33bb67abaf616c4"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftmemory.h",
+          "bytes": 16123,
+          "sha256": "90ba879c7384948c4323767d368b5660be4c33104a7699e7c1ce0e983ec5b7ac"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftmmtypes.h",
+          "bytes": 3003,
+          "sha256": "b131a8d4c3bed0438bbb47a5dab5020e43a152157de667552e751f4e98a35754"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftobjs.h",
+          "bytes": 41951,
+          "sha256": "236d0e8a235ef1958917a7350f14320380a4b95aaf8d1299928419aaff15a74c"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftpsprop.h",
+          "bytes": 1130,
+          "sha256": "1213d6141efeaa743e1c566634cd6788f4c12cb48164fd089fb793e721c41a71"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftrfork.h",
+          "bytes": 7651,
+          "sha256": "fc6edbdfeb71bcfcfea4e5bde0bdd3014fa56a4db8b01c1f178d931810ace640"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftserv.h",
+          "bytes": 24053,
+          "sha256": "0d53a4e5a4df8bb3b70578f8792b75850880af5a4a39351ffa93e3f0b8cf0d5a"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftstream.h",
+          "bytes": 23230,
+          "sha256": "5e35712114b18e457c3b71852c1224b2356da5a28adb0cb29a9f8a34e60a7d3c"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/fttrace.h",
+          "bytes": 6012,
+          "sha256": "22cab82cf50eefa8f3d083e91932b2674109a32104775a42d278172a634d0008"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/ftvalid.h",
+          "bytes": 5762,
+          "sha256": "69705440b3c104ea033de8e1fda0226ec523f09f4962561cfdc180605f6324f1"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/psaux.h",
+          "bytes": 43936,
+          "sha256": "5396fe79bd2c279afcdd594d3fff88ea5962bb6779109539529a305d17dc0d3c"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/pshints.h",
+          "bytes": 20852,
+          "sha256": "a1edc1691574dcd73c7ecbbe4f40b62fc2e1f94ee57df02a1396aac8bb51a5f5"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svbdf.h",
+          "bytes": 1731,
+          "sha256": "528d9a5af7583623303c01323fe50657d62ee972f46b938e76794abe4488c6f6"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svcfftl.h",
+          "bytes": 2832,
+          "sha256": "3aecb7a51cec4a84d3f0c29dd70f563cb476e5e0e1e232f074e42f9a3f341bb8"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svcid.h",
+          "bytes": 2124,
+          "sha256": "03874b78ef7b68eed4cdcb82998e0bb132d37a3e814850ab0db14932a8fef375"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svfntfmt.h",
+          "bytes": 1348,
+          "sha256": "73ee1f29f28443ea4ab462cd1b49766c465e1ea3068b6f6cc043f48a8d87cdcf"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svgldict.h",
+          "bytes": 1865,
+          "sha256": "2677a537aa796ba2ec1b527ae961a13aba894317e7e326f5e574c529d5ebd9ac"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svgxval.h",
+          "bytes": 1730,
+          "sha256": "b5218e794653fdc866f22e1c2e6995ef471d544d72079ece353bfac3eb16a39a"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svkern.h",
+          "bytes": 1080,
+          "sha256": "2aabbe2772f776141e9438bb02937ffc9752fac52061d00a4cadbee65741d589"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svmetric.h",
+          "bytes": 3992,
+          "sha256": "5acdbc81e44aa670bffdc6b9dd68549ffe1db1bba819d249a2c2c23650a9ab56"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svmm.h",
+          "bytes": 8962,
+          "sha256": "277b2fa598f61b5b28b419fdd6b178c38b1ac853aff75f6ca7b448964beaaf15"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svotval.h",
+          "bytes": 1253,
+          "sha256": "408d183d96cc62a9c166a7f392b3bb102d818fb82680c5498330bcd69fd46312"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svpfr.h",
+          "bytes": 1570,
+          "sha256": "7fe80b52bfc3e537ea0b1bc4e5e8c508608026fea02f8e0ca082965320f0cb9c"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svpostnm.h",
+          "bytes": 1571,
+          "sha256": "ae626264be5339bdb7a56bba21ec8b9ef5954c6d77f47e4deda472ba30479908"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svprop.h",
+          "bytes": 1677,
+          "sha256": "62d5a32b261d8e1c2fc72328a0b13fa642f5db824b9398d54c0f7f61897ceffc"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svpscmap.h",
+          "bytes": 4272,
+          "sha256": "a151bf86f9c1348cf5727b7fe4ca86287cd354753edc236e5a99b118d511d14f"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svpsinfo.h",
+          "bytes": 2469,
+          "sha256": "4f66de51efed7884e7f911f485e601cc370c7c9c2d7503a59511862ccc118b7d"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svsfnt.h",
+          "bytes": 2079,
+          "sha256": "19c44d5979d323009b496bfe5acc59210b4c985e0dc73d1239bda1b2284f7794"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svttcmap.h",
+          "bytes": 2397,
+          "sha256": "03f84fd4b573f6bb8399e669f1fa019271cd8362494709ca01d90464eb0dc859"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svtteng.h",
+          "bytes": 1007,
+          "sha256": "760880d0ec32640bdce34fbd4dae0096a240bf61a04027f53a992cc24fa10cd5"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svttglyf.h",
+          "bytes": 1251,
+          "sha256": "4e984a4c0f82e071205e7d8463f9edfac1a90c26081a2884aa6721c1155d0615"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/services/svwinfnt.h",
+          "bytes": 1017,
+          "sha256": "d48058b0fe7eebe2b63050a040016077665d8b7ffe2a61a783b1806b366b0549"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/sfnt.h",
+          "bytes": 32700,
+          "sha256": "df4a2d4943af91457c66ffbd9f4f13a8e0e2adb4c5d98980b24a604d50312fc8"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/svginterface.h",
+          "bytes": 1041,
+          "sha256": "23c235b3912995227a2c30e2903489aaf84c7ec337a9781244f31b90952eb4db"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/t1types.h",
+          "bytes": 9563,
+          "sha256": "15c1a26b6538acc65fa7214d2514e827454c439851d802c277d40eabbbe9bd91"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/tttypes.h",
+          "bytes": 51663,
+          "sha256": "d6e41389fbfd3981570b60ea1f0f5bffa25874d94d9f2753529ee9931df893e3"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/internal/wofftypes.h",
+          "bytes": 8010,
+          "sha256": "eb43a2ad0a51d36f9f894bc7079d5a816ca0ac13eacaa7dccf620599db6e56ac"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/otsvg.h",
+          "bytes": 10457,
+          "sha256": "3f7b2484cf4980c5dfb568e8f57b687d3add3b7cc499054f46164ca6d2690e53"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/t1tables.h",
+          "bytes": 21529,
+          "sha256": "3bf63affe3fd88daa017ee7fcd894e37e961be9abdcd168b39a328ad3e6db3ba"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/ttnameid.h",
+          "bytes": 58844,
+          "sha256": "c7f9f5b9d7f90bb77f0b5e5fb643039f47ded753130b9c4521d6070fe7dcd7ce"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/tttables.h",
+          "bytes": 25422,
+          "sha256": "7fd1ce25de661e802dbff67ad5e9927bcdef1730527a5d453120586f13698280"
+        },
+        {
+          "path": "vendor/freetype/include/freetype/tttags.h",
+          "bytes": 5145,
+          "sha256": "7ded67566c32f76903938b53dc849c97cc1c2f25abe14357f7258928df4c3f1f"
+        },
+        {
+          "path": "vendor/freetype/include/ft2build.h",
+          "bytes": 990,
+          "sha256": "1e8028d455a85db4dd19b2019a721d56409f802c2223e78ab5199c22f8b33397"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afadjust.c",
+          "bytes": 59138,
+          "sha256": "44e9fbb2d6dd2f05bb7742dfcdd236d0a5617ed98ef362ebf2cb12ca6d1b7028"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afadjust.h",
+          "bytes": 5078,
+          "sha256": "1bb4ecb0bf2a21c3b043902f95f1532804cad0ec3cad12dbed1dc5dfc27823a0"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afblue.c",
+          "bytes": 77328,
+          "sha256": "16ed687694c4c31a29a3fe8e2732e210774b200cc633be8cf9cb70b50c109f80"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afblue.h",
+          "bytes": 17056,
+          "sha256": "fb5cd1dda3def04abc79671b6425939f0b4297e63aaf521bc842d61eecbe70c7"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afcjk.c",
+          "bytes": 66588,
+          "sha256": "5f25e4c8381f75eba0bc77e659cf62c8835b43c83cdc5e12ec9587d3fabff51f"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afcjk.h",
+          "bytes": 4215,
+          "sha256": "af5d118aa7637c865f6f823d2b8c9763fed9fbc947d16f055725aa8720b6ee09"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afcover.h",
+          "bytes": 3159,
+          "sha256": "bbdafe724fec3477bfb3f7f008fb531f10802227dfb65ae3d5c0b401a6ccd8a9"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afdummy.c",
+          "bytes": 2160,
+          "sha256": "19471e7015b5a30a251996fc2fdae006930cb1bc3df2e005f048a0a52911591c"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afdummy.h",
+          "bytes": 877,
+          "sha256": "3fdca1894152210a9e268186033ff2b59bc1727baf512a889bf53cb32940eca5"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/aferrors.h",
+          "bytes": 984,
+          "sha256": "54be3c1462f9a1636a11e2bef204eaa522c000015f96fc28be550a470bdb864a"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afglobal.c",
+          "bytes": 14304,
+          "sha256": "3fe113873f7c73fb28ce91cac05fde304bb730e7529c0f07e9ffb8cbaf9ad187"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afglobal.h",
+          "bytes": 5520,
+          "sha256": "a6aedac1187d3d38a57858d7d8270f70758190b818d5b87e78405df55ac53bbe"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afgsub.c",
+          "bytes": 15970,
+          "sha256": "ff686554842121375170e56b35bdfc7aef4b2b4188a88b918aa02e2a41e5d5bf"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afgsub.h",
+          "bytes": 901,
+          "sha256": "bf852daeefb3b8f686b786c716562622a7d5377ad81f5cd0c7a3793e9e7da155"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afhints.c",
+          "bytes": 47927,
+          "sha256": "f5e40683ebc49661679a254f64066a6e34f2a165d9cd9e18a87226846f045196"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afhints.h",
+          "bytes": 16428,
+          "sha256": "1efd0ff9c7b110097598510834ccc6a721ed9bfcb434b0c2f42f932e25eb1e28"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afindic.c",
+          "bytes": 4719,
+          "sha256": "554e25a2a329bed7e5570b63357f43ec74e38b3bd455cba5c5eea5e17517de24"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afindic.h",
+          "bytes": 840,
+          "sha256": "653db1a786ec97c7437fee306ed6f5cf69de9beae04f2f442920744600b648ec"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/aflatin.c",
+          "bytes": 160703,
+          "sha256": "9bd536011905234a7e99044c710efc294c1da3e05cd20dc3e943ab6b690fc682"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/aflatin.h",
+          "bytes": 7408,
+          "sha256": "02f973545981ff89066a8a5a382c0588eff0b54f7648e95999d4b8c17bfe930c"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afloader.c",
+          "bytes": 24174,
+          "sha256": "ba8bbf5ae52538474336cd000fadfdaab1ae5ae22c5ea3ccef199a7a9be574f6"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afloader.h",
+          "bytes": 2269,
+          "sha256": "8a93cd0c31fd5ece8d3b6ebe24e10a857a426ead708f921eb6669720c1850723"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afmodule.c",
+          "bytes": 14279,
+          "sha256": "db16e28f1c56213fe41e79ef0fa4d42ea59611b4dc8e0b8384260483d4d850b3"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afmodule.h",
+          "bytes": 1349,
+          "sha256": "5dc89036dcdcece016b168cc745636109042c11132adbc8d5c80155f9b24eb3c"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afranges.c",
+          "bytes": 37170,
+          "sha256": "f2acb2b19bb5960a484b455459a76b469c997734b94e5260e7bd19fd5214f0c5"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afranges.h",
+          "bytes": 1083,
+          "sha256": "8d4cb4f9837430487a434d8c39af6155ce11152bfe6f1cbd75d9816db16a0262"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afscript.h",
+          "bytes": 11464,
+          "sha256": "c623bcd6176627184808fe171e7d3d515a0e3335be594823c6720fd0714be5b9"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afshaper.c",
+          "bytes": 23309,
+          "sha256": "8736862aa348a2c71f53e4f72d623fe48e7ff0d2ce930a7fa928d37dffe3e86a"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afshaper.h",
+          "bytes": 1677,
+          "sha256": "488f041a008b44a1b7e0ce481af06703d2b7c1e1fd746a2b0f4d9c1fee0c2ce8"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afstyles.h",
+          "bytes": 15087,
+          "sha256": "d409ff2483e005f8d8d42e1bc5713711b26bf598c3e5d65de75912649c1fdc22"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/aftypes.h",
+          "bytes": 18694,
+          "sha256": "eb0c1a7303f69f1dc6910a4238a1c47e41dac14c65b5f2c72b380cca4dfe76c9"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afws-decl.h",
+          "bytes": 872,
+          "sha256": "7d2550bca7d020cb9d3d88a374ad24d958cff8006f9f9cfb66dd8a1b35b3024e"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/afws-iter.h",
+          "bytes": 966,
+          "sha256": "adbbacecbdb3e3534218d39b596c7bcadc89cd1169b7f2a572c0d40ba752e8f4"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/autofit.c",
+          "bytes": 896,
+          "sha256": "d637d65131f6295238c55112c3bb05ba3bdcab456a8974c4b70eb91ed26b8385"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/ft-hb-decls.h",
+          "bytes": 5350,
+          "sha256": "ed05eec3b5657f98a0c106fa4aa2e5a4bc7f0864e5d34bd5989eee6d8b718bcf"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/ft-hb-ft.c",
+          "bytes": 3315,
+          "sha256": "84dd5ddff1cec222e1755b4962faf45836238dfa3a46854dabd969eb4e50f8be"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/ft-hb-ft.h",
+          "bytes": 1371,
+          "sha256": "0bf308d2062053e31aa6f9b350a37e2dac8adef0b1a82f549d73af8bc2026695"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/ft-hb-types.h",
+          "bytes": 4139,
+          "sha256": "f106bf7cc41f52cd70907266a74a293c57bc5f71285b01c36bf198ad8b1c6234"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/ft-hb.c",
+          "bytes": 4492,
+          "sha256": "b6fbcc6a2a7b6c291326b24de313ad21edf2c7bbfd82e6844f0c90b20802040a"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/ft-hb.h",
+          "bytes": 1800,
+          "sha256": "e1ca76cbe0df2850f38b974dbff58f0322d19bafecc4125f52077f0c82411534"
+        },
+        {
+          "path": "vendor/freetype/src/autofit/hb-script-list.h",
+          "bytes": 19854,
+          "sha256": "0627d9f6a59a8b09e562e8aeaf414300899308725350beeb50b62b8657399576"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftadvanc.c",
+          "bytes": 5496,
+          "sha256": "bd1a022d326f821c6f2fda53c62ef7935ef607842433bb57a6848d6a73387fb3"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftbase.c",
+          "bytes": 1033,
+          "sha256": "dc3d0ab282abd22ea0600d7bc5691fa72e4b242985efde21d455dc6168b63c42"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftbase.h",
+          "bytes": 2651,
+          "sha256": "dc052ddd0b7e5bf6160ca7bcfe21da0df97c5af3b2b36f2ef49357da928b0b05"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftbbox.c",
+          "bytes": 14346,
+          "sha256": "f61b4b28e8d6c2735d34dda1fd16537c7097ccf6541f22dcd4ae3f6e690f4fef"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftbdf.c",
+          "bytes": 2177,
+          "sha256": "ee5532a0930883ea09f6058d7dd563db11de24667792532275367f589ea55d17"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftbitmap.c",
+          "bytes": 27804,
+          "sha256": "6fde2b9026696e791182aff7fc8d1a3ae139c13081352e5054867ea998d2cf58"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftcalc.c",
+          "bytes": 26846,
+          "sha256": "f44804bf7c62ac2027b6562cd3724eee5e08224fb5066266e3bde839fed136ff"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftcid.c",
+          "bytes": 2540,
+          "sha256": "696e5b954bafec33f0ee17771aef4bb9211ab147d1617c38759a93c47ddc96f5"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftcolor.c",
+          "bytes": 3460,
+          "sha256": "23d9b09c41996f3a1f57015e7cd1794a4855879f8c18023ae5351c92126a62cc"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftdbgmem.c",
+          "bytes": 23899,
+          "sha256": "4f8985c711c20e3827fd71de09d4f2cfd6dd6691ae898a52856a074c6d32f312"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftdebug.c",
+          "bytes": 14105,
+          "sha256": "459e81f660dc67dc5c5eac04c9b4f3159f02702bc84289966a8b9430c1cd394c"
+        },
+        {
+          "path": "vendor/freetype/src/base/fterrors.c",
+          "bytes": 1267,
+          "sha256": "f44b2bc19fa134f3c5cade023cbe226c1027c5963f2852d8d083a83376162142"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftfntfmt.c",
+          "bytes": 1203,
+          "sha256": "d0610262adf35366720ad113f3df6f370b9a09784b90456e0769a40b61fad92d"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftfstype.c",
+          "bytes": 1551,
+          "sha256": "4c3d51a47ac665a23196995b8dec32f7fa1527c571ff09c7efa6b8597b7ff143"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftgasp.c",
+          "bytes": 1355,
+          "sha256": "be881bc11e269902aa76d3453168f3ed6257e26fdf2273c2427b0e03b2caf1bd"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftgloadr.c",
+          "bytes": 11115,
+          "sha256": "66265634a5fd49d05c53f22c535f6cd8d774028ee6693babb20dde35bfcf75d4"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftglyph.c",
+          "bytes": 23990,
+          "sha256": "0420bd19c41022b017e232ecf5aca3b5907642bc214d57b49da3604ee8afd34e"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftgxval.c",
+          "bytes": 3125,
+          "sha256": "ccc12a9c0b928dcf1465c07f331b6754602b0059c31e0c1236634489b6c18153"
+        },
+        {
+          "path": "vendor/freetype/src/base/fthash.c",
+          "bytes": 8406,
+          "sha256": "693e5a54b3ce30140975a94a3369dbe706eb1f280c69e80da426d39cc45b94ef"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftinit.c",
+          "bytes": 6339,
+          "sha256": "a612a0b7a3c769bc7ac48b2c959b3ecd3c76d42f355c4c611455b56d473ea237"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftlcdfil.c",
+          "bytes": 4861,
+          "sha256": "df5c9f2d63b207da730c3de39da2ee181ed5754523b3dc4ac55be57b3505d9a5"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftmac.c",
+          "bytes": 31624,
+          "sha256": "3cd4271a5a2f0b237721f9ad760de9a27ce9afaf6b1e034fac1831d665ea06b2"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftmm.c",
+          "bytes": 18518,
+          "sha256": "e60bbe070f49e2cc0cf5dd46c3c4e2d4572e88621403d47bc9320b0a89e7798b"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftobjs.c",
+          "bytes": 161665,
+          "sha256": "e5558a906bfef754843740c55a1110759f23c737303d092ba6fefdce2ba4bb9f"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftotval.c",
+          "bytes": 2216,
+          "sha256": "b93118b7242e7ba42dd103becb064815ddbf21d62055b37f9565a133499ef688"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftoutln.c",
+          "bytes": 28721,
+          "sha256": "e9a31e1a88398615df585a009632c5eebbc456da0e09b6f6ad6ac2965c1bc3b3"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftpatent.c",
+          "bytes": 1245,
+          "sha256": "e6740b91751c39d81ecb7a93e0ede78ed28588254734d4bac8badb0e807435fc"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftpfr.c",
+          "bytes": 3730,
+          "sha256": "287f384221e83d162ab1de86d2470c8d853c42dad2e00850fab5201c6dce50b7"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftpsprop.c",
+          "bytes": 7500,
+          "sha256": "6101a71be5e7f3f71d39c6aee5cf165ca05d5fe02270e6ac6b635a6977d95b53"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftrfork.c",
+          "bytes": 29390,
+          "sha256": "7f35f81d18d6ddabbb850685e4c1524e91e0dd9b5bb9e76dd68120e75269b6b0"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftsnames.c",
+          "bytes": 4580,
+          "sha256": "3ffaeb114165248cdbe25af92bee4926beb59c563941c50d4bafc7a291cc6d1c"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftstream.c",
+          "bytes": 19478,
+          "sha256": "438f1170e70f39cbe051d21726b6e25fd02a2ea286e72dbbaf2bf0e10e10584b"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftstroke.c",
+          "bytes": 64875,
+          "sha256": "05d6f37f5a6fc084c4aeec53dea581ad469ce6b0183acdedda86841c9e1570b3"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftsynth.c",
+          "bytes": 5374,
+          "sha256": "a9e72d6ce793c46624ac932405d60dda3ea10acc67a78a1b95de962e6a123a01"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftsystem.c",
+          "bytes": 8149,
+          "sha256": "b545e79c8a7ceaeeeebe76dbeaffe8c9c890dab6c0db1d09d4f10febe33cf10a"
+        },
+        {
+          "path": "vendor/freetype/src/base/fttrigon.c",
+          "bytes": 10565,
+          "sha256": "68b511c61c8370c430a1fcbf3c531e107493db33b7eb86c671d9e5b43e32dcf7"
+        },
+        {
+          "path": "vendor/freetype/src/base/fttype1.c",
+          "bytes": 3047,
+          "sha256": "efc840f6803e3ae71c1e1677ad562c1122d7568965a507a6dd50e7cb03cddb94"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftutil.c",
+          "bytes": 10139,
+          "sha256": "e9a4474671af787582c3ce4a33bda435ea4b76a94eb55df4a65346e90490d35e"
+        },
+        {
+          "path": "vendor/freetype/src/base/ftwinfnt.c",
+          "bytes": 1306,
+          "sha256": "4e57ed4fa0fd455cf58b160852dc01f297ba8c282631655d0a894ccd9adb1e73"
+        },
+        {
+          "path": "vendor/freetype/src/base/md5.c",
+          "bytes": 8743,
+          "sha256": "0eb851f59869e6e4e23ccbaff30ba1874c1a0e5a00d3cfef7529561dfcee2550"
+        },
+        {
+          "path": "vendor/freetype/src/base/md5.h",
+          "bytes": 1410,
+          "sha256": "2f7fd79f1a8ec20e8f7febccbc445eddc25a654f4d6503f289561178e5aea781"
+        },
+        {
+          "path": "vendor/freetype/src/bdf/bdf.c",
+          "bytes": 1234,
+          "sha256": "053783d11562d291cd477a5f6d2e01008bb9546a994c12fd857874b637be6544"
+        },
+        {
+          "path": "vendor/freetype/src/bdf/bdf.h",
+          "bytes": 7127,
+          "sha256": "96f636a13c881892c338459feb8d8baf5410c9d885ac36e8deb97505488ee78c"
+        },
+        {
+          "path": "vendor/freetype/src/bdf/bdfdrivr.c",
+          "bytes": 29433,
+          "sha256": "2f78a032c93eba3100b9cb241df3f2bd8b76785af3da6e0826e05b7877b0c540"
+        },
+        {
+          "path": "vendor/freetype/src/bdf/bdfdrivr.h",
+          "bytes": 1772,
+          "sha256": "04b2f2b47cb2f8e4bb9fdcd0d0e40ae48db2ad3444ec353ebec8d6bc62c0b579"
+        },
+        {
+          "path": "vendor/freetype/src/bdf/bdferror.h",
+          "bytes": 1584,
+          "sha256": "3a94e79259ae348289e8f747beb5d2363dff5242c2c7496b0658b2e7bf168c9e"
+        },
+        {
+          "path": "vendor/freetype/src/bdf/bdflib.c",
+          "bytes": 49632,
+          "sha256": "d6d3b5e198f0be8dc3d83abded5ea3be35cf0192e9f84e6ab290e379a04b9946"
+        },
+        {
+          "path": "vendor/freetype/src/bzip2/ftbzip2.c",
+          "bytes": 12870,
+          "sha256": "bcde8ae4ca3281d261f2a15791057e260f3734521bf4b58ce50abbc95f8be1b4"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcache.c",
+          "bytes": 771,
+          "sha256": "53de0767193a1115622f359350a7eb4748af96032a23205cc1992135d6752046"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcbasic.c",
+          "bytes": 16761,
+          "sha256": "d3ef73a60c45ab7d7d5862dcfec47f8497b1142a2d9334f71186cf669b3a905b"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftccache.c",
+          "bytes": 13683,
+          "sha256": "8e428b6d4b70ea7fe5a33457cd30bf2b5f80da476a7788d75a41d27774b17d6f"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftccache.h",
+          "bytes": 15587,
+          "sha256": "958b7aeaa3700a3fbe9ab4904c6676f93e87bab7014ee9a131f809f8bbb71dec"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftccback.h",
+          "bytes": 2031,
+          "sha256": "bbbe7ffb385847e897edea9fdda381e4daea15157d62cc03d9b74e0a044dbce4"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftccmap.c",
+          "bytes": 9723,
+          "sha256": "a44b5ee9eade41c94532323ad3be2294c06d9c9eafcca550aa3cc7ea0decd2a3"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcerror.h",
+          "bytes": 999,
+          "sha256": "e9f4b3760ee3fe6b3c509e35ba87fc704ba10ba8ba94567c3bd73fad09eb5fe9"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcglyph.c",
+          "bytes": 4979,
+          "sha256": "405689509183e05ae67aadac3cfb10fb03a3206fec200926ddd4eaa15368f4db"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcglyph.h",
+          "bytes": 11080,
+          "sha256": "472b831968a5d1cc71ea86c58c2a5985c44d4dd90ffc8f5533831c75795893a1"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcimage.c",
+          "bytes": 3584,
+          "sha256": "7cfafb8d660f84b92141a5812220521c879b8048441c6b3230e4233c98dbab61"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcimage.h",
+          "bytes": 2675,
+          "sha256": "ba06c0bbad3cfbb22c7debb870680aa51d45a0423bae776b0738c4ef1686618b"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcmanag.c",
+          "bytes": 16615,
+          "sha256": "039f9a730a8a8a46ecc0a72b52a6014cf65cb943bb2a74dbab76938ecb577239"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcmanag.h",
+          "bytes": 5734,
+          "sha256": "4efa1c8601551368b68600224ed9d3ee1b045b221bfbe3a0b916326a9d69e269"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcmru.c",
+          "bytes": 6615,
+          "sha256": "c037662da3bc390921abd6943a0ebde5bffced32ba60c1368e1e37d0fe0796a1"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcmru.h",
+          "bytes": 8322,
+          "sha256": "3af8d71f88fd3b175fd5ad5db35cdd2953aaad1bf58c91c6cb59c0e375131664"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcsbits.c",
+          "bytes": 11911,
+          "sha256": "372d7ef4081a0f93ae85b642d3551c8b09f898635a3fe1e9569490494f7cd27d"
+        },
+        {
+          "path": "vendor/freetype/src/cache/ftcsbits.h",
+          "bytes": 2191,
+          "sha256": "85176daf152b75a4d4f1558e8a3bd180d64c823e204bacb5ce97192e8edaedcc"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cff.c",
+          "bytes": 725,
+          "sha256": "12c1e444baa1f557432c7e39366d0788ee1da60df64fe6b8ab4a37534a7329e8"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffcmap.c",
+          "bytes": 7312,
+          "sha256": "280c87f7ff79685b9f55dc9437487fb92c9b0c769ea56164aa28878b666e5e0b"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffcmap.h",
+          "bytes": 2181,
+          "sha256": "e763ddee97bce64359cc2c5d0fdb28286976e9b359b57b4b141d60de112acb57"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffdrivr.c",
+          "bytes": 38024,
+          "sha256": "72d7477de6f9bbd3f6646f29c0968e230b8d727b0fc96ddea52f9bb4163a3ac8"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffdrivr.h",
+          "bytes": 752,
+          "sha256": "2e4547fb49edba5cd285d76c1d900e2420466c5eb1f204fa0a4c1e2fbbf20876"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cfferrs.h",
+          "bytes": 959,
+          "sha256": "8b55cf506fce1ea8789fc7218b1b69024cd86882c61f8ecaf9f69321784da050"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffgload.c",
+          "bytes": 25855,
+          "sha256": "a96b677f84f527a7943a17021f8748b27746ef046b51258daff259b29c61b929"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffgload.h",
+          "bytes": 1523,
+          "sha256": "0c89e174696ddd0c47d520c75ffd466a60a137f3630cee5ebbc4fe22d8118033"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffload.c",
+          "bytes": 75222,
+          "sha256": "7affaa2eef1e95e6853442f10d1c2103fe10eda043b0bba195d877b0a8a67ba5"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffload.h",
+          "bytes": 3298,
+          "sha256": "af86afa039cdd5dae80d6b5d73787b374c752323c37bbc8df1bedaafa7397555"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffobjs.c",
+          "bytes": 34967,
+          "sha256": "14762bf3254f5b0381f23070ef433580f36528800d1749f1c4899978d3cd80ff"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffobjs.h",
+          "bytes": 1938,
+          "sha256": "90c873ca3ebcdbccadb75cb9cc825bf45ec0a9038eb117a3e5d9b14e009050b3"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffparse.c",
+          "bytes": 41481,
+          "sha256": "01a7d04e499e9cf6e0b0c41431362fb20cfd0915f058dd626e7217f3be737d06"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cffparse.h",
+          "bytes": 3451,
+          "sha256": "341f4720618ac34c4a8e5958f92af00a839d48acf8c753925657e7e2fff1c0b8"
+        },
+        {
+          "path": "vendor/freetype/src/cff/cfftoken.h",
+          "bytes": 6808,
+          "sha256": "79ebc3105c9fa0320725436c8d6502c28e3b52828a66d327c2ee4e605d7feee4"
+        },
+        {
+          "path": "vendor/freetype/src/cid/ciderrs.h",
+          "bytes": 958,
+          "sha256": "1196fa36f5816a9aad751a4e103d61cdab37015901cfe3b3d0cea72f742a3747"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidgload.c",
+          "bytes": 21536,
+          "sha256": "5cc1f971702b4c19360b7d4b2fcc4178d6e545fc9220ba073b38c31c470c413c"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidgload.h",
+          "bytes": 1456,
+          "sha256": "a10216a5490d42083e463f8a559535970105ad4b59fd195f56844b831e12b353"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidload.c",
+          "bytes": 25095,
+          "sha256": "2090df639d0e1400816bff67976c82b98c5c793b72e3b21927f9b2905784a1fe"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidload.h",
+          "bytes": 1115,
+          "sha256": "9deae933a9ae59ab28895db51c3b35048051474e54355d20d7fc97e002574929"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidobjs.c",
+          "bytes": 13996,
+          "sha256": "d9790cdacfadb556457e4451cb82bede9a4a1e5e5e619e64edb31ec187166b45"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidobjs.h",
+          "bytes": 3412,
+          "sha256": "58797964c50fcbe76980810a3887b506e80e4a35ece37c612046074c3658efb0"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidparse.c",
+          "bytes": 9681,
+          "sha256": "8f2e3695f812be306b998cdf50a6412c8b2d05a5e98b275c959c0a9c820b1f05"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidparse.h",
+          "bytes": 3518,
+          "sha256": "4bffb151db66a995babe55117d04c89c9403f504f883d6b0f6230ea0a500fb95"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidriver.c",
+          "bytes": 7489,
+          "sha256": "b8856805ad199eca9239fa7b175ecd629525748c2c082eacc23a89ca6382b2de"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidriver.h",
+          "bytes": 772,
+          "sha256": "36e960e3dcf5dfdb0aad7eefbeb207ffdddabc5f872609fb9c2f86f3c6a03a39"
+        },
+        {
+          "path": "vendor/freetype/src/cid/cidtoken.h",
+          "bytes": 4387,
+          "sha256": "02222827c1319726e3c20f6e1ccb38299012bc0d08ca4ebaa94b781887404ad8"
+        },
+        {
+          "path": "vendor/freetype/src/cid/type1cid.c",
+          "bytes": 710,
+          "sha256": "78c602dce6af50643ee4eeb9c661e7b883f986c978626ece3696ff1af0455150"
+        },
+        {
+          "path": "vendor/freetype/src/dlg/dlg.c",
+          "bytes": 21039,
+          "sha256": "4b5459f8b364dff9c0d56ec70b276ca050f5c72ebcc9f5b647e14d268d24e196"
+        },
+        {
+          "path": "vendor/freetype/src/dlg/dlgwrap.c",
+          "bytes": 762,
+          "sha256": "074b53f3787e240517c2e1dcdcc36e5b0f1b130773bbb89b39c2770929d24ec6"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvalid.c",
+          "bytes": 1133,
+          "sha256": "8e215023c8c7a0c011e2efdad64477eacf600ac6520a6cfd91f3f307bf369ef4"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvalid.h",
+          "bytes": 2869,
+          "sha256": "5f5cf2735c8034b350facce7d18f457a9909fef0bc05e602b5bce92a388d817f"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvbsln.c",
+          "bytes": 9637,
+          "sha256": "a812a39bc719787886772f9a5fcebf8447a77d56b3517a0499d8ee691b32e349"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvcommn.c",
+          "bytes": 54281,
+          "sha256": "9fe06080ca753fb1302d3d09babe91927ec5bbe89f2390b89d525a981ffde966"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvcommn.h",
+          "bytes": 22837,
+          "sha256": "6d09d5b2c52af178070a2103f69ef4994242066e8c844451b0f4b6ad781c7c27"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxverror.h",
+          "bytes": 1333,
+          "sha256": "a83b21758e2976858d93a91dd4d0f6d9ed4e2c2d1b3ebe93b9d8606058d461a3"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvfeat.c",
+          "bytes": 9949,
+          "sha256": "8407db1dbe997e067b8e97ffe34a393aff40e2f4c7a96b6e41c1224df0494b8e"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvfeat.h",
+          "bytes": 6054,
+          "sha256": "de2dc2655956e7040d029ac2a9099c385bcd433d79ab2565bb3c44f199178642"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvfgen.c",
+          "bytes": 13319,
+          "sha256": "69be29bb3b367e4ebcbfa6d66dd0d3a6235f90354df3ce41354ac8bc45bbf058"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvjust.c",
+          "bytes": 20583,
+          "sha256": "9a4f5f2ef64c85ef5a8c0d36d070e499549b21bb34b0e6f8450ccadcc828da41"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvkern.c",
+          "bytes": 27203,
+          "sha256": "3739a75c29cdbe268ccaedf41bb6b0f347de6e6cc49d814fd00949c55e583348"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvlcar.c",
+          "bytes": 7139,
+          "sha256": "8644a23727c1ba23ba281d3cb179e01c355ed84478f14aaa28c3ec2516fbd37e"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmod.c",
+          "bytes": 8348,
+          "sha256": "0edc183d955c18415ace33c5a81bca42fa0c95ee29eff0c4a7a1a9ad881e1bdb"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmod.h",
+          "bytes": 1093,
+          "sha256": "dde464ce1cecfc55b625d7506dccc0b0799cac002bfa5702509be9bc7ba3e1e8"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort.c",
+          "bytes": 8297,
+          "sha256": "db35347c37653d618dfdb40a05ec013f435d24188711ebc48d458931371db9bf"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort.h",
+          "bytes": 2971,
+          "sha256": "b0529c79f2d6289c8d666b44c4a64e995fd30b495234a7bd5eae20350cd0ecc3"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort0.c",
+          "bytes": 4329,
+          "sha256": "82a8651a0bd11fd28d4c3ac03f691b43faf74293b4fe2d9bc93aaa411abf84bc"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort1.c",
+          "bytes": 8122,
+          "sha256": "5ffdbea912947f508555ed032095bd3af59ea5d1df69e41877ae72b889e2bb3a"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort2.c",
+          "bytes": 10023,
+          "sha256": "274ef68acfd50a4a39820fe05f9eac06c08079bbb1328d4be92fc70da63aeca5"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort4.c",
+          "bytes": 3760,
+          "sha256": "3e9bc2eca1a305e9fba9cf1f270172067a511c771984c1d23c343cf999e7622b"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmort5.c",
+          "bytes": 8009,
+          "sha256": "cb7160793b14fad7f0963ac601508fb64e3e2d01e5831288b3f1f62cfdc88d27"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx.c",
+          "bytes": 5208,
+          "sha256": "4e29f720413bc60456e632c6c5a9e216259c9f1bc38268e05256a9eb1d95bb93"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx.h",
+          "bytes": 2076,
+          "sha256": "3071bc8ba7a7012590b085df2596433ebbf683e9c9a75e0a97bb37c616398a5a"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx0.c",
+          "bytes": 3126,
+          "sha256": "a387ce363fe326778f0cadae751f123ec6e443c27b2efce46a2c1520605625ed"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx1.c",
+          "bytes": 8464,
+          "sha256": "f745297b06b528faf2359e9affd05f3091497c2685d4291201fd80e7ca2e336e"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx2.c",
+          "bytes": 10356,
+          "sha256": "346fc83694020ec46f494628dd34234c6f7cb95622f73207eef7b34d84d4024a"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx4.c",
+          "bytes": 1674,
+          "sha256": "a935e98a70ddda4e8eb795fa14814fd1483f8cc0108728e76002ac5bada225bc"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvmorx5.c",
+          "bytes": 7285,
+          "sha256": "ab6a98bcff925a2e63fd2b7921339ed9052ea2f4277d2d1a2a5d050d099f3edc"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvopbd.c",
+          "bytes": 7216,
+          "sha256": "e94ccf08d605fb32346ce3e3aa1b674d46b4157a25ff21806ab1573ffc4060f6"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvprop.c",
+          "bytes": 10208,
+          "sha256": "4055a22dc687a55990ec178a6b303094b0f94b2a83ff9006fb9b068a5953ae16"
+        },
+        {
+          "path": "vendor/freetype/src/gxvalid/gxvtrak.c",
+          "bytes": 9553,
+          "sha256": "0bd0e57f3f74f5f8229af1a0824f07186ca705dd46cb87d5cbaa1e257a3f4d77"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/adler32.c",
+          "bytes": 5011,
+          "sha256": "7ef8e3b3a6ebbacc050a8980e84855b7b794fe303b70a75f13cce71a553bf8e9"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/crc32.c",
+          "bytes": 31747,
+          "sha256": "1c38cdaed7b307dac9b10e67f104568325eda359cb7aebbe0f209280b6170360"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/crc32.h",
+          "bytes": 591749,
+          "sha256": "9a2223575183ac2ee8a247f20bf3ac066e8bd0140369556bdbdffc777435749e"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/ftgzip.c",
+          "bytes": 20073,
+          "sha256": "9f58df64e777c7b1b5c8692881b16a4a00087b6392658e6707cfb90650854d86"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/ftzconf.h",
+          "bytes": 16500,
+          "sha256": "f5134250a67d57459234b63858f0d9d3ef8dcc48e9e1028d3f4fdcf6eae677ae"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/gzguts.h",
+          "bytes": 6676,
+          "sha256": "6b6fb7d6c85280cf756caf9689bcf8c9faeda82633a62679f8242121db8d90cd"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inffast.c",
+          "bytes": 12924,
+          "sha256": "e6ef64ce5dc0a4cd5c7ad08ceeb2b2a698b8447f6bd156057caeb2edab68c0cb"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inffast.h",
+          "bytes": 429,
+          "sha256": "7270720c6ff371b2d908a584e441ed8e8d1a9a321eab101ebb830a9070893540"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inffixed.h",
+          "bytes": 6332,
+          "sha256": "237ba710f090e432b62ebf963bee8b302867e9691406b2d3f8ee89ee7bfef9b0"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inflate.c",
+          "bytes": 55613,
+          "sha256": "37f332165089ce491dca4a5b2b5108487c40b61face3f3b2a8316a5bcf95d1e7"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inflate.h",
+          "bytes": 6746,
+          "sha256": "5c2b60ac1cc5b7878a5f00a4a02325030f8155417faba5f9801994389153c128"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inftrees.c",
+          "bytes": 13031,
+          "sha256": "650d364cfa5257e9f05e9d3a1bb59677f4beb4c1a2f99128c42c84b28b0a7fd9"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/inftrees.h",
+          "bytes": 2993,
+          "sha256": "0f92c0ab47213eaac4f81a5b6a5323eac5b6f0ed683a038f2c22a80cb935d62e"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/zlib.h",
+          "bytes": 97499,
+          "sha256": "c86a25c27f74cb97b8fa07b175f479f063d5064ace9995b4684063643c81cf1b"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/zutil.c",
+          "bytes": 7271,
+          "sha256": "0369dd96d645d4e80c1b293d3752b667b0c8cf40a61f4eca2a87e5e06ee35aab"
+        },
+        {
+          "path": "vendor/freetype/src/gzip/zutil.h",
+          "bytes": 6759,
+          "sha256": "d99551febaa018a04a02b026bebef0d4170f89d57e20bf96f750254af9d47c6d"
+        },
+        {
+          "path": "vendor/freetype/src/lzw/ftlzw.c",
+          "bytes": 9899,
+          "sha256": "a0ff17c00e33cef80c986ba1ec9b96faf0ba77636aba2ed442c59195c6a0cbf6"
+        },
+        {
+          "path": "vendor/freetype/src/lzw/ftzopen.c",
+          "bytes": 10565,
+          "sha256": "76f1e766b6bd886c5474342314d9f92ab425f502028cdfc9c4ef03b2b37cac44"
+        },
+        {
+          "path": "vendor/freetype/src/lzw/ftzopen.h",
+          "bytes": 5099,
+          "sha256": "8204bd87096e89c9c08a26d30f6ff0c04d27cd9ab6a43c60c0d53cbdae62c49b"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvalid.c",
+          "bytes": 773,
+          "sha256": "d41a83c02f4a9bca5e079689d21d627193fcee7747b7244083aec8f05aa82fd3"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvalid.h",
+          "bytes": 2127,
+          "sha256": "e183776c73dbb723d84756ce93ec5472dd789a39daa8b297764dd8af9b3143b1"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvbase.c",
+          "bytes": 7882,
+          "sha256": "2af33dbeb34c7eb87bcb2159b8db6fc039a2cb237bb1f68df57b6a9150a5dd6a"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvcommn.c",
+          "bytes": 27543,
+          "sha256": "f964e012b9a6c56181b02ff7bfe2f8ceea91c85f8428047e812478706ab5ce77"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvcommn.h",
+          "bytes": 19343,
+          "sha256": "d69b122eaa89d801e77730c8eebb435802fd562a62b62d836ec57082372d4b51"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otverror.h",
+          "bytes": 1017,
+          "sha256": "b26386fa973b8edc22a7b26e8ceb5f7f1862fd38dbd2d6c6585ce5be319782d4"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvgdef.c",
+          "bytes": 8884,
+          "sha256": "1102e34f9921e8c6be1c34333aa822fa0432face39adf323de47e41434d9e234"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvgpos.c",
+          "bytes": 29671,
+          "sha256": "fb121a0b008785976047499db3b0c8df3717bed6e2a0230bd850b5dc7e66cd21"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvgpos.h",
+          "bytes": 786,
+          "sha256": "d2017e2918cb482f8c96c124bde069c10a6345b45e5ed0a639c9e1c289c486a2"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvgsub.c",
+          "bytes": 18463,
+          "sha256": "e1fdbf9824c97d5501eb1c6c0d0622e4ce3f5b18cf33fabdef63b788ce114ac2"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvjstf.c",
+          "bytes": 7126,
+          "sha256": "b96a62055b3c5b7151b70cca56947f341b7c2426139e4e9c12f73453aae92e07"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvmath.c",
+          "bytes": 13656,
+          "sha256": "ba19cfb65f1e73a768c782a2f78a77dee42a8f25ed7b42e42f1737caa487ab02"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvmod.c",
+          "bytes": 7207,
+          "sha256": "0e7c195ba5a2b868eb0c2301621506661c7891dc7672c825f1afcabd8abce173"
+        },
+        {
+          "path": "vendor/freetype/src/otvalid/otvmod.h",
+          "bytes": 778,
+          "sha256": "fd961842f1fb6b0beae979eed0ee4627a3d551f9a94c51487cf8a0ddf37eda44"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcf.c",
+          "bytes": 1253,
+          "sha256": "4700f30d4da8b290c09cc3e9c8c2623710c758536966d384d538d62f3d25a423"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcf.h",
+          "bytes": 6373,
+          "sha256": "1b5b0a15e5057000a9e5be4a4b6230d314a603b1e289510b3436541c7a6ad214"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcfdrivr.c",
+          "bytes": 21825,
+          "sha256": "5cc01d4392ed3aa6540e3a3b4fa06473360a9cfa985c195a324c0c9f95f35693"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcfdrivr.h",
+          "bytes": 1358,
+          "sha256": "b82b46a913b45dbb82fe7997d26d9c60c6d2f8bad295df20528ff39c6352ea82"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcferror.h",
+          "bytes": 959,
+          "sha256": "bf32517706a73cdb39b5fcf8e29a244672a8b8bb7865520234ee340e3aa03eda"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcfread.c",
+          "bytes": 50270,
+          "sha256": "ec64a484f6cf1b810cb68e7e65e0d160dcf1bea7a3c0e636288e9f0b219f8827"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcfread.h",
+          "bytes": 1361,
+          "sha256": "cd36704be8cbf71b7025d6d0269d78fc2245d2f2d4b29035bf861e562afdea30"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcfutil.c",
+          "bytes": 3382,
+          "sha256": "85f96e9fd54d9ef69eb39e9dc1d085b6e071921cc012da0f503c75d4b8bf336b"
+        },
+        {
+          "path": "vendor/freetype/src/pcf/pcfutil.h",
+          "bytes": 1649,
+          "sha256": "b51ad3b562a4063474f5de11292e7446e0832bf9380c3e39e9fc66e0cae87b5e"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfr.c",
+          "bytes": 708,
+          "sha256": "e3899eaf7caefad80fc4361a736d8c5188e4330f53b1e05b8e893a0b6013b9ab"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrcmap.c",
+          "bytes": 4519,
+          "sha256": "b0dc0fd9f0260f526a854a216b58569c1dd33201ed585d6923c3509cadf2ba26"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrcmap.h",
+          "bytes": 920,
+          "sha256": "8abad7913642ed86e800c0b805d37b14d41f9e2e8d96eb573e7582e5e836c856"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrdrivr.c",
+          "bytes": 5618,
+          "sha256": "d2835bed6b46f9ae4f7fd65d9ccc1ce3b08b73977cfc391a0e32b6cf4fe57cbe"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrdrivr.h",
+          "bytes": 773,
+          "sha256": "678d430703152a8e83501d64a521c0b058264526710143645178a5fdfa9af2bb"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrerror.h",
+          "bytes": 962,
+          "sha256": "abdb9760c2fb73b664048b5ff44cb8f19d35a8f605eba210bc147433deea95c7"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrgload.c",
+          "bytes": 21886,
+          "sha256": "8590fb5572d5cd96ba61cfaca4454c404941d3cbad728fabfe6c67ca6521d224"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrgload.h",
+          "bytes": 1059,
+          "sha256": "f17eb53bda61298b90604091a6d76662abaca42ef398bb47f74ff680d1f2d31d"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrload.c",
+          "bytes": 28988,
+          "sha256": "c7964880693c95d9e35292797c114bcc639785f40445ba4e8bb0f8fb722d42d1"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrload.h",
+          "bytes": 3425,
+          "sha256": "8ede3c33bf14aa1b538b92016e562518e2e5f3382b0e152173fe6e4e8ed94692"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrobjs.c",
+          "bytes": 17339,
+          "sha256": "54fc3e97a3ed3da6ee40ecf94cc8ca41a5a3b004dba0843a6e90c12fbb0b2cf2"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrobjs.h",
+          "bytes": 2135,
+          "sha256": "4d6244bbc566c628dd686bb4324bf73b632ebaa97ab2b79b36903111a49a3696"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrsbit.c",
+          "bytes": 21295,
+          "sha256": "19c3d98d0fa5c1b1e8e0cc0cd47b921beda6a37a0769faca24dd13c2f6c24e0c"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrsbit.h",
+          "bytes": 878,
+          "sha256": "4939ca14e695f30075f73b280835a7e0b1f29d082da00da229d9c61f22902b6d"
+        },
+        {
+          "path": "vendor/freetype/src/pfr/pfrtypes.h",
+          "bytes": 8090,
+          "sha256": "905bfd470d20b988bb0472732f8203755a1d15ab4055e9388bca971a1c0395ce"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/afmparse.c",
+          "bytes": 25277,
+          "sha256": "5b700d42b7251a0e0f6151b3cff8831185c9b61d5c05673c4400e0f26948d09a"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/afmparse.h",
+          "bytes": 1825,
+          "sha256": "f1ada57619fb851a2a6234ca8b66bb016743180bbcbe3e355622558160bcaa3c"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/cffdecode.c",
+          "bytes": 68442,
+          "sha256": "6a643f5468b13213f4a4d4061f99915e75abfe593884343c22e68ec4bf8ca0cb"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/cffdecode.h",
+          "bytes": 1825,
+          "sha256": "f71a5e4b719c5abb1aecc12ebb0d26d1e4939e8cf12f696f28f87cc879ad8cd2"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psarrst.c",
+          "bytes": 6515,
+          "sha256": "8f06555b38b42e966b8c87b0e539121819b11940930ccb5e97e8cc8feb6cbab2"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psarrst.h",
+          "bytes": 3476,
+          "sha256": "4c15987656b0ccca4cd0982d56ca71d69809ebf8242b37425ae1a0e13c8f2440"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psaux.c",
+          "bytes": 945,
+          "sha256": "bb5e4062df615b8ec1e302a89aa9e55405e8c4468a9543cb633659c329be578b"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psauxerr.h",
+          "bytes": 1003,
+          "sha256": "9df6e7a22fc05448889e0399651a76e9a0f1e18c3b24f8ae695c959811f81ddb"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psauxmod.c",
+          "bytes": 4847,
+          "sha256": "28041fb1696eb679f62efaae4fd9b68ff3e36b69c2f81074b76eec357fdad807"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psauxmod.h",
+          "bytes": 1183,
+          "sha256": "c8a85cd33168a16b6f788586c9ae46d2049d227e9f75a630607f17aa5b254813"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psblues.c",
+          "bytes": 19403,
+          "sha256": "1b63ad1b4c72686b28045e7437d9053158de9b2f4f2e77c310e8607d42d35c6d"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psblues.h",
+          "bytes": 5995,
+          "sha256": "1718a1ab8f6be015741bc7b1c7d3d57e9dbd619d00a6529dc55dc4ff68b8b83d"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psconv.c",
+          "bytes": 11649,
+          "sha256": "699c2ab8bb094ba4fb407b9b33d61c6df9fca710b2dc80f68cbe689e79e62fa7"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psconv.h",
+          "bytes": 1700,
+          "sha256": "7543c2a9f5df4b24dbfa7255a883ddda7c9d5ac02d39a131f3ce6e84fb154e71"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/pserror.c",
+          "bytes": 2089,
+          "sha256": "41d5ba2da3ec46c816064e1f14257076458eb93679501fb21806d579fb675595"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/pserror.h",
+          "bytes": 4024,
+          "sha256": "662dfec3c17eca34affffe8f220bf60afc60112a04e5157a3c2efbd0edcb6f42"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psfixed.h",
+          "bytes": 3743,
+          "sha256": "af4656b05c539aa3a0fe569c8a22b26ef0437b1f32f75a13157bce5ce17057e9"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psfont.c",
+          "bytes": 19883,
+          "sha256": "8b266d1268845f9ad01a4f5bb29d5e2c37ab4794282c8102241153cc38a1efdf"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psfont.h",
+          "bytes": 5402,
+          "sha256": "b34af623c4ad5055b4539c9e5ac95924d3800451579716feebd5d467ba2c3322"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psft.c",
+          "bytes": 25628,
+          "sha256": "eac2afd167a8b027254ec1cefba82581b5767851162b87b3e924687d87996f8a"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psft.h",
+          "bytes": 5394,
+          "sha256": "25bbe8ba4f8157641619540785d86d50d1c327d17825e12221585225574c50bc"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psglue.h",
+          "bytes": 4501,
+          "sha256": "bb3ffac93b19a70f3d61381ec1866fa06427255d00dd13097673cf554c339e53"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/pshints.c",
+          "bytes": 66109,
+          "sha256": "cf3991a805a41aed108196528d57caed575ca39a6324817d5cab48c63ce9c9bd"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/pshints.h",
+          "bytes": 9869,
+          "sha256": "63c7b6744d098c2c6f6604790ab0203752b10750d5c2505339408d917122b108"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psintrp.c",
+          "bytes": 105457,
+          "sha256": "b971ec88d4d56671fcf51294a8f85569ae2a391c7db48cc4eb43e622e8bec422"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psintrp.h",
+          "bytes": 3074,
+          "sha256": "0b32ec2bdbd1a97bfaa446a6687f4e36a31a6e7d9b4a3062db0ffe72f26d355f"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psobjs.c",
+          "bytes": 66497,
+          "sha256": "9d8e3f205d6279f1fb400a313c84a4ef2c0f524a51e013fbc10459d232c1c3d9"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psobjs.h",
+          "bytes": 10283,
+          "sha256": "70efc6ece5692a5fa57ce70be0458924bd73424e12bdf76b251e27e5f6eb2978"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psread.c",
+          "bytes": 3522,
+          "sha256": "782174f869f52a18d5841d78acbe659519eb768e2965ae059aebe87fb8889882"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psread.h",
+          "bytes": 2299,
+          "sha256": "e21f0c22a78a4f9abb3d80b656711656910fda66085e6a06e6b763273884b149"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psstack.c",
+          "bytes": 9233,
+          "sha256": "2fe67d2f9c0ce1398fa17d536d7129a328118a770b7e7a64ad1f4edd63d4526a"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/psstack.h",
+          "bytes": 3695,
+          "sha256": "49cb6d98d82faac84669a5b6394247044b4d597cddb90c96ea093184e7d44f22"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/pstypes.h",
+          "bytes": 2674,
+          "sha256": "910ee2ede0c0c149d798bf9dc608e1d3e013e675bdaaa6358ed2371eb600357f"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/t1cmap.c",
+          "bytes": 11948,
+          "sha256": "4e474bc78fe0c95cf58a3f61533917f69035dcb0a35380fbbaf90287657a0bf4"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/t1cmap.h",
+          "bytes": 3282,
+          "sha256": "49b79cc8b20f60e799acb49d3171d8766fb198a6ff6aee41dc0eab6447a513cc"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/t1decode.c",
+          "bytes": 61204,
+          "sha256": "06a1c5a92d3181bfe6afc909818e2495e6f5c9cd9d876b819d04648c1b5f168b"
+        },
+        {
+          "path": "vendor/freetype/src/psaux/t1decode.h",
+          "bytes": 2024,
+          "sha256": "495fea1fc192ac5cf677c610c0c61dbe78c6368b45a3fa6b1f2d6524947e5936"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshalgo.c",
+          "bytes": 54783,
+          "sha256": "82cc56dc73b763257d5a7151f2b18d3e7d4c2de56e66fab4317e238c5a3c64a3"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshalgo.h",
+          "bytes": 6616,
+          "sha256": "6dda6f401d05d5b8db1222d6b449838095aa2c99a664d03a83e1ea3a9e5cac6e"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshglob.c",
+          "bytes": 21834,
+          "sha256": "a5041bafa5ace7d3fa9cf8f91ab8183c902aebdefffebfc080c059935377b1cf"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshglob.h",
+          "bytes": 4860,
+          "sha256": "4b7a775c1e246e58cf4a5cb6551477b8b74c51fca991455eacc753cb2b7eb9d5"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshinter.c",
+          "bytes": 671,
+          "sha256": "638203d74ba1ef837074049e61a722321eb092d91bf90f0180b7cc5f3ee82278"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshmod.c",
+          "bytes": 3002,
+          "sha256": "534ded2b44b8fba080cbdc1207bd39cbd82d77398e44361efd9afa968936f47e"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshmod.h",
+          "bytes": 741,
+          "sha256": "b495161424eee0c2d2576684b85ccd7d546b17f534bc44d26f9bf50355879dbe"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshnterr.h",
+          "bytes": 978,
+          "sha256": "a2bf6745c5dd974cee27f4b642386fe812af4217f1c93e3f4e1d08bbd735365f"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshrec.c",
+          "bytes": 31754,
+          "sha256": "d6081fbb1f2324fffbed405ac31f321e9e4f0dae02dfb1a509303615d2b3834a"
+        },
+        {
+          "path": "vendor/freetype/src/pshinter/pshrec.h",
+          "bytes": 4103,
+          "sha256": "c7fc29e242b7af3cb1569dc22eebb756093983bbc0de906c7d44df4c6996462a"
+        },
+        {
+          "path": "vendor/freetype/src/psnames/psmodule.c",
+          "bytes": 16268,
+          "sha256": "fd5bfa6821ee266f403cdef31af7a13e76059a71d9f48e5c45d4442426ee8881"
+        },
+        {
+          "path": "vendor/freetype/src/psnames/psmodule.h",
+          "bytes": 748,
+          "sha256": "20ba4abfe9c60392fbc4bc19f7f31d2bc8a78dcbba0efda45ff53f037dc31efd"
+        },
+        {
+          "path": "vendor/freetype/src/psnames/psnamerr.h",
+          "bytes": 999,
+          "sha256": "46cca41a97c13f47e79e258f30bbe277a6f5412eabc6113b88949266dba666c3"
+        },
+        {
+          "path": "vendor/freetype/src/psnames/psnames.c",
+          "bytes": 622,
+          "sha256": "eb541c8027a6862bdd271d550cae886716c6a7e0ae484d7ac070cbae869254fe"
+        },
+        {
+          "path": "vendor/freetype/src/psnames/pstables.h",
+          "bytes": 268144,
+          "sha256": "1095bb32a4346a0961baa081a9d275c48feb8a8b9c94ac534d2047d504aa9abf"
+        },
+        {
+          "path": "vendor/freetype/src/raster/ftmisc.h",
+          "bytes": 2571,
+          "sha256": "72ccdf0e31b3c88aecd376c2b5d09be3c0bdeb22ddbd84e099469e00d3d78624"
+        },
+        {
+          "path": "vendor/freetype/src/raster/ftraster.c",
+          "bytes": 71742,
+          "sha256": "1cdcf4eb1b347d8e0fa476570ec1f08c427457f471aa7526e6bafd124d67f39b"
+        },
+        {
+          "path": "vendor/freetype/src/raster/ftraster.h",
+          "bytes": 1092,
+          "sha256": "60c621c756dc4fb66a4c7e612da57a6706b6c62712d31571517160176ac9fb22"
+        },
+        {
+          "path": "vendor/freetype/src/raster/ftrend1.c",
+          "bytes": 5549,
+          "sha256": "5125090537c986fc23fa48186d684e682a3cf9c2a542d7c394e70e5af71f7aaa"
+        },
+        {
+          "path": "vendor/freetype/src/raster/ftrend1.h",
+          "bytes": 755,
+          "sha256": "b0795da8b18eac58dda31c1ac60769246f4607e21ccb9eb24e4e4ed990100485"
+        },
+        {
+          "path": "vendor/freetype/src/raster/raster.c",
+          "bytes": 654,
+          "sha256": "ade6f638a546809295769744cb7522609effd07fdf6136f756baac60184d0ad7"
+        },
+        {
+          "path": "vendor/freetype/src/raster/rasterrs.h",
+          "bytes": 1005,
+          "sha256": "effe7dbae1e47420101e275c403bc39c83b3bad2334aca9d192d206f149db03d"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftbsdf.c",
+          "bytes": 38813,
+          "sha256": "9460f39d3cc633348e868c6442d0ebabd278415c8ebae1557e57158bc5a29d75"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdf.c",
+          "bytes": 112066,
+          "sha256": "6ea481e89160c383db9a5c78046c3062fc65e44e8d862387bd58a36d788ef2a7"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdf.h",
+          "bytes": 2914,
+          "sha256": "db801a0521e4bba7812c5faae18ebeeecf1b9b8dd9852563477cad56787ec695"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdfcommon.c",
+          "bytes": 3485,
+          "sha256": "3134c85932b9aa927ebde44e41d7cdbfa2dff6ee098edc019ff6bc61bd2e77e9"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdfcommon.h",
+          "bytes": 4021,
+          "sha256": "7d28e19f6a12c2dbe82272ce75862750a5a307032a01707660b99f23e11414e0"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdferrs.h",
+          "bytes": 848,
+          "sha256": "697cb5b754c3841a08975a74d2a3e7de788d5faf6faa2402361c829d218fdd05"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdfrend.c",
+          "bytes": 16209,
+          "sha256": "fba8288ddc6e476715136ddc65551ab06bfd887b745c2c15c830546a386159a4"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/ftsdfrend.h",
+          "bytes": 3386,
+          "sha256": "71cd9beea8a025513087c29ed084be89e8bd09888ca5810c2fb2f62360b1cc47"
+        },
+        {
+          "path": "vendor/freetype/src/sdf/sdf.c",
+          "bytes": 735,
+          "sha256": "1c19635990ac3cd72470d86fe0f089896b3b80d99008ac3fb0deef631330b4da"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/pngshim.c",
+          "bytes": 13123,
+          "sha256": "c6eab902d978bee5907911dae15783a3600ed61f777160e227af062840e65fe5"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/pngshim.h",
+          "bytes": 1184,
+          "sha256": "bf73a0af6a793ba9503861c32907cec7f98e19fc16779a3237b4509f0dfbd187"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfdriver.c",
+          "bytes": 36784,
+          "sha256": "3e9539a19862ffd28b04f9f2a134987bc8d03ec556af10ed89f238380e63d1f1"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfdriver.h",
+          "bytes": 740,
+          "sha256": "46eee079a34200896605144c2894bc5151548905c17d91f63e148bae01e68d7c"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sferrors.h",
+          "bytes": 966,
+          "sha256": "453e1b8a43ec939ace3c2c3048e0676cb807311e71c0d65248b9da75163e7806"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfnt.c",
+          "bytes": 928,
+          "sha256": "412b93ea8bad243ac4491612872c6aafbb92bbef19263d38f0e48a93f94fcbaa"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfobjs.c",
+          "bytes": 49470,
+          "sha256": "056d76df3c5b2cd45f761ce7f4c81d773f5b960c570af4ac6d3ce78b22212de6"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfobjs.h",
+          "bytes": 1417,
+          "sha256": "c7e0618c98517a2f1b3ee2977e55b0259fbf6cc3428b809315a96a0e285c28b5"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfwoff.c",
+          "bytes": 12289,
+          "sha256": "ee0309112a0e061f2ec60d2d52976c76a881165f36ea1cbc0ed8e1faa8281717"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfwoff.h",
+          "bytes": 865,
+          "sha256": "72cefae962d22b84c06d3a3e4a52c1fbd5fed00484c72b12e730fa431c47fdd8"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfwoff2.c",
+          "bytes": 66531,
+          "sha256": "9c67d2b0e2d0a88520bbfe132827252d0f7bd731bb735fba7a36575222d7cc72"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/sfwoff2.h",
+          "bytes": 2124,
+          "sha256": "c2d7b11d8e9807c03437a6caf435c5bb4c92e7d7e5a2ecf02a6d42945655b4ef"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttbdf.c",
+          "bytes": 6439,
+          "sha256": "2bc05bcbb0805b586c96aa3ec4eb0efbbf9106dcac61e8d3d72552a1ed5d1659"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttbdf.h",
+          "bytes": 1029,
+          "sha256": "b46ba30c5321778e1b27e00aac77e6473a967132b4608befbcaaac32479c60d4"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcmap.c",
+          "bytes": 111810,
+          "sha256": "f7288c09bf7b64381ebc794df9236d99f2d378043d89ab477b6e5be697f8a00a"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcmap.h",
+          "bytes": 3727,
+          "sha256": "c27fb995d45fd6c890ae52b8f2ee0d44339f1c784ba0357f64ba4f0d7bfdaeea"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcmapc.h",
+          "bytes": 1227,
+          "sha256": "39d6b8842a667f35de96457b01b47492b441453d55f061635852398e6bee1b8e"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcolr.c",
+          "bytes": 62074,
+          "sha256": "2bfa9d364ec1a58eb07f8df6a6c75e99ec69bb06c61e24e52661d108d2c4d2c1"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcolr.h",
+          "bytes": 2526,
+          "sha256": "514e26de5f3838e3b7a3fa6cc9a141d8fb7b7fc00f880dd706cb687139a91a05"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcpal.c",
+          "bytes": 7964,
+          "sha256": "3167aadf88466838fd870e2c26f409c10eb55231a5124d864bb77f4ca899327c"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttcpal.h",
+          "bytes": 1036,
+          "sha256": "0a610edec84bb838be4ebcd4214491d9201e225fc4bdc97b0b43bd30ec3350d0"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttgpos.c",
+          "bytes": 24363,
+          "sha256": "48f0eb6f7e82bcbc5a6028f8deb137c26688b78260ce9404e2fb8ae004ef8009"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttgpos.h",
+          "bytes": 1152,
+          "sha256": "de19cb05f6c0d06df61e9fc815a44e679b98fc91bb73a748daf2f287f32d061d"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttkern.c",
+          "bytes": 7183,
+          "sha256": "d0466ae739af657e3073d28b9e0a43e896644598c29be3cfb83e8144d9b5b9b5"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttkern.h",
+          "bytes": 1093,
+          "sha256": "2a5c5417c053b12e8ce9b5b32e58449b34c5b8260e4182f0cb63ee8e6529069f"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttload.c",
+          "bytes": 41323,
+          "sha256": "7336ee8e93002611016976208dc92b55da6eb16cc03b08be8a678e3252394eb7"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttload.h",
+          "bytes": 2507,
+          "sha256": "9fd2d4dee6dbf4c80e2830c41cf0f485982691406568bd9f08c841fa8830537f"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttmtx.c",
+          "bytes": 8571,
+          "sha256": "65c7522ff2188b4a8c665beebdb6e6ccde8496f6ab480bc1af740aaecd981e2f"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttmtx.h",
+          "bytes": 1289,
+          "sha256": "a7c4d3dc26984cf67546715c8fe51d5501799a2f0fd78ab192ac229ad1ee01d8"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttpost.c",
+          "bytes": 13262,
+          "sha256": "9d8b3d635e819e2278d0cab60641b95f6795e0b19877e42b3eb130c8f706180c"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttpost.h",
+          "bytes": 1002,
+          "sha256": "74ed451e01c3d22fa86bd21c220e207fad07f400c9844f3068d2e0fa4fc8636a"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttsbit.c",
+          "bytes": 48979,
+          "sha256": "da9f35e5a0a813b2de10f2c21ab30fff6995550f9d9480f3e3468e8440506645"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttsbit.h",
+          "bytes": 1672,
+          "sha256": "15349b38b018ae5d786483eb0eca13364ac1a98dd56cc20bc930beb0db7cd7c3"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttsvg.c",
+          "bytes": 10932,
+          "sha256": "f58bf8a4a1604de5308d7e069422995284569ab3f7edae4334d3fa2a4e83c396"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/ttsvg.h",
+          "bytes": 1014,
+          "sha256": "19cdeb40ffd9c398d12c1bc910a4e66f0f739b4f79e5c727d63c5ab6929fe2b2"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/woff2tags.c",
+          "bytes": 4350,
+          "sha256": "02c3c39d125d366d4b73e270154c5d6be4165146a9e3201b43a3892aadbb8d4e"
+        },
+        {
+          "path": "vendor/freetype/src/sfnt/woff2tags.h",
+          "bytes": 867,
+          "sha256": "24bf63442a6ced7d379f5a43457e73acd14452fea737dc8a747103f85a7dd0a6"
+        },
+        {
+          "path": "vendor/freetype/src/smooth/ftgrays.c",
+          "bytes": 60249,
+          "sha256": "232214dee3690bffe6eeb514f16b7f9a7ad5f9747a7a0213fdd752ed25e17649"
+        },
+        {
+          "path": "vendor/freetype/src/smooth/ftgrays.h",
+          "bytes": 1216,
+          "sha256": "f33954dc06f13a9582c4867db24cdcc5f2842b6628ed2ffe4e0a87f716c0c5d0"
+        },
+        {
+          "path": "vendor/freetype/src/smooth/ftsmerrs.h",
+          "bytes": 997,
+          "sha256": "80b146b8653a9ca6986e3a6fc65ddadb8397956ad048bb8593d8e419bddde28b"
+        },
+        {
+          "path": "vendor/freetype/src/smooth/ftsmooth.c",
+          "bytes": 20007,
+          "sha256": "5ca3619bdd112ba9e58bace1c68a6315e4bf4eda99be63e4ad2bdb4b1adbf4a4"
+        },
+        {
+          "path": "vendor/freetype/src/smooth/ftsmooth.h",
+          "bytes": 751,
+          "sha256": "e770884ca1f5e248ec6a90613db8508d8959b03ca6bd1f678d73c4a4b9f8e783"
+        },
+        {
+          "path": "vendor/freetype/src/smooth/smooth.c",
+          "bytes": 657,
+          "sha256": "37c9b7a09fe76c9b51159a98c9ff665860c2d25eea38816195c793fc8b2a6596"
+        },
+        {
+          "path": "vendor/freetype/src/svg/ftsvg.c",
+          "bytes": 8893,
+          "sha256": "a1a681862e9030f4a5454d741cf2f4cd3ffcdb7e16887132397f3a04f549d51c"
+        },
+        {
+          "path": "vendor/freetype/src/svg/ftsvg.h",
+          "bytes": 810,
+          "sha256": "fd4aff18f1146e454a1b63d6e3a19dd5f576e3904a4cfdc206e8050a3c6f81c1"
+        },
+        {
+          "path": "vendor/freetype/src/svg/svg.c",
+          "bytes": 656,
+          "sha256": "0d56834e1bda529ca39e9ba47ceb9eef013b45647fc159d4d14c3991e018a965"
+        },
+        {
+          "path": "vendor/freetype/src/svg/svgtypes.h",
+          "bytes": 1195,
+          "sha256": "eec9c245891d56faeede621438ab980803091bbaf240f03fc6e9a369d074e9f5"
+        },
+        {
+          "path": "vendor/freetype/src/tools/apinames.c",
+          "bytes": 11798,
+          "sha256": "cc24759761c2e282d49081d20b3f3116b3af4f49c2ac3cf6fc5d43de5616ecad"
+        },
+        {
+          "path": "vendor/freetype/src/tools/ftrandom/ftrandom.c",
+          "bytes": 17277,
+          "sha256": "538e8b4b442f51c43f4a575da7d23340cc944654bdd5dabe288bf6f03da998fa"
+        },
+        {
+          "path": "vendor/freetype/src/tools/test_afm.c",
+          "bytes": 3969,
+          "sha256": "183488756e1782c29c8d13fa5cf06d1e4e063aab056fee4adde02b3cc1d67f0c"
+        },
+        {
+          "path": "vendor/freetype/src/tools/test_bbox.c",
+          "bytes": 4191,
+          "sha256": "8a73d8a3fb43dc15689c7915103b76fe7a77e65d7e97a34ca78fba8679ffe3ee"
+        },
+        {
+          "path": "vendor/freetype/src/tools/test_trig.c",
+          "bytes": 4826,
+          "sha256": "b738cc9ffe224d45421bc8803652ece8d990c511a7fd32f7f5b73b0dc8cb3358"
+        },
+        {
+          "path": "vendor/freetype/src/tools/vms_shorten_symbol.c",
+          "bytes": 9927,
+          "sha256": "9a6d0cd9df94daeb2e8a7bc202175a8c5c5476153149f7f83cc03158ac35f786"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/truetype.c",
+          "bytes": 874,
+          "sha256": "b99552a6f23dc7e6eb776e4ac17faaf778617981b486046bd121495330f1192e"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttdriver.c",
+          "bytes": 22120,
+          "sha256": "fa6d085ad483e9358646cfd05394a0a0be6fa43b82c35915b4917abcd667e009"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttdriver.h",
+          "bytes": 748,
+          "sha256": "ea74c300c0d3520c14e79065c68be2155e3a26cabe7ce85e3a80ec59f9660437"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/tterrors.h",
+          "bytes": 981,
+          "sha256": "6bda477a55a95d767c2f9873c044b8b31465523e9c4b890333206d312c146fae"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttgload.c",
+          "bytes": 81037,
+          "sha256": "627e20092871f554c7eaf719e56dac72497d2d9a1a91b5919ac78bcf74d84deb"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttgload.h",
+          "bytes": 1358,
+          "sha256": "41a553dc85431295de605e67785ba9b11ffdc67cbeceade458332985027b9652"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttgxvar.c",
+          "bytes": 135920,
+          "sha256": "b5ca576f480437e59f84a31ba2b569c7aadd31871f608034f6ea576340b88e10"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttgxvar.h",
+          "bytes": 13859,
+          "sha256": "23b382b73de0dd46e278c4c6dfbbed6692d250d50d3f1f152f9b8d45e34b60eb"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttinterp.c",
+          "bytes": 184650,
+          "sha256": "13374528272f5ff53f543950bfdf0aa5cc8a10eb19d2755fa770ec9e061ddb02"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttinterp.h",
+          "bytes": 18264,
+          "sha256": "210e2af9d4daa7275befba59a7c2611613796dd8aa3a30a888901631ad14e532"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttobjs.c",
+          "bytes": 40600,
+          "sha256": "c381554e81a00f9d5c430e7c51e1d6c289958867426b021a6165eb12b451922d"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttobjs.h",
+          "bytes": 9468,
+          "sha256": "b7a1be06a29341d7c525fbeb663d09fc4a265dfb155323b80bb88ad8b19b70ae"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttpload.c",
+          "bytes": 16553,
+          "sha256": "668c9627c4634bbb11a6a4f0b616be19826c7ee22af545c45cf5a8dbb90514d7"
+        },
+        {
+          "path": "vendor/freetype/src/truetype/ttpload.h",
+          "bytes": 1661,
+          "sha256": "75a23ba770d230c894ecea0c2eabe2dac892b151d0ee1560c5fe75227f02667c"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1afm.c",
+          "bytes": 10667,
+          "sha256": "4b021ef815e81e4c46feb45e5f9a4170f75a53778df69114cd4ab4d899b02841"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1afm.h",
+          "bytes": 1285,
+          "sha256": "2e3a917ef1885d20902123574d1e80c7b5b39276fd4c77474375160df5c3679e"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1driver.c",
+          "bytes": 23752,
+          "sha256": "68d859a082f13b5ccfff2ba7a4c5e8642cb2a4fc90372c29ccfa884ad6ea14fb"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1driver.h",
+          "bytes": 769,
+          "sha256": "f2e8f100716538806600ae2488c613e0518ef4ae680796c768f6aaf91434656a"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1errors.h",
+          "bytes": 969,
+          "sha256": "c3372f83a128598ba74f28b05dfe38861bd373b66019ed47fbbaf592e58947fe"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1gload.c",
+          "bytes": 20377,
+          "sha256": "ebd4f938f43803e65403ffe40a488adc3dfa9aefa4f54e1988807cbf55d2cb00"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1gload.h",
+          "bytes": 1193,
+          "sha256": "2db4a4f41a0335c25c1a89d654a0c5f184ae05f076c1e3a17af27323f1e38943"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1load.c",
+          "bytes": 81827,
+          "sha256": "e3659e14f380ae21e43603296e9e61a85d3cb95ee79f44ed144be10262ec2098"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1load.h",
+          "bytes": 3285,
+          "sha256": "2ddce8119f2e49004d79fca9318b1c4890eefc4480219a4ee4007c79155619ec"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1objs.c",
+          "bytes": 17541,
+          "sha256": "3c1ee87f09310c990bf754917f6f3ec4d7a864b7fbf68ab0b2e0e1497511b15a"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1objs.h",
+          "bytes": 3452,
+          "sha256": "6e1c52635ff4f53db497078886598d677a3a8a3c77c66bcf818f0b17f39d3140"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1parse.c",
+          "bytes": 14896,
+          "sha256": "c73e5fcc50934e7a58fe8cefd07f9743a1d4ca107183ed9d5e79f1feed429a09"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1parse.h",
+          "bytes": 3735,
+          "sha256": "7a07b1d780cac0adee0a3e0a42226762264096542634fc4f2aeb40df02d79ce4"
+        },
+        {
+          "path": "vendor/freetype/src/type1/t1tokens.h",
+          "bytes": 5083,
+          "sha256": "d63997c9a536fb6631597e092122402c7266b3e3cbfc24c18930a2a500ceb5cd"
+        },
+        {
+          "path": "vendor/freetype/src/type1/type1.c",
+          "bytes": 720,
+          "sha256": "e74b9a29cd68a0684fde15a14b9f05c1ce89ed93bb14de41c5bdb318db62c168"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42drivr.c",
+          "bytes": 6579,
+          "sha256": "40b28201b09540b0e43cabbcf5a595d655fead08c422af76ec88b18ecdc52fea"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42drivr.h",
+          "bytes": 739,
+          "sha256": "be4c3538c15924a9ccc352625a7bd58c6247c29ff5050294112b90227de36186"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42error.h",
+          "bytes": 973,
+          "sha256": "25c3ee3a18b0dcdaaf51653778a9c2d6a26b2a4190fc4ae45eca7f477beac1c3"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42objs.c",
+          "bytes": 19239,
+          "sha256": "c72a3d7df73b8a8db401d2133e759d2393216f8d20c38d4b2e0fc854742cf537"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42objs.h",
+          "bytes": 2452,
+          "sha256": "234b0198363209cb3486e0b54ad9252b57eb0c05efa4aeb06dcf865fafbed647"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42parse.c",
+          "bytes": 39687,
+          "sha256": "a8cf13e0c8d9616ccd25bc85b6c3fcb5dd499ec7fe2c4793737e2eb89fb8b5b3"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42parse.h",
+          "bytes": 2029,
+          "sha256": "9480bf432da3441bbafbcdf9aeb43b7121cca087ae4c19c7c87fc1fa013135a9"
+        },
+        {
+          "path": "vendor/freetype/src/type42/t42types.h",
+          "bytes": 1181,
+          "sha256": "25188ba202e42ebe224eee4042ac3bdbbe9d0de16fc99c8cd0063fec08a3bbce"
+        },
+        {
+          "path": "vendor/freetype/src/type42/type42.c",
+          "bytes": 652,
+          "sha256": "d71d6db32015ff7af4f43f7b55076a8d373144d70e243bc42c48091cc8d2b5ab"
+        },
+        {
+          "path": "vendor/freetype/src/winfonts/fnterrs.h",
+          "bytes": 988,
+          "sha256": "a4d5ceedb6f79fe31ac665386850b6375a99f3495bfa3f477fcdfb1a026bc20a"
+        },
+        {
+          "path": "vendor/freetype/src/winfonts/winfnt.c",
+          "bytes": 35776,
+          "sha256": "8a6b0c488bdeb611da1045dd118bdf9acc5ec8ade2adc2820bb8335b6545b3fd"
+        },
+        {
+          "path": "vendor/freetype/src/winfonts/winfnt.h",
+          "bytes": 3104,
+          "sha256": "00075b8fb7bd0c1bc2f952bc7e7e7c9ba93f62f272f7debe88457cc849eb3be7"
+        },
+        {
+          "path": "vendor/kb_text_shape.c",
+          "bytes": 65,
+          "sha256": "cca5b5aeb791994331100206dba5fbd731c4db5760354cc0dcc26c63508ea1c3"
+        },
+        {
+          "path": "vendor/kb_text_shape.h",
+          "bytes": 1808366,
+          "sha256": "98feec6fdd2f23560ad3971c670051e33f54f130beb789bccffea768a8519500"
+        }
+      ]
+    },
+    {
+      "repository": "rexim/rexim.github.io",
+      "revision": "9de6e087b8bee9d4c38c4cfe7e693b52615ee8f7",
+      "latest_jai_change": "2026-08-17T22:47:01+07:00",
+      "source_of_truth": "https://github.com/rexim/rexim.github.io/tree/9de6e087b8bee9d4c38c4cfe7e693b52615ee8f7",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "rss.jai",
+          "bytes": 5175,
+          "sha256": "b22d92c8d16d05ee0e61853ffe51c4233b17e1cd81148e7ecf39e81fe3173983"
+        }
+      ]
+    },
+    {
+      "repository": "kooparse/ui_builder",
+      "revision": "f05c0007047ca8170aef0361d176f7395b9e95ab",
+      "latest_jai_change": "2026-09-29T19:50:03+02:00",
+      "source_of_truth": "https://github.com/kooparse/ui_builder/tree/f05c0007047ca8170aef0361d176f7395b9e95ab",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "demo/assets/cascadia_mono.ttf",
+          "bytes": 624892,
+          "sha256": "16558423a4734fa8ffe53763ae3e6a4e6b9575d1d52cbbc8e3888b44d733f5ce"
+        },
+        {
+          "path": "demo/assets/playstation_icon.png",
+          "bytes": 10128,
+          "sha256": "31e4a924f6ac8a7565a4b09904e93128a56848931929b0bc63c5e4525125b818"
+        },
+        {
+          "path": "demo/assets/screenshot.png",
+          "bytes": 4463898,
+          "sha256": "0466cdf0a0872722071d9245b1f56381f1796c8f12577b3bc39ea528fa87f268"
+        },
+        {
+          "path": "demo/assets/xbox_icon.png",
+          "bytes": 10139,
+          "sha256": "a9f4a5cfe048804b51e22a1e7b35a01c107b65433b8e2f4f177b9f800f5c5129"
+        },
+        {
+          "path": "demo/demo.jai",
+          "bytes": 24882,
+          "sha256": "70d4fbd345531395d46e3f84b637b13750c83b11dd86bdf1073501242a499afa"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/D3D11/d3d11_bindings.jai",
+          "bytes": 392272,
+          "sha256": "e0134518df4e3466689155a0b0c9908179ed39d8f8a93cdb112ce6daaec69a49"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/D3D11/d3d11_debug_bindings.jai",
+          "bytes": 329540,
+          "sha256": "36b773f4f117915e8d902c18c32eb95432fb4702aabe21aff3563d3a4f138b62"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/D3D11/generate.jai",
+          "bytes": 5072,
+          "sha256": "66fab001a6a73a470133c2a12527b68a86983b64131155d164af6004f1ba5df9"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/D3D11/module.jai",
+          "bytes": 284,
+          "sha256": "124d9a2950ec38e8b1defd02770e8e48d2e98181da3475c831b363fd3cb49c65"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Metal/module.jai",
+          "bytes": 1942,
+          "sha256": "2572cbeb613aa08413edf915499e50a9c7501129cf8c6b34ab3c68ded0ac1e08"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/LICENSE",
+          "bytes": 1490,
+          "sha256": "b738d98b7725414b534c119ac66126876b8cbd40aa8ae48210db190714b81670"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/README.md",
+          "bytes": 11679,
+          "sha256": "ebbe9a115d65719efb921aab4b198bcbd0c1d1ecc08c48495631713f90a1dca0"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/generate.jai",
+          "bytes": 3177,
+          "sha256": "bea74c378f266ff1d32c271837916dd267bdf8b061e7c58bfbe816984a5b0df7"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-com-helper.h",
+          "bytes": 8338,
+          "sha256": "ee9571dd162dd376a047c9f638a69316a85d8aba17d662407d721c4b6fcbc602"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-com-ptr.h",
+          "bytes": 5566,
+          "sha256": "0bb72f8f4135ab01ab5c6c27f8da478bfbcf1a6132cf33d153b2357303664905"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-cpp-host-prelude.h",
+          "bytes": 1524,
+          "sha256": "ec6f0de0dd114753dc70e22472ba24db0eee9d78524a47ebf016bdd570011a60"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-cpp-prelude.h",
+          "bytes": 8529,
+          "sha256": "9425a850626175dc3c818bfc7e74deca573de3be85a2c4c3660287505807d0c9"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-cpp-scalar-intrinsics.h",
+          "bytes": 27189,
+          "sha256": "822ccaa13511ba3da0d880009f6e27dbbabc7c12cd1f999268393dcbc28d6bc9"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-cpp-types-core.h",
+          "bytes": 23649,
+          "sha256": "d1f587e81028726c7849c01b7bc52dba373e35bb082e2522ea5b776f15a52dbf"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-cpp-types.h",
+          "bytes": 37859,
+          "sha256": "f684488b215faedf6b4f07ebc0455b0e6e1874915a6a6f0a68c6fa7ef797dc74"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-cuda-prelude.h",
+          "bytes": 232823,
+          "sha256": "536aea167a5b11d2b95e2255f243acd8e6d1f53cea1ebcb3d3663e18b043691f"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-deprecated.h",
+          "bytes": 72744,
+          "sha256": "c81ed28e1328553063a5fdb912f4b350446a569a4479c9693bcd1782b71c14a4"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-gfx.h",
+          "bytes": 94403,
+          "sha256": "c325b63b0cd1ce6e5859d289ffbcb4c472d0904e5387574f52dd45672a9f3cac"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-hlsl-prelude.h",
+          "bytes": 206,
+          "sha256": "6a02a2fe1ebfd6fbf1a66740078ac5a321be6884b0e9bec527a8c69d7211d674"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-image-format-defs.h",
+          "bytes": 2421,
+          "sha256": "35ad9b68cfa889157b2bf4a4ef39263b4ad5f0f760ffee66aca03438e8363bcd"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-llvm.h",
+          "bytes": 12053,
+          "sha256": "8f799317742485deb13353e9260764c58248175a75c9af96942ee49744067505"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-tag-version.h",
+          "bytes": 80,
+          "sha256": "47f4e7845c4c14a0c7bcb515d8c29a3112e4da034283073cc6949e3bca43b0be"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang-torch-prelude.h",
+          "bytes": 5124,
+          "sha256": "f7289a06ff64e361939e45b2e86a11133e1cb1d0f1fbf8d9bf9cc0bc781ca8d8"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/include/slang.h",
+          "bytes": 185622,
+          "sha256": "5fe2fd6db2da3b7e6f4b3d8ca8f007c04800c16e2c5f6d51ff836fb210810dfa"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/macos.jai",
+          "bytes": 233700,
+          "sha256": "40591dc37d0076c9dd15da6078bd1af38999d379b5a18e6bfe8ba7ee17a44450"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/module.jai",
+          "bytes": 283,
+          "sha256": "f50384eb8a03ab9c9589d40e3651406c895db5797b47151350b77f41b46405d1"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/bindings/Slang/windows.jai",
+          "bytes": 235341,
+          "sha256": "7b279eb6d0ff3c619c0617059a954d6c3b15b81da987c9e268ceba0503382be9"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/d3d11.jai",
+          "bytes": 57237,
+          "sha256": "9260a0fe3188b0960a398157810f9ce7cb48da8f686a367d14a6dfb6c7535568"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/demo/demo.jai",
+          "bytes": 5510,
+          "sha256": "65c2aa0008feb283a0a38834d4397abb86275549fb09b905f83031ff307e9991"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/metal.jai",
+          "bytes": 54986,
+          "sha256": "2ea98eefb025f54b24a94b97e512652771bbff5eb3050c3c1aa7bf248e167b74"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/module.jai",
+          "bytes": 25354,
+          "sha256": "86f3b022820476c59e592f5d8352623f787e068f0c30dbc2781a6a53462e3096"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/readme.md",
+          "bytes": 5706,
+          "sha256": "7019b1de2d16adaa8ee2186a2614d5e8b8f90eb02712a6b3e5b6bd2fc3b9aadc"
+        },
+        {
+          "path": "demo/modules/Pixel_Maker/shader.jai",
+          "bytes": 18518,
+          "sha256": "518591c5c180d6a09b0eafce2e0c53f8527cb2960b02ee72f5f819ce8ca996ff"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 2979,
+          "sha256": "50bcd7d876b57ae50de0ba3c363703af555e3cfd888f2bd4c0f81bf60cd43683"
+        },
+        {
+          "path": "src/font.jai",
+          "bytes": 7392,
+          "sha256": "b4687fe059cc4ff4909726c199f33fe8473f236b5d413621a76710bfbf7e75b7"
+        },
+        {
+          "path": "src/module.jai",
+          "bytes": 113528,
+          "sha256": "9545993b3ab4d875d9b7da46fc651ad15e0cbab25574628c47cdbe6aa29d50c6"
+        }
+      ]
+    },
+    {
+      "repository": "DavidColson/Photon",
+      "revision": "411c40500451defac6d9717344694df9f351796f",
+      "latest_jai_change": "2026-10-05T20:37:02+01:00",
+      "source_of_truth": "https://github.com/DavidColson/Photon/tree/411c40500451defac6d9717344694df9f351796f",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 35149,
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "path": "build.jai",
+          "bytes": 12143,
+          "sha256": "ec484cf3c13584f2448c2c34717d2387d434deb88c3a1998cb11856ce6e98820"
+        },
+        {
+          "path": "modules/Input/android.jai",
+          "bytes": 9279,
+          "sha256": "be7be36023576e907a75600279df56c795f960171c32f295dd997983c7251455"
+        },
+        {
+          "path": "modules/Input/macos.jai",
+          "bytes": 30932,
+          "sha256": "387841b731a87db53c52c5dddd87dd1d3bb2890fa9b0b65439838b5ef8f822a8"
+        },
+        {
+          "path": "modules/Input/module.jai",
+          "bytes": 7311,
+          "sha256": "1db6542176daa08d896a89d971bab5d1e25b2f417a86aef9a03f11e3062fd12d"
+        },
+        {
+          "path": "modules/Input/windows.jai",
+          "bytes": 41853,
+          "sha256": "4d777107cee913944e39d5ebed05053cb81457cb9e5563f4ccbbaa713538b428"
+        },
+        {
+          "path": "modules/Input/x11.jai",
+          "bytes": 30281,
+          "sha256": "0d8739cf5bd3aa1e6f4bfc970819432520b5d3696c237a7d9b9be4cb33da5121"
+        },
+        {
+          "path": "modules/treesitter/generate.jai",
+          "bytes": 3047,
+          "sha256": "173af6dfc2b69a27f70f489612bd1c384b6565e108797f9c0f807e056992e208"
+        },
+        {
+          "path": "modules/treesitter/module.jai",
+          "bytes": 77,
+          "sha256": "12997313f51e95bafcfaa1714e89cbbb788e41ad98b644fa9ede71e756243d72"
+        },
+        {
+          "path": "modules/treesitter/src/LICENSE",
+          "bytes": 1085,
+          "sha256": "f000ec375fc043a8febdb9ba106f08c7d015e4a4b8d799d0df68907fc1c8567f"
+        },
+        {
+          "path": "modules/treesitter/src/include/tree_sitter/api.h",
+          "bytes": 48547,
+          "sha256": "68d8d79bb95221508e0f188544a77bfa560443ba867dd446ea4c98f7cf8b449e"
+        },
+        {
+          "path": "modules/treesitter/src/src/alloc.c",
+          "bytes": 1542,
+          "sha256": "c7d15b9015568f439af4adf28ead9e2bd14901221819276727c11227a29576da"
+        },
+        {
+          "path": "modules/treesitter/src/src/alloc.h",
+          "bytes": 919,
+          "sha256": "2ad7cc5391be8043ffdcc111b9b21b7767f592790fc8389acb6fcee7fd1acb61"
+        },
+        {
+          "path": "modules/treesitter/src/src/array.h",
+          "bytes": 10445,
+          "sha256": "2ee1350009660a2dd5d116f9e9644d280f1703ef1c7b460d9d46a7f3dee1c816"
+        },
+        {
+          "path": "modules/treesitter/src/src/atomic.h",
+          "bytes": 1384,
+          "sha256": "bbc630cb913ac64274ce4412bc9d504174220323993f306ded74abe502867e74"
+        },
+        {
+          "path": "modules/treesitter/src/src/clock.h",
+          "bytes": 3543,
+          "sha256": "abd8fa83a805900f8e03b8b2b1abd47f9c7b8252f4401485c060348c407f5448"
+        },
+        {
+          "path": "modules/treesitter/src/src/error_costs.h",
+          "bytes": 294,
+          "sha256": "0e8d1a21e0d60981e762989108231df6610d95591892f631c6c78a9ef831a2ab"
+        },
+        {
+          "path": "modules/treesitter/src/src/get_changed_ranges.c",
+          "bytes": 16548,
+          "sha256": "337fd1af9c62987345d4a2b29bdfe8596ccb21c9a621cac6fc537c8c843ea058"
+        },
+        {
+          "path": "modules/treesitter/src/src/get_changed_ranges.h",
+          "bytes": 836,
+          "sha256": "f394bd0b6fce006be460fd16cbea3cc96e248c810a4d97e8830463c29c85e4a5"
+        },
+        {
+          "path": "modules/treesitter/src/src/host.h",
+          "bytes": 520,
+          "sha256": "e1982b9795b9c52b5ab564d8b9876189d65a97ca02f78351e1740b0985992fd2"
+        },
+        {
+          "path": "modules/treesitter/src/src/language.c",
+          "bytes": 8514,
+          "sha256": "52bc642d7a5e944c30daa9e4e5a78150105ebde5bde90167adb64b8928bbe37d"
+        },
+        {
+          "path": "modules/treesitter/src/src/language.h",
+          "bytes": 8339,
+          "sha256": "56e32fb53672609be6e8bfa7e6d0f92ef463fd53d2be910d169a07ee5f03df1b"
+        },
+        {
+          "path": "modules/treesitter/src/src/length.h",
+          "bytes": 1275,
+          "sha256": "7fc186fb4bf50233059e8be9ca68efe95e66d34ced4b8a8f38f14497352faeb1"
+        },
+        {
+          "path": "modules/treesitter/src/src/lexer.c",
+          "bytes": 15124,
+          "sha256": "56a418eb47351b85d8f73729fa756765e2d9b3c6873d6be8f240a2e7fad22431"
+        },
+        {
+          "path": "modules/treesitter/src/src/lexer.h",
+          "bytes": 1263,
+          "sha256": "7d76308f7a2d3246a3e28fb27698be928f848130d1bfacc39f9f623127671b74"
+        },
+        {
+          "path": "modules/treesitter/src/src/lib.c",
+          "bytes": 280,
+          "sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0"
+        },
+        {
+          "path": "modules/treesitter/src/src/node.c",
+          "bytes": 25429,
+          "sha256": "bfe9c7867881142600ad48570ef345dbb2b25319e61e1e08c7a15cc519dcb6a6"
+        },
+        {
+          "path": "modules/treesitter/src/src/parser.c",
+          "bytes": 78946,
+          "sha256": "ee9803738d3797ba456227f89708a018f1e584df58ea731127f4ca077540ccd1"
+        },
+        {
+          "path": "modules/treesitter/src/src/parser.h",
+          "bytes": 7624,
+          "sha256": "180b893c8734778fd32f372dfbc27bd6ad1cd2221f26150b31256ff6716320d2"
+        },
+        {
+          "path": "modules/treesitter/src/src/point.h",
+          "bytes": 1307,
+          "sha256": "0929027be2ff54627be560f3bafc1af59e81ac6d5a8d5864455601a0dbee50ff"
+        },
+        {
+          "path": "modules/treesitter/src/src/portable/endian.h",
+          "bytes": 6828,
+          "sha256": "b235fe4e589c1bebc48e33a59de275cf190a6d4367ccbf9224eca1172279b873"
+        },
+        {
+          "path": "modules/treesitter/src/src/query.c",
+          "bytes": 149210,
+          "sha256": "896697d0a76fd74c2c9772cd01199d5c90ebf8fc1acec25a3b7a43cb55fc0534"
+        },
+        {
+          "path": "modules/treesitter/src/src/reduce_action.h",
+          "bytes": 772,
+          "sha256": "8f40396e431d7ff558694ca248eed1332b6cf6f7e6255f06cddfde78020bd308"
+        },
+        {
+          "path": "modules/treesitter/src/src/reusable_node.h",
+          "bytes": 2747,
+          "sha256": "10be747ea4c733ca181dc43d55d155ac8e5b8caa247079621cca0ce633347bfb"
+        },
+        {
+          "path": "modules/treesitter/src/src/stack.c",
+          "bytes": 28636,
+          "sha256": "f70b7e5823e82901801193562908037db4c1a73721e48da0fe54cdb2a6b5856d"
+        },
+        {
+          "path": "modules/treesitter/src/src/stack.h",
+          "bytes": 4872,
+          "sha256": "13a2fb028036cf889fa92d55c3d7c0b57ba368a274f20a1961e695207cf3b91c"
+        },
+        {
+          "path": "modules/treesitter/src/src/subtree.c",
+          "bytes": 34540,
+          "sha256": "ec4c8ca9e9957ab1effcf1ba36d6820b751c2ded0276e2d332c787eabb1265c8"
+        },
+        {
+          "path": "modules/treesitter/src/src/subtree.h",
+          "bytes": 12518,
+          "sha256": "9380a9984a3a071d6a32ed05f7fad8b8853afa991f0a36cc29ccb90f1e3a1a0f"
+        },
+        {
+          "path": "modules/treesitter/src/src/tree.c",
+          "bytes": 5272,
+          "sha256": "ef55fd2d34daad7e43605ba0469f6c67a9afb31963077e9c73f2fb0478e254bb"
+        },
+        {
+          "path": "modules/treesitter/src/src/tree.h",
+          "bytes": 663,
+          "sha256": "60591fb35ca078a8bb323004ece0377ac4f4c6cdbd3c4473af6e2b97186e024b"
+        },
+        {
+          "path": "modules/treesitter/src/src/tree_cursor.c",
+          "bytes": 22965,
+          "sha256": "8d94832d6d68784252b2ff4c8abf9c37dd1672d2af9c4ab5588f342ed44b106e"
+        },
+        {
+          "path": "modules/treesitter/src/src/tree_cursor.h",
+          "bytes": 1285,
+          "sha256": "3e8d9671ab1397bcaeb3e0cbf153a61a99e214782b43c09e5cde5a01e8283a1a"
+        },
+        {
+          "path": "modules/treesitter/src/src/ts_assert.h",
+          "bytes": 205,
+          "sha256": "ac1ec4b7ba388a9d8708feeb6c5c766b2927cecfd6db644b939772e1dc086526"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode.h",
+          "bytes": 1634,
+          "sha256": "6cf0ec5a54e72644e506cca20b854dc7c49249cb1cff0d806635a10c8efba340"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/LICENSE",
+          "bytes": 21001,
+          "sha256": "6a18c5fac70d7860b57f5b72b4e2c9a1ba6b3d2741eef7ff9767c5379364f10d"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/README.md",
+          "bytes": 1270,
+          "sha256": "73bbccbcf2e6648385d188d914b16ae56b4553a0f1efb033e6b6d6242e41df1d"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/ptypes.h",
+          "bytes": 72,
+          "sha256": "a87e9710c9cad7b08a945f4fb8b9d4629189897cc535f8ac927640c210a94b69"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/umachine.h",
+          "bytes": 14865,
+          "sha256": "2d79c0903d9e73e247b948bc0a12b6a785257ca0273bddab56fb59561f8d7391"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/urename.h",
+          "bytes": 72,
+          "sha256": "a87e9710c9cad7b08a945f4fb8b9d4629189897cc535f8ac927640c210a94b69"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/utf.h",
+          "bytes": 72,
+          "sha256": "a87e9710c9cad7b08a945f4fb8b9d4629189897cc535f8ac927640c210a94b69"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/utf16.h",
+          "bytes": 23878,
+          "sha256": "c370d9069f37fad2b53981c06dc648bbc21923db1655517a31bb237df4fba041"
+        },
+        {
+          "path": "modules/treesitter/src/src/unicode/utf8.h",
+          "bytes": 31698,
+          "sha256": "39651224b2ca2452359c7f3339f3cc0a841fe7db64f8a00c9c5ec19c0389645c"
+        },
+        {
+          "path": "modules/treesitter/src/src/wasm/stdlib.c",
+          "bytes": 2871,
+          "sha256": "043063df41a41f6598df26d9dc18581e622a58dfc92a796073459f2b6daf4ba6"
+        },
+        {
+          "path": "modules/treesitter/src/src/wasm/wasm-stdlib.h",
+          "bytes": 96765,
+          "sha256": "805520eb9fb1e590a1470d740f5afa29cd48aa4f681b887d171cef13ad600aca"
+        },
+        {
+          "path": "modules/treesitter/src/src/wasm_store.c",
+          "bytes": 62746,
+          "sha256": "ec226f74235304a5c8e7a94962900953849de4a90b4e0bbc1b994f78bab93c05"
+        },
+        {
+          "path": "modules/treesitter/src/src/wasm_store.h",
+          "bytes": 1137,
+          "sha256": "4f70d0500b0775e5d862a8e7d191b3853d73378c65e020e01767838a18debe0e"
+        },
+        {
+          "path": "modules/treesitter/windows.jai",
+          "bytes": 67190,
+          "sha256": "afeead8096e81634de5cb4674eee44cb149812b5e85f620e8263637a9f6782b8"
+        },
+        {
+          "path": "modules/uniform/LICENSE",
+          "bytes": 1069,
+          "sha256": "325b6296f9ccbde25d405a95febc7364140a598a142f0ae87dbe3b346cdbd3b8"
+        },
+        {
+          "path": "modules/uniform/char_class.jai",
+          "bytes": 5484,
+          "sha256": "8ea418fd14ccbbfe2525f0c72e347d733267767e6de5ac3030048ca37e1f0c11"
+        },
+        {
+          "path": "modules/uniform/compile.jai",
+          "bytes": 30420,
+          "sha256": "ef2fedf2f8033c6b203f59d0d8a940de95600c83c68d71a326c664584574bb76"
+        },
+        {
+          "path": "modules/uniform/first.jai",
+          "bytes": 1552,
+          "sha256": "f8c4e295ed6f375babe2be44b62860fdab1deaf1e19582e0c02fb34bbc4cf226"
+        },
+        {
+          "path": "modules/uniform/match.jai",
+          "bytes": 5481,
+          "sha256": "b2395df5b5e08041f1ac11a6377d9d5d16a8508f3a666d4af6a752fd4f186a5f"
+        },
+        {
+          "path": "modules/uniform/module.jai",
+          "bytes": 496,
+          "sha256": "634b2b095d56fcc06f1de4b9c4e8a8545086a8a969a32af68af6cd7168d59984"
+        },
+        {
+          "path": "modules/uniform/nfa.jai",
+          "bytes": 11207,
+          "sha256": "0dfcffa944d295a9af44cda9e3c4be1afc14becc05951a05aa8a6b1d7789c9c9"
+        },
+        {
+          "path": "modules/uniform/parse.jai",
+          "bytes": 87173,
+          "sha256": "900d32995d38c9e29fee09bd20a5233b68412945709a74f6aa4b04880914671d"
+        },
+        {
+          "path": "modules/uniform/program.jai",
+          "bytes": 35069,
+          "sha256": "bf598540c9b02784d0c45a0d0a7bad942d80cdfb26286c87583412043e1ad54f"
+        },
+        {
+          "path": "modules/uniform/readme.md",
+          "bytes": 3014,
+          "sha256": "3689ce59ff1eef757eb6ee0d4f5f3ae2004695e0ca73138dd1b283703923223a"
+        },
+        {
+          "path": "modules/uniform/rune.jai",
+          "bytes": 4277,
+          "sha256": "0881b3eedae18f778b5de66ad25de2f9a15c23c17a476d60139877e4c74b32db"
+        },
+        {
+          "path": "modules/uniform/simplify.jai",
+          "bytes": 13491,
+          "sha256": "96a89fab2dcd0b0d3aa71b45c685af443606466f3e399c0726775ea726d1d39a"
+        },
+        {
+          "path": "modules/uniform/sparse.jai",
+          "bytes": 2261,
+          "sha256": "a7e3470bd58d31ce987259b18b1cbc8ca543ea98c8b2e7baba78fb3c4a49e0ea"
+        },
+        {
+          "path": "modules/uniform/tests/010_char_class/add_range.spec.jai",
+          "bytes": 2102,
+          "sha256": "94f8b237b66df81fe382c081ace1f9d786ea68608ab44f948e6920609e62f382"
+        },
+        {
+          "path": "modules/uniform/tests/010_char_class/find_range.spec.jai",
+          "bytes": 801,
+          "sha256": "aeff6cc482b921891319bae101169a859b55a0b72c22ddee0b463f8d1baefb11"
+        },
+        {
+          "path": "modules/uniform/tests/010_char_class/negate.spec.jai",
+          "bytes": 2154,
+          "sha256": "9e21b5a410bcb521a00b73fa34f29716515ce0fe102ebba1cfc2d6dc791a1273"
+        },
+        {
+          "path": "modules/uniform/tests/050_parse.spec.jai",
+          "bytes": 2026,
+          "sha256": "eaaa64951415ae36e397cdc8d6c6a57f19853d8dec018f77842feaf377fbbeab"
+        },
+        {
+          "path": "modules/uniform/tests/100_compile.spec.jai",
+          "bytes": 1345,
+          "sha256": "d5e82b6ff299f67b99993a82f86867a8bcb67989a6ac48c47676b0eeda868779"
+        },
+        {
+          "path": "modules/uniform/tests/200_match.spec.jai",
+          "bytes": 3137,
+          "sha256": "7ac2fff3f5fecd3b0944f89418a798a5d7dc99d6d017d27046078fdadf0efde5"
+        },
+        {
+          "path": "modules/uniform/unicode_casefold.jai",
+          "bytes": 14844,
+          "sha256": "ce8c1110c1b90b40ab41a8817763c162154ee1becf8f59d781838d6183a33e72"
+        },
+        {
+          "path": "modules/uniform/unicode_group.jai",
+          "bytes": 126895,
+          "sha256": "1fd9cfb22848f1d6a9040e7aaf32db4f8e530251f8a32d6fa0fa6f58f691ece5"
+        },
+        {
+          "path": "modules/uniform/walk.jai",
+          "bytes": 2534,
+          "sha256": "31391bc8cb0dd90328aceb69a850af16a9d0f07ddee3642667b4bdc899ff3e6c"
+        },
+        {
+          "path": "source/async.jai",
+          "bytes": 8276,
+          "sha256": "936acbe18a7f971d870bd5fa90ee6e3be09d2a730fd371d24570cf5d2586fa9e"
+        },
+        {
+          "path": "source/command_palette.jai",
+          "bytes": 44877,
+          "sha256": "ac23b1fdf434dbea16faf632fd24b0a9cfcc0a1e382ddd06edc6d759198e2586"
+        },
+        {
+          "path": "source/command_system.jai",
+          "bytes": 15814,
+          "sha256": "30d908c35cf5c6095f3439502365be268dcc15f4cda3f6ae1949a311e7efb4b2"
+        },
+        {
+          "path": "source/commands.jai",
+          "bytes": 66961,
+          "sha256": "a7f59b4b6e33e045d86a7dea50a0d7de33c9fa6fb6ee8433eec11b9c400c79af"
+        },
+        {
+          "path": "source/cvarexample.jai",
+          "bytes": 12559,
+          "sha256": "a0aa3acfbba7fe30c3bf3ecbd9918257b073a376e7ccc492c5b5e1c7397799d9"
+        },
+        {
+          "path": "source/document.jai",
+          "bytes": 84393,
+          "sha256": "4f3204bc00f5530d5d4181904fa7833fa7843ccace28bb229228e5ed4a7675f0"
+        },
+        {
+          "path": "source/font.jai",
+          "bytes": 15162,
+          "sha256": "8c40d5814cdebc4b1a09cb8886fa1fae5d691ebafc6cf704c6f67804004af376"
+        },
+        {
+          "path": "source/language.jai",
+          "bytes": 41468,
+          "sha256": "eb7cb9402333f9fa62cdf44705f42746e173ec98aca484955dd9f53675c7f865"
+        },
+        {
+          "path": "source/main.jai",
+          "bytes": 54775,
+          "sha256": "2f3b9348a7c5d6e20589ddac71085bc8589b5997aac907b71576c68827addd5e"
+        },
+        {
+          "path": "source/panel.jai",
+          "bytes": 8023,
+          "sha256": "a2c2be2dd23a26838c79f3986ff88b5bbbc85869de00fc18103b330888f00956"
+        },
+        {
+          "path": "source/platform_windows.jai",
+          "bytes": 17450,
+          "sha256": "1b4adc4980ba358241c63ace7f6c28e1a0913836df81c49166e0c341e9eb390c"
+        },
+        {
+          "path": "source/project.jai",
+          "bytes": 15060,
+          "sha256": "75e672b9651535f31e9b4fb247e501d1be144e9d62cf98de5513b309b9c6f787"
+        },
+        {
+          "path": "source/rect.jai",
+          "bytes": 3254,
+          "sha256": "22fd310424a87edc265479b40ce71efb1f1a722e4b87588b02ebcae29b518880"
+        },
+        {
+          "path": "source/renderer.jai",
+          "bytes": 14714,
+          "sha256": "b145968ecac1617b44cf2b33072036a347bd04e1a298dc1d908ba4d8d8170f70"
+        },
+        {
+          "path": "source/ui.jai",
+          "bytes": 36303,
+          "sha256": "59913c87d08b98afb6cafabfc29a8b7ad5940f8114250b4c8aa76d8c1e1e8f8d"
+        },
+        {
+          "path": "source/watcher.jai",
+          "bytes": 7503,
+          "sha256": "f1b30ab08e8aa32b5b4d45f578ddb9936348de6c0c42a9bb4cb4e85731a16a1b"
+        }
+      ]
+    },
+    {
+      "repository": "kujukuju/KodaJai",
+      "revision": "9541faaae638a9af585e331746547db8fa94b60a",
+      "latest_jai_change": "2026-10-03T13:36:08+09:00",
+      "source_of_truth": "https://github.com/kujukuju/KodaJai/tree/9541faaae638a9af585e331746547db8fa94b60a",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "README.md",
+          "bytes": 1376,
+          "sha256": "7b69bf4888d1068646f01ea2c509db0df1ea60ca0bbe88e4508b9bc446365672"
+        },
+        {
+          "path": "examples/deferred/README.md",
+          "bytes": 563,
+          "sha256": "be88f896080ea813f49ee176415304612012be97c0b031beaec6d58b7f9df2ab"
+        },
+        {
+          "path": "examples/deferred/example.jai",
+          "bytes": 747,
+          "sha256": "31f8cef019644322b01a35fc395245ec1b8326f62192d04386fd8d44369ec820"
+        },
+        {
+          "path": "examples/deferred/src/Deferred.jai",
+          "bytes": 17158,
+          "sha256": "71b63ac4eee3f22c7798dd6398aa1b692498c82d5a4e275d14306d55db653add"
+        },
+        {
+          "path": "examples/deferred/src/DeferredExample.jai",
+          "bytes": 3646,
+          "sha256": "167a04795d490a8caa6d2471a5f5cfd416886daa5ae393e89513e625b1368c91"
+        },
+        {
+          "path": "examples/deferred/src/DirectionalLightShader.jai",
+          "bytes": 7020,
+          "sha256": "bb8a1eee7bac7b33f839e2aedbc409779575a3e40ba46269464d600617100239"
+        },
+        {
+          "path": "examples/deferred/src/EdgeShader.jai",
+          "bytes": 2811,
+          "sha256": "40edf4a78cfc6325cc5fb658b35367b97005796996d9bbcd67bed9a95a74f6e8"
+        },
+        {
+          "path": "examples/deferred/src/FAAAShader.jai",
+          "bytes": 9298,
+          "sha256": "922600bd8d431e6511033dec592380aa9dc77620e2aaec1f4231dba60fa54db1"
+        },
+        {
+          "path": "examples/deferred/src/FloatBlurShader.jai",
+          "bytes": 842,
+          "sha256": "21d42b09b28c7cdc9ad2515f5dfef7d93f30d1b09e592d30fc07d03a5d67f8e1"
+        },
+        {
+          "path": "examples/deferred/src/FloatCopyShader.jai",
+          "bytes": 582,
+          "sha256": "5abca1112550d2559fc5bfe2ee921c00e6a59dcc61e81415c9f02bbe03976ae8"
+        },
+        {
+          "path": "examples/deferred/src/GaussianDirectionalBlurShader.jai",
+          "bytes": 2101,
+          "sha256": "522a3148c4ce0a6ca286384d5d74e93bf824fa439787b00558a270f4164e9d99"
+        },
+        {
+          "path": "examples/deferred/src/GeometryShader.jai",
+          "bytes": 1418,
+          "sha256": "66d83f05a35285b5cd05feb3fb597420d40965d092eabf14a8c102fbeee16b5c"
+        },
+        {
+          "path": "examples/deferred/src/GuidedBlurShader.jai",
+          "bytes": 3232,
+          "sha256": "6e8284410a1ff438a54e3f5a50a7d130c6c612acdc7bbf0906f9ab77e2642080"
+        },
+        {
+          "path": "examples/deferred/src/PointLightShader.jai",
+          "bytes": 3130,
+          "sha256": "740f4dedb04a8030a01ac99e43e2c9adb3037d95c63485f3ecc6987aafa06096"
+        },
+        {
+          "path": "examples/deferred/src/SSAOShader.jai",
+          "bytes": 3305,
+          "sha256": "3c7c9de18b6cb9b52d684a83cc1243d1490a216c33032e71008a3bbfa83d8820"
+        },
+        {
+          "path": "examples/deferred/src/ShadowDepthResolveShader.jai",
+          "bytes": 707,
+          "sha256": "06db6b2b7b6de3c3e02e4fdbb50f14473cc0f21a0a207338df7cf8a4416fdebc"
+        },
+        {
+          "path": "examples/deferred/src/ShadowProjectionShader.jai",
+          "bytes": 732,
+          "sha256": "38fa4bff2194302d7bf744ce9181f4507e02f701ce0dd7a4f2c1ff65042dc764"
+        },
+        {
+          "path": "examples/deferred/src/SharpenShader.jai",
+          "bytes": 1238,
+          "sha256": "9d3f0b97e943e704008d3ac77c42848a4a11f665957fdac4866e0f1fba762ece"
+        },
+        {
+          "path": "examples/deferred/todo/deferred_msaa/DMPostProcessor.cpp",
+          "bytes": 5977,
+          "sha256": "a9890bc37c1d94a8343d674dc2ef84f9cf022f1d6eb580481297a6c4fdf6d3bc"
+        },
+        {
+          "path": "examples/deferred/todo/deferred_msaa/DMPostProcessor.h",
+          "bytes": 2245,
+          "sha256": "7e58e80efa2d2dede57c7c7b8289003dedae5b53a6c18c729573c49a174802a6"
+        },
+        {
+          "path": "examples/deferred/todo/deferred_msaa/DeferredMSAA.cpp",
+          "bytes": 17379,
+          "sha256": "e5c50476c8c09bf9cf1305027f0232fe530d7eaab85e0669fe72ca0aa7243fd8"
+        },
+        {
+          "path": "examples/deferred/todo/deferred_msaa/DeferredMSAA.h",
+          "bytes": 2855,
+          "sha256": "7acf501aa35c219bd971608203214f3bb4eb184909ed66e034dcb749ebc16427"
+        },
+        {
+          "path": "examples/deferred/todo/faaa/FXAA3_11_original.h",
+          "bytes": 85880,
+          "sha256": "26435f77adef392fd751ed6a648a05d375c57ac88d00bbad19653c75ac9c36fa"
+        },
+        {
+          "path": "examples/deferred/todo/lxaa/FXAA3_11_original.h",
+          "bytes": 85880,
+          "sha256": "26435f77adef392fd751ed6a648a05d375c57ac88d00bbad19653c75ac9c36fa"
+        },
+        {
+          "path": "examples/geometry_shadows/README.md",
+          "bytes": 2059,
+          "sha256": "794b69050f1f1c0872778c261ea1238d4fd62b3e1b47219b9337fc2643cf3f4c"
+        },
+        {
+          "path": "input_poll_tests.jai",
+          "bytes": 922,
+          "sha256": "79b08b43a38d712aae205ee9cd6f8ff384df691d78f84dd6159f274a133cb09c"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 7185,
+          "sha256": "775be0f95b5b6b6af0300dfc9fcfb670b17224490db0cf46d591896c51792870"
+        },
+        {
+          "path": "scripts/generate_asset_constants.jai",
+          "bytes": 2637,
+          "sha256": "43547aed2d153a3b5ddcffd221f47323a9c16a5cdbb7fa7185381cca7cc85dd0"
+        },
+        {
+          "path": "src/2d/AnimatedSprite.jai",
+          "bytes": 1590,
+          "sha256": "510e83b48534a235f5ee8818ebb84ee27c0e039333295cd88c2a9e46d22fb205"
+        },
+        {
+          "path": "src/2d/Camera2.jai",
+          "bytes": 831,
+          "sha256": "55b8d464bf0eb1b2cb28b68f2664804af661d14f55d76773d994cd80f2c0daee"
+        },
+        {
+          "path": "src/2d/Container2.jai",
+          "bytes": 1841,
+          "sha256": "e76abbc42357ec5a09d280c347709fd85c9bf3a8f99962507f5a4c6689f859a5"
+        },
+        {
+          "path": "src/2d/Font.jai",
+          "bytes": 12542,
+          "sha256": "74a9c1599c03297299bdcba13a33042d21085efb14c7b0d47b50810d72c1f4e4"
+        },
+        {
+          "path": "src/2d/FramedSprite.jai",
+          "bytes": 3809,
+          "sha256": "77645643e2a4d7e042cf8d359e7aee7943c30d4a8f410e4795231fc27c7054b2"
+        },
+        {
+          "path": "src/2d/Image.jai",
+          "bytes": 18181,
+          "sha256": "525254068294dcf74a6319320eafbc26608cc3ac7a23121a6400d4d06f9f790f"
+        },
+        {
+          "path": "src/2d/Quad.jai",
+          "bytes": 2808,
+          "sha256": "f4bec729c7099bde7a958f85cf80d433dfa67b3e36f2e5bcc3e6d546832cf84c"
+        },
+        {
+          "path": "src/2d/RenderTexture.jai",
+          "bytes": 2219,
+          "sha256": "5bdb675ff33e3857e2408be7544ee6ef48238dfe3ea1dceec169116613b4d1e9"
+        },
+        {
+          "path": "src/2d/Shapes2.jai",
+          "bytes": 12689,
+          "sha256": "73c0657c66206daa3d648684340159c4f8bc05fd1bf6870e51461ca1a2b87103"
+        },
+        {
+          "path": "src/2d/Sprite.jai",
+          "bytes": 5073,
+          "sha256": "c9cdbdfa2b8d8370d1948b4a9539feb2cab2c243263c8ad376eabbc67da9bd2a"
+        },
+        {
+          "path": "src/2d/Text.jai",
+          "bytes": 12549,
+          "sha256": "10679ae5ef1753146b4eeb4669feaec90d4b91ae3bd4b273a490ef503901bbef"
+        },
+        {
+          "path": "src/2d/Texture.jai",
+          "bytes": 10629,
+          "sha256": "415de2093025dd62a94e82575a7f4b7b1a54065cb4e3e7a50346bb747bc655b2"
+        },
+        {
+          "path": "src/2d/TextureArray.jai",
+          "bytes": 8030,
+          "sha256": "7642dd8bf0c2628da3db1096f3119b144510a7f924970f57f1116a5b19cb4bfd"
+        },
+        {
+          "path": "src/2d/VideoFrames.jai",
+          "bytes": 6943,
+          "sha256": "469001dbb4074857c005f860e8cf46595f0f517cdac7d02576598ce23c25977d"
+        },
+        {
+          "path": "src/3d/AnimatedModel.jai",
+          "bytes": 3632,
+          "sha256": "055037a0cf6bda7870c2dc9445c466446676249dd33d926ed839a1257303fe89"
+        },
+        {
+          "path": "src/3d/Animation.jai",
+          "bytes": 61240,
+          "sha256": "d4626464ee014ea7195d5ac5ec47e635249da87c8e08de227054cb01db84ab93"
+        },
+        {
+          "path": "src/3d/Camera3.jai",
+          "bytes": 1963,
+          "sha256": "4a398f000c85569d3efdbbb3d02161b4eedaf73a201394dd60adc0a342f4c95d"
+        },
+        {
+          "path": "src/3d/CapsuleGeometry.jai",
+          "bytes": 3466,
+          "sha256": "dae5aab4be9933ec59779d8d97852d0bda4c3555c996de80d9faae0d8b17b77a"
+        },
+        {
+          "path": "src/3d/Container3.jai",
+          "bytes": 1909,
+          "sha256": "4f9ba733829885e6e22c7b846aa7507ab30210cc37e9224689f5f71257541eeb"
+        },
+        {
+          "path": "src/3d/CubeGeometry.jai",
+          "bytes": 7467,
+          "sha256": "43cc37363a6e97e440cedbaa07c2d47de5c6239942691108221e7bdce1c95668"
+        },
+        {
+          "path": "src/3d/CubeMap.jai",
+          "bytes": 2541,
+          "sha256": "c4c4285401acd7b0839cda08ae3dcf995c46e29d712ae81572ea150538148542"
+        },
+        {
+          "path": "src/3d/CubemapTexture.jai",
+          "bytes": 5960,
+          "sha256": "5960185ec1d89f707515b4f7c94dee40558f56430efd795579274c2c1daab253"
+        },
+        {
+          "path": "src/3d/CustomDataLoader.jai",
+          "bytes": 4773,
+          "sha256": "3ff20eb621f12142961930a97753c5ce4c8e6c807201edc2c74df260046cc2a3"
+        },
+        {
+          "path": "src/3d/CylinderGeometry.jai",
+          "bytes": 213,
+          "sha256": "bc83bb9913736017f7ccbd5327a69698ada7adea82bb85f3c9d07a80a5101283"
+        },
+        {
+          "path": "src/3d/DecalMath.jai",
+          "bytes": 25404,
+          "sha256": "d1ab27860a66b1541a175e169af4e27d9975237e4ffdab2950bb7c557d4a5340"
+        },
+        {
+          "path": "src/3d/DrawCallContainer.jai",
+          "bytes": 4704,
+          "sha256": "5a9c00a9a5c6988f7570712d4c69d7532d7a3b5f17951d9baba3e2198bd56102"
+        },
+        {
+          "path": "src/3d/Geometry.jai",
+          "bytes": 47341,
+          "sha256": "137d884cc30062f330298a763ffe11bc09edfb3211ac2d6f0ff2e76120b05452"
+        },
+        {
+          "path": "src/3d/GridGeometry.jai",
+          "bytes": 945,
+          "sha256": "e84f56b7a0285c04895d82e528d135dcf097f4f34e3e889bef4e9735b3704695"
+        },
+        {
+          "path": "src/3d/Image3.jai",
+          "bytes": 24217,
+          "sha256": "056752654d36341666dcae2b33a6a47631e35bb40e5395034d812143319cd0e4"
+        },
+        {
+          "path": "src/3d/InstancedModel.jai",
+          "bytes": 19117,
+          "sha256": "c509515cf9cf8f2450569027506ae717a2416f8262a1d41a3ed5c24fa12ea547"
+        },
+        {
+          "path": "src/3d/Lights.jai",
+          "bytes": 5313,
+          "sha256": "5c8f6f900bba22264b243743441e09a4d90804315c4f940af3b3b89af80f3942"
+        },
+        {
+          "path": "src/3d/Model.jai",
+          "bytes": 33171,
+          "sha256": "d34b4094768b314a63e9a89c95fed04c39d9100cfa3dbdcc48cf3a3f1ee755ab"
+        },
+        {
+          "path": "src/3d/ModelOptimizer.jai",
+          "bytes": 6304,
+          "sha256": "3754e15ece0ff156762b778a4e767533c6f2f6d628ec2bf004c218ebac175ce5"
+        },
+        {
+          "path": "src/3d/PanoramicMap.jai",
+          "bytes": 2188,
+          "sha256": "6d8ee1e6f65e1835bce3c61ba5b861460b687938f867ef3a040fddb227f33c0b"
+        },
+        {
+          "path": "src/3d/ParticleEmitters.jai",
+          "bytes": 2388,
+          "sha256": "b0966f0131d1f4d57bcad17b6895b078dbb0d8b76b2ca9e97ef16151c6ec741f"
+        },
+        {
+          "path": "src/3d/PlaneGeometry.jai",
+          "bytes": 3142,
+          "sha256": "b195f86927eb6105a279274594d54beddb470f8ee3a6c9038f0d79f5b853cd2e"
+        },
+        {
+          "path": "src/3d/SdfGenerator.jai",
+          "bytes": 19596,
+          "sha256": "86acb83c90d2e1f9099b6c88cd4621df7588097801bbe3a9bf138e3ef1d43cdf"
+        },
+        {
+          "path": "src/3d/Shapes3.jai",
+          "bytes": 24307,
+          "sha256": "ba359d71927852ff211cb3fe6f31d8d4e3d052c1ca2783ebad313657d210bb7b"
+        },
+        {
+          "path": "src/3d/SphereGeometry.jai",
+          "bytes": 12219,
+          "sha256": "3a9b79d824959e16f0d4f0c06fa3210de9a753299adc1ae6aca3acd536b11b52"
+        },
+        {
+          "path": "src/3d/Sprite3.jai",
+          "bytes": 5069,
+          "sha256": "d62ea447e32c77d97b8056d92bb43b233fd52ae038bb25a878916a4052e423e4"
+        },
+        {
+          "path": "src/3d/Texture3.jai",
+          "bytes": 6926,
+          "sha256": "e0c309dc91871a682134e0e3cfab0d4649bf7ac641e1519e92a99bbacacc63ec"
+        },
+        {
+          "path": "src/3d/TorusGeometry.jai",
+          "bytes": 2504,
+          "sha256": "5d4635d3e32563eb38f67dc96db17dc40c6a1f94759cbfbace42ee96725112bc"
+        },
+        {
+          "path": "src/3d/VolumetricCloud.jai",
+          "bytes": 5838,
+          "sha256": "d1a4cae39ee8945fa34f3e492bd6b5f2e15276f63e84a3dea848725455591882"
+        },
+        {
+          "path": "src/CircleAllocator.jai",
+          "bytes": 3171,
+          "sha256": "4ec8f7bc83a902bb57bbd2f576cd4446434882d617a1377368f8db4e08195c72"
+        },
+        {
+          "path": "src/Color.jai",
+          "bytes": 2756,
+          "sha256": "c1ca8cbf5adc13a663e03ad357f0edeb59c08e7c41178543a8530b29e11ba0c2"
+        },
+        {
+          "path": "src/CompressedTextures.jai",
+          "bytes": 5417,
+          "sha256": "936021d1931685af487503eeaad99755796d37375ee9380dcebfc00aacf3d924"
+        },
+        {
+          "path": "src/DebugInfo.jai",
+          "bytes": 6971,
+          "sha256": "2c39546106cb451177e9dba509a23f0a815ae0aa05cb40b4dd56492c857c48f5"
+        },
+        {
+          "path": "src/Device.jai",
+          "bytes": 531,
+          "sha256": "303b2203855bdbdd739c3394b6aeee531771196d5046176a613cfae9a9935bd9"
+        },
+        {
+          "path": "src/GltfLoader.jai",
+          "bytes": 18391,
+          "sha256": "83800c24b5a1c5fdb4046449323b7f110a21b95eb28fcfd50ec54160a1d2d8ab"
+        },
+        {
+          "path": "src/Input.jai",
+          "bytes": 25398,
+          "sha256": "f1ececd00c3d739035c31c31404513f594bf07df2c7895dbc1331dad419111cd"
+        },
+        {
+          "path": "src/Material.jai",
+          "bytes": 44,
+          "sha256": "75e4f6b3004f0fd43b44c29f7fc8149e4dd1a2c40ad6c3b84e1824a987f13da5"
+        },
+        {
+          "path": "src/Operators.jai",
+          "bytes": 1,
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": "src/ParticleSystem.jai",
+          "bytes": 20251,
+          "sha256": "2fbad7119a02d3cfa787722be297ef9d46d63723982ab4d21c4e2e022f2f5f11"
+        },
+        {
+          "path": "src/Pass.jai",
+          "bytes": 642,
+          "sha256": "a8f3f19c0387b853efbd2b233adfac7db8098acd90f76c30a3a64e0c5e538e20"
+        },
+        {
+          "path": "src/PerfTracker.jai",
+          "bytes": 11981,
+          "sha256": "10dc9718e3fd2641d759c27d15302088997e2ed8bd9b1122eb849f96708cf00a"
+        },
+        {
+          "path": "src/Pipeline.jai",
+          "bytes": 456,
+          "sha256": "e694e271492149ecbe3a0e6b1276d95b136ce41312b128da00bfe2094a014dfd"
+        },
+        {
+          "path": "src/PixelFormat.jai",
+          "bytes": 9095,
+          "sha256": "7935d4a6956a0a602cc65a4659c8bd26750b3e12aec2650e81dedb42cf605070"
+        },
+        {
+          "path": "src/Point2.jai",
+          "bytes": 1148,
+          "sha256": "3f22078de39ccd013dad718bd2215989af3e38480a31223acc41196c0674c6a0"
+        },
+        {
+          "path": "src/Point3.jai",
+          "bytes": 794,
+          "sha256": "f1d75b8687c36dcee4da2be0eba76a7f101f2883ba5a4a1fa36653854a7b40f2"
+        },
+        {
+          "path": "src/Point4.jai",
+          "bytes": 978,
+          "sha256": "32143c461f310596e87de80c8ea444418e268d3e0c22d46b7fa1220ce7bd58d9"
+        },
+        {
+          "path": "src/QuadParticleSystem.jai",
+          "bytes": 10826,
+          "sha256": "5a34b87a9763a1b3d0e5030c350228d958a148a5d7980ffa7f5285e62d9d6451"
+        },
+        {
+          "path": "src/Renderable.jai",
+          "bytes": 166,
+          "sha256": "111f132e7f5a3b6332832be8d47289cdfc0ab0418b9d70e52767278da88263dc"
+        },
+        {
+          "path": "src/ShaderUniforms.jai",
+          "bytes": 27524,
+          "sha256": "36003714d7dea24fc39b6f324159c25a2bb83a98ce793ab043e257063b916101"
+        },
+        {
+          "path": "src/StorageFormat.jai",
+          "bytes": 460,
+          "sha256": "ccac4ec951811b0e7cd5c5411e96056291daed37004d4067fda961296f5a63ba"
+        },
+        {
+          "path": "src/SwapBuffer.jai",
+          "bytes": 1459,
+          "sha256": "d2bd56b0541de78edf8beaeb78ebd74fa202065449051292971fee063865b461"
+        },
+        {
+          "path": "src/TextureInterp.jai",
+          "bytes": 1553,
+          "sha256": "c29c71edc08f150162c8d5835a693daae98358e50be0bfd128c29e2d124f61b2"
+        },
+        {
+          "path": "src/TextureWrap.jai",
+          "bytes": 402,
+          "sha256": "0a84e4a23535aace739be3ea1107bf39d5382d64871d429ccd39f3615d4276b3"
+        },
+        {
+          "path": "src/Time.jai",
+          "bytes": 1874,
+          "sha256": "0f464fa34d419685c6df788a1ae9cceb6a9aee76f14d9dce32b15835963f40cc"
+        },
+        {
+          "path": "src/TrailParticleSystem.jai",
+          "bytes": 13163,
+          "sha256": "cec425b36fb2a0a8700c7b783b7b95212a4a2c5de3121a0ae0008c8de15f4350"
+        },
+        {
+          "path": "src/Utilities.jai",
+          "bytes": 12076,
+          "sha256": "d6f63de60400ae38143d109f5abf94a453b22f05c229b7ebab04aa85f01053a1"
+        },
+        {
+          "path": "src/Window.jai",
+          "bytes": 36855,
+          "sha256": "d267b5bec909338545e13369dfcff5226040126f0150e56b1d3f2fd03901fa87"
+        },
+        {
+          "path": "src/assets/TriplexSansBold.jai",
+          "bytes": 16453,
+          "sha256": "a8ee1ae9e68ce0f496cbdc9b52090d18e3278d57d6e629dcad90d5abcd07589b"
+        },
+        {
+          "path": "src/assets/White.jai",
+          "bytes": 1397,
+          "sha256": "240af7783681b8a57df4a020bc5ebd495fe6a0c814558eeca11f1b8e421cd2ef"
+        },
+        {
+          "path": "src/deferred/FramebufferPass.jai",
+          "bytes": 15324,
+          "sha256": "b453fc5e7c7c7b903c6015233464b7b1a5361c53eeed0328ee2c1e120c9e6c3b"
+        },
+        {
+          "path": "src/deferred/SSAOPass.jai",
+          "bytes": 1538,
+          "sha256": "fc73b10dde0ded429aab0ecc569907d48c11d58a18f7ca844a953c191f099ce5"
+        },
+        {
+          "path": "src/noise/Noise.jai",
+          "bytes": 2790,
+          "sha256": "6a659c33361ee5102fa7ef27934cbda2eb5b07acfed74dc7a245ffe57f3a7d59"
+        },
+        {
+          "path": "src/noise/Perlin.jai",
+          "bytes": 18470,
+          "sha256": "19894561d5974d91d0d7b0b8da720121f4a347da12c2e90f56d823b089409bb1"
+        },
+        {
+          "path": "src/noise/PerlinWorley.jai",
+          "bytes": 1357,
+          "sha256": "bae74c3d1ecd3182e6021953c843d90640dd1e8e0f1ac26dbf08fc0ea25e0295"
+        },
+        {
+          "path": "src/noise/VolumeNoise.jai",
+          "bytes": 2041,
+          "sha256": "da5162ea2f46a4e50ecf762033ead323a0b879b15a90c0ac7d95b20aac61b5d7"
+        },
+        {
+          "path": "src/noise/Worley.jai",
+          "bytes": 764,
+          "sha256": "d337af47b147ba1ed6799b50da274fdad7b8ca446e84ae83fc040a3a5111bfa4"
+        },
+        {
+          "path": "src/parallel/Parallel.jai",
+          "bytes": 2757,
+          "sha256": "b870ff17194b8602f13b86374159e815e8046e111b96c2667aa197dc550e9460"
+        },
+        {
+          "path": "src/parallel/ParallelMergeSort.jai",
+          "bytes": 6794,
+          "sha256": "036deaac8df966502c2f1825ea4b28c58863d11e79fd78180e01d8f30a765da7"
+        },
+        {
+          "path": "src/parallel/ParallelQuickSort.jai",
+          "bytes": 5657,
+          "sha256": "555e64bb6fe827aa16191a9866c7aa8504c4d4831e515b46744366fc721ffb3d"
+        },
+        {
+          "path": "src/shaders/ResolvedShaderParts.jai",
+          "bytes": 4596,
+          "sha256": "120c20b98ca490ec24f0c29c2b32b43b6c9a3dd8b9371a9c7e7c28453c296e30"
+        },
+        {
+          "path": "src/shaders/ShaderManager.jai",
+          "bytes": 4781,
+          "sha256": "5a3c6148eafd1b36410e1bf1d6c3160971d74f109835c85195fd5bf46b2c5c80"
+        },
+        {
+          "path": "src/shaders/ShaderParts.jai",
+          "bytes": 8134,
+          "sha256": "1287242e85ee7d1d86bba9f2ed656b29783c312630bb93079546538844d3082b"
+        },
+        {
+          "path": "src/shaders/Shaders.jai",
+          "bytes": 41324,
+          "sha256": "b654bb099b6f795b06f88fca5fa56ddf2c9c8eda96de99df76e60de5313972ce"
+        },
+        {
+          "path": "src/shaders/forward/BlurShader.jai",
+          "bytes": 2032,
+          "sha256": "6879dd65271e449af99fb855c8f094201f4eee5c97c0a4aca405937fce3c95b9"
+        },
+        {
+          "path": "src/shaders/forward/CapsuleLineShader3.jai",
+          "bytes": 749,
+          "sha256": "a1d70c1c8f3f0517b33dc5ba8d7543fc9f6e847bd73f689b3e414a6158822d4f"
+        },
+        {
+          "path": "src/shaders/forward/CubemapShader.jai",
+          "bytes": 827,
+          "sha256": "a94dd8f7f691ea739bd90443e49b2ecb4ad132caeaafa74e12c73e321ba7c96b"
+        },
+        {
+          "path": "src/shaders/forward/DefaultColorNormalShader3.jai",
+          "bytes": 1608,
+          "sha256": "06b7b5029ba016c5c376e89706d7c44c11b016db9ae20a84f9354465d038ce49"
+        },
+        {
+          "path": "src/shaders/forward/DefaultColorShader3.jai",
+          "bytes": 1497,
+          "sha256": "607db3e300db9815f29d10fa32736de314ad9ff2f2ab10ffd0d4b5b146aaee35"
+        },
+        {
+          "path": "src/shaders/forward/DefaultEllipseShader.jai",
+          "bytes": 1648,
+          "sha256": "43800546499bae2c8f82ceff8c8eb5e2032a0669ddbe39002f441a2e76025f8a"
+        },
+        {
+          "path": "src/shaders/forward/DefaultInstancedShader3.jai",
+          "bytes": 1831,
+          "sha256": "fecb453f8bca00d7932fb794673c2b59fa852f77a1fd4795448cc700e7828179"
+        },
+        {
+          "path": "src/shaders/forward/DefaultShader.jai",
+          "bytes": 803,
+          "sha256": "3b69c7a1ab149dcc56b0b333c2827970147409cf38428f80da38f85bf9ea016b"
+        },
+        {
+          "path": "src/shaders/forward/DefaultShader3.jai",
+          "bytes": 1402,
+          "sha256": "992e19597390e30b076e78330b4706353dd61aaa1046800afcec25841d07aedf"
+        },
+        {
+          "path": "src/shaders/forward/DefaultShaderColors3.jai",
+          "bytes": 1240,
+          "sha256": "339cf6eb6b8ed366f7f8e74a5d05e8be595f3e576372a6240efe25c24343ad0c"
+        },
+        {
+          "path": "src/shaders/forward/DefaultShapeColorShader3.jai",
+          "bytes": 759,
+          "sha256": "045a17caec77e5131acf4386be00c2651f6897230eef42edc78cc22ec8860043"
+        },
+        {
+          "path": "src/shaders/forward/DefaultShapeShader3.jai",
+          "bytes": 608,
+          "sha256": "6f8463aade52b6b8a431fb8eedfff4021eff09c4b5f1e37ac37f2323afe987c0"
+        },
+        {
+          "path": "src/shaders/forward/FlatGridShader3.jai",
+          "bytes": 1446,
+          "sha256": "831717b0a11e8030cba14ca7bc37c25caa8c5575851a2ea142b092dc8c5041d4"
+        },
+        {
+          "path": "src/shaders/forward/FontParticleShader.jai",
+          "bytes": 4197,
+          "sha256": "78c3cdd6ea308899889221b7ca05b3d8e964a493c43995f100601687fc9264b1"
+        },
+        {
+          "path": "src/shaders/forward/FontShader.jai",
+          "bytes": 651,
+          "sha256": "693f4e1a6908e3fb59cdae37f0c9eb47ef5fb3d1492c6ca19090d627706f763c"
+        },
+        {
+          "path": "src/shaders/forward/InfiniteGridShader3.jai",
+          "bytes": 4051,
+          "sha256": "b998b356464530e8bfa1613debc8ac8002acbe3695d58bb97813cba4b16a31fc"
+        },
+        {
+          "path": "src/shaders/forward/InstancedCapsuleLineShader3.jai",
+          "bytes": 1212,
+          "sha256": "de56c20010d3fb489d39c3945e854655e2a8429a3c0b0170f286c2f75f810244"
+        },
+        {
+          "path": "src/shaders/forward/InstancedShader2.jai",
+          "bytes": 969,
+          "sha256": "09b98208e32bc4eae408316b551bf187042ac59a5f6f66bd847869298ea6bb32"
+        },
+        {
+          "path": "src/shaders/forward/InstancedShader3.jai",
+          "bytes": 1357,
+          "sha256": "6a961cbc0e94ad24a5ef1e77c3aebb0596d9deda8b029e49f610c945f52422e1"
+        },
+        {
+          "path": "src/shaders/forward/OcclusionShader3.jai",
+          "bytes": 1539,
+          "sha256": "3473101177dd54ff697e26c9e8478c797e22dfd2dd6624cd8c2bd82fd68a7939"
+        },
+        {
+          "path": "src/shaders/forward/RoundedRectShader.jai",
+          "bytes": 1752,
+          "sha256": "cb6686e1e23c3e549b03d15acb643104f01e7cb27887c8fbac8dd504d74bb5a5"
+        },
+        {
+          "path": "src/shaders/forward/SkinnedAnimationDoubleShader3.jai",
+          "bytes": 2192,
+          "sha256": "83dafea7f0580632dd9f16c270f97e2bb7dbc1945e88f573d0301e58a28343fb"
+        },
+        {
+          "path": "src/shaders/forward/SkinnedAnimationDoubleTextureShader3.jai",
+          "bytes": 2333,
+          "sha256": "3912962d79bb3011695b4767fc20208114550ac33f3b776b36d8dc34471bb818"
+        },
+        {
+          "path": "src/shaders/forward/SkinnedAnimationNoNormalShader3.jai",
+          "bytes": 1658,
+          "sha256": "cc1037667f5877ed230af544407548c24334cb6a9117228cb8124a122a080ba7"
+        },
+        {
+          "path": "src/shaders/forward/SkinnedAnimationNoTextureShader3.jai",
+          "bytes": 1760,
+          "sha256": "53b12e065caf843d5f9c50fad758296aa9474e1fc48ede07a3de82b5b5d61838"
+        },
+        {
+          "path": "src/shaders/forward/SkinnedAnimationShader3.jai",
+          "bytes": 1821,
+          "sha256": "310a41f9345d7ee2e9997edce0467f7395c4dd10ec19990fa9da96197b02f655"
+        },
+        {
+          "path": "src/shaders/forward/SpriteShader3.jai",
+          "bytes": 1278,
+          "sha256": "bcbb20b7921a5db7ecae1662dabd14b7bab25d47cf07a48eba93cf894407eb2c"
+        },
+        {
+          "path": "src/shaders/forward/TextureShader3.jai",
+          "bytes": 764,
+          "sha256": "7c72468a246a28d5b27cf0ea5cb0273ac29ed8f3c031eb5372d22b1c09db7cd5"
+        },
+        {
+          "path": "src/shaders/forward/TorusShader3.jai",
+          "bytes": 810,
+          "sha256": "62e920ac1efa1d5d211746507a82c61d0c0884480b68155b8a8e623e20065483"
+        },
+        {
+          "path": "src/shaders/forward/TransformShader.jai",
+          "bytes": 1060,
+          "sha256": "3e1002403f024eb9dc5c1876278949bfe67fe836302d72a86d0e37e566621695"
+        },
+        {
+          "path": "src/shaders/forward/VolumetricCloudShader.jai",
+          "bytes": 13502,
+          "sha256": "651b3bd0b05da0e25fe714cdb60e6d47a1427e798023bffb93806165c2e397a3"
+        },
+        {
+          "path": "src/shaders/hotswap/ExternalShaderDependencies.jai",
+          "bytes": 699,
+          "sha256": "c8745cfa9793ac24f63fe027191e8ac783328d043e532ed1eba15a47ebe985e9"
+        },
+        {
+          "path": "src/shaders/hotswap/ExternalShaderLoader.jai",
+          "bytes": 8780,
+          "sha256": "35146769a7aae50b5d91b66f211133c706428279db0c8184d0ab3f833bf3ce32"
+        },
+        {
+          "path": "src/shaders/hotswap/FileChangeWatcher.jai",
+          "bytes": 3158,
+          "sha256": "b47f7df027784130ea1ff06382358dc2568480acf3f0ffb02c05a8bffdfd93bd"
+        },
+        {
+          "path": "src/shadows/ShadowUtilities.jai",
+          "bytes": 13405,
+          "sha256": "46591714fc75b3919f264f7c1d020ae3839f6dd7b52a09162e43600c0552115b"
+        },
+        {
+          "path": "src/utilities/BoundingShapes.jai",
+          "bytes": 11819,
+          "sha256": "72117b5b45fdc61ef68517bf6cace8ce1f09d3e46c2cbc7c57a5776dce4b70a4"
+        },
+        {
+          "path": "src/utilities/Context.jai",
+          "bytes": 965,
+          "sha256": "4a2df3be6f25812fec114f2a1fe7ebf71aefe237a3b942185b69188606bdc7a5"
+        },
+        {
+          "path": "tests/.build/.added_strings_w2.jai",
+          "bytes": 53318,
+          "sha256": "9ab2955a5fc6918408b18a971415dd79fdf1d741137416a3f4d3b55fb6f34f13"
+        },
+        {
+          "path": "tests/InputPollTests.jai",
+          "bytes": 17545,
+          "sha256": "5c00330d3538906babbe912fcd157d4e97babc8a84fbbb5dc950bb37e75f8872"
+        },
+        {
+          "path": "tests/main.jai",
+          "bytes": 489,
+          "sha256": "c08e935b9ffca70b1ba75549bd2a95057796c4c215f44946d8e4c2efd057df1f"
+        }
+      ]
+    },
+    {
+      "repository": "UnNabbo/no_api",
+      "revision": "0cee585f0e05d58dca7ec7f2207dadbbe2c97108",
+      "latest_jai_change": "2026-07-21T17:38:00+02:00",
+      "source_of_truth": "https://github.com/UnNabbo/no_api/tree/0cee585f0e05d58dca7ec7f2207dadbbe2c97108",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 554,
+          "sha256": "e63f75f58a848d60765526f1b7763ad52f8ed59eb8d205dc0eee11282a135b59"
+        },
+        {
+          "path": "README.md",
+          "bytes": 1979,
+          "sha256": "ddd925f2c6eb1ba69b62dada940949960c30d5ae3dc73d9d83e220917b6470d3"
+        },
+        {
+          "path": "examples/hello_compute.jai",
+          "bytes": 1288,
+          "sha256": "60876b67cd79ff45ce5031623bdff4924fa500bb4200edaa2e902a4df1e98c1b"
+        },
+        {
+          "path": "examples/hello_triangle.jai",
+          "bytes": 1968,
+          "sha256": "3e7ed55812918cf0c04c5f0d9937b9feb7c61c989fb9c60f135a12e8a105d092"
+        },
+        {
+          "path": "examples/playground.jai",
+          "bytes": 4731,
+          "sha256": "a790196cff7076f4cf073f574891ff2287189dd12745af091d75ad135f425e5d"
+        },
+        {
+          "path": "first.jai",
+          "bytes": 4323,
+          "sha256": "d05198075bdd2d3f6bedde267873e4d03697f88df10e57485acfdf59f55de411"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 2134,
+          "sha256": "e59de9eb3f110611d88439495574a200a70d590269ad580940c7182f1c81c868"
+        },
+        {
+          "path": "modules/slang/generate.jai",
+          "bytes": 3670,
+          "sha256": "de158d66d7fa6e02eb5781beaf1eae7ecdf8962dad3e55151d1a4ef6b6e1968c"
+        },
+        {
+          "path": "modules/slang/lib/LICENSE",
+          "bytes": 1107,
+          "sha256": "fdc32062c3c329e09c1a2ab35178f6b71211e6e314aca6170a2b0224f12a5a19"
+        },
+        {
+          "path": "modules/slang/lib/README.md",
+          "bytes": 11652,
+          "sha256": "d4e8044f1c37ba53aa552bf8283628c3c3e14d9621cfaa0a10d2b758a807d70b"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-com-helper.h",
+          "bytes": 7945,
+          "sha256": "8c4936e5bad6e61222cde9ae266dc5931cdcd5989d01495cef6dff2aef9b9276"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-com-ptr.h",
+          "bytes": 5566,
+          "sha256": "0bb72f8f4135ab01ab5c6c27f8da478bfbcf1a6132cf33d153b2357303664905"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-host-prelude.h",
+          "bytes": 1524,
+          "sha256": "ec6f0de0dd114753dc70e22472ba24db0eee9d78524a47ebf016bdd570011a60"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-prelude.h",
+          "bytes": 8529,
+          "sha256": "9425a850626175dc3c818bfc7e74deca573de3be85a2c4c3660287505807d0c9"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-scalar-intrinsics.h",
+          "bytes": 27189,
+          "sha256": "822ccaa13511ba3da0d880009f6e27dbbabc7c12cd1f999268393dcbc28d6bc9"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-types-core.h",
+          "bytes": 23649,
+          "sha256": "d1f587e81028726c7849c01b7bc52dba373e35bb082e2522ea5b776f15a52dbf"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cpp-types.h",
+          "bytes": 37859,
+          "sha256": "f684488b215faedf6b4f07ebc0455b0e6e1874915a6a6f0a68c6fa7ef797dc74"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-cuda-prelude.h",
+          "bytes": 234403,
+          "sha256": "4614f5f88ebc6b38fa08269ff2179b89c4c8530628957b7d17c40b97e4ce17e2"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-deprecated.h",
+          "bytes": 72860,
+          "sha256": "363f06d23d7bd5001cd05505d069c7385d20bf934a19e64271ad06b0c5ce779a"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-gfx.h",
+          "bytes": 94403,
+          "sha256": "c325b63b0cd1ce6e5859d289ffbcb4c472d0904e5387574f52dd45672a9f3cac"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-hlsl-prelude.h",
+          "bytes": 206,
+          "sha256": "6a02a2fe1ebfd6fbf1a66740078ac5a321be6884b0e9bec527a8c69d7211d674"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-image-format-defs.h",
+          "bytes": 2421,
+          "sha256": "35ad9b68cfa889157b2bf4a4ef39263b4ad5f0f760ffee66aca03438e8363bcd"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-llvm.h",
+          "bytes": 12053,
+          "sha256": "8f799317742485deb13353e9260764c58248175a75c9af96942ee49744067505"
+        },
+        {
+          "path": "modules/slang/lib/include/slang-torch-prelude.h",
+          "bytes": 5124,
+          "sha256": "f7289a06ff64e361939e45b2e86a11133e1cb1d0f1fbf8d9bf9cc0bc781ca8d8"
+        },
+        {
+          "path": "modules/slang/lib/include/slang.h",
+          "bytes": 186045,
+          "sha256": "02a2d19eabac23d44c7e875f4e201c16a82e9cbcbb8f9f9f8ed2cc96c8b80926"
+        },
+        {
+          "path": "modules/slang/linux.jai",
+          "bytes": 194921,
+          "sha256": "811bc20c73dd92bf91a7cfbe18fee6aa8a37bcced7e1536749f6e85227fbf51e"
+        },
+        {
+          "path": "modules/slang/module.jai",
+          "bytes": 319,
+          "sha256": "91eb2fd163aec092a11c47909dfb6f1e2d26bbc50533ac259b82a2af746a8dce"
+        },
+        {
+          "path": "modules/slang/windows.jai",
+          "bytes": 237270,
+          "sha256": "a901cadddf6aac95a6bcb8b1b319b380cebdbd1b0fbc33d726fa9bf7d52f95b4"
+        },
+        {
+          "path": "modules/vulkan/.build/.added_strings_w2.jai",
+          "bytes": 1393,
+          "sha256": "904f974c48a2dce434b4377cb101a4b1bf05fb46c24d16d59f7fa795dfcfdc33"
+        },
+        {
+          "path": "modules/vulkan/examples/example.jai",
+          "bytes": 19492,
+          "sha256": "c9cf063241e33af518e40586c4dd34256c1038330b6f9b8214416c181e75b4e1"
+        },
+        {
+          "path": "modules/vulkan/generate.jai",
+          "bytes": 13090,
+          "sha256": "8377442f14f851beeef2c48f15c787828956e3042659f2d7c8c237e906a163d0"
+        },
+        {
+          "path": "modules/vulkan/generated_linux.jai",
+          "bytes": 1192018,
+          "sha256": "191f06ad106246ce4f02d70112c05442fed1b48878e4f256d30e59f8afdf96f5"
+        },
+        {
+          "path": "modules/vulkan/generated_macos.jai",
+          "bytes": 1200316,
+          "sha256": "a61b321ed76253c55c00fdad756df8822957a83fa0592ea09734af1ee1f16bd7"
+        },
+        {
+          "path": "modules/vulkan/generated_windows.jai",
+          "bytes": 1190657,
+          "sha256": "529bf55b70bc5f27f31c3b27646ce4ff8a463a9a0b838a142975bf93eb485428"
+        },
+        {
+          "path": "modules/vulkan/module.jai",
+          "bytes": 3392,
+          "sha256": "59cd1733b912934fb7123a97fbe527eab7d314a40b4d48288f4aea82276bb7f5"
+        },
+        {
+          "path": "modules/vulkan/source/vk_platform.h",
+          "bytes": 2828,
+          "sha256": "c4cabbcf699c90cde344095ae54da9435d117951aad114ba3a540c5997d7906f"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_av1std.h",
+          "bytes": 16507,
+          "sha256": "f3ab53dbfdeb36a349f674656d50bd507f2e4b3c883343da74aace0df4f02a02"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_av1std_decode.h",
+          "bytes": 4250,
+          "sha256": "96f923dc01cd3e266c081d88fa020525a20d63ffe4ce09a4c807a04ef3aaf97e"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_h264std.h",
+          "bytes": 13853,
+          "sha256": "072ee6eac80e73d93bb4bfe0059f99e581fc8b55b1437236185bb4ff377914b1"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_h264std_decode.h",
+          "bytes": 2722,
+          "sha256": "e1708b3996a740eeedb79f51d0f0e379f9bcae13566538375acaf73301023b58"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_h264std_encode.h",
+          "bytes": 6878,
+          "sha256": "052a6e357be8d88bf4be0db1b3da5a9cc1a6011cf4b3533759ff588e1e26f9f1"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_h265std.h",
+          "bytes": 23416,
+          "sha256": "0cbdfd6c45ee8ca902e9c961cd7e49a4d601d443ea0ef2a60a8496b127ed397c"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_h265std_decode.h",
+          "bytes": 2428,
+          "sha256": "800946aa19d83d305d504e2e4141bc938f989e0cf8872cef97480238eefef1ea"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codec_h265std_encode.h",
+          "bytes": 7462,
+          "sha256": "7239f9f4e811546639111e562a8be1ec73ad5bef1c23d5fad80889f35e125e9c"
+        },
+        {
+          "path": "modules/vulkan/source/vk_video/vulkan_video_codecs_common.h",
+          "bytes": 660,
+          "sha256": "78cf3c99d3d57afa7ab1782ec6018b4bcdbe273f2843d76e3375282db875b71e"
+        },
+        {
+          "path": "modules/vulkan/source/vulkan.h",
+          "bytes": 1555,
+          "sha256": "52297513cc6b6cc8db2921aa849f72e3f55d678b3a58a2c3eb297c02ded7a837"
+        },
+        {
+          "path": "modules/vulkan/source/vulkan_core.h",
+          "bytes": 1007428,
+          "sha256": "24b258dbfc5f177206fbffcf35f3a87cf756ee6f883167b92ecaeab16a5aa005"
+        },
+        {
+          "path": "modules/vulkan/windows_extras.jai",
+          "bytes": 6007,
+          "sha256": "676646b3df117fb1e4917b37619a52f4e442a6b10ab0d5418baa078d0c4869de"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/README.md",
+          "bytes": 449,
+          "sha256": "3a39a37cf31edd8dd56ac7477a9d7ea48a39c9061ace62fcc5d6c19cd4194152"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/__stddef_max_align_t.h",
+          "bytes": 857,
+          "sha256": "b38b5b55e82e831eb0895d9ad96c10e492c2165cab82e7b402e5fb2d1b5757ff"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/generate.jai",
+          "bytes": 6391,
+          "sha256": "51808e648563a04ac301fb015fde777883710758a24c92c6b8b7fccd01e5402d"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/linux.jai",
+          "bytes": 83310,
+          "sha256": "f423ebd5b75e07c82e176f6ef5ac694c1db0035feb279740290bc754be482e45"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/macos.jai",
+          "bytes": 83369,
+          "sha256": "71243c27728e7d2f4010c636f43bf264b38576099670ca3abcd3e5245ed484d5"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/module.jai",
+          "bytes": 146,
+          "sha256": "04f7d9c154edb2b0d983b9c8931b37fc2cff8d52ca86626ede38ae3ece17c5a4"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/source/vk_mem_alloc.cpp",
+          "bytes": 52,
+          "sha256": "c93a1c807726335d15593f27c81078459f9fe7b06d29d32ce822431655cd1e45"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/source/vk_mem_alloc.h",
+          "bytes": 711368,
+          "sha256": "15d6d4ced5ee5f13e9359104fe1e32a8f7fed62241ed41cb7babb90a130c5f48"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/stddef.h",
+          "bytes": 3589,
+          "sha256": "ce3e030f5445b76e3f53926e48f9b9359c2bd4696de12a98a5779b3c88a34948"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/stdint.h",
+          "bytes": 33270,
+          "sha256": "217b5f30a428cb15c1580735c9ca8b2e4d7db3624bfb294a2a8a3e62872ebe9d"
+        },
+        {
+          "path": "modules/vulkan_memory_allocator/windows.jai",
+          "bytes": 86091,
+          "sha256": "2b372d081a7d671a4e6b79e94f26227365a67cfabfe5331ac54c5d90fd912872"
+        },
+        {
+          "path": "src/commands.jai",
+          "bytes": 19392,
+          "sha256": "658c76fb53cee2e5b931a66ef9f11f71288067a5d40823513c54d06042eae2f2"
+        },
+        {
+          "path": "src/init.jai",
+          "bytes": 11104,
+          "sha256": "62eb34e8362bcc04b0c44f4d9e0bbe0a5212790194c99043827788c64b7201be"
+        },
+        {
+          "path": "src/memory.jai",
+          "bytes": 20958,
+          "sha256": "ff61a5574925f6842b27145675499d429968fd8dcd7f685fe0f770297f1a05fe"
+        },
+        {
+          "path": "src/pipeline.jai",
+          "bytes": 13310,
+          "sha256": "fdf76a25245bfcbe404c259f75b036ed4a996fa2028f84d05335ac0c0b82d3c2"
+        },
+        {
+          "path": "src/shader_compiler.jai",
+          "bytes": 4303,
+          "sha256": "8e1c9f29b9606a987b796bdd6cf03953dd2da74611938978e85cc549169c0014"
+        },
+        {
+          "path": "src/swapchain.jai",
+          "bytes": 4575,
+          "sha256": "44be8406f3f859be0dc659b550bd3aab7378de96476eb4896378b913f96fce93"
+        },
+        {
+          "path": "src/sync.jai",
+          "bytes": 4551,
+          "sha256": "fe36ff5975099325a6de2ba4a41f809c9144e95b9e5d787b76bd82e1ca2cdba1"
+        },
+        {
+          "path": "src/utils.jai",
+          "bytes": 7833,
+          "sha256": "9c3e65cae2bc770add497d1fa65e2360a984cdce99e37166d93263324ad36241"
+        }
+      ]
+    },
+    {
       "repository": "SogoCZE/jai_parser",
       "revision": "a06033e0f2a2e8f26c9129a58a7d67cbf28ff98a",
       "latest_jai_change": "2026-10-04T04:16:49+02:00",
