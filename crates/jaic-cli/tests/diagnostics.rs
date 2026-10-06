@@ -344,6 +344,21 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
             ],
         ),
         (
+            "f :: (x: int) -> string {\n    return x;\n}\nmain :: () { f(1); }\n",
+            &[
+                "m.jai:2:12: error: type mismatch: expected `string`, found `s64`",
+                "m.jai:1:18: note: expected because of this return type",
+                "help: to turn a number into text, format it",
+            ],
+        ),
+        (
+            "g :: () -> int, bool {\n    return 1, \"no\";\n}\nmain :: () { g(); }\n",
+            &[
+                "m.jai:2:15: error: type mismatch: expected `bool`, found `string`",
+                "m.jai:1:17: note: expected because of this return type",
+            ],
+        ),
+        (
             "main :: () { a := 1.5; b: int = a; }\n",
             &[
                 "error: type mismatch: expected `s64`, found `float32`",

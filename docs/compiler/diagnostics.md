@@ -38,7 +38,7 @@ Suggestions that need extra work are computed when the error is rendered, not wh
 - missing `#load` file: where it looked and a file with a close name.
 - unknown member: the closest member, or the list of members.
 - call mismatches (`sema/calls.rs`, `call_mismatch`): the error moves to the argument concerned and a note shows the procedure's declaration; a misspelled named argument gets the closest parameter.
-- type mismatches (`sema/convert.rs`, `conversion_help`): the usual conversions (`cast`, `.data`/`to_c_string`, `tprint`, `.*`, `*value`); a declaration's mismatch points at the value with the declared type as a note.
+- type mismatches (`sema/convert.rs`, `conversion_help`): the usual conversions (`cast`, `.data`/`to_c_string`, `tprint`, `.*`, `*value`); a declaration's mismatch points at the value with the declared type as a note, and a `return`'s at the returned value with the procedure's return type as a note (`return_type_mismatch` in `sema/stmt.rs`).
 
 ### Rendering (`crates/jaic/src/render.rs`)
 

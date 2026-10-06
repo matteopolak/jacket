@@ -625,6 +625,30 @@ impl Compiler {
             .map(|&e| self.entity(e).span)
     }
 
+    /// A returned value that does not fit the procedure's result type: a note points at the
+    /// type it had to match in the procedure's header.
+    fn return_type_mismatch(
+        &self,
+        mut e: Box<Diagnostic>,
+        proc: Option<ProcId>,
+        index: usize,
+    ) -> Box<Diagnostic> {
+        if !e.message.starts_with("type mismatch: expected") {
+            return e;
+        }
+        let Some(p) = proc else {
+            return e;
+        };
+        let header = &self.proc(p).lit.header;
+        if let Some(ty) = header.returns.get(index).and_then(|r| r.ty.as_ref()) {
+            e.notes.insert(
+                0,
+                (ty.span, "expected because of this return type".to_string()),
+            );
+        }
+        e
+    }
+
     /// A value that does not fit the declared type of `x: T = value;`: the error points at
     /// the value, with the type it had to match as a note.
     fn declared_type_mismatch(
@@ -2537,6 +2561,8 @@ impl Compiler {
             return self.check_named_return(f, scope, values, span);
         }
         let mut ops: Vec<Operand> = Vec::new();
+        // Where each value was written, for errors.
+        let mut spans: Vec<Span> = Vec::new();
         for (i, v) in values.iter().enumerate() {
             let op = self.check_expr(f, scope, &v.value, types.get(i).copied())?;
             match op {
@@ -2553,6 +2579,7 @@ impl Compiler {
                 Operand::Void if values.len() == 1 => {}
                 other => ops.push(other),
             }
+            spans.resize(ops.len(), v.value.span);
         }
         if ops.is_empty() && !types.is_empty() && f.named_results.iter().all(Option::is_some) {
             self.emit_fallthrough_return(f, span)?;
@@ -2579,8 +2606,11 @@ impl Compiler {
         for (i, &ty) in types.iter().enumerate() {
             let v = match ops.get(i) {
                 Some(op) => {
-                    let op = self.convert(f, op.clone(), ty, span)?;
-                    let (_, v) = self.rvalue(f, op, span)?;
+                    let at = spans.get(i).copied().unwrap_or(span);
+                    let op = self
+                        .convert(f, op.clone(), ty, at)
+                        .map_err(|e| self.return_type_mismatch(e, f.proc, i))?;
+                    let (_, v) = self.rvalue(f, op, at)?;
                     v
                 }
                 None => {
