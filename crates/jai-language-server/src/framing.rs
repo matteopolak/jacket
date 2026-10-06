@@ -12,7 +12,18 @@ pub enum FrameError {
 
 impl std::fmt::Display for FrameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid LSP frame: {self:?}")
+        let what = match self {
+            FrameError::HeaderLimit => "a message header is too long",
+            FrameError::BodyLimit => "a message is larger than the size limit",
+            FrameError::InvalidHeader => {
+                "a message header is not of the form `Name: value` (expected `Content-Length: N`)"
+            }
+            FrameError::InvalidLength => "a `Content-Length` header is not a number",
+            FrameError::UnsupportedEncoding => "a message asks for a charset other than UTF-8",
+            FrameError::InvalidUtf8 => "a message is not valid UTF-8",
+            FrameError::Incomplete => "the input ended in the middle of a message",
+        };
+        write!(f, "invalid LSP input: {what}")
     }
 }
 

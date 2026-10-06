@@ -29,6 +29,9 @@ fn main() -> std::process::ExitCode {
             }
         }
     }
+    if let Some(code) = command_line() {
+        return code;
+    }
     // Type checking recurses on the syntax tree: give it the compiler's stack (as `jaic` does),
     // not the main thread's 8 MiB.
     let worker = std::thread::Builder::new()
@@ -38,11 +41,65 @@ fn main() -> std::process::ExitCode {
     match worker.map(|handle| handle.join()) {
         Ok(Ok(Ok(code))) => std::process::ExitCode::from(code),
         Ok(Ok(Err(error))) => {
-            eprintln!("jailsp: {error}");
+            eprintln!("error: jailsp stopped: {error}");
+            eprintln!(
+                "note: jailsp reads Language Server Protocol messages (with `Content-Length` headers) on stdin; an editor starts it"
+            );
             std::process::ExitCode::FAILURE
         }
         _ => std::process::ExitCode::from(101),
     }
+}
+
+const USAGE: &str = "\
+usage: jailsp [--stdio]
+
+The Jai language server. An editor starts it and exchanges Language Server Protocol messages
+with it over stdin and stdout; it takes no files on the command line.
+
+options:
+  --stdio        talk over stdin and stdout (the default and only transport)
+  --help, -h     show this text
+  --version, -V  show the version
+
+To check a file from a terminal, use `jaic check file.jai`; for lints, `jailint file.jai`.
+";
+
+/// Handles the command line: `Some(status)` when jailsp should exit without serving.
+#[cfg(not(target_arch = "wasm32"))]
+fn command_line() -> Option<std::process::ExitCode> {
+    use std::io::IsTerminal;
+    for arg in std::env::args().skip(1) {
+        match arg.as_str() {
+            "--stdio" => {}
+            "--help" | "-h" => {
+                print!("{USAGE}");
+                return Some(std::process::ExitCode::SUCCESS);
+            }
+            "--version" | "-V" => {
+                println!("jailsp {}", env!("CARGO_PKG_VERSION"));
+                return Some(std::process::ExitCode::SUCCESS);
+            }
+            file if !file.starts_with('-') => {
+                eprintln!(
+                    "error: jailsp takes no files: it is a language server that an editor starts"
+                );
+                eprintln!("help: to check `{file}` from a terminal, use `jaic check {file}`");
+                return Some(std::process::ExitCode::from(2));
+            }
+            other => {
+                eprintln!("error: unknown option `{other}`");
+                eprintln!("help: `jailsp --help` lists the options");
+                return Some(std::process::ExitCode::from(2));
+            }
+        }
+    }
+    if std::io::stdin().is_terminal() {
+        eprintln!(
+            "note: jailsp is waiting for Language Server Protocol messages on stdin; an editor normally starts it (Ctrl-D quits)"
+        );
+    }
+    None
 }
 
 /// Modules come from disk: the `modules` folder next to the main file, then the stdlib
@@ -52,7 +109,7 @@ fn native_environment() -> jai_language_server::Environment {
     use std::path::PathBuf;
     let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
-        eprintln!("jailsp: {message}");
+        eprintln!("warning: {message}");
     }
     jai_language_server::Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
