@@ -25,6 +25,7 @@ Before the first target machine exists, `configure_llvm` sets process-wide LLVM 
 
 ### Lowering rules (`lower.rs`)
 
+- Every defined function has `"frame-pointer"="non-leaf"`, as clang has on Apple and AArch64 targets. Each function that calls another keeps a frame record, so frame-pointer stack walks see jaic frames. Those walks are macOS libc `backtrace`, which Debug's `backtrace` uses, and sampling profilers. Before this, `Debug.backtrace()` found no frames in a native build (`backtrace_sees_compiled_callers`).
 - Each IR `Val` is an LLVM SSA value. Blocks are emitted in reverse post-order from the entry, so definitions precede uses; unreachable blocks are skipped. No phis are needed because mutable state lives in slots.
 - `Slot`s become allocas in a dedicated first `allocas` block that branches to IR block 0. ABI marshalling temporaries live there too.
 - Pointers are opaque; `PtrAdd` is an `i8` GEP. Loads and stores carry natural alignment.

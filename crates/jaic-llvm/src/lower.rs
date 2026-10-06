@@ -413,6 +413,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .set_dll_storage_class(DLLStorageClass::Export);
             }
             self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
+            // Keep a frame record in every function that calls another, as clang does by default
+            // on Apple and AArch64 targets. Without one, frame-pointer stack walks (macOS libc
+            // `backtrace`, which Debug uses, and sampling profilers) stop at the first jaic frame.
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx
+                    .create_string_attribute("frame-pointer", "non-leaf"),
+            );
             self.funcs.push(Some(f));
         }
         Ok(())

@@ -1268,3 +1268,41 @@ fn optimized_sub_recurrence_matches_the_interpreter() {
         case.stdout
     );
 }
+
+/// Compiled procedures keep frame records, so a frame-pointer stack walk (macOS libc
+/// `backtrace`, behind Debug's `backtrace`) sees the callers. Without them it found no frames and
+/// `tests/stdlib/debug-assert-handlers.jai` failed natively (found by tools/jaic-diff.py).
+#[test]
+fn backtrace_sees_compiled_callers() {
+    if !cfg!(unix) {
+        return;
+    }
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-backtrace");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("backtrace.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\nDebug :: #import \"Debug\"(USE_GRAPHICS = false);\n\
+         inner :: () -> int {\n    frames := Debug.backtrace();\n    n := frames.count;\n    Debug.free_backtrace(frames);\n    return n;\n}\n\
+         outer :: () -> int {\n    return inner() + 1;\n}\n\
+         main :: () {\n    print(\"%\\n\", ifx outer() > 3 then \"ok\" else \"short\");\n}\n",
+    )
+    .unwrap();
+    for opt in ["-O0", "-O2"] {
+        let exe = exe_path(&dir, &format!("backtrace{opt}"));
+        let build = Command::new(JAIC)
+            .arg("build")
+            .arg(&source)
+            .args([opt, "-o"])
+            .arg(&exe)
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "{}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let output = Command::new(&exe).output().unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n", "{opt}");
+    }
+}
