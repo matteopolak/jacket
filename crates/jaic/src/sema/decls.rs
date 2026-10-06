@@ -82,9 +82,13 @@ impl Compiler {
                 value: Value::Type(t),
                 ty: TypeId::TYPE,
             }),
-            EntityKind::Builtin(Builtin::Proc(_)) => {
-                unreachable!("builtin procs are handled by lookup")
-            }
+            // Name lookup in checked code turns these into `Operand::Builtin` and never resolves
+            // them; the IDE queries (signature help, member receivers) resolve whatever a name
+            // finds, so a builtin proc is an answer they skip, not an invariant violation.
+            EntityKind::Builtin(Builtin::Proc(_)) => err(
+                span,
+                format!("'{name}' is a builtin procedure without a declaration"),
+            ),
             EntityKind::Builtin(Builtin::TargetConstant(sym)) => self.target_constant(sym, span),
             EntityKind::Decl {
                 decl,
