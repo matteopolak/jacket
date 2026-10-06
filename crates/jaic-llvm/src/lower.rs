@@ -1000,11 +1000,12 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     self.ctx.i64_type().const_int(*size, false),
                 )?;
             }
-            Inst::Call {
-                results,
-                callee,
-                args,
-            } => {
+            Inst::Call(call) => {
+                let jaic::ir::CallInst {
+                    results,
+                    callee,
+                    args,
+                } = &**call;
                 let argv = args
                     .iter()
                     .map(|&a| self.get(st, a))
@@ -1023,18 +1024,19 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                         self.foreigns[id.0 as usize],
                         &self.program.foreigns[id.0 as usize].sig,
                     ),
-                    Callee::Indirect(target, sig) => (self.get_ptr(st, *target)?, sig),
+                    Callee::Indirect(target, sig) => (self.get_ptr(st, *target)?, &**sig),
                 };
                 let out = self.call(st, ptr, sig, &argv)?;
                 for (r, v) in results.iter().zip(out) {
                     self.set(st, *r, v);
                 }
             }
-            Inst::Intrinsic {
-                results,
-                op,
-                args,
-            } => {
+            Inst::Intrinsic(call) => {
+                let jaic::ir::IntrinsicInst {
+                    results,
+                    op,
+                    args,
+                } = &**call;
                 let argv = args
                     .iter()
                     .map(|&a| self.get(st, a))

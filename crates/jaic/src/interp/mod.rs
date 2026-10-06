@@ -1101,11 +1101,12 @@ impl Interp {
                 }
                 unsafe { std::ptr::write_bytes(d as *mut u8, 0, *size as usize) };
             }
-            Inst::Call {
-                results,
-                callee,
-                args,
-            } => {
+            Inst::Call(call) => {
+                let ir::CallInst {
+                    results,
+                    callee,
+                    args,
+                } = &**call;
                 let (mut small, mut heap) = ([0u64; 8], Vec::new());
                 let argv = gather(vals, args, &mut small, &mut heap);
                 let out = match callee {
@@ -1139,11 +1140,12 @@ impl Interp {
                     vals[r.0 as usize] = v;
                 }
             }
-            Inst::Intrinsic {
-                results,
-                op,
-                args,
-            } => {
+            Inst::Intrinsic(call) => {
+                let ir::IntrinsicInst {
+                    results,
+                    op,
+                    args,
+                } = &**call;
                 let (mut small, mut heap) = ([0u64; 8], Vec::new());
                 let argv = gather(vals, args, &mut small, &mut heap);
                 let out = self.intrinsic(*op, argv, results.first().map(|_| ()).is_some())?;

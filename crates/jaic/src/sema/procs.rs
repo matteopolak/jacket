@@ -914,10 +914,11 @@ impl Compiler {
             for block in &func.blocks {
                 for inst in &block.insts {
                     match inst {
-                        ir::Inst::Call {
-                            callee: ir::Callee::Func(g),
-                            ..
-                        } => work.push(*g),
+                        ir::Inst::Call(call) => {
+                            if let ir::Callee::Func(g) = call.callee {
+                                work.push(g);
+                            }
+                        }
                         ir::Inst::FuncAddr {
                             func, ..
                         } => work.push(*func),

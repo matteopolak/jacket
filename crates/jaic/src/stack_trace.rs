@@ -303,9 +303,7 @@ fn instrument_func(
 fn calls_before_next_loc(rest: &[Inst]) -> bool {
     for inst in rest {
         match inst {
-            Inst::Call {
-                ..
-            } => return true,
+            Inst::Call(_) => return true,
             Inst::Loc {
                 ..
             } => return false,

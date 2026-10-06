@@ -233,7 +233,7 @@ pub enum Callee {
     Func(FuncId),
     Foreign(ForeignId),
     /// Indirect call through a procedure pointer with the given signature.
-    Indirect(Val, Sig),
+    Indirect(Val, Box<Sig>),
 }
 
 /// A lowered call signature (scalar parameter/result classes).
@@ -269,6 +269,20 @@ pub struct AggLayout {
     pub align: u64,
     /// Flattened scalar fields: (offset, class).
     pub fields: Vec<(u64, Ty)>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CallInst {
+    pub results: Vec<Val>,
+    pub callee: Callee,
+    pub args: Vec<Val>,
+}
+
+#[derive(Clone, Debug)]
+pub struct IntrinsicInst {
+    pub results: Vec<Val>,
+    pub op: Intrinsic,
+    pub args: Vec<Val>,
 }
 
 #[derive(Clone, Debug)]
@@ -354,16 +368,10 @@ pub enum Inst {
         dst: Val,
         size: u64,
     },
-    Call {
-        results: Vec<Val>,
-        callee: Callee,
-        args: Vec<Val>,
-    },
-    Intrinsic {
-        results: Vec<Val>,
-        op: Intrinsic,
-        args: Vec<Val>,
-    },
+    /// Boxed, like `Intrinsic`, so the common instructions stay small (an `Inst` is 24
+    /// bytes instead of 120), which matters for IR memory and for the interpreter's cache use.
+    Call(Box<CallInst>),
+    Intrinsic(Box<IntrinsicInst>),
     /// Source line marker for debug info and runtime error locations. `scope` indexes
     /// `FuncDebug::scopes` (0: the procedure itself, and always 0 without debug info).
     Loc {
@@ -373,6 +381,10 @@ pub enum Inst {
         scope: u32,
     },
 }
+
+// Keep instructions small: every function body is a long array of them.
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(std::mem::size_of::<Inst>() <= 24);
 
 #[derive(Clone, Debug)]
 pub enum Term {
@@ -911,21 +923,21 @@ impl Builder {
 
     pub fn call(&mut self, callee: Callee, args: Vec<Val>, returns: &[Ty]) -> Vec<Val> {
         let results: Vec<Val> = returns.iter().map(|&t| self.new_val(t)).collect();
-        self.push(Inst::Call {
+        self.push(Inst::Call(Box::new(CallInst {
             results: results.clone(),
             callee,
             args,
-        });
+        })));
         results
     }
 
     pub fn intrinsic(&mut self, op: Intrinsic, args: Vec<Val>, returns: &[Ty]) -> Vec<Val> {
         let results: Vec<Val> = returns.iter().map(|&t| self.new_val(t)).collect();
-        self.push(Inst::Intrinsic {
+        self.push(Inst::Intrinsic(Box::new(IntrinsicInst {
             results: results.clone(),
             op,
             args,
-        });
+        })));
         results
     }
 

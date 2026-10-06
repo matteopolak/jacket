@@ -10,6 +10,8 @@ Values are scalars in virtual registers (`Val`, class `Ty`: `I8 I16 I32 I64 F32 
 
 A `Func` is a list of `Block`s, each a list of `Inst` ending in one `Term` (`Jump`, `Branch`, `Switch`, `Ret`, `Unreachable`). Instructions cover constants, `Bin`/`Un`/`Cmp`/`Conv`, addresses (`SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr`), `Load`/`Store`, `PtrAdd`, `Copy`/`Zero`, `Call` (`Callee::Func`, `Foreign` or `Indirect`), `Intrinsic` (memcpy, bounds check, math, `CompilerWrite`, `IsCompileTime`, ...), and `Loc` markers for debug info and runtime error positions. `Loc::scope` indexes the function's debug scopes and is 0 without debug info.
 
+`Call` and `Intrinsic` keep their operands in a box (`CallInst`, `IntrinsicInst`), and `Callee::Indirect` boxes its `Sig`, so an `Inst` is 24 bytes (asserted in `ir.rs`) rather than 120. Function bodies are long arrays of instructions, so this is a large share of the compiler's memory; keep new variants small or boxed too.
+
 Calling conventions:
 
 - `Conv::Jai`: optional context pointer, then each parameter (aggregates as a pointer to a caller-owned copy), then one out-pointer per aggregate result. Scalar results return directly.

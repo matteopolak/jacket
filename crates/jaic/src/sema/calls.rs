@@ -1871,7 +1871,7 @@ impl Compiler {
                         ir_sig.params.push(f.b.val_ty(v));
                     }
                     let fp = f.b.foreign_addr(id);
-                    ir::Callee::Indirect(fp, ir_sig.clone())
+                    ir::Callee::Indirect(fp, Box::new(ir_sig.clone()))
                 } else {
                     ir::Callee::Foreign(id)
                 }
@@ -2163,8 +2163,11 @@ impl Compiler {
             }
         }
         let returns = sig.returns.clone();
-        let results =
-            f.b.call(ir::Callee::Indirect(callee, sig), values, &returns);
+        let results = f.b.call(
+            ir::Callee::Indirect(callee, Box::new(sig)),
+            values,
+            &returns,
+        );
         Ok(self.call_results(&pt.returns, results, outs))
     }
 
