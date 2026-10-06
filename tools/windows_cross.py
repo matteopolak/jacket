@@ -2,6 +2,7 @@
 """Cross-build Windows test programs with `jaic build -os windows`, and run them on Windows.
 
     windows_cross.py build --jaic path/to/jaic --out dir   # any host with MinGW-w64
+    windows_cross.py build --cpu arm64 --jaic jaic --out dir   # with llvm-mingw
     windows_cross.py build --host --jaic jaic.exe --out dir # on Windows, its own toolchain
     windows_cross.py run --dir dir                          # on Windows
 
@@ -25,6 +26,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [
     "tests/native/windows/runtime.jai",
+    "tests/native/windows/variadic.jai",
     "tests/stdlib/struct-literal-overrides-default-string.jai",
     "tests/stdlib/array-literal-view-lifetime.jai",
     "tests/stdlib/c-variadic-foreign-calls.jai",
@@ -77,17 +79,23 @@ C_STRUCTS = {
 }
 
 
+def mingw_prefix(args):
+    """The MinGW-w64 tool prefix for the target CPU (llvm-mingw's `aarch64-w64-mingw32-gcc`
+    is its Clang under GCC's name)."""
+    return "aarch64-w64-mingw32" if args.cpu == "arm64" else "x86_64-w64-mingw32"
+
+
 def c_structs_library(args, work):
     """Build the fixture's C library in `work`: a static `libstructs.lib` with Clang on a
-    Windows host, a `libstructs.dll` with MinGW-w64 GCC when cross-building (linked directly;
-    it must sit next to the executables at run time)."""
+    Windows host, a `libstructs.dll` with the MinGW-w64 compiler when cross-building (linked
+    directly; it must sit next to the executables at run time)."""
     if args.host:
         steps = [
             ["clang", "-c", "-O1", "structs.c", "-o", "structs.o"],
             ["llvm-ar", "rcs", "libstructs.lib", "structs.o"],
         ]
     else:
-        steps = [["x86_64-w64-mingw32-gcc", "-shared", "-O1", "-o", "libstructs.dll", "structs.c"]]
+        steps = [[f"{mingw_prefix(args)}-gcc", "-shared", "-O1", "-o", "libstructs.dll", "structs.c"]]
     for step in steps:
         result = subprocess.run(step, cwd=work, capture_output=True, text=True)
         if result.returncode != 0:
@@ -96,7 +104,7 @@ def c_structs_library(args, work):
 
 
 def build_one(args, source, output):
-    target = [] if args.host else ["-os", "windows"]
+    target = [] if args.host else ["-os", "windows", "-cpu", args.cpu]
     try:
         result = subprocess.run(
             [str(pathlib.Path(args.jaic).resolve()), "build", str(source), *target, "-o", str(output)],
@@ -189,6 +197,12 @@ def main():
     b.add_argument("--out", required=True)
     b.add_argument("--keep-going", action="store_true", help="exit 0 even if some builds fail")
     b.add_argument("--host", action="store_true", help="build for the host (on Windows) instead of -os windows")
+    b.add_argument(
+        "--cpu",
+        choices=["x64", "arm64"],
+        default="x64",
+        help="target CPU when cross-building (arm64 needs llvm-mingw on PATH)",
+    )
     b.add_argument("--stdlib", action="store_true", help="also every tests/stdlib program that builds")
     r = sub.add_parser("run")
     r.add_argument("--dir", required=True)

@@ -37,7 +37,7 @@ Verified round trip: a program calling `strlen` and `labs` from `#system_library
 - `JAIC_STDLIB`: stdlib directory (default `<repo>/stdlib`).
 - `JAIC_NATIVE_LIBS`: path list of directories searched for third-party static archives; default is `artifacts/native-libs/<os>-<arch>` next to the stdlib (`macos`/`linux`, `arm64`/`x64`), produced by `tools/build_native_libs.py`.
 - `LLVM_SYS_221_PREFIX`: LLVM 22 install, needed to build `jaic-llvm`.
-- CLI: `-o`, `-O0..-O3`, `--emit-ir file.ll`, `-I dir`, `-os windows`, `-target triple`.
+- CLI: `-o`, `-O0..-O3`, `--emit-ir file.ll`, `-I dir`, `-os windows`, `-cpu x64|arm64`, `-target triple`.
 - `JAIC_LINKER`, `JAIC_AR`: override the linker or archiver program (see [Windows](windows.md)).
 
 ## Dependencies

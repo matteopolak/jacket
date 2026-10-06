@@ -1,9 +1,10 @@
 name: windows native
-# Native Windows executables from `jaic build`: built on Windows with the MSVC toolchain, and
-# cross-built from Linux with MinGW-w64 then run on Windows. See docs/native/windows.md.
+# Native Windows executables from `jaic build`, for x64 and arm64: built on Windows with the MSVC
+# toolchain, and cross-built from Linux with MinGW-w64 (llvm-mingw for arm64) then run on
+# Windows. See docs/native/windows.md.
 on:
   push:
-    branches: ['wip/windows-native']
+    branches: ['wip/windows-native', 'ci/windows-arm64']
     paths:
       - 'crates/**'
       - 'stdlib/**'
@@ -17,6 +18,8 @@ permissions:
 env:
   CARGO_INCREMENTAL: '0'
   LLVM_VERSION: 22.1.8
+  # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for arm64.
+  LLVM_MINGW_VERSION: '20260922'
 jobs:
   cross:
     name: cross-build (Linux, MinGW-w64)
@@ -108,6 +111,114 @@ jobs:
           target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
           python -u tools/windows_cross.py build --stdlib --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
+      - name: Native backend tests
+        if: success() || failure()
+        run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
+
+  cross-arm64:
+    name: cross-build arm64 (Linux, llvm-mingw)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - name: Install LLVM 22 and llvm-mingw
+        run: |
+          bash tools/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+          name="llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64"
+          curl -fsSL -o llvm-mingw.tar.xz "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$name.tar.xz"
+          mkdir -p "$RUNNER_TEMP/llvm-mingw"
+          tar -xJf llvm-mingw.tar.xz -C "$RUNNER_TEMP/llvm-mingw" --strip-components=1
+          rm llvm-mingw.tar.xz
+          echo "$RUNNER_TEMP/llvm-mingw/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/llvm-mingw/bin/aarch64-w64-mingw32-clang" --version
+      - name: Build jaic
+        run: cargo build --locked -p jaic-cli
+      - name: Cross-build the Windows test programs for arm64
+        run: python3 tools/windows_cross.py build --stdlib --cpu arm64 --jaic target/debug/jaic --out cross-arm64-exes
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cross-arm64-exes
+          path: cross-arm64-exes
+          if-no-files-found: error
+
+  run-cross-arm64:
+    name: run cross-built programs (Windows arm64)
+    needs: cross-arm64
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cross-arm64-exes
+          path: cross-arm64-exes
+      - name: Run
+        run: python tools/windows_cross.py run --dir cross-arm64-exes
+
+  native-arm64:
+    name: jaic build on Windows arm64 (MSVC)
+    runs-on: windows-11-arm
+    timeout-minutes: 90
+    env:
+      # As on x64: the official LLVM release uses the static C runtime.
+      CARGO_BUILD_TARGET: aarch64-pc-windows-msvc
+      CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install rustup and the pinned toolchain
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl -fsSL -o "$RUNNER_TEMP/rustup-init.exe" https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe
+            "$RUNNER_TEMP/rustup-init.exe" -y --default-toolchain none --profile minimal
+            echo "$USERPROFILE\\.cargo\\bin" >> "$GITHUB_PATH"
+            export PATH="$PATH:$(cygpath -u "$USERPROFILE")/.cargo/bin"
+          fi
+          rustup toolchain install nightly-2026-08-29 --profile minimal
+      - name: Install the official LLVM release (arm64)
+        run: |
+          curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-aarch64-pc-windows-msvc.tar.xz"
+          llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
+          mkdir -p "$llvm"
+          tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
+          rm llvm.tar.xz
+          echo "LLVM_SYS_221_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
+          echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
+          "$llvm/bin/llvm-config" --version
+          echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
+          # The same missing static libxml2 as the x64 release (see the x64 job).
+          echo "" > "$RUNNER_TEMP/empty.c"
+          "$llvm/bin/clang" -c "$RUNNER_TEMP/empty.c" -o "$RUNNER_TEMP/empty.obj"
+          "$llvm/bin/llvm-lib" "/out:$(cygpath -w "$llvm/lib/xml2s.lib")" "$(cygpath -w "$RUNNER_TEMP/empty.obj")"
+      - name: Build jaic with the LLVM backend
+        run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+      - name: Build and run the Windows test programs natively
+        run: |
+          mkdir -p native-exes
+          target/aarch64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
+          python -u tools/windows_cross.py build --stdlib --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
+          python -u tools/windows_cross.py run --dir native-exes
+      # runtime.jai is not run here: the interpreter emulates threads only through pthread_create.
+      - name: Interpreter variadic foreign calls
+        if: success() || failure()
+        run: |
+          out="$(target/aarch64-pc-windows-msvc/debug/jaic.exe run tests/native/windows/variadic.jai | tr -d '\r')"
+          echo "$out"
+          test "$out" = ok
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2

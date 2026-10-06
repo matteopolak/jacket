@@ -1,5 +1,5 @@
 name: release
-# Builds jaic and jai-lsp for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64).
+# Builds jaic and jai-lsp for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
 on:
@@ -37,6 +37,11 @@ jobs:
           - name: windows-x64
             runner: windows-2025
             llvm: clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
+            rust_target: x86_64-pc-windows-msvc
+          - name: windows-arm64
+            runner: windows-11-arm
+            llvm: clang+llvm-22.1.8-aarch64-pc-windows-msvc.tar.xz
+            rust_target: aarch64-pc-windows-msvc
     if: github.event_name != 'push' || !github.event.forced
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -101,8 +106,9 @@ jobs:
           "$llvm/bin/clang" -c "$RUNNER_TEMP/empty.c" -o "$RUNNER_TEMP/empty.obj"
           "$llvm/bin/llvm-lib" "/out:$(cygpath -w "$llvm/lib/xml2s.lib")" "$(cygpath -w "$RUNNER_TEMP/empty.obj")"
           # An explicit target keeps the flag off build scripts and proc macros.
-          echo "CARGO_BUILD_TARGET=x86_64-pc-windows-msvc" >> "$GITHUB_ENV"
-          echo "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+          target="${{ matrix.rust_target }}"
+          echo "CARGO_BUILD_TARGET=$target" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_$(echo "$target" | tr 'a-z-' 'A-Z_')_RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
           echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
       - name: Install static zlib and zstd (Linux)
         if: runner.os == 'Linux'

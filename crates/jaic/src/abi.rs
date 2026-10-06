@@ -1,7 +1,8 @@
 //! C ABI classification for aggregates passed or returned by value.
 //!
-//! Covers the 64-bit ABIs the compiler targets: AArch64 AAPCS64 (Apple
-//! flavour), x86-64 System V and the Microsoft x64 convention (Windows). The IR
+//! Covers the 64-bit ABIs the compiler targets: AArch64 AAPCS64 (Apple and
+//! Linux), its Windows variant, x86-64 System V and the Microsoft x64 convention
+//! (Windows). The IR
 //! describes an aggregate only by its flattened scalar fields (`AggLayout`),
 //! which is all these ABIs look at.
 use crate::ir::{AggLayout, Ty};
@@ -13,12 +14,18 @@ pub enum Arch {
     X86_64,
     /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
     Win64,
+    /// AArch64 Windows (MSVC and MinGW alike): AAPCS64, except that a variadic procedure takes
+    /// every argument, fixed ones included, in x0-x7 and then on the stack, with no
+    /// floating-point aggregate treatment (`classify_vararg`).
+    Win64Arm,
 }
 
 impl Arch {
     /// The architecture this compiler runs on (for the interpreter's native calls).
     pub fn host() -> Option<Arch> {
-        if cfg!(target_arch = "aarch64") {
+        if cfg!(all(target_arch = "aarch64", windows)) {
+            Some(Arch::Win64Arm)
+        } else if cfg!(target_arch = "aarch64") {
             Some(Arch::Aarch64)
         } else if cfg!(all(target_arch = "x86_64", windows)) {
             Some(Arch::Win64)
@@ -33,7 +40,8 @@ impl Arch {
         let cpu = triple.split('-').next()?;
         let windows = triple.contains("windows") || triple.contains("mingw");
         match cpu {
-            "aarch64" | "arm64" if !windows => Some(Arch::Aarch64),
+            "aarch64" | "arm64" if windows => Some(Arch::Win64Arm),
+            "aarch64" | "arm64" => Some(Arch::Aarch64),
             "x86_64" | "amd64" if windows => Some(Arch::Win64),
             "x86_64" | "amd64" => Some(Arch::X86_64),
             _ => None,
@@ -43,6 +51,16 @@ impl Arch {
     /// Whether the CPU is x86-64 (either calling convention).
     pub fn is_x86_64(self) -> bool {
         matches!(self, Arch::X86_64 | Arch::Win64)
+    }
+
+    /// Whether the CPU is AArch64 (either flavour).
+    pub fn is_aarch64(self) -> bool {
+        matches!(self, Arch::Aarch64 | Arch::Win64Arm)
+    }
+
+    /// Whether the target is Windows (either CPU).
+    pub fn is_windows(self) -> bool {
+        matches!(self, Arch::Win64 | Arch::Win64Arm)
     }
 }
 
@@ -81,8 +99,27 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout) -> Passing {
         Some(pieces) => Passing::Registers(pieces),
         None => match arch {
             Arch::X86_64 => Passing::ByVal,
-            Arch::Aarch64 | Arch::Win64 => Passing::Indirect,
+            Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm => Passing::Indirect,
         },
+    }
+}
+
+/// Classify a by-value aggregate argument of a C-variadic procedure (`varargs`), whether
+/// it is one of the fixed parameters or a variadic one.
+///
+/// Only Windows on AArch64 differs from [`classify_arg`]: there a variadic procedure's
+/// arguments all travel in general registers and on the stack, so a floating-point
+/// aggregate is no different from any other: up to 16 bytes as one or two integer pieces,
+/// larger ones by reference. (The backend itself moves scalar `float`/`double` arguments
+/// of a variadic call into the general registers.)
+pub fn classify_vararg(arch: Arch, layout: &AggLayout) -> Passing {
+    if arch != Arch::Win64Arm {
+        return classify_arg(arch, layout);
+    }
+    if layout.size <= 16 {
+        Passing::Registers(int_pieces(layout.size))
+    } else {
+        Passing::Indirect
     }
 }
 
@@ -102,11 +139,11 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
     if arch == Arch::Win64 {
         return matches!(layout.size, 1 | 2 | 4 | 8).then(|| int_pieces(layout.size));
     }
-    if layout.size > 16 && !(arch == Arch::Aarch64 && hfa(layout).is_some()) {
+    if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
     }
     match arch {
-        Arch::Aarch64 => {
+        Arch::Aarch64 | Arch::Win64Arm => {
             // Homogeneous floating-point aggregates (up to four members) use vector registers.
             if let Some(ty) = hfa(layout) {
                 return Some(
@@ -281,6 +318,87 @@ mod tests {
             Arch::from_triple("x86_64-unknown-linux-gnu"),
             Some(Arch::X86_64)
         );
+    }
+
+    /// Piece types of a register classification, for comparing with Clang's IR.
+    fn shape(passing: Passing) -> Option<Vec<PieceTy>> {
+        match passing {
+            Passing::Registers(pieces) => Some(pieces.iter().map(|p| p.ty).collect()),
+            Passing::ByVal | Passing::Indirect => None,
+        }
+    }
+
+    // Expected shapes below are what `clang -target aarch64-pc-windows-msvc -S -emit-llvm`
+    // emits for the same C structs: `[2 x float]` is two F32 pieces, `[2 x i64]` two I64,
+    // `ptr` (or `sret`) by reference.
+
+    #[test]
+    fn win64arm_fixed_arguments_follow_aapcs64() {
+        use PieceTy::*;
+        let arch = Arch::Win64Arm;
+        let f2 = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+        assert_eq!(shape(classify_arg(arch, &f2)), Some(vec![F32, F32]));
+        let d4 = layout(
+            32,
+            &[(0, Ty::F64), (8, Ty::F64), (16, Ty::F64), (24, Ty::F64)],
+        );
+        // An HFA of up to four members uses vector registers even beyond 16 bytes.
+        assert_eq!(shape(classify_arg(arch, &d4)), Some(vec![F64; 4]));
+        assert_eq!(classify_ret(arch, &d4).map(|p| p.len()), Some(4));
+        let i12 = layout(12, &[(0, Ty::I32), (4, Ty::I32), (8, Ty::I32)]);
+        assert_eq!(shape(classify_arg(arch, &i12)), Some(vec![I64, I64]));
+        let c3 = layout(3, &[(0, Ty::I8), (1, Ty::I8), (2, Ty::I8)]);
+        assert_eq!(shape(classify_arg(arch, &c3)), Some(vec![I64]));
+        let mix = layout(16, &[(0, Ty::F64), (8, Ty::I64)]);
+        assert_eq!(shape(classify_arg(arch, &mix)), Some(vec![I64, I64]));
+        // Over 16 bytes and not an HFA: by reference, and returned through x8.
+        let i3 = layout(24, &[(0, Ty::I64), (8, Ty::I64), (16, Ty::I64)]);
+        assert_eq!(classify_arg(arch, &i3), Passing::Indirect);
+        assert!(classify_ret(arch, &i3).is_none());
+    }
+
+    #[test]
+    fn win64arm_variadic_arguments_ignore_hfas() {
+        use PieceTy::*;
+        let arch = Arch::Win64Arm;
+        let f2 = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+        assert_eq!(shape(classify_vararg(arch, &f2)), Some(vec![I64]));
+        let f4 = layout(
+            16,
+            &[(0, Ty::F32), (4, Ty::F32), (8, Ty::F32), (12, Ty::F32)],
+        );
+        assert_eq!(shape(classify_vararg(arch, &f4)), Some(vec![I64, I64]));
+        let d2 = layout(16, &[(0, Ty::F64), (8, Ty::F64)]);
+        assert_eq!(shape(classify_vararg(arch, &d2)), Some(vec![I64, I64]));
+        let d4 = layout(
+            32,
+            &[(0, Ty::F64), (8, Ty::F64), (16, Ty::F64), (24, Ty::F64)],
+        );
+        assert_eq!(classify_vararg(arch, &d4), Passing::Indirect);
+        // Results are unaffected: a variadic procedure still returns an HFA in v0-v3.
+        assert_eq!(classify_ret(arch, &f4).map(|p| p.len()), Some(4));
+        // Elsewhere a variadic aggregate is classified like any other.
+        assert_eq!(
+            shape(classify_vararg(Arch::Aarch64, &f2)),
+            Some(vec![F32, F32])
+        );
+    }
+
+    #[test]
+    fn windows_arm64_triples_select_win64arm() {
+        for triple in [
+            "aarch64-pc-windows-msvc",
+            "aarch64-w64-windows-gnu",
+            "aarch64-w64-mingw32",
+            "arm64-pc-windows-msvc",
+        ] {
+            assert_eq!(Arch::from_triple(triple), Some(Arch::Win64Arm), "{triple}");
+        }
+        assert_eq!(
+            Arch::from_triple("aarch64-unknown-linux-gnu"),
+            Some(Arch::Aarch64)
+        );
+        assert!(Arch::Win64Arm.is_aarch64() && Arch::Win64Arm.is_windows());
     }
 
     #[test]

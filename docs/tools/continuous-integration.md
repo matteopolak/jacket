@@ -11,7 +11,7 @@
 - `scripting-wasm` (ubuntu): dependency-age and include checks, `cargo test -p jai-language-server -p jai-wasm`, a `wasm32-unknown-unknown` build of `jai-wasm`, then `node tools/check_scripting_wasm.mjs` executes the real module and `node tools/check_jai_format_wasm.mjs` formats the Jai_Format golden cases through it ([jaifmt](jaifmt.md#browser-playground)).
 - `test` (macOS arm64/x86-64, Linux x86-64/arm64): installs the pinned nightly and LLVM 22 ([llvm-setup](llvm-setup.md)), runs `tools/check_dependency_age.py` and `tools/check_ci_sources.py` (literal `include_str!`/`include_bytes!` inputs must exist in the checkout), then format ([code-formatting](code-formatting.md)), `cargo clippy -D warnings`, `cargo test --workspace --no-fail-fast`, and the Python tool tests (`python3 -m unittest discover -s tools -p 'test_*.py'`). Each check records its outcome independently and a final step fails the job if any failed, so one run reports every failure. A `jai-format` step then builds [jaifmt](jaifmt.md) with the debug `jaic` and runs `jaifmt --check` over the Jai trees; it is advisory (not in the enforcement step) until the repository's Jai code has been formatted.
 
-`windows-native.yml` runs on pushes to `wip/windows-native` (and by hand) that touch the compiler, stdlib or tests: a Linux job cross-builds the corpus runtime cases and stdlib test programs with MinGW-w64 (`tools/windows_cross.py build --stdlib`), a `windows-2025` job runs them and compares output and exit codes, and a second `windows-2025` job builds `jaic` against the official LLVM, builds and runs the same programs natively (`--host`), then runs `cargo test --test native`. See [Windows](../native/windows.md).
+`windows-native.yml` runs on pushes to `wip/windows-native` and `ci/windows-arm64` (and by hand) that touch the compiler, stdlib or tests, once per CPU. x64: a Linux job cross-builds the corpus runtime cases and stdlib test programs with MinGW-w64 (`tools/windows_cross.py build --stdlib`), a `windows-2025` job runs them and compares output and exit codes, and a second `windows-2025` job builds `jaic` against the official LLVM, builds and runs the same programs natively (`--host`), then runs `cargo test --test native`. arm64: the same three jobs with `--cpu arm64` cross builds through llvm-mingw (a pinned release tarball, `LLVM_MINGW_VERSION`, unpacked into the runner's temp directory) and GitHub's `windows-11-arm` runner, with the official `aarch64-pc-windows-msvc` LLVM archive for the native build. See [Windows](../native/windows.md).
 
 `nix.yml` runs on ubuntu and macOS when the flake, `nix/`, `Cargo.lock` or `rust-toolchain.toml` change: it checks `flake.lock` is current, runs `nix flake check` and `nix build`, and smoke-tests the result. See [Nix flake](nix.md).
 
@@ -23,7 +23,7 @@ Edit the workflow files. Keep the `format`/`lint`/`correctness`/`policy` step id
 
 ## Configuration
 
-Runners: `macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.04-arm`; 30 minute timeouts; `CARGO_INCREMENTAL=0`; toolchain `nightly-2026-08-29`; Python 3.14.
+Runners: `macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.04-arm` (and `windows-2025`, `windows-11-arm` in `windows-native.yml`); 30 minute timeouts; `CARGO_INCREMENTAL=0`; toolchain `nightly-2026-08-29`; Python 3.14.
 
 ## Dependencies
 

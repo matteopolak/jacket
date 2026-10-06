@@ -17,7 +17,7 @@ use crate::ir::{Sig, Ty};
 
 mod callbacks;
 pub use callbacks::{Reenter, callback_addr};
-#[cfg(all(windows, target_arch = "x86_64"))]
+#[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod windows;
 
 #[derive(Clone)]
@@ -114,14 +114,17 @@ impl Library {
     }
 
     /// Windows: `LoadLibraryW` of `name.dll` (see `windows::open`).
-    #[cfg(all(windows, target_arch = "x86_64"))]
+    #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
     pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
         windows::open(name, system, base_dir).map(|handle| Library {
             handle,
         })
     }
 
-    #[cfg(not(any(unix, all(windows, target_arch = "x86_64"))))]
+    #[cfg(not(any(
+        unix,
+        all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))
+    )))]
     pub fn open(_name: &str, _system: bool, _base_dir: &str) -> Option<Library> {
         None
     }
@@ -139,12 +142,15 @@ pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     (!p.is_null()).then_some(p as u64)
 }
 
-#[cfg(all(windows, target_arch = "x86_64"))]
+#[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     windows::lookup(lib.map(|l| l.handle), symbol)
 }
 
-#[cfg(not(any(unix, all(windows, target_arch = "x86_64"))))]
+#[cfg(not(any(
+    unix,
+    all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))
+)))]
 pub fn lookup(_lib: Option<&Library>, _symbol: &str) -> Option<u64> {
     None
 }
@@ -538,7 +544,8 @@ pub mod main_thread {
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
-    // The register model below is System V / AAPCS64; Windows has its own (`windows.rs`).
+    // The register model below is System V / AAPCS64 (Windows on arm64 included); the
+    // Microsoft x64 convention has its own (`windows.rs`).
     if arch == Arch::Win64 {
         #[cfg(all(windows, target_arch = "x86_64"))]
         return windows::call(addr, args, sig);
@@ -558,6 +565,14 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     // Copies of large aggregates passed by address; alive until the call returns.
     let mut copies: Vec<Vec<u64>> = Vec::new();
     let mut out_ptr = 0;
+    // Windows on arm64: a variadic procedure takes every argument, fixed ones included, in
+    // x0-x7 and then on the stack (floats as their bits); an aggregate may straddle the two.
+    let general_only = arch == Arch::Win64Arm && sig.c_varargs;
+    // MSVC on arm64 passes a non-POD C++ result's address in x0 (Clang's `inreg sret`), not x8.
+    let result_in_x0 = arch == Arch::Win64Arm && forced_sret && ret_layout.is_some();
+    if result_in_x0 && let Some(&out) = args.get(sig.params.len().wrapping_sub(1)) {
+        regs.int(out)?;
+    }
     for (i, &a) in args.iter().enumerate() {
         if ret_layout.is_some() && i + 1 == sig.params.len() {
             out_ptr = a;
@@ -568,6 +583,19 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
             continue;
         }
         let layout = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref);
+        if general_only {
+            match layout.map(|l| (l, abi::classify_vararg(arch, l))) {
+                None => regs.int(a)?,
+                Some((l, Passing::Registers(pieces))) => {
+                    for p in pieces {
+                        // SAFETY: `a` points at the aggregate, `l.size` bytes long.
+                        regs.int(unsafe { read_bytes(a + p.offset, l.size - p.offset) })?;
+                    }
+                }
+                Some((l, _)) => regs.int(indirect_copy(a, l.size, &mut copies))?,
+            }
+            continue;
+        }
         let Some(layout) = layout else {
             let ty = sig.params.get(i).copied().unwrap_or(Ty::I64);
             let full = if ty.is_float() {
@@ -607,19 +635,7 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
                     }
                 }
             }
-            Passing::Indirect => {
-                let mut copy = vec![0u64; layout.size.div_ceil(8) as usize];
-                // SAFETY: as above; the copy is at least `layout.size` bytes.
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        a as *const u8,
-                        copy.as_mut_ptr() as *mut u8,
-                        layout.size as usize,
-                    )
-                };
-                regs.int(copy.as_ptr() as u64)?;
-                copies.push(copy);
-            }
+            Passing::Indirect => regs.int(indirect_copy(a, layout.size, &mut copies))?,
             // x86-64 `byval`: the aggregate's bytes are copied into the stack argument area.
             Passing::ByVal => {
                 if layout.align > 8 {
@@ -638,6 +654,11 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let Some(layout) = ret_layout else {
         return Ok(scalar_call(addr, &regs, sig.returns.first().copied()));
     };
+    if result_in_x0 {
+        // SAFETY: as below; the callee writes the result through the pointer in x0.
+        unsafe { call_as::<u64>(addr, &regs) };
+        return Ok(Vec::new());
+    }
     // SAFETY (all calls below): the callee's declared C signature matches these registers.
     match ret_pieces {
         None => {
@@ -705,6 +726,19 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     }
     drop(copies);
     Ok(Vec::new())
+}
+
+/// A copy of the `size`-byte aggregate at `a`, kept in `copies` until the call returns, for
+/// passing by reference; returns its address.
+fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
+    let mut copy = vec![0u64; size.div_ceil(8) as usize];
+    // SAFETY: `a` points at the aggregate, `size` bytes long; the copy is at least as long.
+    unsafe {
+        std::ptr::copy_nonoverlapping(a as *const u8, copy.as_mut_ptr() as *mut u8, size as usize)
+    };
+    let addr = copy.as_ptr() as u64;
+    copies.push(copy);
+    addr
 }
 
 /// A call whose result is a scalar (or nothing).

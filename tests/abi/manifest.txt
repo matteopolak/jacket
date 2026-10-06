@@ -1,0 +1,476 @@
+# C ABI items the stdlib declares by hand, checked against real C headers.
+#
+# crates/jaic-cli/tests/abi_layout/mod.rs turns the entries for one target into a C program
+# (system headers) and a Jai program (stdlib bindings) and compares every value they report.
+# The `stdlib_c_abi_matches_host_headers` native test does this on every CI host; other targets
+# can be checked without running them (JAIC_ABI_CROSS). See docs/stdlib/native-bindings.md.
+#
+# Syntax (one item per line, `#` starts a comment line):
+#   [linux macos-x64 ...]       the following lines apply to these OSes or os-cpu targets
+#   c: <text>                   a line of C before the checks (#define, #include)
+#   jai: <text>                 a line of Jai before the checks (#import)
+#   struct <Jai> [= <C>] : <field> <jai_field>=<c_field> <flexible>[] ...
+#                               size, alignment, and each field's offset and size
+#                               (`name[]` is a C flexible array member: offset only)
+#   type <Jai> [= <C>]          size and alignment only (opaque types, unions, arrays)
+#   int <Jai> [= <C>]           size and signedness of an integer typedef
+#   const <name> <jai>=<c> ...  integer constants; `jai` may be any Jai expression without spaces
+# The C name defaults to the Jai name; C struct tags need `= struct <tag>`. Field paths may use
+# dots (`uc_mcontext.pc`) and see through `using` and anonymous Jai members.
+
+[linux]
+c: #define _GNU_SOURCE
+c: #include <dirent.h>
+c: #include <dlfcn.h>
+c: #include <errno.h>
+c: #include <fcntl.h>
+c: #include <poll.h>
+c: #include <pthread.h>
+c: #include <pwd.h>
+c: #include <sched.h>
+c: #include <semaphore.h>
+c: #include <setjmp.h>
+c: #include <signal.h>
+c: #include <time.h>
+c: #include <unistd.h>
+c: #include <sys/epoll.h>
+c: #include <sys/eventfd.h>
+c: #include <sys/inotify.h>
+c: #include <sys/ioctl.h>
+c: #include <sys/ipc.h>
+c: #include <sys/mman.h>
+c: #include <sys/resource.h>
+c: #include <sys/shm.h>
+c: #include <sys/signalfd.h>
+c: #include <sys/stat.h>
+c: #include <sys/syscall.h>
+c: #include <sys/sysinfo.h>
+c: #include <sys/time.h>
+c: #include <sys/timerfd.h>
+c: #include <sys/ucontext.h>
+c: #include <sys/uio.h>
+c: #include <sys/utsname.h>
+c: #include <sys/wait.h>
+c: #include <linux/input.h>
+c: #include <linux/io_uring.h>
+c: #include <netdb.h>
+c: #include <netinet/in.h>
+c: #include <netinet/tcp.h>
+c: #include <sys/socket.h>
+c: #include <ifaddrs.h>
+jai: #import "POSIX";
+jai: #import "Linux";
+jai: #import "Socket";
+
+# <sys/stat.h>
+struct stat_t = struct stat : st_dev st_ino st_mode st_nlink st_uid st_gid st_rdev st_size st_blksize st_blocks st_atime=st_atim st_mtime=st_mtim st_ctime=st_ctim
+struct stat64_t = struct stat64 : st_dev st_ino st_mode st_nlink st_uid st_gid st_rdev st_size st_blksize st_blocks st_atime=st_atim st_mtime=st_mtim st_ctime=st_ctim
+int mode_t
+int dev_t
+int ino_t
+int nlink_t
+int uid_t
+int gid_t
+int blkcnt_t
+int blksize_t
+int pid_t
+int time_t
+int suseconds_t
+int clock_t
+int key_t
+int rlim_t
+int nfds_t
+int pthread_t
+int pthread_key_t
+int pthread_once_t
+int pthread_spinlock_t
+const S_IFMT S_IFDIR S_IFCHR S_IFBLK S_IFREG S_IFIFO S_IFLNK S_IFSOCK S_ISUID S_ISGID S_ISVTX
+const S_IRWXU S_IRUSR S_IWUSR S_IXUSR S_IRWXG S_IRWXO UTIME_NOW UTIME_OMIT
+
+# <fcntl.h>
+const O_ACCMODE O_RDONLY O_WRONLY O_RDWR O_CREAT O_EXCL O_NOCTTY O_TRUNC O_APPEND O_NONBLOCK
+const O_SYNC O_DSYNC O_ASYNC O_DIRECTORY O_NOFOLLOW O_CLOEXEC O_DIRECT O_NOATIME O_PATH O_TMPFILE O_LARGEFILE
+const F_DUPFD F_GETFD F_SETFD F_GETFL F_SETFL F_GETLK F_SETLK F_SETLKW F_SETOWN F_GETOWN F_DUPFD_CLOEXEC
+const F_OFD_GETLK F_OFD_SETLK F_OFD_SETLKW F_SETPIPE_SZ F_GETPIPE_SZ FD_CLOEXEC F_RDLCK F_WRLCK F_UNLCK
+const AT_FDCWD AT_SYMLINK_NOFOLLOW AT_REMOVEDIR AT_SYMLINK_FOLLOW AT_EMPTY_PATH
+const LOCK_SH LOCK_EX LOCK_NB LOCK_UN SEEK_SET SEEK_CUR SEEK_END SEEK_DATA SEEK_HOLE
+const R_OK W_OK X_OK F_OK STDIN_FILENO STDOUT_FILENO STDERR_FILENO
+struct flock = struct flock : l_type l_whence l_start l_len l_pid
+struct f_owner_ex = struct f_owner_ex : type pid
+struct file_handle = struct file_handle : handle_bytes handle_type
+struct signalfd_siginfo = struct signalfd_siginfo : ssi_signo ssi_errno ssi_code ssi_pid ssi_uid ssi_fd ssi_addr
+const TIOCGWINSZ TIOCSWINSZ FIONREAD FIONBIO TCGETS TCSETS
+
+# <sys/mman.h>
+const PROT_READ PROT_WRITE PROT_EXEC PROT_NONE MAP_SHARED MAP_PRIVATE MAP_FIXED MAP_ANONYMOUS
+const MAP_GROWSDOWN MAP_NORESERVE MAP_POPULATE MAP_STACK MAP_HUGETLB MAP_LOCKED
+const MS_ASYNC MS_SYNC MS_INVALIDATE MADV_NORMAL MADV_RANDOM MADV_SEQUENTIAL MADV_WILLNEED MADV_DONTNEED MADV_FREE
+const MCL_CURRENT MCL_FUTURE MREMAP_MAYMOVE
+
+# <pthread.h>, <setjmp.h>, <semaphore.h>, <sched.h>
+type pthread_mutex_t
+type pthread_cond_t
+type pthread_attr_t
+type pthread_mutexattr_t
+type pthread_condattr_t
+type pthread_rwlock_t
+type pthread_rwlockattr_t
+type pthread_barrier_t
+type pthread_barrierattr_t
+type sem_t
+type jmp_buf
+type sigjmp_buf
+type __jmp_buf
+type cpu_set_t
+struct sched_param = struct sched_param : sched_priority
+const PTHREAD_CREATE.JOINABLE=PTHREAD_CREATE_JOINABLE PTHREAD_CREATE.DETACHED=PTHREAD_CREATE_DETACHED PTHREAD_MUTEX.NORMAL=PTHREAD_MUTEX_NORMAL
+const PTHREAD_MUTEX.RECURSIVE=PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX.ERRORCHECK=PTHREAD_MUTEX_ERRORCHECK PTHREAD_PROCESS.SHARED=PTHREAD_PROCESS_SHARED PTHREAD_PROCESS.PRIVATE=PTHREAD_PROCESS_PRIVATE CPU_SETSIZE
+const SCHED_OTHER SCHED_FIFO SCHED_RR SCHED_BATCH SCHED_IDLE
+const CLONE_VM CLONE_FS CLONE_FILES CLONE_SIGHAND CLONE_THREAD CLONE_NEWNS
+
+# <signal.h>, <sys/ucontext.h>
+type sigset_t
+struct timespec = struct timespec : tv_sec tv_nsec
+struct timeval = struct timeval : tv_sec tv_usec
+struct itimerspec = struct itimerspec : it_interval it_value
+struct itimerval = struct itimerval : it_interval it_value
+struct timezone = struct timezone : tz_minuteswest tz_dsttime
+struct stack_t = stack_t : ss_sp ss_flags ss_size
+struct sigaction_t = struct sigaction : sa_handler sa_sigaction sa_mask sa_flags sa_restorer
+struct siginfo_t = siginfo_t : si_signo si_errno si_code
+struct sigevent = struct sigevent : sigev_value sigev_signo sigev_notify
+type sigval = union sigval
+struct ucontext_t = ucontext_t : uc_flags uc_link uc_stack uc_mcontext uc_sigmask
+type mcontext_t
+const SIGHUP SIGINT SIGQUIT SIGILL SIGTRAP SIGABRT SIGBUS SIGFPE SIGKILL SIGUSR1 SIGSEGV SIGUSR2
+const SIGPIPE SIGALRM SIGTERM SIGSTKFLT SIGCHLD SIGCONT SIGSTOP SIGTSTP SIGTTIN SIGTTOU SIGURG
+const SIGXCPU SIGXFSZ SIGVTALRM SIGPROF SIGWINCH SIGPOLL SIGSYS NSIG
+const SA_NOCLDSTOP SA_NOCLDWAIT SA_SIGINFO SA_ONSTACK SA_RESTART SA_NODEFER SA_RESETHAND
+const SIG_BLOCK SIG_UNBLOCK SIG_SETMASK
+const WNOHANG WUNTRACED WCONTINUED WEXITED WSTOPPED WNOWAIT
+
+# <time.h>, <sys/resource.h>, <sys/utsname.h>, <sys/sysinfo.h>
+struct tm = struct tm : tm_sec tm_min tm_hour tm_mday tm_mon tm_year tm_wday tm_yday tm_isdst tm_gmtoff tm_zone
+const clockid_t.REALTIME=CLOCK_REALTIME clockid_t.MONOTONIC=CLOCK_MONOTONIC clockid_t.PROCESS_CPUTIME_ID=CLOCK_PROCESS_CPUTIME_ID
+const clockid_t.THREAD_CPUTIME_ID=CLOCK_THREAD_CPUTIME_ID clockid_t.MONOTONIC_RAW=CLOCK_MONOTONIC_RAW clockid_t.BOOTTIME=CLOCK_BOOTTIME
+struct rlimit = struct rlimit : rlim_cur rlim_max
+struct rlimit64 = struct rlimit64 : rlim_cur rlim_max
+struct rusage = struct rusage : ru_utime ru_stime ru_maxrss ru_minflt ru_majflt ru_nvcsw ru_nivcsw
+const RLIMIT_RESOURCE.RLIMIT_CPU=RLIMIT_CPU RLIMIT_RESOURCE.RLIMIT_FSIZE=RLIMIT_FSIZE RLIMIT_RESOURCE.RLIMIT_STACK=RLIMIT_STACK
+const RLIMIT_RESOURCE.RLIMIT_CORE=RLIMIT_CORE RLIMIT_RESOURCE.RLIMIT_NOFILE=RLIMIT_NOFILE RLIMIT_RESOURCE.RLIMIT_AS=RLIMIT_AS
+const RLIMIT_RESOURCE.RLIMIT_NPROC=RLIMIT_NPROC RLIMIT_RESOURCE.RLIMIT_MEMLOCK=RLIMIT_MEMLOCK RLIM_INFINITY
+const RUSAGE.SELF=RUSAGE_SELF RUSAGE.CHILDREN=RUSAGE_CHILDREN RUSAGE.THREAD=RUSAGE_THREAD
+struct utsname = struct utsname : sysname nodename release version machine domainname
+struct sys_info = struct sysinfo : uptime loads totalram freeram procs totalhigh mem_unit
+const _SC_PAGESIZE _SC_NPROCESSORS_ONLN _SC_NPROCESSORS_CONF _SC_CLK_TCK _SC_OPEN_MAX _SC_ARG_MAX
+
+# <dirent.h>, <pwd.h>, <dlfcn.h>, <poll.h>, <sys/uio.h>, <sys/ipc.h>, <sys/shm.h>
+struct dirent = struct dirent : d_ino d_off d_reclen d_type d_name
+struct dirent64 = struct dirent64 : d_ino d_off d_reclen d_type d_name
+struct passwd = struct passwd : pw_name pw_passwd pw_uid pw_gid pw_gecos pw_dir pw_shell
+struct Dl_info = Dl_info : dli_fname dli_fbase dli_sname dli_saddr
+const RTLD_LAZY RTLD_NOW RTLD_NOLOAD RTLD_DEEPBIND RTLD_GLOBAL RTLD_LOCAL RTLD_NODELETE
+struct pollfd = struct pollfd : fd events revents
+const POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL POLLRDNORM POLLRDBAND POLLWRNORM POLLWRBAND POLLRDHUP
+struct iovec = struct iovec : iov_base iov_len
+struct ipc_perm = struct ipc_perm : uid gid cuid cgid mode
+struct shmid_ds = struct shmid_ds : shm_perm shm_segsz shm_atime shm_dtime shm_ctime shm_cpid shm_lpid shm_nattch
+const IPC_CREAT IPC_EXCL IPC_NOWAIT IPC_RMID IPC_SET IPC_STAT IPC_PRIVATE
+
+# <errno.h>
+const EPERM ENOENT ESRCH EINTR EIO ENXIO E2BIG ENOEXEC EBADF ECHILD EAGAIN ENOMEM EACCES EFAULT
+const EBUSY EEXIST EXDEV ENODEV ENOTDIR EISDIR EINVAL ENFILE EMFILE ENOTTY ETXTBSY EFBIG ENOSPC
+const ESPIPE EROFS EMLINK EPIPE EDOM ERANGE EDEADLK ENAMETOOLONG ENOLCK ENOSYS ENOTEMPTY ELOOP
+const EWOULDBLOCK ENOMSG EIDRM ENODATA ETIME EOVERFLOW EILSEQ ENOTSOCK EDESTADDRREQ EMSGSIZE
+const EPROTOTYPE ENOPROTOOPT EPROTONOSUPPORT EOPNOTSUPP EAFNOSUPPORT EADDRINUSE EADDRNOTAVAIL
+const ENETDOWN ENETUNREACH ECONNABORTED ECONNRESET ENOBUFS EISCONN ENOTCONN ETIMEDOUT ECONNREFUSED
+const EHOSTUNREACH EALREADY EINPROGRESS ECANCELED
+
+# <sys/epoll.h>, <sys/eventfd.h>, <sys/inotify.h>, <linux/io_uring.h>, <linux/input.h>
+struct epoll_event = struct epoll_event : events data
+type epoll_data = epoll_data_t
+const EPOLLIN EPOLLPRI EPOLLOUT EPOLLERR EPOLLHUP EPOLLRDHUP EPOLLEXCLUSIVE EPOLLWAKEUP EPOLLONESHOT EPOLLET
+const EPOLL_CLOEXEC EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD
+const EFD.SEMAPHORE=EFD_SEMAPHORE EFD.CLOEXEC=EFD_CLOEXEC EFD.NONBLOCK=EFD_NONBLOCK
+const TFD.CLOEXEC=TFD_CLOEXEC TFD.NONBLOCK=TFD_NONBLOCK SFD.CLOEXEC=SFD_CLOEXEC SFD.NONBLOCK=SFD_NONBLOCK
+struct inotify_event = struct inotify_event : wd mask cookie len name[]
+const IN_CLOEXEC IN_NONBLOCK IN_ACCESS IN_MODIFY IN_ATTRIB IN_CLOSE_WRITE IN_CREATE IN_DELETE IN_MOVED_FROM
+const IN_MOVED_TO IN_DELETE_SELF IN_MOVE_SELF IN_ONLYDIR IN_ISDIR IN_ALL_EVENTS
+struct io_uring_params = struct io_uring_params : sq_entries cq_entries flags sq_thread_cpu sq_thread_idle features wq_fd sq_off cq_off
+struct io_sqring_offsets = struct io_sqring_offsets : head tail ring_mask ring_entries flags dropped array
+struct io_cqring_offsets = struct io_cqring_offsets : head tail ring_mask ring_entries overflow cqes flags
+struct io_uring_sqe = struct io_uring_sqe : opcode flags ioprio fd off addr len user_data
+struct io_uring_cqe = struct io_uring_cqe : user_data res flags
+struct input_event = struct input_event : time type code value
+struct input_absinfo = struct input_absinfo : value minimum maximum fuzz flat resolution
+
+# <sys/socket.h>, <netinet/in.h>, <netdb.h>, <ifaddrs.h>
+struct sockaddr = struct sockaddr : sa_family sa_data
+struct sockaddr_storage = struct sockaddr_storage : ss_family
+struct sockaddr_in = struct sockaddr_in : sin_family sin_port sin_addr sin_zero
+struct sockaddr_in6 = struct sockaddr_in6 : sin6_family sin6_port sin6_flowinfo sin6_addr sin6_scope_id
+type in_addr = struct in_addr
+type in6_addr = struct in6_addr
+struct addrinfo = struct addrinfo : ai_flags ai_family ai_socktype ai_protocol ai_addrlen ai_addr ai_canonname ai_next
+struct msghdr = struct msghdr : msg_name msg_namelen msg_iov msg_iovlen msg_control msg_controllen msg_flags
+struct cmsghdr = struct cmsghdr : cmsg_len cmsg_level cmsg_type
+struct linger = struct linger : l_onoff l_linger
+struct hostent = struct hostent : h_name h_aliases h_addrtype h_length h_addr_list
+struct ifaddrs = struct ifaddrs : ifa_next ifa_name ifa_flags ifa_addr ifa_netmask ifa_data
+type fd_set
+int socklen_t
+int sa_family_t
+const AF_UNIX AF_INET AF_INET6 SOCK.STREAM=SOCK_STREAM SOCK.DGRAM=SOCK_DGRAM SOCK.NONBLOCK=SOCK_NONBLOCK SOCK.CLOEXEC=SOCK_CLOEXEC
+const SOL_SOCKET SO_REUSEADDR SO_KEEPALIVE SO_RCVBUF SO_SNDBUF SO_ERROR SO_REUSEPORT SOMAXCONN
+const IPPROTO.TCP=IPPROTO_TCP IPPROTO.UDP=IPPROTO_UDP IPPROTO.IPV6=IPPROTO_IPV6 IPV6_V6ONLY TCP_NODELAY
+const MSG.PEEK=MSG_PEEK MSG.NOSIGNAL=MSG_NOSIGNAL MSG.DONTWAIT=MSG_DONTWAIT AI.PASSIVE=AI_PASSIVE AI.CANONNAME=AI_CANONNAME
+const SHUT.RD=SHUT_RD SHUT.WR=SHUT_WR SHUT.RDWR=SHUT_RDWR
+struct __pthread_mutex_s = struct __pthread_mutex_s : __lock __count __owner __nusers __kind __spins __list
+
+# Declarations that exist for one CPU only.
+[linux-x64]
+struct mcontext_t = mcontext_t : gregs fpregs
+const REG.RIP=REG_RIP REG.RSP=REG_RSP REG.RBP=REG_RBP REG.CR2=REG_CR2 NGREG MAP_32BIT
+const SYS_read SYS_write SYS_open SYS_close SYS_mmap SYS_munmap SYS_clone SYS_exit SYS_gettid SYS_futex SYS_getrandom SYS_statx
+
+[linux-arm64]
+struct mcontext_t = mcontext_t : fault_address regs sp pc pstate
+struct sigcontext = struct sigcontext : fault_address regs sp pc pstate
+
+[macos]
+c: #include <dirent.h>
+c: #include <dlfcn.h>
+c: #include <errno.h>
+c: #include <fcntl.h>
+c: #include <poll.h>
+c: #include <pthread.h>
+c: #include <pwd.h>
+c: #include <sched.h>
+c: #include <setjmp.h>
+c: #include <signal.h>
+c: #include <time.h>
+c: #include <unistd.h>
+c: #include <sys/event.h>
+c: #include <sys/mman.h>
+c: #include <sys/resource.h>
+c: #include <sys/stat.h>
+c: #include <sys/sysctl.h>
+c: #include <sys/time.h>
+c: #include <sys/uio.h>
+c: #include <sys/utsname.h>
+c: #include <sys/wait.h>
+c: #include <netdb.h>
+c: #include <netinet/in.h>
+c: #include <netinet/tcp.h>
+c: #include <sys/socket.h>
+c: #include <ifaddrs.h>
+jai: #import "POSIX";
+jai: #import "macos";
+jai: #import "Socket";
+
+# <sys/stat.h>
+struct stat_t = struct stat : st_dev st_mode st_nlink st_ino st_uid st_gid st_rdev st_atime=st_atimespec st_mtime=st_mtimespec st_ctime=st_ctimespec st_birthtime=st_birthtimespec st_size st_blocks st_blksize st_flags st_gen
+int mode_t
+int dev_t
+int ino_t
+int nlink_t
+int uid_t
+int gid_t
+int blkcnt_t
+int blksize_t
+int pid_t
+int time_t
+int suseconds_t
+int clock_t
+int rlim_t
+int nfds_t
+int sigset_t
+int pthread_key_t
+const S_IFMT S_IFDIR S_IFCHR S_IFBLK S_IFREG S_IFIFO S_IFLNK S_IFSOCK S_ISUID S_ISGID S_ISVTX
+const S_IRWXU S_IRUSR S_IWUSR S_IXUSR S_IRWXG S_IRWXO
+
+# <fcntl.h>, <unistd.h>
+const O_ACCMODE O_RDONLY O_WRONLY O_RDWR O_CREAT O_EXCL O_NOCTTY O_TRUNC O_APPEND O_NONBLOCK
+const O_SYNC O_ASYNC O_DIRECTORY O_NOFOLLOW O_CLOEXEC O_SYMLINK O_EVTONLY O_SHLOCK O_EXLOCK
+const F_DUPFD F_GETFD F_SETFD F_GETFL F_SETFL F_GETLK F_SETLK F_SETLKW F_SETOWN F_GETOWN F_DUPFD_CLOEXEC
+const F_GETPATH F_FULLFSYNC F_NOCACHE F_RDLCK F_WRLCK F_UNLCK FD_CLOEXEC
+const AT_FDCWD AT_SYMLINK_NOFOLLOW AT_REMOVEDIR AT_SYMLINK_FOLLOW
+const LOCK_SH LOCK_EX LOCK_NB LOCK_UN SEEK_SET SEEK_CUR SEEK_END
+const R_OK W_OK X_OK F_OK STDIN_FILENO STDOUT_FILENO STDERR_FILENO
+struct flock = struct flock : l_start l_len l_pid l_type l_whence
+
+# <sys/mman.h>
+const PROT_READ PROT_WRITE PROT_EXEC PROT_NONE MAP_SHARED MAP_PRIVATE MAP_FIXED MAP_ANONYMOUS MAP_NORESERVE MAP_JIT
+const MS_ASYNC MS_SYNC MS_INVALIDATE MADV_NORMAL MADV_RANDOM MADV_SEQUENTIAL MADV_WILLNEED MADV_DONTNEED MADV_FREE
+const MCL_CURRENT MCL_FUTURE
+
+# <pthread.h>, <setjmp.h>, <sched.h>
+type pthread_mutex_t
+type pthread_cond_t
+type pthread_attr_t
+type pthread_mutexattr_t
+type pthread_condattr_t
+type pthread_rwlock_t
+type pthread_rwlockattr_t
+type pthread_once_t
+type pthread_t
+type jmp_buf
+type sigjmp_buf
+struct sched_param = struct sched_param : sched_priority
+const PTHREAD_CREATE_JOINABLE PTHREAD_CREATE_DETACHED PTHREAD_MUTEX_NORMAL PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_ERRORCHECK
+const PTHREAD_PROCESS_SHARED PTHREAD_PROCESS_PRIVATE
+
+# <signal.h>
+struct timespec = struct timespec : tv_sec tv_nsec
+struct timeval = struct timeval : tv_sec tv_usec
+struct itimerval = struct itimerval : it_interval it_value
+struct timezone = struct timezone : tz_minuteswest tz_dsttime
+struct stack_t = stack_t : ss_sp ss_size ss_flags
+struct sigaction_t = struct sigaction : sa_handler sa_sigaction sa_mask sa_flags
+struct siginfo_t = siginfo_t : si_signo si_errno si_code si_pid si_uid si_status si_addr si_value
+struct ucontext_t = ucontext_t : uc_onstack uc_sigmask uc_stack uc_link uc_mcsize uc_mcontext
+type sigval = union sigval
+struct sigevent = struct sigevent : sigev_notify sigev_signo sigev_value
+const SIGHUP SIGINT SIGQUIT SIGILL SIGTRAP SIGABRT SIGEMT SIGFPE SIGKILL SIGBUS SIGSEGV SIGSYS
+const SIGPIPE SIGALRM SIGTERM SIGURG SIGSTOP SIGTSTP SIGCONT SIGCHLD SIGTTIN SIGTTOU SIGIO
+const SIGXCPU SIGXFSZ SIGVTALRM SIGPROF SIGWINCH SIGINFO SIGUSR1 SIGUSR2 NSIG
+const SA_ONSTACK SA_RESTART SA_RESETHAND SA_NOCLDSTOP SA_NODEFER SA_NOCLDWAIT SA_SIGINFO
+const SIG_BLOCK SIG_UNBLOCK SIG_SETMASK SS_ONSTACK SS_DISABLE MINSIGSTKSZ SIGSTKSZ
+const WNOHANG WUNTRACED WCONTINUED WEXITED WSTOPPED WNOWAIT
+
+# <time.h>, <sys/resource.h>, <sys/utsname.h>, <unistd.h>
+struct tm = struct tm : tm_sec tm_min tm_hour tm_mday tm_mon tm_year tm_wday tm_yday tm_isdst tm_gmtoff tm_zone
+const clockid_t.REALTIME=CLOCK_REALTIME clockid_t.MONOTONIC=CLOCK_MONOTONIC clockid_t.MONOTONIC_RAW=CLOCK_MONOTONIC_RAW
+const clockid_t.UPTIME_RAW=CLOCK_UPTIME_RAW clockid_t.PROCESS_CPUTIME_ID=CLOCK_PROCESS_CPUTIME_ID clockid_t.THREAD_CPUTIME_ID=CLOCK_THREAD_CPUTIME_ID
+struct rlimit = struct rlimit : rlim_cur rlim_max
+struct rusage = struct rusage : ru_utime ru_stime ru_maxrss ru_minflt ru_majflt ru_nvcsw ru_nivcsw
+const RLIM_INFINITY
+struct utsname = struct utsname : sysname nodename release version machine
+const _SC_PAGESIZE _SC_NPROCESSORS_ONLN _SC_NPROCESSORS_CONF _SC_CLK_TCK _SC_OPEN_MAX _SC_ARG_MAX
+const CTL_KERN CTL_HW KERN_PROC KERN_PROC_PID HW_NCPU HW_MEMSIZE HW_PAGESIZE KERN_OSRELEASE
+
+# <dirent.h>, <pwd.h>, <dlfcn.h>, <poll.h>, <sys/uio.h>, <sys/event.h>
+struct dirent = struct dirent : d_ino d_seekoff d_reclen d_namlen d_type d_name
+struct passwd = struct passwd : pw_name pw_passwd pw_uid pw_gid pw_change pw_class pw_gecos pw_dir pw_shell pw_expire
+struct dl_info = Dl_info : dli_fname dli_fbase dli_sname dli_saddr
+const RTLD_LAZY RTLD_NOW RTLD_GLOBAL RTLD_LOCAL RTLD_NOLOAD RTLD_NODELETE
+struct pollfd = struct pollfd : fd events revents
+const POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL POLLRDNORM POLLRDBAND POLLWRNORM POLLWRBAND
+struct iovec = struct iovec : iov_base iov_len
+struct Kevent64 = struct kevent64_s : ident filter flags fflags data udata ext
+
+# <errno.h>
+const EPERM ENOENT ESRCH EINTR EIO ENXIO E2BIG ENOEXEC EBADF ECHILD EAGAIN ENOMEM EACCES EFAULT
+const EBUSY EEXIST EXDEV ENODEV ENOTDIR EISDIR EINVAL ENFILE EMFILE ENOTTY ETXTBSY EFBIG ENOSPC
+const ESPIPE EROFS EMLINK EPIPE EDOM ERANGE EDEADLK ENAMETOOLONG ENOLCK ENOSYS ENOTEMPTY ELOOP
+const EWOULDBLOCK ENOMSG EIDRM ENODATA ETIME EOVERFLOW EILSEQ ENOTSOCK EDESTADDRREQ EMSGSIZE
+const EPROTOTYPE ENOPROTOOPT EPROTONOSUPPORT EOPNOTSUPP EAFNOSUPPORT EADDRINUSE EADDRNOTAVAIL
+const ENETDOWN ENETUNREACH ECONNABORTED ECONNRESET ENOBUFS EISCONN ENOTCONN ETIMEDOUT ECONNREFUSED
+const EHOSTUNREACH EALREADY EINPROGRESS ECANCELED
+
+# <sys/socket.h>, <netinet/in.h>, <netdb.h>, <ifaddrs.h>
+struct sockaddr = struct sockaddr : sa_len sa_family sa_data
+struct sockaddr_storage = struct sockaddr_storage : ss_len ss_family
+struct sockaddr_in = struct sockaddr_in : sin_len sin_family sin_port sin_addr sin_zero
+struct sockaddr_in6 = struct sockaddr_in6 : sin6_len sin6_family sin6_port sin6_flowinfo sin6_addr sin6_scope_id
+type in_addr = struct in_addr
+type in6_addr = struct in6_addr
+struct addrinfo = struct addrinfo : ai_flags ai_family ai_socktype ai_protocol ai_addrlen ai_canonname ai_addr ai_next
+struct msghdr = struct msghdr : msg_name msg_namelen msg_iov msg_iovlen msg_control msg_controllen msg_flags
+struct cmsghdr = struct cmsghdr : cmsg_len cmsg_level cmsg_type
+struct linger = struct linger : l_onoff l_linger
+struct hostent = struct hostent : h_name h_aliases h_addrtype h_length h_addr_list
+struct ifaddrs = struct ifaddrs : ifa_next ifa_name ifa_flags ifa_addr ifa_netmask ifa_dstaddr ifa_data
+type fd_set
+int socklen_t
+int sa_family_t
+const AF_UNIX AF_INET AF_INET6 SOCK.STREAM=SOCK_STREAM SOCK.DGRAM=SOCK_DGRAM
+const SOL_SOCKET SO_REUSEADDR SO_KEEPALIVE SO_RCVBUF SO_SNDBUF SO_ERROR SO_REUSEPORT SO_NOSIGPIPE SOMAXCONN
+const IPPROTO.TCP=IPPROTO_TCP IPPROTO.UDP=IPPROTO_UDP IPPROTO.IPV6=IPPROTO_IPV6 IPV6_V6ONLY TCP_NODELAY TCP_KEEPALIVE
+const MSG.PEEK=MSG_PEEK MSG.DONTWAIT=MSG_DONTWAIT AI.PASSIVE=AI_PASSIVE AI.CANONNAME=AI_CANONNAME
+const SHUT.RD=SHUT_RD SHUT.WR=SHUT_WR SHUT.RDWR=SHUT_RDWR
+
+[windows]
+c: #include <winsock2.h>
+c: #include <ws2tcpip.h>
+c: #include <windows.h>
+c: #include <dbghelp.h>
+c: #include <shellapi.h>
+c: #include <commdlg.h>
+c: #include <mmsystem.h>
+jai: #import "Windows";
+jai: #import "Socket";
+
+struct LARGE_INTEGER : LowPart HighPart QuadPart
+struct ULARGE_INTEGER : LowPart HighPart QuadPart
+struct RECT : left top right bottom
+struct POINT : x y
+struct GUID : Data1 Data2 Data3 Data4
+struct FILETIME : dwLowDateTime dwHighDateTime
+struct SYSTEMTIME : wYear wMonth wDayOfWeek wDay wHour wMinute wSecond wMilliseconds
+struct MEMORY_BASIC_INFORMATION : BaseAddress AllocationBase AllocationProtect PartitionId RegionSize State Protect Type
+struct SYSTEM_INFO : wProcessorArchitecture dwPageSize lpMinimumApplicationAddress lpMaximumApplicationAddress dwActiveProcessorMask dwNumberOfProcessors dwProcessorType dwAllocationGranularity wProcessorLevel wProcessorRevision
+struct SECURITY_ATTRIBUTES : nLength lpSecurityDescriptor bInheritHandle
+struct RTL_CRITICAL_SECTION : DebugInfo LockCount RecursionCount OwningThread LockSemaphore SpinCount
+struct OVERLAPPED : Internal InternalHigh Offset OffsetHigh Pointer hEvent
+struct CONDITION_VARIABLE : Ptr
+struct MEMORYSTATUSEX : dwLength dwMemoryLoad ullTotalPhys ullAvailPhys ullTotalPageFile ullAvailPageFile ullTotalVirtual ullAvailVirtual
+struct FILE_NOTIFY_INFORMATION : NextEntryOffset Action FileNameLength FileName
+struct STARTUPINFOW : cb lpReserved lpDesktop lpTitle dwX dwY dwXSize dwYSize dwXCountChars dwYCountChars dwFillAttribute dwFlags wShowWindow cbReserved2 lpReserved2 hStdInput hStdOutput hStdError
+struct PROCESS_INFORMATION : hProcess hThread dwProcessId dwThreadId
+struct JOBOBJECT_BASIC_LIMIT_INFORMATION : PerProcessUserTimeLimit PerJobUserTimeLimit LimitFlags MinimumWorkingSetSize MaximumWorkingSetSize ActiveProcessLimit Affinity PriorityClass SchedulingClass
+struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION : BasicLimitInformation IoInfo ProcessMemoryLimit JobMemoryLimit PeakProcessMemoryUsed PeakJobMemoryUsed
+struct WIN32_FIND_DATAW : dwFileAttributes ftCreationTime ftLastAccessTime ftLastWriteTime nFileSizeHigh nFileSizeLow cFileName cAlternateFileName
+struct FILE_STANDARD_INFO : AllocationSize EndOfFile NumberOfLinks DeletePending Directory
+struct CONSOLE_SCREEN_BUFFER_INFO : dwSize dwCursorPosition wAttributes srWindow dwMaximumWindowSize
+struct MSG : hwnd message wParam lParam time pt
+struct WNDCLASSEXW : cbSize style lpfnWndProc cbClsExtra cbWndExtra hInstance hIcon hCursor hbrBackground lpszMenuName lpszClassName hIconSm
+struct MONITORINFO : cbSize rcMonitor rcWork dwFlags
+struct PIXELFORMATDESCRIPTOR : nSize nVersion dwFlags iPixelType cColorBits dwVisibleMask dwDamageMask
+struct RAWINPUTHEADER : dwType dwSize hDevice wParam
+struct RAWINPUTDEVICE : usUsagePage usUsage dwFlags hwndTarget
+struct BITMAPINFOHEADER : biSize biWidth biHeight biPlanes biBitCount biCompression biSizeImage
+struct OSVERSIONINFOEXW : dwOSVersionInfoSize dwMajorVersion dwMinorVersion dwBuildNumber dwPlatformId szCSDVersion wServicePackMajor wProductType
+struct TIME_ZONE_INFORMATION : Bias StandardName StandardDate StandardBias DaylightName DaylightDate DaylightBias
+struct M128A : Low High
+type CONTEXT
+struct EXCEPTION_RECORD : ExceptionCode ExceptionFlags ExceptionRecord ExceptionAddress NumberParameters ExceptionInformation
+struct EXCEPTION_POINTERS : ExceptionRecord ContextRecord
+struct STACKFRAME64 : AddrPC AddrReturn AddrFrame AddrStack AddrBStore FuncTableEntry Params Far Virtual KdHelp
+struct SYMBOL_INFO : SizeOfStruct TypeIndex Size ModBase Flags Value Address Register Scope Tag NameLen MaxNameLen Name
+struct IMAGEHLP_LINE64 : SizeOfStruct Key LineNumber FileName Address
+struct OPENFILENAMEW = OPENFILENAMEW : lStructSize hwndOwner lpstrFilter lpstrFile nMaxFile lpstrTitle Flags lpstrDefExt
+struct SHFILEOPSTRUCTW : hwnd wFunc pFrom pTo fFlags fAnyOperationsAborted hNameMappings lpszProgressTitle
+const MAX_PATH INFINITE WAIT_OBJECT_0 WAIT_TIMEOUT WAIT_FAILED
+const GENERIC_READ GENERIC_WRITE FILE_SHARE_READ FILE_SHARE_WRITE FILE_SHARE_DELETE
+const CREATE_NEW CREATE_ALWAYS OPEN_EXISTING OPEN_ALWAYS TRUNCATE_EXISTING
+const FILE_ATTRIBUTE_READONLY FILE_ATTRIBUTE_HIDDEN FILE_ATTRIBUTE_DIRECTORY FILE_ATTRIBUTE_NORMAL FILE_ATTRIBUTE_REPARSE_POINT
+const FILE_FLAG_OVERLAPPED FILE_FLAG_BACKUP_SEMANTICS FILE_BEGIN FILE_CURRENT FILE_END
+const MEM_COMMIT MEM_RESERVE MEM_RELEASE MEM_DECOMMIT PAGE_NOACCESS PAGE_READONLY PAGE_READWRITE PAGE_EXECUTE_READWRITE
+const ERROR_FILE_NOT_FOUND ERROR_ACCESS_DENIED ERROR_ALREADY_EXISTS
+const ERROR_IO_PENDING ERROR_BROKEN_PIPE
+const STD_INPUT_HANDLE STD_OUTPUT_HANDLE STD_ERROR_HANDLE STARTF_USESTDHANDLES CREATE_NO_WINDOW CREATE_SUSPENDED
+const HANDLE_FLAG_INHERIT CP_UTF8 CONTEXT_FULL CONTEXT_CONTROL CONTEXT_INTEGER
+const EXCEPTION_MAXIMUM_PARAMETERS JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+type WSADATA = WSADATA
+struct sockaddr = struct sockaddr : sa_family sa_data
+struct sockaddr_storage = struct sockaddr_storage : ss_family
+struct sockaddr_in = struct sockaddr_in : sin_family sin_port sin_addr sin_zero
+struct sockaddr_in6 = struct sockaddr_in6 : sin6_family sin6_port sin6_flowinfo sin6_addr sin6_scope_id
+type in_addr = struct in_addr
+type in6_addr = struct in6_addr
+struct addrinfo = struct addrinfo : ai_flags ai_family ai_socktype ai_protocol ai_addrlen ai_canonname ai_addr ai_next
+struct WSABUF : len buf
+struct linger = struct linger : l_onoff l_linger
+struct hostent = struct hostent : h_name h_aliases h_addrtype h_length h_addr_list
+struct pollfd = WSAPOLLFD : fd events revents
+type fd_set
+struct timeval = struct timeval : tv_sec tv_usec
+const AF_UNIX AF_INET AF_INET6 SOCK.STREAM=SOCK_STREAM SOCK.DGRAM=SOCK_DGRAM
+const SOL_SOCKET SO_REUSEADDR SO_KEEPALIVE SO_RCVBUF SO_SNDBUF SO_ERROR SOMAXCONN
+const IPPROTO.TCP=IPPROTO_TCP IPPROTO.UDP=IPPROTO_UDP IPPROTO.IPV6=IPPROTO_IPV6 IPV6_V6ONLY TCP_NODELAY
+const AI.PASSIVE=AI_PASSIVE AI.CANONNAME=AI_CANONNAME SD_RECEIVE SD_SEND SD_BOTH FIONBIO
+const WSAEWOULDBLOCK WSAEINPROGRESS WSAECONNRESET WSAETIMEDOUT WSAECONNREFUSED SOCKET_ERROR
+
+[macos]
+type __darwin_mcontext64 = struct __darwin_mcontext64

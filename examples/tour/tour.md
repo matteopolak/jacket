@@ -11,35 +11,19 @@ purpose: the error messages are part of the tour.
 
 ## Map
 
-main.jai
-    The itinerary: a table of procedures, run in a loop.
-basics/basics.jai
-    Variables, constants, procedures, multiple return values,
-    named and default arguments, overloading.
-types/structs.jai
-    Structs, `using`, `#as`, operator overloading, unions.
-types/enums.jai
-    Enums, `enum_flags`, `#complete` switches.
-data/arrays.jai
-    Fixed arrays, views, `[..]` arrays, `for` loops, `remove`.
-data/strings.jai
-    Strings, `print` formatting, String_Builder, here-strings.
-memory/memory.jai
-    `defer`, New and free, temporary storage, the context,
-    a custom allocator and logger.
-generics/polymorphism.jai
-    `$T`, polymorphic structs, `/interface`, `#modify`,
-    `$$` and `#bake_arguments`.
-meta/compile_time.jai
-    `#run`, `#if`, `#assert`, `#insert`, `#code`.
-meta/macros.jai
-    `#expand` macros, backticks, custom `for` loops.
-meta/reflection.jai
-    Type_Info, `Any`, notes, and a JSON writer.
-meta/metaprogram.jai
-    Driving the compiler from your own code.
-finale/raymarch.jai
-    A ray marcher that draws a 3D scene in text.
+- [main.jai](main.jai): The itinerary: a table of procedures, run in a loop.
+- [basics/basics.jai](basics/basics.jai): Variables, constants, procedures, multiple return values, named and default arguments, overloading.
+- [types/structs.jai](types/structs.jai): Structs, `using`, `#as`, operator overloading, unions.
+- [types/enums.jai](types/enums.jai): Enums, `enum_flags`, `#complete` switches.
+- [data/arrays.jai](data/arrays.jai): Fixed arrays, views, `[..]` arrays, `for` loops, `remove`.
+- [data/strings.jai](data/strings.jai): Strings, `print` formatting, String_Builder, here-strings.
+- [memory/memory.jai](memory/memory.jai): `defer`, New and free, temporary storage, the context, a custom allocator and logger.
+- [generics/polymorphism.jai](generics/polymorphism.jai): `$T`, polymorphic structs, `/interface`, `#modify`, `$$` and `#bake_arguments`.
+- [meta/compile_time.jai](meta/compile_time.jai): `#run`, `#if`, `#assert`, `#insert`, `#code`.
+- [meta/macros.jai](meta/macros.jai): `#expand` macros, backticks, custom `for` loops.
+- [meta/reflection.jai](meta/reflection.jai): Type_Info, `Any`, notes, and a JSON writer.
+- [meta/metaprogram.jai](meta/metaprogram.jai): Driving the compiler from your own code.
+- [finale/raymarch.jai](finale/raymarch.jai): A ray marcher that draws a 3D scene in text.
 
 ## Things to try
 

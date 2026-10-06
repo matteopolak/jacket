@@ -251,7 +251,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             let layout = cabi.and_then(|c| c.params.get(i).cloned().flatten());
             match layout {
                 Some(layout) => {
-                    let passing = abi::classify_arg(self.arch, &layout);
+                    let passing = if sig.c_varargs {
+                        abi::classify_vararg(self.arch, &layout)
+                    } else {
+                        abi::classify_arg(self.arch, &layout)
+                    };
                     match &passing {
                         Passing::Registers(pieces) => {
                             for p in pieces {
@@ -371,7 +375,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .add_function(&name, lowered.fn_ty, Some(Linkage::External));
             if func.linkage == IrLinkage::Internal {
                 self.internal_linkage(f.as_global_value());
-            } else if self.arch == Arch::Win64 && self.owns_func(i) {
+            } else if self.arch.is_windows() && self.owns_func(i) {
                 // `#program_export`: in a DLL's export table (harmless in an executable).
                 f.as_global_value()
                     .set_dll_storage_class(DLLStorageClass::Export);
@@ -1457,7 +1461,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     false,
                 );
                 // The Windows C runtime spells POSIX `write` with an underscore.
-                let name = if self.arch == Arch::Win64 {
+                let name = if self.arch.is_windows() {
                     "_write"
                 } else {
                     "write"
@@ -1495,7 +1499,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             Intrinsic::CycleCounter => {
                 let v = match self.arch {
                     // The user-space virtual counter; PMCCNTR is not readable from EL0.
-                    Arch::Aarch64 => {
+                    Arch::Aarch64 | Arch::Win64Arm => {
                         self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
                     }
                     Arch::X86_64 | Arch::Win64 => {
@@ -1506,7 +1510,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             Intrinsic::Pause => {
                 let asm = match self.arch {
-                    Arch::Aarch64 => "yield",
+                    Arch::Aarch64 | Arch::Win64Arm => "yield",
                     Arch::X86_64 | Arch::Win64 => "pause",
                 };
                 self.inline_asm(asm, "", None)?;

@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod abi_layout;
 mod common;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
@@ -138,6 +139,10 @@ fn stdlib_tests_run_natively() {
         "posix-stat-and-mutex",
         "no-reset-globals-baked",
     ] {
+        // These two import POSIX, which does not build for Windows.
+        if cfg!(windows) && matches!(name, "proc-sentinel-constant" | "process-stdin-socket") {
+            continue;
+        }
         let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
         assert_eq!(
@@ -200,6 +205,82 @@ fn stack_traces() {
     assert!(!output.status.success());
 }
 
+fn abi_manifest(target: &str) -> abi_layout::Manifest {
+    let text = std::fs::read_to_string(repo_root().join("tests/abi/manifest.txt")).unwrap();
+    abi_layout::parse(&text, target).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// The stdlib's hand-written C declarations (`tests/abi/manifest.txt`) against the host's own
+/// headers: sizes, alignments, field offsets, integer signedness and constants. Every CI host
+/// runs this, so a layout copied from another CPU or OS fails on the host it is wrong for.
+#[test]
+fn stdlib_c_abi_matches_host_headers() {
+    let os = match std::env::consts::OS {
+        "linux" => "linux",
+        "macos" => "macos",
+        "windows" => "windows",
+        other => {
+            eprintln!("skipping: no ABI manifest section for {other}");
+            return;
+        }
+    };
+    let cpu = match std::env::consts::ARCH {
+        "x86_64" => "x64",
+        "aarch64" => "arm64",
+        other => other,
+    };
+    let target = format!("{os}-{cpu}");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-abi-layout");
+    std::fs::create_dir_all(&dir).unwrap();
+    let compiler = abi_layout::host_c_compiler();
+    if Command::new(&compiler).arg("--version").output().is_err() {
+        // CI hosts always have one; a missing compiler there must not pass silently.
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "no C compiler `{compiler}`"
+        );
+        eprintln!("skipping: no C compiler `{compiler}`");
+        return;
+    }
+    let mismatches = abi_layout::check_host(JAIC, &abi_manifest(&target), &target, &dir)
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert!(
+        mismatches.is_empty(),
+        "{} stdlib declarations differ from the C headers:\n{}",
+        mismatches.len(),
+        mismatches.join("\n")
+    );
+}
+
+/// The same check for targets this host cannot run, from `JAIC_ABI_CROSS` (`;`-separated
+/// `os-cpu[:clang args]`, e.g. `macos-x64;windows-x64`); clang must have that target's headers.
+/// Does nothing when the variable is unset. See docs/stdlib/native-bindings.md.
+#[test]
+fn stdlib_c_abi_matches_cross_target_headers() {
+    let Ok(specs) = std::env::var("JAIC_ABI_CROSS") else {
+        return;
+    };
+    let clang = std::env::var("JAIC_ABI_CLANG").unwrap_or_else(|_| "clang".into());
+    let mut failures = Vec::new();
+    for spec in specs.split(';').filter(|s| !s.trim().is_empty()) {
+        let target = abi_layout::cross_target(spec.trim()).unwrap_or_else(|e| panic!("{e}"));
+        let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
+            .join("native-abi-cross")
+            .join(&target.name);
+        std::fs::create_dir_all(&dir).unwrap();
+        match abi_layout::check_cross(JAIC, &clang, &abi_manifest(&target.name), &target, &dir) {
+            Ok(mismatches) => failures.extend(mismatches),
+            Err(e) => failures.push(format!("[{}] {e}", target.name)),
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} problems:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
 /// C structs by value across the C ABI: foreign calls from the interpreter and from native code, and
 /// native `#c_call` definitions called back from C. Skipped when no C compiler is installed.
 #[test]
@@ -220,8 +301,8 @@ fn c_structs_by_value() {
     } else {
         "libstructs.so"
     };
-    // Windows: a static `libstructs.lib` from Clang (the interpreter cannot load native
-    // libraries there, so only the native build is checked).
+    // Windows: a static `libstructs.lib` from Clang for the native build; the interpreter is
+    // checked against a DLL on arm64 below (on x64 it cannot call back into interpreted code).
     let mut steps = vec![Command::new(if cfg!(windows) {
         "clang"
     } else {
@@ -275,6 +356,34 @@ fn c_structs_by_value() {
     };
     assert_eq!(run_native("foreign_calls"), calls);
     assert_eq!(run_native("callbacks"), callbacks);
+    // Windows on arm64: the interpreter loads the fixture as `libstructs.dll` (built after the
+    // native runs, since its import library replaces the static `libstructs.lib`). An MSVC DLL
+    // exports only what it is told to, so every function defined in `structs.c` is named.
+    if cfg!(all(windows, target_arch = "aarch64")) {
+        let source = std::fs::read_to_string(dir.join("structs.c")).unwrap();
+        let mut link = Command::new("clang");
+        link.args(["-shared", "structs.c", "-o", "libstructs.dll"]);
+        for line in source.lines() {
+            let starts_definition = line.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+            if !starts_definition || line.starts_with("typedef") {
+                continue;
+            }
+            let Some(head) = line.split('(').next() else {
+                continue;
+            };
+            if let Some(name) = head.split_whitespace().last() {
+                link.arg(format!("-Wl,/EXPORT:{}", name.trim_start_matches('*')));
+            }
+        }
+        let output = link.current_dir(&dir).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(run_interp("foreign_calls"), calls);
+        assert_eq!(run_interp("callbacks"), callbacks);
+    }
 }
 
 /// C variadic foreign calls in a native build (Apple arm64 passes variadic arguments on the stack).
@@ -675,8 +784,9 @@ fn jaifmt_is_idempotent_on_the_repository() {
 }
 
 /// The Windows runtime test program: natively wherever the tests run, and cross-built with
-/// `-os windows` when a MinGW-w64 toolchain is installed (the result is checked to be an x86-64
-/// PE executable; CI runs it on Windows, see `tools/windows_cross.py`).
+/// `-os windows` (x64, and `-cpu arm64`) when a MinGW-w64 toolchain for that CPU is installed
+/// (the result is checked to be a PE executable for it; CI runs them on Windows, see
+/// `tools/windows_cross.py`).
 #[test]
 fn windows_runtime_program() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-windows-runtime");
@@ -690,30 +800,41 @@ fn windows_runtime_program() {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
-    let mingw = Command::new("x86_64-w64-mingw32-gcc")
-        .arg("--version")
-        .output();
-    if cfg!(windows) || mingw.is_err() {
+    if cfg!(windows) {
         return;
     }
-    let build = Command::new(JAIC)
-        .arg("build")
-        .arg(&source)
-        .args(["-os", "windows", "-o"])
-        .arg(dir.join("cross"))
-        .output()
-        .unwrap();
-    assert!(
-        build.status.success(),
-        "{}",
-        String::from_utf8_lossy(&build.stderr)
-    );
-    let image = std::fs::read(dir.join("cross.exe")).unwrap();
-    assert_eq!(&image[..2], b"MZ");
-    let pe = u32::from_le_bytes(image[0x3c..0x40].try_into().unwrap()) as usize;
-    assert_eq!(&image[pe..pe + 4], b"PE\0\0");
-    // IMAGE_FILE_MACHINE_AMD64
-    assert_eq!(u16::from_le_bytes([image[pe + 4], image[pe + 5]]), 0x8664);
+    // x64 with MinGW-w64 GCC (or llvm-mingw), arm64 with llvm-mingw; each only when installed.
+    // The machine field: IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_ARM64.
+    for (cpu, toolchain, machine) in [
+        ("x64", "x86_64-w64-mingw32-gcc", 0x8664),
+        ("arm64", "aarch64-w64-mingw32-clang", 0xaa64),
+    ] {
+        if Command::new(toolchain).arg("--version").output().is_err() {
+            continue;
+        }
+        let name = format!("cross-{cpu}");
+        let build = Command::new(JAIC)
+            .arg("build")
+            .arg(&source)
+            .args(["-os", "windows", "-cpu", cpu, "-o"])
+            .arg(dir.join(&name))
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "{cpu}: {}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let image = std::fs::read(dir.join(format!("{name}.exe"))).unwrap();
+        assert_eq!(&image[..2], b"MZ");
+        let pe = u32::from_le_bytes(image[0x3c..0x40].try_into().unwrap()) as usize;
+        assert_eq!(&image[pe..pe + 4], b"PE\0\0");
+        assert_eq!(
+            u16::from_le_bytes([image[pe + 4], image[pe + 5]]),
+            machine,
+            "{cpu}"
+        );
+    }
 }
 
 /// `jaic build -plug Name` writes the program the plugin's workspace compiled.

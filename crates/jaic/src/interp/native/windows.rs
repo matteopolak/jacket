@@ -1,6 +1,7 @@
-//! Native foreign calls on Windows x64: DLL loading and the Microsoft x64 convention.
+//! Native foreign calls on Windows: DLL loading (x64 and arm64) and the Microsoft x64
+//! convention. Windows on arm64 calls through the AAPCS64 path in `native.rs`.
 //!
-//! Arguments occupy positional 8-byte slots: the first four in RCX/RDX/R8/R9 or, for
+//! x64 arguments occupy positional 8-byte slots: the first four in RCX/RDX/R8/R9 or, for
 //! floating-point ones, XMM0-XMM3; the rest on the stack. Calls go through a C-variadic
 //! prototype whose variadic doubles the caller places in both the XMM and the integer
 //! register of their slot, so the callee finds each of the first four arguments wherever its
@@ -8,8 +9,11 @@
 //! (integer or float). Aggregates follow `abi::classify_arg(Arch::Win64)`: 1, 2, 4 or 8 bytes
 //! in one slot, anything else as a pointer to a copy; non-register results come back through
 //! a hidden pointer in the first slot.
+#[cfg(target_arch = "x86_64")]
 use super::{read_bytes, write_bytes};
+#[cfg(target_arch = "x86_64")]
 use crate::abi::{self, Arch, Passing};
+#[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};
 use std::ffi::c_void;
 use std::sync::Mutex;
@@ -87,11 +91,13 @@ pub fn lookup(lib: Option<usize>, symbol: &str) -> Option<u64> {
 }
 
 /// Positional argument slots the prototype passes: four register slots and 16 stack slots.
+#[cfg(target_arch = "x86_64")]
 const SLOTS: usize = 20;
 
 /// Call `addr` with `slots`, reading the result as `R` (`u64` from RAX, `f64` from XMM0).
 ///
 /// SAFETY: `addr` is a C function whose parameters fit `slots` positionally.
+#[cfg(target_arch = "x86_64")]
 unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R {
     let f = |i: usize| f64::from_bits(slots[i]);
     let [
@@ -174,6 +180,7 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
 }
 
 /// `super::call_with` for the Microsoft x64 convention.
+#[cfg(target_arch = "x86_64")]
 pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());

@@ -23,6 +23,12 @@ main :: () {
     text = to_string(buf.data, n);
     assert(text == "0.5 2.4 9 3.125 end", "snprintf gave '%'", text);
 
+    // Windows on arm64 passes every argument of a variadic call, doubles included, in x0-x7
+    // and then on the stack: these run past the eight registers with floats on both sides.
+    n = snprintf(buf.data, buf.count, "%d %.1f %d %.1f %d %.1f %d %.1f %d", cast(s32) 1, 2.5, cast(s32) 3, 4.5, cast(s32) 5, 6.5, cast(s32) 7, 8.5, cast(s32) 9);
+    text = to_string(buf.data, n);
+    assert(text == "1 2.5 3 4.5 5 6.5 7 8.5 9", "snprintf gave '%'", text);
+
     // fcntl's third argument is variadic: FD_CLOEXEC must actually be set.
     #if OS != .WINDOWS {
         F_GETFD :: 1;

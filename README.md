@@ -27,7 +27,7 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 | --- | :---: | :---: |
 | macOS | ✅ | ✅ |
 | Linux | ✅ | ✅ |
-| Windows | ✅ (MSVC, or cross-built with MinGW-w64 via `-os windows`) | ❌ |
+| Windows | ✅ (MSVC, or cross-built with MinGW-w64 via `-os windows`) | ✅ (MSVC, or cross-built with llvm-mingw via `-os windows -cpu arm64`) |
 
 **Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals).
 
@@ -40,7 +40,7 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 
 ## What is missing
 
-- Windows on arm64. On Windows x64, C code cannot yet call back into procedures that run in the compile-time interpreter, and MSVC builds produce no PDB debug file.
+- On Windows x64, C code cannot yet call back into procedures that run in the compile-time interpreter (it can on Windows arm64). On Windows, programs that start threads cannot run in the interpreter, and MSVC builds produce no PDB debug file.
 - `Bindings_Generator` drops functions that use the 16-byte `long double`.
 - `#asm` rejects the F16C, SHA and GFNI extensions.
 
@@ -48,7 +48,7 @@ Anything unsupported fails with a compile error rather than being silently accep
 
 ## Install
 
-Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64) are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md).
+Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64) are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md).
 
 With Nix (see [Nix](docs/tools/nix.md)):
 

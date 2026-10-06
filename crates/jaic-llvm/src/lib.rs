@@ -422,7 +422,8 @@ pub fn archive(objects: &[PathBuf], output: &Path, target: Option<&str>) -> Resu
     let program = match std::env::var("JAIC_AR") {
         Ok(program) => program,
         Err(_) if LinkFlavor::for_target(target).is_windows() => {
-            find_program(&["x86_64-w64-mingw32-ar", "llvm-ar", "llvm-lib", "lib"])
+            let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
+            find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
                 .ok_or("no archiver for Windows libraries found: install LLVM or mingw-w64")?
         }
         Err(_) => "ar".to_string(),
@@ -486,7 +487,13 @@ fn find_program(names: &[&str]) -> Option<String> {
 /// The linker program and its base command. `JAIC_LINKER` overrides the choice: a program
 /// named `link` or `lld-link` gets MSVC-style arguments, anything else C-driver arguments.
 fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, Command), String> {
-    let msvc_triple = target.unwrap_or("x86_64-pc-windows-msvc");
+    let msvc_triple = match target {
+        Some(t) => t.to_string(),
+        None => TargetMachine::get_default_triple()
+            .as_str()
+            .to_string_lossy()
+            .into_owned(),
+    };
     if let Some(program) = std::env::var_os("JAIC_LINKER") {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
@@ -498,14 +505,23 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
     match flavor {
         LinkFlavor::Unix => Ok(("cc".into(), Command::new("cc"))),
         LinkFlavor::MinGw => {
-            let mut names = vec!["x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-clang"];
+            // GCC only targets x64; llvm-mingw provides `-clang` (and a `-gcc` alias of it)
+            // for both CPUs.
+            let cpu = mingw_cpu(target);
+            let gcc = format!("{cpu}-w64-mingw32-gcc");
+            let clang = format!("{cpu}-w64-mingw32-clang");
+            let mut names = vec![gcc.as_str(), clang.as_str()];
             if cfg!(windows) {
                 names.extend(["gcc", "clang"]);
             }
-            let program = find_program(&names).ok_or(
-                "no MinGW-w64 linker found: install mingw-w64 (it provides \
-                 x86_64-w64-mingw32-gcc) or set JAIC_LINKER",
-            )?;
+            let program = find_program(&names).ok_or_else(|| {
+                let install = if cpu == "aarch64" {
+                    "install llvm-mingw (it provides aarch64-w64-mingw32-clang)"
+                } else {
+                    "install mingw-w64 (it provides x86_64-w64-mingw32-gcc)"
+                };
+                format!("no MinGW-w64 linker found: {install} or set JAIC_LINKER")
+            })?;
             let mut cmd = Command::new(&program);
             if program.ends_with("clang") {
                 cmd.arg(format!(
@@ -530,6 +546,19 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
             let cmd = Command::new(&program);
             Ok((program, cmd))
         }
+    }
+}
+
+/// The CPU prefix of the MinGW-w64 tool names for `target` (`None`: the host).
+fn mingw_cpu(target: Option<&str>) -> &'static str {
+    let arm = match target {
+        Some(t) => t.starts_with("aarch64") || t.starts_with("arm64"),
+        None => cfg!(target_arch = "aarch64"),
+    };
+    if arm {
+        "aarch64"
+    } else {
+        "x86_64"
     }
 }
 
@@ -696,6 +725,23 @@ mod tests {
         assert_eq!(
             output_extension(Some(WINDOWS_CROSS_TRIPLE), OutputKind::DynamicLibrary),
             Some("dll")
+        );
+    }
+
+    #[test]
+    fn windows_arm64_triples_pick_windows_linkers() {
+        assert_eq!(
+            LinkFlavor::for_target(Some("aarch64-pc-windows-msvc")),
+            LinkFlavor::Msvc
+        );
+        for mingw in ["aarch64-pc-windows-gnu", "aarch64-w64-mingw32"] {
+            assert_eq!(LinkFlavor::for_target(Some(mingw)), LinkFlavor::MinGw);
+            assert_eq!(mingw_cpu(Some(mingw)), "aarch64");
+        }
+        assert_eq!(mingw_cpu(Some(WINDOWS_CROSS_TRIPLE)), "x86_64");
+        assert_eq!(
+            output_extension(Some("aarch64-pc-windows-gnu"), OutputKind::Executable),
+            Some("exe")
         );
     }
 

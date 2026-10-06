@@ -82,7 +82,7 @@ fn usage() -> ExitCode {
         "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...] [-- program args...]"
     );
     eprintln!(
-        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-os windows] [-target triple]"
+        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-os windows] [-cpu x64|arm64] [-target triple]"
     );
     eprintln!(
         "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
@@ -115,6 +115,8 @@ struct Cli {
     program_args: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
     os: Option<TargetOs>,
+    /// `-cpu`: the target `CPU` when it is not the host's (`-os windows -cpu arm64`).
+    cpu: Option<TargetCpu>,
     /// `-plug Name`: metaprogram plugin modules (`Name` may carry module parameters,
     /// `Check(CHECK_BINDINGS=false)`).
     plugins: Vec<String>,
@@ -128,18 +130,38 @@ struct Cli {
 
 impl Cli {
     /// The LLVM triple to build for, `None` for the host. `-os windows` on another host
-    /// cross-compiles with MinGW-w64; other cross targets need an explicit `-target`.
+    /// cross-compiles with MinGW-w64 (x64 unless `-cpu arm64`); other cross targets need an
+    /// explicit `-target`.
     fn target_triple(&self) -> Result<Option<String>, String> {
+        self.target_triple_from(Options::host().os, Options::host().cpu)
+    }
+
+    fn target_triple_from(
+        &self,
+        host_os: TargetOs,
+        host_cpu: TargetCpu,
+    ) -> Result<Option<String>, String> {
         if let Some(triple) = &self.target {
             return Ok(Some(triple.clone()));
         }
-        let host = Options::host().os;
-        match self.os {
-            None => Ok(None),
-            Some(os) if os == host => Ok(None),
-            Some(TargetOs::Windows) => Ok(Some(WINDOWS_CROSS_TRIPLE.to_string())),
-            Some(_) if self.command != Command::Build => Ok(None),
-            Some(_) => Err(
+        let os = self.os.unwrap_or(host_os);
+        let cpu = self.cpu.unwrap_or(host_cpu);
+        if os == host_os && cpu == host_cpu {
+            return Ok(None);
+        }
+        match os {
+            // A Windows host keeps its own toolchain (MSVC) for the other CPU. Elsewhere x64
+            // is the default: it is what most Windows machines run, and Windows on arm64
+            // runs x64 programs too.
+            TargetOs::Windows => Ok(Some(
+                windows_triple(
+                    self.cpu.unwrap_or(TargetCpu::X64),
+                    host_os == TargetOs::Windows,
+                )
+                .to_string(),
+            )),
+            _ if self.command != Command::Build => Ok(None),
+            _ => Err(
                 "native cross-compilation is only supported for -os windows; pass -target <triple> for others"
                     .into(),
             ),
@@ -147,8 +169,16 @@ impl Cli {
     }
 }
 
-/// The MinGW triple `-os windows` builds for when the host is not Windows.
-const WINDOWS_CROSS_TRIPLE: &str = "x86_64-pc-windows-gnu";
+/// The triple a Windows build for `cpu` targets: the MSVC environment on a Windows host,
+/// MinGW-w64 (whose cross toolchains exist for macOS and Linux) elsewhere.
+fn windows_triple(cpu: TargetCpu, msvc: bool) -> &'static str {
+    match (cpu, msvc) {
+        (TargetCpu::Arm64, true) => "aarch64-pc-windows-msvc",
+        (TargetCpu::Arm64, false) => "aarch64-pc-windows-gnu",
+        (_, true) => "x86_64-pc-windows-msvc",
+        (_, false) => "x86_64-pc-windows-gnu",
+    }
+}
 
 /// `OS` and `CPU` as a target triple implies them.
 fn os_and_cpu(triple: &str) -> (TargetOs, TargetCpu) {
@@ -189,6 +219,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         command_line: Vec::new(),
         program_args: Vec::new(),
         os: None,
+        cpu: None,
         target: None,
         plugins: Vec::new(),
         plugin_options: Vec::new(),
@@ -220,6 +251,13 @@ fn parse(args: &[String]) -> Option<Cli> {
                     "windows" => TargetOs::Windows,
                     "macos" => TargetOs::MacOS,
                     "wasm" => TargetOs::Wasm,
+                    _ => return None,
+                })
+            }
+            "-cpu" => {
+                cli.cpu = Some(match rest.next()?.as_str() {
+                    "x64" | "x86_64" => TargetCpu::X64,
+                    "arm64" | "aarch64" => TargetCpu::Arm64,
                     _ => return None,
                 })
             }
@@ -307,6 +345,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     let mut options = Options::host();
     if let Some(os) = cli.os {
         options.os = os;
+    }
+    if let Some(cpu) = cli.cpu {
+        options.cpu = cpu;
     }
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
@@ -614,5 +655,54 @@ impl OutputBackend for LlvmBackend {
             let _ = std::fs::remove_file(object);
         }
         linked
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
+        let mut argv = vec!["build".to_string(), "main.jai".to_string()];
+        argv.extend(args.iter().map(|a| a.to_string()));
+        let cli = parse(&argv).expect("valid command line");
+        cli.target_triple_from(host_os, host_cpu).expect("a target")
+    }
+
+    #[test]
+    fn windows_cross_builds_default_to_x64_mingw() {
+        let mac = (TargetOs::MacOS, TargetCpu::Arm64);
+        assert_eq!(
+            triple(&["-os", "windows"], mac.0, mac.1).as_deref(),
+            Some("x86_64-pc-windows-gnu")
+        );
+        assert_eq!(
+            triple(&["-os", "windows", "-cpu", "arm64"], mac.0, mac.1).as_deref(),
+            Some("aarch64-pc-windows-gnu")
+        );
+        assert_eq!(triple(&[], mac.0, mac.1), None);
+    }
+
+    #[test]
+    fn windows_hosts_build_for_themselves_or_the_other_cpu_with_msvc() {
+        let arm = (TargetOs::Windows, TargetCpu::Arm64);
+        assert_eq!(triple(&["-os", "windows"], arm.0, arm.1), None);
+        assert_eq!(
+            triple(&["-cpu", "x64"], arm.0, arm.1).as_deref(),
+            Some("x86_64-pc-windows-msvc")
+        );
+        let x64 = (TargetOs::Windows, TargetCpu::X64);
+        assert_eq!(
+            triple(&["-cpu", "arm64"], x64.0, x64.1).as_deref(),
+            Some("aarch64-pc-windows-msvc")
+        );
+        assert_eq!(
+            triple(&["-target", "aarch64-w64-mingw32"], x64.0, x64.1).as_deref(),
+            Some("aarch64-w64-mingw32")
+        );
+        assert!(matches!(
+            os_and_cpu("aarch64-pc-windows-msvc"),
+            (TargetOs::Windows, TargetCpu::Arm64)
+        ));
     }
 }
