@@ -33,7 +33,7 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jai-lsp`) with diagnostics, type-checked hover and completion, go to definition and rename.
-- A [formatter](docs/tools/jaifmt.md) (`jaifmt`), written in Jai, that runs natively and in the browser.
+- A [formatter](docs/tools/jaifmt.md) (`jaifmt`), written in Jai, that runs natively and in the browser. Its output is canonical and idempotent, like rustfmt.
 - A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai).
 
 **Real projects** such as the Focus editor, the Jails language server, jaison, sgpu and the programs from *The Way to Jai* compile and run; see [the full list](docs/tools/upstream-corpus.md#project-status).

@@ -52,11 +52,11 @@ main :: () {
         arg := args[i];
         i += 1;
         if arg == {
-            case "--check";        options.check = true;
-            case "--stdin";        options.stdin = true;
-            case "--verbose";      options.verbose = true;
-            case "-v";             options.verbose = true;
-            case "--help";         #through;
+            case "--check"; options.check = true;
+            case "--stdin"; options.stdin = true;
+            case "--verbose"; options.verbose = true;
+            case "-v"; options.verbose = true;
+            case "--help"; #through;
             case "-h";
                 print("%", USAGE);
                 exit(0);
@@ -131,7 +131,7 @@ fatal_usage :: (message: string) {
     exit(2);
 }
 
-print_error :: (format: string, args: .. Any) {
+print_error :: (format: string, args: ..Any) {
     text := tprint(format, ..args);
     write(STDERR_FILENO, text.data, cast(u64) text.count);
 }
@@ -144,7 +144,7 @@ absolute_path :: (path: string) -> string {
 
 trim_trailing_slashes :: (path: string) -> string {
     result := path;
-    while result.count > 1 && result[result.count - 1] == #char "/"  result.count -= 1;
+    while result.count > 1 && result[result.count - 1] == #char "/" result.count -= 1;
     while begins_with(result, "./") result = slice(result, 2, result.count - 2);
     return result;
 }
@@ -276,7 +276,7 @@ read_all_stdin :: () -> string {
 // Finds the nearest jaifmt.toml in `directory` or its parents and loads it; returns defaults
 // when there is none. Results are cached per directory.
 config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: string {
-    for config_cache  if it.directory == directory return it.config, it.ok, it.error;
+    for config_cache if it.directory == directory return it.config, it.ok, it.error;
 
     entry: Config_Cache_Entry;
     entry.directory = copy_string(directory);
@@ -310,7 +310,7 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
 // `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
 parent_directory :: (path: string) -> string {
     end := path.count;
-    while end > 1 && path[end - 1] == #char "/"  end -= 1;
+    while end > 1 && path[end - 1] == #char "/" end -= 1;
     slash := find_index_from_right(slice(path, 0, end), #char "/");
     if slash < 0 return "";
     if slash == 0 return "/";

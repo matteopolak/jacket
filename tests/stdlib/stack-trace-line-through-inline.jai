@@ -9,7 +9,9 @@ through_inline :: inline () -> s64 {
 }
 
 main :: () {
-    line := through_inline(); here := #location();
-    if line != here.line_number { print("FAIL: % vs %\n", line, here.line_number); exit(1); }
+    // The location is taken on the next line, so this holds whatever the layout.
+    line := through_inline();
+    here := #location();
+    if line != here.line_number - 1 { print("FAIL: % vs %\n", line, here.line_number - 1); exit(1); }
     print("ok\n");
 }

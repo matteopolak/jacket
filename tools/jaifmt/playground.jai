@@ -47,7 +47,7 @@ fail :: (format: string, args: ..Any) -> int {
 
 parent_directory :: (path: string) -> string {
     for < i: 0..path.count - 1 {
-        if path[i] == #char "/" return ifx i == 0 then "/" else string.{i, path.data};
+        if path[i] == #char "/" return ifx i == 0 then "/" else string.{ i, path.data };
     }
     return WORKSPACE;
 }

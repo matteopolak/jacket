@@ -605,6 +605,72 @@ fn jaifmt_builds_and_formats() {
     assert_eq!(fmt(&["--check", "src"]).status.code(), Some(0));
 }
 
+/// jaifmt formats every Jai file in a copy of the repository's stdlib, tests and tools (each one
+/// passes its token-equivalence check), and formatting the result again changes nothing.
+#[test]
+fn jaifmt_is_idempotent_on_the_repository() {
+    if cfg!(windows) {
+        return;
+    }
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt-idempotence");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let exe = exe_path(&dir, "jaifmt");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(repo_root().join("tools/jaifmt/main.jai"))
+        .args(["-O2", "-o"])
+        .arg(&exe)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    fn copy_jai(from: &Path, to: &Path, count: &mut usize) {
+        for entry in std::fs::read_dir(from).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap();
+            if path.is_dir() {
+                // tests/corpus holds deliberately malformed and byte-pinned fixtures.
+                if name != "corpus" {
+                    copy_jai(&path, &to.join(name), count);
+                }
+            } else if path.extension().is_some_and(|e| e == "jai") {
+                std::fs::create_dir_all(to).unwrap();
+                std::fs::copy(&path, to.join(name)).unwrap();
+                *count += 1;
+            }
+        }
+    }
+    let tree = dir.join("tree");
+    let mut count = 0;
+    for part in ["stdlib", "tests", "tools", "benchmarks", "examples"] {
+        let source = repo_root().join(part);
+        if source.is_dir() {
+            copy_jai(&source, &tree.join(part), &mut count);
+        }
+    }
+    assert!(count > 300, "only {count} Jai files copied");
+    let run = |args: &[&str]| Command::new(&exe).args(args).arg(&tree).output().unwrap();
+    let first = run(&[]);
+    assert_eq!(
+        first.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let again = run(&["--check"]);
+    assert_eq!(
+        again.status.code(),
+        Some(0),
+        "not idempotent:\n{}",
+        String::from_utf8_lossy(&again.stdout)
+    );
+}
+
 /// The Windows runtime test program: natively wherever the tests run, and cross-built with
 /// `-os windows` when a MinGW-w64 toolchain is installed (the result is checked to be an x86-64
 /// PE executable; CI runs it on Windows, see `tools/windows_cross.py`).

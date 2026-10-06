@@ -40,6 +40,17 @@ for (const name of names) {
   times.push(result.ms);
 }
 
+// The playground's own config (as on the portfolio) and the examples users try first.
+const portfolio = 'indent_width = 4\nmax_blank_lines = 2\nbrace_style = "same_line"\n';
+const messy = 'main :: ()\n{\n    a: int,     b: int;\n    arr := int.[1,2 ,  3];\n    for arr    {\n    }\n' +
+  '    x:=1;   if x>0 {print("hi %\\n",x);}\n    if x ==\n    {\n        case 1; a = 1;\n    }\n}\n';
+const tidy = 'main :: () {\n    a: int, b: int;\n    arr := int.[1, 2, 3];\n    for arr {}\n    x := 1;\n' +
+  '    if x > 0 {\n        print("hi %\\n", x);\n    }\n    if x == {\n        case 1; a = 1;\n    }\n}\n';
+const user = format(messy, { config: portfolio });
+assert.equal(user.exitCode, 0, user.stderr);
+assert.equal(user.stdout, tidy);
+assert.equal(format(tidy, { config: portfolio }).stdout, tidy, "formatting is idempotent");
+
 const badConfig = format("main :: () {}\n", { config: "indent_width = wide\n" });
 assert.equal(badConfig.exitCode, 1);
 assert.equal(badConfig.stdout, "");
