@@ -109,6 +109,7 @@
 
 - Under `jaic run`, `get_path_of_running_executable` returns the executable `jaic build` would write for the program (`src/main` for `jaic run src/main.jai`) instead of `jaic`'s own path, so programs that load data relative to their executable (`../assets`) find it.
 - `jaic run` writes the executables and libraries a metaprogram's workspaces ask for, as `jaic build` does (it only interprets the top-level program instead of compiling it), so `jaic run first.jai` on a build script builds and can launch its program. `-no_workspace_output` skips them. `jaic check` still writes nothing, and now warns when a workspace asks for output, naming the `jaic build` command that writes it.
+- System on Linux: `get_number_of_processors(.ALL_PHYSICAL)` falls back to the logical count where `/sys` has no CPU topology (containers, the browser sandbox) instead of returning 0.
 - Process: `run_command` with captured output closes the child's input, so a program that reads stdin (`sort`) ends instead of waiting forever; on POSIX, a missing `working_directory` is named in the error instead of blaming the program.
 - File_Async compiles: `initialize_queue` treated `Thread.init` of a condition variable as returning a result.
 - File on macOS and Linux: a handle opened `for_writing` can read back what it wrote, `keep_existing_content` starts at the end but writes where the program seeks (as on Windows; append mode sent every write to the end), and opening a directory for reading fails (on tmpfs `read_entire_file` of a directory returned an empty string).
