@@ -71,7 +71,9 @@ check_bindings :: () {
     assert(has(text, "COLOR_GREEN :: GREEN;"));
     assert(has(text, "Flags :: u32;"));
     assert(has(text, "Number :: union {"));
-    assert(has(text, "__bitfield: u8;"));
+    // MSVC keeps bit-fields in units of their declared type; the others pack them in bytes.
+    #if OS == .WINDOWS assert(has(text, "__bitfield: u32;"));
+    else assert(has(text, "__bitfield: u8;"));
     assert(has(text, "Packed_get_a :: (s: *Packed) -> u32 {"));
     assert(has(text, "Opaque_T :: struct {"));
     assert(has(text, "Opaque :: *Opaque_T;"));
