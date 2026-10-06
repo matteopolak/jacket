@@ -25,13 +25,7 @@ Android macos-x64: Android/Native_App/module.jai: #assert failed: This module is
 Android wasm: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
 Android windows-arm64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
 Android windows-x64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Debug linux-arm64: Debug/module.jai: #assert failed: Pointer mapping validation requires a host memory-map adapter
-Debug linux-x64: Debug/module.jai: #assert failed: Pointer mapping validation requires a host memory-map adapter
-Debug macos-arm64: Debug/module.jai: #assert failed: Pointer mapping validation requires a host memory-map adapter
-Debug macos-x64: Debug/module.jai: #assert failed: Pointer mapping validation requires a host memory-map adapter
 Debug wasm: Debug/module.jai: #assert failed: Debugger detection requires a host adapter
-Debug windows-arm64: Debug/module.jai: #assert failed: Native stack capture is not implemented for this target
-Debug windows-x64: Debug/module.jai: #assert failed: Native stack capture is not implemented for this target
 GetRect wasm: Window_Creation/module.jai: #assert failed: this `#assert(false)` was compiled
 GetRect_LeftHanded wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
 Linux windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
