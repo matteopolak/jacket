@@ -54,18 +54,31 @@ main :: () {
     free_cpp_files(deep);
 
     if can_compile {
+        // Windows names objects and libraries for its own toolchain.
+        #if OS == .WINDOWS {
+            OBJECT :: "obj";
+            ARCHIVE :: "lib";
+            SHARED :: "dll";
+        } else #if OS == .MACOS {
+            OBJECT :: "o";
+            ARCHIVE :: "a";
+            SHARED :: "dylib";
+        } else {
+            OBJECT :: "o";
+            ARCHIVE :: "a";
+            SHARED :: "so";
+        }
         // Objects are made in the working directory and removed once archived.
         assert(build_cpp_static_lib(tprint("%/libadd", dir), tprint("%/add.c", dir), working_directory = dir));
-        assert(file_exists(tprint("%/libadd.a", dir)));
-        assert(!file_exists(tprint("%/add.o", dir)));
+        assert(file_exists(tprint("%/libadd.%", dir, ARCHIVE)));
+        assert(!file_exists(tprint("%/add.%", dir, OBJECT)));
 
         assert(build_cpp_dynamic_lib(tprint("%/libadd", dir), tprint("%/add.c", dir), working_directory = dir));
-        #if OS == .MACOS assert(file_exists(tprint("%/libadd.dylib", dir)));
-        else assert(file_exists(tprint("%/libadd.so", dir)));
+        assert(file_exists(tprint("%/libadd.%", dir, SHARED)));
 
         // OBJ_FILE keeps the object.
         assert(build_cpp("unused", tprint("%/add.c", dir), type = .OBJ_FILE, working_directory = dir));
-        assert(file_exists(tprint("%/add.o", dir)));
+        assert(file_exists(tprint("%/add.%", dir, OBJECT)));
     }
 
     delete_directory(dir);
