@@ -113,7 +113,7 @@ Scripts, CI and project policies.
 
 - [Benchmarks and profiling](tools/benchmarks.md)
 - [Build storage and target directories](tools/build-storage.md)
-- [Code formatting](tools/code-formatting.md)
+- [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`
 - [Continuous integration](tools/continuous-integration.md)
 - [Dependency policy](tools/dependency-policy.md)
 - [jaic regression sweep](tools/jaic-sweep.md)

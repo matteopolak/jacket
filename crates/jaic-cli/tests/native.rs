@@ -135,6 +135,7 @@ fn stdlib_tests_run_natively() {
         "proc-sentinel-constant",
         "add-context-constant",
         "process-stdin-socket",
+        "posix-stat-and-mutex",
     ] {
         let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
@@ -596,7 +597,8 @@ fn jaifmt_builds_and_formats() {
 
     let rewrite = fmt(&["src"]);
     assert_eq!(rewrite.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&rewrite.stderr).contains("unbalanced"));
+    let stderr = String::from_utf8_lossy(&rewrite.stderr);
+    assert!(stderr.contains("unbalanced"), "{stderr}");
     assert_eq!(read("src/a.jai"), "main :: () {\n  x := 1;\n}\n");
     assert_eq!(read("src/skipped/b.jai"), messy);
     assert_eq!(read("src/bad.jai"), bad_source);
@@ -683,7 +685,8 @@ fn windows_runtime_program() {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "ok\n",
-        "{}",
+        "{}: {}",
+        output.status,
         String::from_utf8_lossy(&output.stderr)
     );
     let mingw = Command::new("x86_64-w64-mingw32-gcc")
