@@ -162,6 +162,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         if self.shard.is_none_or(|s| s.index == 0) {
             self.init_globals()?;
             self.describe_globals();
+            if self.arch.is_wasm() {
+                self.define_multi3()?;
+            }
         }
         for (i, func) in self.program.funcs.iter().enumerate() {
             if let Some(func) = func
@@ -175,6 +178,93 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         if let Some(debug) = &self.debug {
             debug.finalize();
         }
+        Ok(())
+    }
+
+    /// compiler-rt's `__multi3` (128-bit multiply), as a weak definition. wasm has no
+    /// high-half multiply, so LLVM calls it for 64-bit division by a constant and similar
+    /// optimizations; jaic links no compiler-rt for wasm. A real one, if linked, wins.
+    /// `optnone` keeps the optimizer from recognizing the pieces as a wide multiply again.
+    fn define_multi3(&self) -> R<()> {
+        const NAME: &str = "__multi3";
+        if self.module.get_function(NAME).is_some() {
+            return Ok(());
+        }
+        let i64t = self.ctx.i64_type();
+        let ty = self.ctx.void_type().fn_type(
+            &[
+                self.ptr_ty().into(),
+                i64t.into(),
+                i64t.into(),
+                i64t.into(),
+                i64t.into(),
+            ],
+            false,
+        );
+        let f = self.module.add_function(NAME, ty, Some(Linkage::WeakAny));
+        for attr in ["noinline", "optnone"] {
+            let kind = Attribute::get_named_enum_kind_id(attr);
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx.create_enum_attribute(kind, 0),
+            );
+        }
+        let b = self.ctx.create_builder();
+        b.position_at_end(self.ctx.append_basic_block(f, "entry"));
+        let p = |i: u32| -> R<IntValue<'ctx>> {
+            Ok(f.get_nth_param(i)
+                .ok_or("__multi3 parameter")?
+                .into_int_value())
+        };
+        let (a_lo, a_hi, b_lo, b_hi) = (p(1)?, p(2)?, p(3)?, p(4)?);
+        let mask = i64t.const_int(0xffff_ffff, false);
+        let k32 = i64t.const_int(32, false);
+        // The high 64 bits of a_lo * b_lo, from four 32x32-bit products.
+        let (xl, xh) = (
+            b.build_and(a_lo, mask, "")?,
+            b.build_right_shift(a_lo, k32, false, "")?,
+        );
+        let (yl, yh) = (
+            b.build_and(b_lo, mask, "")?,
+            b.build_right_shift(b_lo, k32, false, "")?,
+        );
+        let ll = b.build_int_mul(xl, yl, "")?;
+        let lh = b.build_int_mul(xl, yh, "")?;
+        let hl = b.build_int_mul(xh, yl, "")?;
+        let hh = b.build_int_mul(xh, yh, "")?;
+        let mid = b.build_int_add(
+            b.build_right_shift(ll, k32, false, "")?,
+            b.build_int_add(b.build_and(lh, mask, "")?, b.build_and(hl, mask, "")?, "")?,
+            "",
+        )?;
+        let carries = b.build_int_add(
+            b.build_int_add(
+                b.build_right_shift(lh, k32, false, "")?,
+                b.build_right_shift(hl, k32, false, "")?,
+                "",
+            )?,
+            b.build_right_shift(mid, k32, false, "")?,
+            "",
+        )?;
+        let high = b.build_int_add(hh, carries, "")?;
+        let cross = b.build_int_add(
+            b.build_int_mul(a_lo, b_hi, "")?,
+            b.build_int_mul(a_hi, b_lo, "")?,
+            "",
+        )?;
+        let high = b.build_int_add(high, cross, "")?;
+        let low = b.build_int_mul(a_lo, b_lo, "")?;
+        let out = f
+            .get_nth_param(0)
+            .ok_or("__multi3 result")?
+            .into_pointer_value();
+        b.build_store(out, low)?;
+        // Inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
+        #[allow(unsafe_code)]
+        let out_high =
+            unsafe { b.build_gep(self.ctx.i8_type(), out, &[i64t.const_int(8, false)], "")? };
+        b.build_store(out_high, high)?;
+        b.build_return(None)?;
         Ok(())
     }
 
@@ -411,6 +501,12 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 // `#program_export`: in a DLL's export table (harmless in an executable).
                 f.as_global_value()
                     .set_dll_storage_class(DLLStorageClass::Export);
+            } else if self.arch.is_wasm() && self.owns_func(i) {
+                // `#program_export`: an export of the wasm module, which is how the host calls in.
+                f.add_attribute(
+                    AttributeLoc::Function,
+                    self.ctx.create_string_attribute("wasm-export-name", &name),
+                );
             }
             self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
             // Keep a frame record in every function that calls another, as clang does by default
@@ -421,6 +517,15 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.ctx
                     .create_string_attribute("frame-pointer", "non-leaf"),
             );
+            if self.arch.is_wasm() {
+                // Freestanding, like `-fno-builtin`: on wasm the C library is Jai code in the
+                // same module (Wasi_Runtime), so a loop LLVM turned into a `strlen` or `memcmp`
+                // call could end up calling itself.
+                f.add_attribute(
+                    AttributeLoc::Function,
+                    self.ctx.create_string_attribute("no-builtins", ""),
+                );
+            }
             self.funcs.push(Some(f));
         }
         Ok(())
@@ -439,21 +544,50 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.foreigns.push(p);
                 continue;
             }
-            let ptr = if *is_data {
+            // A `#program_export` of the same name (a runtime written in Jai that supplies
+            // `malloc`, say) is what the linker would bind the reference to. Use it directly:
+            // a second LLVM function of that name would be renamed and stay undefined.
+            let defined = if *is_data {
+                None
+            } else {
+                self.module.get_function(symbol)
+            };
+            let ptr = if let Some(f) = defined {
+                f.as_global_value().as_pointer_value()
+            } else if *is_data {
                 let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
                 g.set_linkage(Linkage::External);
                 g.as_pointer_value()
             } else {
                 let lowered = self.lower_sig(sig);
-                self.module
-                    .add_function(symbol, lowered.fn_ty, Some(Linkage::External))
-                    .as_global_value()
-                    .as_pointer_value()
+                let f = self
+                    .module
+                    .add_function(symbol, lowered.fn_ty, Some(Linkage::External));
+                if self.arch.is_wasm() && !symbol.starts_with("llvm.") {
+                    self.wasm_import(f, symbol, foreign.library);
+                }
+                f.as_global_value().as_pointer_value()
             };
             by_symbol.push((symbol, ptr));
             self.foreigns.push(ptr);
         }
         Ok(())
+    }
+
+    /// Make an undefined function a wasm import. The module is the `#library` it was declared
+    /// with (`wasi_snapshot_preview1`), or `env` for the C library and for `#foreign` without
+    /// one, which is where wasm-ld and most hosts look by default.
+    fn wasm_import(&self, f: FunctionValue<'ctx>, symbol: &str, library: Option<usize>) {
+        let module = library
+            .and_then(|i| self.program.libraries.get(i))
+            .map(|lib| wasm_import_module(&lib.name))
+            .unwrap_or("env");
+        for (key, value) in [("wasm-import-module", module), ("wasm-import-name", symbol)] {
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx.create_string_attribute(key, value),
+            );
+        }
     }
 
     /// Initial-value layout of a global: runs of plain bytes interleaved with
@@ -780,11 +914,24 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         Ok(basic(self.builder.build_call(f, args, "")?))
     }
 
-    /// Declare (once) and return a libc function.
-    fn libc(&self, name: &str, ty: FunctionType<'ctx>) -> FunctionValue<'ctx> {
-        self.module
-            .get_function(name)
-            .unwrap_or_else(|| self.module.add_function(name, ty, Some(Linkage::External)))
+    /// Call a C library function, declaring it on first use. The call goes through `ty`, not
+    /// the declaration's type: a Jai definition of the same name (a wasm runtime's `memcmp`)
+    /// may already exist with a different but compatible signature.
+    fn libc_call(
+        &self,
+        name: &str,
+        ty: FunctionType<'ctx>,
+        args: &[BasicMetadataValueEnum<'ctx>],
+    ) -> R<CallSiteValue<'ctx>> {
+        let f = self.module.get_function(name).unwrap_or_else(|| {
+            let f = self.module.add_function(name, ty, Some(Linkage::External));
+            if self.arch.is_wasm() {
+                self.wasm_import(f, name, None);
+            }
+            f
+        });
+        let ptr = f.as_global_value().as_pointer_value();
+        Ok(self.builder.build_indirect_call(ty, ptr, args, "")?)
     }
 
     /// Branch to a trapping block when `cond` (an `i1`) holds.
@@ -1503,11 +1650,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     &[self.ptr_ty().into(), self.ptr_ty().into(), i64t.into()],
                     false,
                 );
-                let f = self.libc("memcmp", ty);
-                let r = basic(b.build_call(
-                    f,
+                let r = basic(self.libc_call(
+                    "memcmp",
+                    ty,
                     &[ptr_arg(0)?.into(), ptr_arg(1)?.into(), size_arg(2)?.into()],
-                    "",
                 )?)
                 .ok_or("memcmp returned no value")?
                 .into_int_value();
@@ -1554,6 +1700,25 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.trap_if(st, out)?;
                 Ok(vec![])
             }
+            Intrinsic::CompilerWrite if self.arch.is_wasm() => {
+                // WebAssembly has no `write`; Runtime_Support's import (`wasm_write_string`)
+                // takes the same three arguments, count first.
+                let ty = self.ctx.void_type().fn_type(
+                    &[i64t.into(), self.ptr_ty().into(), self.ctx.i8_type().into()],
+                    false,
+                );
+                let to_err = b.build_int_truncate_or_bit_cast(
+                    self.as_int(args[2])?,
+                    self.ctx.i8_type(),
+                    "",
+                )?;
+                self.libc_call(
+                    "wasm_write_string",
+                    ty,
+                    &[size_arg(1)?.into(), ptr_arg(0)?.into(), to_err.into()],
+                )?;
+                Ok(vec![])
+            }
             Intrinsic::CompilerWrite => {
                 // (ptr, count, to_stderr): write(2) on fd 1 or 2.
                 let to_err = self.as_int(args[2])?;
@@ -1585,8 +1750,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 } else {
                     "write"
                 };
-                let f = self.libc(name, ty);
-                b.build_call(f, &[fd.into(), ptr_arg(0)?.into(), size_arg(1)?.into()], "")?;
+                self.libc_call(
+                    name,
+                    ty,
+                    &[fd.into(), ptr_arg(0)?.into(), size_arg(1)?.into()],
+                )?;
                 Ok(vec![])
             }
             Intrinsic::Wide(op, fmt) => self.wide(op, fmt, args),
@@ -1609,6 +1777,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .ok_or("fma produced no value")?;
                 Ok(vec![v])
             }
+            // WebAssembly code cannot see its own call stack.
+            Intrinsic::ReturnAddress if self.arch.is_wasm() => {
+                Ok(vec![self.ptr_ty().const_null().into()])
+            }
             Intrinsic::ReturnAddress => {
                 let zero = self.ctx.i32_type().const_zero();
                 let v = self
@@ -1625,6 +1797,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     Arch::X86_64 | Arch::Win64 => {
                         self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
                     }
+                    // No cycle counter is visible to wasm code.
+                    Arch::Wasm64 => Some(i64t.const_zero().into()),
                 };
                 Ok(vec![v.ok_or("cycle counter produced no value")?])
             }
@@ -1632,6 +1806,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let asm = match self.arch {
                     Arch::Aarch64 | Arch::Win64Arm => "yield",
                     Arch::X86_64 | Arch::Win64 => "pause",
+                    Arch::Wasm64 => return Ok(vec![]),
                 };
                 self.inline_asm(asm, "", None)?;
                 Ok(vec![])
@@ -1721,6 +1896,16 @@ enum Segment {
     Bytes(u64, u64),
     /// Index into `Global::relocs`.
     Reloc(usize),
+}
+
+/// The wasm import module for a `#library`: its file name, except that the C and math
+/// libraries (whose functions a wasm runtime supplies) map to `env`.
+fn wasm_import_module(library: &str) -> &str {
+    let name = library.rsplit(['/', '\\']).next().unwrap_or(library);
+    match name {
+        "" | "c" | "libc" | "crt" | "msvcrt" | "m" | "libm" => "env",
+        other => other,
+    }
 }
 
 fn basic<'ctx>(call: CallSiteValue<'ctx>) -> Option<BasicValueEnum<'ctx>> {

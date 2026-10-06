@@ -1,8 +1,8 @@
 //! C ABI classification for aggregates passed or returned by value.
 //!
 //! Covers the 64-bit ABIs the compiler targets: AArch64 AAPCS64 (Apple and
-//! Linux), its Windows variant, x86-64 System V and the Microsoft x64 convention
-//! (Windows). The IR
+//! Linux), its Windows variant, x86-64 System V, the Microsoft x64 convention
+//! (Windows) and the WebAssembly C ABI (wasm64). The IR
 //! describes an aggregate only by its flattened scalar fields (`AggLayout`),
 //! which is all these ABIs look at.
 use crate::ir::{AggLayout, Ty};
@@ -18,6 +18,10 @@ pub enum Arch {
     /// every argument, fixed ones included, in x0-x7 and then on the stack, with no
     /// floating-point aggregate treatment (`classify_vararg`).
     Win64Arm,
+    /// WebAssembly with 64-bit memory (Memory64), Clang's basic C ABI: an aggregate holding
+    /// a single scalar travels as that scalar, any other goes by `byval` pointer and comes
+    /// back through a hidden result pointer.
+    Wasm64,
 }
 
 impl Arch {
@@ -44,6 +48,7 @@ impl Arch {
             "aarch64" | "arm64" => Some(Arch::Aarch64),
             "x86_64" | "amd64" if windows => Some(Arch::Win64),
             "x86_64" | "amd64" => Some(Arch::X86_64),
+            "wasm64" => Some(Arch::Wasm64),
             _ => None,
         }
     }
@@ -61,6 +66,11 @@ impl Arch {
     /// Whether the target is Windows (either CPU).
     pub fn is_windows(self) -> bool {
         matches!(self, Arch::Win64 | Arch::Win64Arm)
+    }
+
+    /// Whether the target is WebAssembly.
+    pub fn is_wasm(self) -> bool {
+        self == Arch::Wasm64
     }
 }
 
@@ -103,7 +113,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout) -> Passing {
     match classify_registers(arch, layout) {
         Some(pieces) => Passing::Registers(pieces),
         None => match arch {
-            Arch::X86_64 => Passing::ByVal,
+            Arch::X86_64 | Arch::Wasm64 => Passing::ByVal,
             Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm => Passing::Indirect,
         },
     }
@@ -144,6 +154,9 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
     if arch == Arch::Win64 {
         return matches!(layout.size, 1 | 2 | 4 | 8).then(|| int_pieces(layout.size));
     }
+    if arch == Arch::Wasm64 {
+        return wasm_single_scalar(layout);
+    }
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
     }
@@ -175,7 +188,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 => unreachable!("handled above"),
+        Arch::Win64 | Arch::Wasm64 => unreachable!("handled above"),
         Arch::X86_64 => {
             let count = layout.size.div_ceil(8);
             let mut pieces = Vec::new();
@@ -204,6 +217,35 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
             }
             Some(pieces)
         }
+    }
+}
+
+/// The one scalar a wasm aggregate is passed as, when it holds exactly one. Only 8-byte
+/// integers and pointers, `f32` and `f64` have a piece type; a struct around a smaller
+/// integer goes by pointer here, where Clang would pass an `i32`.
+fn wasm_single_scalar(layout: &AggLayout) -> Option<Vec<Piece>> {
+    let [(0, ty)] = layout.fields[..] else {
+        return None;
+    };
+    let ty = match ty {
+        Ty::I64 | Ty::Ptr => PieceTy::I64,
+        Ty::F64 => PieceTy::F64,
+        Ty::F32 => PieceTy::F32,
+        _ => return None,
+    };
+    (layout.size == ty_size(ty)).then(|| {
+        vec![Piece {
+            offset: 0,
+            ty,
+        }]
+    })
+}
+
+fn ty_size(ty: PieceTy) -> u64 {
+    if ty == PieceTy::F32 {
+        4
+    } else {
+        8
     }
 }
 
@@ -468,5 +510,26 @@ mod tests {
     fn sysv_large_aggregate_is_byval() {
         let l = layout(24, &[(0, Ty::I64), (8, Ty::I64), (16, Ty::I64)]);
         assert_eq!(classify_arg(Arch::X86_64, &l), Passing::ByVal);
+    }
+
+    #[test]
+    fn wasm64_passes_single_scalars_directly_and_the_rest_by_pointer() {
+        assert_eq!(
+            Arch::from_triple("wasm64-unknown-unknown"),
+            Some(Arch::Wasm64)
+        );
+        let one = layout(8, &[(0, Ty::F64)]);
+        assert_eq!(
+            classify_arg(Arch::Wasm64, &one),
+            Passing::Registers(vec![Piece {
+                offset: 0,
+                ty: PieceTy::F64
+            }])
+        );
+        let pair = layout(16, &[(0, Ty::I64), (8, Ty::I64)]);
+        assert_eq!(classify_arg(Arch::Wasm64, &pair), Passing::ByVal);
+        assert!(classify_ret(Arch::Wasm64, &pair).is_none());
+        let small = layout(4, &[(0, Ty::I32)]);
+        assert_eq!(classify_arg(Arch::Wasm64, &small), Passing::ByVal);
     }
 }

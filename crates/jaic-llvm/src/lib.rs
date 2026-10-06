@@ -6,6 +6,9 @@
 mod debuginfo;
 mod lower;
 mod split;
+mod wasm;
+
+pub use wasm::{WASM_TRIPLE, WasmLink, find_wasm_ld, is_wasm_target, link_wasm};
 
 use lower::Shard;
 
@@ -62,6 +65,11 @@ pub struct Options {
     pub debug_info: bool,
     /// Sanitizer instrumentation (`docs/native/sanitizers.md`).
     pub sanitize: Sanitize,
+    /// LLVM CPU name for a cross target (`llvm_options.target_system_cpu`); `None`: generic.
+    pub cpu: Option<String>,
+    /// LLVM feature string for a cross target (`llvm_options.target_system_features`, such as
+    /// `+simd128`); `None`: the target's default. wasm always gets `+bulk-memory` added.
+    pub features: Option<String>,
 }
 
 /// Which sanitizers instrument a native build. [`link`] links the runtime they call.
@@ -164,7 +172,26 @@ fn target_machine(
             TargetMachine::get_host_cpu_features().to_string(),
         )
     } else {
-        ("generic".to_string(), String::new())
+        let mut features = options.features.clone().unwrap_or_default();
+        // wasm: `memory.copy`/`memory.fill` for memcpy and memset. Without them LLVM calls
+        // `memmove`, which Wasi_Runtime implements with that same intrinsic. Only an explicit
+        // `-bulk-memory` turns them off.
+        if arch.is_wasm() && !features.contains("bulk-memory") {
+            if !features.is_empty() {
+                features.push(',');
+            }
+            features.push_str("+bulk-memory");
+        }
+        (
+            options.cpu.clone().unwrap_or_else(|| "generic".into()),
+            features,
+        )
+    };
+    // A wasm module is linked statically; PIC would ask for Emscripten-style dynamic linking.
+    let reloc = if arch.is_wasm() {
+        RelocMode::Static
+    } else {
+        RelocMode::PIC
     };
     let machine = target
         .create_target_machine(
@@ -172,7 +199,7 @@ fn target_machine(
             &cpu,
             &features,
             options.opt_level.llvm(),
-            RelocMode::PIC,
+            reloc,
             CodeModel::Default,
         )
         .ok_or("could not create a target machine")?;
@@ -558,6 +585,9 @@ pub fn write_dsym(output: &Path) -> Result<(), String> {
 pub fn archive(objects: &[PathBuf], output: &Path, target: Option<&str>) -> Result<(), String> {
     let program = match std::env::var("JAIC_AR") {
         Ok(program) => program,
+        // The system `ar` on macOS writes no symbol index for wasm objects.
+        Err(_) if target.is_some_and(is_wasm_target) => wasm::find_llvm_tool("llvm-ar")
+            .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?,
         Err(_) if LinkFlavor::for_target(target).is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
             find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
@@ -761,8 +791,14 @@ pub enum OutputKind {
 }
 
 /// The file name extension an output gets on `target` when its name has none, where the
-/// platform expects one: `exe`, `dll` and `lib` on Windows.
+/// platform expects one: `exe`, `dll` and `lib` on Windows, `wasm` (or `a`) for WebAssembly.
 pub fn output_extension(target: Option<&str>, kind: OutputKind) -> Option<&'static str> {
+    if target.is_some_and(is_wasm_target) {
+        return Some(match kind {
+            OutputKind::StaticLibrary => "a",
+            _ => "wasm",
+        });
+    }
     if !LinkFlavor::for_target(target).is_windows() {
         return None;
     }
