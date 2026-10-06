@@ -508,6 +508,17 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     match cli.command {
         Command::Check => ExitCode::SUCCESS,
         Command::Run => {
+            // The program sees itself as the executable `jaic build` would write next to its
+            // main file (not `jaic`), so data found relative to the executable is found.
+            if sandbox.is_none() {
+                let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                let name = if cfg!(windows) {
+                    format!("{stem}.exe")
+                } else {
+                    stem.into_owned()
+                };
+                compiler.interp.run_executable = Some(main_dir.join(name).display().to_string());
+            }
             // The sandbox's memory is virtual; host-allocated argv strings are not visible there.
             let outcome = timings::time("run", || {
                 if sandbox.is_some() {

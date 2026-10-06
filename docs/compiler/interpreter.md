@@ -80,6 +80,8 @@ Not covered: callbacks stored in memory before the call (only arguments are tran
 - Hooks, `Stack_Trace_Procedure_Info` addresses and foreign symbols are `Vec`s indexed by id, and results come back as `Rets` (up to four inline), so a call does no hashing or allocation.
 - `frame` lays out a procedure's slots once, each at a multiple of its alignment (at least 8), and records the largest alignment; `exec` rounds the frame's absolute start up to it. Rounding offsets alone isn't enough because the stack itself is only 8-aligned, and an `#align 64` local would land on an arbitrary 16-byte boundary.
 
+**The program's own path under `jaic run`.** A program asking where its executable is (`get_path_of_running_executable`, through `_NSGetExecutablePath`, `readlink("/proc/self/exe")` or `GetModuleFileNameW(null)`) would get `jaic`'s path, so data it finds relative to itself (`../assets`) would be looked for next to the compiler. `jaic run` sets `Interp::run_executable` to the executable `jaic build` would write for the same file (`<main file's directory>/<stem>`, `.exe` on Windows), and `interp/executable_path.rs` answers those three calls with it at run time. Compile-time code still gets the compiler's path, and the wasm sandbox is unaffected. Test: `crates/jaic-cli/tests/run_executable.rs`.
+
 ## How to change it
 
 - New IR instruction: add it to `inst_vals` in `code.rs` (definitions and uses; a missing use would let a definition it reads be dropped), then either translate it to an `Op` or let it fall back to `Op::Ir`, which needs only an arm in `step`.

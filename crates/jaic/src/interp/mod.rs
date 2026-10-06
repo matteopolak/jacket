@@ -9,6 +9,7 @@
 #![allow(unsafe_code)]
 
 mod code;
+mod executable_path;
 mod native;
 pub mod profile;
 mod sandbox;
@@ -214,6 +215,10 @@ pub struct Interp {
     trace_loc: Option<Option<(u32, u32, u32)>>,
     /// True while evaluating compile-time code (`#compile_time`).
     pub compile_time: bool,
+    /// The executable `jaic build` would write for the program `jaic run` is running: what the
+    /// program's own executable-path queries return (not `jaic`'s path), so paths relative to
+    /// the executable (`../assets`) work the same in both. `None`: no substitution.
+    pub run_executable: Option<String>,
     /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
     pub pending_type_flags: Vec<(GlobalId, u32)>,
     /// Declaration of each struct whose descriptor exists: file path, line, column
@@ -288,6 +293,7 @@ impl Interp {
             loc: None,
             trace_loc: None,
             compile_time: true,
+            run_executable: None,
             pending_type_flags: Vec::new(),
             struct_locations: std::collections::HashMap::new(),
             workspaces: None,
@@ -600,6 +606,11 @@ impl Interp {
         let symbol = program.foreigns[id.0 as usize].symbol.clone();
         if !UNOBSERVABLE_FOREIGNS.contains(&symbol.as_str()) {
             self.effects += 1;
+        }
+        if !self.compile_time
+            && let Some(result) = self.executable_path_foreign(&symbol, args)
+        {
+            return result;
         }
         if self.host.cooperative_threads() {
             if let Some(result) = self.inline_thread_foreign(program, &symbol, args) {
