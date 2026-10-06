@@ -80,7 +80,7 @@ python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --uncovered
 ```
 
 - **Linux**: GUI tests need a display. CI uses `xvfb-run -a -s "-screen 0 1280x1024x24"` with
-  Mesa (`libgl1-mesa-dri`), X11, EGL and FreeType development packages.
+  Mesa (`libgl1-mesa-dri`), X11, EGL and FreeType development packages, and `xclip` for the clipboard test.
 - **Windows**: run from a Developer PowerShell (MSVC and the Windows SDK on `PATH`) with
   `--modes interp,native`; the wasm modes are not run there.
 - **Native libraries** (stb_image, FreeType, stb_vorbis...): on macOS and Linux the harness builds

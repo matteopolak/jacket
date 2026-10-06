@@ -78,8 +78,17 @@ process-stdin-socket windows-* * imports POSIX
 
 # Native libraries not built for Windows (tools/build_native_libs.py builds them for macOS and Linux).
 simp-compat-api windows-* native links FreeType, which is not built for Windows
+getrect-widgets-driven windows-* native links FreeType and stb_image, which are not built for Windows
+sound-player-device windows-* native links stb_vorbis, which is not built for Windows
+sound-player-offline-api windows-* native links stb_vorbis, which is not built for Windows
 Sound_Player/tests/offline-mix windows-* native links stb_vorbis, which is not built for Windows
 
 # Windows hosts.
 c-variadic-foreign-calls windows-x64,windows-arm64 interp the C runtime DLLs export no snprintf (the UCRT defines it inline in its headers), so jaic run cannot call it
 simp-window-program windows-* * the CI runners have no OpenGL 3.3 driver (only the GDI generic 1.1 renderer)
+simp-gl-render-readback windows-* * the CI runners have no OpenGL 3.3 driver (only the GDI generic 1.1 renderer)
+getrect-simp-gl-frame windows-* * the CI runners have no OpenGL 3.3 driver (only the GDI generic 1.1 renderer)
+
+# The interpreter turns a #c_call procedure into a native address only when it is passed as an
+# argument (docs/compiler/interpreter.md); Core Audio gets its render callback inside a struct.
+sound-player-device macos-* interp jaic run hands Core Audio an interpreter procedure id instead of a native callback address
