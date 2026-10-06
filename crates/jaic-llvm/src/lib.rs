@@ -443,6 +443,14 @@ enum LinkArg {
     SearchDir(String),
 }
 
+/// Puts the library files (built archives such as `libstb_vorbis.a`) ahead of libraries linked
+/// by name, keeping each kind's order. GNU `ld` resolves an archive's references only against
+/// the inputs after it, and with `--as-needed` (Ubuntu's default) a `-lm` that comes first is
+/// dropped before the archive needs it; system libraries never need our archives.
+fn order_link_groups(groups: &mut [Vec<LinkArg>]) {
+    groups.sort_by_key(|group| !group.iter().any(|arg| matches!(arg, LinkArg::File(_))));
+}
+
 /// Link object files into an executable (or shared library) for `target` (`None`: the
 /// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
 /// see [`LinkFlavor`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
@@ -471,6 +479,7 @@ pub fn link(
             seen.push(args);
         }
     }
+    order_link_groups(&mut seen);
     let (program, mut cmd) = if sanitize.any() {
         let program = sanitizer_driver();
         let mut cmd = Command::new(&program);
@@ -1075,5 +1084,31 @@ mod tests {
         let mut cmd = Command::new("link");
         render_link_arg(&mut cmd, &LinkArg::Lib("user32".into()), true);
         assert_eq!(cmd.get_args().next().unwrap(), "user32.lib");
+    }
+
+    #[test]
+    fn library_files_link_before_named_libraries() {
+        let mut groups = vec![
+            vec![LinkArg::Lib("m".into())],
+            vec![LinkArg::File("libstb_vorbis.a".into())],
+            vec![LinkArg::Framework("AppKit".into())],
+            vec![
+                LinkArg::File("libone.so".into()),
+                LinkArg::Rpath("/dir".into()),
+            ],
+        ];
+        order_link_groups(&mut groups);
+        assert_eq!(
+            groups,
+            vec![
+                vec![LinkArg::File("libstb_vorbis.a".into())],
+                vec![
+                    LinkArg::File("libone.so".into()),
+                    LinkArg::Rpath("/dir".into()),
+                ],
+                vec![LinkArg::Lib("m".into())],
+                vec![LinkArg::Framework("AppKit".into())],
+            ]
+        );
     }
 }
