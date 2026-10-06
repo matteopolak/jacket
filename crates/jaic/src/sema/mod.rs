@@ -302,6 +302,12 @@ pub struct Compiler {
     pub ide: Option<Box<ide::IdeFacts>>,
     /// Set by `finish_program`: pending items no longer wait for placeholders.
     pub placeholders_final: bool,
+    /// Set while the plain `#if` pass expands an item: lookups then leave other pending items
+    /// alone, so evaluating `OS` cannot run a sibling `using x: T` or `#insert` early.
+    pub lookup_without_expansion: bool,
+    /// `#no_reset` globals with their types: compiled output starts from the values that
+    /// compile-time code left in them (`prepare_compiled_output`).
+    pub no_reset_globals: Vec<(ir::GlobalId, TypeId)>,
 }
 
 /// Names and default values of a procedure type's parameters (defaults evaluate in `scope`).
@@ -402,6 +408,8 @@ impl Compiler {
             in_progress_misses: 0,
             ide: None,
             placeholders_final: false,
+            lookup_without_expansion: false,
+            no_reset_globals: Vec::new(),
         };
         c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();

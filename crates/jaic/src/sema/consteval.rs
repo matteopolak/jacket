@@ -712,7 +712,7 @@ impl Compiler {
         )
     }
 
-    fn read_aggregate(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
+    pub(super) fn read_aggregate(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
         let size = self.size_of(ty, span)?;
         let mut agg = Aggregate {
             bytes: self.interp.read(addr, size as usize),

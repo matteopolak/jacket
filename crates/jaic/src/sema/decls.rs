@@ -407,7 +407,9 @@ impl Compiler {
             export: None,
         });
         self.debug_global(global, name, ty, span);
-        if !decl.flags.iter().any(|f| f.name.as_str() == "no_reset") {
+        if decl.flags.iter().any(|f| f.name.as_str() == "no_reset") {
+            self.no_reset_globals.push((global, ty));
+        } else {
             self.program.reset_globals.push(global);
         }
         // Mark resolved before evaluating the initializer so self-references work.

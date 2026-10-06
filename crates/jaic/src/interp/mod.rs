@@ -368,6 +368,11 @@ impl Interp {
         Ok(())
     }
 
+    /// Where global `g` lives in interpreter memory, if compile-time code has used it.
+    pub fn materialized_global(&self, g: GlobalId) -> Option<u64> {
+        self.globals.get(g.0 as usize)?.as_ref().map(|m| m.addr)
+    }
+
     /// The global containing `addr`, with the offset into it.
     pub fn global_at(&self, addr: u64) -> Option<(GlobalId, u64)> {
         let (&start, &(end, g)) = self.ranges.range(..=addr).next_back()?;

@@ -136,6 +136,7 @@ fn stdlib_tests_run_natively() {
         "add-context-constant",
         "process-stdin-socket",
         "posix-stat-and-mutex",
+        "no-reset-globals-baked",
     ] {
         let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();

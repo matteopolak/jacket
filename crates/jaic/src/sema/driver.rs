@@ -273,12 +273,30 @@ impl Compiler {
     /// Before a backend writes the program: compiled code keeps `context.stack_trace` itself
     /// (`stack_trace::instrument`; the interpreter does it at run time). Idempotent.
     pub fn prepare_compiled_output(&mut self) {
+        self.bake_no_reset_globals();
         self.enable_stack_traces(Span::default());
         if let Some(offset) = self.program.stack_trace_offset {
             crate::stack_trace::instrument(&mut self.program, offset);
         }
         if self.options.debug_info {
             self.collect_debug_types();
+        }
+    }
+
+    /// A `#no_reset` global keeps what compile-time code stored in it: its initializer becomes
+    /// the interpreter's current bytes, with pointers frozen into relocations the way `#run`
+    /// results are. Globals no compile-time code touched keep their declared initializer.
+    fn bake_no_reset_globals(&mut self) {
+        for (global, ty) in std::mem::take(&mut self.no_reset_globals) {
+            let Some(addr) = self.interp.materialized_global(global) else {
+                continue;
+            };
+            let Ok(Value::Bytes(agg)) = self.read_aggregate(addr, ty, Span::default()) else {
+                continue;
+            };
+            let g = &mut self.program.globals[global.0 as usize];
+            g.init = agg.bytes.clone();
+            g.relocs = agg.relocs.clone();
         }
     }
 
