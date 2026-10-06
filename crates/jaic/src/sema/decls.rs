@@ -448,7 +448,8 @@ impl Compiler {
 
     /// `x: T #elsewhere lib ["symbol"];`: a variable defined by a foreign
     /// library (or the process). `__runtime_info` without a library is the
-    /// compiler's own runtime information.
+    /// compiler's own runtime information, and `__jaic_build_directory` the
+    /// directory the build started in (`build_directory_global`).
     fn foreign_global(
         &mut self,
         scope: ScopeId,
@@ -457,6 +458,13 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Resolved> {
+        if foreign.library.is_none() && name.as_str() == "__jaic_build_directory" {
+            let global = self.build_directory_global();
+            return Ok(Resolved::Global {
+                storage: ir::Storage::Data(global),
+                ty,
+            });
+        }
         if foreign.library.is_none() && name.as_str() == "__runtime_info" {
             let global = self.runtime_info_global(span)?;
             return Ok(Resolved::Global {

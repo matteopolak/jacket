@@ -276,6 +276,11 @@ fn stack_traces() {
         stderr.contains("trace.jai:6\n") && !stderr.contains("assert_helper"),
         "{stderr}"
     );
+    // Paths under the directory the build ran in are shown relative to it, as `jaic run` does.
+    assert!(
+        stderr.starts_with("trace.jai:6:") && stderr.contains("    main at trace.jai:6\n"),
+        "{stderr}"
+    );
     assert!(!output.status.success());
 }
 

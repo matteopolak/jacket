@@ -48,6 +48,11 @@ pub fn stdlib_dir(fallback: std::path::PathBuf) -> std::path::PathBuf {
 /// works from the main file's directory). Unset, paths are shown as they are.
 static DISPLAY_BASE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 
+/// The directory paths in messages are shown relative to, when one was set.
+pub fn display_base() -> Option<&'static std::path::Path> {
+    DISPLAY_BASE.get().map(|p| p.as_path())
+}
+
 /// Set the directory paths in messages are shown relative to (once per process).
 pub fn set_display_base(dir: std::path::PathBuf) {
     let _ = DISPLAY_BASE.set(dir);

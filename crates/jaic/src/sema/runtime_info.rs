@@ -42,6 +42,28 @@ impl Compiler {
         })
     }
 
+    /// `__jaic_build_directory: string #elsewhere;` in Runtime_Support: the directory the
+    /// build started in (`crate::display_base`) with a trailing separator, or empty. Native
+    /// failure reports strip it from source paths, so they read like the interpreter's.
+    pub(super) fn build_directory_global(&mut self) -> ir::GlobalId {
+        let mut text = crate::display_base()
+            .map(|dir| dir.display().to_string())
+            .unwrap_or_default();
+        if !text.is_empty() && !text.ends_with(std::path::MAIN_SEPARATOR) {
+            text.push(std::path::MAIN_SEPARATOR);
+        }
+        let bytes: Rc<[u8]> = Rc::from(text.as_bytes());
+        let data = self.string_global(&bytes);
+        let mut init = (text.len() as u64).to_le_bytes().to_vec();
+        init.extend_from_slice(&[0; 8]);
+        let reloc = ir::Reloc {
+            offset: 8,
+            target: ir::RelocTarget::Global(data),
+            addend: 0,
+        };
+        self.data_global("__jaic_build_directory", 16, init, vec![reloc])
+    }
+
     /// Fill `__runtime_info` (if the program uses it) from the final program.
     pub(super) fn fill_runtime_info(&mut self) {
         let Some(info) = self.runtime_info else {
