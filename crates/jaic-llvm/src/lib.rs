@@ -948,7 +948,9 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
     }
     if flavor.is_windows() {
         // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
-        return Ok(vec![LinkArg::Lib(name.to_string())]);
+        // Windows file names ignore case, but a MinGW toolchain on Linux or macOS has
+        // `libgdi32.a`, not `libGdi32.a`, and its names are all lowercase.
+        return Ok(vec![LinkArg::Lib(name.to_ascii_lowercase())]);
     }
     // Apple frameworks (`AppKit`, `Metal`...) link with `-framework`; their directories exist on
     // disk even though the binaries live in the shared cache.
@@ -1059,6 +1061,10 @@ mod tests {
             vec![LinkArg::Lib("kernel32".into())]
         );
         assert!(args("msvcrt", LinkFlavor::Msvc).is_empty());
+        assert_eq!(
+            args("Gdi32", LinkFlavor::MinGw),
+            vec![LinkArg::Lib("gdi32".into())]
+        );
         assert!(args("libc", LinkFlavor::MinGw).is_empty());
         let mut cmd = Command::new("link");
         render_link_arg(&mut cmd, &LinkArg::Lib("user32".into()), true);
