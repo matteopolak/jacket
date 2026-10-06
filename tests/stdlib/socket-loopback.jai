@@ -71,7 +71,7 @@
         bytes: [16] u8;
         for words {
             bytes[it_index * 2] = cast(u8) (it >> 8);
-            bytes[it_index * 2 + 1] = cast(u8) it;
+            bytes[it_index * 2 + 1] = cast,trunc(u8) it;
         }
         memcpy(*address.sin6_addr, bytes.data, 16);
         return address;

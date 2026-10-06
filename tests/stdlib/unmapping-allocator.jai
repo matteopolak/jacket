@@ -35,8 +35,8 @@
             end := cast(u64) (p + size);
             assert(end % 4096 == 0, "a % byte block ends at %", size, end);
             // Every byte of the block is usable.
-            for i: 0..size - 1 p[i] = cast(u8) i;
-            for i: 0..size - 1 assert(p[i] == cast(u8) i);
+            for i: 0..size - 1 p[i] = cast,trunc(u8) i;
+            for i: 0..size - 1 assert(p[i] == cast,trunc(u8) i);
             for seen assert(it != p, "an address was handed out twice");
             array_add(*seen, p);
             free(p, a);

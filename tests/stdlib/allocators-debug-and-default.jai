@@ -32,7 +32,7 @@ check_default_allocator :: () {
         if !p continue;
         if size >= 64 assert(cast(u64) p % 64 == 0, "a % byte block at %", size, p);
         else assert(cast(u64) p % 16 == 0, "a % byte block at %", size, p);
-        for i: 0..size - 1 p[i] = cast(u8) (i * 7);
+        for i: 0..size - 1 p[i] = cast,trunc(u8) (i * 7);
         assert(a.proc(.IS_THIS_YOURS, 0, 0, p, null) != null);
         // Grow across the boundary and shrink back: contents survive each step.
         sizes := s64.[size + 1, size * 3 + 70, 40, 8];
@@ -42,8 +42,8 @@ check_default_allocator :: () {
             assert(q != null, "resize % -> %", kept, new_size);
             if new_size >= 64 assert(cast(u64) q % 64 == 0, "a resized % byte block at %", new_size, q);
             check := min(kept, new_size);
-            for i: 0..check - 1 assert(q[i] == cast(u8) (i * 7), "byte % lost resizing % -> %", i, kept, new_size);
-            if new_size > kept for i: kept..new_size - 1 q[i] = cast(u8) (i * 7);
+            for i: 0..check - 1 assert(q[i] == cast,trunc(u8) (i * 7), "byte % lost resizing % -> %", i, kept, new_size);
+            if new_size > kept for i: kept..new_size - 1 q[i] = cast,trunc(u8) (i * 7);
             p = q;
             kept = new_size;
         }
