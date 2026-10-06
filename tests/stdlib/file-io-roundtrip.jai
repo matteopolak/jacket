@@ -26,6 +26,11 @@ main :: () {
     file, opened := file_open(path, for_writing = true, keep_existing_content = true);
     assert(opened);
     assert(file_write(*file, "more\n"));
+    // A handle opened for writing reads too (Windows: GENERIC_READ alongside GENERIC_WRITE).
+    assert(file_set_position(file, 0));
+    head: [5] u8;
+    head_ok, head_count := file_read(file, head.data, head.count);
+    assert(head_ok && head_count == 5 && cast(string) head == "hello", "read through the writing handle");
     assert(file_close(*file));
     sized, sized_ok := file_open(path);
     assert(sized_ok);
