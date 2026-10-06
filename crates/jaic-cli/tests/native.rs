@@ -481,8 +481,8 @@ fn c_structs_by_value() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n";
-    let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n";
+    let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n8940414\n";
+    let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n8940414\n";
     let run_interp = |name: &str| {
         let output = Command::new(JAIC)
             .args(["run", &format!("{name}.jai")])

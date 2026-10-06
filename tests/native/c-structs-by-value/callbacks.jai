@@ -30,8 +30,16 @@ v2_back :: (a: float, b: s64, c: float64, d: s32) -> V2 #c_call {
     return .{ a + xx b, xx (c + xx d) };
 }
 
+narrow_back :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, h: s64,
+    d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64,
+    i: s8, j: s16, k: u8, l: s32, m: float, n: s16) -> s64 #c_call {
+    floats := cast(s64) (d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8);
+    return a + b + c + d + e + f + g + h + floats + i * 10 + j * 100 + k * 1000 + l * 10000 + cast(s64) (m * 100000) + n * 1000000;
+}
+
 main :: () {
     print("% % %\n", apply(combine, .{ 1, 2 }, .{ 10, 20, 30, 40 }, .{ 100, 5 }), apply_big(scale), apply_small(bump));
     print("%\n", apply_many(many_back));
     print("% %\n", apply_mixed(mixed_back), apply_mixed_v2(v2_back));
+    print("%\n", apply_narrow_tail(narrow_back));
 }

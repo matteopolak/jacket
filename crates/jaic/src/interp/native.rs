@@ -174,7 +174,7 @@ const VARARGS_ON_STACK: bool = cfg!(all(target_vendor = "apple", target_arch = "
 const X86_64: bool = cfg!(target_arch = "x86_64");
 
 /// Arguments past the registers go to the stack in 8-byte slots, except that Apple's arm64
-/// ABI packs those smaller than 8 bytes, which the prototype cannot express.
+/// ABI packs those smaller than 8 bytes at their own size and alignment (`Regs::packed`).
 const PACKED_STACK: bool = VARARGS_ON_STACK;
 
 /// The arguments of one call: integer and floating-point registers, then 8-byte stack slots
@@ -190,6 +190,9 @@ struct Regs {
     ni: usize,
     nf: usize,
     ns: usize,
+    /// Bytes of the last stack slot that packed arguments filled (0: none, so the next packed
+    /// argument starts a new slot).
+    tail: usize,
     /// Integer registers available to arguments (on x86-64, one fewer when a hidden result
     /// pointer takes `rdi`).
     int_regs: usize,
@@ -205,6 +208,7 @@ impl Regs {
             ni: 0,
             nf: 0,
             ns: 0,
+            tail: 0,
             int_regs: if X86_64 {
                 6 - sret as usize
             } else {
@@ -247,6 +251,7 @@ impl Regs {
 
     /// Pad the stack arguments so the next one is 16-byte aligned (slot `k` is at `sp + 8k`).
     fn align_stack(&mut self) -> Result<(), String> {
+        self.tail = 0;
         if self.ns % 2 == 1 {
             self.stack(0)?;
         }
@@ -260,6 +265,23 @@ impl Regs {
         }
         self.stack[self.ns] = v;
         self.ns += 1;
+        self.tail = 0;
+        Ok(())
+    }
+
+    /// A stack argument of `size` (1, 2 or 4) bytes as Apple's arm64 ABI places it: at the
+    /// next offset aligned to its size, sharing a slot with the small arguments before it.
+    fn packed(&mut self, v: u64, size: usize) -> Result<(), String> {
+        let at = self.tail.next_multiple_of(size);
+        if self.tail == 0 || at + size > 8 {
+            self.stack(0)?;
+            self.stack[self.ns - 1] = v & ((1u64 << (size * 8)) - 1);
+            self.tail = size;
+            return Ok(());
+        }
+        let mask = (1u64 << (size * 8)) - 1;
+        self.stack[self.ns - 1] |= (v & mask) << (at * 8);
+        self.tail = at + size;
         Ok(())
     }
 
@@ -646,10 +668,8 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
                 regs.ni == regs.int_regs
             };
             if full && PACKED_STACK && ty.size() < 8 {
-                return Err(
-                    "the interpreter cannot pass arguments smaller than 8 bytes on the stack on this CPU"
-                        .into(),
-                );
+                regs.packed(a, ty.size() as usize)?;
+                continue;
             }
             if ty.is_float() {
                 regs.float(a)?;

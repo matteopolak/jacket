@@ -406,13 +406,30 @@ struct Incoming {
     ni: usize,
     nf: usize,
     ns: usize,
+    /// As `Regs::tail`: bytes of the last stack slot packed arguments used.
+    tail: usize,
 }
 
 impl Incoming {
     fn stack(&mut self) -> u64 {
         let v = self.stack.get(self.ns).copied().unwrap_or(0);
         self.ns += 1;
+        self.tail = 0;
         v
+    }
+
+    /// A stack argument smaller than 8 bytes, where Apple's arm64 ABI packs it (`Regs::packed`).
+    fn packed(&mut self, size: usize) -> u64 {
+        let at = self.tail.next_multiple_of(size);
+        let mask = (1u64 << (size * 8)) - 1;
+        if self.tail == 0 || at + size > 8 {
+            let v = self.stack();
+            self.tail = size;
+            return v & mask;
+        }
+        self.tail = at + size;
+        let slot = self.stack.get(self.ns - 1).copied().unwrap_or(0);
+        (slot >> (at * 8)) & mask
     }
 
     fn int(&mut self) -> u64 {
@@ -486,6 +503,7 @@ fn invoke(
         ni: 0,
         nf: 0,
         ns: 0,
+        tail: 0,
     };
     // By-value aggregates are rebuilt in memory; the IR passes their addresses.
     let mut buffers: Vec<Vec<u64>> = Vec::new();
@@ -493,6 +511,15 @@ fn invoke(
     let count = sig.params.len() - ret_layout.is_some() as usize;
     for (i, param) in sig.params[..count].iter().enumerate() {
         let Some(layout) = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref) else {
+            let full = if param.is_float() {
+                incoming.nf == 8
+            } else {
+                incoming.ni == incoming.ints.len()
+            };
+            if full && super::PACKED_STACK && param.size() < 8 {
+                args.push(incoming.packed(param.size() as usize));
+                continue;
+            }
             args.push(if param.is_float() {
                 incoming.float()
             } else {

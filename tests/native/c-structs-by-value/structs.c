@@ -30,3 +30,16 @@ double apply_many(double (*fn)(long long, long long, long long, long long, long 
 // (16 bytes) takes position 0. The last two arguments of `f` are on the stack there.
 Mixed apply_mixed(Mixed (*f)(double, int, float, long long, double, short)) { return f(1.5, 2, 3.25f, 4, 5.5, 6); }
 V2 apply_mixed_v2(V2 (*f)(float, long long, double, int)) { return f(0.5f, 7, 2.25, 3); }
+// Registers full, then narrower arguments on the stack: Apple's arm64 ABI packs those at their own
+// size and alignment instead of giving each an 8-byte slot (x86-64 passes g and h there too).
+long long narrow_tail(long long a, long long b, long long c, long long d, long long e, long long f, long long g, long long h,
+                      double d1, double d2, double d3, double d4, double d5, double d6, double d7, double d8,
+                      signed char i, short j, unsigned char k, int l, float m, short n) {
+    return a + b + c + d + e + f + g + h + (long long)(d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8) + i * 10 + j * 100 +
+           k * 1000 + l * 10000LL + (long long)(m * 100000) + n * 1000000LL;
+}
+long long apply_narrow_tail(long long (*fn)(long long, long long, long long, long long, long long, long long, long long,
+                                            long long, double, double, double, double, double, double, double, double,
+                                            signed char, short, unsigned char, int, float, short)) {
+    return fn(1, 2, 3, 4, 5, 6, 7, 8, 1, 1, 1, 1, 1, 1, 1, 1, -3, 4, 250, -6, 7.5f, 8);
+}
