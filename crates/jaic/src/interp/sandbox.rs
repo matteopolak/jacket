@@ -30,6 +30,7 @@ const O_TRUNC: u64 = 0o1000;
 const O_APPEND: u64 = 0o2000;
 const S_IFDIR: u32 = 0o040000;
 const S_IFREG: u32 = 0o100000;
+
 /// The first descriptor handed out by `open` (0 to 2 are the standard streams).
 const FIRST_FD: i64 = 3;
 
@@ -577,6 +578,7 @@ impl Host for SandboxHost {
             _ => self.order.push((to_stderr, bytes.len())),
         }
     }
+
     fn foreign(
         &mut self,
         symbol: &str,
@@ -1104,15 +1106,19 @@ impl Host for SandboxHost {
             _ => return None,
         }]))
     }
+
     fn native_linking(&self) -> bool {
         false
     }
+
     fn cooperative_threads(&self) -> bool {
         true
     }
+
     fn advance_clock(&mut self, nanoseconds: u64) {
         self.clock_ns = self.clock_ns.saturating_add(nanoseconds);
     }
+
     fn virtual_now_ns(&mut self) -> Option<u64> {
         Some(self.clock_ns + 1_700_000_000u64 * 1_000_000_000)
     }
@@ -1145,6 +1151,7 @@ impl Host for SharedHost {
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         self.0.borrow_mut().write(bytes, to_stderr);
     }
+
     fn foreign(
         &mut self,
         symbol: &str,
@@ -1153,15 +1160,19 @@ impl Host for SharedHost {
     ) -> Option<Result<Vec<u64>, String>> {
         self.0.borrow_mut().foreign(symbol, args, sig)
     }
+
     fn native_linking(&self) -> bool {
         false
     }
+
     fn cooperative_threads(&self) -> bool {
         true
     }
+
     fn advance_clock(&mut self, nanoseconds: u64) {
         self.0.borrow_mut().advance_clock(nanoseconds);
     }
+
     fn virtual_now_ns(&mut self) -> Option<u64> {
         self.0.borrow_mut().virtual_now_ns()
     }

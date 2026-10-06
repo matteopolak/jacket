@@ -8,10 +8,10 @@ __Math :: #import "Math";
 #add_context counter := 2;
 
 main :: () {
-    assert(#Context._Math.PI == __Math.PI);
+    assert(#Context ._Math.PI == __Math.PI);
     assert(context._Math.abs(-3) == 3);
-    assert(#Context.LIMIT == 7);
-    context.counter += #Context.LIMIT;
+    assert(#Context .LIMIT == 7);
+    context.counter += #Context .LIMIT;
     assert(context.counter == 9);
     print("ok\n");
 }

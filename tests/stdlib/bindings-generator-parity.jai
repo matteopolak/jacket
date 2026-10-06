@@ -47,14 +47,16 @@ int write_all(write_func *func, void *context);
 #endif
 END;
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 generate :: (header_path: string, output_path: string, cpp: bool) -> string {
     opts: Generate_Bindings_Options;
     array_add(*opts.source_files, header_path);
-    if cpp  array_add(*opts.extra_clang_arguments, "-x", "c++");
+    if cpp array_add(*opts.extra_clang_arguments, "-x", "c++");
     opts.generate_library_declarations = false;
-    array_add(*opts.libraries, .{filename = "does_not_exist", identifier = "lib"});
+    array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
     array_add(*opts.generate_enums_from_macros_with_prefixes, "PROTO_");
     assert(generate_bindings(opts, output_path));
     text, ok := read_entire_file(output_path);
@@ -131,7 +133,7 @@ check_long_double :: () {
         opts.cpu = .X64;
         opts.generate_library_declarations = false;
         opts.use_jaic_long_double = extension;
-        array_add(*opts.libraries, .{filename = "does_not_exist", identifier = "lib"});
+        array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
         builder, ok := generate_bindings(opts);
         assert(ok);
         return builder_to_string(*builder);
@@ -168,6 +170,6 @@ generated_for_insert :: () -> string {
     return generate(header_path, "/tmp/jai_bindgen_parity_insert.jai", false);
 }
 
-#import "POSIX";  // FILE
+#import "POSIX"; // FILE
 lib :: #library "does_not_exist";
 #insert #run generated_for_insert();

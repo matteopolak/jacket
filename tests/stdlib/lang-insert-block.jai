@@ -18,7 +18,7 @@ repeat_with_i :: (count: int, body: Code) #expand {
     #insert -> string {
         builder: String_Builder;
         defer free_buffers(*builder);
-        for 0..count-1 {
+        for 0..count - 1 {
             print_to_builder(*builder, "{ i :: %; #insert,scope() body; }\n", it);
         }
         return builder_to_string(*builder);
@@ -43,7 +43,9 @@ main :: () -> int {
     if x != 35 return 2;
 
     total = 0;
-    repeat_with_i(4, #code { total += i; });
+    repeat_with_i(4, #code {
+        total += i;
+    });
     if total != 6 return 3;
 
     code := call_text(1);

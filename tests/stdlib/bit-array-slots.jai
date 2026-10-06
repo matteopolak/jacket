@@ -9,7 +9,7 @@ main :: () -> s64 {
     Bits.set_bit_to(*bits, 64, true);
     Bits.toggle_bit(*bits, 129);
     if !bits[63] || !bits[64] || !bits[129] || bits[65] return 2;
-    if bits.slots[0] != cast,no_check(s64)0x8000_0000_0000_0000 return 3;
+    if bits.slots[0] != cast,no_check(s64) 0x8000_0000_0000_0000 return 3;
     set_count := 0;
     for Bits.only_set(*bits) set_count += 1;
     if set_count != 3 return 4;
@@ -19,7 +19,9 @@ main :: () -> s64 {
     Bits.set_all_bits(*bits);
     if bits.slots[0] != -1 || bits.slots[2] != 3 return 6;
     Bits.toggle_all_bits(*bits);
-    for bit: bits { if bit return 7; }
+    for bit: bits {
+        if bit return 7;
+    }
     Bits.clear_bit(*bits, 63);
     Bits.clear_all_bits(*bits);
     for slot: bits.slots if slot != 0 return 8;

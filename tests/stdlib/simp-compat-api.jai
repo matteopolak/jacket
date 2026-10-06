@@ -10,8 +10,8 @@ main :: () {
     assert(Simp.glyph_id_to_hash_key(5) == -5);
     ok := string.["a", "\xc3\xa9", "\xe2\x82\xac", "\xf0\x9f\x98\x80"];
     for ok assert(Simp.isLegalUTF8(it.data, it.count));
-    assert(!Simp.isLegalUTF8("\xc0\x80".data, 2));  // overlong
-    assert(!Simp.isLegalUTF8("\xe2\x82".data, 2));  // truncated
+    assert(!Simp.isLegalUTF8("\xc0\x80".data, 2)); // overlong
+    assert(!Simp.isLegalUTF8("\xe2\x82".data, 2)); // truncated
     assert(Simp.get_glyph_width_in_pixels(null) == 0);
 
     // Type shapes.
@@ -27,7 +27,7 @@ main :: () {
 
     // Immediate vertices are plain triangle corners; buffering needs no GPU.
     Simp.immediate_begin();
-    for 0..2 Simp.immediate_vertex(.{cast(float) it, 0, 0}, .{1, 1, 1, 1});
+    for 0..2 Simp.immediate_vertex(.{ cast(float) it, 0, 0 }, .{ 1, 1, 1, 1 });
 
     // Real font, if the system has one.
     candidates := string.["/System/Library/Fonts/Supplemental/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"];
@@ -48,5 +48,5 @@ split_path :: (full: string) -> string, string {
     cut := full.count - 1;
     while cut >= 0 && full[cut] != #char "/" cut -= 1;
     if cut < 0 return "", full;
-    return string.{cut, full.data}, string.{full.count - cut - 1, full.data + cut + 1};
+    return string.{ cut, full.data }, string.{ full.count - cut - 1, full.data + cut + 1 };
 }

@@ -191,7 +191,9 @@ HAVE_CPP :: BINDINGS.count > 0;
     delete_shape :: (s: *Geo.Shape) #foreign libshapes "shapes_delete";
 }
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_CPP {
@@ -211,71 +213,75 @@ main :: () {
         assert(has(BINDINGS, "shapes_format_CFormat :: (out: *u8, capacity: s32, fmt: *u8, __args: ..Any) -> s32 #foreign libshapes \"shapes_format\";"));
         assert(has(BINDINGS, "shapes_format :: (out: *u8, capacity: s32, fmt: string, __args: ..Any) -> s32 {"));
 
-    // A printf-like function: the wrapper formats with Jai's print and passes the text as "%s".
-    buffer: [32] u8;
-    written := shapes_format(buffer.data, buffer.count, "%-%", 12, "ab");
-    assert(written == 5);
-    assert(to_string(buffer.data) == "12-ab");
+        // A printf-like function: the wrapper formats with Jai's print and passes the text as "%s".
+        buffer: [32] u8;
+        written := shapes_format(buffer.data, buffer.count, "%-%", 12, "ab");
+        assert(written == 5);
+        assert(to_string(buffer.data) == "12-ab");
 
-    // Non-virtual methods, constructors, destructors.
-    c: Geo.Counter;
-    Geo.Counter.Constructor(*c, 5);
-    Geo.Counter.add(*c, 7);
-    print("counter = % (live %)\n", Geo.Counter.get(*c), live());
-    assert(Geo.Counter.get(*c) == 12);
-    assert(live() == 1);
-    Geo.Counter.Destructor(*c);
-    assert(live() == 0);
+        // Non-virtual methods, constructors, destructors.
+        c: Geo.Counter;
+        Geo.Counter.Constructor(*c, 5);
+        Geo.Counter.add(*c, 7);
+        print("counter = % (live %)\n", Geo.Counter.get(*c), live());
+        assert(Geo.Counter.get(*c) == 12);
+        assert(live() == 1);
+        Geo.Counter.Destructor(*c);
+        assert(live() == 0);
 
-    v: Geo.Vec2;
-    v.x = 3; v.y = 4;
-    assert(Geo.Vec2.length_sq(*v) == 25);
-    Geo.Vec2.scale(*v, 2);
-    assert(v.x == 6 && v.y == 8);
+        v: Geo.Vec2;
+        v.x = 3;
+        v.y = 4;
+        assert(Geo.Vec2.length_sq(*v) == 25);
+        Geo.Vec2.scale(*v, 2);
+        assert(v.x == 6 && v.y == 8);
 
-    // Virtual calls through the vtable.
-    s := new_circle(7, 2);
-    print("name = %, area = %\n", to_string(Geo.Shape_name(s)), Geo.Shape_area(s));
-    assert(Geo.Shape_area(s) == 12);
-    assert(Geo.Shape.get_id(s) == 7);
-    Geo.Shape_set_id(s, 9);
-    assert(s.id == 9);
+        // Virtual calls through the vtable.
+        s := new_circle(7, 2);
+        print("name = %, area = %\n", to_string(Geo.Shape_name(s)), Geo.Shape_area(s));
+        assert(Geo.Shape_area(s) == 12);
+        assert(Geo.Shape.get_id(s) == 7);
+        Geo.Shape_set_id(s, 9);
+        assert(s.id == 9);
 
-    circle := cast(*Geo.Circle) s;
-    assert(Geo.Circle_circumference(circle) == 12);
-    assert(Geo.vtable(s).area != null);
-    delete_shape(s);
+        circle := cast(*Geo.Circle) s;
+        assert(Geo.Circle_circumference(circle) == 12);
+        assert(Geo.vtable(s).area != null);
+        delete_shape(s);
 
-    d: Geo.Derived1;
-    d.b1 = 3; d.d1 = 4;
-    assert(Geo.Derived1.sum(*d) == 7);
-    assert(d.b1 == 3);
-    // By-value structs.
-    a := Geo.Vec2.make(2);
-    assert(a.x == 2 && a.y == 2);
-    b: Geo.Vec2; b.x = 1; b.y = 5;
-    sum := Geo.add_vec(a, b);
-    assert(sum.x == 3 && sum.y == 7);
-    sum2 := a + b;
-    assert(sum2.x == 3 && sum2.y == 7);
-    assert(a + b == sum);
-    r := a - b;
-    assert(r.x == 1 && r.y == -3);
-    p := Geo.operator[](*a, 1);
-    assert(p.* == 2);
-    big := Geo.make_big(10);
-    assert(big.v[0] == 10 && big.v[7] == 17);
-    assert(Geo.sum_big(big) == 108);
-    m := Geo.make_mixed(3, 0.5);
-    assert(m.a == 3 && m.b == 0.5);
-    assert(Geo.mixed_sum(m) == 3.5);
-    before := live();
-    cn := Geo.make_counter(41);
-    assert(cn.value == 41);
-    assert(live() == before + 1);
-    Geo.Counter.Destructor(*cn);
-    assert(live() == before);
-    print("ok\n");
+        d: Geo.Derived1;
+        d.b1 = 3;
+        d.d1 = 4;
+        assert(Geo.Derived1.sum(*d) == 7);
+        assert(d.b1 == 3);
+        // By-value structs.
+        a := Geo.Vec2.make(2);
+        assert(a.x == 2 && a.y == 2);
+        b: Geo.Vec2;
+        b.x = 1;
+        b.y = 5;
+        sum := Geo.add_vec(a, b);
+        assert(sum.x == 3 && sum.y == 7);
+        sum2 := a + b;
+        assert(sum2.x == 3 && sum2.y == 7);
+        assert(a + b == sum);
+        r := a - b;
+        assert(r.x == 1 && r.y == -3);
+        p := Geo.operator[](*a, 1);
+        assert(p.* == 2);
+        big := Geo.make_big(10);
+        assert(big.v[0] == 10 && big.v[7] == 17);
+        assert(Geo.sum_big(big) == 108);
+        m := Geo.make_mixed(3, 0.5);
+        assert(m.a == 3 && m.b == 0.5);
+        assert(Geo.mixed_sum(m) == 3.5);
+        before := live();
+        cn := Geo.make_counter(41);
+        assert(cn.value == 41);
+        assert(live() == before + 1);
+        Geo.Counter.Destructor(*cn);
+        assert(live() == before);
+        print("ok\n");
 
     } else {
         print("ok\n");

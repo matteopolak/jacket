@@ -51,6 +51,7 @@ use std::rc::Rc;
 pub use value::{ModuleId, ProcId, Value};
 
 pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
+
 /// A named compile-time argument: a module parameter or a baked procedure argument.
 pub type ConstArg = (Sym, Value, TypeId);
 

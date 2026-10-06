@@ -20,6 +20,7 @@ impl Span {
             end: end as u32,
         }
     }
+
     pub fn to(self, other: Span) -> Span {
         Span {
             file: self.file,
@@ -49,6 +50,7 @@ impl SourceFile {
             line_starts,
         }
     }
+
     /// One-based line and column of a byte offset.
     pub fn line_col(&self, offset: u32) -> (u32, u32) {
         let line = match self.line_starts.binary_search(&offset) {
@@ -57,11 +59,13 @@ impl SourceFile {
         };
         (line as u32 + 1, offset - self.line_starts[line] + 1)
     }
+
     /// Byte offset of a one-based line and column (clamped to the file).
     pub fn offset_of(&self, line: u32, col: u32) -> u32 {
         let index = (line.max(1) as usize - 1).min(self.line_starts.len() - 1);
         (self.line_starts[index] + col.max(1) - 1).min(self.text.len() as u32)
     }
+
     pub fn line_text(&self, line: u32) -> &str {
         let start = self.line_starts[(line - 1) as usize] as usize;
         let end = self
@@ -82,15 +86,19 @@ impl SourceMap {
         self.files.push(SourceFile::new(path, text));
         FileId(self.files.len() as u32 - 1)
     }
+
     pub fn get(&self, id: FileId) -> &SourceFile {
         &self.files[id.0 as usize]
     }
+
     pub fn len(&self) -> usize {
         self.files.len()
     }
+
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
+
     pub fn snippet(&self, span: Span) -> &str {
         let file = self.get(span.file);
         &file.text[span.start as usize..span.end as usize]
@@ -121,6 +129,7 @@ impl Diagnostic {
             notes: Vec::new(),
         }
     }
+
     pub fn warning(span: Span, message: impl Into<String>) -> Self {
         Self {
             severity: Severity::Warning,
@@ -129,10 +138,12 @@ impl Diagnostic {
             notes: Vec::new(),
         }
     }
+
     pub fn with_note(mut self, span: Span, message: impl Into<String>) -> Self {
         self.notes.push((span, message.into()));
         self
     }
+
     pub fn render(&self, sources: &SourceMap) -> String {
         let mut out = String::new();
         let kind = match self.severity {

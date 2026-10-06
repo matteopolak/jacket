@@ -41,7 +41,7 @@ main :: () {
 
     distinct: [2] Polymorph_Report.Distinct_Polymorph;
     distinct[0].polymorphed = *instance;
-    distinct[0].location = .{"poly.jai", 7, 3};
+    distinct[0].location = .{ "poly.jai", 7, 3 };
     polys: [2] Polymorph_Report.Record;
     polys[0].num_call_sites = 1;
     polys[1].source = *instance;

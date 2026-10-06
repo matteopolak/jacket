@@ -2,7 +2,9 @@
 // then restores the previous one.
 #import "Basic";
 
-Tally :: struct { calls: int; }
+Tally :: struct {
+    calls: int;
+}
 
 tally_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
     (cast(*Tally) data).calls += 1;

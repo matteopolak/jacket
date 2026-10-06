@@ -83,6 +83,7 @@ impl Emit<'_> {
         self.func.vals.push(ty);
         Val(self.func.vals.len() as u32 - 1)
     }
+
     fn iconst(&mut self, insts: &mut Vec<Inst>, ty: Ty, value: u64) -> Val {
         let dst = self.val(ty);
         insts.push(Inst::IConst {
@@ -92,6 +93,7 @@ impl Emit<'_> {
         });
         dst
     }
+
     fn offset(&mut self, insts: &mut Vec<Inst>, base: Val, by: u64) -> Val {
         let offset = self.iconst(insts, Ty::I64, by);
         let dst = self.val(Ty::Ptr);
@@ -102,6 +104,7 @@ impl Emit<'_> {
         });
         dst
     }
+
     fn load(&mut self, insts: &mut Vec<Inst>, ty: Ty, addr: Val) -> Val {
         let dst = self.val(ty);
         insts.push(Inst::Load {
@@ -111,6 +114,7 @@ impl Emit<'_> {
         });
         dst
     }
+
     fn bin(&mut self, insts: &mut Vec<Inst>, op: BinOp, ty: Ty, a: Val, b: Val) -> Val {
         let dst = self.val(ty);
         insts.push(Inst::Bin {
@@ -122,6 +126,7 @@ impl Emit<'_> {
         });
         dst
     }
+
     fn store_at(&mut self, insts: &mut Vec<Inst>, ty: Ty, base: Val, by: u64, value: Val) {
         let addr = self.offset(insts, base, by);
         insts.push(Inst::Store {
@@ -130,6 +135,7 @@ impl Emit<'_> {
             value,
         });
     }
+
     fn block(&mut self, insts: Vec<Inst>, term: Term) -> BlockId {
         self.func.blocks.push(Block {
             insts,

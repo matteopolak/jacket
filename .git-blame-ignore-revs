@@ -1,0 +1,8 @@
+# Format-only commits, skipped by `git blame` (GitHub reads this file automatically).
+# Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# See docs/tools/code-formatting.md.
+
+# style: format with jaifmt
+006871ddcf6e65bbffe8b4d9f9fc4c9be1242b76
+# style: format with rustfmt (blank lines between items)
+fc5a1290fd0a85a9fc677d36a80cbb0d186b9b39

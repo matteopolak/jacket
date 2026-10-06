@@ -265,7 +265,10 @@ mod tests {
         let mut bridge = Bridge::default();
         send(
             &mut bridge,
-            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{"#,
+                r#""textDocument":{"hover":{"contentFormat":["markdown","plaintext"]}}}}}"#,
+            ),
         );
         let text = concat!(
             "#import \"Basic\";\n",
@@ -316,7 +319,9 @@ mod tests {
                 r#""position":{"line":5,"character":12}}}"#,
             ),
         );
-        assert!(hover.contains("count: s64"), "{hover}");
+        // The client asked for Markdown: the argument and its type are a code span.
+        assert!(hover.contains(r#""kind":"markdown""#), "{hover}");
+        assert!(hover.contains("`count: s64`"), "{hover}");
         assert!(hover.contains("missing argument 2"), "{hover}");
         // `#import "Basic"` goes to the bundled stdlib, readable through `jai/source`.
         let definition = send(

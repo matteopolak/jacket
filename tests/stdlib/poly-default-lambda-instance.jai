@@ -6,9 +6,9 @@ compare_of :: (x: $T, $compare: (T, T) -> bool = (a, b) => a == b) -> u64 {
     return cast(u64) compare;
 }
 
-count_equal :: (arr: []$T, item: T, $compare: (T, T) -> bool = (a, b) => a == b) -> s64 {
+count_equal :: (arr: [] $T, item: T, $compare: (T, T) -> bool = (a, b) => a == b) -> s64 {
     n := 0;
-    for arr  if compare(it, item) n += 1;
+    for arr if compare(it, item) n += 1;
     return n;
 }
 

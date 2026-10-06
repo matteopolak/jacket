@@ -1,7 +1,10 @@
 #import "Basic";
 #import "Reflection";
 
-Color :: enum { RED; GREEN; }
+Color :: enum {
+    RED;
+    GREEN;
+}
 
 main :: () {
     assert(enum_value_to_name(Color.GREEN) == "GREEN");

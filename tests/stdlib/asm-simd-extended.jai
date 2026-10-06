@@ -10,7 +10,7 @@ failures := 0;
 
 hash :: (p: *u8, n: int) -> u64 {
     h: u64 = 0xcbf2_9ce4_8422_2325;
-    for 0..n-1 {
+    for 0..n - 1 {
         h ^= p[it];
         h *= 0x100_0000_01b3;
     }
@@ -19,7 +19,7 @@ hash :: (p: *u8, n: int) -> u64 {
 
 check :: (name: string, got: u64, want: u64) {
     if got != want {
-        print("FAIL %: got 0x%, want 0x%\n", name, formatInt(got, base=16), formatInt(want, base=16));
+        print("FAIL %: got 0x%, want 0x%\n", name, formatInt(got, base = 16), formatInt(want, base = 16));
         failures += 1;
     }
 }
@@ -46,8 +46,12 @@ main :: () {
     out: [64] u8;
     pa, pb, pf, pg, pd, pe, po := A.data, B.data, F.data, G.data, D.data, E.data, out.data;
 
-    h :: (n: int) -> u64 #expand { return hash(`po, n); }
-    clear :: () #expand { memset(`po, 0, 64); }
+    h :: (n: int) -> u64 #expand {
+        return hash(`po, n);
+    }
+    clear :: () #expand {
+        memset(`po, 0, 64);
+    }
 
     // Saturating arithmetic, averages, multiply-high, psign (legacy SSE forms).
     #asm {

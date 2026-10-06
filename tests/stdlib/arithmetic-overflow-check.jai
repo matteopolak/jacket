@@ -33,11 +33,11 @@ run_cases :: () {
     NONFATAL :: Build_Options.arithmetic_overflow_check.NONFATAL;
     OFF :: Build_Options.arithmetic_overflow_check.OFF;
 
-    u8_add   := program("", "x: u8 = 250; y: u8 = 10; z := x + y; assert(z == 4);");
-    s8_sub   := program("", "x: s8 = -120; y: s8 = 20; z := x - y; assert(z == 116);");
-    s32_mul  := program("", "x: s32 = 100000; z := x * x; assert(z == 1410065408);");
-    s64_add  := program("", "x: s64 = 0x7fff_ffff_ffff_ffff; y := 1; z := x + y; assert(z < 0);");
-    u64_sub  := program("", "x: u64 = 0; y: u64 = 1; z := x - y; assert(z == 0xffff_ffff_ffff_ffff);");
+    u8_add := program("", "x: u8 = 250; y: u8 = 10; z := x + y; assert(z == 4);");
+    s8_sub := program("", "x: s8 = -120; y: s8 = 20; z := x - y; assert(z == 116);");
+    s32_mul := program("", "x: s32 = 100000; z := x * x; assert(z == 1410065408);");
+    s64_add := program("", "x: s64 = 0x7fff_ffff_ffff_ffff; y := 1; z := x + y; assert(z < 0);");
+    u64_sub := program("", "x: u64 = 0; y: u64 = 1; z := x - y; assert(z == 0xffff_ffff_ffff_ffff);");
     compound := program("", "x: u16 = 65535; x += 1; assert(x == 0);");
     in_range := program("", "x: u8 = 250; y: u8 = 5; assert(x + y == 255); a: s8 = -128; b: s8 = 1; assert(a + b == -127); assert(a * 1 == -128); assert(b - 2 == -1); u: u64 = 0xffff_ffff_ffff_ffff; assert(u - 1 == 0xffff_ffff_ffff_fffe); assert(u * 1 == u);");
 
@@ -56,11 +56,11 @@ run_cases :: () {
     }
 
     // #no_aoc in every place #no_abc works.
-    on_proc  := program("wrap :: (x: u8, y: u8) -> u8 #no_aoc { return x + y; }", "assert(wrap(250, 10) == 4);");
+    on_proc := program("wrap :: (x: u8, y: u8) -> u8 #no_aoc { return x + y; }", "assert(wrap(250, 10) == 4);");
     on_block := program("", "x: u8 = 250; y: u8 = 10; z: u8; #no_aoc { z = x + y; } assert(z == 4);");
-    on_for   := program("", "x: u8 = 250; for 1..3 #no_aoc { x += 10; } assert(x == 24);");
+    on_for := program("", "x: u8 = 250; for 1..3 #no_aoc { x += 10; } assert(x == 24);");
     on_while := program("", "x: u8 = 250; i := 0; while i < 2 #no_aoc { x += 10; i += 1; } assert(x == 14);");
-    on_if    := program("", "x: u8 = 250; if x > 0 #no_aoc { x += 10; } assert(x == 4);");
+    on_if := program("", "x: u8 = 250; if x > 0 #no_aoc { x += 10; } assert(x == 4);");
     for source: string.[on_proc, on_block, on_for, on_while, on_if] {
         build_with(source, FATAL);
     }

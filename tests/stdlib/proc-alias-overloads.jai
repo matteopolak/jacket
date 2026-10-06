@@ -4,7 +4,9 @@
 #import "Basic";
 #import "String";
 
-starts_with :: inline (s: string, ch: u8) -> bool { return s.count > 0 && s[0] == ch; }
+starts_with :: inline (s: string, ch: u8) -> bool {
+    return s.count > 0 && s[0] == ch;
+}
 
 main :: () {
     assert(starts_with("-x", "-"));

@@ -2,7 +2,11 @@
 G :: #import "GetRect";
 WT :: #import "Window_Type";
 
-near :: (a: float, b: float) -> bool { d := a - b; if d < 0 d = -d; return d < 0.0001; }
+near :: (a: float, b: float) -> bool {
+    d := a - b;
+    if d < 0 d = -d;
+    return d < 0.0001;
+}
 
 layout_cases :: () -> bool {
     r := G.get_rect(10, 20, 100, 60);
@@ -42,7 +46,8 @@ layout_cases :: () -> bool {
 // Compile-time proof that the entry points use the standard signatures.
 frame_signature :: (window: WT.Window_Type) {
     background_occluded, is_active := G.ui_per_frame_update(window, 640, 480, 0.0);
-    _ = background_occluded; _ = is_active;
+    _ = background_occluded;
+    _ = is_active;
 }
 
 main :: () -> s64 {

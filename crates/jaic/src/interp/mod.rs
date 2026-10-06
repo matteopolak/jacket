@@ -27,8 +27,10 @@ use std::rc::Rc;
 
 /// Tag bits marking an interpreted procedure address.
 pub const FUNC_TAG: u64 = 0xFEED_0000_0000_0000;
+
 /// Tag bits for foreign procedures that have no native address.
 pub const FOREIGN_TAG: u64 = 0xFEEE_0000_0000_0000;
+
 const TAG_MASK: u64 = 0xFFFF_0000_0000_0000;
 
 const STACK_SIZE: usize = 32 << 20;
@@ -50,6 +52,7 @@ pub enum Hook {
 /// Where program output and platform services go.
 pub trait Host {
     fn write(&mut self, bytes: &[u8], to_stderr: bool);
+
     /// Implement a foreign procedure without native linking. `None` = not provided.
     fn foreign(
         &mut self,
@@ -57,16 +60,20 @@ pub trait Host {
         args: &[u64],
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>>;
+
     /// Whether foreign symbols may be resolved through the native dynamic linker.
     fn native_linking(&self) -> bool;
+
     /// Run threads on the interpreter's own stack, one after another (no OS threads); see
     /// `threads_inline.rs`. The sandbox says yes.
     fn cooperative_threads(&self) -> bool {
         false
     }
+
     /// Move the virtual clock forward (sleeping). Hosts with a real clock ignore it.
     fn advance_clock(&mut self, _nanoseconds: u64) {
     }
+
     /// The virtual clock's reading, nanoseconds since the epoch, if the host has one.
     fn virtual_now_ns(&mut self) -> Option<u64> {
         None
@@ -75,6 +82,7 @@ pub trait Host {
 
 /// Writes to the process's stdout/stderr and links natively.
 pub struct NativeHost;
+
 impl Host for NativeHost {
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         use std::io::Write;
@@ -86,6 +94,7 @@ impl Host for NativeHost {
             let _ = out.flush();
         }
     }
+
     fn foreign(
         &mut self,
         _symbol: &str,
@@ -94,6 +103,7 @@ impl Host for NativeHost {
     ) -> Option<Result<Vec<u64>, String>> {
         None
     }
+
     fn native_linking(&self) -> bool {
         // Windows: `interp/native/windows.rs` (x64 and arm64).
         cfg!(any(
@@ -428,6 +438,7 @@ impl Interp {
         }
         unsafe { std::slice::from_raw_parts(addr as *const u8, len) }.to_vec()
     }
+
     /// `len` bytes of program memory at `addr`, borrowed (empty for a null address).
     pub fn bytes(&self, addr: u64, len: usize) -> &[u8] {
         if len == 0 || addr == 0 {
@@ -435,9 +446,11 @@ impl Interp {
         }
         unsafe { std::slice::from_raw_parts(addr as *const u8, len) }
     }
+
     pub fn read_u64(&self, addr: u64) -> u64 {
         unsafe { std::ptr::read_unaligned(addr as *const u64) }
     }
+
     pub fn write(&mut self, addr: u64, bytes: &[u8]) {
         unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
     }
@@ -1563,6 +1576,7 @@ impl From<Vec<u64>> for Rets {
 
 impl std::ops::Deref for Rets {
     type Target = [u64];
+
     fn deref(&self) -> &[u64] {
         if self.len <= 4 {
             &self.inline[..self.len]

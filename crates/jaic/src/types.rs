@@ -68,8 +68,10 @@ pub enum TypeKind {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct StructId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct EnumId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct DistinctId(pub u32);
 
@@ -143,6 +145,7 @@ macro_rules! builtin {
         fn builtin_kinds() -> Vec<TypeKind> { vec![$($kind),*] }
     };
 }
+
 builtin! {
     VOID = 0 => TypeKind::Void,
     BOOL = 1 => TypeKind::Bool,
@@ -193,6 +196,7 @@ impl Types {
             pointer_size: 8,
         }
     }
+
     pub fn intern(&mut self, kind: TypeKind) -> TypeId {
         if let Some(&id) = self.intern.get(&kind) {
             return id;
@@ -202,18 +206,22 @@ impl Types {
         self.intern.insert(kind, id);
         id
     }
+
     pub fn kind(&self, ty: TypeId) -> &TypeKind {
         &self.kinds[ty.0 as usize]
     }
+
     pub fn pointer(&mut self, to: TypeId) -> TypeId {
         self.intern(TypeKind::Pointer(to))
     }
+
     pub fn array(&mut self, elem: TypeId, kind: ArrayKind) -> TypeId {
         self.intern(TypeKind::Array {
             elem,
             kind,
         })
     }
+
     pub fn int(bits: u8, signed: bool) -> TypeId {
         match (bits, signed) {
             (8, true) => TypeId::S8,
@@ -226,16 +234,19 @@ impl Types {
             _ => TypeId::U64,
         }
     }
+
     pub fn new_struct(&mut self, info: StructInfo) -> TypeId {
         let id = StructId(self.structs.len() as u32);
         self.structs.push(info);
         self.intern(TypeKind::Struct(id))
     }
+
     pub fn new_enum(&mut self, info: EnumInfo) -> TypeId {
         let id = EnumId(self.enums.len() as u32);
         self.enums.push(info);
         self.intern(TypeKind::Enum(id))
     }
+
     /// The `E.loose` variant of enum type `ty` (created on first use).
     pub fn loose_enum(&mut self, ty: TypeId) -> TypeId {
         let TypeKind::Enum(e) = *self.kind(ty) else {
@@ -252,23 +263,29 @@ impl Types {
         info.loose_of = Some(ty);
         self.new_enum(info)
     }
+
     pub fn is_loose_enum(&self, ty: TypeId) -> bool {
         matches!(self.kind(ty), TypeKind::Enum(e) if self.enums[e.0 as usize].loose_of.is_some())
     }
+
     pub fn new_distinct(&mut self, info: DistinctInfo) -> TypeId {
         let id = DistinctId(self.distincts.len() as u32);
         self.distincts.push(info);
         self.intern(TypeKind::Distinct(id))
     }
+
     pub fn struct_info(&self, id: StructId) -> &StructInfo {
         &self.structs[id.0 as usize]
     }
+
     pub fn struct_info_mut(&mut self, id: StructId) -> &mut StructInfo {
         &mut self.structs[id.0 as usize]
     }
+
     pub fn enum_info(&self, id: EnumId) -> &EnumInfo {
         &self.enums[id.0 as usize]
     }
+
     pub fn as_struct(&self, ty: TypeId) -> Option<StructId> {
         match self.kind(ty) {
             TypeKind::Struct(s) => Some(*s),
@@ -284,6 +301,7 @@ impl Types {
             _ => ty,
         }
     }
+
     /// Strip distinct wrappers only (enums stay nominal).
     pub fn repr_struct(&self, ty: TypeId) -> TypeId {
         match self.kind(ty) {
@@ -291,12 +309,15 @@ impl Types {
             _ => ty,
         }
     }
+
     pub fn is_integer(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Int { .. })
     }
+
     pub fn is_float(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Float { .. })
     }
+
     /// The format of a wide `long double` type (through distinct wrappers).
     pub fn wide_float(&self, ty: TypeId) -> Option<crate::wide_float::WideFloat> {
         match self.kind(self.repr(ty)) {
@@ -304,9 +325,11 @@ impl Types {
             _ => None,
         }
     }
+
     pub fn is_pointer(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Pointer(_))
     }
+
     pub fn int_info(&self, ty: TypeId) -> Option<(u8, bool)> {
         match self.kind(self.repr(ty)) {
             TypeKind::Int {
@@ -316,6 +339,7 @@ impl Types {
             _ => None,
         }
     }
+
     pub fn pointee(&self, ty: TypeId) -> Option<TypeId> {
         match self.kind(self.repr(ty)) {
             TypeKind::Pointer(t) => Some(*t),
@@ -361,6 +385,7 @@ impl Types {
             TypeKind::Distinct(d) => self.size_of(self.distincts[d.0 as usize].base),
         }
     }
+
     pub fn align_of(&self, ty: TypeId) -> u64 {
         match self.kind(ty) {
             TypeKind::Void | TypeKind::CompileTimeOnly => 1,
@@ -450,6 +475,7 @@ impl Types {
             TypeKind::Distinct(d) => self.distincts[d.0 as usize].name.to_string(),
         }
     }
+
     pub fn count(&self) -> usize {
         self.kinds.len()
     }

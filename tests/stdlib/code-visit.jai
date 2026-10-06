@@ -17,7 +17,9 @@ count_calls :: (code: Code) -> int, int {
 #run {
     calls, total := count_calls(#code {
         x := f(g(1), 2 + h());
-        if x > 3 { print("%\n", x); }
+        if x > 3 {
+            print("%\n", x);
+        }
     });
     assert(calls == 4, "calls: %", calls);
     assert(total > 10, "nodes: %", total);

@@ -1,8 +1,14 @@
 #import "Basic";
 
-find_a :: (s: string, sub: string, start_index := 0) -> s64 { return start_index + 100; }
-find_b :: (s: string, sub: string, start_index := 0) -> s64 { return start_index + 200; }
-find_b :: (s: string, sub: u8) -> s64 { return -1; }
+find_a :: (s: string, sub: string, start_index := 0) -> s64 {
+    return start_index + 100;
+}
+find_b :: (s: string, sub: string, start_index := 0) -> s64 {
+    return start_index + 200;
+}
+find_b :: (s: string, sub: u8) -> s64 {
+    return -1;
+}
 
 main :: () {
     whole := true;

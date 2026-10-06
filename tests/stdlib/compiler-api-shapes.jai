@@ -19,7 +19,7 @@ options_shapes :: () {
     child.compile_time_command_line = options.compile_time_command_line;
     w := compiler_create_workspace("probe");
     set_build_options(child, w);
-    set_build_options_dc(.{do_output = false, output_path = "out"});
+    set_build_options_dc(.{ do_output = false, output_path = "out" });
     add_build_file("main.jai", w);
     add_build_string("x :: 1;", w);
     compiler_custom_link_command_is_complete(w);

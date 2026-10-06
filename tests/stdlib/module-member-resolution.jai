@@ -21,7 +21,7 @@ main :: () {
     }
 
     // Declarations re-exported with `using M :: #import`.
-    t := RO.Inner_Thing.{number = 1};
+    t := RO.Inner_Thing.{ number = 1 };
     assert(t.number + RO.inner_value() == 8);
 
     // Module parameters.

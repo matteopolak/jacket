@@ -1,6 +1,8 @@
 #import "Basic";
 
-square :: (x: int) -> int { return x * x; }
+square :: (x: int) -> int {
+    return x * x;
+}
 
 main :: () {
     p: *void = cast(*void) square;

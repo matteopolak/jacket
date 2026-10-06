@@ -20,11 +20,11 @@ main :: () -> s64 {
     Ranks.reset(*sorter);
     Ranks.sort(*sorter, decimals);
     if sorter[0] != 1 || sorter[1] != 2 || sorter[2] != 3 || sorter[4] != 4 return 6;
-    data: [..]float;
+    data: [..] float;
     array_copy(*data, decimals);
     defer array_free(data);
     Ranks.reorder(*data, sorter);
-    for i: 1..data.count-1 if data[i-1] > data[i] return 7;
+    for i: 1..data.count - 1 if data[i - 1] > data[i] return 7;
     Ranks.resize(*sorter, 2);
     if sorter.ranks.count != 2 || sorter.ranks2.count != 2 || sorter.valid_ranks return 8;
     Ranks.free_resources(*sorter);

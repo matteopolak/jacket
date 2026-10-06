@@ -1,10 +1,27 @@
-V2 :: struct { x, y: float; }
-V3 :: struct { x, y, z: float; }
-Big :: struct { a, b, c, d: float64; }
-Small :: struct { a: s32; b: u8; }
-Mixed :: struct { a: s64; b: float64; }
-Mixed2 :: struct { b: float64; a: s64; }
-Large :: struct { a, b, c: s64; }
+V2 :: struct {
+    x, y: float;
+}
+V3 :: struct {
+    x, y, z: float;
+}
+Big :: struct {
+    a, b, c, d: float64;
+}
+Small :: struct {
+    a: s32;
+    b: u8;
+}
+Mixed :: struct {
+    a: s64;
+    b: float64;
+}
+Mixed2 :: struct {
+    b: float64;
+    a: s64;
+}
+Large :: struct {
+    a, b, c: s64;
+}
 
 add_v2 :: (p: V2, q: V2) -> V2 #foreign structs;
 scale_v3 :: (v: V3, k: float) -> V3 #foreign structs;

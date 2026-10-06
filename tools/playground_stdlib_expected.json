@@ -51,6 +51,7 @@
   "code-visit.jai",
   "compile-time-failing-bodies.jai",
   "compile-time-globals-reset.jai",
+  "compile-time-pointer-cycles.jai",
   "compile-time-stack-trace.jai",
   "compiler-api-shapes.jai",
   "compiler-enum-external-type.jai",

@@ -2,7 +2,9 @@ Handle :: #type,distinct u32;
 Alias :: Handle;
 Child :: #type,isa Handle;
 
-consume :: (value: Handle) -> int { return cast(int) value; }
+consume :: (value: Handle) -> int {
+    return cast(int) value;
+}
 
 main :: () -> int {
     a: Handle = 5;

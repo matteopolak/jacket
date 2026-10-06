@@ -33,26 +33,32 @@ impl Hasher for FxHasher {
             self.add(u64::from_le_bytes(word));
         }
     }
+
     #[inline]
     fn write_u8(&mut self, i: u8) {
         self.add(i as u64);
     }
+
     #[inline]
     fn write_u16(&mut self, i: u16) {
         self.add(i as u64);
     }
+
     #[inline]
     fn write_u32(&mut self, i: u32) {
         self.add(i as u64);
     }
+
     #[inline]
     fn write_u64(&mut self, i: u64) {
         self.add(i);
     }
+
     #[inline]
     fn write_usize(&mut self, i: usize) {
         self.add(i as u64);
     }
+
     #[inline]
     fn finish(&self) -> u64 {
         self.hash

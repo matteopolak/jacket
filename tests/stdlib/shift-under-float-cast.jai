@@ -1,9 +1,11 @@
 #import "Basic";
 
-V :: struct { x: s64; }
+V :: struct {
+    x: s64;
+}
 
 main :: () {
-    d := V.{640};
+    d := V.{ 640 };
     sx: float = 1;
     sx += cast(float) (d.x >> 6);
     assert(sx == 11);

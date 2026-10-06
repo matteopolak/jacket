@@ -71,7 +71,7 @@ END
     plugin.workspace = w;
     arguments := string.["-min_size", "1"];
     cursor := 0;
-    while cursor < arguments.count  cursor = plugin.handle_one_option(plugin, arguments, cursor);
+    while cursor < arguments.count cursor = plugin.handle_one_option(plugin, arguments, cursor);
 
     compiler_begin_intercept(w);
     plugin.add_source(plugin);

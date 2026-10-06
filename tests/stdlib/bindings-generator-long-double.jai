@@ -19,7 +19,7 @@ clang_target :: () -> string {
 }
 
 generate :: () -> string {
-    #if OS != .MACOS && OS != .LINUX  return "";
+    #if OS != .MACOS && OS != .LINUX return "";
     fixture := tprint("%/../native/c-long-double", FIXTURE);
     target := clang_target();
     dir := tprint("/tmp/jai_bindgen_long_double_%", target);
@@ -62,11 +62,11 @@ main :: () {
         assert(ld_add(third, third) == third + third);
         assert(ld_mix(2, 0.5, 1.25, 2.5, 3) == 10.5);
         assert(ld_to_double(third) == cast(float64) third);
-        box := box_scale(.{1.5}, 4);
+        box := box_scale(.{ 1.5 }, 4);
         assert(box.v == 6);
-        tagged := tagged_bump(.{5, third});
+        tagged := tagged_bump(.{ 5, third });
         assert(tagged.tag == 6 && tagged.v == third * 2);
-        pair := pair_swap(.{1, third});
+        pair := pair_swap(.{ 1, third });
         assert(pair.a == third && pair.b == 1);
         assert(ld_spill(1, 2, 3, 4, 5, 6, 7, 8, 9, third, 3, 0.25) == 46.25);
     }

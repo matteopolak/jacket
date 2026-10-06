@@ -17,6 +17,7 @@ pub struct AstId(pub u32);
 thread_local! {
     static NEXT_AST_ID: Cell<u32> = const { Cell::new(0) };
 }
+
 impl AstId {
     pub fn fresh() -> AstId {
         NEXT_AST_ID.with(|n| {

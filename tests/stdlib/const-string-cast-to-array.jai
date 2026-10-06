@@ -4,7 +4,13 @@
 main :: () {
     a := cast([5] u8) "Hello";
     b := cast([3] s8) "abc";
-    if a[0] != #char "H" || a[4] != #char "o" { print("FAIL u8\n"); exit(1); }
-    if b[1] != 98 { print("FAIL s8\n"); exit(1); }
+    if a[0] != #char "H" || a[4] != #char "o" {
+        print("FAIL u8\n");
+        exit(1);
+    }
+    if b[1] != 98 {
+        print("FAIL s8\n");
+        exit(1);
+    }
     print("ok\n");
 }

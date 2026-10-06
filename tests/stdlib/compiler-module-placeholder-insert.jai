@@ -40,7 +40,7 @@ END
         message := compiler_wait_for_message();
         if message.kind == .IMPORT {
             import := cast(*Message_Import) message;
-            if import.module_name == "Generated_Kinds"  target = import;
+            if import.module_name == "Generated_Kinds" target = import;
         }
         if message.kind == .PHASE && !generated && target {
             if (cast(*Message_Phase) message).phase == .TYPECHECKED_ALL_WE_CAN {
@@ -56,5 +56,5 @@ END
     compiler_end_intercept(w);
     assert(generated, "the module was never imported");
     assert(!failed, "the generated module did not compile");
-    set_build_options_dc(.{do_output = false});
+    set_build_options_dc(.{ do_output = false });
 };

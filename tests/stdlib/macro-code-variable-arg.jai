@@ -16,6 +16,9 @@ TEXT :: #run -> string {
 };
 
 main :: () -> s64 {
-    if TEXT != "a_constant :: 10" { print("%\n", TEXT); return 1; }
+    if TEXT != "a_constant :: 10" {
+        print("%\n", TEXT);
+        return 1;
+    }
     return 0;
 }

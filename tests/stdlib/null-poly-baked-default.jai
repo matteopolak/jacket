@@ -2,12 +2,14 @@
 // parameter whose type names `T` (`$is_equal: (T, T) -> bool = null`) waits for it.
 #import "Basic";
 
-Matcher :: struct (T: Type, given: (T, T) -> bool) {
+Matcher :: struct(T: Type, given: (T, T) -> bool) {
     expected: T;
     #if given {
         equal :: given;
     } else {
-        equal :: (a: T, b: T) -> bool { return a == b; };
+        equal :: (a: T, b: T) -> bool {
+            return a == b;
+        };
     }
 }
 

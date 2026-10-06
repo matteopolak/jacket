@@ -1,6 +1,8 @@
 #import "Basic";
 
-takes_u64 :: (n: u64) -> u64 { return n; }
+takes_u64 :: (n: u64) -> u64 {
+    return n;
+}
 
 report :: (message: string) -> u64 #expand {
     return takes_u64(message.count);

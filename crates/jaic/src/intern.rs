@@ -31,9 +31,11 @@ impl Sym {
             sym
         })
     }
+
     pub fn as_str(self) -> &'static str {
         INTERNER.with(|i| i.borrow().names[self.0 as usize])
     }
+
     pub fn index(self) -> u32 {
         self.0
     }
@@ -44,6 +46,7 @@ impl fmt::Debug for Sym {
         write!(f, "`{}`", self.as_str())
     }
 }
+
 impl fmt::Display for Sym {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())

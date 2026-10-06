@@ -2,7 +2,7 @@
 use crate::{
     COMMANDS, CodeAction, CodeLens, Command, CompletionKind, CompletionList, Diagnostic,
     DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri, Error, Expansion,
-    FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, Position, Range,
+    FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, MarkupKind, Position, Range,
     SemanticToken, SemanticTokenKind, Session, SignatureHelp, SymbolInformation, SymbolKind,
     TOKEN_MODIFIERS, TOKEN_TYPES, TextChange,
 };
@@ -50,6 +50,8 @@ pub struct JsonSession {
     lifecycle: Lifecycle,
     cancelled: BTreeSet<RequestId>,
     completed: VecDeque<RequestId>,
+    /// Markdown when the client listed it in `textDocument.hover.contentFormat`.
+    hover_kind: MarkupKind,
 }
 
 #[derive(Deserialize)]
@@ -174,6 +176,7 @@ impl JsonSession {
             lifecycle: Lifecycle::New,
             cancelled: BTreeSet::new(),
             completed: VecDeque::new(),
+            hover_kind: MarkupKind::PlainText,
         }
     }
 
@@ -316,6 +319,7 @@ impl JsonSession {
                 return Err((-32602, "Initialize parameters must be an object".into()));
             }
             self.lifecycle = Lifecycle::Running;
+            self.hover_kind = hover_kind(&params);
             return Ok(vec![json!({
                 "capabilities": {
                     "positionEncoding": "utf-16",
@@ -404,7 +408,7 @@ impl JsonSession {
                 "textDocument/hover" => {
                     let p: PositionParams = decode(params)?;
                     self.session
-                        .hover(&uri(&p.text_document.uri)?, p.position)
+                        .hover_as(&uri(&p.text_document.uri)?, p.position, self.hover_kind)
                         .map_err(domain)?
                         .as_ref()
                         .map_or(Value::Null, hover_wire)
@@ -862,9 +866,24 @@ fn expansion_wire(expansion: &Expansion) -> Value {
     })
 }
 
+/// The hover format a client asked for in its `initialize` capabilities.
+fn hover_kind(params: &Value) -> MarkupKind {
+    let formats = params
+        .pointer("/capabilities/textDocument/hover/contentFormat")
+        .and_then(Value::as_array);
+    match formats {
+        Some(formats) if formats.iter().any(|f| f == "markdown") => MarkupKind::Markdown,
+        _ => MarkupKind::PlainText,
+    }
+}
+
 fn hover_wire(hover: &Hover) -> Value {
+    let kind = match hover.contents.kind {
+        MarkupKind::PlainText => "plaintext",
+        MarkupKind::Markdown => "markdown",
+    };
     json!({
-        "contents": { "kind": "plaintext", "value": hover.contents.value },
+        "contents": { "kind": kind, "value": hover.contents.value },
         "range": hover.range,
     })
 }

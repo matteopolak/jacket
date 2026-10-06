@@ -19,7 +19,9 @@ Holder :: struct {
     value: Long_Double;
 }
 
-scaled :: (x: Long_Double, k: Long_Double) -> Long_Double, bool { return x * k, x < k; }
+scaled :: (x: Long_Double, k: Long_Double) -> Long_Double, bool {
+    return x * k, x < k;
+}
 
 main :: () {
     // Format-independent behaviour.

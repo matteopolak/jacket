@@ -2,7 +2,7 @@
 // values select the instance.
 #import "Basic";
 
-Holder :: struct (N: int, T: Type)
+Holder :: struct(N: int, T: Type)
 #modify {
     if N < 8 N = 8;
     if T == u8 T = u16;
@@ -12,7 +12,9 @@ Holder :: struct (N: int, T: Type)
     values: [N] T;
 }
 
-Positive :: struct (N: int) #modify { return N > 0, "N must be positive"; } {
+Positive :: struct(N: int) #modify {
+    return N > 0, "N must be positive";
+} {
     x: [N] int;
 }
 

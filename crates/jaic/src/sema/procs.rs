@@ -151,6 +151,7 @@ impl Compiler {
         }
         id
     }
+
     /// A parameter typed with a bare polymorphic struct (`t: *Table`) makes the
     /// procedure polymorphic; that needs name resolution, so it is decided lazily.
     pub fn refresh_implicit_poly(&mut self, id: ProcId) -> Result<()> {

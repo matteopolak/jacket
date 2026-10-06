@@ -9,10 +9,16 @@ map :: (array: [] $T, f: (T) -> $R) -> [..] R {
 
 square :: x => x * x;
 
-twice :: (x: int) -> int { return x * 2; }
-twice :: (s: string) -> string { return tprint("%%", s, s); }
+twice :: (x: int) -> int {
+    return x * 2;
+}
+twice :: (s: string) -> string {
+    return tprint("%%", s, s);
+}
 
-varargs_named :: (s: string, i: int, v: ..Any) -> int { return i * 100 + v.count; }
+varargs_named :: (s: string, i: int, v: ..Any) -> int {
+    return i * 100 + v.count;
+}
 
 main :: () {
     ints := int.[1, 2, 3];

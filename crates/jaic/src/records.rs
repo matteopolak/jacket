@@ -84,6 +84,7 @@ impl Record {
 
 /// Field kinds as reported to Jai (`__jaic_rec_field`).
 pub const KIND_NONE: i64 = 0;
+
 pub const KIND_INT: i64 = 1;
 pub const KIND_STRING: i64 = 2;
 pub const KIND_REF: i64 = 3;

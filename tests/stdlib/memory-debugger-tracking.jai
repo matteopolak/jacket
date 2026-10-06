@@ -1,5 +1,7 @@
-Basic :: #import "Basic"(MEMORY_DEBUGGER=true, VISUALIZE_MEMORY_DEBUGGER=false);
-Node :: struct { child: *void; }
+Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
+Node :: struct {
+    child: *void;
+}
 
 totals :: (report: Basic.Leak_Report) -> (count: s64, bytes: s64) {
     count: s64;
@@ -41,10 +43,13 @@ main :: () -> s64 {
     options.scan_leaks_to_combine = true;
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
-    if count != 2 || bytes != size_of(Node)+32 return 5;
+    if count != 2 || bytes != size_of(Node) + 32 return 5;
     roots: s64;
     children: s64;
-    for summary: report.sorted_summaries { roots += summary.count; children += summary.child_count; }
+    for summary: report.sorted_summaries {
+        roots += summary.count;
+        children += summary.child_count;
+    }
     Basic.deinit(*report);
     if roots != 1 || children != 1 return 6;
     Basic.this_allocation_is_not_a_leak(parent);

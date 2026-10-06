@@ -1,7 +1,9 @@
 // Compiler: polymorphic instantiation and `#run` work done while compiling.
 #import "Basic";
 
-Vec :: struct (N: int, T: Type) { values: [N] T; }
+Vec :: struct(N: int, T: Type) {
+    values: [N] T;
+}
 
 sum :: (v: Vec($N, $T)) -> T {
     total: T;

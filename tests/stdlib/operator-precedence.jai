@@ -29,23 +29,23 @@ main :: () {
     // Bitwise and shift operators: one level, left to right.
     a, b := 0x0F, 0x30;
     assert(a << 4 | b == 0xF0);
-    assert(b | a << 4 == 0x3F0);       // C: 0xF0
-    assert(0xF0 ^ a & 0x0C == 0x0C);   // C: 0xFC
+    assert(b | a << 4 == 0x3F0); // C: 0xF0
+    assert(0xF0 ^ a & 0x0C == 0x0C); // C: 0xFC
     assert(a >> 2 & 0x2 == 0x2);
     x: u8 = 0x81;
     assert(x <<< 1 | 0x10 == 0x13);
     // They bind tighter than arithmetic on either side.
-    assert(2 * a & 0x3 == 6);          // C: 2
-    assert(0x10 & a + 1 == 1);         // C: 0x10
-    assert(100 - 1 << 2 == 96);        // C: 396
+    assert(2 * a & 0x3 == 6); // C: 2
+    assert(0x10 & a + 1 == 1); // C: 0x10
+    assert(100 - 1 << 2 == 96); // C: 396
 
     // `%` is below `*` and `/`, above `+` and `-`.
     tab, col := 4, 6;
-    assert(tab - col % tab == 2);      // a tab stop: same as C
+    assert(tab - col % tab == 2); // a tab stop: same as C
     assert(col % tab + 1 == 3);
-    assert(17 % 4 * 3 == 5);           // C: 3
+    assert(17 % 4 * 3 == 5); // C: 3
     assert(17 * 4 % 3 == 2);
-    assert(100 % 30 / 3 == 0);         // C: 3
+    assert(100 % 30 / 3 == 0); // C: 3
     assert(100 / 3 % 30 == 3);
     assert(col % 2 == 0);
 

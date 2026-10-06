@@ -8,7 +8,7 @@ failures := 0;
 
 check :: (name: string, got: u64, want: u64) {
     if got != want {
-        print("FAIL %: got 0x%, want 0x%\n", name, formatInt(got, base=16), formatInt(want, base=16));
+        print("FAIL %: got 0x%, want 0x%\n", name, formatInt(got, base = 16), formatInt(want, base = 16));
         failures += 1;
     }
 }
@@ -260,7 +260,10 @@ main :: () {
 
         a: [12] u8;
         b: [12] u8;
-        for 0..11 { a[it] = cast(u8) it; b[it] = cast(u8) it; }
+        for 0..11 {
+            a[it] = cast(u8) it;
+            b[it] = cast(u8) it;
+        }
         b[7] = 99;
         pa := a.data;
         pb := b.data;

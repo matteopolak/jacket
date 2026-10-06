@@ -1,4 +1,4 @@
-Debugger :: #import "Basic"(MEMORY_DEBUGGER=true, VISUALIZE_MEMORY_DEBUGGER=false);
+Debugger :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 
 main :: () -> s64 {
     memory := Debugger.alloc(19);

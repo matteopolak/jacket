@@ -2,13 +2,29 @@
 #import "Basic";
 #import "Compiler";
 
-helper :: (x: int) -> int { return x; }
+helper :: (x: int) -> int {
+    return x;
+}
 
-Plain :: struct { a := 1; p := helper; }
-Voided :: struct { a := 1; p := helper; }
-Hidden :: struct { a := 1; p := helper; }
-Directive :: struct #type_info_procedures_are_void_pointers { a := 1; p := helper; }
-Empty :: struct #type_info_none { a := 1; }
+Plain :: struct {
+    a := 1;
+    p := helper;
+}
+Voided :: struct {
+    a := 1;
+    p := helper;
+}
+Hidden :: struct {
+    a := 1;
+    p := helper;
+}
+Directive :: struct #type_info_procedures_are_void_pointers {
+    a := 1;
+    p := helper;
+}
+Empty :: struct #type_info_none {
+    a := 1;
+}
 
 #run compiler_set_type_info_flags(Voided, .PROCEDURES_ARE_VOID_POINTERS);
 #run compiler_set_type_info_flags(Hidden, .NO_TYPE_INFO);
@@ -18,7 +34,12 @@ proc_tag :: ($T: Type) -> Type_Info_Tag {
     return .VOID;
 }
 
-check :: (cond: bool, what: string) { if !cond { print("FAIL: %\n", what); exit(1); } }
+check :: (cond: bool, what: string) {
+    if !cond {
+        print("FAIL: %\n", what);
+        exit(1);
+    }
+}
 
 main :: () {
     check(proc_tag(Plain) == .PROCEDURE, "plain keeps the procedure type");

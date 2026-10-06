@@ -102,7 +102,9 @@ HAVE_OBJC :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_OBJC {
@@ -118,7 +120,7 @@ main :: () {
         assert(has(BINDINGS, "Sub :: struct {"));
         assert(has(BINDINGS, "#as using box: Box(*Item);"));
 
-        assert(generics_ping() == 7);   // Loads the library, and with it the classes.
+        assert(generics_ping() == 7); // Loads the library, and with it the classes.
 
         item := objc_alloc(class(Item));
         Item.setTag(cast(*Item) item, 42);

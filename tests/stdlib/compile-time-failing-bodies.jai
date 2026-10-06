@@ -54,4 +54,6 @@ END
     assert(added && !failed);
 }
 
-main :: () { print("ok\n"); }
+main :: () {
+    print("ok\n");
+}

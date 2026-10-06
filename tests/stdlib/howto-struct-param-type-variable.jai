@@ -2,11 +2,11 @@
 
 // A struct value parameter may declare a type variable: `struct (x: $T)`.
 
-Thing :: struct (x: $T) {
+Thing :: struct(x: $T) {
     y := x;
 }
 
-Bling :: struct (x: [$N] $T) {
+Bling :: struct(x: [$N] $T) {
     y := x;
 }
 

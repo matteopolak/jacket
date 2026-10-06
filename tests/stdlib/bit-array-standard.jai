@@ -10,7 +10,7 @@ main :: () {
     assert(bits[64] && bits[129] && !bits[1]);
     assert(bits.slots.count == 3);
     count := 0;
-    for :only_set bits  count += 1;
+    for: only_set bits count += 1;
     assert(count == 3);
     toggle_all_bits(*bits);
     assert(!bits[0] && bits[1]);

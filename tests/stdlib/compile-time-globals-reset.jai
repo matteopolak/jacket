@@ -18,7 +18,10 @@ once :: () -> int {
 #run {
     counter = 5;
     kept = 7;
-    for 0..3 { table[it] = it + 1; kept_table[it] = it + 10; }
+    for 0..3 {
+        table[it] = it + 1;
+        kept_table[it] = it + 10;
+    }
 }
 
 value := #run once();

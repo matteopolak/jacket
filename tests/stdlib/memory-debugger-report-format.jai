@@ -1,4 +1,4 @@
-Debugger :: #import "Basic"(MEMORY_DEBUGGER=true, VISUALIZE_MEMORY_DEBUGGER=false);
+Debugger :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 #import "String";
 
 // log_leak_report writes one block per leak (size, allocation count, stack trace with the

@@ -2,8 +2,15 @@
 // member reached through a `using` field.
 #import "Basic";
 
-Kind :: enum { A; B; C; }
-Base :: struct { kind: Kind; extra: int = 7; }
+Kind :: enum {
+    A;
+    B;
+    C;
+}
+Base :: struct {
+    kind: Kind;
+    extra: int = 7;
+}
 Derived :: struct {
     #as using base: Base;
     kind = .B;

@@ -2,7 +2,9 @@
 // check off, so a view may read past its count into memory it knows is there.
 #import "Basic";
 
-past_view :: (v: [] int) -> int #no_abc { return v[v.count]; }
+past_view :: (v: [] int) -> int #no_abc {
+    return v[v.count];
+}
 
 main :: () {
     backing := int.[1, 2, 3, 4];
@@ -11,11 +13,18 @@ main :: () {
     if view[1] != 2 exit(1);
     if past_view(view) != 3 exit(2);
     sum := 0;
-    for 0..2 #no_abc { sum += view[it]; }
+    for 0..2 #no_abc {
+        sum += view[it];
+    }
     if sum != 6 exit(3);
-    #no_abc { if view[2] != 3 exit(7); }
+    #no_abc {
+        if view[2] != 3 exit(7);
+    }
     i := 2;
-    while i < 4 #no_abc { sum += view[i]; i += 1; }
+    while i < 4 #no_abc {
+        sum += view[i];
+        i += 1;
+    }
     if sum != 13 exit(8);
     if view.count == 2 #no_abc then sum = view[3];
     if sum != 4 exit(9);

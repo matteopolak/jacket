@@ -512,15 +512,19 @@ struct Rmw {
 fn bits(ty: Ty) -> u64 {
     ty.size() * 8
 }
+
 fn konst(f: &mut FnCtx, ty: Ty, v: u64) -> Val {
     f.b.iconst(ty, v)
 }
+
 fn bin(f: &mut FnCtx, op: BinOp, ty: Ty, a: Val, b: Val) -> Val {
     f.b.bin(op, ty, a, b)
 }
+
 fn cmp(f: &mut FnCtx, op: CmpOp, ty: Ty, a: Val, b: Val) -> Val {
     f.b.cmp(op, ty, a, b)
 }
+
 fn resize(f: &mut FnCtx, v: Val, from: Ty, to: Ty, signed: bool) -> Val {
     if from == to {
         v
@@ -532,24 +536,30 @@ fn resize(f: &mut FnCtx, v: Val, from: Ty, to: Ty, signed: bool) -> Val {
         f.b.conv(ConvOp::ZExt, from, to, v)
     }
 }
+
 fn is_zero(f: &mut FnCtx, ty: Ty, v: Val) -> Val {
     let z = konst(f, ty, 0);
     cmp(f, CmpOp::Eq, ty, v, z)
 }
+
 fn is_neg(f: &mut FnCtx, ty: Ty, v: Val) -> Val {
     let z = konst(f, ty, 0);
     cmp(f, CmpOp::SLt, ty, v, z)
 }
+
 fn flag_not(f: &mut FnCtx, v: Val) -> Val {
     let one = konst(f, Ty::I8, 1);
     bin(f, BinOp::Xor, Ty::I8, v, one)
 }
+
 fn flag_or(f: &mut FnCtx, a: Val, b: Val) -> Val {
     bin(f, BinOp::Or, Ty::I8, a, b)
 }
+
 fn flag_xor(f: &mut FnCtx, a: Val, b: Val) -> Val {
     bin(f, BinOp::Xor, Ty::I8, a, b)
 }
+
 /// `cond ? a : b` for integers of class `ty` without branching.
 fn select(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let wide = resize(f, cond, Ty::I8, ty, false);
@@ -560,6 +570,7 @@ fn select(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let y = bin(f, BinOp::And, ty, b, inv);
     bin(f, BinOp::Or, ty, x, y)
 }
+
 fn sign_flag_of(f: &mut FnCtx, ty: Ty, a: Val, b: Val, res: Val, sub: bool) -> Val {
     // Add: ((a ^ res) & (b ^ res)) < 0.  Sub: ((a ^ b) & (a ^ res)) < 0.
     let (x, y) = if sub {
@@ -573,10 +584,12 @@ fn sign_flag_of(f: &mut FnCtx, ty: Ty, a: Val, b: Val, res: Val, sub: bool) -> V
     let both = bin(f, BinOp::And, ty, x, y);
     is_neg(f, ty, both)
 }
+
 fn bit_intrinsic(f: &mut FnCtx, op: Intrinsic, ty: Ty, x: Val) -> Val {
     let width = konst(f, Ty::I64, bits(ty));
     f.b.intrinsic(op, vec![x, width], &[ty])[0]
 }
+
 fn ptr_of(f: &mut FnCtx, addr: Val) -> Val {
     f.b.conv(ConvOp::Bitcast, Ty::I64, Ty::Ptr, addr)
 }

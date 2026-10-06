@@ -95,7 +95,9 @@ HAVE_OBJC :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_OBJC {
@@ -110,7 +112,7 @@ main :: () {
         assert(has(BINDINGS, "Sub :: struct {"));
         assert(has(BINDINGS, "#as using counter: Counter;"));
 
-        assert(counter_ping() == 42);   // Loads the library, and with it the classes.
+        assert(counter_ping() == 42); // Loads the library, and with it the classes.
 
         c := Counter.counterWithValue(class(Counter), 5);
         assert(c != null);
@@ -122,8 +124,8 @@ main :: () {
         assert(!truth(Counter.isBig(c)));
         Counter.setValue(c, 500);
         assert(truth(Counter.isBig(c)));
-        assert(Counter.doubled(c) == 1000);       // From the category.
-        assert(Greeter.greetCount(c) == 5000);    // Through the protocol.
+        assert(Counter.doubled(c) == 1000); // From the category.
+        assert(Greeter.greetCount(c) == 5000); // Through the protocol.
         assert(Counter.selfAsId(c) == xx c);
         Counter.reset(c);
         assert(Counter.value(c) == 0);
@@ -132,7 +134,7 @@ main :: () {
         s := Counter.initWithValue(objc_alloc(Sub), 3);
         assert(type_of(s) == *Sub);
         assert(Sub.subValue(s) == 1003);
-        assert(Counter.value(s) == 3);   // Inherited through `#as using`.
+        assert(Counter.value(s) == 3); // Inherited through `#as using`.
         print("ok\n");
     } else {
         print("ok\n");

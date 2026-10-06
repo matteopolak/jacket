@@ -1,9 +1,19 @@
 // Formatter record factories (Any payload) and the strings they print as.
 // Reflection assertions prove the selected Any descriptor and member offset.
 #import "Basic";
-Wrapped_Value :: struct { marker: s64; using #as formatter: Formatter; }
-Sample_Record :: struct { count: s64; name: string; }
-Sample_Flags :: enum_flags u8 { A :: 1; B :: 2; C :: 4; }
+Wrapped_Value :: struct {
+    marker: s64;
+    using #as formatter: Formatter;
+}
+Sample_Record :: struct {
+    count: s64;
+    name: string;
+}
+Sample_Flags :: enum_flags u8 {
+    A :: 1;
+    B :: 2;
+    C :: 4;
+}
 Procedure_Kind :: #type (s64) -> bool;
 
 main :: () -> s64 {
@@ -25,14 +35,14 @@ main :: () -> s64 {
     if tprint("%", formatFloat(negative_zero, trailing_width = 2, zero_removal = .NO)) != "-0.00" return 8;
 
     text := "view";
-    wrapped := Wrapped_Value.{marker = 99, formatter = .{value = text}};
+    wrapped := Wrapped_Value.{ marker = 99, formatter = .{ value = text } };
     member := isFormatter(cast(*Type_Info_Struct) type_info(Wrapped_Value));
     if !member || member.offset_in_bytes == 0 || member.type != type_info(Formatter) return 9;
     if tprint("%", wrapped) != "view" return 10;
-    direct := Formatter.{value = text};
+    direct := Formatter.{ value = text };
     if tprint("%", direct) != "view" return 11;
 
-    sample := Sample_Record.{count = 3, name = "x"};
+    sample := Sample_Record.{ count = 3, name = "x" };
     legacy_struct := formatStruct(sample);
     if legacy_struct.value.type != type_info(Sample_Record) || legacy_struct.use_long_form_if_more_than_this_many_members != 5 return 12;
     expected := "{3, \"x\"}";

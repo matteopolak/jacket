@@ -70,8 +70,18 @@ pub struct Location {
     pub range: Range,
 }
 
+/// How hover text is written. Clients list what they render in
+/// `textDocument.hover.contentFormat`; Markdown is used when it is listed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MarkupKind {
+    #[default]
+    PlainText,
+    Markdown,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MarkupContent {
+    pub kind: MarkupKind,
     pub value: String,
 }
 

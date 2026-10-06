@@ -9,16 +9,16 @@
 
 main :: () {
     type: Build_Type = .STATIC_LIBRARY;
-    build_static  := build_cpp_static_lib;
+    build_static := build_cpp_static_lib;
     build_dynamic := build_cpp_dynamic_lib;
-    build_exe     := build_cpp_executable;
+    build_exe := build_cpp_executable;
 
     files := enum_cpp_files("does-not-exist");
     assert(files.count == 0);
     free_cpp_files(files);
 
     source := "/tmp/jaic_buildcpp_test.c";
-    exe    := "/tmp/jaic_buildcpp_test_exe";
+    exe := "/tmp/jaic_buildcpp_test_exe";
     assert(write_entire_file(source, "#include <stdio.h>\nint main(void) { puts(\"from c\"); return 0; }\n"));
     ok := build_cpp(exe, source, type = .EXECUTABLE);
     assert(ok);
@@ -48,8 +48,8 @@ main :: () {
     assert(!file_exists(tprint("%/add.o", dir)));
 
     assert(build_cpp_dynamic_lib(tprint("%/libadd", dir), tprint("%/add.c", dir), working_directory = dir));
-    #if OS == .MACOS  assert(file_exists(tprint("%/libadd.dylib", dir)));
-    else              assert(file_exists(tprint("%/libadd.so", dir)));
+    #if OS == .MACOS assert(file_exists(tprint("%/libadd.dylib", dir)));
+    else assert(file_exists(tprint("%/libadd.so", dir)));
 
     // OBJ_FILE keeps the object.
     assert(build_cpp("unused", tprint("%/add.c", dir), type = .OBJ_FILE, working_directory = dir));

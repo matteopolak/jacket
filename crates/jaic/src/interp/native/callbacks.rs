@@ -37,6 +37,7 @@ const SLOTS: usize = 64;
 
 /// Return shapes, in the order of `thunk_addr`'s families.
 const INT: usize = 0;
+
 const FLOAT: usize = 1;
 const SHAPES: usize = 8;
 
@@ -156,48 +157,63 @@ fn float(w: &[u64], i: usize) -> f64 {
 
 impl Ret for u64 {
     const SHAPE: usize = INT;
+
     fn from_words(w: &[u64]) -> Self {
         word(w, 0)
     }
 }
+
 impl Ret for f64 {
     const SHAPE: usize = FLOAT;
+
     fn from_words(w: &[u64]) -> Self {
         float(w, 0)
     }
 }
+
 impl Ret for II {
     const SHAPE: usize = 2;
+
     fn from_words(w: &[u64]) -> Self {
         II(word(w, 0), word(w, 1))
     }
 }
+
 impl Ret for IF {
     const SHAPE: usize = 3;
+
     fn from_words(w: &[u64]) -> Self {
         IF(word(w, 0), float(w, 1))
     }
 }
+
 impl Ret for FI {
     const SHAPE: usize = 4;
+
     fn from_words(w: &[u64]) -> Self {
         FI(float(w, 0), word(w, 1))
     }
 }
+
 impl Ret for FF {
     const SHAPE: usize = 5;
+
     fn from_words(w: &[u64]) -> Self {
         FF(float(w, 0), float(w, 1))
     }
 }
+
 impl Ret for FFF {
     const SHAPE: usize = 6;
+
     fn from_words(w: &[u64]) -> Self {
         FFF(float(w, 0), float(w, 1), float(w, 2))
     }
 }
+
 impl Ret for FFFF {
     const SHAPE: usize = 7;
+
     fn from_words(w: &[u64]) -> Self {
         FFFF(float(w, 0), float(w, 1), float(w, 2), float(w, 3))
     }
@@ -304,6 +320,7 @@ impl Incoming {
         self.ns += 1;
         v
     }
+
     fn int(&mut self) -> u64 {
         if self.ni == self.ints.len() {
             return self.stack();
@@ -311,6 +328,7 @@ impl Incoming {
         self.ni += 1;
         self.ints[self.ni - 1]
     }
+
     fn float(&mut self) -> u64 {
         if self.nf == 8 {
             return self.stack();
@@ -318,10 +336,12 @@ impl Incoming {
         self.nf += 1;
         self.floats[self.nf - 1]
     }
+
     fn fits(&self, pieces: &[Piece]) -> bool {
         let ints = pieces.iter().filter(|p| p.ty == PieceTy::I64).count();
         self.ni + ints <= self.ints.len() && self.nf + pieces.len() - ints <= 8
     }
+
     /// As `Regs::exhaust`.
     fn exhaust(&mut self, pieces: &[Piece]) {
         if X86_64 {

@@ -35,4 +35,6 @@ END
     assert(found, "Mode was not reported");
 }
 
-main :: () { print("ok\n"); }
+main :: () {
+    print("ok\n");
+}

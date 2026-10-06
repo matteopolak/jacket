@@ -4,9 +4,9 @@
 
 #if OS == {
     case .WINDOWS; #load "backend/context.jai";
-    case .LINUX;   #load "backend/context.jai";
-    case .MACOS;   #load "backend/context.jai";
-    case;          #load "backend/context.jai";
+    case .LINUX; #load "backend/context.jai";
+    case .MACOS; #load "backend/context.jai";
+    case; #load "backend/context.jai";
 }
 
 backend_ready :: () -> bool {

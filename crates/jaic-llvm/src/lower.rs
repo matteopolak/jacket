@@ -40,16 +40,19 @@ impl From<BuilderError> for Error {
         Error(format!("LLVM builder error: {e}"))
     }
 }
+
 impl From<String> for Error {
     fn from(e: String) -> Self {
         Error(e)
     }
 }
+
 impl From<&str> for Error {
     fn from(e: &str) -> Self {
         Error(e.to_string())
     }
 }
+
 type R<T> = Result<T, Error>;
 
 /// Which part of the program a module holds when codegen is split across modules.

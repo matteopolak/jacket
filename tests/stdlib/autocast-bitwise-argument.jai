@@ -2,10 +2,18 @@
 // constants on the other side follow it (chess-jai's `add_piece(p, xx a1|h1)`).
 #import "Basic";
 
-using Squares :: enum_flags u64 { a1; b1; c1; }
+using Squares :: enum_flags u64 {
+    a1;
+    b1;
+    c1;
+}
 
-bits :: (x: u64) -> u64 { return x; }
-bits_macro :: (x: u64) -> u64 #expand { return x; }
+bits :: (x: u64) -> u64 {
+    return x;
+}
+bits_macro :: (x: u64) -> u64 #expand {
+    return x;
+}
 
 main :: () {
     assert(bits(xx a1 | c1) == 5);

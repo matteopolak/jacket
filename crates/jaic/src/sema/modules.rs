@@ -10,9 +10,11 @@ pub trait FileSystem {
     fn read(&self, path: &Path) -> Option<Vec<u8>>;
     fn is_file(&self, path: &Path) -> bool;
     fn is_dir(&self, path: &Path) -> bool;
+
     fn canonical(&self, path: &Path) -> PathBuf {
         normalize(path)
     }
+
     /// Names (and whether each is a directory) directly inside `path`; used by the sandbox host.
     fn list_dir(&self, _path: &Path) -> Vec<(String, bool)> {
         Vec::new()
@@ -20,19 +22,24 @@ pub trait FileSystem {
 }
 
 pub struct NativeFs;
+
 impl FileSystem for NativeFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         std::fs::read(path).ok()
     }
+
     fn is_file(&self, path: &Path) -> bool {
         path.is_file()
     }
+
     fn is_dir(&self, path: &Path) -> bool {
         path.is_dir()
     }
+
     fn canonical(&self, path: &Path) -> PathBuf {
         std::fs::canonicalize(path).unwrap_or_else(|_| normalize(path))
     }
+
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         let Ok(entries) = std::fs::read_dir(path) else {
             return Vec::new();
@@ -53,22 +60,27 @@ impl FileSystem for NativeFs {
 pub struct VirtualFs {
     pub files: HashMap<PathBuf, Rc<[u8]>>,
 }
+
 impl VirtualFs {
     pub fn insert(&mut self, path: impl Into<PathBuf>, bytes: impl Into<Rc<[u8]>>) {
         self.files.insert(normalize(&path.into()), bytes.into());
     }
 }
+
 impl FileSystem for VirtualFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         self.files.get(&normalize(path)).map(|b| b.to_vec())
     }
+
     fn is_file(&self, path: &Path) -> bool {
         self.files.contains_key(&normalize(path))
     }
+
     fn is_dir(&self, path: &Path) -> bool {
         let p = normalize(path);
         self.files.keys().any(|k| k.starts_with(&p) && k != &p)
     }
+
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         let p = normalize(path);
         let mut out: std::collections::BTreeMap<String, bool> = Default::default();

@@ -4,11 +4,22 @@
 // different value or type with the other grouping.
 #import "Basic";
 
-Turn :: enum s32 { WHITE :: 0; BLACK :: 1; }
-Flags :: enum_flags { REVERSE; POINTER; }
-Pair :: struct { x: s64; y: s64; }
+Turn :: enum s32 {
+    WHITE :: 0;
+    BLACK :: 1;
+}
+Flags :: enum_flags {
+    REVERSE;
+    POINTER;
+}
+Pair :: struct {
+    x: s64;
+    y: s64;
+}
 
-shifted :: () -> u32 { return 0x1234; }
+shifted :: () -> u32 {
+    return 0x1234;
+}
 
 main :: () {
     // `&`: ui_builder's `(cast(float) (hex >> 16) & 0xFF) / 255.0` masks, then converts.
@@ -67,7 +78,7 @@ main :: () {
     assert(cast(bool) 0 || yes);
 
     // Postfix operators bind before the cast, and keep the bitwise rule after them.
-    pair := Pair.{3, 9};
+    pair := Pair.{ 3, 9 };
     assert(cast(float) pair.x / 2 == 1.5);
     values := s64.[0x1ff, 0x2ff];
     assert(cast(s32) values[1] & 0xff == 0xff);

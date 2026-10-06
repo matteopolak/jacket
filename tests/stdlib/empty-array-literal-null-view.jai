@@ -1,7 +1,9 @@
 // `.[]` converted to a view has a null data pointer, so `if view.data free(view.data)` is safe.
 #import "Basic";
 
-empty :: () -> [] s64 { return .[]; }
+empty :: () -> [] s64 {
+    return .[];
+}
 
 main :: () -> s64 {
     v := empty();

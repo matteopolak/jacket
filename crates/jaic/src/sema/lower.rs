@@ -56,9 +56,11 @@ impl Operand {
             _ => TypeId::COMPILE_TIME,
         }
     }
+
     pub fn is_const(&self) -> bool {
         matches!(self, Operand::Const { .. } | Operand::Type(_))
     }
+
     pub fn const_value(&self) -> Option<Value> {
         match self {
             Operand::Const {
@@ -68,6 +70,7 @@ impl Operand {
             _ => None,
         }
     }
+
     pub fn int(value: i128, ty: TypeId) -> Operand {
         Operand::Const {
             ty,
@@ -75,6 +78,7 @@ impl Operand {
             untyped: false,
         }
     }
+
     pub fn untyped_int(value: i128) -> Operand {
         Operand::Const {
             ty: TypeId::S64,
@@ -82,6 +86,7 @@ impl Operand {
             untyped: true,
         }
     }
+
     pub fn bool(value: bool) -> Operand {
         Operand::Const {
             ty: TypeId::BOOL,
@@ -246,6 +251,7 @@ impl Compiler {
             | TypeKind::Struct(_) => None,
         }
     }
+
     pub fn is_memory_type(&self, ty: TypeId) -> bool {
         self.ir_ty(ty).is_none() && ty != TypeId::VOID
     }
@@ -255,10 +261,12 @@ impl Compiler {
         self.ensure_complete(ty, span)?;
         Ok(self.types.size_of(ty))
     }
+
     pub fn align_of(&mut self, ty: TypeId, span: Span) -> Result<u64> {
         self.ensure_complete(ty, span)?;
         Ok(self.types.align_of(ty))
     }
+
     /// Make sure every struct contained by value in `ty` is laid out.
     pub fn ensure_complete(&mut self, ty: TypeId, span: Span) -> Result<()> {
         match self.types.kind(ty).clone() {

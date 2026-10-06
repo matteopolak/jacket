@@ -5,7 +5,11 @@
 #import "Switch_Context";
 
 MODE_COUNT :: #run enum_names(Mode).count;
-Mode :: enum { A; B; C; }
+Mode :: enum {
+    A;
+    B;
+    C;
+}
 
 main :: () {
     state: Backend_State;

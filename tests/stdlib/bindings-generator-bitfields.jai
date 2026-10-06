@@ -95,7 +95,9 @@ HAVE_C :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_C {

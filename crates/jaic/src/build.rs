@@ -1070,6 +1070,7 @@ fn field_name(interp: &Interp, p: u64) -> &str {
 
 /// Plan entry kinds shared with `Record_Plan_Entry` in `stdlib/Compiler/records.jai`.
 const PLAN_OTHER: u64 = 0;
+
 const PLAN_INT: u64 = 1;
 const PLAN_STRING: u64 = 2;
 const PLAN_POINTER: u64 = 3;

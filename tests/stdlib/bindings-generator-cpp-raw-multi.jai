@@ -117,9 +117,13 @@ HAVE_CPP :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-byte_offset :: (base: *void, field: *void) -> s64 { return cast(s64) field - cast(s64) base; }
+byte_offset :: (base: *void, field: *void) -> s64 {
+    return cast(s64) field - cast(s64) base;
+}
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_CPP {
@@ -149,18 +153,30 @@ main :: () {
         pc := Multi.make_c(1, 2, 3, 4, 5);
         assert(pc.a == 1 && pc.b == 2 && pc.x == 3 && pc.y == 4 && pc.c == 5);
         assert(Multi.C.total(pc) == 15);
-        c.a = 10; c.b = 20; c.x = 30; c.y = 40; c.c = 50;
+        c.a = 10;
+        c.b = 20;
+        c.x = 30;
+        c.y = 40;
+        c.c = 50;
         assert(Multi.C.total(*c) == 150);
 
         pg := Multi.make_g(1, 2, 3, 4, 5);
         assert(pg.a == 1 && pg.b == 2 && pg.f == 3 && pg.g == 4 && pg.z == 5);
         assert(Multi.G.total(pg) == 15);
-        g.a = 10; g.b = 20; g.f = 30; g.g = 40; g.z = 50;
+        g.a = 10;
+        g.b = 20;
+        g.f = 30;
+        g.g = 40;
+        g.z = 50;
         assert(Multi.G.total(*g) == 150);
 
         pn := Multi.make_n(1, 2, 3, 4, 5);
         assert(pn.a == 1 && pn.b == 2 && pn.f == 3 && pn.g == 4 && pn.n == 5);
-        n.a = 10; n.b = 20; n.f = 30; n.g = 40; n.n = 50;
+        n.a = 10;
+        n.b = 20;
+        n.f = 30;
+        n.g = 40;
+        n.n = 50;
         assert(Multi.N.n_sum(*n) == 150);
         print("ok\n");
     } else {

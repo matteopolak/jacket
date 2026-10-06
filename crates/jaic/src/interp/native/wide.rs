@@ -391,6 +391,7 @@ mod tests {
             spilled: uint64x2_t,
         ) -> uint64x2_t {
             let _ = (b1, b2, b3, b4, b5, b6, b7);
+
             // SAFETY: NEON is always present on AArch64.
             unsafe {
                 let swapped = vsetq_lane_u64::<1>(

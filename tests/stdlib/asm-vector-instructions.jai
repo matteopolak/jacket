@@ -2,7 +2,10 @@
 // compares, shifts, shuffles, conversions, broadcasts, masks and gathers.
 #import "Basic";
 
-fail :: (code: int, what: string) { print("FAIL %: %\n", code, what); exit(xx code); }
+fail :: (code: int, what: string) {
+    print("FAIL %: %\n", code, what);
+    exit(xx code);
+}
 
 main :: () {
     // Float arithmetic, 128-bit legacy form (dst op= src).

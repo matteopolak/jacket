@@ -1,7 +1,9 @@
 // Lambda expressions: typed from the expected procedure type, polymorphic when bound
 // with `::`, inferred results through `$R`, and baked arguments.
 
-apply :: (a: int, f: (int) -> int) -> int { return f(a); }
+apply :: (a: int, f: (int) -> int) -> int {
+    return f(a);
+}
 
 map_sum :: (array: [] $T, f: (T) -> $R) -> R {
     total: R;
@@ -33,7 +35,9 @@ main :: () -> int {
     if map_sum(values, x => x * x) != 30 return 8;
     if map_sum(values, x => cast(float) x * 0.5) != 5.0 return 9;
 
-    call_with(7, x => { counter += x; });
+    call_with(7, x => {
+        counter += x;
+    });
     if counter != 7 return 10;
 
     f: (int, int) -> int = (a, b) => a * b;

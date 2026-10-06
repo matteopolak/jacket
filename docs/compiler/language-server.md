@@ -78,24 +78,65 @@ For completion, the word being typed and any `a.b.` chain before it are cut out 
   4. any **expansion** containing the cursor where there is no name (the string of `#insert "..."`);
   5. the syntax layer's declaration text, or `keyword return` on a keyword (completion details say `keyword` too; hover text does not repeat the language name).
 
-Hover text is plain text (`"kind": "plaintext"`).
+Hover contents are built once as blocks (`hover.rs` `HoverText`: code, program output, prose, format rows and section starts) and written in the format the client asked for. `JsonSession` reads `capabilities.textDocument.hover.contentFormat` at `initialize`: if it lists `markdown`, hovers are `"kind": "markdown"`, otherwise `"kind": "plaintext"`. `Session::hover` is plain text; `Session::hover_as(uri, position, MarkupKind)` picks.
 
-Examples:
+The Markdown is standard (CommonMark plus nothing a plain renderer would miss), so VS Code and other editors render it without an extension:
 
-```text
+- Code (signatures, declarations, overload sets with one declaration per line, produced code, `#run` values) is a ```` ```jai ```` fenced block. Fences and inline code spans are longer than any backtick run inside (`` `total `` in a macro body).
+- Prose is escaped (`hover::escape`); directive and keyword names in it are code spans: `` `#if`: the condition is true, the first branch is compiled ``, `` keyword `return` ``.
+- Produced code and compile-time output go last, each in a section: a `---` thematic break, then the label as a paragraph that is only emphasis (`*expands to*`, `*expands to (2 of 3)*` for polymorphic instances, `*prints*`), then the code. What `#run` printed is a ```` ```text ```` block.
+- The format-string hover is the literal in a `jai` block, then a list with one item per `%`: the specifier as code, `→`, and the argument with its type as code (prose when it is missing). The hovered specifier is bold when there is more than one.
+
+Plain text keeps the older layout: the same content with a `─── label ───` line where Markdown has a section break, and `▸` marking the hovered format row.
+
+Examples (Markdown):
+
+````markdown
+```jai
 square :: (x: int) -> int #expand
+```
 
-square expands to:
+---
 
+*expands to*
+
+```jai
 total += (total + 2);
 return (total + 2) * (total + 2);
 ```
+````
+
+````markdown
+```jai
+#run = 30: s64
+```
+
+---
+
+*prints*
 
 ```text
-#run = 30: s64
-
-Printed at compile time:
 computing
+```
+````
+
+````markdown
+```jai
+"% and %2 of %1\n"
+```
+
+- `%` → `total: s64`
+- **`%2`** → `s: s64`
+- `%1` → `total: s64`
+````
+
+The same in plain text:
+
+```text
+square :: (x: int) -> int #expand
+─── expands to ───
+total += (total + 2);
+return (total + 2) * (total + 2);
 ```
 
 ```text
@@ -104,6 +145,8 @@ computing
 ▸ %2 → s: s64
   %1 → total: s64
 ```
+
+The hosted playground asks for Markdown, draws a break followed by an emphasis-only paragraph as a rule with the label set into it, and styles the list as rows (see the portfolio's `docs/jai-language-features.md`). It reads only standard Markdown, so a new hover kind needs no client change unless it wants a layout of its own.
 
 ### Definition, references and type definition
 
@@ -237,7 +280,7 @@ The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wa
 
 ## How to change it
 
-- **Record more facts.** Add a hook in sema that calls an `ide_*` method guarded by `self.ide.is_some()`, and keep the hook cheap. Name facts go in `ide.rs`; metaprogramming and call facts in `ide_meta.rs`. To show more in hover, extend `ide_hover`/`ide_entity_hover`, or `Session::describe` for expansions. For more completion sources, extend `ide_visible`/`ide_members`.
+- **Record more facts.** Add a hook in sema that calls an `ide_*` method guarded by `self.ide.is_some()`, and keep the hook cheap. Name facts go in `ide.rs`; metaprogramming and call facts in `ide_meta.rs`. To show more in hover, extend `ide_hover`/`ide_entity_hover`, or `Session::describe` for expansions. Build hover text from `hover::Block`s rather than formatting strings, so both the Markdown and the plain-text form follow; a new block kind needs a case in `HoverText::plain` and `HoverText::markdown`. For more completion sources, extend `ide_visible`/`ide_members`.
 - **New expansion kind.** Add an `IdeExpansionKind`, record it where the compiler evaluates it, and handle it in `kind_name`, `describe`, `expansion` and `code_actions` (`features.rs`).
 - **Print-family procedures** are a name list (`format::PRINT_FAMILY`), because diagnostics are published without compiling. A user wrapper is still recognized by the hover's type lookup (`IdeCallInfo::format_param`), but not by diagnostics or tokens until its name is added.
 - **Format semantics** live in `format::specs`; keep them in step with `__format_to_builder` in `stdlib/Basic/Print.jai`.
@@ -253,9 +296,10 @@ The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wa
 Tests:
 
 - `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
-- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
+- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
 - `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
-- Unit tests: `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).
+- `crates/jai-language-server/tests/protocol.rs`: hover format negotiation (`markdown` listed or not).
+- Unit tests: `hover.rs` (escaping, fences, sections), `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).
 - `crates/jai-wasm/src/language_server.rs`: hover, completion, inlay hints, expansions, format strings and `#import` links into the bundled stdlib through the wasm bridge with the bundled stdlib.
 - `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>`: the same against the real WebAssembly module.
 
@@ -275,6 +319,7 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
   - `CACHED`: compiles kept, 3.
 - `ide_meta.rs` constants: `MAX_EXPANSIONS` (4,096), `MAX_CALLS` (16,384), `MAX_VARIANTS` (4 per site), `MAX_TEXT` (64 KiB per expansion).
 - `features.rs`: `HINT_CHARS` (40), the longest inlay hint label.
+- Hover format comes from the client: `textDocument.hover.contentFormat` in `initialize` (Markdown when it lists `markdown`, else plain text).
 - Default `Limits`:
   - 32 documents, 256 KiB per document, 4 MiB total.
   - 1,024 completion items and workspace symbols, 8,192 tokens.

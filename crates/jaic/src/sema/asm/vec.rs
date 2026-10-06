@@ -237,17 +237,21 @@ pub(super) fn lane_addr(f: &mut FnCtx, base: Val, offset: u64) -> Val {
         f.b.ptr_offset(base, offset)
     }
 }
+
 pub(super) fn load_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty) -> Val {
     let p = lane_addr(f, base, i * ty.size());
     f.b.load(ty, p)
 }
+
 pub(super) fn store_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty, v: Val) {
     let p = lane_addr(f, base, i * ty.size());
     f.b.store(ty, p, v);
 }
+
 pub(super) fn bitcast(f: &mut FnCtx, from: Ty, to: Ty, v: Val) -> Val {
     f.b.conv(ConvOp::Bitcast, from, to, v)
 }
+
 /// `cond ? a : b` for a float lane.
 pub(super) fn fselect(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let it = Ty::int(ty.size());
@@ -256,11 +260,13 @@ pub(super) fn fselect(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let r = select(f, it, cond, a, b);
     bitcast(f, it, ty, r)
 }
+
 pub(super) fn all_ones_if(f: &mut FnCtx, ty: Ty, cond: Val) -> Val {
     let ones = konst(f, ty, u64::MAX);
     let zero = konst(f, ty, 0);
     select(f, ty, cond, ones, zero)
 }
+
 /// A float math intrinsic computed in `f64` (the interpreter's float intrinsics are 64-bit).
 pub(super) fn float_unary(f: &mut FnCtx, op: Intrinsic, ty: Ty, x: Val) -> Val {
     let wide = if ty == Ty::F32 {

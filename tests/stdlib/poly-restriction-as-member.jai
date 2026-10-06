@@ -1,22 +1,22 @@
 #import "Basic";
 
-SomeTrait :: struct(                                   // (1)
+SomeTrait :: struct( // (1)
     type: Type,
     get: (a: type, int) -> int,
     set: (a: *type, int, int) -> ()
-){}
+) {}
 
-get :: inline (a: $A/SomeTrait, i: int) -> int {       // (2)
+get :: inline (a: $A/SomeTrait, i: int) -> int { // (2)
     return a.get(a, i);
 }
 
-set :: inline (a: *$A/SomeTrait, i: int, val: int) {    // (3)
+set :: inline (a: *$A/SomeTrait, i: int, val: int) { // (3)
     a.set(a, i, val);
 }
 
-ExSomeTrait :: struct {                                         // (4)
+ExSomeTrait :: struct { // (4)
     using #as _t: SomeTrait(#this, ex_get, ex_set);
-    data: [4]int;
+    data: [4] int;
 }
 
 ex_get :: (f: ExSomeTrait, i: int) -> int {
@@ -32,7 +32,7 @@ do_sth :: (x: *$X/SomeTrait) {
 }
 
 main :: () {
-    f : ExSomeTrait;
+    f: ExSomeTrait;
     f.set(*f, 1, 42);
     print("%\n", f);
     print("%\n", f.get(f, 1));
@@ -40,7 +40,7 @@ main :: () {
 
     set(*f, 3, 2021);
     print("%\n", f);
-    do_sth(*f);                     // (5)
+    do_sth(*f); // (5)
     print("%\n", f);
 }
 /*

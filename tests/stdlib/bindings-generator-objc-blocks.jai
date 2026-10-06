@@ -89,7 +89,9 @@ HAVE_OBJC :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 count_of :: (text: string, needle: string) -> s64 {
     count := 0;
@@ -117,7 +119,7 @@ main :: () {
         assert(count_of(BINDINGS, "Block_s32_s32 :: struct {") == 1);
         assert(count_of(BINDINGS, "Block_void_s32_float64 :: struct {") == 1);
 
-        assert(blocks_ping() == 5);   // Loads the library, and with it the classes.
+        assert(blocks_ping() == 5); // Loads the library, and with it the classes.
 
         w := objc_alloc(class(Worker));
         w = objc_init(w);
@@ -169,14 +171,16 @@ main :: () {
         handler := Block_void_s32_float64_literal(on_done, *seen);
         Worker.fire(cast(*Worker) w, handler, 12);
         assert(seen == 12);
-        Worker.setOnDone(cast(*Worker) w, handler);   // Block_copy keeps the global block.
+        Worker.setOnDone(cast(*Worker) w, handler); // Block_copy keeps the global block.
         stored := Worker.onDone(cast(*Worker) w);
         assert(stored == handler);
         stored.invoke(stored, 13, 0);
         assert(seen == 13);
 
         completed := false;
-        complete :: (block: *Block_void) #c_call { (cast(*bool) objc_block_user_data(block)).* = true; }
+        complete :: (block: *Block_void) #c_call {
+            (cast(*bool) objc_block_user_data(block)).* = true;
+        }
         Worker.setCompletion(cast(*Worker) w, Block_void_literal(complete, *completed));
         assert(completed);
         print("ok\n");

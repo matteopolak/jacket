@@ -115,9 +115,13 @@ HAVE_CPP :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-byte_offset :: (base: *void, field: *void) -> s64 { return cast(s64) field - cast(s64) base; }
+byte_offset :: (base: *void, field: *void) -> s64 {
+    return cast(s64) field - cast(s64) base;
+}
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_CPP {
@@ -127,7 +131,7 @@ main :: () {
         assert(has(BINDINGS, "Base__RAW :: struct {"));
         assert(has(BINDINGS, "#no_padding"));
         assert(has(BINDINGS, "#as using base__raw: Pad.Base__RAW;"));
-        assert(has(BINDINGS, "Mid__RAW :: struct {"));  // Last reuses the tail padding of Mid too
+        assert(has(BINDINGS, "Mid__RAW :: struct {")); // Last reuses the tail padding of Mid too
         assert(has(BINDINGS, "#as using mid__raw: Pad.Mid__RAW;"));
         assert(!has(BINDINGS, "Plain__RAW"));
         assert(!has(BINDINGS, "do not use these fields"));
@@ -149,16 +153,26 @@ main :: () {
         p := Pad.make_derived(1, 2, 3, 4);
         assert(p.a == 1 && p.b == 2 && p.c == 3 && p.d == 4);
         assert(Pad.Derived.total(p) == 10);
-        d.a = 10; d.b = 20; d.c = 30; d.d = 40;
+        d.a = 10;
+        d.b = 20;
+        d.c = 30;
+        d.d = 40;
         assert(Pad.Derived.total(*d) == 100);
 
         m: Pad.Last;
-        m.a = 1; m.b = 2; m.c = 3; m.e = 4;
+        m.a = 1;
+        m.b = 2;
+        m.c = 3;
+        m.e = 4;
         assert(byte_offset(*m, *m.e) == 6);
         assert(Pad.Last.last_sum(*m) == 10);
         assert(Pad.Mid.mid_sum(cast(*Pad.Mid) *m) == 6);
 
-        l.a = 1; l.b = 2; l.c = 3; l.d = 4; l.e = 5;
+        l.a = 1;
+        l.b = 2;
+        l.c = 3;
+        l.d = 4;
+        l.e = 5;
         assert(Pad.Longer.all(*l) == 15);
         print("ok\n");
     } else {

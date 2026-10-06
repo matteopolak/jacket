@@ -11,7 +11,9 @@ fail :: (msg: string) -> s64 #expand {
 
 main :: () {
     if true {
-        local :: (n: int) -> s64 #expand { return twice(n + base); }
+        local :: (n: int) -> s64 #expand {
+            return twice(n + base);
+        }
         base := 10;
         assert(local(1) == 22);
     }

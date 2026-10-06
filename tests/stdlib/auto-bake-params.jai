@@ -1,7 +1,11 @@
 #import "Basic";
 
-stub :: ($$x: int) -> bool { return is_constant(x); }
-sum :: ($$n: int, k: int) -> int { return n + k; }
+stub :: ($$x: int) -> bool {
+    return is_constant(x);
+}
+sum :: ($$n: int, k: int) -> int {
+    return n + k;
+}
 
 main :: () {
     v := 7;

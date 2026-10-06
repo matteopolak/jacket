@@ -1,7 +1,10 @@
 // EVEX decorations in #asm: `[mem]!` broadcast, `!z`/`!u` rounding, and `&*` masking.
 #import "Basic";
 
-fail :: (what: string) { print("FAIL: %\n", what); exit(1); }
+fail :: (what: string) {
+    print("FAIL: %\n", what);
+    exit(1);
+}
 
 main :: () {
     array: [16] s32;
@@ -37,8 +40,11 @@ main :: () {
         movdqu [ap], v5;
     }
     for array {
-        if it_index % 2 == 0 { if it != 127 fail("masked lane"); }
-        else { if it != 0 fail("zeroed lane"); }
+        if it_index % 2 == 0 {
+            if it != 127 fail("masked lane");
+        } else {
+            if it != 0 fail("zeroed lane");
+        }
     }
 
     print("ok\n");

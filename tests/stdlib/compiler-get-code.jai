@@ -21,9 +21,14 @@ apply :: (code: Code) #expand {
 total := 1;
 
 main :: () -> s64 {
-    step :: #code { total += 5; };
+    step :: #code {
+        total += 5;
+    };
     apply(step);
     apply(step);
-    if total != 21 { print("total = %\n", total); return 1; }
+    if total != 21 {
+        print("total = %\n", total);
+        return 1;
+    }
     return 0;
 }

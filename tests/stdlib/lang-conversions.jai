@@ -1,9 +1,19 @@
 // Language-level conversions found while compiling the Way_to_Jai examples.
 #import "Basic";
 
-Mode :: enum { OFF; ON; AUTO; }
-using Flags :: enum_flags u8 { FLAG_A :: 1; FLAG_B :: 2; }
-Pair :: struct { x: float; y: float; }
+Mode :: enum {
+    OFF;
+    ON;
+    AUTO;
+}
+using Flags :: enum_flags u8 {
+    FLAG_A :: 1;
+    FLAG_B :: 2;
+}
+Pair :: struct {
+    x: float;
+    y: float;
+}
 
 c_string_length :: (s: *u8) -> int {
     n := 0;
@@ -12,11 +22,19 @@ c_string_length :: (s: *u8) -> int {
 }
 
 // The 5-argument overload must not capture struct-literal arguments.
-quad :: (a: float, b: float, c: float, d: float, tint: float) -> int { return 1; }
-quad :: (a: Pair, b: Pair, c: Pair, d: Pair, tint: float) -> int { return 2; }
+quad :: (a: float, b: float, c: float, d: float, tint: float) -> int {
+    return 1;
+}
+quad :: (a: Pair, b: Pair, c: Pair, d: Pair, tint: float) -> int {
+    return 2;
+}
 
-choose :: (flag: bool) -> int { return 10; }
-choose :: (m: Mode) -> int { return 20; }
+choose :: (flag: bool) -> int {
+    return 10;
+}
+choose :: (m: Mode) -> int {
+    return 20;
+}
 
 main :: () {
     // E.loose is integer-compatible.
@@ -45,7 +63,7 @@ main :: () {
     assert(cast(bool) "x" && !cast(bool) "");
 
     // Struct literal arguments pick the aggregate overload; inferred members the enum one.
-    assert(quad(.{1, 2}, .{3, 4}, .{5, 6}, .{7, 8}, 1.0) == 2);
+    assert(quad(.{ 1, 2 }, .{ 3, 4 }, .{ 5, 6 }, .{ 7, 8 }, 1.0) == 2);
     assert(choose(.ON) == 20);
 
     // One value assigned to many targets; compound assignment applied to each.

@@ -2,7 +2,9 @@
 #import "Basic";
 #import "String";
 
-Vec :: struct { x, y, z: float; }
+Vec :: struct {
+    x, y, z: float;
+}
 
 main :: () -> s64 {
     ok, values := scan("(%f, %i, %b, %s)", "(1.5, 42, true, \"hi\")");

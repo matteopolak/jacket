@@ -4,6 +4,7 @@ mod document;
 pub(crate) mod features;
 pub(crate) mod format;
 pub mod framing;
+pub(crate) mod hover;
 mod links;
 mod model;
 mod position;
@@ -15,8 +16,8 @@ pub use document::{DocumentUri, TextChange, VirtualSources};
 pub use model::{
     CodeAction, CodeLens, Command, CompletionItem, CompletionKind, CompletionList, Diagnostic,
     DiagnosticCode, DiagnosticSeverity, DocumentSymbol, Expansion, FoldingRange, Hover, InlayHint,
-    InlayHintKind, Location, MarkupContent, SemanticToken, SemanticTokenKind, SignatureHelp,
-    SignatureInformation, SymbolInformation, SymbolKind, TextEdit,
+    InlayHintKind, Location, MarkupContent, MarkupKind, SemanticToken, SemanticTokenKind,
+    SignatureHelp, SignatureInformation, SymbolInformation, SymbolKind, TextEdit,
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId};

@@ -20,6 +20,8 @@ Each set yields `(id, path, mode, expectation, extra args)`; the tool runs `jaic
 
 Expected result of `corpus negative stdlib modules upstream examples`: everything passes. Programs that must fail to compile (including `getrect-rh-negative-control`, which proves the GetRect geometry assertions fire) live in the `negative` set, where a case passes when the compiler reports its expected error.
 
+Each case runs with a resident-memory cap (`--memory-limit`, default 3 GiB; a case over it is killed and fails with `memory limit`), and the default `--jobs` is the CPU count capped so that jobs × limit fits in physical memory. The sweep refuses to start when the `jaic` binary is older than any source in `crates/jaic`, `crates/jaic-cli` or `crates/jaic-llvm` (`--allow-stale` overrides): a stale build can lack the limits that keep negative cases such as unbounded polymorphic recursion from exhausting memory.
+
 ## How to change it
 
 - New negative program (must be rejected): drop it in `tests/corpus/negative/`, add a `kind: negative` entry with `sha256` and a `negative.check` string that appears in the diagnostic to `tests/corpus/manifest.json`.

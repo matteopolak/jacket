@@ -28,10 +28,10 @@ main :: () {
     plugin.message(plugin, *complete);
 
     options := string.["-x", "-option", "value", "-option"];
-    assert(plugin.handle_one_option(plugin, options, 0) == 0);  // not ours
-    assert(plugin.handle_one_option(plugin, options, 1) == 3);  // flag and its argument
-    assert(plugin.handle_one_option(plugin, options, 3) == 4);  // missing argument
-    assert(plugin.handle_one_option(plugin, options, 9) == 9);  // out of range
+    assert(plugin.handle_one_option(plugin, options, 0) == 0); // not ours
+    assert(plugin.handle_one_option(plugin, options, 1) == 3); // flag and its argument
+    assert(plugin.handle_one_option(plugin, options, 3) == 4); // missing argument
+    assert(plugin.handle_one_option(plugin, options, 9) == 9); // out of range
 
     plugin.log_help(plugin);
     plugin.finish(plugin);

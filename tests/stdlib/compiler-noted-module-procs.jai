@@ -31,18 +31,18 @@ END
             failed = (cast(*Message_Complete) message).error_code != .NONE;
             break;
         }
-        if message.kind != .TYPECHECKED  continue;
+        if message.kind != .TYPECHECKED continue;
         for (cast(*Message_Typechecked) message).procedure_bodies {
             name := it.expression.header.name;
-            if name == "local_only"     saw_local = true;
-            if name == "stale_wrapper"  saw_stale = true;
+            if name == "local_only" saw_local = true;
+            if name == "stale_wrapper" saw_stale = true;
         }
     }
     compiler_end_intercept(w);
     assert(!failed, "the uncalled module procedure was checked");
     assert(saw_local);
     assert(!saw_stale);
-    set_build_options_dc(.{do_output = false});
+    set_build_options_dc(.{ do_output = false });
 }
 
 main :: () {}

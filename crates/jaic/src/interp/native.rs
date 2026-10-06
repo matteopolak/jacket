@@ -42,13 +42,17 @@ pub fn library_dirs() -> &'static [std::path::PathBuf] {
 #[cfg(unix)]
 mod sys {
     use std::ffi::{c_char, c_int, c_void};
+
     unsafe extern "C" {
         pub fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
         pub fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
     }
+
     pub const RTLD_NOW: c_int = 2;
+
     #[cfg(target_os = "macos")]
     pub const RTLD_DEFAULT: *mut c_void = -2isize as *mut c_void;
+
     #[cfg(not(target_os = "macos"))]
     pub const RTLD_DEFAULT: *mut c_void = std::ptr::null_mut();
 }
@@ -206,6 +210,7 @@ impl Regs {
             },
         }
     }
+
     fn int(&mut self, v: u64) -> Result<(), String> {
         if self.ni == self.int_regs {
             return self.stack(v);
@@ -214,6 +219,7 @@ impl Regs {
         self.ni += 1;
         Ok(())
     }
+
     /// An `f32` travels in the low half of the register.
     fn float(&mut self, bits: u64) -> Result<(), String> {
         if self.nf == 8 {
@@ -223,6 +229,7 @@ impl Regs {
         self.nf += 1;
         Ok(())
     }
+
     /// A binary128 value: a whole vector register, or a 16-byte aligned stack slot.
     fn quad(&mut self, bits: u128) -> Result<(), String> {
         if self.nf == 8 {
@@ -235,6 +242,7 @@ impl Regs {
         self.nf += 1;
         Ok(())
     }
+
     /// Pad the stack arguments so the next one is 16-byte aligned (slot `k` is at `sp + 8k`).
     fn align_stack(&mut self) -> Result<(), String> {
         if self.ns % 2 == 1 {
@@ -242,6 +250,7 @@ impl Regs {
         }
         Ok(())
     }
+
     fn stack(&mut self, v: u64) -> Result<(), String> {
         // The prototype's integer parameters past `int_regs` are stack slots too.
         if self.ns == STACK_SLOTS + 8 - self.int_regs {
@@ -251,12 +260,14 @@ impl Regs {
         self.ns += 1;
         Ok(())
     }
+
     /// Whether `pieces` of one aggregate all fit the remaining registers: an aggregate goes
     /// entirely in registers or entirely on the stack.
     fn fits(&self, pieces: &[Piece]) -> bool {
         let ints = pieces.iter().filter(|p| p.ty == PieceTy::I64).count();
         self.ni + ints <= self.int_regs && self.nf + pieces.len() - ints <= 8
     }
+
     /// After an aggregate went to the stack, AAPCS64 gives later arguments of its register
     /// class no registers either.
     fn exhaust(&mut self, pieces: &[Piece]) {
@@ -269,6 +280,7 @@ impl Regs {
             self.nf = 8;
         }
     }
+
     /// The prototype's arguments: its 8 integer parameters (registers, then stack slots
     /// when there are fewer integer registers), 8 floats, and `STACK_SLOTS` more slots.
     fn prototype(&self) -> ([u64; 8], [f64; 8], [u64; STACK_SLOTS]) {
@@ -305,25 +317,32 @@ unsafe fn write_bytes(addr: u64, value: u64, len: u64) {
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct II(u64, u64);
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct IF(u64, f64);
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct FI(f64, u64);
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct FF(f64, f64);
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)] // register classes, like `II` and `FF`
 struct FFF(f64, f64, f64);
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
 struct FFFF(f64, f64, f64, f64);
+
 /// Large aggregates come back through a hidden pointer the callee fills.
 const SRET_WORDS: usize = 64;
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Sret([u64; SRET_WORDS]);
@@ -528,6 +547,7 @@ pub mod main_thread {
     }
 
     struct Carry<T>(T);
+
     // SAFETY: the sending thread blocks until the job finishes, so the pointers are never
     // used from two threads at once.
     unsafe impl<T> Send for Carry<T> {

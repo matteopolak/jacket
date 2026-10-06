@@ -6,6 +6,7 @@ use crate::types::{ArrayKind, TypeKind};
 
 /// Conversion costs used to rank overloads. Lower is better.
 pub const EXACT: u32 = 0;
+
 pub const LITERAL: u32 = 1;
 pub const WIDEN: u32 = 2;
 pub const POINTER: u32 = 3;

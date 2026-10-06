@@ -3,7 +3,9 @@ Node :: struct(T: Type) {
     value: T = 19;
 }
 
-answer :: () -> int { return 23; }
+answer :: () -> int {
+    return 23;
+}
 
 main :: () -> int {
     node: Node(int);

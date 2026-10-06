@@ -5,9 +5,11 @@
 
 Handler :: #type (signal: s32) -> void #c_call;
 IGNORE :: cast(Handler) 1;
-ERROR  :: cast(Handler) -1;
+ERROR :: cast(Handler) -1;
 
-Table :: struct { on_signal: Handler = IGNORE; }
+Table :: struct {
+    on_signal: Handler = IGNORE;
+}
 
 main :: () {
     t: Table;

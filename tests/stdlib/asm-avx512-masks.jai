@@ -10,7 +10,7 @@ failures := 0;
 
 check :: (name: string, got: u64, want: u64) {
     if got != want {
-        print("FAIL %: got 0x%, want 0x%\n", name, formatInt(got, base=16), formatInt(want, base=16));
+        print("FAIL %: got 0x%, want 0x%\n", name, formatInt(got, base = 16), formatInt(want, base = 16));
         failures += 1;
     }
 }
@@ -171,8 +171,10 @@ main :: () {
         }
         next := 0;
         for 0..15 {
-            if mask & ((cast(u64) 1) << it) { want[it] = Y[next]; next += 1; }
-            else want[it] = 0;
+            if mask & ((cast(u64) 1) << it) {
+                want[it] = Y[next];
+                next += 1;
+            } else want[it] = 0;
         }
         check_s32("pexpandd", out, want);
     }
@@ -206,7 +208,10 @@ main :: () {
             permt2d t2, zi, zy;
             movdqu32 [po], t2;
         }
-        for 0..15 { k := idx[it]; want[it] = ifx k < 16 then X[k] else Y[k - 16]; }
+        for 0..15 {
+            k := idx[it];
+            want[it] = ifx k < 16 then X[k] else Y[k - 16];
+        }
         check_s32("permt2d", out, want);
         #asm AVX512F {
             movdqu32 zx:, [px]; movdqu32 zy:, [py];
@@ -217,7 +222,10 @@ main :: () {
         }
         check_s32("permi2d", out, want);
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; prold r:, zx, 7; movdqu32 [po], r; }
-        for 0..15 { v := cast(u32) X[it]; want[it] = xx ((v << 7) | (v >> 25)); }
+        for 0..15 {
+            v := cast(u32) X[it];
+            want[it] = xx ((v << 7) | (v >> 25));
+        }
         check_s32("prold", out, want);
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; movdqu32 zi:, [pi]; prorvd r:, zx, zi; movdqu32 [po], r; }
         for 0..15 {
@@ -274,17 +282,26 @@ main :: () {
             movdqu32 zb:, [pbig];
             pmovdb [pbytes], zb;
         }
-        for 0..15 if bytes[it] != cast(u8) (big[it] & 0xff) { check("pmovdb", xx it, 99); break; }
+        for 0..15 if bytes[it] != cast(u8) (big[it] & 0xff) {
+            check("pmovdb", xx it, 99);
+            break;
+        }
         #asm AVX512F { movdqu32 zb:, [pbig]; pmovsdb [pbytes], zb; }
         for 0..15 {
             v := clamp(big[it], -128, 127);
-            if bytes[it] != cast(u8) (v & 0xff) { check("pmovsdb", xx it, 99); break; }
+            if bytes[it] != cast(u8) (v & 0xff) {
+                check("pmovsdb", xx it, 99);
+                break;
+            }
         }
         #asm AVX512F { movdqu32 zb:, [pbig]; pmovusdw [pwords], zb; }
         for 0..15 {
             v := cast(u32) big[it];
             w := ifx v > 0xffff then 0xffff else v;
-            if words[it] != w { check("pmovusdw", xx it, 99); break; }
+            if words[it] != w {
+                check("pmovusdw", xx it, 99);
+                break;
+            }
         }
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; valignd va:, zx, zy, 3; movdqu32 [po], va; }
         for 0..15 want[it] = ifx it + 3 < 16 then Y[it + 3] else X[it + 3 - 16];
@@ -335,7 +352,10 @@ main :: () {
             pscatterdd [pt + vi*4] &ks, zx;
             kmovw left, ks;
         }
-        for 0..15 if mask & ((cast(u64) 1) << it) && table[idx[it]] != X[it] { check("pscatterdd", xx it, 99); break; }
+        for 0..15 if mask & ((cast(u64) 1) << it) && table[idx[it]] != X[it] {
+            check("pscatterdd", xx it, 99);
+            break;
+        }
         check("pscatterdd untouched", xx table[31], 1031);
         check("pscatterdd clears k", left, 0);
     }
@@ -351,15 +371,31 @@ main :: () {
         }
         for i: 0..15 {
             m: s32;
-            for j: 0..i-1 if dup[j] == dup[i] m |= (cast(s32) 1) << j;
+            for j: 0..i - 1 if dup[j] == dup[i] m |= (cast(s32) 1) << j;
             want[i] = m;
         }
         check_s32("pconflictd", out, want);
         #asm AVX512CD { movdqu32 zd:, [pdup]; plzcntd lz:, zd; movdqu32 [po], lz; }
-        for 0..15 { v := cast(u32) dup[it]; n: s32 = 32; while v { v >>= 1; n -= 1; } want[it] = n; }
+        for 0..15 {
+            v := cast(u32) dup[it];
+            n: s32 = 32;
+            while v {
+                v >>= 1;
+                n -= 1;
+            }
+            want[it] = n;
+        }
         check_s32("plzcntd", out, want);
         #asm AVX512_VPOPCNTDQ { movdqu32 zd:, [pdup]; popcntd pc:, zd; movdqu32 [po], pc; }
-        for 0..15 { v := cast(u32) dup[it]; n: s32; while v { n += xx (v & 1); v >>= 1; } want[it] = n; }
+        for 0..15 {
+            v := cast(u32) dup[it];
+            n: s32;
+            while v {
+                n += xx (v & 1);
+                v >>= 1;
+            }
+            want[it] = n;
+        }
         check_s32("popcntd", out, want);
     }
 
@@ -375,7 +411,10 @@ main :: () {
             movdqu32 [pu], cu;
         }
         expect_u := u32.[0, 2, 2, 0, 3_000_000_000, 0xffff_ffff, 0xffff_ffff, 8];
-        for 0..7 if u[it] != expect_u[it] { check("cvtps2udq", xx it, u[it]); break; }
+        for 0..7 if u[it] != expect_u[it] {
+            check("cvtps2udq", xx it, u[it]);
+            break;
+        }
         q: [8] s64 = .[1, -2, 3, 1 << 53, -(1 << 40), 0, 7, -9];
         d: [8] float64;
         pq, pd := q.data, d.data;
@@ -384,7 +423,10 @@ main :: () {
             cvtqq2pd zd2:, zq;
             movupd [pd], zd2;
         }
-        for 0..7 if d[it] != cast(float64) q[it] { check("cvtqq2pd", xx it, 99); break; }
+        for 0..7 if d[it] != cast(float64) q[it] {
+            check("cvtqq2pd", xx it, 99);
+            break;
+        }
         r: [16] float32;
         pr := r.data;
         #asm AVX512F {

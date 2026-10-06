@@ -3,6 +3,7 @@
 //! hints, code actions, format strings, references, signature help, folding, code lenses and
 //! workspace symbols.
 use crate::analysis::{Span, TokenKind};
+use crate::hover::{Block, FormatRow, HoverText, Inline};
 use crate::links::{Link, LinkSource};
 use crate::semantic;
 use crate::session::{Session, contains, repair};
@@ -123,67 +124,85 @@ impl Session {
             .min_by_key(|e| e.span.end - e.span.start)
     }
 
-    /// What an expansion produced, for a hover.
-    fn describe(&self, uri: &DocumentUri, e: &IdeExpansion) -> String {
+    /// What an expansion produced, for a hover. Produced code comes last, in sections of
+    /// its own (`expands to`, `prints`).
+    fn describe(&self, uri: &DocumentUri, e: &IdeExpansion) -> HoverText {
         let text = self.document(uri).map(|d| d.text.as_str()).unwrap_or("");
-        let several = e.texts.len() > 1;
-        let variants = |label: &str| -> String {
-            if !several {
-                return e.texts[0].clone();
-            }
+        let produced = |label: &str| -> Vec<Block> {
+            let count = e.texts.len();
             e.texts
                 .iter()
                 .enumerate()
-                .map(|(i, t)| format!("{label} {}:\n{t}", i + 1))
-                .collect::<Vec<_>>()
-                .join("\n\n")
+                .flat_map(|(i, t)| {
+                    let label = if count == 1 {
+                        label.to_string()
+                    } else {
+                        format!("{label} ({} of {count})", i + 1)
+                    };
+                    [Block::Section(label), Block::Code(t.clone())]
+                })
+                .collect()
+        };
+        let line = |parts: Vec<Inline>| HoverText::new(vec![Block::Para(parts)]);
+        let directive_said = |directive: &str, said: &str| {
+            line(vec![
+                Inline::Code(format!("#{directive}")),
+                Inline::Text(said.into()),
+            ])
         };
         match e.kind {
             IdeExpansionKind::Insert => {
                 if e.texts.iter().all(|t| t.trim().is_empty()) {
-                    "#insert inserts nothing".into()
+                    directive_said("insert", " inserts nothing")
                 } else {
-                    format!("#insert expands to:\n\n{}", variants("Instance"))
+                    let mut blocks = vec![Block::Code("#insert".into())];
+                    blocks.extend(produced("expands to"));
+                    HoverText::new(blocks)
                 }
             }
             IdeExpansionKind::Macro => {
-                format!("{} expands to:\n\n{}", e.detail, variants("Expansion"))
+                let mut blocks = vec![Block::Code(e.detail.clone())];
+                blocks.extend(produced("expands to"));
+                HoverText::new(blocks)
             }
             IdeExpansionKind::Run => {
-                let mut out = if e.texts.iter().all(String::is_empty) {
-                    "#run returns nothing".to_string()
-                } else if several {
-                    format!("#run values ({}):\n{}", e.detail, e.texts.join("\n"))
+                let mut blocks = if e.texts.iter().all(String::is_empty) {
+                    directive_said("run", " returns nothing").blocks
+                } else if e.texts.len() > 1 {
+                    vec![
+                        Block::Para(vec![
+                            Inline::Code("#run".into()),
+                            Inline::Text(" values (".into()),
+                            Inline::Code(e.detail.clone()),
+                            Inline::Text("):".into()),
+                        ]),
+                        Block::Code(e.texts.join("\n")),
+                    ]
                 } else {
-                    format!("#run = {}: {}", e.texts[0], e.detail)
+                    vec![Block::Code(format!("#run = {}: {}", e.texts[0], e.detail))]
                 };
                 if !e.output.is_empty() {
-                    out.push_str("\n\nPrinted at compile time:\n");
-                    out.push_str(e.output.trim_end());
+                    blocks.push(Block::Section("prints".into()));
+                    blocks.push(Block::Output(e.output.trim_end().into()));
                 }
-                out
+                HoverText::new(blocks)
             }
             IdeExpansionKind::If => {
                 let directive = directive_at(text, e.span.start as usize).unwrap_or("if");
-                if several {
-                    format!(
-                        "#{directive}: the condition is true for some instances and false for others"
-                    )
+                let said = if e.texts.len() > 1 {
+                    ": the condition is true for some instances and false for others"
                 } else if directive == "assert" {
                     match e.texts[0].as_str() {
-                        "true" => "#assert: the condition holds".into(),
-                        _ => "#assert: the condition fails".into(),
+                        "true" => ": the condition holds",
+                        _ => ": the condition fails",
                     }
                 } else {
                     match e.texts[0].as_str() {
-                        "true" => format!(
-                            "#{directive}: the condition is true, the first branch is compiled"
-                        ),
-                        _ => format!(
-                            "#{directive}: the condition is false, the else branch is compiled"
-                        ),
+                        "true" => ": the condition is true, the first branch is compiled",
+                        _ => ": the condition is false, the else branch is compiled",
                     }
-                }
+                };
+                directive_said(directive, said)
             }
         }
     }
@@ -193,7 +212,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         byte: usize,
-    ) -> Option<(usize, usize, String)> {
+    ) -> Option<(usize, usize, HoverText)> {
         let analysis = self.analyses.get(uri)?;
         let doc = self.document(uri).ok()?;
         let token = analysis.tokens.iter().find(|t| {
@@ -216,7 +235,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         byte: usize,
-    ) -> Option<(usize, usize, String)> {
+    ) -> Option<(usize, usize, HoverText)> {
         let e = self.expansion_at(uri, byte)?;
         Some((
             e.span.start as usize,
@@ -230,16 +249,18 @@ impl Session {
         &self,
         uri: &DocumentUri,
         start: usize,
-        hover: String,
-    ) -> String {
-        match self
+        mut hover: HoverText,
+    ) -> HoverText {
+        if let Some(e) = self
             .expansions(uri)
             .into_iter()
             .find(|e| e.kind == IdeExpansionKind::Macro && e.span.start as usize == start)
         {
-            Some(e) => format!("{hover}\n\n{}", self.describe(uri, &e)),
-            None => hover,
+            hover
+                .blocks
+                .extend_from_slice(self.describe(uri, &e).sections());
         }
+        hover
     }
 
     /// Hover over the format string of a print-family call: each `%` with the argument it
@@ -248,7 +269,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         byte: usize,
-    ) -> Option<(usize, usize, String)> {
+    ) -> Option<(usize, usize, HoverText)> {
         let doc = self.document(uri).ok()?;
         let text = &doc.text;
         let call = self
@@ -273,40 +294,46 @@ impl Session {
                 .ty
                 .clone()
         };
-        let mut lines = vec![clip(&text[call.string.start..call.string.end], 120)];
+        let mut blocks = vec![Block::Code(clip(
+            &text[call.string.start..call.string.end],
+            120,
+        ))];
         if call.specs.is_empty() {
-            lines.push("No format arguments.".into());
+            blocks.push(Block::Para(vec![Inline::Text(
+                "No format arguments.".into(),
+            )]));
         }
-        let width = call
+        let rows = call
             .specs
             .iter()
-            .map(|s| s.span.end - s.span.start)
-            .max()
-            .unwrap_or(1);
-        for spec in &call.specs {
-            let marker = if contains(spec.span, byte) && call.specs.len() > 1 {
-                "▸ "
-            } else {
-                "  "
-            };
-            let directive = &text[spec.span.start..spec.span.end];
-            let target = match spec.index {
-                None => "prints nothing".to_string(),
-                Some(i) => match call.args.get(i) {
-                    Some(arg) => {
-                        let source = clip(&text[arg.start..arg.end], 60);
-                        match type_of(*arg) {
-                            Some(ty) => format!("{source}: {ty}"),
-                            None => source,
+            .map(|spec| {
+                let target = match spec.index {
+                    None => Inline::Text("prints nothing".into()),
+                    Some(i) => match call.args.get(i) {
+                        Some(arg) => {
+                            let source = clip(&text[arg.start..arg.end], 60);
+                            Inline::Code(match type_of(*arg) {
+                                Some(ty) => format!("{source}: {ty}"),
+                                None => source,
+                            })
                         }
-                    }
-                    None if call.spread => format!("argument {} of the spread", i + 1),
-                    None => format!("missing argument {}", i + 1),
-                },
-            };
-            lines.push(format!("{marker}{directive:<width$} → {target}"));
+                        None if call.spread => {
+                            Inline::Text(format!("argument {} of the spread", i + 1))
+                        }
+                        None => Inline::Text(format!("missing argument {}", i + 1)),
+                    },
+                };
+                FormatRow {
+                    current: contains(spec.span, byte) && call.specs.len() > 1,
+                    spec: text[spec.span.start..spec.span.end].to_string(),
+                    target: vec![target],
+                }
+            })
+            .collect::<Vec<_>>();
+        if !rows.is_empty() {
+            blocks.push(Block::FormatRows(rows));
         }
-        Some((call.string.start, call.string.end, lines.join("\n")))
+        Some((call.string.start, call.string.end, HoverText::new(blocks)))
     }
 
     // ---------------------------------------------------------------------------------------

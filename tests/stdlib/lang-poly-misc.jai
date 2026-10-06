@@ -1,9 +1,13 @@
 // Regression tests for declarations, polymorphism, #modify, #bake_constants and operator overloads.
 
-Vec :: struct { x, y: int; }
+Vec :: struct {
+    x, y: int;
+}
 
 // Multi-value and mixed declarations.
-pair :: () -> int, int { return 1, 2; }
+pair :: () -> int, int {
+    return 1, 2;
+}
 
 // A body may shadow its parameters.
 shadow :: (dest: int, value: int) -> int {
@@ -18,21 +22,37 @@ factorial :: (n: int) -> int {
 }
 
 // A named variadic argument takes the positional arguments that follow it.
-count_all :: (s := "", f := 0.0, v: ..string) -> int { return v.count; }
+count_all :: (s := "", f := 0.0, v: ..string) -> int {
+    return v.count;
+}
 
 // A parenthesized list is a procedure type; a polymorphic procedure can be passed to it.
-apply :: (f: (int) -> int, x: int) -> int { return f(x); }
-twice :: (f: (x: int) -> int, x: int) -> int { return f(f(x)); }
-square :: (x: $T) -> T { return x * x; }
+apply :: (f: (int) -> int, x: int) -> int {
+    return f(x);
+}
+twice :: (f: (x: int) -> int, x: int) -> int {
+    return f(f(x));
+}
+square :: (x: $T) -> T {
+    return x * x;
+}
 
 // #modify rewrites the inferred bindings.
-widen :: (a: $T) -> T #modify { T = s64; return true; } { return a; }
+widen :: (a: $T) -> T #modify {
+    T = s64;
+    return true;
+} {
+    return a;
+}
 sum_widened :: (a: [] $T) -> $R #modify {
     R = T;
     info := cast(*Type_Info) T;
     if info.type == .INTEGER {
         i := cast(*Type_Info_Integer) T;
-        if i.runtime_size < 4 { if i.signed R = s32; else R = u32; }
+        if i.runtime_size < 4 {
+            if i.signed R = s32;
+            else R = u32;
+        }
     }
     return true;
 } {
@@ -42,27 +62,43 @@ sum_widened :: (a: [] $T) -> $R #modify {
 }
 
 // Baking polymorphic type variables and struct arguments.
-show :: (v: $T) -> T { return v; }
+show :: (v: $T) -> T {
+    return v;
+}
 show_vec :: #bake_constants show(T = Vec);
-Grid :: struct (M: int, N: int) { cells: [M][N] int; }
+Grid :: struct(M: int, N: int) {
+    cells: [M][N] int;
+}
 Grid5 :: #bake_arguments Grid(M = 5);
-Defaulted :: struct (n := 3) { values: [n] int; }
+Defaulted :: struct(n := 3) {
+    values: [n] int;
+}
 
 // Operator overloads for compound assignment and address-of-index.
-Bag :: struct { items: [4] int; }
-operator *= :: (b: *Bag, k: int) { for 0..3 b.items[it] *= k; }
-operator *[] :: (b: *Bag, i: int) -> *int { return *b.items[i]; }
+Bag :: struct {
+    items: [4] int;
+}
+operator *= :: (b: *Bag, k: int) {
+    for 0..3 b.items[it] *= k;
+}
+operator *[] :: (b: *Bag, i: int) -> *int {
+    return *b.items[i];
+}
 
 // Overload sets can be aliased.
-area :: (v: Vec) -> int { return v.x * v.y; }
-area :: (a: int, b: int) -> int { return a * b; }
+area :: (v: Vec) -> int {
+    return v.x * v.y;
+}
+area :: (a: int, b: int) -> int {
+    return a * b;
+}
 size_of_thing :: area;
 
 main :: () -> int {
     a, b := 1, 2;
     if a != 1 || b != 2 return 1;
     c := 5;
-    d, c=, e := 7, 8, 9;
+    d, c =, e := 7, 8, 9;
     if d != 7 || c != 8 || e != 9 return 2;
     ok:, second:, c = true, 4, 6;
     if !ok || second != 4 || c != 6 return 3;
@@ -80,7 +116,7 @@ main :: () -> int {
     bytes := u8.[200, 100];
     if sum_widened(bytes) != 300 || type_of(sum_widened(bytes)) != u32 return 10;
 
-    v := show_vec(Vec.{1, 2});
+    v := show_vec(Vec.{ 1, 2 });
     if v.x != 1 return 11;
     g: Grid5(N = 2);
     if Grid5(N = 2).M != 5 || type_of(g) != Grid5(N = 2) return 12;
@@ -94,10 +130,12 @@ main :: () -> int {
     <<p += 1;
     if bag.items[0] != 10 || bag.items[2] != 31 return 14;
 
-    if size_of_thing(Vec.{3, 4}) != 12 || size_of_thing(2, 5) != 10 return 15;
+    if size_of_thing(Vec.{ 3, 4 }) != 12 || size_of_thing(2, 5) != 10 return 15;
 
     // Constants declared later in a block are visible earlier.
     if later(3) != 6 return 16;
-    later :: (n: int) -> int { return n * 2; }
+    later :: (n: int) -> int {
+        return n * 2;
+    }
     return 0;
 }

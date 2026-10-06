@@ -5,12 +5,16 @@ use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ProcId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ModuleId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct PolyStructId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct LibraryId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct CodeId(pub u32);
 
@@ -77,8 +81,10 @@ impl PartialEq for Value {
         }
     }
 }
+
 impl Eq for Value {
 }
+
 impl std::hash::Hash for Value {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
@@ -104,12 +110,14 @@ impl Value {
             _ => None,
         }
     }
+
     pub fn as_type(&self) -> Option<TypeId> {
         match self {
             Value::Type(t) => Some(*t),
             _ => None,
         }
     }
+
     pub fn render(&self, types: &Types) -> String {
         match self {
             Value::Int(v) => v.to_string(),

@@ -21,7 +21,10 @@ producer :: (thread: *Thread) -> s64 {
     return 7;
 }
 
-Job :: struct { input: s64; output: s64; }
+Job :: struct {
+    input: s64;
+    output: s64;
+}
 
 square :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continue_Status {
     job := cast(*Job) work;

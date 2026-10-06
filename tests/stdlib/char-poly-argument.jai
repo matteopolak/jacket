@@ -1,7 +1,10 @@
 #import "Basic";
 #import "String";
 
-kind :: (x: $T) -> string { #if T == u8 return "u8"; else return "other"; }
+kind :: (x: $T) -> string {
+    #if T == u8 return "u8";
+    else return "other";
+}
 
 main :: () {
     assert(kind(#char "a") == "u8");

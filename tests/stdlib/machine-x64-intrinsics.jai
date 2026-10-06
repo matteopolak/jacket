@@ -8,7 +8,10 @@ main :: () -> s64 {
     if b < a return 1;
     stamp, msr := rdtscp();
     if stamp < a return 2;
-    pause(); lfence(); sfence(); mfence();
+    pause();
+    lfence();
+    sfence();
+    mfence();
     x: int = 5;
     prefetch(*x, .T0);
     prefetch(*x, .NTA);

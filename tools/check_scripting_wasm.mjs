@@ -42,7 +42,7 @@ const request = (method, params) => {
   assert(reply && !reply.error, `${method}: ${JSON.stringify(reply)}`);
   return reply.result;
 };
-const legend = request("initialize", { capabilities: {} }).capabilities.semanticTokensProvider.legend;
+const legend = request("initialize", { capabilities: { textDocument: { hover: { contentFormat: ["markdown", "plaintext"] } } } }).capabilities.semanticTokensProvider.legend;
 assert(legend.tokenTypes.includes("formatSpecifier") && legend.tokenModifiers.includes("macro"));
 const uri = "file:///jai-script/main.jai";
 const source = [
@@ -66,7 +66,9 @@ assert.equal(request("jai/source", { uri: expansion.uri }), expansion.text);
 const actions = request("textDocument/codeAction", { textDocument, range: { start: { line: 4, character: 6 }, end: { line: 4, character: 6 } }, context: { diagnostics: [] } });
 assert(actions.some(a => a.title === "Inline #insert" && a.edit.changes[uri][0].newText === "twice := count * 2;"), JSON.stringify(actions));
 const hover = request("textDocument/hover", { textDocument, position: { line: 5, character: 12 } });
-assert(hover.contents.value.includes("count: s64") && hover.contents.value.includes("missing argument 2"), JSON.stringify(hover));
+assert(hover.contents.kind === "markdown" && hover.contents.value.includes("`count: s64`") && hover.contents.value.includes("missing argument 2"), JSON.stringify(hover));
+const runHover = request("textDocument/hover", { textDocument, position: { line: 1, character: 10 } });
+assert(runHover.contents.value.startsWith("```jai\n#run = 42: s64\n```"), JSON.stringify(runHover));
 const tokens = request("textDocument/semanticTokens/full", { textDocument }).data;
 const kinds = new Set(); for (let i = 3; i < tokens.length; i += 5) kinds.add(legend.tokenTypes[tokens[i]]);
 assert(kinds.has("formatSpecifier"), [...kinds].join(","));

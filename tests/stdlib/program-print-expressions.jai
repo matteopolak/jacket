@@ -15,7 +15,7 @@ check :: (code: Code, expected: string, loc := #caller_location) {
     c1 := #code a_constant :: 10;
     check(c1, "a_constant :: 10");
 
-    c2 := #code a := Vector3.{1, 2, 3};
+    c2 := #code a := Vector3.{ 1, 2, 3 };
     check(c2, "a := Vector3.{1, 2, 3}");
 
     c3 := #code x + y * 2;
@@ -33,22 +33,40 @@ check :: (code: Code, expected: string, loc := #caller_location) {
     c7 := #code s := "hi\n";
     check(c7, "s := \"hi\\n\"");
 
-    c8 := #code n : int = 5;
+    c8 := #code n: int = 5;
     check(c8, "n : int = 5");
 
-    c9 := #code { if a == b then_do(); else other(); };
+    c9 := #code {
+        if a == b then_do();
+        else other();
+    };
     check(c9, "{\n    if a == b {\n        then_do();\n    } else {\n        other();\n    }\n}");
 
-    c10 := #code { while i < 10 { i += 1; } };
+    c10 := #code {
+        while i < 10 {
+            i += 1;
+        }
+    };
     check(c10, "{\n    while i < 10 {\n        i += 1;\n    }\n}");
 
-    c11 := #code { for i: 0..9 { total += i; } };
+    c11 := #code {
+        for i: 0..9 {
+            total += i;
+        }
+    };
     check(c11, "{\n    for i: 0..9 {\n        total += i;\n    }\n}");
 
-    c12 := #code { for *it, idx: arr { it.x = idx; } };
+    c12 := #code {
+        for *it, idx: arr {
+            it.x = idx;
+        }
+    };
     check(c12, "{\n    for *it, idx: arr {\n        it.x = idx;\n    }\n}");
 
-    c13 := #code { a := 1; b := a[0]; };
+    c13 := #code {
+        a := 1;
+        b := a[0];
+    };
     check(c13, "{\n    a := 1;\n    b := a[0];\n}");
 
     c14 := #code cast(float) n;
@@ -66,13 +84,21 @@ check :: (code: Code, expected: string, loc := #caller_location) {
     c18 := #code a.b.c;
     check(c18, "a.b.c");
 
-    c19 := #code f :: (x: int, y := 2) -> int { return x + y; };
+    c19 := #code f :: (x: int, y := 2) -> int {
+        return x + y;
+    };
     check(c19, "f :: (x: int, y := 2) -> int {\n    return x + y;\n}");
 
-    c20 := #code V :: struct { x: float; y := 3; };
+    c20 := #code V :: struct {
+        x: float;
+        y := 3;
+    };
     check(c20, "V :: struct {\n    x : float;\n    y := 3;\n}");
 
-    c21 := #code { v := ifx a > b then 1 else 2; defer free(p); };
+    c21 := #code {
+        v := ifx a > b then 1 else 2;
+        defer free(p);
+    };
     check(c21, "{\n    v := ifx a > b then 1 else 2;\n    defer free(p);\n}");
 
     // Parentheses follow Jai's precedence: bitwise and shift operators share a level above

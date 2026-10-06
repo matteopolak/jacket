@@ -4,4 +4,6 @@ Kind_Table :: struct {
     count: int;
 }
 
-label_of :: (kind: Kind) -> string { return Kind_Labels[kind]; }
+label_of :: (kind: Kind) -> string {
+    return Kind_Labels[kind];
+}

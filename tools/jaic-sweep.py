@@ -9,7 +9,7 @@ run must succeed; a test directory's `modules/` folder holds its mock modules), 
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass), or file paths.
 """
-import argparse, json, os, shutil, subprocess, sys, tempfile
+import argparse, json, os, shutil, subprocess, sys, tempfile, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -72,6 +72,56 @@ def use_native_libs():
         subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True)
     os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir())
 
+def physical_memory_gib():
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
+    except (ValueError, OSError, AttributeError):
+        return 16
+
+def stale_sources(jaic):
+    """A compiler source newer than the jaic binary: a stale build can lack limits that keep
+    negative cases (unbounded recursion and the like) from exhausting memory."""
+    try:
+        built = jaic.stat().st_mtime
+    except OSError:
+        return None
+    for crate in ("jaic", "jaic-cli", "jaic-llvm"):
+        for f in (ROOT / "crates" / crate / "src").rglob("*.rs"):
+            if f.stat().st_mtime > built:
+                return f.relative_to(ROOT)
+    return None
+
+def resident_kib(pid):
+    r = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)], capture_output=True, text=True)
+    try:
+        return int(r.stdout.strip() or 0)
+    except ValueError:
+        return 0
+
+def run_capped(command, cwd, timeout, limit_kib):
+    """Runs `command`, killing it on timeout or when its resident memory passes the limit."""
+    with tempfile.TemporaryFile() as out_file, tempfile.TemporaryFile() as err_file:
+        proc = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out_file, stderr=err_file)
+        verdict = None
+        deadline = time.monotonic() + timeout
+        while proc.poll() is None:
+            if time.monotonic() > deadline:
+                verdict = "timeout"
+            elif resident_kib(proc.pid) > limit_kib:
+                verdict = f"memory limit: over {limit_kib // 1024} MiB resident"
+            if verdict:
+                proc.kill()
+                proc.wait()
+                break
+            time.sleep(0.25)
+        out_file.seek(0)
+        err_file.seek(0)
+        out = out_file.read().decode(errors="replace")
+        err = err_file.read().decode(errors="replace")
+    if verdict:
+        return "", verdict, -1
+    return out, err, proc.returncode
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
@@ -80,9 +130,20 @@ def main():
     ap.add_argument("--filter", default="")
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument("--timeout", type=float, default=60)
-    ap.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 1,
-                    help="cases run at once (default: CPU count)")
+    ap.add_argument("--memory-limit", type=float, default=3,
+                    help="GiB of resident memory a case may use before it is killed (default: 3)")
+    ap.add_argument("--jobs", "-j", type=int, default=0,
+                    help="cases run at once (default: CPU count, capped so jobs x memory limit fits in RAM)")
+    ap.add_argument("--allow-stale", action="store_true",
+                    help="run even if the jaic binary is older than the compiler sources")
     a = ap.parse_args()
+    limit_kib = int(a.memory_limit * 1024 * 1024)
+    if a.jobs <= 0:
+        a.jobs = max(1, min(os.cpu_count() or 1, int(physical_memory_gib() // a.memory_limit)))
+    if not a.allow_stale:
+        stale = stale_sources(Path(a.jaic))
+        if stale:
+            sys.exit(f"jaic-sweep: {a.jaic} is older than {stale}; rebuild it (or pass --allow-stale)")
     use_native_libs()
     # Upstream cases may name setup commands (building a C library the program loads); they run
     # once, serially, in the case's directory before any case starts.
@@ -98,12 +159,7 @@ def main():
 
     def run(case):
         cid, path, mode, expect, extra = case
-        try:
-            r = subprocess.run([a.jaic, mode, str(path), *extra], capture_output=True, timeout=a.timeout,
-                               cwd=path.parent, stdin=subprocess.DEVNULL)
-            out, err, code = r.stdout.decode(errors="replace"), r.stderr.decode(errors="replace"), r.returncode
-        except subprocess.TimeoutExpired:
-            out, err, code = "", "timeout", -1
+        out, err, code = run_capped([a.jaic, mode, str(path), *extra], path.parent, a.timeout, limit_kib)
         if expect is None:
             ok = code == 0
         elif "negative" in expect:

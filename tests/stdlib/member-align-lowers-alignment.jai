@@ -3,10 +3,25 @@
 // puts `cFileName` at byte 44 as the C header does.
 #import "Basic";
 
-Packed :: struct { a: u32; b: u64 #align 4; }
-Filetime_Like :: struct { lo: u32; hi: u32; #place lo; quad: u64 = --- #align 4; }
-Holder :: struct { tag: u32; time: Filetime_Like; next: u32; }
-Raised :: struct { a: u8; b: u32 #align 16; }
+Packed :: struct {
+    a: u32;
+    b: u64 #align 4;
+}
+Filetime_Like :: struct {
+    lo: u32;
+    hi: u32;
+    #place lo;
+    quad: u64 = --- #align 4;
+}
+Holder :: struct {
+    tag: u32;
+    time: Filetime_Like;
+    next: u32;
+}
+Raised :: struct {
+    a: u8;
+    b: u32 #align 16;
+}
 
 main :: () {
     assert(size_of(Packed) == 12);

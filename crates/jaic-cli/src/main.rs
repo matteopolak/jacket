@@ -14,6 +14,7 @@ mod timings {
     use std::time::{Duration, Instant};
 
     static ENABLED: AtomicBool = AtomicBool::new(false);
+
     /// Phases in first-seen order; a phase that runs more than once (one backend call per
     /// workspace) accumulates.
     static PHASES: Mutex<Vec<(&'static str, Duration, u32)>> = Mutex::new(Vec::new());

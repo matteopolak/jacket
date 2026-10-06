@@ -2,14 +2,21 @@
 #import "Basic";
 #import "Bucket_Array";
 
-Cmd :: struct { v: int; }
-Holder :: struct { pools: Bucket_Array(Cmd, 4); }
+Cmd :: struct {
+    v: int;
+}
+Holder :: struct {
+    pools: Bucket_Array(Cmd, 4);
+}
 
 main :: () -> s64 {
     h: Holder;
     h.pools.allocator = context.allocator;
     locs: [10] Bucket_Locator;
-    for 0..9 { l, p := bucket_array_add(*h.pools, .{it}); locs[it] = l; }
+    for 0..9 {
+        l, p := bucket_array_add(*h.pools, .{ it });
+        locs[it] = l;
+    }
     if h.pools.count != 10 || h.pools.all_buckets.count != 3 return 1;
     bucket_array_remove(*h.pools, locs[5]);
     sum := 0;

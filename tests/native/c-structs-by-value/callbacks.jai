@@ -4,13 +4,13 @@ structs :: #library "libstructs";
 #load "types.jai";
 
 combine :: (v: V2, b: Big, s: Small) -> V2 #c_call {
-    return .{v.x + xx b.a + xx s.a, v.y + xx b.d + xx s.b};
+    return .{ v.x + xx b.a + xx s.a, v.y + xx b.d + xx s.b };
 }
 scale :: (b: Big, k: s32) -> Big #c_call {
-    return .{b.a * k, b.b * k, b.c * k, b.d * k};
+    return .{ b.a * k, b.b * k, b.c * k, b.d * k };
 }
 bump :: (s: Small) -> Small #c_call {
-    return .{s.a + 1, s.b + 1};
+    return .{ s.a + 1, s.b + 1 };
 }
 
 many_back :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, l: Large,
@@ -19,6 +19,6 @@ many_back :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, l: Large,
 }
 
 main :: () {
-    print("% % %\n", apply(combine, .{1, 2}, .{10, 20, 30, 40}, .{100, 5}), apply_big(scale), apply_small(bump));
+    print("% % %\n", apply(combine, .{ 1, 2 }, .{ 10, 20, 30, 40 }, .{ 100, 5 }), apply_big(scale), apply_small(bump));
     print("%\n", apply_many(many_back));
 }

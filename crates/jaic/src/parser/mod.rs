@@ -106,21 +106,27 @@ impl<'a> Parser<'a> {
     fn tok(&self) -> &Tok {
         self.tok_at(0)
     }
+
     fn tok_at(&self, n: usize) -> &Tok {
         &self.toks[(self.pos + n).min(self.toks.len() - 1)].tok
     }
+
     fn token_at(&self, n: usize) -> &Token {
         &self.toks[(self.pos + n).min(self.toks.len() - 1)]
     }
+
     fn span(&self) -> Span {
         self.token_at(0).span
     }
+
     fn prev_span(&self) -> Span {
         self.toks[self.pos.saturating_sub(1)].span
     }
+
     fn newline_before(&self) -> bool {
         self.token_at(0).newline_before
     }
+
     /// True if the previous token is a `#string` here-string, which ends a statement by itself.
     fn prev_is_here_string(&self) -> bool {
         let Some(prev) = self.pos.checked_sub(1).map(|i| &self.toks[i]) else {
@@ -129,9 +135,11 @@ impl<'a> Parser<'a> {
         matches!(prev.tok, Tok::Str(_))
             && self.src.as_bytes().get(prev.span.start as usize) == Some(&b'#')
     }
+
     fn at_eof(&self) -> bool {
         matches!(self.tok(), Tok::Eof)
     }
+
     /// Consumes the current token and returns its span.
     fn bump(&mut self) -> Span {
         let span = self.span();
@@ -144,9 +152,11 @@ impl<'a> Parser<'a> {
     fn at(&self, p: P) -> bool {
         self.at_n(0, p)
     }
+
     fn at_n(&self, n: usize, p: P) -> bool {
         matches!(self.tok_at(n), Tok::Punct(q) if *q == p)
     }
+
     fn eat(&mut self, p: P) -> bool {
         let found = self.at(p);
         if found {
@@ -154,6 +164,7 @@ impl<'a> Parser<'a> {
         }
         found
     }
+
     fn expect(&mut self, p: P, context: &str) -> PResult<Span> {
         if self.at(p) {
             Ok(self.bump())
@@ -169,12 +180,15 @@ impl<'a> Parser<'a> {
             _ => None,
         }
     }
+
     fn kw(&self) -> Option<&'static str> {
         self.kw_at(0)
     }
+
     fn at_kw(&self, kw: &str) -> bool {
         self.kw() == Some(kw)
     }
+
     fn eat_kw(&mut self, kw: &str) -> bool {
         let found = self.at_kw(kw);
         if found {
@@ -182,6 +196,7 @@ impl<'a> Parser<'a> {
         }
         found
     }
+
     /// Name of the directive at offset `n`, if the token is a directive.
     fn directive_at(&self, n: usize) -> Option<&'static str> {
         match self.tok_at(n) {
@@ -189,9 +204,11 @@ impl<'a> Parser<'a> {
             _ => None,
         }
     }
+
     fn directive(&self) -> Option<&'static str> {
         self.directive_at(0)
     }
+
     fn at_directive(&self, name: &str) -> bool {
         self.directive() == Some(name)
     }
@@ -245,6 +262,7 @@ impl<'a> Parser<'a> {
     fn error(&self, message: impl Into<String>) -> Diagnostic {
         Diagnostic::error(self.span(), message)
     }
+
     /// "expected X <context>, found Y" at the current token.
     fn expected(&self, what: &str, context: &str) -> Diagnostic {
         let context = if context.is_empty() {

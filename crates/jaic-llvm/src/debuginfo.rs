@@ -50,6 +50,7 @@ impl DebugFormat {
 
 // DWARF constants.
 const DW_TAG_STRUCTURE_TYPE: u32 = 0x13;
+
 const DW_TAG_UNION_TYPE: u32 = 0x17;
 const DW_ATE_BOOLEAN: u32 = 0x02;
 const DW_ATE_FLOAT: u32 = 0x04;

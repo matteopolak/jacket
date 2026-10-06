@@ -19,6 +19,7 @@ struct Row {
 }
 
 static TOTALS: Mutex<Option<HashMap<String, Row>>> = Mutex::new(None);
+
 /// Instructions executed by kind (`IConst`, `Load`, ...).
 static OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
 

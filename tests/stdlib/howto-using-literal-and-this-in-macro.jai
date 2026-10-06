@@ -9,7 +9,7 @@ Ice_Cream :: struct {
     cone_style: string = "waffle";
 }
 
-using best := Ice_Cream.{flavor = "mint", num_scoops = 3};
+using best := Ice_Cream.{ flavor = "mint", num_scoops = 3 };
 
 seen_proc: *void;
 seen_exit: *void;
@@ -23,10 +23,12 @@ tracked :: () {
     Track();
 }
 
-bump :: () { num_scoops += 4; }
+bump :: () {
+    num_scoops += 4;
+}
 
 main :: () {
-    using Ice_Cream.{num_scoops = 1, cone_style = "cake"};
+    using Ice_Cream.{ num_scoops = 1, cone_style = "cake" };
     assert(num_scoops == 1);
     assert(cone_style == "cake");
 

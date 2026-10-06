@@ -2,7 +2,10 @@
 // expansion registered inside its loop (`defer i += 1;` before `#insert body;`).
 #import "Basic";
 
-Bag :: struct { count: int; items: [6] int; }
+Bag :: struct {
+    count: int;
+    items: [6] int;
+}
 
 for_expansion :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
     i := 0;

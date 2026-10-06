@@ -45,16 +45,19 @@ const P32: Prec = Prec {
     emin: -126,
     emax: 127,
 };
+
 const P64: Prec = Prec {
     bits: 53,
     emin: -1022,
     emax: 1023,
 };
+
 const P80: Prec = Prec {
     bits: 64,
     emin: -16382,
     emax: 16383,
 };
+
 const P128: Prec = Prec {
     bits: 113,
     emin: -16382,

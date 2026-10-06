@@ -13,10 +13,13 @@ use crate::types::TypeKind;
 
 /// Expansions kept per analysis: an edit that makes a metaprogram generate a lot stays bounded.
 const MAX_EXPANSIONS: usize = 4096;
+
 /// Calls kept per analysis.
 const MAX_CALLS: usize = 16384;
+
 /// Distinct results kept for one site (a polymorphic body can expand differently per instance).
 const MAX_VARIANTS: usize = 4;
+
 /// Longest expansion text kept.
 const MAX_TEXT: usize = 64 * 1024;
 

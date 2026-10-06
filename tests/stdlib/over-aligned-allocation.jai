@@ -4,11 +4,22 @@
 // Prints "ok"; also built natively by crates/jaic-cli/tests/native.rs.
 #import "Basic";
 
-Line :: struct { member: int #align 64; }
-Two_Lines :: struct { first: int #align 64; second: int #align 64; }
-Odd :: struct { tag: u8; payload: [100] u8; value: int #align 64; }
+Line :: struct {
+    member: int #align 64;
+}
+Two_Lines :: struct {
+    first: int #align 64;
+    second: int #align 64;
+}
+Odd :: struct {
+    tag: u8;
+    payload: [100] u8;
+    value: int #align 64;
+}
 
-aligned :: (pointer: *void) -> bool { return cast(u64) pointer % 64 == 0; }
+aligned :: (pointer: *void) -> bool {
+    return cast(u64) pointer % 64 == 0;
+}
 
 check :: () -> string {
     // Interleave sizes so the C heap does not hand out a regular pattern by luck.
@@ -46,11 +57,11 @@ check :: () -> string {
     for start: 1..63 {
         block := alloc(start);
         memset(block, 0x5a, start);
-        for size: start+1..start+300 {
+        for size: start + 1..start + 300 {
             block = realloc(block, size, size - 1);
             if size >= 64 && !aligned(block) return "realloc";
         }
-        for k: 0..start-1 if (cast(*u8) block)[k] != 0x5a return "realloc contents";
+        for k: 0..start - 1 if (cast(*u8) block)[k] != 0x5a return "realloc contents";
         free(block);
     }
 
@@ -60,7 +71,7 @@ check :: () -> string {
     array_free(array);
     growing: [..] Line;
     for i: 0..999 {
-        array_add(*growing, .{member = i});
+        array_add(*growing, .{ member = i });
         if !aligned(growing.data) return "array_add";
     }
     for growing if it.member != it_index return "array contents";
@@ -68,7 +79,9 @@ check :: () -> string {
 
     // Locals in the interpreter's frames, and a page-aligned one.
     local: Line;
-    Page :: struct { member: int #align 4096; }
+    Page :: struct {
+        member: int #align 4096;
+    }
     page: Page;
     if !aligned(*local) return "local";
     if cast(u64) *page % 4096 return "page local";

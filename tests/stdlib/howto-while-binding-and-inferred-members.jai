@@ -2,7 +2,11 @@
 
 // `.MEMBER == x`, enum-typed struct parameters, and `while name := value`.
 
-Stuff :: enum { FIRST; SECOND; THIRD; }
+Stuff :: enum {
+    FIRST;
+    SECOND;
+    THIRD;
+}
 
 source: string;
 
@@ -18,7 +22,9 @@ main :: () {
     assert(.SECOND == x);
     assert(.THIRD != x);
 
-    Ticket :: struct(_order: Stuff = .FIRST) { order := _order; }
+    Ticket :: struct(_order: Stuff = .FIRST) {
+        order := _order;
+    }
     a: Ticket;
     b: Ticket(.SECOND);
     assert(a.order == .FIRST);

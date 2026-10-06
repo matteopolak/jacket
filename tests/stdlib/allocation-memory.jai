@@ -9,7 +9,7 @@ check_crc :: () -> bool {
 }
 
 check_copy :: () -> bool {
-    bytes: [6] u8 = .[0,1,2,3,4,5];
+    bytes: [6] u8 = .[0, 1, 2, 3, 4, 5];
     Memory.copy(bytes.data + 1, bytes.data, 5);
     if bytes[0] != 0 || bytes[1] != 0 || bytes[5] != 4 return false;
     Memory.copy(bytes.data, bytes.data + 1, 5);

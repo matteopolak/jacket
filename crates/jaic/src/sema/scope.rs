@@ -4,6 +4,7 @@ use crate::types::TypeId;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ScopeId(pub u32);
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct EntityId(pub u32);
 
@@ -220,15 +221,19 @@ impl Compiler {
         });
         ScopeId(self.scopes.len() as u32 - 1)
     }
+
     pub fn scope(&self, id: ScopeId) -> &Scope {
         &self.scopes[id.0 as usize]
     }
+
     pub fn scope_mut(&mut self, id: ScopeId) -> &mut Scope {
         &mut self.scopes[id.0 as usize]
     }
+
     pub fn entity(&self, id: EntityId) -> &Entity {
         &self.entities[id.0 as usize]
     }
+
     pub fn entity_mut(&mut self, id: EntityId) -> &mut Entity {
         &mut self.entities[id.0 as usize]
     }

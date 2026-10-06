@@ -6,7 +6,10 @@
 #import "POSIX";
 
 main :: () {
-    #if OS == .WINDOWS { print("ok\n"); return; }
+    #if OS == .WINDOWS {
+        print("ok\n");
+        return;
+    }
 
     process: Process;
     ok := create_process(*process, "sh", "-c", "printf hi; printf done >&0", capture_and_return_output = true);
@@ -20,7 +23,7 @@ main :: () {
     // The child wrote into its stdin socket; the parent reads it there.
     buffer: [16] u8;
     got := read(process.input.handle, buffer.data, 16);
-    while got < 0 && errno() == EINTR  got = read(process.input.handle, buffer.data, 16);
+    while got < 0 && errno() == EINTR got = read(process.input.handle, buffer.data, 16);
     assert(to_string(buffer.data, got) == "done");
 
     output: [..] u8;

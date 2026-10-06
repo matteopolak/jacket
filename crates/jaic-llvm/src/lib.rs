@@ -37,6 +37,7 @@ impl OptLevel {
             OptLevel::O3 => OptimizationLevel::Aggressive,
         }
     }
+
     /// New-pass-manager pipeline string, `None` when no optimization runs.
     fn pipeline(self) -> Option<&'static str> {
         match self {

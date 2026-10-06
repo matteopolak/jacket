@@ -1,6 +1,73 @@
 use jai_language_server::{JsonSession, Limits, RequestId};
 use serde_json::{Value, json};
 
+/// Hover text of `answer` (a syntax-only session) after initializing with `capabilities`.
+fn hover_with(capabilities: Value) -> Value {
+    let mut session = JsonSession::new(Limits::default());
+    send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "capabilities": capabilities },
+        }),
+    );
+    send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": "file:///workspace/main.jai",
+                    "languageId": "jai",
+                    "version": 1,
+                    "text": "answer :: () -> int {return 42;}\nmain :: () -> int {return answer();}",
+                },
+            },
+        }),
+    );
+    let out = send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": "file:///workspace/main.jai" },
+                "position": { "line": 1, "character": 27 },
+            },
+        }),
+    );
+    out[0]["result"]["contents"].clone()
+}
+
+#[test]
+fn hovers_are_markdown_when_the_client_renders_it() {
+    let markdown = hover_with(
+        json!({ "textDocument": { "hover": { "contentFormat": ["markdown", "plaintext"] } } }),
+    );
+    assert_eq!(markdown["kind"], "markdown");
+    let value = markdown["value"].as_str().unwrap();
+    assert!(
+        value.starts_with("```jai\nanswer :: () -> int {return 42;}\n```\n\nSource syntax"),
+        "{value}"
+    );
+    for capabilities in [
+        json!({}),
+        json!({ "textDocument": { "hover": { "contentFormat": ["plaintext"] } } }),
+    ] {
+        let plain = hover_with(capabilities);
+        assert_eq!(plain["kind"], "plaintext");
+        let value = plain["value"].as_str().unwrap();
+        assert!(
+            value.starts_with("answer :: () -> int {return 42;}\n\nSource syntax declaration."),
+            "{value}"
+        );
+    }
+}
+
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
     session
         .handle_json(&message.to_string())

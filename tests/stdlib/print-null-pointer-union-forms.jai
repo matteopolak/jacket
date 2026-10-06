@@ -1,13 +1,30 @@
 #import "Basic";
 #import "String";
 
-Pair :: struct { a: int; b: int; }
-Payload :: union { i: s64; f: float64; }
-Holder :: struct { tag: int; value: Payload; }
-Base :: struct { x: int; y: int; }
-Derived :: struct { z: int; using base: Base; }
+Pair :: struct {
+    a: int;
+    b: int;
+}
+Payload :: union {
+    i: s64;
+    f: float64;
+}
+Holder :: struct {
+    tag: int;
+    value: Payload;
+}
+Base :: struct {
+    x: int;
+    y: int;
+}
+Derived :: struct {
+    z: int;
+    using base: Base;
+}
 
-add :: (a: int, b: int) -> int { return a + b; }
+add :: (a: int, b: int) -> int {
+    return a + b;
+}
 
 main :: () -> s64 {
     // type_of(null) is *void.
@@ -25,11 +42,11 @@ main :: () -> s64 {
     if begins_with(text, "procedure 0x") == false return 5;
 
     // A union member prints as "(union)".
-    h := Holder.{3, .{i = 7}};
+    h := Holder.{ 3, .{ i = 7 } };
     if tprint("%", h) != "{3, (union)}" return 6;
 
     // The type name follows the begin string without a space.
-    s := tprint("%", FormatStruct.{value = Pair.{1, 2}, draw_type_name = true});
+    s := tprint("%", FormatStruct.{ value = Pair.{ 1, 2 }, draw_type_name = true });
     if s != "Pair{1, 2}" return 7;
 
     // get_field returns the member and its offset, searching `using` members.

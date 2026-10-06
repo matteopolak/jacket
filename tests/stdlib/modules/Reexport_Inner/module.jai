@@ -1,2 +1,6 @@
-Inner_Thing :: struct { number: int; }
-inner_value :: () -> int { return 7; }
+Inner_Thing :: struct {
+    number: int;
+}
+inner_value :: () -> int {
+    return 7;
+}

@@ -19,14 +19,17 @@ use std::time::{Duration, Instant, SystemTime};
 
 /// Interpreter value stack of a thread other than the first.
 const THREAD_STACK: usize = 8 << 20;
+
 /// Native stack reserved for each OS thread that runs interpreted code.
 const NATIVE_STACK: usize = 256 << 20;
+
 /// Block transitions between preemption checks.
 const PREEMPT_TICKS: u64 = 20_000;
 
 const EPERM: u64 = 1;
 const EBUSY: u64 = 16;
 const EINVAL: u64 = 22;
+
 const ETIMEDOUT: u64 = if cfg!(target_os = "macos") {
     60
 } else {

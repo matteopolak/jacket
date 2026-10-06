@@ -1,10 +1,18 @@
 // Between float32 and float64 overloads an untyped literal picks float32.
 #import "Basic";
 
-lg :: (x: float64) -> float64 { return 64; }
-lg :: (x: float32) -> float32 { return 32; }
-pick :: (x: s32) -> int { return 1; }
-pick :: (x: float64) -> int { return 2; }
+lg :: (x: float64) -> float64 {
+    return 64;
+}
+lg :: (x: float32) -> float32 {
+    return 32;
+}
+pick :: (x: s32) -> int {
+    return 1;
+}
+pick :: (x: float64) -> int {
+    return 2;
+}
 
 main :: () {
     a := lg(2);

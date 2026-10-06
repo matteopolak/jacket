@@ -36,7 +36,10 @@ main :: () {
     for 1..300 {
         a := random_value();
         b := random_value();
-        dump(a + b); dump(a - b); dump(a * b); dump(a / b);
+        dump(a + b);
+        dump(a - b);
+        dump(a * b);
+        dump(a / b);
         acc = acc * a / (b + 1) + a;
         dump(acc);
         print("% % % %|", a < b, a == b, cast(s64) a, cast(float64) b);

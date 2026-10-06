@@ -1,6 +1,6 @@
 // Authored consumer: reference record, one captured backing allocation, pointer cursor.
 #import "Basic";
-P :: #import "Flat_Pool"(DEFAULT_VIRTUAL_MEMORY_RESERVE=513);
+P :: #import "Flat_Pool"(DEFAULT_VIRTUAL_MEMORY_RESERVE = 513);
 #load "storage-allocator-tracker.jai";
 
 Flat_Pool_Layout :: struct {
@@ -16,7 +16,7 @@ check_flat_pool_contract :: () -> int {
     if !storage_same_layout(P.Flat_Pool, Flat_Pool_Layout) return 1;
     pool: P.Flat_Pool;
     if pool.alignment != 8 || pool.current_point || pool.memory_base || pool.first_uncommitted_page || pool.address_limit return 2;
-    allocator := Allocator.{P.flat_pool_allocator_proc, *pool};
+    allocator := Allocator.{ P.flat_pool_allocator_proc, *pool };
     caps, name := get_capabilities_info(allocator);
     if name != "modules/Flat_Pool" || (caps & .IS_THIS_YOURS) == 0 || (caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) == 0 return 3;
     allocator.proc(.STARTUP, 0, 0, null, allocator.data);
@@ -30,16 +30,16 @@ check_flat_pool_contract :: () -> int {
     }
     defer P.fini(*pool);
     if trace.allocations != 1 || trace.outstanding != 1 || pool.address_limit - pool.memory_base != 4096 return 5;
-    if pool.current_point != pool.memory_base || pool.first_uncommitted_page != pool.address_limit || ((cast(u64)pool.memory_base) & 63) != 0 return 6;
-    first := cast(*u8)P.get(*pool, 16);
-    second := cast(*u8)P.get(*pool, 16);
+    if pool.current_point != pool.memory_base || pool.first_uncommitted_page != pool.address_limit || ((cast(u64) pool.memory_base) & 63) != 0 return 6;
+    first := cast(*u8) P.get(*pool, 16);
+    second := cast(*u8) P.get(*pool, 16);
     if first != pool.memory_base || second != first + 64 || pool.current_point != first + 80 return 7;
     first[0] = 37;
     second[0] = 91;
     pool.memory_base[300] = 17;
-    smaller := cast(*u8)allocator.proc(.RESIZE, 8, 16, first, allocator.data);
+    smaller := cast(*u8) allocator.proc(.RESIZE, 8, 16, first, allocator.data);
     if !smaller || smaller == first || smaller != first + 128 || smaller[0] != 37 return 8;
-    larger := cast(*u8)allocator.proc(.RESIZE, 32, 8, smaller, allocator.data);
+    larger := cast(*u8) allocator.proc(.RESIZE, 32, 8, smaller, allocator.data);
     if !larger || larger == smaller || larger != first + 192 || larger[0] != 37 return 9;
     allocator.proc(.FREE, 0, 0, first, allocator.data);
     allocator.proc(.SHUTDOWN, 0, 0, null, allocator.data);
@@ -61,7 +61,7 @@ check_flat_pool_contract :: () -> int {
     if trace.frees != 1 return 17;
 
     lazy: P.Flat_Pool;
-    lazy_allocator := Allocator.{P.flat_pool_allocator_proc, *lazy};
+    lazy_allocator := Allocator.{ P.flat_pool_allocator_proc, *lazy };
     {
         push_allocator(lazy_allocator);
         memory := alloc(24);
@@ -75,4 +75,6 @@ check_flat_pool_contract :: () -> int {
 }
 
 #assert #run check_flat_pool_contract() == 0;
-main :: () -> int { return check_flat_pool_contract(); }
+main :: () -> int {
+    return check_flat_pool_contract();
+}

@@ -70,7 +70,7 @@ build_and_generate :: () -> string {
     // clang's record layout for the Windows target agrees with the hand-written sizes.
     checks: String_Builder;
     append(*checks, "#include \"msbits.h\"\n");
-    for STRUCT_NAMES  print_to_builder(*checks, "_Static_assert(sizeof(struct %) == %, \"%\");\n", it, EXPECTED_SIZES[it_index], it);
+    for STRUCT_NAMES print_to_builder(*checks, "_Static_assert(sizeof(struct %) == %, \"%\");\n", it, EXPECTED_SIZES[it_index], it);
     if !write_entire_file(check_path, builder_to_string(*checks)) return "";
     result, output := run_command("clang", "-target", "x86_64-pc-windows-msvc", "-fsyntax-only", "-I", dir, check_path, capture_and_return_output = true);
     if result.exit_code != 0 return "";
@@ -123,7 +123,9 @@ ms_shorts_get :: (s: *Shorts, which: s32) -> s32 #foreign ms;
 ms_signs_set :: (s: *Signs, a: u32, b: s32) #foreign ms;
 ms_signs_get :: (s: *Signs, which: s32) -> s32 #foreign ms;
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_C {
@@ -143,7 +145,7 @@ main :: () {
         m: Mixed;
         ms_mixed_set(*m, 5, -9, 2);
         assert(Mixed_get_a(*m) == 5 && Mixed_get_b(*m) == -9 && Mixed_get_c(*m) == 2);
-        Mixed_set_a(*m, 3);   // `char` is unsigned on Linux arm64; stay in range for both.
+        Mixed_set_a(*m, 3); // `char` is unsigned on Linux arm64; stay in range for both.
         Mixed_set_b(*m, 15);
         Mixed_set_c(*m, 1);
         assert(ms_mixed_get(*m, 0) == 3 && ms_mixed_get(*m, 1) == 15 && ms_mixed_get(*m, 2) == 1);

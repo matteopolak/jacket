@@ -3,7 +3,10 @@
 // `!cast(bool) 2` was true).
 #import "Basic";
 
-Flags :: enum_flags { A; B; }
+Flags :: enum_flags {
+    A;
+    B;
+}
 
 main :: () {
     two := 2;

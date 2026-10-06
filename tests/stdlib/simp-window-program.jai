@@ -13,7 +13,7 @@ main :: () {
         update_window_events();
         clear_render_target(0.2, 0.3, 0.3, 1);
         set_shader_for_color(true);
-        immediate_quad(10, 10, 100, 100, .{1, 1, 0, 1});
+        immediate_quad(10, 10, 100, 100, .{ 1, 1, 0, 1 });
         swap_buffers(win);
     }
     print("% %\n", w, h);

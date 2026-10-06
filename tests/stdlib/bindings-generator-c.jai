@@ -26,7 +26,9 @@ void log_message(const char *fmt, ...);
 Opaque make_opaque(Node *node, Color color, Flags flags);
 END;
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     dir := "/tmp";
@@ -37,7 +39,7 @@ main :: () {
     opts: Generate_Bindings_Options;
     array_add(*opts.source_files, header_path);
     opts.generate_library_declarations = false;
-    array_add(*opts.libraries, .{filename = "does_not_exist", identifier = "lib"});
+    array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
     assert(generate_bindings(opts, output_path));
 
     text, ok := read_entire_file(output_path);

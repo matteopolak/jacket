@@ -6,15 +6,15 @@ Rust code is formatted with the pinned nightly `rustfmt` and the shared `rustfmt
 
 ## How it works
 
-`python3 tools/check_rust_format.py` first checks that every package manifest under `crates/` is a member of the root workspace (an unregistered crate would silently escape formatting), then runs `cargo fmt --all -- --check`. Packages that live outside the workspace would be listed in `STANDALONE_MANIFESTS` in the script; it is empty today.
+`python3 tools/check_rust_format.py` first checks that every package manifest under `crates/` is a member of the root workspace (an unregistered crate would silently escape formatting), then runs `cargo fmt --all -- --check` and `tools/rust_item_spacing.py --check`. rustfmt does not insert blank lines between items; the spacing script puts one before and after every multi-line item (`python3 tools/rust_item_spacing.py` fixes them). Packages that live outside the workspace would be listed in `STANDALONE_MANIFESTS` in the script; it is empty today.
 
-CI runs the Jai check on every runner too: it builds `jaic`, compiles `tools/jaifmt/main.jai` with `-O2` to `target/jaifmt`, and runs `target/jaifmt --check stdlib tests benchmarks tools examples`. Exit 1 lists each file with the first line that would change. For now the step is advisory. It reports, but "Enforce all recorded checks" ignores it until the repository has had its one repo-wide format. After that, add `steps.jai-format.outcome == 'failure'` to that step's condition in `.github/workflows/ci.yml`.
+CI runs the Jai check on every runner too: it builds `jaic`, compiles `tools/jaifmt/main.jai` with `-O2` to `target/jaifmt`, and runs `target/jaifmt --check stdlib tests benchmarks tools examples`. Exit 1 lists each file with the first line that would change, and "Enforce all recorded checks" fails the job. Format with `target/jaifmt stdlib tests benchmarks tools examples` before committing.
 
 `rustfmt.toml` expands compact items (`empty_item_single_line`, `fn_single_line` and `struct_lit_single_line` are off) and keeps up to two consecutive blank lines (`blank_lines_upper_bound = 2`). Blank lines between methods and logical steps are authored, not enforced.
 
 ## How to change it
 
-Format with `rustup run nightly-2026-08-29 cargo fmt --all` before committing. Change style options in `rustfmt.toml` (several need nightly) and land the resulting reformat as its own commit. A new crate must be added to `members` in the root `Cargo.toml`, otherwise the guard fails.
+Format with `rustup run nightly-2026-08-29 cargo fmt --all` and `python3 tools/rust_item_spacing.py` before committing. Change style options in `rustfmt.toml` (several need nightly) and land the resulting reformat as its own commit. A new crate must be added to `members` in the root `Cargo.toml`, otherwise the guard fails.
 
 ### Format-only commits and blame
 

@@ -10,9 +10,15 @@ Derived :: struct {
     base.id = 7;
     base.f = show;
 }
-Plain :: struct { h: () -> () = hello; }
-show :: (x: s64) { print("show %\n", x); }
-hello :: () { print("hello\n"); }
+Plain :: struct {
+    h: () -> () = hello;
+}
+show :: (x: s64) {
+    print("show %\n", x);
+}
+hello :: () {
+    print("hello\n");
+}
 
 global_d: Derived;
 global_p: Plain;

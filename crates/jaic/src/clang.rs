@@ -81,10 +81,12 @@ unsafe extern "system" {
     fn LoadLibraryA(name: *const c_char) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, name: *const u8) -> *mut c_void;
 }
+
 #[cfg(windows)]
 unsafe fn dlopen(filename: *const c_char, _flags: c_int) -> *mut c_void {
     unsafe { LoadLibraryA(filename) }
 }
+
 #[cfg(windows)]
 unsafe fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void {
     unsafe { GetProcAddress(handle, symbol.cast()) }
@@ -95,6 +97,7 @@ unsafe fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void {
 unsafe fn dlopen(_filename: *const c_char, _flags: c_int) -> *mut c_void {
     std::ptr::null_mut()
 }
+
 #[cfg(not(any(unix, windows)))]
 unsafe fn dlsym(_handle: *mut c_void, _symbol: *const c_char) -> *mut c_void {
     std::ptr::null_mut()

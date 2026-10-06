@@ -39,7 +39,9 @@ HAVE_CPP :: BINDINGS.count > 0;
     #insert BINDINGS;
 }
 
-has :: (text: string, needle: string) -> bool { return contains(text, needle); }
+has :: (text: string, needle: string) -> bool {
+    return contains(text, needle);
+}
 
 main :: () {
     #if HAVE_CPP {
@@ -68,7 +70,9 @@ main :: () {
         // The bindings link and work.
         assert(library_helper(5) == 15);
         p: Point3;
-        p.x = 1; p.y = 2; p.z = 3;
+        p.x = 1;
+        p.y = 2;
+        p.z = 3;
         assert(Point.sum(*p) == 3);
         assert(Point3.total(*p) == 6);
         print("ok\n");

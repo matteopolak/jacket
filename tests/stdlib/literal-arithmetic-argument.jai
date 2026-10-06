@@ -4,14 +4,20 @@
 #import "Basic";
 #import "Math";
 
-width_of :: (size: Vector2) -> float { return size.x; }
-width_or_default :: (size := Vector2.{-1, -1}) -> float { return size.x; }
-three :: () -> bool, int, float { return true, 7, 0.5; }
+width_of :: (size: Vector2) -> float {
+    return size.x;
+}
+width_or_default :: (size := Vector2.{ -1, -1 }) -> float {
+    return size.x;
+}
+three :: () -> bool, int, float {
+    return true, 7, 0.5;
+}
 
 main :: () {
     scale := 2.0;
-    assert(width_of(.{300, -1} * scale) == 600);
-    assert(width_or_default(.{10, 0} * scale + .{1, 0}) == 21);
+    assert(width_of(.{ 300, -1 } * scale) == 600);
+    assert(width_or_default(.{ 10, 0 } * scale + .{ 1, 0 }) == 21);
 
     ok := false;
     {

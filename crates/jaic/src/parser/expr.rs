@@ -48,6 +48,7 @@ fn binary_op(p: P) -> Option<(u8, BinOp)> {
 /// The level of a prefix `cast(T)` / `xx`: its value takes the operators that bind tighter
 /// (the bitwise and shift level), and the cast's result is the operand of everything looser.
 const CAST_PREC: u8 = 8;
+
 const BITWISE_PREC: u8 = CAST_PREC + 1;
 
 impl Parser<'_> {
@@ -110,6 +111,7 @@ impl Parser<'_> {
     fn continues_after_block(&self) -> bool {
         self.newline_before() && self.pos > 0 && self.at_prev(P::RBrace)
     }
+
     pub(super) fn at_prev(&self, p: P) -> bool {
         self.pos > 0 && matches!(&self.toks[self.pos - 1].tok, Tok::Punct(q) if *q == p)
     }

@@ -19,8 +19,8 @@ main :: () -> s64 {
     float_time := to_apollo(1.5);
     millis, millis_ok := to_milliseconds(float_time);
     if !millis_ok || millis != 1500 || to_float64_seconds(float_time) != 1.5 return 6;
-    calendar := Calendar_Time.{year = 2026, month_starting_at_0 = 9, day_of_month_starting_at_0 = 1,
-        day_of_week_starting_at_0 = 5, hour = 3, minute = 4, second = 5, millisecond = 6, time_zone = .UTC};
+    calendar := Calendar_Time.{ year = 2026, month_starting_at_0 = 9, day_of_month_starting_at_0 = 1,
+        day_of_week_starting_at_0 = 5, hour = 3, minute = 4, second = 5, millisecond = 6, time_zone = .UTC };
     if calendar_to_string(calendar) != "2026-10-02 03:04:05.006" return 7;
     if calendar_to_iso_string(calendar) != "2026-10-02T03:04:05.006Z" return 8;
     return 0;

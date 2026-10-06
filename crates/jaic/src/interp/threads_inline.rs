@@ -24,8 +24,10 @@ const EPERM: u64 = 1;
 const EBUSY: u64 = 16;
 const EINVAL: u64 = 22;
 const ETIMEDOUT: u64 = 110;
+
 /// Block transitions between preemption checks.
 const PREEMPT_TICKS: u64 = 20_000;
+
 /// Marks the trap that unwinds an abandoned thread.
 const ABANDONED: &str = "\0thread abandoned";
 

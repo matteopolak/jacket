@@ -186,6 +186,7 @@ struct Lexer<'a> {
 fn is_ident_start(c: u8) -> bool {
     c.is_ascii_alphabetic() || c == b'_' || c >= 0x80
 }
+
 fn is_ident_char(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
 }
@@ -201,9 +202,11 @@ impl<'a> Lexer<'a> {
             msg,
         )
     }
+
     fn peek(&self, n: usize) -> u8 {
         *self.src.get(self.at + n).unwrap_or(&0)
     }
+
     fn push(&mut self, tok: Tok, start: usize) {
         self.out.push(Token {
             tok,
@@ -212,6 +215,7 @@ impl<'a> Lexer<'a> {
         });
         self.newline = false;
     }
+
     fn run(&mut self) -> Result<(), Diagnostic> {
         // Skip a UTF-8 byte order mark.
         if self.src.starts_with(&[0xEF, 0xBB, 0xBF]) {
@@ -302,6 +306,7 @@ impl<'a> Lexer<'a> {
             }
         }
     }
+
     /// `.5` is a float literal unless the dot continues an expression (`x.5`, `1..5`).
     fn at_leading_dot_float(&self) -> bool {
         let after_operand = self.at > 0 && {
@@ -310,6 +315,7 @@ impl<'a> Lexer<'a> {
         };
         self.peek(0) == b'.' && self.peek(1).is_ascii_digit() && !after_operand
     }
+
     fn ident(&mut self) -> &'a str {
         let s = self.at;
         while self.at < self.src.len() && is_ident_char(self.src[self.at]) {
@@ -317,6 +323,7 @@ impl<'a> Lexer<'a> {
         }
         std::str::from_utf8(&self.src[s..self.at]).unwrap_or("?")
     }
+
     /// Identifiers may contain `\\` as an ignored visual separator: `group\\_fraction`. A trailing
     /// backslash pads a short name to line up with its neighbours (`arrow.to\\, x` next to
     /// `arrow.from, x`) and is dropped too.
@@ -335,6 +342,7 @@ impl<'a> Lexer<'a> {
         }
         name
     }
+
     fn skip_trivia(&mut self) -> Result<(), Diagnostic> {
         loop {
             let c = self.peek(0);
@@ -376,6 +384,7 @@ impl<'a> Lexer<'a> {
             }
         }
     }
+
     fn number(&mut self, start: usize) -> Result<Tok, Diagnostic> {
         let radix_prefix = |c: u8| match c {
             b'x' | b'X' => Some(16),
@@ -464,6 +473,7 @@ impl<'a> Lexer<'a> {
                 .map_err(|_| self.err(start, "integer literal too large"))
         }
     }
+
     fn string_body(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
         let mut out = Vec::new();
         loop {
@@ -537,6 +547,7 @@ impl<'a> Lexer<'a> {
             }
         }
     }
+
     fn hex_digits(&mut self, n: usize, start: usize) -> Result<u32, Diagnostic> {
         let mut v = 0u32;
         for _ in 0..n {
@@ -548,6 +559,7 @@ impl<'a> Lexer<'a> {
         }
         Ok(v)
     }
+
     /// `#string TERMINATOR` (optionally `#string,cr TERM` or `#string,\% TERM`).
     fn here_string(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
         let mut escape_percent = false;
@@ -636,6 +648,7 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     fn kinds(s: &str) -> Vec<Tok> {
         lex(FileId(0), s)
             .unwrap()
@@ -643,6 +656,7 @@ mod tests {
             .map(|t| t.tok)
             .collect()
     }
+
     #[test]
     fn basics() {
         let t = kinds("x := 1..2; y :: 0x_ff; z := 1.5e3; #run foo(); @note");
@@ -655,6 +669,7 @@ mod tests {
         assert_eq!(t[14], Tok::Directive(Sym::intern("run")));
         assert!(matches!(&t[19], Tok::Note(n) if &**n == "note"));
     }
+
     #[test]
     fn identifier_separators() {
         let t = kinds("to\\ _pt := f(a.to\\, b);");
@@ -662,6 +677,7 @@ mod tests {
         assert_eq!(t[6], Tok::Ident(Sym::intern("to")));
         assert_eq!(t[7], Tok::Punct(P::Comma));
     }
+
     #[test]
     fn leading_dot_floats() {
         let t = kinds("x := .5; y := a.b; z := 1..2;");
@@ -669,6 +685,7 @@ mod tests {
         assert_eq!(t[7], Tok::Punct(P::Dot));
         assert_eq!(t[13], Tok::Punct(P::DotDot));
     }
+
     #[test]
     fn here_strings() {
         let t = kinds("s :: #string END\nhello\n  world\nEND;");
@@ -677,6 +694,7 @@ mod tests {
         let t = kinds("s :: #string,cr END\r\na\r\nb\n  END");
         assert_eq!(t[2], Tok::Str(b"a\r\nb\r\n".as_slice().into()));
     }
+
     #[test]
     fn here_string_flags_cut_off_by_the_end_of_file() {
         // Found by the `lexer` fuzz target: a trailing `\` flag stepped past the end.
@@ -685,6 +703,7 @@ mod tests {
             assert!(e.message.contains("here-string"), "{src:?}: {}", e.message);
         }
     }
+
     #[test]
     fn nested_comments_and_escapes() {
         let t = kinds("/* a /* b */ c */ \"\\x41\\%\\u00e9\"");

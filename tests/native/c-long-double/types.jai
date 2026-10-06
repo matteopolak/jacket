@@ -1,8 +1,15 @@
 #import "Jaic_Extensions";
 
-LdBox :: struct { v: Long_Double; }
-LdTagged :: struct { tag: s8; v: Long_Double; }
-LdPair :: struct { a, b: Long_Double; }
+LdBox :: struct {
+    v: Long_Double;
+}
+LdTagged :: struct {
+    tag: s8;
+    v: Long_Double;
+}
+LdPair :: struct {
+    a, b: Long_Double;
+}
 
 ld_third :: () -> Long_Double #foreign longdouble;
 ld_add :: (a: Long_Double, b: Long_Double) -> Long_Double #foreign longdouble;

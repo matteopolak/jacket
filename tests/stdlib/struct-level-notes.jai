@@ -7,9 +7,13 @@ Tagged :: struct @thing @"two words" {
     b: float;
 }
 
-Plain :: struct { x: int; }
+Plain :: struct {
+    x: int;
+}
 
-Generic :: struct (T: Type) @generic { value: T; }
+Generic :: struct(T: Type) @generic {
+    value: T;
+}
 
 Variant :: union @shared {
     i: int;

@@ -6,4 +6,6 @@ stale_wrapper :: (x: int) -> int {
     return renamed_long_ago(x);
 } @Tagged
 
-bump :: (x: int) -> int { return x + 1; } @Tagged
+bump :: (x: int) -> int {
+    return x + 1;
+} @Tagged

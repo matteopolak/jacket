@@ -1,9 +1,10 @@
 use crate::analysis::{DIRECTIVES, KEYWORDS, Span, Token, TokenKind};
+use crate::hover::{Block, HoverText, Inline};
 use crate::semantic::{self, Environment};
 use crate::{
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    DocumentSymbol, DocumentUri, Error, Hover, Limits, Location, MarkupContent, Position,
-    SemanticToken, SemanticTokenKind, SymbolKind, TextChange, VirtualSources,
+    DocumentSymbol, DocumentUri, Error, Hover, Limits, Location, MarkupContent, MarkupKind,
+    Position, SemanticToken, SemanticTokenKind, SymbolKind, TextChange, VirtualSources,
     analysis::{Analysis, SymbolRow},
     position::LineIndex,
 };
@@ -499,13 +500,26 @@ impl Session {
         String::from_utf8(bytes).ok()
     }
 
+    /// Hover as plain text.
     pub fn hover(&self, uri: &DocumentUri, position: Position) -> Result<Option<Hover>, Error> {
+        self.hover_as(uri, position, MarkupKind::PlainText)
+    }
+
+    /// Hover written as `kind`: Markdown puts code in fenced `jai` blocks and starts each
+    /// section (what a macro expands to, what `#run` printed) with a thematic break.
+    pub fn hover_as(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+        kind: MarkupKind,
+    ) -> Result<Option<Hover>, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
-        let found = |(start, end, value): (usize, usize, String)| -> Result<Option<Hover>, Error> {
+        let found = |start: usize, end: usize, text: HoverText| -> Result<Option<Hover>, Error> {
             Ok(Some(Hover {
                 contents: MarkupContent {
-                    value,
+                    kind,
+                    value: text.render(kind),
                 },
                 range: doc.index.range(
                     &doc.text,
@@ -516,51 +530,41 @@ impl Session {
                 )?,
             }))
         };
-        if let Some(hover) = self.format_hover(uri, byte) {
-            return found(hover);
+        if let Some((start, end, text)) = self.format_hover(uri, byte) {
+            return found(start, end, text);
         }
-        if let Some(hover) = self.directive_hover(uri, byte) {
-            return found(hover);
+        if let Some((start, end, text)) = self.directive_hover(uri, byte) {
+            return found(start, end, text);
         }
         let Some((_, token)) = self.word(uri, position)? else {
             return match self.expansion_hover(uri, byte) {
-                Some(hover) => found(hover),
+                Some((start, end, text)) => found(start, end, text),
                 None => Ok(None),
             };
         };
         if let Some((start, end, value)) = self.semantic_hover(uri, &doc.text, byte) {
-            let value = self.with_macro_expansion(uri, start, value);
-            return Ok(Some(Hover {
-                contents: MarkupContent {
-                    value,
-                },
-                range: doc.index.range(
-                    &doc.text,
-                    Span {
-                        start,
-                        end,
-                    },
-                )?,
-            }));
+            let text = self.with_macro_expansion(uri, start, HoverText::code(value));
+            return found(start, end, text);
         }
         let rows = self.bindings(uri, position)?;
-        let value = if rows.len() == 1 {
-            format!(
-                "{}\n\nSource syntax declaration. \
-                 Type evaluation and compile-time execution are disabled during editing.",
-                self.source_detail(rows[0].0, rows[0].1)
-            )
+        let text = if rows.len() == 1 {
+            HoverText::new(vec![
+                Block::Code(self.source_detail(rows[0].0, rows[0].1).into()),
+                Block::Note(vec![Inline::Text(
+                    "Source syntax declaration. \
+                     Type evaluation and compile-time execution are disabled during editing."
+                        .into(),
+                )]),
+            ])
         } else if token.kind == TokenKind::Keyword {
-            format!("keyword {}", token.spelling(&doc.text))
+            HoverText::new(vec![Block::Para(vec![
+                Inline::Text("keyword ".into()),
+                Inline::Code(token.spelling(&doc.text).into()),
+            ])])
         } else {
             return Ok(None);
         };
-        Ok(Some(Hover {
-            contents: MarkupContent {
-                value,
-            },
-            range: doc.index.range(&doc.text, token.span)?,
-        }))
+        found(token.span.start, token.span.end, text)
     }
 
     /// Hover from the type checker: the text as typed if it parses, else with the cursor's line
