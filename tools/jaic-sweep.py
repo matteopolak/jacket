@@ -8,6 +8,10 @@ run must succeed), modules (the stdlib's own tests: stdlib/tests and stdlib/<Mod
 run must succeed; a test directory's `modules/` folder holds its mock modules), examples (tests/examples.json:
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass), or file paths.
+
+--native builds each `run` case with `jaic build` and runs the executable instead, with the
+same expectations; --sanitize address,undefined (implies --native) instruments those builds and
+fails a case on any sanitizer report (docs/native/sanitizers.md).
 """
 import argparse, json, os, shutil, subprocess, sys, tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -117,6 +121,63 @@ def run_limited(command, cwd, timeout, limit_bytes):
         return "", next(l for l in err.splitlines() if "error: memory limit of" in l), -1
     return out, err, code
 
+# Runtime options for sanitized executables. Leaks are not reported: programs routinely leave
+# their memory to the OS at exit, and a leak is not the codegen or memory-safety bug the
+# sanitizer run looks for. Every other report stops the program with a failing status.
+SANITIZER_ENV = {
+    "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:detect_stack_use_after_return=1:strict_string_checks=1:check_initialization_order=1",
+    "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1",
+}
+
+def sanitizer_report(err):
+    """The first line of a sanitizer report in `err`, or None."""
+    for line in err.splitlines():
+        if ("Sanitizer:" in line and "ERROR" in line) or ": runtime error:" in line:
+            return line.strip()
+    return None
+
+def symbolizer():
+    """llvm-symbolizer from the LLVM jaic links against, so reports show source lines."""
+    prefix = os.environ.get("LLVM_SYS_221_PREFIX")
+    candidates = [Path(prefix) / "bin/llvm-symbolizer"] if prefix else []
+    candidates += [Path(p) for p in (shutil.which("llvm-symbolizer-22"), shutil.which("llvm-symbolizer")) if p]
+    return next((str(p) for p in candidates if p.is_file()), None)
+
+# `run_native`'s status for a program whose build writes no executable.
+NO_EXECUTABLE = "no executable"
+
+# `run` cases that cannot work as native executables, with the reason. Each one calls into the
+# compiler at run time, which only `jaic run` provides.
+INTERPRETER_ONLY = {
+    # Bindings_Generator drives libclang through the `__jaic_clang` compiler procedure.
+    "bindings-generator-c": "runs Bindings_Generator at run time",
+    "bindings-generator-cpp": "runs Bindings_Generator at run time",
+}
+
+def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes):
+    """Build `path` natively with `build_flags` and run the executable in the source's directory.
+    Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
+    an `error:` line first in stderr."""
+    exe = Path(tempfile.mkdtemp(dir=scratch)) / path.stem
+    try:
+        _, err, code = run_limited([jaic, "build", str(path), "-o", str(exe), *build_flags],
+                                   path.parent, timeout, limit_bytes)
+        # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
+        # for no output, did all its work at compile time.
+        if code != 0 and "no exported 'main'" in err:
+            return "", "", NO_EXECUTABLE
+        if code != 0:
+            return "", f"error: native build failed (exit {code})\n{err}", code
+        if not exe.exists():
+            return "", "", NO_EXECUTABLE
+        out, err, code = run_limited([str(exe), *extra], path.parent, timeout, limit_bytes)
+        report = sanitizer_report(err)
+        if report:
+            return out, f"error: sanitizer: {report}\n{err}", code if code != 0 else 1
+        return out, err, code
+    finally:
+        shutil.rmtree(exe.parent, ignore_errors=True)
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
@@ -131,7 +192,21 @@ def main():
                     help="cases run at once (default: CPU count, capped so jobs x memory limit fits in RAM)")
     ap.add_argument("--allow-stale", action="store_true",
                     help="run even if the jaic binary is older than the compiler sources")
+    ap.add_argument("--native", action="store_true",
+                    help="build `run` cases with `jaic build` and run the executables")
+    ap.add_argument("--sanitize", default="",
+                    help="sanitizers for native builds (address, undefined or both, comma-separated); implies --native")
+    ap.add_argument("--opt", default="", choices=["", "O0", "O1", "O2", "O3"],
+                    help="optimization level of native builds (default: what the program asks for)")
     a = ap.parse_args()
+    if a.sanitize or a.opt:
+        a.native = True
+    build_flags = (["-sanitize", a.sanitize] if a.sanitize else []) + ([f"-{a.opt}"] if a.opt else [])
+    if a.sanitize:
+        os.environ.update({k: v for k, v in SANITIZER_ENV.items() if k not in os.environ})
+        if "ASAN_SYMBOLIZER_PATH" not in os.environ and symbolizer():
+            os.environ["ASAN_SYMBOLIZER_PATH"] = symbolizer()
+    scratch = tempfile.mkdtemp(prefix="jaic-sweep-native-") if a.native else None
     limit_bytes = int(a.memory_limit * 2**30)
     if a.jobs <= 0:
         a.jobs = max(1, min(os.cpu_count() or 1, int(physical_memory_gib() // a.memory_limit)))
@@ -154,7 +229,14 @@ def main():
 
     def run(case):
         cid, path, mode, expect, extra = case
-        out, err, code = run_limited([a.jaic, mode, str(path), *extra], path.parent, a.timeout, limit_bytes)
+        if a.native and mode == "run" and cid in INTERPRETER_ONLY:
+            return cid, None, "", INTERPRETER_ONLY[cid], NO_EXECUTABLE
+        if a.native and mode == "run":
+            out, err, code = run_native(a.jaic, path, extra, build_flags, scratch, a.timeout, limit_bytes)
+            if code == NO_EXECUTABLE:
+                return cid, None, out, err, code
+        else:
+            out, err, code = run_limited([a.jaic, mode, str(path), *extra], path.parent, a.timeout, limit_bytes)
         if expect is None:
             ok = code == 0
         elif "negative" in expect:
@@ -170,9 +252,12 @@ def main():
             ok = code == expect.get("exit_code", 0) and out == expect.get("stdout", "")
         return cid, ok, out, err, code
 
-    passed, failed = 0, []
+    passed, failed, no_exe = 0, [], []
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
         for cid, ok, out, err, code in pool.map(run, todo):
+            if ok is None:
+                no_exe.append(cid)
+                continue
             if ok:
                 passed += 1
                 continue
@@ -182,9 +267,15 @@ def main():
                 print(f"--- {cid}\n{err[:1500]}{out[:500]}")
     for root in WORKDIRS.values():
         shutil.rmtree(root, ignore_errors=True)
+    if scratch:
+        shutil.rmtree(scratch, ignore_errors=True)
     for cid, msg in failed:
         print(f"FAIL {cid}: {msg[:220]}")
-    print(f"\n{passed} passed, {len(failed)} failed")
+    if no_exe:
+        print(f"\nnot run natively (compile-time only or interpreter-only): {', '.join(no_exe)}")
+    print(f"\n{passed} passed, {len(failed)} failed" + (f", {len(no_exe)} not run natively" if no_exe else ""))
+    # A failing status lets CI use the sweep directly.
+    sys.exit(1 if failed else 0)
 
 if __name__ == "__main__":
     main()

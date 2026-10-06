@@ -22,6 +22,8 @@ Expected result of `corpus negative stdlib modules upstream examples`: everythin
 
 Each case runs with an exact allocation cap (`--memory-limit`, default 3 GiB), which the sweep passes to `jaic` as `JAIC_MEMORY_LIMIT` (see [memory limit](../compiler/memory-limit.md)). `jaic` itself stops at the first allocation past it with exit status 120, and the case fails with `error: memory limit of 3072 MiB exceeded`; memory outside `jaic`'s allocator (LLVM, child processes) is not capped. The `--timeout` still kills a case that runs too long. The default `--jobs` is the CPU count capped so that jobs × limit fits in physical memory. The sweep refuses to start when the `jaic` binary is older than any source in `crates/jaic`, `crates/jaic-cli` or `crates/jaic-llvm` (`--allow-stale` overrides): a stale build can lack the limits that keep negative cases such as unbounded polymorphic recursion from exhausting memory.
 
+`--native` builds each `run` case with `jaic build` into a scratch directory and runs the executable instead of `jaic run`, with the same expectation; `--opt O0..O3` sets the build's optimization level and `--sanitize address,undefined` instruments it (both imply `--native`). A sanitized case also fails on any sanitizer report in stderr. A program whose metaprogram writes no executable is listed separately as compile-time only. See [sanitizers](../native/sanitizers.md). The sweep exits with status 1 when any case fails.
+
 ## How to change it
 
 - New negative program (must be rejected): drop it in `tests/corpus/negative/`, add a `kind: negative` entry with `sha256` and a `negative.check` string that appears in the diagnostic to `tests/corpus/manifest.json`.
