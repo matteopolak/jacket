@@ -18,6 +18,15 @@
 - Windows: programs that start threads run in the interpreter. `CreateThread`, waits on thread, semaphore and event handles, critical sections, SRW locks, condition variables, `Sleep` and `SwitchToThread` go through the cooperative thread scheduler.
 - MSVC builds write a PDB next to the executable or DLL (`<name>.pdb`) when debug information is on.
 
+- `jaic build -os wasm` compiles to a wasm64 (Memory64) WASI module linked with `wasm-ld`; `-target wasm64-unknown-unknown` leaves out the runtime so the host supplies the imports. See `docs/native/wasm-target.md`.
+  - Metaprograms target it with `os_target = .WASM`, `cpu_target = .CUSTOM` and `llvm_options.target_system_triple`/`_cpu`/`_features`; `additional_linker_arguments` go to `wasm-ld`.
+  - `#foreign` procedures and `#elsewhere` globals become wasm imports (module `env` without a library, else the library's name), and `#program_export` procedures are exported.
+  - `stdlib/Wasi_Runtime`, written in Jai, provides `_start`, the heap, stdio, the environment and the clock on WASI preview 1; jaic adds it when the triple names WASI.
+  - `wasm-ld` comes from `JAIC_WASM_LD`, the LLVM install or an LLD package (`lld`, `lld-23`). wasm32 is refused.
+- `#intrinsic "llvm.<name>"` on a bodiless procedure calls that LLVM intrinsic in native builds.
+- `jaifmt.wasm`: jaifmt compiled to WebAssembly (`tools/jaifmt/wasm.jai`): source on stdin, `--config <toml>` or `JAIFMT_CONFIG`, result on stdout. Browser bundles include it (`build_scripting_wasm.py --jaic`, required by `package_browser_release.py`). It formats about 35 times faster than the interpreted playground driver, and CI checks its output against native jaifmt on every golden case.
+- `tools/jaic-diff.py` has a `wasm-native` backend, and `tools/wasi_run.mjs` runs WASI modules under node.
+
 ### Changed
 
 - Casts no longer push their type into the operand: `cast(float32) (0 - w)` with `w: u16 = 15` subtracts in `u16` (`65521`) and then converts, where it used to compute `-15` in `float32`. Likewise an untyped literal operand takes the other operand's type rather than a declaration's or parameter's (`f: float32 = 0 - w;`). Code that relied on the old float arithmetic needs the cast on the operand: `cast(float32) 0 - w`.

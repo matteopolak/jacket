@@ -36,13 +36,15 @@ The compiler, language server and formatter also run in the browser through WebA
 | Linux | ✅ | ✅ |
 | Windows | ✅ (MSVC, or cross-built with MinGW-w64 via `-os windows`) | ✅ (MSVC, or cross-built with llvm-mingw via `-os windows -cpu arm64`) |
 
+**WebAssembly modules** (wasm64): `jaic build -os wasm` writes a WASI command that runs under node 24, wasmtime or a Memory64 browser, and a metaprogram can target it with `os_target = .WASM` ([wasm target](docs/native/wasm-target.md)).
+
 On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitizer and LLVM's bounds checks ([sanitizers](docs/native/sanitizers.md)); CI runs the test programs that way.
 
 **Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals).
 
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jailsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
-- A [formatter](docs/tools/jaifmt.md) (`jaifmt`) that runs natively and in the browser. Its output is canonical and idempotent: formatting twice changes nothing.
+- A [formatter](docs/tools/jaifmt.md) (`jaifmt`) that runs natively and in the browser, either interpreted or compiled to a 214 KB `jaifmt.wasm`. Its output is canonical and idempotent: formatting twice changes nothing.
 - A [linter](docs/tools/jailint.md) (`jailint`) with rules that run on the type-checked program: unused variables, parameters and imports, loops that only index (`for i: 0..xs.count-1`), hand-kept counters, redundant casts, `x == true`, format strings with the wrong number of arguments, a shadowed `it`, a `defer` in a loop, and opt-in checks for exact float comparison and narrowing `xx`. It applies fixes with `--fix`, reads `jailint.toml`, honours `// jailint: allow(rule)`, and its findings and fixes also show up in editors through `jailsp`.
 - A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai), which opens with a [multi-file tour of the language](examples/tour/tour.md) (`examples/tour`).
 
@@ -51,6 +53,7 @@ On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitiz
 ## What is missing
 
 - C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Long_Double` extension](docs/language/jaic-extensions.md); C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
+- WebAssembly builds are wasm64 only, cannot call libm (`sin`, `pow`, float `%`) or use `Long_Double`, and have no threads or files beyond stdin, stdout and stderr.
 
 Anything unsupported fails with a compile error rather than being silently accepted.
 

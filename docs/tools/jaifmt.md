@@ -25,7 +25,7 @@ The output is canonical: it depends on the tokens, comments and blank lines of t
 - `format.jai`: two passes over the tokens. `plan_lines` decides the line structure (`breaks[i]`: line breaks before token i). The emit loop then writes each line: indentation from a stack of `Frame`s, and zero or one space between neighbors (`spacing_rule`).
 - `config.jai`: `jaifmt.toml` parsing and ignore globs (the caller reads the file).
 
-`tools/jaifmt/main.jai` adds the file side: arguments, the directory walk, upward discovery of `jaifmt.toml` (cached per directory), `--check` reporting and writing files. `tools/jaifmt/playground.jai` is the browser's driver (see [Browser playground](#browser-playground)).
+`tools/jaifmt/main.jai` adds the file side: arguments, the directory walk, upward discovery of `jaifmt.toml` (cached per directory), `--check` reporting and writing files. `tools/jaifmt/playground.jai` is the browser engine's driver and `tools/jaifmt/wasm.jai` the WASI driver compiled to `jaifmt.wasm` (see [Browser playground](#browser-playground)).
 
 **Line structure** (`plan_lines`). The source's line breaks are the starting point; then:
 
@@ -115,6 +115,7 @@ Ignore globs are relative to the config file's directory: `*` and `?` stay withi
 | `jaic run`, one 327-line file / one 814-line file | 0.14 s / 0.21 s |
 | browser engine (release wasm), 327-line file | 75 ms (a golden case: ~25 ms) |
 | browser engine (debug wasm, as in CI), 327-line file | 375 ms |
+| `jaifmt.wasm` under node 24, 327-line file / a golden case | 2.2 ms / 0.7 ms (a fresh instance each run; compiling the module: under 1 ms) |
 
 ## Module API
 
@@ -144,6 +145,37 @@ else showError(result.stderr);                                // "jaifmt: main.j
 
 `tools/build_scripting_wasm.py` stages the driver as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it is part of every browser release bundle (`tools/package_browser_release.py`, [browser compiler](../browser/playground.md)); the portfolio serves it from `/jai/<commit>/jaifmt-playground.jai`. Exit code 0 means stdout is the whole formatted file; 1 means stdout is empty and stderr has one `jaifmt: ...` line (bad config, unreadable file, or input that cannot be formatted safely). To let users configure it, create `/workspace/jaifmt.toml`, for example `indent_width = 2`. The page can instead call the module from its own driver: `#import "Jai_Format"` is bundled with the rest of `stdlib/`.
 
+### WebAssembly build (`jaifmt.wasm`)
+
+`tools/jaifmt/wasm.jai` is jaifmt as a WASI command, compiled by a native `jaic` ([wasm target](../native/wasm-target.md)):
+
+```sh
+jaic build tools/jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o jaifmt.wasm
+node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai > out.jai
+node --no-warnings tools/check_jaifmt_wasm.mjs jaifmt.wasm target/jaifmt   # golden cases, byte-identical to native
+```
+
+It reads the source from stdin and writes the formatted file to stdout with exit 0. The `jaifmt.toml` text comes from `--config <text>`, else the `JAIFMT_CONFIG` environment variable, else the defaults. `--name <file>` sets the name used in messages (default `main.jai`). On any error stdout is empty, stderr has one `jaifmt: ...` line and the exit status is 1, the same contract as the engine driver.
+
+It is about 35 times faster than interpreting `jaifmt-playground.jai` in the engine, and does not need the engine loaded:
+
+| | `jaifmt-playground.jai` in the engine (release) | `jaifmt.wasm` |
+| --- | --- | --- |
+| download | `jai_wasm.wasm` (shared with the playground) | 214 KB (61 KB gzip, 48 KB brotli) |
+| 327-line file | 75 ms | 2.2 ms |
+| golden case | ~25 ms | 0.7 ms |
+| runtimes | any wasm32 browser | Memory64: Chrome 133, Firefox 134, node 24; not Safari yet |
+
+(Apple M5, LLVM 23, `-O2 --no-debug-info`, no `wasm-opt`; node 24.12.)
+
+`tools/build_scripting_wasm.py --jaic <native jaic>` stages it as `jaifmt.wasm` and records `jaifmt_wasm_sha256` in `build-metadata.json`; release bundles require it ([compiler releases](../browser/compiler-releases.md)). To use it, a page:
+
+1. Fetches `/jai/<commit>/jaifmt.wasm` and compiles it once (`WebAssembly.compile`).
+2. Per run, instantiates it with a WASI preview 1 shim providing `fd_read`, `fd_write`, `args_sizes_get`, `args_get`, `environ_sizes_get`, `environ_get`, `clock_time_get` and `proc_exit` from `wasi_snapshot_preview1`. Every pointer argument is a 32-bit offset (`i32`) into the module's 64-bit memory, so index the memory's `ArrayBuffer` with `Number(ptr)`; `memory.buffer` must be read again after calls, since it can grow.
+3. Passes `["jaifmt.wasm", "--config", tomlText]` as arguments, serves the source to `fd_read(0, ...)`, collects `fd_write(1/2, ...)`, and calls `_start`. `proc_exit(code)` ends the run: throw from the shim and catch it around `_start`.
+4. On exit 0 replaces the editor text with stdout; on 1 shows stderr.
+5. Where `WebAssembly.validate` rejects the module (no Memory64, Safari today), falls back to `jaifmt-playground.jai` in the engine.
+
 ## Dependencies
 
-`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities`, `POSIX` (stdin/stdout/stderr descriptors) and `Sort`; the playground driver adds `File`. The browser path needs the wasm engine (`crates/jai-wasm/js/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)). Running it under the interpreter needs `jaic run ... -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.
+`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities`, `POSIX` (stdin/stdout/stderr descriptors) and `Sort`; the playground driver adds `File`. The browser path needs the wasm engine (`crates/jai-wasm/js/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)), or, for `jaifmt.wasm`, a native `jaic` with `wasm-ld` to build it, `Wasi_Runtime`, and a Memory64 runtime. Running it under the interpreter needs `jaic run ... -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.

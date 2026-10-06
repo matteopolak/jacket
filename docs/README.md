@@ -78,6 +78,7 @@ The LLVM backend, C ABI and linking.
 - [Sanitizers for native builds](native/sanitizers.md)
 - [Vk-Engine corpus project](native/vk-engine.md)
 - [Native Windows executables](native/windows.md)
+- [WebAssembly target (wasm64, WASI, `Wasi_Runtime`)](native/wasm-target.md)
 
 ## Standard library
 

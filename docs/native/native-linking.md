@@ -22,7 +22,7 @@ error: linking failed (exit status: 1):
 ld: library 'nothere' not found
 ```
 
-Windows targets (`LinkFlavor::MinGw`, `Msvc`) have their own rules; see [Windows](windows.md).
+Windows targets (`LinkFlavor::MinGw`, `Msvc`) have their own rules; see [Windows](windows.md). WebAssembly targets link with `wasm-ld` instead of `cc`, and system libraries become import modules; see [wasm target](wasm-target.md).
 
 ## How to change it
 

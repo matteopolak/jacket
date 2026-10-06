@@ -13,7 +13,7 @@
    { "commit": "<40 hex>", "schema_version": 1, "toolchain": "nightly-2026-08-29", "wasm_sha256": "<64 hex>" }
    ```
 
-3. **Inventory.** The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `build-metadata.json`, `README.md`, `tour.json` and `tour/main.jai` (the rest of the tour sits under `tour/`). Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` regular files with normalized relative paths are accepted. The bundle is limited to 64 files, 64 MiB per file and 128 MiB total. Each file's size and SHA-256 are recorded.
+3. **Inventory.** The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `jaifmt.wasm` (compiled by the native `jaic` given with `--jaic`, checked against the `jaifmt_wasm_sha256` receipt and published in the metadata), `build-metadata.json`, `README.md`, `tour.json` and `tour/main.jai` (the rest of the tour sits under `tour/`). Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` regular files with normalized relative paths are accepted. The bundle is limited to 64 files, 64 MiB per file and 128 MiB total. Each file's size and SHA-256 are recorded.
 4. **Probe.** `node tools/check_browser_release.mjs <stage> --report <json>` imports the **staged** `engine.mjs` and Wasm. It requires the exact top-level inventory (the five files plus `tour.json`), a `tour/` folder whose files are exactly those `tour.json` lists, a matching `wasm_sha256` and a self-contained `engine.mjs`. It then:
    - runs execution probes: exit codes, compile-time and runtime phases, nested `#load`, diagnostics, `Hash_Table`, a `#run` workspace message loop, the virtual clock, separate stdout/stderr, the execution budget, a refused `#foreign`;
    - runs the staged tour within the playground budget and checks its key output lines (`tests/examples.json`);
@@ -44,17 +44,18 @@ Schema v2 bundles have no UI (`index.html`, `worker.mjs`, editor files) and no `
 
 ```sh
 python3 tools/package_browser_release.py --toolchain          # validate and print the pinned nightly
+cargo build -p jaic-cli --locked                               # the native jaic that builds jaifmt.wasm
 CARGO_TARGET_DIR=/path/to/target \
-  python3 tools/package_browser_release.py --output artifacts/browser-release
+  python3 tools/package_browser_release.py --output artifacts/browser-release --jaic target/debug/jaic
 
 python3 -m unittest discover -s tools -p 'test_*.py'
 node --test tools/test_browser_release.mjs
 ```
 
-`--output` must name a new or empty directory; inside the checkout it must be gitignored. `--target-dir` overrides the environment and Cargo configuration through the [shared helper](../tools/build-storage.md). The workflow's `compiler_revision` must be a lowercase full commit SHA.
+`--jaic` is required: it compiles `jaifmt.wasm` and needs LLVM 23 and `wasm-ld` ([wasm target](../native/wasm-target.md)). `--output` must name a new or empty directory; inside the checkout it must be gitignored. `--target-dir` overrides the environment and Cargo configuration through the [shared helper](../tools/build-storage.md). The workflow's `compiler_revision` must be a lowercase full commit SHA.
 
 To run the probe on a local, uncommitted build: stage it with `build_scripting_wasm.py`, replace its `build-metadata.json` with the relocatable form above (any 40-hex commit), then run `node tools/check_browser_release.mjs <dir>`.
 
 ## Dependencies
 
-Python 3.11+ (`tomllib`, `zipfile`, `json`), independently installed `git` and Node (tool paths inside protected trees are refused), pinned Rustup/Cargo with `wasm32-unknown-unknown`, and the dependency-age, source-input and build-path helpers in `tools/`. There are no npm dependencies. The build needs no LLVM.
+Python 3.11+ (`tomllib`, `zipfile`, `json`), independently installed `git` and Node (tool paths inside protected trees are refused), pinned Rustup/Cargo with `wasm32-unknown-unknown`, and the dependency-age, source-input and build-path helpers in `tools/`. There are no npm dependencies. The engine build needs no LLVM; `jaifmt.wasm` needs a native `jaic` (LLVM 23, `wasm-ld`), and the probe runs it under Node 24 (Memory64).

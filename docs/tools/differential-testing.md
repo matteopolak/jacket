@@ -10,6 +10,7 @@ There is no independent implementation to compare against, so jaic is checked ag
 | `native` | `jaic build -O0`, then the executable (LLVM) |
 | `native-O2` | the same at `-O2`, so LLVM's optimizer is involved |
 | `wasm` | the browser engine (`crates/jai-wasm`, driven by node through `tools/jaic_diff_wasm.mjs`): the interpreter compiled to wasm32, target OS `.WASM`, `SandboxHost` libc |
+| `wasm-native` | `jaic build -os wasm` (LLVM, wasm64, `Wasi_Runtime`), run by node's WASI through `tools/wasi_run.mjs` ([wasm target](../native/wasm-target.md)). Only when named in `--backends`: it needs `wasm-ld` and node 24 |
 
 `interp` and `wasm` share the interpreter, but they differ in target (32-bit `.WASM` against the host), constant folding host, file system and libc. `native` and `native-O2` share only the IR with the interpreter.
 
@@ -157,6 +158,7 @@ Differential testing cannot find a bug that every backend shares, because they s
 
 - `test` job, every OS: `--backends interp,native,native-O2 corpus gen:1:40` with the debug `jaic`.
 - `scripting-wasm` job: `--backends interp,wasm corpus gen:1:40`, with an LLVM-free host `jaic` (`--no-default-features`) and the bundle the job already builds.
+- `test` job, every OS: `--backends interp,wasm-native corpus gen:1:40` in the WebAssembly target step.
 
 ## How to change it
 
@@ -185,7 +187,7 @@ The stdlib and modules sets build the [third-party native libraries](native-libs
 
 - Python 3.9+.
 - `tools/jaic-sweep.py`, which provides the process limits and the stale-binary check.
-- node, for the wasm backend.
+- node, for the wasm backends (node 24 for `wasm-native`), and `wasm-ld` for `wasm-native`.
 - The LLVM 23 toolchain behind `jaic build`.
 - The browser bundle built by `tools/build_scripting_wasm.py`.
 - Unit tests: `tools/test_jaic_diff.py`, which needs no compiler.

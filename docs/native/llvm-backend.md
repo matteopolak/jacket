@@ -69,6 +69,7 @@ Definitions with C signatures (`#c_call` callbacks that C calls with structs) do
 - Small test programs use one unit; check splitting with `JAIC_CODEGEN_UNITS=4 cargo test -p jaic-cli --test native`.
 - Small optimized programs stay under `INSTS_PER_UNIT`; force the post-optimizer split with `JAIC_SPLIT_UNITS=4 cargo test -p jaic-cli --test native`. A declaration made from a definition must lose its body, personality and `!dbg` attachment (`strip_body`), or the verifier rejects the module.
 - Windows (`Arch::Win64`): `#program_export` definitions are `dllexport` and `CompilerWrite` calls `_write`. See [Windows](windows.md).
+- WebAssembly (`Arch::Wasm64`): foreign procedures become wasm imports, `#program_export`s get `wasm-export-name`, every function is `no-builtins`, and a weak `__multi3` is emitted. See [wasm target](wasm-target.md).
 
 ## Configuration
 

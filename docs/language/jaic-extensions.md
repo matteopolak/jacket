@@ -66,6 +66,13 @@ The IR has no wide scalar register: like a small struct, a `Long_Double` lives i
 - `jaic run`: a C library cannot call a Jai `#c_call` procedure that passes a wide `Long_Double` (the callback thunks have no x87/q-register path); native builds can. Foreign calls *to* C work in the interpreter on x86-64 and arm64 hosts.
 - The interpreter's foreign calls need the host to match the target (an arm64 Linux host for binary128, an x86-64 host for x87); `jaic run -target x86_64-...` on an arm64 Mac still computes in soft-float, but cannot call x86-64 C code.
 
+### Outside this module
+
+Two jaic-only additions live elsewhere because they belong to native builds, not to the language a program sees:
+
+- `#intrinsic "llvm.<name>"` calls an LLVM intrinsic directly ([intrinsics](intrinsics.md)).
+- `stdlib/Wasi_Runtime`, the WASI runtime that `jaic build -os wasm` adds to a program ([wasm target](../native/wasm-target.md)). A program never imports it itself.
+
 ## How to change it
 
 - Another extension: add it to `stdlib/Jaic_Extensions/module.jai`, add a name to `jaic_type` in `sema/expr.rs` (or another directive), document it here.

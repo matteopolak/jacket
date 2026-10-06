@@ -15,6 +15,15 @@ compare_and_swap :: (pointer: *$T, old: T, new: T) -> (success: bool, old_value:
 
 `emit_intrinsic` in `sema/calls.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`. Any other name is `error: unknown intrinsic 'frob'` {#intrin.2}.
 
+A jaic extension: a bodiless procedure declared `#intrinsic "llvm.<name>"` calls the LLVM intrinsic of that name in native builds, with the procedure's signature as the intrinsic's type (`llvm_intrinsic` in `sema/procs.rs` makes it a foreign procedure whose symbol is the intrinsic's name; `crates/jaic-llvm` declares it without a wasm import). Immediate arguments must be constants at the call. The interpreter has no such intrinsics, so call these only from code that is compiled:
+
+```jai
+memory_add_pages :: (memory: s32, pages: s64) -> s64 #intrinsic "llvm.wasm.memory.grow.i64";
+bit_count :: (x: u64) -> u64 #intrinsic "llvm.ctpop.i64";
+```
+
+`stdlib/Wasi_Runtime` uses it for `memory.size`/`memory.grow` ([wasm target](../native/wasm-target.md)).
+
 `compare_and_swap` takes its width (1, 2, 4 or 8 bytes) from the value type {#intrin.3}:
 
 ```jai
@@ -35,6 +44,8 @@ The compiler also emits IR operations that user code never names: `BoundsCheck` 
 2. Implement it in the interpreter (`crates/jaic/src/interp/`) and in `crates/jaic-llvm`.
 3. Add the name to `emit_intrinsic`, and to `lower_intrinsic_wrapper` if it must work as a value.
 4. Declare it `#intrinsic` in `stdlib/prelude/module.jai` or a stdlib module.
+
+An LLVM intrinsic needs none of this: declare it `#intrinsic "llvm.<name>"` with the signature LLVM expects (check LLVM's `Intrinsics*.td`); a wrong signature fails in LLVM's verifier.
 
 `emit_intrinsic` trusts the declaration and does no further type checking, so keep the declared signature in sync with what the IR op expects.
 

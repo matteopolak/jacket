@@ -98,7 +98,7 @@ pub fn find_wasm_ld() -> Result<PathBuf, String> {
         return Ok(PathBuf::from(program));
     }
     find_llvm_tool("wasm-ld").map(PathBuf::from).ok_or_else(|| {
-        "wasm-ld not found: install LLD (Homebrew `lld@22`, Debian `lld-22`) or set JAIC_WASM_LD"
+        "wasm-ld not found: install LLD (Homebrew `lld`, Debian `lld-23`) or set JAIC_WASM_LD"
             .to_string()
     })
 }
@@ -106,21 +106,13 @@ pub fn find_wasm_ld() -> Result<PathBuf, String> {
 /// An LLVM tool (`wasm-ld`, `llvm-ar`) from the LLVM or LLD installs jaic knows about.
 pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
     let mut dirs: Vec<PathBuf> = Vec::new();
-    for var in ["LLVM_SYS_221_PREFIX", "LLVM_SYS_231_PREFIX"] {
-        if let Some(prefix) = std::env::var_os(var) {
-            dirs.push(Path::new(&prefix).join("bin"));
-        }
+    if let Some(prefix) = std::env::var_os("LLVM_SYS_231_PREFIX") {
+        dirs.push(Path::new(&prefix).join("bin"));
     }
-    for prefix in [
-        option_env!("LLVM_SYS_221_PREFIX"),
-        option_env!("LLVM_SYS_231_PREFIX"),
-    ]
-    .into_iter()
-    .flatten()
-    {
+    if let Some(prefix) = option_env!("LLVM_SYS_231_PREFIX") {
         dirs.push(Path::new(prefix).join("bin"));
     }
-    for config in ["llvm-config-22", "llvm-config"] {
+    for config in ["llvm-config-23", "llvm-config"] {
         if let Ok(out) = Command::new(config).arg("--bindir").output()
             && out.status.success()
         {
@@ -128,19 +120,17 @@ pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
         }
     }
     // LLD is a separate package from LLVM on Homebrew and Debian.
-    for keg in ["lld@22", "lld@23", "lld"] {
+    for keg in ["lld", "lld@23"] {
         for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
             dirs.push(Path::new(root).join(keg).join("bin"));
         }
     }
-    for version in ["22", "23"] {
-        dirs.push(PathBuf::from(format!("/usr/lib/llvm-{version}/bin")));
-    }
+    dirs.push(PathBuf::from("/usr/lib/llvm-23/bin"));
     if let Some(found) = dirs.iter().map(|d| d.join(name)).find(|p| p.is_file()) {
         return Some(found.to_string_lossy().into_owned());
     }
     let path = std::env::var_os("PATH")?;
-    for candidate in [format!("{name}-22"), name.to_string()] {
+    for candidate in [format!("{name}-23"), name.to_string()] {
         for dir in std::env::split_paths(&path) {
             let full = dir.join(&candidate);
             if full.is_file() {
