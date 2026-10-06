@@ -331,10 +331,14 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
         S::Assert {
             cond,
             message,
+            args,
         } => {
             e(cond);
             if let Some(m) = message {
                 e(m);
+            }
+            for x in args {
+                e(x);
             }
         }
         S::PushContextDefer {

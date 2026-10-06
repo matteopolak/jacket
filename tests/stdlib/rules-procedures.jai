@@ -78,12 +78,12 @@ main :: () {
     // proc.6: #caller_location is the call site.
     here := #line;
     at := caller_line();
-    assert(at == here, "caller location line");
+    assert(at == here + 1, "caller location line"); // The call is on the line after `here`.
     assert(ends_with(caller_file(), "rules-procedures.jai"), "caller location file");
     // proc.7: #location(), #file and #line give their own position.
     loc := #location();
     line := #line;
-    assert(loc.line_number == line, "#location() line");
+    assert(loc.line_number + 1 == line, "#location() line");
     assert(ends_with(#file, "rules-procedures.jai"), "#file");
     assert(ends_with(loc.fully_pathed_filename, "rules-procedures.jai"), "#location() file");
 
