@@ -26,6 +26,7 @@ Observed behavior (checked with `jaic run`):
 - `push_context,defer_pop ctx;` keeps the pushed context until the end of the enclosing block (`tests/stdlib/push-context-defer-pop.jai`).
 - `#no_context` and `#c_call` procedures take no hidden parameter. Using `context` there is an error: `'context' is not available here (procedure is #c_call or #no_context; use push_context)`. A `#c_call` body can establish one with `new_context: #Context; push_context new_context { ... }`.
 - `#add_context` is only legal at file scope.
+- `#add_context name :: value;` declares a constant of the Context type, not a field: `#Context.name` / `context.name` (a module alias, as the Iprof and Tracy plugins insert to reach their runtime). It is resolved in the declaring file (`context_type` in `sema/structs.rs`, `tests/stdlib/add-context-constant.jai`).
 
 Whether a signature has the hidden parameter is computed once in `sema/procs.rs` (`has_context`: not `#c_call`, not `#no_context`, not `#intrinsic`). Direct and indirect calls pass the active pointer.
 

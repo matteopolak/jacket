@@ -361,5 +361,19 @@
   {"id": "ast-utils-tests", "path": "GufNZ--JaiModules-AST_Utils/examples/astTests.jai", "mode": "run"},
   {"id": "shader-transpiler-build", "path": "PixelRifts--Jai-Shader-Transpiler/build.jai", "mode": "run"},
   {"id": "jai-utils-closure", "path": "Stuart-Mouse--jai-utils/closure.jai", "mode": "run"},
-  {"id": "unotest", "path": "n00bmind--unotest/unotest.jai", "mode": "run"}
+  {"id": "unotest", "path": "n00bmind--unotest/unotest.jai", "mode": "run"},
+  {"id": "uniform-tests", "path": "rluba--uniform/first.jai", "mode": "run", "args": ["-", "test"]},
+  {"id": "stubborn-module", "path": "rluba--stubborn/module.jai", "mode": "check"},
+  {"id": "jai-date-module", "path": "rluba--jai-date/module.jai", "mode": "check", "args": ["-I", "../_modules"]},
+  {"id": "jai-csv-module", "path": "rluba--jai-csv/module.jai", "mode": "check"},
+  {"id": "wait-group-example", "path": "rluba--wait_group/examples/example.jai", "mode": "run"},
+  {"id": "cluster-build", "path": "rluba--cluster/cluster.jai", "mode": "build", "args": ["-I", "../_modules"]},
+  {"id": "cluster-crashing-example", "path": "rluba--cluster/examples/crashing.jai", "mode": "check"},
+  {"id": "hyperserve-example-build", "path": "rluba--hyperserve/examples/example.jai", "mode": "build", "args": ["-I", "../../_modules"]},
+  {"id": "hyperserve-datastar-build", "path": "rluba--hyperserve/examples/datastar_counter.jai", "mode": "build", "args": ["-I", "../../_modules"]},
+  {"id": "jai-postgres-module", "path": "rluba--jai-postgres/first.jai", "mode": "run", "args": ["-I", "../_modules"]},
+  {"id": "jai-postgres-pgvector", "path": "rluba--jai-postgres/examples/Jaipgvector.jai", "mode": "check", "args": ["-I", "../../_modules"]},
+  {"id": "jai-redis-test-build", "path": "rluba--jai-redis/test.jai", "mode": "build"},
+  {"id": "jai-tracy-plugin-check", "path": "rluba--jai-tracy/tests/test.jai", "mode": "check", "args": ["-I", "../../_modules", "-plug", "tracy"]},
+  {"id": "jai-tracy-plugin-build", "path": "rluba--jai-tracy/tests/test.jai", "mode": "build", "args": ["-I", "../../_modules", "-plug", "tracy", "-min_size", "1"], "setup": [["sh", "-c", "test -f ../macos/libtracy.a || (mkdir -p ../macos && clang++ -O2 -DTRACY_ENABLE -std=c++11 -Wno-deprecated-declarations -c -o ../macos/TracyClient.o ../tracy/public/TracyClient.cpp && ar -rc ../macos/libtracy.a ../macos/TracyClient.o)"]]}
 ]

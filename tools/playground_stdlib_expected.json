@@ -1,5 +1,6 @@
 {
  "pass": [
+  "add-context-constant.jai",
   "add-global-data.jai",
   "allocation-memory.jai",
   "arithmetic-overflow-check.jai",
@@ -69,6 +70,7 @@
   "example-plugin.jai",
   "file-io-roundtrip.jai",
   "float-literal-precision.jai",
+  "for-expansion-defer-continue.jai",
   "for-expansion-forwarded-body.jai",
   "for-expansion-mixed-overloads.jai",
   "for-expansion-pointer-param-constant.jai",
@@ -127,6 +129,7 @@
   "named-argument-api.jai",
   "no-break-space.jai",
   "null-poly-argument.jai",
+  "null-poly-baked-default.jai",
   "objc-window-levels.jai",
   "one-char-string-as-byte.jai",
   "operator-ne-from-eq.jai",
@@ -145,6 +148,7 @@
   "print-null-pointer-union-forms.jai",
   "proc-alias-overloads.jai",
   "proc-compared-with-void-pointer.jai",
+  "proc-sentinel-constant.jai",
   "proc-type-defaults-ifx.jai",
   "program-module-parameters.jai",
   "program-print-expressions.jai",
@@ -166,6 +170,7 @@
   "storage-flat-pool-contract.jai",
   "storage-pool-contract.jai",
   "storage-treemap-contract.jai",
+  "string-builder-reset-ensured.jai",
   "string-scan.jai",
   "string-scan2-and-path-helpers.jai",
   "struct-body-member-path-override.jai",
@@ -208,6 +213,7 @@
   "getrect-right-handed-surface.jai": "native libraries: Simp (via GetRect) needs FreeType and stb_image (C code)",
   "getrect-text-display-compiles.jai": "native windows: imports Window_Creation, which has no browser backend",
   "macos-bundler.jai": "writes an app bundle and marks it executable with chmod, which the browser sandbox does not provide",
+  "process-stdin-socket.jai": "starts a child process (Process: socketpair, pipe, fork, exec); the browser has no processes",
   "simp-compat-api.jai": "native libraries: Simp needs FreeType and stb_image (C code), and a window and GPU backend",
   "simp-left-handed-software.jai": "native libraries: Simp imports the window-system and GL modules, and texture loading needs stb_image (C code)",
   "simp-window-program.jai": "needs a native window and an OpenGL context; only type-checked (jaic-cli native test)"

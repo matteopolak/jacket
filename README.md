@@ -96,4 +96,6 @@ The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interprete
 
 ## License
 
-jaic, its standard library and tools are licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). You may use, study and change them, including commercially, but anything you distribute or offer over a network that is based on this code must be released under the same license, with its source and the original copyright notices. See [docs/license.md](docs/license.md) for what this means for programs you compile.
+jaic, its standard library and tools are licensed under the [GNU Affero General Public License v3.0 or later](LICENSE): you may use, study and change them, including commercially, but anything you distribute or offer over a network that is based on this code must be released under the same license, with its source and the original copyright notices.
+
+Programs you compile are yours: a [runtime library exception](LICENSE-EXCEPTION) lets you ship programs that include code from `stdlib/` and `prelude/` under any license. See [docs/license.md](docs/license.md).

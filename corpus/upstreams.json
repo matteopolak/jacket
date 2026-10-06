@@ -8502,6 +8502,455 @@
       ]
     },
     {
+      "repository": "wolfpld/tracy",
+      "revision": "30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c",
+      "latest_jai_change": "2026-08-22T19:06:43+02:00",
+      "source_of_truth": "https://github.com/wolfpld/tracy/tree/30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1618,
+          "sha256": "27ab6b51e57f7e263a6e953d9c8984cd26e69d2f7606bde81e4b3048acf30732"
+        },
+        {
+          "path": "README.md",
+          "bytes": 2031,
+          "sha256": "0f019897e2942510724d6b45a94612baf29506f398b167fa51000efdfc8a43ae"
+        },
+        {
+          "path": "public/TracyClient.cpp",
+          "bytes": 1080,
+          "sha256": "0a9cb5bf111cbf789efb25f4e0ed70eaf4544dbf5b3acc5c523f1f4a12389470"
+        },
+        {
+          "path": "public/client/TracyAlloc.cpp",
+          "bytes": 1277,
+          "sha256": "35cbe9fa877d2d3aee91897a11aa42e3e1716d12443339c348228e5e2eefe6ce"
+        },
+        {
+          "path": "public/client/TracyArmCpuTable.hpp",
+          "bytes": 20528,
+          "sha256": "0b273e6195ba1ca0a25317569ec6d05e2584649bc4e70ad8a0c46890d7325917"
+        },
+        {
+          "path": "public/client/TracyCallstack.cpp",
+          "bytes": 57800,
+          "sha256": "4ca3752aa2f04df224c363a181ccdde1adc791e65b88084477b771086deb4da6"
+        },
+        {
+          "path": "public/client/TracyCallstack.h",
+          "bytes": 945,
+          "sha256": "3d8e924edf7c60262a2375cb606a5360af3b17eb0c65fd5787fa1bc3a98e0f5a"
+        },
+        {
+          "path": "public/client/TracyCallstack.hpp",
+          "bytes": 3804,
+          "sha256": "9e5c7609869a5504ddf2887335466556212c72c47cb2b6405805535e738307d1"
+        },
+        {
+          "path": "public/client/TracyCpuid.hpp",
+          "bytes": 435,
+          "sha256": "91f4b9da8b860b4b9f91e69668d3d29e384fd72f311b5458856562aec01440cb"
+        },
+        {
+          "path": "public/client/TracyDebug.hpp",
+          "bytes": 1820,
+          "sha256": "06683c7748c4be2e5862f7105f05bb75b1613e217f2b5af6956a3e03749371bf"
+        },
+        {
+          "path": "public/client/TracyDxt1.cpp",
+          "bytes": 32192,
+          "sha256": "2cb1f2dc5a062d3ae21a23b99594671c1409695fef1497f68fc12da45c5a5c59"
+        },
+        {
+          "path": "public/client/TracyDxt1.hpp",
+          "bytes": 151,
+          "sha256": "3c21b2ec285b969b0f7aaff8a576a57ff5a32afd41c195a1943407654005912d"
+        },
+        {
+          "path": "public/client/TracyElf.hpp",
+          "bytes": 1025,
+          "sha256": "ce18410ea0d366c2d4c1bb9c134d1fa334cc0d770c2fb54f53164530b078fe1d"
+        },
+        {
+          "path": "public/client/TracyFastVector.hpp",
+          "bytes": 2720,
+          "sha256": "6c37234272817421a06c57072706b9cee09295470e12a8e8a91b2290f9251e33"
+        },
+        {
+          "path": "public/client/TracyKCore.cpp",
+          "bytes": 1916,
+          "sha256": "08998852d7049297ee06479b7cc73b9234e78e173f33e2f3c6ed1169e7411512"
+        },
+        {
+          "path": "public/client/TracyKCore.hpp",
+          "bytes": 437,
+          "sha256": "b874b8e5b06db4b01ccc1bdce34d05ec6d0d7812f82ae6afb75bb29b6b12b08b"
+        },
+        {
+          "path": "public/client/TracyLock.hpp",
+          "bytes": 17193,
+          "sha256": "acf5f93db38b7a6481a662263bac3516f7cd942c07bc7186f8cef21c60a465cc"
+        },
+        {
+          "path": "public/client/TracyMangle.hpp",
+          "bytes": 1928,
+          "sha256": "aa9fcafd7017c19683cf15e358c64d902ddc8492a2f4a5ab62a14f0df6b33464"
+        },
+        {
+          "path": "public/client/TracyOverride.cpp",
+          "bytes": 505,
+          "sha256": "7a2552183e239aad0aaeb50ef28eb3508826e378163da032d95b3cfaddf7235c"
+        },
+        {
+          "path": "public/client/TracyProfiler.cpp",
+          "bytes": 198292,
+          "sha256": "3627e723f7ce50bafacadbdaa2c417d5308f96d37a5a5f41f87abef11ffb327b"
+        },
+        {
+          "path": "public/client/TracyProfiler.hpp",
+          "bytes": 42833,
+          "sha256": "707e676ac4ac416be7c89973315b4e7b5f2c945e29e0123d7ab7d9112daee27b"
+        },
+        {
+          "path": "public/client/TracyRingBuffer.hpp",
+          "bytes": 3489,
+          "sha256": "9250ecce221f74384a045214bd5fe417a17792df90029de2b09ea7dba89ed7e4"
+        },
+        {
+          "path": "public/client/TracyRocprof.cpp",
+          "bytes": 24601,
+          "sha256": "a6303a8e06e0febb4a4e203208285a241d55dc3abe731f44a82f326d8b0cbc61"
+        },
+        {
+          "path": "public/client/TracyScoped.hpp",
+          "bytes": 7018,
+          "sha256": "3288b35b3cd3122c7e7a939961b3e403912b67a8c830bf0d08e0c46c2650f867"
+        },
+        {
+          "path": "public/client/TracyStringHelpers.hpp",
+          "bytes": 837,
+          "sha256": "b655b26bf0df158e763f516aefc82faae81bdaa9213585a406bfa2be77515e01"
+        },
+        {
+          "path": "public/client/TracySysPower.cpp",
+          "bytes": 4746,
+          "sha256": "ee9d3465ae60e10db35360f19d0be85535ee0464385581af80acccdd1972d444"
+        },
+        {
+          "path": "public/client/TracySysPower.hpp",
+          "bytes": 592,
+          "sha256": "bb1edd89aa226572e6af54aaeadd22062f2636fd4c966ac63f642b1342f58903"
+        },
+        {
+          "path": "public/client/TracySysTime.cpp",
+          "bytes": 2877,
+          "sha256": "d665ddeaccf4f8fb182ae2ef034a63a6f50703ce544cb810141cd0a4af54cf53"
+        },
+        {
+          "path": "public/client/TracySysTime.hpp",
+          "bytes": 450,
+          "sha256": "4c3fda9a4afe6a2dec0cea9dd1b1984672a04d83aa1c88aa47ad7adfe5b6e297"
+        },
+        {
+          "path": "public/client/TracySysTrace.cpp",
+          "bytes": 58689,
+          "sha256": "65d466c816c5b7058e12adbbf6ad1e9858552b536ac40997d992528f32c34018"
+        },
+        {
+          "path": "public/client/TracySysTrace.hpp",
+          "bytes": 642,
+          "sha256": "7e7cd9129d65ba279dfde273212579085bc5924e282fa1b05581670b0b8ef118"
+        },
+        {
+          "path": "public/client/TracyThread.hpp",
+          "bytes": 1713,
+          "sha256": "d536bcfb264f177ee5d153c465e3933ed02aa463b22de0487bca1c16e7b7917c"
+        },
+        {
+          "path": "public/client/apple/TracyMach.cpp",
+          "bytes": 8225,
+          "sha256": "cf8527fe08f82138e93ecb01b50cd85ed46bf30f1c6cff35f60ec1a1dea85576"
+        },
+        {
+          "path": "public/client/tracy_SPSCQueue.h",
+          "bytes": 4954,
+          "sha256": "8cb74f10b233693d83da294dc48aa8ba8bb2a860a1d4dafb19dfbe3a76620a70"
+        },
+        {
+          "path": "public/client/tracy_concurrentqueue.h",
+          "bytes": 54882,
+          "sha256": "1ea6309a1497f16c3b49e94aa01961e253d99e50e85eddc9975ba393d427666f"
+        },
+        {
+          "path": "public/client/tracy_rpmalloc.cpp",
+          "bytes": 125882,
+          "sha256": "1290f6a1ac2de40ea6c62fad53a7538ac2d0d04f9deae504e8b295835f1aa4d1"
+        },
+        {
+          "path": "public/client/tracy_rpmalloc.hpp",
+          "bytes": 17850,
+          "sha256": "5db11b9a63d08da1a9381a08c4f0c61f140c2cea44d84cee26d4c04fdc0c667b"
+        },
+        {
+          "path": "public/client/windows/TracyETW.cpp",
+          "bytes": 23187,
+          "sha256": "32d18232fc58eadd7192c9c37a43b9838060aa4e13e4a392cde803848220a52c"
+        },
+        {
+          "path": "public/client/windows/TracyETW_compat.h",
+          "bytes": 2288,
+          "sha256": "20b44391298fa52f7488dc76d0eba623f46bd5f32cef73374cc329bcd1f224be"
+        },
+        {
+          "path": "public/common/TracyAlign.hpp",
+          "bytes": 651,
+          "sha256": "dbabe2d40adf194a87dba7d1adbab551c72a232ab84b6a16bd9237f98a987b7d"
+        },
+        {
+          "path": "public/common/TracyAlloc.hpp",
+          "bytes": 1813,
+          "sha256": "de4980955316e7811edac7f9a285c30e5b210b8036e0a2d1ec0361b3e3a19034"
+        },
+        {
+          "path": "public/common/TracyApi.h",
+          "bytes": 735,
+          "sha256": "2a6ae36f2a43d2d6e3a008cef26acd76b29bee1175c2c18248684753da72bc04"
+        },
+        {
+          "path": "public/common/TracyAssert.hpp",
+          "bytes": 346,
+          "sha256": "450b1d02688389718080d71d1da5337fa9e43bdddcf5da06891a82050e2fb5ef"
+        },
+        {
+          "path": "public/common/TracyColor.hpp",
+          "bytes": 17206,
+          "sha256": "a9dc70ed1921fcca3258909d1a941f91bb18f6651c225d40e36ded48324a6640"
+        },
+        {
+          "path": "public/common/TracyForceInline.hpp",
+          "bytes": 465,
+          "sha256": "b4035600f7f1042c76e79d418fd49d3217d339a6b9435ba57528eaad6bda230e"
+        },
+        {
+          "path": "public/common/TracyFormat.h",
+          "bytes": 293,
+          "sha256": "c8e654f0afacf9ad944bae0a4e94c5318b6e006027445cd9dd1a9f47809dca0f"
+        },
+        {
+          "path": "public/common/TracyMutex.hpp",
+          "bytes": 255,
+          "sha256": "e63b7a9cde4000c07cf4c965733e063762181ec3c11124cb93713eb55a54ab0b"
+        },
+        {
+          "path": "public/common/TracyProtocol.hpp",
+          "bytes": 3716,
+          "sha256": "fb32c7ba6353d47c27c2f5a77b6272805e447d06344c35b052337d1c35d3efae"
+        },
+        {
+          "path": "public/common/TracyQueue.hpp",
+          "bytes": 28584,
+          "sha256": "3fecc3f7e319be8ddd372b9dd1b241440cf31586a0654f4cfbef33b95911ba70"
+        },
+        {
+          "path": "public/common/TracySocket.cpp",
+          "bytes": 16484,
+          "sha256": "6c0c23362bbba7cb2269bb53680e9f2dad557b0295f47f31bd186b14bd114793"
+        },
+        {
+          "path": "public/common/TracySocket.hpp",
+          "bytes": 3701,
+          "sha256": "a8c0fba717ab714c0433c15dd31ef30bc62a036ffb003af73e10e9fd754031a9"
+        },
+        {
+          "path": "public/common/TracyStackFrames.cpp",
+          "bytes": 4505,
+          "sha256": "6735e880d62608b9a6c331789f278f8f59f75800afbd64a1bf16170c2e82acc7"
+        },
+        {
+          "path": "public/common/TracyStackFrames.hpp",
+          "bytes": 322,
+          "sha256": "fbd2359bd907581b97c66a286dcda3eafec884498af260d108b38d2dcb06fc58"
+        },
+        {
+          "path": "public/common/TracyString.hpp",
+          "bytes": 614,
+          "sha256": "3d216aa5ba4a80686d15d8df790b7bf80e29b4d2303392f6eb5bb2398e831a9e"
+        },
+        {
+          "path": "public/common/TracySystem.cpp",
+          "bytes": 10580,
+          "sha256": "14e9a1703d6945ab8262131d52bc08686cb036a221cbdd5b08ad3e3f30ccd2dd"
+        },
+        {
+          "path": "public/common/TracySystem.hpp",
+          "bytes": 833,
+          "sha256": "a00b2e5765bc0ee8560300f25cfa578724f1d9ff809900ccd1da6b9b6cb35594"
+        },
+        {
+          "path": "public/common/TracyTaggedUserlandAddress.hpp",
+          "bytes": 773,
+          "sha256": "6fec09830091952bf5a17650c74dd8c18ee831f2c24cb4375ad4a16704fef11f"
+        },
+        {
+          "path": "public/common/TracyVersion.hpp",
+          "bytes": 172,
+          "sha256": "2b95a4c23efaf021ea0fb257db351bab84c0308fcfda4db662ad261d91e54162"
+        },
+        {
+          "path": "public/common/TracyWinFamily.hpp",
+          "bytes": 392,
+          "sha256": "a5bf76bc68be60b23982e963d5f93f0cfb6260695003a074082fcd4da5a84d58"
+        },
+        {
+          "path": "public/common/TracyYield.hpp",
+          "bytes": 512,
+          "sha256": "7d4ea857b76a6c2a2d010579075a0fde28969c8e1201f5573239cd0288a311cc"
+        },
+        {
+          "path": "public/common/tracy_lz4.cpp",
+          "bytes": 113400,
+          "sha256": "0e010e8ee986bea9cec7c394e0e2c2f22274e4677a9a680e1d3cb7c03710bc08"
+        },
+        {
+          "path": "public/common/tracy_lz4.hpp",
+          "bytes": 43279,
+          "sha256": "4b3b0577518f334dee2c851f74f3fb4e940ba04e5d16deb18d00c2adacd8e7f7"
+        },
+        {
+          "path": "public/common/tracy_lz4hc.cpp",
+          "bytes": 70167,
+          "sha256": "71218c5612140f6d655f79458c43bac1e172f0f89d594f89679bff6628ba66b6"
+        },
+        {
+          "path": "public/common/tracy_lz4hc.hpp",
+          "bytes": 20095,
+          "sha256": "6284759c4a4c92750a61158af8c891b74cb7200a0931dd11faaf3e4d40004620"
+        },
+        {
+          "path": "public/libbacktrace/LICENSE",
+          "bytes": 1478,
+          "sha256": "ef8a9b3247488f8901ca60de9b17b745d7bd67e5ec1e622f80d62364572200d8"
+        },
+        {
+          "path": "public/libbacktrace/alloc.cpp",
+          "bytes": 4538,
+          "sha256": "7f6026e65e7bc7d1406a99d1ec798491dbd04d28862fe3ab61216f6eb313fc32"
+        },
+        {
+          "path": "public/libbacktrace/backtrace.hpp",
+          "bytes": 9395,
+          "sha256": "266bb1db08a3f1072e4880d615faceab8a492bbe93e0312e9431febb071d4c6d"
+        },
+        {
+          "path": "public/libbacktrace/config.h",
+          "bytes": 445,
+          "sha256": "54d13aa453eeb2c04b6f03a3e3ffffd88b67e6d62a1de65927cd6bce35ff3f47"
+        },
+        {
+          "path": "public/libbacktrace/dwarf.cpp",
+          "bytes": 123846,
+          "sha256": "647de5e2eb359f4b5d5d9f7266c10001804342b651ccc32e6e2e600852205203"
+        },
+        {
+          "path": "public/libbacktrace/elf.cpp",
+          "bytes": 198968,
+          "sha256": "93dc07c96d4d30b77f350bf73065da6fb3d8141e0e8a0db8c8861fd73af40a68"
+        },
+        {
+          "path": "public/libbacktrace/fileline.cpp",
+          "bytes": 10237,
+          "sha256": "89e33a7b14d8d92346ccc9bac83362916bdf4425854ea07ef3315208a64dae19"
+        },
+        {
+          "path": "public/libbacktrace/filenames.hpp",
+          "bytes": 2149,
+          "sha256": "8d2c2d284c3f071a8b418c2ce71e42e48b48caa0c4485b7319a4afe82b236c36"
+        },
+        {
+          "path": "public/libbacktrace/internal.hpp",
+          "bytes": 14428,
+          "sha256": "b7ae36c90d71ecd6ee0d8a31a1068c9adc7e4184598c7fc4f78573f90136575a"
+        },
+        {
+          "path": "public/libbacktrace/macho.cpp",
+          "bytes": 36507,
+          "sha256": "95ff83546e2a72fe8c65f92474adf80667d25c6f2cac040cf16456b6a67db3b0"
+        },
+        {
+          "path": "public/libbacktrace/mmapio.cpp",
+          "bytes": 3185,
+          "sha256": "451eb6f0dcefb25b3ece0cd1fc18f993ec5b206fa54ed80bcefe102032517669"
+        },
+        {
+          "path": "public/libbacktrace/posix.cpp",
+          "bytes": 3169,
+          "sha256": "27038d75f4c8fbcc943ea8663cc8a2fac940e9995b0df5d679f8adea7d77a927"
+        },
+        {
+          "path": "public/libbacktrace/sort.cpp",
+          "bytes": 3201,
+          "sha256": "1bf7600c9186e86b1dec6f256231a3d6b348c3627e8bc6007c4ebf828f90c9b5"
+        },
+        {
+          "path": "public/libbacktrace/state.cpp",
+          "bytes": 2890,
+          "sha256": "390d624deded790512b03f5327895a9c5f25ac2701f22aca58ece87154005c97"
+        },
+        {
+          "path": "public/tracy/Tracy.hpp",
+          "bytes": 14845,
+          "sha256": "dcbbfb67b3ffdbe82f63af105f2da207a59960d0cb9306e4de22961fc84e7854"
+        },
+        {
+          "path": "public/tracy/TracyC.h",
+          "bytes": 23085,
+          "sha256": "96cf8dfe60cbbbbd889f2c02a0bbaa8901881c3be74f8cc0a11403315d25cff3"
+        },
+        {
+          "path": "public/tracy/TracyCUDA.hpp",
+          "bytes": 69967,
+          "sha256": "3136494cd83f18283298c5acb62afeb38982a142bf6881ba74ae8477c74998b4"
+        },
+        {
+          "path": "public/tracy/TracyD3D11.hpp",
+          "bytes": 18255,
+          "sha256": "7b06d3672a3a74feae051c5e4958724f29d7ad02a8689528c880ad322e6f39be"
+        },
+        {
+          "path": "public/tracy/TracyD3D12.hpp",
+          "bytes": 33849,
+          "sha256": "a3ee86180e1c304dfe4ad4d28de2e0a25d3393c3ee2a48e8204e8619cec3e88f"
+        },
+        {
+          "path": "public/tracy/TracyLua.hpp",
+          "bytes": 16897,
+          "sha256": "807591718a3252e3eb7c28d600f37bd8732c1b2f734e9d2b085dba5e49e7b476"
+        },
+        {
+          "path": "public/tracy/TracyOpenCL.hpp",
+          "bytes": 18695,
+          "sha256": "8b9f4be14623ce3886fb5daa8923ed0ea2e550154089745c81eb24ec0548fe72"
+        },
+        {
+          "path": "public/tracy/TracyOpenGL.hpp",
+          "bytes": 19575,
+          "sha256": "2d47f160cb1d7f9da4defd0f52e9682414ccbc81cee39ca9ccbc1d69ac4e4178"
+        },
+        {
+          "path": "public/tracy/TracyVulkan.hpp",
+          "bytes": 32741,
+          "sha256": "70a2d72ac96b61c35bd1fc2f8af2645dfd55b99fd4476cbcccb5d95b444047e1"
+        },
+        {
+          "path": "public/tracy/TracyWebGPU.hpp",
+          "bytes": 47728,
+          "sha256": "0b39c828ad56b0e69aef625ec1f6be1f71aad74da98286d09c1df7205afcada2"
+        }
+      ]
+    },
+    {
       "repository": "sjorsdonkers/match-jai",
       "revision": "2befe53d6f506b8115a91bdb1c13457a692fc052",
       "latest_jai_change": "2025-01-17T18:50:58+01:00",
@@ -8807,6 +9256,506 @@
           "path": "unotest.jai",
           "bytes": 20479,
           "sha256": "b3d825889e30caf8a5423db71b594e874a2094076167319a0ff637efa1046c15"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/jai-tracy",
+      "revision": "53f1e8aa4efe917e210d113a5ea84ac93f3ee510",
+      "latest_jai_change": "2026-09-14T17:45:08+02:00",
+      "source_of_truth": "https://github.com/rluba/jai-tracy/tree/53f1e8aa4efe917e210d113a5ea84ac93f3ee510",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1074,
+          "sha256": "97a61b8cc4450ad2b6a57ab52673e5403cade1431b6db1e6bd0ad2387c70d937"
+        },
+        {
+          "path": "README.md",
+          "bytes": 2773,
+          "sha256": "be6e27a237fccb7fc59522491d4fe52da91a0458885c6f279c101d669afa5659"
+        },
+        {
+          "path": "bindings.jai",
+          "bytes": 11746,
+          "sha256": "8225cdcee950ce755d084c9a67a1f043dbbcf7ea37d7e0c39c55320081f135d9"
+        },
+        {
+          "path": "generate.jai",
+          "bytes": 6155,
+          "sha256": "e0f614167634acfe5b5b4844eab2e9d7f6b0eac8695a9e08c69b614375095848"
+        },
+        {
+          "path": "instrument.jai",
+          "bytes": 5027,
+          "sha256": "fda45fc6f01936f20d9950641f6bd90ff36eb6922da49e4f6131f3868fc29e40"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 729,
+          "sha256": "ab523667f4de247103be6388735cacc4d1b2731027d53dfbf76b4fde79897f6b"
+        },
+        {
+          "path": "options.jai",
+          "bytes": 2092,
+          "sha256": "7b29841475c95db5810bdf037e0369f8281893cc668a938814244726e1db2eac"
+        },
+        {
+          "path": "runtime.jai",
+          "bytes": 1754,
+          "sha256": "4a67a0594478a47b1035b68881d389543c562c44b27615713ce9d3720bec85c4"
+        },
+        {
+          "path": "tests/test.jai",
+          "bytes": 408,
+          "sha256": "c82628861bdded3877b0f9023562e06860c1e4f4b44c8e78b73b60e9ef444bf2"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/jai-redis",
+      "revision": "253391ac1df1a7435633370336a0814a301ad349",
+      "latest_jai_change": "2026-04-19T16:39:20+02:00",
+      "source_of_truth": "https://github.com/rluba/jai-redis/tree/253391ac1df1a7435633370336a0814a301ad349",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "f60dd134205f020342639daf4e29141a36d8004f869d07a450a08639486881b2"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 16250,
+          "sha256": "ecb766ab70e1cc2c8ef96fe2659e9d54145ad0f02656fa62d5d5fec594a3b373"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 228,
+          "sha256": "6b5642a0fd327298b765d5a4542cc5d113820163d9181adcda87448383654c5b"
+        },
+        {
+          "path": "test.jai",
+          "bytes": 3068,
+          "sha256": "54ea62f5fe61898ed49a37b8a4d1e5f8a3e0369b6951ad8a88a54fce7e83aab8"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/uniform",
+      "revision": "d624b6d6c77cafcb8393e510e08c8102ddc09f86",
+      "latest_jai_change": "2026-04-19T16:38:54+02:00",
+      "source_of_truth": "https://github.com/rluba/uniform/tree/d624b6d6c77cafcb8393e510e08c8102ddc09f86",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "325b6296f9ccbde25d405a95febc7364140a598a142f0ae87dbe3b346cdbd3b8"
+        },
+        {
+          "path": "char_class.jai",
+          "bytes": 5484,
+          "sha256": "8ea418fd14ccbbfe2525f0c72e347d733267767e6de5ac3030048ca37e1f0c11"
+        },
+        {
+          "path": "compile.jai",
+          "bytes": 30420,
+          "sha256": "ef2fedf2f8033c6b203f59d0d8a940de95600c83c68d71a326c664584574bb76"
+        },
+        {
+          "path": "first.jai",
+          "bytes": 1552,
+          "sha256": "f8c4e295ed6f375babe2be44b62860fdab1deaf1e19582e0c02fb34bbc4cf226"
+        },
+        {
+          "path": "match.jai",
+          "bytes": 5481,
+          "sha256": "b2395df5b5e08041f1ac11a6377d9d5d16a8508f3a666d4af6a752fd4f186a5f"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 496,
+          "sha256": "634b2b095d56fcc06f1de4b9c4e8a8545086a8a969a32af68af6cd7168d59984"
+        },
+        {
+          "path": "nfa.jai",
+          "bytes": 11207,
+          "sha256": "0dfcffa944d295a9af44cda9e3c4be1afc14becc05951a05aa8a6b1d7789c9c9"
+        },
+        {
+          "path": "parse.jai",
+          "bytes": 87159,
+          "sha256": "e8edc79dab1537035055503e01463c5fb9fdee6cca39d9555a5a6c4eac489b13"
+        },
+        {
+          "path": "program.jai",
+          "bytes": 35069,
+          "sha256": "bf598540c9b02784d0c45a0d0a7bad942d80cdfb26286c87583412043e1ad54f"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 3014,
+          "sha256": "3689ce59ff1eef757eb6ee0d4f5f3ae2004695e0ca73138dd1b283703923223a"
+        },
+        {
+          "path": "rune.jai",
+          "bytes": 4277,
+          "sha256": "0881b3eedae18f778b5de66ad25de2f9a15c23c17a476d60139877e4c74b32db"
+        },
+        {
+          "path": "simplify.jai",
+          "bytes": 13491,
+          "sha256": "96a89fab2dcd0b0d3aa71b45c685af443606466f3e399c0726775ea726d1d39a"
+        },
+        {
+          "path": "sparse.jai",
+          "bytes": 2261,
+          "sha256": "a7e3470bd58d31ce987259b18b1cbc8ca543ea98c8b2e7baba78fb3c4a49e0ea"
+        },
+        {
+          "path": "tests/010_char_class/add_range.spec.jai",
+          "bytes": 2102,
+          "sha256": "94f8b237b66df81fe382c081ace1f9d786ea68608ab44f948e6920609e62f382"
+        },
+        {
+          "path": "tests/010_char_class/find_range.spec.jai",
+          "bytes": 801,
+          "sha256": "aeff6cc482b921891319bae101169a859b55a0b72c22ddee0b463f8d1baefb11"
+        },
+        {
+          "path": "tests/010_char_class/negate.spec.jai",
+          "bytes": 2154,
+          "sha256": "9e21b5a410bcb521a00b73fa34f29716515ce0fe102ebba1cfc2d6dc791a1273"
+        },
+        {
+          "path": "tests/050_parse.spec.jai",
+          "bytes": 2026,
+          "sha256": "eaaa64951415ae36e397cdc8d6c6a57f19853d8dec018f77842feaf377fbbeab"
+        },
+        {
+          "path": "tests/100_compile.spec.jai",
+          "bytes": 1345,
+          "sha256": "d5e82b6ff299f67b99993a82f86867a8bcb67989a6ac48c47676b0eeda868779"
+        },
+        {
+          "path": "tests/200_match.spec.jai",
+          "bytes": 3137,
+          "sha256": "7ac2fff3f5fecd3b0944f89418a798a5d7dc99d6d017d27046078fdadf0efde5"
+        },
+        {
+          "path": "unicode_casefold.jai",
+          "bytes": 14844,
+          "sha256": "ce8c1110c1b90b40ab41a8817763c162154ee1becf8f59d781838d6183a33e72"
+        },
+        {
+          "path": "unicode_group.jai",
+          "bytes": 126895,
+          "sha256": "1fd9cfb22848f1d6a9040e7aaf32db4f8e530251f8a32d6fa0fa6f58f691ece5"
+        },
+        {
+          "path": "walk.jai",
+          "bytes": 2503,
+          "sha256": "bf3ae4bf2ef8e1f8cc375e38d8fe280c1e9a9a3908e6e44f75605dbdd20d45ad"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/cluster",
+      "revision": "455607c129ee5c70497c054fc90b5cb81a24926e",
+      "latest_jai_change": "2026-04-19T16:38:27+02:00",
+      "source_of_truth": "https://github.com/rluba/cluster/tree/455607c129ee5c70497c054fc90b5cb81a24926e",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "f60dd134205f020342639daf4e29141a36d8004f869d07a450a08639486881b2"
+        },
+        {
+          "path": "cluster.jai",
+          "bytes": 27123,
+          "sha256": "e035290bfabca7474ddd0060f51b26660aa1c6b3a660b53864f8516637b51698"
+        },
+        {
+          "path": "examples/crashing.jai",
+          "bytes": 134,
+          "sha256": "c04530623c5eea29089b60ff0f9baa40726600249f190ce0170a98038c69b8df"
+        },
+        {
+          "path": "examples/http_server.jai",
+          "bytes": 1798,
+          "sha256": "b3df4c651ad735631c2207e66312735d9e9661e8317efbeb5a63c9020de4559d"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 16966,
+          "sha256": "47c20d0a6113e0d3ee967e8174456ebf096f0b80f4658eac509afaf6433fb38d"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 1144,
+          "sha256": "4016ec86dd777590d52a22601aca994045f13ee10fa7eb1c5fe0e1a3b733a6a4"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/jai-csv",
+      "revision": "df76cdc354c8c216c866ad52999877011876dad2",
+      "latest_jai_change": "2026-02-10T09:54:59+01:00",
+      "source_of_truth": "https://github.com/rluba/jai-csv/tree/df76cdc354c8c216c866ad52999877011876dad2",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "325b6296f9ccbde25d405a95febc7364140a598a142f0ae87dbe3b346cdbd3b8"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 9369,
+          "sha256": "5c5e1c587f0a54870c577d3fb050abffd2276dd4a864d68f132a0af126397891"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 697,
+          "sha256": "6171afd90d30ae5585fbcc22cc5cc551126a6fcad8f105e47fa0c5661345cf1e"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/jai-postgres",
+      "revision": "1fec198898990506d289bde7753e9b6ab7b8c563",
+      "latest_jai_change": "2026-02-10T09:40:26+01:00",
+      "source_of_truth": "https://github.com/rluba/jai-postgres/tree/1fec198898990506d289bde7753e9b6ab7b8c563",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "325b6296f9ccbde25d405a95febc7364140a598a142f0ae87dbe3b346cdbd3b8"
+        },
+        {
+          "path": "bindings/unix.jai",
+          "bytes": 21266,
+          "sha256": "95b519d58ffad5737bb3ba4f3ec510b0486608ff500cb46ebcce2d06f4284c38"
+        },
+        {
+          "path": "bindings/windows.jai",
+          "bytes": 23154,
+          "sha256": "330542d367c53fbf52e3ba88354cce1e40e235584aa47e2b829119602400154c"
+        },
+        {
+          "path": "byte_order.jai",
+          "bytes": 356,
+          "sha256": "6f81a67972697cb3d899038d42c0f82885ae6130c513192a16539d2086e5cf30"
+        },
+        {
+          "path": "custom_type_handling.jai",
+          "bytes": 926,
+          "sha256": "e242c8a423d46fb1e4bc29f47f616603813be00487ebd7fadcb2c16d756fb9a0"
+        },
+        {
+          "path": "examples/Jaipgvector.jai",
+          "bytes": 6147,
+          "sha256": "6ad986f76ad761354f5a316e019fc2be76d77dd9e25428699f22ddb092f236d2"
+        },
+        {
+          "path": "examples/example.jai",
+          "bytes": 6792,
+          "sha256": "15bef920ebb48b9522abc25ad4452d25a1890a1a597d9ffce689b8ca68c23779"
+        },
+        {
+          "path": "examples/first.jai",
+          "bytes": 597,
+          "sha256": "713b0ac65e1bc82920f8276c64c4486c193ab1c89e21973b79f3f0ba08896489"
+        },
+        {
+          "path": "first.jai",
+          "bytes": 405,
+          "sha256": "0446a2f8dec76ec52f4a07b9047336c590760917e8e2617f4a32ed16ad61d3f7"
+        },
+        {
+          "path": "generate.jai",
+          "bytes": 6271,
+          "sha256": "06afac830e74fe778c1e21b5a5175701315444666efc374ad8a11c1be8302782"
+        },
+        {
+          "path": "generate_types.jai",
+          "bytes": 3138,
+          "sha256": "cec2fe31808af5a0ec952bc59786a790744238119274cd933a5be0d54704f68b"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 24699,
+          "sha256": "b12f9135eeb692f060453363131e8ea630f623271c5d3ee52e46d1a3029ef907"
+        },
+        {
+          "path": "pq_types.jai",
+          "bytes": 3867,
+          "sha256": "c54cb1410bbca31fa2f03f7daa37ddd4fc02c6010501261f62541c85d6ca378a"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 2268,
+          "sha256": "63d96e3ba213feb63513123ed6702c3d4b0871b4bcace7e1e63763740b534c9e"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/stubborn",
+      "revision": "bad3d44895c9b81d00d8307a5ee7b216756b9661",
+      "latest_jai_change": "2026-02-04T19:54:45+01:00",
+      "source_of_truth": "https://github.com/rluba/stubborn/tree/bad3d44895c9b81d00d8307a5ee7b216756b9661",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "description.jai",
+          "bytes": 1853,
+          "sha256": "1278829910f1a36f5a0d6ec0868f9e9830b2dbd584ad8ab29f5c1b04b4482861"
+        },
+        {
+          "path": "matchers/close_to.jai",
+          "bytes": 971,
+          "sha256": "87ce3a1b6363da58df81aaa9f112737985bb7fa3ea7ddb6af2490373ea43934a"
+        },
+        {
+          "path": "matchers/comparison.jai",
+          "bytes": 1942,
+          "sha256": "84c1b1235b4bafe1e9627e9359104e039f7ac592ade15fe397b3c98ea71729c9"
+        },
+        {
+          "path": "matchers/contains.jai",
+          "bytes": 1900,
+          "sha256": "7c350bff67174a27f539c67005da742a82b12ac71a1b77999087bd96785b3b42"
+        },
+        {
+          "path": "matchers/contains_unordered.jai",
+          "bytes": 1968,
+          "sha256": "69972aeef68cf4588973ec44c682b5b11fbfe59f8757fdd399a3447c12821e6f"
+        },
+        {
+          "path": "matchers/count.jai",
+          "bytes": 697,
+          "sha256": "b9c18723a472abaaf4dd56c422536598bd0de1dbab4a3d55fb608ff19291f1a6"
+        },
+        {
+          "path": "matchers/is.jai",
+          "bytes": 909,
+          "sha256": "035dc908e584edd87dac83cfcf6d240d021c2cf4ff530230983cdc556fe05e95"
+        },
+        {
+          "path": "matchers/not.jai",
+          "bytes": 1021,
+          "sha256": "f7144db51a2946c4cddfd3de9157e018c2eba785b6e86d812cf4b2af98428fc2"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 2560,
+          "sha256": "9e42fddf682aafeb4606970d15503f7ae45798702a49751a43128fce09ecc7cf"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 4063,
+          "sha256": "7bbc80b10d375473ef10840ca529816c4612e1325eb4822af0bda6b8e426399e"
+        },
+        {
+          "path": "run.jai",
+          "bytes": 5764,
+          "sha256": "0e4c47d33ae65811636379ab57d4204a5dfd2bf1b9857656424380f4bcb702ae"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/hyperserve",
+      "revision": "5286acf117917d1bf17f2be37b463bb84ffc9bfa",
+      "latest_jai_change": "2026-02-04T19:37:20+01:00",
+      "source_of_truth": "https://github.com/rluba/hyperserve/tree/5286acf117917d1bf17f2be37b463bb84ffc9bfa",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "2d4c0c688dbec6914d451a226fea62a3e531b6673e8b4e87a85759af688675f7"
+        },
+        {
+          "path": "examples/datastar_counter.jai",
+          "bytes": 3523,
+          "sha256": "54af691465a3664e8494460a0544c5feeab3794c476e80394d7abf11e2a3488d"
+        },
+        {
+          "path": "examples/example.jai",
+          "bytes": 3423,
+          "sha256": "76af0aecd897c0f421c58b1850f710b79ea507623e8055e3bb788c030840f383"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 68162,
+          "sha256": "0d5b34b41a7853a2bc38161715e7addb1ce352a5c1d7b2f23ca0cba27de94cfb"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 1775,
+          "sha256": "46931588391bf24d78ee7ef9c9d9641e68b168840b80fd2a2a2b242c112fc90e"
+        },
+        {
+          "path": "routes.jai",
+          "bytes": 9461,
+          "sha256": "1716cffa426622135a14df4a26b2b468d7b7aa282d276757808530f1aaa597cc"
+        },
+        {
+          "path": "yield.jai",
+          "bytes": 3148,
+          "sha256": "d47de3c0bba79d5820bc31ea27c08a979597cbb17397c844b8491cfaaef8fc79"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/wait_group",
+      "revision": "411f0f350cd88d8727b0216b0c77507e0bebaf36",
+      "latest_jai_change": "2026-01-20T08:23:37-07:00",
+      "source_of_truth": "https://github.com/rluba/wait_group/tree/411f0f350cd88d8727b0216b0c77507e0bebaf36",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "examples/example.jai",
+          "bytes": 6109,
+          "sha256": "280dcf737ce26bc2dd835b90833349de731bfda8e9704593f1a4bd19cf4e2fa0"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 27160,
+          "sha256": "44e545db337c6b40071728d1ee3cba7c064b145b957a947d21481b7f97bd6f0f"
+        }
+      ]
+    },
+    {
+      "repository": "rluba/jai-date",
+      "revision": "6037e751993491123ba94106b3d00614bac2c61d",
+      "latest_jai_change": "2026-01-27T15:50:22+01:00",
+      "source_of_truth": "https://github.com/rluba/jai-date/tree/6037e751993491123ba94106b3d00614bac2c61d",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "2d4c0c688dbec6914d451a226fea62a3e531b6673e8b4e87a85759af688675f7"
+        },
+        {
+          "path": "example.jai",
+          "bytes": 253,
+          "sha256": "8ed5280d47de503f70bb43fd09e781f9a436a0aad736e7b9bb2320dcb2c85cf0"
+        },
+        {
+          "path": "module.jai",
+          "bytes": 6717,
+          "sha256": "f53f22bceb096d6d96610d16becb0dbbd9fd291c295c2e08b8d7169bb873266e"
+        },
+        {
+          "path": "readme.md",
+          "bytes": 276,
+          "sha256": "d9aa6261d2273eba36f8166f039b056cf556bdc23fe9b77051039570f25457a2"
         }
       ]
     }

@@ -19,12 +19,21 @@
 - `Toolchains`: Android NDK helpers and the macOS SDK path; `Compiler` gains a default minimum macOS version.
 - `jaifmt`, a Jai code formatter written in Jai: the `Jai_Format` stdlib module (`format_source`, `parse_config`; no file access, so it also runs in the browser playground through `tools/jaifmt/playground.jai`) and the `tools/jaifmt` command line: indentation, operator and comma spacing, brace placement, blank lines and trailing whitespace. It keeps comments, string literals, here-strings and `#asm` bodies, never wraps lines, supports `jaifmt.toml` (indent width, brace style, ignore globs) and `// jaifmt: off` regions, and refuses to write output whose token stream differs from the input. `--check` for CI, `--stdin` for editors.
 - `jaic run file.jai -- args` passes `args` to the program (`get_command_line_arguments`).
+- Metaprogram plugins: `jaic check|build file.jai -plug Name [plugin options]` (Tracy, Iprof, ...). `Metaprogram_Plugin` gains the newer `init` hook.
+- The upstream corpus pins rluba's libraries (jai-tracy, jai-redis, uniform, cluster, jai-csv, jai-postgres, stubborn, hyperserve, wait_group, jai-date) with 15 sweep cases.
 
 ### Fixed
 
 - A struct member's `#align N` now replaces its natural alignment (it could only raise it), so packed C layouts can be reproduced.
 - `New` of an `#align 64` type (and any default-allocator or `rpmalloc` block of 64 bytes or more, including `realloc` and array growth) is now 64-byte aligned; it was only 16-aligned, so such objects were misaligned intermittently. Larger alignments are not guaranteed for heap blocks.
 - `#align 64` (and larger) locals are aligned in the interpreter too; they were only aligned relative to their stack frame.
+- `continue`/`break` in a `for` body inserted by a `for_expansion` run the expansion's loop defers (`defer i += 1;` before `#insert body;` no longer loops forever).
+- `null` binds a type variable before a defaulted baked parameter that names it (`is(null)` with `$cmp: (T, T) -> bool = null`).
+- `#add_context name :: value;` is a Context constant (`#Context.name`), not a field.
+- Unnamed `#library,link_always "x";` statements are linked.
+- Integer sentinels cast to procedure types (`SIG_IGN`) are valid constants; the macOS `SIG_*` dispositions have the handler type, as on Linux.
+- `Process`: a captured child's stdin is a socket, and `read_pipe` no longer closes a pipe at end of input.
+- `String_Builder`: space ensured in the first buffer survives a reset.
 
 ### Removed
 

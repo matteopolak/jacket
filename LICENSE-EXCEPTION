@@ -1,0 +1,47 @@
+jaic Runtime Library Exception
+
+This exception is an additional permission under section 7 of the GNU Affero
+General Public License, version 3 ("AGPLv3"). It applies to the files in the
+`stdlib/` and `prelude/` directories of this repository (the "Runtime
+Library"), and to any copy of them that is distributed together with jaic.
+
+1. Definitions
+
+   "Compiler" means jaic, or any other program that compiles, interprets or
+   otherwise processes Jai source code and that includes or is distributed
+   with the Runtime Library.
+
+   "Target Program" means any program, library or other output produced,
+   in whole or in part, by running the Compiler on source code, including
+   code that the Compiler ran at compile time and whose results became part
+   of that output.
+
+   "Independent Code" means source code written by you or by third parties
+   that is not itself the Runtime Library or a modified version of it.
+
+2. Permission
+
+   You may combine the Runtime Library, unmodified or modified, with
+   Independent Code by compiling them together, importing, loading or
+   linking them, or inlining or generating code from the Runtime Library,
+   and you may convey the resulting Target Program under terms of your
+   choice, consistent with the licenses of the Independent Code. The parts
+   of a Target Program that come from the Runtime Library are not, by that
+   inclusion alone, subject to the requirements of the AGPLv3 when you
+   convey the Target Program or let users interact with it over a network.
+
+3. What this exception does not cover
+
+   This exception does not apply to the Compiler itself, to the language
+   server, the formatter or other tools in this repository, or to the
+   Runtime Library distributed on its own as source. Modified versions of
+   those remain under the AGPLv3: if you distribute them, or let users
+   interact with a modified Compiler over a network, you must offer their
+   source under the AGPLv3 and keep the existing copyright notices.
+
+4. Modified Runtime Libraries
+
+   If you modify the Runtime Library and distribute the modified Runtime
+   Library as source, you may keep this exception for your modifications or
+   remove it. Target Programs you compile with a modified Runtime Library
+   receive this permission either way.

@@ -36,6 +36,7 @@ Backticks may be per name in a multi-declaration: `` status, `it := next(); `` d
 
 ## How to change it
 
+- `break`/`continue` in an inserted for body leave through the expansion's innermost loop and run the defers the expansion registered inside it (`defer i += 1;` before `#insert body;`), like a `continue` written in that loop (`insert_for_body` in `sema/stmt.rs`, `tests/stdlib/for-expansion-defer-continue.jai`).
 - Loop-body plumbing (`break`/`continue`/`remove` as inserted bindings) is in `sema/lower.rs` (`ForBody`, around the "`#insert (break=..., continue=..., remove=...)`" comment).
 - For `for_expansion`, `flags` is a compile-time constant (`sema/calls.rs`, "A for_expansion's `flags`").
 - Tests go in `tests/stdlib/*.jai` with a header comment stating the rule; keep each to one behavior.

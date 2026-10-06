@@ -78,7 +78,9 @@ procedure arguments, `#bake_constants`, `#modify`, `#poke_name` and a few operat
 - **For loops**: `for *=cond` / `for <=cond` take compile-time flags; `remove it` works in reverse loops too.
   A struct iterated through `for_expansion` is passed by address unless an overload takes that very type by value.
 - **Arguments**: a multi-value call passed as one argument gives its first value (spreading is the fallback);
-  `null` binds a type variable only when no other argument does (`*void`); `#char` binds `u8`; `.A | .B` and
+  `null` binds a type variable only when no other argument does (`*void`); a defaulted baked parameter whose
+  type names that variable (`$is_equal: (T, T) -> bool = null`) is evaluated after the `null` binding
+  (`deferred_defaults` in `infer_bindings`, `tests/stdlib/null-poly-baked-default.jai`); `#char` binds `u8`; `.A | .B` and
   `xx a + 1` are deferred like `.A` and `xx a`.
 - **Procedure values**: a procedure type may take a parameter's type from its default
   (`(s: string, start := 0) -> s64`). Calls through a procedure value use the names and defaults recorded for its

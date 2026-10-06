@@ -8,7 +8,7 @@
 
 `crates/jaic-cli/src/main.rs` (`build`, `LlvmBackend`) picks the output path (`-o`, else the metaprogram's `output_path` plus the executable name, else the source file stem), applies `-O0..-O3` over the metaprogram's optimization setting, then calls `jaic_llvm::emit_object` and `jaic_llvm::link` (`crates/jaic-llvm/src/lib.rs`). A metaprogram can also request a shared library or no output (`jaic::build::OutputType`).
 
-Which libraries are linked: `used_libraries` keeps those referenced by a foreign symbol plus `link_always` ones. `library_args` turns each into linker inputs (`LinkArg`), rendered per linker style by `render_link_arg`. The rules below are for macOS and Linux; Windows targets (`LinkFlavor::MinGw`/`Msvc`) have their own, described in [Windows](windows.md):
+Which libraries are linked: `used_libraries` keeps those referenced by a foreign symbol plus `link_always` ones, including unnamed statements such as `#library,system,link_always "libc++";` (registered by `declare_library` from `sema/modules.rs`). `library_args` turns each into linker inputs (`LinkArg`), rendered per linker style by `render_link_arg`. The rules below are for macOS and Linux; Windows targets (`LinkFlavor::MinGw`/`Msvc`) have their own, described in [Windows](windows.md):
 
 - `libc` / `c`: nothing (implicit).
 - Non-system library (`#library "native/own"`): looked up relative to the declaring source file as `own.a`, `libown.a`, then `own.dylib`/`.so`, `libown.dylib`/`.so`. A static archive wins; a shared library adds `-Wl,-rpath,<dir>`. If the name contains `/` and nothing is found the error says where it looked.

@@ -9,17 +9,17 @@ The repository (compiler, language server, wasm build, `stdlib/` and `tools/`) i
 - **Derivatives stay open.** A modified jaic, or software built from its code, must be distributed under the AGPL with its source and the existing copyright and license notices (credit).
 - **Network use counts.** Running a modified jaic as a service (for example a hosted compiler or playground) obliges you to offer its source to the users of that service. Plain GPLv3 would not.
 - **Commercial use is allowed.** No OSI-approved license can forbid it; the AGPL instead makes proprietary forks impossible.
-- **Your programs are yours.** Compiling a program does not put it under the AGPL. The question is the stdlib, which compiled programs import and link: until a runtime/stdlib linking exception is decided, a program that ships compiled stdlib code should be treated as a derivative of it. Adding such an exception (like GCC's runtime library exception) is a decision for the copyright holder; see "How to change it".
+- **Your programs are yours.** `LICENSE-EXCEPTION` (an additional permission under AGPLv3 section 7) covers `stdlib/`: code they contribute to a compiled program, whether imported, linked, inlined or produced at compile time, does not bring the AGPL along. You may ship the program under any license. The exception does not cover the compiler, the language server, the formatter or other tools, or the stdlib distributed on its own; modified versions of those stay AGPL.
 
 Third-party projects in `corpus/upstream/` are fetched for testing only, are not committed, and keep their own licenses. LLVM (`Apache-2.0 WITH LLVM-exception`) is compatible with the AGPL.
 
 ## How to change it
 
-Changing the license needs the agreement of every copyright holder. To let compiled programs use any license, add a linking exception for `stdlib/` (and `prelude/`) in a `LICENSE-EXCEPTION` file and mention it in `README.md` and here.
+Changing the license or the exception needs the agreement of every copyright holder. If a new directory ships code into compiled programs (a second runtime directory, for example), add it to the list in `LICENSE-EXCEPTION`, `README.md` and here.
 
 ## Configuration
 
-`license` in `[workspace.package]` of the root `Cargo.toml`.
+`LICENSE` (AGPLv3 text), `LICENSE-EXCEPTION`, and `license` in `[workspace.package]` of the root `Cargo.toml`.
 
 ## Dependencies
 

@@ -19,13 +19,16 @@ REPOSITORIES = (
 )
 # Libraries the projects above import from git submodules: pinned like the
 # projects but exempt from the recency cutoff.
-DEPENDENCIES = ('SogoCZE/jai_parser', 'ostef/Linalg', 'ostef/Jolt-Jai', 'ostef/JoltC')
+DEPENDENCIES = ('SogoCZE/jai_parser', 'ostef/Linalg', 'ostef/Jolt-Jai', 'ostef/JoltC', 'wolfpld/tracy')
 # Metaprogramming libraries that exercise the Compiler module's node API (typed
 # compiler_get_nodes, compiler_get_code, TYPECHECKED bodies). Few change often, so they
 # are exempt from the recency cutoff too.
 LIBRARIES = (
     'sjorsdonkers/match-jai', 'sjorsdonkers/yield-jai', 'GufNZ/JaiModules-AST_Utils',
     'PixelRifts/Jai-Shader-Transpiler', 'Stuart-Mouse/jai-utils', 'n00bmind/unotest',
+    # rluba's library family (jaison is a project above); several import each other.
+    'rluba/jai-tracy', 'rluba/jai-redis', 'rluba/uniform', 'rluba/cluster', 'rluba/jai-csv',
+    'rluba/jai-postgres', 'rluba/stubborn', 'rluba/hyperserve', 'rluba/wait_group', 'rluba/jai-date',
 )
 # Dependencies pinned to the consumer's submodule commit (else the newest commit).
 SUBMODULE_REVISIONS = {
@@ -33,6 +36,13 @@ SUBMODULE_REVISIONS = {
     'ostef/Jolt-Jai': '56d1cd47b92d6c08ecdab5b9057addce35dab41a',
     # Jolt-Jai's Source/JoltC submodule: the C wrapper around Jolt Physics that libJoltC is built from.
     'ostef/JoltC': 'd395f4138e1d29dfd46884f6ba00ff865248af08',
+    # rluba/jai-tracy's `tracy` submodule (Tracy v0.11.1): libtracy is built from its client sources.
+    'wolfpld/tracy': '30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c',
+}
+# Repositories of which only these path prefixes are taken (plus licenses and READMEs): Tracy's
+# profiler GUI, server and bundled libraries are not needed to build its client library.
+SOURCE_PREFIXES = {
+    'wolfpld/tracy': ('public/',),
 }
 # Data files a project reads at compile time (`#run read_entire_file`, fonts...),
 # by path prefix.
@@ -53,6 +63,17 @@ MODULE_LINKS = (
     ('ostef--Jolt-Jai/Source/JoltC', 'ostef--JoltC'),
     # Libraries that are imported as modules by name (`#import "AST_Utils"`).
     ('_modules/AST_Utils', 'GufNZ--JaiModules-AST_Utils'),
+    ('rluba--jai-tracy/tracy', 'wolfpld--tracy'),
+    # rluba's modules import each other by these names (`#import "date"`, `"wait_group"`...).
+    ('_modules/uniform', 'rluba--uniform'),
+    ('_modules/wait_group', 'rluba--wait_group'),
+    ('_modules/cluster', 'rluba--cluster'),
+    ('_modules/date', 'rluba--jai-date'),
+    ('_modules/stubborn', 'rluba--stubborn'),
+    ('_modules/tracy', 'rluba--jai-tracy'),
+    ('_modules/hyperserve', 'rluba--hyperserve'),
+    # uniform's build file loads its test runner from its own `modules/stubborn`.
+    ('rluba--uniform/modules/stubborn', 'rluba--stubborn'),
 )
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -108,6 +129,8 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
     if source_date < since and repo not in DEPENDENCIES + LIBRARIES:
         return record | {'selection': 'stale-excluded', 'files': []}
     paths = git(cache, 'ls-tree', '-r', '--name-only', revision).splitlines()
+    if repo in SOURCE_PREFIXES:
+        paths = [p for p in paths if p.startswith(SOURCE_PREFIXES[repo]) or '/' not in p]
     selected = [p for p in paths if p.endswith('.jai') or p.endswith(NATIVE_SOURCE_SUFFIXES) or PurePosixPath(p).name.lower() in {'copying', 'readme.md'} or PurePosixPath(p).name.lower().startswith('license')
                 or (p.startswith(RESOURCE_PREFIXES.get(repo, ())) and not p.endswith('.psd'))]
     destination = DATA / 'corpus/upstream' / key
