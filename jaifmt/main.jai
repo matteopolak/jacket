@@ -301,14 +301,14 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
     long_lines := format_count_long_lines(output, config.max_width);
     totals.long_lines += long_lines;
     if options.verbose && long_lines {
-        print_error("jaifmt: %: % lines over % columns\n", path, long_lines, config.max_width);
+        print_error("jaifmt: %: % lines over % columns\n", shown(path), long_lines, config.max_width);
     }
     if output == source return;
 
     totals.changed += 1;
     if options.check {
         line := first_difference_line(source, output);
-        print("%:%\n", path, line);
+        print("%:%\n", shown(path), line);
         return;
     }
     if !write_entire_file(path, output.data, output.count) {
@@ -316,7 +316,7 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
         totals.errors += 1;
         return;
     }
-    if options.verbose print_error("jaifmt: formatted %\n", path);
+    if options.verbose print_error("jaifmt: formatted %\n", shown(path));
 }
 
 first_difference_line :: (a: string, b: string) -> int {

@@ -1141,7 +1141,8 @@ fn jaifmt_builds_and_formats() {
 
     let check = fmt(&["--check", "src/a.jai"]);
     assert_eq!(check.status.code(), Some(1));
-    assert!(String::from_utf8_lossy(&check.stdout).contains("src/a.jai:2"));
+    // Paths below the current directory are shown relative to it.
+    assert_eq!(String::from_utf8_lossy(&check.stdout), "src/a.jai:2\n");
     assert_eq!(read("src/a.jai"), messy);
 
     let rewrite = fmt(&["src"]);
