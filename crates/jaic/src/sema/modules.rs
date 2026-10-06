@@ -37,7 +37,7 @@ impl FileSystem for NativeFs {
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
-        std::fs::canonicalize(path).unwrap_or_else(|_| normalize(path))
+        crate::canonicalize(path).unwrap_or_else(|_| normalize(path))
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {

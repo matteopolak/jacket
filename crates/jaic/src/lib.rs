@@ -92,6 +92,38 @@ pub fn io_reason(e: &std::io::Error) -> String {
     }
 }
 
+/// `std::fs::canonicalize` without Windows' verbatim prefix: `\\?\C:\dir` becomes `C:\dir` and
+/// `\\?\UNC\server\share` becomes `\\server\share`. A verbatim working directory or `#file` breaks
+/// programs: `/tmp` relative to `\\?\C:\dir` is no folder on drive C, and the prefix shows up in
+/// every path the program prints. Elsewhere this is `std::fs::canonicalize`.
+pub fn canonicalize(path: impl AsRef<std::path::Path>) -> std::io::Result<std::path::PathBuf> {
+    let real = std::fs::canonicalize(path)?;
+    Ok(strip_verbatim(&real.to_string_lossy()).map_or(real, Into::into))
+}
+
+/// The plain form of a verbatim Windows path (see [`canonicalize`]), or `None` when `path` is not
+/// verbatim or has no plain form (a component that Win32 path parsing would change).
+pub fn strip_verbatim(path: &str) -> Option<String> {
+    let rest = path.strip_prefix(r"\\?\")?;
+    let plain = if let Some(share) = rest.strip_prefix(r"UNC\") {
+        format!(r"\\{share}")
+    } else {
+        let drive = rest.as_bytes();
+        if drive.len() < 2 || !drive[0].is_ascii_alphabetic() || drive[1] != b':' {
+            return None;
+        }
+        rest.to_string()
+    };
+    // Win32 parsing trims trailing dots and spaces and treats `/` as a separator; such names only
+    // mean the same thing in their verbatim form, as does anything longer than MAX_PATH.
+    let odd = plain.contains('/')
+        || plain.len() >= 260
+        || plain
+            .split('\\')
+            .any(|c| c.ends_with('.') || c.ends_with(' '));
+    (!odd).then_some(plain)
+}
+
 /// The error for a standard library directory without `prelude/module.jai`, or `None` when it has one.
 pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
     if dir.join("prelude/module.jai").is_file() {
@@ -103,4 +135,29 @@ pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
          the executable is fine), or set JAIC_STDLIB to its path.",
         dir.display()
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_verbatim;
+
+    #[test]
+    fn verbatim_paths_lose_their_prefix_when_win32_reads_them_the_same() {
+        assert_eq!(
+            strip_verbatim(r"\\?\D:\a\jai\tests").as_deref(),
+            Some(r"D:\a\jai\tests")
+        );
+        assert_eq!(
+            strip_verbatim(r"\\?\UNC\host\share\x").as_deref(),
+            Some(r"\\host\share\x")
+        );
+        assert_eq!(strip_verbatim(r"C:\plain"), None);
+        assert_eq!(strip_verbatim("/usr/lib"), None);
+        assert_eq!(strip_verbatim(r"\\?\Volume{1234}\x"), None);
+        assert_eq!(strip_verbatim(r"\\?\C:\trailing dot."), None);
+        assert_eq!(
+            strip_verbatim(&format!(r"\\?\C:\{}", "x".repeat(300))),
+            None
+        );
+    }
 }

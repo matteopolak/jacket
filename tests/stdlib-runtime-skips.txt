@@ -5,8 +5,8 @@
 # with --strict (CI) when it passes, so remove its line then. See docs/tools/stdlib-runtime-tests.md.
 
 # Bindings_Generator drives libclang through a compiler primitive that only `jaic run` provides.
-bindings-generator-c * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
-bindings-generator-cpp * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
+bindings-generator-c * native Bindings_Generator runs libclang at run time, which only the interpreter can
+bindings-generator-cpp * native Bindings_Generator runs libclang at run time, which only the interpreter can
 bindings-generator-declaration-api * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
 
 # Native libraries with no wasm build (tests/stdlib-targets.txt lists the same modules).

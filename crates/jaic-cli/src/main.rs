@@ -82,7 +82,9 @@ fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
         _ => return Vec::new(),
     };
     let dir = stdlib.join(format!("../artifacts/native-libs/{os}-{arch}"));
-    dir.canonicalize().map(|d| vec![d]).unwrap_or_default()
+    jaic::canonicalize(&dir)
+        .map(|d| vec![d])
+        .unwrap_or_default()
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -798,7 +800,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         print_cli_error(error);
         return ExitCode::from(1);
     }
-    let path = std::fs::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
+    let path = jaic::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     // Like `jai`, run from the main file's directory (so the program's meaning does not
     // depend on where the compiler was started); paths given on the command line stay
     // relative to the original directory.
