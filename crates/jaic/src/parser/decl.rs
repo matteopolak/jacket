@@ -269,7 +269,10 @@ impl Parser<'_> {
                 break;
             }
         }
-        let existing = if any_declared_marker {
+        // `a:` only matters in an assignment (`a:, b = f()`); in a declaration such as
+        // `ok, shader:, time := f()` every name is declared anyway.
+        let assignment = matches!(self.tok(), Tok::Punct(P::Eq));
+        let existing = if any_declared_marker && assignment {
             existing
                 .into_iter()
                 .map(|(_, declared)| !declared)
