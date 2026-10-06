@@ -629,6 +629,45 @@ fn c_thread_callbacks_block_on_jai_threads() {
     }
 }
 
+/// The interpreter's crash report on Windows (its vectored exception handler; see
+/// `crash_in_native_code_names_the_foreign_call` in diagnostics.rs for Unix). It is here because
+/// this suite is the one that runs on native Windows hosts. A crash on a thread C started is
+/// not blamed on the foreign call the interpreter is making meanwhile.
+#[cfg(windows)]
+#[test]
+fn crash_in_native_code_is_reported_on_windows() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-crash-windows");
+    std::fs::create_dir_all(&dir).unwrap();
+    let run = |name: &str, source: &str| {
+        std::fs::write(dir.join(name), source).unwrap();
+        Command::new(JAIC)
+            .args(["run", name])
+            .current_dir(&dir)
+            .output()
+            .unwrap()
+    };
+    let output = run(
+        "crash.jai",
+        "crt :: #system_library \"msvcrt\";\nstrlen :: (s: *u8) -> u64 #foreign crt;\nmeasure :: (p: *u8) -> u64 {\n    return strlen(p);\n}\nmain :: () {\n    n := measure(cast(*u8) 16);\n}\n",
+    );
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(121), "{err}");
+    assert!(
+        err.contains("crash.jai:4:5: error: native code crashed (access violation at address 0x10) while calling foreign procedure `strlen`"),
+        "{err}"
+    );
+    assert!(err.contains("    `measure` at crash.jai:4"), "{err}");
+
+    let output = run(
+        "thread.jai",
+        "kernel32 :: #system_library \"kernel32\";\nCreateThread :: (attributes: *void, stack: u64, start: *void, parameter: *void, flags: u32, id: *u32) -> *void #foreign kernel32;\nWaitForSingleObject :: (handle: *void, milliseconds: u32) -> u32 #foreign kernel32;\nmain :: () {\n    thread := CreateThread(null, 0, cast(*void) 16, null, 0, null);\n    WaitForSingleObject(thread, 0xffff_ffff);\n}\n",
+    );
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{err}");
+    assert_ne!(output.status.code(), Some(121), "{err}");
+    assert!(!err.contains("native code crashed"), "{err}");
+}
+
 /// `-sanitize address` reports a use after free with the Jai source line, `-sanitize undefined`
 /// an out-of-bounds stack access, and a correct program runs cleanly under both. Not supported
 /// on Windows.
@@ -1215,7 +1254,10 @@ fn failed_checks_say_what_and_where() {
     .unwrap();
     let output = build_and_run(&source, &dir, "asm_divide").unwrap();
     let err = String::from_utf8_lossy(&output.stderr);
-    assert!(!output.status.success(), "asm_divide: ran to the end\n{err}");
+    assert!(
+        !output.status.success(),
+        "asm_divide: ran to the end\n{err}"
+    );
     assert!(
         err.contains("asm_divide.jai:6: error: #asm division fault: the divisor is zero or the quotient does not fit\n"),
         "asm_divide: stderr was {err:?}"

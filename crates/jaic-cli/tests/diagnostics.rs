@@ -150,6 +150,21 @@ fn crash_in_native_code_names_the_foreign_call() {
     );
 }
 
+/// A crash on a thread C started itself is not blamed on the foreign call the interpreter is
+/// making meanwhile (`pthread_join` here): no foreign call is in progress on that thread, so
+/// the fault takes its default course.
+#[cfg(unix)]
+#[test]
+fn crash_on_a_c_thread_is_not_blamed_on_another_call() {
+    let dir = scratch("native-crash-thread");
+    let source = "libc :: #system_library \"libc\";\npthread_create :: (thread: *u64, attributes: *void, start: *void, argument: *void) -> s32 #foreign libc;\npthread_join :: (thread: u64, result: **void) -> s32 #foreign libc;\nmain :: () {\n    thread: u64;\n    pthread_create(*thread, null, cast(*void) 16, null);\n    pthread_join(thread, null);\n}\n";
+    let run = jaic_on(&dir, "thread.jai", source, "run", &[]);
+    let err = stderr(&run);
+    assert!(!run.status.success(), "{err}");
+    assert_ne!(run.status.code(), Some(121), "{err}");
+    assert!(!err.contains("native code crashed"), "{err}");
+}
+
 // rules: cast.2 flow.27
 #[test]
 fn cast_and_switch_checks_say_which_value() {

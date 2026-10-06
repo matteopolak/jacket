@@ -566,11 +566,15 @@ pub mod main_thread {
         // Callbacks made during the job belong to the waiting worker's call.
         let caller = callbacks::caller();
         let carried = Carry((args as *const [u64], sig as *const Sig));
+        let attribution = Carry(crate::interp::crash::Attribution::of_this_thread());
         let job: Job = Box::new(move || {
             let carried = carried;
             let (args, sig) = carried.0;
             // SAFETY: see `Carry`; the caller's borrows outlive this job.
             let (args, sig) = unsafe { (&*args, &*sig) };
+            // A crash here is in the worker's foreign call, made on this thread for it.
+            let attribution = attribution;
+            let _crash_report = attribution.0.enter();
             let result = callbacks::calling_out(caller, || call_with(addr, args, sig));
             let _ = done_tx.send(Carry(result));
         });

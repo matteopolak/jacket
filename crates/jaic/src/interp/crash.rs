@@ -80,6 +80,28 @@ impl ForeignCall {
     }
 }
 
+/// The foreign call in progress on one thread, carried to another thread that makes the call
+/// for it (macOS forwards some calls to the main thread; see `native::main_thread`).
+#[cfg(target_os = "macos")]
+pub(super) struct Attribution(Current);
+
+#[cfg(target_os = "macos")]
+impl Attribution {
+    pub(super) fn of_this_thread() -> Self {
+        Self(current())
+    }
+
+    /// Attribute faults on this thread to the carried call until the result is dropped. The
+    /// caller must keep its own `ForeignCall` alive until then (it waits for the result).
+    pub(super) fn enter(self) -> ForeignCall {
+        let previous = current();
+        publish(self.0);
+        ForeignCall {
+            previous,
+        }
+    }
+}
+
 impl Drop for ForeignCall {
     fn drop(&mut self) {
         publish(self.previous);

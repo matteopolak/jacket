@@ -117,7 +117,9 @@ help: check the arguments passed to `strlen` (pointers and sizes) and its `#fore
 
 and exits with status 121. The call stack comes from `Interp::calls` (each running procedure with the location it was called from, pushed and popped in `Interp::exec`), which `call_native` moves into the thread's `ExecState` for the call. Other threads run interpreted code while one is in C, so the call in progress is per OS thread: the faulting thread receives the signal (or exception) and reports its own call. The report is formatted into a fixed buffer and written with `write(2)`/`WriteFile`, since the crash may have happened inside `malloc`; it has no source excerpt for the same reason.
 
-A fault outside a foreign call is not the handler's: it puts the previous action back (Rust's stack overflow report, or the default) and returns, so the fault repeats under it. The interpreter's own recursion limit (`MAX_DEPTH`) and value-stack check do not use signals and are unaffected. Not covered: a crash in a thread a C library started itself, outside a callback into Jai, is not reported.
+The handler runs on the thread that faulted and reads that thread's record, so a crash is blamed only on the foreign call that thread was making. A fault on a thread with no foreign call in progress is not the handler's (jaic's own code, or a thread a C library started that crashed on its own while the interpreter waits in `pthread_join`): it puts the previous action back (Rust's stack overflow report, or the default) and returns, so the fault repeats under it. On macOS, a call forwarded to the main thread (`native::main_thread::forward`) carries the worker's record there (`crash::Attribution`). The interpreter's own recursion limit (`MAX_DEPTH`) and value-stack check do not use signals and are unaffected.
+
+Tests: `crash_in_native_code_names_the_foreign_call` and `crash_on_a_c_thread_is_not_blamed_on_another_call` in `crates/jaic-cli/tests/diagnostics.rs` (Unix, run by the Linux and macOS CI jobs) and `crash_in_native_code_is_reported_on_windows` in `tests/native.rs`, the suite the Windows workflow runs.
 
 ### Command-line errors
 
