@@ -71,6 +71,7 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
 | `unused_result` | warn | no | `trim(line);`: a library call that only computes a value, as a statement |
 | `unused_variable` | warn | yes | a local variable that is never used |
+| `wrapping_constant` | warn | no | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps to the other operand's type |
 
 Each rule's module (`crates/jailint/src/rules/<rule>.rs`) starts with a doc comment that explains why the rule exists and exactly when it fires. `tests/lint/<rule>/` has code it fires on (`bad.jai`, with the expected output in `bad.expected` and the fixed code in `bad.fixed.jai`) and code it must not fire on (`good.jai`). Every rule has a section below; editors link a finding to it (`#<rule>`).
 
@@ -269,6 +270,12 @@ Locals in bodies that checked cleanly, decided by what the compiler resolved nam
 - drop a name from `a, b: T;`;
 - otherwise rename to `_`.
 
+### wrapping_constant
+
+A constant operand takes the other operand's type. A value outside that type's range but within its bits is taken as that bit pattern without a word: with `h: s32`, `(0xffff_ffff - 40) / h` divides `-41` by `h`, and `h < 0x8000_0000` compares with `-2147483648` (always false). (A value too wide for the bits widens the expression instead; `u8_value + 300` is an `s64`.)
+
+Fires on constants written with literals and arithmetic that are operands of `/`, `%`, `<`, `<=`, `>`, `>=` (or the right side of `/=`, `%=`) next to a non-constant integer. The help offers both readings: compute in `s64` (or `u64`) by casting the other operand, which is the suggested fix (not applied by `--fix`, since the result's type changes), or write the wrapped value if it is meant. Not reported: `+`, `-` and `*`, which give the same bits whether the constant or the result wraps (`h + 0xffff_ffff` is `h - 1` either way); bitwise operators and `==`/`!=`, where the bit pattern is the point (`h & 0xffff_ffff`, `handle == 0xFFFF_FFFF`); expressions with `~` (`flags & ~0x7`); named constants; casts and `xx`; enums.
+
 ### Clippy lints considered
 
 The rules above that have a Clippy counterpart: `absurd_extreme_comparisons`, `almost_swapped`, `precedence`, `ifs_same_cond` and `match_same_arms`-style duplicate arms, `erasing_op`, `if_same_then_else`, `eq_op`, `identity_op`, `needless_range_loop`, `while_immutable_condition`, `assign_op_pattern`, `explicit_counter_loop`, `min_max`, `needless_bool`/`needless_bool_assign`, `no_effect`, `unnecessary_cast`, `reversed_empty_ranges`, `self_assignment`, `bool_comparison`, `float_cmp`. `range_past_count`, `remove_in_for`, `integer_division_in_float`, `unused_result` (Clippy's `#[must_use]` checks) and `defer_in_loop` are Jai-specific.
@@ -295,6 +302,7 @@ Every finding below was checked by hand. Findings that turned out wrong were fix
 
 - **stdlib, examples and `jaifmt/`**: 84 findings were fixed in the stdlib: 74 unused variables (mostly extra results nobody read), 5 unused imports, 4 index loops and 1 shadowed `it`. `float_equality` and `lossy_xx` would add 6 and 8 hits, all deliberate (exact comparisons in tests and sorting, `xx` from floats to pixel coordinates).
 - **`tests/corpus/positive`**: no findings.
+- **`wrapping_constant`** (stdlib, examples, `jaifmt/`, `tests/corpus` and every upstream project but `focus` and `open-jai`): one finding, genuine: `Clipboard`'s overflow guard `pitch > (0xffff_ffff - 40) / height` divided `-41` by an `s32` height, so it rejected every bitmap (fixed by dividing by `cast(s64) height`). Also reporting `+`, `-`, `*`, `==`, `!=` and the bitwise operators found nothing more there; they stay out because the bits come out the same, or the bit pattern is what is meant.
 - **Upstream corpus** (`tools/upstream-cases.json` entry points): 127 findings, all genuine. `lossy_xx` adds 23 deliberate narrowings.
 - **Upstream projects, whole trees** (the bug and style rules from `absurd_comparison` to `unused_result`, each project linted as a directory; `focus` and `open-jai` were skipped after 240 s): 46 findings, all genuine: `manual_assign_op` 22, `needless_bool` 13, `no_effect` 7 (`exit;` without the call, `if !ok false;` without `return`, a lone `barrier.srcAccessMask;`), and one each of `bitwise_precedence` (`a | b & c` written for C), `identical_operands` (`assert(window == window)`), `identical_branches` (two blocks a comment says should differ) and `self_assignment` (`presentMode = presentMode` where a `using` made both sides the same field). The other twelve rules found nothing. The first run's wrong hits shaped the exceptions above: `0 + ply` and `(rgb >> 0) & 0xFF` (`identity_op`), a round trip through a distinct type (`almost_swapped`), a removal loop that steps its own index back (`remove_in_for`), `height / 2` for a pixel centre (`integer_division_in_float`), guard chains (`needless_bool`) and an explicit last case before the default (`identical_branches`).
 

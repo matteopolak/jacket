@@ -4,6 +4,7 @@
 
 ### Added
 
+- jailint rule `wrapping_constant` (warn): a constant that silently wraps to the type of the other operand of `/`, `%` or an ordering comparison, such as `(0xffff_ffff - 40) / h` or `h < 0x8000_0000` with `h: s32`. The help shows the value the operator really uses and suggests computing in `s64` (or `u64`).
 - Browser build: `jai_play_set_styled(1)` renders errors with ANSI colour and box drawing, for output panes that draw them.
 
 ### Changed
@@ -21,6 +22,7 @@
 ### Fixed
 
 - `jaic run`: a `#c_call` procedure stored in memory C reads (a struct field such as `AURenderCallbackStruct.inputProc` or `WNDCLASSEXW.lpfnWndProc`, a global, an array) is now a real C function pointer, not an interpreter-internal value C crashed calling. C may call it from its own threads (an audio render thread); the call waits until the interpreter is inside a foreign call. Jai code calling the stored pointer, and comparing it with the procedure, still works.
+- `Clipboard`: `os_clipboard_set_bitmap` no longer fails for every bitmap on Windows, macOS and Linux. Its overflow check divided a wrapped `0xffff_ffff - 40` (`-41` as an `s32`) by the height; found by `wrapping_constant`.
 - `File_Async.initialize_queue` no longer tests the result of `Thread.init` on its condition variables, which returns nothing; any program importing `File_Async` failed to compile.
 
 ## [0.3.0] - 2026-10-06

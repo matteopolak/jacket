@@ -1,0 +1,45 @@
+warning[wrapping_constant]: constant `(0xffff_ffff - 40)` is 4294967255, which does not fit in `s32`: `/` uses it as -41
+  --> tests/lint/wrapping_constant/bad.jai:5:11
+   |
+ 5 |     a := (0xffff_ffff - 40) / h;
+   |           ^^^^^^^^^^^^^^^^ `s32` comes from `h`
+   |
+help: to use 4294967255, compute in `s64` (`cast(s64) h`); to mean -41, write -41
+   |
+ 5 ~     a := (0xffff_ffff - 40) / cast(s64) h;
+   |
+   = note: `wrapping_constant` is `warn` by default
+
+warning[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not fit in `s32`: `<` uses it as -2147483648
+  --> tests/lint/wrapping_constant/bad.jai:6:18
+   |
+ 6 |     below := h < 0x8000_0000;
+   |                  ^^^^^^^^^^^ `s32` comes from `h`
+   |
+help: to use 2147483648, compute in `s64` (`cast(s64) h`); to mean -2147483648, write -2147483648
+   |
+ 6 ~     below := cast(s64) h < 0x8000_0000;
+   |
+   = note: `wrapping_constant` is `warn` by default
+
+warning[wrapping_constant]: constant `-2` is -2, which does not fit in `u16`: `%` uses it as 65534
+  --> tests/lint/wrapping_constant/bad.jai:8:14
+   |
+ 8 |     r := u % -2;
+   |              ^^ `u16` comes from `u`
+   |
+help: to use -2, compute in `s64` (`cast(s64) u`); to mean 65534, write 65534
+   |
+ 8 ~     r := cast(s64) u % -2;
+   |
+   = note: `wrapping_constant` is `warn` by default
+
+warning[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not fit in `s32`: `%` uses it as -2147483648
+  --> tests/lint/wrapping_constant/bad.jai:9:10
+   |
+ 9 |     h %= 0x8000_0000;
+   |          ^^^^^^^^^^^ `s32` comes from `h`
+   |
+   = help: to use 2147483648, compute in `s64` and convert back; to mean -2147483648, write -2147483648
+   = note: `wrapping_constant` is `warn` by default
+

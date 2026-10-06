@@ -37,6 +37,7 @@ pub(crate) mod unused_import;
 mod unused_parameter;
 mod unused_result;
 mod unused_variable;
+mod wrapping_constant;
 
 pub struct RuleInfo {
     pub name: &'static str,
@@ -232,6 +233,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a local variable that is never used",
         check: unused_variable::check,
+    },
+    RuleInfo {
+        name: "wrapping_constant",
+        default: Level::Warn,
+        summary: "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`)",
+        check: wrapping_constant::check,
     },
 ];
 
