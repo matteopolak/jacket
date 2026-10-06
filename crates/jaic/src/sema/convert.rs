@@ -707,6 +707,20 @@ impl Compiler {
                 ..
             }
         );
+        // A number, enum or pointer cast to `bool` tests for non-zero; keeping its low byte
+        // would make `cast(bool) 2` a bool that `!` does not negate.
+        if self.types.repr(to) == TypeId::BOOL
+            && self.types.repr(from) != TypeId::BOOL
+            && self.ir_ty(self.types.repr(from)).is_some()
+            && !untyped
+        {
+            let (ty, v) = self.rvalue(f, op, span)?;
+            let val = self.truthy(f, ty, v, span)?;
+            return Ok(Operand::Value {
+                ty: to,
+                val,
+            });
+        }
         if self.implicit_cost(from, untyped, to).is_some()
             && !self.types.is_integer(to)
             && !self.types.is_float(to)

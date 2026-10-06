@@ -1254,9 +1254,11 @@ impl Compiler {
             self.check_expr(f, scope, a, lhs_expected)?
         };
         // Inferred enum members on the right take the left operand's type.
-        let pointer_offset = matches!(op, BinOp::Add | BinOp::Sub)
-            && self.types.is_pointer(self.types.repr(lhs.ty()));
-        let rhs_expected = if is_shift {
+        let pointer_lhs = self.types.is_pointer(self.types.repr(lhs.ty()));
+        let pointer_offset = matches!(op, BinOp::Add | BinOp::Sub) && pointer_lhs;
+        let pointer_bits =
+            matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor) && pointer_lhs;
+        let rhs_expected = if is_shift || pointer_bits {
             None
         } else if pointer_offset {
             // `p += ifx c then 3 else 1`: the offset is an integer.
@@ -1430,6 +1432,39 @@ impl Compiler {
         }
         if !is_cmp && self.types.is_pointer(rty) && op == BinOp::Add && self.types.is_integer(lty) {
             return self.check_binary(f, scope, op, b, a, expected, span);
+        }
+        // Masking an address (`p & (alignment - 1)`; Jai reads `cast(u64) p & MASK` as
+        // `cast(u64) (p & MASK)`): the integer meets the pointer's bits, and the result
+        // keeps the pointer's type.
+        let ptr_on_left = self.types.is_pointer(lty) && self.types.is_integer(rty);
+        let ptr_on_right = self.types.is_pointer(rty) && self.types.is_integer(lty);
+        if matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor)
+            && (ptr_on_left || ptr_on_right)
+        {
+            let (ptr, int) = if ptr_on_left {
+                (lhs, rhs)
+            } else {
+                (rhs, lhs)
+            };
+            let ptr_ty = ptr.ty();
+            let (_, address) = self.rvalue(f, ptr, span)?;
+            let bits = ast::CastFlags {
+                no_check: true,
+                ..Default::default()
+            };
+            let int = self.explicit_cast(f, int, TypeId::U64, bits, span)?;
+            let (_, mask) = self.rvalue(f, int, span)?;
+            let address = f.b.conv(ir::ConvOp::Bitcast, Ty::Ptr, Ty::I64, address);
+            let ir_op = match op {
+                BinOp::BitAnd => ir::BinOp::And,
+                BinOp::BitOr => ir::BinOp::Or,
+                _ => ir::BinOp::Xor,
+            };
+            let combined = f.b.bin(ir_op, Ty::I64, address, mask);
+            return Ok(Operand::Value {
+                ty: ptr_ty,
+                val: f.b.conv(ir::ConvOp::Bitcast, Ty::I64, Ty::Ptr, combined),
+            });
         }
         // An integer variable meeting an untyped float constant (`n * 0.5`) is converted to float.
         let is_float_lit = |o: &Operand| {
