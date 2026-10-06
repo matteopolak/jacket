@@ -1,0 +1,48 @@
+warning[bool_comparison]: comparing a bool with `true`: `ready == true`
+  --> tests/lint/bool_comparison/bad.jai:9:8
+   |
+ 9 |     if ready == true print("ready\n");
+   |        ^^^^^^^^^^^^^
+   |
+help: write `ready`
+   |
+ 9 ~     if ready print("ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `ready != false`
+  --> tests/lint/bool_comparison/bad.jai:10:8
+   |
+10 |     if ready != false print("still ready\n");
+   |        ^^^^^^^^^^^^^^
+   |
+help: write `ready`
+   |
+10 ~     if ready print("still ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `false == ready`
+  --> tests/lint/bool_comparison/bad.jai:11:8
+   |
+11 |     if false == ready print("not ready\n");
+   |        ^^^^^^^^^^^^^^
+   |
+help: write `!ready`
+   |
+11 ~     if !ready print("not ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `is_ready() == false`
+  --> tests/lint/bool_comparison/bad.jai:12:16
+   |
+12 |     waiting := is_ready() == false;
+   |                ^^^^^^^^^^^^^^^^^^^
+   |
+help: write `!is_ready()`
+   |
+12 ~     waiting := !is_ready();
+   |
+   = note: `bool_comparison` is `warn` by default
+

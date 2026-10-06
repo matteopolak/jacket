@@ -1,0 +1,48 @@
+warning[unused_variable]: unused variable `leftover`
+  --> tests/lint/unused_variable/bad.jai:8:5
+   |
+ 8 |     leftover := 5;
+   |     ^^^^^^^^
+   |
+help: remove it
+   |
+ 8 -     leftover := 5;
+   |
+   = note: `unused_variable` is `warn` by default
+
+warning[unused_variable]: unused variable `b`
+  --> tests/lint/unused_variable/bad.jai:9:8
+   |
+ 9 |     a, b := 1, 2;
+   |        ^
+   |
+help: name it `_` if the value is not needed
+   |
+ 9 ~     a, _ := 1, 2;
+   |
+   = note: `unused_variable` is `warn` by default
+
+warning[unused_variable]: unused variable `found`
+  --> tests/lint/unused_variable/bad.jai:11:12
+   |
+11 |     value, found := lookup("key");
+   |            ^^^^^
+   |
+help: leave it out: later results of a call can be dropped
+   |
+11 ~     value := lookup("key");
+   |
+   = note: `unused_variable` is `warn` by default
+
+warning[unused_variable]: unused variable `second`
+  --> tests/lint/unused_variable/bad.jai:13:12
+   |
+13 |     first, second: string;
+   |            ^^^^^^
+   |
+help: remove it from the declaration
+   |
+13 ~     first: string;
+   |
+   = note: `unused_variable` is `warn` by default
+

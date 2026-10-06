@@ -1,0 +1,17 @@
+[package]
+name = "jailint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Lints for Jai programs, run on jaic's type-checked program."
+
+[[bin]]
+name = "jailint"
+path = "src/main.rs"
+
+[dependencies]
+jaic = { path = "../jaic" }
+
+[lints]
+workspace = true

@@ -6,6 +6,7 @@ members = [
     "crates/jaic",
     "crates/jaic-llvm",
     "crates/jaic-cli",
+    "crates/jailint",
 ]
 # cargo-fuzz targets: their own workspace and lock file (docs/tools/fuzzing.md).
 exclude = ["fuzz"]

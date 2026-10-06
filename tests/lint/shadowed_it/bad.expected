@@ -1,0 +1,9 @@
+warning[shadowed_it]: this loop's `it` hides the `it` of the loop on line 5, which is also used
+  --> tests/lint/shadowed_it/bad.jai:6:9
+   |
+ 6 |         for 0..it print("%", it);
+   |         ^^^^^^^^^
+   |
+   = help: name one of the iterators: `for name: ...`
+   = note: `shadowed_it` is `warn` by default
+

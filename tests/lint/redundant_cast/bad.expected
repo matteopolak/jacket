@@ -1,0 +1,36 @@
+warning[redundant_cast]: `x` is already `s32`
+  --> tests/lint/redundant_cast/bad.jai:5:10
+   |
+ 5 |     y := cast(s32) x;
+   |          ^^^^^^^^^^^
+   |
+help: remove the cast
+   |
+ 5 ~     y := x;
+   |
+   = note: `redundant_cast` is `warn` by default
+
+warning[redundant_cast]: `count` is already `s64`
+  --> tests/lint/redundant_cast/bad.jai:7:10
+   |
+ 7 |     z := cast(s64) count;
+   |          ^^^^^^^^^^^^^^^
+   |
+help: remove the cast
+   |
+ 7 ~     z := count;
+   |
+   = note: `redundant_cast` is `warn` by default
+
+warning[redundant_cast]: `w` is already `u8`
+  --> tests/lint/redundant_cast/bad.jai:9:13
+   |
+ 9 |     v: u8 = xx w;
+   |             ^^^^
+   |
+help: remove the cast
+   |
+ 9 ~     v: u8 = w;
+   |
+   = note: `redundant_cast` is `warn` by default
+

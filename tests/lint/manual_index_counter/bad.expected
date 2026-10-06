@@ -1,0 +1,36 @@
+warning[manual_index_counter]: `n` always equals `it_index` of the loop that follows
+  --> tests/lint/manual_index_counter/bad.jai:4:5
+   |
+ 4 |     n := 0;
+   |     ^
+   |
+help: use `it_index` instead of counting by hand
+   |
+ 4 -     n := 0;
+ 5 -     for names {
+ 6 -         print("% %\n", n, it);
+ 7 -         n += 1;
+ 4 +     for names {
+ 5 +         print("% %\n", it_index, it);
+   |
+   = note: `manual_index_counter` is `warn` by default
+
+warning[manual_index_counter]: `line_number` always equals `it_index` of the loop that follows
+  --> tests/lint/manual_index_counter/bad.jai:12:5
+   |
+12 |     line_number := 0;
+   |     ^^^^^^^^^^^
+   |
+help: use `it_index` instead of counting by hand
+   |
+12 -     line_number := 0;
+13 -     for lines {
+14 -         defer line_number += 1;
+15 -         if !it continue;
+16 -         print("%: %\n", line_number, it);
+12 +     for lines {
+13 +         if !it continue;
+14 +         print("%: %\n", it_index, it);
+   |
+   = note: `manual_index_counter` is `warn` by default
+

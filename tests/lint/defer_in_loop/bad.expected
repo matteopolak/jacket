@@ -1,0 +1,18 @@
+warning[defer_in_loop]: this `defer` runs at the end of every iteration, not when the procedure returns
+  --> tests/lint/defer_in_loop/bad.jai:7:9
+   |
+ 7 |         defer free(buffer);
+   |         ^^^^^^^^^^^^^^^^^^
+   |
+   = help: move it before the loop if it should run once
+   = note: `defer_in_loop` is `warn` by default
+
+warning[defer_in_loop]: this `defer` runs at the end of every iteration, not when the procedure returns
+  --> tests/lint/defer_in_loop/bad.jai:14:9
+   |
+14 |         defer print("closing %\n", log_name);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: move it before the loop if it should run once
+   = note: `defer_in_loop` is `warn` by default
+

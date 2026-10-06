@@ -1,0 +1,9 @@
+warning[unused_parameter]: unused parameter `label`
+  --> tests/lint/unused_parameter/bad.jai:3:36
+   |
+ 3 | scale :: (value: int, factor: int, label: string) -> int {
+   |                                    ^^^^^
+   |
+   = help: remove it, or start its name with `_` if the signature must stay
+   = note: `unused_parameter` is `warn` by default
+

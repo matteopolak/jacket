@@ -1,0 +1,39 @@
+warning[index_only_loop]: `i` is only used to index `xs`
+  --> tests/lint/index_only_loop/bad.jai:10:5
+   |
+10 |     for i: 0..xs.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for xs` and `it`
+   |
+10 ~     for xs {
+11 ~         total += it;
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` is only used to index `points`
+  --> tests/lint/index_only_loop/bad.jai:17:5
+   |
+17 |     for i: 0..points.count - 1 points[i].x += 1;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over pointers to the elements: `for *points` and `it`
+   |
+17 ~     for *points it.x += 1;
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` counts through `names` to index it
+  --> tests/lint/index_only_loop/bad.jai:21:5
+   |
+21 |     for i: 0..names.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for names`, with `it` and `it_index`
+   |
+21 ~     for names {
+22 ~         if it_index > 0 print(", ");
+23 ~         print("%", it);
+   |
+   = note: `index_only_loop` is `warn` by default
+

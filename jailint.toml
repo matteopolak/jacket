@@ -1,0 +1,11 @@
+# jailint settings for this repository; see docs/tools/jailint.md.
+
+# tests/corpus/negative: programs that must fail to compile.
+# stdlib/Jai_Format/tests/cases: formatter golden inputs, whose code is only there to be
+# formatted.
+exclude = [
+    "tests/corpus/negative/**",
+    "stdlib/Jai_Format/tests/cases/**",
+]
+
+[rules]

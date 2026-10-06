@@ -1,0 +1,36 @@
+error[format_arg_count]: the format string uses 2 arguments but `print` is given 1 argument
+  --> tests/lint/format_arg_count/bad.jai:10:17
+   |
+10 |     print("% is % years old\n", name);
+   |                 ^ no argument for this
+   |
+   = help: pass a value for every `%`, or write `\%` for a percent sign
+   = note: `format_arg_count` is `deny` by default
+
+error[format_arg_count]: `print` is given 1 argument but the format string uses 0 arguments
+  --> tests/lint/format_arg_count/bad.jai:11:21
+   |
+11 |     print("done\n", name);
+   |                     ^^^^ not printed
+   |
+   = help: add a `%` for each argument, or remove the extra ones
+   = note: `format_arg_count` is `deny` by default
+
+error[format_arg_count]: the format string uses 2 arguments but `report` is given 1 argument
+  --> tests/lint/format_arg_count/bad.jai:12:19
+   |
+12 |     report("% and %\n", 1);
+   |                   ^ no argument for this
+   |
+   = help: pass a value for every `%`, or write `\%` for a percent sign
+   = note: `format_arg_count` is `deny` by default
+
+error[format_arg_count]: `tprint` is given 2 arguments but the format string uses 1 argument
+  --> tests/lint/format_arg_count/bad.jai:13:41
+   |
+13 |     line := tprint("%1 and %1\n", name, 2);
+   |                                         ^ not printed
+   |
+   = help: add a `%` for each argument, or remove the extra ones
+   = note: `format_arg_count` is `deny` by default
+
