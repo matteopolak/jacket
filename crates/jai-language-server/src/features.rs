@@ -778,7 +778,9 @@ impl Session {
         let Some((open, chain, active_arg, named)) = open_call(text, byte) else {
             return Ok(None);
         };
-        let callee_start = open - chain.iter().map(|c| c.len() + 1).sum::<usize>() + 1;
+        // Each name is followed by a `.` or the `(`; add the 1 first, since a callee at the start of
+        // the document begins at byte 0.
+        let callee_start = open + 1 - chain.iter().map(|c| c.len() + 1).sum::<usize>();
         // A call the check recorded at this position: its overloads, the chosen one active.
         let recorded = self
             .calls(uri)

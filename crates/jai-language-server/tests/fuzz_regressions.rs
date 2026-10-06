@@ -1,4 +1,4 @@
-//! Minimized crashes found by the `lsp` fuzz target (fuzz/). Each request must answer or fail
+//! Minimized crashes found by the `lsp` and `lsp_edits` fuzz targets (fuzz/). Each request must answer or fail
 //! with an error, never panic.
 use jai_language_server::{DocumentUri, Limits, Position, Session};
 
@@ -18,4 +18,17 @@ fn completion_after_a_multibyte_separator() {
         character: 3,
     };
     assert!(session.completion(&uri, position).is_ok());
+}
+
+#[test]
+fn signature_help_for_a_call_at_the_start_of_the_document() {
+    // The callee begins at byte 0, so its start must not be computed by subtracting first.
+    for text in ["f(1, ", "a.b("] {
+        let (session, uri) = open(text);
+        let position = Position {
+            line: 0,
+            character: text.len() as u32,
+        };
+        assert!(session.signature_help(&uri, position).is_ok());
+    }
 }
