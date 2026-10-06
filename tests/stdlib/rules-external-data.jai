@@ -15,8 +15,7 @@
         return __stdoutp;
     }
 } else #if OS == .WINDOWS {
-    // The C runtime DLL exports few variables; `_HUGE` is the double infinity. A DLL's variables
-    // are reached through its `__imp_` pointers, which the build has to follow.
+    // The C runtime has few variables; `_HUGE` is the double infinity.
     c_runtime :: #system_library "libc";
     _HUGE: float64 #elsewhere c_runtime;
     renamed_huge: float64 #elsewhere c_runtime "_HUGE";

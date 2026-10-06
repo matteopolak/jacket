@@ -560,12 +560,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
                 g.set_linkage(Linkage::External);
                 // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it:
-                // import libraries define no `<name>` for data. System libraries are DLLs there.
-                let system = foreign
+                // import libraries define no `<name>` for data. System libraries are DLLs there,
+                // except the C runtime, which MSVC builds link statically.
+                let dll = foreign
                     .library
                     .and_then(|l| self.program.libraries.get(l))
-                    .is_some_and(|l| l.system);
-                if self.arch.is_windows() && system {
+                    .is_some_and(|l| l.system && !crate::is_windows_c_runtime(&l.name));
+                if self.arch.is_windows() && dll {
                     g.set_dll_storage_class(DLLStorageClass::Import);
                 }
                 g.as_pointer_value()

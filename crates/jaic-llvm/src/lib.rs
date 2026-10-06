@@ -860,6 +860,29 @@ pub fn output_extension(target: Option<&str>, kind: OutputKind) -> Option<&'stat
     })
 }
 
+/// Whether a Jai library name means the C runtime (or a POSIX library that is part of it) when
+/// targeting Windows: the toolchain links it, statically for MSVC (`libcmt`).
+pub(crate) fn is_windows_c_runtime(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "c" | "libc"
+            | "crt"
+            | "msvcrt"
+            | "ucrt"
+            | "ucrtbase"
+            | "vcruntime"
+            | "libcmt"
+            | "m"
+            | "libm"
+            | "pthread"
+            | "libpthread"
+            | "dl"
+            | "libdl"
+            | "rt"
+            | "librt"
+    )
+}
+
 /// Linker inputs for one Jai library reference. `cross`: the target is not the host, so the
 /// host's library directories (Homebrew, native-libs builds, frameworks) do not apply.
 fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<LinkArg>, String> {
@@ -870,24 +893,7 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
     }
     // On Windows the toolchain picks the C runtime (see `link`); POSIX-only names are not
     // libraries there.
-    if flavor.is_windows()
-        && matches!(
-            name.to_ascii_lowercase().as_str(),
-            "msvcrt"
-                | "ucrt"
-                | "ucrtbase"
-                | "vcruntime"
-                | "libcmt"
-                | "m"
-                | "libm"
-                | "pthread"
-                | "libpthread"
-                | "dl"
-                | "libdl"
-                | "rt"
-                | "librt"
-        )
-    {
+    if flavor.is_windows() && is_windows_c_runtime(name) {
         return Ok(Vec::new());
     }
     if !lib.system {
