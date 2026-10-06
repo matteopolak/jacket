@@ -1326,6 +1326,33 @@ impl Compiler {
             let (v, ty) = self.baked_default(def_scope, param, d, &bindings, span)?;
             bindings.push((name, v, ty));
         }
+        // An omitted argument binds what only its default determines
+        // (`platform_code: $T = 0` called without it: `T` is `s64`).
+        for (i, param) in header.params.iter().enumerate() {
+            let (Slot::Default, Some(pattern), Some(default)) =
+                (&slots[i], &param.ty, &param.default)
+            else {
+                continue;
+            };
+            if param.baked
+                || poly_names(pattern)
+                    .iter()
+                    .all(|name| bindings.iter().any(|(n, _, _)| n == name))
+            {
+                continue;
+            }
+            let known = self.const_scope(def_scope, bindings.clone(), span);
+            let ty = match self.eval_const(known, default, None)? {
+                Operand::Const {
+                    ty,
+                    value,
+                    untyped: true,
+                } => self.default_untyped(ty, &value),
+                Operand::Type(_) => TypeId::TYPE,
+                other => other.ty(),
+            };
+            self.match_pattern(pattern, ty, &mut bindings, def_scope)?;
+        }
         // Defaults of the form `$T` without arguments are an error unless bound elsewhere.
         // A `#modify` block may still bind what the arguments did not determine.
         if header.modify.is_none() {

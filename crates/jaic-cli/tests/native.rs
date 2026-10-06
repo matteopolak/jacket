@@ -125,6 +125,55 @@ fn hello_world_builds_and_prints() {
     assert_eq!(output.status.code(), Some(0));
 }
 
+/// The program's own unreferenced procedures are type-checked but not compiled in, nor what
+/// only they (or an unreferenced global's initializer) call.
+// rules: dce.12
+#[test]
+fn unreferenced_code_is_not_compiled() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-unreferenced");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("unreferenced.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         unused_entry_qz :: () -> int { return only_from_unused_qz() + 1; }\n\
+         only_from_unused_qz :: () -> int { return 41; }\n\
+         unused_table_qz: [2] () -> int = .[only_from_unused_qz, unused_entry_qz];\n\
+         used_helper_qz :: () -> int { return 7; }\n\
+         main :: () { print(\"%\\n\", used_helper_qz()); }\n",
+    )
+    .unwrap();
+    let ir = dir.join("unreferenced.ll");
+    let exe = exe_path(&dir, "unreferenced");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&exe)
+        .arg("--emit-ir")
+        .arg(&ir)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let ir = std::fs::read_to_string(&ir).unwrap();
+    assert!(ir.contains("used_helper_qz"));
+    assert!(
+        !ir.contains("unused_entry_qz"),
+        "an unreferenced procedure was compiled"
+    );
+    assert!(
+        !ir.contains("only_from_unused_qz"),
+        "a procedure only unreferenced code calls was compiled"
+    );
+    let run = Command::new(&exe).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "7\n");
+}
+
 /// Self-checking stdlib tests whose bugs showed only in compiled code; each prints "ok".
 #[test]
 fn stdlib_tests_run_natively() {

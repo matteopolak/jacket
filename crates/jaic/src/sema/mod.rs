@@ -74,6 +74,33 @@ pub enum TargetCpu {
     Wasm,
 }
 
+/// `Build_Options.dead_code_elimination`: which declarations that nothing the program reaches
+/// still get type-checked. Only checking changes; compiled output keeps just what is reachable.
+/// See `docs/language/dead-code-elimination.md`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DeadCode {
+    /// `.NONE` (`-no_dce`): every declaration and every non-polymorphic body, modules included.
+    None,
+    /// `.ALL`: only what the program reaches (struct declarations are still laid out).
+    All,
+    /// `.MODULES_ONLY` (the default): everything declared in the program's own files, and what
+    /// that reaches in modules.
+    #[default]
+    ModulesOnly,
+}
+
+impl DeadCode {
+    /// The mode named by a `dead_code_elimination` enum member.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "NONE" => Self::None,
+            "ALL" => Self::All,
+            "MODULES_ONLY" => Self::ModulesOnly,
+            _ => return None,
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct Options {
     pub os: TargetOs,
@@ -97,6 +124,8 @@ pub struct Options {
     /// The target C compiler's `long double` when it is wider than `float64` (`None`: it is
     /// `float64`). Decides what `#jaic_type long_double` names; see `long_double_for`.
     pub long_double: Option<crate::wide_float::WideFloat>,
+    /// `Build_Options.dead_code_elimination`.
+    pub dead_code: DeadCode,
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
@@ -175,6 +204,7 @@ impl Options {
             stack_trace: true,
             debug_info: false,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
+            dead_code: DeadCode::default(),
         }
     }
 }
@@ -384,6 +414,9 @@ pub struct Compiler {
     /// `#no_reset` globals with their types: compiled output starts from the values that
     /// compile-time code left in them (`prepare_compiled_output`).
     pub no_reset_globals: Vec<(ir::GlobalId, TypeId)>,
+    /// How much code existed when `finish_program` began checking what the program does not
+    /// reach: compiled output drops what was made after it and is still unreferenced.
+    pub(super) unreferenced_from: Option<driver::ProgramMark>,
 }
 
 /// Names and default values of a procedure type's parameters (defaults evaluate in `scope`).
@@ -491,6 +524,7 @@ impl Compiler {
             placeholders_final: false,
             lookup_without_expansion: false,
             no_reset_globals: Vec::new(),
+            unreferenced_from: None,
         };
         c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();

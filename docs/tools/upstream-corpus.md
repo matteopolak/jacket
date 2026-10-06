@@ -38,7 +38,7 @@ Jai. Never copy jaic's output into an expectation; that only freezes current beh
 `source` names the file and lines.
 
 **The_Way_to_Jai.** The book writes the output next to the printing line as `// => text`.
-`tools/upstream_expectations.py --write` turns these into `stdout_ordered` records: 164 cases with 460 lines.
+`tools/upstream_expectations.py --write` turns these into `stdout_ordered` records: 164 cases with 459 lines.
 `stdout_ordered` checks that each line appears in order, so output without an annotation does not matter.
 The tool skips:
 
@@ -142,16 +142,18 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **The Way to Jai.** Every entry point is a sweep case: most run to completion, the rest check (windowed Simp programs, interactive or endless ones, deliberate crashes, user-built libraries). The programs that fail `check` are not compiler bugs:
 
-- Windows-only APIs (19.8, 33.2C, 33.6, 50.1) and the Windows-only raylib module (35.1, 52.2, 30/jai_raylib);
+- Windows-only APIs (19.8, 33.2C, 33.6, 50.1) and the Windows-only raylib module (35.1, 52.2, 30/jai_raylib, and the `raylib/module.jai` files of 35 and 52, whose `raylib_native` library is declared only for Windows);
+- files meant to be `#load`ed, not run on their own (8B `file_alpha.jai`, `file_beta.jai`), and 31 `build_gui.jai`, which uses an undeclared `success` in a procedure nothing calls (Jai checks the program's own procedures; see [dead-code elimination](../language/dead-code-elimination.md));
 - intentional failures (20.2, 30.9, exercises/22);
 - APIs that older Jai versions had (6.6 `random_seed` result, 26.27 and exercises/30 `builder_to_string(allocator=)`, 33.10 `Sound_Player` struct, 51.2 GetRect `dropdown`);
 - missing command-line arguments (30.14, 8.2, 12.8) or a missing `cpp_library.cpp`;
 - 31.2, which calls GL at compile time without a context.
 
-19.5 frees an advanced pointer and 27/foldera writes through null; both are upstream bugs.
+19.5 frees an advanced pointer and 27/foldera writes through null; both are upstream bugs. 10.4 reads freed memory, so its third line is not checked.
 
-**Metaprogramming libraries.** Sweep cases: match-jai `examples/first.jai`; yield-jai `constant`, `defer`, `first`, `if`, `if_case`, `while` (`expand` and `for` would need per-call `macro_expansion_block` export); AST_Utils `build.jai` (rewrites a call through `compiler_modify_procedure`) and `astTests.jai`; Jai-Shader-Transpiler `build.jai` (GLSL from `@glsl` procedures); jai-utils `closure.jai`; unotest. Checked by hand but not cases:
+**Metaprogramming libraries.** Sweep cases: match-jai `examples/first.jai`; yield-jai `constant`, `defer`, `first`, `if`, `if_case`, `while` (`expand` and `for` would need per-call `macro_expansion_block` export); AST_Utils `astTests.jai`; Jai-Shader-Transpiler `build.jai` (GLSL from `@glsl` procedures); jai-utils `closure.jai`; unotest. Checked by hand but not cases:
 
+- AST_Utils `examples/build.jai` sets `FormatStruct.recursive_long_form_depth`, which current Basic does not have, in a procedure of its own files, so it fails to check.
 - epic-fail is a `-plug` plugin ([metaprogram plugins](../metaprogramming/metaprogram-plugins.md)); its `assert` works when imported directly.
 - MetaThreadSafe's examples fail on purpose. The diagnostics match, except that jaic still checks the untaken `#if` branch of a baked instance.
 - jai-control-flow uses `%%` as an escaped percent, which current Jai reads as two arguments; a corrected copy passes all its tests.

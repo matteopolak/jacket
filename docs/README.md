@@ -11,6 +11,7 @@ Jai language behavior as implemented by `jaic`.
 - [Casts and conversions](language/casts-and-conversions.md)
 - [The implicit context](language/context.md)
 - [Control flow: loops, cases and defer](language/control-flow.md)
+- [Dead-code elimination: what is checked when unused](language/dead-code-elimination.md)
 - [Declarations, constants and globals](language/declarations-and-constants.md)
 - [Statement directives, flags and notes](language/directives-and-notes.md)
 - [Enums](language/enums.md)

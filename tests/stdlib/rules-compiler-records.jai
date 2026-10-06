@@ -1,4 +1,4 @@
-// rules: records.1 records.2 records.5 records.13 records.14 records.15 records.16 records.17 records.21
+// rules: records.1 records.2 records.5 records.13 records.14 records.15 records.16 records.17
 // Claims of docs/metaprogramming/compiler-records.md: messages of an intercepted workspace
 // and node trees from compiler_get_nodes.
 #import "Basic";
@@ -92,11 +92,6 @@ check_nodes :: () -> bool {
 }
 
 #run check_nodes();
-
-// records.21: a body nothing reaches is never checked, so its error never surfaces.
-never_called :: () {
-    wrong: int = "not an int";
-}
 
 main :: () {
 

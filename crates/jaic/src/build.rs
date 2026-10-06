@@ -13,7 +13,7 @@
 use crate::interp::{Host, Interp, Trap};
 use crate::ir;
 use crate::records::{Field, Item, Records};
-use crate::sema::{Compiler, FileSystem, Options, ProgramSource, TargetCpu, TargetOs};
+use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource, TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -64,6 +64,8 @@ pub struct BuildSettings {
     pub stack_trace: Option<bool>,
     /// `emit_debug_info`: `Some(false)` for `.NONE`; `None` leaves the embedder's default.
     pub emit_debug_info: Option<bool>,
+    /// `dead_code_elimination`; `None` leaves the embedder's default (`-no_dce`).
+    pub dead_code_elimination: Option<DeadCode>,
     /// `llvm_options.target_system_triple`, `_cpu` and `_features` (empty: the default for
     /// `os`/`cpu`).
     pub llvm_triple: String,
@@ -88,6 +90,7 @@ impl Default for BuildSettings {
             arithmetic_overflow_check: None,
             stack_trace: None,
             emit_debug_info: None,
+            dead_code_elimination: None,
             llvm_triple: String::new(),
             llvm_cpu: String::new(),
             llvm_features: String::new(),
@@ -399,6 +402,7 @@ impl Workspaces {
             }
             "stack_trace" => s.stack_trace = Some(value == "true"),
             "emit_debug_info" => s.emit_debug_info = Some(value != "NONE"),
+            "dead_code_elimination" => s.dead_code_elimination = DeadCode::from_name(value),
             "llvm_target_system_triple" => s.llvm_triple = value.into(),
             "llvm_target_system_cpu" => s.llvm_cpu = value.into(),
             "llvm_target_system_features" => s.llvm_features = value.into(),
@@ -429,6 +433,13 @@ pub const WASI_RUNTIME_IMPORT: &str = "#import \"Wasi_Runtime\";";
 /// [`WASI_RUNTIME_IMPORT`] added to its sources. Other wasm builds supply their own runtime.
 pub fn wants_wasi_runtime(os: TargetOs, triple: &str) -> bool {
     os == TargetOs::Wasm && triple.split('-').any(|part| part.starts_with("wasi"))
+}
+
+/// `dead_code_elimination` as compile-time code last set it for workspace `id`, which may be
+/// the workspace being compiled (`set_build_options` without a workspace).
+pub fn dead_code_setting(shared: &SharedWorkspaces, id: i64) -> Option<DeadCode> {
+    let reg = shared.borrow();
+    reg.list.get(id as usize)?.settings.dead_code_elimination
 }
 
 /// Sources added to workspace `id` by its own compile-time code, for the
@@ -485,6 +496,9 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     }
     if let Some(debug) = settings.emit_debug_info {
         options.debug_info &= debug;
+    }
+    if let Some(mode) = settings.dead_code_elimination {
+        options.dead_code = mode;
     }
     let mut compiler = Box::new(Compiler::new(options, fs));
     compiler.interp.host = host;

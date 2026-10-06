@@ -2167,6 +2167,154 @@
       "negative": {
         "check": "cannot bit-complement bool"
       }
+    },
+    {
+      "id": "rule-dce-1",
+      "source": "negative/rule-dce-1.jai",
+      "sha256": "9c64d807d5889c1c88b0cc8d75506cc3a3be1799f2d8886d9a24394d5fdf3c3c",
+      "suite": "negative",
+      "feature": "unused global of the program's own files is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type mismatch: expected s64, found string"
+      },
+      "rules": [
+        "dce.1"
+      ]
+    },
+    {
+      "id": "dce-unused-constant",
+      "source": "negative/dce-unused-constant.jai",
+      "sha256": "3afb7dc30469f39ffdb1e04065890cc5aa2c94faa63fe7b0140703f32d35acc5",
+      "suite": "negative",
+      "feature": "unused constant of the program's own files is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'missing_constant_value'"
+      },
+      "rules": [
+        "dce.1"
+      ]
+    },
+    {
+      "id": "rule-dce-2",
+      "source": "negative/rule-dce-2.jai",
+      "sha256": "343483b9c524019e1acbd3262cb13afee8f926f773d9212988beffe957ddeb43",
+      "suite": "negative",
+      "feature": "uncalled procedure body of the program's own files is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'missing_in_unused_body'"
+      },
+      "rules": [
+        "dce.2"
+      ]
+    },
+    {
+      "id": "dce-unused-struct-proc",
+      "source": "negative/dce-unused-struct-proc.jai",
+      "sha256": "dd6a4bde5a48f527347a5742d163e442b3eb8b2d569fd0f5d4d57384346f2d09",
+      "suite": "negative",
+      "feature": "uncalled procedure in a struct body is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'missing_in_struct_proc'"
+      },
+      "rules": [
+        "dce.2"
+      ]
+    },
+    {
+      "id": "dce-unused-nested-proc",
+      "source": "negative/dce-unused-nested-proc.jai",
+      "sha256": "fc52b9571178e67782c507b5af0c13b271f32f28820b259cc0af991ee2b02d71",
+      "suite": "negative",
+      "feature": "uncalled nested procedure is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'missing_in_nested_proc'"
+      },
+      "rules": [
+        "dce.2"
+      ]
+    },
+    {
+      "id": "rule-dce-3",
+      "source": "negative/rule-dce-3.jai",
+      "sha256": "d8997b87a59e98a5a8214ccd30d3b94cf251be0499c4e032f5b90cb95f86a4e4",
+      "suite": "negative",
+      "feature": "module body called only from unreferenced program code is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [
+        "self-written module (negative/modules/Dce_Called)"
+      ],
+      "negative": {
+        "check": "unknown identifier 'missing_in_called_module_body'"
+      },
+      "rules": [
+        "dce.3"
+      ]
+    },
+    {
+      "id": "rule-dce-8",
+      "source": "negative/rule-dce-8.jai",
+      "sha256": "d7c93206bc9741bdbd853a8494a2a47ae9b0db0628dd699348dcc7f7bca68206",
+      "suite": "negative",
+      "feature": "dead_code_elimination .NONE checks uncalled module bodies",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [
+        "self-written module (negative/modules/Dce_Called)"
+      ],
+      "negative": {
+        "check": "unknown identifier 'missing_in_called_module_body'"
+      },
+      "rules": [
+        "dce.8"
+      ]
+    },
+    {
+      "id": "rule-dce-10",
+      "source": "negative/rule-dce-10.jai",
+      "sha256": "7709224252c0d0faeb4071eae02ec19c49b20d7d8cbbc01d744b6cf7324a1f82",
+      "suite": "negative",
+      "feature": "dead_code_elimination .ALL still lays out unused structs",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Member_Type'"
+      },
+      "rules": [
+        "dce.10"
+      ]
+    },
+    {
+      "id": "rule-dce-11",
+      "source": "negative/rule-dce-11.jai",
+      "sha256": "22b343ec5151f7b075f1a37f703ee033754b0f04790a49c8f84b511b5853670f",
+      "suite": "negative",
+      "feature": "#run inside a checked unreferenced body runs",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the #run of an unreferenced body ran"
+      },
+      "rules": [
+        "dce.11"
+      ]
     }
   ]
 }

@@ -50,8 +50,7 @@
     // Compile-time proof that the entry points use the standard signatures.
     frame_signature :: (window: WT.Window_Type) {
         background_occluded, is_active := G.ui_per_frame_update(window, 640, 480, 0.0);
-        _ = background_occluded;
-        _ = is_active;
+        if background_occluded && is_active return;
     }
 }
 

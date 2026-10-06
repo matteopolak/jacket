@@ -51,6 +51,7 @@ REJECTED = {
     "examples/09/9.1_types.jai:17": "commentary after the value",
     "examples/09/9.1_types.jai:30": "capitalised 'The'; the format string says 'the'",
     "examples/10/10.1_pointers.jai:34": "commentary after the value",
+    "examples/10/10.4_dangling_pointers.jai:11": "reads freed memory (whatever the allocator left there)",
     "examples/12/12.1_struct_declarations.jai:65": "commentary '(bytes)' after the value",
     "examples/12/12.13_anonymous_struct.jai:28": "older Jai printed a Type value as u64; the format has no newline either",
     "examples/12/12.9_struct_parameters.jai:14": "shows the string quoted; print writes it bare",

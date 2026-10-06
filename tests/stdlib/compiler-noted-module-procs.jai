@@ -1,7 +1,7 @@
 // A metaprogram that intercepts messages sees the bodies of the program's own noted
 // procedures even when nothing calls them, but an imported module's uncalled noted
 // procedures stay unchecked (Vk-Engine's Common module has one whose body is stale).
-// rules: records.22 records.23
+// rules: records.22 records.23 records.28
 #import "Basic";
 #import "Compiler";
 
