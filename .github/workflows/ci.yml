@@ -267,8 +267,11 @@ jobs:
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
           # X11, GL (Mesa's software renderer) and FreeType for Window_Creation, Input, Simp and
-          # GetRect; Xvfb is the display the window tests open their windows on.
-          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth xclip
+          # GetRect; Xvfb is the display the window tests open their windows on. XFixes lets the
+          # input test see the cursor, xclip backs the clipboard test, and ALSA is Sound_Player's
+          # output, played into a null PCM since the runners have no sound card.
+          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth xclip libxfixes-dev libasound2-dev
+          printf 'pcm.!default {\n    type null\n}\n' > ~/.asoundrc
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Run the stdlib runtime tests

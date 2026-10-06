@@ -111,6 +111,19 @@
         }, 20);
         assert(seen[0].quits == 0 && seen[1].quits == 0, "QUIT without closing (% and %)", seen[0].quits, seen[1].quits);
 
+        // Over Input's windows the arrow comes back as the pointer moves, unless the program
+        // handles the cursor itself (set_custom_cursor_handling).
+        for custom: bool.[false, true] {
+            set_custom_cursor_handling(custom);
+            show_hand(first);
+            move_pointer(first);
+            pump(windows, seen, (seen: [] Seen) -> bool {
+                return false;
+            }, 10);
+            assert(hand_shown(first) == custom, "custom cursor handling %: hand cursor shown %", custom, hand_shown(first));
+        }
+        set_custom_cursor_handling(false);
+
         // Closing the second window as its close button would reports QUIT for it alone.
         close_like_the_user(second);
         closed := pump(windows, seen, (seen: [] Seen) -> bool {
@@ -173,6 +186,24 @@
             call = cast(type_of(call)) objc_msgSend;
             call(window, sel_registerName("performClose:"), null);
         }
+        show_hand :: (window: *NSWindow) {
+            NSCursor.set(NSCursor.pointingHandCursor());
+        }
+        move_pointer :: (window: *NSWindow) {
+            make: (receiver: *void, selector: SEL, type: u64, location: NSPoint, flags: u64, time: float64, number: s64, ctx: *void, event_number: s64, clicks: s64, pressure: float32) -> *void #c_call;
+            make = cast(type_of(make)) objc_msgSend;
+            // NSEventTypeMouseMoved in the window's content area.
+            event := make(cast(*void) objc_getClass("NSEvent"),
+                sel_registerName("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
+                5, .{ 50, 50 }, 0, 0, window_number(window), null, 0, 0, 0);
+            assert(event != null, "NSEvent mouse moved event");
+            post(event);
+        }
+        hand_shown :: (window: *NSWindow) -> bool {
+            call: (receiver: *void, selector: SEL) -> *void #c_call;
+            call = cast(type_of(call)) objc_msgSend;
+            return call(cast(*void) objc_getClass("NSCursor"), sel_registerName("currentCursor")) == cast(*void) NSCursor.pointingHandCursor();
+        }
     } else #if OS == .WINDOWS {
         #import "Windows";
 
@@ -195,6 +226,18 @@
         close_like_the_user :: (window: HWND) {
             // The close button sends WM_SYSCOMMAND SC_CLOSE, which becomes a sent WM_CLOSE.
             SendMessageW(window, 0x112, 0xf060, 0);
+        }
+        GetCursor :: () -> HCURSOR #foreign user32;
+        show_hand :: (window: HWND) {
+            SetCursor(LoadCursorW(null, cast(*s16) IDC_HAND));
+        }
+        move_pointer :: (window: HWND) {
+            // What Windows sends as the pointer moves over the client area: WM_SETCURSOR with
+            // HTCLIENT and WM_MOUSEMOVE.
+            SendMessageW(window, 0x20, cast(u64) window, 1 | (0x200 << 16));
+        }
+        hand_shown :: (window: HWND) -> bool {
+            return GetCursor() == LoadCursorW(null, cast(*s16) IDC_HAND);
         }
     } else #if OS == .LINUX {
         #import "X11";
@@ -241,6 +284,45 @@
             sent := XSendEvent(x_global_display, window, False, NoEventMask, *event);
             assert(sent != 0, "XSendEvent close");
             XFlush(x_global_display);
+        }
+
+        // The cursor the server shows, through XFixes: each cursor has its own serial number.
+        xfixes :: #system_library "Xfixes";
+        XFixesCursorImage :: struct {
+            x: s16;
+            y: s16;
+            width: u16;
+            height: u16;
+            xhot: u16;
+            yhot: u16;
+            cursor_serial: u64;
+            pixels: *u64;
+            atom: u64;
+            name: *u8;
+        }
+        XFixesGetCursorImage :: (display: *Display) -> *XFixesCursorImage #foreign xfixes;
+        hand_cursor: Cursor;
+        hand_serial: u64;
+        shown_serial :: () -> u64 {
+            XSync(x_global_display, False);
+            image := XFixesGetCursorImage(x_global_display);
+            assert(image != null, "XFixesGetCursorImage");
+            serial := image.cursor_serial;
+            XFree(image);
+            return serial;
+        }
+        show_hand :: (window: Window) {
+            if !hand_cursor hand_cursor = XCreateFontCursor(x_global_display, 60); // hand2
+            XDefineCursor(x_global_display, window, hand_cursor);
+            XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 20, 20);
+            hand_serial = shown_serial();
+        }
+        move_pointer :: (window: Window) {
+            XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 30, 30);
+            XFlush(x_global_display);
+        }
+        hand_shown :: (window: Window) -> bool {
+            return shown_serial() == hand_serial;
         }
     }
 }

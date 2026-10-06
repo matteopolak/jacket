@@ -1,12 +1,12 @@
-// Sound_Player with the platform's audio output (Core Audio on macOS, DirectSound on Windows).
-// Machines without an audio device (most CI runners) fail to open it: init must then report false
-// and leave the player stopped, so every other call is a quiet no-op. With a device, a silent
-// stream plays for a moment (master volume 0) and the player shuts down cleanly. Linux builds
-// would link ALSA, which the CI images do not provide, and wasm has no audio, so those targets
-// only print ok.
+// Sound_Player with the platform's audio output (Core Audio on macOS, DirectSound on Windows,
+// ALSA's default PCM on Linux). Machines without an audio device fail to open it: init must then
+// report false and leave the player stopped, so every other call is a quiet no-op. With a device,
+// a silent stream plays for a moment (master volume 0) and the player shuts down cleanly. The
+// Linux CI runners have no sound card and play into ALSA's null PCM. wasm has no audio and only
+// prints ok.
 #import "Basic";
 
-#if OS == .MACOS || OS == .WINDOWS {
+#if OS == .MACOS || OS == .WINDOWS || OS == .LINUX {
     #import "Sound_Player";
 
     released: int;
