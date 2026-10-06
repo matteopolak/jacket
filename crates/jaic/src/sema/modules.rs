@@ -189,10 +189,10 @@ impl Compiler {
         available.dedup();
         let mut d = Diagnostic::error(span, format!("module `{name}` not found"))
             .with_label("no module of this name");
-        let near_found =
-            crate::suggest::closest(name, available.iter().map(String::as_str)).is_some();
-        if let Some(near) = crate::suggest::closest(name, available.iter().map(String::as_str)) {
-            let near = near.to_string();
+        let near =
+            crate::suggest::closest(name, available.iter().map(String::as_str)).map(str::to_string);
+        let near_found = near.is_some();
+        if let Some(near) = near {
             let quoted = self.sources.snippet(span).find(&format!("\"{name}\""));
             d = match quoted {
                 Some(at) => {
@@ -254,7 +254,7 @@ impl Compiler {
                 .fs
                 .list_dir(ancestor)
                 .into_iter()
-                .filter(|(n, is_dir)| *is_dir && !n.starts_with('.') && n != "node_modules")
+                .filter(|(n, is_dir)| *is_dir && !n.starts_with('.'))
                 .map(|(n, _)| n)
                 .collect();
             subdirs.sort();
