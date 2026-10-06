@@ -292,8 +292,14 @@ const VALUE_OPTIONS: &[(&str, &str)] = &[
     ("-import_dir", "a directory"),
     ("-os", "an OS name: linux, windows, macos or wasm"),
     ("-cpu", "a CPU name: x64 or arm64"),
-    ("-target", "an LLVM target triple, such as x86_64-pc-windows-gnu"),
-    ("--target", "an LLVM target triple, such as x86_64-pc-windows-gnu"),
+    (
+        "-target",
+        "an LLVM target triple, such as x86_64-pc-windows-gnu",
+    ),
+    (
+        "--target",
+        "an LLVM target triple, such as x86_64-pc-windows-gnu",
+    ),
     ("-o", "an output path"),
     ("--emit-ir", "a file to write the LLVM IR to"),
     ("-sanitize", "address, undefined or both, comma-separated"),
@@ -371,12 +377,12 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
     let file = match args.get(1) {
         Some(file) if file == "-h" || file == "--help" => return Ok(Request::Help),
         Some(file) if file.starts_with('-') && file.len() > 1 => {
-            return Err(
-                CliError::new(format!("expected a .jai file after `jaic {name}`, found `{file}`"))
-                    .help(format!(
-                        "put the file first and options after it: `jaic {name} file.jai {file} ...`"
-                    )),
-            );
+            return Err(CliError::new(format!(
+                "expected a .jai file after `jaic {name}`, found `{file}`"
+            ))
+            .help(format!(
+                "put the file first and options after it: `jaic {name} file.jai {file} ...`"
+            )));
         }
         Some(file) => file.clone(),
         None => {
@@ -410,7 +416,9 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
     while let Some(arg) = rest.next() {
         // `--color=always` and the like.
         let (a, inline) = match arg.split_once('=') {
-            Some((option, value)) if option.starts_with('-') && VALUE_OPTIONS.iter().any(|(o, _)| *o == option) => {
+            Some((option, value))
+                if option.starts_with('-') && VALUE_OPTIONS.iter().any(|(o, _)| *o == option) =>
+            {
                 (option, Some(value.to_string()))
             }
             _ => (arg.as_str(), None),
@@ -431,8 +439,12 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
             }
         };
         if BUILD_ONLY.contains(&a) && command != Command::Build && !has_plugins {
-            return Err(CliError::new(format!("`{a}` only applies to `jaic build`"))
-                .help(format!("`jaic {name}` writes no output; use `jaic build {} {a} ...`", cli.file)));
+            return Err(
+                CliError::new(format!("`{a}` only applies to `jaic build`")).help(format!(
+                    "`jaic {name}` writes no output; use `jaic build {} {a} ...`",
+                    cli.file
+                )),
+            );
         }
         match a {
             "-" => {
@@ -501,8 +513,10 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
             "-O3" => cli.opt_level = Some("O3"),
             "-plug" | "-plugin" => cli.plugins.push(value(a)?),
             other if other.starts_with("-O") && command == Command::Build && !has_plugins => {
-                return Err(CliError::new(format!("unknown optimization level `{other}`"))
-                    .help("use -O0, -O1, -O2 or -O3"));
+                return Err(
+                    CliError::new(format!("unknown optimization level `{other}`"))
+                        .help("use -O0, -O1, -O2 or -O3"),
+                );
             }
             // An unknown option and everything after it (its values) go to the plugins.
             other if other.starts_with('-') || !cli.plugin_options.is_empty() => {
@@ -516,7 +530,8 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
                         cli.file
                     ));
                 } else {
-                    error = error.help("jaic compiles one file; it can `#load` or `#import` the others");
+                    error = error
+                        .help("jaic compiles one file; it can `#load` or `#import` the others");
                 }
                 return Err(error);
             }
@@ -524,10 +539,16 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
     }
     // Plugins compile the program in a workspace of their own, which `run` cannot start.
     if !cli.plugins.is_empty() && command == Command::Run {
-        return Err(CliError::new("`-plug` works with `jaic check` and `jaic build`, not `jaic run`")
-            .help(format!("use `jaic build {} -plug ...`", cli.file)));
+        return Err(CliError::new(
+            "`-plug` works with `jaic check` and `jaic build`, not `jaic run`",
+        )
+        .help(format!("use `jaic build {} -plug ...`", cli.file)));
     }
-    if let Some(unknown) = cli.plugin_options.first().filter(|_| cli.plugins.is_empty()) {
+    if let Some(unknown) = cli
+        .plugin_options
+        .first()
+        .filter(|_| cli.plugins.is_empty())
+    {
         let mut error = CliError::new(format!("unknown option `{unknown}`"));
         if let Some(near) = jaic::suggest::closest(unknown, KNOWN_OPTIONS.iter().copied()) {
             error = error.help(format!("did you mean `{near}`?"));
@@ -568,7 +589,10 @@ fn check_input(file: &str) -> Result<(), CliError> {
     match std::fs::metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             let mut error = CliError::new(format!("file `{file}` does not exist"));
-            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
             let candidates = jai_files(parent);
             let with_ext = format!("{name}.jai");
             let near = if candidates.contains(&with_ext) {
@@ -579,15 +603,24 @@ fn check_input(file: &str) -> Result<(), CliError> {
             if let Some(near) = near {
                 error = error.help(format!("did you mean `{}`?", shown(parent, near)));
             } else if !parent.is_dir() {
-                error = error.help(format!("the directory `{}` does not exist either", parent.display()));
+                error = error.help(format!(
+                    "the directory `{}` does not exist either",
+                    parent.display()
+                ));
             } else if let Ok(cwd) = std::env::current_dir()
                 && path.is_relative()
             {
-                error = error.help(format!("relative paths start from the current directory, {}", cwd.display()));
+                error = error.help(format!(
+                    "relative paths start from the current directory, {}",
+                    cwd.display()
+                ));
             }
             Err(error)
         }
-        Err(e) => Err(CliError::new(format!("cannot read `{file}`: {}", io_reason(&e)))),
+        Err(e) => Err(CliError::new(format!(
+            "cannot read `{file}`: {}",
+            jaic::io_reason(&e)
+        ))),
         Ok(meta) if meta.is_dir() => {
             let mut error = CliError::new(format!("`{file}` is a directory, not a .jai file"));
             let files = jai_files(path);
@@ -600,7 +633,8 @@ fn check_input(file: &str) -> Result<(), CliError> {
                 }
                 (None, 0) => error = error.help("it holds no .jai files"),
                 (None, _) => {
-                    let list: Vec<String> = files.iter().take(5).map(|f| format!("`{f}`")).collect();
+                    let list: Vec<String> =
+                        files.iter().take(5).map(|f| format!("`{f}`")).collect();
                     error = error.help(format!("pass one of its files: {}", list.join(", ")));
                 }
             }
@@ -608,19 +642,11 @@ fn check_input(file: &str) -> Result<(), CliError> {
         }
         Ok(_) => match std::fs::File::open(path) {
             Ok(_) => Ok(()),
-            Err(e) => Err(CliError::new(format!("cannot read `{file}`: {}", io_reason(&e)))),
+            Err(e) => Err(CliError::new(format!(
+                "cannot read `{file}`: {}",
+                jaic::io_reason(&e)
+            ))),
         },
-    }
-}
-
-/// An I/O error as a lowercase phrase, without Rust's `(os error N)` suffix.
-fn io_reason(e: &std::io::Error) -> String {
-    let text = e.to_string();
-    let text = text.split(" (os error").next().unwrap_or(&text);
-    let mut chars = text.chars();
-    match chars.next() {
-        Some(c) => c.to_lowercase().chain(chars).collect(),
-        None => text.to_string(),
     }
 }
 
@@ -641,7 +667,10 @@ fn main() -> ExitCode {
     let color = color_choice(&args);
     jaic::render::set_style(jaic::render::detect(color));
     if let Err(message) = jaic::memory_limit::arm_from_env() {
-        eprint!("{}", jaic::render::Report::new(jaic::render::Severity::Error, message).render());
+        eprint!(
+            "{}",
+            jaic::render::Report::new(jaic::render::Severity::Error, message).render()
+        );
         return ExitCode::from(2);
     }
     let cli = match parse(&args) {

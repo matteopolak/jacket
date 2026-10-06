@@ -1,6 +1,6 @@
 //! `jailint`: report (and fix) common mistakes and unidiomatic code in Jai programs.
 use jailint::config::{Config, Level};
-use jailint::render::{Style, render};
+use jailint::render::render;
 use jailint::{Lint, RULES};
 use std::io::IsTerminal;
 use std::path::PathBuf;
@@ -28,13 +28,38 @@ Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 o
 or configuration error.";
 
 fn main() -> ExitCode {
+    // Errors about the command line or configuration go to stderr in its own style.
+    jaic::render::set_style(jaic::render::detect(color_choice()));
     match run() {
         Ok(code) => code,
         Err(message) => {
-            eprintln!("jailint: {message}");
+            let (message, help) = match message.split_once("\nhelp: ") {
+                Some((message, help)) => (message.to_string(), Some(help.to_string())),
+                None => (message, None),
+            };
+            let mut report = jaic::render::Report::new(jaic::render::Severity::Error, message);
+            if let Some(help) = help {
+                report = report.help(help);
+            }
+            eprint!("{}", report.render());
             ExitCode::from(2)
         }
     }
+}
+
+/// `--color` as given (read ahead of the other options, for errors about them).
+fn color_choice() -> jaic::render::ColorChoice {
+    let args: Vec<String> = std::env::args().collect();
+    args.windows(2)
+        .filter(|w| w[0] == "--color")
+        .filter_map(|w| jaic::render::ColorChoice::parse(&w[1]))
+        .chain(
+            args.iter()
+                .filter_map(|a| a.strip_prefix("--color="))
+                .filter_map(jaic::render::ColorChoice::parse),
+        )
+        .last()
+        .unwrap_or(jaic::render::ColorChoice::Auto)
 }
 
 struct Args {
@@ -44,7 +69,7 @@ struct Args {
     levels: Vec<(String, Level)>,
     imports: Vec<PathBuf>,
     jobs: usize,
-    color: Option<bool>,
+    color: jaic::render::ColorChoice,
     verbose: bool,
 }
 
@@ -56,12 +81,12 @@ fn parse_args() -> Result<Option<Args>, String> {
         levels: Vec::new(),
         imports: Vec::new(),
         jobs: 1,
-        color: None,
+        color: jaic::render::ColorChoice::Auto,
         verbose: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
-        let mut value = |name: &str| it.next().ok_or_else(|| format!("{name} needs a value"));
+        let mut value = |name: &str| it.next().ok_or_else(|| format!("`{name}` needs a value"));
         match a.as_str() {
             "-h" | "--help" => {
                 println!("{USAGE}");
@@ -80,15 +105,19 @@ fn parse_args() -> Result<Option<Args>, String> {
             "-j" | "--jobs" => {
                 args.jobs = value(&a)?
                     .parse()
-                    .map_err(|_| format!("{a} takes a number"))?
+                    .map_err(|_| format!("`{a}` takes a number of jobs, such as `{a} 4`"))?
             }
             "--color" => {
-                args.color = match value("--color")?.as_str() {
-                    "always" => Some(true),
-                    "never" => Some(false),
-                    "auto" => None,
-                    other => return Err(format!("--color: unknown value `{other}`")),
-                }
+                let when = value("--color")?;
+                args.color = jaic::render::ColorChoice::parse(&when).ok_or_else(|| {
+                    format!("unknown `--color` value `{when}`\nhelp: use auto, always or never")
+                })?;
+            }
+            flag if flag.starts_with("--color=") => {
+                let when = &flag["--color=".len()..];
+                args.color = jaic::render::ColorChoice::parse(when).ok_or_else(|| {
+                    format!("unknown `--color` value `{when}`\nhelp: use auto, always or never")
+                })?;
             }
             "-A" | "-W" | "-D" => {
                 let level = match a.as_str() {
@@ -99,7 +128,28 @@ fn parse_args() -> Result<Option<Args>, String> {
                 args.levels.push((value(&a)?, level));
             }
             flag if flag.starts_with('-') && flag.len() > 1 => {
-                return Err(format!("unknown option `{flag}` (see --help)"));
+                let known = [
+                    "--fix",
+                    "--config",
+                    "-A",
+                    "-W",
+                    "-D",
+                    "-I",
+                    "-import_dir",
+                    "-j",
+                    "--jobs",
+                    "--list",
+                    "--color",
+                    "--verbose",
+                    "--help",
+                ];
+                let help = match jaic::suggest::closest(flag, known) {
+                    Some(near) => {
+                        format!("did you mean `{near}`? `jailint --help` lists the options")
+                    }
+                    None => "`jailint --help` lists the options".to_string(),
+                };
+                return Err(format!("unknown option `{flag}`\nhelp: {help}"));
             }
             path => args.paths.push(path.into()),
         }
@@ -115,6 +165,36 @@ fn run() -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     };
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    for path in &args.paths {
+        if let Err(e) = std::fs::metadata(path) {
+            let shown = path.display();
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(format!("cannot read `{shown}`: {}", jaic::io_reason(&e)));
+            }
+            let parent = match path.parent() {
+                Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+                _ => PathBuf::from("."),
+            };
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let siblings: Vec<String> = std::fs::read_dir(&parent)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect();
+            let help = match jaic::suggest::closest(&name, siblings.iter().map(String::as_str)) {
+                Some(near) => format!("did you mean `{}`?", path.with_file_name(near).display()),
+                None => {
+                    "pass .jai files or directories that hold them (default: the current directory)"
+                        .to_string()
+                }
+            };
+            return Err(format!("`{shown}` does not exist\nhelp: {help}"));
+        }
+    }
     let config_path = match &args.config {
         Some(p) => Some(p.clone()),
         None => {
@@ -144,7 +224,11 @@ fn run() -> Result<ExitCode, String> {
         } else if RULES.iter().any(|r| r.name == rule) {
             config.levels.insert(rule.clone(), *level);
         } else {
-            return Err(format!("unknown rule `{rule}` (see --list)"));
+            let help = match jaic::suggest::closest(rule, RULES.iter().map(|r| r.name)) {
+                Some(near) => format!("did you mean `{near}`? `jailint --list` lists the rules"),
+                None => "`jailint --list` lists the rules".to_string(),
+            };
+            return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
         }
     }
     let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
@@ -161,11 +245,10 @@ fn run() -> Result<ExitCode, String> {
         verbose: args.verbose,
     };
     let outcome = jailint::driver::run(&options);
-    let style = Style {
-        color: args.color.unwrap_or_else(|| {
-            std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
-        }),
-    };
+    // Lints go to stdout: its terminal decides the layout.
+    let style = jaic::render::detect_with(args.color, std::io::stdout().is_terminal(), |key| {
+        std::env::var(key).ok()
+    });
     let shown = |p: &str| {
         let path = PathBuf::from(p);
         path.strip_prefix(&cwd)

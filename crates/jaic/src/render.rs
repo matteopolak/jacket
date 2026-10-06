@@ -391,12 +391,13 @@ impl Renderer {
     /// indented by four, and carets under the range on that line.
     fn compact(&mut self, report: &Report) {
         let items = std::iter::once((report.severity, &report.message, report.primary.as_ref()))
-            .chain(
-                report
-                    .secondary
-                    .iter()
-                    .map(|l| (Severity::Note, l.message.as_ref().unwrap_or(&report.message), Some(l))),
-            );
+            .chain(report.secondary.iter().map(|l| {
+                (
+                    Severity::Note,
+                    l.message.as_ref().unwrap_or(&report.message),
+                    Some(l),
+                )
+            }));
         let items: Vec<_> = items.collect();
         for (severity, message, label) in items {
             let Some(label) = label else {
@@ -414,10 +415,18 @@ impl Renderer {
             let pad: String = source
                 .chars()
                 .take(col - 1)
-                .map(|c| if c == '\t' { '\t' } else { ' ' })
+                .map(|c| {
+                    if c == '\t' {
+                        '\t'
+                    } else {
+                        ' '
+                    }
+                })
                 .collect();
             let first = label.start.clamp(start, end);
-            let width = label.text[first..label.end.clamp(first, end)].chars().count();
+            let width = label.text[first..label.end.clamp(first, end)]
+                .chars()
+                .count();
             let width = width.clamp(1, (source.chars().count() + 1).saturating_sub(col).max(1));
             let carets = self.paint.on(severity.color(), &"^".repeat(width));
             self.line(&format!("    {pad}{carets}"));
@@ -451,17 +460,30 @@ impl Renderer {
         let blank = " ".repeat(width);
         let bar = self.paint.on(GUTTER, g.bar);
         for (i, path) in files.iter().enumerate() {
-            let in_file: Vec<(&Label, bool)> =
-                labels.iter().copied().filter(|(l, _)| l.path == *path).collect();
+            let in_file: Vec<(&Label, bool)> = labels
+                .iter()
+                .copied()
+                .filter(|(l, _)| l.path == *path)
+                .collect();
             let (first, _) = in_file[0];
             let (line, col) = line_col(first.text, first.start);
             if self.plain || g.close.is_empty() {
-                let arrow = if i == 0 { g.open } else { ":::" };
-                self.line(&format!("{blank}{} {path}:{line}:{col}", self.paint.on(GUTTER, arrow)));
+                let arrow = if i == 0 {
+                    g.open
+                } else {
+                    ":::"
+                };
+                self.line(&format!(
+                    "{blank}{} {path}:{line}:{col}",
+                    self.paint.on(GUTTER, arrow)
+                ));
                 self.line(&format!("{blank} {bar}"));
             } else {
                 let open = self.paint.on(GUTTER, g.open);
-                self.line(&format!("{blank} {open}{path}:{line}:{col}{}", self.paint.on(GUTTER, "]")));
+                self.line(&format!(
+                    "{blank} {open}{path}:{line}:{col}{}",
+                    self.paint.on(GUTTER, "]")
+                ));
             }
             self.snippet(&in_file, width);
             if self.plain || g.close.is_empty() {
@@ -505,7 +527,11 @@ impl Renderer {
                             '+' => "32",
                             _ => GUTTER,
                         };
-                        let code = if self.plain { code } else { expand_tabs(&code) };
+                        let code = if self.plain {
+                            code
+                        } else {
+                            expand_tabs(&code)
+                        };
                         self.line(&format!(
                             "{} {} {code}",
                             self.paint.on(GUTTER, &format!("{n:>width$}")),
@@ -559,7 +585,11 @@ impl Renderer {
         let g = self.glyphs;
         let text = labels[0].0.text;
         let total = line_count(text);
-        let context = if self.plain { 0 } else { CONTEXT_LINES };
+        let context = if self.plain {
+            0
+        } else {
+            CONTEXT_LINES
+        };
         // The one label drawn across lines (outside the plain layout, which shows a
         // label's first line only).
         let spans: Vec<(usize, usize, usize, usize)> = labels
@@ -578,7 +608,11 @@ impl Renderer {
         // The lines to show: around each label; a long multi-line label shows its edges.
         let mut shown: Vec<usize> = Vec::new();
         for (i, s) in spans.iter().enumerate() {
-            let end = if Some(i) == multi { s.2 } else { s.0 };
+            let end = if Some(i) == multi {
+                s.2
+            } else {
+                s.0
+            };
             let mut add = |from: usize, to: usize| {
                 for n in from.max(1)..=to.min(total) {
                     shown.push(n);
@@ -596,11 +630,19 @@ impl Renderer {
         let bar = self.paint.on(GUTTER, g.bar);
         let note_bar = self.paint.on(GUTTER, g.note_bar);
         let blank = " ".repeat(width);
-        let connector_width = if multi.is_some() { 2 } else { 0 };
+        let connector_width = if multi.is_some() {
+            2
+        } else {
+            0
+        };
         let mut previous = 0;
         for &n in &shown {
             if previous != 0 && n > previous + 1 {
-                self.line(&format!("{} {}", " ".repeat(width), self.paint.on(GUTTER, g.gap)));
+                self.line(&format!(
+                    "{} {}",
+                    " ".repeat(width),
+                    self.paint.on(GUTTER, g.gap)
+                ));
             }
             previous = n;
             let (start, end) = line_range(text, n).unwrap_or((text.len(), text.len()));
@@ -626,7 +668,9 @@ impl Renderer {
             };
             let connector = match multi.map(|m| spans[m]) {
                 Some(s) if n == s.0 => format!("{} ", self.paint.on(SECONDARY, g.span_start)),
-                Some(s) if n > s.0 && n <= s.2 => format!("{} ", self.paint.on(SECONDARY, g.span_mid)),
+                Some(s) if n > s.0 && n <= s.2 => {
+                    format!("{} ", self.paint.on(SECONDARY, g.span_mid))
+                }
                 Some(_) => "  ".to_string(),
                 None => String::new(),
             };
@@ -641,22 +685,46 @@ impl Renderer {
                     source
                         .chars()
                         .take(a)
-                        .map(|c| if c == '\t' { '\t' } else { ' ' })
+                        .map(|c| {
+                            if c == '\t' {
+                                '\t'
+                            } else {
+                                ' '
+                            }
+                        })
                         .collect()
                 } else {
                     " ".repeat(a)
                 };
                 let (mark, color) = if primary {
-                    (if self.plain { '^' } else { g.primary }, self.severity_color)
+                    (
+                        if self.plain {
+                            '^'
+                        } else {
+                            g.primary
+                        },
+                        self.severity_color,
+                    )
                 } else {
-                    (if self.plain { '-' } else { g.secondary }, SECONDARY)
+                    (
+                        if self.plain {
+                            '-'
+                        } else {
+                            g.secondary
+                        },
+                        SECONDARY,
+                    )
                 };
                 let mut underline = self.paint.on(color, &mark.to_string().repeat(b - a));
                 if let Some(message) = &label.message {
                     underline.push(' ');
                     underline.push_str(&self.paint.on(color, message));
                 }
-                let side = if self.plain { &bar } else { &note_bar };
+                let side = if self.plain {
+                    &bar
+                } else {
+                    &note_bar
+                };
                 let lead = if connector_width > 0 {
                     match multi.map(|m| spans[m]) {
                         Some(s) if n >= s.0 && n < s.2 => {
@@ -674,22 +742,24 @@ impl Renderer {
                 && spans[m].2 == n
             {
                 let (label, primary) = labels[m];
-                let last = display_width(
-                    &text[start..label.end.clamp(start, end).max(start)],
-                    false,
-                )
-                .max(1);
-                let color = if primary { self.severity_color } else { SECONDARY };
-                let mut close = format!(
-                    "{}{}",
-                    g.span_end,
-                    g.span_line.to_string().repeat(last + 1)
-                );
+                let last =
+                    display_width(&text[start..label.end.clamp(start, end).max(start)], false)
+                        .max(1);
+                let color = if primary {
+                    self.severity_color
+                } else {
+                    SECONDARY
+                };
+                let mut close =
+                    format!("{}{}", g.span_end, g.span_line.to_string().repeat(last + 1));
                 if let Some(message) = &label.message {
                     close.push(' ');
                     close.push_str(message);
                 }
-                self.line(&format!("{blank} {note_bar} {}", self.paint.on(color, &close)));
+                self.line(&format!(
+                    "{blank} {note_bar} {}",
+                    self.paint.on(color, &close)
+                ));
             }
         }
     }
@@ -700,7 +770,15 @@ fn display_width(text: &str, plain: bool) -> usize {
     if plain {
         text.chars().count()
     } else {
-        text.chars().map(|c| if c == '\t' { TAB_WIDTH } else { 1 }).sum()
+        text.chars()
+            .map(|c| {
+                if c == '\t' {
+                    TAB_WIDTH
+                } else {
+                    1
+                }
+            })
+            .sum()
     }
 }
 
@@ -710,7 +788,11 @@ fn expand_tabs(text: &str) -> String {
 
 /// A line longer than `MAX_LINE_WIDTH` cut down to the stretch around its marks; returns the
 /// text and how many characters were cut from the front (the marks' columns move left).
-fn trim_line(line: &str, marks: &[(usize, usize, &Label, bool)], ellipsis: &str) -> (String, usize) {
+fn trim_line(
+    line: &str,
+    marks: &[(usize, usize, &Label, bool)],
+    ellipsis: &str,
+) -> (String, usize) {
     let line = line.trim_end();
     let chars: Vec<char> = line.chars().collect();
     if chars.len() <= MAX_LINE_WIDTH {

@@ -102,7 +102,10 @@ fn colour_marks_severity_gutter_and_labels() {
         layout: Layout::Unicode,
         color: true,
     });
-    assert!(text.starts_with("\x1b[1;31merror\x1b[0m\x1b[1m: unknown identifier"), "{text}");
+    assert!(
+        text.starts_with("\x1b[1;31merror\x1b[0m\x1b[1m: unknown identifier"),
+        "{text}"
+    );
     assert!(text.contains("\x1b[34m│\x1b[0m"), "{text}");
     assert!(text.contains("\x1b[1;31m━━━━━━\x1b[0m"), "{text}");
     assert!(!Style::PLAIN.color);
@@ -112,9 +115,14 @@ fn colour_marks_severity_gutter_and_labels() {
 #[test]
 fn secondary_labels_and_other_files() {
     let source = "x: int = 1;\nmain :: () {\n    x = \"text\";\n}\n";
-    let mut report = Report::new(Severity::Error, "type mismatch: expected `int`, found `string`");
+    let mut report = Report::new(
+        Severity::Error,
+        "type mismatch: expected `int`, found `string`",
+    );
     report.primary = Some(label(source, "\"text\"", Some("this is a `string`")));
-    report.secondary.push(label(source, "int", Some("`x` is declared as `int` here")));
+    report
+        .secondary
+        .push(label(source, "int", Some("`x` is declared as `int` here")));
     let mut other = label("helper :: () {}\n", "helper", Some("also here"));
     other.path = "other.jai";
     report.secondary.push(other);
@@ -139,7 +147,10 @@ fn secondary_labels_and_other_files() {
     );
     // The plain compact layout keeps one item per place.
     let plain = report.render_with(Style::PLAIN);
-    assert!(plain.contains("u.jai:1:4: note: `x` is declared as `int` here\n"), "{plain}");
+    assert!(
+        plain.contains("u.jai:1:4: note: `x` is declared as `int` here\n"),
+        "{plain}"
+    );
 }
 
 #[test]
@@ -201,7 +212,10 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
     assert!(line.chars().count() < 150, "{line}");
     assert!(line.contains('…'), "{line}");
     let marks = text.lines().find(|l| l.contains('━')).unwrap();
-    assert_eq!(marks.find('━').map(|i| marks[..i].chars().count()), line.find("needle").map(|i| line[..i].chars().count()));
+    assert_eq!(
+        marks.find('━').map(|i| marks[..i].chars().count()),
+        line.find("needle").map(|i| line[..i].chars().count())
+    );
 }
 
 #[test]
@@ -211,7 +225,10 @@ fn tabs_are_expanded_outside_the_plain_layout() {
     report.primary = Some(label(source, "y;", None));
     report.primary.as_mut().unwrap().end -= 1;
     let text = report.render_with(ASCII_STYLE);
-    assert!(text.contains(" 2 |     x := y;\n   |          ^\n"), "{text}");
+    assert!(
+        text.contains(" 2 |     x := y;\n   |          ^\n"),
+        "{text}"
+    );
     let plain = report.render_with(Style::PLAIN);
     assert!(plain.contains("    \tx := y;\n    \t     ^\n"), "{plain}");
 }
@@ -231,7 +248,12 @@ fn reports_without_a_place() {
 #[test]
 fn detection_follows_terminal_flags_and_environment() {
     let env = |pairs: &'static [(&'static str, &'static str)]| {
-        move |key: &str| pairs.iter().find(|(k, _)| *k == key).map(|(_, v)| v.to_string())
+        move |key: &str| {
+            pairs
+                .iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| v.to_string())
+        }
     };
     let utf8 = env(&[("LANG", "en_US.UTF-8"), ("TERM", "xterm-256color")]);
     let auto = ColorChoice::Auto;
@@ -246,7 +268,10 @@ fn detection_follows_terminal_flags_and_environment() {
         }
     );
     // No UTF-8 locale: ASCII.
-    assert_eq!(detect_with(auto, true, env(&[("TERM", "xterm")])).layout, Layout::Ascii);
+    assert_eq!(
+        detect_with(auto, true, env(&[("TERM", "xterm")])).layout,
+        Layout::Ascii
+    );
     // NO_COLOR, whatever its value; --color always wins over it.
     assert!(!detect_with(auto, true, env(&[("NO_COLOR", ""), ("TERM", "xterm")])).color);
     assert!(detect_with(ColorChoice::Always, false, env(&[("NO_COLOR", "1")])).color);
@@ -256,12 +281,23 @@ fn detection_follows_terminal_flags_and_environment() {
     assert!(detect_with(auto, false, env(&[("CLICOLOR_FORCE", "1")])).color);
     assert!(!detect_with(auto, false, env(&[("FORCE_COLOR", "0")])).color);
     // A dumb terminal.
-    assert_eq!(detect_with(auto, true, env(&[("TERM", "dumb")])), Style::PLAIN);
+    assert_eq!(
+        detect_with(auto, true, env(&[("TERM", "dumb")])),
+        Style::PLAIN
+    );
     // The layout override.
     assert_eq!(
         detect_with(auto, false, env(&[("JAIC_DIAGNOSTICS", "unicode")])).layout,
         Layout::Unicode
     );
-    assert_eq!(detect_with(auto, true, env(&[("JAIC_DIAGNOSTICS", "plain"), ("LANG", "C.UTF-8")])).layout, Layout::Plain);
+    assert_eq!(
+        detect_with(
+            auto,
+            true,
+            env(&[("JAIC_DIAGNOSTICS", "plain"), ("LANG", "C.UTF-8")])
+        )
+        .layout,
+        Layout::Plain
+    );
     assert_eq!(ColorChoice::parse("sometimes"), None);
 }

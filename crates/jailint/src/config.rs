@@ -94,12 +94,18 @@ impl Config {
             if let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
                 table = name.trim().to_string();
                 if table != "rules" {
-                    return Err(format!("line {}: unknown table [{table}]", number + 1));
+                    return Err(format!(
+                        "line {}: unknown table `[{table}]`\nhelp: the only table is `[rules]`",
+                        number + 1
+                    ));
                 }
                 continue;
             }
             let Some((key, value)) = line.split_once('=') else {
-                return Err(format!("line {}: expected `key = value`", number + 1));
+                return Err(format!(
+                    "line {}: expected `key = value`, found `{line}`",
+                    number + 1
+                ));
             };
             let (key, value) = (key.trim().to_string(), value.trim().to_string());
             if value.starts_with('[') && !value.ends_with(']') {
@@ -109,7 +115,9 @@ impl Config {
             config.set(&table, &key, &value, number + 1)?;
         }
         if let Some((at, ..)) = pending {
-            return Err(format!("line {at}: unterminated array"));
+            return Err(format!(
+                "line {at}: this array is never closed\nhelp: end it with `]`"
+            ));
         }
         Ok(config)
     }
@@ -129,16 +137,27 @@ impl Config {
                 }
                 Ok(())
             }
-            ("", other) => Err(format!("line {line}: unknown setting `{other}`")),
+            ("", other) => Err(format!(
+                "line {line}: unknown setting `{other}`\nhelp: the top-level setting is `exclude = [\"pattern\", ...]`; rule levels go under `[rules]`"
+            )),
             (_, rule) => {
                 let rule = rule.trim_matches('"');
                 if !crate::RULES.iter().any(|r| r.name == rule) {
-                    return Err(format!("line {line}: unknown rule `{rule}`"));
+                    let help =
+                        match jaic::suggest::closest(rule, crate::RULES.iter().map(|r| r.name)) {
+                            Some(near) => {
+                                format!("did you mean `{near}`? `jailint --list` lists the rules")
+                            }
+                            None => "`jailint --list` lists the rules".to_string(),
+                        };
+                    return Err(format!("line {line}: unknown rule `{rule}`\nhelp: {help}"));
                 }
                 let level = string(value)
                     .and_then(|v| Level::parse(&v))
                     .ok_or_else(|| {
-                        format!("line {line}: `{rule}` must be \"allow\", \"warn\" or \"deny\"")
+                        format!(
+                            "line {line}: unknown level {value} for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\""
+                        )
                     })?;
                 self.levels.insert(rule.to_string(), level);
                 Ok(())
@@ -161,11 +180,16 @@ impl Config {
 
     /// Settings of the file at `path`.
     pub fn load(path: &Path) -> Result<Config, String> {
-        let text = std::fs::read_to_string(path)
-            .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        let text = std::fs::read_to_string(path).map_err(|e| {
+            format!(
+                "could not read config `{}`: {}",
+                path.display(),
+                jaic::io_reason(&e)
+            )
+        })?;
         let root = path.parent().unwrap_or(Path::new("."));
         let mut config =
-            Config::parse(&text, root).map_err(|e| format!("{}: {e}", path.display()))?;
+            Config::parse(&text, root).map_err(|e| format!("in `{}`, {e}", path.display()))?;
         config.source = Some(path.to_path_buf());
         Ok(config)
     }

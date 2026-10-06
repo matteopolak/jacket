@@ -18,8 +18,8 @@ pub mod records;
 pub mod render;
 pub mod sema;
 pub mod source;
-pub mod suggest;
 pub mod stack_trace;
+pub mod suggest;
 pub mod types;
 pub mod wide_float;
 
@@ -42,6 +42,17 @@ pub fn stdlib_dir(fallback: std::path::PathBuf) -> std::path::PathBuf {
         .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
         .find(|dir| dir.join("prelude/module.jai").is_file())
         .unwrap_or(fallback)
+}
+
+/// An I/O error as a lowercase phrase, without Rust's `(os error N)` suffix.
+pub fn io_reason(e: &std::io::Error) -> String {
+    let text = e.to_string();
+    let text = text.split(" (os error").next().unwrap_or(&text);
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(c) => c.to_lowercase().chain(chars).collect(),
+        None => text.to_string(),
+    }
 }
 
 /// The error for a standard library directory without `prelude/module.jai`, or `None` when it has one.

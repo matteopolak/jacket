@@ -64,15 +64,7 @@ fn rendered(lints: &[Lint], text: &str, file: &Path) -> String {
             .iter()
             .find(|r| r.name == l.rule)
             .map_or(Level::Warn, |r| r.default);
-        out.push_str(&render(
-            l,
-            text,
-            &shown,
-            default,
-            &Style {
-                color: false,
-            },
-        ));
+        out.push_str(&render(l, text, &shown, default, &Style::PLAIN));
         out.push('\n');
     }
     out
