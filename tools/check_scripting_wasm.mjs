@@ -2,7 +2,7 @@
 // Execute the actual wasm module; a native-only test cannot satisfy this gate.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createEngine } from "../web/scripting-runtime/engine.mjs";
+import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
 const path = process.argv[2];
 if (!path) throw new Error("usage: node tools/check_scripting_wasm.mjs <jai_wasm.wasm>");
 const engine = await createEngine(await readFile(path));

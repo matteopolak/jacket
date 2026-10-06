@@ -115,7 +115,7 @@ formatted, ok, error := format_source(source, config); // config defaults to .{}
 
 ## Browser playground
 
-The playground runs `tools/jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
+The [hosted playground](https://matteopolak.com/playground/jai) runs `tools/jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
 
 ```js
 const driver = await (await fetch("jaifmt-playground.jai")).text();   // tools/jaifmt/playground.jai
@@ -125,8 +125,8 @@ if (result.exitCode === 0) editor.setText(result.stdout);   // the formatted fil
 else showError(result.stderr);                                // "jaifmt: main.jai:3:7: unbalanced ..."
 ```
 
-`tools/build_scripting_wasm.py` stages the driver as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it is part of every browser release bundle (`tools/package_browser_release.py`); the portfolio serves it from `/jai/<commit>/jaifmt-playground.jai`. Exit code 0 means stdout is the whole formatted file; 1 means stdout is empty and stderr has one `jaifmt: ...` line (bad config, unreadable file, or input that cannot be formatted safely). To let users configure it, create `/workspace/jaifmt.toml`, for example `indent_width = 2`. The page can instead call the module from its own driver: `#import "Jai_Format"` is bundled with the rest of `stdlib/`.
+`tools/build_scripting_wasm.py` stages the driver as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it is part of every browser release bundle (`tools/package_browser_release.py`, [browser compiler](../browser/playground.md)); the portfolio serves it from `/jai/<commit>/jaifmt-playground.jai`. Exit code 0 means stdout is the whole formatted file; 1 means stdout is empty and stderr has one `jaifmt: ...` line (bad config, unreadable file, or input that cannot be formatted safely). To let users configure it, create `/workspace/jaifmt.toml`, for example `indent_width = 2`. The page can instead call the module from its own driver: `#import "Jai_Format"` is bundled with the rest of `stdlib/`.
 
 ## Dependencies
 
-`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities`, `POSIX` (stdin/stdout/stderr descriptors) and `Sort`; the playground driver adds `File`. The browser path needs the wasm engine (`web/scripting-runtime/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)). Running it under the interpreter needs `jaic run ... -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.
+`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities`, `POSIX` (stdin/stdout/stderr descriptors) and `Sort`; the playground driver adds `File`. The browser path needs the wasm engine (`crates/jai-wasm/js/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)). Running it under the interpreter needs `jaic run ... -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.

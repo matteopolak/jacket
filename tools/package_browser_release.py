@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build, execute and package a clean exact-commit browser compiler release."""
+"""Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver)."""
 import argparse
 from datetime import date, datetime, timezone
 import hashlib
@@ -20,12 +20,13 @@ from build_scripting_wasm import storage_directory
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = 'jai-playground.zip'
 MANIFEST = 'jai-playground.manifest.json'
-MAX_FILES = 512
+MAX_FILES = 16
 MAX_FILE_BYTES = 64 * 1024**2
 MAX_TOTAL_BYTES = 128 * 1024**2
-SUFFIXES = {'.html', '.js', '.mjs', '.css', '.wasm', '.json', '.txt', '.md', '.jai', '.svg', '.woff', '.woff2'}
+SUFFIXES = {'.mjs', '.wasm', '.json', '.md', '.jai'}
 FORBIDDEN = {'reference', 'corpus', 'artifacts', 'target', '.git', 'node_modules'}
-REQUIRED = {'index.html', 'worker.mjs', 'engine.mjs', 'editor.mjs', 'workspace.mjs', 'style.css', 'jai_wasm.wasm', 'release.json'}
+REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'jaifmt-playground.jai', 'build-metadata.json', 'README.md'}
+METADATA = 'build-metadata.json'
 
 
 def sha256(contents):
@@ -58,7 +59,7 @@ def asset_path(name):
         raise ValueError('invalid browser asset path')
     if path.is_absolute() or path.as_posix() != name or any(part in {'', '.', '..'} | FORBIDDEN for part in path.parts):
         raise ValueError('unsafe browser asset path: ' + name)
-    if path.suffix not in SUFFIXES or path.name == 'build-metadata.json':
+    if path.suffix not in SUFFIXES:
         raise ValueError('unsupported browser release asset: ' + name)
     return name
 
@@ -82,7 +83,7 @@ def assets(stage):
             raise ValueError('browser release exceeds its bounded inventory')
         records.append({'path': name, 'size': size, 'sha256': sha256(path.read_bytes())})
     if not REQUIRED <= {record['path'] for record in records}:
-        raise ValueError('browser release is missing required runtime/frontend assets')
+        raise ValueError('browser release is missing required bundle files')
     return records
 
 
@@ -117,28 +118,13 @@ def browser_tool(name, root):
 def build_environment():
     environment = dict(os.environ)
     for key in ('RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTFLAGS',
-                'CARGO_ENCODED_RUSTFLAGS', 'NODE_OPTIONS', 'NODE_PATH', 'ESBUILD_BINARY_PATH',
-                'npm_config_script_shell', 'NPM_CONFIG_SCRIPT_SHELL', 'CC', 'CXX', 'AR'):
+                'CARGO_ENCODED_RUSTFLAGS', 'NODE_OPTIONS', 'NODE_PATH', 'CC', 'CXX', 'AR'):
         environment.pop(key, None)
     for key in list(environment):
         if key.startswith('CARGO_TARGET_') and key.endswith('_LINKER'):
             environment.pop(key)
     environment['CARGO_INCREMENTAL'] = '0'
     return environment
-
-
-def build_frontend(root):
-    inputs = [root / name for name in ('package.json', 'package-lock.json',
-              'tools/check_editor_dependencies.mjs', 'tools/build_browser_editor.mjs')]
-    present = [path.is_file() for path in inputs]
-    if not any(present):
-        return
-    if not all(present):
-        raise ValueError('frontend dependency/build inventory is incomplete')
-    subprocess.run([browser_tool('node', root), str(inputs[2])], cwd=root, env=build_environment(), check=True)
-    subprocess.run([browser_tool('npm', root), 'ci', '--ignore-scripts'], cwd=root, env=build_environment(), check=True)
-    subprocess.run([browser_tool('npm', root), 'run', 'build'], cwd=root, env=build_environment(), check=True)
-    subprocess.run([browser_tool('npm', root), 'test'], cwd=root, env=build_environment(), check=True)
 
 
 def require_output_space(path, reserve=0):
@@ -162,7 +148,6 @@ def package(root, output, target_dir=None):
     require_output_space(output, 2 * MAX_TOTAL_BYTES)
     subprocess.run([sys.executable, str(root / 'tools/check_ci_sources.py')], cwd=root, env=build_environment(), check=True)
     subprocess.run([sys.executable, str(root / 'tools/check_dependency_age.py')], cwd=root, env=build_environment(), check=True)
-    build_frontend(root)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.jai-browser-release-', dir=output.parent) as temporary:
         working = Path(temporary)
@@ -171,13 +156,14 @@ def package(root, output, target_dir=None):
         if target_dir is not None:
             command.extend(['--target-dir', str(target_dir)])
         subprocess.run(command, cwd=root, env=build_environment(), check=True)
-        # The build receipt is local evidence, never a relocatable public asset.
-        receipt_path = stage / 'build-metadata.json'
+        # The local build receipt names host paths; publish only its relocatable facts.
+        receipt_path = stage / METADATA
         receipt = json.loads(receipt_path.read_text())
         if receipt.get('wasm_sha256') != sha256((stage / 'jai_wasm.wasm').read_bytes()):
             raise ValueError('staged Wasm does not match its successful build receipt')
-        receipt_path.unlink()
-        (stage / 'release.json').write_text(json.dumps({'schema_version': 1, 'commit': revision}, sort_keys=True) + '\n')
+        metadata = {'schema_version': 1, 'commit': revision, 'toolchain': pinned_channel(root),
+                    'wasm_sha256': receipt['wasm_sha256']}
+        receipt_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + '\n')
         records = assets(stage)
         # Probe the staged wrapper and real module; failures leave no release assets.
         proof_path = working / 'probe.json'
@@ -191,8 +177,8 @@ def package(root, output, target_dir=None):
         ready = working / 'ready'; ready.mkdir()
         archive = ready / ARCHIVE
         write_archive(stage, archive, records)
-        manifest = {'schema_version': 1, 'commit': revision, 'dirty_checkout': False,
-                    'entrypoint': 'index.html', 'files': records,
+        manifest = {'schema_version': 2, 'commit': revision, 'dirty_checkout': False,
+                    'files': records,
                     'capabilities': {'runtime': True, 'lsp': proof['lsp']},
                     'archive': {'name': ARCHIVE, 'size': archive.stat().st_size, 'sha256': sha256(archive.read_bytes())}}
         (ready / MANIFEST).write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
@@ -214,7 +200,7 @@ def main():
     if args.output is None:
         parser.error('--output is required unless --toolchain is selected')
     result = package(ROOT, args.output, args.target_dir)
-    print(f"Verified browser assets for {result['commit']}: {args.output}")
+    print(f"Verified browser bundle for {result['commit']}: {args.output}")
 
 
 if __name__ == '__main__':

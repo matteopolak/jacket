@@ -1,11 +1,20 @@
-# Browser playground (jaic backend)
+# Browser compiler (WebAssembly bundle)
 
 ## What it is
 
-The browser Run button compiles and interprets the workspace with the new compiler core `crates/jaic`
-(lexer, parser, sema, interpreter) compiled to WebAssembly inside `crates/jai-wasm`. The full `stdlib/`
-(and `prelude/`) are embedded in the wasm module, so `#import "Basic"` and friends work offline.
-The shared language server (`jai_lsp_*`, `crates/jai-language-server`, built on the same `jaic` lexer and parser) is the only other export.
+`crates/jai-wasm` compiles the compiler core `crates/jaic` (lexer, parser, sema, interpreter) and the shared language server to `wasm32-unknown-unknown`. The full `stdlib/` are embedded in the module, so `#import "Basic"` and friends work offline.
+
+This repository ships the module and a small JavaScript glue file, not a UI. The hosted playground at https://matteopolak.com/playground/jai lives in the portfolio repository (`matteopolak/portfolio`), which has its own editor, worker and engine wrapper. From a bundle it uses only `jai_wasm.wasm` and `jaifmt-playground.jai`.
+
+A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
+
+| File | Source | Purpose |
+| --- | --- | --- |
+| `jai_wasm.wasm` | `crates/jai-wasm` | Compiler, interpreter and `jai_lsp_*` language server. It takes no host imports. |
+| `engine.mjs` | `crates/jai-wasm/js/engine.mjs` | Optional glue: `createEngine(bytes)` returns `play` and `lsp`. The Node checks use it too. |
+| `jaifmt-playground.jai` | `tools/jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
+| `build-metadata.json` | build script / packager | Local build receipt, or the commit, toolchain and Wasm SHA-256 in a release |
+| `README.md` | `crates/jai-wasm/js/README.md` | Short notice for embedders |
 
 ## How it works
 
@@ -27,55 +36,46 @@ The shared language server (`jai_lsp_*`, `crates/jai-language-server`, built on 
 3. `src/play_exports.rs` is the pointer-free scalar ABI (same style as the other exports):
    `jai_play_reset`, `jai_play_push(channel, byte)` (0 = path, 1 = contents, 2 = main path),
    `jai_play_finish_file`, `jai_play_set_budget(thousands)` (0 = unbounded, kept across resets), `jai_play_run`, then `jai_play_output_len/byte` (JSON) and `jai_play_error_len/byte`.
-4. `web/scripting-runtime/engine.mjs` exposes `play(files, main, { budget })` (and `lsp(message)`); `worker.mjs` answers
-   `{type:"run", id, source, options: {files, budget}}` with `{type:"run", id, play}`; `editor.mjs::showPlay` prints the
-   `output` runs (stderr in red), rendered errors and
-   the exit code in the Output panel, and puts positioned diagnostics in the Problems panel and editor
-   (kept in `runDiagnostics`, separate from language-server diagnostics, cleared when the file is edited).
+4. `crates/jai-wasm/js/engine.mjs::createEngine(wasmBytes)` instantiates the module (rejecting any host import) and returns `play(files, main, { budget })` and, when the module exports it, `lsp(message)`. Both exchange bounded scalar bytes with the module; no pointers cross the boundary.
 
-### Capturing output in a consumer
+### Embedding
 
-Program output is returned when the run ends; nothing streams while it runs, because the module takes no host
-imports. Read `play.stdout` / `play.stderr` for the two streams, or `play.output` for the interleaved order:
+`play` is synchronous and returns when the program ends; nothing streams while it runs, because the module takes no host imports. Run it in a Web Worker so the page stays responsive, and terminate the worker to cancel.
 
 ```js
+import { createEngine } from "./engine.mjs";
 const engine = await createEngine(await (await fetch("jai_wasm.wasm")).arrayBuffer());
 const play = engine.play({ "main.jai": source }, "main.jai", { budget: 50_000_000 });
 for (const { stream, text } of play.output) (stream === "stderr" ? console.error : console.log)(text);
 ```
 
-An embedding page (`index.html?embed=1`) also receives each run as
-`{type: "jai-playground", state: "run", revision, exitCode, stdout, stderr, output, diagnostics}` via `postMessage`.
+## Building and checking
 
-## Building and staging
-
-`python3 tools/build_scripting_wasm.py [--release]` runs an offline, locked, single-job, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header, and copies the module plus every file in `web/scripting-runtime/` into the output directory (default `artifacts/scripting-runtime`, ignored by git). It writes `build-metadata.json` with the build command, target directory selection, paths and the module SHA-256. It refuses to start below 2 GiB free on the source, build or staging volumes.
-
-`engine.mjs::createEngine(wasmBytes)` instantiates the module (rejecting any host import) and returns `play(files, main)` and, when the module exports it, `lsp(message)`. Both exchange bounded scalar bytes with the module; no pointers cross the boundary.
+`python3 tools/build_scripting_wasm.py [--release] [--output <dir>]` runs an offline, locked, single-job, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header and stages the bundle (default `artifacts/scripting-runtime`, ignored by git). Its `build-metadata.json` records the build command, target directory selection, paths and the module SHA-256. It refuses to start below 2 GiB free on the source, build or staging volumes. Release bundles are produced by `tools/package_browser_release.py`; see [compiler releases](compiler-releases.md).
 
 ```sh
 rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
-python3 tools/build_scripting_wasm.py --release
+python3 tools/build_scripting_wasm.py --release --output artifacts/scripting-runtime
 node tools/check_scripting_wasm.mjs artifacts/scripting-runtime/jai_wasm.wasm
-node tools/check_playground_worker.mjs artifacts/scripting-runtime
-python3 -m http.server 8080 --bind 127.0.0.1 --directory artifacts/scripting-runtime
+node tools/check_jai_format_wasm.mjs artifacts/scripting-runtime
+node tools/check_playground_stdlib.mjs artifacts/scripting-runtime
 ```
 
-Then open `http://127.0.0.1:8080/`. `tools/check_browser_release.mjs <staged-dir>` additionally needs the `release.json` written by `tools/package_browser_release.py`; see [compiler releases](compiler-releases.md).
+To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LOCAL=<bundle dir>` (see its `scripts/sync-jai-web.ts`).
 
 ## How to change it
 
 - Different target or options: `options()` in `play.rs`.
 - More host services (files, time): extend `SharedHost`/`SandboxHost::foreign` in `crates/jaic/src/interp/mod.rs`.
-- Result shape: change `PlayResult::to_json` and `showPlay` together.
+- Result shape: change `PlayResult::to_json`, then `engine.mjs` and the portfolio's engine wrapper (`src/lib/jai/engine.ts`) together.
+- Bundle contents: `BUNDLED_GLUE` in `tools/build_scripting_wasm.py`, `REQUIRED` in `tools/package_browser_release.py` and `BUNDLE_FILES` in `tools/check_browser_release.mjs` must agree.
 - Gotchas: under `OS == .WASM`, Runtime_Support writes output through the foreign
   `wasm_write_string(count, data, to_standard_error)`, which `SandboxHost` implements. The jaic interpreter stores
-  host pointers in 64-bit slots, which works on wasm32. There is no step limit or argument list: the playground has no run options.
-  Infinite loops hang the worker; use Cancel (terminates the worker).
+  host pointers in 64-bit slots, which works on wasm32. Without a `budget`, an infinite loop hangs the calling thread.
 - Panics: wasm32 panics abort, so a compiler bug traps the instance (`RuntimeError: unreachable`). `jai_play_reset`
   installs a panic hook (wasm32 only) that records the message; `engine.mjs::play` catches the trap and throws
-  `The compiler crashed: <message>` with `compilerCrashed = true`, and `worker.mjs` drops its engine so the next
-  Run instantiates a fresh module. `jai_play_panic_len/byte` read the message.
+  `The compiler crashed: <message>` with `compilerCrashed = true`. The instance is then unusable; create a new engine.
+  `jai_play_panic_len/byte` read the message.
 - No real clock on wasm32 (`std::time::SystemTime::now` panics): `#cycle_counter` counts calls, and `SandboxHost`
   implements `clock_gettime`/`gettimeofday`/`time` (virtual, deterministic, +1 microsecond per call), `nanosleep`/`usleep`
   (advance the virtual clock, never block) and `wasm_debug_break` (runtime error), so `current_time_monotonic`,
@@ -86,37 +86,29 @@ Then open `http://127.0.0.1:8080/`. `tools/check_browser_release.mjs <staged-dir
   and native-library modules still do not: `Window_Type` is `*void`, `Clipboard` is an in-memory string, `Window_Creation`,
   FreeType, stb_image, libclang and `Process` have no browser backend.
 - **Files**: reads see the workspace (cwd is `/workspace`, so `read_entire_file("lib/data.txt")` works) and the bundled
-  stdlib (`/stdlib/...`); writes go to an in-memory overlay (`/tmp` exists) that lives for one Run. Nothing persists.
+  stdlib (`/stdlib/...`); writes go to an in-memory overlay (`/tmp` exists) that lives for one `play`. Nothing persists.
 - **Threads**: run one after another on the interpreter stack, see [interpreter threads](../compiler/interpreter-threads.md).
   `Thread`, `Mutex`, `Condition_Variable`, `Semaphore` and `Thread_Group` work; a thread that busy-waits for a
-  thread lower on the stack hangs the worker (Cancel).
+  thread lower on the stack hangs.
 - **Path semantics**: `normalize` clamps `..` at the root, so `#load "../../stdlib/X.jai"` from `/workspace/a.jai`
   reaches `/stdlib/X.jai` as on a real file system.
-- The worker check (`tools/check_playground_worker.mjs`) smoke-tests Hash_Table, a `#run` workspace message loop, empty views and the virtual clock.
 - Regression sweep for the wasm build: `node tools/check_playground_stdlib.mjs <staged-dir>` runs every
   `tests/stdlib/*.jai` through `engine.play` with a fresh wasm instance each (worker threads, 120 s timeout) and compares
   the pass set with `tools/playground_stdlib_expected.json` (`pass` list plus `excluded`: name to written reason). Any
-  regression, any newly passing excluded test, or any test in neither list fails the check; `check_playground_worker.mjs`
-  runs it. After intentionally changing the set: `--update` rewrites `pass` (new failures get a `TODO explain` reason you
-  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. Currently 178 of 196 pass. Excluded:
-  `bindings-generator-c`/`-cpp` (dlopen of libclang), `bindings-generator-cpp-classes` and `buildcpp-api` (start a compiler
-  process), `c-variadic-foreign-calls` (native C ABI test against libc, pipe, fcntl), `simp-compat-api` and
-  `getrect-right-handed-api`/`getrect-right-handed-surface` (FreeType and stb_image C libraries),
-  `getrect-text-display-compiles` (Window_Creation) and `getrect-rh-negative-control` (fails everywhere by design).
+  regression, any newly passing excluded test, or any test in neither list fails the check; the release gate
+  `check_browser_release.mjs` runs it. After intentionally changing the set: `--update` rewrites `pass` (new failures get a `TODO explain` reason you
+  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. Currently 188 of 209 pass. The 21 exclusions
+  need processes (`Process`, the bindings generators' compiler runs), `dlopen` (libclang), native C libraries (FreeType,
+  stb_image, libc callbacks and variadics), windows (`Window_Creation`) or `chmod`; `getrect-rh-negative-control` fails
+  everywhere by design. Each reason is written next to its name in the JSON file.
 - Debug browser-only behavior natively: `jaic run test.jai -os wasm` uses the same `SandboxHost`.
 
 ## Configuration
 
-- Build: `cargo build -p jai-wasm --release --target wasm32-unknown-unknown` (or
-  `python3 tools/build_scripting_wasm.py --release`, which stages `web/scripting-runtime/` plus `jai_wasm.wasm`).
-- Serve the staged directory with any static server and open `index.html`.
-- Native test: `cargo test -p jai-wasm play`; `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (hello world, sibling `#load`, positioned diagnostics, scalar ABI). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm>` runs the formatter driver `tools/jaifmt/playground.jai` the way a Format button would ([jaifmt](../tools/jaifmt.md#browser-playground)).
-- The wasm is about 30 MB because the stdlib is embedded.
+- Build: `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or `tools/build_scripting_wasm.py` to also stage the bundle. `--target-dir` and `CARGO_TARGET_DIR` select the build directory ([build storage](../tools/build-storage.md)).
+- Native test: `cargo test -p jai-wasm play`. `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (exit codes, phases, nested `#load`, diagnostics). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | dir>` runs the formatter driver the way a Format button would. CI (`.github/workflows/ci.yml`) runs both on a debug build.
+- The release module is about 11 MB, mostly the embedded stdlib.
 
 ## Dependencies
 
-`jaic` (no external crates), `jai-language-server`, CodeMirror bundle in
-`web/scripting-runtime/editor.bundle.mjs`.
-Rust's `wasm32-unknown-unknown` target has no filesystem or process services; the interpreter's
-`SandboxHost` supplies the libc subset the stdlib needs (virtual clock, in-memory files, cooperative threads).
-No Web Worker threads or `SharedArrayBuffer` are involved, so any static host works.
+`jaic` (no external crates) and `jai-language-server`. Rust's `wasm32-unknown-unknown` target has no filesystem or process services; the interpreter's `SandboxHost` supplies the libc subset the stdlib needs (virtual clock, in-memory files, cooperative threads). No `SharedArrayBuffer` is involved, so any static host works. The Node checks need only Node's built-in WebAssembly, worker_threads and fs APIs; there are no npm dependencies.

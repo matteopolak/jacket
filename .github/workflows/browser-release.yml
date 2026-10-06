@@ -1,4 +1,4 @@
-name: verify browser compiler release
+name: verify browser compiler bundle
 on:
   workflow_dispatch:
     inputs:
@@ -52,12 +52,12 @@ jobs:
         env:
           PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
         run: rustup run "$PINNED_TOOLCHAIN" cargo fetch --locked
-      - name: Check packaging helpers and authored browser state
+      - name: Check packaging helpers
         run: |
           python3 -m unittest discover -s tools -p test_package_browser_release.py -v
           python3 -m unittest discover -s tools -p test_build_scripting_wasm.py -v
           python3 -m unittest discover -s tools -p test_cargo_build_paths.py -v
-          node --test tools/test_browser_release.mjs tools/test_browser_workspace.mjs
+          node --test tools/test_browser_release.mjs
       - name: Test the Wasm boundary and language server without LLVM
         env:
           PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}

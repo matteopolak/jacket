@@ -1,4 +1,4 @@
-// The browser and Node verification harness instantiate the exact same Rust compiler (jaic, interpreter backend).
+// Host glue for jai_wasm.wasm, shipped in the browser bundle. Browsers, the hosted playground and the Node checks instantiate the exact same Rust compiler (jaic, interpreter backend).
 export async function createEngine(wasmBytes) {
   const module = await WebAssembly.compile(wasmBytes);
   if (WebAssembly.Module.imports(module).length !== 0) {

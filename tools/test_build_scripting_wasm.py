@@ -16,12 +16,12 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             base = Path(temporary).resolve(); root = base / 'source'; root.mkdir()
             target = base / 'external-apfs/cache'; compiled = target / 'wasm32-unknown-unknown/release/jai_wasm.wasm'
             compiled.parent.mkdir(parents=True); compiled.write_bytes(b'\x00asm\x01\x00\x00\x00')
-            browser = root / 'web/scripting-runtime'; browser.mkdir(parents=True)
-            (browser / 'engine.mjs').write_text('// authored inert staging fixture\n')
-            (browser / 'licenses').mkdir()
-            (browser / 'licenses/editor.txt').write_text('own editor license fixture\n')
-            (browser / 'node_modules').mkdir()
-            (browser / 'node_modules/unused.mjs').write_text('excluded dependency source\n')
+            glue = root / 'crates/jai-wasm/js'; glue.mkdir(parents=True)
+            (glue / 'engine.mjs').write_text('// authored inert staging fixture\n')
+            (glue / 'README.md').write_text('own bundle readme fixture\n')
+            (glue / 'unrelated.mjs').write_text('not part of the bundle\n')
+            driver = root / 'tools/jaifmt/playground.jai'; driver.parent.mkdir(parents=True)
+            driver.write_text('// own formatter driver fixture\n')
             prefix = ['/own/rustup', 'run', 'nightly-2026-08-29', 'cargo']
             with patch.object(wasm, 'ROOT', root), patch.dict(os.environ, {}, clear=True), \
                  patch.object(wasm, 'pinned_cargo_command', return_value=prefix), \
@@ -43,8 +43,9 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             self.assertEqual(receipt['wasm_build_path'], str(compiled))
             self.assertEqual(receipt['wasm_sha256'], hashlib.sha256(compiled.read_bytes()).hexdigest())
             self.assertFalse((root / 'target').exists())
-            self.assertEqual((output / 'licenses/editor.txt').read_text(), 'own editor license fixture\n')
-            self.assertFalse((output / 'node_modules').exists())
+            self.assertEqual(sorted(path.name for path in output.iterdir()),
+                             ['README.md', 'build-metadata.json', 'engine.mjs', 'jai_wasm.wasm', 'jaifmt-playground.jai'])
+            self.assertEqual((output / 'jaifmt-playground.jai').read_text(), '// own formatter driver fixture\n')
 
     def test_separate_build_volume_floor_refuses_build(self):
         with tempfile.TemporaryDirectory() as temporary:

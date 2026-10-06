@@ -20,7 +20,7 @@ def fixture(root):
 
 def staged(stage):
     stage.mkdir()
-    for name in release.REQUIRED - {'release.json', 'jai_wasm.wasm'}:
+    for name in release.REQUIRED - {'build-metadata.json', 'jai_wasm.wasm'}:
         (stage / name).write_text('own inert fixture\n')
     wasm = b'\x00asm\x01\x00\x00\x00'
     (stage / 'jai_wasm.wasm').write_bytes(wasm)
@@ -47,14 +47,20 @@ class BrowserReleaseTests(unittest.TestCase):
             self.assertFalse(one['dirty_checkout']); self.assertEqual(one['commit'], COMMIT)
             with zipfile.ZipFile(base / 'one' / release.ARCHIVE) as archive:
                 self.assertEqual(archive.namelist(), [item['path'] for item in one['files']])
-                self.assertNotIn('build-metadata.json', archive.namelist())
+                self.assertEqual(sorted(archive.namelist()), sorted(release.REQUIRED))
                 self.assertNotIn(release.MANIFEST, archive.namelist())
+                metadata = json.loads(archive.read('build-metadata.json'))
+                self.assertEqual(metadata['commit'], COMMIT)
+                self.assertEqual(metadata['toolchain'], 'nightly-2026-08-29')
+                self.assertEqual(metadata['wasm_sha256'], hashlib.sha256(archive.read('jai_wasm.wasm')).hexdigest())
+                self.assertNotIn('/private/host', archive.read('build-metadata.json').decode())
                 for item in one['files']:
                     content = archive.read(item['path'])
                     self.assertEqual(len(content), item['size'])
                     self.assertEqual(hashlib.sha256(content).hexdigest(), item['sha256'])
                 nested = base / 'site/jai' / COMMIT; archive.extractall(nested)
-                self.assertEqual(json.loads((nested / 'release.json').read_text())['commit'], COMMIT)
+                self.assertEqual(json.loads((nested / 'build-metadata.json').read_text())['commit'], COMMIT)
+            self.assertEqual(one['schema_version'], 2); self.assertNotIn('entrypoint', one)
             self.assertEqual(one['archive']['sha256'], hashlib.sha256((base / 'one' / release.ARCHIVE).read_bytes()).hexdigest())
 
     def test_actual_probe_failure_never_publishes_assets(self):
@@ -86,7 +92,7 @@ class BrowserReleaseTests(unittest.TestCase):
             self.assertFalse(output.exists())
 
     def test_archive_rejects_unsafe_paths_symlinks_native_files_and_size_overflow(self):
-        for name in ('../worker.mjs', '/worker.mjs', 'a//worker.mjs', 'protected/secret.jai', 'worker\\x.mjs', 'native.so', 'x\n.mjs', 'build-metadata.json'):
+        for name in ('../engine.mjs', '/engine.mjs', 'a//engine.mjs', 'protected/secret.jai', 'engine\\x.mjs', 'native.so', 'x\n.mjs', 'index.html', 'style.css'):
             with self.subTest(name=name), self.assertRaises(ValueError): release.asset_path(name)
         with tempfile.TemporaryDirectory() as temporary:
             stage = Path(temporary); (stage / 'escape.mjs').symlink_to('/outside/no-read')
@@ -96,7 +102,7 @@ class BrowserReleaseTests(unittest.TestCase):
 
     def test_changed_asset_bytes_and_nonempty_destination_are_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary); stage = base / 'stage'; staged(stage); (stage / 'build-metadata.json').unlink(); (stage / 'release.json').write_text('{}')
+            base = Path(temporary); stage = base / 'stage'; staged(stage)
             inventory = release.assets(stage); (stage / 'engine.mjs').write_text('changed own source')
             with self.assertRaisesRegex(ValueError, 'changed before archiving'): release.write_archive(stage, base / 'bad.zip', inventory)
             root = base / 'source'; fixture(root); output = base / 'existing'; output.mkdir(); (output / 'keep.txt').write_text('preserve')
@@ -104,21 +110,6 @@ class BrowserReleaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'never overwritten'): release.package(root, output)
                 build.assert_not_called()
             self.assertEqual((output / 'keep.txt').read_text(), 'preserve')
-
-    def test_frontend_age_gate_precedes_locked_scriptless_install_and_real_build(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / 'source'; fixture(root)
-            for name in ('package.json', 'package-lock.json', 'tools/check_editor_dependencies.mjs', 'tools/build_browser_editor.mjs'):
-                target = root / name; target.parent.mkdir(exist_ok=True); target.write_text('own fixture')
-            with patch.object(release.subprocess, 'run') as run, patch.object(release, 'browser_tool', side_effect=lambda name, root: name):
-                release.build_frontend(root)
-            commands = [call.args[0] for call in run.call_args_list]
-            self.assertEqual(commands[0], ['node', str(root / 'tools/check_editor_dependencies.mjs')])
-            self.assertEqual(commands[1:], [['npm', 'ci', '--ignore-scripts'], ['npm', 'run', 'build'], ['npm', 'test']])
-            (root / 'package-lock.json').unlink()
-            with patch.object(release.subprocess, 'run') as run:
-                with self.assertRaisesRegex(ValueError, 'incomplete'): release.build_frontend(root)
-                run.assert_not_called()
 
     def test_output_volume_headroom_refuses_all_builds_before_the_disk_floor(self):
         with tempfile.TemporaryDirectory() as temporary:

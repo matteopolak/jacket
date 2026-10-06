@@ -2,54 +2,52 @@
 
 ## What it is
 
-`tools/package_browser_release.py` produces relocatable browser compiler assets for the portfolio consumer. Each bundle belongs to one clean full compiler commit; it contains the actual Rust-generated WebAssembly and compiler-owned frontend, with an exhaustive digest inventory.
+`tools/package_browser_release.py` turns one clean compiler commit into a relocatable, digest-inventoried browser bundle: the [WebAssembly compiler](playground.md), its `engine.mjs` glue, the jaifmt driver, release metadata and a README. The portfolio site consumes it to serve the hosted playground (https://matteopolak.com/playground/jai). There is no UI in the bundle.
 
 ## How it works
 
-The producer requires a clean Git checkout, including untracked source files. It checks public literal source inputs, validates the dated Rust nightly against the 14-day minimum, checks every locked Cargo registry dependency with the existing publication-age checker, and invokes `build_scripting_wasm.py --release`. The existing pinned Cargo and target-directory rules apply. Child builds/probes clear injected compiler/linker wrappers, Rust flags and Node preload options while preserving the selected Cargo target and enforcing nonincremental builds. CI fetches the locked graph before the offline build; local builds select a target directory as described in [build storage](../tools/build-storage.md).
+1. **Preconditions.** The checkout must be clean, including untracked files. The dated Rust nightly in `rust-toolchain.toml` must be at least 14 days old, every locked Cargo registry dependency passes `tools/check_dependency_age.py`, and `tools/check_ci_sources.py` checks literal `include_*!` inputs. Child processes run with compiler/linker wrappers, Rust flags and Node preload options cleared, and with `CARGO_INCREMENTAL=0`.
+2. **Build.** It runs `build_scripting_wasm.py --release` into a temporary stage. It checks the staged module against the build receipt's SHA-256, then replaces the receipt, which names host paths, with a relocatable `build-metadata.json`:
 
-The build stages regular browser assets recursively while excluding `node_modules`, Git metadata and target caches. The producer checks the Wasm digest against its successful build receipt, removes that host-path receipt, and adds `release.json` with the exact compiler revision. `check_browser_release.mjs` checks relative asset dependencies and imports the **staged** engine and Wasm. Its real execution probes cover scalar and wide signed results, 32-bit browser pointer layout, compile-time/runtime phase selection, a nested source bundle, fuel rejection and source diagnostics. A missing/stale/invalid module or failed probe prevents publication. This Node gate establishes runtime execution and literal asset dependencies; rendered editing, iframe initialization and full browser behavior require separate browser acceptance.
+   ```json
+   { "commit": "<40 hex>", "schema_version": 1, "toolchain": "nightly-2026-08-29", "wasm_sha256": "<64 hex>" }
+   ```
 
-The compiler-owned prelude is embedded in Wasm. Current source bundles provide their own imports; the LSP uses open-document source files. No original/reference corpus, supplied native artifacts or unnecessary external module sources belong in the archive. The shared LSP uses the same Wasm module. When `lsp-client.mjs` is present, the gate requires genuine language exports; initialize, open, definition, hover, completion and versioned change diagnostics must pass before publishing. An independent runtime run then proves that LSP document state did not replace runtime source. Runtime-only builds record `capabilities.lsp: false`; rich-editor builds cannot publish missing language support. There is no placeholder LSP asset.
-
-Source cleanliness and the commit are checked again after build/probes and before finalization. Assets are bounded to 512 files, 64 MiB per file and 128 MiB total. Only normalized relative POSIX regular-file paths are accepted; traversal, absolute/drive paths, symlinks, protected/generated trees, native executables, source maps and build receipts are rejected. Zip timestamps/modes are fixed. Every archive member is read back and checked against its recorded size/digest. The output volume must retain the 2 GiB free-space floor, with additional bounded staging/archive headroom checked before writes and finalization. The output directory must be absent or empty; both assets are finalized together by a directory rename, and existing releases are never overwritten.
-
-The machine-readable contract is [manifest schema v1](../../tools/browser-release-manifest.schema.json). Archive normalization, unique names, aggregate byte limits and file types remain mandatory producer/consumer checks beyond that JSON schema.
+3. **Inventory.** The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `build-metadata.json` and `README.md`. Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` regular files with normalized relative paths are accepted. The bundle is limited to 16 files, 64 MiB per file and 128 MiB total. Each file's size and SHA-256 are recorded.
+4. **Probe.** `node tools/check_browser_release.mjs <stage> --report <json>` imports the **staged** `engine.mjs` and Wasm. It requires the exact five-file inventory, a matching `wasm_sha256` and a self-contained `engine.mjs`. It then runs execution probes (exit codes, compile-time/runtime phases, nested `#load`, diagnostics, Hash_Table, a `#run` workspace message loop, the virtual clock, separate stdout/stderr, the execution budget, a refused `#foreign`), formats a file with the staged driver and, when the module exports it, checks the language server (initialize, definition, hover, completion, versioned diagnostics). Last, it runs `check_playground_stdlib.mjs`, whose pass set must match `tools/playground_stdlib_expected.json`. Any failure means nothing is published.
+5. **Archive.** Source cleanliness and the commit are checked again. The ZIP uses fixed timestamps and modes, so the same inputs give identical bytes, and every member is read back and checked against the inventory. The archive and manifest are moved into the output directory together. The output directory must be absent or empty, and existing releases are never overwritten.
 
 The producer outputs exactly:
 
-- `jai-playground.zip`, whose root contains `index.html`, runtime/frontend assets and `release.json`.
-- `jai-playground.manifest.json`, a separate JSON asset with `schema_version: 1`, `commit` (40 lowercase hex digits), `dirty_checkout: false`, `entrypoint: "index.html"`, `files: [{path, size, sha256}]`, the archive's `name`, `size` and SHA-256, and `capabilities: {runtime: true, lsp: <actual probe result>}`. `files` exhaustively inventories every ZIP member, excluding the external manifest itself.
+- `jai-playground.zip`, whose root holds the five bundle files.
+- `jai-playground.manifest.json`: `schema_version: 2`, `commit`, `dirty_checkout: false`, `files: [{path, size, sha256}]` (every ZIP member), `archive: {name, size, sha256}` and `capabilities: {runtime: true, lsp: <probe result>}`. The JSON schema is [`tools/browser-release-manifest.schema.json`](../../tools/browser-release-manifest.schema.json).
 
-`.github/workflows/browser-release.yml` builds one reviewed full SHA through manual dispatch, tests the portable runtime and helpers, executes the staged Wasm gate and uploads only the two verified producer assets. It has read-only repository permissions and no release-publishing step. The portfolio's `jai-web.yml` owns immutable `jai-web-<full-sha>` releases in `matteopolak/portfolio`, pins manifest/archive hashes, and mounts the verified files under `/jai/<full-sha>/`.
+Schema v2 removed the standalone UI (`index.html`, `worker.mjs`, editor files, `release.json`) and the `entrypoint` field. A v1 consumer that requires `index.html` rejects v2 bundles. The portfolio's `scripts/verify-jai-bundle.py` must accept v2 before its pointer is bumped to a compiler commit that has this layout.
+
+`.github/workflows/browser-release.yml` builds one reviewed full SHA on manual dispatch, runs the helper tests and the Wasm/LSP crate tests, packages the bundle and uploads the two producer assets as a workflow artifact. It has read-only permissions and publishes nothing. The portfolio's `jai-web.yml` checks out a compiler commit, runs the same packager, verifies the bundle, publishes immutable `jai-web-<sha>` releases in `matteopolak/portfolio` and pins their hashes in `jai-web-release.json`.
 
 ## How to change it
 
-Extend runtime/frontend output in `web/scripting-runtime` and preserve base-relative URLs. Keep `release.json` available for the editor's revision-aware embed handshake. The editor owns `?embed=1` ready/error messages; `ready` must follow actual compiler-worker initialization. Package tests do not establish that UI handshake.
-
-Change archive policy and schema in `package_browser_release.py` together with the portfolio consumer. Maintain exhaustive files, bounded paths/bytes, refusal of dirty/source-changing builds and atomic output. The Python tests use authored inert fixtures and mock builds/Node calls; they prove archive/refusal behavior, not compilation. The Node tests prove dependency relocation/refusal and that a header-only module fails actual execution.
-
-The frontend owner supplies pinned root `package.json`/`package-lock.json` and the actual build/checker scripts. With that complete inventory, packaging runs `node tools/check_editor_dependencies.mjs` before `npm ci --ignore-scripts`, then `npm run build` and `npm test`. Partial configuration is rejected. The bundle and license notices must reproduce tracked bytes; new source changes fail the clean-release gate. `node_modules` and local editor build/age receipts are ignored and never packaged. The language protocol probe uses the actual `engine.lsp` bridge and source-syntax results, not semantic inference or compile-time execution.
+- **Bundle contents:** keep `BUNDLED_GLUE` (`build_scripting_wasm.py`), `REQUIRED` (`package_browser_release.py`), `BUNDLE_FILES` (`check_browser_release.mjs`), the schema's `files` bounds and the tests in step. Coordinate any change with the portfolio's verifier and sync script.
+- **Archive policy:** `package_browser_release.py`. Keep exhaustive inventories, bounded paths and bytes, refusal of dirty or changing sources, and atomic output.
+- **Probes:** `check_browser_release.mjs`. Probes must run the staged files, not the source tree.
+- Tests: the Python tests (`test_package_browser_release.py`, `test_build_scripting_wasm.py`) use inert fixtures and mock the build and Node calls. They prove archive, staging and refusal behavior, not compilation. `test_browser_release.mjs` proves the inventory rules and that a header-only module fails real execution.
 
 ## Configuration
 
 ```sh
-# CI provides fetched locked dependencies and the installed wasm target.
-python3 tools/package_browser_release.py --toolchain
-CARGO_TARGET_DIR=/path/to/target CARGO_INCREMENTAL=0 \
+python3 tools/package_browser_release.py --toolchain          # validate and print the pinned nightly
+CARGO_TARGET_DIR=/path/to/target \
   python3 tools/package_browser_release.py --output artifacts/browser-release
 
-# Helper tests perform no Cargo build.
-python3 -m unittest discover -s tools -p test_package_browser_release.py -v
+python3 -m unittest discover -s tools -p 'test_*.py'
 node --test tools/test_browser_release.mjs
 ```
 
-`--output` selects a new/empty directory. Inside the checkout it must be gitignored, so generated output cannot falsify source cleanliness. `--target-dir` overrides the environment and actual Cargo configuration through the [shared helper](../tools/build-storage.md). `--toolchain` validates and prints the dated nightly without building. The manual workflow's `compiler_revision` must be an exact lowercase full commit SHA; no mutable branch/latest lookup is used. CI uses its own ephemeral target.
+`--output` must name a new or empty directory; inside the checkout it must be gitignored. `--target-dir` overrides the environment and Cargo configuration through the [shared helper](../tools/build-storage.md). The workflow's `compiler_revision` must be a lowercase full commit SHA.
+
+To run the probe on a local, uncommitted build: stage it with `build_scripting_wasm.py`, replace its `build-metadata.json` with the relocatable form above (any 40-hex commit), then run `node tools/check_browser_release.mjs <dir>`.
 
 ## Dependencies
 
-Python 3.11+ standard-library TOML/JSON/Zip support, independently installed Node/npm (protected original tool paths and aliases are refused), Node's standard WebAssembly/ES-module APIs, independently installed pinned Rustup/Cargo with `wasm32-unknown-unknown`, and the existing dependency-age/source-input/build-path helpers. This producer tooling introduces no registry dependency; the separate editor and language-server packets own their pinned npm/Cargo dependencies and publication-age checks. The runtime build depends only on the portable compiler/interpreter graph and needs no LLVM backend libraries. The frontend and portable LSP owners supply their actual implementations; the portfolio consumes and publishes verified assets separately.
-
-The staged verification gate additionally executes the actual `worker.mjs` through a Node host adapter against the generated Wasm. It checks cloned multi-file snapshots, independent language-server state, execution-worker termination and a fresh-worker restart. This is a real worker/runtime gate; rendered browser editing and iframe behavior remain a separate acceptance check.
-
-Local verification without the clean-checkout producer: copy `artifacts/scripting-runtime`, add a `release.json` (`{"schema_version":1,"commit":"<40 hex>"}`) and run `node tools/check_browser_release.mjs <copy>`. The dependency scan ignores `#import` text inside JS strings.
+Python 3.11+ (`tomllib`, `zipfile`, `json`), independently installed `git` and Node (tool paths inside protected trees are refused), pinned Rustup/Cargo with `wasm32-unknown-unknown`, and the dependency-age, source-input and build-path helpers in `tools/`. There are no npm dependencies. The build needs no LLVM.

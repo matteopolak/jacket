@@ -26,6 +26,10 @@
 - `New` of an `#align 64` type (and any default-allocator or `rpmalloc` block of 64 bytes or more, including `realloc` and array growth) is now 64-byte aligned; it was only 16-aligned, so such objects were misaligned intermittently. Larger alignments are not guaranteed for heap blocks.
 - `#align 64` (and larger) locals are aligned in the interpreter too; they were only aligned relative to their stack frame.
 
+### Removed
+
+- The standalone browser playground UI (`web/scripting-runtime`, the CodeMirror editor and its npm dependencies). The hosted playground is at https://matteopolak.com/playground/jai. The browser bundle now holds `jai_wasm.wasm`, `engine.mjs` (moved to `crates/jai-wasm/js/`), `jaifmt-playground.jai`, `build-metadata.json` and a README, and its manifest is schema v2.
+
 ## [0.1.0] - 2026-10-05
 
 The first release of `jaic`, an independent Jai compiler written in Rust.

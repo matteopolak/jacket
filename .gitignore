@@ -4,8 +4,5 @@
 **/__pycache__/
 *.jai-output
 /rustc-ice-*.txt
-/node_modules/
-/editor-build.json
-/editor-dependency-age.json
 /TODO.md
 /HANDOFF.md

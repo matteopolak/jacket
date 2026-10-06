@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the real Rust interpreter as wasm and stage its browser runner."""
+"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver)."""
 from pathlib import Path
 import argparse
 import hashlib
@@ -10,6 +10,7 @@ import subprocess
 from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
 
 ROOT = Path(__file__).resolve().parents[1]
+BUNDLED_GLUE = ("engine.mjs", "README.md")
 
 
 def storage_directory(path):
@@ -52,21 +53,11 @@ def main():
         if compiled.read(8) != b"\x00asm\x01\x00\x00\x00":
             raise SystemExit("compiler output is not a WebAssembly module")
     output.mkdir(parents=True, exist_ok=True)
-    browser = root / "web/scripting-runtime"
-    for source in sorted(browser.rglob("*")):
-        relative = source.relative_to(browser)
-        if any(part in {"node_modules", ".git", "target"} for part in relative.parts):
-            continue
-        if source.is_symlink():
-            raise ValueError("browser assets cannot be symlinks")
-        if source.is_dir():
-            continue
-        if not source.is_file():
-            raise ValueError("browser assets must be regular files")
-        destination = output / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-    # The playground's Format button runs this driver in the engine (docs/tools/jaifmt.md).
+    # The bundle is the module plus the glue an embedder needs; the hosted UI lives elsewhere
+    # (docs/browser/playground.md).
+    for name in BUNDLED_GLUE:
+        shutil.copy2(root / "crates/jai-wasm/js" / name, output / name)
+    # Format buttons run this driver in the engine (docs/tools/jaifmt.md).
     shutil.copy2(root / "tools/jaifmt/playground.jai", output / "jaifmt-playground.jai")
     staged = output / "jai_wasm.wasm"
     shutil.copy2(wasm, staged)
@@ -77,7 +68,7 @@ def main():
                "wasm_build_path": str(wasm), "wasm_staged_path": str(staged),
                "wasm_sha256": expected}
     (output / "build-metadata.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    print(f"Browser runner: {output}")
+    print(f"Browser bundle: {output}")
 
 
 if __name__ == "__main__":

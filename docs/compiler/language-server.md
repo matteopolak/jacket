@@ -67,10 +67,10 @@ Completion lists classify unresolved declarations by syntax (`ide_entity_name`):
 - lifecycle: initialize/initialized, shutdown/exit;
 - document open, change and close;
 - `semanticTokens/full`, document symbols, hover, completion and definition;
-- `jai/source` (non-standard, `{uri}` → text or `null`): the text of a definition target the client has not opened, from the open documents or the environment's file system. The browser editor uses it to show stdlib files read-only;
+- `jai/source` (non-standard, `{uri}` → text or `null`): the text of a definition target the client has not opened, from the open documents or the environment's file system. A browser editor can use it to show stdlib files read-only;
 - cancellation.
 
-Completion kinds map to LSP numbers in `protocol.rs`: function 3, field 5, variable 6, module 9, keyword 14, file 17, folder 19, enum member 20, constant 21, struct 22. The browser editor maps those numbers to CodeMirror icons in `tools/browser-editor/editor-kit.mjs`.
+Completion kinds map to LSP numbers in `protocol.rs`: function 3, field 5, variable 6, module 9, keyword 14, file 17, folder 19, enum member 20, constant 21, struct 22. Clients (including the hosted playground's editor) map those numbers to icons.
 
 The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wasm/src/language_server.rs`) keeps the session in a `thread_local`, because the compiler state uses `Rc`.
 
@@ -111,5 +111,5 @@ cargo test -p jai-language-server
 
 - `jaic`: lexer, parser, sema with `IdeFacts`, interpreter `SandboxHost`.
 - `serde` / `serde_json` for JSON.
-- The browser adapter links into `jai_wasm.wasm`, and the editor is CodeMirror, bundled by `tools/build_browser_editor.mjs` (`npm run build`).
+- The browser adapter links into `jai_wasm.wasm` and is reached through `engine.lsp(message)` ([browser compiler](../browser/playground.md)). The hosted playground's editor lives in the portfolio repository.
 - Protocol: [LSP 3.17](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) over [JSON-RPC 2.0](https://www.jsonrpc.org/specification).

@@ -1,46 +1,31 @@
 #!/usr/bin/env node
-import { checkWorkers } from "./check_playground_worker.mjs";
-// Check the staged assets and execute their own engine/Wasm, never a source-tree wrapper.
+// Checks a staged browser bundle and executes its own engine.mjs and Wasm, never a source-tree copy.
+// The bundle is the compiler module plus embedder glue; there is no UI (docs/browser/playground.md).
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, readdir, lstat, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
-function relativeDependency(from, dependency, files) {
-  if (dependency.startsWith("#") || dependency.startsWith("data:")) return;
-  assert(!/^(?:[a-z][a-z\d+.-]*:|\/|\\)/i.test(dependency), `Asset requires a non-relative URL: ${dependency}`);
-  const name = path.posix.normalize(path.posix.join(path.posix.dirname(from), dependency.split(/[?#]/)[0]));
-  assert(name !== ".." && !name.startsWith("../"), `Asset URL escapes release: ${dependency}`);
-  assert(files.has(name), `Missing staged dependency: ${from} -> ${dependency}`);
-}
+export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai"];
 
 export async function inspectAssets(directory) {
-  const files = new Set();
-  async function walk(name = "") {
-    for (const entry of await readdir(path.join(directory, name))) {
-      const relative = name ? `${name}/${entry}` : entry;
-      const information = await lstat(path.join(directory, relative));
-      assert(!information.isSymbolicLink(), "Release assets cannot be symlinks");
-      if (information.isDirectory()) await walk(relative);
-      else { assert(information.isFile()); files.add(relative); }
-    }
+  const entries = (await readdir(directory)).sort();
+  for (const name of entries) {
+    const information = await lstat(path.join(directory, name));
+    assert(!information.isSymbolicLink(), "Release assets cannot be symlinks");
+    assert(information.isFile(), `Release assets must be regular files: ${name}`);
   }
-  await walk();
-  for (const name of ["index.html", "worker.mjs", "engine.mjs", "jai_wasm.wasm", "release.json"]) assert(files.has(name), `Missing ${name}`);
-  const release = JSON.parse(await readFile(path.join(directory, "release.json"), "utf8"));
-  assert.equal(release.schema_version, 1);
-  assert.match(release.commit, /^[0-9a-f]{40}$/);
-  for (const name of files) {
-    if (!/\.(?:html|css|m?js)$/.test(name)) continue;
-    const text = await readFile(path.join(directory, name), "utf8");
-    const patterns = name.endsWith(".html")
-      ? [/<(?:script|link)\b[^>]*\b(?:src|href)\s*=\s*["']([^"']+)["']/gi]
-      : name.endsWith(".css") ? [/url\(\s*["']?([^\s"')]+)["']?\s*\)/gi]
-        : [/(?<![#\w.])\b(?:import|export)\s+(?:[^;\n]*?\sfrom\s*)?["']([^"']+)["']/g,
-           /\b(?:import|fetch|Worker|URL)\s*\(\s*["']([^"']+)["']/g];
-    for (const pattern of patterns) for (const match of text.matchAll(pattern)) relativeDependency(name, match[1], files);
-  }
-  return release;
+  assert.deepEqual(entries, BUNDLE_FILES, "The bundle holds exactly the Wasm module, its glue, the formatter driver, metadata and README");
+  const metadata = JSON.parse(await readFile(path.join(directory, "build-metadata.json"), "utf8"));
+  assert.equal(metadata.schema_version, 1);
+  assert.match(metadata.commit, /^[0-9a-f]{40}$/);
+  const digest = createHash("sha256").update(await readFile(path.join(directory, "jai_wasm.wasm"))).digest("hex");
+  assert.equal(metadata.wasm_sha256, digest, "build-metadata.json must describe the staged module");
+  const engine = await readFile(path.join(directory, "engine.mjs"), "utf8");
+  assert(!/^\s*(?:import\b|export\b[^;\n]*\bfrom\b)|\bimport\s*\(/m.test(engine), "engine.mjs must be self-contained");
+  return metadata;
 }
 
 function checkLanguageServer(engine) {
@@ -70,12 +55,12 @@ function checkLanguageServer(engine) {
   assert(diagnostic && diagnostic.params.diagnostics.length > 0, "Changed source must produce current-version syntax diagnostics");
 }
 
-export async function checkRelease(directory) {
-  const release = await inspectAssets(directory);
+export async function checkRelease(directory, { stdlib = true } = {}) {
+  const metadata = await inspectAssets(directory);
   const { createEngine } = await import(pathToFileURL(path.join(directory, "engine.mjs")).href);
   assert.equal(typeof createEngine, "function");
   const engine = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")));
-  const play = (source, files = {}) => engine.play({ ...files, "main.jai": source }, "main.jai");
+  const play = (source, files = {}, options) => engine.play({ ...files, "main.jai": source }, "main.jai", options);
   assert.equal(play("main :: () -> int { return 42; }").exitCode, 42);
   assert.equal(play("main :: () -> int { if OS == .WASM return 42; return 1; }").exitCode, 42, "Browser builds target WASM");
   assert.equal(play('seed :: #run answer(); answer :: () -> int { if #compile_time return 40; return 900; } main :: () -> int { if #compile_time return 700; return seed + 2; }').exitCode, 42);
@@ -84,20 +69,50 @@ export async function checkRelease(directory) {
   const missing = play("main :: () -> int { return missing; }");
   assert.equal(missing.exitCode, null);
   assert(missing.diagnostics.some(item => /missing/.test(item.message)));
-  const requiresLanguageServer = await lstat(path.join(directory, "lsp-client.mjs")).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; });
-  if (requiresLanguageServer) assert.equal(typeof engine.lsp, "function", "Rich editor requires the real shared language-server Wasm bridge");
+  // Recent-feature smoke tests: stdlib containers, compile-time metaprograms, empty views, the virtual clock.
+  const features = [
+    ['#import "Basic"; #import "Hash_Table"; main :: () { t: Table(int, string); table_set(*t, 1, "one"); ok, v := table_find(*t, 1); print("% %\\n", v, ok); }', "one true\n"],
+    ['#import "Basic"; #import "Compiler"; #run { w := compiler_create_workspace("w"); opts := get_build_options(w); opts.output_type = .NO_OUTPUT; set_build_options(opts, w); compiler_begin_intercept(w); add_build_string("main :: () {}", w); while true { m := compiler_wait_for_message(); if m.kind == .COMPLETE break; } compiler_end_intercept(w); print("meta ok\\n"); } main :: () {}', "meta ok\n"],
+    ['#import "Basic"; main :: () { a := NewArray(0, s64); if a.data print("bad\\n"); else print("null\\n"); }', "null\n"],
+    ['#import "Basic"; main :: () { t := current_time_monotonic(); print("time\\n"); }', "time\n"],
+  ];
+  for (const [source, stdout] of features) {
+    const result = play(source);
+    assert.deepEqual(result.diagnostics, [], source);
+    assert.equal(result.stdout, stdout, source);
+  }
+  // Embedders get stdout/stderr separately and in write order, and can bound runaway programs.
+  const streams = play('#import "Basic"; main :: () { print("a\\n"); log_error("b"); print("c\\n"); }');
+  assert.equal(streams.stdout, "a\nc\n"); assert.equal(streams.stderr, "b\n");
+  assert.deepEqual(streams.output, [{ stream: "stdout", text: "a\n" }, { stream: "stderr", text: "b\n" }, { stream: "stdout", text: "c\n" }]);
+  const bounded = play('#import "Basic"; main :: () { print("go\\n"); while true {} }', {}, { budget: 200000 });
+  assert.equal(bounded.stdout, "go\n"); assert.equal(bounded.exitCode, null);
+  assert(bounded.diagnostics.some(item => /execution budget exhausted/.test(item.message)), JSON.stringify(bounded.diagnostics));
+  const foreign = play('puts :: (s: *u8) -> s32 #foreign libc; libc :: #library "libc"; main :: () { puts("x"); }');
+  assert.equal(foreign.exitCode, null); assert(foreign.diagnostics.length > 0, "Native-only #foreign must fail with a diagnostic, not a crash");
+  // The staged formatter driver formats /workspace/main.jai and prints the result.
+  const driver = await readFile(path.join(directory, "jaifmt-playground.jai"), "utf8");
+  const formatted = engine.play({ "__jaifmt__.jai": driver, "main.jai": "main::(){\nx:=1;\n}\n" }, "__jaifmt__.jai");
+  assert.equal(formatted.exitCode, 0, formatted.stderr);
+  assert.match(formatted.stdout, /^main :: \(\) \{\n\s+x := 1;\n\}\n$/);
   const lsp = typeof engine.lsp === "function";
   if (lsp) {
     checkLanguageServer(engine);
     assert.equal(play("main :: () -> int { return 42; }").exitCode, 42, "LSP document state must not replace runtime source");
   }
-  const worker = await checkWorkers(directory);
-  return { commit: release.commit, runtime: true, lsp, worker };
+  let stdlibPassSet;
+  if (stdlib) {
+    // Every tests/stdlib program runs in a fresh engine; the pass set must equal tools/playground_stdlib_expected.json.
+    const sweep = spawnSync(process.execPath, [fileURLToPath(new URL("./check_playground_stdlib.mjs", import.meta.url)), path.resolve(directory)], { encoding: "utf8" });
+    assert.equal(sweep.status, 0, `stdlib pass set check failed:\n${sweep.stdout}${sweep.stderr}`);
+    stdlibPassSet = sweep.stdout.trim();
+  }
+  return { commit: metadata.commit, runtime: true, lsp, stdlibPassSet };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
   if (!(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === "--report"))) throw new Error("usage: node tools/check_browser_release.mjs <staged-directory> [--report <json-path>]");
   const result = await checkRelease(path.resolve(process.argv[2]));
   if (process.argv[3] === "--report") await writeFile(process.argv[4], JSON.stringify(result) + "\n");
-  console.log(`PASS: staged real browser compiler ${result.commit}, runtime=true, lsp=${result.lsp}, source execution, phase, bundle and diagnostics`);
+  console.log(`PASS: staged browser bundle ${result.commit}, runtime=true, lsp=${result.lsp}; ${result.stdlibPassSet}`);
 }

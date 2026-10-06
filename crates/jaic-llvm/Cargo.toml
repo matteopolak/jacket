@@ -3,6 +3,7 @@ name = "jaic-llvm"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 description = "LLVM backend for the jaic compiler core: lowers jaic IR to native object files."
 
 [dependencies]

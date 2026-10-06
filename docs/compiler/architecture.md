@@ -12,7 +12,7 @@ The workspace has five crates:
 | `crates/jaic-cli` | The `jaic` binary (`run`, `check`, `build`). |
 | `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 22). |
 | `crates/jai-language-server` | Bounded JSON-RPC language server built on the `jaic` lexer and parser. See [language server](language-server.md). |
-| `crates/jai-wasm` | Browser build: `jaic` plus the language server compiled to WebAssembly with the bundled `stdlib/`. See [browser playground](../browser/playground.md). |
+| `crates/jai-wasm` | Browser build: `jaic` plus the language server compiled to WebAssembly with the bundled `stdlib/`. See [browser compiler](../browser/playground.md). |
 
 ## How it works
 

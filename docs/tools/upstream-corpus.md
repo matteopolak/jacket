@@ -14,6 +14,17 @@ Dependencies are pinned like projects: jai_parser for Jails; Linalg, Jolt-Jai an
 
 ### Project status
 
+| Project | Status | Notes |
+| --- | :---: | --- |
+| [Focus](https://github.com/focus-editor/focus) | ✅ | Builds and runs natively on macOS |
+| [Jails](https://github.com/SogoCZE/Jails) | ✅ | Builds a native language server |
+| [jaison](https://github.com/rluba/jaison) | ✅ | Tests and examples run, also natively |
+| [sgpu](https://github.com/roeyb1/sgpu) | ✅ | All examples build on macOS; mesh shaders need a driver MoltenVK lacks |
+| [The Way to Jai](https://github.com/Ivo-Balbaert/The_Way_to_Jai) | ✅ | 316 of 343 programs run; the rest check (windowed, interactive, Windows-only or deliberately failing) |
+| [Vk-Engine](https://github.com/ostef/Vk-Engine) | ⚠️ | Checks for Linux; its Vulkan, ImGui and Jolt modules have no macOS support |
+
+The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
+
 - **focus-editor**: `jaic build first.jai` produces a working native editor on macOS (renders, takes input).
   Needs `python3 tools/build_native_libs.py` (stb libraries) and its own
   `modules/Objective_C/LightweightRenderingView/build.jai` run once (`jaic build build.jai` there). Debug builds

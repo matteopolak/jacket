@@ -1,12 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Jai playground release manifest v1",
+  "title": "Jai browser compiler bundle manifest v2",
   "type": "object",
   "required": [
     "schema_version",
     "commit",
     "dirty_checkout",
-    "entrypoint",
     "files",
     "archive",
     "capabilities"
@@ -14,7 +13,8 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2,
+      "description": "v2 dropped the standalone UI (index.html, worker.mjs) and the entrypoint field."
     },
     "commit": {
       "type": "string",
@@ -23,13 +23,10 @@
     "dirty_checkout": {
       "const": false
     },
-    "entrypoint": {
-      "const": "index.html"
-    },
     "files": {
       "type": "array",
-      "minItems": 8,
-      "maxItems": 512,
+      "minItems": 5,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "required": [

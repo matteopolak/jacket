@@ -3,6 +3,7 @@ name = "jaic"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 description = "Jai compiler core: lexer, parser, demand-driven semantic analysis, IR and interpreter."
 
 [dependencies]
