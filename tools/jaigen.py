@@ -61,8 +61,12 @@ class Var:
 
 
 class Proc:
-    def __init__(self, name, params, ret, pure, poly=False):
+    def __init__(self, name, params, ret, pure, poly=False, overloaded=False, varargs=None):
         self.name, self.params, self.ret, self.pure, self.poly = name, params, ret, pure, poly
+        # One member of an overload set: the name alone is ambiguous, so never take its address.
+        self.overloaded = overloaded
+        # Element type of a `..T` parameter (the procedure's only parameter).
+        self.varargs = varargs
 
 
 class Gen:
@@ -80,6 +84,11 @@ class Gen:
         self.depth_budget = 0
         self.in_pure = False
         self.loop_depth = 0
+        self.using_member = {}  # struct name -> its `using` member (a struct-typed field)
+        self.operators = {}     # struct name -> overloaded operators ("+", "==", "[]")
+        self.unions = []        # (name, bits): plain unions punning an integer, a float and bytes
+        self.tagged = {}        # tagged union name -> (tag enum, [(tag member, field, type)])
+        self.in_using = False
 
     # ---- helpers -------------------------------------------------------------------------------
     def fresh(self, prefix):
@@ -172,6 +181,8 @@ class Gen:
         if have[0] == "struct":
             for f, fty, _ in self.structs[have[1]]:
                 self.collect(f"{path}.{f}", fty, want, found, depth + 1)
+            for f, fty in self.promoted(have[1]):
+                self.collect(f"{path}.{f}", fty, want, found, depth + 1)
         elif have[0] == "pair":
             for f in ("a", "b"):
                 self.collect(f"{path}.{f}", have[1], want, found, depth + 1)
@@ -185,6 +196,17 @@ class Gen:
                 if have[0] != "array" and not self.nonempty(path):
                     return
                 self.collect(f"{path}[\x00{count}\x00]", elem, want, found, depth + 1)
+
+    def promoted(self, name):
+        """Fields that `using` makes reachable by bare name in struct `name`: the direct fields of its
+        `using` member that no direct field shadows (using.md: direct members win)."""
+        member = self.using_member.get(name)
+        if not member:
+            return []
+        fields = self.structs[name]
+        own = {f for f, _, _ in fields}
+        inner = next(fty for f, fty, _ in fields if f == member)
+        return [(f, fty) for f, fty, _ in self.structs[inner[1]] if f not in own]
 
     def nonempty(self, path):
         return path in self.nonempty_paths
@@ -279,6 +301,10 @@ class Gen:
                 return f"(cast,no_check({t}) {e})"
             return self.leaf(t)
         if k == 14:
+            indexable = [n for n, ops in self.operators.items() if "[]" in ops]
+            if indexable and d < 3 and self.chance(0.3):
+                ty = ("struct", self.pick(indexable))
+                return f"(cast,no_check({t}) ({self.expr(ty, d + 1)})[{self.expr('s64', d + 1)}])"
             s = self.string_expr()
             if self.chance(0.5):
                 return f"(cast,no_check({t}) {s}.count)"
@@ -338,6 +364,11 @@ class Gen:
             if e:
                 return e
         if k == 6:
+            comparable = [n for n, ops in self.operators.items() if "==" in ops]
+            if comparable and d < 3 and self.chance(0.2):
+                ty = ("struct", self.pick(comparable))
+                # `!=` has no overload of its own: it falls back to `!(a == b)`.
+                return f"({self.expr(ty, d + 1)} {self.pick(['==', '!='])} {self.expr(ty, d + 1)})"
             if self.chance(0.3):
                 return f"({self.string_expr()} {self.pick(['==', '!='])} {self.string_expr()})"
             return f"(cast(bool) {self.expr(self.pick(INTS), d)})"
@@ -388,6 +419,8 @@ class Gen:
 
     def call_args(self, p, d):
         """Arguments for a call of `p`; a recursive procedure's depth is a small constant."""
+        if p.varargs:
+            return ", ".join(self.expr(p.varargs, d) for _ in range(self.r.randint(0, 4)))
         args = [self.expr(pt, d) for _, pt in p.params]
         if p.params and p.params[0][0] == "depth":
             args[0] = str(self.r.randint(0, 4))
@@ -407,6 +440,8 @@ class Gen:
         if places and self.chance(0.6):
             return self.realize(self.pick(places))
         if ty[0] == "struct":
+            if "+" in self.operators.get(ty[1], ()) and d < 3 and self.chance(0.25):
+                return f"({self.expr(ty, d + 1)} + {self.expr(ty, d + 1)})"
             makers = [p for p in self.procs if p.pure and p.ret == ty]
             if makers and self.chance(0.4) and d < 3:
                 p = self.pick(makers)
@@ -479,7 +514,7 @@ class Gen:
         self.scopes.pop()
 
     def stmt(self, indent):
-        k = self.r.randint(0, 19)
+        k = self.r.randint(0, 23)
         nest_ok = self.depth_budget > 0
         if k <= 3:
             return self.assign(indent)
@@ -549,7 +584,120 @@ class Gen:
             return self.string_stmt(indent)
         if k == 17:
             return self.pointer_stmt(indent)
+        if k == 18 and nest_ok and not self.in_using:
+            return self.using_stmt(indent)
+        if k == 19 and self.unions:
+            return self.union_stmt(indent)
+        if k == 20 and self.tagged and nest_ok:
+            return self.tagged_stmt(indent)
+        if k == 21 and not self.in_pure:
+            return self.any_stmt(indent)
+        if k == 22 and not self.in_pure:
+            return self.type_info_stmt(indent)
         return self.assign(indent)
+
+    def using_stmt(self, indent):
+        """`using v;` in a block: v's fields (and those its `using` member promotes) by bare name."""
+        structs = [v for v in self.vars() if isinstance(v.ty, tuple) and v.ty[0] == "struct" and v.name != "it"]
+        if not structs:
+            return self.assign(indent)
+        v = self.pick(structs)
+        name = v.ty[1]
+        self.depth_budget -= 1
+        self.emit("{", indent)
+        self.emit(f"using {v.name};", indent + 1)
+        fields = [(f, fty) for f, fty, _ in self.structs[name]] + self.promoted(name)
+        self.scopes.append([Var(f, fty, mutable=v.mutable) for f, fty in fields])
+        self.in_using = True
+        for _ in range(self.r.randint(1, 3)):
+            self.stmt(indent + 1)
+        self.in_using = False
+        self.scopes.pop()
+        self.emit("}", indent)
+        self.depth_budget += 1
+
+    def union_stmt(self, indent):
+        """Write one member of a plain union and read the others: the bytes are little-endian on every
+        target. A float is stored only when it is not NaN (its payload is not specified)."""
+        name, bits = self.pick(self.unions)
+        u = self.fresh("un")
+        self.emit(f"{u}: {name};", indent)
+        k = self.r.randint(0, 2)
+        if k == 0:
+            self.emit(f"{u}.i = {self.expr('u32' if bits == 32 else 'u64', 2)};", indent)
+        elif k == 1:
+            self.emit(f"{u}.s = {self.expr('s32' if bits == 32 else 's64', 2)};", indent)
+        else:
+            f = self.fresh("x")
+            self.emit(f"{f} := {self.expr('float32' if bits == 32 else 'float64', 2)};", indent)
+            self.emit(f"if {f} == {f} {u}.f = {f};", indent)
+        if bits == 64 and self.chance(0.3):
+            self.emit(f"{u}.h[{self.r.randint(0, 1)}] ^= {self.expr('u32', 2)};", indent)
+        if self.in_pure:
+            # Pure procedures cannot touch H; fold the union into a local the caller can see instead.
+            places = self.places("u64", mutable_only=True)
+            if places:
+                self.emit(f"{self.realize(self.pick(places))} ^= cast,no_check(u64) {u}.i;", indent)
+            return
+        self.emit(f"mix(cast,no_check(u64) {u}.s);", indent)
+        self.emit(f"mix_float(cast(float64) {u}.f);", indent)
+        self.emit(f"for {u}.b mix(cast(u64) it);", indent)
+        if self.chance(0.3):
+            self.emit(f"print(\"{u} = % %\\n\", {u}.i, {u}.b);", indent)
+
+    def tagged_stmt(self, indent):
+        """Set a tagged union's tag and that variant, then switch on the tag and read the active one."""
+        name = self.pick(self.tagged)
+        tag, variants = self.tagged[name]
+        member, field, ty = self.pick(variants)
+        t = self.fresh("t")
+        if self.chance(0.5):
+            self.emit(f"{t} := {name}.{{ kind = .{member}, {field} = {self.expr(ty, 2)} }};", indent)
+        else:
+            self.emit(f"{t}: {name};", indent)
+            self.emit(f"{t}.kind = .{member};", indent)
+            self.emit(f"{t}.{field} = {self.expr(ty, 2)};", indent)
+        self.depth_budget -= 1
+        self.emit(f"if {t}.kind == {{", indent)
+        for member, field, ty in variants:
+            self.emit(f"case .{member};", indent)
+            if self.in_pure:
+                self.emit(f"{t}.kind = .{member};", indent + 1)
+            else:
+                for line in self.mix_of(f"{t}.{field}", ty):
+                    self.emit(line, indent + 1)
+        self.emit("}", indent)
+        self.depth_budget += 1
+
+    def any_stmt(self, indent):
+        """Values passed as `..Any` and printed through Basic (no floats: NaN text is not canonical)."""
+        vals = [self.pick_place_any() for _ in range(self.r.randint(1, 3))]
+        vals = [v for v in vals if v and self.printable(v[1])]
+        if not vals:
+            return
+        label = self.fresh("show")
+        self.emit(f"show_any(\"{label}\", {', '.join(p for p, _ in vals)});", indent)
+        if self.chance(0.4):
+            a = self.fresh("any")
+            path, ty = vals[0]
+            self.emit(f"{a}: Any = {path};", indent)
+            self.emit(f"print(\"{a} % % %\\n\", {a}, {a}.type.type, {a}.type == type_info(type_of({path})));", indent)
+
+    def type_info_stmt(self, indent):
+        """Reflection on a generated type: names, member names, and (structs hold no pointers, so the
+        layout is the same on every target) sizes and offsets."""
+        k = self.r.randint(0, 2)
+        if k == 0 and self.structs:
+            name = self.pick(self.structs)
+            self.emit(f"print(\"% % %\\n\", type_info({name}).name, size_of({name}), type_info({name}).members.count);", indent)
+            self.emit(f"for type_info({name}).members print(\"  % % % %\\n\", it.name, it.offset_in_bytes, it.type.type, it.type.runtime_size);", indent)
+        elif k == 1 and self.enums:
+            name = self.pick(self.enums)
+            self.emit(f"for type_info({name}).names print(\"% = %\\n\", it, type_info({name}).values[it_index]);", indent)
+        else:
+            v = self.pick_place_any()
+            if v:
+                self.emit(f"print(\"%\\n\", type_of({v[0]}));", indent)
 
     def pick_place_any(self):
         cands = []
@@ -755,12 +903,49 @@ class Gen:
             fields.append(("arr", ("array", self.pick(list(INTS)), self.r.randint(1, 4)), None))
         if self.structs and self.chance(0.3):
             fields.append(("inner", ("struct", self.pick(self.structs)), None))
+        if fields[-1][0] == "inner" and self.chance(0.5):
+            self.using_member[name] = "inner"
         self.out.append(f"{name} :: struct {{")
         for f, ty, default in fields:
-            self.out.append(f"    {f}: {tyname(ty)}" + (f" = {default};" if default else ";"))
+            using = "using " if self.using_member.get(name) == f else ""
+            self.out.append(f"    {using}{f}: {tyname(ty)}" + (f" = {default};" if default else ";"))
         self.out.append("}")
         self.out.append("")
         self.structs[name] = fields
+        if self.chance(0.4):
+            self.gen_operators(name)
+
+    def gen_operators(self, name):
+        """Overloaded `+`, `==` and `[]` on struct `name` (operator-overloading.md). `+` adds the numeric
+        fields (wrapping) and keeps the rest of the left operand; `==` compares the integer and bool
+        fields; `[]` reads an integer field by a wrapped index."""
+        fields = self.structs[name]
+        ops = set()
+        self.out.append(f"operator + :: (a: {name}, b: {name}) -> {name} {{")
+        self.out.append(f"    r := a;")
+        for f, fty, _ in fields:
+            if is_int(fty) or is_float(fty):
+                self.out.append(f"    r.{f} = a.{f} + b.{f};")
+        self.out.append("    return r;")
+        self.out.append("}")
+        ops.add("+")
+        compared = [f for f, fty, _ in fields if is_int(fty) or fty == "bool"]
+        if compared:
+            self.out.append(f"operator == :: (a: {name}, b: {name}) -> bool {{")
+            self.out.append(f"    return {' && '.join(f'a.{f} == b.{f}' for f in compared)};")
+            self.out.append("}")
+            ops.add("==")
+        ints = [f for f, fty, _ in fields if is_int(fty)]
+        if ints:
+            self.out.append(f"operator [] :: (a: {name}, i: s64) -> s64 {{")
+            self.out.append(f"    k := wrap_index(i, {len(ints)});")
+            for i, f in enumerate(ints):
+                self.out.append(f"    if k == {i} return cast,no_check(s64) a.{f};")
+            self.out.append("    return 0;")
+            self.out.append("}")
+            ops.add("[]")
+        self.out.append("")
+        self.operators[name] = ops
 
     def gen_enum(self):
         name = self.fresh("E")
@@ -783,19 +968,22 @@ class Gen:
         self.out.append("")
         self.enums[name] = (base, members, flags)
 
-    def gen_proc(self, pure):
-        name = self.fresh("pure_" if pure else "act_")
-        params = []
-        recursive = pure and self.chance(0.2)
-        if recursive:
-            params.append(("depth", "s64"))
-        for i in range(self.r.randint(0, 4)):
-            params.append((f"a{i}", self.random_type() if not pure or self.chance(0.7) else self.pick(SCALARS)))
-        params = [(n, t) for n, t in params if not (isinstance(t, tuple) and t[0] == "dyn")]
+    def gen_proc(self, pure, name=None, params=None):
+        """A procedure; with `name` and `params` given, one member of an overload set."""
+        overloaded = name is not None
+        name = name or self.fresh("pure_" if pure else "act_")
+        recursive = pure and not overloaded and self.chance(0.2)
+        if params is None:
+            params = []
+            if recursive:
+                params.append(("depth", "s64"))
+            for i in range(self.r.randint(0, 4)):
+                params.append((f"a{i}", self.random_type() if not pure or self.chance(0.7) else self.pick(SCALARS)))
+            params = [(n, t) for n, t in params if not (isinstance(t, tuple) and t[0] == "dyn")]
         ret = self.pick(SCALARS + list(INTS)) if pure or self.chance(0.5) else None
         if pure and self.structs and self.chance(0.2):
             ret = ("struct", self.pick(self.structs))
-        p = Proc(name, params, ret, pure)
+        p = Proc(name, params, ret, pure, overloaded=overloaded)
         sig = ", ".join(f"{n}: {tyname(t)}" for n, t in params)
         inline = "inline " if self.chance(0.15) and not recursive else ""
         self.out.append(f"{name} :: {inline}({sig})" + (f" -> {tyname(ret)}" if ret else "") + " {")
@@ -823,6 +1011,56 @@ class Gen:
         self.out.append("")
         self.in_pure = False
         self.procs.append(p)
+
+    def gen_overloads(self):
+        """2-4 procedures sharing one name, each taking one parameter of a different type. Calls pass an
+        argument of exactly one parameter's type, so the choice never depends on ranking conversions."""
+        name = self.fresh("ov_")
+        pool = SCALARS + ["string"] + [("struct", n) for n in self.structs]
+        for ty in self.r.sample(pool, self.r.randint(2, 4)):
+            self.gen_proc(pure=self.chance(0.7), name=name, params=[("a0", ty)])
+
+    def gen_varargs(self):
+        """A pure procedure over `..T` (procedures.md: variadic arguments)."""
+        name = self.fresh("va_")
+        t = self.pick(list(INTS))
+        self.out.append(f"{name} :: (args: ..{t}) -> {t} {{")
+        self.out.append(f"    r := cast({t}) {self.r.randint(0, 99)};")
+        self.out.append(f"    for args r = (r * cast({t}) {self.pick([3, 5, 31])}) ^ it;")
+        self.out.append(f"    return r + cast,no_check({t}) args.count;")
+        self.out.append("}")
+        self.out.append("")
+        self.procs.append(Proc(name, [], t, True, varargs=t))
+
+    def gen_union(self):
+        """A plain union: an integer, a float and bytes of one width sharing offset 0 (unions.md)."""
+        name = self.fresh("U")
+        bits = self.pick([32, 64])
+        if bits == 32:
+            self.out.append(f"{name} :: union {{ i: u32; s: s32; f: float32; b: [4] u8; }}")
+        else:
+            self.out.append(f"{name} :: union {{ i: u64; s: s64; f: float64; b: [8] u8; h: [2] u32; }}")
+        self.out.append("")
+        self.unions.append((name, bits))
+
+    def gen_tagged_union(self):
+        """A tagged union (unions.md) over a fresh tag enum. Only the variant the tag names is read."""
+        name = self.fresh("T")
+        tag = f"{name}_Kind"
+        pool = SCALARS + ["string"] + [("struct", n) for n in self.structs]
+        variants = []
+        self.out.append(f"{tag} :: enum {self.pick(['u8', 'u16', 's32'])} {{")
+        for i in range(self.r.randint(2, 4)):
+            member = f"{tag}_{'ABCD'[i]}"
+            self.out.append(f"    {member};")
+            variants.append((member, f"m{i}", self.pick(pool)))
+        self.out.append("}")
+        self.out.append(f"{name} :: union kind: {tag} {{")
+        for member, field, ty in variants:
+            self.out.append(f"    .{member} ,, {field}: {tyname(ty)};")
+        self.out.append("}")
+        self.out.append("")
+        self.tagged[name] = (tag, variants)
 
     def gen_poly(self):
         name = self.fresh("poly_")
@@ -861,6 +1099,11 @@ class Gen:
         o.append("wrap_index :: (v: s64, n: s64) -> s64 { r := v % n; if r < 0 r += n; return r; }")
         o.append("string_byte :: (s: string, i: s64) -> u8 { if s.count == 0 return 7; return s[wrap_index(i, s.count)]; }")
         o.append("Pair :: struct (T: Type) { a: T; b: T; }")
+        o.append("show_any :: (label: string, args: ..Any) {")
+        o.append("    print(\"%:\", label);")
+        o.append("    for args print(\" % (%)\", it, it.type.type);")
+        o.append("    print(\"\\n\");")
+        o.append("}")
         for t, (bits, signed) in INTS.items():
             if signed:
                 o.append(f"safe_div_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 || b == -1 return a; return a / b; }}")
@@ -888,6 +1131,15 @@ class Gen:
             self.gen_struct()
         for _ in range(self.r.randint(0, 2)):
             self.gen_poly()
+        for _ in range(self.r.randint(0, 1)):
+            self.gen_union()
+        for _ in range(self.r.randint(0, 2)):
+            self.gen_tagged_union()
+        for _ in range(self.r.randint(0, 2)):
+            self.gen_varargs()
+        for _ in range(self.r.randint(0, 2)):
+            self.gen_overloads()
+        self.scopes = [[]]
         for _ in range(self.r.randint(1, 3)):
             ty = self.pick(SCALARS + list(INTS))
             g = Var(self.fresh("g"), ty)
@@ -932,7 +1184,8 @@ class Gen:
                 self.emit(f"{vname}: [] {tyname(a.ty[1])} = {a.name};", 1)
                 self.scopes[-1].append(Var(vname, ("view", a.ty[1]), mutable=False))
                 self.nonempty_paths.add(vname)
-        for p in self.r.sample([p for p in self.procs if p.pure and not p.poly and p.ret], min(2, len([p for p in self.procs if p.pure and not p.poly and p.ret]))):
+        addressable = [p for p in self.procs if p.pure and not p.poly and p.ret and not p.overloaded and not p.varargs]
+        for p in self.r.sample(addressable, min(2, len(addressable))):
             # Calls through a procedure value: an indirect call in compiled code.
             name = self.fresh("fp")
             self.emit(f"{name} := {p.name};", 1)

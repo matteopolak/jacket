@@ -73,6 +73,9 @@ It covers:
 - casts: plain, `trunc` and `no_check`, int↔float, guarded float→int;
 - `#no_aoc` blocks;
 - structs with defaults and nested structs, a polymorphic struct `Pair(T)`;
+- `using` struct members (fields read and written through the promoted name) and `using v;` blocks ([using](../language/using.md));
+- overloaded `+`, `==` (and the `!=` fallback) and `[]` on generated structs ([operator overloading](../language/operator-overloading.md));
+- plain unions punning an integer, a float and bytes (little-endian on every target), and tagged unions whose active variant is read after a switch on the tag ([unions](../language/unions.md));
 - fixed arrays (including arrays of structs), views, dynamic arrays with `array_add`;
 - `for` over ranges (forward and reverse), over arrays by value and by pointer, bounded `while` loops, `break`/`continue`;
 - `if`/`else`, `ifx`, `if x == { case ...; }` switches;
@@ -80,6 +83,8 @@ It covers:
 - `defer`, including inside loops;
 - strings: literals, `tprint`, `count`, indexing and comparison;
 - procedures: pure and effectful, inline, recursive with a depth argument, procedure-valued variables;
+- overload sets whose members take one parameter of different types, always called with an argument of exactly one member's type, and `..T` variadics called with 0–4 arguments ([procedures](../language/procedures.md));
+- `..Any` arguments and `Any` values printed with their `Type_Info` tag, `type_of`, and reflection on generated types: struct names, sizes, member names, offsets and tags, enum `names`/`values` ([type values](../language/type-values-and-info.md));
 - polymorphic procedures with `$T` and `#if` on the type;
 - pointers to locals;
 - `#run` constants (scalar and struct) compared with the same computation at run time;
@@ -95,8 +100,9 @@ Programs use only behaviour that `docs/language/*.md` defines (the docstring has
 - NaN is hashed and printed in a canonical form.
 - Procedures called inside expressions are pure, because operand evaluation order is not specified.
 - Loops have constant trip counts and recursion has a decreasing depth.
-
-A run of all four backends takes about 0.55 s per program with three jobs. All but one program in the campaigns so far compiled.
+- A union is read through another member only for bit patterns, never for a float that may be NaN (its payload is not specified); a tagged union only through its active variant.
+- Overload choice never depends on ranking conversions, and procedure values are never taken of an overloaded name.
+- Sizes and offsets are printed only for generated structs, which hold no pointers, so the layout is the same on 64-bit hosts and wasm32. Floats are never printed through `Any`.
 
 ### Reducing (`tools/jaic-reduce.py`)
 
@@ -108,13 +114,13 @@ The reducer keeps a candidate if it still compiles and the backends still split 
 
 ### Full run
 
-Run this before a release, or after changing the interpreter, sema's constant folding, lowering or the LLVM backend. On an M-series laptop the corpus, stdlib and modules run takes about 3 minutes and the 3,000-program run about 27. Run it with one heavy job at a time, since it builds two native executables per program:
+Run this before a release, or after changing the interpreter, sema's constant folding, lowering or the LLVM backend. A generated program costs a few tenths of a second on all four backends with three jobs, so a few thousand take a quarter of an hour or more. Run it with one heavy job at a time, since it builds two native executables per program. Pick seeds no earlier campaign used (the commit that added a generator feature names the ranges it ran):
 
 ```sh
 cargo build --release -p jaic-cli
 python3 tools/build_scripting_wasm.py --release --output /tmp/wasm
 python3 tools/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus stdlib modules
-python3 tools/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:10000:3000
+python3 tools/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
 ```
 
 `--keep` keeps the generated programs (`/tmp/gen/programs/gen-N/main.jai`) for reducing. Reproduce one program with `tools/jaigen.py N`.
@@ -132,8 +138,10 @@ Each bug was fixed with a regression test.
 | targeted probe (`tests/stdlib/int-to-float32-rounding.jai`) | interp, wasm, constant folding | 64-bit integer → `float32` rounded twice, through f64 |
 | `tests/stdlib/debug-assert-handlers.jai` | native | functions had no frame records, so macOS `backtrace` (Debug's `backtrace`) found no frames ([LLVM backend](../native/llvm-backend.md)) |
 | generated seed 10014 (`tests/corpus/positive/unrolled-sub-reduction.jai`) | native-O2 | LLVM 22's runtime unroller recombined parallel accumulators of an `a -= b` recurrence wrongly. jaic turns that transformation off ([LLVM backend](../native/llvm-backend.md)) |
+| generated seed 61919 (`tests/stdlib/poly-infer-from-ifx.jai`) | front end | `$T` could not be inferred from an `ifx` whose branches are all `ifx` themselves |
+| generated seeds 62030, 62063 (`tests/stdlib/cast-float-of-integer-operator.jai`) | front end | a float cast's target reached an `ifx` operand of `&`/`%`, which widened to float, so the operator failed on `float32` |
 
-The generated programs found 2 of these bugs. Four came from the stdlib sets, and one from a targeted probe of int-to-float conversions (jaigen now generates those edge values too). Campaigns so far: seeds 1–200, 1000–1299, 10000–12999, 20000–22999, 30000–30299 and 40000–41499. That is 8,300 programs on all four backends, plus 400 for compile validity. Only seed 10014 disagreed, and it agrees after the fix. One program, seed 22650, failed to compile everywhere; see Open questions.
+The generated programs found 4 of these bugs. Four came from the stdlib sets, and one from a targeted probe of int-to-float conversions (jaigen now generates those edge values too). Run counts, seed ranges and timings belong in the commit messages and reports of each campaign, not here: a generator change gives every seed a different program. One generated program failed to compile everywhere; see Open questions.
 
 ### Open questions
 
@@ -141,7 +149,7 @@ Differential testing cannot find a bug that every backend shares, because they s
 
 - **The question.** Should a cast's target type reach an untyped literal on the left of an operator whose other operand is typed?
 - **What jaic does now.** It does. `cast(float32) (0 - w)` with `w: u16 = 15` computes in `float32` and gives `-15`, where typing `0` from `w` would give `65521`.
-- **The visible failure.** `cast(float32) ((0 - w) & v)` is rejected: `operator BitAnd is not defined for float32`.
+- **The visible failure** (fixed). `cast(float32) ((0 - w) & v)` was rejected with `operator BitAnd is not defined for float32`, and so was an `ifx` operand with typed branches (seeds 62030 and 62063). A float target no longer reaches the operands of `&`, `|`, `^` and `%` ([casts](../language/casts-and-conversions.md)).
 - **What jaigen does instead.** It writes `cast(T) 0 - x` (seed 22650 found this).
 
 ### CI
