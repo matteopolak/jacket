@@ -114,10 +114,10 @@ pub struct BuildEnv {
     /// Base options (import path, preload, target) for new workspaces.
     pub options: Options,
     pub backend: Option<Box<dyn OutputBackend>>,
-    /// Without a backend: the command that would write a workspace's output, named in a warning
-    /// when a workspace asks for one (`jaic run` and `jaic check` only check workspaces). `None`
+    /// Without a backend: what to tell the user when a workspace asks for output that this
+    /// command does not write (`jaic check` only compiles workspaces). `None`
     /// says nothing (the browser and editors, where no output is ever expected).
-    pub unwritten_output_hint: Option<String>,
+    pub unwritten_output_hint: Option<UnwrittenOutputHint>,
     /// Arguments after `-` on the command line (`compile_time_command_line`).
     pub command_line: Vec<String>,
     /// Host for the compile-time interpreter of each workspace, given its target `OS`
@@ -128,6 +128,27 @@ pub struct BuildEnv {
     /// Sees each workspace compiler as it is made and when its workspace is done (tools that
     /// inspect what the metaprogram built, such as a linter).
     pub observer: Option<Box<dyn WorkspaceObserver>>,
+}
+
+/// The command line a warning about unwritten workspace output refers to.
+#[derive(Clone, Debug)]
+pub struct UnwrittenOutputHint {
+    /// The main file as given on the command line.
+    pub main_file: String,
+    /// The directory the command was started from (paths are shown relative to it).
+    pub cwd: PathBuf,
+}
+
+/// `path` relative to `base` when it lies below it.
+/// (A relative `path` is taken from the current directory, the metaprogram's.)
+fn shown_path(path: &std::path::Path, base: &std::path::Path) -> String {
+    let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let path: PathBuf = absolute
+        .components()
+        .filter(|c| !matches!(c, std::path::Component::CurDir))
+        .collect();
+    path.strip_prefix(base)
+        .map_or_else(|_| path.display().to_string(), |p| p.display().to_string())
 }
 
 /// Hooks into the life of workspace compilers. Called without the registry borrowed, but the
@@ -715,7 +736,7 @@ fn write_output(
             Some(backend) => backend.write_output(&compiler.program, &settings, &output),
             // No backend: checking only.
             None => {
-                if let Some(command) = reg.env.unwritten_output_hint.clone() {
+                if let Some(hint) = reg.env.unwritten_output_hint.clone() {
                     let name = reg.ws(id)?.name.clone();
                     let kind = match settings.output_type {
                         OutputType::DynamicLibrary => "a dynamic library",
@@ -724,10 +745,11 @@ fn write_output(
                         _ => "an executable",
                     };
                     (reg.env.report)(&format!(
-                        "warning: {} was not written: workspace `{name}` asks for {kind}, but this \
-                         command only checks the workspaces a metaprogram creates\n\
-                         help: to write it, use `{command}`",
-                        output.display(),
+                        "warning: `jaic check` does not write {} (workspace `{name}` asks for \
+                         {kind})\n\
+                         help: `jaic build {main}` (or `jaic run {main}`) writes it",
+                        shown_path(&output, &hint.cwd),
+                        main = hint.main_file,
                     ));
                 }
                 Ok(())
@@ -892,7 +914,7 @@ pub fn call(
             let ws = reg.ws(id).map_err(trap)?;
             if ws.stage == Stage::Done {
                 return Err(trap(format!(
-                    "workspace '{}' is already complete; sources can no longer be added",
+                    "workspace `{}` has already been compiled; add its sources before it completes",
                     ws.name
                 )));
             }
@@ -900,9 +922,15 @@ pub fn call(
             // Resolved now: the metaprogram may change directory before it compiles.
             let path = fs.canonical(&PathBuf::from(&value));
             if op == MetaOp::AddFile && !fs.is_file(&path) {
-                return Err(trap(format!(
-                    "add_build_file: could not read file '{value}'"
-                )));
+                let cwd = std::env::current_dir().unwrap_or_default();
+                return Err(trap(if fs.is_dir(&path) {
+                    format!("add_build_file: `{value}` is a directory, not a .jai file")
+                } else {
+                    format!(
+                        "add_build_file: file `{value}` does not exist (relative paths start from the metaprogram's directory, {})",
+                        cwd.display()
+                    )
+                }));
             }
             let ws = reg.ws(id).map_err(trap)?;
             ws.pending.push(if op == MetaOp::AddFile {

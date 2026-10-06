@@ -41,7 +41,11 @@ fn distance(a: &str, b: &str, limit: usize) -> Option<usize> {
 /// candidate first in sort order. `wanted` itself is never suggested.
 pub fn closest<'a>(wanted: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
     let length = wanted.chars().count();
-    let limit = if length < 3 { 0 } else { (length / 3).max(1) };
+    let limit = if length < 3 {
+        0
+    } else {
+        (length / 3).max(1)
+    };
     let lower = wanted.to_lowercase();
     let mut best: Option<(usize, &'a str)> = None;
     for candidate in candidates {

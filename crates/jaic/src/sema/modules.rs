@@ -159,13 +159,115 @@ pub fn import_entry(
     }
 }
 
+/// The module names a directory offers: `Name.jai` files and `Name/module.jai` folders.
+fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
+    fs.list_dir(dir)
+        .into_iter()
+        .filter_map(|(name, is_dir)| {
+            if is_dir {
+                fs.is_file(&dir.join(&name).join("module.jai"))
+                    .then_some(name)
+            } else {
+                name.strip_suffix(".jai").map(str::to_string)
+            }
+        })
+        .collect()
+}
+
 /// Marks an import argument `.Member` whose type comes from the module parameter.
 const INFERRED_PARAM: &str = "\0inferred.";
 
 impl Compiler {
+    /// `module `X` not found`, with where jaic looked and the closest module name there.
+    fn module_not_found(&self, name: &str, from_dir: &Path, span: Span) -> Diagnostic {
+        let mut dirs = vec![from_dir.join("modules")];
+        dirs.extend(self.options.import_paths.iter().cloned());
+        dirs.dedup();
+        let mut available: Vec<String> =
+            dirs.iter().flat_map(|d| modules_in(&*self.fs, d)).collect();
+        available.sort();
+        available.dedup();
+        let mut d = Diagnostic::error(span, format!("module `{name}` not found"))
+            .with_label("no module of this name");
+        let near_found =
+            crate::suggest::closest(name, available.iter().map(String::as_str)).is_some();
+        if let Some(near) = crate::suggest::closest(name, available.iter().map(String::as_str)) {
+            let near = near.to_string();
+            let quoted = self.sources.snippet(span).find(&format!("\"{name}\""));
+            d = match quoted {
+                Some(at) => {
+                    let start = span.start as usize + at + 1;
+                    let at = Span::new(span.file, start, start + name.len());
+                    d.with_fix(
+                        format!("a module with a similar name exists: `{near}`"),
+                        at,
+                        near,
+                    )
+                }
+                None => d.with_help(format!("a module with a similar name exists: `{near}`")),
+            };
+        }
+        let searched: Vec<String> = dirs
+            .iter()
+            .map(|d| format!("    {}", self.fs.canonical(d).display()))
+            .collect();
+        d = d.with_note(
+            Span::NONE,
+            format!(
+                "looked for `{name}.jai` and `{name}/module.jai` in:\n{}",
+                searched.join("\n")
+            ),
+        );
+        if near_found {
+            d
+        } else {
+            d.with_help(
+                "a module of your own goes in a `modules` folder next to the main file, or in a directory passed with `-import_dir`",
+            )
+        }
+    }
+
+    /// `#load` (or another read) of a file that is not there, with a close name if one is.
+    fn unreadable_file(&self, path: &Path, span: Span) -> Diagnostic {
+        let shown = self
+            .sources
+            .snippet_or_empty(span)
+            .trim_matches('"')
+            .to_string();
+        let shown = if shown.is_empty() || shown.contains('\n') {
+            path.display().to_string()
+        } else {
+            shown
+        };
+        if self.fs.is_dir(path) {
+            return Diagnostic::error(span, format!("`{shown}` is a directory, not a file"))
+                .with_help(
+                    "`#load` takes a .jai file; `#import,dir` imports a directory's module.jai",
+                );
+        }
+        let mut d = Diagnostic::error(span, format!("file `{shown}` does not exist"));
+        let dir = path.parent().unwrap_or(Path::new("."));
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let files: Vec<String> = self
+            .fs
+            .list_dir(dir)
+            .into_iter()
+            .filter(|(n, is_dir)| !is_dir && n.ends_with(".jai"))
+            .map(|(n, _)| n)
+            .collect();
+        if let Some(near) = crate::suggest::closest(&name, files.iter().map(String::as_str)) {
+            d = d.with_help(format!("a file with a similar name exists: `{near}`"));
+        }
+        d.with_note(Span::NONE, format!("looked for {}", path.display()))
+            .with_help("`#load` paths are relative to the file that loads them")
+    }
+
     fn read_source(&mut self, path: &Path, span: Span) -> Result<FileId> {
         let Some(bytes) = self.fs.read(path) else {
-            return err(span, format!("could not read file '{}'", path.display()));
+            return Err(Box::new(self.unreadable_file(path, span)));
         };
         let text: Rc<str> = String::from_utf8_lossy(&bytes).into();
         Ok(self.sources.add(path.display().to_string(), text))
@@ -1072,13 +1174,7 @@ impl Compiler {
             }
             ast::ImportSource::Module(name) => {
                 let Some(entry) = self.find_module(name, &dir) else {
-                    return err(
-                        import.span,
-                        format!(
-                            "module '{name}' not found (searched {} import directories)",
-                            self.options.import_paths.len() + 1
-                        ),
-                    );
+                    return Err(Box::new(self.module_not_found(name, &dir, import.span)));
                 };
                 self.load_module(name, &entry, params, import.span)
             }

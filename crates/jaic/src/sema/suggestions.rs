@@ -21,10 +21,12 @@ impl Compiler {
         let wanted = self.sources.snippet(span);
         let names = self.names_visible_from(scope);
         let d = d.clone().with_label("not found in this scope");
-        Some(match crate::suggest::closest(wanted, names.iter().copied()) {
-            Some(found) => d.with_fix(format!("a similar name exists: `{found}`"), span, found),
-            None => d,
-        })
+        Some(
+            match crate::suggest::closest(wanted, names.iter().copied()) {
+                Some(found) => d.with_fix(format!("a similar name exists: `{found}`"), span, found),
+                None => d,
+            },
+        )
     }
 
     /// The names a lookup from `scope` can reach without loading anything new: each enclosing

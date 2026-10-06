@@ -166,7 +166,7 @@ class WasmPool:
             if any(d["file"].startswith("/stdlib/") and d["message"].startswith("#assert failed") for d in errors):
                 return Result("unsupported", note=f"{errors[0]['file']}: the module does not support the WASM target")
             # The sandbox file system holds the workspace and the stdlib, nothing else from the repository.
-            if missing := re.search(r"Unable to open '([^']*)'|could not read file '([^']*)'", r["stderr"] + text):
+            if missing := re.search(r"Unable to open '([^']*)'|file `([^`]*)` does not exist", r["stderr"] + text):
                 return Result("missing-file", r["stdout"], r["stderr"], note=f"no {missing.group(1) or missing.group(2)} in the sandbox")
             if r["exitCode"] is None:
                 return Result("compile error", note=text[:300])

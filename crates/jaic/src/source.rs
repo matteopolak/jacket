@@ -106,6 +106,17 @@ impl SourceMap {
         self.files.is_empty()
     }
 
+    /// The text of `span`, or "" for a span without a place.
+    pub fn snippet_or_empty(&self, span: Span) -> &str {
+        if (span.file.0 as usize) < self.files.len() && span != Span::default() {
+            let text = &self.get(span.file).text;
+            text.get(span.start as usize..span.end as usize)
+                .unwrap_or("")
+        } else {
+            ""
+        }
+    }
+
     pub fn snippet(&self, span: Span) -> &str {
         let file = self.get(span.file);
         &file.text[span.start as usize..span.end as usize]
@@ -173,7 +184,12 @@ impl Diagnostic {
     }
 
     /// A help line with the replacement it suggests.
-    pub fn with_fix(mut self, message: impl Into<String>, span: Span, replacement: impl Into<String>) -> Self {
+    pub fn with_fix(
+        mut self,
+        message: impl Into<String>,
+        span: Span,
+        replacement: impl Into<String>,
+    ) -> Self {
         self.help.insert(0, message.into());
         self.fix = Some((span, replacement.into()));
         self
@@ -215,12 +231,16 @@ impl Diagnostic {
             }
         }
         for (i, help) in self.help.iter().enumerate() {
-            let fix = self.fix.as_ref().filter(|_| i == 0).and_then(|(span, text)| {
-                has_location(sources, *span).then(|| Fix {
-                    text: &sources.get(span.file).text,
-                    edits: vec![(span.start as usize, span.end as usize, text.clone())],
-                })
-            });
+            let fix = self
+                .fix
+                .as_ref()
+                .filter(|_| i == 0)
+                .and_then(|(span, text)| {
+                    has_location(sources, *span).then(|| Fix {
+                        text: &sources.get(span.file).text,
+                        edits: vec![(span.start as usize, span.end as usize, text.clone())],
+                    })
+                });
             report.help.push(Help {
                 message: help.clone(),
                 fix,

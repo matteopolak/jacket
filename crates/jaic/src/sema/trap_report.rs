@@ -6,9 +6,12 @@ use crate::interp::{Trap, TrapFrame};
 use crate::source::{Diagnostic, FileId, Span};
 use std::path::{Path, PathBuf};
 
-/// The runtime procedure that prints a failed `assert` (message and stack trace) before it
-/// stops the program with `debug_break`.
-const ASSERTION_REPORTER: &str = "runtime_support_assertion_failed";
+/// The procedures between a failed `assert` and its report: left out of the call stack.
+const ASSERTION_FRAMES: &[&str] = &[
+    "runtime_support_report_assertion",
+    "runtime_support_assertion_failed",
+    "assert_helper",
+];
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
@@ -22,18 +25,32 @@ impl Compiler {
     ///
     /// The primary location is the innermost frame in the program's own code: when a check
     /// fails inside the standard library, the user's call into it is what needs fixing.
-    pub(crate) fn trap_diagnostic(&self, trap: &Trap, prefix: &str, site: Option<Span>) -> Diagnostic {
-        let frames: Vec<&TrapFrame> = trap.frames.iter().collect();
+    pub(crate) fn trap_diagnostic(
+        &self,
+        trap: &Trap,
+        prefix: &str,
+        site: Option<Span>,
+    ) -> Diagnostic {
+        let assertion = trap.assertion.is_some();
+        let frames: Vec<&TrapFrame> = trap
+            .frames
+            .iter()
+            .skip_while(|f| assertion && ASSERTION_FRAMES.contains(&f.name.as_str()))
+            .collect();
         let library_roots = self.library_roots();
         let is_library = |loc: Option<(u32, u32, u32)>| {
             loc.is_some_and(|(file, ..)| self.is_library_file(FileId(file), &library_roots))
         };
-        // A failed `assert` already printed its message and stack trace; what is left is to
-        // say where, not that `debug_break` ran inside the runtime.
-        let assertion = trap.message == "debug_break() was called"
-            && frames.iter().any(|f| f.name == ASSERTION_REPORTER);
-        let message = if assertion {
-            "assertion failed (message and stack trace above)".to_string()
+        // The asserted condition, read from the `assert(...)` call.
+        let condition = frames
+            .first()
+            .filter(|_| assertion)
+            .and_then(|f| f.loc)
+            .and_then(|loc| self.assert_condition(loc));
+        let message = if trap.message == "assertion failed"
+            && let Some(condition) = &condition
+        {
+            format!("assertion failed: `{condition}` is false")
         } else if trap.message == MISSING_RETURN
             && let Some(frame) = frames.first()
             && !is_internal_name(&frame.name)
@@ -56,11 +73,12 @@ impl Compiler {
             .or(site)
             .unwrap_or(Span::NONE);
         let mut d = Diagnostic::error(span, format!("{prefix}: {message}"));
+        if let Some(condition) = condition.filter(|_| trap.message != "assertion failed") {
+            d = d.with_label(format!("`{condition}` is false"));
+        }
         // The failure was inside library code the user's line called: name the procedure the
         // user called and where inside it things went wrong.
-        if let Some(i) = primary.filter(|&i| i > 0)
-            && !assertion
-        {
+        if let Some(i) = primary.filter(|&i| i > 0) {
             let innermost = frames[0];
             let called = frames[..i]
                 .iter()
@@ -76,7 +94,12 @@ impl Compiler {
             d = d.with_note(
                 Span::NONE,
                 format!(
-                    "this call failed inside {}{}{within}",
+                    "{} inside {}{}{within}",
+                    if assertion {
+                        "an assertion failed"
+                    } else {
+                        "this call failed"
+                    },
                     display_name(&called.name),
                     self.loc_suffix(innermost.loc),
                 ),
@@ -93,7 +116,7 @@ impl Compiler {
             .copied()
             .filter(|f| !is_internal_name(&f.name))
             .collect();
-        if !assertion && visible.len() > 1 {
+        if visible.len() > 1 {
             d = d.with_note(Span::NONE, self.call_stack(&visible, trap.omitted_frames));
         }
         if let Some(help) = help_for(&trap.message) {
@@ -126,7 +149,11 @@ impl Compiler {
             if repeats > 0 {
                 text += &format!(
                     "\n    ... the same call {repeats} more time{}",
-                    if repeats == 1 { "" } else { "s" }
+                    if repeats == 1 {
+                        ""
+                    } else {
+                        "s"
+                    }
                 );
             }
             shown += 1;
@@ -136,6 +163,38 @@ impl Compiler {
             text += &format!("\n    ... {omitted} more frames");
         }
         text
+    }
+
+    /// The condition of the `assert(...)` call at `loc`, when that is what the line holds.
+    fn assert_condition(&self, (file, line, col): (u32, u32, u32)) -> Option<String> {
+        if file as usize >= self.sources.len() {
+            return None;
+        }
+        let text = self.sources.get(FileId(file)).line_text(line);
+        let call = text.get(col.saturating_sub(1) as usize..)?.trim_start();
+        let args = call
+            .strip_prefix("assert")?
+            .trim_start()
+            .strip_prefix('(')?;
+        // Up to the first comma or closing parenthesis outside brackets and strings.
+        let mut depth = 0i32;
+        let mut quoted = false;
+        let mut previous = ' ';
+        for (i, c) in args.char_indices() {
+            match c {
+                '"' if previous != '\\' => quoted = !quoted,
+                _ if quoted => {}
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' if depth > 0 => depth -= 1,
+                ')' | ',' if depth == 0 => {
+                    let condition = args[..i].trim();
+                    return (!condition.is_empty()).then(|| condition.to_string());
+                }
+                _ => {}
+            }
+            previous = c;
+        }
+        None
     }
 
     /// ` at path:line` for a frame location, or nothing.
@@ -158,7 +217,12 @@ impl Compiler {
         let start = source.offset_of(line, col) as usize;
         let text = source.line_text(line);
         let rest = text.get(col.saturating_sub(1) as usize..).unwrap_or("");
-        let len = rest.trim_end().trim_end_matches(';').trim_end().len().max(1);
+        let len = rest
+            .trim_end()
+            .trim_end_matches(';')
+            .trim_end()
+            .len()
+            .max(1);
         Span::new(FileId(file), start, start + len)
     }
 
@@ -195,6 +259,11 @@ fn is_internal_name(name: &str) -> bool {
 }
 
 fn display_name(name: &str) -> String {
+    // A polymorphic instance is `name#N`; the user knows it as `name`.
+    let name = match name.rsplit_once('#') {
+        Some((base, n)) if !base.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => base,
+        _ => name,
+    };
     if name == "#run" {
         "the `#run` code".to_string()
     } else if name == "#const" {
@@ -213,7 +282,9 @@ fn display_name(name: &str) -> String {
 /// A `help:` line for failures whose fix is clear.
 fn help_for(message: &str) -> Option<&'static str> {
     if message.starts_with("array bounds check failed") {
-        Some("valid indices are 0 up to the array's count minus one; check the index or the array's length first")
+        Some(
+            "valid indices are 0 up to the array's count minus one; check the index or the array's length first",
+        )
     } else if message.starts_with("null pointer dereference") {
         Some("check the pointer against null before using it, or make sure it is set")
     } else if message.starts_with("stack overflow") {

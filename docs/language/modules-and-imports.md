@@ -20,7 +20,7 @@ Str :: #import,string "str_val :: 11;";       // source text as a module
 
 The comments above hold for the plain {#import.2}, named {#import.3}, `using` {#import.4}, `,file` {#import.5}, `,dir` {#import.6} and `,string` {#import.7} forms and for `#load` {#import.8}.
 
-- `#import "Name"` tries `Name.jai`, then `Name/module.jai`, in `<importing file's dir>/modules`, then the `-I` directories, then the stdlib {#import.9}. `Compiler::find_module` in `sema/modules.rs` does the lookup; a miss reports `module 'X' not found (searched N import directories)` {#import.10}.
+- `#import "Name"` tries `Name.jai`, then `Name/module.jai`, in `<importing file's dir>/modules`, then the `-I` directories, then the stdlib {#import.9}. `Compiler::find_module` in `sema/modules.rs` does the lookup; a miss reports ``module `X` not found``, with a note listing the directories searched and a help naming the closest module found there {#import.10}.
 - `#load` and `#import,file` resolve relative to the file that wrote them {#import.11}. Loading a file twice into one module is a no-op {#import.12}.
 - A module instance is keyed by canonical entry path plus parameter values, so two plain `#import "M"` share one {#import.13}. See [module parameters](module-parameters.md).
 - Imports resolve eagerly during `expand_all`, so a module's top-level `#run`s and `#add_context`s are known before they matter {#import.14}.

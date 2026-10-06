@@ -267,8 +267,15 @@ fn stack_traces() {
     let output = build_and_run(&source, &dir, "trace").unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2 3\n");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Stack trace:"), "{stderr}");
-    assert!(stderr.contains("trace.jai:6: main"), "{stderr}");
+    assert!(
+        stderr
+            .contains("error: assertion failed: boom\ncall stack (innermost first):\n    main at "),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("trace.jai:6\n") && !stderr.contains("assert_helper"),
+        "{stderr}"
+    );
     assert!(!output.status.success());
 }
 

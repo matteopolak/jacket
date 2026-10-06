@@ -1906,7 +1906,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Assertion failed: limit is too small"
+        "check": "assertion failed: limit is too small"
       }
     },
     {
@@ -2088,7 +2088,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Assertion failed: deliberately false"
+        "check": "assertion failed: deliberately false"
       },
       "rules": [
         "ctexec.9"

@@ -167,11 +167,8 @@ impl Compiler {
             Err(_) if deferred.is_some() => Err(deferred.unwrap()),
             Err(trap) => {
                 self.ct_traps += 1;
-                let d = self.trap_diagnostic(
-                    &trap,
-                    "error during compile-time execution",
-                    Some(span),
-                );
+                let d =
+                    self.trap_diagnostic(&trap, "error during compile-time execution", Some(span));
                 Err(Box::new(d))
             }
         }

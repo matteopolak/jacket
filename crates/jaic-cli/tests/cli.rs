@@ -457,6 +457,16 @@ fn check_writes_no_workspace_output() {
         // `check` says so, naming the command that would write it; the flag asked for silence.
         let warned = stderr.contains("target-prog") && stderr.contains("`jaic build ");
         assert_eq!(warned, args[0] == "check", "{args:?}: {stderr}");
+        if args[0] == "check" {
+            assert!(
+                stderr.contains(&format!(
+                    "warning: `jaic check` does not write target-prog (workspace `target` asks for an executable)\n\
+                     help: `jaic build {main}` (or `jaic run {main}`) writes it\n",
+                    main = source.display()
+                )),
+                "{stderr}"
+            );
+        }
     }
 }
 
@@ -474,6 +484,62 @@ const WORKSPACE_ASKING_FOR_OUTPUT: &str = r##"#import "Basic";
     add_build_string("#import \"Basic\";\nmain :: () { print(\"built\\n\"); }\n", w);
 }
 "##;
+
+/// The output path in the `check` warning is shown relative to where jaic was started, and the
+/// help names the main file as it was typed.
+// rules: ws.17
+#[test]
+fn unwritten_workspace_output_names_the_path_and_the_command() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-workspace-direct-run");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::create_dir_all(dir.join("libs/Greeting")).unwrap();
+    std::fs::write(
+        dir.join("libs/Greeting/module.jai"),
+        "greeting :: () -> string { return \"hi\"; }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/main.jai"),
+        "#import \"Basic\";\n#import \"Greeting\";\nmain :: () { print(\"%\\n\", greeting()); }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("first.jai"),
+        r##"#import "Basic";
+#import "Compiler";
+#run {
+    set_build_options_dc(.{do_output = false});
+    w := compiler_create_workspace("Build");
+    options := get_build_options(w);
+    options.output_type = .EXECUTABLE;
+    options.output_executable_name = "game";
+    options.output_path = "build";
+    paths: [..] string;
+    for options.import_path array_add(*paths, it);
+    array_add(*paths, "libs");
+    options.import_path = paths;
+    set_build_options(options, w);
+    add_build_file("src/main.jai", w);
+}
+"##,
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .args(["check", "first.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        stderr.contains(
+            "warning: `jaic check` does not write build/game (workspace `Build` asks for an executable)\n\
+             help: `jaic build first.jai` (or `jaic run first.jai`) writes it\n"
+        ),
+        "{stderr}"
+    );
+}
 
 /// `-no_dce` type-checks module bodies nothing calls; by default only the program's own
 /// unreferenced bodies are checked.

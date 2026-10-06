@@ -758,6 +758,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     cli.output = cli.output.as_ref().map(absolute);
     cli.emit_ir = cli.emit_ir.as_ref().map(absolute);
     let main_dir = path.parent().map(PathBuf::from).unwrap_or_default();
+    let started_in = std::env::current_dir().unwrap_or_default();
     if !main_dir.as_os_str().is_empty() && std::env::set_current_dir(&main_dir).is_err() {
         eprintln!("error: cannot change directory to {}", main_dir.display());
         return ExitCode::from(1);
@@ -834,8 +835,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         fs: fs.clone(),
         options: options.clone(),
         backend,
-        unwritten_output_hint: (cli.command == Command::Check)
-            .then(|| format!("jaic build {}", cli.file)),
+        unwritten_output_hint: (cli.command == Command::Check).then(|| {
+            jaic::build::UnwrittenOutputHint {
+                main_file: cli.file.clone(),
+                cwd: started_in.clone(),
+            }
+        }),
         command_line: cli.command_line.clone(),
         make_host: Box::new(move |os| {
             if os == TargetOs::Wasm {
