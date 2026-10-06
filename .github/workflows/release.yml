@@ -1,5 +1,5 @@
 name: release
-# Builds jaic, jailsp and jailint for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64),
+# Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64),
 # optimized with PGO everywhere and BOLT on Linux (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
@@ -141,6 +141,10 @@ jobs:
           # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
+          # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
+          # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
+          "$dir/jaic$exe" build jaifmt/main.jai -O2 --no-debug-info -o "$dir/jaifmt"
+          ls "$dir"
           if [ "$RUNNER_OS" = "Windows" ]; then
             7z a -tzip "$dir.zip" "$dir" > /dev/null
             echo "ARCHIVE=$dir.zip" >> "$GITHUB_ENV"
@@ -158,7 +162,11 @@ jobs:
           cp examples/compile-time-record.jai "$work/main.jai"
           jaic="$PWD/$PACKAGE_DIR/jaic$exe"
           jailint="$PWD/$PACKAGE_DIR/jailint$exe"
+          jaifmt="$PWD/$PACKAGE_DIR/jaifmt$exe"
           cd "$work"
+          formatted="$(echo 'main::(){x:=1;}' | "$jaifmt" --stdin | tr -d '\r')"
+          echo "$formatted"
+          test "$formatted" = "$(printf 'main :: () {\n    x := 1;\n}')"
           set +e
           "$jaic" run main.jai
           status=$?

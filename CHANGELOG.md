@@ -32,6 +32,8 @@
 - `Build_Options.dead_code_elimination` and `-no_dce`: `.MODULES_ONLY` (the default) type-checks everything declared in the program's own files, `.NONE` modules too, `.ALL` only what the program reaches. See `docs/language/dead-code-elimination.md`.
 - `jailsp` publishes the type checker's first error as a `jai-check` diagnostic, and checks metaprograms that create workspaces.
 
+- Release archives include `jaifmt` (`jaifmt.exe` on Windows), built by the release's `jaic` with `-O2`.
+
 ### Changed
 
 - The `jaifmt` program moved from `tools/jaifmt/` to a top-level `jaifmt/` directory, since `tools/` holds repository-maintenance scripts: build it with `jaic build jaifmt/main.jai -O2 -o target/jaifmt`. The formatter library is still `stdlib/Jai_Format`, and the browser bundle's `jaifmt-playground.jai` and `jaifmt.wasm` keep their names.
@@ -47,6 +49,8 @@
 - An omitted argument binds a polymorphic type its default determines: `error :: (code: int, platform_code: $T = 0)` called as `error(3)` makes `T` `s64` instead of failing with "could not infer polymorphic type".
 - `Basic.create_heap` no longer passes an `Allocator_Caps` value to `assert`'s `bool` parameter (found with `-no_dce`).
 - `jaic run` on a file without `main` that has `#program_export` procedures runs its compile-time code and exits 0 instead of asking for an exported `main`.
+- Windows: `file_open(for_writing = true)` handles can also read, as on POSIX, so `Zip_File_Directory.load_zip_directory` works there.
+- Windows release and `windows-native` CI builds link the official LLVM 23 archive again: `tools/windows-llvm/prepare.sh` supplies the zlib, zstd and libxml2 libraries its `llvm-config` names and turns zstd's absolute build-machine path, which llvm-sys could not pass to rustc, into a library name.
 - The browser engine's sandbox implements `chmod`/`fchmod`, so `MacOS_Bundler` runs there.
 - Standard library: unused variables and imports removed, a shadowed `it` in `Compiler` named, and index loops in `Basic` and `Math` turned into element loops (found by jailint).
 
