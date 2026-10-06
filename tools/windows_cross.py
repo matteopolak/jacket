@@ -75,7 +75,7 @@ def cases(stdlib):
 # compiled by a Windows toolchain (same expectations as crates/jaic-cli/tests/native.rs).
 C_STRUCTS = {
     "foreign_calls": "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n",
-    "callbacks": "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n",
+    "callbacks": "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n",
 }
 
 

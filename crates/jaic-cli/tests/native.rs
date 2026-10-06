@@ -319,7 +319,7 @@ fn c_structs_by_value() {
         "libstructs.so"
     };
     // Windows: a static `libstructs.lib` from Clang for the native build; the interpreter is
-    // checked against a DLL on arm64 below (on x64 it cannot call back into interpreted code).
+    // checked against a DLL below.
     let mut steps = vec![Command::new(if cfg!(windows) {
         "clang"
     } else {
@@ -349,7 +349,7 @@ fn c_structs_by_value() {
         );
     }
     let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n";
-    let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n";
+    let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n";
     let run_interp = |name: &str| {
         let output = Command::new(JAIC)
             .args(["run", &format!("{name}.jai")])
@@ -373,10 +373,11 @@ fn c_structs_by_value() {
     };
     assert_eq!(run_native("foreign_calls"), calls);
     assert_eq!(run_native("callbacks"), callbacks);
-    // Windows on arm64: the interpreter loads the fixture as `libstructs.dll` (built after the
-    // native runs, since its import library replaces the static `libstructs.lib`). An MSVC DLL
-    // exports only what it is told to, so every function defined in `structs.c` is named.
-    if cfg!(all(windows, target_arch = "aarch64")) {
+    // Windows: the interpreter loads the fixture as `libstructs.dll` (built after the native
+    // runs, since its import library replaces the static `libstructs.lib`). An MSVC DLL exports
+    // only what it is told to, so every function defined in `structs.c` is named. On x64 the
+    // callbacks go through the Microsoft x64 thunks (`callbacks/win64.rs`).
+    if cfg!(windows) {
         let source = std::fs::read_to_string(dir.join("structs.c")).unwrap();
         let mut link = Command::new("clang");
         link.args(["-shared", "structs.c", "-o", "libstructs.dll"]);
@@ -1113,6 +1114,15 @@ fn windows_runtime_program() {
         String::from_utf8_lossy(&output.stderr)
     );
     if cfg!(windows) {
+        // Its threads run on the interpreter's scheduler through the Win32 calls.
+        let run = Command::new(JAIC).arg("run").arg(&source).output().unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&run.stdout).replace('\r', ""),
+            "ok\n",
+            "jaic run: {}: {}",
+            run.status,
+            String::from_utf8_lossy(&run.stderr)
+        );
         return;
     }
     // x64 with MinGW-w64 GCC (or llvm-mingw), arm64 with llvm-mingw; each only when installed.
@@ -1147,6 +1157,113 @@ fn windows_runtime_program() {
             "{cpu}"
         );
     }
+}
+
+/// The stdlib's thread tests under `jaic run`: on Windows they exercise the Win32 side of the
+/// interpreter's thread scheduler (`CreateThread`, critical sections, condition variables,
+/// `WaitForSingleObject`, `Sleep`); elsewhere the pthread side, as the sweep does.
+#[test]
+fn interpreted_threads() {
+    let dir = repo_root().join("tests/stdlib");
+    let mut checked = 0;
+    for entry in std::fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        if !(name.starts_with("threads-") && name.ends_with(".jai")) {
+            continue;
+        }
+        let run = Command::new(JAIC)
+            .arg("run")
+            .arg(&path)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&run.stdout).replace('\r', ""),
+            "ok\n",
+            "{name}: {}: {}",
+            run.status,
+            String::from_utf8_lossy(&run.stderr)
+        );
+        checked += 1;
+    }
+    assert!(checked >= 2, "no tests/stdlib/threads-*.jai found");
+}
+
+/// MSVC builds keep their CodeView in a PDB next to the executable (`/DEBUG /PDB:`), with line
+/// information for the Jai source, and write none with `--no-debug-info`. The line check needs
+/// `llvm-pdbutil` (part of the LLVM release CI installs; required when `CI` is set).
+#[test]
+fn msvc_builds_write_a_pdb() {
+    if !cfg!(all(windows, target_env = "msvc")) {
+        return;
+    }
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-pdb");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("pdb_lines.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         twice :: (x: int) -> int {\n\
+             return x * 2;\n\
+         }\n\
+         main :: () {\n\
+             print(\"%\\n\", twice(21));\n\
+         }\n",
+    )
+    .unwrap();
+    let pdb = dir.join("pdb_lines.pdb");
+    let _ = std::fs::remove_file(&pdb);
+    let output = build_and_run(&source, &dir, "pdb_lines").unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).replace('\r', ""),
+        "42\n"
+    );
+    assert!(pdb.is_file(), "no {} after jaic build", pdb.display());
+    match Command::new("llvm-pdbutil")
+        .args(["dump", "-l"])
+        .arg(&pdb)
+        .output()
+    {
+        Ok(dump) => {
+            let text = String::from_utf8_lossy(&dump.stdout);
+            assert!(
+                dump.status.success(),
+                "{}",
+                String::from_utf8_lossy(&dump.stderr)
+            );
+            // The line table of the module names the source and the line of `return x * 2`.
+            assert!(
+                text.contains("pdb_lines.jai"),
+                "no source file in the PDB:\n{text}"
+            );
+            assert!(
+                text.lines().any(|l| l
+                    .split_whitespace()
+                    .any(|w| w.starts_with("3:") || w == "3")),
+                "no line 3 in the PDB:\n{text}"
+            );
+        }
+        // CI installs the LLVM release, which has it.
+        Err(e) if std::env::var_os("CI").is_some() => panic!("llvm-pdbutil: {e}"),
+        Err(_) => eprintln!("llvm-pdbutil not found: skipping the line information check"),
+    }
+    let _ = std::fs::remove_file(&pdb);
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .arg("--no-debug-info")
+        .arg("-o")
+        .arg(exe_path(&dir, "pdb_lines"))
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    assert!(!pdb.exists(), "--no-debug-info still wrote a PDB");
 }
 
 /// `jaic build -plug Name` writes the program the plugin's workspace compiled, to `-o` or,

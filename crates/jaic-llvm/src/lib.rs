@@ -418,7 +418,9 @@ enum LinkArg {
 
 /// Link object files into an executable (or shared library) for `target` (`None`: the
 /// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
-/// see [`LinkFlavor`] and `docs/native/windows.md`.
+/// see [`LinkFlavor`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
+/// a PDB next to the output (`foo.exe` -> `foo.pdb`).
+#[allow(clippy::too_many_arguments)]
 pub fn link(
     objects: &[PathBuf],
     libraries: &[Library],
@@ -427,6 +429,7 @@ pub fn link(
     extra_args: &[String],
     target: Option<&str>,
     sanitize: Sanitize,
+    debug_info: bool,
 ) -> Result<(), String> {
     let flavor = LinkFlavor::for_target(target);
     let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
@@ -485,6 +488,14 @@ pub fn link(
             _ => "-Wl,--stack,8388608",
         });
     }
+    if debug_info && flavor == LinkFlavor::Msvc {
+        let prefix = if msvc_style {
+            ""
+        } else {
+            "-Wl,"
+        };
+        cmd.args(pdb_args(output).iter().map(|a| format!("{prefix}{a}")));
+    }
     for arg in seen.concat() {
         render_link_arg(&mut cmd, &arg, msvc_style);
     }
@@ -502,6 +513,19 @@ pub fn link(
             String::from_utf8_lossy(&out.stderr)
         ))
     }
+}
+
+/// `link.exe`/`lld-link` arguments that keep the objects' CodeView in a PDB named after the
+/// output. The objects are deleted after linking, so without `/DEBUG` the debug information is
+/// lost. `/DEBUG` would otherwise also turn on incremental linking (an `.ilk` file and padded
+/// code) and keep unreferenced functions; both are turned back off to match a build without it.
+fn pdb_args(output: &Path) -> [String; 4] {
+    [
+        "/DEBUG".to_string(),
+        format!("/PDB:{}", output.with_extension("pdb").display()),
+        "/INCREMENTAL:NO".to_string(),
+        "/OPT:REF".to_string(),
+    ]
 }
 
 /// Collect the DWARF of a linked macOS executable or library into `output.dSYM`.

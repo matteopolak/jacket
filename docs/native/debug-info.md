@@ -45,7 +45,7 @@ Three layers:
 - New kind of named variable: call `self.debug_var(f, scope, name, span, ty, addr, 0)` where the entity is added. It must be an address that stays valid for the variable's scope.
 - New type kind: extend `describe_debug_type` (sema) and `DebugInfo::ty` (backend). Keys must be `TypeId`s or the synthetic `ir::DEBUG_CHAR*` keys.
 - Lines only come from statements in the procedure's own file (`check_stmt`). Code from macros or `#insert` in other files keeps the caller's line, and their variables get no range.
-- Windows (CodeView): `DebugFormat::for_triple` selects `CodeView` for `-windows-msvc` triples, which sets the `"CodeView"` module flag instead of `"Dwarf Version"`; the metadata is the same. The Windows backend still has to keep the `.pdb` path (link with `/DEBUG`).
+- Windows (CodeView): `DebugFormat::for_triple` selects `CodeView` for `-windows-msvc` triples, which sets the `"CodeView"` module flag instead of `"Dwarf Version"`; the metadata is the same. `link` passes `/DEBUG /PDB:<stem>.pdb` to `link.exe`/`lld-link` (or `-Wl,` through Clang) when debug info is on, since the objects holding the CodeView are deleted after linking; `msvc_builds_write_a_pdb` in `crates/jaic-cli/tests/native.rs` checks the PDB and its line table with `llvm-pdbutil` on Windows CI.
 - Gotchas: in a function with a `DISubprogram` every call to a function with debug info needs a location (the LLVM verifier rejects it otherwise), so lowering must never build calls while the builder has no location. Do not add a location to allocas. Use the `raw` helpers, not inkwell's `insert_declare_*`, which wrap LLVM 19+ debug records as instructions.
 
 ## Configuration

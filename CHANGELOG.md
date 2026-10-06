@@ -14,6 +14,9 @@
 - `jaic::build::WorkspaceObserver` lets embedders see each workspace's compiler.
 - Release binaries (`jaic`, `jailsp`, `jailint`) are built with profile-guided optimisation on every platform, and the Linux ones are further optimised with BOLT. `tools/build_pgo.py` builds them the same way locally. See `docs/tools/pgo-and-bolt.md`.
 - `#asm` accepts the F16C, SHA and GFNI extensions: `vcvtph2ps`/`vcvtps2ph` (all imm8 rounding modes, NaNs, subnormals and overflow as on hardware; MXCSR rounding is round-to-nearest), `sha1rnds4`, `sha1nexte`, `sha1msg1`, `sha1msg2`, `sha256rnds2` (`xmm0` as an explicit last operand), `sha256msg1`, `sha256msg2`, and `gf2p8mulb`, `gf2p8affineqb`, `gf2p8affineinvqb` in legacy, VEX and EVEX (masked, broadcast) forms. Like the rest of `#asm` they run on any host CPU.
+- Windows x64: C code can call back into `#c_call` procedures running in the interpreter (`jaic run`, `#run`), with the Microsoft x64 convention: arguments by position in RCX/RDX/R8/R9 or XMM0-XMM3, the stack after them, aggregates that are not 1, 2, 4 or 8 bytes by pointer, and large results through the hidden pointer.
+- Windows: programs that start threads run in the interpreter. `CreateThread`, waits on thread, semaphore and event handles, critical sections, SRW locks, condition variables, `Sleep` and `SwitchToThread` go through the cooperative thread scheduler.
+- MSVC builds write a PDB next to the executable or DLL (`<name>.pdb`) when debug information is on.
 
 ### Changed
 

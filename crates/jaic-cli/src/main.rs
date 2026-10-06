@@ -676,6 +676,7 @@ impl OutputBackend for LlvmBackend {
                 &settings.additional_linker_arguments,
                 target,
                 sanitize,
+                debug_info,
             ),
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
         });
