@@ -327,6 +327,24 @@ impl Compiler {
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
+        if self.ide.is_none() {
+            return self.check_run_inner(scope, body, expected, span);
+        }
+        let mark = self.ide_output_mark();
+        let result = self.check_run_inner(scope, body, expected, span);
+        if let Ok(op) = &result {
+            self.ide_note_run(span, op, mark);
+        }
+        result
+    }
+
+    fn check_run_inner(
+        &mut self,
+        scope: ScopeId,
+        body: &ast::RunBody,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<Operand> {
         let tscope = self.thunk_scope(scope);
         let file = self.scope_file(scope);
         match body {
@@ -439,9 +457,17 @@ impl Compiler {
                 },
                 span: value.span,
             };
-            return self.check_run(scope, &ast::RunBody::Expr(call), None, value.span);
+            let op = self.check_run_inner(scope, &ast::RunBody::Expr(call), None, value.span)?;
+            if self.ide.is_some() {
+                self.ide_note_insert(value, &op);
+            }
+            return Ok(op);
         }
-        self.eval_const(scope, value, None)
+        let op = self.eval_const(scope, value, None)?;
+        if self.ide.is_some() {
+            self.ide_note_insert(value, &op);
+        }
+        Ok(op)
     }
 
     pub fn insert_stmts_from(&mut self, op: Operand, span: Span) -> Result<Vec<ast::Stmt>> {

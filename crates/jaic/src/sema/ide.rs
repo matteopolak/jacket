@@ -15,6 +15,13 @@ pub struct IdeFacts {
     wanted: HashMap<FileId, bool>,
     pub refs: Vec<IdeRef>,
     pub scopes: Vec<(Span, ScopeId)>,
+    /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide_meta`).
+    pub expansions: Vec<super::ide_meta::IdeExpansion>,
+    /// Calls and the procedure and parameters they resolved to.
+    pub calls: Vec<super::ide_meta::IdeCall>,
+    pub(super) call_spans: HashSet<Span>,
+    /// The compile-time output channel, to tell what each `#run` printed.
+    pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the identifier being checked resolved to (set by `check_ident`).
     pub(super) last_entity: Option<EntityId>,
 }
@@ -33,6 +40,8 @@ pub struct IdeRef {
     pub span: Span,
     pub what: IdeWhat,
     pub ty: TypeId,
+    /// The name of a declaration (not a use).
+    pub decl: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -71,6 +80,10 @@ pub enum IdeReceiver {
 }
 
 impl Compiler {
+    pub(super) fn ide_wants_pub(&mut self, file: FileId) -> bool {
+        self.ide_wants(file)
+    }
+
     fn ide_wants(&mut self, file: FileId) -> bool {
         let Some(ide) = self.ide.as_mut() else {
             return false;
@@ -113,6 +126,7 @@ impl Compiler {
                 span,
                 what,
                 ty,
+                decl: false,
             });
         }
     }
@@ -149,6 +163,7 @@ impl Compiler {
                 span,
                 what: IdeWhat::Entity(id),
                 ty,
+                decl: true,
             });
         }
     }

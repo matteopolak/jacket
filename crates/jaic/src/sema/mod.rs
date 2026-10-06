@@ -23,6 +23,7 @@ mod decls;
 mod driver;
 mod expr;
 pub mod ide;
+pub mod ide_meta;
 mod lambda;
 mod lower;
 mod modify;

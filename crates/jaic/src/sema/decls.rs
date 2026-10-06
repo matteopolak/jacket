@@ -592,6 +592,16 @@ impl Compiler {
     }
 
     pub fn eval_static_condition(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<bool> {
+        let holds = self.static_condition(scope, expr);
+        if self.ide.is_some()
+            && let Ok(holds) = holds
+        {
+            self.ide_note_condition(expr, holds);
+        }
+        holds
+    }
+
+    fn static_condition(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<bool> {
         match self.eval_const(scope, expr, Some(TypeId::BOOL))? {
             Operand::Const {
                 value: Value::Bool(b),

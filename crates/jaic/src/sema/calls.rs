@@ -37,7 +37,7 @@ pub struct CallArg {
 
 /// How a parameter receives its value.
 #[derive(Clone, Debug)]
-enum Slot {
+pub(super) enum Slot {
     Arg(usize),
     Variadic(Vec<usize>),
     Spread(usize),
@@ -395,6 +395,9 @@ impl Compiler {
             });
         }
         let chosen = best.swap_remove(0);
+        if self.ide.is_some() {
+            self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args);
+        }
         self.emit_call(f, scope, chosen, args, span)
     }
 
@@ -2697,6 +2700,9 @@ impl Compiler {
                         entity: e,
                     });
             }
+        }
+        if self.ide.is_some() {
+            self.ide_note_macro(proc, slots, &args, &body, span);
         }
         let exit = f.b.new_block();
         let mut result_slots = Vec::new();
