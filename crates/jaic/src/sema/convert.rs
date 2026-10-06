@@ -360,7 +360,9 @@ impl Compiler {
                 }
                 Value::Int(*i)
             }
-            Value::Int(i) if self.types.is_float(tr) && untyped => Value::Float(*i as f64),
+            Value::Int(i) if self.types.is_float(tr) && untyped => {
+                Value::Float(int_to_float(*i, tr))
+            }
             Value::Float(x)
                 if self.types.is_float(tr)
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
@@ -635,7 +637,9 @@ impl Compiler {
                     let (bits, signed) = self.types.int_info(tr).unwrap();
                     Some(Value::Int(expr::wrap_int(*i, bits, signed)))
                 }
-                Value::Int(i) if self.types.is_float(tr) => Some(Value::Float(*i as f64)),
+                Value::Int(i) if self.types.is_float(tr) => {
+                    Some(Value::Float(int_to_float(*i, tr)))
+                }
                 Value::Float(x) if self.types.is_float(tr) => {
                     Some(Value::Float(if tr == TypeId::F32 {
                         *x as f32 as f64
@@ -998,5 +1002,16 @@ pub fn numeric_conv(
                 f.b.conv(ConvOp::ZExt, ft, tt, v)
             }
         }
+    }
+}
+
+/// An integer constant as a float of type `to`, rounded once to that type's precision: rounding
+/// to f64 first and to f32 later would round twice (`0x8000_0080_0000_0001` would end on the
+/// even f32 below instead of the one above).
+fn int_to_float(i: i128, to: TypeId) -> f64 {
+    if to == TypeId::F32 {
+        i as f32 as f64
+    } else {
+        i as f64
     }
 }

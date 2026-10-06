@@ -21,6 +21,7 @@ Scalar rules:
 
 - Integer-to-integer casts wrap to the target width, with or without a modifier. `cast(u8) w` with `w := 300` is `44`; there is no range trap. `cast(u64) n` with `n: s8 = -1` is `18446744073709551615`.
 - Float-to-integer truncates toward zero: `cast(s64) -3.99` is `-3`.
+- Integer-to-float casts round once, to nearest even, at the target width. `cast(float32)` of a 64-bit integer does not go through `float64`, which would round twice: `2^63 + 2^39 + 1` must give the `float32` above the tie. The interpreter (`conv` in `interp/mod.rs`), constant folding (`int_to_float` in `sema/convert.rs`) and LLVM (`sitofp`/`uitofp`) agree (`tests/stdlib/int-to-float32-rounding.jai`).
 - `cast,force` between a same-size integer and float reinterprets the bits.
 - A number, enum or pointer cast to `bool` compares with zero, so the result is exactly `true` or `false` (`!cast(bool) 2` is false). `cast(bool) ""` is false.
 - Pointers and integers convert both ways (`cast(s64) ptr`, `cast(*u8) addr`, `cast(*u8) 0 == null`). Integer constants cast to pointers fold to constants.

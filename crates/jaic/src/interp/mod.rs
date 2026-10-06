@@ -1516,6 +1516,10 @@ fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
                 _ => f(v) as u64,
             },
         ),
+        // Straight to the target width: going through f64 first rounds twice, which is wrong
+        // for 64-bit integers whose bits below f64's precision decide an f32 tie.
+        ConvOp::SToF if to == Ty::F32 => (sext(from, v) as f32).to_bits() as u64,
+        ConvOp::UToF if to == Ty::F32 => (mask(from, v) as f32).to_bits() as u64,
         ConvOp::SToF => out_f(sext(from, v) as f64),
         ConvOp::UToF => out_f(mask(from, v) as f64),
         ConvOp::FExt | ConvOp::FTrunc => out_f(f(v)),
