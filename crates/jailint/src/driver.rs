@@ -278,7 +278,7 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         options: copts.clone(),
         backend: None,
         command_line: Vec::new(),
-        make_host: Box::new(move || Box::new(SharedHost(workspace_host.clone()))),
+        make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(move |text| sink.borrow_mut().push(text.to_string())),
         observer: Some(Box::new(Collect {
             prefix: prefix.clone(),

@@ -88,7 +88,7 @@ fn usage() -> ExitCode {
         "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...] [-- program args...]"
     );
     eprintln!(
-        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-sanitize address,undefined] [-os windows] [-cpu x64|arm64] [-target triple]"
+        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-sanitize address,undefined] [-os windows|wasm] [-cpu x64|arm64] [-target triple]"
     );
     eprintln!(
         "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
@@ -173,13 +173,18 @@ impl Cli {
                 .to_string(),
             )),
             _ if self.command != Command::Build => Ok(None),
+            // A WASI command, runnable by node, wasmtime and the like.
+            TargetOs::Wasm => Ok(Some(WASI_TRIPLE.into())),
             _ => Err(
-                "native cross-compilation is only supported for -os windows; pass -target <triple> for others"
+                "native cross-compilation is only supported for -os windows and -os wasm; pass -target <triple> for others"
                     .into(),
             ),
         }
     }
 }
+
+/// What `jaic build -os wasm` targets: wasm64 with the `Wasi_Runtime` module linked in.
+const WASI_TRIPLE: &str = "wasm64-unknown-wasi";
 
 /// The triple a Windows build for `cpu` targets: the MSVC environment on a Windows host,
 /// MinGW-w64 (whose cross toolchains exist for macOS and Linux) elsewhere.
@@ -372,6 +377,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
     match cli.target_triple() {
+        Ok(Some(triple)) if triple.starts_with("wasm32") => {
+            eprintln!(
+                "error: jaic targets wasm64 (Memory64) only; Jai needs 8-byte pointers (use -target wasm64-unknown-wasi)"
+            );
+            return ExitCode::from(2);
+        }
         Ok(Some(triple)) => {
             let (os, cpu) = os_and_cpu(&triple);
             options.os = os;
@@ -398,24 +409,28 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // Workspaces created by metaprograms are written only by `build`.
     let backend: Option<Box<dyn OutputBackend>> = (cli.command == Command::Build)
         .then(|| Box::new(native_backend(&cli)) as Box<dyn OutputBackend>);
-    // `-os wasm` runs the program the way the browser does: in the sandbox host (virtual clock and
-    // files, cooperative threads), with its output printed when the run ends.
-    let sandbox = (options.os == TargetOs::Wasm).then(|| {
-        let cwd = std::env::current_dir().unwrap_or_default();
-        Rc::new(RefCell::new(SandboxHost::with_files(
-            fs.clone(),
-            &cwd.to_string_lossy(),
-        )))
-    });
-    let workspace_sandbox = sandbox.clone();
+    // `OS == .WASM` code is written for the interpreter's sandbox host (virtual clock and files,
+    // cooperative threads), so compile-time code of a wasm target runs there whatever the
+    // command. `jaic run -os wasm` runs the program there too, the way the browser does, with its
+    // output printed when the run ends; `jaic build` for wasm compiles it to a wasm module.
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let shared_sandbox = Rc::new(RefCell::new(SandboxHost::with_files(
+        fs.clone(),
+        &cwd.to_string_lossy(),
+    )));
+    let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
+    let workspace_sandbox = shared_sandbox.clone();
     let workspaces = Workspaces::new(BuildEnv {
         fs: fs.clone(),
         options: options.clone(),
         backend,
         command_line: cli.command_line.clone(),
-        make_host: Box::new(move || match &workspace_sandbox {
-            Some(host) => Box::new(SharedHost(host.clone())),
-            None => Box::new(NativeHost),
+        make_host: Box::new(move |os| {
+            if os == TargetOs::Wasm {
+                Box::new(SharedHost(workspace_sandbox.clone()))
+            } else {
+                Box::new(NativeHost)
+            }
         }),
         report: Box::new(|text| eprintln!("{text}")),
         observer: None,
@@ -425,7 +440,20 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         compiler.interp.host = Box::new(SharedHost(host.clone()));
     }
     compiler.attach_workspaces(workspaces.clone());
-    let compiled = if cli.plugins.is_empty() {
+    // `-os wasm` / `-target wasm64-unknown-wasi`: a WASI command, with its runtime added.
+    let wasi = cli.command == Command::Build
+        && cli
+            .target_triple()
+            .ok()
+            .flatten()
+            .is_some_and(|t| jaic::build::wants_wasi_runtime(compiler.options.os, &t));
+    let compiled = if wasi && cli.plugins.is_empty() {
+        let sources = [
+            ProgramSource::File(path.clone()),
+            ProgramSource::String(jaic::build::WASI_RUNTIME_IMPORT.into()),
+        ];
+        timings::time("front end", || compiler.compile_sources(&sources))
+    } else if cli.plugins.is_empty() {
         timings::time("front end", || compiler.compile_program(&path))
     } else {
         let source = plugin_metaprogram(&cli, &path);
@@ -433,11 +461,19 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             compiler.compile_sources(&[ProgramSource::String(source)])
         })
     };
+    if cli.command == Command::Build {
+        // What compile-time code of a wasm target printed (it runs in the sandbox).
+        flush_sandbox(&shared_sandbox);
+    }
     if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
         return ExitCode::from(1);
     }
-    if let Err(message) = timings::time("workspaces", || jaic::build::finish_all(&workspaces)) {
+    let finished = timings::time("workspaces", || jaic::build::finish_all(&workspaces));
+    if cli.command == Command::Build {
+        flush_sandbox(&shared_sandbox);
+    }
+    if let Err(message) = finished {
         eprintln!("error: {message}");
         return ExitCode::from(1);
     }
@@ -482,6 +518,14 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             }
         },
     }
+}
+
+/// Print and drop what the sandbox host has buffered.
+fn flush_sandbox(host: &Rc<RefCell<SandboxHost>>) {
+    use std::io::Write;
+    let mut host = host.borrow_mut();
+    let _ = std::io::stdout().write_all(&std::mem::take(&mut host.stdout));
+    let _ = std::io::stderr().write_all(&std::mem::take(&mut host.stderr));
 }
 
 /// The metaprogram `-plug` stands for: import each plugin module, then compile `path` in a
@@ -602,7 +646,20 @@ impl OutputBackend for LlvmBackend {
         settings: &BuildSettings,
         output: &Path,
     ) -> Result<(), String> {
-        let target = self.target.as_deref();
+        // `-target`/`-os` win; a workspace built for `os_target = .WASM` names its triple in
+        // `llvm_options.target_system_triple` (default: bare wasm64, its runtime up to the program).
+        let wasm_settings = settings.os == Some(TargetOs::Wasm);
+        let target = self.target.clone().or_else(|| {
+            wasm_settings.then(|| {
+                if settings.llvm_triple.is_empty() {
+                    jaic_llvm::WASM_TRIPLE.to_string()
+                } else {
+                    settings.llvm_triple.clone()
+                }
+            })
+        });
+        let target = target.as_deref();
+        let non_empty = |s: &String| (!s.is_empty()).then(|| s.clone());
         // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's.
         use jaic_llvm::OutputKind;
         let kind = match settings.output_type {
@@ -649,10 +706,12 @@ impl OutputBackend for LlvmBackend {
         };
         let options = jaic_llvm::Options {
             opt_level,
-            target: self.target.clone(),
+            target: target.map(str::to_string),
             emit_ir: self.emit_ir.clone(),
             debug_info,
             sanitize,
+            cpu: non_empty(&settings.llvm_cpu),
+            features: non_empty(&settings.llvm_features),
         };
         if matches!(
             settings.output_type,
@@ -666,8 +725,21 @@ impl OutputBackend for LlvmBackend {
             jaic_llvm::emit_objects(program, &options, &object)
         })?;
         let libraries = jaic_llvm::used_libraries(program);
+        let wasm = target.is_some_and(jaic_llvm::is_wasm_target);
         let linked = timings::time("link", || match settings.output_type {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
+            OutputType::Executable | OutputType::DynamicLibrary if wasm => {
+                let start = jaic::ir::Linkage::Export("_start".into());
+                jaic_llvm::link_wasm(&jaic_llvm::WasmLink {
+                    objects: &objects,
+                    libraries: &libraries,
+                    output,
+                    has_start: settings.output_type == OutputType::Executable
+                        && program.funcs.iter().flatten().any(|f| f.linkage == start),
+                    strip_debug: !debug_info,
+                    extra_args: &settings.additional_linker_arguments,
+                })
+            }
             OutputType::Executable | OutputType::DynamicLibrary => jaic_llvm::link(
                 &objects,
                 &libraries,

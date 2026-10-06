@@ -64,6 +64,11 @@ pub struct BuildSettings {
     pub stack_trace: Option<bool>,
     /// `emit_debug_info`: `Some(false)` for `.NONE`; `None` leaves the embedder's default.
     pub emit_debug_info: Option<bool>,
+    /// `llvm_options.target_system_triple`, `_cpu` and `_features` (empty: the default for
+    /// `os`/`cpu`).
+    pub llvm_triple: String,
+    pub llvm_cpu: String,
+    pub llvm_features: String,
 }
 
 impl Default for BuildSettings {
@@ -83,6 +88,9 @@ impl Default for BuildSettings {
             arithmetic_overflow_check: None,
             stack_trace: None,
             emit_debug_info: None,
+            llvm_triple: String::new(),
+            llvm_cpu: String::new(),
+            llvm_features: String::new(),
         }
     }
 }
@@ -105,8 +113,9 @@ pub struct BuildEnv {
     pub backend: Option<Box<dyn OutputBackend>>,
     /// Arguments after `-` on the command line (`compile_time_command_line`).
     pub command_line: Vec<String>,
-    /// Host for the compile-time interpreter of each workspace.
-    pub make_host: Box<dyn Fn() -> Box<dyn Host>>,
+    /// Host for the compile-time interpreter of each workspace, given its target `OS`
+    /// (`OS == .WASM` code expects the interpreter's sandbox, whatever the compiler runs on).
+    pub make_host: Box<dyn Fn(TargetOs) -> Box<dyn Host>>,
     /// Where diagnostics of workspace compilations go.
     pub report: Box<dyn FnMut(&str)>,
     /// Sees each workspace compiler as it is made and when its workspace is done (tools that
@@ -371,7 +380,8 @@ impl Workspaces {
                 s.cpu = Some(match value {
                     "X64" => TargetCpu::X64,
                     "ARM64" => TargetCpu::Arm64,
-                    "WASM" => TargetCpu::Wasm,
+                    // `.CUSTOM` is how a wasm target spells its CPU (the triple says which).
+                    "WASM" | "CUSTOM" => TargetCpu::Wasm,
                     _ => return Ok(()),
                 })
             }
@@ -389,6 +399,9 @@ impl Workspaces {
             }
             "stack_trace" => s.stack_trace = Some(value == "true"),
             "emit_debug_info" => s.emit_debug_info = Some(value != "NONE"),
+            "llvm_target_system_triple" => s.llvm_triple = value.into(),
+            "llvm_target_system_cpu" => s.llvm_cpu = value.into(),
+            "llvm_target_system_features" => s.llvm_features = value.into(),
             // Accepted and ignored: checks, added-string dumps...
             _ => {}
         }
@@ -408,6 +421,16 @@ impl Workspaces {
     }
 }
 
+/// The module that makes a wasm program a WASI command (`_start`, the C library subset the
+/// stdlib calls, an allocator); see `docs/native/wasm-target.md`.
+pub const WASI_RUNTIME_IMPORT: &str = "#import \"Wasi_Runtime\";";
+
+/// Whether a build for `os` with LLVM triple `triple` is a WASI program, which gets
+/// [`WASI_RUNTIME_IMPORT`] added to its sources. Other wasm builds supply their own runtime.
+pub fn wants_wasi_runtime(os: TargetOs, triple: &str) -> bool {
+    os == TargetOs::Wasm && triple.split('-').any(|part| part.starts_with("wasi"))
+}
+
 /// Sources added to workspace `id` by its own compile-time code, for the
 /// compiler that is building it (`Compiler::pull_workspace_sources`).
 pub fn take_own_sources(shared: &SharedWorkspaces, id: i64) -> Vec<ProgramSource> {
@@ -424,7 +447,13 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
         let mut reg = shared.borrow_mut();
         let settings = reg.ws(id)?.settings.clone();
         let options = reg.env.options.clone();
-        (settings, options, reg.env.fs.clone(), (reg.env.make_host)())
+        let os = settings.os.unwrap_or(options.os);
+        (
+            settings,
+            options,
+            reg.env.fs.clone(),
+            (reg.env.make_host)(os),
+        )
     };
     if let Some(paths) = &settings.import_paths {
         // The module search path the metaprogram set, then the defaults (stdlib).
@@ -518,6 +547,14 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
             .try_for_each(|(body, stmts)| compiler.modify_procedure(&reg.records, *body, stmts))
     }
     .and_then(|()| compiler.relower_modified());
+    let mut pending = pending;
+    if stage == Stage::Open {
+        let reg = shared.borrow();
+        let settings = &reg.list[id as usize].settings;
+        if wants_wasi_runtime(compiler.options.os, &settings.llvm_triple) {
+            pending.push(ProgramSource::String(WASI_RUNTIME_IMPORT.into()));
+        }
+    }
     let result = modified.and_then(|()| match stage {
         Stage::Open => compiler.begin_sources(&pending).map(|()| {
             events.push(phase(PHASE_ALL_SOURCE_CODE_PARSED));
