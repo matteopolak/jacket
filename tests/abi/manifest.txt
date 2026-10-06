@@ -12,6 +12,8 @@
 #   struct <Jai> [= <C>] : <field> <jai_field>=<c_field> <flexible>[] ...
 #                               size, alignment, and each field's offset and size
 #                               (`name[]` is a C flexible array member: offset only)
+#   packed struct ...           a C packed struct: as `struct`, without the alignment (Jai
+#                               cannot lower a struct's alignment below its members')
 #   type <Jai> [= <C>]          size and alignment only (opaque types, unions, arrays)
 #   int <Jai> [= <C>]           size and signedness of an integer typedef
 #   const <name> <jai>=<c> ...  integer constants; `jai` may be any Jai expression without spaces
@@ -187,7 +189,6 @@ const ENETDOWN ENETUNREACH ECONNABORTED ECONNRESET ENOBUFS EISCONN ENOTCONN ETIM
 const EHOSTUNREACH EALREADY EINPROGRESS ECANCELED
 
 # <sys/epoll.h>, <sys/eventfd.h>, <sys/inotify.h>, <linux/io_uring.h>, <linux/input.h>
-struct epoll_event = struct epoll_event : events data
 type epoll_data = epoll_data_t
 const EPOLLIN EPOLLPRI EPOLLOUT EPOLLERR EPOLLHUP EPOLLRDHUP EPOLLEXCLUSIVE EPOLLWAKEUP EPOLLONESHOT EPOLLET
 const EPOLL_CLOEXEC EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD
@@ -474,3 +475,9 @@ const WSAEWOULDBLOCK WSAEINPROGRESS WSAECONNRESET WSAETIMEDOUT WSAECONNREFUSED S
 
 [macos]
 type __darwin_mcontext64 = struct __darwin_mcontext64
+
+# x86-64 glibc packs epoll_event (alignment 1); AArch64 keeps natural alignment.
+[linux-x64]
+packed struct epoll_event = struct epoll_event : events data
+[linux-arm64]
+struct epoll_event = struct epoll_event : events data

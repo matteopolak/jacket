@@ -31,6 +31,9 @@ struct Entry {
     c: String,
     /// (Jai field path, C field path).
     fields: Vec<(String, String)>,
+    /// A C `__attribute__((packed))` struct: Jai cannot lower a struct's alignment below its
+    /// members', so only size and field offsets are compared.
+    packed: bool,
 }
 
 /// What the manifest declares for one OS.
@@ -91,6 +94,15 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
             continue;
         }
         let (keyword, rest) = line.split_once(' ').ok_or_else(|| error("no item"))?;
+        let packed = keyword == "packed";
+        let (keyword, rest) = if packed {
+            rest.split_once(' ').ok_or_else(|| error("no item"))?
+        } else {
+            (keyword, rest)
+        };
+        if packed && keyword != "struct" {
+            return Err(error("only `struct` can be `packed`"));
+        }
         let kind = match keyword {
             "struct" => Kind::Struct,
             "type" => Kind::Type,
@@ -106,6 +118,7 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
                     jai,
                     c,
                     fields: Vec::new(),
+                    packed,
                 });
             }
             continue;
@@ -126,6 +139,7 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
             jai,
             c,
             fields: fields.split_whitespace().map(split_rename).collect(),
+            packed,
         });
     }
     if manifest.entries.is_empty() {
@@ -169,11 +183,13 @@ fn checks(manifest: &Manifest) -> Vec<Check> {
                     format!("(long long)sizeof({c})"),
                     format!("size_of({jai})"),
                 );
-                add(
-                    format!("align {jai}"),
-                    format!("(long long)_Alignof({c})"),
-                    format!("align_of({jai})"),
-                );
+                if !e.packed {
+                    add(
+                        format!("align {jai}"),
+                        format!("(long long)_Alignof({c})"),
+                        format!("align_of({jai})"),
+                    );
+                }
                 for (jai_field, c_field) in &e.fields {
                     // `name[]`: a C flexible array member, which has an offset but no size.
                     let flexible = c_field.ends_with("[]");
