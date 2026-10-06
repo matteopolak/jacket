@@ -29,10 +29,13 @@
 - `jaifmt.wasm`: jaifmt compiled to WebAssembly (`jaifmt/wasm.jai`): source on stdin, `--config <toml>` or `JAIFMT_CONFIG`, result on stdout. Browser bundles include it (`build_scripting_wasm.py --jaic`, required by `package_browser_release.py`). It formats about 35 times faster than the interpreted playground driver, and CI checks its output against native jaifmt on every golden case.
 - `jaifmt/build.jai`: `jaic build jaifmt/build.jai` builds an optimised `target/jaifmt` through the Compiler module; `- wasm` builds `target/jaifmt.wasm` and `- -o <file>` picks the output.
 - `tools/jaic-diff.py` has a `wasm-native` backend, and `tools/wasi_run.mjs` runs WASI modules under node.
+- `Build_Options.dead_code_elimination` and `-no_dce`: `.MODULES_ONLY` (the default) type-checks everything declared in the program's own files, `.NONE` modules too, `.ALL` only what the program reaches. See `docs/language/dead-code-elimination.md`.
+- `jailsp` publishes the type checker's first error as a `jai-check` diagnostic, and checks metaprograms that create workspaces.
 
 ### Changed
 
 - The `jaifmt` program moved from `tools/jaifmt/` to a top-level `jaifmt/` directory, since `tools/` holds repository-maintenance scripts: build it with `jaic build jaifmt/main.jai -O2 -o target/jaifmt`. The formatter library is still `stdlib/Jai_Format`, and the browser bundle's `jaifmt-playground.jai` and `jaifmt.wasm` keep their names.
+- The program's own files are type-checked whether or not anything uses them, like Jai's default dead-code elimination. A global, constant or procedure body nothing references used to go unchecked, so programs with errors there compiled. A `#run` inside such a body now runs. Imported modules are unchanged: their unreferenced bodies stay unchecked. Compiled output still contains only what the program reaches, and `jaic build` now also drops code that only compile-time checking lowered.
 - Casts no longer push their type into the operand: `cast(float32) (0 - w)` with `w: u16 = 15` subtracts in `u16` (`65521`) and then converts, where it used to compute `-15` in `float32`. Likewise an untyped literal operand takes the other operand's type rather than a declaration's or parameter's (`f: float32 = 0 - w;`). Code that relied on the old float arithmetic needs the cast on the operand: `cast(float32) 0 - w`.
 - LLVM 23: the native backend is built against LLVM 23.1 (llvm-sys 231, Inkwell from a pinned commit of its main branch until a crates.io release supports LLVM 23). Building from source needs LLVM 23 and `LLVM_SYS_231_PREFIX` instead of `LLVM_SYS_221_PREFIX`; release archives, CI and the Nix flake use LLVM 23. The `-unroll-add-parallel-reductions=false` workaround for LLVM 22's miscompiled `sub` reductions is gone, since 23.1.0 fixes the unroller.
 - `tools/check_dependency_age.py` accepts git dependencies pinned to a full commit hash on GitHub that is at least 14 days old.
@@ -40,6 +43,9 @@
 
 ### Fixed
 
+- An omitted argument binds a polymorphic type its default determines: `error :: (code: int, platform_code: $T = 0)` called as `error(3)` makes `T` `s64` instead of failing with "could not infer polymorphic type".
+- `Basic.create_heap` no longer passes an `Allocator_Caps` value to `assert`'s `bool` parameter (found with `-no_dce`).
+- `jaic run` on a file without `main` that has `#program_export` procedures runs its compile-time code and exits 0 instead of asking for an exported `main`.
 - The browser engine's sandbox implements `chmod`/`fchmod`, so `MacOS_Bundler` runs there.
 - Standard library: unused variables and imports removed, a shadowed `it` in `Compiler` named, and index loops in `Basic` and `Math` turned into element loops (found by jailint).
 

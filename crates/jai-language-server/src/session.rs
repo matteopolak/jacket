@@ -192,16 +192,36 @@ impl Session {
             .iter()
             .map(|(uri, doc)| {
                 let mut diagnostics = self.analyses[uri].diagnostics.clone();
+                diagnostics.extend(self.check_diagnostics(uri));
                 diagnostics.extend(self.lint_diagnostics(uri));
                 (uri.as_str().into(), doc.version, diagnostics)
             })
             .collect()
     }
 
-    /// Syntax and source diagnostics of `uri`, then its lints.
+    /// The type checker's error, when the program `uri` belongs to fails to compile and the
+    /// error (or one of its notes) is in `uri`. Only a document that parses is checked; its
+    /// syntax error is already reported.
+    pub(crate) fn check_diagnostics(&self, uri: &DocumentUri) -> Option<Diagnostic> {
+        let doc = self.document(uri).ok()?;
+        if semantic::parse_error(&doc.text).is_some() {
+            return None;
+        }
+        let (start, end, message) =
+            self.with_semantic(uri, &doc.text, |analysis, path| analysis.check_error(path))?;
+        Some(Diagnostic {
+            range: self.range_of(uri, Span::new(start, end))?,
+            severity: DiagnosticSeverity::Error,
+            code: DiagnosticCode::Check,
+            message,
+        })
+    }
+
+    /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
         self.document(uri)?;
         let mut diagnostics = self.analyses[uri].diagnostics.clone();
+        diagnostics.extend(self.check_diagnostics(uri));
         diagnostics.extend(self.lint_diagnostics(uri));
         Ok(diagnostics)
     }

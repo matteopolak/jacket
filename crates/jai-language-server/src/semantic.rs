@@ -1,6 +1,7 @@
 //! Type-checked answers for hover and completion: the open documents are compiled with jaic
 //! (bundled or on-disk stdlib) and the compiler's editor facts (`jaic::sema::ide`) are queried.
 //! Compilation happens on demand and is cached per source text.
+use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::intern::Sym;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::sema::ide::{IdeFacts, IdeName};
@@ -61,6 +62,8 @@ pub struct Analysis {
     key: u64,
     /// The program compiled without errors.
     complete: bool,
+    /// Why it did not: the compiler's first error.
+    error: Option<Box<jaic::source::Diagnostic>>,
     /// Lints found so far, by file.
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
 }
@@ -79,6 +82,24 @@ impl Analysis {
         let found = jailint::lint_files(&mut self.compiler, &[file], config, self.complete);
         self.lints.insert(file, found.clone());
         Some(found)
+    }
+
+    /// The compile error as (start, end, message) in `path`: at its own span when that is in
+    /// the file, else at the first of its notes that is (a module procedure the file called).
+    pub fn check_error(&self, path: &Path) -> Option<(usize, usize, String)> {
+        let error = self.error.as_ref()?;
+        let file = self.file(path)?;
+        if error.span.file == file {
+            let span = error.span;
+            return Some((
+                span.start as usize,
+                span.end as usize,
+                error.message.clone(),
+            ));
+        }
+        let (span, note) = error.notes.iter().find(|(span, _)| span.file == file)?;
+        let message = format!("{}\n{note}", error.message);
+        Some((span.start as usize, span.end as usize, message))
     }
 
     pub fn file(&self, path: &Path) -> Option<FileId> {
@@ -188,11 +209,12 @@ impl Cache {
             if self.entries.len() >= CACHED {
                 self.entries.remove(0);
             }
-            let (compiler, complete) = compile(env, root, files);
+            let (compiler, error) = compile(env, root, files);
             self.entries.push(Analysis {
                 compiler,
                 key,
-                complete,
+                complete: error.is_none(),
+                error,
                 lints: BTreeMap::new(),
             });
         }
@@ -200,8 +222,24 @@ impl Cache {
     }
 }
 
-/// The compiled program, and whether it compiled without errors.
-fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -> (Compiler, bool) {
+/// Gives the compilers of a metaprogram's workspaces the analysis's block budget.
+struct Budgeted;
+
+impl WorkspaceObserver for Budgeted {
+    fn created(&mut self, compiler: &mut Compiler) {
+        compiler.interp.block_budget = Some(BLOCK_BUDGET);
+    }
+
+    fn finished(&mut self, _compiler: Box<Compiler>, _failed: bool) {
+    }
+}
+
+/// The compiled program, and its first error if it has one.
+fn compile(
+    env: &Environment,
+    root: &Path,
+    files: BTreeMap<PathBuf, Rc<[u8]>>,
+) -> (Compiler, Option<Box<jaic::source::Diagnostic>>) {
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),
         files,
@@ -215,6 +253,19 @@ fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -
     )));
     compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
+    // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
+    // the same way, with no output, the same host and the same budget.
+    let workspace_host = host.clone();
+    let workspaces = Workspaces::new(BuildEnv {
+        fs: compiler.fs.clone(),
+        options: (env.options)(root),
+        backend: None,
+        command_line: Vec::new(),
+        make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
+        report: Box::new(|_| {}),
+        observer: Some(Box::new(Budgeted)),
+    });
+    compiler.attach_workspaces(workspaces);
     let mut prefix = env.fs.canonical(&dir).to_string_lossy().into_owned();
     if !prefix.ends_with('/') {
         prefix.push('/');
@@ -224,9 +275,9 @@ fn compile(env: &Environment, root: &Path, files: BTreeMap<PathBuf, Rc<[u8]>>) -
     // What jailint needs (expression types, casts, uses) on top of the editor facts.
     facts.lint = true;
     compiler.ide = Some(Box::new(facts));
-    let complete = compiler.compile_program(root).is_ok();
+    let error = compiler.compile_program(root).err();
     compiler.ide_check_all();
-    (compiler, complete)
+    (compiler, error)
 }
 
 /// Where `text` fails to lex or parse (a byte offset), if it does.

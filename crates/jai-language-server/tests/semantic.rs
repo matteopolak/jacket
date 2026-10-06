@@ -278,3 +278,37 @@ fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
     assert_eq!(names(after(text, "#load \"", 0, 0)), ["other.jai", "util/"]);
     assert_eq!(names(after(text, "util/h", 0, 0)), ["helpers.jai"]);
 }
+
+/// The type checker's error is published, also for a procedure nothing calls (the program's
+/// own code is checked whether or not it is used), at the offending code; fixed, it goes away.
+// rules: dce.2
+#[test]
+fn type_error_in_an_unused_procedure_is_published() {
+    let text = "#import \"Basic\";\nunused :: () {\n    x: int = \"text\";\n}\nmain :: () {}\n";
+    let checks = |s: &Session| -> Vec<jai_language_server::Diagnostic> {
+        s.diagnostics(&uri())
+            .unwrap()
+            .into_iter()
+            .filter(|d| d.code == jai_language_server::DiagnosticCode::Check)
+            .collect()
+    };
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let found = checks(&s);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].message.contains("type mismatch"), "{found:?}");
+    assert_eq!(
+        found[0].range.start,
+        Position {
+            line: 2,
+            character: 4
+        }
+    );
+    let fixed = TextChange {
+        range: None,
+        range_length: None,
+        text: text.replace("\"text\"", "3"),
+    };
+    s.change(&uri(), 2, &[fixed]).unwrap();
+    assert!(checks(&s).is_empty());
+}

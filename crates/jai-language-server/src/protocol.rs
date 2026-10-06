@@ -763,6 +763,7 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticCode::Source => ("jai-source", "jai"),
         DiagnosticCode::Limit => ("jai-limit", "jai"),
         DiagnosticCode::Format => ("jai-format", "jai"),
+        DiagnosticCode::Check => ("jai-check", "jai"),
         DiagnosticCode::Lint(rule) => (rule, "jailint"),
     };
     let mut value = json!({

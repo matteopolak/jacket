@@ -107,24 +107,24 @@ HAVE_C :: BINDINGS.count > 0;
 
 #if HAVE_C {
     #insert BINDINGS;
-}
 
-ms :: #library "/tmp/jai_bindgen_bitfields_msvc/libmsbits";
-ms_size :: (which: s32) -> s32 #foreign ms;
-ms_mixed_set :: (m: *Mixed, a: s32, b: s32, c: s32) #foreign ms;
-ms_mixed_get :: (m: *Mixed, which: s32) -> s32 #foreign ms;
-ms_same_set :: (s: *SameType, a: u32, b: u32, c: u32) #foreign ms;
-ms_same_get :: (s: *SameType, which: s32) -> u32 #foreign ms;
-ms_zero_set :: (z: *Zero, a: u32, b: u32) #foreign ms;
-ms_zero_get :: (z: *Zero, which: s32) -> u32 #foreign ms;
-ms_tail_set :: (t: *Tail, c: s32, x: s32) #foreign ms;
-ms_tail_get :: (t: *Tail, which: s32) -> s32 #foreign ms;
-ms_wide_set :: (w: *Wide, a: u64, b: u64, after: s32) #foreign ms;
-ms_wide_get :: (w: *Wide, which: s32) -> u64 #foreign ms;
-ms_shorts_set :: (s: *Shorts, a: s32, b: s32) #foreign ms;
-ms_shorts_get :: (s: *Shorts, which: s32) -> s32 #foreign ms;
-ms_signs_set :: (s: *Signs, a: u32, b: s32) #foreign ms;
-ms_signs_get :: (s: *Signs, which: s32) -> s32 #foreign ms;
+    ms :: #library "/tmp/jai_bindgen_bitfields_msvc/libmsbits";
+    ms_size :: (which: s32) -> s32 #foreign ms;
+    ms_mixed_set :: (m: *Mixed, a: s32, b: s32, c: s32) #foreign ms;
+    ms_mixed_get :: (m: *Mixed, which: s32) -> s32 #foreign ms;
+    ms_same_set :: (s: *SameType, a: u32, b: u32, c: u32) #foreign ms;
+    ms_same_get :: (s: *SameType, which: s32) -> u32 #foreign ms;
+    ms_zero_set :: (z: *Zero, a: u32, b: u32) #foreign ms;
+    ms_zero_get :: (z: *Zero, which: s32) -> u32 #foreign ms;
+    ms_tail_set :: (t: *Tail, c: s32, x: s32) #foreign ms;
+    ms_tail_get :: (t: *Tail, which: s32) -> s32 #foreign ms;
+    ms_wide_set :: (w: *Wide, a: u64, b: u64, after: s32) #foreign ms;
+    ms_wide_get :: (w: *Wide, which: s32) -> u64 #foreign ms;
+    ms_shorts_set :: (s: *Shorts, a: s32, b: s32) #foreign ms;
+    ms_shorts_get :: (s: *Shorts, which: s32) -> s32 #foreign ms;
+    ms_signs_set :: (s: *Signs, a: u32, b: s32) #foreign ms;
+    ms_signs_get :: (s: *Signs, which: s32) -> s32 #foreign ms;
+}
 
 has :: (text: string, needle: string) -> bool {
     return contains(text, needle);

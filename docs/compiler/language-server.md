@@ -14,6 +14,7 @@ It has two layers:
 | Feature | LSP method | Layer |
 |---|---|---|
 | Diagnostics: lexer and parser errors, `#load` targets, format strings | `textDocument/publishDiagnostics` | syntax |
+| Diagnostics: the type checker's first error, also in code nothing calls (`jai-check` as `code`, see [dead-code elimination](../language/dead-code-elimination.md)) | `textDocument/publishDiagnostics` | semantic |
 | Diagnostics: jailint lints (rule as `code`, `jailint` as `source`) | `textDocument/publishDiagnostics` | semantic |
 | Hover: types of locals, members, procedures (every overload), structs, enums, constants | `textDocument/hover` | semantic |
 | Hover on a macro call: the macro's body with the arguments substituted | `textDocument/hover` | semantic |
@@ -39,7 +40,7 @@ It has two layers:
 | Folding ranges: blocks and runs of `#import`/`#load` | `textDocument/foldingRange` | syntax |
 | Stdlib and module sources for read-only viewing | `jai/source` (non-standard) | environment |
 
-Not supported: renaming struct members, formatting (see [jaifmt](../tools/jaifmt.md)), pull diagnostics, type-checker errors (syntax, format-string and lint diagnostics are published), references to struct members.
+Not supported: renaming struct members, formatting (see [jaifmt](../tools/jaifmt.md)), pull diagnostics, more than one type-checker error per compile, references to struct members.
 
 ## How it works
 
@@ -57,7 +58,7 @@ Positions use UTF-16, including supplementary characters and CRLF. Edits apply t
 2. **Root.** The check starts from the document that `#load`s the requested one and is loaded by none (`Session::root`).
 3. **Recording.** `Compiler::ide` is set to `IdeFacts` for files under the root's directory. While checking, sema records what each identifier and member names, with its type, and the source extent of block and procedure scopes. It also records expansions and calls. See [Editor facts](#editor-facts-in-jaic).
 4. **All bodies.** `ide_check_all` then lowers every non-polymorphic procedure body in those files, not only what `main` reaches, so helpers nobody calls yet still have facts.
-5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. The host is shared with `IdeFacts::output`, which is how a `#run` hover shows what it printed. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging.
+5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. The host is shared with `IdeFacts::output`, which is how a `#run` hover shows what it printed. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging. The compile also gets a workspace registry (`build::Workspaces`) on the same host, so a metaprogram's `#run` can create workspaces; each new workspace compiler gets the same budget.
 
 Half-typed text usually does not parse. `repair` blanks lines with spaces, so byte offsets stay put, until the text parses: first the cursor's line (for completion and signature help), then the line the parser reports. If the error is reported on an empty line or a lone `}`, it blanks the last non-empty line before it instead, because that is where a missing `;` belongs. Every semantic feature goes through `Session::checked` (repair, compile or reuse the cache, look up the file), so hover, inlay hints and tokens of one version share one compile.
 
