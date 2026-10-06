@@ -317,7 +317,9 @@ impl<'a> Lexer<'a> {
         }
         std::str::from_utf8(&self.src[s..self.at]).unwrap_or("?")
     }
-    /// Identifiers may contain `\\` as an ignored visual separator: `group\\_fraction`.
+    /// Identifiers may contain `\\` as an ignored visual separator: `group\\_fraction`. A trailing
+    /// backslash pads a short name to line up with its neighbours (`arrow.to\\, x` next to
+    /// `arrow.from, x`) and is dropped too.
     fn ident_with_separators(&mut self) -> String {
         let mut name = String::from(self.ident());
         while self.peek(0) == b'\\' {
@@ -325,10 +327,10 @@ impl<'a> Lexer<'a> {
             while matches!(self.peek(skip), b' ' | b'\t') {
                 skip += 1;
             }
-            if !is_ident_char(self.peek(skip)) {
+            self.at += skip;
+            if !is_ident_char(self.peek(0)) {
                 break;
             }
-            self.at += skip;
             name.push_str(self.ident());
         }
         name
@@ -651,6 +653,13 @@ mod tests {
         assert_eq!(t[12], Tok::Float(1500.0));
         assert_eq!(t[14], Tok::Directive(Sym::intern("run")));
         assert!(matches!(&t[19], Tok::Note(n) if &**n == "note"));
+    }
+    #[test]
+    fn identifier_separators() {
+        let t = kinds("to\\ _pt := f(a.to\\, b);");
+        assert_eq!(t[0], Tok::Ident(Sym::intern("to_pt")));
+        assert_eq!(t[6], Tok::Ident(Sym::intern("to")));
+        assert_eq!(t[7], Tok::Punct(P::Comma));
     }
     #[test]
     fn leading_dot_floats() {
