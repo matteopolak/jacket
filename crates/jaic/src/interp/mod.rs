@@ -12,6 +12,8 @@
 mod code;
 #[cfg(not(target_arch = "wasm32"))]
 mod crash;
+#[cfg(not(target_arch = "wasm32"))]
+pub use crash::CRASH_STATUS;
 mod executable_path;
 mod native;
 pub mod profile;

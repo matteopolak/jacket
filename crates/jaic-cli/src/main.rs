@@ -251,11 +251,13 @@ environment:
   JAIC_DIAGNOSTICS=plain|ascii|unicode  diagnostic layout (default: by terminal)
   NO_COLOR, FORCE_COLOR, CLICOLOR_FORCE  turn colour off or on
 
-exit status: 0 success, 1 the program failed to compile or a runtime error stopped it
-(`run` otherwise exits with the program's own status), 2 a command-line mistake,
-{limit} the memory limit, 101 an internal compiler error",
+exit status: 0 success, 1 the program failed to compile, an input file cannot be read
+or a runtime error stopped it (`run` otherwise exits with the program's own status),
+2 a command-line mistake, {limit} the memory limit, {crash} native code crashed under
+the interpreter, 101 an internal compiler error",
         version = env!("CARGO_PKG_VERSION"),
         limit = jaic::memory_limit::EXIT_CODE,
+        crash = jaic::interp::CRASH_STATUS,
     )
 }
 
@@ -307,6 +309,7 @@ const VALUE_OPTIONS: &[(&str, &str)] = &[
     ("-plug", "a plugin module name"),
     ("-plugin", "a plugin module name"),
     ("--color", "a value: auto, always or never"),
+    ("-color", "a value: auto, always or never"),
 ];
 
 /// Every option jaic knows, for "did you mean" suggestions.
@@ -411,7 +414,11 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
         no_workspace_output: false,
         color: jaic::render::ColorChoice::Auto,
     };
-    let has_plugins = args.iter().any(|a| a == "-plug" || a == "-plugin");
+    // Only jaic's own options count: metaprogram and program arguments start at `-`/`--`.
+    let has_plugins = args
+        .iter()
+        .take_while(|a| *a != "-" && *a != "--")
+        .any(|a| a == "-plug" || a == "-plugin");
     let mut rest = args[2..].iter();
     while let Some(arg) = rest.next() {
         // `--color=always` and the like.
@@ -493,9 +500,21 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
                 })
             }
             "-target" | "--target" => cli.target = Some(value(a)?),
+            "-h" | "--help" | "-help" if !has_plugins => return Ok(Request::Help),
             "--timings" => cli.timings = true,
             "-no_dce" => cli.no_dce = true,
             "-no_workspace_output" if command == Command::Run => cli.no_workspace_output = true,
+            "-no_workspace_output" if !has_plugins => {
+                return Err(
+                    CliError::new("`-no_workspace_output` only applies to `jaic run`").help(
+                        if command == Command::Check {
+                            "`jaic check` never writes workspace output"
+                        } else {
+                            "`jaic build` writes what the workspaces ask for; leave the option out"
+                        },
+                    ),
+                );
+            }
             "--color" | "-color" => {
                 let when = value("--color")?;
                 cli.color = jaic::render::ColorChoice::parse(&when).ok_or_else(|| {
@@ -676,12 +695,16 @@ fn print_error(message: &str) {
 
 /// Print a command-line mistake and return the usage exit status.
 fn report_cli_error(error: CliError) -> ExitCode {
+    print_cli_error(error);
+    ExitCode::from(2)
+}
+
+fn print_cli_error(error: CliError) {
     let mut report = jaic::render::Report::new(jaic::render::Severity::Error, error.message);
     for help in error.help {
         report = report.help(help);
     }
     eprint!("{}", report.render());
-    ExitCode::from(2)
 }
 
 fn main() -> ExitCode {
@@ -799,7 +822,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     }
     jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
     if let Err(error) = check_input(&cli.file) {
-        report_cli_error(error);
+        // An input that cannot be read is a failure of the command (1), not a mistake in
+        // its arguments (2); see docs/compiler/diagnostics.md.
+        print_cli_error(error);
         return ExitCode::from(1);
     }
     let path = std::fs::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));

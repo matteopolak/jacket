@@ -818,6 +818,19 @@ fn command_line_mistakes_explain_themselves() {
             &["run", "ok.jai", "--color", "sometimes"],
             &["error: unknown `--color` value `sometimes`"],
         ),
+        (
+            &["run", "ok.jai", "-color=sometimes"],
+            &["error: unknown `--color` value `sometimes`"],
+        ),
+        (
+            &["build", "ok.jai", "-no_workspace_output"],
+            &["error: `-no_workspace_output` only applies to `jaic run`"],
+        ),
+        // `-plug` after `-` is the metaprogram's argument, so `-o` is still build-only.
+        (
+            &["run", "ok.jai", "-o", "x", "-", "-plug", "X"],
+            &["error: `-o` only applies to `jaic build`"],
+        ),
     ];
     for (args, expected) in cases {
         let output = jaic(&dir, args, &[]);
@@ -826,7 +839,14 @@ fn command_line_mistakes_explain_themselves() {
         assert_in_order(&text, expected);
         assert!(!text.contains("usage:"), "{args:?}: {text}");
     }
-    for args in [&["--help"][..], &["-h"], &["help"], &["run", "--help"]] {
+    for args in [
+        &["--help"][..],
+        &["-h"],
+        &["help"],
+        &["run", "--help"],
+        &["run", "ok.jai", "--help"],
+        &["build", "ok.jai", "-O2", "-h"],
+    ] {
         let output = jaic(&dir, args, &[]);
         assert_eq!(output.status.code(), Some(0), "{args:?}");
         let text = String::from_utf8_lossy(&output.stdout);
