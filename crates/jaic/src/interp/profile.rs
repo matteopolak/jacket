@@ -20,16 +20,61 @@ struct Row {
 
 static TOTALS: Mutex<Option<HashMap<String, Row>>> = Mutex::new(None);
 
-/// Instructions executed by kind (`IConst`, `Load`, ...).
+/// IR instructions executed by kind (`IConst`, `Load`, ...).
 static OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
+
+/// The interpreter's own ops executed by kind (`code.rs`: folded loads, immediates...).
+static CODE_OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
 
 /// Counts of one interpreter, indexed by `FuncId`.
 #[derive(Default)]
 pub(crate) struct Counts {
     rows: Vec<(Row, Option<String>)>,
-    /// Instruction kinds of each block seen, by the block's address: indexes into `kinds`.
-    block_kinds: HashMap<usize, Vec<usize>>,
-    kinds: Vec<(String, u64)>,
+    ir: Kinds,
+    ops: Kinds,
+}
+
+/// Executions by kind name, with each block's kinds cached by the block's address.
+#[derive(Default)]
+struct Kinds {
+    blocks: HashMap<(usize, usize), Vec<usize>>,
+    names: Vec<(String, u64)>,
+}
+
+impl Kinds {
+    fn count<T: std::fmt::Debug>(&mut self, items: &[T]) {
+        let key = (items.as_ptr() as usize, items.len());
+        if !self.blocks.contains_key(&key) {
+            let mut list = Vec::with_capacity(items.len());
+            for item in items {
+                let text = format!("{item:?}");
+                let name = text
+                    .split(|c: char| !c.is_alphanumeric())
+                    .next()
+                    .unwrap_or("");
+                let index = match self.names.iter().position(|(n, _)| n == name) {
+                    Some(i) => i,
+                    None => {
+                        self.names.push((name.to_string(), 0));
+                        self.names.len() - 1
+                    }
+                };
+                list.push(index);
+            }
+            self.blocks.insert(key, list);
+        }
+        for &k in &self.blocks[&key] {
+            self.names[k].1 += 1;
+        }
+    }
+
+    fn flush(&mut self, into: &Mutex<Option<HashMap<String, u64>>>) {
+        let mut table = into.lock().unwrap_or_else(|e| e.into_inner());
+        let table = table.get_or_insert_with(HashMap::new);
+        for (name, n) in &mut self.names {
+            *table.entry(name.clone()).or_default() += std::mem::take(n);
+        }
+    }
 }
 
 impl Counts {
@@ -44,41 +89,16 @@ impl Counts {
         row.insts += insts;
     }
 
-    /// Count the instructions of a block about to run, by kind.
-    pub(crate) fn block(&mut self, block: &crate::ir::Block) {
-        let key = block as *const _ as usize;
-        if !self.block_kinds.contains_key(&key) {
-            let mut list = Vec::with_capacity(block.insts.len());
-            for inst in &block.insts {
-                let text = format!("{inst:?}");
-                let name = text
-                    .split(|c: char| !c.is_alphanumeric())
-                    .next()
-                    .unwrap_or("");
-                let index = match self.kinds.iter().position(|(n, _)| n == name) {
-                    Some(i) => i,
-                    None => {
-                        self.kinds.push((name.to_string(), 0));
-                        self.kinds.len() - 1
-                    }
-                };
-                list.push(index);
-            }
-            self.block_kinds.insert(key, list);
-        }
-        for &k in &self.block_kinds[&key] {
-            self.kinds[k].1 += 1;
-        }
+    /// Count the instructions of a block about to run, by kind: its IR and the ops it
+    /// became.
+    pub(crate) fn block<T: std::fmt::Debug>(&mut self, block: &crate::ir::Block, ops: &[T]) {
+        self.ir.count(&block.insts);
+        self.ops.count(ops);
     }
 
     pub(crate) fn flush(&mut self) {
-        {
-            let mut ops = OPS.lock().unwrap_or_else(|e| e.into_inner());
-            let ops = ops.get_or_insert_with(HashMap::new);
-            for (name, n) in &mut self.kinds {
-                *ops.entry(name.clone()).or_default() += std::mem::take(n);
-            }
-        }
+        self.ir.flush(&OPS);
+        self.ops.flush(&CODE_OPS);
         let mut totals = TOTALS.lock().unwrap_or_else(|e| e.into_inner());
         let totals = totals.get_or_insert_with(HashMap::new);
         for (row, name) in self.rows.drain(..) {
@@ -115,16 +135,31 @@ pub fn report(top: usize) -> Option<String> {
             r.calls
         ));
     }
-    let ops = OPS.lock().unwrap_or_else(|e| e.into_inner());
-    let mut ops: Vec<(&String, &u64)> = ops.iter().flat_map(|t| t.iter()).collect();
-    ops.sort_by_key(|a| std::cmp::Reverse(*a.1));
-    out.push_str("instructions by kind:");
-    for (name, n) in ops.into_iter().take(16) {
+    out.push_str(&kind_line("instructions by kind:", &OPS, all));
+    let ran: u64 = {
+        let table = CODE_OPS.lock().unwrap_or_else(|e| e.into_inner());
+        table.iter().flat_map(|t| t.values()).sum()
+    };
+    out.push_str(&kind_line(
+        &format!("{ran} interpreter ops by kind:"),
+        &CODE_OPS,
+        all,
+    ));
+    Some(out)
+}
+
+/// One line of kind shares, as percentages of `all` IR instructions.
+fn kind_line(title: &str, table: &Mutex<Option<HashMap<String, u64>>>, all: u64) -> String {
+    let table = table.lock().unwrap_or_else(|e| e.into_inner());
+    let mut kinds: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
+    kinds.sort_by_key(|a| std::cmp::Reverse(*a.1));
+    let mut out = title.to_string();
+    for (name, n) in kinds.into_iter().take(16) {
         out.push_str(&format!(
             " {name} {:.1}%",
             100.0 * *n as f64 / all.max(1) as f64
         ));
     }
     out.push('\n');
-    Some(out)
+    out
 }

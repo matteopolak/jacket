@@ -6,9 +6,29 @@
 
 ## How it works
 
-`Interp::call` is the entry from the compiler; `exec`, `run` and `step` interpret functions. Procedure values are tagged addresses (`FUNC_TAG`). Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with `foreign procedure '...' is not available here` when called.
+`Interp::call` is the entry from the compiler; `exec` sets up a frame and `run_code` (`interp/code.rs`) runs the body. Procedure values are tagged addresses (`FUNC_TAG`). Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with `foreign procedure '...' is not available here` when called.
 
 `#compiler` procedures of the `Compiler` module are hooks (`Hook`, `run_hook`) handled by `MetaOp` in `build.rs`. `codes` mirrors the compiler's `Code` values so `compiler_get_nodes` can export them, and `made_codes` lists codes created by `compiler_get_code`; see [compiler records](../metaprogramming/compiler-records.md).
+
+### The interpreter's code form
+
+The IR is shaped for LLVM: every local lives in a stack slot, so a statement is mostly `SlotAddr` + `Load`/`Store`, and every constant is its own `IConst`. Interpreting that directly costs one dispatch per instruction. On a procedure's first call, `code::build` turns each block into a run of 16-byte `Op`s, cached in the procedure's `Frame`:
+
+| IR | Op |
+|---|---|
+| `SlotAddr` (or a slot plus a constant) feeding a `Load`/`Store` | `LoadFrame`/`StoreFrame` with the frame offset; no null check, since frame memory is always valid |
+| `PtrAdd p, base, IConst` feeding a `Load`/`Store` later in the same block | `Load`/`Store` of `base` + `off` |
+| `IConst` that fits 32 bits as an operand | `AddImm`, `MulImm`, `BinImm`, `CmpImm`, `StoreImm`, `StoreFrameImm` |
+| 64-bit `Add`/`Sub`/`Mul`, `PtrAdd` | `Add`/`Sub`/`Mul`, which need no masking |
+| `Cmp` read only by the block's `Branch` | a `CmpBranch` terminator; a branch on a constant becomes a jump |
+| two `Loc`s in a row | the second |
+| `Call`, `Intrinsic`, oversized `Copy`/`Zero` | `Ir`, which runs the original instruction through `step` |
+
+Definitions whose results nobody reads any more (the folded constants and slot addresses) are dropped. Folding moves a register read later than the IR has it, so it is only done for values with one definition (SSA, which the IR builder produces): constants and frame addresses anywhere, other values only within the block that defined them, where no definition can run again in between.
+
+Registers are accessed unchecked: `build` asserts every register an op names is below `func.vals.len()`, and `run` sizes the register file to exactly that. The `Frame` records a fingerprint of the IR it was made from (blocks pointer and counts) and is rebuilt when a procedure body is replaced.
+
+`JAIC_PROFILE` keeps counting IR instructions, so instruction counts stay comparable across interpreter changes; a second line counts the ops that actually ran, by kind.
 
 ### Traps and checks
 
@@ -60,6 +80,8 @@ Not covered: callbacks stored in memory before the call (only arguments are tran
 
 ## How to change it
 
+- New IR instruction: add it to `inst_vals` in `code.rs` (definitions and uses; a missing use would let a definition it reads be dropped), then either translate it to an `Op` or let it fall back to `Op::Ir`, which needs only an arm in `step`.
+- New op or fold: keep `Op` at 16 bytes (a compile-time assert checks it). An op that folds a register operand away must call `fold` on it, one that reads a register `build` did not count must add to `uses`, and an op that may be dropped when unread must have no side effect and list its operands in `op_srcs`.
 - New return shape or calling convention for native calls: `call_as` and the shape structs in `native.rs`, plus the matching `Ret` impl and thunk family in `native/callbacks.rs`. The two must stay mirror images.
 - To test x86-64 paths on an arm64 Mac, build an interpreter-only `jaic` (`cargo build -p jaic-cli --no-default-features --target x86_64-apple-darwin`, no LLVM needed) and run it with `arch -x86_64`.
 - New sandbox foreign procedures: a match arm in `sandbox.rs`. Arguments arrive as raw `u64`s (host addresses, doubles as bits); report errors through `set_errno` and return -1.

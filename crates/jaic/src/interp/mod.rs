@@ -8,6 +8,7 @@
 //! call.
 #![allow(unsafe_code)]
 
+mod code;
 mod native;
 pub mod profile;
 mod sandbox;
@@ -16,7 +17,7 @@ mod threads;
 mod threads_inline;
 use crate::fxhash::HashMap;
 use crate::ir::{
-    self, BinOp, Callee, CmpOp, ConvOp, ForeignId, FuncId, GlobalId, Inst, Program, Term, Ty, UnOp,
+    self, BinOp, Callee, CmpOp, ConvOp, ForeignId, FuncId, GlobalId, Inst, Program, Ty, UnOp,
 };
 #[cfg(target_os = "macos")]
 pub use native::main_thread;
@@ -150,6 +151,8 @@ struct Frame {
     /// Largest slot alignment: the frame's absolute start address is a multiple of it, so
     /// `#align 64` locals land aligned (offsets alone only align relative to the frame).
     align: u64,
+    /// The body in the interpreter's form (`code.rs`).
+    code: code::Code,
 }
 
 /// Size of a `Stack_Trace_Node`.
@@ -503,10 +506,12 @@ impl Interp {
 
     fn frame(&mut self, program: &Program, id: FuncId) -> Rc<Frame> {
         let i = id.0 as usize;
-        if let Some(Some(f)) = self.frames.get(i) {
+        let func = program.funcs[i].as_ref().unwrap();
+        if let Some(Some(f)) = self.frames.get(i)
+            && f.code.source == code::fingerprint(func)
+        {
             return f.clone();
         }
-        let func = program.funcs[i].as_ref().unwrap();
         let mut offsets = Vec::with_capacity(func.slots.len());
         let mut size = 0u64;
         let mut frame_align = 16u64;
@@ -517,10 +522,12 @@ impl Interp {
             offsets.push(size);
             size += slot.size.max(1);
         }
+        let code = code::build(func, &offsets);
         let frame = Rc::new(Frame {
             offsets,
             size: size.next_multiple_of(16),
             align: frame_align,
+            code,
         });
         if self.frames.len() <= i {
             self.frames.resize_with(i + 1, || None);
@@ -905,77 +912,9 @@ impl Interp {
         vals.resize(func.vals.len(), 0);
         vals[..args.len().min(func.sig.params.len())]
             .copy_from_slice(&args[..args.len().min(func.sig.params.len())]);
-        let result = self.run_blocks(program, func, frame, stack_base, &mut vals);
+        let result = self.run_code(program, func, frame, stack_base, &mut vals);
         self.val_pool.push(vals);
         result
-    }
-
-    fn run_blocks(
-        &mut self,
-        program: &Program,
-        func: &ir::Func,
-        frame: &Frame,
-        stack_base: u64,
-        vals: &mut [u64],
-    ) -> Res<Rets> {
-        let mut block = 0usize;
-        loop {
-            if let Some(left) = self.block_budget.as_mut() {
-                if *left == 0 {
-                    return self.trap("execution budget exhausted");
-                }
-                *left -= 1;
-            }
-            if self.multi {
-                if self.host.cooperative_threads() {
-                    self.inline_preempt(program)?;
-                } else {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    self.preempt(program)?;
-                }
-            }
-            let b = &func.blocks[block];
-            self.frame_blocks += 1;
-            self.frame_insts += b.insts.len() as u64;
-            if let Some(counts) = self.profile.as_mut() {
-                counts.block(b);
-            }
-            for inst in &b.insts {
-                self.step(program, inst, vals, frame, stack_base)?;
-            }
-            match &b.term {
-                Term::Jump(t) => block = t.0 as usize,
-                Term::Branch {
-                    cond,
-                    then_block,
-                    else_block,
-                } => {
-                    block = if vals[cond.0 as usize] & 0xff != 0 {
-                        then_block.0
-                    } else {
-                        else_block.0
-                    } as usize;
-                }
-                Term::Switch {
-                    value,
-                    ty,
-                    cases,
-                    default,
-                } => {
-                    let v = mask(*ty, vals[value.0 as usize]);
-                    block = cases
-                        .iter()
-                        .find(|(c, _)| mask(*ty, *c) == v)
-                        .map_or(default.0, |(_, t)| t.0) as usize;
-                }
-                Term::Ret(values) => {
-                    return Ok(Rets::collect(values.iter().map(|v| vals[v.0 as usize])));
-                }
-                Term::Unreachable => {
-                    return self.trap(format!("reached unreachable code in '{}'", func.name));
-                }
-            }
-        }
     }
 
     fn step(
@@ -1437,6 +1376,7 @@ fn cycle_counter() -> u64 {
     }
 }
 
+#[inline]
 fn mask(ty: Ty, v: u64) -> u64 {
     match ty {
         Ty::I8 => v & 0xff,
@@ -1446,6 +1386,7 @@ fn mask(ty: Ty, v: u64) -> u64 {
     }
 }
 
+#[inline]
 fn sext(ty: Ty, v: u64) -> i64 {
     match ty {
         Ty::I8 => v as u8 as i8 as i64,
@@ -1455,6 +1396,7 @@ fn sext(ty: Ty, v: u64) -> i64 {
     }
 }
 
+#[inline]
 fn cmp(op: CmpOp, ty: Ty, x: u64, y: u64) -> bool {
     let (ux, uy) = (mask(ty, x), mask(ty, y));
     let (sx, sy) = (sext(ty, x), sext(ty, y));
