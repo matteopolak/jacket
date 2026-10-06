@@ -648,7 +648,7 @@ impl Compiler {
             }
         } else {
             let display = self.proc_display_name(id);
-            let func = self.program.reserve_func(display);
+            let func = self.program.reserve_func_with_sig(display, ir_sig);
             self.procs[id.0 as usize].body_state = BodyState::Queued;
             self.body_queue.push(id);
             ProcTarget::Func(func)

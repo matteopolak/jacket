@@ -1290,9 +1290,7 @@ impl Interp {
                     } => {
                         let (d, s) = (get(dst), get(src));
                         if d < 4096 || s < 4096 {
-                            return self.trap(
-                                "null pointer dereference: memory copy through a null pointer",
-                            );
+                            return self.null_trap("memory copy through a null pointer");
                         }
                         unsafe { copy_bytes(d, s, size) };
                     }
@@ -1302,9 +1300,7 @@ impl Interp {
                     } => {
                         let d = get(dst);
                         if d < 4096 {
-                            return self.trap(
-                                "null pointer dereference: memory fill through a null pointer",
-                            );
+                            return self.null_trap("memory fill through a null pointer");
                         }
                         unsafe { zero_bytes(d, size) };
                     }

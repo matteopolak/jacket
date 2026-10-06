@@ -697,6 +697,9 @@ pub struct Library {
 pub struct Program {
     pub funcs: Vec<Option<Func>>,
     pub func_names: Vec<String>,
+    /// Each function's signature as soon as it is reserved for a procedure, before its body
+    /// is lowered (`reserve_func_with_sig`); `None` for functions reserved without one.
+    pub reserved_sigs: Vec<Option<Sig>>,
     pub globals: Vec<Global>,
     pub foreigns: Vec<Foreign>,
     pub libraries: Vec<Library>,
@@ -720,7 +723,24 @@ impl Program {
     pub fn reserve_func(&mut self, name: String) -> FuncId {
         self.funcs.push(None);
         self.func_names.push(name);
+        self.reserved_sigs.push(None);
         FuncId(self.funcs.len() as u32 - 1)
+    }
+
+    /// `reserve_func` for a function whose signature is already known.
+    pub fn reserve_func_with_sig(&mut self, name: String, sig: Sig) -> FuncId {
+        let id = self.reserve_func(name);
+        self.reserved_sigs[id.0 as usize] = Some(sig);
+        id
+    }
+
+    /// Function `id`'s signature: its lowered body's, or the one it was reserved with.
+    pub fn func_sig(&self, id: FuncId) -> Option<&Sig> {
+        let i = id.0 as usize;
+        match self.funcs.get(i) {
+            Some(Some(f)) => Some(&f.sig),
+            _ => self.reserved_sigs.get(i)?.as_ref(),
+        }
     }
 
     pub fn func(&self, id: FuncId) -> Option<&Func> {

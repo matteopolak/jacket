@@ -142,16 +142,30 @@ pub struct Trap {
     /// message is the program's own, shown without the compile-time-execution prefix, at the
     /// location it named (path, line, column; an empty path names none).
     pub reported: Option<Box<(String, u32, u32)>>,
+    /// Which kind of failure this is, for the report's notes and help (the message is for
+    /// people; nothing parses it).
+    pub kind: Option<TrapKind>,
 }
 
-/// The message for a load or store at an address in the never-mapped first page.
+/// What failed, for failures the report treats specially.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrapKind {
+    /// A runtime check: an `ir::TRAP_*` reason and its details (`ir::check_message`).
+    Check { reason: u64, a: u64, b: u64 },
+    /// A load, store, copy or call through a null (or nearly null) pointer.
+    NullPointer,
+    /// Recursion deeper than the interpreter allows.
+    StackOverflow,
+    /// A failed `assert` without a message of its own.
+    BareAssertion,
+}
+
+/// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).
 fn null_access(kind: &str, addr: u64) -> String {
     if addr == 0 {
-        format!("null pointer dereference: {kind} through a null pointer")
+        format!("{kind} through a null pointer")
     } else {
-        format!(
-            "null pointer dereference: {kind} at address {addr:#x}, just past null (a member of a null struct pointer?)"
-        )
+        format!("{kind} at address {addr:#x}, just past null (a member of a null struct pointer?)")
     }
 }
 
@@ -420,6 +434,35 @@ impl Interp {
         })
     }
 
+    fn trap_of<T>(&self, kind: TrapKind, message: impl Into<String>) -> Res<T> {
+        Err(Trap {
+            message: message.into(),
+            loc: self.loc,
+            kind: Some(kind),
+            ..Trap::default()
+        })
+    }
+
+    /// A failed runtime check (`ir::TRAP_*`), worded by `ir::check_message`.
+    fn check_trap<T>(&self, reason: u64, a: u64, b: u64) -> Res<T> {
+        self.trap_of(
+            TrapKind::Check {
+                reason,
+                a,
+                b,
+            },
+            ir::check_message(reason, a, b),
+        )
+    }
+
+    /// An access through a null pointer: `detail` says what was done.
+    fn null_trap<T>(&self, detail: impl std::fmt::Display) -> Res<T> {
+        self.trap_of(
+            TrapKind::NullPointer,
+            format!("null pointer dereference: {detail}"),
+        )
+    }
+
     // -----------------------------------------------------------------------
     // Memory
     // -----------------------------------------------------------------------
@@ -563,7 +606,7 @@ impl Interp {
     #[inline]
     fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
         if addr < 4096 {
-            return self.trap(null_access("read", addr));
+            return self.null_trap(null_access("read", addr));
         }
         if addr & TAG_MASK == FUNC_TAG || addr & TAG_MASK == FOREIGN_TAG {
             return self.trap("read through a procedure address");
@@ -583,7 +626,7 @@ impl Interp {
     #[inline]
     fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
         if addr < 4096 {
-            return self.trap(null_access("write", addr));
+            return self.null_trap(null_access("write", addr));
         }
         let p = addr as *mut u8;
         unsafe {
@@ -765,24 +808,23 @@ impl Interp {
         symbol: Option<&str>,
         release: bool,
     ) -> Res<Vec<u64>> {
-        // `#c_call` procedures handed to C become native thunks that call back in here.
-        // Most already are (`proc_value`); this catches values made before their body was.
+        // A `#c_call` procedure handed to C is a native thunk already (`proc_value`), unless C
+        // cannot call it: that stayed tagged, and asking for its thunk again says why.
         let mut argv = args.to_vec();
         for v in &mut argv {
             if *v & TAG_MASK != FUNC_TAG {
                 continue;
             }
             let id = FuncId((*v & !TAG_MASK) as u32);
-            let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
+            let Some(sig) = program.func_sig(id).filter(|s| s.conv == ir::Conv::C) else {
                 continue;
             };
-            if func.sig.conv == ir::Conv::C {
-                *v = self.thunk(program, id, &func.sig).map_err(|m| Trap {
-                    message: m,
-                    loc: self.loc,
-                    ..Trap::default()
-                })?;
-            }
+            let sig = sig.clone();
+            *v = self.thunk(program, id, &sig).map_err(|m| Trap {
+                message: m,
+                loc: self.loc,
+                ..Trap::default()
+            })?;
         }
         let mine = self.take_exec_state();
         let loc = mine.loc;
@@ -845,16 +887,16 @@ impl Interp {
             return v;
         }
         let tagged = FUNC_TAG | id.0 as u64;
-        let Some(func) = program.funcs.get(i).and_then(Option::as_ref) else {
-            // Not lowered yet: decide when it is.
-            return tagged;
-        };
-        let value = if func.sig.conv == ir::Conv::C && self.host.native_linking() {
-            // A procedure C cannot call (variadic, `long double`, out of thunks) stays tagged;
-            // passing it to C directly reports why.
-            self.thunk(program, id, &func.sig).unwrap_or(tagged)
-        } else {
-            tagged
+        // The signature is known from the moment the procedure is reserved, so the value is
+        // the same whether it is taken before or after the body is lowered.
+        let value = match program.func_sig(id) {
+            Some(sig) if sig.conv == ir::Conv::C && self.host.native_linking() => {
+                // A procedure C cannot call (variadic, `long double`, out of thunks) stays
+                // tagged; passing it to C directly reports why.
+                let sig = sig.clone();
+                self.thunk(program, id, &sig).unwrap_or(tagged)
+            }
+            _ => tagged,
         };
         if self.proc_values.len() <= i {
             self.proc_values.resize(i + 1, 0);
@@ -981,7 +1023,10 @@ impl Interp {
             ));
         };
         if self.depth >= MAX_DEPTH {
-            return self.trap("stack overflow (recursion too deep)");
+            return self.trap_of(
+                TrapKind::StackOverflow,
+                "stack overflow (recursion too deep)",
+            );
         }
         let frame = self.frame(program, id);
         let base = self.sp;
@@ -994,7 +1039,7 @@ impl Interp {
             0
         };
         if start + frame.size + node_size > (self.stack.len() * 8) as u64 {
-            return self.trap("interpreter stack overflow");
+            return self.trap_of(TrapKind::StackOverflow, "interpreter stack overflow");
         }
         self.sp = start + frame.size + node_size;
         self.depth += 1;
@@ -1161,6 +1206,9 @@ impl Interp {
                     })
                     .unwrap_err();
                 trap.assertion = Some(Box::new((path, line, col)));
+                if message.is_empty() {
+                    trap.kind = Some(TrapKind::BareAssertion);
+                }
                 return Err(trap);
             }
             Hook::Meta(op, has_context) => {
@@ -1307,8 +1355,7 @@ impl Interp {
             } => {
                 let (d, s) = (vals[dst.0 as usize], vals[src.0 as usize]);
                 if d < 4096 || s < 4096 {
-                    return self
-                        .trap("null pointer dereference: memory copy through a null pointer");
+                    return self.null_trap("memory copy through a null pointer");
                 }
                 unsafe { std::ptr::copy(s as *const u8, d as *mut u8, *size as usize) };
             }
@@ -1318,8 +1365,7 @@ impl Interp {
             } => {
                 let d = vals[dst.0 as usize];
                 if d < 4096 {
-                    return self
-                        .trap("null pointer dereference: memory fill through a null pointer");
+                    return self.null_trap("memory fill through a null pointer");
                 }
                 unsafe { std::ptr::write_bytes(d as *mut u8, 0, *size as usize) };
             }
@@ -1352,7 +1398,7 @@ impl Interp {
                                 )?
                                 .into(),
                             _ if addr < 4096 => {
-                                return self.trap("null pointer dereference: call through a null procedure pointer");
+                                return self.null_trap("call through a null procedure pointer");
                             }
                             _ => match self.thunk_funcs.get(&addr) {
                                 // A thunk this interpreter made: no need to go through C.
@@ -1403,7 +1449,7 @@ impl Interp {
             BinOp::SDiv | BinOp::SRem => {
                 let (a, b) = (sext(ty, x), sext(ty, y));
                 if b == 0 {
-                    return self.trap(ir::check_message(ir::TRAP_DIVIDE_BY_ZERO, 0, 0));
+                    return self.check_trap(ir::TRAP_DIVIDE_BY_ZERO, 0, 0);
                 }
                 let r = if op == BinOp::SDiv {
                     a.wrapping_div(b)
@@ -1414,7 +1460,7 @@ impl Interp {
             }
             BinOp::UDiv | BinOp::URem => {
                 if y == 0 {
-                    return self.trap(ir::check_message(ir::TRAP_DIVIDE_BY_ZERO, 0, 0));
+                    return self.check_trap(ir::TRAP_DIVIDE_BY_ZERO, 0, 0);
                 }
                 if op == BinOp::UDiv {
                     x / y
@@ -1480,10 +1526,10 @@ impl Interp {
     /// `Intrinsic::CheckFailed` (reason, a, b, fatal): a trap, or a warning with the location
     /// on stderr when the check is not fatal.
     fn check_failed(&mut self, program: &Program, a: &[u64]) -> Res<()> {
-        let message = ir::check_message(a[0], a[1], a[2]);
         if a[3] & 0xff != 0 {
-            return self.trap(message);
+            return self.check_trap(a[0], a[1], a[2]);
         }
+        let message = ir::check_message(a[0], a[1], a[2]);
         let at = self
             .loc
             .and_then(|(file, line, _)| {
@@ -1507,8 +1553,7 @@ impl Interp {
             I::Memcpy => {
                 if a[2] > 0 {
                     if a[0] < 4096 || a[1] < 4096 {
-                        return self
-                            .trap("null pointer dereference: memcpy through a null pointer");
+                        return self.null_trap("memcpy through a null pointer");
                     }
                     unsafe { std::ptr::copy(a[1] as *const u8, a[0] as *mut u8, a[2] as usize) };
                 }
@@ -1517,8 +1562,7 @@ impl Interp {
             I::Memset => {
                 if a[2] > 0 {
                     if a[0] < 4096 {
-                        return self
-                            .trap("null pointer dereference: memset through a null pointer");
+                        return self.null_trap("memset through a null pointer");
                     }
                     unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, a[2] as usize) };
                 }
@@ -1527,7 +1571,7 @@ impl Interp {
             I::Memcmp => {
                 let n = a[2] as usize;
                 if n > 0 && (a[0] < 4096 || a[1] < 4096) {
-                    return self.trap("null pointer dereference: memcmp through a null pointer");
+                    return self.null_trap("memcmp through a null pointer");
                 }
                 let (x, y) = (self.read(a[0], n), self.read(a[1], n));
                 let r: i16 = match x.cmp(&y) {
@@ -1550,12 +1594,12 @@ impl Interp {
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
-                return self.trap(ir::check_message(a.first().copied().unwrap_or(0), 0, 0));
+                return self.check_trap(a.first().copied().unwrap_or(0), 0, 0);
             }
             I::BoundsCheck => {
                 let (index, count) = (a[0] as i64, a[1] as i64);
                 if index < 0 || index >= count {
-                    return self.trap(ir::check_message(ir::TRAP_BOUNDS, a[0], a[1]));
+                    return self.check_trap(ir::TRAP_BOUNDS, a[0], a[1]);
                 }
                 vec![]
             }
@@ -1629,7 +1673,7 @@ impl Interp {
         use ir::WideOp as W;
         let value = |s: &Self, addr: u64| -> Res<w::Bytes> {
             if addr < 4096 {
-                return s.trap(null_access("read", addr));
+                return s.null_trap(null_access("read", addr));
             }
             let mut out = [0u8; 16];
             out.copy_from_slice(&s.read(addr, 16));
@@ -1637,7 +1681,7 @@ impl Interp {
         };
         let put = |s: &mut Self, addr: u64, v: w::Bytes| -> Res<Vec<u64>> {
             if addr < 4096 {
-                return s.trap(null_access("write", addr));
+                return s.null_trap(null_access("write", addr));
             }
             s.write(addr, &v);
             Ok(Vec::new())

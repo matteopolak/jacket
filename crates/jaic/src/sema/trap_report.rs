@@ -2,7 +2,8 @@
 //! program's own code that led there, and the call stack, with standard-library frames kept
 //! out of the way. See `docs/compiler/diagnostics.md`.
 use super::Compiler;
-use crate::interp::{Trap, TrapFrame};
+use crate::interp::{Trap, TrapFrame, TrapKind};
+use crate::ir;
 use crate::source::{Diagnostic, FileId, Span};
 use std::path::{Path, PathBuf};
 
@@ -15,9 +16,6 @@ const ASSERTION_FRAMES: &[&str] = &[
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
-
-/// The interpreter's message for `ir::TRAP_MISSING_RETURN`.
-const MISSING_RETURN: &str = "reached the end of a procedure that must return a value";
 
 impl Compiler {
     /// The diagnostic for `trap`. `prefix` says what was running ("runtime error" or "error
@@ -47,12 +45,16 @@ impl Compiler {
             .filter(|_| assertion)
             .and_then(|f| f.loc)
             .and_then(|loc| self.assert_condition(loc));
-        let message = if trap.message == "assertion failed"
-            && let Some(condition) = &condition
-        {
+        let bare_assertion = trap.kind == Some(TrapKind::BareAssertion);
+        let message = if bare_assertion && let Some(condition) = &condition {
             format!("assertion failed: `{condition}` is false")
-        } else if trap.message == MISSING_RETURN
-            && let Some(frame) = frames.first()
+        } else if matches!(
+            trap.kind,
+            Some(TrapKind::Check {
+                reason: ir::TRAP_MISSING_RETURN,
+                ..
+            })
+        ) && let Some(frame) = frames.first()
             && !is_internal_name(&frame.name)
         {
             format!(
@@ -105,7 +107,7 @@ impl Compiler {
             return d;
         }
         let mut d = Diagnostic::error(span, format!("{prefix}: {message}"));
-        if let Some(condition) = condition.filter(|_| trap.message != "assertion failed") {
+        if let Some(condition) = condition.filter(|_| !bare_assertion) {
             d = d.with_label(format!("`{condition}` is false"));
         }
         // The failure was inside library code the user's line called: name the procedure the
@@ -151,7 +153,7 @@ impl Compiler {
         if visible.len() > 1 {
             d = d.with_note(Span::NONE, self.call_stack(&visible, trap.omitted_frames));
         }
-        if let Some(help) = help_for(&trap.message) {
+        if let Some(help) = trap.kind.and_then(help_for) {
             d = d.with_help(help);
         }
         d
@@ -322,34 +324,43 @@ fn display_name(name: &str) -> String {
 }
 
 /// A `help:` line for failures whose fix is clear.
-fn help_for(message: &str) -> Option<String> {
-    let fixed = if message.starts_with("array bounds check failed") {
-        "valid indices are 0 up to the array's count minus one; check the index or the array's length first"
-    } else if message.starts_with("null pointer dereference") {
-        "check the pointer against null before using it, or make sure it is set"
-    } else if message.starts_with("stack overflow") {
-        "check that the recursion has a base case it reaches"
-    } else if message == MISSING_RETURN {
-        "every path through a procedure with results must end in `return`"
-    } else if message.starts_with("cast of ") {
-        return cast_help(message);
-    } else if message.starts_with("no case of the `#complete` switch") {
-        "the value is not one of the enum's members (was it cast from an integer, or left uninitialized?); add a `case;` to handle other values"
-    } else if message == "integer division by zero" {
-        "check the divisor against zero first"
-    } else {
-        return None;
+fn help_for(kind: TrapKind) -> Option<String> {
+    let fixed = match kind {
+        TrapKind::Check {
+            reason,
+            b,
+            ..
+        } => match reason {
+            ir::TRAP_BOUNDS => {
+                "valid indices are 0 up to the array's count minus one; check the index or the array's length first"
+            }
+            ir::TRAP_MISSING_RETURN => {
+                "every path through a procedure with results must end in `return`"
+            }
+            ir::TRAP_CAST_OVERFLOW => return cast_help(b),
+            ir::TRAP_SWITCH_UNMATCHED => {
+                "the value is not one of the enum's members (was it cast from an integer, or left uninitialized?); add a `case;` to handle other values"
+            }
+            ir::TRAP_DIVIDE_BY_ZERO => "check the divisor against zero first",
+            _ => return None,
+        },
+        TrapKind::NullPointer => {
+            "check the pointer against null before using it, or make sure it is set"
+        }
+        TrapKind::StackOverflow => "check that the recursion has a base case it reaches",
+        TrapKind::BareAssertion => return None,
     };
     Some(fixed.to_string())
 }
 
-/// Help for "cast of V to `T` overflows": the range `T` holds and the casts that do not check.
-fn cast_help(message: &str) -> Option<String> {
-    let target = message.split('`').nth(1)?;
-    let bits: u32 = target.get(1..)?.parse().ok()?;
-    let range = match (target.as_bytes().first()?, bits) {
-        (b'u', 1..=64) => format!("0 to {}", u64::MAX >> (64 - bits)),
-        (b's', 1..=64) => format!("{} to {}", i64::MIN >> (64 - bits), i64::MAX >> (64 - bits)),
+/// Help for "cast of V to `T` overflows" (`code` as in `ir::cast_check_target`): the range `T`
+/// holds and the casts that do not check.
+fn cast_help(code: u64) -> Option<String> {
+    let target = ir::cast_check_target(code);
+    let bits = (code & 0xff) * 8;
+    let range = match (code & 0x100 != 0, bits) {
+        (false, 1..=64) => format!("0 to {}", u64::MAX >> (64 - bits)),
+        (true, 1..=64) => format!("{} to {}", i64::MIN >> (64 - bits), i64::MAX >> (64 - bits)),
         _ => return None,
     };
     Some(format!(
