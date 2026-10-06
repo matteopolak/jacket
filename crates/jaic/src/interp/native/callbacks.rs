@@ -6,11 +6,15 @@
 //! prototype `call_as` uses (8 integer and 8 float registers, then stack slots) that unpacks
 //! its arguments the way `call` packs them and re-enters the interpreter. Thunks come in one
 //! family per return shape, each with `SLOTS` entries assigned to procedures on first use.
+//! Windows x64 passes arguments by position instead, which needs its own thunks (`win64.rs`).
 use super::{FF, FFF, FFFF, FI, IF, II, STACK_SLOTS, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::ir::{FuncId, Sig};
 use std::cell::Cell;
 use std::sync::Mutex;
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod win64;
 
 /// Runs an interpreted procedure on behalf of a thunk.
 pub type Reenter<'a> = dyn FnMut(FuncId, &[u64]) -> Result<Vec<u64>, String> + 'a;
@@ -55,15 +59,15 @@ static TABLE: Mutex<[Vec<Slot>; SHAPES]> = Mutex::new([const { Vec::new() }; SHA
 /// program whose function ids these are).
 pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
-    // The trampolines below receive System V / AAPCS64 registers; the Microsoft x64
-    // convention (C calling interpreted procedures on Windows) is not implemented.
-    if arch == Arch::Win64 {
-        return Err(
-            "the interpreter does not implement the Microsoft x64 calling convention".into(),
-        );
-    }
     if sig.c_varargs {
         return Err("a variadic procedure cannot be called from C in the interpreter".into());
+    }
+    // The thunks below receive System V / AAPCS64 registers; Microsoft x64 has its own.
+    if arch == Arch::Win64 {
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        return win64::callback_addr(program, func, sig);
+        #[cfg(not(all(windows, target_arch = "x86_64")))]
+        return Err("Microsoft x64 callbacks need a Windows x64 host".into());
     }
     let cabi = sig.c_abi.as_deref();
     // The thunks receive 64-bit float registers and cannot return in `st(0)`.
@@ -72,9 +76,7 @@ pub fn callback_addr(program: u64, func: FuncId, sig: &Sig) -> Result<u64, Strin
             .iter()
             .any(|&(_, t)| matches!(t, crate::ir::Ty::F80 | crate::ir::Ty::F128))
     };
-    if arch != Arch::Win64
-        && cabi.is_some_and(|c| c.ret.iter().chain(c.params.iter().flatten()).any(wide))
-    {
+    if cabi.is_some_and(|c| c.ret.iter().chain(c.params.iter().flatten()).any(wide)) {
         return Err(
             "a procedure passing a long double wider than float64 cannot be called from C in the interpreter (it works in a native build)"
                 .into(),
@@ -374,13 +376,6 @@ fn invoke(
     stack: [u64; STACK_SLOTS],
 ) -> Result<Vec<u64>, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
-    // The trampolines below receive System V / AAPCS64 registers; the Microsoft x64
-    // convention (C calling interpreted procedures on Windows) is not implemented.
-    if arch == Arch::Win64 {
-        return Err(
-            "the interpreter does not implement the Microsoft x64 calling convention".into(),
-        );
-    }
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     // x86-64 has six integer argument registers (the hidden result pointer takes the first);

@@ -37,3 +37,5 @@ many :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, l: Large,
     d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, d9: float64) -> float64 #foreign structs;
 apply_many :: (f: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, l: Large,
     d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, d9: float64) -> float64 #c_call) -> float64 #foreign structs;
+apply_mixed :: (f: (a: float64, b: s32, c: float, d: s64, e: float64, g: s16) -> Mixed #c_call) -> Mixed #foreign structs;
+apply_mixed_v2 :: (f: (a: float, b: s64, c: float64, d: s32) -> V2 #c_call) -> V2 #foreign structs;

@@ -10,7 +10,12 @@
 //!
 //! The per-thread interpreter state (value stack, stack pointer, call depth, current line)
 //! is swapped in and out of `Interp` when the baton moves.
+//!
+//! The Win32 equivalents (`CreateThread`, critical sections, SRW locks, condition variables,
+//! semaphores and events, waits on their handles) map onto the same scheduler; see `win32.rs`.
 #![allow(unsafe_code)]
+
+mod win32;
 
 use super::*;
 use std::collections::VecDeque;
@@ -44,6 +49,8 @@ enum Block {
     Mutex(u64),
     Cond(u64, Option<Instant>),
     Sleep(Instant),
+    /// A Win32 wait on handles, rechecked whenever one of them may have become signaled.
+    Object(Option<Instant>),
 }
 
 struct Saved {
@@ -77,6 +84,9 @@ pub(super) struct Sched {
     baton: Arc<(Mutex<usize>, Condvar)>,
     mutexes: HashMap<u64, MutexState>,
     cond_waiters: HashMap<u64, VecDeque<usize>>,
+    /// Win32 handles the scheduler made (threads, semaphores, events).
+    objects: HashMap<u64, win32::Object>,
+    next_object: u64,
     ticks: u64,
 }
 
@@ -101,7 +111,40 @@ impl Sched {
             baton: Arc::new((Mutex::new(0), Condvar::new())),
             mutexes: HashMap::default(),
             cond_waiters: HashMap::default(),
+            objects: HashMap::default(),
+            next_object: 0,
             ticks: 0,
+        }
+    }
+}
+
+impl Sched {
+    /// Make runnable every thread whose sleep or timed wait is over.
+    fn expire_waits(&mut self) {
+        let now = Instant::now();
+        for t in 0..self.threads.len() {
+            match self.threads[t].block {
+                Block::Sleep(d) | Block::Object(Some(d)) if d <= now => {
+                    self.threads[t].block = Block::None;
+                }
+                Block::Cond(c, Some(d)) if d <= now => {
+                    self.threads[t].block = Block::None;
+                    self.threads[t].timed_out = true;
+                    if let Some(waiters) = self.cond_waiters.get_mut(&c) {
+                        waiters.retain(|&w| w != t);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Let every thread waiting on Win32 handles check them again.
+    fn wake_object_waiters(&mut self) {
+        for thread in &mut self.threads {
+            if matches!(thread.block, Block::Object(_)) {
+                thread.block = Block::None;
+            }
         }
     }
 }
@@ -175,7 +218,7 @@ impl Interp {
                 self.sleep_for(program, Duration::from_secs(arg(0) as u32 as u64))
             }
             "sched_yield" | "pthread_yield_np" if started => self.yield_now(program).map(|_| 0),
-            _ => return None,
+            _ => return self.win32_foreign(program, symbol, args),
         };
         Some(result.map(|v| vec![v]))
     }
@@ -369,20 +412,7 @@ impl Interp {
         let _ = program;
         let next = loop {
             let sched = self.sched();
-            let now = Instant::now();
-            for t in 0..sched.threads.len() {
-                match sched.threads[t].block {
-                    Block::Sleep(d) if d <= now => sched.threads[t].block = Block::None,
-                    Block::Cond(c, Some(d)) if d <= now => {
-                        sched.threads[t].block = Block::None;
-                        sched.threads[t].timed_out = true;
-                        if let Some(waiters) = sched.cond_waiters.get_mut(&c) {
-                            waiters.retain(|&w| w != t);
-                        }
-                    }
-                    _ => {}
-                }
-            }
+            sched.expire_waits();
             let n = sched.threads.len();
             let runnable = (1..=n)
                 .map(|k| (me + k) % n)
@@ -395,7 +425,7 @@ impl Interp {
                 .iter()
                 .filter(|t| !t.finished)
                 .filter_map(|t| match t.block {
-                    Block::Sleep(d) | Block::Cond(_, Some(d)) => Some(d),
+                    Block::Sleep(d) | Block::Cond(_, Some(d)) | Block::Object(Some(d)) => Some(d),
                     _ => None,
                 })
                 .min();
@@ -477,6 +507,8 @@ impl Interp {
                     thread.block = Block::None;
                 }
             }
+            // Its Win32 handle is now signaled.
+            sched.wake_object_waiters();
         }
         // `switch` never returns to a finished thread: it either finds another thread or
         // reports a deadlock to the first one.
@@ -494,20 +526,7 @@ impl Interp {
         let _ = program;
         loop {
             let sched = self.sched();
-            let now = Instant::now();
-            for t in 0..sched.threads.len() {
-                match sched.threads[t].block {
-                    Block::Sleep(d) if d <= now => sched.threads[t].block = Block::None,
-                    Block::Cond(c, Some(d)) if d <= now => {
-                        sched.threads[t].block = Block::None;
-                        sched.threads[t].timed_out = true;
-                        if let Some(waiters) = sched.cond_waiters.get_mut(&c) {
-                            waiters.retain(|&w| w != t);
-                        }
-                    }
-                    _ => {}
-                }
-            }
+            sched.expire_waits();
             let n = sched.threads.len();
             if let Some(t) = (1..=n)
                 .map(|k| (me + k) % n)
@@ -520,7 +539,7 @@ impl Interp {
                 .iter()
                 .filter(|t| !t.finished)
                 .filter_map(|t| match t.block {
-                    Block::Sleep(d) | Block::Cond(_, Some(d)) => Some(d),
+                    Block::Sleep(d) | Block::Cond(_, Some(d)) | Block::Object(Some(d)) => Some(d),
                     _ => None,
                 })
                 .min();

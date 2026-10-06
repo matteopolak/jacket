@@ -2,8 +2,8 @@
 
 ## What it is
 
-Programs that use `Thread` (`pthread_create`, mutexes, condition variables, `sleep`) run in the
-interpreter on a cooperative scheduler. There are two implementations, chosen by `Host::cooperative_threads()`:
+Programs that use `Thread` (`pthread_create`, mutexes, condition variables, `sleep`, or their
+Win32 counterparts on Windows) run in the interpreter on a cooperative scheduler. There are two implementations, chosen by `Host::cooperative_threads()`:
 
 - native `jaic run`: several OS threads exist, but only the one holding the "baton" executes
   interpreted code;
@@ -23,6 +23,23 @@ interpreter on a cooperative scheduler. There are two implementations, chosen by
   scheduler wakes one with a deadlock error.
 - Output order of racing threads is deterministic apart from sleep timing, but differs from a real
   run.
+
+### Win32 (Windows hosts)
+
+`interp/threads/win32.rs` (`win32_foreign`, reached from `thread_foreign`) maps the Win32 API that
+`stdlib/Thread` and `Basic` call when `OS == .WINDOWS` onto the same scheduler:
+
+| Win32 | Scheduler |
+|---|---|
+| `CreateThread` | `pthread_create`; the handle is a scheduler object (`HANDLE_BASE` + 4n). `CREATE_SUSPENDED` traps. |
+| `WaitForSingleObject(Ex)`, `WaitForMultipleObjects(Ex)`, `GetExitCodeThread`, `CloseHandle` | On scheduler handles: `Block::Object(deadline)`, rechecked whenever a thread finishes, a semaphore is released or an event set. Other handles (processes, files) go to the real call. |
+| `InitializeCriticalSection*`, `Enter`/`TryEnter`/`LeaveCriticalSection`, `DeleteCriticalSection`, SRW locks | The recursive mutex emulation, keyed by address. Initialization also runs the real call so the memory is a valid lock for C code. Shared SRW acquisition is exclusive here. |
+| `InitializeConditionVariable`, `Wake(All)ConditionVariable`, `SleepConditionVariableCS`/`SRW` | The condition variable emulation. A timeout returns 0 and sets the real last error to `ERROR_TIMEOUT` (1460), which `Thread`'s semaphore checks. |
+| `CreateSemaphore*`, `ReleaseSemaphore`, `CreateEventA`/`W`, `SetEvent`, `ResetEvent` | Scheduler objects with a count, or a set flag (auto-reset events clear on a successful wait). |
+| `Sleep`, `SleepEx`, `SwitchToThread` | Sleep or yield, once a second thread exists. |
+
+Thread ids and TLS are not intercepted: every scheduler thread is a real OS thread, so
+`GetCurrentThreadId`, `TlsGetValue` and `GetLastError` already answer per thread.
 - The `compare_and_swap` intrinsic carries the operand width in bytes as a 4th argument
   (`emit_intrinsic` in `sema/calls.rs`, `asm.rs`). Comparing a `bool` field as 8 bytes would
   never match and `atomic_swap` would spin forever.
@@ -53,8 +70,10 @@ thread cannot be suspended: the interpreter is recursive Rust and a blocked thre
 
 ## How to change it
 
-New blocking primitives need a `Block` variant and a case in the scheduler's wake-up scan. Keep
-all `Interp` access on the baton holder. For the inline scheduler add a `Wait` variant, its `satisfied` rule,
+New blocking primitives need a `Block` variant and a case in `Sched::expire_waits` (timed waits) or
+whatever makes the wait satisfiable. Keep all `Interp` access on the baton holder. A new Win32 waitable
+object is an `Object` variant with `signaled` and `consume`; call `wake_object_waiters` when it
+becomes signaled. Unknown handles must keep falling through to the real procedure. For the inline scheduler add a `Wait` variant, its `satisfied` rule,
 and a case in `inline_thread_foreign`.
 
 ## Configuration
@@ -64,4 +83,6 @@ None. `mod threads` (OS threads) is cfg-gated off on wasm32; `mod threads_inline
 ## Dependencies
 
 `stdlib/Thread/`, `stdlib/Atomics.jai`. Tests: `tests/stdlib/threads-cooperative.jai`,
-`tests/stdlib/threads-group-and-condition.jai` (both run natively and in the playground).
+`tests/stdlib/threads-group-and-condition.jai` (both run natively and in the playground). On Windows
+the Win32 side is exercised by `interpreted_threads` and `windows_runtime_program` in
+`crates/jaic-cli/tests/native.rs`, which the Windows workflow runs on x64 and arm64.

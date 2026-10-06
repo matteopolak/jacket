@@ -212,7 +212,6 @@ jobs:
           target/aarch64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
           python -u tools/windows_cross.py build --stdlib --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
-      # runtime.jai is not run here: the interpreter emulates threads only through pthread_create.
       - name: Interpreter variadic foreign calls
         if: success() || failure()
         run: |

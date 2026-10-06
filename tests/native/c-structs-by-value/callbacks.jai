@@ -18,7 +18,15 @@ many_back :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, l: Large,
     return xx (a + b + c + d + e + f + g + l.a + l.b + l.c) + d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8 + d9 * 100;
 }
 
+mixed_back :: (a: float64, b: s32, c: float, d: s64, e: float64, g: s16) -> Mixed #c_call {
+    return .{ b + d + g, a + c + e };
+}
+v2_back :: (a: float, b: s64, c: float64, d: s32) -> V2 #c_call {
+    return .{ a + xx b, xx (c + xx d) };
+}
+
 main :: () {
     print("% % %\n", apply(combine, .{ 1, 2 }, .{ 10, 20, 30, 40 }, .{ 100, 5 }), apply_big(scale), apply_small(bump));
     print("%\n", apply_many(many_back));
+    print("% %\n", apply_mixed(mixed_back), apply_mixed_v2(v2_back));
 }

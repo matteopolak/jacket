@@ -25,3 +25,8 @@ double apply_many(double (*fn)(long long, long long, long long, long long, long 
     Large l = {100, 200, 300};
     return fn(1, 2, 3, 4, 5, 6, 7, l, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 2);
 }
+// Microsoft x64 assigns argument positions rather than register classes: a float in position n
+// is in XMMn, an integer in the n-th integer register, and the hidden result pointer of `Mixed`
+// (16 bytes) takes position 0. The last two arguments of `f` are on the stack there.
+Mixed apply_mixed(Mixed (*f)(double, int, float, long long, double, short)) { return f(1.5, 2, 3.25f, 4, 5.5, 6); }
+V2 apply_mixed_v2(V2 (*f)(float, long long, double, int)) { return f(0.5f, 7, 2.25, 3); }
