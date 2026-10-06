@@ -37,7 +37,9 @@ Where the target type comes from:
 - `xx` takes the type the context expects: a declaration, a parameter, a return.
 - In a comparison, `xx a == b` casts `a` to `b`'s type; `check_binary` checks the other side first {#cast.11}.
 - As a call argument, `xx a | b` (also `&`, `^`) takes the parameter's type and the other operand follows it (`autocast_arithmetic` in `sema/calls.rs`) {#cast.12}. Arithmetic on an untyped struct literal works the same way: `f(.{300, -1} * scale)` builds the parameter's `Vector2` and then uses its `operator *` (`literal_arithmetic`) {#cast.10}.
-- An expected float type does not reach the operands of `&`, `|`, `^` and `%`, which floats lack: `cast(float32) ((ifx c then a else b) & mask)` with `s16` operands computes in `s16` and converts the result, and in `cast(float32) ((0 - w) & v)` the `0` takes `w`'s type. For `+ - * /` the target still types an untyped operand (an open question, see [differential testing](../tools/differential-testing.md#open-questions)) {#cast.29}.
+- A cast does not push its type into its operand. `cast(T) expr` types `expr` bottom-up, exactly as it would be typed on its own, and then converts it. So with `w: u16 = 15`, `cast(float32) (0 - w)` subtracts in `u16` (the `0` is matched with `w`, see [numbers](numbers.md)) and converts `65521`, and `cast(float32) ((0 - w) & v)` is `u16` arithmetic. `cast(s32) (x + 100)` with `x: s8 = 100` adds in `s8` and wraps to `-56` before widening {#cast.29}.
+- Only operands with no type of their own take the cast's type: a bare `.NAME`, an untyped `.{...}` or `.[...]`, and operators or an `ifx` built only from those (`cast(Flags) (.A | .B)`). A bare number (`cast(float32) 3`, `cast(u8) 255`) or a literal-only expression stays an untyped constant and is folded at the target: `cast(float32) (1 / 3)` is `0`, integer division first {#cast.30}.
+- An expected float type from a declaration or a parameter does not reach the operands of `&`, `|`, `^` and `%`, which floats lack: `f: float32 = (ifx c then a else b) & mask;` with `s16` branches computes in `s16` and converts the result {#cast.31}.
 - `ifx c then a else b` with no expected type takes the else type when only the then value converts to it (`ifx c then 0 else some_float` is a float); otherwise the then type wins {#cast.13}.
 - A call whose single result has exactly the base type of an `#type,isa` argument returns the variant (`pa + pb` on `Position3` stays `Position3`; `emit_call` in `sema/calls.rs`) {#cast.28}.
 
@@ -63,9 +65,10 @@ A comma after a cast keyword is a modifier, not a list separator, so `(-cast,no_
 - **Cast reach:** `parse_cast_value` in `parser/expr.rs` parses a unary operand, then calls `parse_binary_after(first, CAST_PREC)`. Move `CAST_PREC` or operators in `binary_op` to change what a cast absorbs, and update `tests/stdlib/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`.
 - **Scalar conversions:** `scalar_convert`; aggregate and array cases are later branches of `explicit_cast`.
 - **Implicit conversions:** priced by `implicit_cost`. Overload resolution uses that cost, so changing it changes which overload wins.
+- **What a cast's operand sees:** the `E::Cast` arm of `check_expr` in `sema/expr.rs` passes the target as the operand's expected type only when `cast_operand_needs_target` says the operand has no type of its own. Widening that predicate to numbers or arithmetic would bring back the old top-down typing (`cast(float32) (0 - w)` giving `-15`).
 - **Constants:** folded at the top of `explicit_cast`. Change that and the runtime path together, or `#run` and runtime results diverge.
 
-Tests: `tests/stdlib/cast-to-bool-nonzero.jai`, `lang-conversions.jai`, `const-integer-pointer.jai`, `literal-arithmetic-argument.jai`, `autocast-bitwise-argument.jai`, `ifx-widens-to-else.jai`, `cast-modifier-in-parens.jai`.
+Tests: `tests/stdlib/cast-to-bool-nonzero.jai`, `lang-conversions.jai`, `const-integer-pointer.jai`, `literal-arithmetic-argument.jai`, `autocast-bitwise-argument.jai`, `ifx-widens-to-else.jai`, `cast-modifier-in-parens.jai`, `cast-operand-typed-bottom-up.jai`, `cast-float-of-integer-operator.jai`.
 
 ## Dependencies
 

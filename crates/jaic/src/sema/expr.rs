@@ -161,7 +161,12 @@ impl Compiler {
                         }
                     },
                 };
-                let op = self.check_expr(f, scope, value, Some(target))?;
+                // Types flow up through a cast: the operand is typed on its own and then
+                // converted, so `cast(float32) (0 - w)` subtracts in `w`'s type. Only literals that
+                // have no type of their own (`.NAME`, `.{...}`, `.[...]`) are matched against
+                // the target {#cast.29}.
+                let operand_expected = cast_operand_needs_target(value).then_some(target);
+                let op = self.check_expr(f, scope, value, operand_expected)?;
                 if self.ide.is_some() {
                     self.ide_note_cast(span, target, &op);
                 }
@@ -1306,6 +1311,12 @@ impl Compiler {
             let l = self.check_expr(f, scope, a, Some(r.ty()))?;
             early_rhs = Some(r);
             l
+        } else if lhs_expected.is_some() && is_number_literal(a) {
+            // `x: float32 = 0 - w`: the literal is matched with `w`, not with the declaration, so
+            // the subtraction is in `u16` and only its result converts. It stays untyped here and
+            // takes the right operand's type below; with an untyped right operand, both fold
+            // under the expected type as before {#num.16}.
+            self.check_expr(f, scope, a, None)?
         } else {
             self.check_expr(f, scope, a, lhs_expected)?
         };
@@ -2619,4 +2630,38 @@ fn arith_op(op: BinOp, float: bool, signed: bool) -> Option<ir::BinOp> {
         (BinOp::Rotr, _) => I::Rotr,
         _ => return None,
     })
+}
+
+/// Whether a cast operand has no type without context: an inferred `.NAME`, an untyped `.{...}`
+/// or `.[...]`, or operators and `ifx` built only from those (`cast(Flags) (.A | .B)`).
+/// Everything else is typed bottom-up before the cast converts it {#cast.29}.
+fn cast_operand_needs_target(e: &ast::Expr) -> bool {
+    match &e.kind {
+        E::InferredMember(_)
+        | E::StructLit {
+            ty: None, ..
+        }
+        | E::ArrayLit {
+            ty: None, ..
+        } => true,
+        E::Unary(_, x) => cast_operand_needs_target(x),
+        E::Binary(_, a, b) => cast_operand_needs_target(a) && cast_operand_needs_target(b),
+        E::Ifx {
+            then_value: Some(a),
+            else_value: Some(b),
+            ..
+        } => cast_operand_needs_target(a) && cast_operand_needs_target(b),
+        _ => false,
+    }
+}
+
+/// A numeric literal, possibly signed or parenthesised arithmetic of literals (`-1`, `(2 * 3)`):
+/// an expression that is an untyped constant whatever the context.
+fn is_number_literal(e: &ast::Expr) -> bool {
+    match &e.kind {
+        E::Int(_) | E::Float(_) => true,
+        E::Unary(ast::UnOp::Neg | ast::UnOp::Plus | ast::UnOp::BitNot, x) => is_number_literal(x),
+        E::Binary(_, a, b) => is_number_literal(a) && is_number_literal(b),
+        _ => false,
+    }
 }

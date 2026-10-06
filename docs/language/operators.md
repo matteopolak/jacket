@@ -22,7 +22,7 @@ Tightest first. Every binary level is left associative (`8 / 2 / 2` is 2, `1 << 
 | and | `&&` | `a == b && c` is `(a == b) && c` {#ops.11} |
 | or | `\|\|` | `a \|\| b && c` is `a \|\| (b && c)` {#ops.12} |
 
-A prefix cast's operand runs through the bitwise level: `cast(float) (hex >> 16) & 0xFF` casts the masked integer {#ops.13}, while `cast(s64) p - cast(s64) q` subtracts two integers {#ops.14}; see [casts and conversions](casts-and-conversions.md).
+A prefix cast's operand runs through the bitwise level: `cast(float) (hex >> 16) & 0xFF` casts the masked integer {#ops.13}, while `cast(s64) p - cast(s64) q` subtracts two integers {#ops.14}; see [casts and conversions](casts-and-conversions.md). The cast does not type its operand's literals: `cast(float32) (0 - w)` with `w: u16` subtracts in `u16`, because an untyped operand takes the other operand's type, never the type of the context around the operator ([numbers](numbers.md)) {#ops.17}.
 
 Write shifts combined with `|` with parentheses: `(a << 8) | b`. `a << 8 | b` happens to work because the shift comes first, but `b | a << 8` means `(b | a) << 8` {#ops.15}.
 

@@ -31,13 +31,21 @@ error: constant 300 does not fit in u8              // c: u8 = 300;
 - Integer arithmetic wraps at the declared width (`v: u8 = 255; v += 1` gives `0`) {#num.13} unless overflow checks are on {#num.14}; see [arithmetic overflow checks](arithmetic-overflow-checks.md).
 - 128-bit integers are a library feature {#num.15}, `stdlib/Basic/Int128.jai`.
 
+Types flow up the expression tree. A typed value never takes its type from its context; only untyped things are matched downward, and only in these places:
+
+- An untyped literal meets a known type directly: a declaration (`a: u8 = 10;`), an argument, a return, or the other operand of a binary operator. In `0 - w` with `w: u16`, the `0` is a `u16` and the subtraction is `u16` arithmetic, so it wraps to `65521` (or fails an [overflow check](arithmetic-overflow-checks.md) when those are on). That holds even when the whole expression has an expected type: `f: float32 = 0 - w;` subtracts in `u16` and converts `65521` {#num.16}.
+- When both operands are untyped (`2 * 3`), the expression folds as a constant and is matched to the context.
+- Inferred enum members are pushed back through operators once the enum type is known (`d = .WEST | .EAST;`), and `.{...}` / `.[...]` literals are matched against a concrete struct or array type.
+
+A cast is none of these: `cast(T) expr` types `expr` on its own and converts the result ([casts](casts-and-conversions.md)) {#num.17}.
+
 ## How to change it
 
-Folding lives in `sema/expr.rs` (`wrap_int`); conversions in `sema/convert.rs` (`implicit_cost`, `scalar_convert`). Type widths are fixed in `crates/jaic/src/types.rs`.
+Folding lives in `sema/expr.rs` (`wrap_int`); conversions in `sema/convert.rs` (`implicit_cost`, `scalar_convert`). In `check_binary`, a left operand that `is_number_literal` is checked without the expected type, so it settles to the right operand's type rather than the context's; the right operand already takes the left one's type. Type widths are fixed in `crates/jaic/src/types.rs`.
 
 Gotcha: untyped constants carry `untyped: true` on `Operand::Const` until `settle_untyped` picks a type. Preserve that flag in any new folding path, or a literal silently becomes `s64`.
 
-Tests: `tests/stdlib/float-literal-precision.jai`, `literal-prefers-float32.jai`, `int128-arithmetic.jai`.
+Tests: `tests/stdlib/float-literal-precision.jai`, `literal-matches-other-operand.jai`, `literal-prefers-float32.jai`, `int128-arithmetic.jai`.
 
 ## Dependencies
 

@@ -948,6 +948,24 @@
       ]
     },
     {
+      "id": "aoc-fatal-cast-operand",
+      "source": "negative/aoc-fatal-cast-operand.jai",
+      "sha256": "84bbf3220219504d090c58f6feddb9b4924e8819b2593a7aaaffeb59525c3c7f",
+      "suite": "negative",
+      "feature": "a cast's operand is typed bottom-up, so 0 - w underflows in u16",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "arithmetic overflow computing 0 - 15 as u16"
+      },
+      "rules": [
+        "cast.29",
+        "num.16",
+        "overflow.1"
+      ]
+    },
+    {
       "id": "aoc-fatal-mul",
       "source": "negative/aoc-fatal-mul.jai",
       "sha256": "5b17b799d6a04fb5916f97b10526a7a2bb6f71158f940fdfa1ad1bc54931fb10",
