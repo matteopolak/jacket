@@ -101,6 +101,27 @@ impl ColorChoice {
             _ => None,
         }
     }
+
+    /// The last valid `--color` in a tool's arguments, read before the rest are parsed so
+    /// that errors about them are styled too. `names` are the option's spellings (`--color`,
+    /// and `-color` for jaic); `name value` and `name=value` both count. Arguments after a
+    /// `-` or `--` belong to someone else and are not read. Invalid values are left for the
+    /// tool's own parser to report.
+    pub fn from_args(args: &[String], names: &[&str]) -> ColorChoice {
+        let mut choice = ColorChoice::Auto;
+        let mut args = args.iter().take_while(|a| *a != "-" && *a != "--");
+        while let Some(arg) = args.next() {
+            let value = match arg.split_once('=') {
+                Some((name, value)) if names.contains(&name) => Some(value),
+                None if names.contains(&arg.as_str()) => args.next().map(String::as_str),
+                _ => None,
+            };
+            if let Some(c) = value.and_then(ColorChoice::parse) {
+                choice = c;
+            }
+        }
+        choice
+    }
 }
 
 /// The style for diagnostics on stderr, from `choice` (`--color`) and the environment.

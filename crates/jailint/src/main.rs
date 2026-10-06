@@ -29,7 +29,9 @@ or configuration error.";
 
 fn main() -> ExitCode {
     // Errors about the command line or configuration go to stderr in its own style.
-    jaic::render::set_style(jaic::render::detect(color_choice()));
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let color = jaic::render::ColorChoice::from_args(&args, &["--color"]);
+    jaic::render::set_style(jaic::render::detect(color));
     match run() {
         Ok(code) => code,
         Err(message) => {
@@ -40,19 +42,9 @@ fn main() -> ExitCode {
     }
 }
 
-/// `--color` as given (read ahead of the other options, for errors about them).
-fn color_choice() -> jaic::render::ColorChoice {
-    let args: Vec<String> = std::env::args().collect();
-    args.windows(2)
-        .filter(|w| w[0] == "--color")
-        .filter_map(|w| jaic::render::ColorChoice::parse(&w[1]))
-        .chain(
-            args.iter()
-                .filter_map(|a| a.strip_prefix("--color="))
-                .filter_map(jaic::render::ColorChoice::parse),
-        )
-        .last()
-        .unwrap_or(jaic::render::ColorChoice::Auto)
+fn color_value(when: &str) -> Result<jaic::render::ColorChoice, String> {
+    jaic::render::ColorChoice::parse(when)
+        .ok_or_else(|| format!("unknown `--color` value `{when}`\nhelp: use auto, always or never"))
 }
 
 struct Args {
@@ -102,15 +94,10 @@ fn parse_args() -> Result<Option<Args>, String> {
             }
             "--color" => {
                 let when = value("--color")?;
-                args.color = jaic::render::ColorChoice::parse(&when).ok_or_else(|| {
-                    format!("unknown `--color` value `{when}`\nhelp: use auto, always or never")
-                })?;
+                args.color = color_value(&when)?;
             }
             flag if flag.starts_with("--color=") => {
-                let when = &flag["--color=".len()..];
-                args.color = jaic::render::ColorChoice::parse(when).ok_or_else(|| {
-                    format!("unknown `--color` value `{when}`\nhelp: use auto, always or never")
-                })?;
+                args.color = color_value(&flag["--color=".len()..])?;
             }
             "-A" | "-W" | "-D" => {
                 let level = match a.as_str() {

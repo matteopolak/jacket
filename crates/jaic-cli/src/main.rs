@@ -711,7 +711,7 @@ fn main() -> ExitCode {
     install_panic_hook();
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Colour and layout first, so even command-line mistakes use them.
-    let color = color_choice(&args);
+    let color = jaic::render::ColorChoice::from_args(&args, &["--color", "-color"]);
     jaic::render::set_style(jaic::render::detect(color));
     if let Err(message) = jaic::memory_limit::arm_from_env() {
         eprint!(
@@ -750,24 +750,6 @@ fn main() -> ExitCode {
             _ => ExitCode::from(101),
         }
     }
-}
-
-/// The `--color` choice, read before the rest of the command line so that mistakes in it are
-/// reported in the chosen style too.
-fn color_choice(args: &[String]) -> jaic::render::ColorChoice {
-    let mut choice = jaic::render::ColorChoice::Auto;
-    let mut args = args.iter().take_while(|a| *a != "-" && *a != "--");
-    while let Some(arg) = args.next() {
-        let value = match arg.split_once('=') {
-            Some(("--color" | "-color", value)) => Some(value.to_string()),
-            None if arg == "--color" || arg == "-color" => args.next().cloned(),
-            _ => None,
-        };
-        if let Some(c) = value.as_deref().and_then(jaic::render::ColorChoice::parse) {
-            choice = c;
-        }
-    }
-    choice
 }
 
 /// A panic is a bug in jaic, not in the program: say so, and how to report it, instead of
