@@ -651,11 +651,15 @@ impl Parser<'_> {
         if self.at(P::Comma) && self.kw_at(1) == Some("defer_pop") {
             self.bump();
             self.bump();
-            let context = if self.at(P::Semi) {
-                None
-            } else {
-                Some(self.parse_expr()?)
-            };
+            if self.at(P::Semi) {
+                // There is no context to push: re-pushing the current one would not restore
+                // what the block changes.
+                return Err(self.error(
+                    "'push_context,defer_pop' needs the context to push, as in \
+                     'push_context,defer_pop new_context;'",
+                ));
+            }
+            let context = self.parse_expr()?;
             self.end_stmt("after 'push_context,defer_pop'")?;
             return Ok(stmt(
                 StmtKind::PushContextDefer {

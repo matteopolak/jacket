@@ -174,6 +174,7 @@
 - Structs with a variadic parameter (`Holder :: struct(types: ..Type)`) can be instantiated: the arguments bind one constant `[] Type` and key the instance, so `Tagged_Union` works. `Holder(s64, string)` reported "too many arguments" and `Holder(s64)` bound a single `Type`.
 - Metaprograms see `.VARARGS` in a variadic parameter's `type_inst.inst_flags`, so the Check module accepts @PrintLike procedures. Every one was reported as missing a format string before its varargs.
 - An untyped 16-digit `0h` literal (`0h7FEFFFFF_FFFFFFFF`) is `float64`; an 8-digit one stays `float32`. The long form defaulted to `float32`, so `x := 0h7FEFFFFF_FFFFFFFF` became inf, `0h00100000_00000000` became 0 and overloads picked `float32`.
+- `push_context,defer_pop;` without a context is an error ("'push_context,defer_pop' needs the context to push"). It compiled, and changes the block made to `context` leaked out of it.
 
 ## [0.2.0] - 2026-10-06
 

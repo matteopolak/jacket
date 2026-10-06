@@ -822,9 +822,9 @@ pub enum StmtKind {
         flags: Vec<Ident>,
         args: Vec<Expr>,
     },
-    /// `push_context,defer_pop ctx;`: push now, pop at the end of the scope (`None`: restore the saved context).
+    /// `push_context,defer_pop ctx;`: push now, pop at the end of the scope.
     PushContextDefer {
-        context: Option<Expr>,
+        context: Expr,
     },
     /// Empty statement (`;`).
     Empty,

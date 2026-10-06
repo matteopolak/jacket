@@ -393,7 +393,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             }
         }
         S::PushContextDefer {
-            context: Some(x),
+            context: x,
         } => e(x),
         S::Directive {
             args, ..

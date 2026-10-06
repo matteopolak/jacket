@@ -36,16 +36,7 @@ impl Compiler {
             } = &stmt.kind
             {
                 // `push_context,defer_pop ctx;` holds for the rest of the block.
-                let current = ast::Expr {
-                    kind: E::Context,
-                    span: stmt.span,
-                };
-                let addr = self.push_context_addr(
-                    f,
-                    scope,
-                    context.as_ref().unwrap_or(&current),
-                    stmt.span,
-                )?;
+                let addr = self.push_context_addr(f, scope, context, stmt.span)?;
                 let saved = f.context.replace(addr);
                 let result = self.check_block_stmts_from(f, scope, &stmts[i + 1..]);
                 f.context = saved;

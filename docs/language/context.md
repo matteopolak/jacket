@@ -23,7 +23,7 @@ The example prints `depth=99` inside the `push_context` block and `depth=7` afte
 
 - `context.depth += 1` writes through the active pointer, so callees see it {#ctx.5}.
 - `push_context` restores the previous context when the block exits by any path, including `return`, `break` and `continue` {#ctx.6}. `check_stmt` in `sema/stmt.rs` tracks the active address in `FnCtx::context`.
-- `push_context,defer_pop ctx;` keeps the context until the end of the enclosing block {#ctx.7}.
+- `push_context,defer_pop ctx;` keeps the context until the end of the enclosing block {#ctx.7}. The context is required: `push_context,defer_pop;` is a parse error (`parse_push_context`), since there is nothing to push and re-pushing the current context would let the block's changes leak out of it.
 - `#add_context` is only legal at file scope {#ctx.11}.
 - `#add_context name :: value;` declares a constant reachable as `#Context.name` or `context.name`, not a field. The Iprof and Tracy plugins use this to insert a module alias for their runtime. It resolves in the declaring file (`context_type` in `sema/structs.rs`) {#ctx.12}.
 
