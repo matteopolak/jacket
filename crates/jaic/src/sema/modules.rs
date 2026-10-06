@@ -862,7 +862,10 @@ impl Compiler {
                 Value::String(s) => Some(ast::ExprKind::Str(s.clone())),
                 _ => None,
             };
-            if ty == TypeId::VOID
+            let scalar_type = ty == TypeId::VOID
+                || (!matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
+                    && (self.types.is_integer(ty) || self.types.is_float(ty)));
+            if scalar_type
                 && let Some(kind) = literal
                 && let EntityKind::Decl {
                     decl, ..
@@ -875,10 +878,17 @@ impl Compiler {
                 });
                 return Ok(());
             }
-            self.entity_mut(id).kind = EntityKind::Const {
+            // A parameter without a written type is a constant like `NAME :: value`: given an
+            // untyped number it stays untyped, so `MAX_FRAMES := 3` passes to a `u64`.
+            let untyped = ty == TypeId::VOID
+                && param.ty.is_none()
+                && matches!(value, Value::Int(_) | Value::Float(_));
+            let entity = self.entity_mut(id);
+            entity.kind = EntityKind::Const {
                 value,
                 ty,
             };
+            entity.untyped_const = untyped;
         }
         Ok(())
     }
@@ -1004,11 +1014,13 @@ impl Compiler {
                     TypeId::VOID,
                 ),
                 _ => {
-                    // Aggregates (`.[...]`) and enums carry their type along; scalars take
-                    // theirs from the value.
-                    let (value, ty) = self.eval_const_typed(from_scope, &arg.value)?;
+                    // Aggregates (`.[...]`), enums and typed numbers (`cast(u8) 3`) carry
+                    // their type along. Untyped numbers (`3`, `N` for `N :: 3`) and other
+                    // scalars get `VOID` and take their type from the value.
+                    let (value, ty, untyped) = self.eval_const_literal(from_scope, &arg.value)?;
                     let typed = matches!(value, Value::Bytes(_))
-                        || matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_));
+                        || matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
+                        || (!untyped && matches!(value, Value::Int(_) | Value::Float(_)));
                     (
                         value,
                         if typed {

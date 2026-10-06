@@ -32,7 +32,7 @@ Dependencies are pinned like projects: jai_parser for Jails; Linalg, Jolt-Jai an
 | [chess-jai](https://github.com/danieltan1517/chess-jai) | ✅ | UI and engine build natively; the engine plays and passes its perft suite |
 | [forbear](https://github.com/gabrielmfern/forbear) | ✅ | Builds natively; the playground app runs |
 | [rexim.github.io](https://github.com/rexim/rexim.github.io) | ✅ | `rss.jai` runs |
-| [ui_builder](https://github.com/kooparse/ui_builder) | ❌ | Demo stops on an `s64` module-parameter constant passed as `u64` (Pixel_Maker `metal.jai:72`) |
+| [ui_builder](https://github.com/kooparse/ui_builder) | ⚠️ | Demo checks (`ui-builder-demo-check`); a native build needs the prebuilt `libslang`, which is not pinned |
 | [Photon](https://github.com/DavidColson/Photon) | ⚠️ | Windows-only |
 | [KodaJai](https://github.com/kujukuju/KodaJai) | ⚠️ | Needs the author's other modules, which are not pinned |
 | [no_api](https://github.com/UnNabbo/no_api) | ⚠️ | Entry point imports a file missing from the repository; Windows/Linux only |
@@ -135,10 +135,12 @@ The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
     bitwise and shift operators (see [casts-and-conversions.md](../language/casts-and-conversions.md)). Two later
     stops are fixed too: `.{ 300, -1 } * dpi_scale` as a `Vector2` argument (demo.jai:415) and the redundant
     `vertex_shader:` marker in `success, vertex_shader:, compile_time := ...` (Pixel_Maker `shader.jai:151`).
-    `jaic check demo.jai` now stops at Pixel_Maker `metal.jai:72`: `CAMetalLayer.setMaximumDrawableCount(swapchain,
-    MAX_FRAME_IN_FLIGHT)` passes the module parameter `MAX_FRAME_IN_FLIGHT := 3` (an `s64` constant, set to 2 by the
-    demo) to an `NSUInteger` parameter ("argument of type s64 does not match parameter type u64"). Whether real Jai
-    converts a typed integer constant that fits is not settled by the evidence yet. Not a sweep case.
+    The last stop was Pixel_Maker `metal.jai:72`: `CAMetalLayer.setMaximumDrawableCount(swapchain,
+    MAX_FRAME_IN_FLIGHT)` passes the module parameter `MAX_FRAME_IN_FLIGHT := 3` (set to the demo's `:: 2`) to an
+    `NSUInteger`. A parameter without a written type now stays an untyped constant when given an untyped number
+    (see [module parameters](../language/module-parameters.md)), and `jaic check demo.jai` passes (sweep case
+    `ui-builder-demo-check`). `jaic build` stops at the link step: Pixel_Maker's
+    prebuilt `bindings/Slang/lib/macos/libslang` is not in the pinned corpus.
   - Photon: Windows-only (`Ico_File` and `Windows_Resources` are imported only for Windows; `-os windows` calls
     `MultiByteToWideChar` at compile time, which needs a Windows host).
   - KodaJai: imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer,

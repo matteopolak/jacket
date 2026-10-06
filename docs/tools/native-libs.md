@@ -26,6 +26,11 @@ python3 tools/build_native_libs.py              # all libraries
 python3 tools/build_native_libs.py stb_image    # just one
 ```
 
+The output goes to the main checkout's `artifacts/` even when run from a git worktree (resolved through
+the git common dir), so worktrees share one build. `tools/jaic-sweep.py` builds any missing library
+before it starts and sets `JAIC_NATIVE_LIBS` to that directory, so sweeps from any checkout or worktree
+can call and link these libraries without setup.
+
 ## Slang (sgpu)
 
 The sgpu examples (`corpus/upstream/roeyb1--sgpu`) link `modules/slang/mac/libslang`, `Vulkan_With_VMA/libs/mac/libvulkan` and `Vulkan_With_VMA/mac/VkMemAlloc`, which upstream ships as prebuilt binaries that we do not download. `tools/build_slang.py` produces them:

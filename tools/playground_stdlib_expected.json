@@ -205,6 +205,7 @@
   "type-of-polymorphic-proc-compile-time.jai",
   "typed-module-parameters.jai",
   "unicode-utf8-tables.jai",
+  "untyped-module-parameters.jai",
   "using-discard-struct-constants.jai",
   "using-member-default-override.jai",
   "using-only-import.jai",

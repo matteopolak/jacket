@@ -105,6 +105,7 @@ python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --time
 
 The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server` and `crates/jai-wasm` (browser build). Start with the [developer docs](docs/README.md) and the [compiler architecture](docs/compiler/architecture.md).
 
+This project is a clean-room implementation. To contribute, you must not have read the source of an official Jai distribution: its modules, `how_to` programs, compiler or any other part of it. Work only from public documentation, third-party Jai code and the behaviour of programs in this repository's tests.
 
 ## License
 

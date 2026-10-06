@@ -61,6 +61,17 @@ def cases(name):
         p = Path(name)
         yield p.stem, p, "run", None, []
 
+def use_native_libs():
+    """Point jaic at the third-party C libraries (rpmalloc, stb_*) that some cases call or link,
+    building any that are missing. Worktrees share the main checkout's artifacts/."""
+    if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in ("darwin", "linux"):
+        return
+    sys.path.insert(0, str(ROOT / "tools"))
+    import build_native_libs
+    if build_native_libs.missing():
+        subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True)
+    os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir())
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
@@ -72,6 +83,7 @@ def main():
     ap.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 1,
                     help="cases run at once (default: CPU count)")
     a = ap.parse_args()
+    use_native_libs()
     # Upstream cases may name setup commands (building a C library the program loads); they run
     # once, serially, in the case's directory before any case starts.
     if "upstream" in a.sets:

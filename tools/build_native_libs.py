@@ -20,6 +20,25 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'native-libs.json'
 
 
+def shared_root() -> Path:
+    """The main checkout: git worktrees share its (ignored) artifacts/ instead of rebuilding."""
+    common = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+                            cwd=ROOT, capture_output=True, text=True)
+    if common.returncode == 0:
+        return Path(common.stdout.strip()).parent
+    return ROOT
+
+
+def output_dir() -> Path:
+    return shared_root() / 'artifacts' / 'native-libs' / host_dir()
+
+
+def missing() -> list[str]:
+    """Libraries in the manifest whose static archive has not been built for this host."""
+    names = json.loads(MANIFEST.read_text())['libraries']
+    return sorted(name for name in names if not (output_dir() / f'lib{name}.a').exists())
+
+
 def host_dir() -> str:
     system = {'Darwin': 'macos', 'Linux': 'linux'}.get(platform.system())
     arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'x64', 'AMD64': 'x64'}.get(platform.machine())
@@ -69,16 +88,16 @@ def main() -> None:
     args = parser.parse_args()
     manifest = json.loads(MANIFEST.read_text())
     names = args.names or sorted(manifest['libraries'])
-    out = ROOT / 'artifacts' / 'native-libs' / host_dir()
+    out = output_dir()
     out.mkdir(parents=True, exist_ok=True)
-    cache = ROOT / 'artifacts' / 'native-libs' / 'sources'
+    cache = out.parent / 'sources'
     for name in names:
         lib = manifest['libraries'].get(name)
         if lib is None:
             sys.exit(f'unknown library {name!r}')
         src = fetch(manifest['sources'][lib['source']], cache / lib['source'])
         build(name, lib, src, out)
-        print(f'built {name} -> {out.relative_to(ROOT)}')
+        print(f'built {name} -> {out}')
 
 
 if __name__ == '__main__':

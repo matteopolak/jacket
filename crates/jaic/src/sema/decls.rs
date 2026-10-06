@@ -577,15 +577,26 @@ impl Compiler {
         scope: ScopeId,
         expr: &ast::Expr,
     ) -> Result<(Value, TypeId)> {
+        let (value, ty, _) = self.eval_const_literal(scope, expr)?;
+        Ok((value, ty))
+    }
+
+    /// `eval_const_typed`, plus whether the value is an untyped literal constant (`3`,
+    /// `N` for `N :: 3`), which converts to any numeric type it fits.
+    pub fn eval_const_literal(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+    ) -> Result<(Value, TypeId, bool)> {
         let op = self.eval_const_or_run(scope, expr, None)?;
         match op {
-            Operand::Type(t) => Ok((Value::Type(t), TypeId::VOID)),
+            Operand::Type(t) => Ok((Value::Type(t), TypeId::VOID, false)),
             Operand::Const {
                 value,
                 ty,
-                ..
-            } => Ok((value, ty)),
-            Operand::Procs(p) if p.len() == 1 => Ok((Value::Proc(p[0]), TypeId::VOID)),
+                untyped,
+            } => Ok((value, ty, untyped)),
+            Operand::Procs(p) if p.len() == 1 => Ok((Value::Proc(p[0]), TypeId::VOID, false)),
             other => err(
                 expr.span,
                 format!("expected a constant, found {}", self.describe(&other)),

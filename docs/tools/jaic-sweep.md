@@ -33,7 +33,7 @@ Expected result of `corpus negative stdlib modules upstream examples`: everythin
   Never `link` a directory that a setup command or the program writes to: the link leads back into the corpus.
 - An upstream entry point started working: add it to `tools/upstream-cases.json` so it stays working.
 - `build` cases (`focus-native-build`, `jails-native-build`, `jaison-native-build`) produce native executables and
-  need LLVM plus the third-party libraries from `python3 tools/build_native_libs.py` (see [native libs](native-libs.md)).
+  need LLVM plus the third-party libraries, which the sweep builds on first use and shares across worktrees (see [native libs](native-libs.md)).
 
 ## Configuration
 
