@@ -158,12 +158,16 @@ jobs:
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
+      - name: Install the libraries Simp and GetRect link (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
-      # Unoptimized code keeps every value in memory, so ASan sees each access; -O2 is where
-      # LLVM acts on undefined behaviour and the bounds checks see the most objects.
+      # Runners have no display or GPU, so programs that open windows are built but not run
+      # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
+      # -O2 is where LLVM acts on undefined behaviour and the bounds checks see the most objects.
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
-        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --sanitize address,undefined corpus stdlib modules
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined corpus stdlib modules
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         if: ${{ always() && !cancelled() }}
-        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --sanitize address,undefined corpus stdlib modules
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined corpus stdlib modules

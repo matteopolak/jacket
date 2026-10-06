@@ -154,7 +154,15 @@ INTERPRETER_ONLY = {
     "bindings-generator-cpp": "runs Bindings_Generator at run time",
 }
 
-def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes):
+def opens_windows(path):
+    """Whether a case opens windows: it imports Window_Creation. Machines without a display or
+    GPU (CI runners) can build such programs but not run them."""
+    try:
+        return '#import "Window_Creation"' in path.read_text(errors="replace")
+    except OSError:
+        return False
+
+def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, run=True):
     """Build `path` natively with `build_flags` and run the executable in the source's directory.
     Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
     an `error:` line first in stderr."""
@@ -175,6 +183,8 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes):
             return "", f"error: native build failed (exit {code})\n{err}", code
         if not exe.exists():
             return "", "", NO_EXECUTABLE
+        if not run:
+            return "", "", 0
         out, err, code = run_limited([str(exe), *program_args], path.parent, timeout, limit_bytes)
         report = sanitizer_report(err)
         if report:
@@ -197,6 +207,8 @@ def main():
                     help="cases run at once (default: CPU count, capped so jobs x memory limit fits in RAM)")
     ap.add_argument("--allow-stale", action="store_true",
                     help="run even if the jaic binary is older than the compiler sources")
+    ap.add_argument("--headless", action="store_true",
+                    help="build (or check) programs that open windows instead of running them")
     ap.add_argument("--native", action="store_true",
                     help="build `run` cases with `jaic build` and run the executables")
     ap.add_argument("--sanitize", default="",
@@ -238,12 +250,17 @@ def main():
         cid, path, mode, expect, extra = case
         if a.native and mode == "run" and cid in INTERPRETER_ONLY:
             return cid, None, "", INTERPRETER_ONLY[cid], NO_EXECUTABLE
+        windowed = a.headless and mode == "run" and opens_windows(path)
+        if windowed and expect is not None:
+            expect = None  # Only whether it builds is checked.
         if a.native and mode == "run":
-            out, err, code = run_native(a.jaic, path, extra, build_flags, scratch, a.timeout, limit_bytes)
+            out, err, code = run_native(a.jaic, path, extra, build_flags, scratch, a.timeout, limit_bytes,
+                                        run=not windowed)
             if code == NO_EXECUTABLE:
                 return cid, None, out, err, code
         else:
-            out, err, code = run_limited([a.jaic, mode, str(path), *extra], path.parent, a.timeout, limit_bytes)
+            out, err, code = run_limited([a.jaic, "check" if windowed else mode, str(path), *extra],
+                                         path.parent, a.timeout, limit_bytes)
         if expect is None:
             ok = code == 0
         elif "negative" in expect:

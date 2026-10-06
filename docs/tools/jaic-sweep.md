@@ -24,6 +24,8 @@ Each case runs with an exact allocation cap (`--memory-limit`, default 3 GiB), w
 
 `--native` builds each `run` case with `jaic build` into a scratch directory and runs the executable instead of `jaic run`, with the same expectation; `--opt O0..O3` sets the build's optimization level and `--sanitize address,undefined` instruments it (both imply `--native`). A sanitized case also fails on any sanitizer report in stderr. A program whose metaprogram writes no executable is listed separately as compile-time only. See [sanitizers](../native/sanitizers.md). The sweep exits with status 1 when any case fails.
 
+`--headless` is for machines without a display or GPU, such as CI runners. A `run` case whose source imports `Window_Creation` is only checked (`jaic check`), or built when `--native` is on, and its expected output is ignored.
+
 ## How to change it
 
 - New negative program (must be rejected): drop it in `tests/corpus/negative/`, add a `kind: negative` entry with `sha256` and a `negative.check` string that appears in the diagnostic to `tests/corpus/manifest.json`.

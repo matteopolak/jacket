@@ -56,4 +56,4 @@ The sweep sets these runtime options unless they are already in the environment:
 
 ## Dependencies
 
-LLVM 22's `asan` and `bounds-checking` passes (through `inkwell`), and the compiler-rt sanitizer runtimes of the same LLVM: included in Homebrew's `llvm`, `libclang-rt-22-dev` on apt.llvm.org. CI runs the sweep under ASan and UBSan on Linux and macOS, at `-O0` and `-O2`; see [continuous integration](../tools/continuous-integration.md).
+LLVM 22's `asan` and `bounds-checking` passes (through `inkwell`), and the compiler-rt sanitizer runtimes of the same LLVM: included in Homebrew's `llvm`, `libclang-rt-22-dev` on apt.llvm.org. CI runs the sweep under ASan and UBSan on Linux and macOS, at `-O0` and `-O2`, with `--headless` (window programs are built, not run; Linux installs the X11, GL, EGL and FreeType dev packages so they link); see [continuous integration](../tools/continuous-integration.md).

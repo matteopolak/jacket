@@ -2,7 +2,8 @@
 // visualizer listening, tracking still works; with this test acting as the visualizer (the
 // channel's reader), a per-frame update sends the version message and one stack-trace record
 // per live allocation site, each followed by its frames.
-Basic :: #import "Basic"(MEMORY_DEBUGGER = true);
+// The browser playground (WASM) has no shared memory, so the visualizer is left out there.
+Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = OS != .WASM);
 
 #if OS == .MACOS || OS == .LINUX {
     Wire :: #import "Protocol_For_Memory_Visualization";
@@ -47,10 +48,12 @@ Basic :: #import "Basic"(MEMORY_DEBUGGER = true);
 main :: () -> s64 {
     blocks: [8] *u8;
     for *blocks it.* = Basic.alloc(32 + it_index);
-    // No visualizer yet: this must be a harmless no-op.
-    Basic.memory_visualizer_per_frame_update();
     result: s64;
-    #if OS == .MACOS || OS == .LINUX result = listen_and_check(blocks);
+    #if OS == .MACOS || OS == .LINUX {
+        // No visualizer yet: this must be a harmless no-op.
+        Basic.memory_visualizer_per_frame_update();
+        result = listen_and_check(blocks);
+    }
     for blocks Basic.free(it);
     return result;
 }
