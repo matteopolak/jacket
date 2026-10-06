@@ -37,7 +37,7 @@ Tests in `crates/jaic-cli/tests/native.rs`: `corpus_runs_natively_like_the_inter
 - `JAIC_STDLIB`: stdlib directory (default `<repo>/stdlib`).
 - `JAIC_NATIVE_LIBS`: path list searched for third-party static archives. Default: `artifacts/native-libs/<os>-<arch>` next to the stdlib (`macos`/`linux`, `arm64`/`x64`), produced by `tools/build_native_libs.py`; see [third-party native libraries](../tools/native-libs.md).
 - `JAIC_LINKER`, `JAIC_AR`: override the linker or archiver (see [Windows](windows.md)).
-- CLI: `-o`, `-O0..-O3`, `--emit-ir file.ll`, `-I dir`, `-os windows`, `-cpu x64|arm64`, `-target triple`.
+- CLI: `-o`, `-O0..-O3`, `--emit-ir file.ll`, `-sanitize address,undefined` (links with the LLVM install's `clang`; see [sanitizers](sanitizers.md)), `-I dir`, `-os windows`, `-cpu x64|arm64`, `-target triple`.
 
 ## Dependencies
 

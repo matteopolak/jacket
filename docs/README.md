@@ -75,6 +75,7 @@ The LLVM backend, C ABI and linking.
 - [jaic LLVM backend](native/llvm-backend.md)
 - [Native debug information](native/debug-info.md)
 - [Native build and linking](native/native-linking.md)
+- [Sanitizers for native builds](native/sanitizers.md)
 - [Vk-Engine corpus project](native/vk-engine.md)
 - [Native Windows executables](native/windows.md)
 

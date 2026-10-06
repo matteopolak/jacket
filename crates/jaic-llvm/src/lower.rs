@@ -115,6 +115,7 @@ enum RetPlan {
 enum ParamAttr {
     Sret(u64),
     ByVal(u64, u64),
+    InReg,
 }
 
 struct Lowered<'ctx> {
@@ -242,11 +243,18 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let ret_agg = cabi.and_then(|c| c.ret.clone());
         let mut llvm_params: Vec<BasicMetadataTypeEnum<'ctx>> = Vec::new();
         let mut attrs = Vec::new();
+        // `#cpp_return_type_is_non_pod`: C++ returns a class with a non-trivial copy or
+        // destructor through the hidden result pointer, however small it is.
+        let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
         let ret = match &ret_agg {
-            Some(layout) => match abi::classify_ret(self.arch, layout) {
+            Some(layout) => match abi::classify_ret(self.arch, layout).filter(|_| !forced_sret) {
                 Some(pieces) => RetPlan::Registers(layout.clone(), pieces),
                 None => {
                     attrs.push((0, ParamAttr::Sret(layout.size)));
+                    if forced_sret && self.arch == Arch::Win64Arm {
+                        // MSVC on arm64 passes this pointer in x0, not x8; `inreg` selects it.
+                        attrs.push((0, ParamAttr::InReg));
+                    }
                     llvm_params.push(self.ptr_ty().into());
                     RetPlan::Sret
                 }
@@ -342,6 +350,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             let (name, size, align) = match attr {
                 ParamAttr::Sret(size) => ("sret", size, 0),
                 ParamAttr::ByVal(size, align) => ("byval", size, align),
+                ParamAttr::InReg => {
+                    let kind = Attribute::get_named_enum_kind_id("inreg");
+                    add(
+                        AttributeLoc::Param(index),
+                        self.ctx.create_enum_attribute(kind, 0),
+                    );
+                    continue;
+                }
             };
             let kind = Attribute::get_named_enum_kind_id(name);
             let ty = self.bytes_ty(size).as_any_type_enum();

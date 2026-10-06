@@ -88,7 +88,7 @@ fn usage() -> ExitCode {
         "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...] [-- program args...]"
     );
     eprintln!(
-        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-os windows] [-cpu x64|arm64] [-target triple]"
+        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-sanitize address,undefined] [-os windows] [-cpu x64|arm64] [-target triple]"
     );
     eprintln!(
         "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
@@ -136,6 +136,8 @@ struct Cli {
     target: Option<String>,
     /// `--timings`: report the wall time of each phase on stderr.
     timings: bool,
+    /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for `build`.
+    sanitize: Vec<String>,
 }
 
 impl Cli {
@@ -234,6 +236,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         plugins: Vec::new(),
         plugin_options: Vec::new(),
         timings: false,
+        sanitize: Vec::new(),
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -278,6 +281,9 @@ fn parse(args: &[String]) -> Option<Cli> {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
             }
             "--no-debug-info" if command == Command::Build => cli.no_debug_info = true,
+            "-sanitize" | "--sanitize" if command == Command::Build => {
+                cli.sanitize.push(rest.next()?.clone())
+            }
             "-O0" if command == Command::Build => cli.opt_level = Some("O0"),
             "-O1" if command == Command::Build => cli.opt_level = Some("O1"),
             "-O2" if command == Command::Build => cli.opt_level = Some("O2"),
@@ -551,6 +557,7 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
         target: cli.target_triple().ok().flatten(),
+        sanitize: cli.sanitize.join(","),
     }
 }
 
@@ -583,6 +590,8 @@ struct LlvmBackend {
     debug_info: bool,
     /// Target triple; `None` for the host.
     target: Option<String>,
+    /// The `-sanitize` lists, comma-joined (empty: no sanitizers).
+    sanitize: String,
 }
 
 #[cfg(feature = "llvm")]
@@ -633,11 +642,17 @@ impl OutputBackend for LlvmBackend {
         };
         // `Build_Options.emit_debug_info = .NONE` (or `set_optimization(..., false)`) turns it off.
         let debug_info = self.debug_info && settings.emit_debug_info != Some(false);
+        let sanitize = if self.sanitize.is_empty() {
+            jaic_llvm::Sanitize::default()
+        } else {
+            jaic_llvm::Sanitize::parse(&self.sanitize)?
+        };
         let options = jaic_llvm::Options {
             opt_level,
             target: self.target.clone(),
             emit_ir: self.emit_ir.clone(),
             debug_info,
+            sanitize,
         };
         if matches!(
             settings.output_type,
@@ -660,6 +675,7 @@ impl OutputBackend for LlvmBackend {
                 settings.output_type == OutputType::DynamicLibrary,
                 &settings.additional_linker_arguments,
                 target,
+                sanitize,
             ),
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
         });

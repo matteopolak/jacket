@@ -9,6 +9,7 @@ mod lower;
 use lower::Shard;
 
 use inkwell::OptimizationLevel;
+use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::context::Context;
 use inkwell::passes::PassBuilderOptions;
 use inkwell::targets::{
@@ -58,6 +59,70 @@ pub struct Options {
     pub emit_ir: Option<PathBuf>,
     /// Emit native debug information (DWARF; see `docs/native/debug-info.md`).
     pub debug_info: bool,
+    /// Sanitizer instrumentation (`docs/native/sanitizers.md`).
+    pub sanitize: Sanitize,
+}
+
+/// Which sanitizers instrument a native build. [`link`] links the runtime they call.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Sanitize {
+    /// AddressSanitizer: heap, stack and global out-of-bounds, use-after-free, use-after-return.
+    pub address: bool,
+    /// The UBSan checks that exist at the LLVM IR level and match Jai semantics: accesses
+    /// outside an object of known size (`bounds-checking`, Clang's `local-bounds`).
+    pub undefined: bool,
+}
+
+impl Sanitize {
+    pub fn any(self) -> bool {
+        self.address || self.undefined
+    }
+
+    /// Parse a `-sanitize` value: a comma-separated list of `address` and `undefined`.
+    pub fn parse(list: &str) -> Result<Sanitize, String> {
+        let mut sanitize = Sanitize::default();
+        for name in list.split(',') {
+            match name.trim() {
+                "address" => sanitize.address = true,
+                "undefined" => sanitize.undefined = true,
+                other => {
+                    return Err(format!(
+                        "unknown sanitizer '{other}' (expected address or undefined)"
+                    ));
+                }
+            }
+        }
+        Ok(sanitize)
+    }
+
+    /// The Clang driver's `-fsanitize=` value; the driver then links the matching runtime.
+    fn driver_flag(self) -> String {
+        let names: Vec<&str> = [(self.address, "address"), (self.undefined, "undefined")]
+            .into_iter()
+            .filter_map(|(on, name)| on.then_some(name))
+            .collect();
+        format!("-fsanitize={}", names.join(","))
+    }
+
+    /// Passes appended to the optimization pipeline, where Clang runs its sanitizer passes.
+    /// The bounds checks come first so that ASan does not instrument them.
+    fn passes(self, opt_level: OptLevel) -> Vec<&'static str> {
+        let mut passes = Vec::new();
+        if self.undefined {
+            // `rt-abort`: report through the UBSan runtime, then stop the program. The check
+            // needs to see which object a pointer came from; unoptimized code keeps every
+            // value in a stack slot, so promote those first (`sroa`) or it finds almost none.
+            passes.push(if opt_level == OptLevel::O0 {
+                "function(sroa,bounds-checking<rt-abort>)"
+            } else {
+                "function(bounds-checking<rt-abort>)"
+            });
+        }
+        if self.address {
+            passes.push("asan");
+        }
+        passes
+    }
 }
 
 /// The host triple. On macOS LLVM's default names the Darwin kernel version, which it maps to
@@ -118,6 +183,9 @@ fn emit_module(
     path: &Path,
     shard: Option<Shard>,
 ) -> Result<(), String> {
+    if options.sanitize.any() {
+        check_sanitizer_target(options.target.as_deref())?;
+    }
     let (machine, triple, arch) = target_machine(options)?;
     let context = Context::create();
     let module = context.create_module("jai");
@@ -137,9 +205,24 @@ fn emit_module(
     module
         .verify()
         .map_err(|e| format!("invalid LLVM IR: {e}"))?;
-    if let Some(pipeline) = options.opt_level.pipeline() {
+    if options.sanitize.address {
+        // ASan instruments only functions with this attribute (Clang adds it to each
+        // definition it emits); declarations are left alone.
+        let kind = Attribute::get_named_enum_kind_id("sanitize_address");
+        for function in module.get_functions() {
+            if function.count_basic_blocks() > 0 {
+                function.add_attribute(
+                    AttributeLoc::Function,
+                    context.create_enum_attribute(kind, 0),
+                );
+            }
+        }
+    }
+    let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
+    passes.extend(options.sanitize.passes(options.opt_level));
+    if !passes.is_empty() {
         module
-            .run_passes(pipeline, &machine, PassBuilderOptions::create())
+            .run_passes(&passes.join(","), &machine, PassBuilderOptions::create())
             .map_err(|e| e.to_string())?;
     }
     machine
@@ -325,9 +408,13 @@ pub fn link(
     dynamic_library: bool,
     extra_args: &[String],
     target: Option<&str>,
+    sanitize: Sanitize,
 ) -> Result<(), String> {
     let flavor = LinkFlavor::for_target(target);
     let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
+    if sanitize.any() {
+        check_sanitizer_target(target)?;
+    }
     // Each library's argument group is added once (`-framework X` is two arguments).
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
@@ -336,7 +423,14 @@ pub fn link(
             seen.push(args);
         }
     }
-    let (program, mut cmd) = linker_command(flavor, target)?;
+    let (program, mut cmd) = if sanitize.any() {
+        let program = sanitizer_driver();
+        let mut cmd = Command::new(&program);
+        cmd.arg(sanitize.driver_flag());
+        (program, cmd)
+    } else {
+        linker_command(flavor, target)?
+    };
     let msvc_style = is_msvc_linker(&program);
     if msvc_style {
         cmd.arg("/NOLOGO")
@@ -470,6 +564,48 @@ fn is_msvc_linker(program: &str) -> bool {
         .map(|s| s.to_string_lossy().to_ascii_lowercase())
         .unwrap_or_default();
     matches!(stem.as_str(), "link" | "lld-link")
+}
+
+/// Sanitized builds run only on the host, and only on macOS and Linux: the runtimes come from
+/// the host's LLVM install, and jaic does not drive Clang's Windows or wasm sanitizer setups.
+pub fn check_sanitizer_target(target: Option<&str>) -> Result<(), String> {
+    if target.is_some() {
+        return Err("-sanitize supports only native builds for the host, not cross builds".into());
+    }
+    if !cfg!(any(target_os = "macos", target_os = "linux")) {
+        return Err("-sanitize is supported on macOS and Linux hosts only".into());
+    }
+    Ok(())
+}
+
+/// The Clang driver that links a sanitized build. The instrumentation comes from the LLVM jaic
+/// is built with and calls into a runtime of the same version, so prefer that install's
+/// `clang` over the system `cc` (Apple's Clang ships an older runtime; GCC's `libasan` is a
+/// different one). `JAIC_SANITIZER_CC` overrides the choice.
+fn sanitizer_driver() -> String {
+    if let Ok(program) = std::env::var("JAIC_SANITIZER_CC") {
+        return program;
+    }
+    let prefixes = [
+        std::env::var("LLVM_SYS_221_PREFIX").ok(),
+        option_env!("LLVM_SYS_221_PREFIX").map(str::to_string),
+    ];
+    for prefix in prefixes.into_iter().flatten() {
+        let clang = Path::new(&prefix).join("bin/clang");
+        if clang.is_file() {
+            return clang.to_string_lossy().into_owned();
+        }
+    }
+    for config in ["llvm-config-22", "llvm-config"] {
+        let Ok(out) = Command::new(config).arg("--bindir").output() else {
+            continue;
+        };
+        let clang = Path::new(String::from_utf8_lossy(&out.stdout).trim()).join("clang");
+        if out.status.success() && clang.is_file() {
+            return clang.to_string_lossy().into_owned();
+        }
+    }
+    find_program(&["clang-22", "clang"]).unwrap_or_else(|| "clang".into())
 }
 
 /// The first of `names` found on `PATH`.
@@ -715,6 +851,29 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sanitizer_lists_parse_into_flags_and_passes() {
+        let both = Sanitize::parse("address,undefined").unwrap();
+        assert!(both.address && both.undefined);
+        assert_eq!(both.driver_flag(), "-fsanitize=address,undefined");
+        assert_eq!(
+            both.passes(OptLevel::O2),
+            ["function(bounds-checking<rt-abort>)", "asan"]
+        );
+        // Unoptimized code needs its slots promoted before bounds checks see any object.
+        assert_eq!(
+            Sanitize::parse("undefined").unwrap().passes(OptLevel::O0),
+            ["function(sroa,bounds-checking<rt-abort>)"]
+        );
+        assert_eq!(
+            Sanitize::parse("address").unwrap().driver_flag(),
+            "-fsanitize=address"
+        );
+        assert!(Sanitize::parse("thread").is_err());
+        assert!(check_sanitizer_target(Some(WINDOWS_CROSS_TRIPLE)).is_err());
+        assert!(check_sanitizer_target(Some("wasm32-unknown-unknown")).is_err());
+    }
 
     #[test]
     fn windows_triples_pick_windows_linkers() {

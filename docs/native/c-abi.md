@@ -68,7 +68,7 @@ add_impl :: (this: *Obj, x: s32) -> s32 #c_call { return this.base + x; }
 // vt.add(*o, 2) == 42
 ```
 
-`#cpp_return_type_is_non_pod` on a foreign procedure forces a struct result through the hidden result pointer whatever its size (`CAbi::ret_indirect`; on Windows arm64 that pointer goes in x0, as MSVC does, not x8). Only the interpreter honours it; the LLVM backend doesn't read `ret_indirect` yet.
+`#cpp_return_type_is_non_pod` on a foreign procedure forces a struct result through the hidden result pointer whatever its size (`CAbi::ret_indirect`; on Windows arm64 that pointer goes in x0, as MSVC does, not x8). The LLVM backend does the same in `lower_sig` (an `sret` parameter, plus `inreg` on Windows arm64 to select x0); `cpp_non_pod_results_use_the_hidden_pointer` in `crates/jaic-cli/tests/native.rs` covers it.
 
 ## How to change it
 

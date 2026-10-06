@@ -386,6 +386,168 @@ fn c_structs_by_value() {
     }
 }
 
+/// `-sanitize address` reports a use after free with the Jai source line, `-sanitize undefined`
+/// an out-of-bounds stack access, and a correct program runs cleanly under both. Not supported
+/// on Windows.
+#[test]
+fn sanitized_builds_report_memory_errors() {
+    if cfg!(windows) {
+        return;
+    }
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-sanitizers");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("errors.jai"),
+        "#import \"Basic\";\n\
+         main :: () {\n\
+             args := get_command_line_arguments();\n\
+             a := NewArray(4, int);\n\
+             a[1] = 5;\n\
+             print(\"%\\n\", a[1]);\n\
+             if args.count == 2 && args[1] == \"heap\" {\n\
+                 array_free(a);\n\
+                 print(\"%\\n\", a[2]);\n\
+             }\n\
+             local: [4] int;\n\
+             p := local.data;\n\
+             if args.count == 2 && args[1] == \"stack\" p[args.count + 2] = 1;\n\
+             print(\"%\\n\", local[0]);\n\
+         }\n",
+    )
+    .unwrap();
+    let build = |name: &str, sanitize: &str| {
+        let exe = exe_path(&dir, name);
+        let output = Command::new(JAIC)
+            .args(["build", "errors.jai", "-sanitize", sanitize, "-o"])
+            .arg(&exe)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        exe
+    };
+    let run = |exe: &Path, arg: &str| {
+        Command::new(exe)
+            .arg(arg)
+            .env("ASAN_OPTIONS", "detect_leaks=0")
+            .output()
+            .unwrap()
+    };
+    let both = build("both", "address,undefined");
+    let clean = run(&both, "none");
+    assert_eq!(String::from_utf8_lossy(&clean.stdout), "5\n0\n");
+    assert!(clean.status.success());
+
+    let asan = build("asan", "address");
+    let heap = run(&asan, "heap");
+    let report = String::from_utf8_lossy(&heap.stderr);
+    assert!(!heap.status.success());
+    assert!(
+        report.contains("AddressSanitizer: heap-use-after-free") && report.contains("errors.jai:9"),
+        "{report}"
+    );
+
+    let ubsan = build("ubsan", "undefined");
+    let stack = run(&ubsan, "stack");
+    let report = String::from_utf8_lossy(&stack.stderr);
+    assert!(!stack.status.success());
+    assert!(
+        report.contains("errors.jai:13") && report.contains("runtime error: access out of bounds"),
+        "{report}"
+    );
+
+    let cross = Command::new(JAIC)
+        .args([
+            "build",
+            "errors.jai",
+            "-sanitize",
+            "address",
+            "-os",
+            "windows",
+        ])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(!cross.status.success());
+    assert!(String::from_utf8_lossy(&cross.stderr).contains("cross builds"));
+}
+
+/// `#cpp_return_type_is_non_pod`: a C++ class with a copy constructor or destructor comes back
+/// through the hidden result pointer even when it would fit in registers. Compiled code used to
+/// expect it in registers, so the callee wrote through whatever the result register held (found
+/// by the sanitizer sweep). Skipped without a C++ compiler; not run on Windows.
+#[test]
+fn cpp_non_pod_results_use_the_hidden_pointer() {
+    if cfg!(windows) {
+        return;
+    }
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("counter.cpp"),
+        "struct Counter {\n\
+             int value;\n\
+             Counter(int v) : value(v) {}\n\
+             Counter(const Counter &o) : value(o.value) {}\n\
+             ~Counter() {}\n\
+         };\n\
+         extern \"C\" Counter make_counter(int v) { return Counter(v * 2 + 1); }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("non_pod.jai"),
+        "#import \"Basic\";\n\
+         counter :: #library \"libcounter\";\n\
+         Counter :: struct { value: s32; }\n\
+         make_counter :: (v: s32) -> Counter #foreign counter #cpp_return_type_is_non_pod;\n\
+         main :: () { c := make_counter(20); print(\"%\\n\", c.value); }\n",
+    )
+    .unwrap();
+    let lib = if cfg!(target_os = "macos") {
+        "libcounter.dylib"
+    } else {
+        "libcounter.so"
+    };
+    let mut compile = Command::new("c++");
+    compile.args([
+        "-shared",
+        "-fPIC",
+        "-Wno-return-type-c-linkage",
+        "-o",
+        lib,
+        "counter.cpp",
+    ]);
+    if cfg!(target_os = "macos") {
+        compile.arg("-Wl,-install_name,@rpath/libcounter.dylib");
+    }
+    let Ok(output) = compile.current_dir(&dir).output() else {
+        eprintln!("skipping: no C++ compiler");
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let interp = Command::new(JAIC)
+        .args(["run", "non_pod.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&interp.stdout), "41\n");
+    let native = build_and_run(&dir.join("non_pod.jai"), &dir, "non_pod").unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&native.stdout),
+        "41\n",
+        "{}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+}
+
 /// C `long double` (the `Long_Double` extension) across the C ABI: arguments, results and struct
 /// members through `#foreign` in the interpreter and natively. On Apple arm64 hosts that can run
 /// x86-64 code (Rosetta), the fixture is also built for x86_64-apple-darwin, where long double is

@@ -52,7 +52,7 @@ Definitions with C signatures (`#c_call` callbacks that C calls with structs) do
 ## Configuration
 
 - `JAIC_CODEGEN_UNITS=N` forces the unit count; `1` turns splitting off.
-- `jaic_llvm::Options { opt_level, target, emit_ir, debug_info }`, set from the CLI flags `-O0..-O3`, `--emit-ir file.ll`, `--no-debug-info`, `-os`, `-target triple`.
+- `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize }`, set from the CLI flags `-O0..-O3`, `--emit-ir file.ll`, `--no-debug-info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`.
 - Building the crate needs `LLVM_SYS_221_PREFIX` pointing at LLVM 22 (for example `/opt/homebrew/opt/llvm`); see [LLVM setup](../tools/llvm-setup.md).
 
 ## Dependencies
