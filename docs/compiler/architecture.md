@@ -8,7 +8,7 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 | --- | --- |
 | `crates/jaic` | Compiler core: lexer, parser, semantic analysis, IR, interpreter. No external crates. |
 | `crates/jaic-cli` | The `jaic` binary (`run`, `check`, `build`). |
-| `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 22). |
+| `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 23). |
 | `crates/jai-language-server` | JSON-RPC language server on top of `jaic`. See [language server](language-server.md). |
 | `crates/jailint` | The `jailint` linter: rules over the type-checked program, also used by the language server. See [jailint](../tools/jailint.md). |
 | `crates/jai-wasm` | Browser build: `jaic` and the language server compiled to WebAssembly with the bundled `stdlib/`. See [browser compiler](../browser/playground.md). |
@@ -51,9 +51,9 @@ cargo run -p jaic-cli -- run file.jai [- metaprogram args]
 
 Cargo features of `jaic-cli`:
 
-- `dynamic-llvm` (default) links LLVM's shared library; `static-llvm` links it statically, for [release archives](../tools/releases.md). Both need LLVM 22 ([LLVM setup](../tools/llvm-setup.md)).
+- `dynamic-llvm` (default) links LLVM's shared library; `static-llvm` links it statically, for [release archives](../tools/releases.md). Both need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)).
 - `--no-default-features` builds a `jaic` that only checks and interprets; `build` reports that it can't write native output. Useful for hosts without LLVM libraries, such as an x86-64 `jaic` under Rosetta for testing the interpreter's x86-64 foreign calls.
 
 ## Dependencies
 
-`jaic` uses only the Rust standard library (it loads the host's libclang at run time for `Bindings_Generator`). `jaic-llvm` uses Inkwell and LLVM 22. The language server uses `serde` and `serde_json`.
+`jaic` uses only the Rust standard library (it loads the host's libclang at run time for `Bindings_Generator`). `jaic-llvm` uses Inkwell and LLVM 23. The language server uses `serde` and `serde_json`.

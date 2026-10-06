@@ -67,7 +67,7 @@ nix run github:matteopolak/jai -- run hello.jai
 nix profile install github:matteopolak/jai
 ```
 
-To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 22 with Clang ([setup guide](docs/tools/llvm-setup.md)):
+To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([setup guide](docs/tools/llvm-setup.md)):
 
 ```sh
 git clone https://github.com/matteopolak/jai.git

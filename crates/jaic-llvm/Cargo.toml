@@ -14,8 +14,8 @@ inkwell.workspace = true
 default = ["dynamic"]
 # How LLVM is linked. Development builds use the shared library; release archives link the
 # static libraries of an official LLVM release, so the binary runs without LLVM installed.
-dynamic = ["inkwell/llvm22-1-prefer-dynamic"]
-static = ["inkwell/llvm22-1-force-static"]
+dynamic = ["inkwell/llvm23-1-prefer-dynamic"]
+static = ["inkwell/llvm23-1-force-static"]
 
 [lints.rust]
 # Inkwell exposes GEP construction as `unsafe` (one helper in `lower`); debug info uses the

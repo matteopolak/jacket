@@ -1,6 +1,6 @@
 // Reduced from a tools/jaigen.py program (seed 10014) on which native -O2 disagreed with the
 // interpreter: LLVM 22's runtime unroller split the 'v29.a -= v29.b' recurrence across parallel
-// accumulators and recombined them wrongly. jaic disables that transformation.
+// accumulators and recombined them wrongly (llvm/llvm-project#201065, fixed in LLVM 23.1.0).
 #import "Basic";
 H: u64 = 0xcbf29ce484222325;
 mix :: (v: u64) { H = (H ^ v) * 0x100000001b3; }

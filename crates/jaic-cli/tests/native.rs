@@ -1259,8 +1259,9 @@ fn compiler_primitive_at_run_time_explains_the_trap() {
 }
 
 /// `a -= b` in a loop of run-time length survives `-O2`: LLVM 22's runtime unroller recombined
-/// the per-copy accumulators of a `sub` recurrence wrongly until jaic turned that transformation
-/// off (`configure_llvm` in jaic-llvm). Reduced from a tools/jaigen.py program.
+/// the per-copy accumulators of a `sub` recurrence wrongly (llvm/llvm-project#201065, fixed in
+/// LLVM 23.1.0), which jaic worked around until it moved to LLVM 23. Reduced from a
+/// tools/jaigen.py program.
 #[test]
 fn optimized_sub_recurrence_matches_the_interpreter() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-sub-recurrence");

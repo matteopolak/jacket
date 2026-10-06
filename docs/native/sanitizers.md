@@ -22,7 +22,7 @@ Compile side (`Sanitize` in `crates/jaic-llvm/src/lib.rs`, applied in `emit_modu
 
 Other UBSan checks are deliberately absent. Clang implements most of them in its front end, not as IR passes, and most do not map to Jai: signed overflow wraps in Jai (overflow checks are the language's own `#no_aoc` machinery, see [arithmetic overflow checks](../language/arithmetic-overflow-checks.md)), shifts and float-to-int conversions are defined (see [LLVM backend](llvm-backend.md#lowering-rules-lowerrs)), and division by zero already traps. An alignment check would flag unaligned reads like `<< cast(*u32) byte_pointer`, which Jai programs make on purpose, so it would mostly produce noise.
 
-Link side (`link`): a sanitized build links with a Clang driver from the LLVM install jaic was built against and passes `-fsanitize=address,undefined`, which makes the driver add the runtime (`libclang_rt.asan_osx_dynamic.dylib` on macOS, the static `libclang_rt.asan.a` plus its dynamic-list flags on Linux). The instrumentation and the runtime must come from the same LLVM: Apple's `cc` ships an older runtime and GCC's `libasan` is a different implementation. The driver is found in this order: `JAIC_SANITIZER_CC`; `$LLVM_SYS_221_PREFIX/bin/clang` (at run time, then the value jaic was compiled with); `llvm-config-22 --bindir` / `llvm-config --bindir`; `clang-22` or `clang` on `PATH`.
+Link side (`link`): a sanitized build links with a Clang driver from the LLVM install jaic was built against and passes `-fsanitize=address,undefined`, which makes the driver add the runtime (`libclang_rt.asan_osx_dynamic.dylib` on macOS, the static `libclang_rt.asan.a` plus its dynamic-list flags on Linux). The instrumentation and the runtime must come from the same LLVM: Apple's `cc` ships an older runtime and GCC's `libasan` is a different implementation. The driver is found in this order: `JAIC_SANITIZER_CC`; `$LLVM_SYS_231_PREFIX/bin/clang` (at run time, then the value jaic was compiled with); `llvm-config-23 --bindir` / `llvm-config --bindir`; `clang-23` or `clang` on `PATH`.
 
 Jai's `Default_Allocator` calls C `malloc`/`free`, so ASan sees every heap block, including use-after-free and double free. Allocators that carve blocks out of a larger region (the temporary allocator, `Flat_Pool`, `Pool`, `Bucket_Array`) are invisible to it: an overrun inside such a region is not reported.
 
@@ -50,10 +50,10 @@ The sweep sets these runtime options unless they are already in the environment:
 
 - CLI: `-sanitize address`, `-sanitize undefined`, `-sanitize address,undefined` (also `--sanitize`, repeatable). Combines with `-O0..-O3`; debug info stays on so reports carry source lines.
 - `JAIC_SANITIZER_CC`: the Clang driver that links sanitized builds.
-- `LLVM_SYS_221_PREFIX`: also used to find `clang` and `llvm-symbolizer`.
+- `LLVM_SYS_231_PREFIX`: also used to find `clang` and `llvm-symbolizer`.
 - Runtime: `ASAN_OPTIONS`, `UBSAN_OPTIONS`, `ASAN_SYMBOLIZER_PATH` (see the [ASan flags](https://github.com/google/sanitizers/wiki/AddressSanitizerFlags)).
 - Sweep: `--sanitize LIST`, `--native`, `--opt O0|O1|O2|O3`, `--jobs` (ASan roughly doubles a program's memory and reserves terabytes of virtual shadow space; keep jobs low on small machines).
 
 ## Dependencies
 
-LLVM 22's `asan` and `bounds-checking` passes (through `inkwell`), and the compiler-rt sanitizer runtimes of the same LLVM: included in Homebrew's `llvm`, `libclang-rt-22-dev` on apt.llvm.org. CI runs the sweep under ASan and UBSan on Linux and macOS, at `-O0` and `-O2`, with `--headless` (window programs are built, not run; Linux installs the X11, GL, EGL and FreeType dev packages so they link); see [continuous integration](../tools/continuous-integration.md).
+LLVM 23's `asan` and `bounds-checking` passes (through `inkwell`), and the compiler-rt sanitizer runtimes of the same LLVM: included in Homebrew's `llvm`, `libclang-rt-23-dev` on apt.llvm.org. CI runs the sweep under ASan and UBSan on Linux and macOS, at `-O0` and `-O2`, with `--headless` (window programs are built, not run; Linux installs the X11, GL, EGL and FreeType dev packages so they link); see [continuous integration](../tools/continuous-integration.md).

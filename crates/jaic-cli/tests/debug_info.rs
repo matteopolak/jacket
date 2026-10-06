@@ -53,7 +53,7 @@ fn debug_file(exe: &Path) -> PathBuf {
 
 fn dwarfdump() -> Option<PathBuf> {
     let mut candidates = Vec::new();
-    if let Ok(prefix) = std::env::var("LLVM_SYS_221_PREFIX") {
+    if let Ok(prefix) = std::env::var("LLVM_SYS_231_PREFIX") {
         candidates.push(Path::new(&prefix).join("bin/llvm-dwarfdump"));
     }
     candidates.push(PathBuf::from("/opt/homebrew/opt/llvm/bin/llvm-dwarfdump"));

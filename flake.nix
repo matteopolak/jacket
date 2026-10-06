@@ -65,7 +65,7 @@
         }
       );
 
-      # `pkgs.jaic` and `pkgs.jaifmt`, built from this flake's pinned nixpkgs (LLVM 22 and the
+      # `pkgs.jaic` and `pkgs.jaifmt`, built from this flake's pinned nixpkgs (LLVM 23 and the
       # nightly toolchain are not in every nixpkgs release).
       overlays.default = final: _prev: {
         inherit (self.packages.${final.stdenv.hostPlatform.system}) jaic jaifmt;
@@ -84,7 +84,7 @@
       devShells = forAllSystems (
         pkgs:
         let
-          llvmPackages = pkgs.llvmPackages_22;
+          llvmPackages = pkgs.llvmPackages_23;
         in
         {
           default = pkgs.mkShell {
@@ -101,7 +101,7 @@
               pkgs.zlib
               pkgs.zstd
             ];
-            LLVM_SYS_221_PREFIX = "${llvmPackages.llvm.dev}";
+            LLVM_SYS_231_PREFIX = "${llvmPackages.llvm.dev}";
             JAI_LIBCLANG = "${lib.getLib llvmPackages.libclang}/lib/libclang${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}";
           };
         }

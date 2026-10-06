@@ -137,7 +137,7 @@ Each bug was fixed with a regression test.
 | generated (`tests/stdlib/poly-infer-from-ifx.jai`) | front end | `$T` could not be inferred from an `ifx` argument |
 | targeted probe (`tests/stdlib/int-to-float32-rounding.jai`) | interp, wasm, constant folding | 64-bit integer → `float32` rounded twice, through f64 |
 | `tests/stdlib/debug-assert-handlers.jai` | native | functions had no frame records, so macOS `backtrace` (Debug's `backtrace`) found no frames ([LLVM backend](../native/llvm-backend.md)) |
-| generated seed 10014 (`tests/corpus/positive/unrolled-sub-reduction.jai`) | native-O2 | LLVM 22's runtime unroller recombined parallel accumulators of an `a -= b` recurrence wrongly. jaic turns that transformation off ([LLVM backend](../native/llvm-backend.md)) |
+| generated seed 10014 (`tests/corpus/positive/unrolled-sub-reduction.jai`) | native-O2 | LLVM 22's runtime unroller recombined parallel accumulators of an `a -= b` recurrence wrongly (llvm/llvm-project#201065). jaic turned that transformation off until LLVM 23.1.0 fixed it ([LLVM backend](../native/llvm-backend.md)) |
 | generated seed 61919 (`tests/stdlib/poly-infer-from-ifx.jai`) | front end | `$T` could not be inferred from an `ifx` whose branches are all `ifx` themselves |
 | generated seeds 62030, 62063 (`tests/stdlib/cast-float-of-integer-operator.jai`) | front end | a float cast's target reached an `ifx` operand of `&`/`%`, which widened to float, so the operator failed on `float32` |
 
@@ -186,6 +186,6 @@ The stdlib and modules sets build the [third-party native libraries](native-libs
 - Python 3.9+.
 - `tools/jaic-sweep.py`, which provides the process limits and the stale-binary check.
 - node, for the wasm backend.
-- The LLVM 22 toolchain behind `jaic build`.
+- The LLVM 23 toolchain behind `jaic build`.
 - The browser bundle built by `tools/build_scripting_wasm.py`.
 - Unit tests: `tools/test_jaic_diff.py`, which needs no compiler.

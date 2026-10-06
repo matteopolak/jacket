@@ -142,32 +142,6 @@ fn host_triple() -> TargetTriple {
     }
 }
 
-/// Process-wide LLVM option overrides, applied once before the first target machine exists.
-///
-/// `-unroll-add-parallel-reductions=false`: LLVM 22's runtime unroller (on by default for
-/// Apple CPUs) splits a reduction into one accumulator per unrolled copy and miscombines
-/// them for `sub` recurrences — `a -= b` in a loop of unknown trip count ended with the
-/// accumulators subtracted from each other (4097 + 4*31 came out as -4097). Found by
-/// `tools/jaic-diff.py` on a `tools/jaigen.py` program; see `docs/tools/differential-testing.md`.
-/// Upstream: llvm/llvm-project#201065, fixed in LLVM 23.1.0 and not backported to 22.x. Drop
-/// the flag when jaic moves to LLVM 23.
-fn configure_llvm() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        let args: [&std::ffi::CStr; 2] = [c"jaic", c"-unroll-add-parallel-reductions=false"];
-        let argv: Vec<*const std::ffi::c_char> = args.iter().map(|a| a.as_ptr()).collect();
-        // SAFETY: argv holds NUL-terminated strings that outlive the call; LLVM copies what it keeps.
-        #[allow(unsafe_code)]
-        unsafe {
-            inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
-                argv.len() as i32,
-                argv.as_ptr(),
-                std::ptr::null(),
-            )
-        }
-    });
-}
-
 /// The target machine for `options`, and the architecture it targets.
 fn target_machine(
     options: &Options,
@@ -175,7 +149,6 @@ fn target_machine(
     // Target registration writes process-wide tables: once, not from every codegen thread.
     static TARGETS: std::sync::Once = std::sync::Once::new();
     TARGETS.call_once(|| Target::initialize_all(&InitializationConfig::default()));
-    configure_llvm();
     let host = options.target.is_none();
     let triple = match &options.target {
         Some(t) => TargetTriple::create(t),
@@ -632,8 +605,8 @@ fn sanitizer_driver() -> String {
         return program;
     }
     let prefixes = [
-        std::env::var("LLVM_SYS_221_PREFIX").ok(),
-        option_env!("LLVM_SYS_221_PREFIX").map(str::to_string),
+        std::env::var("LLVM_SYS_231_PREFIX").ok(),
+        option_env!("LLVM_SYS_231_PREFIX").map(str::to_string),
     ];
     for prefix in prefixes.into_iter().flatten() {
         let clang = Path::new(&prefix).join("bin/clang");
@@ -641,7 +614,7 @@ fn sanitizer_driver() -> String {
             return clang.to_string_lossy().into_owned();
         }
     }
-    for config in ["llvm-config-22", "llvm-config"] {
+    for config in ["llvm-config-23", "llvm-config"] {
         let Ok(out) = Command::new(config).arg("--bindir").output() else {
             continue;
         };
@@ -650,7 +623,7 @@ fn sanitizer_driver() -> String {
             return clang.to_string_lossy().into_owned();
         }
     }
-    find_program(&["clang-22", "clang"]).unwrap_or_else(|| "clang".into())
+    find_program(&["clang-23", "clang"]).unwrap_or_else(|| "clang".into())
 }
 
 /// The first of `names` found on `PATH`.

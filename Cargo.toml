@@ -20,7 +20,10 @@ repository = "https://github.com/matteopolak/jai"
 
 [workspace.dependencies]
 jai-language-server = { path = "crates/jai-language-server" }
-inkwell = { version = "0.10.0", default-features = false, features = ["llvm22-1"] }
+# LLVM 23 support is on inkwell's main branch but in no crates.io release yet (0.10.0 stops at
+# LLVM 22). Pinned to a commit at least 14 days old, which `tools/check_dependency_age.py`
+# verifies; switch back to a registry version once one with `llvm23-1` is 14 days old.
+inkwell = { git = "https://github.com/TheDan64/inkwell", rev = "b7cbeed24af810e14cb36d703f057167b4c033a4", default-features = false, features = ["llvm23-1"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

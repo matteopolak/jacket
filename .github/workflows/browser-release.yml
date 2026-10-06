@@ -37,6 +37,9 @@ jobs:
         with:
           python-version: '3.14'
       - name: Verify checkout and dependency ages before fetching/building
+        # Read-only GitHub API access for the commit dates of pinned git dependencies.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           test "$(git rev-parse HEAD)" = "$COMPILER_REVISION"
           python3 tools/check_ci_sources.py

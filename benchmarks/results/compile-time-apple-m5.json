@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "date": "2026-10-06T02:09:56+00:00",
+  "date": "2026-10-06T13:47:03+00:00",
   "machine": {
     "system": "Darwin",
     "release": "27.0.0",
@@ -10,431 +10,413 @@
     "cpu": "Apple M5",
     "macos": "27.0",
     "memory_gib": 16.0,
-    "llvm": "22.1.1"
+    "llvm": "23.1.2"
   },
   "jaic": {
-    "path": "/private/tmp/claude-501/-Users-matthew-projects-jai/7267210f-132a-4a48-98b0-cccc34b66aa1/scratchpad/bin/jaic-release",
-    "commit": "cfd30421ef741c5edb06afc382a1900ed9e50660",
-    "dirty": true,
+    "path": "/Volumes/CodexBuilds/targets/jai-llvm23/release/jaic",
+    "commit": "f6e3231ce802f8e73058c0c1d6e4c34df1b6931d",
+    "dirty": false,
     "rustc": "rustc 1.100.0-nightly (17fd5b8a3 2026-08-28)"
   },
   "settings": {
-    "repeat": 5
+    "repeat": 4
   },
   "results": {
     "focus/check": {
-      "cold_seconds": 4.1887,
-      "warm_seconds": 2.7288,
-      "min_seconds": 2.5558,
-      "max_seconds": 4.1887,
+      "cold_seconds": 1.7523,
+      "warm_seconds": 1.6934,
+      "min_seconds": 1.5932,
+      "max_seconds": 1.8075,
       "runs_seconds": [
-        4.1887,
-        2.9636,
-        2.8506,
-        2.6071,
-        2.5558
+        1.7523,
+        1.8075,
+        1.6934,
+        1.5932
       ],
-      "peak_rss_mib": 845.7,
-      "warm_rss_mib": 843.8,
+      "peak_rss_mib": 704.6,
+      "warm_rss_mib": 702.9,
       "phases_seconds": {
-        "front end": 2.6474,
+        "front end": 1.6441,
         "workspaces": 0.0,
-        "total": 2.6869,
-        "front end only": 2.6869
+        "total": 1.6657,
+        "front end only": 1.6657
       }
     },
     "focus/build-O0": {
-      "cold_seconds": 3.9241,
-      "warm_seconds": 4.1164,
-      "min_seconds": 3.9241,
-      "max_seconds": 4.8434,
+      "cold_seconds": 2.3788,
+      "warm_seconds": 2.261,
+      "min_seconds": 2.2452,
+      "max_seconds": 2.475,
       "runs_seconds": [
-        3.9241,
-        4.8434,
-        4.0914,
-        4.1414,
-        4.0641
+        2.3788,
+        2.261,
+        2.2452,
+        2.475
       ],
-      "peak_rss_mib": 1272.1,
-      "warm_rss_mib": 1160.3,
+      "peak_rss_mib": 1137.6,
+      "warm_rss_mib": 1131.5,
       "phases_seconds": {
-        "codegen": 0.8574,
-        "link": 0.1818,
-        "debug info": 0.1336,
-        "front end": 4.0309,
+        "codegen": 0.5157,
+        "link": 0.1006,
+        "debug info": 0.0545,
+        "front end": 2.1978,
         "workspaces": 0.0,
-        "total": 4.0727,
-        "front end only": 2.9324
+        "total": 2.2276,
+        "front end only": 1.5541
       }
     },
     "focus/build-O2": {
-      "cold_seconds": 23.3915,
-      "warm_seconds": 23.6533,
-      "min_seconds": 19.2794,
-      "max_seconds": 30.812,
+      "cold_seconds": 13.1658,
+      "warm_seconds": 15.1138,
+      "min_seconds": 11.8599,
+      "max_seconds": 16.0197,
       "runs_seconds": [
-        23.3915,
-        25.1564,
-        30.812,
-        22.1502,
-        19.2794
+        13.1658,
+        16.0197,
+        11.8599,
+        15.1138
       ],
-      "peak_rss_mib": 1030.2,
-      "warm_rss_mib": 924.3,
+      "peak_rss_mib": 1277.7,
+      "warm_rss_mib": 1248.4,
       "phases_seconds": {
-        "codegen": 14.2772,
-        "link": 0.1572,
-        "debug info": 0.1266,
-        "front end": 23.4472,
+        "codegen": 8.1334,
+        "link": 0.1123,
+        "debug info": 0.0571,
+        "front end": 15.0307,
         "workspaces": 0.0,
-        "total": 23.6051,
-        "front end only": 8.9894
+        "total": 15.0703,
+        "front end only": 6.7676
       }
     },
     "jails/check": {
-      "cold_seconds": 0.361,
-      "warm_seconds": 0.3408,
-      "min_seconds": 0.3242,
-      "max_seconds": 0.3881,
+      "cold_seconds": 0.2082,
+      "warm_seconds": 0.2201,
+      "min_seconds": 0.1955,
+      "max_seconds": 0.2248,
       "runs_seconds": [
-        0.361,
-        0.3881,
-        0.3242,
-        0.3383,
-        0.3432
+        0.2082,
+        0.1955,
+        0.2201,
+        0.2248
       ],
-      "peak_rss_mib": 156.4,
-      "warm_rss_mib": 156.0,
+      "peak_rss_mib": 130.2,
+      "warm_rss_mib": 129.5,
       "phases_seconds": {
-        "front end": 0.3046,
+        "front end": 0.1891,
         "workspaces": 0.0,
-        "total": 0.3131,
-        "front end only": 0.3131
+        "total": 0.1967,
+        "front end only": 0.1967
       }
     },
     "jails/build-O0": {
-      "cold_seconds": 0.7101,
-      "warm_seconds": 0.7412,
-      "min_seconds": 0.6711,
-      "max_seconds": 0.7681,
+      "cold_seconds": 0.3572,
+      "warm_seconds": 0.4263,
+      "min_seconds": 0.3572,
+      "max_seconds": 0.4466,
       "runs_seconds": [
-        0.7101,
-        0.6711,
-        0.7681,
-        0.7674,
-        0.715
+        0.3572,
+        0.4263,
+        0.3921,
+        0.4466
       ],
-      "peak_rss_mib": 257.0,
-      "warm_rss_mib": 255.8,
+      "peak_rss_mib": 235.8,
+      "warm_rss_mib": 232.3,
       "phases_seconds": {
-        "codegen": 0.1781,
-        "link": 0.0567,
-        "debug info": 0.0496,
-        "front end": 0.6531,
+        "codegen": 0.1179,
+        "link": 0.0363,
+        "debug info": 0.0333,
+        "front end": 0.3909,
         "workspaces": 0.0,
-        "total": 0.6692,
-        "front end only": 0.3917
+        "total": 0.3998,
+        "front end only": 0.2015
       }
     },
     "jails/build-O2": {
-      "cold_seconds": 9.4642,
-      "warm_seconds": 4.3077,
-      "min_seconds": 4.2434,
-      "max_seconds": 10.3774,
+      "cold_seconds": 2.6099,
+      "warm_seconds": 2.1908,
+      "min_seconds": 1.9881,
+      "max_seconds": 2.6099,
       "runs_seconds": [
-        9.4642,
-        10.3774,
-        4.2434,
-        4.3084,
-        4.3071
+        2.6099,
+        2.1908,
+        2.2781,
+        1.9881
       ],
-      "peak_rss_mib": 359.9,
-      "warm_rss_mib": 356.3,
+      "peak_rss_mib": 368.0,
+      "warm_rss_mib": 362.6,
       "phases_seconds": {
-        "codegen": 3.8749,
-        "link": 0.0495,
-        "debug info": 0.054,
-        "front end": 4.2699,
+        "codegen": 1.9014,
+        "link": 0.0381,
+        "debug info": 0.0324,
+        "front end": 2.164,
         "workspaces": 0.0,
-        "total": 4.279,
-        "front end only": 0.3076
+        "total": 2.1698,
+        "front end only": 0.1979
       }
     },
     "sgpu-examples/check": {
-      "cold_seconds": 0.9399,
-      "warm_seconds": 0.8411,
-      "min_seconds": 0.8228,
-      "max_seconds": 0.9399,
+      "cold_seconds": 0.5219,
+      "warm_seconds": 0.4892,
+      "min_seconds": 0.4725,
+      "max_seconds": 0.5219,
       "runs_seconds": [
-        0.9399,
-        0.8243,
-        0.8228,
-        0.8883,
-        0.8579
+        0.5219,
+        0.4892,
+        0.4934,
+        0.4725
       ],
-      "peak_rss_mib": 202.8,
-      "warm_rss_mib": 202.2,
+      "peak_rss_mib": 203.6,
+      "warm_rss_mib": 203.4,
       "phases_seconds": {
-        "front end": 0.0701,
-        "workspaces": 0.7461,
-        "total": 0.8145,
-        "front end only": 0.8145
+        "front end": 0.0329,
+        "workspaces": 0.4278,
+        "total": 0.4661,
+        "front end only": 0.4661
       }
     },
     "jaison-tests/check": {
-      "cold_seconds": 0.063,
-      "warm_seconds": 0.0582,
-      "min_seconds": 0.0569,
-      "max_seconds": 0.0696,
+      "cold_seconds": 0.0442,
+      "warm_seconds": 0.0449,
+      "min_seconds": 0.0386,
+      "max_seconds": 0.048,
       "runs_seconds": [
-        0.063,
-        0.0569,
-        0.0584,
-        0.0579,
-        0.0696
+        0.0442,
+        0.0449,
+        0.0386,
+        0.048
       ],
-      "peak_rss_mib": 50.7,
-      "warm_rss_mib": 50.4,
+      "peak_rss_mib": 47.0,
+      "warm_rss_mib": 47.0,
       "phases_seconds": {
-        "front end": 0.0313,
+        "front end": 0.022,
         "workspaces": 0.0,
-        "total": 0.0349,
-        "front end only": 0.0349
+        "total": 0.0241,
+        "front end only": 0.0241
       }
     },
     "jaison-tests/build-O0": {
-      "cold_seconds": 0.2126,
-      "warm_seconds": 0.2039,
-      "min_seconds": 0.1974,
-      "max_seconds": 0.2126,
+      "cold_seconds": 0.1596,
+      "warm_seconds": 0.1693,
+      "min_seconds": 0.1596,
+      "max_seconds": 0.1732,
       "runs_seconds": [
-        0.2126,
-        0.1974,
-        0.2065,
-        0.2013,
-        0.2081
+        0.1596,
+        0.1615,
+        0.1693,
+        0.1732
       ],
-      "peak_rss_mib": 108.8,
-      "warm_rss_mib": 107.6,
+      "peak_rss_mib": 99.4,
+      "warm_rss_mib": 99.2,
       "phases_seconds": {
-        "front end": 0.0297,
+        "front end": 0.0213,
         "workspaces": 0.0,
-        "prepare output": 0.002,
-        "codegen": 0.0736,
-        "link": 0.0381,
-        "debug info": 0.0315,
-        "total": 0.1817,
-        "front end only": 0.0339
+        "prepare output": 0.001,
+        "codegen": 0.0557,
+        "link": 0.0337,
+        "debug info": 0.0279,
+        "total": 0.1451,
+        "front end only": 0.0246
       }
     },
     "jaison-tests/build-O2": {
-      "cold_seconds": 1.4711,
-      "warm_seconds": 1.3277,
-      "min_seconds": 1.2309,
-      "max_seconds": 2.2943,
+      "cold_seconds": 0.8339,
+      "warm_seconds": 0.8062,
+      "min_seconds": 0.77,
+      "max_seconds": 0.8339,
       "runs_seconds": [
-        1.4711,
-        1.2601,
-        1.2309,
-        1.3952,
-        2.2943
+        0.8339,
+        0.8062,
+        0.77,
+        0.8187
       ],
-      "peak_rss_mib": 153.9,
-      "warm_rss_mib": 152.9,
+      "peak_rss_mib": 164.2,
+      "warm_rss_mib": 163.3,
       "phases_seconds": {
-        "front end": 0.0355,
+        "front end": 0.0229,
         "workspaces": 0.0,
-        "prepare output": 0.0019,
-        "codegen": 1.1466,
-        "link": 0.0688,
-        "debug info": 0.0458,
-        "total": 1.304,
-        "front end only": 0.0406
+        "prepare output": 0.0011,
+        "codegen": 0.6885,
+        "link": 0.0323,
+        "debug info": 0.0289,
+        "total": 0.7806,
+        "front end only": 0.0266
       }
     },
     "open-jai-getrect/check": {
-      "cold_seconds": 0.1339,
-      "warm_seconds": 0.1455,
-      "min_seconds": 0.1163,
-      "max_seconds": 0.2046,
+      "cold_seconds": 0.0821,
+      "warm_seconds": 0.0767,
+      "min_seconds": 0.0728,
+      "max_seconds": 0.1079,
       "runs_seconds": [
-        0.1339,
-        0.2046,
-        0.1472,
-        0.1163,
-        0.1438
+        0.0821,
+        0.0767,
+        0.0728,
+        0.1079
       ],
-      "peak_rss_mib": 87.7,
-      "warm_rss_mib": 87.0,
+      "peak_rss_mib": 82.0,
+      "warm_rss_mib": 80.5,
       "phases_seconds": {
-        "front end": 0.0997,
+        "front end": 0.0469,
         "workspaces": 0.0,
-        "total": 0.1081,
-        "front end only": 0.1081
+        "total": 0.0528,
+        "front end only": 0.0528
       }
     },
     "open-jai-getrect/build-O0": {
-      "cold_seconds": 0.5058,
-      "warm_seconds": 0.4347,
-      "min_seconds": 0.4273,
-      "max_seconds": 0.5058,
+      "cold_seconds": 0.3484,
+      "warm_seconds": 0.292,
+      "min_seconds": 0.2763,
+      "max_seconds": 0.363,
       "runs_seconds": [
-        0.5058,
-        0.452,
-        0.4273,
-        0.4277,
-        0.4416
+        0.3484,
+        0.363,
+        0.2763,
+        0.292
       ],
-      "peak_rss_mib": 164.6,
-      "warm_rss_mib": 163.9,
+      "peak_rss_mib": 153.5,
+      "warm_rss_mib": 151.7,
       "phases_seconds": {
-        "front end": 0.0972,
+        "front end": 0.0483,
         "workspaces": 0.0,
-        "prepare output": 0.004,
-        "codegen": 0.1078,
-        "link": 0.136,
-        "debug info": 0.0455,
-        "total": 0.4048,
-        "front end only": 0.1088
+        "prepare output": 0.0015,
+        "codegen": 0.0641,
+        "link": 0.1134,
+        "debug info": 0.0336,
+        "total": 0.2685,
+        "front end only": 0.0569
       }
     },
     "open-jai-getrect/build-O2": {
-      "cold_seconds": 1.9436,
-      "warm_seconds": 3.2426,
-      "min_seconds": 1.9436,
-      "max_seconds": 4.4136,
+      "cold_seconds": 1.0822,
+      "warm_seconds": 0.9427,
+      "min_seconds": 0.9231,
+      "max_seconds": 1.1736,
       "runs_seconds": [
-        1.9436,
-        4.4136,
-        2.3632,
-        3.9035,
-        2.5816
+        1.0822,
+        1.1736,
+        0.9231,
+        0.9427
       ],
-      "peak_rss_mib": 226.4,
-      "warm_rss_mib": 219.6,
+      "peak_rss_mib": 243.0,
+      "warm_rss_mib": 241.4,
       "phases_seconds": {
-        "front end": 0.0955,
+        "front end": 0.0546,
         "workspaces": 0.0,
-        "prepare output": 0.0051,
-        "codegen": 2.8641,
-        "link": 0.1427,
-        "debug info": 0.0519,
-        "total": 3.2107,
-        "front end only": 0.1136
+        "prepare output": 0.0018,
+        "codegen": 0.7253,
+        "link": 0.1013,
+        "debug info": 0.0335,
+        "total": 0.9207,
+        "front end only": 0.0625
       }
     },
     "chess-jai/check": {
-      "cold_seconds": 2.577,
-      "warm_seconds": 2.7318,
-      "min_seconds": 2.577,
-      "max_seconds": 3.0939,
+      "cold_seconds": 0.6642,
+      "warm_seconds": 0.6559,
+      "min_seconds": 0.6101,
+      "max_seconds": 0.6678,
       "runs_seconds": [
-        2.577,
-        2.6015,
-        3.0939,
-        2.8211,
-        2.6426
+        0.6642,
+        0.6559,
+        0.6101,
+        0.6678
       ],
-      "peak_rss_mib": 242.9,
-      "warm_rss_mib": 230.3,
+      "peak_rss_mib": 196.7,
+      "warm_rss_mib": 193.9,
       "phases_seconds": {
-        "front end": 0.0259,
-        "workspaces": 2.6711,
-        "total": 2.7051,
-        "front end only": 2.7051
+        "front end": 0.0149,
+        "workspaces": 0.6172,
+        "total": 0.6328,
+        "front end only": 0.6328
       }
     },
     "chess-jai/build-O0": {
-      "cold_seconds": 4.2822,
-      "warm_seconds": 5.3433,
-      "min_seconds": 3.8019,
-      "max_seconds": 8.4046,
+      "cold_seconds": 1.9062,
+      "warm_seconds": 2.0263,
+      "min_seconds": 1.9062,
+      "max_seconds": 2.1411,
       "runs_seconds": [
-        4.2822,
-        3.8019,
-        6.5448,
-        8.4046,
-        4.1418
+        1.9062,
+        2.0263,
+        2.1411,
+        2.0021
       ],
-      "peak_rss_mib": 716.3,
-      "warm_rss_mib": 714.3,
+      "peak_rss_mib": 763.8,
+      "warm_rss_mib": 763.1,
       "phases_seconds": {
-        "front end": 0.029,
-        "codegen": 0.9086,
-        "link": 0.2297,
-        "debug info": 0.1108,
-        "workspaces": 5.2738,
-        "total": 5.3103,
-        "front end only": 3.9003
+        "front end": 0.0288,
+        "codegen": 0.7512,
+        "link": 0.1991,
+        "debug info": 0.0722,
+        "workspaces": 1.9548,
+        "total": 1.9905,
+        "front end only": 0.968
       }
     },
     "chess-jai/build-O2": {
-      "cold_seconds": 8.6061,
-      "warm_seconds": 11.9496,
-      "min_seconds": 8.5355,
-      "max_seconds": 19.7858,
+      "cold_seconds": 4.7147,
+      "warm_seconds": 4.8957,
+      "min_seconds": 4.6107,
+      "max_seconds": 5.1462,
       "runs_seconds": [
-        8.6061,
-        8.5355,
-        12.3436,
-        19.7858,
-        11.5556
+        4.7147,
+        4.8957,
+        5.1462,
+        4.6107
       ],
-      "peak_rss_mib": 696.8,
-      "warm_rss_mib": 662.2,
+      "peak_rss_mib": 835.5,
+      "warm_rss_mib": 835.5,
       "phases_seconds": {
-        "front end": 0.0297,
-        "codegen": 8.4538,
-        "link": 0.2058,
-        "debug info": 0.0968,
-        "workspaces": 11.8839,
-        "total": 11.9203,
-        "front end only": 3.1415
+        "front end": 0.0161,
+        "codegen": 4.1015,
+        "link": 0.1326,
+        "debug info": 0.0578,
+        "workspaces": 4.8558,
+        "total": 4.8737,
+        "front end only": 0.5992
       }
     },
     "forbear/check": {
-      "cold_seconds": 0.2691,
-      "warm_seconds": 0.2822,
-      "min_seconds": 0.2667,
-      "max_seconds": 0.3766,
+      "cold_seconds": 0.1455,
+      "warm_seconds": 0.1409,
+      "min_seconds": 0.1401,
+      "max_seconds": 0.1482,
       "runs_seconds": [
-        0.2691,
-        0.2771,
-        0.2873,
-        0.2667,
-        0.3766
+        0.1455,
+        0.1409,
+        0.1401,
+        0.1482
       ],
-      "peak_rss_mib": 142.7,
-      "warm_rss_mib": 142.6,
+      "peak_rss_mib": 126.3,
+      "warm_rss_mib": 126.1,
       "phases_seconds": {
-        "front end": 0.2471,
+        "front end": 0.116,
         "workspaces": 0.0,
-        "total": 0.2558,
-        "front end only": 0.2558
+        "total": 0.1212,
+        "front end only": 0.1212
       }
     },
     "forbear/build-O0": {
-      "cold_seconds": 0.8755,
-      "warm_seconds": 0.7934,
-      "min_seconds": 0.7671,
-      "max_seconds": 0.9062,
+      "cold_seconds": 0.3454,
+      "warm_seconds": 0.3331,
+      "min_seconds": 0.3292,
+      "max_seconds": 0.3454,
       "runs_seconds": [
-        0.8755,
-        0.7671,
-        0.9062,
-        0.7935,
-        0.7934
+        0.3454,
+        0.3331,
+        0.3385,
+        0.3292
       ],
-      "peak_rss_mib": 191.9,
-      "warm_rss_mib": 190.6,
+      "peak_rss_mib": 176.7,
+      "warm_rss_mib": 176.6,
       "phases_seconds": {
-        "codegen": 0.12,
-        "link": 0.1976,
-        "debug info": 0.1461,
-        "front end": 0.7569,
+        "codegen": 0.0545,
+        "link": 0.0891,
+        "debug info": 0.0411,
+        "front end": 0.3081,
         "workspaces": 0.0,
-        "total": 0.764,
-        "front end only": 0.2987
+        "total": 0.3129,
+        "front end only": 0.1215
       }
     }
   },

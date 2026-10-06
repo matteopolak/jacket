@@ -1,5 +1,6 @@
 name: release
-# Builds jaic, jailsp and jailint for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64).
+# Builds jaic, jailsp and jailint for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64),
+# optimized with PGO everywhere and BOLT on Linux (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
 on:
@@ -20,7 +21,7 @@ permissions:
   contents: read
 env:
   CARGO_INCREMENTAL: '0'
-  LLVM_VERSION: 22.1.8
+  LLVM_VERSION: 23.1.2
 jobs:
   build:
     name: ${{ matrix.name }}
@@ -30,21 +31,21 @@ jobs:
         include:
           - name: macos-arm64
             runner: macos-15
-            llvm: LLVM-22.1.8-macOS-ARM64.tar.xz
+            llvm: LLVM-23.1.2-macOS-ARM64.tar.xz
           - name: linux-x64
             runner: ubuntu-24.04
-            llvm: LLVM-22.1.8-Linux-X64.tar.xz
+            llvm: LLVM-23.1.2-Linux-X64.tar.xz
           - name: windows-x64
             runner: windows-2025
-            llvm: clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
+            llvm: clang+llvm-23.1.2-x86_64-pc-windows-msvc.tar.xz
             rust_target: x86_64-pc-windows-msvc
           - name: windows-arm64
             runner: windows-11-arm
-            llvm: clang+llvm-22.1.8-aarch64-pc-windows-msvc.tar.xz
+            llvm: clang+llvm-23.1.2-aarch64-pc-windows-msvc.tar.xz
             rust_target: aarch64-pc-windows-msvc
     if: github.event_name != 'push' || !github.event.forced
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash
@@ -53,12 +54,16 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.tag || github.ref }}
+      # llvm-tools: the llvm-profdata that matches rustc's LLVM, to merge the PGO profiles.
       - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal --component llvm-tools
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
       - name: Validate dependency ages before building
+        # Read-only GitHub API access for the commit dates of pinned git dependencies.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/check_dependency_age.py
       - name: Install the official LLVM release (static libraries)
         if: matrix.llvm != ''
@@ -74,7 +79,7 @@ jobs:
           mkdir -p "$llvm"
           tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
           rm llvm.tar.xz
-          echo "LLVM_SYS_221_PREFIX=$prefix" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
       # The official macOS LLVM names Homebrew's static zstd (/opt/homebrew/lib/libzstd.a) in its
@@ -113,22 +118,27 @@ jobs:
       - name: Install static zlib and zstd (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libzstd-dev libxml2-dev
-      - name: Build
+      # Instrumented build, training run over this repository's tests and examples, then the
+      # profile-guided build into target/pgo/dist. On Linux the result is also rewritten by the
+      # llvm-bolt that ships in the official LLVM release (macOS and Windows: PGO only).
+      - name: Build (PGO, and BOLT on Linux)
+        id: build
         run: |
-          if [ -n "${{ matrix.llvm }}" ]; then
-            cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm \
-              || { echo "::group::verbose link"; cargo rustc --release --locked -p jaic-cli --bin jaic --no-default-features --features static-llvm -- -C link-args=-v 2>&1 | tail -60; echo "::endgroup::"; exit 1; }
-          else
-            cargo build --release --locked -p jaic-cli --no-default-features
-          fi
-          cargo build --release --locked -p jai-language-server -p jailint
+          llvm=none
+          if [ -n "${{ matrix.llvm }}" ]; then llvm=static; fi
+          bolt=()
+          if [ "$RUNNER_OS" = "Linux" ]; then bolt=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
+          python3 tools/build_pgo.py --llvm "$llvm" --jobs 4 "${bolt[@]}"
+      - name: Show the failing link
+        if: failure() && steps.build.outcome == 'failure' && matrix.llvm != ''
+        run: cargo rustc --release --locked -p jaic-cli --bin jaic --no-default-features --features static-llvm -- -C link-args=-v 2>&1 | tail -60
       - name: Package
         run: |
           exe=""
           if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
           dir="jaic-${{ matrix.name }}"
           mkdir -p "$dir"
-          out="target/${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}release"
+          out="target/pgo/dist"
           cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$dir/"
           # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
           cp -R stdlib "$dir/stdlib"

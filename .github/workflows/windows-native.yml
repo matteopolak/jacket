@@ -17,7 +17,7 @@ permissions:
   contents: read
 env:
   CARGO_INCREMENTAL: '0'
-  LLVM_VERSION: 22.1.8
+  LLVM_VERSION: 23.1.2
   # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for arm64.
   LLVM_MINGW_VERSION: '20260922'
 jobs:
@@ -31,10 +31,10 @@ jobs:
           persist-credentials: false
       - name: Install the pinned toolchain
         run: rustup toolchain install nightly-2026-08-29 --profile minimal
-      - name: Install LLVM 22 and MinGW-w64
+      - name: Install LLVM 23 and MinGW-w64
         run: |
           bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           sudo apt-get install -y gcc-mingw-w64-x86-64
           x86_64-w64-mingw32-gcc --version
       - name: Build jaic
@@ -93,7 +93,7 @@ jobs:
           mkdir -p "$llvm"
           tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
           rm llvm.tar.xz
-          echo "LLVM_SYS_221_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
           echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
@@ -125,10 +125,10 @@ jobs:
           persist-credentials: false
       - name: Install the pinned toolchain
         run: rustup toolchain install nightly-2026-08-29 --profile minimal
-      - name: Install LLVM 22 and llvm-mingw
+      - name: Install LLVM 23 and llvm-mingw
         run: |
           bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           name="llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64"
           curl -fsSL -o llvm-mingw.tar.xz "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$name.tar.xz"
           mkdir -p "$RUNNER_TEMP/llvm-mingw"
@@ -196,7 +196,7 @@ jobs:
           mkdir -p "$llvm"
           tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
           rm llvm.tar.xz
-          echo "LLVM_SYS_221_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
           echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"

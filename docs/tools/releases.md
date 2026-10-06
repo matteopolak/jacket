@@ -8,8 +8,8 @@
 
 Each platform job:
 
-1. Downloads the official LLVM 22 release for the platform (`LLVM-<version>-macOS-ARM64.tar.xz`, `LLVM-<version>-Linux-X64.tar.xz`, `clang+llvm-<version>-x86_64-pc-windows-msvc.tar.xz`, `clang+llvm-<version>-aarch64-pc-windows-msvc.tar.xz`) and points `LLVM_SYS_221_PREFIX` at it. Those tarballs carry LLVM's static libraries. Homebrew's and apt's LLVM link Z3 and zstd as shared libraries, so a binary built against them would only run where those are installed.
-2. Builds `jaic-cli --no-default-features --features static-llvm`, which links LLVM statically, on every platform. A matrix row with an empty `llvm` would build without the backend (`--no-default-features`).
+1. Downloads the official LLVM 23 release for the platform (`LLVM-<version>-macOS-ARM64.tar.xz`, `LLVM-<version>-Linux-X64.tar.xz`, `clang+llvm-<version>-x86_64-pc-windows-msvc.tar.xz`, `clang+llvm-<version>-aarch64-pc-windows-msvc.tar.xz`) and points `LLVM_SYS_231_PREFIX` at it. Those tarballs carry LLVM's static libraries. Homebrew's and apt's LLVM link Z3 and zstd as shared libraries, so a binary built against them would only run where those are installed.
+2. Builds `jaic-cli --no-default-features --features static-llvm`, which links LLVM statically, on every platform, together with `jailsp` and `jailint`, through `tools/build_pgo.py --llvm static`: an instrumented build, a training run over the repository's tests, examples and benchmarks, and a profile-guided rebuild. On Linux the result is also optimised with BOLT, using the `llvm-bolt` in the LLVM tarball. See [PGO and BOLT](pgo-and-bolt.md). The binaries land in `target/pgo/dist`. A matrix row with an empty `llvm` would build without the backend (`--llvm none`).
 3. Packages `jaic`, `jailsp`, `jailint`, `stdlib/`, `README.md` and `CHANGELOG.md` as `jaic-<platform>.tar.gz` (`.zip` on Windows).
 4. Smoke-tests the packaged `jaic` from a directory outside the checkout: `run` (and `build`, where LLVM is linked) of `examples/compile-time-record.jai` must exit with 42, and the packaged `jailint -D warnings` must find nothing in it (which also checks it finds the packaged stdlib). It also checks that the macOS binary links nothing from Homebrew and the Linux one no shared LLVM.
 
@@ -34,6 +34,7 @@ To test the build without publishing, run the workflow by hand (Actions → rele
 
 Gotchas:
 
+- PGO roughly doubles the build (two release builds plus training; Linux trains twice for BOLT), so the job's timeout is 90 minutes. If the build step fails on a link error, a follow-up step relinks `jaic` with `-v` to show the linker command.
 - Linking static LLVM also needs LLVM's system libraries (`llvm-config --link-static --system-libs`, printed in the job log). On Linux the job installs zlib, zstd and libxml2; on macOS the official LLVM names Homebrew's `/opt/homebrew/lib/libzstd.a`, so the job installs Homebrew's zstd (the archive is linked in, so the binary does not need Homebrew). 
   The macOS release's static libraries are LTO bitcode, which Xcode's `ld` cannot parse (`could not parse bitcode object file ... Unknown attribute`), so the macOS job links with the release's own `clang -fuse-ld=lld` against the Xcode SDK (`CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER`, `..._RUSTFLAGS`, `SDKROOT`). The release's own libc++ (`libc++.a`, and `libc++.1.dylib` behind `@rpath`) is deleted first, so `-lc++` links the system `/usr/lib/libc++.1.dylib` through the SDK.
 - Windows: the LLVM archive is built with the static C runtime (`/MT`), so `jaic` is built for an explicit target (the matrix row's `rust_target`, `x86_64-pc-windows-msvc` or `aarch64-pc-windows-msvc`) with `+crt-static` (`CARGO_BUILD_TARGET`, `CARGO_TARGET_<TRIPLE>_RUSTFLAGS`; binaries land in `target/<triple>/release`). Mixing runtimes links, but `jaic build` then crashes at once with `0xC0000005`. The arm64 archive is built natively on GitHub's `windows-11-arm` runner, whose image ships rustup and the Visual Studio ARM64 tools. `llvm-config` also names a static libxml2 (`xml2s.lib`) that the archive does not ship; the job links an empty one. The archive's `bin/` goes on `PATH` so the smoke test's `jaic build` finds `clang` as its linker driver. See [Windows](../native/windows.md).
@@ -41,10 +42,10 @@ Gotchas:
 
 ## Configuration
 
-- `LLVM_VERSION` in the workflow: the LLVM 22 patch release to download.
+- `LLVM_VERSION` in the workflow: the LLVM 23 patch release to download.
 - `jaic-cli` features: `dynamic-llvm` (default), `static-llvm`, `llvm` (backend without a link preference).
 - `jaic-llvm` features: `dynamic` (default), `static`.
 
 ## Dependencies
 
-GitHub-hosted runners (`macos-15`, `ubuntu-24.04`, `windows-2025`, `windows-11-arm`), the official LLVM release assets on github.com/llvm/llvm-project, and the pinned `checkout`, `setup-python`, `upload-artifact` and `download-artifact` actions.
+rustup's `llvm-tools` component (installed with the toolchain, for `llvm-profdata`), GitHub-hosted runners (`macos-15`, `ubuntu-24.04`, `windows-2025`, `windows-11-arm`), the official LLVM release assets on github.com/llvm/llvm-project, and the pinned `checkout`, `setup-python`, `upload-artifact` and `download-artifact` actions.

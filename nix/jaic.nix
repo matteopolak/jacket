@@ -1,4 +1,4 @@
-# jaic, jailsp and jailint, built with the LLVM 22 backend and installed next to `stdlib/` and
+# jaic, jailsp and jailint, built with the LLVM 23 backend and installed next to `stdlib/` and
 # `prelude/` the way the release archives lay them out (see docs/tools/nix.md).
 {
   lib,
@@ -6,7 +6,7 @@
   makeRustPlatform,
   makeWrapper,
   rustToolchain,
-  llvmPackages_22,
+  llvmPackages_23,
   libffi,
   libxml2,
   ncurses,
@@ -14,7 +14,7 @@
   zstd,
 }:
 let
-  llvmPackages = llvmPackages_22;
+  llvmPackages = llvmPackages_23;
   rustPlatform = makeRustPlatform {
     cargo = rustToolchain;
     rustc = rustToolchain;
@@ -48,7 +48,13 @@ rustPlatform.buildRustPackage {
     ];
   };
 
-  cargoLock.lockFile = ../Cargo.lock;
+  cargoLock = {
+    lockFile = ../Cargo.lock;
+    # inkwell is a git dependency pinned to a full commit hash in Cargo.lock (LLVM 23 support
+    # predates its next crates.io release); `builtins.fetchGit` fetches that exact revision,
+    # so no separate output hash has to be kept in sync with the lock file.
+    allowBuiltinFetchGit = true;
+  };
   cargoBuildFlags = [
     "-p"
     "jaic-cli"
@@ -75,8 +81,8 @@ rustPlatform.buildRustPackage {
     zlib
     zstd
   ];
-  # llvm-sys runs `$LLVM_SYS_221_PREFIX/bin/llvm-config`.
-  env.LLVM_SYS_221_PREFIX = "${llvmPackages.llvm.dev}";
+  # llvm-sys runs `$LLVM_SYS_231_PREFIX/bin/llvm-config`.
+  env.LLVM_SYS_231_PREFIX = "${llvmPackages.llvm.dev}";
 
   # jaic looks for its standard library in `stdlib/` next to the executable, and
   # `stdlib/prelude/module.jai` loads `prelude`, so the binaries live in libexec beside them.

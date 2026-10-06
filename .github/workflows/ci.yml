@@ -18,6 +18,9 @@ jobs:
           rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy
           rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
       - name: Validate dependency ages and public source inputs
+        # Read-only GitHub API access for the commit dates of pinned git dependencies.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 tools/check_dependency_age.py
           python3 tools/check_ci_sources.py
@@ -67,21 +70,23 @@ jobs:
         with:
           python-version: '3.14'
       - name: Validate dependency ages before building
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/check_dependency_age.py
       - name: Validate public checkout compilation inputs
         run: python3 tools/check_ci_sources.py
-      - name: Install LLVM 22 (macOS)
+      - name: Install LLVM 23 (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install llvm@22
-          echo "LLVM_SYS_221_PREFIX=$(brew --prefix llvm@22)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
-      - name: Install LLVM 22 (Linux)
+          brew install llvm@23
+          echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+      - name: Install LLVM 23 (Linux)
         if: runner.os == 'Linux'
         run: |
           bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Verify native host and LLVM
         run: |
           uname -sm
@@ -163,18 +168,18 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
-      - name: Install LLVM 22 and its sanitizer runtimes (macOS)
+      - name: Install LLVM 23 and its sanitizer runtimes (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install llvm@22
-          echo "LLVM_SYS_221_PREFIX=$(brew --prefix llvm@22)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
-      - name: Install LLVM 22 and its sanitizer runtimes (Linux)
+          brew install llvm@23
+          echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+      - name: Install LLVM 23 and its sanitizer runtimes (Linux)
         if: runner.os == 'Linux'
         run: |
           bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Install the libraries Simp and GetRect link (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev

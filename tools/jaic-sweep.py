@@ -164,9 +164,9 @@ def sanitizer_report(err):
 
 def symbolizer():
     """llvm-symbolizer from the LLVM jaic links against, so reports show source lines."""
-    prefix = os.environ.get("LLVM_SYS_221_PREFIX")
+    prefix = os.environ.get("LLVM_SYS_231_PREFIX")
     candidates = [Path(prefix) / "bin/llvm-symbolizer"] if prefix else []
-    candidates += [Path(p) for p in (shutil.which("llvm-symbolizer-22"), shutil.which("llvm-symbolizer")) if p]
+    candidates += [Path(p) for p in (shutil.which("llvm-symbolizer-23"), shutil.which("llvm-symbolizer")) if p]
     return next((str(p) for p in candidates if p.is_file()), None)
 
 # `run_native`'s status for a program whose build writes no executable.

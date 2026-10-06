@@ -12,7 +12,7 @@
 2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in global initialisers, then defines function bodies.
 3. Verifies the module, optionally runs the `default<On>` pipeline, and writes the object.
 
-Before the first target machine exists, `configure_llvm` sets process-wide LLVM options once (`LLVMParseCommandLineOptions`). It currently passes `-unroll-add-parallel-reductions=false`. LLVM 22's runtime unroller, which is on by default for Apple CPUs, gives each unrolled copy of a reduction its own accumulator. For a `sub` recurrence (`a -= b` in a loop of unknown length) it then combined those accumulators wrongly, so `-O2` printed different results from `-O0` and the interpreter. `tools/jaic-diff.py` found this on a generated program; the regression is corpus case `unrolled-sub-reduction` plus the native test `optimized_sub_recurrence_matches_the_interpreter`. This is [llvm/llvm-project#201065](https://github.com/llvm/llvm-project/issues/201065), fixed in LLVM 23.1.0 (no 22.x backport). When jaic moves to LLVM 23, drop the flag and check that the test still passes.
+jaic sets no process-wide LLVM options (`LLVMParseCommandLineOptions`). Under LLVM 22 it passed `-unroll-add-parallel-reductions=false`: that release's runtime unroller, on by default for Apple CPUs, gave each unrolled copy of a reduction its own accumulator and, for a `sub` recurrence (`a -= b` in a loop of unknown length), combined them wrongly, so `-O2` printed different results from `-O0` and the interpreter ([llvm/llvm-project#201065](https://github.com/llvm/llvm-project/issues/201065), fixed in LLVM 23.1.0). The flag went with the move to LLVM 23. Corpus case `unrolled-sub-reduction` and the native test `optimized_sub_recurrence_matches_the_interpreter` still guard it. If an LLVM bug needs an option again, set it once before the first target machine is created (in `target_machine`, next to target registration), document the upstream issue, and remove it when jaic moves past the fixed release.
 
 ### Codegen units
 
@@ -32,7 +32,7 @@ An optimized build keeps one module through the optimizer, so inlining still see
 3. The module is written to bitcode once. Each extra unit's thread parses it into its own `Context`, turns other units' function bodies into declarations, and makes the data declarations. Unit 0 is the original module cut down in place; it defines the data and keeps the appending globals such as `llvm.used`.
 4. Each thread writes its object with its own `TargetMachine`. The objects get the same names as the codegen units above.
 
-`strip_body` deletes whole blocks after cutting every use into them; it must not erase instructions one at a time. In LLVM 22 an erased instruction's debug records move to the next instruction, and from a block's last instruction into a context-wide table of trailing records keyed by the block's address. Deleting the block leaves the entry behind. A block that codegen later allocates at the same address then picks up another function's variables, and `DwarfDebug::finalizeModuleInfo` crashes on a variable it never gave a DIE. That happened in about one build in four, depending on heap layout, and never in `llc` on the same bitcode.
+`strip_body` deletes whole blocks after cutting every use into them; it must not erase instructions one at a time. In LLVM 22 an erased instruction's debug records move to the next instruction, and from a block's last instruction into a context-wide table of trailing records keyed by the block's address. Deleting the block leaves the entry behind. A block that codegen later allocates at the same address then picks up another function's variables, and `DwarfDebug::finalizeModuleInfo` crashes on a variable it never gave a DIE. That happened in about one build in four, depending on heap layout, and never in `llc` on the same bitcode. Under LLVM 23.1.2, 60 `-O2` builds of jaifmt (half with `JAIC_SPLIT_UNITS=4`) and the `-O2` asm tests ran clean; keep deleting whole blocks regardless.
 
 Parsing and cutting down are serialized under a mutex. Every unit briefly holds a whole copy of the module, so running them all at once raised peak memory by about one module per unit. With the mutex and the cap, an `-O2` build of Jails or jaison takes about a fifth less wall time for about 12% more peak RSS. More than 4 units gave no further speedup, because the optimizer, which stays serial, then dominates.
 
@@ -76,8 +76,8 @@ Definitions with C signatures (`#c_call` callbacks that C calls with structs) do
 - `JAIC_SPLIT_UNITS=N` forces the post-optimizer unit count of an optimized build (for tests); `1` turns that split off.
 - `INSTS_PER_UNIT` and `MAX_UNITS` in `split.rs`.
 - `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize }`, set from the CLI flags `-O0..-O3`, `--emit-ir file.ll`, `--no-debug-info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`.
-- Building the crate needs `LLVM_SYS_221_PREFIX` pointing at LLVM 22 (for example `/opt/homebrew/opt/llvm`); see [LLVM setup](../tools/llvm-setup.md).
+- Building the crate needs `LLVM_SYS_231_PREFIX` pointing at LLVM 23 (for example `/opt/homebrew/opt/llvm`); see [LLVM setup](../tools/llvm-setup.md).
 
 ## Dependencies
 
-`inkwell` (LLVM 22), the system `cc` for linking, and `jaic` for the IR. Linking rules: [native linking](native-linking.md).
+`inkwell` (LLVM 23), the system `cc` for linking, and `jaic` for the IR. Linking rules: [native linking](native-linking.md).

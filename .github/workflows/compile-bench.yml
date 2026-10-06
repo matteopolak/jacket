@@ -28,11 +28,11 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
-      - name: Install LLVM 22
+      - name: Install LLVM 23
         run: |
-          brew install llvm@22
-          echo "LLVM_SYS_221_PREFIX=$(brew --prefix llvm@22)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
+          brew install llvm@23
+          echo "LLVM_SYS_231_PREFIX=$(brew --prefix llvm@23)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
       - name: Build the release compiler
         run: cargo build --locked --release -p jaic-cli
       - name: Fetch the upstream corpus and its native libraries
