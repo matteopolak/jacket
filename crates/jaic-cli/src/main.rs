@@ -412,6 +412,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             None => Box::new(NativeHost),
         }),
         report: Box::new(|text| eprintln!("{text}")),
+        observer: None,
     });
     let mut compiler = Compiler::new(options, fs);
     if let Some(host) = &sandbox {

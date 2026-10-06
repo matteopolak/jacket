@@ -230,6 +230,7 @@ pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptio
                 .borrow_mut()
                 .write(format!("{text}\n").as_bytes(), true)
         }),
+        observer: None,
     });
     let mut compiler = Compiler::new(options(main), fs);
     compiler.interp.host = Box::new(SharedHost(host.clone()));

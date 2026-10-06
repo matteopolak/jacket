@@ -109,6 +109,20 @@ pub struct BuildEnv {
     pub make_host: Box<dyn Fn() -> Box<dyn Host>>,
     /// Where diagnostics of workspace compilations go.
     pub report: Box<dyn FnMut(&str)>,
+    /// Sees each workspace compiler as it is made and when its workspace is done (tools that
+    /// inspect what the metaprogram built, such as a linter).
+    pub observer: Option<Box<dyn WorkspaceObserver>>,
+}
+
+/// Hooks into the life of workspace compilers. Called without the registry borrowed, but the
+/// observer must not drive workspaces itself.
+pub trait WorkspaceObserver {
+    /// A compiler for a new workspace, before any source is added.
+    fn created(&mut self, compiler: &mut Compiler);
+
+    /// The workspace is done (`failed`: it did not compile); the compiler is handed over
+    /// instead of being dropped.
+    fn finished(&mut self, compiler: Box<Compiler>, failed: bool);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -445,6 +459,11 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     compiler.interp.host = host;
     compiler.workspace = id;
     compiler.attach_workspaces(shared.clone());
+    let observer = shared.borrow_mut().env.observer.take();
+    if let Some(mut o) = observer {
+        o.created(&mut compiler);
+        shared.borrow_mut().env.observer = Some(o);
+    }
     Ok(compiler)
 }
 
@@ -593,13 +612,21 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
         });
     }
     file_events.extend(events);
-    let mut reg = shared.borrow_mut();
-    let ws = reg.ws(id)?;
-    ws.events.extend(file_events);
-    ws.failed |= failed;
-    ws.stage = next;
-    if next != Stage::Done {
-        ws.compiler = Some(compiler);
+    {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        ws.events.extend(file_events);
+        ws.failed |= failed;
+        ws.stage = next;
+        if next != Stage::Done {
+            ws.compiler = Some(compiler);
+            return Ok(());
+        }
+    }
+    let observer = shared.borrow_mut().env.observer.take();
+    if let Some(mut o) = observer {
+        o.finished(compiler, failed);
+        shared.borrow_mut().env.observer = Some(o);
     }
     Ok(())
 }
