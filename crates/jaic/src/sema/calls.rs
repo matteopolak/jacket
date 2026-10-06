@@ -706,24 +706,39 @@ impl Compiler {
     /// type of its own (`ifx c then x else y` with `x: s16` binds `$T` to `s16`), else its first
     /// branch that checks at all (an untyped constant, defaulted like a plain literal argument).
     fn ifx_binding_operand(&mut self, arg: &CallArg) -> Option<Operand> {
-        let Some(ast::Expr {
-            kind:
-                E::Ifx {
-                    then_value,
-                    else_value,
-                    ..
-                },
+        let expr = arg.expr.as_ref()?;
+        let mut fallback = None;
+        let typed = self.ifx_branch_operand(arg.scope, expr, &mut fallback);
+        typed.or(fallback)
+    }
+
+    /// [`Self::ifx_binding_operand`] for one `ifx` expression. A branch that is itself an `ifx`
+    /// (`ifx a then (ifx b then x else y) else z`) offers its own branches, so nesting binds too.
+    fn ifx_branch_operand(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        fallback: &mut Option<Operand>,
+    ) -> Option<Operand> {
+        let E::Ifx {
+            then_value,
+            else_value,
             ..
-        }) = &arg.expr
+        } = &expr.kind
         else {
             return None;
         };
-        let mut fallback = None;
         for branch in [then_value, else_value].into_iter().flatten() {
+            if matches!(branch.kind, E::Ifx { .. }) {
+                if let Some(op) = self.ifx_branch_operand(scope, branch, fallback) {
+                    return Some(op);
+                }
+                continue;
+            }
             if is_deferred(branch) {
                 continue;
             }
-            let Ok(op) = self.check_expr_no_emit(arg.scope, branch) else {
+            let Ok(op) = self.check_expr_no_emit(scope, branch) else {
                 continue;
             };
             match op {
@@ -746,7 +761,7 @@ impl Compiler {
                 _ => {}
             }
         }
-        fallback
+        None
     }
 
     /// `macro_call`: a Code parameter of a macro also binds a variable by name.

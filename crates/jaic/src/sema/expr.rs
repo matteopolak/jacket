@@ -1238,6 +1238,18 @@ impl Compiler {
             BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge
         );
         let is_shift = matches!(op, BinOp::Shl | BinOp::Shr | BinOp::Rotl | BinOp::Rotr);
+        // `cast(float32) ((ifx c then a else b) & mask)`: a float target cannot be the type of an
+        // operand of an operator that floats lack, so it does not reach the operands (an `ifx`
+        // would widen to it, and the operator would then fail on a float).
+        let no_float_operands = matches!(
+            op,
+            BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor | BinOp::Rem
+        );
+        let expected = if no_float_operands {
+            expected.filter(|&t| !self.types.is_float(self.types.repr(t)))
+        } else {
+            expected
+        };
         let lhs_expected = if is_cmp {
             None
         } else if is_shift {

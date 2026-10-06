@@ -20,5 +20,9 @@ main :: () {
     f: float32 = 0.5;
     g := combine(ifx flag then 2 else f, f);
     assert(type_of(g) == float32 && g == 2);
+    // Every branch an `ifx` itself: the nested branches bind (jaigen seed 61919).
+    u: u64 = 7;
+    h := combine(ifx flag then (ifx !flag then u else 17) else (ifx flag then cast(u64) 1 else 0), u);
+    assert(type_of(h) == u64 && h == 120);
     print("ok\n");
 }

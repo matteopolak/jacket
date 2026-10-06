@@ -37,6 +37,7 @@ Where the target type comes from:
 - `xx` takes the type the context expects: a declaration, a parameter, a return.
 - In a comparison, `xx a == b` casts `a` to `b`'s type; `check_binary` checks the other side first {#cast.11}.
 - As a call argument, `xx a | b` (also `&`, `^`) takes the parameter's type and the other operand follows it (`autocast_arithmetic` in `sema/calls.rs`) {#cast.12}. Arithmetic on an untyped struct literal works the same way: `f(.{300, -1} * scale)` builds the parameter's `Vector2` and then uses its `operator *` (`literal_arithmetic`) {#cast.10}.
+- An expected float type does not reach the operands of `&`, `|`, `^` and `%`, which floats lack: `cast(float32) ((ifx c then a else b) & mask)` with `s16` operands computes in `s16` and converts the result, and in `cast(float32) ((0 - w) & v)` the `0` takes `w`'s type. For `+ - * /` the target still types an untyped operand (an open question, see [differential testing](../tools/differential-testing.md#open-questions)) {#cast.29}.
 - `ifx c then a else b` with no expected type takes the else type when only the then value converts to it (`ifx c then 0 else some_float` is a float); otherwise the then type wins {#cast.13}.
 - A call whose single result has exactly the base type of an `#type,isa` argument returns the variant (`pa + pb` on `Position3` stays `Position3`; `emit_call` in `sema/calls.rs`) {#cast.28}.
 
