@@ -608,6 +608,103 @@ impl Compiler {
         })
     }
 
+    /// `Build_Options.cast_bounds_check`: before `cast(T) x` (or `xx x`) of a runtime integer to
+    /// a narrower integer type, check that the value fits `T`. Casts to a type at least as wide
+    /// only extend or reinterpret the bits and are never checked: `cast(s64)` of a `u64` and
+    /// `cast(u64)` of a negative `s8` keep their documented results, which programs rely on.
+    /// Returns the operand, evaluated.
+    pub(crate) fn emit_cast_check(
+        &mut self,
+        f: &mut FnCtx,
+        op: Operand,
+        to: TypeId,
+        span: Span,
+    ) -> Result<Operand> {
+        let mode = self.options.cast_bounds_check;
+        let from = op.ty();
+        let plain_int = |s: &Self, t: TypeId| {
+            !matches!(s.types.kind(t), TypeKind::Enum(_))
+                && !matches!(s.types.kind(s.types.repr(t)), TypeKind::Enum(_))
+        };
+        let (Some((sbits, ssigned)), Some((tbits, tsigned))) =
+            (self.types.int_info(from), self.types.int_info(to))
+        else {
+            return Ok(op);
+        };
+        if mode == 0
+            || f.type_only
+            || op.is_const()
+            || !plain_int(self, from)
+            || !plain_int(self, to)
+            || sbits > 64
+            || tbits >= sbits
+        {
+            return Ok(op);
+        }
+        let range = |bits: u8, signed: bool| -> (i128, i128) {
+            if signed {
+                (-(1i128 << (bits - 1)), (1i128 << (bits - 1)) - 1)
+            } else {
+                (0, (1i128 << bits) - 1)
+            }
+        };
+        let (smin, smax) = range(sbits, ssigned);
+        let (tmin, tmax) = range(tbits, tsigned);
+        if tmin <= smin && smax <= tmax {
+            return Ok(op);
+        }
+        let Some(t) = self.ir_ty(from) else {
+            return Ok(op);
+        };
+        let (ty, x) = self.rvalue(f, op, span)?;
+        // Constants are the bits of the source type.
+        let bits = |v: i128| (v as u64) & (u64::MAX >> (64 - u32::from(sbits)));
+        let mut bad = None;
+        if tmin > smin {
+            // Only a signed value can be below the target's minimum.
+            let min = f.b.iconst(t, bits(tmin));
+            bad = Some(f.b.cmp(ir::CmpOp::SLt, t, x, min));
+        }
+        if tmax < smax {
+            let max = f.b.iconst(t, bits(tmax));
+            let over = if ssigned {
+                ir::CmpOp::SGt
+            } else {
+                ir::CmpOp::UGt
+            };
+            let high = f.b.cmp(over, t, x, max);
+            bad = Some(match bad {
+                Some(low) => f.b.bin(ir::BinOp::Or, Ty::I8, low, high),
+                None => high,
+            });
+        }
+        if let Some(bad) = bad {
+            let fail = f.b.new_block();
+            let cont = f.b.new_block();
+            f.b.branch(bad, fail, cont);
+            f.b.switch_to(fail);
+            let value = if t == Ty::I64 {
+                x
+            } else {
+                let widen = if ssigned {
+                    ConvOp::SExt
+                } else {
+                    ConvOp::ZExt
+                };
+                f.b.conv(widen, t, Ty::I64, x)
+            };
+            let code = ir::cast_check_code(u64::from(tbits / 8), tsigned, ssigned);
+            let code = f.b.iconst(Ty::I64, code);
+            self.emit_check_failed(f, ir::TRAP_CAST_OVERFLOW, value, code, mode == 2, span);
+            f.b.jump(cont);
+            f.b.switch_to(cont);
+        }
+        Ok(Operand::Value {
+            ty,
+            val: x,
+        })
+    }
+
     /// `cast(T) x` / `xx x`.
     pub fn explicit_cast(
         &mut self,

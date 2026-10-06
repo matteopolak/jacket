@@ -154,6 +154,73 @@ pub enum Conv {
 pub const TRAP_MISSING_RETURN: u64 = 1;
 /// `Intrinsic::Trap` reason: an `#asm` divide faulted (`#DE`: divisor zero or quotient too big).
 pub const TRAP_ASM_DIVIDE: u64 = 2;
+/// Check failure reason: an array index out of range (a: the index, b: the count).
+pub const TRAP_BOUNDS: u64 = 3;
+/// Check failure reason: an integer cast whose value does not fit the target (a: the value's
+/// bits, b: `cast_check_code`).
+pub const TRAP_CAST_OVERFLOW: u64 = 4;
+/// Check failure reason: a `#complete` switch without a default matched no case (a: the value).
+pub const TRAP_SWITCH_UNMATCHED: u64 = 5;
+/// Check failure reason: an integer division or remainder by zero.
+pub const TRAP_DIVIDE_BY_ZERO: u64 = 6;
+
+/// `b` of a `TRAP_CAST_OVERFLOW` failure: the target's size in bytes (low byte), whether the
+/// target is signed (bit 8) and whether the value is (bit 9).
+pub fn cast_check_code(target_bytes: u64, target_signed: bool, value_signed: bool) -> u64 {
+    target_bytes | u64::from(target_signed) << 8 | u64::from(value_signed) << 9
+}
+
+/// The integer type a `cast_check_code` names (`u8`, `s32`, ...).
+pub fn cast_check_target(code: u64) -> String {
+    let signed = code & 0x100 != 0;
+    format!(
+        "{}{}",
+        if signed {
+            's'
+        } else {
+            'u'
+        },
+        (code & 0xff) * 8
+    )
+}
+
+/// What a failed runtime check says, the same in the interpreter and in native code
+/// (`stdlib/Runtime_Support.jai`, `runtime_support_check_failed`).
+pub fn check_message(reason: u64, a: u64, b: u64) -> String {
+    match reason {
+        TRAP_MISSING_RETURN => "reached the end of a procedure that must return a value".into(),
+        TRAP_ASM_DIVIDE => {
+            "#asm division fault: the divisor is zero or the quotient does not fit".into()
+        }
+        TRAP_BOUNDS => {
+            let (index, count) = (a as i64, b as i64);
+            format!(
+                "array bounds check failed: index {index} is outside an array of {count} element{}",
+                if count == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            )
+        }
+        TRAP_CAST_OVERFLOW => {
+            let value = if b & 0x200 != 0 {
+                (a as i64).to_string()
+            } else {
+                a.to_string()
+            };
+            format!("cast of {value} to `{}` overflows", cast_check_target(b))
+        }
+        TRAP_DIVIDE_BY_ZERO => "integer division by zero".into(),
+        TRAP_SWITCH_UNMATCHED => {
+            format!(
+                "no case of the `#complete` switch matches its value, {}",
+                a as i64
+            )
+        }
+        _ => "runtime check failed".into(),
+    }
+}
 
 /// Built-in operations with backend-specific implementations.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -165,10 +232,14 @@ pub enum Intrinsic {
     CompareAndSwap,
     DebugBreak,
     /// Abort with a runtime error. An optional `i64` operand says why (`TRAP_*`), for the
-    /// interpreter's message; native code ignores it.
+    /// message (native code reports it through `Program::check_failed` when it has one).
     Trap,
     /// (index: s64, count: s64): trap unless `0 <= index < count`.
     BoundsCheck,
+    /// (reason: `TRAP_*`, a: s64, b: s64, fatal: I8): a runtime check failed (`check_message`).
+    /// Fatal stops the program; otherwise it is reported as a warning and the program goes on.
+    /// Native code reports through `Program::check_failed` at the current `Inst::Loc`.
+    CheckFailed,
     /// (ptr: *u8, count: s64, to_stderr: bool): compile-time `write_string`.
     CompilerWrite,
     Sqrt,
@@ -639,6 +710,10 @@ pub struct Program {
     /// Types named by debug information (`FuncDebug`, `debug_globals`), by key.
     pub debug_types: crate::fxhash::HashMap<u32, DebugType>,
     pub debug_globals: Vec<DebugGlobal>,
+    /// Runtime_Support's `runtime_support_check_failed(reason, a, b, fatal, line, filename)`,
+    /// which native code calls when a check fails (bounds, casts, `#complete` switches, a
+    /// missing return) to say which one and where, before it traps.
+    pub check_failed: Option<FuncId>,
 }
 
 impl Program {
@@ -671,6 +746,8 @@ pub struct Builder {
     pub func: Func,
     pub current: BlockId,
     terminated: crate::fxhash::HashSet<BlockId>,
+    /// The last `loc` marker, for `repeat_loc`.
+    last_loc: Option<(u32, u32, u32, u32)>,
 }
 
 impl Builder {
@@ -694,6 +771,7 @@ impl Builder {
             func,
             current: BlockId(0),
             terminated: Default::default(),
+            last_loc: None,
         }
     }
 
@@ -964,6 +1042,7 @@ impl Builder {
     }
 
     pub fn loc(&mut self, file: u32, line: u32, col: u32, scope: u32) {
+        self.last_loc = Some((file, line, col, scope));
         if !self.is_terminated() {
             self.push(Inst::Loc {
                 line,
@@ -971,6 +1050,14 @@ impl Builder {
                 file,
                 scope,
             });
+        }
+    }
+
+    /// Repeat the last `loc` marker in the current block: a block placed out of line (a failed
+    /// check's) still reports the statement that branched to it.
+    pub fn repeat_loc(&mut self) {
+        if let Some((file, line, col, scope)) = self.last_loc {
+            self.loc(file, line, col, scope);
         }
     }
 

@@ -118,6 +118,9 @@ pub struct Options {
     pub array_bounds_check: bool,
     /// `Build_Options.arithmetic_overflow_check`: 0 = off, 1 = nonfatal, 2 = fatal.
     pub arithmetic_overflow_check: u8,
+    /// `Build_Options.cast_bounds_check`: integer casts whose value does not fit the target.
+    /// 0 = off, 1 = nonfatal, 2 = fatal.
+    pub cast_bounds_check: u8,
     /// Maintain `context.stack_trace` while the program runs (`Build_Options.stack_trace`).
     pub stack_trace: bool,
     /// Record variables, scopes and types for native debug information
@@ -203,6 +206,7 @@ impl Options {
             temporary_storage_size: 32768,
             array_bounds_check: true,
             arithmetic_overflow_check: 0,
+            cast_bounds_check: 2,
             stack_trace: true,
             debug_info: false,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
@@ -271,6 +275,8 @@ pub struct Compiler {
     pub root_scope: ScopeId,
     pub preload: Option<ModuleId>,
     pub runtime_support: Option<ModuleId>,
+    /// `runtime_support_check_failed` was looked up (`note_check_handler`).
+    pub check_handler_resolved: bool,
     pub main_module: Option<ModuleId>,
     /// `#add_context` declarations with their declaring scope, in load order.
     pub add_contexts: Vec<(Rc<ast::Decl>, ScopeId)>,
@@ -458,6 +464,7 @@ impl Compiler {
             root_scope: ScopeId(0),
             preload: None,
             runtime_support: None,
+            check_handler_resolved: false,
             main_module: None,
             add_contexts: Vec::new(),
             pokes: Vec::new(),

@@ -1325,6 +1325,9 @@ impl Interp {
                 } = &**call;
                 let (mut small, mut heap) = ([0u64; 8], Vec::new());
                 let argv = gather(vals, args, &mut small, &mut heap);
+                if *op == ir::Intrinsic::CheckFailed {
+                    return self.check_failed(program, argv);
+                }
                 let out = self.intrinsic(*op, argv, results.first().map(|_| ()).is_some())?;
                 for (r, v) in results.iter().zip(out) {
                     vals[r.0 as usize] = v;
@@ -1349,7 +1352,7 @@ impl Interp {
             BinOp::SDiv | BinOp::SRem => {
                 let (a, b) = (sext(ty, x), sext(ty, y));
                 if b == 0 {
-                    return self.trap("integer division by zero");
+                    return self.trap(ir::check_message(ir::TRAP_DIVIDE_BY_ZERO, 0, 0));
                 }
                 let r = if op == BinOp::SDiv {
                     a.wrapping_div(b)
@@ -1360,7 +1363,7 @@ impl Interp {
             }
             BinOp::UDiv | BinOp::URem => {
                 if y == 0 {
-                    return self.trap("integer division by zero");
+                    return self.trap(ir::check_message(ir::TRAP_DIVIDE_BY_ZERO, 0, 0));
                 }
                 if op == BinOp::UDiv {
                     x / y
@@ -1423,6 +1426,29 @@ impl Interp {
         })
     }
 
+    /// `Intrinsic::CheckFailed` (reason, a, b, fatal): a trap, or a warning with the location
+    /// on stderr when the check is not fatal.
+    fn check_failed(&mut self, program: &Program, a: &[u64]) -> Res<()> {
+        let message = ir::check_message(a[0], a[1], a[2]);
+        if a[3] & 0xff != 0 {
+            return self.trap(message);
+        }
+        let at = self
+            .loc
+            .and_then(|(file, line, _)| {
+                let path = program.file_paths.get(file as usize)?;
+                Some(format!(
+                    "{}:{line}: ",
+                    crate::display_path(std::path::Path::new(path))
+                ))
+            })
+            .unwrap_or_default();
+        self.effects += 1;
+        self.host
+            .write(format!("{at}warning: {message}\n").as_bytes(), true);
+        Ok(())
+    }
+
     fn intrinsic(&mut self, op: ir::Intrinsic, a: &[u64], _has_result: bool) -> Res<Vec<u64>> {
         use ir::Intrinsic as I;
         let f64_of = |x: u64| f64::from_bits(x);
@@ -1473,26 +1499,17 @@ impl Interp {
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
-                return self.trap(match a.first().copied() {
-                    Some(ir::TRAP_MISSING_RETURN) => {
-                        "reached the end of a procedure that must return a value"
-                    }
-                    Some(ir::TRAP_ASM_DIVIDE) => {
-                        "#asm division fault: the divisor is zero or the quotient does not fit"
-                    }
-                    _ => "runtime check failed",
-                });
+                return self.trap(ir::check_message(a.first().copied().unwrap_or(0), 0, 0));
             }
             I::BoundsCheck => {
                 let (index, count) = (a[0] as i64, a[1] as i64);
                 if index < 0 || index >= count {
-                    return self.trap(format!(
-                        "array bounds check failed: index {index} is outside an array of {count} element{}",
-                        if count == 1 { "" } else { "s" }
-                    ));
+                    return self.trap(ir::check_message(ir::TRAP_BOUNDS, a[0], a[1]));
                 }
                 vec![]
             }
+            // Needs the program for its location: `step` handles it.
+            I::CheckFailed => unreachable!("CheckFailed is handled by `step`"),
             I::CompilerWrite => {
                 let bytes = self.read(a[0], a[1] as usize);
                 self.effects += 1;

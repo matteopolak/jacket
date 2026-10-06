@@ -61,6 +61,8 @@ pub struct BuildSettings {
     pub array_bounds_check: Option<bool>,
     /// 0 = OFF, 1 = NONFATAL, 2 = FATAL (`Options::arithmetic_overflow_check`).
     pub arithmetic_overflow_check: Option<u8>,
+    /// The same for `Options::cast_bounds_check`.
+    pub cast_bounds_check: Option<u8>,
     pub stack_trace: Option<bool>,
     /// `emit_debug_info`: `Some(false)` for `.NONE`; `None` leaves the embedder's default.
     pub emit_debug_info: Option<bool>,
@@ -88,6 +90,7 @@ impl Default for BuildSettings {
             temporary_storage_size: None,
             array_bounds_check: None,
             arithmetic_overflow_check: None,
+            cast_bounds_check: None,
             stack_trace: None,
             emit_debug_info: None,
             dead_code_elimination: None,
@@ -422,6 +425,13 @@ impl Workspaces {
                     _ => 0,
                 })
             }
+            "cast_bounds_check" => {
+                s.cast_bounds_check = Some(match value {
+                    "NONFATAL" => 1,
+                    "FATAL" => 2,
+                    _ => 0,
+                })
+            }
             "stack_trace" => s.stack_trace = Some(value == "true"),
             "emit_debug_info" => s.emit_debug_info = Some(value != "NONE"),
             "dead_code_elimination" => s.dead_code_elimination = DeadCode::from_name(value),
@@ -512,6 +522,9 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     }
     if let Some(check) = settings.arithmetic_overflow_check {
         options.arithmetic_overflow_check = check;
+    }
+    if let Some(check) = settings.cast_bounds_check {
+        options.cast_bounds_check = check;
     }
     if let Some(trace) = settings.stack_trace {
         options.stack_trace = trace;

@@ -322,18 +322,37 @@ fn display_name(name: &str) -> String {
 }
 
 /// A `help:` line for failures whose fix is clear.
-fn help_for(message: &str) -> Option<&'static str> {
-    if message.starts_with("array bounds check failed") {
-        Some(
-            "valid indices are 0 up to the array's count minus one; check the index or the array's length first",
-        )
+fn help_for(message: &str) -> Option<String> {
+    let fixed = if message.starts_with("array bounds check failed") {
+        "valid indices are 0 up to the array's count minus one; check the index or the array's length first"
     } else if message.starts_with("null pointer dereference") {
-        Some("check the pointer against null before using it, or make sure it is set")
+        "check the pointer against null before using it, or make sure it is set"
     } else if message.starts_with("stack overflow") {
-        Some("check that the recursion has a base case it reaches")
+        "check that the recursion has a base case it reaches"
     } else if message == MISSING_RETURN {
-        Some("every path through a procedure with results must end in `return`")
+        "every path through a procedure with results must end in `return`"
+    } else if message.starts_with("cast of ") {
+        return cast_help(message);
+    } else if message.starts_with("no case of the `#complete` switch") {
+        "the value is not one of the enum's members (was it cast from an integer, or left uninitialized?); add a `case;` to handle other values"
+    } else if message == "integer division by zero" {
+        "check the divisor against zero first"
     } else {
-        None
-    }
+        return None;
+    };
+    Some(fixed.to_string())
+}
+
+/// Help for "cast of V to `T` overflows": the range `T` holds and the casts that do not check.
+fn cast_help(message: &str) -> Option<String> {
+    let target = message.split('`').nth(1)?;
+    let bits: u32 = target.get(1..)?.parse().ok()?;
+    let range = match (target.as_bytes().first()?, bits) {
+        (b'u', 1..=64) => format!("0 to {}", u64::MAX >> (64 - bits)),
+        (b's', 1..=64) => format!("{} to {}", i64::MIN >> (64 - bits), i64::MAX >> (64 - bits)),
+        _ => return None,
+    };
+    Some(format!(
+        "`{target}` holds {range}; write `cast,trunc({target})` (or `xx,trunc`) to keep the low bits, or `cast,no_check({target})` to skip the check"
+    ))
 }

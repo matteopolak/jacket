@@ -28,12 +28,12 @@
         for round: 0..19 {
             reserved, message := Channel.writer_reserve_message(*writer, PAYLOAD);
             if !reserved return 100 + round;
-            for i: 0..PAYLOAD - 1 message.user_write_pointer[i] = cast(u8) (round * 7 + i);
+            for i: 0..PAYLOAD - 1 message.user_write_pointer[i] = cast,trunc(u8) (round * 7 + i);
             if !Channel.writer_commit_message(*writer, message) return 200 + round;
 
             got, broken, incoming := Channel.reader_poll_for_message(*reader);
             if !got || broken || incoming.user_read_bytes != PAYLOAD return 300 + round;
-            for i: 0..PAYLOAD - 1 if incoming.user_read_pointer[i] != cast(u8) (round * 7 + i) return 400 + round;
+            for i: 0..PAYLOAD - 1 if incoming.user_read_pointer[i] != cast,trunc(u8) (round * 7 + i) return 400 + round;
             if !Channel.reader_done_with_message(*incoming) return 500 + round;
         }
         // A message larger than the ring can never fit.

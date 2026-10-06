@@ -80,11 +80,11 @@ Colour is separate from the layout: errors red, warnings yellow, notes cyan, hel
 
 ### Runtime failures (`sema/trap_report.rs`)
 
-When interpreted code fails a check (array bounds, null pointer, stack overflow, division by zero, a procedure that falls off its end without returning a value, `#asm` faults, an assertion), the interpreter returns a `Trap` with the message, the statement, and the procedures it unwound through (`Trap::frames`, filled in `Interp::exec`, capped at 64). `Compiler::trap_diagnostic` turns it into a diagnostic:
+When interpreted code fails a check (array bounds, a narrowing cast whose value does not fit, a `#complete` switch that matches no case, null pointer, stack overflow, division by zero, a procedure that falls off its end without returning a value, `#asm` faults, an assertion), the interpreter returns a `Trap` with the message, the statement, and the procedures it unwound through (`Trap::frames`, filled in `Interp::exec`, capped at 64). `Compiler::trap_diagnostic` turns it into a diagnostic:
 
 - the primary location is the innermost frame in the user's own code; when the check failed inside the standard library, a note says which procedure it failed in;
 - `note: call stack (innermost first):` lists the frames, with library frames kept, internal names left out and recursion folded;
-- a `help:` explains the common checks (valid index range, null pointers, recursion depth, missing `return`);
+- a `help:` explains the common checks (valid index range, the range a cast's target holds and how to truncate on purpose, a `#complete` switch's default label, null pointers, recursion depth, missing `return`, a zero divisor);
 - for `#run` code, a note marks the directive that started it.
 
 ```
@@ -98,6 +98,8 @@ help: valid indices are 0 up to the array's count minus one; check the index or 
 ```
 
 A failed `assert` goes through `runtime_support_report_assertion` (`stdlib/Runtime_Support.jai`). Under the interpreter it is a `#compiler` hook (`Hook::AssertionFailed`) that raises a trap carrying the assert's location (`Trap::assertion`), so the report is `error: runtime error: assertion failed: <message>` at the `assert` line (or `` `cond` is false `` when there is no message), with the assertion machinery left out of the stack. In a built executable the same procedure's body prints `path:line:col: error: assertion failed: <message>` and `call stack (innermost first):` from `context.stack_trace`.
+
+The checks' messages come from one place, `ir::check_message`, keyed by the `ir::TRAP_*` reason. In a built executable a failed check calls `runtime_support_check_failed(reason, a, b, fatal, line, filename)` in `stdlib/Runtime_Support.jai` (resolved into `ir::Program::check_failed` by `note_check_handler` in `sema/expr.rs`), which prints the same message as `path:line: error: <message>` with the path relative to the build's directory, and the program then traps. A `.NONFATAL` check prints `warning:` instead and goes on, in both backends.
 
 A metaprogram's own error (`compiler_report`, `compiler_set_workspace_status(.FAILED)`) sets `Trap::reported`: it is shown as the metaprogram wrote it, at the place it named, without the compile-time-execution prefix.
 

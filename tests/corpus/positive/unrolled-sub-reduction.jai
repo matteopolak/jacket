@@ -38,7 +38,7 @@ main :: () {
     array_add(*v32, ((cast,no_check(u8) v30.a) & cast(u8) 0x7));
     array_add(*v32, f_to_u8_float32(cast(float32) 1e10, 0, 255));
     array_add(*v32, poly_4(cast(u8) 186, cast(u8) 8));
-    v35: s16 = ((cast(s16) 32766 >>> (cast(s16) (-11) & 15)) % ((cast(s16) 0 & 7) | 1));
+    v35: s16 = ((cast,trunc(s16) 32766 >>> (cast(s16) (-11) & 15)) % ((cast(s16) 0 & 7) | 1));
     array_add(*v32, (0 - cast(u8) 0x1));
     for v32 {
         mix(cast,no_check(u64) it);

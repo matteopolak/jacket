@@ -106,6 +106,57 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
     );
 }
 
+// rules: cast.2 flow.27
+#[test]
+fn cast_and_switch_checks_say_which_value() {
+    let dir = scratch("value-checks");
+    let cast = jaic_on(
+        &dir,
+        "cast.jai",
+        "main :: () {\n    w := 300;\n    c := cast(u8) w;\n}\n",
+        "run",
+        &[],
+    );
+    assert_eq!(cast.status.code(), Some(1));
+    assert_in_order(
+        &stderr(&cast),
+        &[
+            "cast.jai:3:5: error: runtime error: cast of 300 to `u8` overflows",
+            "    c := cast(u8) w;",
+            "help: `u8` holds 0 to 255; write `cast,trunc(u8)` (or `xx,trunc`) to keep the low bits, or `cast,no_check(u8)` to skip the check",
+        ],
+    );
+    let signed = jaic_on(
+        &dir,
+        "signed.jai",
+        "main :: () {\n    n := -200;\n    c := cast(s8) n;\n}\n",
+        "run",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&signed),
+        &[
+            "signed.jai:3:5: error: runtime error: cast of -200 to `s8` overflows",
+            "help: `s8` holds -128 to 127;",
+        ],
+    );
+    let switch = jaic_on(
+        &dir,
+        "switch.jai",
+        "Color :: enum { RED; GREEN; }\nmain :: () {\n    c := cast(Color) 7;\n    if #complete c == {\n        case .RED;\n        case .GREEN;\n    }\n}\n",
+        "run",
+        &[],
+    );
+    assert_eq!(switch.status.code(), Some(1));
+    assert_in_order(
+        &stderr(&switch),
+        &[
+            "switch.jai:4:5: error: runtime error: no case of the `#complete` switch matches its value, 7",
+            "help: the value is not one of the enum's members",
+        ],
+    );
+}
+
 #[test]
 fn null_pointer_and_missing_return_and_recursion() {
     let dir = scratch("checks");

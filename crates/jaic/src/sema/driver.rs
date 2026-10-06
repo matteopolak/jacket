@@ -402,6 +402,10 @@ impl Compiler {
         for (i, g) in program.globals.iter().enumerate() {
             globals[i] |= g.export.is_some();
         }
+        // Native code calls the check reporter from its failure paths, not through an `Inst`.
+        if let Some(handler) = program.check_failed {
+            funcs[handler.0 as usize] = true;
+        }
         let mut func_work: Vec<usize> = (0..funcs.len()).filter(|&i| funcs[i]).collect();
         let mut global_work: Vec<usize> = (0..globals.len()).filter(|&i| globals[i]).collect();
         let mark_live = |live: &mut Vec<bool>, work: &mut Vec<usize>, i: usize| {

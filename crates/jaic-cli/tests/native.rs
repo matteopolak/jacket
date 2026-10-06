@@ -1055,6 +1055,108 @@ END
     }
 }
 
+/// A failed check in a built executable says what failed and where (through Runtime_Support's
+/// `runtime_support_check_failed`), with the interpreter's wording, before it stops.
+// rules: ptr.18 cast.33 flow.27
+#[test]
+fn failed_checks_say_what_and_where() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-checks");
+    std::fs::create_dir_all(&dir).unwrap();
+    // (name, body of main, the report's line, its message)
+    let cases: [(&str, &str, u32, &str); 4] = [
+        (
+            "bounds",
+            "a: [3] int;\n    i := 5 + a[0];\n    print(\"%\\n\", a[i]);",
+            6,
+            "array bounds check failed: index 5 is outside an array of 3 elements",
+        ),
+        (
+            "cast",
+            "w := 300 + get_command_line_arguments().count;\n    c := cast(u8) w;\n    print(\"%\\n\", c);",
+            5,
+            "cast of 301 to `u8` overflows",
+        ),
+        (
+            "switch",
+            "c := cast(Color) (6 + get_command_line_arguments().count);\n    if #complete c == {\n        case .RED; print(\"red\\n\");\n        case .GREEN; print(\"green\\n\");\n    }",
+            5,
+            "no case of the `#complete` switch matches its value, 7",
+        ),
+        (
+            "divide",
+            "z := get_command_line_arguments().count - 1;\n    print(\"%\\n\", 7 / z);",
+            5,
+            "integer division by zero",
+        ),
+    ];
+    for (name, body, line, message) in cases {
+        let source = dir.join(format!("{name}.jai"));
+        std::fs::write(
+            &source,
+            format!("#import \"Basic\";\nColor :: enum {{ RED; GREEN; }}\nmain :: () {{\n    {body}\n}}\n"),
+        )
+        .unwrap();
+        let output = build_and_run(&source, &dir, name).unwrap();
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "{name}: ran to the end\n{err}");
+        assert!(
+            err.contains(&format!("{name}.jai:{line}: error: {message}\n")),
+            "{name}: stderr was {err:?}"
+        );
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "", "{name}");
+    }
+
+    // .NONFATAL reports a warning and goes on with the low bits.
+    let meta = dir.join("nonfatal.jai");
+    std::fs::write(
+        &meta,
+        r##"#import "Compiler";
+
+SOURCE :: #string END
+#import "Basic";
+main :: () {
+    w := 300 + get_command_line_arguments().count;
+    print("%\n", cast(u8) w);
+}
+END
+
+#run {
+    set_build_options_dc(.{do_output = false});
+    w := compiler_create_workspace("prog");
+    options := get_build_options(w);
+    options.output_type = .EXECUTABLE;
+    options.output_executable_name = "nonfatal-prog";
+    options.output_path = ".";
+    options.cast_bounds_check = .NONFATAL;
+    set_build_options(options, w);
+    add_build_string(SOURCE, w);
+}
+"##,
+    )
+    .unwrap();
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&meta)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "nonfatal: build failed: {}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let run = Command::new(exe_path(&dir, "nonfatal-prog"))
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&run.stderr);
+    assert!(run.status.success(), "nonfatal: {err}");
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "45\n");
+    assert!(
+        err.contains(":4: warning: cast of 301 to `u8` overflows\n"),
+        "nonfatal: stderr was {err:?}"
+    );
+}
+
 /// Window programs using Simp's automatic GL context creation type-check for every desktop
 /// OS (the GLX/WGL paths cannot run here, but they must keep compiling).
 #[test]

@@ -816,7 +816,7 @@
     {
       "id": "unrolled-sub-reduction",
       "source": "positive/unrolled-sub-reduction.jai",
-      "sha256": "0facf21ed672c4414614df22369957ad99b190ea201d57004f30d0461af46986",
+      "sha256": "43e7ae8bd7ae288beed84ce09ecd8ac5733ec3c2e877527c22a7f7390145ac15",
       "suite": "expanded",
       "feature": "loop subtraction recurrence under -O2 runtime unrolling",
       "kind": "program",
@@ -2314,6 +2314,71 @@
       },
       "rules": [
         "dce.11"
+      ]
+    },
+    {
+      "id": "cast-check-fatal",
+      "source": "negative/cast-check-fatal.jai",
+      "sha256": "f4cbd50ca03627634f387372febc5b8f2b9f7f3f375ef25892bbddc7a4b084fa",
+      "suite": "negative",
+      "feature": "a narrowing cast of a value that does not fit stops the program",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cast of 300 to `u8` overflows"
+      },
+      "rules": [
+        "cast.2",
+        "cast.33"
+      ]
+    },
+    {
+      "id": "cast-check-negative-to-unsigned",
+      "source": "negative/cast-check-negative-to-unsigned.jai",
+      "sha256": "15c6303e871acfd09f79e9642ae3a908e30009faff6db7e35d1d9dc0e0b77a94",
+      "suite": "negative",
+      "feature": "a negative value does not fit a narrower unsigned type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cast of -1 to `u16` overflows"
+      },
+      "rules": [
+        "cast.2"
+      ]
+    },
+    {
+      "id": "cast-check-autocast",
+      "source": "negative/cast-check-autocast.jai",
+      "sha256": "e0a52891899ab83bd64f08b8932300d571452bb08f5516b6e736ef75e960e12c",
+      "suite": "negative",
+      "feature": "xx to a narrower type is checked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cast of 70000 to `s16` overflows"
+      },
+      "rules": [
+        "cast.34"
+      ]
+    },
+    {
+      "id": "complete-switch-unmatched-value",
+      "source": "negative/complete-switch-unmatched-value.jai",
+      "sha256": "f86db7174f6c01b354de295303dbaca97cb49f2b3374a55aa9c3f76423807e82",
+      "suite": "negative",
+      "feature": "a #complete switch whose value matches no case stops the program",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "no case of the `#complete` switch matches its value, 7"
+      },
+      "rules": [
+        "flow.27"
       ]
     }
   ]

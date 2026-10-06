@@ -355,7 +355,7 @@ pad_message :: (text: string) -> [..] u32 {
     array_add(*bytes, 0x80);
     while bytes.count % 64 != 56 array_add(*bytes, 0);
     bit_count := cast(u64) text.count * 8;
-    for < 0..7 array_add(*bytes, cast(u8) (bit_count >> (it * 8)));
+    for < 0..7 array_add(*bytes, cast,trunc(u8) (bit_count >> (it * 8)));
     words: [..] u32;
     for i: 0..bytes.count / 4 - 1 array_add(*words, be32(*bytes[4 * i]));
     return words;
@@ -536,7 +536,7 @@ gf_reference_mul :: (a: u8, b: u8) -> u8 {
 gf_reference_affine :: (matrix: u64, x: u8, c: u8) -> u8 {
     r: u8 = 0;
     for i: 0..7 {
-        row := cast(u8) (matrix >> ((7 - i) * 8));
+        row := cast,trunc(u8) (matrix >> ((7 - i) * 8));
         t := row & x;
         parity: u8 = 0;
         for 0..7 parity ^= (t >> it) & 1;
@@ -556,7 +556,7 @@ check_gfni :: () {
         for half: 0..7 {
             for j: 0..31 {
                 a[j] = cast(u8) x;
-                b[j] = cast(u8) (half * 32 + j);
+                b[j] = cast,trunc(u8) (half * 32 + j);
             }
             #asm AVX, GFNI {
                 movdqu va:, [pa];
@@ -571,8 +571,8 @@ check_gfni :: () {
 
     // Legacy form: the destination is the first factor.
     for j: 0..15 {
-        a[j] = cast(u8) (j * 17 + 3);
-        b[j] = cast(u8) (200 - j * 9);
+        a[j] = cast,trunc(u8) (j * 17 + 3);
+        b[j] = cast,trunc(u8) (200 - j * 9);
     }
     #asm GFNI {
         movdqu.x r:, [pa];
@@ -598,7 +598,7 @@ check_gfni :: () {
     wrong = 0;
     for 1..64 {
         for *m it.* = next();
-        for *xs it.* = cast(u8) next();
+        for *xs it.* = cast,trunc(u8) next();
         #asm AVX, GFNI {
             movdqu vx:, [px];
             movdqu vm:, [pm];
@@ -652,8 +652,8 @@ check_gfni :: () {
         zb: [64] u8;
         zr: [64] u8;
         for 0..63 {
-            za[it] = cast(u8) (it * 5 + 1);
-            zb[it] = cast(u8) (it * 11 + 7);
+            za[it] = cast,trunc(u8) (it * 5 + 1);
+            zb[it] = cast,trunc(u8) (it * 11 + 7);
             zr[it] = 0xee;
         }
         sel: u64 = 0xf0f0_0000_0000_00ff;
@@ -683,7 +683,7 @@ check_gfni :: () {
             on := (sel >> it) & 1;
             x := za[it];
             reversed: u8 = 0;
-            for bit: 0..7 if (x >> bit) & 1 reversed |= cast(u8) (0x80 >> bit);
+            for bit: 0..7 if (x >> bit) & 1 reversed |= cast,trunc(u8) (0x80 >> bit);
             want := ifx on != 0 then reversed else 0;
             if zr[it] != want wrong += 1;
         }

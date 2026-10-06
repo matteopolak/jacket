@@ -48,11 +48,11 @@ main :: () {
     bits := cast,force(u32) f;
     assert(bits == 1080872141, "cast,force reinterprets float bits");
 
-    // cast.2: integer casts wrap, no range trap.
+    // cast.2: `trunc` and `no_check` keep the low bits of a value that does not fit.
     w := 300;
-    assert(cast(u8) w == 44, "300 to u8 is 44");
+    assert(cast,trunc(u8) w == 44, "300 to u8 is 44");
     neg := -1;
-    assert(cast(u16) neg == 65535, "-1 to u16");
+    assert(cast,no_check(u16) neg == 65535, "-1 to u16");
 
     // cast.3: float to integer truncates toward zero.
     a := -3.99;
@@ -108,7 +108,7 @@ main :: () {
     err: s32 = 0;
     assert(xx err == false, "xx s32 compared with a bool");
     wide_code: s32 = 0x101;
-    assert(xx wide_code == cast(u8) 1, "xx s32 narrowed to the u8 on the right");
+    assert(xx,trunc wide_code == cast(u8) 1, "xx s32 narrowed to the u8 on the right");
     level: u8 = 1;
     assert(xx level == Mode.BUSY, "xx u8 compared with an enum");
 

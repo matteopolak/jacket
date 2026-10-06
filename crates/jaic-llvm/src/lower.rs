@@ -152,6 +152,8 @@ struct FnState<'ctx> {
     reg_ret: Option<(Vec<Piece>, PointerValue<'ctx>)>,
     /// Debug locations and variables of this function, with debug info on.
     dbg: Option<FnDebug<'ctx>>,
+    /// (file, line) of the last `Inst::Loc`: where a failed check reports itself.
+    loc: (u32, u32),
 }
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
@@ -717,6 +719,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             allocas,
             reg_ret: None,
             dbg: None,
+            loc: (func.source_file, 0),
         };
         if let Some(debug) = &self.debug {
             let local = func.linkage == IrLinkage::Internal;
@@ -935,11 +938,83 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     }
 
     /// Branch to a trapping block when `cond` (an `i1`) holds.
-    fn trap_if(&self, st: &FnState<'ctx>, cond: IntValue<'ctx>) -> R<()> {
+    /// Report a failed check through Runtime_Support (`Program::check_failed`) with the
+    /// current source location; nothing when the program has no reporting procedure.
+    fn report_check(
+        &self,
+        st: &FnState<'ctx>,
+        reason: u64,
+        a: IntValue<'ctx>,
+        b: IntValue<'ctx>,
+        fatal: IntValue<'ctx>,
+    ) -> R<()> {
+        let Some(handler) = self.program.check_failed else {
+            return Ok(());
+        };
+        let Some(sig) = self.program.func(handler).map(|f| &f.sig) else {
+            return Ok(());
+        };
+        if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
+            return Ok(());
+        }
+        let (file, line) = st.loc;
+        let name = format!("__jaic_check_file.{file}");
+        let filename = match self.module.get_global(&name) {
+            Some(g) => g.as_pointer_value(),
+            None => {
+                let path = self
+                    .program
+                    .file_paths
+                    .get(file as usize)
+                    .map(|p| jaic::display_path(std::path::Path::new(p)))
+                    .unwrap_or_default();
+                let text = self.ctx.const_string(path.as_bytes(), true);
+                let g = self.module.add_global(text.get_type(), None, &name);
+                g.set_initializer(&text);
+                g.set_constant(true);
+                g.set_linkage(Linkage::Private);
+                g.as_pointer_value()
+            }
+        };
+        let i64t = self.ctx.i64_type();
+        let ints = [
+            i64t.const_int(reason, false),
+            a,
+            b,
+            fatal,
+            i64t.const_int(u64::from(line), false),
+        ];
+        let mut args: Vec<BasicValueEnum<'ctx>> = Vec::new();
+        for (v, &ty) in ints.iter().zip(&sig.params) {
+            let want = self.ll(ty).into_int_type();
+            let v = if v.get_type().get_bit_width() > want.get_bit_width() {
+                self.builder.build_int_truncate(*v, want, "")?
+            } else {
+                self.builder.build_int_z_extend_or_bit_cast(*v, want, "")?
+            };
+            args.push(v.into());
+        }
+        args.push(filename.into());
+        self.call(st, self.func_ptr(handler)?, sig, &args)?;
+        Ok(())
+    }
+
+    /// Branch to a failure block when `cond` holds: it reports `reason` (with `a`, `b`) and
+    /// traps.
+    fn trap_if(
+        &self,
+        st: &FnState<'ctx>,
+        cond: IntValue<'ctx>,
+        reason: u64,
+        a: IntValue<'ctx>,
+        b: IntValue<'ctx>,
+    ) -> R<()> {
         let trap = self.ctx.append_basic_block(st.function, "trap");
         let cont = self.ctx.append_basic_block(st.function, "cont");
         self.builder.build_conditional_branch(cond, trap, cont)?;
         self.builder.position_at_end(trap);
+        let fatal = self.ctx.i8_type().const_int(1, false);
+        self.report_check(st, reason, a, b, fatal)?;
         self.call_intrinsic("llvm.trap", &[], &[])?;
         self.builder.build_unreachable()?;
         self.builder.position_at_end(cont);
@@ -1198,8 +1273,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 line,
                 col,
                 scope,
-                ..
+                file,
             } => {
+                st.loc = (*file, *line);
                 if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
                     dbg.loc(debug, func, &self.builder, *line, *col, *scope);
                 }
@@ -1243,7 +1319,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             BinOp::Xor => b.build_xor(x, y, "")?,
             BinOp::UDiv | BinOp::URem => {
                 let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
-                self.trap_if(st, zero)?;
+                let none = self.ctx.i64_type().const_zero();
+                self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
                 if op == BinOp::UDiv {
                     b.build_int_unsigned_div(x, y, "")?
                 } else {
@@ -1252,7 +1329,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             BinOp::SDiv | BinOp::SRem => {
                 let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
-                self.trap_if(st, zero)?;
+                let none = self.ctx.i64_type().const_zero();
+                self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
                 // x / -1 overflows for INT_MIN (undefined in LLVM); the IR wraps.
                 let minus_one =
                     b.build_int_compare(IntPredicate::EQ, y, it.const_all_ones(), "")?;
@@ -1689,7 +1767,24 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 Ok(vec![])
             }
             Intrinsic::Trap => {
+                if let Some(&reason) = args.first() {
+                    let reason = self.as_int(reason)?.get_zero_extended_constant();
+                    let zero = i64t.const_zero();
+                    let fatal = self.ctx.i8_type().const_int(1, false);
+                    self.report_check(st, reason.unwrap_or(0), zero, zero, fatal)?;
+                }
                 self.call_intrinsic("llvm.trap", &[], &[])?;
+                Ok(vec![])
+            }
+            Intrinsic::CheckFailed => {
+                let reason = self.as_int(args[0])?.get_zero_extended_constant();
+                let a = self.i64_of(self.as_int(args[1])?)?;
+                let bv = self.i64_of(self.as_int(args[2])?)?;
+                let fatal = self.as_int(args[3])?;
+                self.report_check(st, reason.unwrap_or(0), a, bv, fatal)?;
+                if fatal.get_zero_extended_constant() != Some(0) {
+                    self.call_intrinsic("llvm.trap", &[], &[])?;
+                }
                 Ok(vec![])
             }
             Intrinsic::BoundsCheck => {
@@ -1697,7 +1792,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let index = self.i64_of(self.as_int(args[0])?)?;
                 let count = self.i64_of(self.as_int(args[1])?)?;
                 let out = b.build_int_compare(IntPredicate::UGE, index, count, "")?;
-                self.trap_if(st, out)?;
+                self.trap_if(st, out, jaic::ir::TRAP_BOUNDS, index, count)?;
                 Ok(vec![])
             }
             Intrinsic::CompilerWrite if self.arch.is_wasm() => {

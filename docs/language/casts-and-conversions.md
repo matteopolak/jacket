@@ -21,7 +21,7 @@ The example produces the values in its comments {#cast.1}; the postfix form take
 
 Scalar rules:
 
-- Integer-to-integer casts wrap to the target width, with or without a modifier. `cast(u8) w` with `w := 300` is `44`; there is no range trap {#cast.2}. `cast(u64) n` with `n: s8 = -1` is `18446744073709551615` {#cast.4}.
+- A cast to a narrower integer type checks that the value fits (see [cast bounds checks](#cast-bounds-checks)); `cast,trunc` and `cast,no_check` keep the low bits instead: `cast,trunc(u8) w` with `w := 300` is `44` {#cast.2}. A cast to a type at least as wide is never checked: `cast(u64) n` with `n: s8 = -1` is `18446744073709551615` {#cast.4}.
 - Float-to-integer truncates toward zero: `cast(s64) -3.99` is `-3` {#cast.3}.
 - Integer-to-float casts round once, to nearest even, at the target width. `cast(float32)` of a 64-bit integer does not go through `float64`, which would round twice: `2^63 + 2^39 + 1` must give the `float32` above the tie. The interpreter (`conv` in `interp/mod.rs`), constant folding (`int_to_float` in `sema/convert.rs`) and LLVM (`sitofp`/`uitofp`) agree (`tests/stdlib/int-to-float32-rounding.jai`).
 - `cast,force` between a same-size integer and float reinterprets the bits {#cast.5}.
@@ -60,6 +60,23 @@ Why: real code only type-checks or matches its recorded output with this groupin
 
 A comma after a cast keyword is a modifier, not a list separator, so `(-cast,no_check(int) x)` parses as one expression {#cast.14}.
 
+### Cast bounds checks
+
+`Build_Options.cast_bounds_check` (`.FATAL` by default, `.NONFATAL`, `.OFF`) checks a runtime integer cast to a narrower integer type. A value outside the target's range stops the program:
+
+```
+cast.jai:3:5: error: runtime error: cast of 300 to `u8` overflows
+        c := cast(u8) w;
+        ^^^^^^^^^^^^^^^
+help: `u8` holds 0 to 255; write `cast,trunc(u8)` (or `xx,trunc`) to keep the low bits, or `cast,no_check(u8)` to skip the check
+```
+
+A negative value does not fit an unsigned target (`cast(u16)` of `n: s32 = -1` fails). Casts to a type of the same size or wider only extend or reinterpret the bits, so `cast(s64)` of a large `u64` and `cast(u32)` of a negative `s32` are never checked {#cast.32}. Evidence: `26.22_insert_scope.jai` in The Way to Jai prints negative numbers from `cast(int) random_get() % 100`, where `random_get` returns a `u64`.
+
+`.NONFATAL` prints `path:line: warning: cast of 300 to `u8` overflows` on stderr and goes on with the low bits; `.OFF` keeps the low bits silently. The option applies to workspaces a metaprogram creates, like the other checks {#cast.33}.
+
+`xx` to a narrower type is checked like `cast`; `trunc`, `no_check` and `force` skip the check, and so do constants (folded at compile time), enums and pointers {#cast.34}.
+
 ## How to change it
 
 - **Cast reach:** `parse_cast_value` in `parser/expr.rs` parses a unary operand, then calls `parse_binary_after(first, CAST_PREC)`. Move `CAST_PREC` or operators in `binary_op` to change what a cast absorbs, and update `tests/stdlib/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`.
@@ -67,8 +84,9 @@ A comma after a cast keyword is a modifier, not a list separator, so `(-cast,no_
 - **Implicit conversions:** priced by `implicit_cost`. Overload resolution uses that cost, so changing it changes which overload wins.
 - **What a cast's operand sees:** the `E::Cast` arm of `check_expr` in `sema/expr.rs` passes the target as the operand's expected type only when `cast_operand_needs_target` says the operand has no type of its own. Widening that predicate to numbers or arithmetic would bring back the old top-down typing (`cast(float32) (0 - w)` giving `-15`).
 - **Constants:** folded at the top of `explicit_cast`. Change that and the runtime path together, or `#run` and runtime results diverge.
+- **Cast bounds checks:** `emit_cast_check` in `sema/convert.rs`, called from the `E::Cast` arm of `check_expr`. It compares the value with the target's range in the source type and branches to `Intrinsic::CheckFailed` (`ir::TRAP_CAST_OVERFLOW`; the detail operand is `ir::cast_check_code`). The interpreter reports it as a trap or a warning; native code calls `runtime_support_check_failed` in `stdlib/Runtime_Support.jai`. The message is `ir::check_message`, shared by both, and the help is `cast_help` in `sema/trap_report.rs`. Code that narrows on purpose should say so with `cast,trunc`.
 
-Tests: `tests/stdlib/cast-to-bool-nonzero.jai`, `lang-conversions.jai`, `const-integer-pointer.jai`, `literal-arithmetic-argument.jai`, `autocast-bitwise-argument.jai`, `ifx-widens-to-else.jai`, `cast-modifier-in-parens.jai`, `cast-operand-typed-bottom-up.jai`, `cast-float-of-integer-operator.jai`.
+Tests: `tests/stdlib/cast-to-bool-nonzero.jai`, `lang-conversions.jai`, `const-integer-pointer.jai`, `literal-arithmetic-argument.jai`, `autocast-bitwise-argument.jai`, `ifx-widens-to-else.jai`, `cast-modifier-in-parens.jai`, `cast-operand-typed-bottom-up.jai`, `cast-float-of-integer-operator.jai`, `cast-bounds-check.jai` (each mode), `tests/corpus/negative/cast-check-*.jai`, and `failed_checks_say_what_and_where` in `crates/jaic-cli/tests/native.rs`.
 
 ## Dependencies
 

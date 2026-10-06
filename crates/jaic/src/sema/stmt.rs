@@ -1421,6 +1421,13 @@ impl Compiler {
         }
         if complete {
             self.check_switch_complete(vty, &covered, value.span)?;
+            if default == done && !f.type_only {
+                // Every member has a case, but the value may still be none of them (a cast, or
+                // uninitialized memory): stop rather than fall through silently.
+                if let Some(fail) = self.unmatched_switch_check(f, vty, val, value.span) {
+                    default = fail;
+                }
+            }
         }
         f.b.jump(default);
         for (i, case) in cases.iter().enumerate() {
@@ -1442,6 +1449,44 @@ impl Compiler {
         }
         f.b.switch_to(done);
         Ok(())
+    }
+
+    /// The block a `#complete` switch on a (non-flags) enum without a default case jumps to when
+    /// no case matched: it reports the value (`ir::TRAP_SWITCH_UNMATCHED`) and stops. `None`
+    /// for other switches. Leaves the builder where it was.
+    fn unmatched_switch_check(
+        &mut self,
+        f: &mut FnCtx,
+        ty: TypeId,
+        val: ir::Val,
+        span: Span,
+    ) -> Option<ir::BlockId> {
+        let TypeKind::Enum(id) = *self.types.kind(ty) else {
+            return None;
+        };
+        if self.types.enums[id.0 as usize].is_flags {
+            return None;
+        }
+        let t = self.ir_ty(ty)?;
+        let (_, signed) = self.types.int_info(self.types.repr(ty))?;
+        let here = f.b.current;
+        let fail = f.b.new_block();
+        f.b.switch_to(fail);
+        let wide = if t == Ty::I64 {
+            val
+        } else {
+            let op = if signed {
+                ir::ConvOp::SExt
+            } else {
+                ir::ConvOp::ZExt
+            };
+            f.b.conv(op, t, Ty::I64, val)
+        };
+        let zero = f.b.iconst(Ty::I64, 0);
+        self.emit_check_failed(f, ir::TRAP_SWITCH_UNMATCHED, wide, zero, true, span);
+        f.b.terminate(ir::Term::Unreachable);
+        f.b.switch_to(here);
+        Some(fail)
     }
 
     /// `if #complete x == {`: every member of x's enum needs a case of its own, default or

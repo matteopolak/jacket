@@ -37,6 +37,8 @@ Indexing emits `Intrinsic::BoundsCheck` against the fixed length or the count (`
 error: runtime error: array bounds check failed: index 7 is outside an array of 4 elements
 ```
 
+In a built executable the failure path calls `runtime_support_check_failed` in `stdlib/Runtime_Support.jai` with the index, the count and the line, which prints `bounds.jai:5: error: array bounds check failed: index 7 is outside an array of 4 elements` and then traps. The passing path is a single compare and branch {#ptr.18}.
+
 `#no_abc` turns the check off for a procedure, a block, or a `for`/`while`/`if` {#ptr.14}. `Build_Options.array_bounds_check = .OFF` in a metaprogram turns it off for a whole workspace (`build.rs`) {#ptr.15}.
 
 ## How to change it

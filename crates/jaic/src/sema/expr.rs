@@ -170,6 +170,11 @@ impl Compiler {
                 if self.ide.is_some() {
                     self.ide_note_cast(span, target, &op);
                 }
+                let op = if flags.no_check || flags.truncate || flags.force {
+                    op
+                } else {
+                    self.emit_cast_check(f, op, target, span)?
+                };
                 self.explicit_cast(f, op, target, *flags, span)
             }
             E::Ifx {
@@ -1627,6 +1632,10 @@ impl Compiler {
                 val: f.b.cmp(cmp, t, x, y),
             });
         }
+        if matches!(op, BinOp::Div | BinOp::Rem) && !t.is_float() && !f.type_only {
+            // Native code reports a division by zero through Runtime_Support.
+            self.note_check_handler(span);
+        }
         let ir_op = arith_op(op, t.is_float(), signed).ok_or_else(|| {
             Box::new(Diagnostic::error(
                 span,
@@ -1755,6 +1764,50 @@ impl Compiler {
         f.b.jump(cont);
         f.b.switch_to(cont);
         Ok(())
+    }
+
+    /// Runtime_Support's `runtime_support_check_failed`, which native code calls to report a
+    /// failed check (`ir::Program::check_failed`). Resolved once, when the first check is
+    /// emitted; without it native code traps without a message.
+    pub(crate) fn note_check_handler(&mut self, span: Span) {
+        if self.check_handler_resolved {
+            return;
+        }
+        self.check_handler_resolved = true;
+        let Some(runtime) = self.runtime_support else {
+            return;
+        };
+        let Ok(found) =
+            self.module_declarations(runtime, Sym::intern("runtime_support_check_failed"))
+        else {
+            return;
+        };
+        let Some(&entity) = found.first() else {
+            return;
+        };
+        if let Ok(Resolved::Proc(proc)) = self.resolve_entity(entity)
+            && let Ok(super::procs::ProcTarget::Func(func)) = self.proc_func(proc, span)
+        {
+            self.program.check_failed = Some(func);
+        }
+    }
+
+    /// Report a failed check (`ir::Intrinsic::CheckFailed`): `reason` is an `ir::TRAP_*`, `a`
+    /// and `b` its `I64` details. A fatal failure stops the program.
+    pub(crate) fn emit_check_failed(
+        &mut self,
+        f: &mut FnCtx,
+        reason: u64,
+        a: ir::Val,
+        b: ir::Val,
+        fatal: bool,
+        span: Span,
+    ) {
+        self.note_check_handler(span);
+        f.b.repeat_loc();
+        let reason = f.b.iconst(Ty::I64, reason);
+        let fatal = f.b.iconst(Ty::I8, u64::from(fatal));
+        f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
     }
 
     /// The type an untyped literal takes next to a typed operand: the operand's
@@ -2493,6 +2546,9 @@ impl Compiler {
         let (_, idx) = self.rvalue(f, index_op, span)?;
         // Views, dynamic arrays and strings start with their count.
         let check = !f.no_abc && !f.type_only;
+        if check {
+            self.note_check_handler(span);
+        }
         let (elem, data) = match self.types.kind(self.types.repr(bty)).clone() {
             TypeKind::Array {
                 elem,

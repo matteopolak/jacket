@@ -45,6 +45,8 @@ A case runs only its own body unless it ends with `#through` {#flow.13}; a bare 
 
 `if #complete c == {` on a non-flags enum must name every member (a default label does not count), or it fails with `#complete switch on Color has no case for .BLUE` (`check_switch_complete`) {#flow.15}. Members compare by value, so aliases count {#flow.16}. `#complete` on an `enum_flags` value, a non-enum {#flow.17}, or a compile-time constant switch value is not checked {#flow.18}.
 
+At run time, a `#complete` switch on a non-flags enum without a default label stops the program when the value is none of the members (a cast from an integer, or uninitialized memory), instead of running no case: `error: runtime error: no case of the `#complete` switch matches its value, 7`. `unmatched_switch_check` in `sema/stmt.rs` sends the no-match path to `Intrinsic::CheckFailed` (`ir::TRAP_SWITCH_UNMATCHED`); native code reports it through `runtime_support_check_failed` {#flow.27}.
+
 ### defer
 
 `defer` bodies run at scope exit in reverse order {#flow.19}, including on `return`, `break` and `continue` out of the scope {#flow.20}. `push_context,defer_pop ctx;` holds a context for the rest of the block {#flow.21}.
