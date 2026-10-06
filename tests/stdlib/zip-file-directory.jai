@@ -73,8 +73,11 @@ build_archive :: () -> string {
 }
 
 main :: () -> s64 {
-    path := "/tmp/jaic_zip_file_directory_test.zip";
-    if !write_entire_file(path, build_archive()) return 1;
+    // Relative to the working directory, which every host (and the browser's virtual one) has.
+    make_directory_if_it_does_not_exist(".scratch");
+    path := ".scratch/zip-file-directory-test.zip";
+    archive := build_archive();
+    if !write_entire_file(path, archive) return 1;
     defer file_delete(path);
 
     ok, dir := Zip.load_zip_directory(path);
@@ -97,7 +100,21 @@ main :: () -> s64 {
     handle := dir.file;
     Zip.deinit(*dir);
     if dir.file.handle != handle.handle return 11;
+    // The handle still reads: the second entry's payload sits at its chunk offset.
+    payload: [7] u8;
+    if !file_set_position(dir.file, 30 + 5 + 3 + 2 + 30 + 11 + 3) return 14;
+    read_ok, read_count := file_read(dir.file, payload.data, payload.count);
+    if !read_ok || read_count != 7 || cast(string) payload != "buzzing" return 15;
     file_close(*dir.file);
+    // Loading did not change the archive.
+    unchanged, unchanged_ok := read_entire_file(path);
+    if !unchanged_ok || unchanged != archive return 16;
+
+    // A missing archive fails and is not created.
+    missing := ".scratch/zip-file-directory-missing.zip";
+    file_delete(missing);
+    if Zip.load_zip_directory(missing) return 17;
+    if file_exists(missing) return 18;
 
     // Not an archive.
     if !write_entire_file(path, "plain text, no end record here at all") return 12;

@@ -6,6 +6,7 @@
 /rustc-ice-*.txt
 /result
 /result-*
+/tests/stdlib/.scratch/
 
 # npm and pnpm (editors/vscode and any stray installs)
 node_modules/
