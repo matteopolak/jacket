@@ -34,6 +34,7 @@ The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160
 - Unsupported instructions are a compile error naming the instruction {#asm.22}. That includes x87 (Jai's `#asm` has none) {#asm.23}, `syscall`, `push`/`pop`, privileged instructions and some AVX-512 extensions.
 - F16C (`vcvtph2ps`, `vcvtps2ph` with its imm8 rounding mode), SHA (`sha1rnds4`, `sha1nexte`, `sha1msg1/2`, `sha256rnds2` with the implicit `xmm0` written as a last operand, `sha256msg1/2`) and GFNI (`gf2p8mulb`, `gf2p8affineqb`, `gf2p8affineinvqb`, legacy, VEX and masked EVEX forms) give the bits hardware gives {#asm.26}.
 - `rcp*`/`rsqrt*` return exact results {#asm.24}; `cpuid` and `xgetbv` report no features {#asm.25}.
+- A `name:` destination declares a register of the class the instruction writes: a general-purpose register for the vector instructions whose result is an integer (`pmovmskb.x found:, v`, `movmskps/pd`, `pextr*`, `extractps`, `cvt*2si`/`cvt*2usi`), a vector register otherwise {#asm.27}.
 
 ## How to change it
 

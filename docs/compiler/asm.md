@@ -63,6 +63,8 @@ The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page
   A leading `v` is accepted (`vpaddd`). Two operands mean `dst op= src`, three `dst = a op b`. With an AVX feature, a
   register write clears the bytes above the written size (VEX); otherwise they are kept. A Jai variable operand is
   memory at its address (integers act as general-purpose registers for `movd`/`movq`/`movmsk*`/`pextr*`).
+  A `name:` destination declares a `vec` register, except for instructions that write a general-purpose value
+  (`movmsk*`, `pextr*`, `extractps`, `cvt*2si`): there it is a `gpr` (`dst_class` in `vec.rs` and `simd.rs`).
 - **Masks.** An `omr` register is an 8-byte local. `dst: &k` (merge) / `dst: &*k` (zero) apply after the instruction
   ran; a masked store to memory writes only selected elements. Compares (`pcmp*`, `cmpps`) whose destination is an
   `omr` write a bit per lane, and a `&k` on them ANDs the result. Instructions that consume the mask themselves

@@ -429,6 +429,8 @@ impl Compiler {
         let dst_class = match op {
             VOp::Bin(Lane::CmpEq | Lane::CmpGt, ..) if width == 64 => "omr",
             VOp::Ext(s) => simd::dst_class(s, width),
+            // The sign-bit mask lands in a general-purpose register.
+            VOp::Movmsk(_) => "gpr",
             _ => "vec",
         };
         let mut ops: Vec<VOpd> = Vec::with_capacity(n);
