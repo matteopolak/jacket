@@ -43,14 +43,19 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 - Windows on arm64. On Windows x64, C code cannot yet call back into procedures that run in the compile-time interpreter, and MSVC builds produce no PDB debug file.
 - `Bindings_Generator` drops functions that use the 16-byte `long double`.
 - `#asm` rejects the F16C, SHA and GFNI extensions.
-- The default allocator guarantees alignment up to 64 bytes; larger `#align` values need `NewArray(..., alignment = N)`.
-- `jaifmt` does not wrap long lines.
 
 Anything unsupported fails with a compile error rather than being silently accepted.
 
 ## Install
 
 Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64) are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md).
+
+With Nix (see [Nix](docs/tools/nix.md)):
+
+```sh
+nix run github:matteopolak/jai -- run hello.jai
+nix profile install github:matteopolak/jai
+```
 
 To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 22 with Clang ([setup guide](docs/tools/llvm-setup.md)):
 

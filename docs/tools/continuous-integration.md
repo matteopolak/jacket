@@ -13,6 +13,8 @@
 
 `windows-native.yml` runs on pushes to `wip/windows-native` (and by hand) that touch the compiler, stdlib or tests: a Linux job cross-builds the corpus runtime cases and stdlib test programs with MinGW-w64 (`tools/windows_cross.py build --stdlib`), a `windows-2025` job runs them and compares output and exit codes, and a second `windows-2025` job builds `jaic` against the official LLVM, builds and runs the same programs natively (`--host`), then runs `cargo test --test native`. See [Windows](../native/windows.md).
 
+`nix.yml` runs on ubuntu and macOS when the flake, `nix/`, `Cargo.lock` or `rust-toolchain.toml` change: it checks `flake.lock` is current, runs `nix flake check` and `nix build`, and smoke-tests the result. See [Nix flake](nix.md).
+
 The corpus sweep (`tools/jaic-sweep.py`) is not part of CI because the upstream corpus is fetched, not committed; run it locally ([jaic-sweep](jaic-sweep.md)).
 
 ## How to change it

@@ -1,0 +1,55 @@
+name: nix
+# Evaluates the flake, builds jaic and jaifmt through Nix (their install checks run and
+# natively build programs) and runs the packaged compiler; see docs/tools/nix.md.
+on:
+  push:
+    paths:
+      - flake.nix
+      - flake.lock
+      - nix/**
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .github/workflows/nix.yml
+  pull_request:
+    paths:
+      - flake.nix
+      - flake.lock
+      - nix/**
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .github/workflows/nix.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  flake:
+    name: flake (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Check the lock file is current
+        run: nix flake lock --no-update-lock-file
+      - name: Check the flake
+        run: nix flake check --print-build-logs
+      - name: Build
+        run: nix build --print-build-logs .#jaic .#jaifmt
+      - name: Run the packaged compiler outside the checkout
+        run: |
+          work="$RUNNER_TEMP/smoke"
+          mkdir -p "$work"
+          printf '#import "Basic";\nmain :: () { print("hello from nix\\n"); }\n' > "$work/hello.jai"
+          nix run .# -- run "$work/hello.jai"
+          jaic="$PWD/result/bin/jaic"
+          cd "$work"
+          "$jaic" build hello.jai -o hello
+          ./hello
+          printf 'x:=1;\n' | "$GITHUB_WORKSPACE/result-1/bin/jaifmt" --stdin
+          nix develop "$GITHUB_WORKSPACE" --command sh -c 'cargo --version && llvm-config --version && python3 --version && node --version && echo "$LLVM_SYS_221_PREFIX"'

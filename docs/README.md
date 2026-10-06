@@ -119,6 +119,7 @@ Scripts, CI and project policies.
 - [jaic regression sweep](tools/jaic-sweep.md)
 - [jaifmt (Jai formatter)](tools/jaifmt.md)
 - [LLVM setup](tools/llvm-setup.md)
+- [Nix flake](tools/nix.md)
 - [Third-party native libraries](tools/native-libs.md)
 - [open-jai expectation harness](tools/openjai-expectations.md)
 - [Releases](tools/releases.md)
