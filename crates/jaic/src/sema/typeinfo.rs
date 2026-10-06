@@ -367,11 +367,7 @@ impl Compiler {
                     8,
                     span,
                 )?;
-                let flags = if info.is_flags {
-                    0x1
-                } else {
-                    0
-                };
+                let flags = i128::from(info.type_flags());
                 self.set_field(&mut agg, desc, "enum_type_flags", Value::Int(flags), span)?;
             }
             TypeKind::Distinct(d) => {

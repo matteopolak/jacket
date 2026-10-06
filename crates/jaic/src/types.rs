@@ -115,10 +115,21 @@ pub struct EnumInfo {
     pub base: TypeId,
     pub members: Vec<(Sym, i128)>,
     pub is_flags: bool,
+    /// `#specified` / `#complete` on the declaration; with `is_flags` they make up
+    /// `Type_Info_Enum.enum_type_flags`.
+    pub specified: bool,
+    pub complete: bool,
     /// For `E.loose`: the strict enum type it mirrors. Loose enums convert implicitly to and
     /// from integers.
     pub loose_of: Option<TypeId>,
     pub span: Span,
+}
+
+impl EnumInfo {
+    /// `Enum_Type_Flags` bits: FLAGS 0x1, COMPLETE 0x2, SPECIFIED 0x4.
+    pub fn type_flags(&self) -> i64 {
+        (self.is_flags as i64) | ((self.complete as i64) << 1) | ((self.specified as i64) << 2)
+    }
 }
 
 #[derive(Clone, Debug)]

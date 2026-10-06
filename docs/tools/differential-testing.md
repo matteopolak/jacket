@@ -47,17 +47,19 @@ The exit code is 1 on any `DISAGREE` or `invalid`. `--json FILE` writes every re
 
 A backend is excluded from a case only for a stated reason, and as far as possible that reason comes from metadata that already exists rather than a list in the harness:
 
-- `wasm`, stdlib tests: the reasons in the `excluded` map of `tools/playground_stdlib_expected.json`, the file the browser release is checked against (threads, sockets, native libraries).
 - `wasm`, any program: the engine's own refusal messages (`foreign procedure ... is not available here`, `unknown library`, `is not supported on wasm`), and a stdlib module that rejects the target with `#assert`.
 - `wasm`, missing files: a file the sandbox lacks (the sandbox holds the workspace and the stdlib only). This counts only when no host backend complained about the same file.
 - `native`, no `main`: the build fails with `no exported 'main'`, so the program runs only at compile time.
 - `native`, no executable: the build wrote nothing at `-o` because the program's metaprogram decides what to write (its own workspaces, `NO_OUTPUT`).
 - `native`, compiler primitives: the program calls a `#compiler` primitive at run time, which exists only inside the compiler. The compiled stub says `is a compiler primitive; it runs only at compile time`.
 
+A program whose source mentions `.WASM` (as in `OS == .WASM`) may skip work in the browser on purpose. `tests/stdlib` programs skip processes, native libraries and windows this way, because every one of them must pass in the browser engine ([playground](../browser/playground.md)). For such a program the `wasm` result is compared by status only, and the host backends are still compared in full.
+
 `OUTPUT_VARIES` in the harness lists cases where only the status is compared. Each entry has its reason:
 
 - `jaic-extensions-long-double` prints which `Long_Double` representation the target ABI has: float64 on arm64 macOS, binary128 on wasm32.
 - `iprof-runtime-manual` prints measured times.
+- `debug-assert-handlers` prints a native stack trace: addresses, and the symbols of whatever executable is running. Under `jaic run` that is the interpreter itself.
 
 ### The generator (`tools/jaigen.py`)
 
@@ -106,7 +108,7 @@ The reducer keeps a candidate if it still compiles and the backends still split 
 
 ### Full run
 
-Run this before a release, or after changing the interpreter, sema's constant folding, lowering or the LLVM backend. It takes about an hour on an M-series laptop. Run it with one heavy job at a time, since it builds two native executables per program:
+Run this before a release, or after changing the interpreter, sema's constant folding, lowering or the LLVM backend. On an M-series laptop the corpus, stdlib and modules run takes about 3 minutes and the 3,000-program run about 27. Run it with one heavy job at a time, since it builds two native executables per program:
 
 ```sh
 cargo build --release -p jaic-cli
@@ -128,9 +130,10 @@ Each bug was fixed with a regression test.
 | stdlib programs calling Bindings_Generator at run time | native (diagnostic) | compiled `#compiler` stubs trapped without a word; they now say why |
 | generated (`tests/stdlib/poly-infer-from-ifx.jai`) | front end | `$T` could not be inferred from an `ifx` argument |
 | targeted probe (`tests/stdlib/int-to-float32-rounding.jai`) | interp, wasm, constant folding | 64-bit integer → `float32` rounded twice, through f64 |
+| `tests/stdlib/debug-assert-handlers.jai` | native | functions had no frame records, so macOS `backtrace` (Debug's `backtrace`) found no frames ([LLVM backend](../native/llvm-backend.md)) |
 | generated seed 10014 (`tests/corpus/positive/unrolled-sub-reduction.jai`) | native-O2 | LLVM 22's runtime unroller recombined parallel accumulators of an `a -= b` recurrence wrongly. jaic turns that transformation off ([LLVM backend](../native/llvm-backend.md)) |
 
-The generated programs found 2 of these bugs. Three came from the stdlib sets, and one from a targeted probe of int-to-float conversions (jaigen now generates those edge values too). Campaigns so far: seeds 1–200, 1000–1299, 10000–12999 and 20000–22999. That is 6,500 programs on all four backends, plus 400 for compile validity. Only seed 10014 disagreed, and it agrees after the fix. One program, seed 22650, failed to compile everywhere; see Open questions.
+The generated programs found 2 of these bugs. Four came from the stdlib sets, and one from a targeted probe of int-to-float conversions (jaigen now generates those edge values too). Campaigns so far: seeds 1–200, 1000–1299, 10000–12999, 20000–22999, 30000–30299 and 40000–41499. That is 8,300 programs on all four backends, plus 400 for compile validity. Only seed 10014 disagreed, and it agrees after the fix. One program, seed 22650, failed to compile everywhere; see Open questions.
 
 ### Open questions
 

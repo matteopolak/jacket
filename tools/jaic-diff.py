@@ -44,6 +44,9 @@ OUTPUT_VARIES = {
     "jaic-extensions-long-double": "prints whether Long_Double is wide, which depends on the target ABI",
     # A profiler report: the numbers are measured times (a virtual clock on wasm).
     "iprof-runtime-manual": "prints measured times",
+    # trace_assert prints the native call stack: return addresses and the running executable's
+    # symbols (the interpreter's own frames under `jaic run`).
+    "debug-assert-handlers": "prints a native stack trace",
 }
 
 # A native build of a program whose `main` calls a `#compiler` primitive stops with this message:
@@ -51,9 +54,10 @@ OUTPUT_VARIES = {
 COMPILE_TIME_ONLY = "is a compiler primitive; it runs only at compile time"
 
 
-def wasm_exclusions():
-    """tests/stdlib programs the playground cannot run, each with its written reason."""
-    return json.loads((ROOT / "tools/playground_stdlib_expected.json").read_text())["excluded"]
+# A program that asks whether it runs in the browser (`OS == .WASM`) may skip work there, so its
+# output on wasm can differ by design; tests/stdlib programs skip processes, native libraries and
+# windows this way. For such a program only the wasm status is compared.
+TARGET_AWARE = re.compile(r"\.WASM\b")
 
 
 class Case:
@@ -63,6 +67,10 @@ class Case:
         self.root = Path(root) if root else self.path.parent
         self.args = list(args)
         self.skip = dict(skip or {})  # backend -> reason
+        try:
+            self.target_aware = bool(TARGET_AWARE.search(self.path.read_text(errors="replace")))
+        except OSError:
+            self.target_aware = False
 
 
 def cases(name, gen_dir, gen_size=1.0):
@@ -72,10 +80,8 @@ def cases(name, gen_dir, gen_size=1.0):
             if "runtime" in c:
                 yield Case(c["id"], ROOT / "tests/corpus" / c["source"])
     elif name == "stdlib":
-        excluded = wasm_exclusions()
         for p in sorted((ROOT / "tests/stdlib").glob("*.jai")):
-            skip = {"wasm": excluded[p.name]} if p.name in excluded else {}
-            yield Case(p.stem, p, ROOT / "tests/stdlib", skip=skip)
+            yield Case(p.stem, p, ROOT / "tests/stdlib")
     elif name == "modules":
         found = list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib/tests").glob("**/*.jai"))
         for p in sorted(set(found)):
@@ -170,12 +176,12 @@ class Runner:
     """Runs a case through the chosen backends; shared by main() and tools/jaic-reduce.py."""
 
     def __init__(self, jaic, backends, work, wasm_bundle=None, timeout=120, memory_gib=3):
-        self.jaic, self.backends, self.work = Path(jaic), backends, Path(work)
-        self.timeout, self.limit_kib = timeout, int(memory_gib * 1024 * 1024)
+        self.jaic, self.backends, self.work = Path(jaic).resolve(), backends, Path(work)
+        self.timeout, self.limit_bytes = timeout, int(memory_gib * 2**30)
         self.wasm = WasmPool(Path(wasm_bundle).resolve(), timeout) if "wasm" in backends else None
 
     def capped(self, cmd, cwd):
-        return sweep.run_capped([str(x) for x in cmd], cwd, self.timeout, self.limit_kib)
+        return sweep.run_limited([str(x) for x in cmd], cwd, self.timeout, self.limit_bytes)
 
     @staticmethod
     def classify(out, err, code):
@@ -261,8 +267,13 @@ def verdict(case, results):
     if {r.status for r in live.values()} == {"compile error"}:
         return "invalid"
     with_stderr = all(r.status.startswith("exit") for r in live.values())
-    keys = {r.key(with_stderr, case.id not in OUTPUT_VARIES) for r in live.values()}
-    return "agree" if len(keys) == 1 else "DISAGREE"
+    with_output = case.id not in OUTPUT_VARIES
+    keys = {r.key(with_stderr, with_output and not (b == "wasm" and case.target_aware))
+            for b, r in live.items()}
+    if len({k if isinstance(k, str) else k[0] for k in keys}) > 1:
+        return "DISAGREE"
+    # Full results must agree among the backends compared by output; status-only ones by status.
+    return "agree" if len({k for k in keys if not isinstance(k, str)}) <= 1 else "DISAGREE"
 
 
 def add_backend_arguments(ap):

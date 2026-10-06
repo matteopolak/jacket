@@ -22,11 +22,11 @@ S3 :: struct {
     arr: [3] u32;
     inner: S2;
 }
-poly_4 :: (a: $T, b: T) -> T {
+poly_4 :: (a: $T, _b: T) -> T {
     return (a | cast(T) 3);
 }
 g5: s64 = cast(s64) (-13);
-act_16 :: (a0: S2, a1: Pair(s64), a2: u8, a3: S3) -> bool {
+act_16 :: (_a0: S2, _a1: Pair(s64), _a2: u8, _a3: S3) -> bool {
     v19: float64 = cast(float64) 2147483647.5;
     print("hex %\n", formatInt(g5, base = 2));
     return ((-v19) == v19);
@@ -45,7 +45,7 @@ main :: () {
         v29.a -= v29.b;
     }
     v37: [3] S3 = S3.[S3.{f0 = v29.b, f1 = v30.b, arr = u32.[cast(u32) 0x8, cast(u32) 0x11, cast(u32) 0]}, S3.{f0 = g5, f1 = v30.a, f2 = cast(s8) (-127), f3 = v30.a, arr = u32.[cast(u32) 0x0, cast(u32) 0xda1193b3, cast(u32) 16], inner = S2.{f0 = v32[wrap_index(cast,no_check(s64) (cast(u8) 12), v32.count)]}}, S3.{f0 = cast(s64) (-8328108846637510514), f1 = v30.a, f3 = (v30.a % ((v30.b & 127) | 1)), arr = u32.[cast(u32) 0, cast(u32) 2783243123, cast(u32) 3153832184]}];
-    v52: bool = act_16(v37[wrap_index(cast,no_check(s64) (v35), 3)].inner, v29, cast(u8) 0x7a, v37[wrap_index(cast,no_check(s64) (v29.b), 3)]);
+    _: bool = act_16(v37[wrap_index(cast,no_check(s64) (v35), 3)].inner, v29, cast(u8) 0x7a, v37[wrap_index(cast,no_check(s64) (v29.b), 3)]);
     mix(cast,no_check(u64) v29.a);
     print("checksum %\n", formatInt(H, base = 16));
 }

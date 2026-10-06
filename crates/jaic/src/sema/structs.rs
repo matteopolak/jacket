@@ -398,6 +398,8 @@ impl Compiler {
             base,
             members: Vec::new(),
             is_flags: lit.flags_enum,
+            specified: lit.specified,
+            complete: lit.complete,
             loose_of: None,
             span: lit.span,
         });

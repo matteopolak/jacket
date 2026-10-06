@@ -65,6 +65,18 @@ class VerdictTests(unittest.TestCase):
         results = {"interp": diff.Result("exit 0", "a"), "wasm": diff.Result("exit 0", "b")}
         self.assertEqual(diff.verdict(case(cid), results), "agree")
 
+    def test_programs_that_test_for_wasm_compare_only_its_status(self):
+        c = case()
+        c.target_aware = True
+        results = {"interp": diff.Result("exit 0", "all"), "native": diff.Result("exit 0", "all"),
+                   "wasm": diff.Result("exit 0", "skipped")}
+        self.assertEqual(diff.verdict(c, results), "agree")
+        results["wasm"] = diff.Result("exit 1", "all")
+        self.assertEqual(diff.verdict(c, results), "DISAGREE")
+        results["wasm"] = diff.Result("exit 0", "all")
+        results["native"] = diff.Result("exit 0", "other")
+        self.assertEqual(diff.verdict(c, results), "DISAGREE")
+
     def test_signals_and_runtime_errors_classify_alike(self):
         self.assertEqual(diff.Runner.classify("", "", 133).status, "runtime error")
         self.assertEqual(diff.Runner.classify("", "runtime error: x", 1).status, "runtime error")

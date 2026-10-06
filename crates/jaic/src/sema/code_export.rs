@@ -611,7 +611,7 @@ impl Compiler {
                             .map(|&(_, v)| Item::Int(v as i64))
                             .collect(),
                     )
-                    .int("enum_type_flags", info.is_flags as i64);
+                    .int("enum_type_flags", info.type_flags());
             }
             TypeKind::Distinct(d) => {
                 let info = self.types.distincts[d.0 as usize].clone();
