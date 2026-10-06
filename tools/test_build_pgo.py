@@ -30,6 +30,12 @@ class BuildEnvTests(unittest.TestCase):
         self.assertEqual(env["CFLAGS_aarch64_apple_darwin"], "-O2 -fno-profile-generate -fno-profile-use")
 
 
+    def test_pgo_is_skipped_only_on_arm64_windows(self):
+        self.assertFalse(build_pgo.pgo_works("aarch64-pc-windows-msvc"))
+        for target in ("x86_64-pc-windows-msvc", "aarch64-apple-darwin", "x86_64-unknown-linux-gnu"):
+            self.assertTrue(build_pgo.pgo_works(target))
+
+
 class LspSessionTests(unittest.TestCase):
     def test_session_is_framed_and_ends_with_exit(self):
         done = mock.Mock(returncode=0, stdout=b"")

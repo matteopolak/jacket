@@ -1,4 +1,4 @@
-// rules: ctdata.1 ctdata.2 ctdata.3 ctdata.4 ctdata.6 ctdata.7 ctdata.8 ctdata.9 ctdata.11 ctdata.12 ctdata.13
+// rules: ctdata.1 ctdata.2 ctdata.3 ctdata.4 ctdata.6 ctdata.7 ctdata.8 ctdata.9 ctdata.11 ctdata.12 ctdata.13 ctdata.14
 // Pins the claims of docs/metaprogramming/compile-time-data-and-state.md.
 #import "Basic";
 #import "Compiler";
@@ -47,6 +47,12 @@ small_pointer :: () -> *u8 {
     return cast(*u8) 0x40;
 }
 SMALL_PTR :: #run small_pointer();
+
+// ctdata.14: a sign-extended handle (top bit set) cast to a pointer keeps its value too.
+Opaque_Handle :: *struct {
+    unused: u8;
+};
+TOP_BIT_HANDLE :: cast(Opaque_Handle) (cast(s64) (cast,trunc(s32) 0x80000000));
 
 // ctdata.6: union members are copied as raw bytes.
 Either :: union {
@@ -117,6 +123,9 @@ main :: () {
 
     // ctdata.4
     assert(cast(u64) SMALL_PTR == 0x40, "ctdata.4: small pointer value kept");
+
+    // ctdata.14
+    assert(cast(u64) TOP_BIT_HANDLE == 0xFFFF_FFFF_8000_0000, "ctdata.14: sign-extended handle kept");
 
     // ctdata.6
     assert(HOLDER.tag == 2, "ctdata.6: plain field");

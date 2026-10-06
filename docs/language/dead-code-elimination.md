@@ -33,6 +33,7 @@ Under `.MODULES_ONLY`, in the program's own files:
 
 - Every global variable (its type and initializer) and every constant is checked {#dce.1}.
 - Every procedure body is checked unless the procedure is polymorphic or a macro, including procedures declared in a struct body or inside another procedure's body {#dce.2}.
+- A struct constant is checked after its struct is laid out, as a use of the struct would, so it may name the struct's members (`PAD :: size_of(type_of(info))`), also in a struct declared inside another struct {#dce.13}.
 - What those bodies call is checked like any called code, so a module procedure that only an unreferenced procedure of the program calls has its body checked {#dce.3}.
 - A polymorphic procedure's body is checked per instance and a macro's per expansion, so one that is never instantiated or expanded is never checked {#dce.4}.
 - An inactive `#if` branch declares nothing, so nothing in it is checked {#dce.5}.

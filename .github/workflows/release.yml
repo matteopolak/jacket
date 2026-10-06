@@ -1,6 +1,6 @@
 name: release
 # Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64),
-# optimized with PGO everywhere and BOLT on Linux (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
+# optimized with PGO (except Windows arm64) and BOLT on Linux (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
 on:
@@ -200,9 +200,13 @@ jobs:
             set +e
             "$RUNNER_TEMP/bin/jaic" run main.jai
             status=$?
+            # jaifmt is self-contained: it needs neither the stdlib nor a checkout.
+            ln -s "$RUNNER_TEMP/opt-jaic/jaifmt" "$RUNNER_TEMP/bin/jaifmt"
+            linked_fmt="$(echo 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
             set -e
             mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
             test "$status" = 42
+            test "$linked_fmt" = "$formatted"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

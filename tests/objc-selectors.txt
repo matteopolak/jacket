@@ -1,0 +1,4 @@
+# Objective-C methods the stdlib's bindings call that the macOS runtime does not have, checked by
+# crates/jaic-cli/tests/objc_selectors.rs on macOS. Each line is what the check prints:
+# `missing <class or protocol> <instance|class> <selector>` or `unknown <class or protocol>`.
+# A `#` after the entry gives the reason. See docs/tools/objc-selector-check.md.

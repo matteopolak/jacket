@@ -829,7 +829,7 @@ impl Compiler {
                         target: ir::RelocTarget::Func(ir::FuncId((p & 0xFFFF_FFFF) as u32)),
                         addend: 0,
                     });
-                } else if p < 0x10000 || p.wrapping_neg() < 0x10000 {
+                } else if is_integer_handle(p) {
                     // Sentinels cast to a procedure type (`SIG_IGN`, `SIG_ERR`) stay integers.
                     agg.bytes[offset as usize..offset as usize + 8]
                         .copy_from_slice(&p.to_le_bytes());
@@ -885,8 +885,9 @@ impl Compiler {
             });
             return Ok(());
         }
-        if p < 0x10000 || p.wrapping_neg() < 0x10000 {
-            // Integers cast to pointers (handle-like constants such as `cast(*void) 32512`) have no memory to freeze.
+        if is_integer_handle(p) {
+            // Integers cast to pointers (handle-like constants such as `cast(*void) 32512` or
+            // `HKEY_CLASSES_ROOT`) have no memory to freeze.
             agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
             return Ok(());
         }
@@ -985,4 +986,11 @@ impl Compiler {
         }
         Ok(out)
     }
+}
+
+/// A pointer value that cannot address compile-time memory, so it is an integer cast to a
+/// pointer: the first 64 KiB (never mapped), or any address with the top bit set, which on the
+/// 64-bit hosts jaic runs on is never user-space memory (`cast(HKEY) cast(s32) 0x80000000`).
+fn is_integer_handle(p: u64) -> bool {
+    p < 0x10000 || (p as i64) < 0
 }

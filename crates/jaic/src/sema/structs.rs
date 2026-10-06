@@ -409,6 +409,11 @@ impl Compiler {
         // Members may refer to earlier members by name.
         let module = self.scope(scope).module;
         let member_scope = self.new_scope(ScopeKind::Block, Some(scope), module, None);
+        // Members may also name the enum itself (`B :: A + cast(E) 50`), whose declaration is
+        // still being resolved: bind the name to the type made above.
+        if name.as_str() != "enum" {
+            self.add_const(member_scope, name, lit.span, Value::Type(ty), TypeId::TYPE);
+        }
         let mut members = Vec::new();
         let mut next: i128 = if lit.flags_enum {
             1

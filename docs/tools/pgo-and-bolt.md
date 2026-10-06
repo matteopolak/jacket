@@ -32,11 +32,13 @@ The results are copied to `--out` (default `<target-dir>/pgo/dist`).
 |---|---|---|
 | Linux x86-64 | PGO + BOLT | `llvm-bolt` and `merge-fdata` come from the official LLVM release tarball the job already unpacks (`$RUNNER_TEMP/llvm/bin`). |
 | macOS arm64 | PGO | BOLT's Mach-O support is not production ready. |
-| Windows x86-64, arm64 | PGO | BOLT only rewrites ELF. rustup ships the profiler runtime for both MSVC targets. |
+| Windows x86-64 | PGO | BOLT only rewrites ELF. |
+| Windows arm64 | none | Plain release build: the profile runtime does not work there (below). |
 
 ### Gotchas
 
 - **C code compiled by the `cc` crate.** cc copies `-Cprofile-generate`/`-Cprofile-use` into the flags of clang-compiled C code (llvm-sys's target wrappers). That clang is not rustc's LLVM, so its profile records have a different layout: the instrumented `jaic` crashed in `initializeValueProfRuntimeRecord` while writing its profile at exit, and the system clang could not read our `.profdata`. The script appends `-fno-profile-generate -fno-profile-use` to `CFLAGS_<triple>` (cc puts environment flags last). MSVC targets use `cl.exe`, which cc leaves alone.
+- **No PGO on arm64 Windows.** With `nightly-2026-08-29`, an instrumented `aarch64-pc-windows-msvc` binary crashes with `0xC0000005` in `lprofMergeValueProfData` whenever it merges into an existing `.profraw` (every run after the first under `%4m`). With value profiling off (`-Cllvm-args=-disable-vp=true`) it runs, but `llvm-profdata` rejects every file it wrote ("malformed instrumentation profile data: symbol name is empty"). `pgo_works()` therefore makes `build_pgo.py` do a plain release build for that target, into the same `dist` directory. Re-check after a toolchain bump by making `pgo_works` return true and running the release workflow.
 - **RUSTFLAGS.** When `RUSTFLAGS` is set it overrides every `CARGO_TARGET_<TRIPLE>_RUSTFLAGS`, so the script extends whichever one is in effect. The release workflow puts `+crt-static` (Windows) and `-fuse-ld=lld` (macOS) in the target variable, and the PGO flags are appended to it. The script always passes `--target`, which keeps the flags off build scripts and proc macros.
 - **Paths with spaces** cannot be carried in RUSTFLAGS; the script refuses a target directory containing one.
 

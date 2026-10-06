@@ -517,3 +517,35 @@ fn dead_code_elimination_flag() {
     let (ok, stderr) = check(&dirty, &[]);
     assert!(!ok && stderr.contains("missing_in_program"), "{stderr}");
 }
+
+/// A struct constant nothing uses is checked after its struct is laid out, so it can name the
+/// struct's members, also in a struct declared inside another struct.
+// rules: dce.13
+#[test]
+fn unreferenced_struct_constant_names_a_member() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-struct-constant");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("padded.jai");
+    std::fs::write(
+        &source,
+        "Group :: struct {\n    Padded :: struct {\n        using info: Info;\n        \
+         SIZE :: #run align_forward(size_of(type_of(info)), 64);\n        \
+         padding: [SIZE - size_of(Info)] u8;\n    }\n    Info :: struct { a: int; }\n}\n\
+         align_forward :: (n: int, a: int) -> int { return (n + a - 1) / a * a; }\n\
+         main :: () {}\n",
+    )
+    .unwrap();
+    for extra in [&[][..], &["-no_dce"][..]] {
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{extra:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}

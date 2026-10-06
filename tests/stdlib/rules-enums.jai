@@ -1,5 +1,5 @@
 // Checks the claims of docs/language/enums.md, one group per rule.
-// rules: enum.1 enum.2 enum.3 enum.4 enum.5 enum.6 enum.7 enum.8 enum.9 enum.10 enum.11 enum.12 enum.13 enum.14 enum.15
+// rules: enum.1 enum.2 enum.3 enum.4 enum.5 enum.6 enum.7 enum.8 enum.9 enum.10 enum.11 enum.12 enum.13 enum.14 enum.15 enum.16
 #import "Basic";
 
 Shade :: enum {
@@ -35,6 +35,11 @@ Generated :: enum {
     LAST;
 }
 
+Sc :: enum s32 {
+    FIRST;
+    LAST;
+    IPV6 :: LAST + cast(Sc) 50;
+}
 Rank :: enum {
     FIRST;
     SECOND;
@@ -122,6 +127,10 @@ main :: () {
     assert(t.order == .THIRD, "explicit argument");
     d: Ticket();
     assert(d.order == .FIRST, "default argument");
+
+
+    // enum.16: a member's value may name the enum itself.
+    assert(cast(s32) Sc.IPV6 == 51, "member names its own enum");
 
     print("ok\n");
 }

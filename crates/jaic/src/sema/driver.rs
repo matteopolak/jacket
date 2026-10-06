@@ -253,6 +253,16 @@ impl Compiler {
                 let id = EntityId(entity_index as u32);
                 entity_index += 1;
                 if self.unreferenced_entity_wanted(id) {
+                    // A struct constant may name the struct's members (`size_of(type_of(info))`),
+                    // which are only known while or after the struct is laid out; a use of the
+                    // struct lays it out first, so do the same here.
+                    let scope = self.entity(id).scope;
+                    if let ScopeKind::Struct(t) = self.scope(scope).kind
+                        && let TypeKind::Struct(s) = self.types.kind(t).clone()
+                    {
+                        let span = self.entity(id).span;
+                        self.layout_struct(s, span)?;
+                    }
                     self.resolve_entity(id)?;
                 }
             }

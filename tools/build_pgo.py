@@ -116,6 +116,17 @@ def build_env(target, environ, target_dir, flags):
     return env
 
 
+def pgo_works(target):
+    """Whether rustc's profile runtime produces usable profiles for `target`.
+
+    Not on arm64 Windows (nightly-2026-08-29): processes that merge into an existing .profraw
+    crash in lprofMergeValueProfData, and with value profiling off the files they write are
+    still rejected by llvm-profdata ("symbol name is empty"). That target gets a plain release
+    build. See docs/tools/pgo-and-bolt.md.
+    """
+    return not (target.startswith("aarch64") and "windows" in target)
+
+
 def cargo_build(args, target_dir, flags):
     env = build_env(args.target, os.environ, target_dir, flags)
     common = ["cargo", "build", "--release", "--locked", "--target", args.target, "-j", str(args.jobs)]
@@ -271,6 +282,14 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
     problems = []
 
+    if not pgo_works(args.target):
+        log(f"profile-guided optimization is not available for {args.target}; building without it")
+        bins = cargo_build(args, work / "optimized", [])
+        out.mkdir(parents=True, exist_ok=True)
+        for tool, path in bins.items():
+            shutil.copy2(path, out / f"{tool}{EXE}")
+        log(f"binaries in {out}")
+        return
     if args.profile:
         profile = Path(args.profile).resolve()
     else:
