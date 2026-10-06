@@ -85,30 +85,6 @@ fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     dir.canonicalize().map(|d| vec![d]).unwrap_or_default()
 }
 
-fn usage() -> ExitCode {
-    eprintln!(
-        "usage: jaic <run|check> <file.jai> [-I|-import_dir dir]... [-os linux|windows|macos|wasm] [- metaprogram args...] [-- program args...]"
-    );
-    eprintln!(
-        "       jaic build <file.jai> [-I dir]... [-o output] [-O0|-O1|-O2|-O3] [--emit-ir file.ll] [--no-debug-info] [-sanitize address,undefined] [-os windows|wasm] [-cpu x64|arm64] [-target triple]"
-    );
-    eprintln!(
-        "       jaic <check|build> <file.jai> -plug Module [-plug Module]... [plugin options...]"
-    );
-    eprintln!("       --timings (any command): wall time per phase on stderr");
-    eprintln!(
-        "       -no_dce (any command): type-check unreferenced module code too (dead_code_elimination = .NONE)"
-    );
-    eprintln!(
-        "       -no_workspace_output (run): do not write the executables and libraries a metaprogram's workspaces ask for"
-    );
-    eprintln!(
-        "       JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>: stop with exit status {} once that much is allocated",
-        jaic::memory_limit::EXIT_CODE
-    );
-    ExitCode::from(2)
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Command {
     Check,
@@ -152,6 +128,8 @@ struct Cli {
     /// `-no_workspace_output` (`run`): do not write what workspaces a metaprogram creates ask
     /// for (test sweeps over many programs).
     no_workspace_output: bool,
+    /// `--color`: colour in diagnostics.
+    color: jaic::render::ColorChoice,
 }
 
 impl Cli {
@@ -232,16 +210,183 @@ fn os_and_cpu(triple: &str) -> (TargetOs, TargetCpu) {
     (os, cpu)
 }
 
-fn parse(args: &[String]) -> Option<Cli> {
-    let command = match args.first()?.as_str() {
+/// `jaic --help`.
+fn usage_text() -> String {
+    format!(
+        "jaic {version}: compile, check and run Jai programs
+
+usage: jaic run <file.jai> [options] [- metaprogram args...] [-- program args...]
+       jaic check <file.jai> [options]
+       jaic build <file.jai> [options] [-o output]
+
+commands:
+  run      compile the program and run it in the interpreter
+  check    compile the program without running or writing anything
+  build    compile the program to a native executable (or what its metaprogram asks for)
+
+options:
+  -I, -import_dir <dir>     also look for modules in <dir> (repeatable)
+  -os <os>                  target OS: linux, windows, macos or wasm
+  -cpu <cpu>                target CPU: x64 or arm64
+  -target <triple>          build for an LLVM target triple
+  -plug <Module>            run a metaprogram plugin (check and build; repeatable)
+  -no_dce                   type-check unreferenced module code too
+  --color <when>            coloured diagnostics: auto, always or never
+  --timings                 print the wall time of each phase on stderr
+  -h, --help                print this help
+  -V, --version             print the version
+
+build options:
+  -o <output>               the output file
+  -O0, -O1, -O2, -O3        optimization level
+  --emit-ir <file.ll>       also write the LLVM IR
+  --no-debug-info           leave out native debug information
+  -sanitize <list>          address and/or undefined, comma-separated
+
+run options:
+  -no_workspace_output      do not write what a metaprogram's workspaces ask for
+
+environment:
+  JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>  stop with exit status {limit} once that much is allocated
+  JAIC_DIAGNOSTICS=plain|ascii|unicode  diagnostic layout (default: by terminal)
+  NO_COLOR, FORCE_COLOR, CLICOLOR_FORCE  turn colour off or on
+
+exit status: 0 success, 1 the program failed to compile or a runtime error stopped it
+(`run` otherwise exits with the program's own status), 2 a command-line mistake,
+{limit} the memory limit, 101 an internal compiler error",
+        version = env!("CARGO_PKG_VERSION"),
+        limit = jaic::memory_limit::EXIT_CODE,
+    )
+}
+
+/// A command-line mistake: the message, then help lines.
+struct CliError {
+    message: String,
+    help: Vec<String>,
+}
+
+impl CliError {
+    fn new(message: impl Into<String>) -> Self {
+        CliError {
+            message: message.into(),
+            help: Vec::new(),
+        }
+    }
+
+    fn help(mut self, help: impl Into<String>) -> Self {
+        self.help.push(help.into());
+        self
+    }
+}
+
+/// What the command line asks for.
+enum Request {
+    Compile(Cli),
+    Help,
+    Version,
+}
+
+/// Options that take a value, with what the value is (for "needs a value" errors).
+const VALUE_OPTIONS: &[(&str, &str)] = &[
+    ("-I", "a directory"),
+    ("-import_dir", "a directory"),
+    ("-os", "an OS name: linux, windows, macos or wasm"),
+    ("-cpu", "a CPU name: x64 or arm64"),
+    ("-target", "an LLVM target triple, such as x86_64-pc-windows-gnu"),
+    ("--target", "an LLVM target triple, such as x86_64-pc-windows-gnu"),
+    ("-o", "an output path"),
+    ("--emit-ir", "a file to write the LLVM IR to"),
+    ("-sanitize", "address, undefined or both, comma-separated"),
+    ("--sanitize", "address, undefined or both, comma-separated"),
+    ("-plug", "a plugin module name"),
+    ("-plugin", "a plugin module name"),
+    ("--color", "a value: auto, always or never"),
+];
+
+/// Every option jaic knows, for "did you mean" suggestions.
+const KNOWN_OPTIONS: &[&str] = &[
+    "-I",
+    "-import_dir",
+    "-os",
+    "-cpu",
+    "-target",
+    "--target",
+    "-o",
+    "--emit-ir",
+    "--no-debug-info",
+    "-sanitize",
+    "--sanitize",
+    "-O0",
+    "-O1",
+    "-O2",
+    "-O3",
+    "-plug",
+    "-plugin",
+    "--timings",
+    "-no_dce",
+    "-no_workspace_output",
+    "--color",
+    "--help",
+    "--version",
+];
+
+/// Options only `jaic build` takes.
+const BUILD_ONLY: &[&str] = &[
+    "-o",
+    "--emit-ir",
+    "--no-debug-info",
+    "-sanitize",
+    "--sanitize",
+    "-O0",
+    "-O1",
+    "-O2",
+    "-O3",
+];
+
+fn parse(args: &[String]) -> Result<Request, CliError> {
+    let Some(first) = args.first() else {
+        return Err(CliError::new("no command given")
+            .help("run a program with `jaic run file.jai`; `jaic --help` lists every command"));
+    };
+    let command = match first.as_str() {
         "check" => Command::Check,
         "run" => Command::Run,
         "build" => Command::Build,
-        _ => return None,
+        "-h" | "--help" | "-help" | "help" => return Ok(Request::Help),
+        "-V" | "--version" | "-version" | "version" => return Ok(Request::Version),
+        other if other.ends_with(".jai") => {
+            return Err(CliError::new(format!("`{other}` is not a command"))
+                .help(format!("to run it, use `jaic run {other}`"))
+                .help("`jaic check` only compiles it, `jaic build` writes an executable"));
+        }
+        other => {
+            let mut error = CliError::new(format!("unknown command `{other}`"));
+            if let Some(near) = jaic::suggest::closest(other, ["run", "check", "build", "help"]) {
+                error = error.help(format!("did you mean `jaic {near}`?"));
+            }
+            return Err(error.help("the commands are `run`, `check` and `build`"));
+        }
+    };
+    let name = first.as_str();
+    let file = match args.get(1) {
+        Some(file) if file == "-h" || file == "--help" => return Ok(Request::Help),
+        Some(file) if file.starts_with('-') && file.len() > 1 => {
+            return Err(
+                CliError::new(format!("expected a .jai file after `jaic {name}`, found `{file}`"))
+                    .help(format!(
+                        "put the file first and options after it: `jaic {name} file.jai {file} ...`"
+                    )),
+            );
+        }
+        Some(file) => file.clone(),
+        None => {
+            return Err(CliError::new(format!("`jaic {name}` needs a .jai file"))
+                .help(format!("for example: `jaic {name} main.jai`")));
+        }
     };
     let mut cli = Cli {
         command,
-        file: args.get(1)?.clone(),
+        file,
         imports: Vec::new(),
         output: None,
         opt_level: None,
@@ -258,10 +403,38 @@ fn parse(args: &[String]) -> Option<Cli> {
         sanitize: Vec::new(),
         no_dce: false,
         no_workspace_output: false,
+        color: jaic::render::ColorChoice::Auto,
     };
+    let has_plugins = args.iter().any(|a| a == "-plug" || a == "-plugin");
     let mut rest = args[2..].iter();
-    while let Some(a) = rest.next() {
-        match a.as_str() {
+    while let Some(arg) = rest.next() {
+        // `--color=always` and the like.
+        let (a, inline) = match arg.split_once('=') {
+            Some((option, value)) if option.starts_with('-') && VALUE_OPTIONS.iter().any(|(o, _)| *o == option) => {
+                (option, Some(value.to_string()))
+            }
+            _ => (arg.as_str(), None),
+        };
+        let mut value = |option: &str| -> Result<String, CliError> {
+            if let Some(v) = inline.clone() {
+                return Ok(v);
+            }
+            match rest.next() {
+                Some(v) => Ok(v.clone()),
+                None => {
+                    let what = VALUE_OPTIONS
+                        .iter()
+                        .find(|(o, _)| *o == option)
+                        .map_or("a value", |(_, what)| what);
+                    Err(CliError::new(format!("`{option}` needs {what}")))
+                }
+            }
+        };
+        if BUILD_ONLY.contains(&a) && command != Command::Build && !has_plugins {
+            return Err(CliError::new(format!("`{a}` only applies to `jaic build`"))
+                .help(format!("`jaic {name}` writes no output; use `jaic build {} {a} ...`", cli.file)));
+        }
+        match a {
             "-" => {
                 // Metaprogram arguments run up to a `--` (if any).
                 for arg in rest.by_ref() {
@@ -278,65 +451,212 @@ fn parse(args: &[String]) -> Option<Cli> {
                 cli.program_args.push(cli.file.clone());
                 cli.program_args.extend(rest.by_ref().cloned());
             }
-            "-I" | "-import_dir" => cli.imports.extend(rest.next().map(PathBuf::from)),
+            "-I" | "-import_dir" => cli.imports.push(PathBuf::from(value(a)?)),
             "-os" => {
-                cli.os = Some(match rest.next()?.as_str() {
+                let os = value(a)?;
+                cli.os = Some(match os.as_str() {
                     "linux" => TargetOs::Linux,
                     "windows" => TargetOs::Windows,
                     "macos" => TargetOs::MacOS,
                     "wasm" => TargetOs::Wasm,
-                    _ => return None,
+                    _ => {
+                        let names = ["linux", "windows", "macos", "wasm"];
+                        let mut error = CliError::new(format!("unknown OS `{os}` for `-os`"));
+                        if let Some(near) = jaic::suggest::closest(&os, names) {
+                            error = error.help(format!("did you mean `-os {near}`?"));
+                        }
+                        return Err(error.help("the OS names are linux, windows, macos and wasm"));
+                    }
                 })
             }
             "-cpu" => {
-                cli.cpu = Some(match rest.next()?.as_str() {
+                let cpu = value(a)?;
+                cli.cpu = Some(match cpu.as_str() {
                     "x64" | "x86_64" => TargetCpu::X64,
                     "arm64" | "aarch64" => TargetCpu::Arm64,
-                    _ => return None,
+                    _ => {
+                        return Err(CliError::new(format!("unknown CPU `{cpu}` for `-cpu`"))
+                            .help("the CPU names are x64 (or x86_64) and arm64 (or aarch64)"));
+                    }
                 })
             }
-            "-target" | "--target" => cli.target = Some(rest.next()?.clone()),
+            "-target" | "--target" => cli.target = Some(value(a)?),
             "--timings" => cli.timings = true,
             "-no_dce" => cli.no_dce = true,
             "-no_workspace_output" if command == Command::Run => cli.no_workspace_output = true,
-            "-o" if command == Command::Build => cli.output = Some(PathBuf::from(rest.next()?)),
-            "--emit-ir" if command == Command::Build => {
-                cli.emit_ir = Some(PathBuf::from(rest.next()?))
+            "--color" | "-color" => {
+                let when = value("--color")?;
+                cli.color = jaic::render::ColorChoice::parse(&when).ok_or_else(|| {
+                    CliError::new(format!("unknown `--color` value `{when}`"))
+                        .help("use auto, always or never")
+                })?;
             }
-            "--no-debug-info" if command == Command::Build => cli.no_debug_info = true,
-            "-sanitize" | "--sanitize" if command == Command::Build => {
-                cli.sanitize.push(rest.next()?.clone())
+            "-o" => cli.output = Some(PathBuf::from(value(a)?)),
+            "--emit-ir" => cli.emit_ir = Some(PathBuf::from(value(a)?)),
+            "--no-debug-info" => cli.no_debug_info = true,
+            "-sanitize" | "--sanitize" => cli.sanitize.push(value(a)?),
+            "-O0" => cli.opt_level = Some("O0"),
+            "-O1" => cli.opt_level = Some("O1"),
+            "-O2" => cli.opt_level = Some("O2"),
+            "-O3" => cli.opt_level = Some("O3"),
+            "-plug" | "-plugin" => cli.plugins.push(value(a)?),
+            other if other.starts_with("-O") && command == Command::Build && !has_plugins => {
+                return Err(CliError::new(format!("unknown optimization level `{other}`"))
+                    .help("use -O0, -O1, -O2 or -O3"));
             }
-            "-O0" if command == Command::Build => cli.opt_level = Some("O0"),
-            "-O1" if command == Command::Build => cli.opt_level = Some("O1"),
-            "-O2" if command == Command::Build => cli.opt_level = Some("O2"),
-            "-O3" if command == Command::Build => cli.opt_level = Some("O3"),
-            "-plug" | "-plugin" => cli.plugins.push(rest.next()?.clone()),
             // An unknown option and everything after it (its values) go to the plugins.
             other if other.starts_with('-') || !cli.plugin_options.is_empty() => {
                 cli.plugin_options.push(other.to_string())
             }
-            _ => return None,
+            other => {
+                let mut error = CliError::new(format!("unexpected argument `{other}`"));
+                if command == Command::Run {
+                    error = error.help(format!(
+                        "arguments for the program go after `--`: `jaic run {} -- {other}`",
+                        cli.file
+                    ));
+                } else {
+                    error = error.help("jaic compiles one file; it can `#load` or `#import` the others");
+                }
+                return Err(error);
+            }
         }
     }
     // Plugins compile the program in a workspace of their own, which `run` cannot start.
-    if !cli.plugin_options.is_empty() && cli.plugins.is_empty()
-        || !cli.plugins.is_empty() && command == Command::Run
-    {
-        return None;
+    if !cli.plugins.is_empty() && command == Command::Run {
+        return Err(CliError::new("`-plug` works with `jaic check` and `jaic build`, not `jaic run`")
+            .help(format!("use `jaic build {} -plug ...`", cli.file)));
     }
-    Some(cli)
+    if let Some(unknown) = cli.plugin_options.first().filter(|_| cli.plugins.is_empty()) {
+        let mut error = CliError::new(format!("unknown option `{unknown}`"));
+        if let Some(near) = jaic::suggest::closest(unknown, KNOWN_OPTIONS.iter().copied()) {
+            error = error.help(format!("did you mean `{near}`?"));
+        }
+        return Err(error.help(
+            "options jaic does not know are handed to `-plug` plugins, but none were given; `jaic --help` lists the options",
+        ));
+    }
+    Ok(Request::Compile(cli))
+}
+
+/// Why `file` cannot be compiled, if it cannot: missing, a directory, unreadable.
+fn check_input(file: &str) -> Result<(), CliError> {
+    let path = Path::new(file);
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    // The `.jai` files of a directory, as paths joined to `dir` the way the user wrote it.
+    let jai_files = |dir: &Path| -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".jai"))
+            .collect();
+        names.sort();
+        names
+    };
+    let shown = |dir: &Path, name: &str| {
+        if dir == Path::new(".") && !file.starts_with("./") {
+            name.to_string()
+        } else {
+            dir.join(name).display().to_string()
+        }
+    };
+    match std::fs::metadata(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let mut error = CliError::new(format!("file `{file}` does not exist"));
+            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let candidates = jai_files(parent);
+            let with_ext = format!("{name}.jai");
+            let near = if candidates.contains(&with_ext) {
+                Some(with_ext.as_str())
+            } else {
+                jaic::suggest::closest(&name, candidates.iter().map(String::as_str))
+            };
+            if let Some(near) = near {
+                error = error.help(format!("did you mean `{}`?", shown(parent, near)));
+            } else if !parent.is_dir() {
+                error = error.help(format!("the directory `{}` does not exist either", parent.display()));
+            } else if let Ok(cwd) = std::env::current_dir()
+                && path.is_relative()
+            {
+                error = error.help(format!("relative paths start from the current directory, {}", cwd.display()));
+            }
+            Err(error)
+        }
+        Err(e) => Err(CliError::new(format!("cannot read `{file}`: {}", io_reason(&e)))),
+        Ok(meta) if meta.is_dir() => {
+            let mut error = CliError::new(format!("`{file}` is a directory, not a .jai file"));
+            let files = jai_files(path);
+            let entry = ["first.jai", "build.jai", "main.jai", "module.jai"]
+                .into_iter()
+                .find(|n| files.iter().any(|f| f == n));
+            match (entry, files.len()) {
+                (Some(entry), _) => {
+                    error = error.help(format!("did you mean `{}`?", path.join(entry).display()))
+                }
+                (None, 0) => error = error.help("it holds no .jai files"),
+                (None, _) => {
+                    let list: Vec<String> = files.iter().take(5).map(|f| format!("`{f}`")).collect();
+                    error = error.help(format!("pass one of its files: {}", list.join(", ")));
+                }
+            }
+            Err(error)
+        }
+        Ok(_) => match std::fs::File::open(path) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(CliError::new(format!("cannot read `{file}`: {}", io_reason(&e)))),
+        },
+    }
+}
+
+/// An I/O error as a lowercase phrase, without Rust's `(os error N)` suffix.
+fn io_reason(e: &std::io::Error) -> String {
+    let text = e.to_string();
+    let text = text.split(" (os error").next().unwrap_or(&text);
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(c) => c.to_lowercase().chain(chars).collect(),
+        None => text.to_string(),
+    }
+}
+
+/// Print a command-line mistake and return the usage exit status.
+fn report_cli_error(error: CliError) -> ExitCode {
+    let mut report = jaic::render::Report::new(jaic::render::Severity::Error, error.message);
+    for help in error.help {
+        report = report.help(help);
+    }
+    eprint!("{}", report.render());
+    ExitCode::from(2)
 }
 
 fn main() -> ExitCode {
+    install_panic_hook();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    // Colour and layout first, so even command-line mistakes use them.
+    let color = color_choice(&args);
+    jaic::render::set_style(jaic::render::detect(color));
     if let Err(message) = jaic::memory_limit::arm_from_env() {
-        eprintln!("error: {message}");
+        eprint!("{}", jaic::render::Report::new(jaic::render::Severity::Error, message).render());
         return ExitCode::from(2);
     }
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let Some(cli) = parse(&args) else {
-        return usage();
+    let cli = match parse(&args) {
+        Ok(Request::Compile(cli)) => cli,
+        Ok(Request::Help) => {
+            println!("{}", usage_text());
+            return ExitCode::SUCCESS;
+        }
+        Ok(Request::Version) => {
+            println!("jaic {}", env!("CARGO_PKG_VERSION"));
+            return ExitCode::SUCCESS;
+        }
+        Err(error) => return report_cli_error(error),
     };
+
     // Deeply recursive programs and checking need a large stack.
     // On macOS the main thread stays free to run the program's foreign calls (AppKit only
     // works there); see `jaic::interp::main_thread`.
@@ -354,6 +674,55 @@ fn main() -> ExitCode {
             _ => ExitCode::from(101),
         }
     }
+}
+
+/// The `--color` choice, read before the rest of the command line so that mistakes in it are
+/// reported in the chosen style too.
+fn color_choice(args: &[String]) -> jaic::render::ColorChoice {
+    let mut choice = jaic::render::ColorChoice::Auto;
+    let mut args = args.iter().take_while(|a| *a != "-" && *a != "--");
+    while let Some(arg) = args.next() {
+        let value = match arg.split_once('=') {
+            Some(("--color" | "-color", value)) => Some(value.to_string()),
+            None if arg == "--color" || arg == "-color" => args.next().cloned(),
+            _ => None,
+        };
+        if let Some(c) = value.as_deref().and_then(jaic::render::ColorChoice::parse) {
+            choice = c;
+        }
+    }
+    choice
+}
+
+/// A panic is a bug in jaic, not in the program: say so, and how to report it, instead of
+/// Rust's bare panic message. The exit status stays 101.
+fn install_panic_hook() {
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let message = info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "unknown panic".into());
+        let at = info
+            .location()
+            .map(|l| format!(" (at {}:{})", l.file(), l.line()))
+            .unwrap_or_default();
+        let report = jaic::render::Report::new(
+            jaic::render::Severity::Error,
+            format!("internal compiler error: {message}"),
+        )
+        .note(format!("this is a bug in jaic{at}, not in your program"))
+        .help(format!(
+            "please report it at {}/issues with the program that triggers it; set RUST_BACKTRACE=1 for a backtrace",
+            env!("CARGO_PKG_REPOSITORY")
+        ));
+        eprint!("{}", report.render());
+        if std::env::var_os("RUST_BACKTRACE").is_some() {
+            default(info);
+        }
+    }));
 }
 
 fn run(cli: Cli) -> ExitCode {
@@ -376,6 +745,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         return ExitCode::from(1);
     }
     jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
+    if let Err(error) = check_input(&cli.file) {
+        report_cli_error(error);
+        return ExitCode::from(1);
+    }
     let path = std::fs::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     // Like `jai`, run from the main file's directory (so the program's meaning does not
     // depend on where the compiler was started); paths given on the command line stay
@@ -825,7 +1198,9 @@ mod tests {
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
         let mut argv = vec!["build".to_string(), "main.jai".to_string()];
         argv.extend(args.iter().map(|a| a.to_string()));
-        let cli = parse(&argv).expect("valid command line");
+        let Ok(Request::Compile(cli)) = parse(&argv) else {
+            panic!("invalid command line {argv:?}");
+        };
         cli.target_triple_from(host_os, host_cpu).expect("a target")
     }
 
