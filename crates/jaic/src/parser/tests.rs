@@ -435,6 +435,87 @@ fn binary_precedence() {
     );
 }
 
+/// The operator at the top of `x := <expr>;`, and whether its left operand is a cast.
+fn top_op(src: &str) -> (BinOp, bool) {
+    let ExprKind::Binary(op, lhs, _) = value(src).kind else {
+        panic!("{src}: not a binary expression")
+    };
+    (op, matches!(lhs.kind, ExprKind::Cast { .. }))
+}
+
+/// The binary operator directly inside the cast of `x := <cast>;`.
+fn cast_value_op(src: &str) -> Option<BinOp> {
+    let ExprKind::Cast {
+        value: inner, ..
+    } = value(src).kind
+    else {
+        panic!("{src}: not a cast")
+    };
+    match inner.kind {
+        ExprKind::Binary(op, ..) => Some(op),
+        _ => None,
+    }
+}
+
+#[test]
+fn prefix_cast_takes_bitwise_and_shift_operators() {
+    // Bitwise and shift operators continue the cast's value, for `cast(T)`, its flagged
+    // form and `xx`.
+    for (src, op) in [
+        ("x := cast(float) (h >> 16) & 0xFF;", BinOp::BitAnd),
+        ("x := cast(u64) p | TAG;", BinOp::BitOr),
+        ("x := cast(int) turn ^ 1;", BinOp::BitXor),
+        ("x := cast(u32) a << 16;", BinOp::Shl),
+        ("x := cast(s32) v >> 6;", BinOp::Shr),
+        ("x := cast(u32) v <<< 3;", BinOp::Rotl),
+        ("x := cast,no_check(u16) a << 4;", BinOp::Shl),
+        ("x := xx (ch | MARK) & MASK;", BinOp::BitAnd),
+        ("x := xx a1 | h1;", BinOp::BitOr),
+    ] {
+        assert_eq!(cast_value_op(src), Some(op), "{src}");
+    }
+    // Among themselves they keep their usual precedence: `a << 16 | b` is `(a << 16) | b`.
+    assert_eq!(
+        cast_value_op("x := cast(u32) a << 16 | b;"),
+        Some(BinOp::BitOr)
+    );
+    // Arithmetic, comparison and logical operators apply to the cast's result.
+    for (src, op) in [
+        ("x := cast(*u8) p + offset;", BinOp::Add),
+        ("x := cast(s64) p - cast(s64) q;", BinOp::Sub),
+        ("x := cast(float) w * scale;", BinOp::Mul),
+        ("x := cast(float) a / b;", BinOp::Div),
+        ("x := cast(int) a % b;", BinOp::Rem),
+        ("x := cast(u8) a == b;", BinOp::Eq),
+        ("x := cast(int) a < b;", BinOp::Lt),
+        ("x := cast(bool) a && b;", BinOp::And),
+        ("x := cast(bool) a || b;", BinOp::Or),
+        ("x := xx a + b;", BinOp::Add),
+    ] {
+        assert_eq!(top_op(src), (op, true), "{src}");
+    }
+    // A bitwise operator after the cast's value still stops at the next arithmetic one:
+    // `cast(T) a & b + c` adds `c` to the cast.
+    let ExprKind::Binary(BinOp::Add, lhs, _) = value("x := cast(u8) a & b + c;").kind else {
+        panic!("expected an addition")
+    };
+    assert!(matches!(lhs.kind, ExprKind::Cast { ref value, .. }
+        if matches!(value.kind, ExprKind::Binary(BinOp::BitAnd, ..))));
+    // Postfix operators bind before the cast; a parenthesized cast or the call form
+    // ends it.
+    assert_eq!(cast_value_op("x := cast(float) s.width;"), None);
+    assert_eq!(
+        cast_value_op("x := cast(s32) xs[2] & 0xffff;"),
+        Some(BinOp::BitAnd)
+    );
+    assert_eq!(
+        cast_value_op("x := cast(float) f(a) << 1;"),
+        Some(BinOp::Shl)
+    );
+    assert_eq!(top_op("x := (cast(u32) a) << 16;"), (BinOp::Shl, true));
+    assert_eq!(top_op("x := cast(u32, a) << 16;"), (BinOp::Shl, true));
+}
+
 #[test]
 fn unary_and_cast_forms() {
     assert!(matches!(
@@ -693,10 +774,12 @@ fn declaration_forms() {
 
 #[test]
 fn multiple_values_and_mixed_declarations() {
-    let stmts = parse("a, b := 1, 2;\nx=, y := f();\nm:, n = g();");
+    let stmts = parse("a, b := 1, 2;\nx=, y := f();\nm:, n = g();\np, q:, r := h();");
     assert_eq!(decl(&stmts[0]).extra_values.len(), 1);
     assert_eq!(decl(&stmts[1]).existing, [true, false]);
     assert_eq!(decl(&stmts[2]).existing, [false, true]);
+    // `q:` in a declaration is redundant: every name is new.
+    assert!(decl(&stmts[3]).existing.iter().all(|&e| !e));
 }
 
 #[test]
@@ -1006,10 +1089,14 @@ fn parenthesized_cast_with_flags_is_not_a_header() {
     let StmtKind::Decl(decl) = &stmts[0].kind else {
         panic!("expected a declaration")
     };
-    assert!(matches!(
-        decl.value.as_ref().unwrap().kind,
-        ExprKind::Binary(..)
-    ));
+    // An expression, not a procedure header; the cast takes `a & m` as its value.
+    let ExprKind::Cast {
+        value: inner, ..
+    } = &decl.value.as_ref().unwrap().kind
+    else {
+        panic!("expected a cast")
+    };
+    assert!(matches!(inner.kind, ExprKind::Binary(BinOp::BitAnd, ..)));
 }
 
 fn asm_block(src: &str) -> Rc<AsmBlock> {

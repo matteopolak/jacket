@@ -30,7 +30,7 @@ check_flat_pool_contract :: () -> int {
     }
     defer P.fini(*pool);
     if trace.allocations != 1 || trace.outstanding != 1 || pool.address_limit - pool.memory_base != 4096 return 5;
-    if pool.current_point != pool.memory_base || pool.first_uncommitted_page != pool.address_limit || (cast(u64)pool.memory_base & 63) != 0 return 6;
+    if pool.current_point != pool.memory_base || pool.first_uncommitted_page != pool.address_limit || ((cast(u64)pool.memory_base) & 63) != 0 return 6;
     first := cast(*u8)P.get(*pool, 16);
     second := cast(*u8)P.get(*pool, 16);
     if first != pool.memory_base || second != first + 64 || pool.current_point != first + 80 return 7;

@@ -45,17 +45,54 @@ impl Parser<'_> {
     }
 
     fn parse_binary(&mut self, min_prec: u8) -> PResult<Expr> {
-        let mut lhs = self.parse_unary()?;
+        self.parse_binary_of(min_prec, |_| true)
+    }
+
+    /// Precedence climbing over the operators `takes` accepts; any other operator ends
+    /// the expression and is left for the caller.
+    fn parse_binary_of(&mut self, min_prec: u8, takes: fn(BinOp) -> bool) -> PResult<Expr> {
+        let lhs = self.parse_unary()?;
+        self.parse_binary_after(lhs, min_prec, takes)
+    }
+
+    /// Continues `parse_binary_of` after its first operand.
+    fn parse_binary_after(
+        &mut self,
+        mut lhs: Expr,
+        min_prec: u8,
+        takes: fn(BinOp) -> bool,
+    ) -> PResult<Expr> {
         while let Some((prec, op)) = self.peek_binary_op() {
-            if prec <= min_prec {
+            if prec <= min_prec || !takes(op) {
                 break;
             }
             self.bump();
-            let rhs = self.parse_binary(prec)?;
+            let rhs = self.parse_binary_of(prec, takes)?;
             let span = lhs.span.to(rhs.span);
             lhs = mk(ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)), span);
         }
         Ok(lhs)
+    }
+
+    /// The value of a prefix `cast(T)` or `xx`. Jai lets the bitwise and shift operators
+    /// that follow it into the value (`cast(float) (x >> 16) & 0xFF` casts the masked
+    /// integer, `cast(u32) byte << 16` shifts the byte), but stops at arithmetic,
+    /// comparison and logical operators (`cast(s64) p - cast(s64) q` subtracts two
+    /// integers). See docs/language/casts-and-conversions.md for the evidence.
+    fn parse_cast_value(&mut self) -> PResult<Expr> {
+        let first = self.parse_unary()?;
+        self.parse_binary_after(first, 0, |op| {
+            matches!(
+                op,
+                BinOp::BitAnd
+                    | BinOp::BitOr
+                    | BinOp::BitXor
+                    | BinOp::Shl
+                    | BinOp::Shr
+                    | BinOp::Rotl
+                    | BinOp::Rotr
+            )
+        })
     }
 
     fn peek_binary_op(&self) -> Option<(u8, BinOp)> {
@@ -148,7 +185,7 @@ impl Parser<'_> {
             return self.postfix_loop(cast, true);
         }
         self.expect(P::RParen, "after the type in 'cast'")?;
-        let value = self.parse_unary()?;
+        let value = self.parse_cast_value()?;
         let span = start.to(value.span);
         Ok(mk(
             ExprKind::Cast {
@@ -176,7 +213,7 @@ impl Parser<'_> {
     fn parse_xx(&mut self) -> PResult<Expr> {
         let start = self.bump();
         let flags = self.parse_cast_flags();
-        let value = self.parse_unary()?;
+        let value = self.parse_cast_value()?;
         let span = start.to(value.span);
         Ok(mk(
             ExprKind::Cast {

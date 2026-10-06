@@ -32,7 +32,7 @@ Dependencies are pinned like projects: jai_parser for Jails; Linalg, Jolt-Jai an
 | [chess-jai](https://github.com/danieltan1517/chess-jai) | ✅ | UI and engine build natively; the engine plays and passes its perft suite |
 | [forbear](https://github.com/gabrielmfern/forbear) | ✅ | Builds natively; the playground app runs |
 | [rexim.github.io](https://github.com/rexim/rexim.github.io) | ✅ | `rss.jai` runs |
-| [ui_builder](https://github.com/kooparse/ui_builder) | ❌ | Stops on `cast(float) (x) & 0xFF` (cast vs `&` precedence) |
+| [ui_builder](https://github.com/kooparse/ui_builder) | ❌ | Demo stops on an `s64` module-parameter constant passed as `u64` (Pixel_Maker `metal.jai:72`) |
 | [Photon](https://github.com/DavidColson/Photon) | ⚠️ | Windows-only |
 | [KodaJai](https://github.com/kujukuju/KodaJai) | ⚠️ | Needs the author's other modules, which are not pinned |
 | [no_api](https://github.com/UnNabbo/no_api) | ⚠️ | Entry point imports a file missing from the repository; Windows/Linux only |
@@ -130,11 +130,15 @@ The exact revisions are pinned in `corpus/upstreams.json`. Notes per project:
     `vendor/freetype.a` with clang first, because otherwise `build.jai` regenerates `bindings-MACOS.jai` inside
     the corpus.
   - rexim.github.io: `rss.jai` runs (`rexim-rss`); it writes `event/<id>.json`, so the case creates `event/`.
-  - ui_builder: gets past `#add_context` in a plain `#if OS == { case }` and spaced `#library` flags, then stops
-    at `src/module.jai:3110`, `(cast(float) (hex >> 16) & 0xFF) / 255.0` ("operator BitAnd is not defined for
-    float32"). jaic binds `cast` tighter than `&`, which other code relies on (`cast(u64) p & MASK`); real Jai
-    apparently reads this line as `cast(float) ((hex >> 16) & 0xFF)`. Minimal repro:
-    `hex: u32 = 0x427b58; r := cast(float) (hex >> 16) & 0xFF;`. Open question, not fixed.
+  - ui_builder: gets past `#add_context` in a plain `#if OS == { case }` and spaced `#library` flags. The
+    `cast` reach (`(cast(float) (hex >> 16) & 0xFF) / 255.0` at `src/module.jai:3110`) is fixed: a prefix cast takes
+    bitwise and shift operators (see [casts-and-conversions.md](../language/casts-and-conversions.md)). Two later
+    stops are fixed too: `.{ 300, -1 } * dpi_scale` as a `Vector2` argument (demo.jai:415) and the redundant
+    `vertex_shader:` marker in `success, vertex_shader:, compile_time := ...` (Pixel_Maker `shader.jai:151`).
+    `jaic check demo.jai` now stops at Pixel_Maker `metal.jai:72`: `CAMetalLayer.setMaximumDrawableCount(swapchain,
+    MAX_FRAME_IN_FLIGHT)` passes the module parameter `MAX_FRAME_IN_FLIGHT := 3` (an `s64` constant, set to 2 by the
+    demo) to an `NSUInteger` parameter ("argument of type s64 does not match parameter type u64"). Whether real Jai
+    converts a typed integer constant that fits is not settled by the evidence yet. Not a sweep case.
   - Photon: Windows-only (`Ico_File` and `Windows_Resources` are imported only for Windows; `-os windows` calls
     `MultiByteToWideChar` at compile time, which needs a Windows host).
   - KodaJai: imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer,

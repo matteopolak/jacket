@@ -62,11 +62,11 @@ main :: () {
             kmovw k1:, ones;
             kortestw k0, k0; setz z; setc c;
         }
-        check("kortestw zero", cast(u64) z << 8 | c, 0x100);
+        check("kortestw zero", (cast(u64) z) << 8 | c, 0x100);
         #asm AVX512F { kmovw k0:, zero; kmovw k1:, ones; kortestw k1, k0; setz z; setc c; }
-        check("kortestw ones", cast(u64) z << 8 | c, 0x001);
+        check("kortestw ones", (cast(u64) z) << 8 | c, 0x001);
         #asm AVX512F { kmovw ka:, a; kmovw kb:, b; ktestw ka, kb; setz z; setc c; }
-        check("ktestw", cast(u64) z << 8 | c, 0);
+        check("ktestw", (cast(u64) z) << 8 | c, 0);
         m8: u8 = 0xff;
         #asm AVX512DQ { kmovb kq:, m8; kmovq rq:, kq; }
         check("kmovb zero-extends", rq, 0xff);
@@ -102,9 +102,9 @@ main :: () {
         }
         e, g, u: u64;
         for 0..15 {
-            if X[it] == Y[it] e |= cast(u64) 1 << it;
-            if X[it] > Y[it] g |= cast(u64) 1 << it;
-            if cast(u32) X[it] < cast(u32) Y[it] u |= cast(u64) 1 << it;
+            if X[it] == Y[it] e |= (cast(u64) 1) << it;
+            if X[it] > Y[it] g |= (cast(u64) 1) << it;
+            if cast(u32) X[it] < cast(u32) Y[it] u |= (cast(u64) 1) << it;
         }
         check("pcmpeqd -> k", eq, e);
         check("pcmpgtd -> k", gt, g);
@@ -122,7 +122,7 @@ main :: () {
             paddd acc &km, zx, zx;
             movdqu32 [po], acc;
         }
-        for 0..15 want[it] = ifx mask & (cast(u64) 1 << it) then X[it] * 2 else Y[it];
+        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then X[it] * 2 else Y[it];
         check_s32("paddd merge", out, want);
         #asm AVX512F {
             movdqu32 zx:, [px]; movdqu32 zy:, [py];
@@ -131,15 +131,15 @@ main :: () {
             paddd acc &*km, zx, zy;
             movdqu32 [po], acc;
         }
-        for 0..15 want[it] = ifx mask & (cast(u64) 1 << it) then X[it] + Y[it] else 0;
+        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then X[it] + Y[it] else 0;
         check_s32("paddd zero", out, want);
         // A masked store only writes the selected lanes.
         for 0..15 out[it] = -1;
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; kmovw km:, mask; movdqu32 [po] &km, zx; }
-        for 0..15 want[it] = ifx mask & (cast(u64) 1 << it) then X[it] else -1;
+        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then X[it] else -1;
         check_s32("masked store", out, want);
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; kmovw km:, mask; blendmps bl: &km, zx, zy; movdqu32 [po], bl; }
-        for 0..15 want[it] = ifx mask & (cast(u64) 1 << it) then Y[it] else X[it];
+        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then Y[it] else X[it];
         check_s32("blendmps", out, want);
     }
 
@@ -147,7 +147,7 @@ main :: () {
     {
         mask: u64 = 0b1000_0100_0010_0101;
         selected: [..] s32;
-        for 0..15 if mask & (cast(u64) 1 << it) array_add(*selected, X[it]);
+        for 0..15 if mask & ((cast(u64) 1) << it) array_add(*selected, X[it]);
         for 0..15 out[it] = 77;
         #asm AVX512F {
             movdqu32 zx:, [px]; movdqu32 zy:, [py];
@@ -171,7 +171,7 @@ main :: () {
         }
         next := 0;
         for 0..15 {
-            if mask & (cast(u64) 1 << it) { want[it] = Y[next]; next += 1; }
+            if mask & ((cast(u64) 1) << it) { want[it] = Y[next]; next += 1; }
             else want[it] = 0;
         }
         check_s32("pexpandd", out, want);
@@ -240,10 +240,10 @@ main :: () {
             pmovd2m kback:, zx;
             kmovw m, kback;
         }
-        for 0..15 want[it] = ifx mask & (cast(u64) 1 << it) then -1 else 0;
+        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then -1 else 0;
         check_s32("pmovm2d", out, want);
         s: u64;
-        for 0..15 if X[it] < 0 s |= cast(u64) 1 << it;
+        for 0..15 if X[it] < 0 s |= (cast(u64) 1) << it;
         check("pmovd2m", m, s);
         t, tn: u64;
         #asm AVX512F {
@@ -254,7 +254,7 @@ main :: () {
             kmovw tn, ktn;
         }
         e: u64;
-        for 0..15 if X[it] & Y[it] e |= cast(u64) 1 << it;
+        for 0..15 if X[it] & Y[it] e |= (cast(u64) 1) << it;
         check("ptestmd", t, e);
         check("ptestnmd", tn, ~e & 0xffff);
         #asm AVX512CD { kmovw kv:, mask; pbroadcastmw2d bm:, kv; movdqu32 [po], bm; }
@@ -325,7 +325,7 @@ main :: () {
             movdqu32 [po], g;
             kmovw left, kg;
         }
-        for 0..15 want[it] = ifx mask & (cast(u64) 1 << it) then table[idx[it]] else Y[it];
+        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then table[idx[it]] else Y[it];
         check_s32("pgatherdd &k", out, want);
         check("pgatherdd clears k", left, 0);
         #asm AVX512F {
@@ -335,7 +335,7 @@ main :: () {
             pscatterdd [pt + vi*4] &ks, zx;
             kmovw left, ks;
         }
-        for 0..15 if mask & (cast(u64) 1 << it) && table[idx[it]] != X[it] { check("pscatterdd", xx it, 99); break; }
+        for 0..15 if mask & ((cast(u64) 1) << it) && table[idx[it]] != X[it] { check("pscatterdd", xx it, 99); break; }
         check("pscatterdd untouched", xx table[31], 1031);
         check("pscatterdd clears k", left, 0);
     }
@@ -351,7 +351,7 @@ main :: () {
         }
         for i: 0..15 {
             m: s32;
-            for j: 0..i-1 if dup[j] == dup[i] m |= cast(s32) 1 << j;
+            for j: 0..i-1 if dup[j] == dup[i] m |= (cast(s32) 1) << j;
             want[i] = m;
         }
         check_s32("pconflictd", out, want);

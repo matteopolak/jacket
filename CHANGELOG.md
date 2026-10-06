@@ -27,10 +27,15 @@
 
 ### Changed
 
+- A prefix `cast(T)` / `xx` now takes a following chain of bitwise and shift operators (`& | ^ << >> <<< >>>`) as part of its value, matching Jai: `cast(float) (hex >> 16) & 0xFF` masks before converting, and `cast(u32) byte << 16` shifts the `u8` before widening. Arithmetic, comparisons and logical operators still apply to the cast's result. Code that relied on the old grouping needs `(cast(T) x) << n`; the stdlib and tests were updated.
 - `jaifmt` output is canonical, like rustfmt: exactly zero or one space between tokens (binary operators always spaced, no alignment runs, one space before trailing comments, `.{ a, b }` literals), one statement per line, non-empty `{ }` bodies expanded onto their own lines, and a `{` or `else` on its own line always joined to its header (including `if s == "a"`, `if x ==` switches and blank lines in between). Output is idempotent; `tests/native/debug-info` is excluded because the debugger test pins line numbers.
 
 ### Fixed
 
+- `pointer & int`, `pointer | int` and `pointer ^ int` are defined and keep the pointer type (`cast(u64) p & MASK`).
+- `cast(bool)` of a number, enum or pointer tests for non-zero; it kept the low byte, so `!cast(bool) 2` was true.
+- Arithmetic on an untyped struct literal passed as an argument takes the parameter's type (`f(.{300, -1} * scale)`).
+- A `name:` marker in a declaration statement (`ok, shader:, time := f()`) declares every name; it treated the unmarked names as existing variables.
 - Uncalled procedures with notes in imported modules are no longer type checked for intercepting metaprograms (only the program's own files are), so Vk-Engine's `Common` module, which has a stale `@PrintLike` procedure, compiles again.
 - A struct member's `#align N` now replaces its natural alignment (it could only raise it), so packed C layouts can be reproduced.
 - `New` of an `#align 64` type (and any default-allocator or `rpmalloc` block of 64 bytes or more, including `realloc` and array growth) is now 64-byte aligned; it was only 16-aligned, so such objects were misaligned intermittently. Larger alignments are not guaranteed for heap blocks.

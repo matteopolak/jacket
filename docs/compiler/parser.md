@@ -39,7 +39,8 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
 | `(-cast,no_check(int) x)` | `has_top_level_comma` ignores a comma between a cast keyword and a cast modifier, so this stays an expression, not a header. |
 | `arrow.to\,` | A `\` after an identifier is a line-joining separator (`ident_with_separators` in the lexer); a trailing one before a non-identifier is dropped. |
 | Return list commas | Inside argument/parameter lists (`in_list`) a comma ends a return type instead of adding a return value. |
-| Mixed declarations | `a=, b := f()` and `a:, b = f()` produce a `Decl` with `existing` set per name. |
+| Mixed declarations | `a=, b := f()` and `a:, b = f()` produce a `Decl` with `existing` set per name. A `name:` marker only matters when the statement is an assignment (`=`); in `ok, shader:, time := f()` every name is declared. |
+| How far `cast(T)` / `xx` reach | `parse_cast_value`: the operand is a unary expression followed by any `& \| ^ << >> <<< >>>` chain (normal precedence among them); arithmetic, comparisons and logical operators apply to the cast's result. See [casts-and-conversions.md](../language/casts-and-conversions.md) for the evidence. The `cast(T, x)` form and `.(T)` are unaffected. |
 
 ## How to change it
 

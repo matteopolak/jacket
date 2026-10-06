@@ -17,11 +17,11 @@ main :: () -> s64 {
     if p.block_allocator.proc != context.allocator.proc return 4;
     if p.current_memblock == null || p.used_memblocks != p.current_memblock return 5;
     if p.bytes_left != 65536 - 8 - 10 return 6;
-    if (cast(u64) a & 7) != 0 return 7;
+    if ((cast(u64) a) & 7) != 0 return 7;
 
     // Next allocation is padded to the alignment.
     b := cast(*u8) get(*p, 8);
-    if (cast(u64) b & 7) != 0 return 8;
+    if ((cast(u64) b) & 7) != 0 return 8;
     if b != a + 16 return 9;
     if p.bytes_left != 65536 - 8 - 10 - 6 - 8 return 10;
 
@@ -30,7 +30,7 @@ main :: () -> s64 {
     q.alignment = 32;
     x := get(*q, 3);
     y := get(*q, 3);
-    if (cast(u64) x & 31) != 0 || (cast(u64) y & 31) != 0 || y == x return 11;
+    if ((cast(u64) x) & 31) != 0 || ((cast(u64) y) & 31) != 0 || y == x return 11;
 
     // Oversized: separate allocation, tracked out of band, current block untouched.
     left := p.bytes_left;
@@ -38,7 +38,7 @@ main :: () -> s64 {
     block := p.current_memblock;
     big := cast(*u8) get(*p, 6554);
     if big == null return 12;
-    if (cast(u64) big & 7) != 0 return 13;
+    if ((cast(u64) big) & 7) != 0 return 13;
     if p.out_of_band_allocations == null return 14;
     if p.bytes_left != left || p.current_pos != pos || p.current_memblock != block return 15;
     for 0..6553 big[it] = 7;

@@ -58,7 +58,7 @@ check_pool_contract :: () -> int {
     used, oversized = P.calculate_used_memory(pool);
     if used != 120 || oversized != 0 return 10;
     large := cast(*u8)P.get(*pool, 128);
-    if !large || !pool.out_of_band_allocations || (cast(u64)large & 7) != 0 return 11;
+    if !large || !pool.out_of_band_allocations || ((cast(u64)large) & 7) != 0 return 11;
     used, oversized = P.calculate_used_memory(pool);
     if used != 120 || oversized != 1 return 12;
     smaller := cast(*u8)allocator.proc(.RESIZE, 8, 16, first, allocator.data);
