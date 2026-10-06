@@ -74,12 +74,29 @@ fn is_deferred(expr: &ast::Expr) -> bool {
         || autocast_arithmetic(expr)
 }
 
-/// `xx a + 1`: arithmetic on an autocast and literals takes the parameter's type.
+/// `xx a + 1`: arithmetic on an autocast and literals takes the parameter's type. Bitwise
+/// operators take any other operand (`xx a1 | h1` with flag constants passed as a `u64`).
 fn autocast_arithmetic(expr: &ast::Expr) -> bool {
-    let E::Binary(ast::BinOp::Add | ast::BinOp::Sub | ast::BinOp::Mul | ast::BinOp::Div, a, b) =
-        &expr.kind
-    else {
-        return false;
+    let (a, b) = match &expr.kind {
+        E::Binary(ast::BinOp::Add | ast::BinOp::Sub | ast::BinOp::Mul | ast::BinOp::Div, a, b) => {
+            (a, b)
+        }
+        E::Binary(ast::BinOp::BitOr | ast::BinOp::BitAnd | ast::BinOp::BitXor, a, b) => {
+            let bare = |e: &ast::Expr| {
+                matches!(
+                    e.kind,
+                    E::Cast {
+                        ty: None,
+                        ..
+                    }
+                )
+            };
+            if bare(a) || bare(b) {
+                return true;
+            }
+            (a, b)
+        }
+        _ => return false,
     };
     let autocast = |e: &ast::Expr| {
         matches!(
