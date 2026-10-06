@@ -98,18 +98,16 @@ jobs:
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=$RUNNER_TEMP/llvm/bin/clang" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> "$GITHUB_ENV"
-      # llvm-config names the static libxml2 the Windows release was built with (`xml2s.lib`),
-      # which it does not ship; only LLVMWindowsManifest (lld, llvm-mt) uses it and jaic links
-      # nothing from there, so an empty library satisfies the linker. The release is built
-      # against the static C runtime (/MT), so jaic must be too, or it crashes at run time.
+      # The Windows release's llvm-config names static libraries the archive lacks (libxml2,
+      # and zstd by an absolute build-machine path llvm-sys cannot parse); prepare.sh supplies
+      # them and an llvm-config front (docs/tools/llvm-setup.md). The release is built against
+      # the static C runtime (/MT), so jaic must be too, or it crashes at run time.
       # The release's clang (on PATH) is the smoke test's linker driver.
-      - name: Stub libxml2 and use the static CRT (Windows)
+      - name: Prepare LLVM and use the static CRT (Windows)
         if: runner.os == 'Windows'
         run: |
           llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
-          echo "" > "$RUNNER_TEMP/empty.c"
-          "$llvm/bin/clang" -c "$RUNNER_TEMP/empty.c" -o "$RUNNER_TEMP/empty.obj"
-          "$llvm/bin/llvm-lib" "/out:$(cygpath -w "$llvm/lib/xml2s.lib")" "$(cygpath -w "$RUNNER_TEMP/empty.obj")"
+          bash tools/windows-llvm/prepare.sh "$llvm"
           # An explicit target keeps the flag off build scripts and proc macros.
           target="${{ matrix.rust_target }}"
           echo "CARGO_BUILD_TARGET=$target" >> "$GITHUB_ENV"

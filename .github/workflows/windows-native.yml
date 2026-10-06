@@ -11,6 +11,7 @@ on:
       - 'prelude/**'
       - 'tests/**'
       - 'tools/windows_cross.py'
+      - 'tools/windows-llvm/**'
       - '.github/workflows/windows-native.yml'
   workflow_dispatch:
 permissions:
@@ -97,12 +98,9 @@ jobs:
           echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
-          # llvm-config names the static libxml2 the release was built with (`xml2s.lib`), which
-          # it does not ship. Only LLVMWindowsManifest (lld, llvm-mt) uses it, and jaic links
-          # nothing from there, so an empty library satisfies the linker.
-          echo "" > "$RUNNER_TEMP/empty.c"
-          "$llvm/bin/clang" -c "$RUNNER_TEMP/empty.c" -o "$RUNNER_TEMP/empty.obj"
-          "$llvm/bin/llvm-lib" "/out:$(cygpath -w "$llvm/lib/xml2s.lib")" "$(cygpath -w "$RUNNER_TEMP/empty.obj")"
+          # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
+          # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
+          bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
       - name: Build and run the Windows test programs natively
@@ -200,10 +198,8 @@ jobs:
           echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
-          # The same missing static libxml2 as the x64 release (see the x64 job).
-          echo "" > "$RUNNER_TEMP/empty.c"
-          "$llvm/bin/clang" -c "$RUNNER_TEMP/empty.c" -o "$RUNNER_TEMP/empty.obj"
-          "$llvm/bin/llvm-lib" "/out:$(cygpath -w "$llvm/lib/xml2s.lib")" "$(cygpath -w "$RUNNER_TEMP/empty.obj")"
+          # As on x64 (see the x64 job).
+          bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
       - name: Build and run the Windows test programs natively
