@@ -211,7 +211,6 @@
   "buildcpp-api.jai": "starts a C compiler process (Process: pipe, fork, exec); the browser has no processes",
   "c-callbacks-interpreted.jai": "native library: C qsort/bsearch calling back into interpreted procedures needs the native libc and callback thunks",
   "c-variadic-foreign-calls.jai": "tests the native C variadic call ABI against the real libc (snprintf, pipe, fcntl); not meaningful without a native libc",
-  "getrect-rh-negative-control.jai": "negative control: fails on every platform by design (a deliberate #assert)",
   "getrect-right-handed-api.jai": "native libraries: Simp (via GetRect) needs FreeType and stb_image (C code)",
   "getrect-right-handed-surface.jai": "native libraries: Simp (via GetRect) needs FreeType and stb_image (C code)",
   "getrect-text-display-compiles.jai": "native windows: imports Window_Creation, which has no browser backend",

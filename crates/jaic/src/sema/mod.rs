@@ -267,6 +267,8 @@ pub struct Compiler {
     pub interp: crate::interp::Interp,
     /// Type_Info globals per type.
     pub type_infos: HashMap<TypeId, ir::GlobalId>,
+    /// Type_Info globals whose descriptor could not be built yet (`type_info_global`).
+    failed_type_infos: HashMap<TypeId, ir::GlobalId>,
     /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
     pub type_info_flags: HashMap<TypeId, u32>,
     /// String literal globals, deduplicated.
@@ -419,6 +421,7 @@ impl Compiler {
             parked_epoch: 0,
             interp: crate::interp::Interp::default(),
             type_infos: HashMap::default(),
+            failed_type_infos: HashMap::default(),
             type_info_flags: HashMap::default(),
             strings: HashMap::default(),
             output: Vec::new(),

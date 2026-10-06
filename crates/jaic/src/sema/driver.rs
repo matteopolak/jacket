@@ -1,8 +1,9 @@
 //! Whole-program compilation: load Preload, Runtime_Support and the main
 //! file, run top-level directives, and lower everything reachable from the
 //! exported entry points.
-use super::scope::Resolved;
+use super::scope::{EntityId, EntityKind, Resolved, ScopeKind};
 use super::*;
+use crate::types::TypeKind;
 use std::path::Path;
 
 /// One input of a program: a file on the import file system or source text.
@@ -200,8 +201,54 @@ impl Compiler {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
         self.placeholders_final = true;
         self.settle()?;
-        if self.lower_reachable_inner(false)? {
+        let lowered = self.lower_reachable_inner(false)?;
+        self.check_declared_structs()?;
+        if lowered {
             self.fill_runtime_info();
+        }
+        Ok(())
+    }
+
+    /// Lay out every top-level struct and union declaration, also those nothing uses.
+    /// Jai type-checks all declarations (dead-code elimination only skips procedure
+    /// bodies), so a member typed by an undefined name is an error even in a struct the
+    /// program never touches; demand-driven checking alone would miss it.
+    /// Polymorphic structs are checked per instance, when one is made.
+    fn check_declared_structs(&mut self) -> Result<()> {
+        let mut index = 0;
+        while index < self.entities.len() {
+            let id = EntityId(index as u32);
+            index += 1;
+            let e = self.entity(id);
+            if !matches!(
+                self.scope(e.scope).kind,
+                ScopeKind::Module | ScopeKind::File | ScopeKind::Root
+            ) {
+                continue;
+            }
+            let EntityKind::Decl {
+                decl, ..
+            } = &e.kind
+            else {
+                continue;
+            };
+            let is_plain_struct = decl.kind == ast::DeclKind::Const
+                && matches!(
+                    decl.value.as_ref().map(|v| &v.kind),
+                    Some(ast::ExprKind::Struct(lit)) if lit.params.is_empty()
+                );
+            if !is_plain_struct {
+                continue;
+            }
+            let span = e.span;
+            if let Resolved::Const {
+                value: Value::Type(t),
+                ..
+            } = self.resolve_entity(id)?
+                && let TypeKind::Struct(s) = self.types.kind(t).clone()
+            {
+                self.layout_struct(s, span)?;
+            }
         }
         Ok(())
     }

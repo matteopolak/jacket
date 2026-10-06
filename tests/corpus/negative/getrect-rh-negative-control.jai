@@ -1,8 +1,8 @@
 Math :: #import "Math";
 #import "Math";
 GETRECT_Y_UP :: true;
-#load "../../stdlib/GetRect_Common/geometry.jai";
-#load "../../stdlib/GetRect_Common/geometry-helpers.jai";
+#load "../../../stdlib/GetRect_Common/geometry.jai";
+#load "../../../stdlib/GetRect_Common/geometry-helpers.jai";
 rectangle_cases :: () -> bool {
     if size_of(Rect)!=16 return false;
     r:=get_rect(x=10,y=20,w=100,h=60);

@@ -57,18 +57,32 @@ impl Compiler {
         let desc = self.type_info_struct_type(ty, span)?;
         let size = self.size_of(desc, span)?;
         let align = self.align_of(desc, span)?;
-        let g = self.program.add_global(ir::Global {
-            name: format!("type_info.{}", self.types.name(ty)),
-            size,
-            align,
-            init: Vec::new(),
-            relocs: Vec::new(),
-            read_only: true,
-            export: None,
-        });
+        // A descriptor whose build failed before keeps its global, so code lowered since
+        // (a self-reference) points at the one that is filled in now.
+        let g = match self.failed_type_infos.remove(&ty) {
+            Some(g) => g,
+            None => self.program.add_global(ir::Global {
+                name: format!("type_info.{}", self.types.name(ty)),
+                size,
+                align,
+                init: Vec::new(),
+                relocs: Vec::new(),
+                read_only: true,
+                export: None,
+            }),
+        };
         // Register first: descriptors may refer to themselves.
         self.type_infos.insert(ty, g);
-        let agg = self.build_type_info(ty, desc, size, span)?;
+        let agg = match self.build_type_info(ty, desc, size, span) {
+            Ok(agg) => agg,
+            Err(e) => {
+                // Unregister it: a later request (a retried body) must build it again and
+                // report the error, not get an empty descriptor from the cache.
+                self.type_infos.remove(&ty);
+                self.failed_type_infos.insert(ty, g);
+                return Err(e);
+            }
+        };
         let global = &mut self.program.globals[g.0 as usize];
         global.init = agg.bytes;
         global.relocs = agg.relocs;

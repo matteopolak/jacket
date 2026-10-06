@@ -955,6 +955,214 @@
       "negative": {
         "check": "#complete switch on Color has no case for .BLUE"
       }
+    },
+    {
+      "id": "undefined-member-type",
+      "source": "negative/undefined-member-type.jai",
+      "sha256": "fbb9dd61880b4db03b6c24783d563c157c1b074a06915875eed59be623a06b52",
+      "suite": "negative",
+      "feature": "struct member typed by an undefined name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Member_Type'"
+      }
+    },
+    {
+      "id": "undefined-member-type-info-only",
+      "source": "negative/undefined-member-type-info-only.jai",
+      "sha256": "49a91d0993232133aef9207362f74fa84d6f3d975c69260ff8cf869fb031da4a",
+      "suite": "negative",
+      "feature": "struct only reached through type_info",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Described'"
+      }
+    },
+    {
+      "id": "undefined-member-size-of-only",
+      "source": "negative/undefined-member-size-of-only.jai",
+      "sha256": "330f5c3fbb458b12d593cdbe96e968750cab30f1b53b251288eebc1ffb70fd8b",
+      "suite": "negative",
+      "feature": "struct only reached through size_of",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Measured'"
+      }
+    },
+    {
+      "id": "undefined-member-pointer-only",
+      "source": "negative/undefined-member-pointer-only.jai",
+      "sha256": "37ed7c21a3c09caf15d283d88caaf4c7cc8dc723bef26129b88ef846f1b32596",
+      "suite": "negative",
+      "feature": "struct only reached through a pointer",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Pointed'"
+      }
+    },
+    {
+      "id": "undefined-member-pointer-type-info",
+      "source": "negative/undefined-member-pointer-type-info.jai",
+      "sha256": "62874fe3d37812288ae2893ed420dadd0541008720e85825596b6d1033c11abe",
+      "suite": "negative",
+      "feature": "struct only reached through type_info of a pointer to it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Behind'"
+      }
+    },
+    {
+      "id": "undefined-member-unused-struct",
+      "source": "negative/undefined-member-unused-struct.jai",
+      "sha256": "c0ce11b75f69863f508af5577688419362a6b8ba0fd47c7cb358a4e1e653c29d",
+      "suite": "negative",
+      "feature": "struct nothing uses",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Unused'"
+      }
+    },
+    {
+      "id": "undefined-member-global-only",
+      "source": "negative/undefined-member-global-only.jai",
+      "sha256": "313ff8f148cb5bca10ed5d6d837482d67b3536152a5d0cfcc0fab310ee0ccc4a",
+      "suite": "negative",
+      "feature": "struct only used as an unused global's type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Stored'"
+      }
+    },
+    {
+      "id": "undefined-union-member-type",
+      "source": "negative/undefined-union-member-type.jai",
+      "sha256": "d286da78c322844e54e9c4db5922999bc599ce517ff10f62d316c1374a4bf841",
+      "suite": "negative",
+      "feature": "union member typed by an undefined name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Union_Member'"
+      }
+    },
+    {
+      "id": "undefined-array-element-type",
+      "source": "negative/undefined-array-element-type.jai",
+      "sha256": "ba8eead255a9808555ccb58b2a8fefe8defcc6a2549eaf2e389a61313b6fbcb4",
+      "suite": "negative",
+      "feature": "fixed array member of an undefined element type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Element'"
+      }
+    },
+    {
+      "id": "undefined-pointer-target-type",
+      "source": "negative/undefined-pointer-target-type.jai",
+      "sha256": "ebda4852ddcfd652a85cff7a1d0a9fd19489c40617fad42f9f9246b5cb5c0870",
+      "suite": "negative",
+      "feature": "pointer member to an undefined type in an unused struct",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Target'"
+      }
+    },
+    {
+      "id": "undefined-poly-struct-member",
+      "source": "negative/undefined-poly-struct-member.jai",
+      "sha256": "369164977a1d09a2fb276eb945deb61dbb01b8d01b625a6a2d2ae0dc3699a297",
+      "suite": "negative",
+      "feature": "polymorphic struct member typed by an undefined name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Poly_Member'"
+      }
+    },
+    {
+      "id": "undefined-poly-struct-param-type",
+      "source": "negative/undefined-poly-struct-param-type.jai",
+      "sha256": "89063d6b426d265594f06d8d77c3bf54ac4b97e3fe24bc0efc5994009de72bfe",
+      "suite": "negative",
+      "feature": "polymorphic struct parameter typed by an undefined name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Param_Type'"
+      }
+    },
+    {
+      "id": "undefined-type-directive-param",
+      "source": "negative/undefined-type-directive-param.jai",
+      "sha256": "880292db083c95fba9273a88975a22d25ceb6346cce34111789b6f804c7ebce0",
+      "suite": "negative",
+      "feature": "#type procedure type with an undefined parameter type, used as a member",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Callback_Arg'"
+      }
+    },
+    {
+      "id": "undefined-proc-type-member",
+      "source": "negative/undefined-proc-type-member.jai",
+      "sha256": "6b2430fa4d8ae4dc6dc424faccfef2fc9589d9a5bb7c9d103722bf2056bf8e6e",
+      "suite": "negative",
+      "feature": "procedure-typed member with an undefined result type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Result'"
+      }
+    },
+    {
+      "id": "undefined-poly-struct-type-info-only",
+      "source": "negative/undefined-poly-struct-type-info-only.jai",
+      "sha256": "43dc4c8301c56690f4c63d2f1ef00e8a3c552a17f00c6e092aace6a5794f18d3",
+      "suite": "negative",
+      "feature": "polymorphic struct instance only reached through type_info",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Poly_Info'"
+      }
+    },
+    {
+      "id": "getrect-rh-negative-control",
+      "source": "negative/getrect-rh-negative-control.jai",
+      "sha256": "9689f6086caa0bcf39655978176b8727670f54cb4804441aac866c0763ed3a45",
+      "suite": "negative",
+      "feature": "getrect-rh-negative-control",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#assert failed"
+      }
     }
   ]
 }

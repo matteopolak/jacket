@@ -21,14 +21,14 @@ The workspace has five crates:
 - `source.rs`, `intern.rs`: files, spans, diagnostics and the global symbol interner.
 - `lexer.rs`: tokens. Keywords are ordinary identifiers; the parser gives them meaning by position. Directives (`#run`) and notes (`@x`) are separate token kinds.
 - `parser/`: recursive descent to `ast.rs`. Types are ordinary expressions. Parsing stops at the first error (no recovery).
-- `sema/`: resolves names on demand, so declarations are checked when something needs them. Files: `scope.rs`/`modules.rs` (imports, `#load`, scopes), `decls.rs`/`procs.rs`/`structs.rs` (declarations), `expr.rs`/`stmt.rs`/`calls.rs` (checking), `consteval.rs` (constants), `typeinfo.rs`/`runtime_info.rs` (reflection), `bake.rs`/`modify.rs` (polymorphism), `lower.rs` (to IR), `driver.rs` (entry points and `Options`).
+- `sema/`: resolves names on demand, so declarations are checked when something needs them (top-level structs are also laid out at the end, used or not; see [sema-polymorphism-and-declarations.md](sema-polymorphism-and-declarations.md)). Files: `scope.rs`/`modules.rs` (imports, `#load`, scopes), `decls.rs`/`procs.rs`/`structs.rs` (declarations), `expr.rs`/`stmt.rs`/`calls.rs` (checking), `consteval.rs` (constants), `typeinfo.rs`/`runtime_info.rs` (reflection), `bake.rs`/`modify.rs` (polymorphism), `lower.rs` (to IR), `driver.rs` (entry points and `Options`).
 - `build.rs`: build workspaces and compiler messages for metaprograms (`#run` programs that call the `Compiler` module).
 - `interp/`: IR interpreter used for `#run`, metaprograms and `jaic run`. Its host abstraction (`Host`, `SandboxHost`) decides which `#foreign` calls exist; the browser uses the sandboxed one. Raw memory access is confined to `interp::memory`.
 - `stdlib/` (independently written standard library) and `prelude/` (runtime type definitions) are plain Jai loaded through the virtual or real filesystem (`sema::FileSystem`).
 
 ## How to change it
 
-Add syntax in `lexer.rs`/`parser/` and `ast.rs` first, with parser tests in `parser/tests.rs`. Then teach `sema/` to check and lower it, and add a program under `tests/stdlib/` or `tests/corpus/` that exits 0 (or a negative case). Run `python3 tools/jaic-sweep.py corpus negative stdlib modules upstream --timeout 900`; only `getrect-rh-negative-control` is expected to fail. Unsupported constructs should produce a diagnostic, never a silent success.
+Add syntax in `lexer.rs`/`parser/` and `ast.rs` first, with parser tests in `parser/tests.rs`. Then teach `sema/` to check and lower it, and add a program under `tests/stdlib/` or `tests/corpus/` that exits 0 (or a negative case). Run `python3 tools/jaic-sweep.py corpus negative stdlib modules upstream --timeout 900`; everything should pass. Unsupported constructs should produce a diagnostic, never a silent success.
 
 ## Configuration
 

@@ -3,7 +3,7 @@
 ## What it is
 
 Notes on the `crates/jaic/src/sema` pieces that handle multi-value declarations, `#this`, polymorphic
-procedure arguments, `#bake_constants`, `#modify`, `#poke_name` and a few operator forms.
+procedure arguments, `#bake_constants`, `#modify`, `#poke_name`, declaration checking and a few operator forms.
 
 ## How it works
 
@@ -128,6 +128,19 @@ procedure arguments, `#bake_constants`, `#modify`, `#poke_name` and a few operat
   define the name at `TYPECHECKED_ALL_WE_CAN`) and is retried at the next settle; `finish_program` sets
   `placeholders_final` and settles once more, so a placeholder never defined is still an error.
 - **`using _ :: struct {...}`** at top level may repeat: each gets a hidden entity name (`__using_N`).
+- **Declared structs are always checked**: sema is demand-driven, so a struct nothing needs would never be
+  laid out. Jai type-checks every declaration (its dead-code elimination only skips *procedure bodies*, and
+  only in modules by default), so after the reachable code is lowered `finish_program` lays out every
+  top-level, non-polymorphic struct and union in every loaded file and module (`check_declared_structs` in
+  `driver.rs`). A member typed by an undefined name (`a: Missing;`, `[4] Missing`, `*Missing`,
+  `(x: Missing) -> s32`) is reported as `unknown identifier` at the member, whether the struct is used, only
+  reached through `*S` / `type_info` / `size_of`, or not used at all. Polymorphic structs are checked per
+  instance, when one is made; structs declared inside procedure bodies are checked with their body. Not
+  covered: unused top-level constants and globals that are not structs (`T :: Missing;`, `g: Missing;`).
+- **Failed type descriptors are not cached**: `type_info_global` registers a descriptor's global before
+  building it (descriptors refer to themselves). If the build fails, the type is unregistered again
+  (`failed_type_infos` keeps the global for the retry), so a retried body reports the layout error instead of
+  getting an empty descriptor (`runtime_size` 0, no members) from the cache.
 
 - Compile-time pointer constants that are plain integers (handle-like values such as `cast(*void) 32512` or `cast(HANDLE) -1`) are frozen as raw values by `freeze_pointer` in `sema/consteval.rs` instead of erroring with "unknown size".
 - **Overloaded / polymorphic procedure arguments**: for a procedure-typed polymorphic parameter
@@ -145,7 +158,10 @@ procedure arguments, `#bake_constants`, `#modify`, `#poke_name` and a few operat
 
 ## How to change it
 
-New operator forms belong next to `try_operator_assign`. New `#modify` features go in `run_modify_block`
+New operator forms belong next to `try_operator_assign`. To check more kinds of unused declarations
+eagerly, extend the filter in `check_declared_structs`; anything it resolves must not depend on code that
+only a metaprogram adds later (it runs after `placeholders_final`). Negative tests for it are the
+`tests/corpus/negative/undefined-*.jai` cases. New `#modify` features go in `run_modify_block`
 (shared by procedures and structs); it builds one IR function per call, so keep per-call cost in mind.
 
 ## Configuration

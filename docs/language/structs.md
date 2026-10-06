@@ -17,7 +17,7 @@ z := Vec.{};         // all defaults: {1, 2, 3}
 
 `check_struct_literal` / `literal_target` handle both forms; `default_initializer` and `init_default` build the zero/default value.
 
-Layout (`layout_struct`) is lazy: a struct is laid out the first time its size or a member offset is needed (`LayoutState`). Fields are aligned naturally and the size is rounded up to the struct alignment:
+Layout (`layout_struct`) is lazy: a struct is laid out the first time its size or a member offset is needed (`LayoutState`). Every top-level struct is still laid out before the program is finished, used or not, so a member of an undefined type is always an error (see [sema-polymorphism-and-declarations.md](../compiler/sema-polymorphism-and-declarations.md)). Fields are aligned naturally and the size is rounded up to the struct alignment:
 
 ```jai
 Mix :: struct { a: u8; b: s64; c: u16; }          // size_of == 24
