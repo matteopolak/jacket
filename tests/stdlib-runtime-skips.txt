@@ -1,0 +1,54 @@
+# stdlib runtime tests (tools/stdlib_runtime.py) that cannot pass on a platform and mode, and why.
+# Each line: <test id> <platforms> <modes> <reason>. Platforms are comma-separated shell patterns
+# (macos-arm64, linux-*, windows-x64-mingw, ...; `*` is every platform), modes are comma-separated
+# (interp, native, wasm-interp, wasm-native) or `*`. A listed test still runs, and the run fails
+# with --strict (CI) when it passes, so remove its line then. See docs/tools/stdlib-runtime-tests.md.
+
+# Bindings_Generator drives libclang through a compiler primitive that only `jaic run` provides.
+bindings-generator-c * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
+bindings-generator-cpp * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
+bindings-generator-declaration-api * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
+
+# Native libraries with no wasm build (tests/stdlib-targets.txt lists the same modules).
+GetRect_LeftHanded/tests/geometry-tests * wasm-interp,wasm-native stb_image has no wasm build
+GetRect_LeftHanded/tests/legacy-compatibility-tests * wasm-interp,wasm-native stb_image has no wasm build
+GetRect_LeftHanded/tests/text-interaction-tests * wasm-interp,wasm-native stb_image has no wasm build
+Simp/tests/readback-tests * wasm-interp,wasm-native stb_image has no wasm build
+Simp/tests/software-render-tests * wasm-interp,wasm-native stb_image has no wasm build
+Sound_Player/tests/offline-mix * wasm-interp,wasm-native stb_vorbis has no wasm build
+
+# WASI builds (`jaic build -os wasm`) link no libm or compiler-rt (docs/native/wasm-target.md).
+asm-evex-decorations * wasm-native needs libm's round, which WASI builds do not link
+asm-simd-extended * wasm-native needs libm's round and fma, which WASI builds do not link
+asm-vector-instructions * wasm-native needs libm's round, which WASI builds do not link
+rules-simd-asm * wasm-native needs libm's round, which WASI builds do not link
+jaic-extensions-long-double * wasm-native binary128 Long_Double needs compiler-rt, which WASI builds do not link
+rules-jaic-extensions * wasm-native binary128 Long_Double needs compiler-rt, which WASI builds do not link
+
+# WASI builds have no threads and no processes; Wasi_Runtime does not provide them.
+autorun-plugin * wasm-native starts a process, which WASI cannot
+threads-cooperative * wasm-native WASI preview 1 has no threads
+threads-group-and-condition * wasm-native WASI preview 1 has no threads
+
+# Windows cross builds from Linux (tools/windows_cross.py): `OS` is the target in compile-time code
+# too, so a `#run` that reads files or the clock takes the Windows path, which the Linux host
+# cannot run. The native Windows builds run the same code on Windows and pass.
+bindings-generator-bitfields windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-bitfields-msvc windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-checks windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-cpp-classes windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-cpp-raw windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-cpp-raw-multi windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-cpp-virtual-bases windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+bindings-generator-parity windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+iprof-instrumented-report windows-*-mingw native compile-time code reads the Windows clock, which the Linux build host cannot run
+rules-compile-time-execution windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
+
+# POSIX-only programs.
+macos-bundler windows-* * imports POSIX
+proc-sentinel-constant windows-* * imports POSIX
+process-stdin-socket windows-* * imports POSIX
+
+# Native libraries not built for Windows (tools/build_native_libs.py builds them for macOS and Linux).
+simp-compat-api windows-* native links FreeType, which is not built for Windows
+Sound_Player/tests/offline-mix windows-* native links stb_vorbis, which is not built for Windows

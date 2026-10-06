@@ -223,6 +223,64 @@ jobs:
           name: vscode-extension
           path: editors/vscode/jai-vscode.vsix
           if-no-files-found: error
+  stdlib-runtime:
+    # Every stdlib runtime test (tests/stdlib and the modules' own tests) under the interpreter,
+    # as a native executable, in the wasm sandbox and as a WASI module, with the platform's
+    # expected skips from tests/stdlib-runtime-skips.txt; then the per-module coverage of public
+    # procedures against tests/stdlib-coverage.txt (docs/tools/stdlib-runtime-tests.md).
+    name: stdlib runtime tests (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: macos-15-intel
+            platform: macos-x64
+          - runner: ubuntu-24.04
+            platform: linux-x64
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Install LLVM 23 and LLD (macOS)
+        if: runner.os == 'macOS'
+        run: tools/install_ci_llvm_macos.sh --lld
+      - name: Install LLVM 23, the window libraries and a virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          bash tools/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+          # X11, GL (Mesa's software renderer) and FreeType for Window_Creation, Input, Simp and
+          # GetRect; Xvfb is the display the window tests open their windows on.
+          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth
+      - name: Build jaic
+        run: cargo build --locked -p jaic-cli
+      - name: Run the stdlib runtime tests
+        run: |
+          ulimit -c 0
+          run=()
+          [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
+          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/debug/jaic --platform ${{ matrix.platform }} \
+            --modes interp,native,wasm-interp,wasm-native --strict --coverage target/stdlib-coverage.txt
+      - name: Stdlib coverage ratchet
+        if: ${{ always() && !cancelled() }}
+        run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }} --check --print-baseline
   sanitizers:
     # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
     # with the interpreter's expectations; any sanitizer report fails the case

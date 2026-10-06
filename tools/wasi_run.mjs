@@ -21,9 +21,19 @@ const wasi = new WASI({
   returnOnExit: true,
 });
 const module = await WebAssembly.compile(readFileSync(path));
+// Name every import WASI does not provide (an `env` import is a C function nothing defined),
+// rather than node's error about the first missing import module.
+const provided = wasi.getImportObject();
+const missing = WebAssembly.Module.imports(module)
+  .filter((i) => !(i.module in provided) || !(i.name in provided[i.module]))
+  .map((i) => `${i.module}.${i.name}`);
+if (missing.length) {
+  console.error(`wasm link error: missing imports ${missing.join(', ')}`);
+  process.exit(127);
+}
 let instance;
 try {
-  instance = await WebAssembly.instantiate(module, wasi.getImportObject());
+  instance = await WebAssembly.instantiate(module, provided);
 } catch (e) {
   if (!(e instanceof WebAssembly.LinkError)) throw e;
   console.error(`wasm link error: ${e.message}`);

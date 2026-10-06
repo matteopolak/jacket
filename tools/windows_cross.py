@@ -8,7 +8,8 @@
 
 `build` compiles every corpus case with a runtime expectation (tests/corpus/manifest.json),
 the self-checking programs in WINDOWS_PROGRAMS, the C struct fixture and, with `--stdlib`,
-every tests/stdlib program that builds for Windows to `dir/<id>.exe` and writes
+the stdlib runtime tests (tools/stdlib_runtime.py, minus the skips tests/stdlib-runtime-skips.txt
+lists for `windows-<cpu>-mingw`, or `windows-<cpu>` with `--host`) to `dir/<id>.exe` and writes
 `dir/expected.json`. `run` executes them and compares exit code and stdout. See
 docs/native/windows.md.
 """
@@ -22,6 +23,8 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+import stdlib_runtime  # noqa: E402
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [
@@ -34,14 +37,15 @@ WINDOWS_PROGRAMS = [
     "tests/stdlib/over-aligned-allocation.jai",
 ]
 
-# tests/stdlib programs not expected to pass as Windows executables, and why.
-NOT_ON_WINDOWS = {
-    "compile-time-globals-reset": "#no_reset globals are not kept by native builds on any OS yet",
-    "simp-window-program": "needs an OpenGL context, which CI runners do not have",
-}
+def skip_platform(args):
+    """The tests/stdlib-runtime-skips.txt platform of these builds: the MSVC host build is
+    `windows-<cpu>`, a MinGW cross build `windows-<cpu>-mingw`."""
+    if args.host:
+        return stdlib_runtime.host_platform()
+    return f"windows-{args.cpu}-mingw"
 
 
-def cases(stdlib):
+def cases(stdlib, platform=None):
     """(id, source, exit code, stdout or None for "not checked", must build)."""
     manifest = json.loads((ROOT / "tests/corpus/manifest.json").read_text())
     for case in manifest["cases"]:
@@ -62,11 +66,13 @@ def cases(stdlib):
         yield path.stem, path, 0, "ok\n", True
     if not stdlib:
         return
-    # The sweep's stdlib tests (`jaic run` must succeed): those that build for Windows must
-    # exit 0 there. Many are host- or compile-time-only and do not build; that is not a failure.
-    for path in sorted((ROOT / "tests/stdlib").glob("*.jai")):
-        if path not in listed and path.stem not in NOT_ON_WINDOWS:
-            yield f"stdlib-{path.stem}", path, 0, None, False
+    # The stdlib runtime tests (tools/stdlib_runtime.py): each must build and exit 0, except
+    # those tests/stdlib-runtime-skips.txt lists for this platform's `native` mode. A program
+    # without `main` did its work at compile time and builds nothing to run.
+    skips = stdlib_runtime.load_skips()
+    for test, path in stdlib_runtime.cases():
+        if path not in listed and not stdlib_runtime.skip_reason(skips, test, platform, "native"):
+            yield f"stdlib-{test.replace('/', '-')}", path, 0, None, True
 
 
 # tests/native/c-structs-by-value: C structs by value both ways across the C ABI, against C
@@ -113,24 +119,33 @@ def build_one(args, source, output):
         )
     except subprocess.TimeoutExpired:
         return "build timed out"
+    # A program without `main`, or whose metaprogram writes no output, did its work at compile time.
+    if result.returncode != 0 and "no exported 'main'" in result.stderr:
+        return COMPILE_TIME_ONLY
     if result.returncode != 0:
         return f"exit {result.returncode}: {result.stderr.strip()}"
     if not output.with_name(output.name + ".exe").exists():
-        return f"no executable written (stdout {result.stdout!r}, stderr {result.stderr!r})"
+        return COMPILE_TIME_ONLY
     return None
+
+
+COMPILE_TIME_ONLY = "compile-time only: no executable to run"
 
 
 def build(args):
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     expected, failures, skipped = {}, [], []
-    all_cases = list(cases(args.stdlib))
+    all_cases = list(cases(args.stdlib, skip_platform(args)))
     # Builds are independent; run several at once (each is mostly single-threaded).
     with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
         errors = list(pool.map(lambda case: build_one(args, case[1], out / case[0]), all_cases))
     for (case_id, source, exit_code, stdout, required), error in zip(all_cases, errors):
+        if error == COMPILE_TIME_ONLY:
+            skipped.append(f"{case_id}: {error}")
+            continue
         if error:
-            (failures if required else skipped).append(f"{case_id}: {error.splitlines()[0]}")
+            (failures if required else skipped).append(f"{case_id}: {error[-3000:]}")
             continue
         # Programs run from their source directory (relative to the checkout), as the sweep does.
         cwd = source.parent.relative_to(ROOT).as_posix()
@@ -151,7 +166,7 @@ def build(args):
                 continue
             expected[case_id] = {"exit_code": 0, "stdout": stdout}
     (out / "expected.json").write_text(json.dumps(expected, indent=2))
-    print(f"built {len(expected)} programs into {out}; {len(skipped)} optional ones do not build")
+    print(f"built {len(expected)} programs into {out}; {len(skipped)} compile-time only or optional ones do not build")
     for line in skipped:
         print(f"not built: {line}")
     for failure in failures:
@@ -201,7 +216,7 @@ def main():
         default="x64",
         help="target CPU when cross-building (arm64 needs llvm-mingw on PATH)",
     )
-    b.add_argument("--stdlib", action="store_true", help="also every tests/stdlib program that builds")
+    b.add_argument("--stdlib", action="store_true", help="also the stdlib runtime tests")
     r = sub.add_parser("run")
     r.add_argument("--dir", required=True)
     args = parser.parse_args()

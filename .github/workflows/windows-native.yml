@@ -107,8 +107,14 @@ jobs:
         run: |
           mkdir -p native-exes
           target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
-          python -u tools/windows_cross.py build --stdlib --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
+          python -u tools/windows_cross.py build --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
+      - name: Stdlib runtime tests (interpreter and native) and coverage
+        # docs/tools/stdlib-runtime-tests.md; skips for windows-x64 in tests/stdlib-runtime-skips.txt.
+        if: success() || failure()
+        run: |
+          python -u tools/stdlib_runtime.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --modes interp,native --strict --coverage target/stdlib-coverage.txt
+          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-x64 --check --print-baseline
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
@@ -206,7 +212,7 @@ jobs:
         run: |
           mkdir -p native-exes
           target/aarch64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
-          python -u tools/windows_cross.py build --stdlib --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
+          python -u tools/windows_cross.py build --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
       - name: Interpreter variadic foreign calls
         if: success() || failure()
@@ -214,6 +220,12 @@ jobs:
           out="$(target/aarch64-pc-windows-msvc/debug/jaic.exe run tests/native/windows/variadic.jai | tr -d '\r')"
           echo "$out"
           test "$out" = ok
+      - name: Stdlib runtime tests (interpreter and native) and coverage
+        # As on x64, with the windows-arm64 skips.
+        if: success() || failure()
+        run: |
+          python -u tools/stdlib_runtime.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --modes interp,native --strict --coverage target/stdlib-coverage.txt
+          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-arm64 --check --print-baseline
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
