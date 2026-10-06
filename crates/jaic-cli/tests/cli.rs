@@ -472,3 +472,48 @@ fn run_and_check_write_no_workspace_output() {
         assert!(written.is_empty(), "{command} wrote {written:?}");
     }
 }
+
+/// `-no_dce` type-checks module bodies nothing calls; by default only the program's own
+/// unreferenced bodies are checked.
+// rules: dce.2 dce.6 dce.8
+#[test]
+fn dead_code_elimination_flag() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-no-dce");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("modules/Stale")).unwrap();
+    std::fs::write(
+        dir.join("modules/Stale/module.jai"),
+        "used :: () -> int { return 1; }\nstale :: () { missing_in_stale_module(); }\n",
+    )
+    .unwrap();
+    let clean = dir.join("clean.jai");
+    std::fs::write(&clean, "#import \"Stale\";\nmain :: () { used(); }\n").unwrap();
+    let dirty = dir.join("dirty.jai");
+    std::fs::write(
+        &dirty,
+        "#import \"Stale\";\nunused :: () { missing_in_program(); }\nmain :: () { used(); }\n",
+    )
+    .unwrap();
+    let check = |source: &Path, extra: &[&str]| {
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(source)
+            .args(extra)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        (
+            output.status.success(),
+            String::from_utf8_lossy(&output.stderr).into_owned(),
+        )
+    };
+    let (ok, stderr) = check(&clean, &[]);
+    assert!(ok, "{stderr}");
+    let (ok, stderr) = check(&clean, &["-no_dce"]);
+    assert!(
+        !ok && stderr.contains("missing_in_stale_module"),
+        "{stderr}"
+    );
+    let (ok, stderr) = check(&dirty, &[]);
+    assert!(!ok && stderr.contains("missing_in_program"), "{stderr}");
+}

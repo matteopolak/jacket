@@ -1,7 +1,9 @@
 //! `jaic` command line: `jaic <run|check|build> <file.jai> [-I dir]... [-o out]`.
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
-use jaic::sema::{Compiler, FileSystem, NativeFs, Options, ProgramSource, TargetCpu, TargetOs};
+use jaic::sema::{
+    Compiler, DeadCode, FileSystem, NativeFs, Options, ProgramSource, TargetCpu, TargetOs,
+};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -95,6 +97,9 @@ fn usage() -> ExitCode {
     );
     eprintln!("       --timings (any command): wall time per phase on stderr");
     eprintln!(
+        "       -no_dce (any command): type-check unreferenced module code too (dead_code_elimination = .NONE)"
+    );
+    eprintln!(
         "       JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>: stop with exit status {} once that much is allocated",
         jaic::memory_limit::EXIT_CODE
     );
@@ -138,6 +143,9 @@ struct Cli {
     timings: bool,
     /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for `build`.
     sanitize: Vec<String>,
+    /// `-no_dce`: type-check every declaration, modules included
+    /// (`Build_Options.dead_code_elimination = .NONE`).
+    no_dce: bool,
 }
 
 impl Cli {
@@ -242,6 +250,7 @@ fn parse(args: &[String]) -> Option<Cli> {
         plugin_options: Vec::new(),
         timings: false,
         sanitize: Vec::new(),
+        no_dce: false,
     };
     let mut rest = args[2..].iter();
     while let Some(a) = rest.next() {
@@ -281,6 +290,7 @@ fn parse(args: &[String]) -> Option<Cli> {
             }
             "-target" | "--target" => cli.target = Some(rest.next()?.clone()),
             "--timings" => cli.timings = true,
+            "-no_dce" => cli.no_dce = true,
             "-o" if command == Command::Build => cli.output = Some(PathBuf::from(rest.next()?)),
             "--emit-ir" if command == Command::Build => {
                 cli.emit_ir = Some(PathBuf::from(rest.next()?))
@@ -373,6 +383,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     }
     if let Some(cpu) = cli.cpu {
         options.cpu = cpu;
+    }
+    if cli.no_dce {
+        options.dead_code = DeadCode::None;
     }
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
