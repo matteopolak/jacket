@@ -2,12 +2,9 @@
 
 ## What it is
 
-Support for Jai's `#asm { ... }` inline assembly in the new compiler core (`crates/jaic`). jaic never emits machine
-code for it: each x64 instruction is parsed into an AST and lowered to ordinary IR operations on the Jai variables used
-as operands. A block therefore behaves identically in the interpreter (`#run`, compile-time), the browser (wasm) and
-the LLVM backend, on any host CPU (an arm64 Mac runs x64 `#asm` correctly). General-purpose, BMI/ADX, string,
-division, SSE through AVX2, FMA, AES/PCLMUL and common AVX-512 instructions, including op-mask (`k`) registers, are
-supported; anything else is rejected with an error naming the instruction.
+Jai's `#asm { ... }` inline assembly. jaic never emits machine code for it: each x64 instruction is parsed into an AST and lowered to ordinary IR operations on the Jai variables used as operands. A block therefore behaves the same in the interpreter, the browser and the LLVM backend, on any host CPU; an arm64 Mac runs x64 `#asm` correctly. General-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AES/PCLMUL and common AVX-512 instructions, including op-mask (`k`) registers, are supported. Anything else is rejected with an error naming the instruction.
+
+The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page is the reference.
 
 ## How it works
 
@@ -17,7 +14,7 @@ supported; anything else is rejected with an error naming the instruction.
   memory operand `[base + index*scale +/- disp]` (each term a unary expression, so `*x` and `(size_of(u64))` work) or
   an inline declaration (`tmp:`, `tmp: gpr === 15`). `===` lexes as `==` `=` and is recognised by adjacency.
 - **Lowering** is split by instruction family. `asm_inst` in `sema/asm.rs` tries, in order:
-  1. `lookup_op` (`sema/asm.rs`): the original integer core (mov, ALU, shifts, bit ops, setcc/cmovcc, atomics).
+  1. `lookup_op` (`sema/asm.rs`): the integer core (mov, ALU, shifts, bit ops, setcc/cmovcc, atomics).
   2. `asm_scalar_inst` (`sema/asm/scalar.rs`): division, widening, double shifts, BMI/ADX, CRC32, string
      instructions, `cmpxchg8b/16b`, flags transfer, hints.
   3. `asm_mask_inst` (`sema/asm/mask.rs`): the `k*` op-mask instructions.
@@ -28,8 +25,8 @@ supported; anything else is rejected with an error naming the instruction.
   bytes), `vec` (64 bytes; `xmm/ymm/zmm` by width), `str` (MMX, a `vec` used at 8 bytes), `omr`/`kmask` (an 8-byte
   op-mask). An inline declaration `name:` takes its class from the position: a gpr in scalar instructions, a `vec` in
   vector ones, an `omr` in `k*` instructions and as the destination of a compare-into-mask. Registers are not
-  modeled: `===` pins are parsed and ignored. Note that a declared register is only valid inside the block that
-  declares it; reload values in each block.
+  modelled: `===` pins are parsed and ignored. A declared register's value only means something inside the block
+  that declares it; reload values in each block.
 - **Operation size**: explicit suffix (`.b/.w/.d/.q`, `.8/.16/.32/.64`, or `?T` / `?BITS`), else the size of the first
   Jai variable operand, else 64 bits. 32-bit writes zero-extend into a 64-bit destination; 8/16-bit writes merge.
 - **Implicit registers are explicit operands**, in Jai's order:

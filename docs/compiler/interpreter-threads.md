@@ -5,9 +5,9 @@
 Programs that use `Thread` (`pthread_create`, mutexes, condition variables, `sleep`) run in the
 interpreter on a cooperative scheduler. There are two implementations, chosen by `Host::cooperative_threads()`:
 
-- native `jaic run` (this page, first half): several OS threads exist, but only the one holding the
-  "baton" executes interpreted code;
-- the sandbox host (browser, `jaic run -os wasm`): no OS threads; see "Inline threads" below.
+- native `jaic run`: several OS threads exist, but only the one holding the "baton" executes
+  interpreted code;
+- the sandbox host (browser, `jaic run -os wasm`): no OS threads; see [inline threads](#inline-threads-sandbox-host-browser).
 
 ## How it works
 
@@ -23,9 +23,9 @@ interpreter on a cooperative scheduler. There are two implementations, chosen by
   scheduler wakes one with a deadlock error.
 - Output order of racing threads is deterministic apart from sleep timing, but differs from a real
   run.
-- The `compare_and_swap` intrinsic takes a 4th argument, the operand width in bytes
-  (`emit_intrinsic` in `sema/calls.rs`, `asm.rs`). Without it a `bool` field was compared as 8
-  bytes and `atomic_swap` spun forever.
+- The `compare_and_swap` intrinsic carries the operand width in bytes as a 4th argument
+  (`emit_intrinsic` in `sema/calls.rs`, `asm.rs`). Comparing a `bool` field as 8 bytes would
+  never match and `atomic_swap` would spin forever.
 
 ## Inline threads (sandbox host, browser)
 

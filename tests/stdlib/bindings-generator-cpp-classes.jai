@@ -158,6 +158,9 @@ extern "C" int shapes_format(char* out, int capacity, const char* fmt, ...) {
 END;
 
 build_and_generate :: () -> string {
+    // The WASM target (the browser playground) starts no processes and loads no native
+    // libraries, so there is no compiler or libclang to call: skip like a host without them.
+    #if OS == .WASM return "";
     dir := "/tmp/jai_bindgen_cpp_classes";
     make_directory_if_it_does_not_exist(dir);
     header_path := tprint("%/shapes.h", dir);

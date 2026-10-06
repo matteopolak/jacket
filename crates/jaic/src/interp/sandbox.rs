@@ -850,6 +850,20 @@ impl Host for SandboxHost {
                     self.set_errno(ENOENT)
                 }
             }
+            // The virtual file system keeps no permission bits (every file is readable and
+            // writable), so changing them succeeds on any path that exists.
+            "chmod" => {
+                let path = self.path(arg(0));
+                if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
+                    0
+                } else {
+                    self.set_errno(ENOENT)
+                }
+            }
+            "fchmod" => match self.fds.contains_key(&(arg(0) as i32 as i64)) {
+                true => 0,
+                false => self.set_errno(EBADF),
+            },
             "stat" | "lstat" => {
                 let path = self.path(arg(0));
                 let result = self.fill_stat(&path, arg(1)).map(|_| 0);

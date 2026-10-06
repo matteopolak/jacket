@@ -58,6 +58,9 @@ EXPECTED_SIZES :: int.[12, 8, 8, 8, 24, 4, 4];
 STRUCT_NAMES :: string.["Mixed", "SameType", "Zero", "Tail", "Wide", "Shorts", "Signs"];
 
 build_and_generate :: () -> string {
+    // The WASM target (the browser playground) starts no processes and loads no native
+    // libraries, so there is no compiler or libclang to call: skip like a host without them.
+    #if OS == .WASM return "";
     dir := "/tmp/jai_bindgen_bitfields_msvc";
     make_directory_if_it_does_not_exist(dir);
     header_path := tprint("%/msbits.h", dir);

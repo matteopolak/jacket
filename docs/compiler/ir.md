@@ -2,30 +2,40 @@
 
 ## What it is
 
-`crates/jaic/src/ir.rs` defines the single IR that `sema/lower.rs` produces and that both the interpreter (`interp/`) and the LLVM backend (`crates/jaic-llvm`) consume. A whole compilation is one `ir::Program`.
+`crates/jaic/src/ir.rs` defines the one IR that `sema/lower.rs` produces and both the interpreter (`interp/`) and the LLVM backend (`crates/jaic-llvm`) consume. A whole compilation is one `ir::Program`.
 
 ## How it works
 
-Values are scalars in virtual registers (`Val`, class `Ty`: `I8 I16 I32 I64 F32 F64 Ptr`; bools are `I8`), each defined once. Every aggregate lives in memory: locals are stack `Slot`s (mutable scalars too, so there are no phi nodes; LLVM's mem2reg recovers SSA), and aggregate parameters and results are passed as pointers.
+Values are scalars in virtual registers (`Val`, class `Ty`: `I8 I16 I32 I64 F32 F64 Ptr`; bools are `I8`), each defined once. Aggregates always live in memory. Locals, including mutable scalars, are stack `Slot`s, so there are no phi nodes; LLVM's mem2reg recovers SSA. Aggregate parameters and results are passed by pointer.
 
-A `Func` is a list of `Block`s, each a list of `Inst` ending in one `Term` (`Jump`, `Branch`, `Switch`, `Ret`, `Unreachable`). Instructions cover constants, `Bin`/`Un`/`Cmp`/`Conv`, address-of (`SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr`), `Load`/`Store`, `PtrAdd`, `Copy`/`Zero`, `Call` (`Callee::Func`, `Foreign` or `Indirect`), `Intrinsic` (memcpy, bounds check, math, `CompilerWrite`, `IsCompileTime`, ...) and `Loc` markers for debug info and runtime error positions (`Loc::scope` indexes the function's debug scopes; always 0 without debug info).
+A `Func` is a list of `Block`s, each a list of `Inst` ending in one `Term` (`Jump`, `Branch`, `Switch`, `Ret`, `Unreachable`). Instructions cover constants, `Bin`/`Un`/`Cmp`/`Conv`, addresses (`SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr`), `Load`/`Store`, `PtrAdd`, `Copy`/`Zero`, `Call` (`Callee::Func`, `Foreign` or `Indirect`), `Intrinsic` (memcpy, bounds check, math, `CompilerWrite`, `IsCompileTime`, ...), and `Loc` markers for debug info and runtime error positions. `Loc::scope` indexes the function's debug scopes and is 0 without debug info.
 
-Calling convention `Conv::Jai`: optional leading context pointer, then each parameter (aggregates by pointer to a caller-owned copy), then one out-pointer per aggregate result; scalar results return directly. `Conv::C` follows the platform C ABI; `Sig::c_abi` (`CAbi`, `AggLayout`) describes by-value structs, and `c_varargs`/`c_fixed` mark C variadic calls.
+Calling conventions:
 
-`Program` holds `funcs` (lowered on demand, so entries may be `None` until reachable), `globals` (initial bytes plus `Reloc`s for pointer slots), `foreigns`, `libraries`, `reset_globals` (user globals whose compile-time state is discarded at run time unless `#no_reset`), `file_paths` for stack traces and debug info, `stack_trace_offset` (the `stack_trace` field's offset in `Context`), and `debug_types`/`debug_globals` for native debug info. A `Func` may carry a boxed `FuncDebug` side table (variables and lexical scopes) when the program is built with debug info; see [native debug information](../native/debug-info.md). Type descriptors and `__runtime_info` are ordinary globals.
+- `Conv::Jai`: optional context pointer, then each parameter (aggregates as a pointer to a caller-owned copy), then one out-pointer per aggregate result. Scalar results return directly.
+- `Conv::C`: the platform C ABI. `Sig::c_abi` (`CAbi`, `AggLayout`) describes by-value structs; `c_varargs`/`c_fixed` mark variadic calls. See [C ABI](../native/c-abi.md).
 
-`Builder` is the construction API used by lowering (`new_block`, `slot`, `iconst`, `bin`, `call`, `finish`, ...).
+`Program` holds:
+
+- `funcs`, lowered on demand, so an entry is `None` until reachable;
+- `globals`: initial bytes plus `Reloc`s for pointer slots. Type descriptors and `__runtime_info` are ordinary globals;
+- `foreigns`, `libraries`;
+- `reset_globals`: user globals whose compile-time state is discarded before `main` unless `#no_reset`;
+- `file_paths`, `stack_trace_offset` (the `stack_trace` field's offset in `Context`) for stack traces;
+- `debug_types`, `debug_globals`, and per-function `FuncDebug` side tables for [native debug info](../native/debug-info.md).
+
+`Builder` is the construction API lowering uses (`new_block`, `slot`, `iconst`, `bin`, `call`, `finish`, ...).
 
 ## How to change it
 
-- New instruction or intrinsic: add the variant in `ir.rs`, lower it in `sema/lower.rs` (or wherever the construct is checked), then implement it in both `interp/mod.rs` and `crates/jaic-llvm/src/lower.rs`. A backend that misses a variant fails to compile, which is the point.
-- Keep aggregates in memory; introducing aggregate-valued registers would break both backends and the C ABI handling.
-- `jaic build file.jai --emit-ir out.ll` writes the LLVM IR produced from this program, which is the quickest way to inspect lowering results.
+- New instruction or intrinsic: add the variant in `ir.rs`, emit it from sema, and implement it in `interp/mod.rs` and `crates/jaic-llvm/src/lower.rs`. A backend that misses a variant fails to compile, which is the point.
+- Keep aggregates in memory. Aggregate-valued registers would break both backends and the C ABI handling.
+- `jaic build file.jai --emit-ir out.ll` writes the LLVM IR, the quickest way to inspect lowering.
 
 ## Configuration
 
-None for the IR itself. Stack traces and bounds checks are decided at lowering time by `Options::stack_trace` and `Options::array_bounds_check`.
+`Options::stack_trace` and `Options::array_bounds_check` decide at lowering time whether stack-trace bookkeeping and bounds checks are emitted.
 
 ## Dependencies
 
-Consumed by `crates/jaic/src/interp` and `crates/jaic-llvm` (`emit_object(&Program, ...)`); produced by `crates/jaic/src/sema`.
+Produced by `crates/jaic/src/sema`; consumed by `crates/jaic/src/interp` and `crates/jaic-llvm` (`emit_object(&Program, ...)`).

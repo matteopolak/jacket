@@ -2,7 +2,7 @@
 
 ## What it is
 
-How jaic groups an expression with several operators. Jai's table is not C's: the bitwise and shift operators bind tighter than `*`, they share one level, and `%` sits between `*`/`/` and `+`/`-`. The table below was reconstructed from evidence (recorded output of the real compiler, code that only works one way, the reference CHANGELOG), because jaic has no access to the real compiler.
+How jaic groups an expression with several operators. Jai's table is not C's: the bitwise and shift operators share one level that binds tighter than `*`, and `%` sits between `*`/`/` and `+`/`-`. There is no published specification, so the table was reconstructed from evidence, listed below.
 
 ## How it works
 
@@ -22,53 +22,47 @@ Tightest first. Every binary level is left associative (`8 / 2 / 2` is 2, `1 << 
 | and | `&&` | |
 | or | `\|\|` | `a \|\| b && c` is `a \|\| (b && c)` |
 
-A prefix cast is a unary operator whose operand runs through the bitwise level: `cast(float) (hex >> 16) & 0xFF` casts the masked integer, while `cast(s64) p - cast(s64) q` subtracts two integers. Details in [casts-and-conversions.md](casts-and-conversions.md).
+A prefix cast's operand runs through the bitwise level; see [casts and conversions](casts-and-conversions.md).
 
-Write parentheses when combining a shift with `|` the C way: `(a << 8) | b` is needed, `a << 8 | b` happens to work only because the shift comes first, and `b | a << 8` means `(b | a) << 8`.
+Write shifts combined with `|` with parentheses: `(a << 8) | b`. `a << 8 | b` happens to work because the shift comes first, but `b | a << 8` means `(b | a) << 8`.
 
 ### Evidence
 
-Sources: the recorded runtime output at the bottom of open-jai's `utils/stress.jai` (produced by the real compiler: its `expect` comments are wrong where the output disagrees with C), the pinned corpus (`corpus/upstream`), and the public source files's modules, examples and CHANGELOG. Sites were found by parsing the whole corpus under two candidate tables and listing every expression that groups differently (the counts are distinct source lines; copies of the same file are counted once).
+The strongest source is the recorded runtime output at the bottom of open-jai's `utils/stress.jai`, produced by Jai (its `expect` comments are wrong where they disagree with the output). The rest comes from code in the pinned corpus and the public source files that only type-checks or makes sense one way, and from the official changelog.
 
-| Relation | Evidence | Against |
-| --- | --- | --- |
-| shifts above `+` | recorded `1 << 2 + 3 == 7`, `8 >> 1 + 1 == 5` (2) | none |
-| shifts above `*` | recorded `1 << 2 * 3 == 12`, `1 + 2 * 3 << 1 == 13` (2) | none |
-| `&` `\|` `^` above `*` and `+` | a prefix cast takes `&` into its value (ui_builder 1, jai-utils 4, about 20 reference allocator lines) and `xx` takes `&` and `\|` (2), but a cast stops at `*` (reference invaders 1) and `+` (CHANGELOG the language version), so `&` binds tighter than both; `\|` and `^` share `&`'s level (next rows); AST_Utils `(n * s * 53 / count) & s + a` (3, intent) | none |
-| `&` not above `\|` | recorded `1 \| 2 & 4 == 0` (1); chess-jai `get_queen(..) \| get_rook(..) & ep_rank` (1, filters both to the rank) | none |
-| shifts not above `\|` | reference `Window_Creation/windows.jai` notes that `(b << 16) \| (g << 8) \| r` needs its parentheses (1) | Vk-Engine `gizmo.jai` `1 << axis0 \| 1 << axis1` (2); reference `Socket/generated_*.jai` `TCPOPT_NOP<<24\|...` (4, emitted mechanically from C headers) |
-| shifts not below `\|` | reference `Basic/Int128.jai` `a.high << x \| ...` (3), `string_to_float.jai` (1), `d3d12` (1); uniform `id << 1 \| 1` (1) | none |
-| `%` below `*` | recorded `10 % 3 * 2 == 4` (1) | none |
-| `%` above `+` `-` | 29 lines: focus and Simp tab stops (`tab_size - col % tab_size`, 8), Photon (3), chess-jai (4), reference `md5.jai` padding, `Bindings_Generator`, allocator tests (5), KodaJai, VR example; stress.jai `reverse_int` and two Caesar ciphers with recorded output (5) | none |
-| `*` and `/` one level | 23 lines: `(n + 7) / 8 * 8`, `PI / 180.0 * 72.0`, raymath remap, KodaJai geometry | none |
-| bitwise above comparisons | recorded `0x0F & 0x33 == 0x03` is true (1) | none |
-| `&&` above `\|\|` | about 20 distinct expressions (focus character classes, Jails, jai_parser, uniform, reference `Apollo_Time`, `Debug`, `GetRect`, `POSIX_old`, `rpmalloc`) | none |
-| prefix above bitwise | CHANGELOG 0.0.081 (`~a & b` is `(~a) & b`, same level as unary `-`); jai_parser `(word - ONES) & ~word & HIGH` (1); chess-jai `& ~occupied` (2); reference Int128 `-shift & 63`, `-shift >> 63` (2) | none |
-| postfix above prefix | CHANGELOG (`-Thing.{5}` is `-(Thing.{5})`); `*a.b` throughout | none |
-| left associativity | recorded `8 / 2 / 2`, `100 - 50 - 25`, `100 / 5 / 2`, `1 << 1 << 2` (4) | none |
+| Relation | Evidence |
+| --- | --- |
+| shifts above `+` and `*` | recorded `1 << 2 + 3 == 7`, `8 >> 1 + 1 == 5`, `1 << 2 * 3 == 12`, `1 + 2 * 3 << 1 == 13` |
+| `&` `\|` `^` above `*` and `+` | a prefix cast absorbs `&` and `\|` (ui_builder, jai-utils, allocator pointer masks) but stops at `*` and `+` (the the language version changelog) |
+| `&` and `\|` on one level | recorded `1 \| 2 & 4 == 0`; chess-jai `get_queen(..) \| get_rook(..) & ep_rank` filters both to the rank |
+| shifts on the same level as `\|` | `Window_Creation` notes that `(b << 16) \| (g << 8) \| r` needs its parentheses; `Int128` writes `a.high << x \| ...` |
+| `%` below `*`, above `+` `-` | recorded `10 % 3 * 2 == 4`; tab stops (`tab_size - col % tab_size`) in focus and Simp; recorded output of stress.jai's `reverse_int` and Caesar ciphers |
+| `*` and `/` on one level | `(n + 7) / 8 * 8`, `PI / 180.0 * 72.0` |
+| bitwise above comparisons | recorded `0x0F & 0x33 == 0x03` is true |
+| `&&` above `\|\|` | many character-class tests across the corpus |
+| prefix above bitwise | 0.0.081 changelog (`~a & b` is `(~a) & b`); `(word - ONES) & ~word & HIGH` |
+| postfix above prefix | changelog (`-Thing.{5}` is `-(Thing.{5})`); `*a.b` everywhere |
+| left associativity | recorded `8 / 2 / 2`, `100 - 50 - 25`, `1 << 1 << 2` |
 
-Not decided by evidence, kept as before: `==`/`!=` one level below `<`/`<=`/`>`/`>=` (no corpus expression mixes them unparenthesized), `%` against `/` (follows from `%` below `*` with `*` and `/` on one level, but no direct example), the rotations `<<<`/`>>>` (grouped with the shifts), and `!` against the bitwise operators (grouped with the other prefix operators).
+Not settled by evidence, kept as is: `==`/`!=` below the relational operators (no code mixes them unparenthesized), `%` against `/`, the rotations (grouped with shifts), and `!` against bitwise (grouped with prefix).
 
-The Vk-Engine gizmo lines are the only real code that reads better with C's grouping. Under the table above they compute `((1 << axis0) | 1) << axis1`; that would be an upstream bug in a keyboard-only gizmo path, which is weaker evidence than the reference comment and the recorded `1 | 2 & 4`.
+The only real code that reads better with C's grouping is Vk-Engine's `gizmo.jai` `1 << axis0 | 1 << axis1`, which under this table computes `((1 << axis0) | 1) << axis1`. It sits on a keyboard-only path and is most likely an upstream bug.
 
 ## How to change it
 
-The table is `binary_op` in `crates/jaic/src/parser/expr.rs`; `CAST_PREC` is the level of a prefix cast (`parse_cast_value` parses the cast's operand with it) and `BITWISE_PREC` the shared bitwise level. Changing a level changes the meaning of existing code silently, so:
+The table is `binary_op` in `parser/expr.rs`; `BITWISE_PREC` is the shared bitwise level and `CAST_PREC` the prefix cast level. Changing a level silently changes the meaning of existing code, so:
 
-1. Parse the whole tree twice, old and new table, and list every expression whose binary nodes differ. A throwaway version of that tool (a thread-local table override in `expr.rs` plus a small binary that walks directories and compares the recorded `(span, op)` lists) found the sites listed here; it is not kept in the repository.
-2. Run it over `stdlib/`, `tests/`, `examples/`, `tools/`, `benchmarks/`, and parenthesize each site to keep its intended meaning.
+1. Parse everything twice, with the old and new tables, and list every expression whose tree differs. (A throwaway tool did this: a thread-local table override in `expr.rs` plus a binary comparing `(span, op)` lists. It is not in the repo.)
+2. Run it over `stdlib/`, `tests/`, `examples/`, `tools/`, `benchmarks/`, and parenthesize each site to keep its meaning.
 3. Update the parser tests (`binary_precedence*`, `prefix_operators_bind_tighter_than_binary_ones`) and `tests/stdlib/operator-precedence.jai`.
 
-Our own code was rewritten once already: 26 lines in 13 files (UTF-8 encoders in `Jai_Lexer/scanner.jai` and `Keymap`, byte assembly in `Socket` and `executable_formats`, `%` before `/` or `*` in `Apollo_Time`, `platform-time.jai` and `Process/windows.jai`, the generated `Socket` constants, a `jaifmt` spacing case and `tests/stdlib/asm-simd-extended.jai`).
+Two stdlib modules keep their own copy of the table and must change with it:
 
-Two stdlib modules hold their own copy of the table and must change with it: `Program_Print` (`pp_precedence`, `PP_CAST_LEVEL`) decides where printed code needs parentheses, and `Bindings_Generator` (`jai_binding` in `convert.jai`) parenthesizes C macro bodies wherever Jai would group them differently from C.
+- `Program_Print` (`pp_precedence`, `PP_CAST_LEVEL`) decides where printed code needs parentheses.
+- `Bindings_Generator` (`jai_binding` in `convert.jai`) parenthesizes C macro bodies where Jai groups differently from C.
 
-jaifmt does not reason about precedence: it never adds or removes tokens and spaces every binary operator the same way, so it needs no change when the table does.
-
-## Configuration
-
-None.
+jaifmt never adds or removes tokens and spaces all binary operators alike, so it needs no change.
 
 ## Dependencies
 
-`crates/jaic/src/parser/expr.rs` (`binary_op`, `parse_binary`, `parse_cast_value`, `parse_unary`); the copies in `stdlib/Program_Print/module.jai` and `stdlib/Bindings_Generator/convert.jai`. Tests: `crates/jaic/src/parser/tests.rs`, `tests/stdlib/operator-precedence.jai`, `tests/stdlib/cast-operand-precedence.jai`, `tests/stdlib/program-print-expressions.jai`, `tests/stdlib/bindings-generator-c.jai`.
+`parser/expr.rs` (`binary_op`, `parse_binary`, `parse_cast_value`, `parse_unary`), `stdlib/Program_Print/module.jai`, `stdlib/Bindings_Generator/convert.jai`. Tests: `crates/jaic/src/parser/tests.rs`, `tests/stdlib/operator-precedence.jai`, `cast-operand-precedence.jai`, `program-print-expressions.jai`, `bindings-generator-c.jai`.

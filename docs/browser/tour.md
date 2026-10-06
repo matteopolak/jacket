@@ -2,7 +2,7 @@
 
 ## What it is
 
-`examples/tour/` is a multi-file Jai program that walks through most of the language, one topic per file, with friendly comments. It is the workspace the hosted playground (https://matteopolak.com/playground/jai) opens with, and it ships in the browser bundle as `tour/` plus a `tour.json` index, so the tour is always versioned and tested with the compiler that runs it.
+`examples/tour/` is a multi-file Jai program that walks through most of the language, one topic per file. The hosted playground (https://matteopolak.com/playground/jai) opens it as the default workspace. It ships in the browser bundle as `tour/` plus a `tour.json` index, so it is versioned and tested with the compiler that runs it.
 
 | File | Shows |
 | --- | --- |
@@ -32,16 +32,15 @@
   `package_browser_release.py` inventories them like every other asset (`tour.json` and `tour/main.jai` are required), and `check_browser_release.mjs` checks the index matches the folder exactly, then runs the **staged** tour in the staged engine.
 - **Tests.** `tools/jaic-sweep.py examples` runs the tour natively (`jaic run main.jai -os wasm`) and checks the key lines in `stdout_contains`; `tools/check_scripting_wasm.mjs` and `check_browser_release.mjs` run it in the wasm engine under the case's `budget` (200,000,000 basic blocks, the playground's limit) via `tools/examples_wasm.mjs`.
 - **Portfolio side.** `src/lib/jai/starter.ts::loadStarter` fetches `/jai/<rev>/tour.json`, then every listed file from `/jai/<rev>/tour/`, adds the default `jaifmt.toml`, and opens `main.jai` and `tour.md` in tabs. A release without a tour (or any fetch or validation failure) falls back to the built-in two-file starter. `scripts/sync-jai-web.ts` copies the tour for `JAI_WEB_LOCAL` builds; released bundles are extracted whole.
-- **Cost.** About 0.35-0.45 s per run in Node with the release wasm (most of it compiling the tour, the stdlib and the metaprogram's second workspace), about 1 s for the first auto-run in a browser tab.
 
 ## How to change it
 
 - Add a stop: write `examples/tour/<topic>/<file>.jai` with a `tour_<topic> :: ()` procedure, `#load` it in `main.jai` and add `.{ "Title", tour_<topic> }` to `stops`. Mention it in `tour.md`.
-- All files share one global scope, so give helpers distinct names (`scale` already exists in `Math`, for example, which made `#bake_arguments scale(...)` ambiguous).
-- Keep it browser-safe: no processes, sockets, windows or native `#foreign` libraries (see the exclusion reasons in `tools/playground_stdlib_expected.json`). Keep runtime small: auto-run recompiles and reruns on every edit.
+- All files share one global scope, so give helpers distinct names. A helper named `scale`, for example, collides with `Math`'s and makes `#bake_arguments scale(...)` ambiguous.
+- Keep it browser-safe: no processes, sockets, windows or native `#foreign` libraries (see how `tests/stdlib` programs skip those parts under `OS == .WASM`, [playground](playground.md)). Keep runtime small: auto-run recompiles and reruns on every edit.
 - Keep lines short (the editor is narrow on phones) and run jaifmt: `jaic run tools/jaifmt/main.jai -- --check "$PWD/examples/tour"`. The portfolio's `JAI_WASM_DIR=<bundle> pnpm test:jai` also checks the tour is formatted under the playground's default `jaifmt.toml`.
 - When output changes, update `stdout_contains` in `tests/examples.json`.
-- Gotchas found while writing it: `offset_of` is not supported (use `type_info(T).members`), and `builder_to_string`, `NewArray` and the String helpers take no allocator argument (wrap them in `push_allocator(temp)`).
+- Gotchas: there is no `offset_of` (use `type_info(T).members`), and `builder_to_string`, `NewArray` and the `String` helpers take no allocator argument (wrap them in `push_allocator(temp)`).
 
 ## Configuration
 

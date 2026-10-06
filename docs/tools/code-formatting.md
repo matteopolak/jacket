@@ -10,7 +10,7 @@ Rust code is formatted with the pinned nightly `rustfmt` and the shared `rustfmt
 
 CI runs the Jai check on every runner too: it builds `jaic`, compiles `tools/jaifmt/main.jai` with `-O2` to `target/jaifmt`, and runs `target/jaifmt --check stdlib tests benchmarks tools examples`. Exit 1 lists each file with the first line that would change, and "Enforce all recorded checks" fails the job. Format with `target/jaifmt stdlib tests benchmarks tools examples` before committing.
 
-`rustfmt.toml` expands compact items (`empty_item_single_line`, `fn_single_line` and `struct_lit_single_line` are off) and keeps up to two consecutive blank lines (`blank_lines_upper_bound = 2`). Blank lines between methods and logical steps are authored, not enforced.
+`rustfmt.toml` expands compact items (`empty_item_single_line`, `fn_single_line` and `struct_lit_single_line` are off, and single-line `if`/`else` and `let`/`else` widths are 0) and keeps up to two consecutive blank lines (`blank_lines_upper_bound = 2`). Blank lines between methods and logical steps are authored, not enforced.
 
 ## How to change it
 

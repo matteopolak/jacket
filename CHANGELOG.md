@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- `JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>`: an exact cap on what `jaic` allocates (compiler, interpreter and the program's C `malloc` calls). Crossing it prints `error: memory limit of N MiB exceeded` and exits with status 120. The corpus sweep uses it for `--memory-limit` instead of sampling resident memory.
+
+### Changed
+
+- Every `tests/stdlib` program must pass in the browser engine; CI and the browser release fail otherwise. Tests skip what the WASM target lacks (processes, native libraries, windows) themselves, and `tools/playground_stdlib_expected.json` is gone.
+
+### Fixed
+
+- The browser engine's sandbox implements `chmod`/`fchmod`, so `MacOS_Bundler` runs there.
+
 ## [0.2.0] - 2026-10-06
 
 ### Added

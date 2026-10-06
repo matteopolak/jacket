@@ -44,7 +44,7 @@ Clang's driver locates the MSVC and Windows SDK libraries itself; `lld-link`/`li
 
 Libraries: `#system_library "kernel32"` becomes `-lkernel32` / `kernel32.lib`. CRT and POSIX names (`libc`, `c`, `msvcrt`, `ucrt`, `m`, `pthread`, `dl`, `rt`...) are dropped because the toolchain provides the C runtime. A `#library "foo"` next to the source is looked up as `foo.lib`, `libfoo.lib` (MSVC) or `foo.lib`, `foo.a`, `libfoo.a`, `foo.dll.a`, `libfoo.dll.a`, `foo.dll` (MinGW, whose `ld` can link a DLL directly). A DLL must be next to the executable (or on `PATH`) at run time; nothing is copied. When cross-compiling, the host's Homebrew, frameworks and `artifacts/native-libs` directories are not searched. Static libraries are archived with `x86_64-w64-mingw32-ar` (`aarch64-w64-mingw32-ar` for arm64), `llvm-ar`, `llvm-lib` or `lib` (`jaic_llvm::archive`).
 
-Struct layout: a member's `#align N` sets its alignment even below the natural one, as `#pragma pack` does in C. `Windows.jai`'s `FILETIME` (`QuadPart: u64 #align 4`) depends on it; without it `WIN32_FIND_DATAW.cFileName` was at byte 48 instead of 44 and directory listings returned garbage names (`tests/stdlib/member-align-lowers-alignment.jai`).
+Struct layout: a member's `#align N` sets its alignment even below the natural one, as `#pragma pack` does in C. `Windows.jai`'s `FILETIME` (`QuadPart: u64 #align 4`) depends on it: otherwise `WIN32_FIND_DATAW.cFileName` lands at byte 48 instead of 44 and directory listings return garbage names (`tests/stdlib/member-align-lowers-alignment.jai`).
 
 Runtime (`stdlib/Runtime_Support.jai`):
 

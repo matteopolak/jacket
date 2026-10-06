@@ -12,7 +12,7 @@ CI runs the checker before any build (`ci.yml`, `browser-release.yml`).
 
 ## How to change it
 
-Add shared dependencies in `[workspace.dependencies]` of the root `Cargo.toml` and pin exact versions (`=x.y.z`, as the existing crates do). Update with the pinned nightly Cargo, then run the checker before building. Never weaken the age policy to resolve a conflict. The checker's logic is covered by `tools/test_dependency_age.py`.
+Dependencies used by several crates go in `[workspace.dependencies]` of the root `Cargo.toml`. Prefer exact versions (`=x.y.z`, as the serde crates are); `inkwell` uses a plain requirement and relies on the lockfile. Update with the pinned nightly Cargo, then run the checker before building. Never weaken the age policy to resolve a conflict. Tests: `tools/test_dependency_age.py`.
 
 ## Configuration
 

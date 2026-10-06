@@ -2,30 +2,34 @@
 
 ## What it is
 
-Small source-level markers that change how a declaration or statement is treated: `#run,stallable`, `#assert`, `#program_export`, `#must`, `@notes`, and empty statements.
+Source markers that change how a declaration or statement is treated: directive suffixes like `#run,stallable`, `#assert`, `#program_export`, `#must`, `@notes`, and the empty statement.
 
 ## How it works
 
-Directive suffixes are parsed generically as `,name` or `,name(expr)` after the directive (`parser/directive.rs`); for example `#run,stallable` and `#insert,scope(x)`. `#run,stallable print("x\n");` behaves like `#run` (it printed `at compile time` during the check).
+`parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)` after a directive (`#run,stallable`, `#insert,scope(x)`). `#run,stallable` behaves like `#run`.
 
-`#assert cond "msg";` and `#assert(cond, "msg");` both take an optional message. They are evaluated at compile time and a failure is reported at the condition: `error: #assert failed: Rec must be 8 bytes`. See [declarations and constants](declarations-and-constants.md).
+`#assert` is covered in [declarations and constants](declarations-and-constants.md); `#must` and `#discard` in [must and discard](must-and-discard.md).
 
-`#program_export` (optionally with a string) on a procedure keeps it as a root even if nothing calls it (`export_entities` in `sema/modules.rs`) and records the native symbol name (`sema/procs.rs`: the string, or the procedure's own name). It is relevant to `jaic build`.
+`#program_export` (optionally with a symbol name string) on a procedure keeps it as a root even if nothing calls it (`export_entities` in `sema/modules.rs`) and sets its native symbol name to the string or the procedure name (`sema/procs.rs`). It matters for `jaic build`.
 
-`#must` after a result (`-> int #must`, or on one of several results) makes discarding that result a compile error; see [must-and-discard.md](must-and-discard.md). `#discard` on a parameter is described there too.
+Notes (`@Name`) are stored, never interpreted:
 
-Notes (`@Name`) after a struct member are stored and exposed as `type_info(T).members[i].notes`; notes on the struct itself (`S :: struct @thing { ... }`, also `union` and polymorphic structs) are exposed as `type_info(S).notes` (`sema/typeinfo.rs`). Enum notes (`enum_flags @Hi { ... }`) reach metaprograms as `Code_Enum.notes`, as struct notes reach `Code_Struct.notes` (`sema/code_export.rs`); `Type_Info_Enum` has no notes field. Unrecognised notes never change behavior.
+| Where | Exposed as |
+| --- | --- |
+| after a struct member | `type_info(T).members[i].notes` |
+| on a struct or union (`S :: struct @thing {`) | `type_info(S).notes`, `Code_Struct.notes` |
+| on an enum (`enum_flags @Hi {`) | `Code_Enum.notes` only; `Type_Info_Enum` has no notes |
 
-An empty statement `;` is a real statement: `if answer ;` is valid and has an empty body.
+Type info comes from `sema/typeinfo.rs`, code nodes from `sema/code_export.rs`.
+
+`;` alone is a statement, so `if answer ;` is valid with an empty body.
 
 ## How to change it
 
-Add a new directive suffix in `parser/directive.rs` and consume it where the directive is evaluated. Add a procedure flag by extending `HEADER_DIRECTIVES` (or `OTHER_FLAGS`) in `parser/procedure.rs` and reading it in `sema/procs.rs`. A new check that must reject a program belongs with a negative program under `tests/corpus/negative` (registered in `tests/corpus/manifest.json`; `python3 tools/jaic-sweep.py negative` runs them).
-
-## Configuration
-
-None.
+- New directive suffix: `parser/directive.rs`, then consume it where the directive is evaluated.
+- New procedure flag: `HEADER_DIRECTIVES` or `OTHER_FLAGS` in `parser/procedure.rs`, read in `sema/procs.rs`.
+- A new check that rejects programs needs a negative test in `tests/corpus/negative/`, registered in `tests/corpus/manifest.json` and run by `tools/jaic-sweep.py negative`.
 
 ## Dependencies
 
-`parser/directive.rs`, `parser/procedure.rs`, `sema/procs.rs`, `sema/modules.rs`, `sema/consteval.rs` (for `#assert` and `#run`).
+`parser/directive.rs`, `parser/procedure.rs`, `sema/procs.rs`, `sema/modules.rs`, `sema/consteval.rs`.

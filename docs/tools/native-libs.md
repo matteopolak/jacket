@@ -2,11 +2,11 @@
 
 ## What it is
 
-The stdlib binds some C libraries that no system ships (`stb_image`, `stb_image_write`,
-`stb_image_resize`, `stb_vorbis`, and `rpmalloc` 1.4.5 built with first-class heaps). `tools/build_native_libs.py` builds them from pinned, hash-checked
-sources into `artifacts/native-libs/<os>-<arch>/`, and `jaic` searches that directory when it resolves a
-library name, both for foreign calls at compile time / under `jaic run` and when linking `jaic build`
-output. Without it, programs that use those modules check fine but cannot call into them or link.
+The stdlib binds some C libraries that no system ships: `stb_image`, `stb_image_write`,
+`stb_image_resize`, `stb_vorbis`, and `rpmalloc` (built with first-class heaps). `tools/build_native_libs.py` builds them from pinned, hash-checked
+sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
+library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
+output. Without it, programs that use those modules type-check but can't call into them or link.
 
 ## How it works
 
@@ -35,7 +35,7 @@ can call and link these libraries without setup.
 
 The sgpu examples (`corpus/upstream/roeyb1--sgpu`) link `modules/slang/mac/libslang`, `Vulkan_With_VMA/libs/mac/libvulkan` and `Vulkan_With_VMA/mac/VkMemAlloc`, which upstream ships as prebuilt binaries that we do not download. `tools/build_slang.py` produces them:
 
-- Clones `shader-slang/slang` at the pinned tag (`TAG`, currently `v2025.24.2`, with submodules) into `artifacts/thirdparty/slang`, builds a Release shared library with CMake (tests, examples, gfx, slangd, slangi, replayer, CUDA/DXIL off; glslang on), and installs `libslang.dylib` plus the modules Slang `dlopen`s beside it (`libslang-glslang-*`, `libslang-glsl-module-*`) into `modules/slang/mac/`, ad-hoc signed.
+- Clones `shader-slang/slang` at the pinned `TAG`, with submodules, into `artifacts/thirdparty/slang`, builds a Release shared library with CMake (tests, examples, gfx, slangd, slangi, replayer, CUDA/DXIL off; glslang on), and installs `libslang.dylib` plus the modules Slang `dlopen`s beside it (`libslang-glslang-*`, `libslang-glsl-module-*`) into `modules/slang/mac/`, ad-hoc signed.
 - Compiles `vk_mem_alloc.cpp` from the module's own sources into `libVkMemAlloc.a` / `libVkMemAlloc_DEBUG.a`, and copies Homebrew's Vulkan loader to `libs/mac/libvulkan.dylib`.
 - Idempotent: reuses the clone/build directory and skips installed outputs (`--force` reinstalls). Paths resolve through the git common dir, so it works from a worktree and writes into the main checkout's `artifacts/` and `corpus/`.
 

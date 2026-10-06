@@ -139,9 +139,9 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   }
   let stdlibPassSet;
   if (stdlib) {
-    // Every tests/stdlib program runs in a fresh engine; the pass set must equal tools/playground_stdlib_expected.json.
+    // Every tests/stdlib program runs in a fresh engine and must pass.
     const sweep = spawnSync(process.execPath, [fileURLToPath(new URL("./check_playground_stdlib.mjs", import.meta.url)), path.resolve(directory)], { encoding: "utf8" });
-    assert.equal(sweep.status, 0, `stdlib pass set check failed:\n${sweep.stdout}${sweep.stderr}`);
+    assert.equal(sweep.status, 0, `stdlib tests failed in the browser engine:\n${sweep.stdout}${sweep.stderr}`);
     stdlibPassSet = sweep.stdout.trim();
   }
   return { commit: metadata.commit, runtime: true, lsp, tours, stdlibPassSet };

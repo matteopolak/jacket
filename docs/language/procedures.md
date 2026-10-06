@@ -2,11 +2,11 @@
 
 ## What it is
 
-How `jaic` handles procedure declarations, calls, overload sets, default and named arguments, multiple returns, variadics, and the header directives `#caller_location`, `#deprecated`, `#no_debug` and `#discard`.
+Procedure declarations, calls, overload sets, default and named arguments, multiple returns, variadics, and the header directives `#caller_location`, `#deprecated` and `#no_debug`.
 
 ## How it works
 
-Procedure headers are parsed in `crates/jaic/src/parser/procedure.rs` (the recognised trailing directives are listed in a table at its top: `expand`, `no_debug`, `deprecated`, ...). Semantic checking of declarations is in `crates/jaic/src/sema/procs.rs`; call resolution, overload ranking and macro expansion are in `crates/jaic/src/sema/calls.rs`.
+`parser/procedure.rs` parses headers; the trailing directives it recognises are in a table at the top of the file. `sema/procs.rs` checks declarations; `sema/calls.rs` resolves calls, ranks overloads and expands macros.
 
 ```jai
 named :: (a: int, b := 7, c := "z") -> int { return a*100 + b; }
@@ -19,7 +19,7 @@ i, s := pair();          // 4 four
 sum(1, 2, 3)             // 6
 ```
 
-Overloads are ordinary procedures sharing one name; the call picks by argument types (`show(1)`, `show(2.5)`, `show("s")` each choose their own overload). A constant alias to a procedure joins an overload set, which is how modules re-export one name for several implementations:
+Overloads are procedures sharing a name; the call picks by argument types. A constant alias to a procedure joins the overload set, which is how modules re-export one name for several implementations:
 
 ```jai
 h :: f;   // f :: (x: int) -> int
@@ -27,30 +27,21 @@ h :: g;   // g :: (x: float) -> int
 h(1), h(1.0)   // 1 2
 ```
 
-`tests/stdlib/proc-alias-overloads.jai` covers the module form (`starts_with :: begins_with;` joining a local overload).
+`#caller_location` as a default value is evaluated at the call site and gives a `Source_Code_Location` (`location_operand` in `sema/expr.rs`). `#location()`, `#file` and `#line` give the directive's own position.
 
-`#caller_location` as a default value is evaluated at the call site and yields a `Source_Code_Location` (`location_operand` in `sema/expr.rs`). `#location()`, `#file` and `#line` give the directive's own position:
+A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3`. An argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`).
 
-```jai
-where :: (l := #caller_location) { print("%,% in %\n", l.line_number, l.character_number, l.fully_pathed_filename); }
-```
+`#deprecated "msg"` is parsed and exported to metaprograms but produces no warning. `#no_debug` is a header flag read by `sema/procs.rs` and `sema/code_export.rs`.
 
-A `Code` parameter of a plain (non-macro) procedure takes any expression as code, as with macros: `convert :: (code: Code) -> string` called as `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3`, while an argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`; `tests/stdlib/modern-library-conversions.jai`).
-
-`#deprecated "msg"` and `#no_debug` are parsed as header flags (`flags.no_debug` is read in `sema/procs.rs` and `sema/code_export.rs`). A call to a `#deprecated` procedure compiles and runs; no warning was observed in `jaic run` output.
-
-`#discard` on a parameter: the argument is typechecked but never evaluated, and the procedure cannot name the parameter. `#must` on a result: discarding it is an error. Both are described in [must-and-discard.md](must-and-discard.md).
+`#must` and `#discard` are in [must and discard](must-and-discard.md).
 
 ## How to change it
 
-- New header directive: add it to the table in `parser/procedure.rs`, set a field on the header flags in `ast.rs` (`no_debug` is the pattern), then consume it in `sema/procs.rs`.
-- Overload ranking lives in `sema/calls.rs` (`arg_cost`); changes there affect every call, so re-run the `tests/stdlib/*.jai` programs afterward.
-- `#discard` and `#must` are enforced in `sema/calls.rs` and `sema/stmt.rs`; see [must-and-discard.md](must-and-discard.md).
+- New header directive: add it to the table in `parser/procedure.rs`, add a field to the header flags in `ast.rs` (`no_debug` is the pattern), and consume it in `sema/procs.rs`.
+- Overload ranking is `arg_cost` in `sema/calls.rs`. It affects every call; run the full sweep after changing it.
 
-## Configuration
-
-None.
+Tests: `tests/stdlib/proc-alias-overloads.jai`, `modern-library-conversions.jai`.
 
 ## Dependencies
 
-`Basic` (`print`) for the examples; `Source_Code_Location` comes from the preload module via `preload_type` in `sema/expr.rs`.
+`Source_Code_Location` comes from the preload via `preload_type` in `sema/expr.rs`.

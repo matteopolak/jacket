@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jaic build` emits DWARF debug information, so lldb and gdb can debug compiled Jai programs: breakpoints by `file.jai:line` or procedure name, stepping by source line, backtraces with Jai procedure names and source locations, and locals, parameters and globals with their Jai types (integers, floats, bools, pointers, strings, arrays, views, `[..]` arrays, structs, unions, enums). Like `jai`, it is on by default at every optimization level.
+`jaic build` emits DWARF debug information, so lldb and gdb can debug compiled Jai programs: breakpoints by `file.jai:line` or procedure name, stepping by source line, backtraces with Jai procedure names and source locations, and locals, parameters and globals with their Jai types (integers, floats, bools, pointers, strings, arrays, views, `[..]` arrays, structs, unions, enums). As with Jai, it is on by default at every optimisation level.
 
 ```
 $ jaic build main.jai -o prog
@@ -53,7 +53,7 @@ Three layers:
 - On by default for `jaic build`. Turn it off with `--no-debug-info`, or from a metaprogram with `options.emit_debug_info = .NONE` (also what `set_optimization(*options, type, preserve_debug_info=false)` does). The workspace option is forwarded as `emit_debug_info` (`stdlib/Compiler/options.jai`, `BuildSettings::emit_debug_info`).
 - `jaic_llvm::Options::debug_info`; `jaic::sema::Options::debug_info`.
 - DWARF 4 on Apple targets, 5 elsewhere. The compile unit's language is C99, so lldb expressions use C syntax (`p xs.data[1]`, `p *p`).
-- Cost: Focus (`first.jai -O0`) builds in about 2.5s instead of 2.3s, including `dsymutil`.
+- Cost: under 10% of build time on a large `-O0` build like Focus, `dsymutil` included.
 
 ## Dependencies
 

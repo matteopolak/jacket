@@ -2,7 +2,7 @@
 
 ## What it is
 
-`using` on struct members, locals, parameters and module imports. It makes the members of the target reachable by bare name. The member-side logic is `using_member`, `using_target`, `find_used_member` and `override_target` in `crates/jaic/src/sema/structs.rs`; scope-level `using` is in `sema/scope.rs`.
+`using` on struct members, locals, parameters, enum values and module imports makes the target's members reachable by bare name. Member-side logic is in `sema/structs.rs` (`using_member`, `using_target`, `find_used_member`, `override_target`); scope-level `using` is in `sema/scope.rs` and `check_using` in `sema/stmt.rs`.
 
 ## How it works
 
@@ -14,40 +14,36 @@ Plain :: struct { using i: Inner; }
 p: Plain;   // p.n == 5, p.i.n == 5, Plain.K == 3
 ```
 
-`using #as` additionally makes the outer type implicitly convert to the embedded one, so a `Derived` can be passed where `*Base` or `Base` is expected. Without `#as`, passing `Plain` to `(i: Inner)` is rejected (`argument of type Plain does not match parameter type Inner`). With it:
+`using #as` also lets the outer type convert implicitly to the embedded one, so a `Derived` passes where `Base` or `*Base` is expected. Without `#as`, passing `Plain` to `(i: Inner)` fails with `argument of type Plain does not match parameter type Inner`.
 
 ```jai
 Derived :: struct { using #as b: Base; y: int; }
-get_x(*d);   // d: Derived, get_x :: (b: *Base) -> int
+get_x(*d);   // get_x :: (b: *Base) -> int
 ```
 
-In `type_info(Derived).members`, the member has `flags` `USING | AS`.
+Such a member has `USING | AS` in its `type_info` flags. `using #as x` and `#as using x` both parse.
 
-A `using` member of pointer type (`using meta: *Meta`) promotes the pointee's members too; writes go through the pointer (`tests/stdlib/using-pointer-member.jai`).
+A `using` member of pointer type (`using meta: *Meta`) promotes the pointee's members; writes go through the pointer.
 
-A `member = value;` statement in a struct body overrides the default of a promoted member, including through a dotted path (`base.f = show;`):
+A `member = value;` statement in a struct body overrides a promoted member's default, also through a dotted path (`base.f = show;`). Both `Derived` and `New(Derived)` get the override; other `Base` members keep their defaults.
 
 ```jai
 Derived :: struct { #as using base: Base; kind = .B; value: int; }
 ```
 
-Both `Derived` and `New(Derived)` get `kind == .B` while `extra` keeps `Base`'s default. See `tests/stdlib/using-member-default-override.jai` and `struct-body-member-path-override.jai`.
+Elsewhere:
 
-`using` on a parameter (`move :: (using p: *Pt, dx: int) { x += dx; }`) or a local statement (`using p;` in a block) brings the fields into that scope. `using` of a module or struct constant at file scope is covered by `tests/stdlib/module-using-global.jai`, `module-using-import-reexport.jai` and `using-discard-struct-constants.jai`.
-
-- `using Type.{...};` in a procedure copies the literal into an anonymous local and uses it (`check_using`, `sema/stmt.rs`); it is writable, unlike the read-only literal data real Jai uses.
-- `using name := value;` at file scope registers the `using` for variables too, not only constants (`sema/modules.rs`).
-
-`using value;` on an enum-typed value (`using basket.tag;`) brings the enum's members in by bare name, so `case MANGO;` works in a switch over it (`check_using` in `sema/stmt.rs` treats it like `using` the type).
+- `using p;` in a block, or a `using p: *Pt` parameter, brings the fields into scope.
+- `using basket.tag;` on an enum-typed value brings in the enum's members, so `case MANGO;` works in a switch.
+- `using Type.{...};` in a procedure copies the literal into an anonymous local. It is writable, where Jai uses read-only data.
+- `using name := value;` at file scope works for variables, not only constants (`sema/modules.rs`).
 
 ## How to change it
 
-Member lookup order lives in `find_member`; promoted members come after direct ones, so a direct member shadows a promoted one. Default overrides resolve through `override_target`/`override_path` and are applied when the default initializer is built (`default_initializer`). Gotcha: `using` is a declaration modifier, so `#as` must appear next to it (`using #as x` and `#as using x` both parse).
+Member lookup order is in `find_member`: direct members come before promoted ones, so a direct member shadows a promoted one. Default overrides resolve through `override_target`/`override_path` and apply when `default_initializer` builds the default value.
 
-## Configuration
-
-None.
+Tests: `tests/stdlib/using-pointer-member.jai`, `using-member-default-override.jai`, `struct-body-member-path-override.jai`, `module-using-global.jai`, `module-using-import-reexport.jai`, `using-discard-struct-constants.jai`.
 
 ## Dependencies
 
-`sema/structs.rs`, `sema/scope.rs`, `parser/decl.rs`.
+`sema/structs.rs`, `sema/scope.rs`, `sema/stmt.rs`, `parser/decl.rs`.

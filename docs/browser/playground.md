@@ -94,13 +94,15 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
 - **Path semantics**: `normalize` clamps `..` at the root, so `#load "../../stdlib/X.jai"` from `/workspace/a.jai`
   reaches `/stdlib/X.jai` as on a real file system.
 - Regression sweep for the wasm build: `node tools/check_playground_stdlib.mjs <staged-dir>` runs every
-  `tests/stdlib/*.jai` through `engine.play` with a fresh wasm instance each (worker threads, 120 s timeout) and compares
-  the pass set with `tools/playground_stdlib_expected.json` (`pass` list plus `excluded`: name to written reason). Any
-  regression, any newly passing excluded test, or any test in neither list fails the check; the release gate
-  `check_browser_release.mjs` runs it. After intentionally changing the set: `--update` rewrites `pass` (new failures get a `TODO explain` reason you
-  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. The exclusions
-  need processes (`Process`, the bindings generators' compiler runs), `dlopen` (libclang), native C libraries (FreeType,
-  stb_image, libc callbacks and variadics), windows (`Window_Creation`) or `chmod`. Each reason is written next to its name in the JSON file.
+  `tests/stdlib/*.jai` through `engine.play` with a fresh wasm instance each (worker threads, 120 s timeout) and
+  **every test must pass**: one failure exits non-zero, which fails CI and the release gate
+  `check_browser_release.mjs`, so a broken bundle is never published. There is no exclusion list. A test that needs
+  something the browser lacks says so in Jai with `OS == .WASM` (the target the engine compiles for) and skips only
+  that part, keeping the rest running: processes (`Process`, `BuildCpp`, the bindings generators' compiler runs),
+  `dlopen` (libclang), native C libraries (libc callbacks and variadics) and the window-system modules (`Simp`,
+  `GetRect`, `Window_Creation`, which do not import on WASM). Prefer a runtime `if OS == .WASM` over `#if` where the
+  skipped code can still compile, so it stays type-checked in the browser. `PLAYGROUND_VERBOSE=1 ... name.jai`
+  prints that test's output; passing test names runs only those.
 - Debug browser-only behavior natively: `jaic run test.jai -os wasm` uses the same `SandboxHost`.
 
 ## Configuration

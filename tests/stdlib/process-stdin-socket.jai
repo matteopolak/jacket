@@ -6,7 +6,9 @@
 #import "POSIX";
 
 main :: () {
-    #if OS == .WINDOWS {
+    // Neither Windows (no socket stdin) nor the WASM target (the browser playground, which
+    // starts no processes) runs this; the code below is still compiled for both.
+    #if OS == .WINDOWS || OS == .WASM {
         print("ok\n");
         return;
     }

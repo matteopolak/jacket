@@ -67,6 +67,9 @@ void bits_instance_set(struct Instance *i, uint32_t index, uint32_t mask, uint32
 END;
 
 build_and_generate :: () -> string {
+    // The WASM target (the browser playground) starts no processes and loads no native
+    // libraries, so there is no compiler or libclang to call: skip like a host without them.
+    #if OS == .WASM return "";
     dir := "/tmp/jai_bindgen_bitfields";
     make_directory_if_it_does_not_exist(dir);
     header_path := tprint("%/bits.h", dir);

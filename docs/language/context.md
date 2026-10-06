@@ -2,11 +2,11 @@
 
 ## What it is
 
-Every ordinary procedure receives a hidden pointer to a `Context` record (allocator, logger, temporary storage, thread index, and anything added with `#add_context`). `push_context` swaps in a modified copy for a lexical scope.
+Every ordinary procedure receives a hidden pointer to a `Context` record: allocator, logger, temporary storage, thread index, plus whatever `#add_context` declares. `push_context` swaps in a modified copy for a lexical scope.
 
 ## How it works
 
-The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`; `stdlib/prelude/module.jai` splices it in first, then each `#add_context` declaration (collected in `Compiler::add_contexts`, `sema/modules.rs`, merged into the struct in `sema/structs.rs`) extends it with its own field and default.
+The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default.
 
 ```jai
 #add_context depth: int = 7;
@@ -19,24 +19,27 @@ inner :: () {
 }
 ```
 
-Observed behavior (checked with `jaic run`):
-
-- Assigning `context.depth += 1` writes through the active pointer, so callees see it.
-- `push_context` restores the previous context when its block ends, including by `return`/`break`/`continue` (`check_stmt` in `sema/stmt.rs` keeps the active address in `FnCtx::context`).
-- `push_context,defer_pop ctx;` keeps the pushed context until the end of the enclosing block (`tests/stdlib/push-context-defer-pop.jai`).
-- `#no_context` and `#c_call` procedures take no hidden parameter. Using `context` there is an error: `'context' is not available here (procedure is #c_call or #no_context; use push_context)`. A `#c_call` body can establish one with `new_context: #Context; push_context new_context { ... }`.
+- `context.depth += 1` writes through the active pointer, so callees see it.
+- `push_context` restores the previous context when the block exits by any path, including `return`, `break` and `continue`. `check_stmt` in `sema/stmt.rs` tracks the active address in `FnCtx::context`.
+- `push_context,defer_pop ctx;` keeps the context until the end of the enclosing block.
 - `#add_context` is only legal at file scope.
-- `#add_context name :: value;` declares a constant of the Context type, not a field: `#Context.name` / `context.name` (a module alias, as the Iprof and Tracy plugins insert to reach their runtime). It is resolved in the declaring file (`context_type` in `sema/structs.rs`, `tests/stdlib/add-context-constant.jai`).
+- `#add_context name :: value;` declares a constant reachable as `#Context.name` or `context.name`, not a field. The Iprof and Tracy plugins use this to insert a module alias for their runtime. It resolves in the declaring file (`context_type` in `sema/structs.rs`).
 
-Whether a signature has the hidden parameter is computed once in `sema/procs.rs` (`has_context`: not `#c_call`, not `#no_context`, not `#intrinsic`). Direct and indirect calls pass the active pointer.
+`has_context` in `sema/procs.rs` decides once per signature whether the hidden parameter exists: not for `#c_call`, `#no_context` or `#intrinsic`. Using `context` in such a procedure is an error:
+
+```
+'context' is not available here (procedure is #c_call or #no_context; use push_context)
+```
+
+A `#c_call` body can create one with `new_context: #Context; push_context new_context { ... }`.
 
 ## How to change it
 
-New context fields: declare them with `#add_context` in Jai, not in the compiler. Changing the base fields means editing `Context_Base` in `stdlib/Runtime_Support.jai`. `expand_plain_ifs` in `sema/scope.rs` expands plain `#if` items first so that an `#add_context` inside a conditional `#load` is present before any `#run` lays the Context out; keep `#add_context` out of code that depends on a `#run` result.
+Add context fields with `#add_context` in Jai, not in the compiler. Base fields live in `Context_Base`.
 
-## Configuration
+Gotcha: the Context layout must be final before any `#run` lays it out. `expand_plain_ifs` in `sema/scope.rs` expands plain `#if` items first so an `#add_context` inside a conditionally `#load`ed file is seen in time, but an `#add_context` that depends on a `#run` result cannot work.
 
-None. There are no environment variables for the context.
+Tests: `tests/stdlib/push-context-defer-pop.jai`, `tests/stdlib/add-context-constant.jai`.
 
 ## Dependencies
 

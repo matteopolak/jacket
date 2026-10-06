@@ -120,7 +120,7 @@ fn exceeded(limit: usize) -> ! {
         bytes: [0; 128],
         len: 0,
     };
-    let _ = if limit % (1 << 20) == 0 {
+    let _ = if limit.is_multiple_of(1 << 20) {
         writeln!(buf, "error: memory limit of {} MiB exceeded", limit >> 20)
     } else {
         writeln!(buf, "error: memory limit of {limit} bytes exceeded")

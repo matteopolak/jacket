@@ -2,9 +2,7 @@
 
 ## What it is
 
-While a program runs (under `jaic run` or as a `jaic build` executable), `context.stack_trace` points at a linked list of
-`Stack_Trace_Node`s, innermost procedure first, as in `jai`. `print_stack_trace`, assertion
-failures and the memory debugger's leak reports read it.
+While a program runs, under `jaic run` or as a `jaic build` executable, `context.stack_trace` points at a linked list of `Stack_Trace_Node`s, innermost procedure first, as in Jai. `print_stack_trace`, assertion failures and the memory debugger's leak reports read it.
 
 ## How it works
 
@@ -37,15 +35,15 @@ failures and the memory debugger's leak reports read it.
   `crates/jaic-cli/tests/native.rs`.
 - `runtime_support_assertion_failed` (`stdlib/Runtime_Support.jai`) prints
   `path:line,col: Assertion failed: message` then `Stack trace:` and one `path:line: name` per
-  node, in the format of `jai`.
+  node, in the official format.
 
 ## How to change it
 
 - The node layout must match `Stack_Trace_Node` in `stdlib/prelude/module.jai` (and the constants in
   `trace_enter`).
-- Hash values are not those of `jai`; they only mix the caller hash, procedure id and call line.
-- There is no sentinel node from `push_context` and leaf procedures also get nodes (jai omits
-  them), so call depths can differ from the real compiler's by those cases.
+- Hash values differ from Jai's; they only mix the caller hash, procedure id and call line.
+- There is no sentinel node from `push_context`, and leaf procedures also get nodes (the official
+  compiler omits them), so call depths can differ in those cases.
 
 ## Configuration
 

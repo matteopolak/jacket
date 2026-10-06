@@ -2,7 +2,7 @@
 
 ## What it is
 
-`crates/jaic-llvm` uses Inkwell 0.10 (`llvm22-1-prefer-dynamic`) over an independently installed LLVM 22.1, and `jaic build` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic check` and `jaic run` do not need it at run time. The `jai-wasm` crate does not depend on LLVM.
+`crates/jaic-llvm` uses Inkwell 0.10 (`llvm22-1-prefer-dynamic`) over a separately installed LLVM 22.1, and `jaic build` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic check` and `jaic run` don't use it at run time. `jai-wasm` doesn't depend on LLVM.
 
 ## How it works
 
@@ -23,4 +23,4 @@ cargo build -p jaic-cli --locked
 
 ## Dependencies
 
-Inkwell 0.10.0, llvm-sys 221, LLVM and Clang 22.1. The code generator itself is documented in the native-build docs under `docs/native/`.
+Inkwell 0.10.0, llvm-sys 221, LLVM and Clang 22.1. The code generator is described in [LLVM backend](../native/llvm-backend.md).

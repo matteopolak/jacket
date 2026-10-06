@@ -39,7 +39,7 @@ One top-level declaration in eleven is an "edge" production (`edge_decl`): a sha
 
 ### Corpora and dictionary
 
-`fuzz/seed_corpus.py` builds `fuzz/corpus/<target>/` from the repository's own Jai files: `tests/stdlib`, `tests/corpus/{positive,negative}`, `examples` and `fuzz/seeds` for the compiling targets, plus `stdlib/` for the lexer and parser. Size caps keep execution fast, and `lsp_json` gets each file wrapped in a JSON-RPC session. Saved regressions for the target are added too. `fuzz/seeds/` holds about 120 small hand-written programs that probe the compiler's limits: overflowing constants, recursive and oversized types, metaprogram misuse, odd `#insert`/`#run` use. Several of the bugs below were first found by writing such probes. Corpora are not committed (`fuzz/.gitignore`). CI caches them between runs instead. `fuzz/jai.dict` lists keywords, directives, operators and literal shapes for libFuzzer's mutator.
+`fuzz/seed_corpus.py` builds `fuzz/corpus/<target>/` from the repository's own Jai files: `tests/stdlib`, `tests/corpus/{positive,negative}`, `examples` and `fuzz/seeds` for the compiling targets, plus `stdlib/` for the lexer and parser. Size caps keep execution fast, and `lsp_json` gets each file wrapped in a JSON-RPC session. Saved regressions for the target are added too. `fuzz/seeds/` holds small hand-written programs that probe the compiler's limits: overflowing constants, recursive and oversized types, metaprogram misuse, odd `#insert`/`#run` use. Corpora are not committed (`fuzz/.gitignore`); CI caches them between runs. `fuzz/jai.dict` lists keywords, directives, operators and literal shapes for libFuzzer's mutator.
 
 ## Running locally
 
@@ -54,7 +54,7 @@ fuzz/run.sh lexer 600
 
 ASan is off on purpose. The compiler is safe Rust apart from the interpreter's program memory, and the interpreted program's own raw memory use (which ASan would flag) is not a compiler bug.
 
-Execution speed on an M-series core is roughly 4–5k/s for lexer and parser, 250–350/s for `check`/`interp`, about 70/s for `generated` and 5–10/s for `lsp`.
+Throughput differs by orders of magnitude: thousands of executions per second for `lexer` and `parser`, hundreds for `check`/`interp`, and only a handful for `lsp`, so give the compiling targets longer runs.
 
 ## Triage and minimizing
 
@@ -90,7 +90,7 @@ To act on a nightly failure, download the artifact, replay it with the `replay` 
 
 ## Bug classes found
 
-Each was fixed with a regression test, and the limit it introduced is listed under Configuration.
+These explain the limits listed under Configuration; each has a regression test.
 
 - **Lexer:** a here-string flag (`#string,\`) at the end of the file sliced past the end of the input.
 - **Parser stack overflow:** deeply nested parentheses, blocks or array types recursed until the stack overflowed. Now `MAX_NESTING` gives a diagnostic.

@@ -2,9 +2,9 @@
 
 ## What it is
 
-`stdlib/Jaic_Extensions/module.jai` holds features that only `jaic` has. They are **not official Jai**: no other Jai compiler knows them, and they may change or go away between jaic releases. A program sees none of them unless it writes `#import "Jaic_Extensions";`, so code that does not opt in stays portable.
+`stdlib/Jaic_Extensions/module.jai` holds features only `jaic` has. They are not official Jai, no other compiler knows them, and they may change between jaic releases. A program sees none of them unless it writes `#import "Jaic_Extensions";`, so code that doesn't opt in stays portable.
 
-Today it has one feature, `Long_Double`: C's `long double` with the target's own format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one.
+The one feature so far is `Long_Double`: C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one.
 
 ```jai
 #import "Basic";
@@ -22,9 +22,9 @@ main :: () {
 
 ## How it works
 
-### Principle
+### The opt-in mechanism
 
-The module names compiler builtins through the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). The directive is parsed like any unknown directive (`parser/directive.rs` accepts an identifier operand) and resolved in `sema/expr.rs` (`jaic_type`). Unknown names are errors (`unknown jaic extension type 'x'`). Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: a directive or builtin reachable only through this module, and a section on this page.
+The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `unknown jaic extension type 'x'`. Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: reachable only through this module, and documented on this page.
 
 ### `Long_Double` per target
 
@@ -55,7 +55,7 @@ The wide type is `TypeKind::WideFloat(WideFloat::{X87, Binary128})` (`types.rs`)
 The IR has no wide scalar register: like a small struct, a `Long_Double` lives in memory (16 bytes, 16-aligned) and IR values are its address. Every operation is one `Intrinsic::Wide(WideOp, WideFloat)` (`ir.rs`) taking addresses (`Arith`, `Neg`, `Cmp`, `FromF64/F32/S64/U64`, `ToF64/F32/S64/U64`). `sema/wide.rs` emits them, `sema/convert.rs` routes casts and implicit costs there.
 
 - LLVM (`crates/jaic-llvm/src/lower.rs`, `wide`): loads `x86_fp80`/`fp128`, uses native `fadd`, `fcmp`, `fpext`, `fptosi`... and stores the result.
-- Interpreter (`interp/mod.rs`): a soft-float implementation, `crates/jaic/src/wide_float.rs`, with round-to-nearest-even, subnormals, infinities and NaN for both formats. It matches x87 hardware bit for bit (the `c_long_double` native test compares 1500 operations against an x86-64 build run under Rosetta).
+- Interpreter (`interp/mod.rs`): soft-float in `crates/jaic/src/wide_float.rs`, with round-to-nearest-even, subnormals, infinities and NaN for both formats. It matches x87 hardware bit for bit; the `c_long_double` native test compares a batch of operations against an x86-64 build run under Rosetta.
 - C ABI: see [C ABI](../native/c-abi.md) (`Ty::F80`/`Ty::F128`, `PieceTy::X87`/`PieceTy::F128`).
 
 ### Limits

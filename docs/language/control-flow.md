@@ -2,11 +2,13 @@
 
 ## What it is
 
-How `jaic` checks and lowers `if`, `while`, `for`, `if x == { case ... }` and `defer`, including named loops, reverse and pointer iteration, `remove`, and `for_expansion` iteration.
+How `jaic` checks and lowers `if`, `while`, `for`, `if x == { case ... }` and `defer`, including named loops, reverse and pointer iteration, `remove`, and `for_expansion`.
 
 ## How it works
 
-Statements are checked in `crates/jaic/src/sema/stmt.rs` (`check_if`, `check_while`, `check_for`, `check_for_expansion`) and parsed in `crates/jaic/src/parser/stmt.rs`. Jumps resolve against the innermost or the named enclosing loop at check time, so there is no runtime label lookup.
+Parsing is in `parser/stmt.rs`; checking is `check_if`, `check_while`, `check_for` and `check_for_expansion` in `sema/stmt.rs`. Jumps resolve to the innermost or named loop at check time, so there is no runtime label lookup.
+
+### Loops
 
 ```jai
 for outer: 1..4 {
@@ -14,20 +16,19 @@ for outer: 1..4 {
         if inner == 2 continue outer;
         total += outer;
     }
-}                                    // total == 10
-for 5..3 print("never");             // a descending range is empty, even without `<`
-for v, i: arr print("%:% ", i, v);   // value then index
+}
+for 5..3 print("never");             // descending range is empty, even without `<`
+for v, i: arr print("%:% ", i, v);   // value, then index
 for *p: arr p.* += 1;                // pointer iteration
-while x := i < 3 { i += 1; }         // named while condition
+while x := i < 3 { i += 1; }         // binds x and names the loop
 ```
 
-Range endpoints are inclusive and evaluated once, left to right. The default iterator is `it` (index `it_index`); naming the iterator or the index replaces them. `break` and `continue` target the innermost loop unless given a loop name.
+- Ranges are inclusive; both ends are evaluated once, left to right. `for #v2 a..b` means the same.
+- The default names are `it` and `it_index`; naming either replaces it.
+- `while name := cond` binds `name` to the condition's value (re-evaluated each iteration) and names the loop for `break name`. `while :name cond` only names it.
+- `remove it;` (or `remove;`) over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]`.
 
-`remove it;` (or bare `remove;`) inside `for` over a dynamic array is an unordered remove: the last element is moved into the hole and revisited. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]`.
-
-`for #v2 a..b` is accepted and means the same inclusive range (`parser/tests.rs` has a parse case).
-
-Cases:
+### Cases
 
 ```jai
 if c == {
@@ -38,24 +39,24 @@ if c == {
 if n == { case 1; ...; case; print("default\n"); }   // bare `case;` is the default
 ```
 
-A match runs only its own body unless `#through` is used; `case;` without a value is the default label.
+A case runs only its own body unless it ends with `#through`.
 
-`if #complete c == {` on a (non-flags) enum must name every member in some `case`, default label or not; otherwise the switch is rejected with `#complete switch on Color has no case for .BLUE` (`check_switch_complete` in `sema/stmt.rs`; negative case `tests/corpus/negative/complete-switch-missing-case.jai`). Members are compared by value, so aliases with the same value count as covered. `#complete` on an `enum_flags` value or a non-enum is accepted without a check, and a switch whose value is a compile-time constant takes the constant path and is not checked.
+`if #complete c == {` on a non-flags enum must name every member (a default label does not count), or it fails with `#complete switch on Color has no case for .BLUE` (`check_switch_complete`). Members compare by value, so aliases count. `#complete` on an `enum_flags` value, a non-enum, or a compile-time constant switch value is not checked.
 
-`defer` bodies run at scope exit in reverse order (`d2` before `d1`) and also on `return`, `break` and `continue` out of the scope. `push_context,defer_pop ctx;` holds a context for the rest of the block (`tests/stdlib/push-context-defer-pop.jai`).
+### defer
 
-Custom iteration: `for x: value` on a type with a `for_expansion` macro runs `check_for_expansion`. The macro may rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;`; see `tests/stdlib/insert-replacements.jai` and `tests/stdlib/for-expansion-renamed-index.jai`, and [macros and custom iteration](macros-and-custom-iteration.md). Gotcha: a `continue` coming from the user body jumps to your macro's loop head, so put the index increment in a `defer` or at the top of the loop, otherwise the iteration never advances.
+`defer` bodies run at scope exit in reverse order, including on `return`, `break` and `continue` out of the scope.
 
-- `while name := cond` also binds `name` as a local holding the condition's value (re-evaluated each iteration) besides naming the loop for `break name` / `continue name`; `while :name cond` only labels (`bind_label` on `StmtKind::While`, `check_while` in `sema/stmt.rs`).
+### Custom iteration
+
+`for x: value` on a type with a `for_expansion` macro goes through `check_for_expansion`. The macro can rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;`. See [macros and custom iteration](macros-and-custom-iteration.md).
+
+Gotcha: a `continue` from the user's body jumps to your macro's loop head. Put the index increment in a `defer` or at the top of the loop, or the loop never advances.
 
 ## How to change it
 
-Add syntax in `parser/stmt.rs` (and a parser test in `parser/tests.rs`), then handle the new `StmtKind` in `check_stmt`-style dispatch in `sema/stmt.rs`. Loop bodies that macros may rewrite are plumbed through `ForBody` in `sema/lower.rs`. Add a regression program under `tests/stdlib/` that exits 0.
-
-## Configuration
-
-None.
+Add syntax in `parser/stmt.rs` with a test in `parser/tests.rs`, then handle the new `StmtKind` in `sema/stmt.rs`. Loop bodies that macros may rewrite go through `ForBody` in `sema/lower.rs`. Add a regression program under `tests/stdlib/` that exits 0 (existing ones: `insert-replacements.jai`, `for-expansion-renamed-index.jai`, `push-context-defer-pop.jai`); a program that must be rejected goes in `tests/corpus/negative/` (e.g. `complete-switch-missing-case.jai`).
 
 ## Dependencies
 
-`parser/stmt.rs`, `sema/stmt.rs`, `sema/lower.rs`; custom iteration also needs [macros and custom iteration](macros-and-custom-iteration.md) support (`#expand`, `Code`, `#insert`).
+`parser/stmt.rs`, `sema/stmt.rs`, `sema/lower.rs`. Custom iteration also relies on `#expand`, `Code` and `#insert`.

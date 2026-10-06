@@ -6,38 +6,35 @@ How variables, constants, aliases, local types and nested procedures are declare
 
 ## How it works
 
-Constants (`::`) are order independent: a block's constants are hoisted before its statements run by `check_block_stmts` (`sema/stmt.rs`, "Constants are visible throughout their block, also before their declaration"), and file-level names are resolved on demand (`sema/scope.rs`). Variables (`:=`, `: T =`) are ordinary left-to-right.
+Constants (`::`) are order independent. `check_block_stmts` in `sema/stmt.rs` hoists a block's constants before its statements, and file-level names resolve on demand (`sema/scope.rs`). Variables (`:=`, `: T =`) are ordinary left-to-right declarations.
 
 ```jai
 LIMIT :: 4;
 SCALE : float : 2.5;                  // typed constant
-Word :: u16;  answer : Word : 42;     // alias used as the annotation
-counter := 10;                        // global, mutable
-table: [LIMIT] int;                   // constant in an array size
-squares := #run make_squares();       // global initialised at compile time
+Word :: u16;  answer : Word : 42;     // alias as the annotation
+counter := 10;                        // mutable global
+table: [LIMIT] int;                   // constant as an array size
+squares := #run make_squares();       // initial value computed at compile time
 ```
 
-Verified with `jaic run`:
-
-- Local types, constants and procedures may refer to each other regardless of order: `Count :: Later + 1; Later :: 2; Local :: struct { values: [Count] int; }` works inside `main`.
-- A struct body can hold constants and procedures: `Node.Count`, `Node.LIM`, and `Node.read` resolve as namespace members. `TRUE : s32 : 1;` inside a struct is a constant member, not a field (so it does not appear in `type_info(Rec).members` or `size_of`).
-- `x: int = ---;` declares without initialising; `a, b := 1, 2.5;` declares several at once; struct fields with defaults (`v := 5;`) initialise on declaration.
-- Assigning to a constant is an error: `cannot assign to constant 3 of type s64`.
-- A nested procedure sees constants, types and globals of its enclosing scope but not its runtime locals: `cannot access local 'local' of an enclosing procedure` (`sema/expr.rs`). It is a plain procedure, not a closure.
-- `squares := #run make_squares();` computes the initial value at compile time (it printed `[0, 1, 4, 9]`). Changes that other compile-time code makes to a global do not reach the running program unless the variable is `#no_reset`; see `tests/stdlib/compile-time-globals-reset.jai`.
-- `a, b :: f();` binds every value of a multi-value constant expression, evaluated once per scope (`Compiler::multi_consts`, keyed by declaration and scope so each macro expansion gets its own); a count mismatch is `2 names but 3 values`. `#run f()` keeps all of f's values. See `tests/stdlib/modern-metaprogramming.jai`.
-- `#assert cond "message";` and `#assert(cond, "message");` run at compile time, and a failure is reported at the assertion: `#assert failed: Rec must be 8 bytes`.
-- Notes after a field (`v : s32 = 9 @Hidden;`) are visible through `type_info(T).members[i].notes`; the count was 1 for that field. Notes on the struct itself (`S :: struct @thing { ... }`) are `type_info(S).notes`; see `tests/stdlib/struct-level-notes.jai`.
+- Local types, constants and procedures can refer to each other in any order: `Count :: Later + 1; Later :: 2; Local :: struct { values: [Count] int; }` works inside `main`.
+- A struct body can hold constants and procedures (`Node.LIM`, `Node.read`). `TRUE : s32 : 1;` inside a struct is a constant member, so it is not in `type_info(Rec).members` or `size_of`.
+- `x: int = ---;` leaves `x` uninitialised; `a, b := 1, 2.5;` declares several at once.
+- Assigning to a constant fails: `cannot assign to constant 3 of type s64`.
+- A nested procedure sees constants, types and globals of its enclosing scope, not its locals: `cannot access local 'local' of an enclosing procedure`. It is a plain procedure, not a closure.
+- `#run` initialisers run at compile time. Changes other compile-time code makes to a global do not reach the running program unless the global is `#no_reset` (`tests/stdlib/compile-time-globals-reset.jai`).
+- `a, b :: f();` binds every value of a multi-value constant, evaluated once per scope. `Compiler::multi_consts` is keyed by declaration and scope, so each macro expansion gets its own. A count mismatch is `2 names but 3 values`.
+- `#assert cond "message";` and `#assert(cond, "message");` run at compile time and report at the assertion: `#assert failed: Rec must be 8 bytes`.
+- Notes after a field (`v : s32 = 9 @Hidden;`) appear in `type_info(T).members[i].notes`; notes on the struct (`S :: struct @thing { ... }`) in `type_info(S).notes`.
 
 ## How to change it
 
-Local declaration handling is in `check_local_decl` and `declare_local_consts` (`sema/stmt.rs`); file and module declarations are collected in `sema/modules.rs` and `sema/decls.rs`, with struct members in `sema/structs.rs`. Constant values are evaluated by `sema/consteval.rs`. The "enclosing local" diagnostic comes from name lookup in `sema/expr.rs`; supporting captures would need a real closure representation, which the IR does not have.
+- Local declarations: `check_local_decl` and `declare_local_consts` in `sema/stmt.rs`.
+- File and module declarations: `sema/modules.rs` and `sema/decls.rs`; struct members: `sema/structs.rs`.
+- Constant evaluation: `sema/consteval.rs`.
+- The "enclosing local" error comes from name lookup in `sema/expr.rs`. Supporting captures would need a closure representation, which the IR does not have.
 
-Add a regression program under `tests/stdlib/` for new declaration forms (constants in structs, `#if` members and the like have examples such as `tests/stdlib/type-field-constant.jai` and `tests/stdlib/macro-body-constants.jai`). See [scoping](scoping.md) for visibility rules and [structs](structs.md) for member declarations.
-
-## Configuration
-
-None.
+Add a regression program under `tests/stdlib/` for new forms; `type-field-constant.jai`, `macro-body-constants.jai`, `modern-metaprogramming.jai` and `struct-level-notes.jai` are examples. See [scoping](scoping.md) for visibility and [structs](structs.md) for members.
 
 ## Dependencies
 

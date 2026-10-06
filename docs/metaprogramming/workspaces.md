@@ -2,77 +2,76 @@
 
 ## What it is
 
-The compiler side of the `Compiler` module: metaprograms (`build.jai`, `first.jai`) create workspaces, add files and
-strings, set build options, and read compiler messages. Implemented in `crates/jaic/src/build.rs`; the public Jai API
-(`compiler_create_workspace`, `Build_Options`, `Message`...) lives in `stdlib/Compiler/` and is built on a handful of
-`#compiler` primitives.
+The Rust side of the `Compiler` module, in `crates/jaic/src/build.rs`. Metaprograms (`build.jai`, `first.jai`) create workspaces, add files and strings, set build options and read compiler messages through `#compiler` primitives; the Jai API on top of them is in [Compiler module](compiler-module.md).
 
 ## How it works
 
-- `Workspaces` (shared as `Rc<RefCell<..>>`, `SharedWorkspaces`) is created by the embedder with a `BuildEnv`
-  (file system, base `Options`, optional `OutputBackend`, command-line args after `-`, a host factory, a report sink).
-  Workspace 2 is the top-level program (workspace 1 is reserved, as in `jai`, so the first workspace a metaprogram creates is 3; see `build::TOP_LEVEL_WORKSPACE`). `Compiler::attach_workspaces` gives the compile-time interpreter access.
-- Bodiless `#compiler` procedures named `__jaic_*` are bound to `Hook::Meta(MetaOp, has_context)` in
-  `sema/procs.rs::proc_func`; `interp::run_hook` forwards them to `build::call`. ABI: optional context pointer, then
-  params (memory types such as `string` by address), then out-addresses for memory-typed results.
+### Registry
 
-  | primitive | meaning |
-  |---|---|
-  | `__jaic_workspace_create(name) -> s64` | new workspace id |
-  | `__jaic_current_workspace() -> s64` | workspace whose compile-time code runs |
-  | `__jaic_workspace_add_file/add_string(ws, s)` | queue a source (`ProgramSource`) |
-  | `__jaic_workspace_set_option(ws, key, value)` | string key/value build option (see below) |
-  | `__jaic_workspace_begin_intercept(ws)` | mark intercepted |
-  | `__jaic_workspace_next_event(ws) -> s64` | compile lazily, pop the next event kind (0 = none) |
-  | `__jaic_event_int(i)`, `__jaic_event_string(i)` | fields of the current event |
-  | `__jaic_command_line_count/arg(i)` | metaprogram args |
-  | `__jaic_report(msg, file, line, col, is_error)` | error traps the compile; warnings go to `report` |
-  | `__jaic_compiler_version()`, `__jaic_custom_link_complete(ws, code)` | |
+The embedder creates `Workspaces` (shared as `SharedWorkspaces`, an `Rc<RefCell<..>>`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, command-line args after `-`, a host factory and a report sink. `Compiler::attach_workspaces` gives the compile-time interpreter access.
 
-- Each workspace is a small state machine (`build::step`), advanced whenever its events are read (or by
-  `build::finish_all` after the top-level compile, for workspaces nobody intercepted). Its `Compiler` lives in the
-  registry between steps:
-  - **Open → Checked**: `Compiler::begin_sources` loads bootstrap + queued sources and runs their `#run`s;
-    events FILE…, PHASE parsed, PHASE TYPECHECKED_ALL_WE_CAN.
-  - **Checked + new sources** (a metaprogram called `add_build_string` after seeing TYPECHECKED_ALL_WE_CAN):
-    `add_source` + `settle`, new FILE events, PHASE TYPECHECKED_ALL_WE_CAN again.
-  - **Checked → Done**: `finish_program` (lowering), output, COMPLETE.
-  The registry borrow is released while a compiler runs, so nested metaprograms work.
-- Sources a `#run` adds to *its own* workspace (`add_build_string(s, -1)`, e.g. to define a `#placeholder`) are
-  pulled by `Compiler::pull_workspace_sources` right after that `#run` (`run_top_level` is incremental).
-- Events, in order: `IMPORT(4)` before a module's first file and `FILE(1)` per loaded file (ints[0] = message
-  record); `TYPECHECKED(5)` (ints[0] = message record) just before PHASE TYPECHECKED_ALL_WE_CAN; `PHASE(2)` with ints `[phase, 0]`: 0 ALL_SOURCE_CODE_PARSED,
-  1 TYPECHECKED_ALL_WE_CAN, 2 ALL_TARGET_CODE_BUILT, 3 PRE_WRITE_EXECUTABLE (ints[1] = object count n, strings[0..n]
-  objects then output path), 4 POST_WRITE_EXECUTABLE (strings[0] = output path); `COMPLETE(3)` with ints `[error_code]` (0 none, 1 failed). IMPORT/FILE/TYPECHECKED are only produced for
-  intercepted workspaces; their payloads are records, see [compiler-records.md](compiler-records.md).
-- `compiler_modify_procedure` calls are queued on the workspace and applied by the next `step`, before its stage
-  work, so bodies are replaced before they are lowered.
-- Output: when `do_output` and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` is called
-  with the IR program and `BuildSettings` (path = `output_path/output_executable_name`). `jaic build` passes an LLVM
-  backend (object, `cc` link, `-shared` for DYNAMIC_LIBRARY, `ar` for STATIC_LIBRARY); `jaic run/check` and the
-  browser pass none (workspaces are only checked).
-- The top-level program's own settings (workspace 2) decide whether `jaic build` writes it: a metaprogram calling
-  `set_build_options_dc(.{do_output = false})` produces no output of its own.
+Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`). Workspace 1 is reserved, as in Jai, so the first workspace a metaprogram creates is 3.
+
+### Primitives
+
+Bodiless `#compiler` procedures named `__jaic_*` are bound to `Hook::Meta(MetaOp, has_context)` in `proc_func` (`sema/procs.rs`); `interp::run_hook` forwards them to `build::call`. The ABI is: optional context pointer, the parameters (memory types such as `string` by address), then out-addresses for memory-typed results.
+
+| Primitive | Meaning |
+|---|---|
+| `__jaic_workspace_create(name) -> s64` | new workspace id |
+| `__jaic_current_workspace() -> s64` | workspace whose compile-time code is running |
+| `__jaic_workspace_add_file/add_string(ws, s)` | queue a source (`ProgramSource`) |
+| `__jaic_workspace_set_option(ws, key, value)` | set a build option by name |
+| `__jaic_workspace_begin_intercept(ws)` | mark intercepted |
+| `__jaic_workspace_next_event(ws) -> s64` | advance the workspace if needed, pop the next event kind (0 = none) |
+| `__jaic_event_int(i)`, `__jaic_event_string(i)` | fields of the current event |
+| `__jaic_command_line_count/arg(i)` | metaprogram arguments |
+| `__jaic_report(msg, file, line, col, is_error)` | errors fail the compile; warnings go to the report sink |
+| `__jaic_compiler_version()`, `__jaic_custom_link_complete(ws, code)` | |
+
+The `__jaic_rec_*`, `__jaic_code_nodes`, `__jaic_parse_code` and `__jaic_modify_procedure` primitives belong to [compiler records](compiler-records.md).
+
+### Workspace state machine
+
+`build::step` advances a workspace whenever its events are read, or from `build::finish_all` after the top-level compile for workspaces nobody intercepted. Its `Compiler` lives in the registry between steps.
+
+1. **Open to Checked**: `Compiler::begin_sources` loads the bootstrap and queued sources and runs their `#run`s. Events: FILE..., PHASE `ALL_SOURCE_CODE_PARSED`, PHASE `TYPECHECKED_ALL_WE_CAN`.
+2. **Checked with new sources** (the metaprogram called `add_build_string` after `TYPECHECKED_ALL_WE_CAN`): `add_source` and `settle`, new FILE events, `TYPECHECKED_ALL_WE_CAN` again.
+3. **Checked to Done**: `finish_program` lowers, output is written, COMPLETE.
+
+The registry borrow is released while a compiler runs, so nested metaprograms work. Sources a `#run` adds to its own workspace (`add_build_string(s, -1)`, for example to define a `#placeholder`) are pulled by `Compiler::pull_workspace_sources` right after that `#run`; `run_top_level` is incremental. `compiler_modify_procedure` calls are queued and applied at the start of the next `step`, so bodies are replaced before they are lowered.
+
+### Events
+
+| Kind | Payload |
+|---|---|
+| `IMPORT` (4) | int 0 = record; sent before a module's first file |
+| `FILE` (1) | int 0 = record; one per loaded file |
+| `TYPECHECKED` (5) | int 0 = record; just before PHASE `TYPECHECKED_ALL_WE_CAN` |
+| `PHASE` (2) | int 0 = phase: 0 `ALL_SOURCE_CODE_PARSED`, 1 `TYPECHECKED_ALL_WE_CAN`, 2 `ALL_TARGET_CODE_BUILT`, 3 `PRE_WRITE_EXECUTABLE` (int 1 = object count `n`, strings = objects then output path), 4 `POST_WRITE_EXECUTABLE` (string 0 = output path) |
+| `COMPLETE` (3) | int 0 = error code (0 none, 1 failed) |
+
+IMPORT, FILE and TYPECHECKED are only produced for intercepted workspaces.
+
+### Output
+
+When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic build` passes an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`); `jaic run`, `jaic check` and the browser pass none, so workspaces are only checked.
+
+Workspace 2's own settings decide whether `jaic build` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own.
 
 ## How to change it
 
-- New primitive: add a `MetaOp` variant + name in `MetaOp::from_name`, handle it in `build::call`, declare it in
-  `stdlib/Compiler` as `#compiler` without a body.
-- New option: handle the key in `Workspaces::set_option` and use it in `ensure_compiled` or the backend.
-- New event kind: push it in `step`; strings handed to Jai must go through `keep_string` so they outlive the
-  call. Structured payloads should be records (`crate::records`) rather than strings.
-- Gotcha: never hold `shared.borrow_mut()` across `compile_sources` or a backend call that may re-enter.
+- New primitive: a `MetaOp` variant and name in `MetaOp::from_name`, a case in `build::call`, and a bodiless `#compiler` declaration in `stdlib/Compiler`.
+- New option: handle the key in `Workspaces::set_option` and read it where the compiler is created (`new_compiler`) or output is written (`write_output`).
+- New event kind: push it in `step`. Strings handed to Jai must go through `keep_string` so they outlive the call; structured payloads should be records (`crate::records`).
+- Gotcha: never hold `shared.borrow_mut()` across `compile_sources` or a backend call; both can re-enter.
 
 ## Configuration
 
-Option keys: `output_executable_name`, `output_path`, `output_type`, `do_output`, `import_path_clear`, `import_path`,
-`os_target`, `cpu_target`, `optimization`, `entry_point_name`, `temporary_storage_size`,
-`additional_linker_arguments_clear`, `additional_linker_argument`, `array_bounds_check`, `stack_trace`,
-`arithmetic_overflow_check` (`OFF`, `NONFATAL`, `FATAL`; applies to workspaces a metaprogram creates, not to the
-program's own workspace); unknown keys are ignored. CLI:
-`jaic build build.jai - arg1 arg2` passes args to the metaprogram.
+Option keys handled by `set_option`: `output_executable_name`, `output_path`, `output_type`, `do_output`, `import_path_clear`, `import_path`, `os_target`, `cpu_target` (targets jaic can't build for are ignored), `optimization`, `temporary_storage_size`, `additional_linker_arguments_clear`, `additional_linker_argument`, `array_bounds_check`, `arithmetic_overflow_check`, `stack_trace`, `emit_debug_info`. Other keys are accepted and ignored. `arithmetic_overflow_check` applies to workspaces a metaprogram creates, not the program's own.
+
+`jaic build build.jai - arg1 arg2` passes `arg1 arg2` to the metaprogram.
 
 ## Dependencies
 
-`sema::Compiler` (`compile_sources`, `ProgramSource`), `interp` hooks, `jaic-llvm` (CLI backend),
-`stdlib/Compiler` (Jai-side API).
+`sema::Compiler` (`compile_sources`, `ProgramSource`), interpreter hooks, `jaic-llvm` (the CLI's backend), `stdlib/Compiler`.

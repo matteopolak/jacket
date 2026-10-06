@@ -31,8 +31,8 @@ jobs:
           node tools/check_scripting_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
           node tools/check_jai_format_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
       - name: Run every stdlib test in the browser engine
-        # The browser release (portfolio) refuses a bundle whose pass set differs from
-        # tools/playground_stdlib_expected.json, so a new test must be listed there in the same change.
+        # Every test must pass: one that needs what the browser lacks (processes, native libraries,
+        # windows) skips that part itself under `OS == .WASM`. The browser release runs the same check.
         run: node tools/check_playground_stdlib.mjs artifacts/ci-wasm
   test:
     name: compiler (${{ matrix.runner }})

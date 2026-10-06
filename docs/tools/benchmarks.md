@@ -62,28 +62,16 @@ python3 tools/profile_report.py prof.json.gz --top 30
 - **New corpus workload:** add a row to `CORPUS` in `bench.py`. Only add workloads that succeed and do not write into `corpus/upstream`.
 - **Profile columns:** the interpreter counts per frame in `run_blocks` (`frame_blocks`, `frame_insts`). `Interp::exec` saves and restores them around each call, so recursion still gives self counts.
 
-What the first round of profiling found (all stdlib fixes; interpreted instructions):
+### Known hot spots
 
-- **Pointer hashing.** `Hash.get_hash` returned a constant for pointers, so every pointer-keyed `Table` was one long chain. Vk-Engine went from 7.6B to 1.0B instructions (15.5s to 3.0s).
-- **Compiler records.** `record_of` scanned every record linearly. It now uses a pointer-to-id index (`record_slots`).
-- **U128.** Division and multiplication used bit loops. They now have a 64-bit divisor fast path and 32-bit limbs. jaison went from 2.3s to 0.5s, together with the memory debugger index (`md_find` was a linear scan).
-- **Float printing.** Exact digit generation now runs on a `u64` first and retries with wide limbs only on overflow, and it scales by powers of two with shifts. `String_Builder` copies with `memcpy` and appends single bytes directly. `interp-strings` went from 2.09s to 1.19s.
+Past profiles found the same patterns repeatedly, so check for them first:
 
-A second round on the front end (Focus check: 1.16B to about 0.41B interpreted instructions):
+- **Hashing.** A weak or constant hash turns a `Table` into one long chain. Pointer keys go through `knuth_hash`; the Rust side uses `jaic::fxhash` instead of SipHash, since every name lookup hashes a `Sym` several times.
+- **Linear scans in the stdlib.** `Default_Allocator`'s ledger and the memory debugger's index are hash sets, and compiler records are found through a pointer-to-id index (`record_slots`). A list scanned on every call is the usual cause of a quadratic metaprogram.
+- **Compiler records.** Filling `Code_Node`/`Type_Info` structs member by member through reflection used to dominate Focus builds. Records are now written natively from a cached per-type plan, from big chunks rather than one allocation each ([compiler records](../metaprogramming/compiler-records.md)).
+- **Wide-integer and float printing.** `U128` has a 64-bit fast path and 32-bit limbs; float digit generation runs on a `u64` and widens only on overflow.
 
-- **Compiler records** were about half of a Focus build: filling hundreds of thousands of `Code_Node`/`Type_Info` structs member by member through reflection, two primitive calls per member. Ints, strings and built pointers are now written natively from a cached per-type plan (see [compiler records](../metaprogramming/compiler-records.md)).
-- **`Default_Allocator`** scanned a linked list of every live allocation on each free. It is a hash set now.
-- **Lenient body lowering** looked at every previously failed body before each compile-time call; unchanged failures are parked.
-- **Interpreter calls** no longer allocate a `Vec` for results or SipHash the stack-trace info.
-- **Hashing**: sema, the interner, the type table and the interpreter use `jaic::fxhash` (a multiply-rotate hasher) instead of SipHash; every name lookup hashes a `Sym` several times. Member lookup no longer clones the struct's field list.
-
-A third round (Focus check 2.4s to 1.66s, 611M to 381M instructions; Focus `-O0` build 3.7s to 2.5s):
-
-- **Codegen units**: `-O0` builds split LLVM code generation across threads (see [LLVM backend](../native/llvm-backend.md)).
-- **Record memory**: built record structs come from big chunks instead of one `Default_Allocator` call each. The allocator and its ledger were about 30% of the interpreted instructions.
-- **`Default_Allocator`** checks the common modes first and keeps its table half full.
-
-What is left is the interpreter's dispatch (`Interp::exec` is about half of native time, spread over ordinary instructions) and sema spread thin over many functions. The kind breakdown shows `Loc` (source positions, 10%) and `IConst`/`SlotAddr` (17% and 9%) as candidates for a denser IR, which would be a redesign rather than a fix.
+What remains is the interpreter's dispatch (`Interp::exec` is about half of native time, spread over ordinary instructions) and sema spread thin over many functions. The kind breakdown points at `Loc` (source positions) and `IConst`/`SlotAddr` as candidates for a denser IR; that would be a redesign rather than a fix.
 
 ## Configuration
 
