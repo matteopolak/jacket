@@ -1189,25 +1189,21 @@ impl OutputBackend for LlvmBackend {
             name.push(ext);
             PathBuf::from(name)
         };
-        // Find out now, not from the linker, when the output cannot be written there.
-        let probe = with_ext(".jaic-probe");
-        match std::fs::File::create(&probe) {
-            Ok(_) => {
-                let _ = std::fs::remove_file(&probe);
-            }
-            Err(e) => {
-                return Err(format!(
-                    "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
-                    shown(output),
-                    jaic::io_reason(&e)
-                ));
-            }
-        }
         let object = if settings.output_type == OutputType::ObjectFile {
             output.to_path_buf()
         } else {
             with_ext(".o")
         };
+        // The object file goes next to the output: creating it now finds out, with the
+        // system's reason, when that place cannot be written, rather than from LLVM or the
+        // linker after code generation.
+        if let Err(e) = std::fs::File::create(&object) {
+            return Err(format!(
+                "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
+                shown(output),
+                jaic::io_reason(&e)
+            ));
+        }
         use jaic_llvm::OptLevel;
         let opt_level = match settings.optimization.as_str() {
             // `llvm_options.bitcode_optimization_setting` member names.
