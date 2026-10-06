@@ -411,6 +411,8 @@ pub struct Interp {
     /// Value stacks for procedures C calls back, reused.
     #[cfg(not(target_arch = "wasm32"))]
     callback_stacks: Vec<Box<[u64]>>,
+    /// Procedures already recorded for `JAIC_COVERAGE`, by `FuncId`; `None` when it is unset.
+    covered: Option<Vec<bool>>,
 }
 
 /// What a thread running interpreted code keeps of `Interp` while another thread has it, or
@@ -482,6 +484,7 @@ impl Interp {
             unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             callback_stacks: Vec::new(),
+            covered: profile::coverage_file().map(|_| Vec::new()),
         }
     }
 
@@ -1096,6 +1099,9 @@ impl Interp {
                 TrapKind::StackOverflow,
                 "stack overflow (recursion too deep)",
             );
+        }
+        if let Some(covered) = self.covered.as_mut() {
+            record_coverage(covered, program, id, func);
         }
         let frame = self.frame(program, id);
         let base = self.sp;
@@ -2012,6 +2018,28 @@ impl Interp {
             counts.flush();
         }
     }
+}
+
+/// Record procedure `id` for `JAIC_COVERAGE` the first time it runs.
+#[cold]
+fn record_coverage(covered: &mut Vec<bool>, program: &Program, id: FuncId, func: &ir::Func) {
+    let index = id.0 as usize;
+    if covered.len() <= index {
+        covered.resize(index + 1, false);
+    }
+    if std::mem::replace(&mut covered[index], true) {
+        return;
+    }
+    let (file, line, name) = match (&func.trace, &func.debug) {
+        (Some(t), _) => (t.file, t.line, t.name.as_str()),
+        (None, Some(d)) => (d.file, d.line, d.name.as_str()),
+        (None, None) => (func.source_file, 0, func.name.as_str()),
+    };
+    let path = program
+        .file_paths
+        .get(file as usize)
+        .map_or("", String::as_str);
+    profile::cover(path, line, name);
 }
 
 impl Drop for Interp {

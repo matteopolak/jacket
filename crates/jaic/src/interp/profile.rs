@@ -3,12 +3,73 @@
 //! Every interpreter (the main compile and each metaprogram workspace) counts calls, basic blocks
 //! and instructions executed in each procedure's own frames (callees not included), and merges them
 //! into a process-wide table when it is dropped or flushed. `report` formats the table.
-use std::collections::HashMap;
+//!
+//! `JAIC_COVERAGE=<file>` records which procedures ran at all: `write_coverage` appends one
+//! `path:line name` line per procedure (polymorph instances share their declaration's line).
+//! `tools/stdlib_coverage.py` reads it.
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, OnceLock};
 
 pub(crate) fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var_os("JAIC_PROFILE").is_some_and(|v| v != "0"))
+}
+
+/// The `JAIC_COVERAGE` file, when coverage is being recorded.
+pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
+    static FILE: OnceLock<Option<std::path::PathBuf>> = OnceLock::new();
+    FILE.get_or_init(|| {
+        let file = std::env::var_os("JAIC_COVERAGE")
+            .filter(|v| !v.is_empty())
+            .map(std::path::PathBuf::from);
+        // A program that calls `exit` under `jaic run` ends the process from inside the
+        // interpreter, so the procedures it ran are also written from the C runtime's exit hook.
+        #[cfg(not(target_arch = "wasm32"))]
+        if file.is_some() {
+            unsafe extern "C" {
+                fn atexit(hook: extern "C" fn()) -> i32;
+            }
+            extern "C" fn at_exit() {
+                write_coverage();
+            }
+            unsafe { atexit(at_exit) };
+        }
+        file
+    })
+    .as_deref()
+}
+
+/// Every procedure any interpreter of this process ran, as `path:line name`.
+static COVERED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+
+/// Record that the procedure declared at `path:line` ran.
+pub(crate) fn cover(path: &str, line: u32, name: &str) {
+    let mut covered = COVERED.lock().unwrap_or_else(|e| e.into_inner());
+    covered.insert(format!("{path}:{line} {name}"));
+}
+
+/// Append the procedures that ran since the last call to the `JAIC_COVERAGE` file (nothing when
+/// it is unset).
+pub fn write_coverage() {
+    use std::io::Write;
+    let Some(path) = coverage_file() else {
+        return;
+    };
+    let covered = std::mem::take(&mut *COVERED.lock().unwrap_or_else(|e| e.into_inner()));
+    if covered.is_empty() {
+        return;
+    }
+    let text: String = covered.iter().map(|line| format!("{line}\n")).collect();
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path);
+    if let Err(e) = file.and_then(|mut f| f.write_all(text.as_bytes())) {
+        eprintln!(
+            "warning: could not write JAIC_COVERAGE to {}: {e}",
+            path.display()
+        );
+    }
 }
 
 #[derive(Clone, Copy, Default)]

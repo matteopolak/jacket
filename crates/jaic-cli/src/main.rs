@@ -781,6 +781,7 @@ fn run(cli: Cli) -> ExitCode {
     if let Some(report) = jaic::interp::profile::report(40) {
         eprint!("{report}");
     }
+    jaic::interp::profile::write_coverage();
     code
 }
 
