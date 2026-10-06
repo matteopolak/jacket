@@ -1031,6 +1031,62 @@ fn jaifmt_builds_and_formats() {
     assert_eq!(fmt(&["--check", "src"]).status.code(), Some(0));
 }
 
+/// `jaic build jaifmt/build.jai - -o <file>` builds the same jaifmt through the Compiler module,
+/// and an unknown metaprogram argument fails the build.
+#[test]
+fn jaifmt_build_metaprogram() {
+    if cfg!(windows) {
+        return;
+    }
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt-metaprogram");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let exe = exe_path(&dir, "jaifmt");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(repo_root().join("jaifmt/build.jai"))
+        .args(["-", "-o"])
+        .arg(&exe)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let mut child = Command::new(&exe)
+        .arg("--stdin")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    use std::io::Write;
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"f :: ()\n{\n  x:=1;\n}\n")
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "f :: () {\n    x := 1;\n}\n"
+    );
+
+    let bad = Command::new(JAIC)
+        .arg("build")
+        .arg(repo_root().join("jaifmt/build.jai"))
+        .args(["-", "bogus"])
+        .output()
+        .unwrap();
+    assert!(!bad.status.success());
+    assert!(
+        String::from_utf8_lossy(&bad.stderr).contains("unknown argument 'bogus'"),
+        "{}",
+        String::from_utf8_lossy(&bad.stderr)
+    );
+}
+
 /// jaifmt formats every Jai file in a copy of the repository's stdlib, tests and tools (each one
 /// passes its token-equivalence check), and formatting the result again changes nothing.
 #[test]
@@ -1073,7 +1129,14 @@ fn jaifmt_is_idempotent_on_the_repository() {
     }
     let tree = dir.join("tree");
     let mut count = 0;
-    for part in ["stdlib", "tests", "tools", "jaifmt", "benchmarks", "examples"] {
+    for part in [
+        "stdlib",
+        "tests",
+        "tools",
+        "jaifmt",
+        "benchmarks",
+        "examples",
+    ] {
         let source = repo_root().join(part);
         if source.is_dir() {
             copy_jai(&source, &tree.join(part), &mut count);

@@ -27,6 +27,7 @@
   - `wasm-ld` comes from `JAIC_WASM_LD`, the LLVM install or an LLD package (`lld`, `lld-23`). wasm32 is refused.
 - `#intrinsic "llvm.<name>"` on a bodiless procedure calls that LLVM intrinsic in native builds.
 - `jaifmt.wasm`: jaifmt compiled to WebAssembly (`jaifmt/wasm.jai`): source on stdin, `--config <toml>` or `JAIFMT_CONFIG`, result on stdout. Browser bundles include it (`build_scripting_wasm.py --jaic`, required by `package_browser_release.py`). It formats about 35 times faster than the interpreted playground driver, and CI checks its output against native jaifmt on every golden case.
+- `jaifmt/build.jai`: `jaic build jaifmt/build.jai` builds an optimised `target/jaifmt` through the Compiler module; `- wasm` builds `target/jaifmt.wasm` and `- -o <file>` picks the output.
 - `tools/jaic-diff.py` has a `wasm-native` backend, and `tools/wasi_run.mjs` runs WASI modules under node.
 
 ### Changed

@@ -126,7 +126,7 @@ Scripts, CI and project policies.
 - [Differential testing](tools/differential-testing.md): interpreter, native, `-O2` and wasm must agree; `jaigen` random programs; `jaic-reduce`
 - [Fuzzing](tools/fuzzing.md)
 - [jaic regression sweep](tools/jaic-sweep.md)
-- [jaifmt (Jai formatter)](tools/jaifmt.md)
+- [jaifmt (Jai formatter)](tools/jaifmt.md): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`
 - [jailint (Jai linter)](tools/jailint.md): rules, `jailint.toml`, suppression, adding a rule
 - [LLVM setup](tools/llvm-setup.md)
 - [Nix flake](tools/nix.md)

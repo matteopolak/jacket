@@ -299,6 +299,28 @@ fn jaifmt_wasm_formats_the_golden_cases() {
     assert_eq!(piped.status.code(), Some(0));
 }
 
+/// `jaic build jaifmt/build.jai - wasm` builds the same WASI module through the Compiler module.
+#[test]
+fn jaifmt_wasm_from_the_build_metaprogram() {
+    let dir = scratch("wasm-jaifmt-metaprogram");
+    let build = repo_root().join("jaifmt/build.jai");
+    let module = dir.join("jaifmt.wasm");
+    let args = [
+        "build",
+        build.to_str().unwrap(),
+        "-",
+        "wasm",
+        "-o",
+        module.to_str().unwrap(),
+    ];
+    if jaic(&dir, &args).is_none() {
+        return;
+    }
+    let piped = wasi_run(&module, &[], "f :: ()\n{\n  x:=1;\n}\n");
+    assert_eq!(text(&piped.stdout), "f :: () {\n    x := 1;\n}\n");
+    assert_eq!(piped.status.code(), Some(0));
+}
+
 /// Every corpus case the interpreter passes behaves the same as a WASI module.
 #[test]
 fn corpus_runs_as_wasm_like_the_interpreter() {

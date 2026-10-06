@@ -5,7 +5,7 @@
 `jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the stdlib module `Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
 
 ```sh
-target/debug/jaic build jaifmt/main.jai -O2 -o target/jaifmt
+target/debug/jaic build jaifmt/build.jai   # or: jaic build jaifmt/main.jai -O2 -o target/jaifmt
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
 target/jaifmt --stdin < in.jai > out.jai   # editor integration
@@ -14,6 +14,21 @@ target/jaifmt --stdin < in.jai > out.jai   # editor integration
 Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`). Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change.
 
 Under the interpreter: `jaic run jaifmt/main.jai -- --check "$PWD/stdlib"`. `jaic run` starts programs in the main file's directory, so pass absolute paths.
+
+### Building with the metaprogram (`jaifmt/build.jai`)
+
+The program lives in the top-level `jaifmt/` directory (`main.jai`, the browser drivers `playground.jai` and `wasm.jai`, and `build.jai`); `tools/` is for repository-maintenance scripts. `build.jai` is a [Compiler module](../metaprogramming/compiler-module.md) metaprogram that builds an optimised jaifmt in a workspace of its own:
+
+```sh
+jaic build jaifmt/build.jai                     # target/jaifmt (native, optimised, no debug info)
+jaic build jaifmt/build.jai - wasm              # target/jaifmt.wasm (WASI, same as -os wasm)
+jaic build jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
+```
+
+- It must be `jaic build`: `jaic run` and `jaic check` have no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
+- The default output is `target/` at the repository root (anchored on `#filepath`), wherever `jaic` was started. A relative `-o` path is relative to `jaifmt/`, because `jaic`, like `jai`, runs from the main file's directory. The default is not `jaifmt` at the root because that is the source directory.
+- `set_optimization(.OPTIMIZED)` means `-O2` code with bounds, null and cast checks off, as a shipping build. The plain `jaic build jaifmt/main.jai -O2` (used by CI, the Nix package and the tests) keeps the checks. Both pass the token-equivalence check, which is what guards the output.
+- The wasm build sets `os_target = .WASM`, `cpu_target = .CUSTOM` and the triple `wasm64-unknown-wasi`, which makes `jaic` link `Wasi_Runtime` exactly as `-os wasm` does.
 
 ## How it works
 
@@ -84,8 +99,9 @@ Binary versus prefix is decided from the previous code token: an operand (identi
 - The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and `corpus/upstream` (point a worktree's `corpus/upstream` symlink at the copy) and run the sweep. This is how the directive-flag adjacency rule was found.
 - Golden tests: `stdlib/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (with `<name>.toml` as config if present). Run `jaic run stdlib/Jai_Format/tests/golden.jai` (part of the sweep's `modules` set); after an intended change, regenerate with `jaic run stdlib/Jai_Format/tests/golden.jai -- --bless` and review the diff. The same test checks idempotence, the refusal of malformed input, the safety check, config parsing and globs, and that the formatter's own sources are formatted.
 - `tests/stdlib/jai-format-api.jai` exercises the public API on in-memory text only, so it runs unchanged in the browser engine (`tools/check_playground_stdlib.mjs`). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | staged-dir>` runs the browser driver through the wasm engine on every golden case (CI runs it on the debug wasm).
+- Moving or renaming `jaifmt/`: CI (`ci.yml`), `nix/jaifmt.nix`, `tools/build_scripting_wasm.py` (and its test), `tools/build_pgo.py`, `tools/check_jaifmt_wasm.mjs`, `tools/check_jai_format_wasm.mjs`, the jaic-cli tests and the last entry of `SOURCES` in `stdlib/Jai_Format/tests/golden.jai` all name its files. The browser bundle's names (`jaifmt-playground.jai`, `jaifmt.wasm`) are what pages fetch, so they do not follow the source path.
 - Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
-- `crates/jaic-cli/tests/native.rs` (`jaifmt_builds_and_formats`) builds the tool natively and checks the CLI: `--stdin`, `--check`, in-place rewrites, ignore globs and exit codes. `jaifmt_is_idempotent_on_the_repository` formats a copy of every `.jai` file under `stdlib/`, `tests/` (minus `tests/corpus`), `tools/`, `benchmarks/` and `examples/` and checks that a second run changes nothing.
+- `crates/jaic-cli/tests/native.rs` (`jaifmt_builds_and_formats`) builds the tool natively and checks the CLI: `--stdin`, `--check`, in-place rewrites, ignore globs and exit codes. `jaifmt_build_metaprogram` (and `jaifmt_wasm_from_the_build_metaprogram` in `tests/wasm_target`) builds it through `jaifmt/build.jai`. `jaifmt_is_idempotent_on_the_repository` formats a copy of every `.jai` file under `stdlib/`, `tests/` (minus `tests/corpus`), `tools/`, `jaifmt/`, `benchmarks/` and `examples/` and checks that a second run changes nothing.
 - A file whose layout matters (generated tables, test fixtures with recorded line numbers such as `tests/native/debug-info`): add it to `ignore`, or wrap the region in `// jaifmt: off` / `// jaifmt: on`. Tests that compare `#location` lines must not rely on two statements sharing a line, since they will be split.
 
 ## Configuration

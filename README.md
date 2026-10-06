@@ -127,7 +127,7 @@ cargo test --workspace --locked --no-fail-fast
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --timeout 900   # everything should pass
-target/jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples   # build: jaic build jaifmt/main.jai -O2 -o target/jaifmt
+target/jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples   # build: jaic build jaifmt/build.jai
 cargo run -p jailint -- -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks
 ```
 
