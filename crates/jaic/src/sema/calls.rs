@@ -1822,7 +1822,10 @@ impl Compiler {
         let header = self.proc(proc).lit.header.clone();
         let sig = self.signature(proc, span)?;
         // Intrinsics expand inline.
-        if header.flags.intrinsic && self.proc(proc).lit.body.is_none() {
+        if header.flags.intrinsic
+            && self.proc(proc).lit.body.is_none()
+            && super::procs::llvm_intrinsic(&header).is_none()
+        {
             return self.emit_intrinsic(f, proc, &sig, &c.slots, &header, args, span);
         }
         let mut values = Vec::new();

@@ -619,6 +619,17 @@ impl Compiler {
                 sig: ir_sig,
                 is_data: false,
             }))
+        } else if let Some(llvm) =
+            llvm_intrinsic(&header).filter(|_| self.proc(id).lit.body.is_none())
+        {
+            // `#intrinsic "llvm.x"`: a call to the LLVM intrinsic itself. It exists only in
+            // native code; the interpreter cannot resolve the symbol.
+            ProcTarget::Foreign(self.program.add_foreign(ir::Foreign {
+                symbol: llvm.to_string(),
+                library: None,
+                sig: ir_sig,
+                is_data: false,
+            }))
         } else if self.proc(id).lit.body.is_none() {
             if header.flags.intrinsic || header.flags.compiler {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
@@ -1261,4 +1272,10 @@ fn lit_is_entry_point(header: &ast::ProcHeader) -> bool {
         .other
         .iter()
         .any(|f| f.name.as_str() == "entry_point")
+}
+
+/// The LLVM intrinsic an `#intrinsic "llvm.name"` declaration binds to.
+pub(super) fn llvm_intrinsic(header: &ast::ProcHeader) -> Option<&str> {
+    let name = header.flags.builtin_name.as_deref()?;
+    (header.flags.intrinsic && name.starts_with("llvm.")).then_some(name)
 }
