@@ -91,8 +91,21 @@ toml-jai's examples (run by its `tests.jai`) found three more, also fixed:
 - `ifx c then x = 1 else x = 2;` as a statement;
 - `ok=, p.* = f();`.
 
-All three are in `tests/stdlib/tagged-union-constant-tags.jai`. The examples still stop on
-`ok:, x.y = f();`, which declares one name and assigns to another place.
+All three are in `tests/stdlib/tagged-union-constant-tags.jai`. Later rounds fixed `ok:, x.y = f();`
+(rule `decl.22`), `Type_Info_Struct_Member.Flags.OVERLAY` (`struct.18`), one-byte strings as `u8` in
+`c - "0"`, `split(s, ".")` and `cast(u8, "\u001F")` (`str.19`), `string_to_float64_new`, `FormatFloat`
+on a variant of a float, `null` in a struct literal over a union member's default (`struct.19`), and
+struct and string parameters changed through their address (`advance(*s, 1)` in
+`string_to_int_checked`), which changed the caller's variable (`proc.12`).
+
+`union_and_overlay`, `validation` and `formatting_control` run and pass (`toml-jai-*` cases);
+`file_examples` checks (its `data/` files are not pinned). Two still fail:
+
+- `first.jai` stops at `andies[1]` (line 387): toml-jai's `find_or_insert_key` returns `*it.value`
+  from a by-value `for table.table`, and jaic's `it` is a copy, so the second `[[andy]]` header adds
+  to the copy. Whether Jai's `it` aliases the element there is not established.
+- `custom_handlers.jai` reads `Hash_Table.Table`'s type info by member index (`members[5]` is
+  `entries`), which depends on the official module's private layout.
 
 ### Project status
 
@@ -108,7 +121,7 @@ All three are in `tests/stdlib/tagged-union-constant-tags.jai`. The examples sti
 | [jai-redis](https://github.com/rluba/jai-redis) | works | Test builds; running needs a Redis server |
 | [jai-postgres](https://github.com/rluba/jai-postgres) | partial | Checks; running needs libpq and a database |
 | [jai-tracy](https://github.com/rluba/jai-tracy) | works | `-plug tracy` instruments and builds a profiled program |
-| [sgpu](https://github.com/roeyb1/sgpu) | works | Examples build on macOS; mesh shaders need a driver MoltenVK lacks |
+| [sgpu](https://github.com/roeyb1/sgpu) | works | Examples build on macOS; mesh shaders need a driver MoltenVK lacks. `Vulkan_With_VMA/generate.jai` regenerates its bindings |
 | [The Way to Jai](https://github.com/Ivo-Balbaert/The_Way_to_Jai) | works | Most programs run; the rest check |
 | [Vk-Engine](https://github.com/ostef/Vk-Engine) | partial | Checks for Linux; no macOS support upstream |
 | [chess-jai](https://github.com/danieltan1517/chess-jai) | works | UI and engine build natively; perft suite passes |
@@ -120,8 +133,8 @@ All three are in `tests/stdlib/tagged-union-constant-tags.jai`. The examples sti
 | [no_api](https://github.com/UnNabbo/no_api) | partial | Entry point loads a file missing upstream; Windows/Linux only |
 | [reflector](https://github.com/n00bmind/reflector) | works | Its unotest suite builds natively and passes (`reflector-tests`) |
 | [jai-format](https://github.com/OrangeLightning219/jai-format) | partial | Builds a `File` from the C `stdin` (`*FILE`); jaic's `File.handle` is an `s64` descriptor |
-| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | partial | Examples stop at `Type_Info_Struct_Member.Flags.OVERLAY`, which jaic's `Type_Info_Struct_Member` lacks |
-| [jai-xml](https://github.com/smari/jai-xml) | partial | `test.jai` and the examples stop at `#if must` on a `$$must: bool = false` parameter called without that argument (the default should be baked) |
+| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | partial | 4 of 6 examples pass; `first` and `custom_handlers` stop (see above) |
+| [jai-xml](https://github.com/smari/jai-xml) | works | `test.jai` passes its 6 cases and `continue_iter` runs; the other examples check (their `traverse.xml` is not in the repository) |
 | [jai-protobuf](https://github.com/segcore/jai-protobuf) | partial | Pinned with its `.proto` inputs; its tests write generated code into the tree and do not pass yet |
 
 ### Notes per project
@@ -136,7 +149,7 @@ All three are in `tests/stdlib/tagged-union-constant-tags.jai`. The examples sti
 jaic check Build.jai -I Modules -I Source -os linux - Core|Renderer|Game|Editor
 ```
 
-on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine whose libraries are built, so `Build.jai` doesn't regenerate bindings inside the corpus. Use a release `jaic`; each module takes tens of seconds. Without the placeholders `Build.jai` runs three generators: ImGui's works, Jolt's needs `cmake`, and Vulkan's stops with "expected *Declaration, found Enumerate" at `Modules/Vulkan/generate.jai:240`. That generator (like sgpu's `Vulkan_With_VMA/generate.jai`) targets an older `Bindings_Generator` where `Enum.enumerates` held declarations; the current API rejects it in Jai too. Natively on macOS it stops early: the upstream `Vulkan`, `ImGui` and `JoltPhysics` modules have no macOS branch. `tools/build_vk_engine_libs.py` builds the C++ libraries for macOS; see [Vk-Engine](../native/vk-engine.md).
+on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine whose libraries are built, so `Build.jai` doesn't regenerate bindings inside the corpus. Use a release `jaic`; each module takes tens of seconds. Without the placeholders `Build.jai` runs three generators: ImGui's and Vulkan's work, Jolt's needs `cmake`. Vulkan's used to stop with "expected *Declaration, found Enumerate" at `Modules/Vulkan/generate.jai:240`. That was a jaic gap: the generator (like sgpu's `Vulkan_With_VMA/generate.jai`) uses the newer `Bindings_Generator` API, where `Enum.enumerates` holds `*Declaration`s, and jaic's module had the older `Enum.Enumerate` values. With the newer API both Vulkan generators run; Vk-Engine's writes `vulkan_linux.jai` with the same 668 `sType` defaults as the pinned file. Natively on macOS it stops early: the upstream `Vulkan`, `ImGui` and `JoltPhysics` modules have no macOS branch. `tools/build_vk_engine_libs.py` builds the C++ libraries for macOS; see [Vk-Engine](../native/vk-engine.md).
 
 **sgpu.** All examples check (host, Linux, Windows) and build natively on macOS after `tools/build_slang.py`. With MoltenVK all run except `04_mesh_shaders` (no `VK_EXT_mesh_shader`). Commands: [native libraries](native-libs.md#slang-sgpu).
 
@@ -190,7 +203,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **KodaJai.** Imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer, BlockAllocatorJai, JaiMath, lz4_static and JaiParallel, none pinned.
 
-**no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`. Its code uses dotless struct literals (`f({1})`) and `A : :5` enum members, which jaic now accepts; checked with `-os linux` it stops at "struct `Rendering_Context` contains itself" (likely tied to its file-scope `using` of a global of that type), and its bindings generator needs `table_find_new`, which jaic's `Hash_Table` lacks.
+**no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`. Its code uses dotless struct literals (`f({1})`) and `A : :5` enum members, which jaic now accepts; "struct `Rendering_Context` contains itself" was a jaic bug: its file-scope `using gpu_context;` (a `*Rendering_Context`) made every name in the struct's field types ask whether `Rendering_Context` has such a member, which laid the struct out again (rule `using.17`). Checked with `-os linux`, `module.jai` now stops at `VkDeviceMemory` in `modules/vulkan_memory_allocator/linux.jai`, which imports a `jai-vulkan` module the repository doesn't contain; with `-os windows` it stops at `vkGetPhysicalDeviceFeatures2(physical_device, ...)`, which passes a `*Physical_Device` where its `#as` member `VkPhysicalDevice` is expected (jaic doesn't dereference and convert there). Its bindings generators use the older `Bindings_Generator` API (`*Enum.Enumerate`; a library renamed through `Library_Info.name`) and `Hash_Table`'s old `table_find_new`, and do not type-check.
 
 Excluded: jaithon, which is its own language in `.jai` files.
 

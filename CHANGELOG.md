@@ -13,9 +13,14 @@
 - `ok:, toki.str = f();`: a mixed declaration list can assign to members, indexes and dereferences alongside the names it declares.
 - Struct literals without a dot in expressions, `f({1})` and `f({.A, 1})`, which code in the upstream corpus uses.
 - A mismatched `return` value gets a note pointing at the declared return type.
+- `Type_Info_Struct_Member.Flags.OVERLAY`: set on members declared after `#overlay(f)`, so serializers such as toml-jai can skip them.
+- `Basic.string_to_float64_new`, which returns success first (`ok, value, rest`).
+- `Bindings_Generator`: `Library_Info.identifier`, the name the bindings give a library; `will_print_bindings` may change it (sgpu's Vulkan generator).
+- A one-byte string constant is a `u8` in arithmetic with an integer (`c - "0"`), as a `u8` argument (`split(s, ".")`, where no `string` overload exists) and in a cast (`cast(u8, "\u001F")`), as comparisons already allowed.
 
 ### Changed
 
+- `Bindings_Generator`: `Enum.enumerates` holds `*Declaration`s, one constant declaration per value with its `Literal` as the expression, and `Literal.enum_value` is a `*Declaration`. Visitors see the values after their enum and can drop one with `OMIT_FROM_OUTPUT`. Vk-Engine's and sgpu's Vulkan generators run; generators written for the older `Enum.Enumerate` values no longer type-check. `Library_Info.name` is now the library's file name; its Jai name moved to `identifier`.
 - Error messages say what is wrong and, where jaic can tell, what to change. See `docs/compiler/diagnostics.md` for the style guide, the layouts and the exit statuses.
   - One renderer (`jaic::render`) draws diagnostics for `jaic` and `jailint`: rustc's layout with context lines, labels, `help:` lines and fix previews, in colour on a terminal (`--color auto|always|never`, `NO_COLOR`, `FORCE_COLOR`) and with box drawing where the terminal supports it (`JAIC_DIAGNOSTICS=plain|ascii|unicode`). Piped output keeps the `path:line:col: error: message` form, with paths relative to where jaic started.
   - Runtime errors name the check that failed (an array index outside the array, with the index and count, null dereference, division by zero...), point at the user's line, and list the call stack innermost first with standard-library frames folded and internal names hidden. A failed `assert` shows its message or its condition (``assertion failed: `x == 4` is false``), in `jaic run` and in built executables alike.
@@ -28,6 +33,11 @@
 
 ### Fixed
 
+- A procedure that changes a struct or string parameter (`advance(*s, 1)`, `p.a += 1`) changes its own copy: before, it changed the caller's variable, in `jaic run`, `#run` and built executables.
+- A `$$` parameter whose argument is omitted bakes its constant default, so `#if must` works in the body of `skip :: (p: *$T, $$must := false)` called as `skip(p)`.
+- A struct literal's `null` (`U.{p = null}`) clears what a union member's default (`s: string = "default"`) put in the same storage.
+- `using g;` of a global `g: *S` at file scope no longer reports "struct `S` contains itself" while `S`'s field types are resolved.
+- `FormatFloat` and `FormatInt` print variants of variants (`#type,isa` of a `#type,distinct float64`) instead of `<non-float>`.
 - `jaic run`: a `#c_call` procedure stored in memory C reads (a struct field such as `AURenderCallbackStruct.inputProc` or `WNDCLASSEXW.lpfnWndProc`, a global, an array) is now a real C function pointer, not an interpreter-internal value C crashed calling. C may call it from its own threads (an audio render thread); the call waits until the interpreter is inside a foreign call. Jai code calling the stored pointer, and comparing it with the procedure, still works.
 - `Clipboard`: `os_clipboard_set_bitmap` no longer fails for every bitmap on Windows, macOS and Linux. Its overflow check divided a wrapped `0xffff_ffff - 40` (`-41` as an `s32`) by the height; found by `wrapping_constant`.
 - `#asm` instructions whose destination is a general-purpose register (`pmovmskb.x found:, v;`, `movmskps`, `cvttsd2si`, `pextrq`) accept a register declared in the destination, in the interpreter and LLVM alike.

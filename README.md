@@ -25,9 +25,11 @@ The compiler, language server and formatter also run in the browser through WebA
 
 ## What works
 
-**The language.** The whole core language: types, procedures, structs, enums, unions, `using`, `defer`, `context`, `Any`, polymorphism and baking, `#modify`, macros, `#code`/`#insert`, custom `for_expansion`, `#asm` (SSE through AVX2, FMA, AES, SHA, F16C, GFNI and the common AVX-512 instructions with mask registers, run on any CPU), SIMD, and arithmetic overflow and bounds checks. All 56 of the reference `how_to` programs run.
+**The language.** The whole core language: types, procedures, structs, enums, unions, `using`, `defer`, `context`, `Any`, polymorphism and baking, `#modify`, macros, `#code`/`#insert`, custom `for_expansion`, `#asm` (SSE through AVX2, FMA, AES, SHA, F16C, GFNI and the common AVX-512 instructions with mask registers, run on any CPU), SIMD, and runtime checks for arithmetic overflow, bounds, narrowing casts and `#complete` switches. All 56 of the reference `how_to` programs run.
 
-**Compile-time execution.** `#run` runs in an IR interpreter that can call into C libraries, and metaprograms get the full `Compiler` module: workspaces, the message loop and build options.
+**Compile-time execution.** `#run` and `jaic run` use an IR interpreter that calls into C libraries, and C can call back into Jai through procedure pointers passed as arguments or stored in memory, even from threads C starts itself. A crash inside C code names the foreign procedure and the Jai call stack. Metaprograms get the full `Compiler` module: workspaces, the message loop and build options.
+
+**Errors** show the code around the problem with labels, notes and suggested fixes, in colour with box drawing when the terminal supports it ([diagnostics](docs/compiler/diagnostics.md)).
 
 **Native executables** through LLVM, with debug information (DWARF on macOS and Linux):
 
@@ -46,10 +48,10 @@ On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitiz
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jailsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
 - A [formatter](docs/tools/jaifmt.md) (`jaifmt`) that runs natively and in the browser, either interpreted or compiled to a 214 KB `jaifmt.wasm`. Its output is canonical and idempotent: formatting twice changes nothing.
-- A [linter](docs/tools/jailint.md) (`jailint`) with rules that run on the type-checked program: unused variables, parameters and imports, loops that only index (`for i: 0..xs.count-1`), hand-kept counters, redundant casts, `x == true`, format strings with the wrong number of arguments, a shadowed `it`, a `defer` in a loop, likely bugs (`u >= 0` on an unsigned value, `1 << n - 1`, `for i: 0..xs.count` indexing `xs[i]`, identical branches or operands, a `while` whose condition nothing changes, `trim(s);` with the result dropped) and unidiomatic code (`x = x + 1`, `if c return true; else return false;`), and opt-in checks for exact float comparison and narrowing `xx`. It applies fixes with `--fix`, reads `jailint.toml`, honours `// jailint: allow(rule)`, and its findings and fixes also show up in editors through `jailsp`.
+- A [linter](docs/tools/jailint.md) (`jailint`) with rules that run on the type-checked program: unused variables, parameters and imports, loops that only index (`for i: 0..xs.count-1`), hand-kept counters, redundant casts, `x == true`, format strings with the wrong number of arguments, a shadowed `it`, a `defer` in a loop, likely bugs (`u >= 0` on an unsigned value, `1 << n - 1`, `for i: 0..xs.count` indexing `xs[i]`, identical branches or operands, a `while` whose condition nothing changes, `trim(s);` with the result dropped) and unidiomatic code (`x = x + 1`, `if c return true; else return false;`), and constants that silently wrap to a narrower operand type, and opt-in checks for exact float comparison and narrowing `xx`. It applies fixes with `--fix`, reads `jailint.toml`, honours `// jailint: allow(rule)`, and its findings and fixes also show up in editors through `jailsp`.
 - A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai), which opens with a [multi-file tour of the language](examples/tour/tour.md) (`examples/tour`).
 
-**Real projects** such as the Focus editor, the Jails language server, jaison, sgpu and the programs from *The Way to Jai* compile and run; see [the full list](docs/tools/upstream-corpus.md#project-status).
+**Real projects** such as the Focus editor, the Jails language server, jaison, jai-xml, sgpu and the programs from *The Way to Jai* compile and run; see [the full list](docs/tools/upstream-corpus.md#project-status).
 
 ## Performance
 
@@ -67,6 +69,7 @@ Release builds spend most of their time in LLVM's optimiser. The formatter compi
 ## What is missing
 
 - C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Long_Double` extension](docs/language/jaic-extensions.md); C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
+- In `jaic run`, a Jai callback that C calls from a thread C started itself cannot block on Jai threads (mutexes, joins, sleeps); it stops with an error instead.
 - WebAssembly builds are wasm64 only, cannot call libm (`sin`, `pow`, float `%`) or use `Long_Double`, and have no threads or files beyond stdin, stdout and stderr.
 
 Anything unsupported fails with a compile error rather than being silently accepted.
@@ -111,6 +114,7 @@ main :: () -> int {
 jaic check examples/compile-time-record.jai        # type-check only
 jaic run examples/compile-time-record.jai          # run in the interpreter
 jaic build examples/compile-time-record.jai -O2    # native executable (-os windows to cross-build)
+jaic check broken.jai --color always               # force coloured errors (or NO_COLOR=1 to turn them off)
 jaic run examples/tour/main.jai                    # the language tour the playground opens with
 jailint src/                                       # lint every .jai file under src/
 jailint src/ --fix                                 # apply the safe fixes
