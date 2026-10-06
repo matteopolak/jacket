@@ -20,7 +20,6 @@
 //! bit pattern is the point (`h & 0xffff_ffff`, `x == 0xFFFF_FFFF`); anything using `~`; named
 //! constants; casts (`cast(u8) 300`, `xx`), which say what they mean; enum operands.
 use super::op_text;
-use crate::facts::Recorded;
 use crate::syntax::{Cx, is_atom, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, StmtKind as S, UnOp};
@@ -47,9 +46,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } = &s.kind
                 && let ([l], [r]) = (lhs.as_slice(), rhs.as_slice())
             {
-                // The target's span is also the checker's temporary pointer to it; the
-                // operation it desugars to (`*tmp % r`) has the statement's span.
-                check_operand(cx, *op, r, l, cx.compiler.type_at(s.span), false, out);
+                check_operand(cx, *op, r, l, cx.ty(l), false, out);
             }
             true
         });

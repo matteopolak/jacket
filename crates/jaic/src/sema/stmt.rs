@@ -997,15 +997,18 @@ impl Compiler {
                 },
                 false,
             );
+            // The hidden pointer gets an empty span at the target's start, so what is recorded
+            // for the target's own span (its type, the names it resolves to) stays the user's.
+            let at = lhs[0].span;
             let target = ast::Expr {
                 kind: E::Unary(
                     ast::UnOp::Deref,
                     Box::new(ast::Expr {
                         kind: E::Ident(tmp),
-                        span: lhs[0].span,
+                        span: Span::new(at.file, at.start as usize, at.start as usize),
                     }),
                 ),
-                span: lhs[0].span,
+                span: at,
             };
             let value = ast::Expr {
                 kind: E::Binary(bin, Box::new(target), Box::new(rhs[0].clone())),
