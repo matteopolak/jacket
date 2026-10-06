@@ -19,7 +19,7 @@ The compiler, language server and formatter also run in the browser through WebA
 - [Usage](#usage)
 - [Language server](docs/compiler/language-server.md) · [Formatter (jaifmt)](docs/tools/jaifmt.md) · [Linter (jailint)](docs/tools/jailint.md) · [Browser build](docs/browser/playground.md)
 - [Compatibility with real projects](docs/tools/upstream-corpus.md#project-status)
-- [Contributing](#contributing) · [Developer docs](docs/README.md)
+- [Contributing](#contributing) · [Development](#development) · [Developer docs](docs/README.md)
 - [License](#license)
 
 ## What works
@@ -103,6 +103,10 @@ jailint src/ --fix                                 # apply the safe fixes
 
 ## Contributing
 
+Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Development
+
 ```sh
 cargo test --workspace --locked --no-fail-fast
 cargo fmt --all -- --check
@@ -113,7 +117,7 @@ cargo run -p jailint -- -D warnings stdlib examples tools/jaifmt tests/corpus/po
 
 The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server`, `crates/jailint` (the linter) and `crates/jai-wasm` (browser build). Start with the [developer docs](docs/README.md) and the [compiler architecture](docs/compiler/architecture.md).
 
-This project is a clean-room implementation. To contribute, you must not have read the source of an official Jai distribution: its modules, `how_to` programs, compiler or any other part of it. Work only from public documentation, third-party Jai code and the behaviour of programs in this repository's tests.
+This project is a clean-room implementation, written without reading the source of an official Jai distribution: its modules, `how_to` programs, compiler or any other part of it. It is built from public documentation, third-party Jai code and the behaviour of programs in this repository's tests.
 
 ## License
 

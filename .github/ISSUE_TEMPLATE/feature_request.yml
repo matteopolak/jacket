@@ -1,0 +1,23 @@
+name: Feature request
+description: Missing language behaviour, stdlib module, tool feature or lint
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What is missing
+      description: For language or stdlib behaviour, include a program that should compile or run and what it should print.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What it is for
+      description: The project or task that needs it. Real use cases are prioritised over completeness.
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: How Jai behaves
+      description: Optional. Describe observed behaviour or link public documentation. Do not paste code from an official Jai distribution.

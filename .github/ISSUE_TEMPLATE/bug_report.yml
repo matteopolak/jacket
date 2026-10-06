@@ -1,0 +1,61 @@
+name: Bug report
+description: A program that jaic, jailsp, jaifmt, jailint or the playground gets wrong
+labels: [bug]
+body:
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Tool
+      options:
+        - jaic (compiler, interpreter or native build)
+        - jailsp (language server)
+        - jaifmt (formatter)
+        - jailint (linter)
+        - Browser playground
+        - Standard library
+    validations:
+      required: true
+  - type: textarea
+    id: program
+    attributes:
+      label: Program
+      description: The smallest program that shows the problem. Paste it whole, including imports.
+      render: jai
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      placeholder: jaic run main.jai
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Output, error message or crash, copied as text.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: If the official Jai compiler behaves differently, say what it does and which version you ran.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag, commit hash, or the playground URL.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: macOS 26 arm64, Ubuntu 24.04 x64, Windows 11, Firefox 140...
+    validations:
+      required: true

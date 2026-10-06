@@ -279,9 +279,9 @@ class Gen:
         if k == 7:
             if signed and self.chance(0.5):
                 return f"(-{a()})"
-            # A typed zero: under `cast(float32) (...)` jaic gives an untyped left operand the
-            # cast's type (docs/tools/differential-testing.md, "Open questions").
-            return self.pick([f"(~{a()})", f"(cast({t}) 0 - {a()})"])
+            # The untyped `0` takes the other operand's type, also under an enclosing
+            # `cast(float32) (...)` (casts-and-conversions.md, cast.29).
+            return self.pick([f"(~{a()})", f"(0 - {a()})"])
         if k == 8:
             src = self.pick([x for x in INTS if x != t])
             mod = self.pick(["", "", ",trunc", ",no_check"])

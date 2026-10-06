@@ -3,7 +3,9 @@
 // the operator.
 #import "Basic";
 
-take :: (x: float32) -> float32 { return x; }
+take :: (x: float32) -> float32 {
+    return x;
+}
 
 main :: () {
     w: u16 = 15;

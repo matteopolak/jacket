@@ -141,16 +141,15 @@ Each bug was fixed with a regression test.
 | generated seed 61919 (`tests/stdlib/poly-infer-from-ifx.jai`) | front end | `$T` could not be inferred from an `ifx` whose branches are all `ifx` themselves |
 | generated seeds 62030, 62063 (`tests/stdlib/cast-float-of-integer-operator.jai`) | front end | a float cast's target reached an `ifx` operand of `&`/`%`, which widened to float, so the operator failed on `float32` |
 
-The generated programs found 4 of these bugs. Four came from the stdlib sets, and one from a targeted probe of int-to-float conversions (jaigen now generates those edge values too). Run counts, seed ranges and timings belong in the commit messages and reports of each campaign, not here: a generator change gives every seed a different program. One generated program failed to compile everywhere; see Open questions.
+The generated programs found 4 of these bugs. Four came from the stdlib sets, and one from a targeted probe of int-to-float conversions (jaigen now generates those edge values too). Run counts, seed ranges and timings belong in the commit messages and reports of each campaign, not here: a generator change gives every seed a different program. One generated program failed to compile everywhere; see Settled questions.
 
-### Open questions
+### Settled questions
 
-Differential testing cannot find a bug that every backend shares, because they share a front end. The generator has run into one front-end behaviour that `docs/language` does not settle, and it avoids that behaviour:
+Differential testing cannot find a bug that every backend shares, because they share a front end. The generator ran into one such front-end behaviour, now settled in `docs/language`:
 
 - **The question.** Should a cast's target type reach an untyped literal on the left of an operator whose other operand is typed?
-- **What jaic does now.** It does. `cast(float32) (0 - w)` with `w: u16 = 15` computes in `float32` and gives `-15`, where typing `0` from `w` would give `65521`.
-- **The visible failure** (fixed). `cast(float32) ((0 - w) & v)` was rejected with `operator BitAnd is not defined for float32`, and so was an `ifx` operand with typed branches (seeds 62030 and 62063). A float target no longer reaches the operands of `&`, `|`, `^` and `%` ([casts](../language/casts-and-conversions.md)).
-- **What jaigen does instead.** It writes `cast(T) 0 - x` (seed 22650 found this).
+- **The answer.** No. Types flow up; the literal is matched with the other operand ([numbers](../language/numbers.md), [casts](../language/casts-and-conversions.md), rules `num.16` and `cast.29`). `cast(float32) (0 - w)` with `w: u16 = 15` subtracts in `u16` and gives `65521`. jaic used to compute it in `float32` and give `-15`, which also made `cast(float32) ((0 - w) & v)` fail with `operator BitAnd is not defined for float32` (seed 22650).
+- **jaigen** generates `(0 - x)` again; for a while it wrote `cast(T) 0 - x` to avoid the question.
 
 ### CI
 

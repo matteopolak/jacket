@@ -3,8 +3,17 @@
 // the operand's literals.
 #import "Basic";
 
-Flags :: enum_flags u8 { A; B; C; }
-Dir :: enum { NORTH; EAST; SOUTH; WEST; }
+Flags :: enum_flags u8 {
+    A;
+    B;
+    C;
+}
+Dir :: enum {
+    NORTH;
+    EAST;
+    SOUTH;
+    WEST;
+}
 
 main :: () {
     w: u16 = 15;
