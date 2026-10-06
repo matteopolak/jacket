@@ -1,6 +1,7 @@
 // `cast(bool)` of a number, enum or pointer tests for non-zero: the result is a real
 // `true`, so `!` and `==` treat it like any other bool (it used to keep the low byte, and
 // `!cast(bool) 2` was true).
+// rules: cast.7 cast.22
 #import "Basic";
 
 Flags :: enum_flags {

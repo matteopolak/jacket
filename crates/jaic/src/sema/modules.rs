@@ -208,7 +208,11 @@ impl Compiler {
         params: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<ModuleId> {
-        let key = (self.fs.canonical(entry), params.clone());
+        // Named arguments in any order pick the same instance; positional ones (`$0`, ...)
+        // keep their own names, so sorting never mixes the two.
+        let mut key_params = params.clone();
+        key_params.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+        let key = (self.fs.canonical(entry), key_params);
         if let Some(&id) = self.module_cache.get(&key) {
             return Ok(id);
         }
@@ -642,9 +646,10 @@ impl Compiler {
             ast::StmtKind::Assert {
                 cond,
                 message,
+                args,
             } => self
                 .asserts
-                .push((cond.clone(), message.clone(), file_scope)),
+                .push((cond.clone(), message.clone(), args.clone(), file_scope)),
             ast::StmtKind::AddContext(decl) => {
                 self.add_contexts.push((decl.clone(), file_scope));
                 // Context already made (a `#run` needed it): extend it while its layout
@@ -729,14 +734,15 @@ impl Compiler {
             }
             | ast::StmtKind::Empty => {}
             ast::StmtKind::Using {
-                value, ..
+                value,
+                filter,
             } => {
                 // `using Module;` / `using SomeStruct;` at file scope: resolved lazily.
                 self.scope_mut(target).pending.push(Pending {
                     stmt: ast::Stmt {
                         kind: ast::StmtKind::Using {
                             value: value.clone(),
-                            filter: ast::UsingFilter::None,
+                            filter: filter.clone(),
                         },
                         span: stmt.span,
                         notes: Vec::new(),
@@ -956,10 +962,19 @@ impl Compiler {
                 self.declare_stmts(scope, file_scope, &stmts, vis)?;
             }
             ast::StmtKind::Using {
-                value, ..
+                value,
+                filter,
             } => {
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
-                let entry = self.using_target(eval_scope, value)?;
+                let mut entry = self.using_target(eval_scope, value)?;
+                if let super::scope::UsingEntry::Module(_, slot) = &mut entry
+                    && matches!(
+                        filter,
+                        ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_)
+                    )
+                {
+                    *slot = Some(Rc::new(filter.clone()));
+                }
                 if exported
                     && let super::scope::UsingEntry::Type(ty) = &entry
                     && let crate::types::TypeKind::Enum(e) = *self.types.kind(*ty)

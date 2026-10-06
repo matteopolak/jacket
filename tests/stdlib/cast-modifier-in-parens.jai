@@ -1,5 +1,6 @@
 // A parenthesized expression whose cast carries a modifier is not a parameter list: the comma
 // in `cast,no_check` must not make `(-cast,no_check(int) x)` look like `(a, b)`.
+// rules: cast.14
 #import "Basic";
 
 main :: () {

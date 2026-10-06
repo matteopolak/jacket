@@ -1,5 +1,6 @@
 // `a != b` falls back to `!(a == b)` when no `operator !=` matches, even when other
 // `operator !=` overloads are visible.
+// rules: opov.6
 #import "Basic";
 
 Id :: struct {

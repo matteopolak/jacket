@@ -166,6 +166,7 @@ impl Compiler {
             Ok(values) => Ok(values),
             Err(_) if deferred.is_some() => Err(deferred.unwrap()),
             Err(trap) => {
+                self.ct_traps += 1;
                 let mut d = Diagnostic::error(
                     span,
                     format!("error during compile-time execution: {}", trap.message),
@@ -390,7 +391,7 @@ impl Compiler {
             self.pull_workspace_sources()?;
         }
         while self.asserts_done < self.asserts.len() {
-            let (cond, message, scope) = self.asserts[self.asserts_done].clone();
+            let (cond, message, args, scope) = self.asserts[self.asserts_done].clone();
             let misses = self.placeholder_misses;
             let holds = self.eval_static_condition(scope, &cond);
             if holds.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
@@ -398,13 +399,7 @@ impl Compiler {
             }
             self.asserts_done += 1;
             if !holds? {
-                let msg = match message {
-                    Some(m) => match self.eval_const_value(scope, &m)? {
-                        Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
-                        _ => String::new(),
-                    },
-                    None => String::new(),
-                };
+                let msg = self.assert_message(scope, message.as_ref(), &args)?;
                 return err(
                     cond.span,
                     format!(
@@ -946,5 +941,48 @@ impl Compiler {
             addend: 0,
         });
         Ok(())
+    }
+
+    /// The text of a failed `#assert`: its message with each `%` replaced by the next argument
+    /// (`#assert(cond, "type % is unsupported", T)`), `\%` kept as a literal percent.
+    pub(super) fn assert_message(
+        &mut self,
+        scope: ScopeId,
+        message: Option<&ast::Expr>,
+        args: &[ast::Expr],
+    ) -> Result<String> {
+        let Some(message) = message else {
+            return Ok(String::new());
+        };
+        let Value::String(text) = self.eval_const_value(scope, message)? else {
+            return Ok(String::new());
+        };
+        let text = String::from_utf8_lossy(&text).into_owned();
+        if args.is_empty() {
+            return Ok(text);
+        }
+        let mut shown = Vec::new();
+        for arg in args {
+            shown.push(match self.eval_const_value(scope, arg)? {
+                Value::Int(i) => i.to_string(),
+                Value::Float(x) => x.to_string(),
+                Value::Bool(b) => b.to_string(),
+                Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
+                Value::Type(t) => self.types.name(t),
+                Value::Null => "null".to_string(),
+                _ => "?".to_string(),
+            });
+        }
+        let mut out = String::new();
+        let mut next = shown.into_iter();
+        let mut chars = text.chars().peekable();
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' if chars.peek() == Some(&'%') => out.push(chars.next().unwrap()),
+                '%' => out.push_str(&next.next().unwrap_or_default()),
+                _ => out.push(c),
+            }
+        }
+        Ok(out)
     }
 }

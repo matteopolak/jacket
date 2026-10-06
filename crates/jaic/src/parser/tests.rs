@@ -403,7 +403,19 @@ fn tagged_unions() {
         panic!()
     };
     assert!(lit.tag.is_some());
-    assert_eq!(decl(&lit.body[1]).union_tag.unwrap().name.as_str(), "B");
+    let Some(ExprKind::InferredMember(tag)) = decl(&lit.body[1]).union_tag.clone().map(|t| t.kind)
+    else {
+        panic!()
+    };
+    assert_eq!(tag.name.as_str(), "B");
+    let ExprKind::Struct(lit) =
+        value("U :: union kind: s8 = 4 { 4,, a: u8; b: u8; -12,, c: s16; }").kind
+    else {
+        panic!()
+    };
+    assert!(decl(&lit.body[0]).union_tag.is_some());
+    assert!(decl(&lit.body[1]).union_tag.is_none());
+    assert!(decl(&lit.body[2]).union_tag.is_some());
 }
 
 // -- expressions ----------------------------------------------------------------

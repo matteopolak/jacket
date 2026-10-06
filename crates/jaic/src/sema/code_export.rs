@@ -1606,6 +1606,7 @@ impl Exporter<'_> {
             S::Assert {
                 cond,
                 message,
+                ..
             } => {
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
                 let text = self

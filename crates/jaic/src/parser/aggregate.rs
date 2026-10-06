@@ -46,18 +46,34 @@ impl Parser<'_> {
         Ok(mk(ExprKind::Struct(Rc::new(lit)), start.to(end)))
     }
 
-    /// `union tag : Type {`: the tag member of a tagged union.
-    fn parse_union_tag(&mut self) -> PResult<Option<(crate::ast::Ident, Box<Expr>)>> {
-        if !(matches!(self.tok(), Tok::Ident(_)) && self.at_n(1, P::Colon)) {
+    /// `union tag : Type {`, `union tag : Type = default {` or `union tag := default {`: the tag
+    /// member of a tagged union.
+    fn parse_union_tag(&mut self) -> PResult<Option<crate::ast::UnionTag>> {
+        if !(matches!(self.tok(), Tok::Ident(_))
+            && (self.at_n(1, P::Colon) || self.at_n(1, P::ColonEq)))
+        {
             return Ok(None);
         }
         let name = self.ident("as union tag name")?;
-        self.bump();
-        let ty = self.parse_expr()?;
+        let ty = if self.eat(P::ColonEq) {
+            None
+        } else {
+            self.bump();
+            Some(Box::new(self.parse_expr()?))
+        };
+        let value = if ty.is_none() || self.eat(P::Eq) {
+            Some(Box::new(self.parse_expr()?))
+        } else {
+            None
+        };
         // Notes may follow the tag type: `union kind : Kind @Serialize(1) {`.
         let notes = self.parse_notes();
         self.pending_notes.extend(notes);
-        Ok(Some((name, Box::new(ty))))
+        Ok(Some(crate::ast::UnionTag {
+            name,
+            ty,
+            value,
+        }))
     }
 
     /// Struct directives, accepted before the body and after its closing brace.
@@ -97,16 +113,22 @@ impl Parser<'_> {
         let start = self.span();
         let flags_enum = self.at_kw("enum_flags");
         self.bump();
-        let base = if matches!(self.tok(), Tok::Punct(P::LBrace) | Tok::Directive(_)) {
+        let base = if matches!(
+            self.tok(),
+            Tok::Punct(P::LBrace) | Tok::Directive(_) | Tok::Note(_)
+        ) {
             None
         } else {
             Some(self.parse_expr()?)
         };
+        // Directives and notes before the body, in any order: `enum u8 #specified @Wire {`.
         let (mut specified, mut complete) = (false, false);
-        while let Some(name) = self.directive() {
-            match name {
-                "specified" => specified = true,
-                "complete" => complete = true,
+        let mut notes = Vec::new();
+        loop {
+            notes.append(&mut self.parse_notes());
+            match self.directive() {
+                Some("specified") => specified = true,
+                Some("complete") => complete = true,
                 _ => break,
             }
             self.bump();
@@ -121,7 +143,7 @@ impl Parser<'_> {
             items,
             specified,
             complete,
-            notes: Vec::new(),
+            notes,
             span: start.to(end),
         };
         Ok(mk(ExprKind::Enum(Rc::new(lit)), start.to(end)))

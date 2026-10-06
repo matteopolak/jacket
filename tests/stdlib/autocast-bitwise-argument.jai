@@ -1,5 +1,6 @@
 // `xx a | b` as an argument takes the parameter's type, also inside a macro, and flag
 // constants on the other side follow it (chess-jai's `add_piece(p, xx a1|h1)`).
+// rules: cast.12
 #import "Basic";
 
 using Squares :: enum_flags u64 {

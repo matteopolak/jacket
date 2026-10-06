@@ -2,8 +2,10 @@
 // Where that is float64 (Apple arm64, MSVC) only the format-independent checks run; the CLI tests
 // also run this file with `-target x86_64-linux-gnu` (x87) and `-target aarch64-linux-gnu`
 // (binary128), where the interpreter's soft-float does the arithmetic.
+// rules: ext.4 ext.5 ext.6 ext.7 ext.9 ext.10 ext.11 ext.12 ext.13 ext.14 ext.15
 #import "Basic";
 #import "Jaic_Extensions";
+#import "Reflection";
 
 THIRD :: cast(Long_Double) 1 / 3;
 folded_tiny :: #run power_of_half(60);
@@ -47,6 +49,24 @@ main :: () {
     assert(info.type == .FLOAT && info.runtime_size == size_of(Long_Double));
     zero: Long_Double;
     assert(-zero == zero);
+    // NaN is unordered.
+    nan := zero / zero;
+    assert(nan != nan && !(nan == nan) && !(nan < one) && !(nan >= one));
+    // Implicit conversions follow float64's: small integers, float32 and literals.
+    small_int: s8 = -5;
+    unsigned32: u32 = 7;
+    single: float32 = 1.5;
+    sum: Long_Double = small_int;
+    sum += unsigned32;
+    sum += single;
+    assert(sum == 3.5 && cast(s16) sum == 3 && cast(float32) sum == 3.5);
+    assert(cast(u64) (sum + 100.5) == 104 && cast(s64) -sum == -3);
+    // print goes through float64: values beyond its range print as inf or 0.
+    huge: Long_Double = 1;
+    for 1..1100 huge *= 2;
+    tiny_value: Long_Double = 1;
+    for 1..1100 tiny_value /= 2;
+    assert(tprint("% % %", huge, -huge, tiny_value) == "inf -inf 0");
 
     #if LONG_DOUBLE_IS_WIDE {
         assert(size_of(Long_Double) == 16 && align_of(Long_Double) == 16);
@@ -57,12 +77,25 @@ main :: () {
         assert(one + tiny != one && cast(float64) (one + tiny) == 1);
         odd: s64 = (1 << 60) + 1;
         assert(cast(s64) cast(Long_Double) odd == odd);
+        // A decimal literal is a float64 value first; arithmetic builds the exact value.
+        from_literal := cast(Long_Double) 0.1;
+        exact_tenth := cast(Long_Double) 1 / 10;
+        assert(from_literal != exact_tenth && cast(float64) from_literal == 0.1 && cast(float64) exact_tenth == 0.1);
+        // Out of s64's range: x87 gives the minimum (like fistp), binary128 saturates.
+        beyond: Long_Double = 1;
+        for 1..80 beyond *= 2;
+        assert(cast(s64) -beyond == -9223372036854775808);
+        // Reflection does not parse the wide type.
+        parsed: Long_Double = 2;
+        assert(!set_value_from_string(parsed, "1.5") && parsed == 2);
         #if CPU == .X64 {
             // x87: a 64-bit significand; one more bit rounds to even.
             assert(one + power_of_half(63) != one && one + power_of_half(64) == one);
+            assert(cast(s64) beyond == -9223372036854775808);
         } else {
             // binary128: a 113-bit significand.
             assert(one + power_of_half(112) != one && one + power_of_half(113) == one);
+            assert(cast(s64) beyond == 9223372036854775807);
         }
         print("ok wide\n");
     } else {

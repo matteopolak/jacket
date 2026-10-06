@@ -1,4 +1,5 @@
 // Between float32 and float64 overloads an untyped literal picks float32.
+// rules: num.4
 #import "Basic";
 
 lg :: (x: float64) -> float64 {

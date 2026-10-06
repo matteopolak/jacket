@@ -10,7 +10,7 @@ The Rust side of the `Compiler` module, in `crates/jaic/src/build.rs`. Metaprogr
 
 The embedder creates `Workspaces` (shared as `SharedWorkspaces`, an `Rc<RefCell<..>>`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, command-line args after `-`, a host factory, a report sink, and an optional `WorkspaceObserver` that sees each workspace's compiler when it is made and gets it back when the workspace is done ([jailint](../tools/jailint.md) uses it to lint what a metaprogram builds). `Compiler::attach_workspaces` gives the compile-time interpreter access.
 
-Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`). Workspace 1 is reserved, as in Jai, so the first workspace a metaprogram creates is 3.
+Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`) {#ws.1}. Workspace 1 is reserved, as in Jai, so the first workspace a metaprogram creates is 3 {#ws.2}.
 
 ### Primitives
 
@@ -18,15 +18,15 @@ Bodiless `#compiler` procedures named `__jaic_*` are bound to `Hook::Meta(MetaOp
 
 | Primitive | Meaning |
 |---|---|
-| `__jaic_workspace_create(name) -> s64` | new workspace id |
-| `__jaic_current_workspace() -> s64` | workspace whose compile-time code is running |
+| `__jaic_workspace_create(name) -> s64` | new workspace id {#ws.3} |
+| `__jaic_current_workspace() -> s64` | workspace whose compile-time code is running {#ws.4} |
 | `__jaic_workspace_add_file/add_string(ws, s)` | queue a source (`ProgramSource`) |
 | `__jaic_workspace_set_option(ws, key, value)` | set a build option by name |
 | `__jaic_workspace_begin_intercept(ws)` | mark intercepted |
 | `__jaic_workspace_next_event(ws) -> s64` | advance the workspace if needed, pop the next event kind (0 = none) |
 | `__jaic_event_int(i)`, `__jaic_event_string(i)` | fields of the current event |
 | `__jaic_command_line_count/arg(i)` | metaprogram arguments |
-| `__jaic_report(msg, file, line, col, is_error)` | errors fail the compile; warnings go to the report sink |
+| `__jaic_report(msg, file, line, col, is_error)` | errors fail the compile {#ws.5}; warnings go to the report sink {#ws.6} |
 | `__jaic_compiler_version()`, `__jaic_custom_link_complete(ws, code)` | |
 
 The `__jaic_rec_*`, `__jaic_code_nodes`, `__jaic_parse_code` and `__jaic_modify_procedure` primitives belong to [compiler records](compiler-records.md).
@@ -35,29 +35,29 @@ The `__jaic_rec_*`, `__jaic_code_nodes`, `__jaic_parse_code` and `__jaic_modify_
 
 `build::step` advances a workspace whenever its events are read, or from `build::finish_all` after the top-level compile for workspaces nobody intercepted. `finish_all` skips a workspace that never got a file or string: there is nothing to compile, and building it would link an executable without `main`. Its `Compiler` lives in the registry between steps.
 
-1. **Open to Checked**: `Compiler::begin_sources` loads the bootstrap and queued sources and runs their `#run`s. Events: FILE..., PHASE `ALL_SOURCE_CODE_PARSED`, PHASE `TYPECHECKED_ALL_WE_CAN`.
-2. **Checked with new sources** (the metaprogram called `add_build_string` after `TYPECHECKED_ALL_WE_CAN`): `add_source` and `settle`, new FILE events, `TYPECHECKED_ALL_WE_CAN` again.
+1. **Open to Checked**: `Compiler::begin_sources` loads the bootstrap and queued sources and runs their `#run`s. Events: FILE..., PHASE `ALL_SOURCE_CODE_PARSED`, PHASE `TYPECHECKED_ALL_WE_CAN` {#ws.7}.
+2. **Checked with new sources** (the metaprogram called `add_build_string` after `TYPECHECKED_ALL_WE_CAN`): `add_source` and `settle`, new FILE events, `TYPECHECKED_ALL_WE_CAN` again {#ws.8}.
 3. **Checked to Done**: `finish_program` lowers, output is written, COMPLETE.
 
-The registry borrow is released while a compiler runs, so nested metaprograms work. Sources a `#run` adds to its own workspace (`add_build_string(s, -1)`, for example to define a `#placeholder`) are pulled by `Compiler::pull_workspace_sources` right after that `#run`; `run_top_level` is incremental. `compiler_modify_procedure` calls are queued and applied at the start of the next `step`, so bodies are replaced before they are lowered.
+The registry borrow is released while a compiler runs, so nested metaprograms work {#ws.9}. Sources a `#run` adds to its own workspace (`add_build_string(s, -1)`, for example to define a `#placeholder`) are pulled by `Compiler::pull_workspace_sources` right after that `#run`; `run_top_level` is incremental {#ws.10}. `compiler_modify_procedure` calls are queued and applied at the start of the next `step`, so bodies are replaced before they are lowered {#ws.14}.
 
 ### Events
 
 | Kind | Payload |
 |---|---|
 | `IMPORT` (4) | int 0 = record; sent before a module's first file |
-| `FILE` (1) | int 0 = record; one per loaded file |
-| `TYPECHECKED` (5) | int 0 = record; just before PHASE `TYPECHECKED_ALL_WE_CAN` |
+| `FILE` (1) | int 0 = record; one per loaded file {#ws.11} |
+| `TYPECHECKED` (5) | int 0 = record; just before PHASE `TYPECHECKED_ALL_WE_CAN` {#ws.12} |
 | `PHASE` (2) | int 0 = phase: 0 `ALL_SOURCE_CODE_PARSED`, 1 `TYPECHECKED_ALL_WE_CAN`, 2 `ALL_TARGET_CODE_BUILT`, 3 `PRE_WRITE_EXECUTABLE` (int 1 = object count `n`, strings = objects then output path), 4 `POST_WRITE_EXECUTABLE` (string 0 = output path) |
-| `COMPLETE` (3) | int 0 = error code (0 none, 1 failed) |
+| `COMPLETE` (3) | int 0 = error code (0 none, 1 failed) {#ws.13} |
 
 IMPORT, FILE and TYPECHECKED are only produced for intercepted workspaces.
 
 ### Output
 
-When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic build` passes an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`); `jaic run`, `jaic check` and the browser pass none, so workspaces are only checked.
+When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic build` passes an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`); `jaic run`, `jaic check` and the browser pass none, so workspaces are only checked {#ws.15}.
 
-Workspace 2's own settings decide whether `jaic build` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own.
+Workspace 2's own settings decide whether `jaic build` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own {#ws.16}.
 
 ## How to change it
 

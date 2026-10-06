@@ -1,5 +1,6 @@
 // Naming a for_expansion's index (even `_`) hides its `it_index` from the body,
 // so an enclosing `it_index` stays visible.
+// rules: macro.10
 #import "Basic";
 
 Node :: struct {

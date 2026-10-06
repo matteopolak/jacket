@@ -1,3 +1,4 @@
+// rules: cast.24
 #import "Basic";
 
 HANDLE_LIKE :: cast(*void) 32512;

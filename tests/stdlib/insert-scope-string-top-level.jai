@@ -1,5 +1,6 @@
 // `#insert,scope(Top) -> string` inside a procedure declares into the file scope,
 // and the declaration is reported to the metaprogram.
+// rules: code.11
 #import "Basic";
 #import "Compiler";
 

@@ -1,5 +1,6 @@
 // Indexing is bounds-checked; `#no_abc` on a procedure, a `for` / `while` / `if`, or a block turns the
 // check off, so a view may read past its count into memory it knows is there.
+// rules: ptr.14
 #import "Basic";
 
 past_view :: (v: [] int) -> int #no_abc {

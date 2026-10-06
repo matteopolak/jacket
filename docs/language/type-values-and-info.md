@@ -6,7 +6,7 @@ Types as compile-time values (`Type`), how jaic decides two types are the same, 
 
 ## How it works
 
-Every type is a `TypeId` into the `Types` table, and `==` on types compares ids. `Types::intern` dedupes structural kinds (`Int`, `Float`, `Pointer`, `Array`, `Proc`, ...), so `*Derived` and `type_of(*d)` share an id. Nominal kinds (`Struct`, `Enum`, `Distinct`) get a fresh id per declaration. Parameterized structs are cached per argument values, so `Gen(int) == Gen(s64)`.
+Every type is a `TypeId` into the `Types` table, and `==` on types compares ids. `Types::intern` dedupes structural kinds (`Int`, `Float`, `Pointer`, `Array`, `Proc`, ...), so `*Derived` and `type_of(*d)` share an id {#typeval.1}. Nominal kinds (`Struct`, `Enum`, `Distinct`) get a fresh id per declaration {#typeval.2}. Parameterized structs are cached per argument values, so `Gen(int) == Gen(s64)` {#typeval.3}.
 
 ```jai
 Alias :: Inner;
@@ -17,11 +17,13 @@ Id == int               // false: distinct is a new nominal type
 m: Meters = 2.5; f: float = m;   // isa converts implicitly to its base
 ```
 
-`Type` values can be stored, compared, printed and put in arrays (`tt: [2] Type = .[int, float]` prints `s64 float32`). A variable holding a type cannot be a declaration's type: `t := Inner; v: t;` fails with `type must be known at compile time`.
+An alias equals its target {#typeval.4}; a `#type,distinct` type differs from its base but has its size {#typeval.5}; a `#type,isa` value converts implicitly to its base {#typeval.6}.
 
-`size_of(Type)` is 8 and `size_of(Any)` is 16. `Any.type` is a `*Type_Info`, so compare it with `type_info(int)`, not `int`.
+`Type` values can be stored, compared, printed and put in arrays (`tt: [2] Type = .[int, float]` prints `s64 float32`) {#typeval.7}. A variable holding a type cannot be a declaration's type: `t := Inner; v: t;` fails with `type must be known at compile time` {#typeval.8}.
 
-`type_info(T)` returns the matching `Type_Info_*`: `.type`, `.name`, `.members` (with `name`, `offset_in_bytes`, `type`, `flags` such as `USING` and `AS`, and `notes`), the struct's own `notes`, and the fields described in [enums](enums.md) and [unions](unions.md). See [reflection and Type_Info](../metaprogramming/reflection-and-type-info.md) for the runtime side.
+`size_of(Type)` is 8 and `size_of(Any)` is 16 {#typeval.9}. `Any.type` is a `*Type_Info`, so compare it with `type_info(int)`, not `int` {#typeval.10}.
+
+`type_info(T)` returns the matching `Type_Info_*`: `.type` {#typeval.11}, `.name` {#typeval.12}, `.members` (with `name`, `offset_in_bytes`, `type`, `flags` such as `USING` and `AS`, and `notes`) {#typeval.13}, the struct's own `notes` {#typeval.14}, and the fields described in [enums](enums.md) and [unions](unions.md). See [reflection and Type_Info](../metaprogramming/reflection-and-type-info.md) for the runtime side.
 
 ## How to change it
 

@@ -2,6 +2,7 @@
 // (Vk-Engine's entity code). An `#insert` in the module that builds a type from them runs
 // once they exist, an unused struct of the module that names that type checks, and the
 // program reaches the generated names through its import.
+// rules: compiler.16 ws.8
 #import "Basic";
 #import "Compiler";
 

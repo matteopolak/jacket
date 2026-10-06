@@ -73,6 +73,17 @@ impl Compiler {
         };
         // Register first: descriptors may refer to themselves.
         self.type_infos.insert(ty, g);
+        if let Some(s) = self.types.as_struct(ty) {
+            let span = self.types.struct_info(s).span;
+            if (span.file.0 as usize) < self.sources.len() && span != Span::default() {
+                let source = self.sources.get(span.file);
+                let (line, col) = source.line_col(span.start);
+                let path: Rc<str> = source.path.as_str().into();
+                self.interp
+                    .struct_locations
+                    .insert(g, (path, i64::from(line), i64::from(col)));
+            }
+        }
         let agg = match self.build_type_info(ty, desc, size, span) {
             Ok(agg) => agg,
             Err(e) => {
@@ -555,7 +566,7 @@ impl Compiler {
         s: crate::types::StructId,
         fields: &[crate::types::Field],
         span: Span,
-    ) -> Result<(Vec<crate::types::Field>, Vec<(i128, usize)>)> {
+    ) -> Result<(Vec<crate::types::Field>, Vec<(Value, usize)>)> {
         let Some(src) = self.struct_asts.get(&s).cloned() else {
             return Ok((fields.to_vec(), Vec::new()));
         };
@@ -581,15 +592,30 @@ impl Compiler {
             let ast::StmtKind::Decl(d) = &stmt.kind else {
                 continue;
             };
-            let Some(t) = d.union_tag else {
+            let Some(t) = &d.union_tag else {
                 continue;
             };
-            let Some(&(_, value)) = tag_members.iter().find(|(n, _)| *n == t.name) else {
-                continue;
+            // `.A` names a member of the tag's enum; `4`, `-12` or `u16` is a constant of
+            // the tag's type.
+            let value = match &t.kind {
+                ast::ExprKind::InferredMember(m) => {
+                    match tag_members.iter().find(|(n, _)| *n == m.name) {
+                        Some(&(_, v)) => Value::Int(v),
+                        None => continue,
+                    }
+                }
+                _ => match self.eval_const(src.scope, t, Some(tag.ty))? {
+                    super::lower::Operand::Type(ty) => Value::Type(ty),
+                    super::lower::Operand::Const {
+                        value: v @ (Value::Int(_) | Value::Type(_)),
+                        ..
+                    } => v,
+                    _ => continue,
+                },
             };
             for n in &d.names {
                 if let Some(index) = flat.iter().position(|f| f.name == Some(n.name)) {
-                    bindings.push((value, index));
+                    bindings.push((value.clone(), index));
                 }
             }
         }
@@ -601,7 +627,7 @@ impl Compiler {
         &mut self,
         agg: &mut Aggregate,
         desc: TypeId,
-        bindings: &[(i128, usize)],
+        bindings: &[(Value, usize)],
         span: Span,
     ) -> Result<()> {
         let binding_ty = self.preload_type("Type_Info_Tagged_Union_Binding", span)?;
@@ -611,18 +637,19 @@ impl Compiler {
             bytes: vec![0; size as usize * bindings.len()],
             relocs: Vec::new(),
         };
-        for (i, &(value, index)) in bindings.iter().enumerate() {
+        for (i, (value, index)) in bindings.iter().enumerate() {
+            let index = *index;
             let mut b = Aggregate {
                 bytes: vec![0; size as usize],
                 relocs: Vec::new(),
             };
-            self.set_field(
-                &mut b,
-                binding_ty,
-                "constant_value",
-                Value::Int(value),
-                span,
-            )?;
+            match value {
+                // A `Type` tag's constant is the type's descriptor address.
+                Value::Type(t) => {
+                    self.set_info_ptr(&mut b, binding_ty, "constant_value", *t, span)?;
+                }
+                v => self.set_field(&mut b, binding_ty, "constant_value", v.clone(), span)?,
+            }
             self.set_field(
                 &mut b,
                 binding_ty,
@@ -750,7 +777,10 @@ impl Compiler {
         let storage_len = storage.bytes.len();
         self.set_view(agg, desc, "constant_storage", storage_len, storage, 8, span)?;
 
-        // A stand-in descriptor for the generic struct, carrying its name.
+        // A stand-in descriptor for the generic struct, carrying its name: one per generic
+        // struct, so every instance's `polymorph_source_struct` is the same pointer.
+        let generic_key = self.struct_asts.get(&s).map(|src| src.lit.id);
+        let cached = generic_key.and_then(|k| self.generic_struct_infos.get(&k).copied());
         let size = self.size_of(desc, span)?;
         let mut generic = Aggregate {
             bytes: vec![0; size as usize],
@@ -773,15 +803,24 @@ impl Compiler {
             span,
         )?;
         let align = self.align_of(desc, span)?;
-        let g = self.program.add_global(ir::Global {
-            name: format!("type_info.generic.{}", name.as_str()),
-            size,
-            align,
-            init: generic.bytes,
-            relocs: generic.relocs,
-            read_only: true,
-            export: None,
-        });
+        let g = match cached {
+            Some(g) => g,
+            None => {
+                let g = self.program.add_global(ir::Global {
+                    name: format!("type_info.generic.{}", name.as_str()),
+                    size,
+                    align,
+                    init: generic.bytes,
+                    relocs: generic.relocs,
+                    read_only: true,
+                    export: None,
+                });
+                if let Some(k) = generic_key {
+                    self.generic_struct_infos.insert(k, g);
+                }
+                g
+            }
+        };
         let Some((path, _)) =
             self.find_member(desc, Sym::intern("polymorph_source_struct"), span)?
         else {

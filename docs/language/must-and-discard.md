@@ -2,19 +2,19 @@
 
 ## What it is
 
-`#must` on a result makes discarding it a compile error. `#discard` on a parameter means the callee cannot use it and the caller never evaluates the argument (it is only type-checked). That is how `Basic.assert` costs nothing when assertions are off.
+`#must` on a result makes discarding it a compile error {#must.1}. `#discard` on a parameter means the callee cannot use it {#must.2} and the caller never evaluates the argument (it is only type-checked) {#must.3}. That is how `Basic.assert` costs nothing when assertions are off {#must.4}.
 
 ## How it works
 
 ### `#must`
 
-The parser sets `Return::must` per result (`-> int, bool #must` marks the second). Each time `emit_call` in `sema/calls.rs` emits a call or expands a macro, it records the call's span, name and `#must` flags in `last_call_must`.
+The parser sets `Return::must` per result (`-> int, bool #must` marks the second) {#must.5}. Each time `emit_call` in `sema/calls.rs` emits a call or expands a macro, it records the call's span, name and `#must` flags in `last_call_must`.
 
-The check happens when code is generated, not during type checking. That is deliberate: a call passed as `Code` to a macro that never runs it does not violate `#must`.
+The check happens when code is generated, not during type checking. That is deliberate: a call passed as `Code` to a macro that never runs it does not violate `#must` {#must.6}.
 
 - A call statement: `check_stmt` (`sema/stmt.rs`) calls `check_must_used(span, 0)`, so any `#must` result is an error.
-- `a := f();`: `check_must_used(span, names)`, so only results beyond the declared names may not be `#must`. `_ := f();` counts as using it.
-- Calls through procedure values and operator overloads don't carry `#must`; the flag lives on the declaration.
+- `a := f();`: `check_must_used(span, names)`, so only results beyond the declared names may not be `#must` {#must.7}. `_ := f();` counts as using it {#must.8}.
+- Calls through procedure values and operator overloads don't carry `#must`; the flag lives on the declaration {#must.9}.
 
 ```
 error: the result of 'only' is marked #must and cannot be discarded
@@ -23,8 +23,8 @@ error: the result of 'only' is marked #must and cannot be discarded
 ### `#discard`
 
 - `ParamInfo::discard` mirrors the flag. `discarded_args` (`sema/calls.rs`) finds arguments that go to a `#discard` parameter in any candidate, and `precheck_args_deferring` checks them with `check_expr_no_emit`: types and constants, no IR. `param_value` passes a zero of the parameter type; a macro gets no local.
-- Since the argument is still type-checked, `#discard x: $T` infers `T` and type errors are still reported.
-- Defaults (`#discard loc := #caller_location`) are not evaluated either.
+- Since the argument is still type-checked, `#discard x: $T` infers `T` {#must.10} and type errors are still reported {#must.11}.
+- Defaults (`#discard loc := #caller_location`) are not evaluated either {#must.12}.
 - Inside the callee the name is a dummy constant in `Compiler::discard_params`; any use fails in `entity_operand` (`sema/expr.rs`) with `'x' is a #discard parameter and cannot be used in the procedure`.
 
 `stdlib/Basic/module.jai` declares `assert` with `#discard` parameters when `ENABLE_ASSERT` is false, so `assert(expensive())` never calls `expensive()`.

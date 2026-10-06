@@ -1,3 +1,4 @@
+// rules: code.9
 #import "Basic";
 
 twice :: (call: Code) -> s64 #expand {

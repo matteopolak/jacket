@@ -563,9 +563,18 @@ impl Compiler {
             .expect("struct without source");
         let mut items = Vec::new();
         self.field_types.remove(&src.scope);
-        if let Some((tag, tag_ty)) = &src.lit.tag {
+        if let Some(ast::UnionTag {
+            name: tag,
+            ty,
+            value,
+        }) = &src.lit.tag
+        {
             // `union tag: T { ... }`: the tag field, then an anonymous union of the members.
-            let tag_ty = self.eval_type(src.scope, tag_ty)?;
+            let tag_ty = match (ty, value) {
+                (Some(ty), _) => self.eval_type(src.scope, ty)?,
+                (None, Some(value)) => self.eval_const(src.scope, value, None)?.ty(),
+                (None, None) => return err(tag.span, "union tag needs a type"),
+            };
             let mut members = (*src.lit).clone();
             members.id = ast::AstId::fresh();
             members.tag = None;
@@ -578,7 +587,11 @@ impl Compiler {
                 Vec::new(),
                 None,
             );
-            for (name, ty, using) in [(Some(tag.name), tag_ty, false), (None, members, true)] {
+            let tag_init = value.as_deref().cloned();
+            for (name, ty, using, init) in [
+                (Some(tag.name), tag_ty, false, tag_init),
+                (None, members, true, None),
+            ] {
                 items.push(FieldItem::Field(FieldDecl {
                     name,
                     ty,
@@ -586,7 +599,7 @@ impl Compiler {
                     as_: false,
                     notes: Vec::new(),
                     span: tag.span,
-                    init: None,
+                    init,
                     scope: src.scope,
                     align: None,
                 }));
@@ -1371,7 +1384,7 @@ impl Compiler {
     ) -> Result<Operand> {
         match entry {
             UsingEntry::Type(t) => self.type_member(f, ScopeId(0), t, member, span),
-            UsingEntry::Module(m) => match self.module_lookup(m, member)? {
+            UsingEntry::Module(m, _) => match self.module_lookup(m, member)? {
                 Found::Using(entry, member) => self.using_member(f, entry, member, span),
                 Found::Entities(ids) => self.entities_operand(f, ScopeId(0), &ids, span),
             },
@@ -1408,7 +1421,7 @@ impl Compiler {
     /// Resolve the target of a `using` statement at file/struct scope.
     pub fn using_target(&mut self, scope: ScopeId, value: &ast::Expr) -> Result<UsingEntry> {
         match self.eval_const(scope, value, None)? {
-            Operand::Module(m) => Ok(UsingEntry::Module(m)),
+            Operand::Module(m) => Ok(UsingEntry::Module(m, None)),
             Operand::Type(t) => Ok(UsingEntry::Type(t)),
             other => {
                 // `using global_var;`

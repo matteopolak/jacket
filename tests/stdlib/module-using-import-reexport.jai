@@ -1,3 +1,4 @@
+// rules: scope.7 scope.8
 #import "Basic";
 #import "Reexport_Outer";
 

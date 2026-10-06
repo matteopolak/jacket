@@ -1,4 +1,5 @@
 // A TYPECHECKED enum declaration carries its type in `Code_Enum.external_type`.
+// rules: records.26
 #import "Basic";
 #import "Compiler";
 

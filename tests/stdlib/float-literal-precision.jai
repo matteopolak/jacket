@@ -1,5 +1,6 @@
 // A float literal is float32 unless it has more significant figures than float32 holds; fixed
 // notation prints at most 18 significant digits.
+// rules: num.3
 #import "Basic";
 
 PI_LONG :: 3.14159265358979;

@@ -1,3 +1,4 @@
+// rules: decl.13 decl.14 ctdata.8 ctdata.9
 #import "Basic";
 
 // Global state changed by compile-time code does not reach the running program,

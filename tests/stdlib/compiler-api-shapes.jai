@@ -1,4 +1,5 @@
 // Shape probe for the Compiler module: only type-checks the API surface used by metaprograms.
+// rules: compiler.17
 #import "Basic";
 #import "Compiler";
 

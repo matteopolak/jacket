@@ -1,5 +1,6 @@
 // `#insert (break=..., remove=...) body` in a for_expansion: the loop body's `break` and
 // `remove` become the macro's replacements (here: leave both nested loops; count removals).
+// rules: code.12
 #import "Basic";
 Grid :: struct {
     rows: [3][3] int;

@@ -485,7 +485,7 @@ impl Compiler {
                 .sum();
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
             proc_id = self.instantiate(proc, bindings, span)?;
-            extra = 1;
+            extra = 1 + self.as_base_matches(proc, &header, &slots, args)? * convert::SUBTYPE;
         }
         let sig = self.signature(proc_id, span)?;
         let runtime_params: Vec<usize> = (0..header.params.len())
@@ -529,6 +529,48 @@ impl Compiler {
             cost,
             specificity,
         })
+    }
+
+    /// How many arguments matched a bare polymorphic struct parameter (`r: *Reflector`)
+    /// only through an `#as` member. The parameter takes the argument's own type, but the
+    /// match costs like the `#as` conversion it stands for, so an overload taking the
+    /// argument's type directly (`r: *$R`) still wins (n00bmind/reflector's overload test).
+    fn as_base_matches(
+        &mut self,
+        proc: ProcId,
+        header: &ast::ProcHeader,
+        slots: &[Slot],
+        args: &[CallArg],
+    ) -> Result<u32> {
+        let scope = self.proc(proc).scope;
+        let mut count = 0;
+        for (i, param) in header.params.iter().enumerate() {
+            let (Some(pattern), Slot::Arg(a)) = (&param.ty, &slots[i]) else {
+                continue;
+            };
+            let Some(op) = &args[*a].op else {
+                continue;
+            };
+            let mut pattern = pattern;
+            let mut ty = op.ty();
+            while let E::Unary(ast::UnOp::Star, inner) = &pattern.kind {
+                let Some(p) = self.types.pointee(ty) else {
+                    break;
+                };
+                pattern = inner;
+                ty = p;
+            }
+            let E::Ident(name) = &pattern.kind else {
+                continue;
+            };
+            if let Some(ps) = self.ident_poly_struct(scope, *name)?
+                && let Some(base) = self.instance_or_as_base(ps, ty)
+                && base != ty
+            {
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 
     /// The copy of `proc` with the `$$` parameters flagged in `mask` turned into `$` ones.
@@ -1103,17 +1145,26 @@ impl Compiler {
                 continue;
             }
             for (k, arg) in arg_ops.iter().enumerate() {
-                let branch_op;
-                let op = match &arg.op {
-                    Some(op) => op,
-                    // `ifx` waits for a target type, but its branches can bind `$T` themselves.
-                    None => match self.ifx_binding_operand(arg) {
-                        Some(op) => {
-                            branch_op = op;
-                            &branch_op
+                // `ifx` waits for a target type, but its branches can bind `$T` themselves. An
+                // argument kept as an expression (the overload set has a macro taking `Code`
+                // there) still binds this procedure's type variables.
+                let evaluated;
+                let op = match (&arg.op, &arg.expr) {
+                    (Some(op), _) => op,
+                    (None, _) if let Some(op) = self.ifx_binding_operand(arg) => {
+                        evaluated = op;
+                        &evaluated
+                    }
+                    (None, Some(e)) if !is_deferred(e) => {
+                        match self.check_expr_no_emit(arg.scope, e) {
+                            Ok(op) => {
+                                evaluated = op;
+                                &evaluated
+                            }
+                            Err(_) => continue,
                         }
-                        None => continue,
-                    },
+                    }
+                    _ => continue,
                 };
                 // `null` binds nothing until the other arguments are seen.
                 if matches!(
@@ -1496,13 +1547,18 @@ impl Compiler {
             // name makes the instance signature name the instance.
             E::Ident(name) => match self.ident_poly_struct(scope, *name)? {
                 Some(ps) => {
-                    // A `*Instance` argument is dereferenced for a by-value parameter;
-                    // a struct with an `#as` instance member matches as that instance.
-                    let instance = self.instance_or_as_base(ps, ty).or_else(|| {
-                        let p = self.types.pointee(ty)?;
-                        self.instance_or_as_base(ps, p)
-                    });
-                    match instance {
+                    // A `*Instance` argument is dereferenced for a by-value parameter.
+                    // A struct with an `#as` instance member keeps its own type, so the
+                    // body sees its members too (n00bmind/reflector's `r: *BinaryReflector`
+                    // takes a `*BinaryWriter` and reaches `r.buffer`).
+                    let matched = if self.instance_or_as_base(ps, ty).is_some() {
+                        Some(ty)
+                    } else {
+                        self.types
+                            .pointee(ty)
+                            .filter(|&p| self.instance_or_as_base(ps, p).is_some())
+                    };
+                    match matched {
                         Some(t) => bind(self, bindings, *name, Value::Type(t), TypeId::TYPE),
                         None => err(
                             span,
@@ -2740,6 +2796,10 @@ impl Compiler {
                     Some(Operand::Procs(p)) if p.len() == 1 => {
                         Some((Value::Proc(p[0]), param.ty, false))
                     }
+                    // A type argument (`gen(R = type_of(r))`): `#if R.FLAG` in the body reads it.
+                    Some(Operand::Type(t)) if param.ty == TypeId::TYPE => {
+                        Some((Value::Type(*t), TypeId::TYPE, false))
+                    }
                     _ => None,
                 },
                 Slot::Default => match &header.params[i].default {
@@ -2775,6 +2835,7 @@ impl Compiler {
                         | Value::Bool(_)
                         | Value::Float(_)
                         | Value::Proc(_)
+                        | Value::Type(_)
                 ) && !self.text_may_write(&body, name)
                 {
                     self.const_macro_params.insert(e, (value, param.ty));

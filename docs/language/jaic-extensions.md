@@ -2,9 +2,9 @@
 
 ## What it is
 
-`stdlib/Jaic_Extensions/module.jai` holds features only `jaic` has. They are not official Jai, no other compiler knows them, and they may change between jaic releases. A program sees none of them unless it writes `#import "Jaic_Extensions";`, so code that doesn't opt in stays portable.
+`stdlib/Jaic_Extensions/module.jai` holds features only `jaic` has. They are not official Jai, no other compiler knows them, and they may change between jaic releases. A program sees none of them unless it writes `#import "Jaic_Extensions";` {#ext.1}, so code that doesn't opt in stays portable.
 
-The one feature so far is `Long_Double`: C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one.
+The one feature so far is `Long_Double`: C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one {#ext.2}.
 
 ```jai
 #import "Basic";
@@ -24,7 +24,7 @@ main :: () {
 
 ### The opt-in mechanism
 
-The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `unknown jaic extension type 'x'`. Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: reachable only through this module, and documented on this page.
+The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `unknown jaic extension type 'x'` {#ext.3}. Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: reachable only through this module, and documented on this page.
 
 ### `Long_Double` per target
 
@@ -36,31 +36,33 @@ Chosen by `long_double_for(os, cpu, windows_gnu)` in `sema/mod.rs` and stored in
 | arm64 Linux, wasm32 | IEEE binary128, 16 bytes, 16-aligned | wide, `fp128` in LLVM |
 | Apple arm64, Windows x64 MSVC, Windows arm64 (MSVC and MinGW) | same as `double` | `float64` itself |
 
-`LONG_DOUBLE_IS_WIDE` is `Long_Double != float64`. On the last row `Long_Double` is literally `float64`, so everything below about the wide type does not apply.
+The table holds for each target {#ext.4}.
 
-The wide type is `TypeKind::WideFloat(WideFloat::{X87, Binary128})` (`types.rs`), named `Long_Double`. Its `type_info` is `Type_Info_Float` with `runtime_size` 16, so `Any`, `print`, `type_of` and reflection see a float.
+`LONG_DOUBLE_IS_WIDE` is `Long_Double != float64`. On the last row `Long_Double` is literally `float64` {#ext.5}, so everything below about the wide type does not apply.
+
+The wide type is `TypeKind::WideFloat(WideFloat::{X87, Binary128})` (`types.rs`), named `Long_Double`. Its `type_info` is `Type_Info_Float` with `runtime_size` 16, so `Any`, `print`, `type_of` and reflection see a float {#ext.6}.
 
 ### Semantics of the wide type
 
-- Operators: `+ - * /`, unary `-`, and `== != < <= > >=` (IEEE: NaN is unordered) at full precision. `%`, bit operations and math intrinsics are errors; `Math` procedures take `float64`, so cast first.
-- Conversions: explicit casts to and from every integer and float type (integers go through `s64`/`u64`). Implicit conversions follow float64's rules so code stays portable to targets where it *is* float64: `float32`/`float64`, integers up to 32 bits and untyped literals convert implicitly, `s64`/`u64` and narrowing to `float64` need a cast.
-- Mixed arithmetic: `Long_Double + float64` is a `Long_Double`.
-- Out-of-range conversion to `s64` (undefined in C): x87 gives `-9223372036854775808` like the `fistp` instruction, binary128 saturates. Both match native builds on that target.
-- Literals: a decimal literal is a `float64` value first, so `cast(Long_Double) 0.1` holds float64's 0.1. Build exact values with arithmetic: `cast(Long_Double) 1 / 10` folds at full precision.
-- Constant folding (`wide_fold`, `sema/wide.rs`) uses the same soft-float as the interpreter, in the target's format.
-- `print` converts to `float64` (`__long_double_to_float64` in `stdlib/Basic/Print.jai`, which decodes the target's bit pattern in Jai), so it shows at most float64's digits, and values outside float64's range print as `inf` or `0`. Read the bytes for exact output. `Reflection.set_value_from_string` does not parse it.
+- Operators: `+ - * /`, unary `-`, and `== != < <= > >=` (IEEE: NaN is unordered) at full precision {#ext.7}. `%`, bit operations and math intrinsics are errors; `Math` procedures take `float64`, so cast first {#ext.8}.
+- Conversions: explicit casts to and from every integer and float type (integers go through `s64`/`u64`). Implicit conversions follow float64's rules so code stays portable to targets where it *is* float64: `float32`/`float64`, integers up to 32 bits and untyped literals convert implicitly, `s64`/`u64` and narrowing to `float64` need a cast {#ext.9}.
+- Mixed arithmetic: `Long_Double + float64` is a `Long_Double` {#ext.10}.
+- Out-of-range conversion to `s64` (undefined in C): x87 gives `-9223372036854775808` like the `fistp` instruction, binary128 saturates. Both match native builds on that target {#ext.11}.
+- Literals: a decimal literal is a `float64` value first, so `cast(Long_Double) 0.1` holds float64's 0.1. Build exact values with arithmetic: `cast(Long_Double) 1 / 10` folds at full precision {#ext.12}.
+- Constant folding (`wide_fold`, `sema/wide.rs`) uses the same soft-float as the interpreter, in the target's format {#ext.13}.
+- `print` converts to `float64` (`__long_double_to_float64` in `stdlib/Basic/Print.jai`, which decodes the target's bit pattern in Jai), so it shows at most float64's digits, and values outside float64's range print as `inf` or `0` {#ext.14}. Read the bytes for exact output. `Reflection.set_value_from_string` does not parse it {#ext.15}.
 
 ### Compiler and backends
 
 The IR has no wide scalar register: like a small struct, a `Long_Double` lives in memory (16 bytes, 16-aligned) and IR values are its address. Every operation is one `Intrinsic::Wide(WideOp, WideFloat)` (`ir.rs`) taking addresses (`Arith`, `Neg`, `Cmp`, `FromF64/F32/S64/U64`, `ToF64/F32/S64/U64`). `sema/wide.rs` emits them, `sema/convert.rs` routes casts and implicit costs there.
 
 - LLVM (`crates/jaic-llvm/src/lower.rs`, `wide`): loads `x86_fp80`/`fp128`, uses native `fadd`, `fcmp`, `fpext`, `fptosi`... and stores the result.
-- Interpreter (`interp/mod.rs`): soft-float in `crates/jaic/src/wide_float.rs`, with round-to-nearest-even, subnormals, infinities and NaN for both formats. It matches x87 hardware bit for bit; the `c_long_double` native test compares a batch of operations against an x86-64 build run under Rosetta.
+- Interpreter (`interp/mod.rs`): soft-float in `crates/jaic/src/wide_float.rs`, with round-to-nearest-even, subnormals, infinities and NaN for both formats. It matches x87 hardware bit for bit; the `c_long_double` native test compares a batch of operations against an x86-64 build run under Rosetta {#ext.16}.
 - C ABI: see [C ABI](../native/c-abi.md) (`Ty::F80`/`Ty::F128`, `PieceTy::X87`/`PieceTy::F128`).
 
 ### Limits
 
-- Passing a wide `Long_Double` to a C variadic procedure (`printf("%Lf", x)`) is a compile error; cast to `float64` and use `%f`/`%g`. Variadic `long double` is not implemented in either backend.
+- Passing a wide `Long_Double` to a C variadic procedure (`printf("%Lf", x)`) is a compile error; cast to `float64` and use `%f`/`%g` {#ext.17}. Variadic `long double` is not implemented in either backend.
 - `jaic run`: a C library cannot call a Jai `#c_call` procedure that passes a wide `Long_Double` (the callback thunks have no x87/q-register path); native builds can. Foreign calls *to* C work in the interpreter on x86-64 and arm64 hosts.
 - The interpreter's foreign calls need the host to match the target (an arm64 Linux host for binary128, an x86-64 host for x87); `jaic run -target x86_64-...` on an arm64 Mac still computes in soft-float, but cannot call x86-64 C code.
 

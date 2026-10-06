@@ -1,5 +1,6 @@
 // A tagged union (`union kind: T { .A ,, a: X; }`) is a struct: the tag field, then an
 // anonymous union of the members, all reachable directly.
+// rules: reflect.9 union.5 union.6 union.7 union.10 union.11 union.12
 #import "Basic";
 Kind :: enum u8 {
     INT;

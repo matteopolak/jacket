@@ -17,11 +17,11 @@
 
 ### Options
 
-Jai owns `Build_Options` storage: `option_store` is indexed by workspace id and filled lazily by `ensure_option_slot`. Every workspace starts from the struct defaults, which already reflect the target (`os_target := OS`, `cpu_target := CPU`); the metaprogram's own also gets `compile_time_command_line` from `__jaic_command_line_*`.
+Jai owns `Build_Options` storage: `option_store` is indexed by workspace id and filled lazily by `ensure_option_slot`. Every workspace starts from the struct defaults {#compiler.3}, which already reflect the target (`os_target := OS`, `cpu_target := CPU`) {#compiler.1}; the metaprogram's own also gets `compile_time_command_line` from `__jaic_command_line_*` {#compiler.2}.
 
-- `get_build_options(w)` returns the stored copy.
-- `set_build_options(options, w, loc)` stores it and forwards settings with `__jaic_workspace_set_option(ws, key, value)`. Changed relative `import_path` entries are anchored at `loc`'s directory.
-- `set_build_options_dc(dc, w)` updates the stored copy and forwards `do_output`, the output name and path, and one `additional_linker_argument` per `append_linker_arguments` entry.
+- `get_build_options(w)` returns the stored copy {#compiler.4}.
+- `set_build_options(options, w, loc)` stores it and forwards settings with `__jaic_workspace_set_option(ws, key, value)`. Changed relative `import_path` entries are anchored at `loc`'s directory {#compiler.5}.
+- `set_build_options_dc(dc, w)` updates the stored copy and forwards `do_output`, the output name and path, and one `additional_linker_argument` per `append_linker_arguments` entry {#compiler.6}.
 
 Keys `set_build_options` sends (values are text):
 
@@ -42,7 +42,7 @@ Keys `set_build_options` sends (values are text):
 | `null_pointer_check` | `OFF`, `ON` | always |
 | `arithmetic_overflow_check` | `OFF`, `NONFATAL`, `FATAL` | always |
 
-Only changed or non-empty values are forwarded for settings the Rust side defaults itself (entry point, output name, import paths, optimization), so empty Jai defaults never clobber them. That is why the default `import_path` is empty. The Rust side currently ignores `entry_point_name`, `write_added_strings` and `null_pointer_check`.
+Only changed or non-empty values are forwarded for settings the Rust side defaults itself (entry point, output name, import paths, optimization), so empty Jai defaults never clobber them. That is why the default `import_path` is empty {#compiler.7}. The Rust side currently ignores `entry_point_name`, `write_added_strings` and `null_pointer_check`.
 
 ### Messages
 
@@ -55,20 +55,20 @@ Only changed or non-empty values are forwarded for settings the Rust side defaul
 | 3 COMPLETE | `Message_Complete` | int 0 = `error_code`; marks the workspace finished |
 | 0 | `Message_Complete` (no error) | no more events; treated as finished |
 
-Once every intercepted workspace has finished, later calls keep returning a `COMPLETE` for the last one, with its error code, so the usual `if m.kind == .COMPLETE break;` loop terminates.
+Once every intercepted workspace has finished, later calls keep returning a `COMPLETE` for the last one, with its error code, so the usual `if m.kind == .COMPLETE break;` loop terminates {#compiler.8}.
 
-PHASE and COMPLETE messages reuse one module-level struct per kind, so they and their strings are valid only until the next `compiler_wait_for_message()`. That matches the event payload strings, which aren't copied. `Message.workspace` is always the workspace the event came from.
+PHASE and COMPLETE messages reuse one module-level struct per kind, so they and their strings are valid only until the next `compiler_wait_for_message()`. That matches the event payload strings, which aren't copied. `Message.workspace` is always the workspace the event came from {#compiler.9}.
 
 ### Reporting, version, stubs
 
-- `compiler_report(message, loc, mode)` calls `__jaic_report` with `is_error = (mode == .ERROR)`. The primitive can't tell `ERROR_CONTINUABLE`, `WARNING` and `INFO` apart.
-- `compiler_set_workspace_status(.FAILED, w)` has no primitive: unless `w` already failed it reports a fatal diagnostic so the exit code is non-zero. `.OK` is ignored.
-- `compiler_get_version_info` returns `__jaic_compiler_version()` and parses the first digit run (`"the, jaic"` gives 0, 2, 29).
-- `compiler_set_type_info_flags(type, flags)` queues the flags (`__jaic_set_type_info_flags`, `Interp.pending_type_flags`); after each `call_thunk`, `apply_type_info_flags` merges them and rebuilds the descriptor. `NO_TYPE_INFO` empties `members`; `PROCEDURES_ARE_VOID_POINTERS` reports procedure members as `*void`.
-- `get_name(w)` uses names remembered by `compiler_create_workspace`. `get_runtime_info` and `get_type_table` read `__runtime_info`.
-- These keep their public signatures but call `unsupported()`, a fatal report when invoked: `get_root_type`, `compiler_make_procedure_live`, `compiler_get_struct_location`, `compiler_report_errors_for_*`, `compiler_set_memory_breakpoint`, `compiler_add_library_search_directory`, `compiler_get_base_path`, `remap_import`, `provide_import`, `add_data_segment`.
+- `compiler_report(message, loc, mode)` calls `__jaic_report` with `is_error = (mode == .ERROR)`. An `ERROR` report fails the compile {#compiler.10}; the other severities do not {#compiler.11}. The primitive can't tell `ERROR_CONTINUABLE`, `WARNING` and `INFO` apart.
+- `compiler_set_workspace_status(.FAILED, w)` has no primitive: unless `w` already failed it reports a fatal diagnostic so the exit code is non-zero {#compiler.12}. `.OK` is ignored {#compiler.13}.
+- `compiler_get_version_info` returns `__jaic_compiler_version()` and parses the first digit run (`"the, jaic"` gives 0, 2, 29) {#compiler.14}.
+- `compiler_set_type_info_flags(type, flags)` queues the flags (`__jaic_set_type_info_flags`, `Interp.pending_type_flags`); after each `call_thunk`, `apply_type_info_flags` merges them and rebuilds the descriptor. `NO_TYPE_INFO` empties `members` {#compiler.20}; `PROCEDURES_ARE_VOID_POINTERS` reports procedure members as `*void` {#compiler.21}.
+- `get_name(w)` uses names remembered by `compiler_create_workspace` {#compiler.18}. `get_runtime_info` and `get_type_table` read `__runtime_info` {#compiler.19}.
+- These keep their public signatures but call `unsupported()`, a fatal report when invoked {#compiler.17}: `get_root_type`, `compiler_make_procedure_live`, `compiler_report_errors_for_*`, `compiler_set_memory_breakpoint`, `compiler_add_library_search_directory`, `compiler_get_base_path`, `remap_import`, `provide_import`, `add_data_segment`.
 
-Syntax-tree APIs (`compiler_get_nodes`, `compiler_get_code`, `code_to_string`, `print_expression`, `add_global_data`, `compiler_modify_procedure`) are in [compiler records](compiler-records.md). `add_build_string(text, w, message)` with a FILE or IMPORT message adds the text to that message's module; otherwise it goes to the workspace's top level.
+Syntax-tree APIs (`compiler_get_nodes`, `compiler_get_code`, `code_to_string`, `print_expression`, `add_global_data`, `compiler_modify_procedure`) are in [compiler records](compiler-records.md) {#compiler.15}. `add_build_string(text, w, message)` with a FILE or IMPORT message adds the text to that message's module; otherwise it goes to the workspace's top level {#compiler.16}. `compiler_get_struct_location` gives the file, line and column where a struct is declared (`__jaic_struct_location`) {#compiler.22}.
 
 ## How to change it
 

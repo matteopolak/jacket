@@ -1,5 +1,6 @@
 // compiler_get_code turns an edited node tree back into Code that resolves names where
 // the original code was written.
+// rules: compiler.15 records.12 code.8
 #import "Basic";
 #import "Compiler";
 

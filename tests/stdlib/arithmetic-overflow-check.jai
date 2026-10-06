@@ -3,6 +3,7 @@
 // wrapped value); `#no_aoc` on a procedure, a block, or a loop / `if` turns the check off again. The default
 // (.OFF) wraps silently. Each case compiles a small program in its own workspace and runs it with `#run`.
 // Programs that must fail (.FATAL overflow) are in tests/corpus/negative/aoc-fatal-*.jai.
+// rules: overflow.2 overflow.5 overflow.6 overflow.7
 #import "Basic";
 #import "Compiler";
 

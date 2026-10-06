@@ -1,4 +1,5 @@
 // A Code variable passed to a macro's Code parameter passes its value, not its name.
+// rules: macro.7
 #import "Basic";
 #import "Compiler";
 #import "Program_Print";

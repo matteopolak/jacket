@@ -2,7 +2,7 @@
 
 ## What it is
 
-Procedures declared `#intrinsic` have no Jai body; the compiler lowers each call to a fixed IR operation chosen by the procedure's name. The memory and atomic ones are declared in `stdlib/prelude/module.jai`:
+Procedures declared `#intrinsic` have no Jai body; the compiler lowers each call to a fixed IR operation chosen by the procedure's name {#intrin.1}. The memory and atomic ones are declared in `stdlib/prelude/module.jai`:
 
 ```jai
 memset :: (dest: *void, value: u8, count: s64) #intrinsic;
@@ -13,9 +13,9 @@ compare_and_swap :: (pointer: *$T, old: T, new: T) -> (success: bool, old_value:
 
 ## How it works
 
-`emit_intrinsic` in `sema/calls.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`. Any other name is `error: unknown intrinsic 'frob'`.
+`emit_intrinsic` in `sema/calls.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`. Any other name is `error: unknown intrinsic 'frob'` {#intrin.2}.
 
-`compare_and_swap` takes its width (1, 2, 4 or 8 bytes) from the value type:
+`compare_and_swap` takes its width (1, 2, 4 or 8 bytes) from the value type {#intrin.3}:
 
 ```jai
 x: s64 = 5;
@@ -23,9 +23,9 @@ ok, old := compare_and_swap(*x, 5, 9);   // true 5, x == 9
 ok, old  = compare_and_swap(*x, 5, 1);   // false 9, x stays 9
 ```
 
-`memcmp` returns the sign of the first differing byte. Intrinsics take no implicit context (`has_context` in `sema/procs.rs`).
+`memcmp` returns the sign of the first differing byte {#intrin.4}. Intrinsics take no implicit context (`has_context` in `sema/procs.rs`) {#intrin.5}.
 
-Taking an intrinsic's address goes through `lower_intrinsic_wrapper` (`sema/procs.rs`), which generates a small function around the op. Only `memcpy`, `memset`, `memcmp` and `debug_break` have real wrappers; any other becomes a `Trap`, so don't take pointers to the math intrinsics.
+Taking an intrinsic's address goes through `lower_intrinsic_wrapper` (`sema/procs.rs`), which generates a small function around the op. Only `memcpy`, `memset`, `memcmp` and `debug_break` have real wrappers {#intrin.6}; any other becomes a `Trap`, so don't take pointers to the math intrinsics.
 
 The compiler also emits IR operations that user code never names: `BoundsCheck` for indexing, `IsCompileTime` for `#compile_time`, bit operations for `#asm` lowering (see [SIMD and asm](simd-asm.md)), and `Wide(WideOp, WideFloat)` for every `Long_Double` operation (see [jaic extensions](jaic-extensions.md)).
 

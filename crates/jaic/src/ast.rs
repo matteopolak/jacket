@@ -510,11 +510,20 @@ pub struct StructFlags {
 }
 
 #[derive(Clone, Debug)]
+pub struct UnionTag {
+    pub name: Ident,
+    pub ty: Option<Box<Expr>>,
+    pub value: Option<Box<Expr>>,
+}
+
+#[derive(Clone, Debug)]
 pub struct StructLit {
     pub id: AstId,
     pub kind: StructKind,
-    /// Tagged union: `union tag : TagType { .A ,, a: int; }`.
-    pub tag: Option<(Ident, Box<Expr>)>,
+    /// Tagged union: `union tag : TagType { .A ,, a: int; }`. The tag may have a default
+    /// (`union tag: TagType = .B {`, `union tag := TagType.B {`); without a written type the
+    /// type is the default's.
+    pub tag: Option<UnionTag>,
     /// `struct (T: Type, N := 4)`
     pub params: Vec<Param>,
     /// Body statements: declarations, `using`, `#if`, `#place`, `#as`, nested anonymous struct/union.
@@ -609,8 +618,9 @@ pub struct Decl {
     pub flags: Vec<Ident>,
     /// `x: T #elsewhere lib ["symbol"]`: the library (and symbol) providing the variable.
     pub foreign: Option<Foreign>,
-    /// `.TAG ,, member: T;` in a tagged union body: the tag value selecting this member.
-    pub union_tag: Option<Ident>,
+    /// `.TAG ,, member: T;` in a tagged union body: the tag value selecting this member
+    /// (an enum member, an integer such as `-12`, or a type such as `u16`).
+    pub union_tag: Option<Expr>,
     pub notes: Vec<Note>,
     pub span: Span,
 }
@@ -771,10 +781,11 @@ pub enum StmtKind {
         scope: Option<Expr>,
         replacements: Vec<Arg>,
     },
-    /// `#assert cond "message";`
+    /// `#assert cond "message";`, or `#assert(cond, "format %", args)`.
     Assert {
         cond: Expr,
         message: Option<Expr>,
+        args: Vec<Expr>,
     },
     /// Top-level `#run expr;`
     Run(Expr),

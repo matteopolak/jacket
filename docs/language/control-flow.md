@@ -6,7 +6,7 @@ How `jaic` checks and lowers `if`, `while`, `for`, `if x == { case ... }` and `d
 
 ## How it works
 
-Parsing is in `parser/stmt.rs`; checking is `check_if`, `check_while`, `check_for` and `check_for_expansion` in `sema/stmt.rs`. Jumps resolve to the innermost or named loop at check time, so there is no runtime label lookup.
+Parsing is in `parser/stmt.rs`; checking is `check_if`, `check_while`, `check_for` and `check_for_expansion` in `sema/stmt.rs`. Jumps resolve to the innermost or named loop at check time {#flow.10}, so there is no runtime label lookup. A statement `ifx c then x = 1 else x = 2;` whose branches assign is an `if` statement {#flow.26}.
 
 ### Loops
 
@@ -23,10 +23,12 @@ for *p: arr p.* += 1;                // pointer iteration
 while x := i < 3 { i += 1; }         // binds x and names the loop
 ```
 
-- Ranges are inclusive; both ends are evaluated once, left to right. `for #v2 a..b` means the same.
-- The default names are `it` and `it_index`; naming either replaces it.
-- `while name := cond` binds `name` to the condition's value (re-evaluated each iteration) and names the loop for `break name`. `while :name cond` only names it.
-- `remove it;` (or `remove;`) over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]`.
+Here `for <` visits `3` down to `1` {#flow.1}, `continue outer` leaves the inner loop and continues the outer one {#flow.2}, `for 5..3` runs zero times {#flow.3}, `for v, i` binds the value then the index {#flow.4}, `for *p` writes through `p` into the array {#flow.5}, and `while x := ...` names the loop {#flow.6}.
+
+- Ranges are inclusive {#flow.7}; both ends are evaluated once, left to right {#flow.8}. `for #v2 a..b` means the same {#flow.12}.
+- The default names are `it` and `it_index`; naming either replaces it {#flow.9}.
+- `while name := cond` binds `name` to the condition's value (re-evaluated each iteration) and names the loop for `break name` {#flow.24}. `while :name cond` only names it {#flow.25}.
+- `remove it;` (or `remove;`) over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]` {#flow.11}.
 
 ### Cases
 
@@ -39,17 +41,17 @@ if c == {
 if n == { case 1; ...; case; print("default\n"); }   // bare `case;` is the default
 ```
 
-A case runs only its own body unless it ends with `#through`.
+A case runs only its own body unless it ends with `#through` {#flow.13}; a bare `case;` is the default label {#flow.14}.
 
-`if #complete c == {` on a non-flags enum must name every member (a default label does not count), or it fails with `#complete switch on Color has no case for .BLUE` (`check_switch_complete`). Members compare by value, so aliases count. `#complete` on an `enum_flags` value, a non-enum, or a compile-time constant switch value is not checked.
+`if #complete c == {` on a non-flags enum must name every member (a default label does not count), or it fails with `#complete switch on Color has no case for .BLUE` (`check_switch_complete`) {#flow.15}. Members compare by value, so aliases count {#flow.16}. `#complete` on an `enum_flags` value, a non-enum {#flow.17}, or a compile-time constant switch value is not checked {#flow.18}.
 
 ### defer
 
-`defer` bodies run at scope exit in reverse order, including on `return`, `break` and `continue` out of the scope.
+`defer` bodies run at scope exit in reverse order {#flow.19}, including on `return`, `break` and `continue` out of the scope {#flow.20}. `push_context,defer_pop ctx;` holds a context for the rest of the block {#flow.21}.
 
 ### Custom iteration
 
-`for x: value` on a type with a `for_expansion` macro goes through `check_for_expansion`. The macro can rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;`. See [macros and custom iteration](macros-and-custom-iteration.md).
+`for x: value` on a type with a `for_expansion` macro goes through `check_for_expansion` {#flow.22}. The macro can rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;` {#flow.23}. See [macros and custom iteration](macros-and-custom-iteration.md).
 
 Gotcha: a `continue` from the user's body jumps to your macro's loop head. Put the index increment in a `defer` or at the top of the loop, or the loop never advances.
 

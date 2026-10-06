@@ -1,4 +1,5 @@
 // `.[]` converted to a view has a null data pointer, so `if view.data free(view.data)` is safe.
+// rules: ptr.17
 #import "Basic";
 
 empty :: () -> [] s64 {

@@ -1,5 +1,6 @@
 // `#no_reset` globals keep what `#run` stored in them, in the interpreter and in a compiled
 // executable alike (chess-jai loads its network weights at compile time this way).
+// rules: ctdata.10
 #import "Basic";
 
 Weights :: struct {

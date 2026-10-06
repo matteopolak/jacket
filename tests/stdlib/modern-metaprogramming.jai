@@ -1,5 +1,6 @@
 // Language and Compiler-module features newer metaprogramming libraries rely on
 // (match-jai, yield-jai, epic-fail): see docs/metaprogramming/compiler-records.md.
+// rules: macro.13 macro.14 macro.15
 #import "Basic";
 #import "Compiler";
 #import "Program_Print";

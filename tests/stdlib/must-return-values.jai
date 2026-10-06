@@ -1,5 +1,6 @@
 // `#must` results can be used, assigned, returned or passed on; only discarding the call is an error
 // (see tests/corpus/negative/must-*.jai). Calls in macro arguments may violate it until code is generated.
+// rules: must.5 must.6 must.8
 #import "Basic";
 
 parse :: (x: int) -> int, bool #must {

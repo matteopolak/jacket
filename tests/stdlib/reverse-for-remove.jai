@@ -1,3 +1,4 @@
+// rules: ptr.1
 #import "Basic";
 main :: () {
     a: [..] int;

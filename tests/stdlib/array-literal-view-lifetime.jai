@@ -1,4 +1,5 @@
 // A constant array literal returned as a view outlives the procedure; an empty one has null data.
+// rules: ptr.16 ptr.17
 #import "Basic";
 
 words :: () -> bool, [] string {

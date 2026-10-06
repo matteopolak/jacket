@@ -2,6 +2,7 @@
 // operators share one level that binds tighter than `*`, and `%` binds looser than `*`
 // and `/` but tighter than `+` and `-`. Checks marked `C:` give that value with C's
 // grouping. The first block repeats results recorded from the real compiler.
+// rules: ops.1 ops.3 ops.4 ops.6 ops.7 ops.8 ops.10 ops.12 ops.15
 #import "Basic";
 
 main :: () {

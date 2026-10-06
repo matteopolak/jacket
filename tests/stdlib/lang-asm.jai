@@ -1,3 +1,4 @@
+// rules: asm.1 asm.2 asm.3 asm.4 asm.7 asm.8 asm.12 asm.13 asm.25
 #import "Basic";
 
 // #asm lowers x64 instructions to plain operations on Jai variables, so these

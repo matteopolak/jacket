@@ -1,6 +1,7 @@
 // `#insert -> string { ... }` / `#insert -> Code { ... }` run a procedure body at compile
 // time and insert its result; `#insert,scope()` resolves inserted code at the insertion
 // site; `#caller_code` is the Code of the call expression.
+// rules: code.3 code.11
 #import "Basic";
 
 Fields :: struct(names: [] string) {

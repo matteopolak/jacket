@@ -2,11 +2,11 @@
 
 ## What it is
 
-`#run` executes Jai code inside the compiler, in the same interpreter that backs `jaic run` (see [interpreter](../compiler/interpreter.md)). The result becomes a constant, a type, or a global initializer of the program being compiled.
+`#run` executes Jai code inside the compiler, in the same interpreter that backs `jaic run` (see [interpreter](../compiler/interpreter.md)). The result becomes a constant, a type, or a global initializer of the program being compiled {#ctexec.1}.
 
 ## How it works
 
-`Compiler::check_run` in `sema/consteval.rs` handles every form:
+`Compiler::check_run` in `sema/consteval.rs` handles every form {#ctexec.2}:
 
 ```jai
 F10   :: #run fact(10);                                  // expression
@@ -18,12 +18,13 @@ main :: () { v := #run make(); }                         // inside procedure bod
 
 The expression or block is compiled into a throwaway thunk (`thunk_ctx`, `run_thunk`) that stores into a `run.result` global, runs with `call_thunk`, and is read back with `read_value`. See [compile-time values](compile-time-data-and-state.md) for how results are frozen.
 
-- Top-level `#run`s and `#assert`s run in declaration order from `run_top_level`. One that fails only because a `#placeholder` isn't defined yet is retried after the metaprogram has had a chance to define it.
-- `#compile_time` is true during `#run` and false once `main` runs (`Interp::compile_time`, the `IsCompileTime` intrinsic).
-- `print` output goes straight to stdout, before the program's own output.
-- Failures report `error during compile-time execution: <trap message>` with a note naming the file and line being executed. Deep recursion ends with `stack overflow (recursion too deep)`. A failed `assert` prints `Assertion failed: msg` and stops.
-- Compile-time code has full host access: files, `Process.run_command`, and foreign procedures through the real dynamic loader. A metaprogram can do anything the user can. `fork` in the child is guarded; see the interpreter page.
-- `#run,stallable` parses (`ast::Expr::Run::flags`), but sema ignores the flag; running is always synchronous.
+- Top-level `#run`s run in declaration order from `run_top_level`, and top-level `#assert`s are checked after all of them {#ctexec.3}. One that fails only because a `#placeholder` isn't defined yet is retried after the metaprogram has had a chance to define it {#ctexec.4}.
+- `#compile_time` is true during `#run` and false once `main` runs (`Interp::compile_time`, the `IsCompileTime` intrinsic) {#ctexec.5}.
+- `print` output goes straight to stdout, before the program's own output {#ctexec.6}.
+- Failures report `error during compile-time execution: <trap message>` with a note naming the file and line being executed {#ctexec.7}. Deep recursion ends with `stack overflow (recursion too deep)` {#ctexec.8}. A failed `assert` prints `Assertion failed: msg` and stops {#ctexec.9}.
+- `#assert cond, "msg"` is evaluated with `eval_static_condition`; failure is `#assert failed: msg` {#ctexec.10}.
+- Compile-time code has full host access: files, `Process.run_command`, and foreign procedures through the real dynamic loader {#ctexec.11}. A metaprogram can do anything the user can {#ctexec.12}. `fork` in the child is guarded; see the interpreter page.
+- `#run,stallable` parses (`ast::Expr::Run::flags`), but sema ignores the flag; running is always synchronous {#ctexec.13}.
 - `jaic check` also runs `#run`s and `#assert`s.
 
 `compile_time_context` builds one shared default context for compile-time code from Runtime_Support's `Context` type; without Runtime_Support it passes null.

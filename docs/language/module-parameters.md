@@ -6,6 +6,8 @@
 
 ## How it works
 
+An import passes arguments in the same two-list shape {#modparam.1}:
+
 ```jai
 // Greeter/module.jai
 #module_parameters(LOUD := false, Count: s64 = 1)(TRACE := false);
@@ -15,16 +17,16 @@ G :: #import "Greeter"(LOUD = true, Count = 2)(TRACE = true);
 G.greet("bob");   // "HELLO bob" twice, then "helper trace=true ..."
 ```
 
-- Different first-list values create different instances; equal values share one.
-- Program parameters are shared: a plain `#import "Program_Param"` and `#import "Program_Param"()(VERBOSE = true)` see the same types and both observe `VERBOSE == true`. Setting a different value after the module has already used it is an error (`program_instance`).
-- Inside the module, including its `#load`ed files, parameters are ordinary constants. A trailing block, `#module_parameters(...) { ... }`, declares names the defaults may use.
-- An unknown argument name is silently ignored.
+- Different first-list values create different instances {#modparam.2}; equal values share one {#modparam.3}.
+- Program parameters are shared: a plain `#import "Program_Param"` and `#import "Program_Param"()(VERBOSE = true)` see the same types and both observe `VERBOSE == true` {#modparam.4}. Setting a different value after the module has already used it is an error (`program_instance`) {#modparam.5}.
+- Inside the module, including its `#load`ed files, parameters are ordinary constants {#modparam.10}. A trailing block, `#module_parameters(...) { ... }`, declares names the defaults may use {#modparam.12}.
+- An unknown argument name is silently ignored {#modparam.11}.
 
 Argument types:
 
-- A typed parameter (`SAMPLES: s32`) gives a scalar argument its type. Enum and aggregate arguments carry their own type; `.Member` takes the parameter's type.
-- An untyped parameter (`FRAMES := 3`) is a constant like `FRAMES :: 3`. Given an untyped number (a literal or `N :: 2`) it stays untyped, so it can be passed on to any numeric type it fits. ui_builder relies on this: its `MAX_FRAME_IN_FLIGHT := 3` goes to an `NSUInteger` parameter.
-- A typed argument (`cast(u8) 3`, or `N : s64 : 3`) keeps its type. Whether such a constant should also convert when it fits is unsettled; no known code needs it, so jaic rejects it.
+- A typed parameter (`SAMPLES: s32`) gives a scalar argument its type {#modparam.6}. Enum and aggregate arguments carry their own type; `.Member` takes the parameter's type {#modparam.7}.
+- An untyped parameter (`FRAMES := 3`) is a constant like `FRAMES :: 3`. Given an untyped number (a literal or `N :: 2`) it stays untyped, so it can be passed on to any numeric type it fits {#modparam.8}. ui_builder relies on this: its `MAX_FRAME_IN_FLIGHT := 3` goes to an `NSUInteger` parameter.
+- A typed argument (`cast(u8) 3`, or `N : s64 : 3`) keeps its type {#modparam.9}. Whether such a constant should also convert when it fits is unsettled; no known code needs it, so jaic rejects it.
 
 ## How to change it
 

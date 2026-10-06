@@ -6,25 +6,25 @@ How jaic groups an expression with several operators. Jai's table is not C's: th
 
 ## How it works
 
-Tightest first. Every binary level is left associative (`8 / 2 / 2` is 2, `1 << 1 << 2` is 8).
+Tightest first. Every binary level is left associative (`8 / 2 / 2` is 2, `1 << 1 << 2` is 8) {#ops.1}.
 
 | Level | Operators | Example |
 | --- | --- | --- |
-| postfix | `.x` `[i]` `f()` `.*` `.{}` `.[]` `.(T)` | `-p.x` is `-(p.x)`, `*a.b` is `*(a.b)` |
-| prefix | `-` `+` `!` `~` `*` (address) `<<` (dereference) | `~a & b` is `(~a) & b` |
-| bitwise | `&` `\|` `^` `<<` `>>` `<<<` `>>>` | `1 \| 2 & 4` is `(1 \| 2) & 4` = 0 |
-| prefix cast | `cast(T)` `xx` | `cast(u32) b << 4 \| 1` is `cast(u32) ((b << 4) \| 1)` |
-| multiplicative | `*` `/` | `1 << 2 * 3` is `(1 << 2) * 3` = 12 |
-| remainder | `%` | `10 % 3 * 2` is `10 % (3 * 2)` = 4 |
-| additive | `+` `-` | `tab - col % tab` is `tab - (col % tab)` |
-| relational | `<` `<=` `>` `>=` | |
-| equality | `==` `!=` | `0x0F & 0x33 == 0x03` is true |
-| and | `&&` | |
-| or | `\|\|` | `a \|\| b && c` is `a \|\| (b && c)` |
+| postfix | `.x` `[i]` `f()` `.*` `.{}` `.[]` `.(T)` | `-p.x` is `-(p.x)`, `*a.b` is `*(a.b)` {#ops.2} |
+| prefix | `-` `+` `!` `~` `*` (address) `<<` (dereference) | `~a & b` is `(~a) & b` {#ops.3} |
+| bitwise | `&` `\|` `^` `<<` `>>` `<<<` `>>>` | `1 \| 2 & 4` is `(1 \| 2) & 4` = 0 {#ops.4} |
+| prefix cast | `cast(T)` `xx` | `cast(u32) b << 4 \| 1` is `cast(u32) ((b << 4) \| 1)` {#ops.5} |
+| multiplicative | `*` `/` | `1 << 2 * 3` is `(1 << 2) * 3` = 12 {#ops.6} |
+| remainder | `%` | `10 % 3 * 2` is `10 % (3 * 2)` = 4 {#ops.7} |
+| additive | `+` `-` | `tab - col % tab` is `tab - (col % tab)` {#ops.8} |
+| relational | `<` `<=` `>` `>=` | `1 + 2 < 4` is `(1 + 2) < 4` {#ops.9} |
+| equality | `==` `!=` | `0x0F & 0x33 == 0x03` is true {#ops.10} |
+| and | `&&` | `a == b && c` is `(a == b) && c` {#ops.11} |
+| or | `\|\|` | `a \|\| b && c` is `a \|\| (b && c)` {#ops.12} |
 
-A prefix cast's operand runs through the bitwise level; see [casts and conversions](casts-and-conversions.md).
+A prefix cast's operand runs through the bitwise level: `cast(float) (hex >> 16) & 0xFF` casts the masked integer {#ops.13}, while `cast(s64) p - cast(s64) q` subtracts two integers {#ops.14}; see [casts and conversions](casts-and-conversions.md).
 
-Write shifts combined with `|` with parentheses: `(a << 8) | b`. `a << 8 | b` happens to work because the shift comes first, but `b | a << 8` means `(b | a) << 8`.
+Write shifts combined with `|` with parentheses: `(a << 8) | b`. `a << 8 | b` happens to work because the shift comes first, but `b | a << 8` means `(b | a) << 8` {#ops.15}.
 
 ### Evidence
 

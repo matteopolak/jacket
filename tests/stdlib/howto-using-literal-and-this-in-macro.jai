@@ -1,3 +1,4 @@
+// rules: using.12 using.13 scope.15
 #import "Basic";
 
 // `using` on an anonymous struct literal, `using` on a global variable declaration, and

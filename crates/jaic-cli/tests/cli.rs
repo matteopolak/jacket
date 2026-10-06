@@ -46,6 +46,7 @@ fn run_passes_program_arguments() {
 /// interpreter's soft-float runs x87 (`x86_64-linux-gnu`, `x86_64-apple-darwin`) and binary128
 /// (`aarch64-linux-gnu`, `wasm32`) arithmetic whatever the host. The name only exists after
 /// `#import "Jaic_Extensions"`, and `#jaic_type` rejects names it does not know.
+// rules: ext.1 ext.3 ext.4 ext.8 ext.9 ext.17
 #[test]
 fn long_double_extension_on_wide_targets() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -126,10 +127,46 @@ fn long_double_extension_on_wide_targets() {
         stderr.contains("cannot be passed to a C variadic procedure"),
         "{stderr}"
     );
+    // On a wide target, narrowing to float64 needs a cast and `%` / bit operations are not
+    // defined.
+    for (name, body, message) in [
+        (
+            "narrowing",
+            "x: Long_Double = 7; f: float64 = x;",
+            "expected float64, found Long_Double",
+        ),
+        (
+            "remainder",
+            "x: Long_Double = 7; y := x % 2;",
+            "operator % is not defined for Long_Double",
+        ),
+        (
+            "bit_and",
+            "x: Long_Double = 7; y := x & x;",
+            "operator & is not defined for Long_Double",
+        ),
+    ] {
+        let source = dir.join(format!("wide_{name}.jai"));
+        std::fs::write(
+            &source,
+            format!("#import \"Jaic_Extensions\";\nmain :: () {{ {body} }}\n"),
+        )
+        .unwrap();
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .args(["-target", "x86_64-linux-gnu"])
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{name}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(message), "{name}: {stderr}");
+    }
 }
 
 /// `-plug Name` compiles the program in a workspace with the plugin's hooks; options jaic does
 /// not know go to the plugins, and `run` refuses plugins.
+// rules: plugin.1 plugin.2 plugin.7 plugin.9 plugin.10
 #[test]
 fn plug_hooks_a_plugin_into_check() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-plug");
@@ -266,4 +303,125 @@ fn memory_limit_stops_unbounded_allocation() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "10000\n");
+}
+
+/// A plugin that prints each hook as it is called, tagged with its module parameter.
+const ORDER_PLUGIN: &str = r#"#module_parameters(TAG := "default");
+#import "Basic";
+#import "Compiler";
+get_plugin :: () -> *Metaprogram_Plugin {
+    p := New(Metaprogram_Plugin);
+    p.init = (p: *Metaprogram_Plugin, options: [] string) -> bool {
+        print("% init %\n", TAG, options);
+        return true;
+    };
+    p.before_intercept = (p: *Metaprogram_Plugin, flags: *Intercept_Flags) {
+        print("% before_intercept\n", TAG);
+    };
+    p.add_source = (p: *Metaprogram_Plugin) {
+        print("% add_source\n", TAG);
+    };
+    p.finish = (p: *Metaprogram_Plugin) {
+        print("% finish\n", TAG);
+    };
+    p.shutdown = (p: *Metaprogram_Plugin) {
+        print("% shutdown\n", TAG);
+    };
+    return p;
+}
+"#;
+
+/// Hook order, repeated `-plug`/`-plugin` with module parameters, jaic's own options among
+/// plugin options, and a failing program under a plugin.
+// rules: plugin.3 plugin.4 plugin.5 plugin.6 plugin.8
+#[test]
+fn plug_hook_order_parameters_and_failures() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-plug-order");
+    std::fs::create_dir_all(dir.join("modules/Order_Plugin")).unwrap();
+    std::fs::write(dir.join("modules/Order_Plugin/module.jai"), ORDER_PLUGIN).unwrap();
+    let good = dir.join("good.jai");
+    std::fs::write(
+        &good,
+        "#import \"Basic\";\nmain :: () { print(\"ran\\n\"); }\n",
+    )
+    .unwrap();
+    let bad = dir.join("bad.jai");
+    std::fs::write(&bad, "main :: () { x: int = \"no\"; }\n").unwrap();
+    let check = |source: &Path, extra: &[&str]| {
+        Command::new(JAIC)
+            .arg("check")
+            .arg(source)
+            .args(extra)
+            .output()
+            .unwrap()
+    };
+    let stdout = |output: &std::process::Output| {
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert_eq!(
+        stdout(&check(&good, &["-plug", "Order_Plugin"])),
+        "default init []\ndefault before_intercept\ndefault add_source\n\
+         default finish\ndefault shutdown\n"
+    );
+    assert_eq!(
+        stdout(&check(
+            &good,
+            &[
+                "-plug",
+                "Order_Plugin(TAG=\"one\")",
+                "-plugin",
+                "Order_Plugin(TAG=\"two\")",
+                "-x",
+                "y",
+            ],
+        )),
+        "one init [\"-x\", \"y\"]\ntwo init [\"-x\", \"y\"]\n\
+         one before_intercept\ntwo before_intercept\none add_source\ntwo add_source\n\
+         one finish\ntwo finish\none shutdown\ntwo shutdown\n"
+    );
+    // `-I` after a plugin option is still jaic's, with its value.
+    let with_import = stdout(&check(
+        &good,
+        &["-plug", "Order_Plugin", "-x", "-I", "elsewhere", "y"],
+    ));
+    assert!(
+        with_import.starts_with("default init [\"-x\", \"y\"]\n"),
+        "{with_import}"
+    );
+    // A program that fails to compile under a plugin still fails the command.
+    let failed = check(&bad, &["-plug", "Order_Plugin"]);
+    assert_eq!(failed.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&failed.stderr).contains("type mismatch"));
+}
+
+/// `print` inside `#run` writes to stdout during compilation, before anything `main` prints,
+/// even when the `#run` is written after `main`.
+// rules: ctexec.6
+#[test]
+fn compile_time_print_precedes_program_output() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-compile-time-print");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("order.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         main :: () { print(\"runtime\\n\"); }\n\
+         #run print(\"compile time\\n\");\n",
+    )
+    .unwrap();
+    let output = Command::new(JAIC).arg("run").arg(&source).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "compile time\nruntime\n"
+    );
 }

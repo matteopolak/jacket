@@ -2,13 +2,13 @@
 
 ## What it is
 
-`type_info(T)` returns a pointer to a read-only `Type_Info_*` descriptor for `T`. The descriptor structs are plain Jai in `stdlib/prelude/module.jai`. The compiler builds one initialised global per type on demand, and a `Type` value at run time is that descriptor's address.
+`type_info(T)` returns a pointer to a read-only `Type_Info_*` descriptor for `T` {#reflect.1}. The descriptor structs are plain Jai in `stdlib/prelude/module.jai`. The compiler builds one initialised global per type on demand, and a `Type` value at run time is that descriptor's address {#reflect.2}.
 
 ## How it works
 
-`BuiltinProc::TypeInfo` in `sema/calls.rs` calls `type_info_global` (`sema/typeinfo.rs`), which memoises one `ir::Global` per `TypeId`, named `type_info.<type>`. `type_info_struct_type` picks the Preload struct by `TypeKind`: `Type_Info_Integer`, `_Float`, `_String`, `_Pointer`, `_Procedure`, `_Struct`, `_Array`, `_Enum`, `_Variant` (distinct types), else plain `Type_Info`. `build_type_info` fills fields by name through `set_field`, emitting arrays and strings as views over extra globals. `type_from_info_global` maps a descriptor back to its type.
+`BuiltinProc::TypeInfo` in `sema/calls.rs` calls `type_info_global` (`sema/typeinfo.rs`), which memoises one `ir::Global` per `TypeId`, named `type_info.<type>`. `type_info_struct_type` picks the Preload struct by `TypeKind`: `Type_Info_Integer`, `_Float`, `_String`, `_Pointer`, `_Procedure`, `_Struct`, `_Array`, `_Enum`, `_Variant` (distinct types), else plain `Type_Info` {#reflect.3}. `build_type_info` fills fields by name through `set_field`, emitting arrays and strings as views over extra globals. `type_from_info_global` maps a descriptor back to its type.
 
-Every descriptor starts with the `Type_Info` header (`type: Type_Info_Tag`, `runtime_size`) embedded with `using #as`, so a `*Type_Info_Struct` converts to `*Type_Info`.
+Every descriptor starts with the `Type_Info` header (`type: Type_Info_Tag`, `runtime_size`) embedded with `using #as`, so a `*Type_Info_Struct` converts to `*Type_Info` {#reflect.4}.
 
 ```jai
 Vec :: struct { x: float; y: float; tag: string; }
@@ -17,9 +17,11 @@ ti := cast(*Type_Info_Struct) type_info(Vec);
 type_info(*int).type       // POINTER
 ```
 
-Struct descriptors carry `members`, `textual_flags`, `polymorph_source_struct` and, for polymorphic instances, `specified_parameters` (`poly_struct_info`). Tagged unions are flattened: the tag, then each variant at its offset, with `UNION | UNION_IS_TAGGED` and `tagged_union_bindings`.
+The struct line {#reflect.5} and the pointer tag {#reflect.6} show the commented values.
 
-`get_runtime_info()` returns the `__runtime_info` global; see [compile-time values](compile-time-data-and-state.md#runtime-info).
+Struct descriptors carry `members` (name, `offset_in_bytes`, `type`) {#reflect.7}, `textual_flags`, `polymorph_source_struct` and, for polymorphic instances, `specified_parameters` (`poly_struct_info`) {#reflect.8}. Tagged unions are flattened: the tag, then each variant at its offset, with `UNION | UNION_IS_TAGGED` and `tagged_union_bindings` {#reflect.9}.
+
+`get_runtime_info()` returns the `__runtime_info` global, whose `type_table: [] *Type_Info` lists every descriptor {#reflect.10}; it is filled once every global and descriptor exists {#reflect.11}. See [compile-time values](compile-time-data-and-state.md#runtime-info).
 
 Metaprograms see a target workspace's types through exported records, not these globals; see [compiler records](compiler-records.md).
 

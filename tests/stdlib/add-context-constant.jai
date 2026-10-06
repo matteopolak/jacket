@@ -1,5 +1,6 @@
 // `#add_context name :: value;` declares a constant member of the Context (a module alias, as
 // profiler plugins insert), reachable as `#Context.name` and `context.name`. It takes no space.
+// rules: ctx.12
 #import "Basic";
 
 __Math :: #import "Math";

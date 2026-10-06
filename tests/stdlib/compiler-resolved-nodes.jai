@@ -1,5 +1,6 @@
 // Typed compiler_get_nodes from compile-time code (resolved procedures, declarations and
 // types), statements a metaprogram edits in place, and compound declarations.
+// rules: compiler.15 records.10 records.19 records.20 ws.14
 #import "Basic";
 #import "Compiler";
 #import "Program_Print";

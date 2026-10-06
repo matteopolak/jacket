@@ -24,12 +24,17 @@ impl Compiler {
                     format!("circular dependency while resolving '{}'", e.name),
                 );
             }
+            EntityState::Failed(e) => return Err(e.clone()),
             EntityState::Unresolved => {}
         }
         self.entity_mut(id).state = EntityState::Resolving;
+        let traps = self.ct_traps;
         let result = self.resolve_entity_inner(id);
         match &result {
             Ok(r) => self.entity_mut(id).state = EntityState::Done(r.clone()),
+            Err(e) if self.ct_traps != traps => {
+                self.entity_mut(id).state = EntityState::Failed(e.clone())
+            }
             Err(_) => self.entity_mut(id).state = EntityState::Unresolved,
         }
         result
@@ -677,7 +682,11 @@ impl Compiler {
     }
 
     /// Every value of a constant expression (`a, b :: #run f();`).
-    fn eval_const_all(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<Vec<Operand>> {
+    pub(super) fn eval_const_all(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+    ) -> Result<Vec<Operand>> {
         // `#run f()` keeps all of f's results, not only the first.
         let expr = match &expr.kind {
             ast::ExprKind::Run {

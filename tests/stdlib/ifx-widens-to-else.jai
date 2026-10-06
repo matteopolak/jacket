@@ -1,4 +1,5 @@
 // `ifx` with no target type: a narrower integer then-value widens to the else-value's type.
+// rules: cast.13
 #import "Basic";
 
 Entry :: struct {

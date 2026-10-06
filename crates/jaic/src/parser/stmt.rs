@@ -98,6 +98,7 @@ impl Parser<'_> {
     fn parse_keyword_stmt(&mut self, backtick: bool) -> PResult<Stmt> {
         match self.kw() {
             Some("if") => self.parse_if(),
+            Some("ifx") => self.parse_ifx_stmt(),
             Some("while") => self.parse_while(),
             Some("for") => self.parse_for(),
             Some("break") => self.parse_jump(StmtKind::Break),
@@ -163,9 +164,9 @@ impl Parser<'_> {
             return self.parse_decl(false, false);
         }
         let start = self.span();
-        let mut lhs = vec![self.parse_expr()?];
+        let mut lhs = vec![self.parse_assign_target()?];
         while self.eat(P::Comma) {
-            lhs.push(self.parse_expr()?);
+            lhs.push(self.parse_assign_target()?);
         }
         let op = match self.tok() {
             Tok::Punct(p) => assign_op(*p),
@@ -196,19 +197,46 @@ impl Parser<'_> {
         ))
     }
 
-    /// `.TAG ,, member: T;` inside a tagged union.
+    /// One target of an assignment list. `ok=, x.* = f();` marks `ok` as assigned (the form
+    /// declarations use for existing names, `ok=, y := f();`); toml-jai writes it here too.
+    fn parse_assign_target(&mut self) -> PResult<Expr> {
+        if matches!(self.tok(), Tok::Ident(_)) && self.at_n(1, P::Eq) && self.at_n(2, P::Comma) {
+            let name = self.ident("as assignment target")?;
+            self.bump();
+            return Ok(Expr {
+                kind: crate::ast::ExprKind::Ident(name.name),
+                span: name.span,
+            });
+        }
+        self.parse_expr()
+    }
+
+    /// `TAG ,, member: T;` inside a tagged union: an expression (`.A`, `4`, `-12`, `u16`)
+    /// followed by two commas before the statement ends.
     fn tagged_member_ahead(&self) -> bool {
-        self.at(P::Dot)
-            && matches!(self.tok_at(1), Tok::Ident(_))
-            && self.at_n(2, P::Comma)
-            && self.at_n(3, P::Comma)
+        let mut depth = 0usize;
+        for n in 0.. {
+            match self.tok_at(n) {
+                Tok::Eof => return false,
+                Tok::Punct(P::LParen | P::LBracket) => depth += 1,
+                Tok::Punct(P::RParen | P::RBracket) => match depth.checked_sub(1) {
+                    Some(d) => depth = d,
+                    None => return false,
+                },
+                Tok::Punct(P::Semi | P::LBrace | P::RBrace | P::Colon) if depth == 0 => {
+                    return false;
+                }
+                Tok::Punct(P::Comma) if depth == 0 => return n > 0 && self.at_n(n + 1, P::Comma),
+                _ => {}
+            }
+        }
+        false
     }
 
     fn parse_tagged_member(&mut self) -> PResult<Stmt> {
-        self.bump();
-        let tag = self.ident("as union tag")?;
-        self.bump();
-        self.bump();
+        let tag = self.parse_expr()?;
+        self.expect(P::Comma, "after the union tag")?;
+        self.expect(P::Comma, "after the union tag")?;
         let mut member = self.parse_simple_stmt()?;
         if let StmtKind::Decl(decl) = &mut member.kind
             && let Some(decl) = std::rc::Rc::get_mut(decl)
@@ -252,6 +280,47 @@ impl Parser<'_> {
             },
             span,
         ))
+    }
+
+    /// `ifx c then a = 1 else a = 2;`: an `ifx` statement whose branches assign is an `if`
+    /// (toml-jai). Anything else is parsed as an expression statement.
+    fn parse_ifx_stmt(&mut self) -> PResult<Stmt> {
+        let (pos, block_end, notes) = (self.pos, self.block_end, self.pending_notes.len());
+        if let Ok(Some(statement)) = self.try_ifx_assignments() {
+            return Ok(statement);
+        }
+        self.pos = pos;
+        self.block_end = block_end;
+        self.pending_notes.truncate(notes);
+        self.parse_terminated_simple()
+    }
+
+    fn try_ifx_assignments(&mut self) -> PResult<Option<Stmt>> {
+        let start = self.bump();
+        let cond = self.parse_expr()?;
+        if !self.eat_kw("then") {
+            return Ok(None);
+        }
+        let then_branch = self.parse_simple_stmt()?;
+        let else_branch = if self.eat_kw("else") {
+            Some(self.parse_simple_stmt()?)
+        } else {
+            None
+        };
+        let assigns = |s: &Stmt| matches!(s.kind, StmtKind::Assign { .. });
+        if !assigns(&then_branch) && !else_branch.as_ref().is_some_and(assigns) {
+            return Ok(None);
+        }
+        self.end_stmt("after statement")?;
+        let span = start.to(self.prev_span());
+        Ok(Some(stmt(
+            StmtKind::If {
+                cond,
+                then_branch: Box::new(then_branch),
+                else_branch: else_branch.map(Box::new),
+            },
+            span,
+        )))
     }
 
     /// At `==` of `if value == { case ...; }`.
@@ -372,16 +441,19 @@ impl Parser<'_> {
 
     fn parse_for(&mut self) -> PResult<Stmt> {
         let start = self.bump();
-        let iterator = if self.at(P::Colon) && matches!(self.tok_at(1), Tok::Ident(_)) {
-            self.bump();
-            Some(self.ident("as iterator name")?)
-        } else {
-            None
-        };
+        let mut iterator = None;
         let (mut flags, mut reverse, mut by_pointer) = (Vec::new(), false, false);
         let (mut pointer_if, mut reverse_if) = (None, None);
         loop {
             match self.tok() {
+                // `for :name` picks a for_expansion; it may follow `<` / `*` (`for < :iter x: c`).
+                Tok::Punct(P::Colon)
+                    if iterator.is_none() && matches!(self.tok_at(1), Tok::Ident(_)) =>
+                {
+                    self.bump();
+                    iterator = Some(self.ident("as iterator name")?);
+                    continue;
+                }
                 Tok::Directive(name) => {
                     let ident = Ident {
                         name: *name,

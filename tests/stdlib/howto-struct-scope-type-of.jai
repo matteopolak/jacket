@@ -1,3 +1,4 @@
+// rules: scope.16
 #import "Basic";
 
 // `type_of(field)` in a procedure nested inside a struct names the field's type.

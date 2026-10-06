@@ -2,6 +2,7 @@
 // instructions, accumulator widening, double and through-carry shifts, BMI1/BMI2,
 // ADX, CRC32, parity, lahf/sahf, xlat and cmpxchg16b. The expected values were
 // produced by the same instruction sequences on x86-64 hardware.
+// rules: asm.15
 #import "Basic";
 
 failures := 0;

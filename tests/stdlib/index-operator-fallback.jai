@@ -1,4 +1,5 @@
 // x[i] uses a matching operator [], else operator *[] dereferenced (an assignable place).
+// rules: opov.7 opov.8
 #import "Basic";
 Array :: struct(T: Type) {
     data: [4] T;

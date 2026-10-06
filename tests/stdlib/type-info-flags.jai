@@ -1,4 +1,5 @@
 // compiler_set_type_info_flags and the #type_info_* struct directives reduce a struct's Type_Info.
+// rules: compiler.20 compiler.21
 #import "Basic";
 #import "Compiler";
 

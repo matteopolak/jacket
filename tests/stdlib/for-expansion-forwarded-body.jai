@@ -1,5 +1,6 @@
 // A for_expansion may forward its body to another for_expansion: `it` / `it_index` come from the
 // macro that inserts the body.
+// rules: macro.11
 #import "Basic";
 A :: struct {
     x: [3] int;

@@ -289,8 +289,9 @@ impl Compiler {
                 Ok(())
             }
             S::Using {
-                value, ..
-            } => self.check_using(f, scope, value),
+                value,
+                filter,
+            } => self.check_using(f, scope, value, filter),
             S::PushContext {
                 context,
                 body,
@@ -326,15 +327,10 @@ impl Compiler {
             S::Assert {
                 cond,
                 message,
+                args,
             } => {
                 if !self.eval_static_condition(scope, cond)? {
-                    let msg = match message {
-                        Some(m) => match self.eval_const_value(scope, m)? {
-                            Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
-                            _ => String::new(),
-                        },
-                        None => String::new(),
-                    };
+                    let msg = self.assert_message(scope, message.as_ref(), args)?;
                     return err(
                         span,
                         format!(
@@ -649,6 +645,22 @@ impl Compiler {
             }
             return Ok(values);
         }
+        // `x, y := #run f();` keeps each of f's results, as the constant form does.
+        if names > 1
+            && let E::Run {
+                body, ..
+            } = &first.kind
+            && matches!(&**body, ast::RunBody::Expr(_))
+        {
+            let ops = self.eval_const_all(scope, first)?;
+            if ops.len() < names {
+                return err(
+                    first.span,
+                    format!("{names} names but {} values", ops.len()),
+                );
+            }
+            return Ok(ops.into_iter().take(names).map(Some).collect());
+        }
         self.last_call_must = None;
         let first_op = self.check_expr(f, scope, first, declared)?;
         if matches!(first.kind, E::Call { .. }) {
@@ -692,11 +704,9 @@ impl Compiler {
             return Ok(false);
         }
         let mut setters = self.operator_candidates(scope, "[]=", &[bt])?;
-        // Through a raw pointer only an operator taking that struct applies; otherwise
-        // `p[i] = v` writes memory.
-        if self.types.is_pointer(bt) {
-            setters.retain(|&p| self.first_param_accepts(p, st));
-        }
+        // Only an operator taking this struct applies. Otherwise `p[i] = v` through a raw
+        // pointer writes memory, and a struct with only `operator *[]` assigns through it.
+        setters.retain(|&p| self.first_param_accepts(p, st));
         if setters.is_empty() {
             return Ok(false);
         }
@@ -1063,7 +1073,13 @@ impl Compiler {
         Ok(())
     }
 
-    fn check_using(&mut self, f: &mut FnCtx, scope: ScopeId, value: &ast::Expr) -> Result<()> {
+    fn check_using(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        value: &ast::Expr,
+        filter: &ast::UsingFilter,
+    ) -> Result<()> {
         if let E::Ident(name) = &value.kind {
             let ids = self.lookup(scope, *name)?;
             if let Some(&id) = ids.first() {
@@ -1096,7 +1112,14 @@ impl Compiler {
         }
         let op = self.check_expr(f, scope, value, None)?;
         let entry = match op {
-            Operand::Module(m) => UsingEntry::Module(m),
+            Operand::Module(m) => UsingEntry::Module(
+                m,
+                matches!(
+                    filter,
+                    ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_)
+                )
+                .then(|| Rc::new(filter.clone())),
+            ),
             Operand::Type(t) => UsingEntry::Type(t),
             // `using fruit.tag;` on an enum value brings in the enum's names (match-jai).
             op if matches!(self.types.kind(op.ty()), TypeKind::Enum(_)) => {

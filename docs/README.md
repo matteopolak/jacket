@@ -133,6 +133,7 @@ Scripts, CI and project policies.
 - [Third-party smoke test](tools/third-party-smoke-test.md): finding public Jai repositories and trying them
 - [open-jai expectation harness](tools/openjai-expectations.md)
 - [Releases](tools/releases.md)
+- [Rule coverage](tools/rule-coverage.md): rule IDs in the language docs and the tests that cite them
 - [Upstream corpus](tools/upstream-corpus.md)
 
 ## Language and library specifications

@@ -1,5 +1,6 @@
 // `#discard` parameters: the argument is typechecked but never evaluated, and the callee cannot name
 // the parameter. Basic's assert uses this when ENABLE_ASSERT is off.
+// rules: must.3 must.10
 #import "Basic";
 
 calls: int;

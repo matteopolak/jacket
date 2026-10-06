@@ -2,6 +2,7 @@
 // belong to the value, arithmetic, comparison and logical operators apply to the result.
 // Postfix operators (`.`, `[]`, calls) always bind first. Every case below would give a
 // different value or type with the other grouping.
+// rules: cast.16 cast.17 cast.18 cast.19 cast.20 cast.21 ops.5 ops.13 ops.14
 #import "Basic";
 
 Turn :: enum s32 {

@@ -569,6 +569,7 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
 /// x86-64 code (Rosetta), the fixture is also built for x86_64-apple-darwin, where long double is
 /// the 80-bit x87 format, and the interpreter's soft-float arithmetic is compared bit for bit with
 /// the hardware's. Skipped when no C compiler is installed; not run on Windows.
+// rules: ext.2 ext.16
 #[test]
 fn c_long_double() {
     if cfg!(windows) {
@@ -1147,7 +1148,9 @@ fn windows_runtime_program() {
     }
 }
 
-/// `jaic build -plug Name` writes the program the plugin's workspace compiled.
+/// `jaic build -plug Name` writes the program the plugin's workspace compiled, to `-o` or,
+/// without it, next to the source under the source's name.
+// rules: plugin.1 plugin.11
 #[test]
 fn plug_builds_the_plugin_workspace() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-plug");
@@ -1171,6 +1174,26 @@ fn plug_builds_the_plugin_workspace() {
         "finished, typechecked: true\n"
     );
     let run = Command::new(&exe).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
+
+    let default_exe = dir.join(if cfg!(windows) {
+        "uses_plugin.exe"
+    } else {
+        "uses_plugin"
+    });
+    let _ = std::fs::remove_file(&default_exe);
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .args(["-plug", "Echo_Plugin"])
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let run = Command::new(&default_exe).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
 }
 

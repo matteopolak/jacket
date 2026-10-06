@@ -16,13 +16,15 @@ module_only :: ...;  // every file of this module, not importers
 secret :: 1;         // this file only
 ```
 
-`G.module_only()` from another module fails with `module 'Greeter' has no exported member 'module_only'`. A `#import` under `#scope_file` is visible only in that file, but as a last resort a name unknown everywhere else is looked up in sibling files' file-scope imports (`lookup_sibling_file_imports`).
+Declarations are exported by default {#scope.1}; after `#scope_module` they are visible to every file of the module but not to importers {#scope.2}; after `#scope_file` only to the declaring file {#scope.3}.
+
+`G.module_only()` from another module fails with `module 'Greeter' has no exported member 'module_only'`. A `#import` under `#scope_file` is visible only in that file {#scope.4}, but as a last resort a name unknown everywhere else is looked up in sibling files' file-scope imports (`lookup_sibling_file_imports`).
 
 `using`:
 
-- `using Color;` makes enum members unqualified; `using v;` on a struct local makes its fields plain names. See [using](using.md).
-- `using S :: #import "M";` names the module and exposes its members. At export visibility this re-exports them to importers; `using global;` does the same for a global.
-- `#import "Math";` inside a procedure body works, and its names are visible in the whole file (`hoist_body_imports` in `stmt.rs`).
+- `using Color;` makes enum members unqualified {#scope.5}; `using v;` on a struct local makes its fields plain names {#scope.6}. See [using](using.md).
+- `using S :: #import "M";` names the module and exposes its members {#scope.7}. At export visibility this re-exports them to importers {#scope.8}; `using global;` does the same for a global {#scope.9}.
+- `#import "Math";` inside a procedure body works, and its names are visible in the whole file (`hoist_body_imports` in `stmt.rs`) {#scope.10}.
 
 Top-level conditionals:
 
@@ -32,12 +34,14 @@ Top-level conditionals:
 #if #exists(from_other) { ... }
 ```
 
-`#if` conditions that are plain constants are expanded first, before any `#run`, so a conditional `#load` (and any `#add_context` in it) lands before the Context type is laid out.
+A top-level `#if` selects declarations and `#load`s by a constant condition {#scope.11}, with or without braces and with an optional `else` {#scope.12}; `#exists(name)` tests whether a name is declared {#scope.13}.
+
+`#if` conditions that are plain constants are expanded first, before any `#run`, so a conditional `#load` (and any `#add_context` in it) lands before the Context type is laid out {#scope.14}.
 
 Two lookups that cross scopes:
 
-- `#this` inside an `#expand` macro, including in a backtick `defer`, is the procedure the macro expanded into: `check_this` is retried from each macro frame's caller scope and from `backtick_scope`.
-- `type_of(field)` in a procedure nested in a struct names the field's type, with no value needed (`type_field_type` in `sema/calls.rs` walks enclosing struct scopes).
+- `#this` inside an `#expand` macro, including in a backtick `defer`, is the procedure the macro expanded into {#scope.15}: `check_this` is retried from each macro frame's caller scope and from `backtick_scope`.
+- `type_of(field)` in a procedure nested in a struct names the field's type, with no value needed (`type_field_type` in `sema/calls.rs` walks enclosing struct scopes) {#scope.16}.
 
 ## How to change it
 

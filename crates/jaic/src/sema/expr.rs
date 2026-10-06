@@ -671,6 +671,9 @@ impl Compiler {
                 depth,
             } => {
                 if let Some((value, ty)) = self.const_macro_params.get(&id).cloned() {
+                    if let Value::Type(t) = value {
+                        return Ok(Operand::Type(t));
+                    }
                     return Ok(Operand::Const {
                         ty,
                         value,
@@ -1255,8 +1258,11 @@ impl Compiler {
                 }
             )
         };
-        let mut lhs = if is_cmp
-            && (matches!(a.kind, E::InferredMember(_)) || (is_xx(a) && !is_xx(b)))
+        // `.FLAG & x.flags` too: the member takes the flags type, not an expected `int`.
+        let bitwise = matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor);
+        let mut lhs = if ((is_cmp
+            && (matches!(a.kind, E::InferredMember(_)) || (is_xx(a) && !is_xx(b))))
+            || (bitwise && matches!(a.kind, E::InferredMember(_))))
             && !matches!(b.kind, E::InferredMember(_))
         {
             // `xx err == GL_FALSE` casts to the other operand's type too.

@@ -213,6 +213,9 @@ pub struct Interp {
     pub compile_time: bool,
     /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
     pub pending_type_flags: Vec<(GlobalId, u32)>,
+    /// Declaration of each struct whose descriptor exists: file path, line, column
+    /// (`compiler_get_struct_location`).
+    pub struct_locations: std::collections::HashMap<GlobalId, (std::rc::Rc<str>, i64, i64)>,
     /// Workspace registry for the `Compiler` module, when the embedder has one.
     pub workspaces: Option<crate::build::SharedWorkspaces>,
     /// Bodies and source text of the compiler's `Code` values, by `CodeId`.
@@ -283,6 +286,7 @@ impl Interp {
             trace_loc: None,
             compile_time: true,
             pending_type_flags: Vec::new(),
+            struct_locations: std::collections::HashMap::new(),
             workspaces: None,
             codes: Vec::new(),
             made_codes: Vec::new(),

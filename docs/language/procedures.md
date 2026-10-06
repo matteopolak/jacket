@@ -19,7 +19,9 @@ i, s := pair();          // 4 four
 sum(1, 2, 3)             // 6
 ```
 
-Overloads are procedures sharing a name; the call picks by argument types. A constant alias to a procedure joins the overload set, which is how modules re-export one name for several implementations:
+The calls give the commented results: defaults and named arguments {#proc.1}, multiple return values {#proc.2} and a variadic `..int` {#proc.3}.
+
+Overloads are procedures sharing a name; the call picks by argument types {#proc.4}. A constant alias to a procedure joins the overload set {#proc.5}, which is how modules re-export one name for several implementations:
 
 ```jai
 h :: f;   // f :: (x: int) -> int
@@ -27,11 +29,11 @@ h :: g;   // g :: (x: float) -> int
 h(1), h(1.0)   // 1 2
 ```
 
-`#caller_location` as a default value is evaluated at the call site and gives a `Source_Code_Location` (`location_operand` in `sema/expr.rs`). `#location()`, `#file` and `#line` give the directive's own position.
+`#caller_location` as a default value is evaluated at the call site and gives a `Source_Code_Location` (`location_operand` in `sema/expr.rs`) {#proc.6}. `#location()`, `#file` and `#line` give the directive's own position {#proc.7}.
 
-A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3`. An argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`).
+A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3` {#proc.8}. An argument that already is a `Code` passes its value (`param_value` in `sema/calls.rs`) {#proc.9}.
 
-`#deprecated "msg"` is parsed and exported to metaprograms but produces no warning. `#no_debug` is a header flag read by `sema/procs.rs` and `sema/code_export.rs`.
+`#deprecated "msg"` is parsed and exported to metaprograms {#proc.10}; a call to such a procedure compiles and runs {#proc.11} but produces no warning. `#no_debug` is a header flag read by `sema/procs.rs` and `sema/code_export.rs`.
 
 `#must` and `#discard` are in [must and discard](must-and-discard.md).
 

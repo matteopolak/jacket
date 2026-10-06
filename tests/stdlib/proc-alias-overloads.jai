@@ -1,6 +1,7 @@
 // A procedure alias (`starts_with :: begins_with;` in String) joins the overload set
 // of a same-named procedure in the importing module; an integer meeting a float in
 // arithmetic becomes that float; String's replace reports its occurrence count.
+// rules: proc.5
 #import "Basic";
 #import "String";
 

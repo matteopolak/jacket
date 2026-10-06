@@ -840,7 +840,10 @@
       "dependencies": [],
       "negative": {
         "check": "'value' is a #discard parameter"
-      }
+      },
+      "rules": [
+        "must.2"
+      ]
     },
     {
       "id": "discard-macro-parameter-reference",
@@ -853,7 +856,10 @@
       "dependencies": [],
       "negative": {
         "check": "'value' is a #discard parameter"
-      }
+      },
+      "rules": [
+        "must.2"
+      ]
     },
     {
       "id": "must-discarded-call",
@@ -866,7 +872,11 @@
       "dependencies": [],
       "negative": {
         "check": "the result of 'only' is marked #must"
-      }
+      },
+      "rules": [
+        "must.1",
+        "note.6"
+      ]
     },
     {
       "id": "must-partial-results",
@@ -879,7 +889,11 @@
       "dependencies": [],
       "negative": {
         "check": "the result of 'two' is marked #must"
-      }
+      },
+      "rules": [
+        "must.7",
+        "note.6"
+      ]
     },
     {
       "id": "must-discarded-macro",
@@ -892,7 +906,10 @@
       "dependencies": [],
       "negative": {
         "check": "the result of 'm' is marked #must"
-      }
+      },
+      "rules": [
+        "must.1"
+      ]
     },
     {
       "id": "aoc-fatal-add",
@@ -905,7 +922,12 @@
       "dependencies": [],
       "negative": {
         "check": "arithmetic overflow computing 250 + 10 as u8"
-      }
+      },
+      "rules": [
+        "overflow.1",
+        "overflow.3",
+        "overflow.4"
+      ]
     },
     {
       "id": "aoc-fatal-sub",
@@ -918,7 +940,12 @@
       "dependencies": [],
       "negative": {
         "check": "arithmetic overflow computing -120 - 20 as s8"
-      }
+      },
+      "rules": [
+        "overflow.1",
+        "overflow.3",
+        "overflow.4"
+      ]
     },
     {
       "id": "aoc-fatal-mul",
@@ -931,7 +958,12 @@
       "dependencies": [],
       "negative": {
         "check": "arithmetic overflow computing 100000 * 100000 as s32"
-      }
+      },
+      "rules": [
+        "overflow.1",
+        "overflow.3",
+        "overflow.4"
+      ]
     },
     {
       "id": "aoc-fatal-after-no-aoc",
@@ -944,7 +976,11 @@
       "dependencies": [],
       "negative": {
         "check": "arithmetic overflow computing 251 + 10 as u8"
-      }
+      },
+      "rules": [
+        "overflow.4",
+        "overflow.6"
+      ]
     },
     {
       "id": "failing-body-with-nested-procs",
@@ -970,7 +1006,10 @@
       "dependencies": [],
       "negative": {
         "check": "#complete switch on Color has no case for .BLUE"
-      }
+      },
+      "rules": [
+        "flow.15"
+      ]
     },
     {
       "id": "undefined-member-type",
@@ -1337,7 +1376,10 @@
         "exit_code": 0,
         "stdout": "0\n4\n1\n5\nspecified\n",
         "stderr": ""
-      }
+      },
+      "rules": [
+        "enum.11"
+      ]
     },
     {
       "id": "print-null-type",
@@ -1354,6 +1396,733 @@
         "stdout": "(null)\n{(null), 0}\n",
         "stderr": ""
       }
+    },
+    {
+      "id": "rule-overflow-1",
+      "source": "negative/rule-overflow-1.jai",
+      "sha256": "2792b2daa4a86cb3787744c616eba462dc677b3ce38ea3e90cb79eb9bcd872a8",
+      "suite": "negative",
+      "feature": "arithmetic_overflow_check .FATAL checks compound *=",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "arithmetic overflow computing 200 * 2 as u8"
+      }
+    },
+    {
+      "id": "rule-cast-25",
+      "source": "negative/rule-cast-25.jai",
+      "sha256": "84b0e9ea6899ce656d30bff25ecb1d6c09834dd378b8a18a8cdb5ed477d9f392",
+      "suite": "negative",
+      "feature": "string variable does not convert to *u8",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type mismatch: expected *u8, found string"
+      }
+    },
+    {
+      "id": "rule-ctx-9",
+      "source": "negative/rule-ctx-9.jai",
+      "sha256": "09daa234fee56de529e27c28cfb9c06e4865c6279fdf1beb04a1aa948d0a74a8",
+      "suite": "negative",
+      "feature": "context is unavailable in a #no_context procedure",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "'context' is not available here"
+      }
+    },
+    {
+      "id": "rule-ctx-11",
+      "source": "negative/rule-ctx-11.jai",
+      "sha256": "8f5db69960eebdd702f2e28e933688dd3628092c2f79f44600295c4c4591273b",
+      "suite": "negative",
+      "feature": "#add_context only at file scope",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#add_context is only allowed at file scope"
+      }
+    },
+    {
+      "id": "rule-flow-15",
+      "source": "negative/rule-flow-15.jai",
+      "sha256": "3f7f3c1f1d1656bd4c6626ca810668d22594dbe15803977fb3d0e58a30b289af",
+      "suite": "negative",
+      "feature": "#complete switch must name every enum member",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#complete switch on Dir has no case for .WEST"
+      }
+    },
+    {
+      "id": "rule-decl-2",
+      "source": "negative/rule-decl-2.jai",
+      "sha256": "ea6420f27b7e5925379d86fc77a303927d10626120e01e774c2d7d04656933b1",
+      "suite": "negative",
+      "feature": "local used before its declaration",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'x'"
+      }
+    },
+    {
+      "id": "rule-decl-10",
+      "source": "negative/rule-decl-10.jai",
+      "sha256": "c36c8c16ab7ab1d2ec6d3d0b77fd0f8599cb897f38d4a59629506d7b90e6a86b",
+      "suite": "negative",
+      "feature": "assigning to a constant",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot assign to constant 3 of type s64"
+      }
+    },
+    {
+      "id": "rule-decl-12",
+      "source": "negative/rule-decl-12.jai",
+      "sha256": "4f9e88d1c5570a688c2b4ce4564d0c945874cbe31ad1d2f272ea9905402f664f",
+      "suite": "negative",
+      "feature": "nested procedure reads an enclosing local",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot access local 'local' of an enclosing procedure"
+      }
+    },
+    {
+      "id": "rule-decl-16",
+      "source": "negative/rule-decl-16.jai",
+      "sha256": "adf4232cfe24e299dc6d73450f9da66e91612ff5fd95071a389bdf4f35d0b844",
+      "suite": "negative",
+      "feature": "multi-value constant with more names than values",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "3 names but 2 values"
+      }
+    },
+    {
+      "id": "rule-decl-19",
+      "source": "negative/rule-decl-19.jai",
+      "sha256": "4c70a5bd9fc2f94b8e97de66dc15e861d4fc255a21653003e76c69e94fb23fbf",
+      "suite": "negative",
+      "feature": "failing #assert reports its message",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#assert failed: Rec must be 8 bytes"
+      }
+    },
+    {
+      "id": "rule-note-4",
+      "source": "negative/rule-note-4.jai",
+      "sha256": "1b89765b3777655be74f248af80eba2f021e38d2166022f261655a63a140a863",
+      "suite": "negative",
+      "feature": "#program_export procedure is checked even when uncalled",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'no_such_name'"
+      }
+    },
+    {
+      "id": "rule-note-6",
+      "source": "negative/rule-note-6.jai",
+      "sha256": "c8d9ed1bd96dc8b5c64013cdb0daef5c5af1fd717e9442ed27cfe5e0109dc85a",
+      "suite": "negative",
+      "feature": "#must on one of several results",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is marked #must and cannot be discarded"
+      }
+    },
+    {
+      "id": "rule-note-10",
+      "source": "negative/rule-note-10.jai",
+      "sha256": "8cc8b8e38b08dadcb946e5c1ba0c83ac6611543e68c68cafa87cab010cae93ec",
+      "suite": "negative",
+      "feature": "Type_Info_Enum has no notes field",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type Type_Info_Enum has no member 'notes'"
+      }
+    },
+    {
+      "id": "rule-num-6",
+      "source": "negative/rule-num-6.jai",
+      "sha256": "a182c4af7628fb4db4519b780fd4cfcbca3e88fc373ba21c3d6dc5d3cbacfb5c",
+      "suite": "negative",
+      "feature": "implicit narrowing u16 to u8 is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type mismatch: expected u8, found u16"
+      }
+    },
+    {
+      "id": "rule-num-7",
+      "source": "negative/rule-num-7.jai",
+      "sha256": "4584d1c204d0431a2faec33dc509aac5dc5b4c728a9a7b27da2d09291168ed2b",
+      "suite": "negative",
+      "feature": "constant that does not fit u8 is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "constant 300 does not fit in u8"
+      }
+    },
+    {
+      "id": "rule-ptr-2",
+      "source": "negative/rule-ptr-2.jai",
+      "sha256": "10fb3974619daac7aa2f50d6d0d5126c51713151eeae18e46f5b9f2ca22dcd16",
+      "suite": "negative",
+      "feature": "remove while iterating a fixed array is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "remove is only valid inside a for loop over an array"
+      }
+    },
+    {
+      "id": "rule-ptr-3",
+      "source": "negative/rule-ptr-3.jai",
+      "sha256": "92895a6a1740f16fe6a1c56492def425476f9cc8d5c5e26967462d8d1f9dd5e6",
+      "suite": "negative",
+      "feature": "remove outside a for loop is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "remove is only valid inside a for loop over an array"
+      }
+    },
+    {
+      "id": "rule-ptr-13",
+      "source": "negative/rule-ptr-13.jai",
+      "sha256": "c310d330c380d57edc50706eec8a8416bf3cbabcf1179dced178f884de99c710",
+      "suite": "negative",
+      "feature": "out-of-range index fails the default bounds check",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "array bounds check failed: index 7 is outside an array of 4 elements"
+      }
+    },
+    {
+      "id": "rule-poly-9",
+      "source": "negative/rule-poly-9.jai",
+      "sha256": "fc37ba58e1ca3c73f25ecf0d8b728b08f540aa1389d1ae839c1ffc340c10e853",
+      "suite": "negative",
+      "feature": "#bake_arguments on a non-polymorphic struct is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#bake_arguments needs a single procedure or a polymorphic struct"
+      }
+    },
+    {
+      "id": "rule-poly-10",
+      "source": "negative/rule-poly-10.jai",
+      "sha256": "6dcbae74cc0591b92bb0c5db86738e98dbba5c04e7a21db2f0b9f66375b15d93",
+      "suite": "negative",
+      "feature": "too many arguments to #bake_arguments is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "too many arguments to #bake_arguments"
+      }
+    },
+    {
+      "id": "rule-struct-5",
+      "source": "negative/rule-struct-5.jai",
+      "sha256": "1ec4fd39b98866fbe0d7bc02cfc1eb633799b8f240e4948cc6dd6af2acc91974",
+      "suite": "negative",
+      "feature": "unused struct with a member of an undefined type is an error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'Missing_Type'"
+      }
+    },
+    {
+      "id": "rule-typeval-8",
+      "source": "negative/rule-typeval-8.jai",
+      "sha256": "2ea7e83d4e89354d1492fe9b68f3d7eff93f2af434f2b80b32223c0912895e9b",
+      "suite": "negative",
+      "feature": "a Type variable cannot be a declaration type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type must be known at compile time"
+      }
+    },
+    {
+      "id": "rule-str-5",
+      "source": "negative/rule-str-5.jai",
+      "sha256": "db1862d892377e326e11ced7b7d14ad0ba760ac37ea3c63aaddcd8012c135da8",
+      "suite": "negative",
+      "feature": "unknown string escape is a lexer error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown escape sequence"
+      }
+    },
+    {
+      "id": "rule-str-16",
+      "source": "negative/rule-str-16.jai",
+      "sha256": "fa761841ae628be2dd2a4d64a604dd1bf73e91d49ddb1923b5b4af438ba909d1",
+      "suite": "negative",
+      "feature": "string variable does not convert to *u8",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "expected *u8, found string"
+      }
+    },
+    {
+      "id": "rule-using-4",
+      "source": "negative/rule-using-4.jai",
+      "sha256": "6ddc536c618e6bea299638802d0ff5ab8d20cdfd2cc00c1008dacbb850e7c7ec",
+      "suite": "negative",
+      "feature": "using without #as does not convert to the embedded type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "argument of type Plain does not match parameter type Inner"
+      }
+    },
+    {
+      "id": "rule-scope-2",
+      "source": "negative/rule-scope-2.jai",
+      "sha256": "55bd9da011fbf56bbc66600470dc40f9de65848c836fd2dab0708208afb86da6",
+      "suite": "negative",
+      "feature": "#scope_module name not visible to importers",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "has no exported member 'module_only_value'"
+      }
+    },
+    {
+      "id": "rule-scope-3",
+      "source": "negative/rule-scope-3.jai",
+      "sha256": "a5ae6c2d12fa9e6dcfb94a6768203440b908fd84167d3b5072bd5f36c9a23135",
+      "suite": "negative",
+      "feature": "#scope_file name not visible to sibling files of the module",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'other_private'"
+      }
+    },
+    {
+      "id": "rule-scope-4",
+      "source": "negative/rule-scope-4.jai",
+      "sha256": "ee9a3e1bbdd6c0cd2a7695071970456722681b332aa05ecc62269b3dfa8ed961",
+      "suite": "negative",
+      "feature": "#scope_file #import of a module does not leak to its importer",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'sqrt'"
+      }
+    },
+    {
+      "id": "rule-asm-14",
+      "source": "negative/rule-asm-14.jai",
+      "sha256": "b73b5119d0568b833110a4f9ce0a257a1bf7518cdb0bbc6f9d6ff6219b8c43f7",
+      "suite": "negative",
+      "feature": "#asm div by zero traps (at compile time via #run)",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "runtime check failed"
+      }
+    },
+    {
+      "id": "rule-asm-22",
+      "source": "negative/rule-asm-22.jai",
+      "sha256": "9a801c8ac04c27e9ad443b9d46a57b8ccc37af0d401a3537f3458dcb3d14c9a4",
+      "suite": "negative",
+      "feature": "unsupported #asm instruction is a compile error naming it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unsupported #asm instruction 'push'"
+      }
+    },
+    {
+      "id": "rule-asm-23",
+      "source": "negative/rule-asm-23.jai",
+      "sha256": "267012724485e83727423ef7f069bddf378603e6fdc57cc6fc71215d70c1330c",
+      "suite": "negative",
+      "feature": "#asm has no x87 instructions",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unsupported #asm instruction 'fld'"
+      }
+    },
+    {
+      "id": "rule-code-5",
+      "source": "negative/rule-code-5.jai",
+      "sha256": "445c1ea1b78a1d91763b1515c088cd8820cd7d4414266a5b9ef93e1ebf0675f3",
+      "suite": "negative",
+      "feature": "#insert string with a syntax error is reported against <#insert at ...>",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "<#insert at "
+      }
+    },
+    {
+      "id": "rule-code-7",
+      "source": "negative/rule-code-7.jai",
+      "sha256": "0d01864a833f0a38a10bbd15c424518198dcc89b883d7786150f85d6c123c8d9",
+      "suite": "negative",
+      "feature": "#insert of an integer is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#insert needs a string or Code"
+      }
+    },
+    {
+      "id": "rule-code-14",
+      "source": "negative/rule-code-14.jai",
+      "sha256": "7029a5c280ec59af6be27151ef421241a6fe7e4c45ab215c6429d2e2a8a3717b",
+      "suite": "negative",
+      "feature": "plain #insert of a Code argument does not see the macro's it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'it'"
+      }
+    },
+    {
+      "id": "rule-ctdata-5",
+      "source": "negative/rule-ctdata-5.jai",
+      "sha256": "a78678275d49ef6d27d76e8b292d6fa9721e96bb86362d17f2c3db898d723fa9",
+      "suite": "negative",
+      "feature": "#run result pointing at memory of unknown size",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "a compile-time value holds a pointer to memory of unknown size"
+      }
+    },
+    {
+      "id": "rule-ctexec-7",
+      "source": "negative/rule-ctexec-7.jai",
+      "sha256": "9d0712ce2fedb38bfaddd00f8d110229f58f74b0e207edc2a8c149ce44b6a459",
+      "suite": "negative",
+      "feature": "trap inside #run is a compile-time execution error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "error during compile-time execution: array bounds check failed"
+      }
+    },
+    {
+      "id": "rule-ctexec-8",
+      "source": "negative/rule-ctexec-8.jai",
+      "sha256": "0e26906a85fc783b9f0f161bf9d0e25d24fb463bab07dc12228267fa8efbfd92",
+      "suite": "negative",
+      "feature": "unbounded recursion inside #run",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "stack overflow (recursion too deep)"
+      }
+    },
+    {
+      "id": "rule-ctexec-9",
+      "source": "negative/rule-ctexec-9.jai",
+      "sha256": "edd6351251311a56e89446b4b70a3bf59facef5af4066716daee6fb649791080",
+      "suite": "negative",
+      "feature": "failed assert inside #run prints its message",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Assertion failed: limit is too small"
+      }
+    },
+    {
+      "id": "rule-ctexec-10",
+      "source": "negative/rule-ctexec-10.jai",
+      "sha256": "8f0f1114d0b51a4604f773961e767568d3e12ac6e8a666ecffe935dcd7461e81",
+      "suite": "negative",
+      "feature": "false #assert with a message",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#assert failed: SIZE must be eight"
+      }
+    },
+    {
+      "id": "rule-compiler-10",
+      "source": "negative/rule-compiler-10.jai",
+      "sha256": "c481ab38dd30d488656a08fd89f294f76d51f35324e6cfd1329635fc12120424",
+      "suite": "negative",
+      "feature": "compiler_report in ERROR mode fails the compile",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "rule-compiler-10: deliberate metaprogram error"
+      }
+    },
+    {
+      "id": "rule-compiler-12",
+      "source": "negative/rule-compiler-12.jai",
+      "sha256": "35122fbd179de10ff650e87aa130efcf6033fa5cd966952e3c4ce564a2af3001",
+      "suite": "negative",
+      "feature": "compiler_set_workspace_status(.FAILED) fails the compile",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "The workspace was marked as failed by its metaprogram."
+      }
+    },
+    {
+      "id": "rule-compiler-17",
+      "source": "negative/rule-compiler-17.jai",
+      "sha256": "9830617b3cf0ea8df794e1eef1a8b0a2c498f0d35c9fc1aafa6749973cdd38a7",
+      "suite": "negative",
+      "feature": "calling an unsupported Compiler API is a fatal error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "compiler_get_base_path is not supported by jaic yet"
+      }
+    },
+    {
+      "id": "rule-ws-13",
+      "source": "negative/rule-ws-13.jai",
+      "sha256": "4af1dd34e60ef4090c2f0e2c0110fde931f66fce910c0da35376473ef66739fc",
+      "suite": "negative",
+      "feature": "a failing workspace completes with COMPILATION_FAILED and fails the compile",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "rule-ws-13: the child completed with code 1"
+      }
+    },
+    {
+      "id": "rule-intrin-2",
+      "source": "negative/rule-intrin-2.jai",
+      "sha256": "d248e484d549c9f051b470ac9e5da49eef81ef41dcd4fda8f56aeee50bf968d8",
+      "suite": "negative",
+      "feature": "unknown #intrinsic name is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown intrinsic 'frob'"
+      }
+    },
+    {
+      "id": "rule-lambda-7",
+      "source": "negative/rule-lambda-7.jai",
+      "sha256": "a5e16b3e7b9ac892ce7db28f47d7a74071889d49162cf4e9a3c8434e9b5a9fe4",
+      "suite": "negative",
+      "feature": "lambdas do not capture enclosing locals",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot access local 'n' of an enclosing procedure"
+      }
+    },
+    {
+      "id": "rule-must-11",
+      "source": "negative/rule-must-11.jai",
+      "sha256": "f04d583685dd81a47f15c3ac099e8e00bb34440fa6e9940487a98180dc2f1d0f",
+      "suite": "negative",
+      "feature": "#discard argument is still typechecked",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "argument of type string does not match parameter type"
+      }
+    },
+    {
+      "id": "rule-modparam-5",
+      "source": "negative/rule-modparam-5.jai",
+      "sha256": "21a4ff133638db3102589456a431ba100a0cdc5627a61a700fe0be2e5b52dcab",
+      "suite": "negative",
+      "feature": "program parameter changed after the module used it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is set here after the module already used another value"
+      }
+    },
+    {
+      "id": "rule-import-10",
+      "source": "negative/rule-import-10.jai",
+      "sha256": "df10ea74ab6c938e570e0d8f479d49829df973b1586597ad186ef26d7feda585",
+      "suite": "negative",
+      "feature": "missing module reports not found",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "module 'Rules_Module_That_Does_Not_Exist' not found"
+      }
+    },
+    {
+      "id": "rule-import-15",
+      "source": "negative/rule-import-15.jai",
+      "sha256": "ec651416a993c3a97c1a5c30b0f4d4b0f2b0eacac00bed5bddc41df1f761b8e5",
+      "suite": "negative",
+      "feature": "#scope_file names are not exported",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "has no exported member 'secret'"
+      }
+    },
+    {
+      "id": "rule-ext-8",
+      "source": "negative/rule-ext-8.jai",
+      "sha256": "36f82643bd0f7b9c8a43d25d5dc7aab6f935027d94879d8ac8df3055d87766ed",
+      "suite": "negative",
+      "feature": "% is not defined on Long_Double",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is not defined for"
+      }
+    },
+    {
+      "id": "rule-ext-9",
+      "source": "negative/rule-ext-9.jai",
+      "sha256": "ad82e38f784fe92a15ae334901085648225a14c4430892132f17dd325312a542",
+      "suite": "negative",
+      "feature": "s64 to Long_Double needs a cast",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type mismatch: expected"
+      }
+    },
+    {
+      "id": "run-constant-assert-fails",
+      "source": "negative/run-constant-assert-fails.jai",
+      "sha256": "335e3b8ce55ae5baa94138915a51aa6ec510a82337fd7d89138b61fe52abaae9",
+      "suite": "negative",
+      "feature": "compile-time-execution",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Assertion failed: deliberately false"
+      },
+      "rules": [
+        "ctexec.9"
+      ]
+    },
+    {
+      "id": "assert-format-arguments",
+      "source": "negative/assert-format-arguments.jai",
+      "sha256": "1116bf3d7ff47d98640b8985ff6190cf980502ec99fa209bddd40f89ae648568",
+      "suite": "negative",
+      "feature": "directives",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type Unsupported (size 8) is not supported"
+      },
+      "rules": [
+        "note.2"
+      ]
+    },
+    {
+      "id": "rule-import-16",
+      "source": "negative/rule-import-16.jai",
+      "sha256": "ba285e897dc6c13d9ecae7cf6161ed65638e76905c380ca8bc6ec5d549446e75",
+      "suite": "negative",
+      "feature": "modules",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'other'"
+      },
+      "rules": [
+        "import.16"
+      ]
+    },
+    {
+      "id": "using-only-module-in-body",
+      "source": "negative/using-only-module-in-body.jai",
+      "sha256": "1d170f1d7a7fa08aedee4d40210511f3d1a4e0a04685ba69070d42821b12821f",
+      "suite": "negative",
+      "feature": "modules",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier 'other'"
+      },
+      "rules": [
+        "import.16"
+      ]
     }
   ]
 }

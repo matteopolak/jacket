@@ -246,7 +246,7 @@ pub struct Compiler {
     pub field_types: HashMap<ScopeId, Vec<(Sym, TypeId)>>,
     pub context_type: Option<TypeId>,
     pub top_level_runs: Vec<(ast::Expr, ScopeId)>,
-    pub asserts: Vec<(ast::Expr, Option<ast::Expr>, ScopeId)>,
+    pub asserts: Vec<(ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId)>,
     /// How many of `top_level_runs`/`asserts` already executed.
     runs_done: usize,
     asserts_done: usize,
@@ -332,6 +332,10 @@ pub struct Compiler {
     pub thunk_scopes: HashMap<ScopeId, ScopeId>,
     /// Interpreter address of the compile-time `#Context`.
     pub ct_context: Option<u64>,
+    /// Compile-time runs that ended in a trap so far.
+    pub ct_traps: u64,
+    /// The stand-in `Type_Info_Struct` of each polymorphic struct, by its literal.
+    pub generic_struct_infos: HashMap<ast::AstId, ir::GlobalId>,
     /// Declarations the driver resolves even when unreferenced: `#program_export`
     /// procedures and `link_always` libraries.
     pub export_entities: Vec<EntityId>,
@@ -467,6 +471,8 @@ impl Compiler {
             func_procs: HashMap::default(),
             thunk_scopes: HashMap::default(),
             ct_context: None,
+            ct_traps: 0,
+            generic_struct_infos: HashMap::default(),
             export_entities: Vec::new(),
             asm_regs: HashMap::default(),
             asm_pair_lock: None,

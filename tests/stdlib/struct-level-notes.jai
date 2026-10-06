@@ -1,5 +1,6 @@
 // Notes written on a struct (`S :: struct @thing { ... }`) show up in `type_info(S).notes`, next to the
 // per-member notes that were already supported.
+// rules: decl.20 decl.21 note.7 note.8
 #import "Basic";
 
 Tagged :: struct @thing @"two words" {

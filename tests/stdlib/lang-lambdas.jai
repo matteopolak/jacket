@@ -1,5 +1,6 @@
 // Lambda expressions: typed from the expected procedure type, polymorphic when bound
 // with `::`, inferred results through `$R`, and baked arguments.
+// rules: lambda.1 lambda.2 lambda.3 lambda.4 lambda.5
 
 apply :: (a: int, f: (int) -> int) -> int {
     return f(a);

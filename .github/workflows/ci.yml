@@ -108,6 +108,11 @@ jobs:
         id: policy
         continue-on-error: true
         run: python3 -m unittest discover -s tools -p 'test_*.py'
+      # Reports doc rules without a test; fails only when a test cites an unknown rule ID.
+      - name: Rule coverage
+        id: rule-coverage
+        continue-on-error: true
+        run: python3 tools/check_rule_coverage.py --list-uncovered
       # Advisory until the repository's Jai code has been formatted once; then add
       # `steps.jai-format.outcome == 'failure'` to the enforcement step below.
       - name: Jai format check
@@ -133,7 +138,7 @@ jobs:
           cargo build --locked -p jaic-cli
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.rule-coverage.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

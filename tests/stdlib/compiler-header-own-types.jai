@@ -1,6 +1,7 @@
 // A procedure's header reported to a metaprogram (TYPECHECKED) and the same procedure
 // resolved from the workspace's own compile-time code (`#modify`) are separate records:
 // only the latter's types are real descriptors for `get_type` (or_return's shape).
+// rules: records.11
 #import "Basic";
 #import "Compiler";
 

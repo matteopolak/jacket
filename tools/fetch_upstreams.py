@@ -24,7 +24,8 @@ REPOSITORIES = (
 )
 # Libraries the projects above import from git submodules: pinned like the
 # projects but exempt from the recency cutoff.
-DEPENDENCIES = ('SogoCZE/jai_parser', 'ostef/Linalg', 'ostef/Jolt-Jai', 'ostef/JoltC', 'wolfpld/tracy')
+DEPENDENCIES = ('SogoCZE/jai_parser', 'ostef/Linalg', 'ostef/Jolt-Jai', 'ostef/JoltC', 'wolfpld/tracy',
+                'OrangeLightning219/jai_parser')
 # Metaprogramming libraries that exercise the Compiler module's node API (typed
 # compiler_get_nodes, compiler_get_code, TYPECHECKED bodies). Few change often, so they
 # are exempt from the recency cutoff too.
@@ -34,6 +35,10 @@ LIBRARIES = (
     # rluba's library family (jaison is a project above); several import each other.
     'rluba/jai-tracy', 'rluba/jai-redis', 'rluba/uniform', 'rluba/cluster', 'rluba/jai-csv',
     'rluba/jai-postgres', 'rluba/stubborn', 'rluba/hyperserve', 'rluba/wait_group', 'rluba/jai-date',
+    # Libraries with their own test suites or self-checking examples: sweep cases check their
+    # results (docs/tools/upstream-corpus.md, "Recorded outputs").
+    'sjorsdonkers/toml-jai', 'OrangeLightning219/jai-format',
+    'segcore/jai-protobuf', 'n00bmind/reflector', 'smari/jai-xml',
 )
 # Dependencies pinned to the consumer's submodule commit (else the newest commit).
 SUBMODULE_REVISIONS = {
@@ -43,6 +48,8 @@ SUBMODULE_REVISIONS = {
     'ostef/JoltC': 'd395f4138e1d29dfd46884f6ba00ff865248af08',
     # rluba/jai-tracy's `tracy` submodule (Tracy v0.11.1): libtracy is built from its client sources.
     'wolfpld/tracy': '30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c',
+    # jai-format's `modules/jai_parser` submodule (a fork of SogoCZE/jai_parser).
+    'OrangeLightning219/jai_parser': '7745b7960f3af8f090e089fceb89a28ead151c40',
 }
 # Repositories of which only these path prefixes are taken (plus licenses and READMEs): Tracy's
 # profiler GUI, server and bundled libraries are not needed to build its client library.
@@ -61,6 +68,12 @@ RESOURCE_PREFIXES = {
     'danieltan1517/chess-jai': ('resources/',),
     'kooparse/ui_builder': ('demo/assets/',),
     'gabrielmfern/forbear': ('apps/Inter.ttf',),
+    # 30.15_global_data embeds this image with #run add_global_data and prints its size.
+    'Ivo-Balbaert/The_Way_to_Jai': ('examples/30/pixel.png',),
+    # jai-xml's test.jai parses every file under test_data/ (the committed subset of its suite).
+    'smari/jai-xml': ('test_data/',),
+    # jai-protobuf's tests generate Jai code from these schemas.
+    'segcore/jai-protobuf': ('examples/protos/',),
 }
 # Per-repository download cap where a needed data file is bigger than the default 8 MiB
 # (chess-jai's network is 21 MB).
@@ -70,6 +83,7 @@ MODULE_LINKS = (
     ('SogoCZE--Jails/modules/jaison', 'rluba--jaison'),
     ('SogoCZE--Jails/modules/unicode_utils', 'rluba--jaison/unicode_utils'),
     ('SogoCZE--Jails/modules/jai_parser', 'SogoCZE--jai_parser'),
+    ('OrangeLightning219--jai-format/modules/jai_parser', 'OrangeLightning219--jai_parser'),
     ('ostef--Vk-Engine/Modules/Linalg', 'ostef--Linalg'),
     ('ostef--Vk-Engine/Modules/JoltPhysics', 'ostef--Jolt-Jai'),
     ('ostef--Jolt-Jai/Source/JoltC', 'ostef--JoltC'),

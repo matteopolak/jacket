@@ -236,11 +236,17 @@ impl Parser<'_> {
             } else {
                 None
             };
+            // Arguments for the message's `%` slots, as in print.
+            let mut args = Vec::new();
+            while message.is_some() && self.eat(P::Comma) && !self.at(P::RParen) {
+                args.push(self.parse_expr()?);
+            }
             self.expect(P::RParen, "after '#assert' message")?;
             return Ok(stmt(
                 StmtKind::Assert {
                     cond,
                     message,
+                    args,
                 },
                 start.to(self.prev_span()),
             ));
@@ -258,6 +264,7 @@ impl Parser<'_> {
             StmtKind::Assert {
                 cond,
                 message,
+                args: Vec::new(),
             },
             start.to(self.prev_span()),
         ))

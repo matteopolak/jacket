@@ -1,6 +1,7 @@
 // An argument such as `.{300, -1} * scale` builds the untyped literal as the parameter's
 // type before the operator is looked up, and a `name:` marker inside a declaration
 // statement (`ok, value:, extra := f()`) declares that name like the others.
+// rules: cast.10
 #import "Basic";
 #import "Math";
 

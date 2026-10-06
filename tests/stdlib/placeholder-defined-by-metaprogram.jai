@@ -1,5 +1,6 @@
 // Top-level code that needs a `#placeholder` waits until the metaprogram defines it
 // (here at TYPECHECKED_ALL_WE_CAN), instead of failing.
+// rules: code.15
 #import "Basic";
 #import "Compiler";
 

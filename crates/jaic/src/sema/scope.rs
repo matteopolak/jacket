@@ -60,13 +60,11 @@ pub struct ImportEntry {
 #[derive(Clone)]
 pub enum UsingEntry {
     /// Members of a struct value at a place (address held in the current function).
-    Place {
-        ty: TypeId,
-        entity: EntityId,
-    },
+    Place { ty: TypeId, entity: EntityId },
     /// Constants of a type (struct constants, enum members).
     Type(TypeId),
-    Module(ModuleId),
+    /// A module's names, minus those an `only`/`except` filter hides.
+    Module(ModuleId, Option<Rc<ast::UsingFilter>>),
 }
 
 pub struct Scope {
@@ -157,6 +155,10 @@ pub enum EntityState {
     Unresolved,
     Resolving,
     Done(Resolved),
+    /// Its compile-time code ran and failed (an assertion, a trap). It is not run again: the
+    /// run may have had effects, and a retry would repeat them (and see state the failed run
+    /// left behind, such as `context.handling_assertion_failure`).
+    Failed(Box<Diagnostic>),
 }
 
 pub struct Entity {
@@ -599,7 +601,10 @@ impl Compiler {
             }
             for entry in self.scope(sid).usings.clone() {
                 match &entry {
-                    UsingEntry::Module(m) => {
+                    UsingEntry::Module(m, filter) => {
+                        if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+                            continue;
+                        }
                         if let Some(result) = self.merge_module_lookup(&mut found, *m, name)? {
                             return Ok(result);
                         }
@@ -617,12 +622,7 @@ impl Compiler {
             let imports = self.scope(sid).imports.len();
             for i in 0..imports {
                 if let Some(module) = self.import_module(sid, i)? {
-                    let hidden = match &self.scope(sid).imports[i].filter {
-                        ast::UsingFilter::Only(names) => names.iter().all(|n| n.name != name),
-                        ast::UsingFilter::Except(names) => names.iter().any(|n| n.name == name),
-                        _ => false,
-                    };
-                    if hidden {
+                    if filter_hides(&self.scope(sid).imports[i].filter, name) {
                         continue;
                     }
                     let before = found.len();
@@ -858,5 +858,14 @@ impl Compiler {
                 .then(|| Found::Entities(found.clone())),
             Found::Using(entry, member) => found.is_empty().then_some(Found::Using(entry, member)),
         })
+    }
+}
+
+/// Does a `using` filter keep `name` out? Computed and mapping filters hide nothing here.
+pub fn filter_hides(filter: &ast::UsingFilter, name: Sym) -> bool {
+    match filter {
+        ast::UsingFilter::Only(names) => names.iter().all(|n| n.name != name),
+        ast::UsingFilter::Except(names) => names.iter().any(|n| n.name == name),
+        _ => false,
     }
 }

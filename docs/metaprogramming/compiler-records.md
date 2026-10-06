@@ -14,32 +14,32 @@ A metaprogram runs in its own compiler's interpreter, which borrows that compile
 
 `sema/code_export.rs`, with state in `Compiler::export`:
 
-- `export_file_events`: an IMPORT record per module before its first file, and a FILE record per file. Module types: Preload is `PRELOAD`, Runtime_Support `RUNTIME_SUPPORT`, the main module `MAIN_PROGRAM`, the rest `UNINITIALIZED`. Hidden `__module`/`__file` fields let `add_build_string(.., message)` find the module.
-- `export_typechecked`: every new top-level declaration of a user module is resolved and exported with its type. User means not Preload or Runtime_Support and not under the system module directory (the directory of `Runtime_Support.jai`). Procedure headers, bodies and struct literals inside go into `procedure_headers`, `procedure_bodies` and `structs`, and every node into `subexpressions`. Declarations that fail to resolve are skipped, where Jai would report an error.
-- Global declarations, parameters and returns, and type instantiations get `type`; local declarations and other expressions don't. Notes after a procedure body attach to the declaration and the header. `Code_Node.serial` is the record id.
-- `type_record` makes Type_Info records, memoised per `TypeId`. Primitive types carry `__builtin` (their name) so the metaprogram substitutes its own descriptor and `decl.type == type_info(int)` works. Polymorphic struct instances get `specified_parameters`, `constant_storage` and a generic `polymorph_source_struct`; `Type` parameters are pointers the Jai side patches from `__constant_pointers`.
-- A top-level enum's `Code_Enum.external_type` is its `Type_Info_Enum`.
-- `-1` and `-1.5` export as one negative `Code_Literal`, as Jai folds them (yield-jai overwrites `_s64` of `#code case -1`).
-- Backticked identifiers and declarations set `HAS_SCOPE_MODIFIER`. `#assert` and `#run` statements export as `Code_Directive_Run` (with jaic's extra `expression` and `message`), `#exists(x)` as `Code_Directive_Exists`.
-- `a, b := f()` is a `Code_Compound_Declaration`: the names in `comma_separated_assignment`, the shared type and values in a nameless `declaration_properties`.
+- `export_file_events`: an IMPORT record per module before its first file {#records.1}, and a FILE record per file {#records.2}. Module types: Preload is `PRELOAD`, Runtime_Support `RUNTIME_SUPPORT`, the main module `MAIN_PROGRAM`, the rest `UNINITIALIZED` {#records.3}. Hidden `__module`/`__file` fields let `add_build_string(.., message)` find the module.
+- `export_typechecked`: every new top-level declaration of a user module is resolved and exported with its type {#records.4}. User means not Preload or Runtime_Support and not under the system module directory (the directory of `Runtime_Support.jai`). Procedure headers, bodies and struct literals inside go into `procedure_headers`, `procedure_bodies` and `structs`, and every node into `subexpressions`. Declarations that fail to resolve are skipped, where Jai would report an error.
+- Global declarations, parameters and returns, and type instantiations get `type` {#records.5}; local declarations and other expressions don't. Notes after a procedure body attach to the declaration and the header {#records.6}. `Code_Node.serial` is the record id.
+- `type_record` makes Type_Info records, memoised per `TypeId`. Primitive types carry `__builtin` (their name) so the metaprogram substitutes its own descriptor and `decl.type == type_info(int)` works {#records.7}. Polymorphic struct instances get `specified_parameters`, `constant_storage` and a generic `polymorph_source_struct` {#records.8}; `Type` parameters are pointers the Jai side patches from `__constant_pointers`.
+- A top-level enum's `Code_Enum.external_type` is its `Type_Info_Enum` {#records.26}.
+- `-1` and `-1.5` export as one negative `Code_Literal`, as Jai folds them (yield-jai overwrites `_s64` of `#code case -1`) {#records.14}.
+- Backticked identifiers and declarations set `HAS_SCOPE_MODIFIER` {#records.15}. `#assert` and `#run` statements export as `Code_Directive_Run` (with jaic's extra `expression` and `message`) {#records.16}, `#exists(x)` as `Code_Directive_Exists` {#records.17}.
+- `a, b := f()` is a `Code_Compound_Declaration`: the names in `comma_separated_assignment`, the shared type and values in a nameless `declaration_properties` {#records.20}.
 
 `build::step` takes the record table out of the registry while exporting (resolving can run compile-time code) and queues IMPORT, FILE and TYPECHECKED events whose int 0 is the message record.
 
 ### Procedures in TYPECHECKED
 
-A procedure whose body isn't lowered yet is reported with a null `body_or_null` and queued in `ExportState::pending_bodies`. Each later `export_typechecked` reports the bodies lowered since, with local declaration types, and patches the header's `body_or_null`. The Jai side also patches the cached header struct, since a metaprogram may still hold it from the earlier message (MetaThreadSafe checks bodies at COMPLETE). Bodies nothing reaches are never lowered, so their errors never surface, matching Jai.
+A procedure whose body isn't lowered yet is reported with a null `body_or_null` and queued in `ExportState::pending_bodies`. Each later `export_typechecked` reports the bodies lowered since, with local declaration types, and patches the header's `body_or_null`. The Jai side also patches the cached header struct, since a metaprogram may still hold it from the earlier message (MetaThreadSafe checks bodies at COMPLETE). Bodies nothing reaches are never lowered, so their errors never surface, matching Jai {#records.21}.
 
-Exception: noted procedures (`@glsl`, `@thread`, on the header or after the body) whose headers went out are lowered leniently once the workspace runs out of sources (`lower_reachable_inner`), because metaprograms find shaders and checked procedures by note whether or not anything calls them (Jai-Shader-Transpiler). Only procedures in the main module qualify. Imported modules ship stale noted procedures: Vk-Engine's `@PrintLike FormatToCString` calls a procedure that doesn't exist.
+Exception: noted procedures (`@glsl`, `@thread`, on the header or after the body) whose headers went out are lowered leniently once the workspace runs out of sources (`lower_reachable_inner`), because metaprograms find shaders and checked procedures by note whether or not anything calls them (Jai-Shader-Transpiler). Only procedures in the main module qualify {#records.22}. An imported module's uncalled noted procedures stay unchecked {#records.23}, since imported modules ship stale ones: Vk-Engine's `@PrintLike FormatToCString` calls a procedure that doesn't exist.
 
-`ExportState::resolved_headers` keeps one header record per procedure, shared by `resolved_procedure_expression` and the reported header, so a checker following calls reaches bodies. The key includes `Exporter::own`: a compiler's own compile-time code (`#modify`) needs type records with real descriptors, which exports for a metaprogram don't have. Resolved headers carry the procedure's notes, including those after the body (`Compiler::proc_decl_notes`, copied to polymorph instances), and list `using` parameters in `parameter_usings`.
+`ExportState::resolved_headers` keeps one header record per procedure, shared by `resolved_procedure_expression` and the reported header, so a checker following calls reaches bodies {#records.24}. The key includes `Exporter::own`: a compiler's own compile-time code (`#modify`) needs type records with real descriptors, which exports for a metaprogram don't have. Resolved headers carry the procedure's notes, including those after the body (`Compiler::proc_decl_notes`, copied to polymorph instances), and list `using` parameters in `parameter_usings` {#records.25}.
 
 ### Phases
 
-When a workspace runs out of sources, `step` lowers everything reachable (`Compiler::lower_reachable`, lenient: a failing body stays queued). If that reports new declarations or bodies (a body can declare more through `#insert,scope(...)`), the metaprogram gets another `TYPECHECKED_ALL_WE_CAN` and may add code. Only a round that reports nothing new proceeds to `finish_program` and code generation.
+When a workspace runs out of sources, `step` lowers everything reachable (`Compiler::lower_reachable`, lenient: a failing body stays queued). If that reports new declarations or bodies (a body can declare more through `#insert,scope(...)`), the metaprogram gets another `TYPECHECKED_ALL_WE_CAN` and may add code {#records.27}. Only a round that reports nothing new proceeds to `finish_program` and code generation.
 
 ### Jai side
 
-`stdlib/Compiler/records.jai`: `record_struct(id, expected)` allocates the struct the tag names (`RECORD_TYPES`, else the expected pointee type), zero-fills it, and fills members by name through `Type_Info_Struct`: integers, enums, bools and floats by size, strings, pointers (recursively and memoised, so a record maps to one pointer forever), in-place structs, and arrays of those. `using` members and anonymous unions are filled from the same record. `record_of(pointer)` maps back. Every `Code_*` struct sets its own kind (`base.kind = .IDENT;`), so nodes a metaprogram makes with `New(Code_Ident)` behave like exported ones.
+`stdlib/Compiler/records.jai`: `record_struct(id, expected)` allocates the struct the tag names (`RECORD_TYPES`, else the expected pointee type), zero-fills it, and fills members by name through `Type_Info_Struct`: integers, enums, bools and floats by size, strings, pointers (recursively and memoised, so a record maps to one pointer forever {#records.9}), in-place structs, and arrays of those. `using` members and anonymous unions are filled from the same record. `record_of(pointer)` maps back. Every `Code_*` struct sets its own kind (`base.kind = .IDENT;`), so nodes a metaprogram makes with `New(Code_Ident)` behave like exported ones {#records.19}.
 
 Large metaprograms build hundreds of thousands of records, so filling is split:
 
@@ -53,7 +53,7 @@ Large metaprograms build hundreds of thousands of records, so filling is split:
 
 `Compiler::add_code` mirrors every `Code` value (AST plus source snippet) into `Interp::codes`. `__jaic_code_nodes` exports it, storing the snippet as `__source` on the root; the Jai side remembers each (root, code) pair in `__code_roots`.
 
-Libraries like or_return, MetaThreadSafe and Jai-Shader-Transpiler read `Code_Procedure_Call.resolved_procedure_expression`, `Code_Ident.resolved_declaration` and `Code_Node.type`. Those need the compiler, which a `MetaOp` can't reach while the interpreter runs. So jaic traps and reruns:
+Libraries like or_return, MetaThreadSafe and Jai-Shader-Transpiler read `Code_Procedure_Call.resolved_procedure_expression`, `Code_Ident.resolved_declaration` and `Code_Node.type` {#records.10}. Those need the compiler, which a `MetaOp` can't reach while the interpreter runs. So jaic traps and reruns:
 
 1. `call_thunk` (`sema/consteval.rs`) counts the run's observable effects (`Interp::effects`: output, foreign calls other than memory and string helpers, workspace operations).
 2. While nothing observable has happened yet, `__jaic_code_nodes` traps with `Interp::export_request`.
@@ -67,8 +67,8 @@ In typed exports:
 
 - Names resolve to locals first (`Exporter::locals`, scoped per block), then `Compiler::lookup` from the code's scope. A declaration resolves to a cached reference record (`resolved_decls`) with `type`, `type_inst.result` and, for procedures, a header as `expression`. Builtins like `size_of` resolve to nothing.
 - Calls pick the only candidate, else the first overload whose parameter count fits.
-- Value expressions get `type` by checking them in the code's scope without emitting (`Exporter::expr_type`); untyped literals report their default (`s64`, `float64`).
-- Type records carry `__address`, the real descriptor in this program's memory, so `type == type_info(T)` works.
+- Value expressions get `type` by checking them in the code's scope without emitting (`Exporter::expr_type`); untyped literals report their default (`s64`, `float32`) {#records.13}.
+- Type records carry `__address`, the real descriptor in this program's memory, so `type == type_info(T)` works {#records.11}.
 - In `x := value`, the value takes the declaration's type when it has none.
 
 ### On-demand lowering
@@ -77,7 +77,7 @@ A compile-time run inside another body's lowering (`lowering_depth > 0`, such as
 
 ### `compiler_get_code`
 
-Prints the node tree with `Program_Print` and passes the text to `__jaic_parse_code`, which parses it (`build::parse_code_text`) into a new `Interp::codes` entry and records in `Interp::made_codes` whose scope it takes (`code_to_copy_scope_from`). The compiler adopts such codes (`Compiler::adopt_made_codes`) when it reads a `Code` back or adds one of its own, re-parsing the text as a registered source so diagnostics can point into it. Node edits the printer can't express are lost (see [Program_Print](../specs/stdlib/README.md)).
+Prints the node tree with `Program_Print` and passes the text to `__jaic_parse_code`, which parses it (`build::parse_code_text`) into a new `Interp::codes` entry and records in `Interp::made_codes` whose scope it takes (`code_to_copy_scope_from`). The compiler adopts such codes (`Compiler::adopt_made_codes`) when it reads a `Code` back or adds one of its own, re-parsing the text as a registered source so diagnostics can point into it. Node edits the printer can't express are lost (see [Program_Print](../specs/stdlib/README.md)). Names in the result resolve where the original code was written {#records.12}.
 
 Without `code_to_copy_scope_from` the code is unscoped (`Compiler::unscoped_codes`) and resolves at the insertion site, as in Jai; yield-jai builds `(self: *COROUTINE) -> ...` where only the inserting macro knows `COROUTINE`. Names the site lacks fall back to the scopes of codes handed to `compiler_get_nodes` (newest first, `Interp::nodes_codes`), because official nodes keep what they resolved to where they were written: Epic_Fail's `#code` blocks call `print_to_builder`, which the inserting user never imported. `Compiler::code_scope_at` makes a block scope under the site with `Scope::fallbacks`, and `lookup_full` consults fallbacks only when nothing else binds a name.
 
@@ -85,7 +85,7 @@ Without `code_to_copy_scope_from` the code is unscoped (`Compiler::unscoped_code
 
 For each statement of `body.block.statements`, Jai sends the record id, or 0 plus the `Program_Print` text when the statement is new or was edited anywhere below. `record_differs` in `records.jai` compares every member with what `fill_struct` wrote, following `Code_*` pointers but not `resolved_*` or `type`, and skipping union members that overlap a present field.
 
-The edit is queued and applied at the workspace's next step (`Compiler::modify_procedure`): unchanged statements map back to their AST, `#code` roots are re-parsed from `__source`, edited ones from their text, inside a dummy procedure. The `ProcLit` is replaced, and if the body was already lowered it is lowered again into the same function once the registry borrow is released (`relower_modified`).
+The edit is queued and applied at the workspace's next step (`Compiler::modify_procedure`): unchanged statements map back to their AST, `#code` roots are re-parsed from `__source`, edited ones from their text, inside a dummy procedure. The modified body is what runs {#records.18}. The `ProcLit` is replaced, and if the body was already lowered it is lowered again into the same function once the registry borrow is released (`relower_modified`).
 
 ## How to change it
 

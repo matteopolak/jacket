@@ -2,6 +2,7 @@
 // Jai-Shader-Transpiler): callee notes through resolved calls, one header record per
 // procedure (so a body reported later reaches headers seen earlier), parameter usings,
 // bodies of noted procedures nothing calls, and initializer types.
+// rules: records.6 records.22 records.24 records.25
 #import "Basic";
 #import "Compiler";
 

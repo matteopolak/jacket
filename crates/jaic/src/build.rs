@@ -230,6 +230,7 @@ pub enum MetaOp {
     ParseCode,
     ModifyProcedure,
     SetTypeInfoFlags,
+    StructLocation,
     RecTag,
     RecField,
     RecInt,
@@ -268,6 +269,7 @@ impl MetaOp {
             "__jaic_parse_code" => Self::ParseCode,
             "__jaic_modify_procedure" => Self::ModifyProcedure,
             "__jaic_set_type_info_flags" => Self::SetTypeInfoFlags,
+            "__jaic_struct_location" => Self::StructLocation,
             "__jaic_rec_tag" => Self::RecTag,
             "__jaic_rec_field" => Self::RecField,
             "__jaic_rec_int" => Self::RecInt,
@@ -738,6 +740,7 @@ pub fn call(
             | MetaOp::CommandLineCount
             | MetaOp::CommandLineArg
             | MetaOp::CompilerVersion
+            | MetaOp::StructLocation
             | MetaOp::CodeNodes
             | MetaOp::ParseCode
             | MetaOp::RecTag
@@ -786,6 +789,19 @@ pub fn call(
                 return Err(trap("compiler_set_type_info_flags: not a type".into()));
             };
             interp.pending_type_flags.push((global, arg(1) as u32));
+            Ok(Vec::new())
+        }
+        MetaOp::StructLocation => {
+            // (info, out path, out line, out column); unknown structs leave them zero.
+            let found = interp
+                .global_at(arg(0))
+                .and_then(|(g, offset)| (offset == 0).then_some(g))
+                .and_then(|g| interp.struct_locations.get(&g).cloned());
+            if let Some((path, line, col)) = found {
+                return_string(interp, path.as_bytes(), 1);
+                interp.write(arg(2), &line.to_le_bytes());
+                interp.write(arg(3), &col.to_le_bytes());
+            }
             Ok(Vec::new())
         }
         MetaOp::WorkspaceCreate => {

@@ -1,3 +1,4 @@
+// rules: macro.5 macro.6
 #import "Basic";
 
 log: [..] int;

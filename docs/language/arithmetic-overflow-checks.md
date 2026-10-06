@@ -2,7 +2,7 @@
 
 ## What it is
 
-`Build_Options.arithmetic_overflow_check` (`.OFF` by default, `.NONFATAL`, `.FATAL`) makes integer `+`, `-` and `*` (and `+=`, `-=`, `*=`) report results that do not fit the operand type. `#no_aoc` turns the check off for code that overflows on purpose, like hashes and random number generators.
+`Build_Options.arithmetic_overflow_check` (`.OFF` by default, `.NONFATAL`, `.FATAL`) makes integer `+`, `-` and `*` (and `+=`, `-=`, `*=`) report results that do not fit the operand type {#overflow.1}. `#no_aoc` turns the check off for code that overflows on purpose, like hashes and random number generators {#overflow.2}.
 
 ## How it works
 
@@ -10,19 +10,19 @@
 
 The interpreter computes the intrinsic in 128-bit arithmetic; LLVM uses `llvm.{s,u}{add,sub,mul}.with.overflow`.
 
-`__arithmetic_overflow` prints to stderr:
+`__arithmetic_overflow` prints to stderr {#overflow.3}:
 
 ```
 file.jai:12: arithmetic overflow computing 250 + 10 as u8: the result does not fit
 ```
 
-Bit 15 of `type_code` marks fatal mode, which then panics; `.NONFATAL` returns and the program continues with the wrapped value.
+Bit 15 of `type_code` marks fatal mode, which then panics {#overflow.4}; `.NONFATAL` returns and the program continues with the wrapped value {#overflow.5}.
 
-`#no_aoc` goes where `#no_abc` goes: on a procedure (`ProcFlags::no_aoc`, setting `FnCtx::no_aoc` in `sema/procs.rs`), on a block `#no_aoc { }`, and on `while`, `if` and `for` (`Block::no_aoc`, `sema/stmt.rs`).
+`#no_aoc` goes where `#no_abc` goes: on a procedure (`ProcFlags::no_aoc`, setting `FnCtx::no_aoc` in `sema/procs.rs`), on a block `#no_aoc { }`, and on `while`, `if` and `for` (`Block::no_aoc`, `sema/stmt.rs`) {#overflow.6}.
 
-The option reaches sema as `Options::arithmetic_overflow_check` (0, 1, 2) via the workspace option in `stdlib/Compiler/options.jai` and `build.rs`. It applies to workspaces a metaprogram creates; the program's own workspace keeps the default.
+The option reaches sema as `Options::arithmetic_overflow_check` (0, 1, 2) via the workspace option in `stdlib/Compiler/options.jai` and `build.rs`. It applies to workspaces a metaprogram creates; the program's own workspace keeps the default {#overflow.7}.
 
-Not checked: constant folding (wraps), unary minus, shifts, pointer arithmetic, floats, and arithmetic the compiler emits for indexing and `#asm`.
+Not checked: constant folding (wraps), unary minus, shifts, pointer arithmetic, floats, and arithmetic the compiler emits for indexing and `#asm` {#overflow.8}.
 
 ## How to change it
 

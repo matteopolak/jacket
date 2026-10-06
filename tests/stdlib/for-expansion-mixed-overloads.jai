@@ -1,3 +1,4 @@
+// rules: macro.12
 #import "Basic";
 
 Bag :: struct {

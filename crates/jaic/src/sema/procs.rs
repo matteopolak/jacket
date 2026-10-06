@@ -292,15 +292,49 @@ impl Compiler {
         let p = self.proc(id);
         let header = p.lit.header.clone();
         let scope = p.bindings.unwrap_or(p.scope);
-        let mut params = Vec::new();
-        for param in &header.params {
-            // Baked (`$x`) parameters are constants of the instance, not runtime parameters.
-            if param.baked {
-                continue;
+        // Baked (`$x`) parameters are constants of the instance, not runtime parameters.
+        let runtime: Vec<&ast::Param> = header.params.iter().filter(|p| !p.baked).collect();
+        // A type may name a later parameter (`info: *r.Info, r: *$R`, n00bmind/reflector):
+        // such types are resolved after the others.
+        let names_later = |c: &Compiler, i: usize| {
+            runtime[i].ty.as_ref().is_some_and(|t| {
+                (t.span.file.0 as usize) < c.sources.len() && {
+                    let text = c.sources.snippet(t.span);
+                    let word = |ch: char| ch.is_alphanumeric() || ch == '_';
+                    text.split(|ch: char| !word(ch)).any(|w| {
+                        runtime[i + 1..]
+                            .iter()
+                            .any(|p| p.name.is_some_and(|n| n.name.as_str() == w))
+                    })
+                }
+            })
+        };
+        let deferred: Vec<bool> = (0..runtime.len()).map(|i| names_later(self, i)).collect();
+        let mut slots: Vec<Option<ParamInfo>> = vec![None; runtime.len()];
+        for pass in [false, true] {
+            for (i, param) in runtime.iter().enumerate() {
+                if deferred[i] != pass {
+                    continue;
+                }
+                let params: Vec<ParamInfo> = slots.iter().flatten().cloned().collect();
+                slots[i] = Some(self.param_info(scope, &header, param, &params)?);
             }
+        }
+        let params: Vec<ParamInfo> = slots.into_iter().flatten().collect();
+        self.finish_signature(id, scope, &header, params)
+    }
+
+    fn param_info(
+        &mut self,
+        scope: ScopeId,
+        header: &ast::ProcHeader,
+        param: &ast::Param,
+        params: &[ParamInfo],
+    ) -> Result<ParamInfo> {
+        {
             let ty = match (&param.ty, &param.default) {
-                (Some(t), _) if self.mentions_param(t, &params) => {
-                    self.type_from_params(scope, t, &params)?
+                (Some(t), _) if self.mentions_param(t, params) => {
+                    self.type_from_params(scope, t, params)?
                 }
                 (Some(t), _) => self.eval_type(scope, t)?,
                 (None, Some(d)) if matches!(d.kind, ast::ExprKind::CallerCode) => TypeId::CODE,
@@ -327,7 +361,7 @@ impl Compiler {
             } else {
                 ty
             };
-            params.push(ParamInfo {
+            Ok(ParamInfo {
                 name: param.name.map(|n| n.name),
                 ty,
                 default: param.default.clone(),
@@ -335,8 +369,17 @@ impl Compiler {
                 using: param.using,
                 discard: param.discard,
                 span: param.span,
-            });
+            })
         }
+    }
+
+    fn finish_signature(
+        &mut self,
+        id: ProcId,
+        scope: ScopeId,
+        header: &ast::ProcHeader,
+        params: Vec<ParamInfo>,
+    ) -> Result<Signature> {
         let mut returns = Vec::new();
         let mut return_names = Vec::new();
         for r in &header.returns {

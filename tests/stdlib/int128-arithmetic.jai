@@ -1,5 +1,6 @@
 // Concrete arithmetic boundary inputs. Integration runs this authored body;
 // parser acceptance alone does not establish any assertion below.
+// rules: num.15
 #load "../../stdlib/Basic/Int128.jai";
 
 main :: () -> s64 {

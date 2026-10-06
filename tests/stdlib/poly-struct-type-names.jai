@@ -1,4 +1,5 @@
 // Instances of polymorphic structs print their parameters, like `Entity(Payload=s64)`.
+// rules: struct.14
 #import "Basic";
 Entity :: struct(Payload: Type) {
     payload: Payload;

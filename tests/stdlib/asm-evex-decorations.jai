@@ -1,4 +1,5 @@
 // EVEX decorations in #asm: `[mem]!` broadcast, `!z`/`!u` rounding, and `&*` masking.
+// rules: asm.17 asm.18 asm.19
 #import "Basic";
 
 fail :: (what: string) {

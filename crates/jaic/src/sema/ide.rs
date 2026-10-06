@@ -676,7 +676,7 @@ impl Compiler {
             }
             for entry in self.scope(sid).usings.clone() {
                 match entry {
-                    scope::UsingEntry::Module(m) => modules.push(m),
+                    scope::UsingEntry::Module(m, _) => modules.push(m),
                     scope::UsingEntry::Place {
                         ty, ..
                     } => {
@@ -760,7 +760,7 @@ impl Compiler {
                         ty, ..
                     }
                     | scope::UsingEntry::Type(ty) => ty,
-                    scope::UsingEntry::Module(_) => return None,
+                    scope::UsingEntry::Module(..) => return None,
                 };
                 IdeReceiver::Value(self.ide_field_type(ty, member)?)
             }
@@ -782,7 +782,7 @@ impl Compiler {
                         | scope::UsingEntry::Type(ty) => {
                             IdeReceiver::Value(self.ide_field_type(ty, member)?)
                         }
-                        scope::UsingEntry::Module(_) => return None,
+                        scope::UsingEntry::Module(..) => return None,
                     },
                 },
             };

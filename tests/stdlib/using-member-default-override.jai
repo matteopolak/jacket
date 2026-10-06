@@ -1,5 +1,6 @@
 // A `member = value;` statement in a struct body overrides the default of a
 // member reached through a `using` field.
+// rules: using.8 using.10 using.16
 #import "Basic";
 
 Kind :: enum {
