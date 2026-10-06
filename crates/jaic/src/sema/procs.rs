@@ -1177,9 +1177,7 @@ impl Compiler {
             return Ok(());
         }
         // Missing return: trap at runtime (Jai reports this only for reachable ends).
-        self.note_check_handler(span);
-        let reason = f.b.iconst(Ty::I64, ir::TRAP_MISSING_RETURN);
-        f.b.intrinsic(ir::Intrinsic::Trap, vec![reason], &[]);
+        self.emit_trap(f, ir::TRAP_MISSING_RETURN, span);
         f.b.terminate(ir::Term::Unreachable);
         Ok(())
     }

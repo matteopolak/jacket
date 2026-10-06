@@ -146,18 +146,6 @@ fn lookup_xop(name: &str) -> Option<XOp> {
     })
 }
 
-/// Branch to a trap (`#DE` on hardware) when `cond` is set.
-fn trap_if(f: &mut FnCtx, cond: Val) {
-    let bad = f.b.new_block();
-    let ok = f.b.new_block();
-    f.b.branch(cond, bad, ok);
-    f.b.switch_to(bad);
-    let reason = f.b.iconst(Ty::I64, crate::ir::TRAP_ASM_DIVIDE);
-    f.b.intrinsic(Intrinsic::Trap, vec![reason], &[]);
-    f.b.terminate(crate::ir::Term::Unreachable);
-    f.b.switch_to(ok);
-}
-
 fn neg(f: &mut FnCtx, ty: Ty, v: Val) -> Val {
     let z = konst(f, ty, 0);
     bin(f, BinOp::Sub, ty, z, v)
@@ -304,7 +292,7 @@ impl Compiler {
                     let hi = resize(f, hi, Ty::I16, Ty::I8, false);
                     let lo = resize(f, ax, Ty::I16, Ty::I8, false);
                     let d = self.asm_read(f, opds[1], Ty::I8, span)?;
-                    let (q, r) = Self::asm_divide(f, Ty::I8, hi, lo, d, signed);
+                    let (q, r) = self.asm_divide(f, Ty::I8, (hi, lo), d, signed, span);
                     let q = resize(f, q, Ty::I8, Ty::I16, false);
                     let r = resize(f, r, Ty::I8, Ty::I16, false);
                     let r = bin(f, BinOp::Shl, Ty::I16, r, eight);
@@ -314,7 +302,7 @@ impl Compiler {
                     let hi = self.asm_read(f, opds[0], sz, span)?;
                     let lo = self.asm_read(f, opds[1], sz, span)?;
                     let d = self.asm_read(f, opds[2], sz, span)?;
-                    let (q, r) = Self::asm_divide(f, sz, hi, lo, d, signed);
+                    let (q, r) = self.asm_divide(f, sz, (hi, lo), d, signed, span);
                     self.asm_write(f, opds[1], sz, q, span)?;
                     self.asm_write(f, opds[0], sz, r, span)?;
                 }
@@ -675,9 +663,28 @@ impl Compiler {
         }
     }
 
-    /// Quotient and remainder of `hi:lo / d` at size `sz`, trapping like `#DE` on a zero
-    /// divisor or a quotient that does not fit.
-    fn asm_divide(f: &mut FnCtx, sz: Ty, hi: Val, lo: Val, d: Val, signed: bool) -> (Val, Val) {
+    /// Branch to a trap (`#DE` on hardware) when `cond` is set.
+    fn divide_trap_if(&mut self, f: &mut FnCtx, span: Span, cond: Val) {
+        let bad = f.b.new_block();
+        let ok = f.b.new_block();
+        f.b.branch(cond, bad, ok);
+        f.b.switch_to(bad);
+        self.emit_trap(f, crate::ir::TRAP_ASM_DIVIDE, span);
+        f.b.terminate(crate::ir::Term::Unreachable);
+        f.b.switch_to(ok);
+    }
+
+    /// Quotient and remainder of the dividend `hi:lo` divided by `d` at size `sz`, trapping
+    /// like `#DE` on a zero divisor or a quotient that does not fit.
+    fn asm_divide(
+        &mut self,
+        f: &mut FnCtx,
+        sz: Ty,
+        (hi, lo): (Val, Val),
+        d: Val,
+        signed: bool,
+        span: Span,
+    ) -> (Val, Val) {
         let w = bits(sz);
         // Magnitudes of the dividend (as 64-bit halves) and divisor.
         let (dividend_neg, divisor_neg, hi, lo, d) = if sz == Ty::I64 {
@@ -720,11 +727,11 @@ impl Compiler {
         };
         let zero = konst(f, Ty::I64, 0);
         let by_zero = cmp(f, CmpOp::Eq, Ty::I64, d, zero);
-        trap_if(f, by_zero);
+        self.divide_trap_if(f, span, by_zero);
         // Unsigned magnitude limit: the quotient must stay below 2^w (2^(w-1) + sign when signed).
         let (q, r) = if sz == Ty::I64 {
             let too_big = cmp(f, CmpOp::UGe, Ty::I64, hi, d);
-            trap_if(f, too_big);
+            self.divide_trap_if(f, span, too_big);
             udiv128(f, hi, lo, d)
         } else {
             (
@@ -739,7 +746,7 @@ impl Compiler {
                 let max_neg = konst(f, Ty::I64, 1u64 << (w - 1));
                 let limit = select(f, Ty::I64, qneg, max_neg, max_pos);
                 let over = cmp(f, CmpOp::UGt, Ty::I64, q, limit);
-                trap_if(f, over);
+                self.divide_trap_if(f, span, over);
                 let nq = neg(f, Ty::I64, q);
                 let q = select(f, Ty::I64, qneg, nq, q);
                 let nr = neg(f, Ty::I64, r);
@@ -753,7 +760,7 @@ impl Compiler {
                 if sz != Ty::I64 {
                     let limit = konst(f, Ty::I64, (1u64 << w) - 1);
                     let over = cmp(f, CmpOp::UGt, Ty::I64, q, limit);
-                    trap_if(f, over);
+                    self.divide_trap_if(f, span, over);
                 }
                 (
                     resize(f, q, Ty::I64, sz, false),

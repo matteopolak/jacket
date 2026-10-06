@@ -937,7 +937,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         Ok(self.builder.build_indirect_call(ty, ptr, args, "")?)
     }
 
-    /// Branch to a trapping block when `cond` (an `i1`) holds.
     /// Report a failed check through Runtime_Support (`Program::check_failed`) with the
     /// current source location; nothing when the program has no reporting procedure.
     fn report_check(

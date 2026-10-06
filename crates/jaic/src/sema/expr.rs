@@ -1802,6 +1802,15 @@ impl Compiler {
         }
     }
 
+    /// Stop the program at a failed check that has no details (`ir::Intrinsic::Trap` with an
+    /// `ir::TRAP_*` reason). Every trap with a reason goes through here or `emit_check_failed`,
+    /// so native code always has the reporting procedure.
+    pub(crate) fn emit_trap(&mut self, f: &mut FnCtx, reason: u64, span: Span) {
+        self.note_check_handler(span);
+        let reason = f.b.iconst(Ty::I64, reason);
+        f.b.intrinsic(ir::Intrinsic::Trap, vec![reason], &[]);
+    }
+
     /// Report a failed check (`ir::Intrinsic::CheckFailed`): `reason` is an `ir::TRAP_*`, `a`
     /// and `b` its `I64` details. A fatal failure stops the program.
     pub(crate) fn emit_check_failed(

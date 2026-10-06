@@ -1205,6 +1205,22 @@ fn failed_checks_say_what_and_where() {
         assert_eq!(String::from_utf8_lossy(&output.stdout), "", "{name}");
     }
 
+    // An `#asm` divide fault is reported even when nothing else in the program has a check
+    // (no Basic, no indexing), so it is the only code that needs the reporting procedure.
+    let source = dir.join("asm_divide.jai");
+    std::fs::write(
+        &source,
+        "divisor: u64;\nmain :: () {\n    hi: u64 = 0;\n    lo: u64 = 7;\n    d := divisor;\n    #asm { div hi, lo, d; }\n}\n",
+    )
+    .unwrap();
+    let output = build_and_run(&source, &dir, "asm_divide").unwrap();
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "asm_divide: ran to the end\n{err}");
+    assert!(
+        err.contains("asm_divide.jai:6: error: #asm division fault: the divisor is zero or the quotient does not fit\n"),
+        "asm_divide: stderr was {err:?}"
+    );
+
     // .NONFATAL reports a warning and goes on with the low bits.
     let meta = dir.join("nonfatal.jai");
     std::fs::write(
