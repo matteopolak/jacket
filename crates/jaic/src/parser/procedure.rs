@@ -118,13 +118,30 @@ impl Parser<'_> {
 
     fn has_top_level_comma(&self, from: usize, close: usize) -> bool {
         let mut depth = 0usize;
-        for token in &self.toks[from..close] {
+        // The comma in a cast modifier (`-cast,no_check(int) x`, `xx,trunc v`) separates nothing.
+        let cast_modifier = |i: usize| {
+            let word = |j: usize| match &self.toks[j].tok {
+                Tok::Ident(name) => Some(name.as_str()),
+                _ => None,
+            };
+            i > 0
+                && i + 1 < self.toks.len()
+                && matches!(
+                    word(i - 1),
+                    Some("cast" | "xx" | "no_check" | "trunc" | "truncate" | "force")
+                )
+                && matches!(
+                    word(i + 1),
+                    Some("no_check" | "trunc" | "truncate" | "force")
+                )
+        };
+        for (i, token) in self.toks[from..close].iter().enumerate() {
             match &token.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
                     depth += 1
                 }
                 Tok::Punct(P::RParen | P::RBracket | P::RBrace) => depth = depth.saturating_sub(1),
-                Tok::Punct(P::Comma) if depth == 0 => return true,
+                Tok::Punct(P::Comma) if depth == 0 && !cast_modifier(from + i) => return true,
                 _ => {}
             }
         }

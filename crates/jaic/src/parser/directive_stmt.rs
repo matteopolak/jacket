@@ -83,6 +83,11 @@ impl Parser<'_> {
 
     fn parse_static_if(&mut self) -> PResult<Stmt> {
         let start = self.bump();
+        // `#if #complete x == { ... }`: only one case is ever compiled, so the completeness
+        // promise is accepted without a check.
+        if self.at_directive("complete") {
+            self.bump();
+        }
         let value = self.parse_expr()?;
         if self.at(P::EqEq) {
             self.bump();

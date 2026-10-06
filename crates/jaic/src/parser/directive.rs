@@ -422,14 +422,14 @@ impl Parser<'_> {
             name: sym,
             span: start,
         };
-        let flags = if self.flags_before_string_ahead() {
-            self.parse_directive_flags()?
-                .into_iter()
-                .map(|f| f.name)
-                .collect()
-        } else {
-            Vec::new()
-        };
+        // A flag list that ends in the string operand may be spaced out:
+        // `#library, system, link_always "Metal"`.
+        let mut flags = Vec::new();
+        if self.flags_before_string_ahead() {
+            while self.eat(P::Comma) {
+                flags.push(self.ident("as a directive flag")?);
+            }
+        }
         let operand = if matches!(self.tok(), Tok::Str(_)) {
             Some(Box::new(self.parse_primary()?))
         } else {

@@ -613,6 +613,17 @@ fn inferred_members_and_directive_primaries() {
             ..
         }
     ));
+    // Flags before the operand may be spaced out (Pixel_Maker's Metal bindings).
+    let ExprKind::UnknownDirective {
+        flags, ..
+    } = value("Metal :: #library, system, link_always \"Metal\";").kind
+    else {
+        panic!("expected #library");
+    };
+    assert_eq!(
+        flags.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(),
+        ["system", "link_always"]
+    );
     assert!(matches!(value("x := `y;").kind, ExprKind::Backtick(_)));
     let ExprKind::Insert {
         scope, ..
@@ -766,7 +777,7 @@ fn file_level_directives() {
 #[test]
 fn static_if_at_file_scope() {
     let stmts = parse(
-        "#if A { x :: 1; y :: 2; } else #if B z :: 3; else { w :: 4; }\n#if C print(\"hi\");\n#if OS == { case .A; #load \"a.jai\"; case; #load \"b.jai\"; }",
+        "#if A { x :: 1; y :: 2; } else #if B z :: 3; else { w :: 4; }\n#if C print(\"hi\");\n#if OS == { case .A; #load \"a.jai\"; case; #load \"b.jai\"; }\n#if #complete N == { case 1; a :: 1; case 2; a :: 2; }",
     );
     let StmtKind::StaticIf {
         then_branch,
@@ -784,6 +795,8 @@ fn static_if_at_file_scope() {
         matches!(&stmts[1].kind, StmtKind::StaticIf { then_branch, .. } if then_branch.len() == 1)
     );
     assert!(matches!(&stmts[2].kind, StmtKind::StaticSwitch { cases, .. } if cases.len() == 2));
+    // `#if #complete x == {}` (KodaJai) parses as a plain static switch.
+    assert!(matches!(&stmts[3].kind, StmtKind::StaticSwitch { cases, .. } if cases.len() == 2));
 }
 
 // -- statements -----------------------------------------------------------------
