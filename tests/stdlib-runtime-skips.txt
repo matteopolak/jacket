@@ -29,6 +29,15 @@ rules-jaic-extensions * wasm-native binary128 Long_Double needs compiler-rt, whi
 autorun-plugin * wasm-native starts a process, which WASI cannot
 threads-cooperative * wasm-native WASI preview 1 has no threads
 threads-group-and-condition * wasm-native WASI preview 1 has no threads
+threads-synchronization * wasm-native WASI preview 1 has no threads
+threads-group-work * wasm-native WASI preview 1 has no threads
+threads-allocators * wasm-native WASI preview 1 has no threads
+atomics-contention * wasm-native WASI preview 1 has no threads
+
+# Sockets and virtual memory are not part of WASM; Unmapping_Allocator is POSIX-only.
+socket-loopback * wasm-interp,wasm-native WASM has no sockets
+unmapping-allocator * wasm-interp,wasm-native the module needs POSIX virtual memory calls
+unmapping-allocator windows-* * the module needs POSIX virtual memory calls
 
 # Windows cross builds from Linux (tools/windows_cross.py): `OS` is the target in compile-time code
 # too, so a `#run` that reads files or the clock takes the Windows path, which the Linux host
