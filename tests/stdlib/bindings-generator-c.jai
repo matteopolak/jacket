@@ -64,7 +64,9 @@ check_bindings :: () {
     assert(has(text, "next:     *Node;"));
     assert(has(text, "weights:  [4] float;"));
     assert(has(text, "callback: #type (code: s32, node: *Node) -> void #c_call;"));
-    assert(has(text, "Color :: enum u32 {"));
+    // A C enum with no negative values is unsigned on the Itanium ABIs and `int` on Windows.
+    #if OS == .WINDOWS assert(has(text, "Color :: enum s32 {"));
+    else assert(has(text, "Color :: enum u32 {"));
     assert(has(text, "GREEN :: 5;"));
     assert(has(text, "COLOR_GREEN :: GREEN;"));
     assert(has(text, "Flags :: u32;"));

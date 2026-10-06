@@ -63,7 +63,10 @@ check_bindings :: () {
     text, ok := read_entire_file(output_path);
     assert(ok);
     assert(visited > 0);
-    assert(contains(text, "Button :: (label: *u8, size: *Vec2) -> bool #foreign \"_ZN3Gui6ButtonEPKcRK4Vec2\";"));
+    // libclang mangles for the host's C++ ABI: Microsoft's on Windows, Itanium elsewhere.
+    #if OS == .WINDOWS mangled :: "?Button@Gui@@YA_NPEBDAEBUVec2@@@Z";
+    else mangled :: "_ZN3Gui6ButtonEPKcRK4Vec2";
+    assert(contains(text, tprint("Button :: (label: *u8, size: *Vec2) -> bool #foreign \"%\";", mangled)), "%", text);
     assert(contains(text, "Begin :: (name: *u8, p_open: *bool = null, flags: s32 = 0) -> bool #foreign"));
     assert(!contains(text, "Scale"));
     assert(contains(text, "f1 :: (id: Id, size: P2 = P2.{0.0, 0.0}, wc: *WC = null) #no_context"));

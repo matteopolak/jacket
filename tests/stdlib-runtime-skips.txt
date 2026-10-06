@@ -54,9 +54,7 @@ zip-file-directory * wasm-native Wasi_Runtime has no file system (fopen, stat, o
 Jai_Format/tests/golden * wasm-native reads its cases from files, and Wasi_Runtime has no file system (fopen, stat, opendir...)
 tests/os-file-process/file-roundtrip * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
 
-# Sockets and virtual memory are not part of WASM; Unmapping_Allocator is POSIX-only.
-socket-loopback * wasm-interp,wasm-native WASM has no sockets
-unmapping-allocator * wasm-interp,wasm-native the module needs POSIX virtual memory calls
+# Unmapping_Allocator is POSIX-only.
 unmapping-allocator windows-* * the module needs POSIX virtual memory calls
 
 # Windows cross builds from Linux (tools/windows_cross.py): `OS` is the target in compile-time code

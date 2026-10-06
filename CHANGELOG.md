@@ -110,6 +110,7 @@
 
 - Under `jaic run`, `get_path_of_running_executable` returns the executable `jaic build` would write for the program (`src/main` for `jaic run src/main.jai`) instead of `jaic`'s own path, so programs that load data relative to their executable (`../assets`) find it.
 - `jaic run` writes the executables and libraries a metaprogram's workspaces ask for, as `jaic build` does (it only interprets the top-level program instead of compiling it), so `jaic run first.jai` on a build script builds and can launch its program. `-no_workspace_output` skips them. `jaic check` still writes nothing, and now warns when a workspace asks for output, naming the `jaic build` command that writes it.
+- WASI builds' `nanosleep` (and so `sleep_milliseconds`) sleeps until the monotonic clock reaches the deadline: Node can end a WASI poll a few microseconds early.
 - Input on Linux reports a new window's size when it is mapped: without a window manager (Xvfb, some kiosks) X11 sends no ConfigureNotify for a new window, so programs never learned its size.
 - `GL.nsgl_create_context` on macOS falls back to the software renderer when no hardware renderer offers the pixel format, so Simp windows open in virtual machines (CI runners).
 - Native builds on Linux link built library archives (`libstb_vorbis.a`...) before libraries named with `-l`, so an archive that calls libm links even when `-lm` was declared first and the linker drops unneeded libraries (`--as-needed`).

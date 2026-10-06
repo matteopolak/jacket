@@ -32,7 +32,9 @@ main :: () {
         assert(ok);
         result, output := run_command(exe, capture_and_return_output = true);
         assert(result.exit_code == 0);
-        assert(output == "from c\n");
+        // The C runtime writes text-mode newlines: "\r\n" on Windows.
+        expected := ifx OS == .WINDOWS then "from c\r\n" else "from c\n";
+        assert(output == expected, "C program printed '%'", output);
         file_delete(exe);
         file_delete(source);
     }

@@ -97,6 +97,11 @@ empty inputs, non-ASCII text and paths, large inputs and failures (missing files
 cleanly). Put scratch files under `.scratch/<name>/`. Run it in every mode locally, then
 `jaic check t.jai -os windows` and `-os linux` for the other hosts.
 
+**`tests/stdlib/` and the playground.** `tools/check_playground_stdlib.mjs` also runs every
+`tests/stdlib/*.jai` in the browser engine and has no exclusion list, so a test there must handle
+`OS == .WASM` itself (for example a `main` that only prints `ok`) instead of using a `wasm-interp`
+skip line.
+
 **When a run cannot pass**, fix the bug if there is one. Otherwise add a skip line whose reason
 says what is missing on that platform; never skip a test because it is flaky.
 
