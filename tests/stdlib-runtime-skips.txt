@@ -34,6 +34,26 @@ threads-group-work * wasm-native WASI preview 1 has no threads
 threads-allocators * wasm-native WASI preview 1 has no threads
 atomics-contention * wasm-native WASI preview 1 has no threads
 
+# WASI builds have no file system: Wasi_Runtime provides stdio, the clock and the working
+# directory, not files or directories.
+baked-enum-default * wasm-native System's processor count reads /sys, and Wasi_Runtime has no file system (fopen, stat, opendir...)
+buildcpp-api * wasm-native runs a C compiler, and WASI has no processes or file system
+file-handles * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+file-io-roundtrip * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+file-utilities-paths * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+file-utilities-tree * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+file-watcher-scan * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+ico-wav-files * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+iprof-call-graph * wasm-native writes its report to a file, and Wasi_Runtime has no file system (fopen, stat, opendir...)
+macos-bundler * wasm-native runs processes and writes a bundle, and WASI has neither
+posix-stat-and-mutex * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+system-info * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+text-file-handler * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+text-file-handler-files * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+zip-file-directory * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+Jai_Format/tests/golden * wasm-native reads its cases from files, and Wasi_Runtime has no file system (fopen, stat, opendir...)
+tests/os-file-process/file-roundtrip * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
+
 # Sockets and virtual memory are not part of WASM; Unmapping_Allocator is POSIX-only.
 socket-loopback * wasm-interp,wasm-native WASM has no sockets
 unmapping-allocator * wasm-interp,wasm-native the module needs POSIX virtual memory calls
