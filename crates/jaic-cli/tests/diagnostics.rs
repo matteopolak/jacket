@@ -399,6 +399,79 @@ fn input_file_problems() {
 }
 
 #[test]
+fn build_problems_say_what_to_change() {
+    let dir = scratch("build");
+    std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
+    std::fs::write(dir.join("lib.jai"), "f :: () {}\n").unwrap();
+    std::fs::create_dir_all(dir.join("out")).unwrap();
+    let cases: &[(&[&str], Option<i32>, &[&str])] = &[
+        (
+            &["build", "lib.jai"],
+            Some(1),
+            &[
+                "error: `lib.jai` has no `main` procedure, so there is no program to write",
+                "help: add `main :: () { ... }`",
+            ],
+        ),
+        (
+            &["build", "ok.jai", "-o", "out"],
+            Some(1),
+            &[
+                "error: the output path `out` is a directory",
+                "help: name the file to write inside it, as in `-o out/program`",
+            ],
+        ),
+        (
+            &["build", "ok.jai", "-sanitize", "adress"],
+            Some(2),
+            &[
+                "error: unknown sanitizer `adress` for `-sanitize`",
+                "help: use address, undefined or both",
+            ],
+        ),
+    ];
+    for (args, code, expected) in cases {
+        let output = jaic(&dir, args, &[]);
+        let text = stderr(&output);
+        assert_eq!(output.status.code(), *code, "{args:?}: {text}");
+        assert_in_order(&text, expected);
+    }
+    // A linker that is not installed: how to get one, and that `jaic run` needs none.
+    let output = Command::new(JAIC)
+        .args(["build", "ok.jai", "-o", "prog"])
+        .current_dir(&dir)
+        .env("JAIC_LINKER", "no-such-linker-for-jaic-tests")
+        .env_remove("JAIC_DIAGNOSTICS")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "error: could not find the linker `no-such-linker-for-jaic-tests`",
+            "help: ",
+            "JAIC_LINKER",
+            "help: `jaic run` needs no linker",
+        ],
+    );
+    // An undeclared `#foreign` library.
+    let output = jaic_on(
+        &dir,
+        "f.jai",
+        "f :: () #foreign nothere;\nmain :: () { f(); }\n",
+        "check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "f.jai:1:18: error: unknown library `nothere`",
+            "help: declare it with `nothere :: #library",
+        ],
+    );
+}
+
+#[test]
 fn command_line_mistakes_explain_themselves() {
     let dir = scratch("cli");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();

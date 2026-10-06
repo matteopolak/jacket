@@ -301,3 +301,19 @@ fn detection_follows_terminal_flags_and_environment() {
     );
     assert_eq!(ColorChoice::parse("sometimes"), None);
 }
+
+#[test]
+fn reports_from_text_split_help_and_note_lines() {
+    let report = Report::from_text(
+        Severity::Error,
+        "linking failed\nld: oops\nhelp: install it\nnote: why\n",
+    );
+    assert_eq!(report.message, "linking failed\nld: oops");
+    assert_eq!(report.help.len(), 1);
+    assert_eq!(report.help[0].message, "install it");
+    assert_eq!(report.notes, ["why"]);
+    assert_eq!(
+        report.render_with(Style::PLAIN),
+        "error: linking failed\nld: oops\nnote: why\nhelp: install it\n"
+    );
+}

@@ -647,7 +647,7 @@ impl Compiler {
             }
             return err(
                 Span::default(),
-                "no exported 'main' (is Runtime_Support loaded?)",
+                "`main` is declared, but no entry point calls it (is Runtime_Support loaded?)",
             );
         };
         self.interp.compile_time = false;

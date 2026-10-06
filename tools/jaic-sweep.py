@@ -203,7 +203,7 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, ru
                                    path.parent, timeout, limit_bytes)
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
-        if code != 0 and "no exported 'main'" in err:
+        if code != 0 and "has no `main` procedure" in err:
             return "", "", NO_EXECUTABLE
         if code != 0:
             cause = next((l.strip() for l in err.splitlines() if "error" in l.lower()), "")

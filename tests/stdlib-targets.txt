@@ -10,12 +10,12 @@ skip Minimal_Metaprogram
 
 # Bindings to native libraries that have no wasm build.
 Curl wasm: Curl/format.jai: unknown identifier 'curl_mprintf_CFormat'
-Gamepad wasm: SDL/module.jai: unknown library 'SDL2'
-ImGui wasm: ImGui/unix.jai: unknown library 'imgui'
-Keymap wasm: SDL/module.jai: unknown library 'SDL2'
+Gamepad wasm: SDL/module.jai: unknown library `SDL2`
+ImGui wasm: ImGui/unix.jai: unknown library `imgui`
+Keymap wasm: SDL/module.jai: unknown library `SDL2`
 Mail wasm: Mail.jai: module 'Curl' has no exported member 'curl_easy_init'
-SDL wasm: SDL/SDL_surface.jai: unknown library 'SDL2'
-meshoptimizer wasm: meshoptimizer/meshoptimizer.jai: unknown library 'meshopt_lib'
+SDL wasm: SDL/SDL_surface.jai: unknown library `SDL2`
+meshoptimizer wasm: meshoptimizer/meshoptimizer.jai: unknown library `meshopt_lib`
 
 # Modules for other platforms or CPUs, and procedures that stop the build on a target they do not support.
 Android linux-arm64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android

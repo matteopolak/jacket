@@ -57,18 +57,14 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
         }
     }
     cmd.args(link.extra_args);
+    let program = wasm_ld.display().to_string();
     let out = cmd
         .output()
-        .map_err(|e| format!("could not run '{}': {e}", wasm_ld.display()))?;
+        .map_err(|e| crate::linker_not_run(&program, &e))?;
     if out.status.success() {
         Ok(())
     } else {
-        Err(format!(
-            "linking failed ({}):\n{}{}",
-            out.status,
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        ))
+        Err(crate::link_failure(&program, &out))
     }
 }
 

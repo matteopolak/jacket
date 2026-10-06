@@ -755,11 +755,23 @@ impl Compiler {
     ) -> Result<Option<usize>> {
         let ids = self.lookup(scope, ident.name)?;
         let Some(&e) = ids.first() else {
-            return err(ident.span, format!("unknown library '{}'", ident.name));
+            let name = ident.name;
+            return Err(Box::new(
+                Diagnostic::error(ident.span, format!("unknown library `{name}`"))
+                    .with_label("no library of this name is declared here")
+                    .with_help(format!(
+                        "declare it with `{name} :: #library \"path/to/lib{name}\";` (or `#system_library`); a declaration under `#if OS == ...` exists only for that OS"
+                    )),
+            ));
         };
         match self.resolve_entity(e)? {
             scope::Resolved::Library(l) => Ok(Some(self.libraries[l.0 as usize].ir)),
-            _ => err(ident.span, format!("'{}' is not a library", ident.name)),
+            _ => Err(Box::new(
+                Diagnostic::error(ident.span, format!("`{}` is not a library", ident.name))
+                    .with_help(
+                        "`#foreign` names a library declared with `name :: #library \"...\";`",
+                    ),
+            )),
         }
     }
 

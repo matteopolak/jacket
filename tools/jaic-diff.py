@@ -212,7 +212,7 @@ class Runner:
                 return Result("timeout" if berr == "timeout" else "memory", note=berr)
             if "runtime error" in berr:
                 return Result("runtime error", bout, berr, note="during compile-time execution")
-            if "no exported 'main'" in berr:
+            if "has no `main` procedure" in berr:
                 return Result("unsupported", note="no main: the program only runs at compile time")
             return Result("compile error", note=berr.strip()[:300])
         if not exe.exists():

@@ -33,14 +33,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(message) => {
-            let (message, help) = match message.split_once("\nhelp: ") {
-                Some((message, help)) => (message.to_string(), Some(help.to_string())),
-                None => (message, None),
-            };
-            let mut report = jaic::render::Report::new(jaic::render::Severity::Error, message);
-            if let Some(help) = help {
-                report = report.help(help);
-            }
+            let report = jaic::render::Report::from_text(jaic::render::Severity::Error, &message);
             eprint!("{}", report.render());
             ExitCode::from(2)
         }

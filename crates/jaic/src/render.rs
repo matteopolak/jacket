@@ -219,6 +219,28 @@ impl<'a> Report<'a> {
         }
     }
 
+    /// A report from plain text: the first line and any lines up to the first `help: ` or
+    /// `note: ` line are the message; each `help: `/`note: ` line after that is one of those.
+    pub fn from_text(severity: Severity, text: &str) -> Self {
+        let mut report = Report::new(severity, "");
+        let mut message: Vec<&str> = Vec::new();
+        for line in text.trim_end().lines() {
+            if let Some(help) = line.strip_prefix("help: ").filter(|_| !message.is_empty()) {
+                report = report.help(help);
+            } else if let Some(note) = line.strip_prefix("note: ").filter(|_| !message.is_empty()) {
+                report = report.note(note);
+            } else if report.help.is_empty() && report.notes.is_empty() {
+                message.push(line);
+            } else if let Some(last) = report.help.last_mut() {
+                last.message = format!("{}\n{line}", last.message);
+            } else if let Some(last) = report.notes.last_mut() {
+                *last = format!("{last}\n{line}");
+            }
+        }
+        report.message = message.join("\n");
+        report
+    }
+
     pub fn help(mut self, message: impl Into<String>) -> Self {
         self.help.push(Help {
             message: message.into(),

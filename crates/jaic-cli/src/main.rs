@@ -506,7 +506,20 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
             "-o" => cli.output = Some(PathBuf::from(value(a)?)),
             "--emit-ir" => cli.emit_ir = Some(PathBuf::from(value(a)?)),
             "--no-debug-info" => cli.no_debug_info = true,
-            "-sanitize" | "--sanitize" => cli.sanitize.push(value(a)?),
+            "-sanitize" | "--sanitize" => {
+                let list = value(a)?;
+                if let Some(bad) = list
+                    .split(',')
+                    .map(str::trim)
+                    .find(|s| !matches!(*s, "address" | "undefined"))
+                {
+                    return Err(
+                        CliError::new(format!("unknown sanitizer `{bad}` for `{a}`"))
+                            .help("use address, undefined or both: `-sanitize address,undefined`"),
+                    );
+                }
+                cli.sanitize.push(list)
+            }
             "-O0" => cli.opt_level = Some("O0"),
             "-O1" => cli.opt_level = Some("O1"),
             "-O2" => cli.opt_level = Some("O2"),
@@ -650,6 +663,23 @@ fn check_input(file: &str) -> Result<(), CliError> {
     }
 }
 
+/// The directory jaic was started in (it then works from the main file's directory).
+static STARTED_IN: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// `path` as the user would write it: relative to where jaic was started when inside it.
+fn shown(path: &Path) -> String {
+    match STARTED_IN.get().and_then(|dir| path.strip_prefix(dir).ok()) {
+        Some(relative) if !relative.as_os_str().is_empty() => relative.display().to_string(),
+        _ => path.display().to_string(),
+    }
+}
+
+/// Print an error given as text, its `help: `/`note: ` lines rendered as such.
+fn print_error(message: &str) {
+    let report = jaic::render::Report::from_text(jaic::render::Severity::Error, message);
+    eprint!("{}", report.render());
+}
+
 /// Print a command-line mistake and return the usage exit status.
 fn report_cli_error(error: CliError) -> ExitCode {
     let mut report = jaic::render::Report::new(jaic::render::Severity::Error, error.message);
@@ -770,7 +800,7 @@ fn run(cli: Cli) -> ExitCode {
 fn compile_and_run(mut cli: Cli) -> ExitCode {
     let stdlib = stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
-        eprintln!("error: {message}");
+        print_error(&message);
         return ExitCode::from(1);
     }
     jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
@@ -788,6 +818,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     cli.emit_ir = cli.emit_ir.as_ref().map(absolute);
     let main_dir = path.parent().map(PathBuf::from).unwrap_or_default();
     let started_in = std::env::current_dir().unwrap_or_default();
+    let _ = STARTED_IN.set(started_in.clone());
     if !main_dir.as_os_str().is_empty() && std::env::set_current_dir(&main_dir).is_err() {
         eprintln!("error: cannot change directory to {}", main_dir.display());
         return ExitCode::from(1);
@@ -829,7 +860,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         }
         Ok(None) => {}
         Err(message) => {
-            eprintln!("error: {message}");
+            print_error(&message);
             return ExitCode::from(2);
         }
     }
@@ -920,7 +951,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         flush_sandbox(&shared_sandbox);
     }
     if let Err(message) = finished {
-        eprintln!("error: {message}");
+        print_error(&message);
         return ExitCode::from(1);
     }
     if workspaces.borrow().any_failed() {
@@ -970,7 +1001,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Command::Build => match build(&mut compiler, &cli, &path, settings) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
-                eprintln!("error: {message}");
+                print_error(&message);
                 ExitCode::from(1)
             }
         },
@@ -1031,7 +1062,11 @@ fn build(
     mut settings: BuildSettings,
 ) -> Result<(), String> {
     if settings.output_type == OutputType::Executable && compiler.exported_func("main").is_none() {
-        return Err("no exported 'main' (is Runtime_Support loaded?)".into());
+        let file = shown(source);
+        return Err(format!(
+            "`{file}` has no `main` procedure, so there is no program to write\n\
+             help: add `main :: () {{ ... }}` as the program's starting point, or use `jaic check {file}` to only check the code"
+        ));
     }
     let output = cli.output.clone().unwrap_or_else(|| {
         let name = if settings.output_executable_name.is_empty() {
@@ -1132,15 +1167,42 @@ impl OutputBackend for LlvmBackend {
             output.set_extension(ext);
         }
         let output = output.as_path();
+        if output.is_dir() {
+            let name = output.join("program");
+            return Err(format!(
+                "the output path `{}` is a directory\nhelp: name the file to write inside it, as in `-o {}`",
+                shown(output),
+                shown(&name)
+            ));
+        }
         if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
-            std::fs::create_dir_all(dir)
-                .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+            std::fs::create_dir_all(dir).map_err(|e| {
+                format!(
+                    "could not create the output directory `{}`: {}\nhelp: choose another place with `-o`",
+                    shown(dir),
+                    jaic::io_reason(&e)
+                )
+            })?;
         }
         let with_ext = |ext: &str| {
             let mut name = output.to_path_buf().into_os_string();
             name.push(ext);
             PathBuf::from(name)
         };
+        // Find out now, not from the linker, when the output cannot be written there.
+        let probe = with_ext(".jaic-probe");
+        match std::fs::File::create(&probe) {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&probe);
+            }
+            Err(e) => {
+                return Err(format!(
+                    "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
+                    shown(output),
+                    jaic::io_reason(&e)
+                ));
+            }
+        }
         let object = if settings.output_type == OutputType::ObjectFile {
             output.to_path_buf()
         } else {

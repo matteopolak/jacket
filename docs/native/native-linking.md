@@ -18,9 +18,12 @@
 Identical argument groups are added once. A missing system library fails at link time:
 
 ```
-error: linking failed (exit status: 1):
+error: linking failed: `cc` stopped with exit status: 1
 ld: library 'nothere' not found
+help: a `#library` or `#system_library` names a library the linker cannot find: check its path, or install the library
 ```
+
+`link_failure` adds that help when the linker's output says a library or a symbol is missing; `linker_not_run` explains how to install a linker when `cc` (or `JAIC_LINKER`) is not found.
 
 Windows targets (`LinkFlavor::MinGw`, `Msvc`) have their own rules; see [Windows](windows.md). WebAssembly targets link with `wasm-ld` instead of `cc`, and system libraries become import modules; see [wasm target](wasm-target.md).
 

@@ -50,7 +50,7 @@ A backend is excluded from a case only for a stated reason, and as far as possib
 
 - `wasm`, any program: the engine's own refusal messages (`foreign procedure ... is not available here`, `unknown library`, `is not supported on wasm`), and a stdlib module that rejects the target with `#assert`.
 - `wasm`, missing files: a file the sandbox lacks (the sandbox holds the workspace and the stdlib only). This counts only when no host backend complained about the same file.
-- `native`, no `main`: the build fails with `no exported 'main'`, so the program runs only at compile time.
+- `native`, no `main`: the build fails with ``... has no `main` procedure``, so the program runs only at compile time.
 - `native`, no executable: the build wrote nothing at `-o` because the program's metaprogram decides what to write (its own workspaces, `NO_OUTPUT`).
 - `native`, compiler primitives: the program calls a `#compiler` primitive at run time, which exists only inside the compiler. The compiled stub says `is a compiler primitive; it runs only at compile time`.
 

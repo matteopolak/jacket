@@ -96,7 +96,7 @@ impl Sanitize {
                 "undefined" => sanitize.undefined = true,
                 other => {
                     return Err(format!(
-                        "unknown sanitizer '{other}' (expected address or undefined)"
+                        "unknown sanitizer `{other}`\nhelp: `-sanitize` takes address, undefined or both: `-sanitize address,undefined`"
                     ));
                 }
             }
@@ -527,19 +527,65 @@ pub fn link(
         render_link_arg(&mut cmd, &arg, msvc_style);
     }
     cmd.args(extra_args);
-    let out = cmd
-        .output()
-        .map_err(|e| format!("could not run the linker '{program}': {e}"))?;
+    let out = cmd.output().map_err(|e| linker_not_run(&program, &e))?;
     if out.status.success() {
         Ok(())
     } else {
-        Err(format!(
-            "linking failed ({}):\n{}{}",
-            out.status,
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        ))
+        Err(link_failure(&program, &out))
     }
+}
+
+/// The error for a linker that could not be started, with how to get one.
+pub fn linker_not_run(program: &str, e: &std::io::Error) -> String {
+    if e.kind() != std::io::ErrorKind::NotFound {
+        return format!("could not run the linker `{program}`: {e}");
+    }
+    let install = if cfg!(target_os = "macos") {
+        "install the Xcode command line tools (`xcode-select --install`)"
+    } else if cfg!(windows) {
+        "install LLVM (clang) or the Visual Studio build tools"
+    } else {
+        "install a C compiler (clang or gcc, e.g. `apt install clang`)"
+    };
+    format!(
+        "could not find the linker `{program}`, which `jaic build` uses to write executables\n\
+         help: {install}, or name a linker with the JAIC_LINKER environment variable\n\
+         help: `jaic run` needs no linker: it runs the program in the interpreter"
+    )
+}
+
+/// The error for a link that failed: the linker's own output, then what usually causes it.
+pub fn link_failure(program: &str, out: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let log = format!("{stdout}{stderr}");
+    let mut text = format!(
+        "linking failed: `{program}` stopped with {}\n{}",
+        out.status,
+        log.trim_end()
+    );
+    let missing_symbol = [
+        "Undefined symbols",
+        "undefined reference",
+        "unresolved external",
+    ]
+    .iter()
+    .any(|m| log.contains(m));
+    let missing_library = [
+        "library not found",
+        "cannot find -l",
+        "unable to find library",
+    ]
+    .iter()
+    .any(|m| log.contains(m));
+    if missing_library {
+        text += "\nhelp: a `#library` or `#system_library` names a library the linker cannot find: \
+                 check its path, or install the library";
+    } else if missing_symbol {
+        text += "\nhelp: a `#foreign` procedure is not in any linked library: check its name and \
+                 that its `#library` is the one that defines it";
+    }
+    text
 }
 
 /// `link.exe`/`lld-link` arguments that keep the objects' CodeView in a PDB named after the
@@ -740,7 +786,9 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
                 } else {
                     "install mingw-w64 (it provides x86_64-w64-mingw32-gcc)"
                 };
-                format!("no MinGW-w64 linker found: {install} or set JAIC_LINKER")
+                format!(
+                    "no MinGW-w64 linker found to link for Windows\nhelp: {install}, or name a linker with JAIC_LINKER"
+                )
             })?;
             let mut cmd = Command::new(&program);
             if program.ends_with("clang") {
@@ -760,8 +808,8 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
                 return Ok((program, cmd));
             }
             let program = find_program(&["lld-link", "link"]).ok_or(
-                "no MSVC linker found: install LLVM (clang) or the Visual Studio build tools, \
-                 or set JAIC_LINKER",
+                "no MSVC linker found to link for Windows\n\
+                 help: install LLVM (clang) or the Visual Studio build tools, or name a linker with JAIC_LINKER",
             )?;
             let cmd = Command::new(&program);
             Ok((program, cmd))
