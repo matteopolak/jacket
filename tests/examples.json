@@ -1,0 +1,49 @@
+{
+  "comment": "Example programs run by `tools/jaic-sweep.py examples` (natively, with the case's args) and by tools/check_scripting_wasm.mjs and tools/check_browser_release.mjs (in the wasm engine, under `budget` basic blocks, the hosted playground's limit). Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle` is shipped in the browser bundle: tools/build_scripting_wasm.py copies its directory to <bundle>/ and writes the <bundle>.json index (docs/browser/playground.md).",
+  "cases": [
+    {
+      "id": "tour",
+      "bundle": "tour",
+      "directory": "examples/tour",
+      "main": "main.jai",
+      "args": ["-os", "wasm"],
+      "budget": 200000000,
+      "stdout_contains": [
+        "A whirlwind tour of Jai, running in your browser.",
+        " 1. Basics",
+        "47 / 5 is 9 remainder 2",
+        "Hey Hey Hey Ford?!",
+        "1.0 as raw IEEE-754 bits: 0x3f800000",
+        "CLOUDY-ish? Pack: UMBRELLA | BOOTS",
+        "The bag holds SCARF | BOOTS (bits: 1100)",
+        "primes below 60 (17): [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]",
+        "times ten:      [40, 80, 150, 160, 230, 420]",
+        "Knock, Knock. Who's there?",
+        "1 2 Fizz 4 Buzz Fizz 7 8 Fizz Buzz 11 Fizz 13 14 FizzBuzz",
+        "upper: SIMPLE, FAST, AND FUN; split: [\"Simple\", \"fast\", \"and fun\"]; joined: Simple + fast + and fun",
+        "  ...and deferred 1 runs last.",
+        "A hand-made linked list: 25 16 9 4 1 ",
+        "  LOG: THE LOGGER IS JUST A PROCEDURE IN THE CONTEXT!!!",
+        "  ring of 3 string (holds 3 of 3): three four five",
+        "u8 total: 600 (an s64), float total: 0.75 (a float32)",
+        "power(2, 10) = 1024 (baked: true), power(3, n) = 243 (baked: false)",
+        "Fibonacci, computed by the compiler: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181]",
+        "compiled for WebAssembly: you are probably in a browser",
+        "  JUPITER pulls at 24.8 m/s²",
+        "Is this running at compile time? false. And during #run? true",
+        "  counting to 1000 took 1000 steps",
+        "  Collatz from 6: 6 3 10 5 16 8 4 2 1",
+        "  Below 31, 27 takes the longest path: 112 numbers.",
+        "  chain: 0:alpha 1:bravo 2:charlie",
+        "  +56  secret_note: STRING  @NoSave",
+        "  {\"player\": \"Zaphod\", \"level\": 42, \"position\": {\"x\": 1.5, \"y\": -2}, \"inventory\": [\"towel\", \"babel fish\", \"peanuts\"], \"weather\": \"RAINY\", \"hardcore\": true}",
+        "    style: 'lengthSquared' should be snake_case",
+        "    note: 'origin' is marked @Todo",
+        " 12. Finale: a ray-marched scene",
+        "%%%%%%",
+        "That's the tour. Now break something!"
+      ],
+      "stdout_excludes": ["saw 0 allocations"]
+    }
+  ]
+}

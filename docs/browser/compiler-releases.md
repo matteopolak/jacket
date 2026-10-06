@@ -2,7 +2,7 @@
 
 ## What it is
 
-`tools/package_browser_release.py` turns one clean compiler commit into a relocatable, digest-inventoried browser bundle: the [WebAssembly compiler](playground.md), its `engine.mjs` glue, the jaifmt driver, release metadata and a README. The portfolio site consumes it to serve the hosted playground (https://matteopolak.com/playground/jai). There is no UI in the bundle.
+`tools/package_browser_release.py` turns one clean compiler commit into a relocatable, digest-inventoried browser bundle: the [WebAssembly compiler](playground.md), its `engine.mjs` glue, the jaifmt driver, the [language tour](tour.md), release metadata and a README. The portfolio site consumes it to serve the hosted playground (https://matteopolak.com/playground/jai). There is no UI in the bundle.
 
 ## How it works
 
@@ -13,13 +13,13 @@
    { "commit": "<40 hex>", "schema_version": 1, "toolchain": "nightly-2026-08-29", "wasm_sha256": "<64 hex>" }
    ```
 
-3. **Inventory.** The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `build-metadata.json` and `README.md`. Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` regular files with normalized relative paths are accepted. The bundle is limited to 16 files, 64 MiB per file and 128 MiB total. Each file's size and SHA-256 are recorded.
-4. **Probe.** `node tools/check_browser_release.mjs <stage> --report <json>` imports the **staged** `engine.mjs` and Wasm. It requires the exact five-file inventory, a matching `wasm_sha256` and a self-contained `engine.mjs`. It then runs execution probes (exit codes, compile-time/runtime phases, nested `#load`, diagnostics, Hash_Table, a `#run` workspace message loop, the virtual clock, separate stdout/stderr, the execution budget, a refused `#foreign`), formats a file with the staged driver and, when the module exports it, checks the language server (initialize, definition, hover, completion, versioned diagnostics). Last, it runs `check_playground_stdlib.mjs`, whose pass set must match `tools/playground_stdlib_expected.json`. Any failure means nothing is published.
+3. **Inventory.** The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `build-metadata.json`, `README.md`, `tour.json` and `tour/main.jai` (the rest of the tour sits under `tour/`). Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` regular files with normalized relative paths are accepted. The bundle is limited to 64 files, 64 MiB per file and 128 MiB total. Each file's size and SHA-256 are recorded.
+4. **Probe.** `node tools/check_browser_release.mjs <stage> --report <json>` imports the **staged** `engine.mjs` and Wasm. It requires the exact top-level inventory (the five files plus `tour.json`), a `tour/` folder whose files are exactly those `tour.json` lists, a matching `wasm_sha256` and a self-contained `engine.mjs`. It then runs execution probes (exit codes, compile-time/runtime phases, nested `#load`, diagnostics, Hash_Table, a `#run` workspace message loop, the virtual clock, separate stdout/stderr, the execution budget, a refused `#foreign`), runs the staged tour within the playground budget and checks its key output lines (`tests/examples.json`), formats a file with the staged driver and, when the module exports it, checks the language server (initialize, definition, hover, completion, versioned diagnostics). Last, it runs `check_playground_stdlib.mjs`, whose pass set must match `tools/playground_stdlib_expected.json`. Any failure means nothing is published.
 5. **Archive.** Source cleanliness and the commit are checked again. The ZIP uses fixed timestamps and modes, so the same inputs give identical bytes, and every member is read back and checked against the inventory. The archive and manifest are moved into the output directory together. The output directory must be absent or empty, and existing releases are never overwritten.
 
 The producer outputs exactly:
 
-- `jai-playground.zip`, whose root holds the five bundle files.
+- `jai-playground.zip`, whose root holds the bundle files and the `tour/` tree.
 - `jai-playground.manifest.json`: `schema_version: 2`, `commit`, `dirty_checkout: false`, `files: [{path, size, sha256}]` (every ZIP member), `archive: {name, size, sha256}` and `capabilities: {runtime: true, lsp: <probe result>}`. The JSON schema is [`tools/browser-release-manifest.schema.json`](../../tools/browser-release-manifest.schema.json).
 
 Schema v2 removed the standalone UI (`index.html`, `worker.mjs`, editor files, `release.json`) and the `entrypoint` field. A v1 consumer that requires `index.html` rejects v2 bundles. The portfolio's `scripts/verify-jai-bundle.py` must accept v2 before its pointer is bumped to a compiler commit that has this layout.
@@ -28,7 +28,7 @@ Schema v2 removed the standalone UI (`index.html`, `worker.mjs`, editor files, `
 
 ## How to change it
 
-- **Bundle contents:** keep `BUNDLED_GLUE` (`build_scripting_wasm.py`), `REQUIRED` (`package_browser_release.py`), `BUNDLE_FILES` (`check_browser_release.mjs`), the schema's `files` bounds and the tests in step. Coordinate any change with the portfolio's verifier and sync script.
+- **Bundle contents:** keep `BUNDLED_GLUE` and the bundled examples (`build_scripting_wasm.py`, `tests/examples.json`), `REQUIRED` and `MAX_FILES` (`package_browser_release.py`), `BUNDLE_FILES`/`BUNDLE_EXAMPLES` (`check_browser_release.mjs`), the schema's `files` bounds (7 to 64) and the tests in step. Adding the tour needed no portfolio verifier change (it already accepted nested `.jai`/`.md`/`.json` paths); the portfolio's starter falls back to its built-in files for releases without `tour.json`. Coordinate any change with the portfolio's verifier and sync script.
 - **Archive policy:** `package_browser_release.py`. Keep exhaustive inventories, bounded paths and bytes, refusal of dirty or changing sources, and atomic output.
 - **Probes:** `check_browser_release.mjs`. Probes must run the staged files, not the source tree.
 - Tests: the Python tests (`test_package_browser_release.py`, `test_build_scripting_wasm.py`) use inert fixtures and mock the build and Node calls. They prove archive, staging and refusal behavior, not compilation. `test_browser_release.mjs` proves the inventory rules and that a header-only module fails real execution.

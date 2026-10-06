@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver)."""
+"""Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver, tour)."""
 import argparse
 from datetime import date, datetime, timezone
 import hashlib
@@ -20,12 +20,13 @@ from build_scripting_wasm import storage_directory
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = 'jai-playground.zip'
 MANIFEST = 'jai-playground.manifest.json'
-MAX_FILES = 16
+MAX_FILES = 64
 MAX_FILE_BYTES = 64 * 1024**2
 MAX_TOTAL_BYTES = 128 * 1024**2
 SUFFIXES = {'.mjs', '.wasm', '.json', '.md', '.jai'}
 FORBIDDEN = {'reference', 'corpus', 'artifacts', 'target', '.git', 'node_modules'}
-REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'jaifmt-playground.jai', 'build-metadata.json', 'README.md'}
+REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'jaifmt-playground.jai', 'build-metadata.json', 'README.md',
+            'tour.json', 'tour/main.jai'}
 METADATA = 'build-metadata.json'
 
 

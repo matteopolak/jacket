@@ -942,6 +942,19 @@
       "negative": {
         "check": "unknown identifier 'undefined_name_here'"
       }
+    },
+    {
+      "id": "complete-switch-missing-case",
+      "source": "negative/complete-switch-missing-case.jai",
+      "sha256": "367be52b9bb21351759fd9fc9cd6947c57d142327abf59ae445c00f95282708c",
+      "suite": "negative",
+      "feature": "complete-switch-missing-case",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#complete switch on Color has no case for .BLUE"
+      }
     }
   ]
 }

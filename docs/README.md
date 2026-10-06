@@ -106,6 +106,7 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 - [Browser compiler (WebAssembly bundle)](browser/playground.md)
 - [Browser compiler releases](browser/compiler-releases.md)
+- [Language tour (playground default workspace)](browser/tour.md)
 
 ## Tools and workflow
 

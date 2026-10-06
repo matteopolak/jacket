@@ -1,23 +1,53 @@
 #!/usr/bin/env node
 // Checks a staged browser bundle and executes its own engine.mjs and Wasm, never a source-tree copy.
-// The bundle is the compiler module plus embedder glue; there is no UI (docs/browser/playground.md).
+// The bundle is the compiler module plus embedder glue and the tour workspace; there is no UI
+// (docs/browser/playground.md).
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, readdir, lstat, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
+import { checkExample, exampleCases } from "./examples_wasm.mjs";
 
-export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai"];
+export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "tour.json"];
+/** Example workspaces shipped as folders, each described by `<name>.json` (tools/build_scripting_wasm.py). */
+export const BUNDLE_EXAMPLES = ["tour"];
+
+/** Relative paths of every regular file under `directory`; symlinks and other file types are rejected. */
+async function regularFiles(directory, prefix = "") {
+  const found = [];
+  for (const name of (await readdir(path.join(directory, prefix))).sort()) {
+    const relative = prefix ? `${prefix}/${name}` : name;
+    const information = await lstat(path.join(directory, relative));
+    assert(!information.isSymbolicLink(), "Release assets cannot be symlinks");
+    if (information.isDirectory()) found.push(...await regularFiles(directory, relative));
+    else {
+      assert(information.isFile(), `Release assets must be regular files: ${relative}`);
+      found.push(relative);
+    }
+  }
+  return found;
+}
+
+/** The files of a staged example workspace, checked against its index. */
+export async function exampleFiles(directory, name) {
+  const index = JSON.parse(await readFile(path.join(directory, `${name}.json`), "utf8"));
+  assert.equal(index.schema_version, 1);
+  const listed = (await regularFiles(directory, name)).map(file => file.slice(name.length + 1));
+  assert.deepEqual([...index.files].sort(), listed, `${name}.json must list exactly the files under ${name}/`);
+  assert(index.files.includes(index.main), `${name}.json names a main file it does not list`);
+  const files = {};
+  for (const file of listed) files[file] = await readFile(path.join(directory, name, file), "utf8");
+  return { main: index.main, files };
+}
 
 export async function inspectAssets(directory) {
-  const entries = (await readdir(directory)).sort();
-  for (const name of entries) {
-    const information = await lstat(path.join(directory, name));
-    assert(!information.isSymbolicLink(), "Release assets cannot be symlinks");
-    assert(information.isFile(), `Release assets must be regular files: ${name}`);
-  }
-  assert.deepEqual(entries, BUNDLE_FILES, "The bundle holds exactly the Wasm module, its glue, the formatter driver, metadata and README");
+  const entries = await regularFiles(directory);
+  const nested = entries.filter(name => name.includes("/"));
+  assert.deepEqual(entries.filter(name => !name.includes("/")), BUNDLE_FILES, "The bundle holds exactly the Wasm module, its glue, the formatter driver, metadata, README and the tour index");
+  for (const name of nested) assert(BUNDLE_EXAMPLES.includes(name.split("/")[0]), `Unexpected bundle folder: ${name}`);
+  for (const name of BUNDLE_EXAMPLES) await exampleFiles(directory, name);
   const metadata = JSON.parse(await readFile(path.join(directory, "build-metadata.json"), "utf8"));
   assert.equal(metadata.schema_version, 1);
   assert.match(metadata.commit, /^[0-9a-f]{40}$/);
@@ -95,6 +125,13 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   const formatted = engine.play({ "__jaifmt__.jai": driver, "main.jai": "main::(){\nx:=1;\n}\n" }, "__jaifmt__.jai");
   assert.equal(formatted.exitCode, 0, formatted.stderr);
   assert.match(formatted.stdout, /^main :: \(\) \{\n\s+x := 1;\n\}\n$/);
+  // The staged tour runs as the playground opens it: its own files, under the playground's budget.
+  const tours = [];
+  for (const testCase of (await exampleCases()).filter(item => item.bundle)) {
+    const { main, files } = await exampleFiles(directory, testCase.bundle);
+    assert.equal(main, testCase.main);
+    tours.push(`${testCase.bundle} ${Math.round(checkExample(engine, testCase, files))} ms`);
+  }
   const lsp = typeof engine.lsp === "function";
   if (lsp) {
     checkLanguageServer(engine);
@@ -107,12 +144,12 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
     assert.equal(sweep.status, 0, `stdlib pass set check failed:\n${sweep.stdout}${sweep.stderr}`);
     stdlibPassSet = sweep.stdout.trim();
   }
-  return { commit: metadata.commit, runtime: true, lsp, stdlibPassSet };
+  return { commit: metadata.commit, runtime: true, lsp, tours, stdlibPassSet };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
   if (!(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === "--report"))) throw new Error("usage: node tools/check_browser_release.mjs <staged-directory> [--report <json-path>]");
   const result = await checkRelease(path.resolve(process.argv[2]));
   if (process.argv[3] === "--report") await writeFile(process.argv[4], JSON.stringify(result) + "\n");
-  console.log(`PASS: staged browser bundle ${result.commit}, runtime=true, lsp=${result.lsp}; ${result.stdlibPassSet}`);
+  console.log(`PASS: staged browser bundle ${result.commit}, runtime=true, lsp=${result.lsp}; ${result.tours.join(", ")}; ${result.stdlibPassSet}`);
 }

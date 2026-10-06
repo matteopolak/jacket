@@ -217,8 +217,8 @@ impl Compiler {
             S::Switch {
                 value,
                 cases,
-                ..
-            } => self.check_switch(f, scope, value, cases, span),
+                complete,
+            } => self.check_switch(f, scope, value, cases, *complete, span),
             S::StaticSwitch {
                 value,
                 cases,
@@ -1245,6 +1245,7 @@ impl Compiler {
         scope: ScopeId,
         value: &ast::Expr,
         cases: &[ast::Case],
+        complete: bool,
         span: Span,
     ) -> Result<()> {
         let v = self.check_expr(f, scope, value, None)?;
@@ -1298,6 +1299,8 @@ impl Compiler {
         let done = f.b.new_block();
         let bodies: Vec<ir::BlockId> = cases.iter().map(|_| f.b.new_block()).collect();
         let mut default = done;
+        // Enum values named by a case, for the `#complete` check below.
+        let mut covered = Vec::new();
         for (i, case) in cases.iter().enumerate() {
             if case.values.is_empty() {
                 default = bodies[i];
@@ -1306,12 +1309,18 @@ impl Compiler {
             for cv in &case.values {
                 let c = self.check_expr(f, scope, cv, Some(vty))?;
                 let c = self.convert(f, c, vty, cv.span)?;
+                if let Some(Value::Int(n)) = c.const_value() {
+                    covered.push(n);
+                }
                 let (_, cval) = self.rvalue(f, c, cv.span)?;
                 let eq = self.runtime_equal(f, vty, val, cval, cv.span)?;
                 let next = f.b.new_block();
                 f.b.branch(eq, bodies[i], next);
                 f.b.switch_to(next);
             }
+        }
+        if complete {
+            self.check_switch_complete(vty, &covered, value.span)?;
         }
         f.b.jump(default);
         for (i, case) in cases.iter().enumerate() {
@@ -1333,6 +1342,35 @@ impl Compiler {
         }
         f.b.switch_to(done);
         Ok(())
+    }
+
+    /// `if #complete x == {`: every member of x's enum needs a case of its own, default or
+    /// not. Flag enums and non-enum values are not checked.
+    fn check_switch_complete(&self, ty: TypeId, covered: &[i128], span: Span) -> Result<()> {
+        let TypeKind::Enum(id) = *self.types.kind(ty) else {
+            return Ok(());
+        };
+        let info = &self.types.enums[id.0 as usize];
+        if info.is_flags {
+            return Ok(());
+        }
+        let missing: Vec<String> = info
+            .members
+            .iter()
+            .filter(|(_, value)| !covered.contains(value))
+            .map(|(name, _)| format!(".{name}"))
+            .collect();
+        if missing.is_empty() {
+            return Ok(());
+        }
+        err(
+            span,
+            format!(
+                "#complete switch on {} has no case for {}",
+                self.types.name(ty),
+                missing.join(", ")
+            ),
+        )
     }
 
     fn const_equal(&self, a: &Operand, b: &Operand) -> bool {

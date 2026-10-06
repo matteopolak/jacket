@@ -34,7 +34,7 @@ An independent compiler for the [Jai](https://en.wikipedia.org/wiki/Jai_(program
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jai-lsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
 - A [formatter](docs/tools/jaifmt.md) (`jaifmt`), written in Jai, that runs natively and in the browser. Its output is canonical and idempotent, like rustfmt.
-- A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai).
+- A [browser build](docs/browser/playground.md) of the compiler and language server, used by the [online playground](https://matteopolak.com/playground/jai), which opens with a [multi-file tour of the language](examples/tour/tour.md) (`examples/tour`).
 
 **Real projects** such as the Focus editor, the Jails language server, jaison, sgpu and the programs from *The Way to Jai* compile and run; see [the full list](docs/tools/upstream-corpus.md#project-status).
 
@@ -85,6 +85,7 @@ main :: () -> int {
 jaic check examples/compile-time-record.jai        # type-check only
 jaic run examples/compile-time-record.jai          # run in the interpreter
 jaic build examples/compile-time-record.jai -O2    # native executable (-os windows to cross-build)
+jaic run examples/tour/main.jai                    # the language tour the playground opens with
 ```
 
 ## Contributing

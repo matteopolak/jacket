@@ -21,6 +21,7 @@ def fixture(root):
 def staged(stage):
     stage.mkdir()
     for name in release.REQUIRED - {'build-metadata.json', 'jai_wasm.wasm'}:
+        (stage / name).parent.mkdir(parents=True, exist_ok=True)
         (stage / name).write_text('own inert fixture\n')
     wasm = b'\x00asm\x01\x00\x00\x00'
     (stage / 'jai_wasm.wasm').write_bytes(wasm)
@@ -94,6 +95,9 @@ class BrowserReleaseTests(unittest.TestCase):
     def test_archive_rejects_unsafe_paths_symlinks_native_files_and_size_overflow(self):
         for name in ('../engine.mjs', '/engine.mjs', 'a//engine.mjs', 'protected/secret.jai', 'engine\\x.mjs', 'native.so', 'x\n.mjs', 'index.html', 'style.css'):
             with self.subTest(name=name), self.assertRaises(ValueError): release.asset_path(name)
+        # The tour ships as a folder tree of sources and its index.
+        for name in ('tour.json', 'tour/main.jai', 'tour/meta/macros.jai', 'tour/tour.md'):
+            self.assertEqual(release.asset_path(name), name)
         with tempfile.TemporaryDirectory() as temporary:
             stage = Path(temporary); (stage / 'escape.mjs').symlink_to('/outside/no-read')
             with self.assertRaisesRegex(ValueError, 'symlinks'): release.assets(stage)

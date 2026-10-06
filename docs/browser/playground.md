@@ -4,7 +4,7 @@
 
 `crates/jai-wasm` compiles the compiler core `crates/jaic` (lexer, parser, sema, interpreter) and the shared language server to `wasm32-unknown-unknown`. The full `stdlib/` are embedded in the module, so `#import "Basic"` and friends work offline.
 
-This repository ships the module and a small JavaScript glue file, not a UI. The hosted playground at https://matteopolak.com/playground/jai lives in the portfolio repository (`matteopolak/portfolio`), which has its own editor, worker and engine wrapper. From a bundle it uses only `jai_wasm.wasm` and `jaifmt-playground.jai`.
+This repository ships the module and a small JavaScript glue file, not a UI. The hosted playground at https://matteopolak.com/playground/jai lives in the portfolio repository (`matteopolak/portfolio`), which has its own editor, worker and engine wrapper. From a bundle it uses `jai_wasm.wasm`, `jaifmt-playground.jai` and the [language tour](tour.md) (`tour.json`, `tour/`).
 
 A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 
@@ -15,6 +15,7 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 | `jaifmt-playground.jai` | `tools/jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
 | `build-metadata.json` | build script / packager | Local build receipt, or the commit, toolchain and Wasm SHA-256 in a release |
 | `README.md` | `crates/jai-wasm/js/README.md` | Short notice for embedders |
+| `tour.json`, `tour/**` | `examples/tour/` (cases with `bundle` in `tests/examples.json`) | The [language tour](tour.md) the playground opens with, and its file index |
 
 ## How it works
 
@@ -68,7 +69,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
 - Different target or options: `options()` in `play.rs`.
 - More host services (files, time): extend `SharedHost`/`SandboxHost::foreign` in `crates/jaic/src/interp/mod.rs`.
 - Result shape: change `PlayResult::to_json`, then `engine.mjs` and the portfolio's engine wrapper (`src/lib/jai/engine.ts`) together.
-- Bundle contents: `BUNDLED_GLUE` in `tools/build_scripting_wasm.py`, `REQUIRED` in `tools/package_browser_release.py` and `BUNDLE_FILES` in `tools/check_browser_release.mjs` must agree.
+- Bundle contents: `BUNDLED_GLUE` in `tools/build_scripting_wasm.py`, `REQUIRED` in `tools/package_browser_release.py` and `BUNDLE_FILES`/`BUNDLE_EXAMPLES` in `tools/check_browser_release.mjs` must agree. Example folders come from `tests/examples.json` (`bundle` key); see [language tour](tour.md).
 - Gotchas: under `OS == .WASM`, Runtime_Support writes output through the foreign
   `wasm_write_string(count, data, to_standard_error)`, which `SandboxHost` implements. The jaic interpreter stores
   host pointers in 64-bit slots, which works on wasm32. Without a `budget`, an infinite loop hangs the calling thread.
@@ -97,7 +98,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   the pass set with `tools/playground_stdlib_expected.json` (`pass` list plus `excluded`: name to written reason). Any
   regression, any newly passing excluded test, or any test in neither list fails the check; the release gate
   `check_browser_release.mjs` runs it. After intentionally changing the set: `--update` rewrites `pass` (new failures get a `TODO explain` reason you
-  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. Currently 188 of 209 pass. The 21 exclusions
+  must replace). `PLAYGROUND_VERBOSE=1 ... name.jai` prints that test's output. Currently 196 of 218 pass. The 22 exclusions
   need processes (`Process`, the bindings generators' compiler runs), `dlopen` (libclang), native C libraries (FreeType,
   stb_image, libc callbacks and variadics), windows (`Window_Creation`) or `chmod`; `getrect-rh-negative-control` fails
   everywhere by design. Each reason is written next to its name in the JSON file.
@@ -106,7 +107,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
 ## Configuration
 
 - Build: `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or `tools/build_scripting_wasm.py` to also stage the bundle. `--target-dir` and `CARGO_TARGET_DIR` select the build directory ([build storage](../tools/build-storage.md)).
-- Native test: `cargo test -p jai-wasm play`. `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (exit codes, phases, nested `#load`, diagnostics). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | dir>` runs the formatter driver the way a Format button would. CI (`.github/workflows/ci.yml`) runs both on a debug build.
+- Native test: `cargo test -p jai-wasm play`. `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (exit codes, phases, nested `#load`, diagnostics) and the `tests/examples.json` programs (the tour) under their playground budget. `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | dir>` runs the formatter driver the way a Format button would. CI (`.github/workflows/ci.yml`) runs both on a debug build.
 - The release module is about 11 MB, mostly the embedded stdlib.
 
 ## Dependencies

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver)."""
+"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver, tour)."""
 from pathlib import Path
 import argparse
 import hashlib
@@ -19,6 +19,38 @@ def storage_directory(path):
     if not path.is_dir():
         raise ValueError('build storage path is not a directory')
     return path
+
+
+def bundled_examples(root):
+    """(bundle directory, source directory, main file) of each example the bundle ships (tests/examples.json)."""
+    cases = json.loads((root / "tests/examples.json").read_text())["cases"]
+    return [(case["bundle"], root / case["directory"], case["main"]) for case in cases if "bundle" in case]
+
+
+def stage_example(source, output, name, main):
+    """Copy an example workspace to <output>/<name>/ and describe it in <output>/<name>.json.
+
+    Embedders (the hosted playground) fetch the index first, then each listed file. Dotfiles are left out.
+    """
+    destination = output / name
+    if destination.is_symlink():
+        raise SystemExit(f"bundle example directory is a symlink: {destination}")
+    shutil.rmtree(destination, ignore_errors=True)
+    files = []
+    for path in sorted(source.rglob("*")):
+        relative = path.relative_to(source)
+        if any(part.startswith(".") for part in relative.parts):
+            continue
+        if path.is_symlink():
+            raise SystemExit(f"example files cannot be symlinks: {path}")
+        if path.is_file():
+            (destination / relative).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, destination / relative)
+            files.append(relative.as_posix())
+    if main not in files:
+        raise SystemExit(f"example {source} has no {main}")
+    index = {"schema_version": 1, "main": main, "files": files}
+    (output / f"{name}.json").write_text(json.dumps(index, indent=2) + "\n")
 
 
 def build_command(cargo, target, release):
@@ -59,6 +91,9 @@ def main():
         shutil.copy2(root / "crates/jai-wasm/js" / name, output / name)
     # Format buttons run this driver in the engine (docs/tools/jaifmt.md).
     shutil.copy2(root / "tools/jaifmt/playground.jai", output / "jaifmt-playground.jai")
+    # Example workspaces the playground opens with (examples/tour as tour/).
+    for name, source, main in bundled_examples(root):
+        stage_example(source, output, name, main)
     staged = output / "jai_wasm.wasm"
     shutil.copy2(wasm, staged)
     expected = hashlib.sha256(wasm.read_bytes()).hexdigest()

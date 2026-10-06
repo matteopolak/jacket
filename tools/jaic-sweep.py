@@ -5,7 +5,8 @@ Usage: tools/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
 `jaic check` must fail and report the recorded text), stdlib (tests/stdlib,
 run must succeed), modules (the stdlib's own tests: stdlib/tests and stdlib/<Module>/tests,
-run must succeed; a test directory's `modules/` folder holds its mock modules), upstream
+run must succeed; a test directory's `modules/` folder holds its mock modules), examples (tests/examples.json:
+example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass), or file paths.
 """
 import argparse, json, os, subprocess, sys
@@ -33,6 +34,10 @@ def cases(name):
         for p in sorted(set(found)):
             if "modules" not in p.relative_to(ROOT / "stdlib").parts:
                 yield str(p.relative_to(ROOT / "stdlib").with_suffix("")), p, "run", None, []
+    elif name == "examples":
+        for c in json.loads((ROOT / "tests/examples.json").read_text())["cases"]:
+            expect = {"contains": c["stdout_contains"], "excludes": c.get("stdout_excludes", [])}
+            yield c["id"], ROOT / c["directory"] / c["main"], "run", expect, c.get("args", [])
     elif name == "upstream":
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
             yield c["id"], ROOT / "corpus/upstream" / c["path"], c["mode"], None, c.get("args", [])
@@ -73,6 +78,13 @@ def main():
             ok = code == 0
         elif "negative" in expect:
             ok = code != 0 and code != -1 and expect["negative"] in err
+        elif "contains" in expect:
+            missing = [line for line in expect["contains"] if line not in out]
+            present = [text for text in expect["excludes"] if text in out]
+            ok = code == 0 and not missing and not present
+            if code == 0 and not ok:
+                err += "".join(f"\nerror: stdout lacks {line!r}" for line in missing)
+                err += "".join(f"\nerror: stdout has {text!r}" for text in present)
         else:
             ok = code == expect.get("exit_code", 0) and out == expect.get("stdout", "")
         return cid, ok, out, err, code

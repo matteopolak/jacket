@@ -14,10 +14,11 @@ Each set yields `(id, path, mode, expectation, extra args)`; the tool runs `jaic
 | `negative` | `kind: negative` cases of `tests/corpus/manifest.json` (`tests/corpus/negative/*.jai`) | check, non-zero exit and the recorded text in stderr |
 | `stdlib` | `tests/stdlib/*.jai` | run, exit code 0 |
 | `modules` | the stdlib's own tests: `stdlib/<Module>/tests/*.jai`, `stdlib/tests/**/*.jai` (not under a `modules/` folder, which holds a test directory's mock modules) | run, exit code 0 |
+| `examples` | `tests/examples.json` cases (`examples/tour`) | run with the case's `args`, exit code 0, every `stdout_contains` line present and no `stdout_excludes` text |
 | `upstream` | `tools/upstream-cases.json` (paths under `corpus/upstream/`; every The_Way_to_Jai example that works, plus project entry points) | per case (`run` or `check`, optional `args`), exit code 0 |
 | a path | that file | run |
 
-Expected result of `corpus negative stdlib modules upstream howto`: everything passes except `getrect-rh-negative-control`, a negative control that must fail.
+Expected result of `corpus negative stdlib modules upstream examples`: everything passes except `getrect-rh-negative-control`, a negative control that must fail.
 
 ## How to change it
 

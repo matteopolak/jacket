@@ -154,6 +154,7 @@
   "proc-type-defaults-ifx.jai",
   "program-module-parameters.jai",
   "program-print-expressions.jai",
+  "push-allocator-proc-data.jai",
   "push-context-defer-pop.jai",
   "radix-sort-ranks.jai",
   "resizable-pointer-to-view.jai",

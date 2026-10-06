@@ -22,6 +22,14 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             (glue / 'unrelated.mjs').write_text('not part of the bundle\n')
             driver = root / 'tools/jaifmt/playground.jai'; driver.parent.mkdir(parents=True)
             driver.write_text('// own formatter driver fixture\n')
+            example = root / 'examples/walk'; (example / 'part').mkdir(parents=True)
+            (example / 'main.jai').write_text('#load "part/one.jai";\n')
+            (example / 'part/one.jai').write_text('// own nested example fixture\n')
+            (example / '.hidden').write_text('editor state, not shipped\n')
+            (root / 'tests').mkdir()
+            (root / 'tests/examples.json').write_text(json.dumps({'cases': [
+                {'id': 'walk', 'bundle': 'walk', 'directory': 'examples/walk', 'main': 'main.jai'},
+                {'id': 'native-only', 'directory': 'examples/walk', 'main': 'main.jai'}]}))
             prefix = ['/own/rustup', 'run', 'nightly-2026-08-29', 'cargo']
             with patch.object(wasm, 'ROOT', root), patch.dict(os.environ, {}, clear=True), \
                  patch.object(wasm, 'pinned_cargo_command', return_value=prefix), \
@@ -44,8 +52,14 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             self.assertEqual(receipt['wasm_sha256'], hashlib.sha256(compiled.read_bytes()).hexdigest())
             self.assertFalse((root / 'target').exists())
             self.assertEqual(sorted(path.name for path in output.iterdir()),
-                             ['README.md', 'build-metadata.json', 'engine.mjs', 'jai_wasm.wasm', 'jaifmt-playground.jai'])
+                             ['README.md', 'build-metadata.json', 'engine.mjs', 'jai_wasm.wasm', 'jaifmt-playground.jai',
+                              'walk', 'walk.json'])
             self.assertEqual((output / 'jaifmt-playground.jai').read_text(), '// own formatter driver fixture\n')
+            # Bundled examples are copied as a tree (without dotfiles) and indexed.
+            self.assertEqual(json.loads((output / 'walk.json').read_text()),
+                             {'schema_version': 1, 'main': 'main.jai', 'files': ['main.jai', 'part/one.jai']})
+            self.assertEqual((output / 'walk/part/one.jai').read_text(), '// own nested example fixture\n')
+            self.assertFalse((output / 'walk/.hidden').exists())
 
     def test_separate_build_volume_floor_refuses_build(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
+import { checkSourceExamples } from "./examples_wasm.mjs";
 const path = process.argv[2];
 if (!path) throw new Error("usage: node tools/check_scripting_wasm.mjs <jai_wasm.wasm>");
 const engine = await createEngine(await readFile(path));
@@ -28,7 +29,9 @@ for (const [name, files, expected, stdout] of fixtures) {
 const missing = engine.play({ "main.jai": "main :: () -> int { return missing; }" }, "main.jai");
 assert.equal(missing.exitCode, null);
 assert(missing.diagnostics.some(item => /missing/.test(item.message)), "Unknown names are reported as diagnostics");
-console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repeated runs and diagnostics)`);
+// The example workspaces (examples/tour) run within the playground's budget.
+const examples = await checkSourceExamples(engine);
+console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repeated runs and diagnostics; examples: ${examples.join(", ")})`);
 
 // The language server in the same module: metaprogram expansions, inlay hints, format strings.
 assert(engine.lsp, "the module exports the language server");

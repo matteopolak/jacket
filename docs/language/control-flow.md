@@ -40,6 +40,8 @@ if n == { case 1; ...; case; print("default\n"); }   // bare `case;` is the defa
 
 A match runs only its own body unless `#through` is used; `case;` without a value is the default label.
 
+`if #complete c == {` on a (non-flags) enum must name every member in some `case`, default label or not; otherwise the switch is rejected with `#complete switch on Color has no case for .BLUE` (`check_switch_complete` in `sema/stmt.rs`; negative case `tests/corpus/negative/complete-switch-missing-case.jai`). Members are compared by value, so aliases with the same value count as covered. `#complete` on an `enum_flags` value or a non-enum is accepted without a check, and a switch whose value is a compile-time constant takes the constant path and is not checked.
+
 `defer` bodies run at scope exit in reverse order (`d2` before `d1`) and also on `return`, `break` and `continue` out of the scope. `push_context,defer_pop ctx;` holds a context for the rest of the block (`tests/stdlib/push-context-defer-pop.jai`).
 
 Custom iteration: `for x: value` on a type with a `for_expansion` macro runs `check_for_expansion`. The macro may rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;`; see `tests/stdlib/insert-replacements.jai` and `tests/stdlib/for-expansion-renamed-index.jai`, and [macros and custom iteration](macros-and-custom-iteration.md). Gotcha: a `continue` coming from the user body jumps to your macro's loop head, so put the index increment in a `defer` or at the top of the loop, otherwise the iteration never advances.
