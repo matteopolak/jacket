@@ -4,6 +4,8 @@
 
 `jai-language-server` is one JSON-RPC language server used by both native editors and the browser playground. The native `jailsp` binary adds `Content-Length` stdio framing. The browser links the same Rust `JsonSession` into `jai_wasm.wasm`.
 
+Run by hand, `jailsp --help` explains that an editor starts it; `--version`/`-V` prints the version; a file argument or unknown option is an error (exit status 2) that points at `jaic check file.jai`, and a terminal on stdin gets a note that it is waiting for LSP messages. Malformed framing ends the session with `error: jailsp stopped: invalid LSP input: ...`.
+
 It has two layers:
 
 - **Syntax** (always on): lexer/parser diagnostics, format-string checks, semantic tokens, document and workspace symbols, folding, and go-to-definition among the open documents. These come from the `jaic` lexer and parser.

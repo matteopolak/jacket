@@ -169,7 +169,7 @@ impl<'a> Parser<'a> {
         if self.at(p) {
             Ok(self.bump())
         } else {
-            Err(self.expected(&format!("'{}'", p.text()), context))
+            Err(self.expected(&format!("`{}`", p.text()), context))
         }
     }
 
@@ -280,12 +280,12 @@ impl<'a> Parser<'a> {
 /// Human-readable token description for diagnostics.
 fn describe(tok: &Tok) -> String {
     match tok {
-        Tok::Ident(s) => format!("'{s}'"),
-        Tok::Directive(s) => format!("'#{s}'"),
-        Tok::Note(s) => format!("'@{s}'"),
+        Tok::Ident(s) => format!("`{s}`"),
+        Tok::Directive(s) => format!("`#{s}`"),
+        Tok::Note(s) => format!("`@{s}`"),
         Tok::Int(_) | Tok::Float(_) => "number".into(),
         Tok::Str(_) => "string literal".into(),
-        Tok::Punct(p) => format!("'{}'", p.text()),
+        Tok::Punct(p) => format!("`{}`", p.text()),
         Tok::Eof => "end of file".into(),
     }
 }

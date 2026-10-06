@@ -353,7 +353,7 @@ impl Parser<'_> {
         if !matches!(self.tok(), Tok::Ident(_)) || self.newline_before() {
             return Ok(None);
         }
-        let library = Some(self.ident("after '#elsewhere'")?);
+        let library = Some(self.ident("after `#elsewhere`")?);
         let name = self.parse_foreign_symbol();
         Ok(Some(Foreign {
             library,

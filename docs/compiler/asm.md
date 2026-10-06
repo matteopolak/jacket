@@ -134,7 +134,7 @@ EVEX decorations: `[mem]!` (embedded broadcast), `!z/!n/!d/!u` rounding on `cvtp
 
 ### Not supported
 
-Compile error `unsupported #asm instruction 'x'`:
+Compile error `` unsupported #asm instruction `x` ``:
 
 - **x87** (`fld`, `fadd`, ...): Jai's `#asm` has no x87 instructions or registers (the `str` class is MMX), so there
   is nothing to accept.

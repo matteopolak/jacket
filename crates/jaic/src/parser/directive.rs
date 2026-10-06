@@ -241,7 +241,7 @@ impl Parser<'_> {
                 break;
             }
         }
-        self.expect(P::RParen, "to end the '#insert' replacements")?;
+        self.expect(P::RParen, "to end the `#insert` replacements")?;
         Ok(replacements)
     }
 
@@ -329,7 +329,7 @@ impl Parser<'_> {
 
     fn parse_char(&mut self) -> PResult<Expr> {
         let start = self.bump();
-        let (bytes, span) = self.string_lit("after '#char'")?;
+        let (bytes, span) = self.string_lit("after `#char`")?;
         let value = match std::str::from_utf8(&bytes) {
             Ok(text) => text.chars().next().map_or(0, |c| c as u32),
             Err(_) => bytes.first().copied().unwrap_or(0) as u32,
@@ -370,9 +370,9 @@ impl Parser<'_> {
 
     fn parse_exists(&mut self) -> PResult<Expr> {
         let start = self.bump();
-        self.expect(P::LParen, "after '#exists'")?;
+        self.expect(P::LParen, "after `#exists`")?;
         let operand = self.parse_expr()?;
-        let end = self.expect(P::RParen, "after the '#exists' operand")?;
+        let end = self.expect(P::RParen, "after the `#exists` operand")?;
         Ok(mk(ExprKind::Exists(Box::new(operand)), start.to(end)))
     }
 

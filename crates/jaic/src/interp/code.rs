@@ -482,7 +482,7 @@ impl Builder<'_> {
     fn v(&self, v: Val) -> u32 {
         assert!(
             (v.0 as usize) < self.func.vals.len(),
-            "value out of range in '{}'",
+            "value out of range in `{}`",
             self.func.name
         );
         v.0
@@ -1361,7 +1361,7 @@ impl Interp {
                         return Ok(Rets::collect(values.iter().map(|v| get(v.0))));
                     }
                     Term::Unreachable => {
-                        return self.trap(format!("reached unreachable code in '{}'", func.name));
+                        return self.trap(format!("reached unreachable code in `{}`", func.name));
                     }
                     Term::Jump(t) => t.0 as usize,
                     Term::Branch {

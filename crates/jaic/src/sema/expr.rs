@@ -88,13 +88,13 @@ impl Compiler {
                 value: Value::Null,
                 untyped: true,
             }),
-            E::Uninit => err(span, "'---' is only allowed as a declaration initializer"),
+            E::Uninit => err(span, "`---` is only allowed as a declaration initializer"),
             E::Context => {
                 let ty = self.context_type(span)?;
                 let Some(ctx) = f.context else {
                     return err(
                         span,
-                        "'context' is not available here (procedure is #c_call or #no_context; use push_context)",
+                        "`context` is not available here (procedure is #c_call or #no_context; use push_context)",
                     );
                 };
                 Ok(Operand::Place {
@@ -447,7 +447,7 @@ impl Compiler {
             } => err(
                 name.span,
                 format!(
-                    "directive '#{}' is not supported in this position",
+                    "directive `#{}` is not supported in this position",
                     name.name
                 ),
             ),
@@ -478,7 +478,7 @@ impl Compiler {
                 Some(fmt) => self.types.intern(TypeKind::WideFloat(fmt)),
                 None => TypeId::F64,
             }),
-            other => err(span, format!("unknown jaic extension type '{other}'")),
+            other => err(span, format!("unknown jaic extension type `{other}`")),
         }
     }
 
@@ -593,7 +593,7 @@ impl Compiler {
                         });
                     }
                     self.note_unknown_name(span, scope);
-                    return err(span, format!("unknown identifier '{name}'"));
+                    return err(span, format!("unknown identifier `{name}`"));
                 }
                 let op = self.entities_operand(f, scope, &ids, span);
                 if let Some(ide) = self.ide.as_mut() {
@@ -644,7 +644,7 @@ impl Compiler {
                         }
                         return err(
                             span,
-                            format!("'{}' is declared more than once", self.entity(id).name),
+                            format!("`{}` is declared more than once", self.entity(id).name),
                         );
                     }
                 }
@@ -665,7 +665,7 @@ impl Compiler {
             return err(
                 span,
                 format!(
-                    "'{}' is a #discard parameter and cannot be used in the procedure",
+                    "`{}` is a #discard parameter and cannot be used in the procedure",
                     self.entity(id).name
                 ),
             );
@@ -707,10 +707,10 @@ impl Compiler {
                         span,
                         if f.compile_time {
                             format!(
-                                "cannot use local '{name}' in a compile-time expression: its value is only known at runtime"
+                                "cannot use local `{name}` in a compile-time expression: its value is only known at runtime"
                             )
                         } else {
-                            format!("cannot access local '{name}' of an enclosing procedure")
+                            format!("cannot access local `{name}` of an enclosing procedure")
                         },
                     );
                 }
@@ -767,7 +767,7 @@ impl Compiler {
         let Some(t) = expected else {
             return err(
                 name.span,
-                format!("cannot infer the type of '.{}' here", name.name),
+                format!("cannot infer the type of `.{}` here", name.name),
             );
         };
         // Allow pointer-to-enum targets? No: enums only, but look through distinct.
@@ -778,7 +778,7 @@ impl Compiler {
             _ => err(
                 name.span,
                 format!(
-                    "cannot infer '.{}' for type {}",
+                    "cannot infer `.{}` for type {}",
                     name.name,
                     self.types.name(t)
                 ),
@@ -1933,14 +1933,43 @@ impl Compiler {
                 {
                     return Ok(TypeId::VOID_PTR);
                 }
-                err(
+                let mut d = Diagnostic::error(
                     span,
                     format!(
-                        "type mismatch: {} and {}",
+                        "type mismatch: `{}` and `{}` cannot be combined",
                         self.types.name(lt),
                         self.types.name(rt)
                     ),
-                )
+                );
+                // `c + "0"`: a one-character string where a character code was meant.
+                let one_char = |o: &Operand| match o {
+                    Operand::Const {
+                        value: Value::String(s),
+                        ..
+                    } if s.len() == 1 => Some(s[0] as char),
+                    _ => None,
+                };
+                let (int_side, text) = match (one_char(lhs), one_char(rhs)) {
+                    (_, Some(c)) => (lt, Some(c)),
+                    (Some(c), _) => (rt, Some(c)),
+                    _ => (lt, None),
+                };
+                if let Some(c) = text
+                    && self.types.is_integer(int_side)
+                {
+                    d = d.with_help(format!(
+                        "`\"{c}\"` is a string; for the character's code write `#char \"{c}\"`"
+                    ));
+                } else if self.types.is_integer(lt) && self.types.is_float(rt)
+                    || self.types.is_float(lt) && self.types.is_integer(rt)
+                {
+                    d = d.with_help("convert one side with `cast(float)` or `cast(int)` first");
+                } else if self.types.is_integer(lt) && self.types.is_integer(rt) {
+                    d = d.with_help(
+                        "integers of different sizes or signedness need a `cast` to one type",
+                    );
+                }
+                Err(Box::new(d))
             }
         }
     }
@@ -2533,18 +2562,18 @@ impl Compiler {
 
     pub fn preload_type(&mut self, name: &str, span: Span) -> Result<TypeId> {
         let Some(preload) = self.preload else {
-            return err(span, format!("'{name}' requires Preload"));
+            return err(span, format!("`{name}` requires Preload"));
         };
         let ids = self.module_declarations(preload, Sym::intern(name))?;
         let Some(&id) = ids.first() else {
-            return err(span, format!("Preload does not define '{name}'"));
+            return err(span, format!("Preload does not define `{name}`"));
         };
         match self.resolve_entity(id)? {
             Resolved::Const {
                 value: Value::Type(t),
                 ..
             } => Ok(t),
-            _ => err(span, format!("Preload's '{name}' is not a type")),
+            _ => err(span, format!("Preload's `{name}` is not a type")),
         }
     }
 }

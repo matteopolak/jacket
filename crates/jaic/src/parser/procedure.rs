@@ -576,7 +576,7 @@ impl Parser<'_> {
             "foreign" => {
                 self.bump();
                 let library = if matches!(self.tok(), Tok::Ident(_)) {
-                    Some(self.ident("after '#foreign'")?)
+                    Some(self.ident("after `#foreign`")?)
                 } else {
                     None
                 };

@@ -44,6 +44,38 @@ pub fn stdlib_dir(fallback: std::path::PathBuf) -> std::path::PathBuf {
         .unwrap_or(fallback)
 }
 
+/// The directory the user started the tool in, for showing paths in messages (jaic itself
+/// works from the main file's directory). Unset, paths are shown as they are.
+static DISPLAY_BASE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Set the directory paths in messages are shown relative to (once per process).
+pub fn set_display_base(dir: std::path::PathBuf) {
+    let _ = DISPLAY_BASE.set(dir);
+}
+
+/// `path` as the user would type it: relative to the display base when inside it or up to two
+/// directories above it.
+pub fn display_path(path: &std::path::Path) -> String {
+    let Some(base) = DISPLAY_BASE.get() else {
+        return path.display().to_string();
+    };
+    if path == base {
+        return ".".to_string();
+    }
+    for (up, dir) in base.ancestors().take(3).enumerate() {
+        if let Ok(relative) = path.strip_prefix(dir)
+            && !relative.as_os_str().is_empty()
+        {
+            let mut shown = std::path::PathBuf::new();
+            for _ in 0..up {
+                shown.push("..");
+            }
+            return shown.join(relative).display().to_string();
+        }
+    }
+    path.display().to_string()
+}
+
 /// An I/O error as a lowercase phrase, without Rust's `(os error N)` suffix.
 pub fn io_reason(e: &std::io::Error) -> String {
     let text = e.to_string();

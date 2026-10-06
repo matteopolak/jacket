@@ -221,7 +221,7 @@ impl Compiler {
             return err(
                 span,
                 format!(
-                    "polymorphic procedure '{}' needs arguments to determine its types",
+                    "polymorphic procedure `{}` needs arguments to determine its types",
                     self.proc(id).name
                 ),
             );
@@ -230,7 +230,7 @@ impl Compiler {
             self.in_progress_misses += 1;
             return err(
                 self.proc(id).span,
-                format!("signature of '{}' depends on itself", self.proc(id).name),
+                format!("signature of `{}` depends on itself", self.proc(id).name),
             );
         }
         self.procs[id.0 as usize].sig_resolving = true;
@@ -587,7 +587,7 @@ impl Compiler {
             return err(
                 span,
                 format!(
-                    "macro '{}' cannot be used as a procedure value",
+                    "macro `{}` cannot be used as a procedure value",
                     self.proc(id).name
                 ),
             );
@@ -689,10 +689,10 @@ impl Compiler {
         let main = self.program_main(span)?;
         let main_sig = self.signature(main, span)?;
         if !main_sig.params.is_empty() {
-            return err(self.proc(main).span, "'main' must not take parameters");
+            return err(self.proc(main).span, "`main` must not take parameters");
         }
         let ProcTarget::Func(main_func) = self.proc_func(main, span)? else {
-            return err(span, "'main' must have a body");
+            return err(span, "`main` must have a body");
         };
         let main_ir = self.ir_sig(main_sig.ty, span)?;
         let mut f = FnCtx::new("__entry_point".into(), ir_sig, FileId(0));
@@ -1211,7 +1211,7 @@ impl Compiler {
             // interpreter calls the hook itself, so only compiled code reaches this stub: say
             // why it stops, instead of a bare trap.
             let text: Rc<[u8]> = format!(
-                "runtime error: '{name}' is a compiler primitive; it runs only at compile time\n"
+                "runtime error: `{name}` is a compiler primitive; it runs only at compile time\n"
             )
             .into_bytes()
             .into();

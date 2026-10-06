@@ -1051,7 +1051,7 @@ impl Compiler {
         let name = inst.mnemonic.name.as_str();
         let dst = match ops.first() {
             Some(&d) => d,
-            None => return err(span, format!("'{name}' needs operands")),
+            None => return err(span, format!("`{name}` needs operands")),
         };
         let tmp = f.b.alloca(64, 16);
         f.b.zero(tmp, 64);
@@ -1125,7 +1125,7 @@ impl Compiler {
                             }
                             m
                         }
-                        _ => return err(span, format!("'{name}' needs float lanes")),
+                        _ => return err(span, format!("`{name}` needs float lanes")),
                     };
                     store_lane(f, tmp, i, lane, r);
                 }
@@ -1577,7 +1577,7 @@ impl Compiler {
             SOp::Perm(ty) if last_imm => {
                 // permq/permpd imm: 64-bit lanes within each 256-bit half.
                 if ty != Ty::I64 {
-                    return err(span, format!("'{name}' does not take an immediate"));
+                    return err(span, format!("`{name}` does not take an immediate"));
                 }
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 for i in 0..width / 8 {
@@ -1720,7 +1720,7 @@ impl Compiler {
                 let (a, src, k) = match ops {
                     [_, src, VOpd::Imm(k)] => (self.vec_ptr(f, dst, span)?, *src, *k as u64),
                     [_, a, src, VOpd::Imm(k)] => (self.vec_ptr(f, *a, span)?, *src, *k as u64),
-                    _ => return err(span, format!("'{name}' takes dst, [src,] value, imm8")),
+                    _ => return err(span, format!("`{name}` takes dst, [src,] value, imm8")),
                 };
                 let v = self.vec_scalar_read(f, src, ty, span)?;
                 f.b.copy(tmp, a, 16);
@@ -1734,7 +1734,7 @@ impl Compiler {
                 };
                 let (src, k) = match ops {
                     [_, src, VOpd::Imm(k)] => (self.vec_ptr(f, *src, span)?, *k as u64),
-                    _ => return err(span, format!("'{name}' takes dst, src, imm8")),
+                    _ => return err(span, format!("`{name}` takes dst, src, imm8")),
                 };
                 let v = load_lane(f, src, k % (16 / ty.size()), ty);
                 match dst {
@@ -1952,7 +1952,7 @@ impl Compiler {
             SOp::Comis(ty) => {
                 // `comiss a, b`: unordered 111, a < b 001, a == b 100, a > b 000 (ZF, PF, CF).
                 if ops.len() != 2 {
-                    return err(span, format!("'{name}' takes 2 operands"));
+                    return err(span, format!("`{name}` takes 2 operands"));
                 }
                 let pa = self.vec_ptr(f, ops[0], span)?;
                 let pb = self.vec_ptr(f, ops[1], span)?;
@@ -1975,7 +1975,7 @@ impl Compiler {
             }
             SOp::Ptest => {
                 if ops.len() != 2 {
-                    return err(span, format!("'{name}' takes 2 operands"));
+                    return err(span, format!("`{name}` takes 2 operands"));
                 }
                 let pa = self.vec_ptr(f, ops[0], span)?;
                 let pb = self.vec_ptr(f, ops[1], span)?;
@@ -2027,10 +2027,10 @@ impl Compiler {
             }
             SOp::MaskToVec(ty) | SOp::BroadcastMask(ty) => {
                 let VOpd::Mask(p) = ops.get(1).copied().unwrap_or(dst) else {
-                    return err(span, format!("'{name}' reads a mask register"));
+                    return err(span, format!("`{name}` reads a mask register"));
                 };
                 if ops.len() != 2 {
-                    return err(span, format!("'{name}' takes 2 operands"));
+                    return err(span, format!("`{name}` takes 2 operands"));
                 }
                 let m = f.b.load(Ty::I64, p);
                 for i in 0..width / ty.size() {
@@ -2299,11 +2299,11 @@ impl Compiler {
                 else {
                     return err(
                         span,
-                        format!("'{name}' takes [base + vindex*scale] &mask, src"),
+                        format!("`{name}` takes [base + vindex*scale] &mask, src"),
                     );
                 };
                 let Some(wm) = wm else {
-                    return err(span, format!("'{name}' needs a mask (&k)"));
+                    return err(span, format!("`{name}` needs a mask (&k)"));
                 };
                 let src = self.vec_ptr(f, *src, span)?;
                 let (it, et) = (Ty::int(index_size), Ty::int(elem_size));
@@ -2329,7 +2329,7 @@ impl Compiler {
             }
             SOp::MaskMov(ty) => {
                 if ops.len() != 3 {
-                    return err(span, format!("'{name}' takes 3 operands"));
+                    return err(span, format!("`{name}` takes 3 operands"));
                 }
                 let mask = self.vec_ptr(f, ops[1], span)?;
                 let n = width / ty.size();
@@ -2364,7 +2364,7 @@ impl Compiler {
                     _ => {
                         return err(
                             span,
-                            format!("'{name}' moves between a register and memory"),
+                            format!("`{name}` moves between a register and memory"),
                         );
                     }
                 }
@@ -2654,7 +2654,7 @@ impl Compiler {
                 let (a, src) = match ops {
                     [_, src] => (self.vec_ptr(f, dst, span)?, *src),
                     [_, a, src] => (self.vec_ptr(f, *a, span)?, *src),
-                    _ => return err(span, format!("'{name}' takes dst, [src,] integer")),
+                    _ => return err(span, format!("`{name}` takes dst, [src,] integer")),
                 };
                 let from = int_size();
                 let x = self.vec_scalar_read(f, src, from, span)?;
@@ -2670,7 +2670,7 @@ impl Compiler {
             }
             Conv::ScalarToGpr(from, trunc, unsigned) => {
                 if ops.len() != 2 {
-                    return err(span, format!("'{name}' takes 2 operands"));
+                    return err(span, format!("`{name}` takes 2 operands"));
                 }
                 let src = self.vec_ptr(f, ops[1], span)?;
                 let to = int_size();

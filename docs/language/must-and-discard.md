@@ -17,7 +17,7 @@ The check happens when code is generated, not during type checking. That is deli
 - Calls through procedure values and operator overloads don't carry `#must`; the flag lives on the declaration {#must.9}.
 
 ```
-error: the result of 'only' is marked #must and cannot be discarded
+error: the result of `only` is marked #must and cannot be discarded
 ```
 
 ### `#discard`
@@ -25,7 +25,7 @@ error: the result of 'only' is marked #must and cannot be discarded
 - `ParamInfo::discard` mirrors the flag. `discarded_args` (`sema/calls.rs`) finds arguments that go to a `#discard` parameter in any candidate, and `precheck_args_deferring` checks them with `check_expr_no_emit`: types and constants, no IR. `param_value` passes a zero of the parameter type; a macro gets no local.
 - Since the argument is still type-checked, `#discard x: $T` infers `T` {#must.10} and type errors are still reported {#must.11}.
 - Defaults (`#discard loc := #caller_location`) are not evaluated either {#must.12}.
-- Inside the callee the name is a dummy constant in `Compiler::discard_params`; any use fails in `entity_operand` (`sema/expr.rs`) with `'x' is a #discard parameter and cannot be used in the procedure`.
+- Inside the callee the name is a dummy constant in `Compiler::discard_params`; any use fails in `entity_operand` (`sema/expr.rs`) with `` `x` is a #discard parameter and cannot be used in the procedure ``.
 
 `stdlib/Basic/module.jai` declares `assert` with `#discard` parameters when `ENABLE_ASSERT` is false, so `assert(expensive())` never calls `expensive()`.
 

@@ -39,7 +39,7 @@ impl Parser<'_> {
             "if" => self.parse_static_if(),
             "import" => {
                 let import = self.parse_import(None, start)?;
-                self.end_stmt("after '#import'")?;
+                self.end_stmt("after `#import`")?;
                 Ok(import)
             }
             "load" => self.parse_load(),
@@ -56,7 +56,7 @@ impl Parser<'_> {
             "overlay" => self.parse_overlay(),
             "through" => {
                 self.bump();
-                self.end_stmt("after '#through'")?;
+                self.end_stmt("after `#through`")?;
                 Ok(stmt(StmtKind::Through, start))
             }
             "as" => self.parse_terminated_simple(),
@@ -124,7 +124,7 @@ impl Parser<'_> {
         }
         self.bump();
         let stmts = self.parse_stmts_until_close()?;
-        self.expect(P::RBrace, "to end the '#if' body")?;
+        self.expect(P::RBrace, "to end the `#if` body")?;
         Ok(stmts)
     }
 
@@ -140,7 +140,7 @@ impl Parser<'_> {
                 _ => flags.push(flag.name),
             }
         }
-        let (text, _) = self.string_lit("after '#import'")?;
+        let (text, _) = self.string_lit("after `#import`")?;
         let text: Rc<str> = String::from_utf8_lossy(&text).into();
         let source = match kind {
             Some("file") => ImportSource::File(text),
@@ -169,8 +169,8 @@ impl Parser<'_> {
     fn parse_load(&mut self) -> PResult<Stmt> {
         let start = self.bump();
         self.parse_directive_flags()?;
-        let (path, span) = self.string_lit("after '#load'")?;
-        self.end_stmt("after '#load'")?;
+        let (path, span) = self.string_lit("after `#load`")?;
+        self.end_stmt("after `#load`")?;
         let path: Rc<str> = String::from_utf8_lossy(&path).into();
         Ok(stmt(
             StmtKind::Load {
@@ -190,7 +190,7 @@ impl Parser<'_> {
     fn parse_run_stmt(&mut self) -> PResult<Stmt> {
         let start = self.span();
         let run = self.parse_run_with(true)?;
-        self.end_stmt("after '#run'")?;
+        self.end_stmt("after `#run`")?;
         Ok(stmt(StmtKind::Run(run), start.to(self.prev_span())))
     }
 
@@ -199,7 +199,7 @@ impl Parser<'_> {
         let (flags, scope) = Self::split_insert_flags(self.parse_directive_flags()?);
         let replacements = self.parse_insert_replacements()?;
         let value = self.parse_expr()?;
-        self.end_stmt("after '#insert'")?;
+        self.end_stmt("after `#insert`")?;
         Ok(stmt(
             StmtKind::Insert {
                 value,
@@ -213,7 +213,7 @@ impl Parser<'_> {
 
     fn parse_assert(&mut self) -> PResult<Stmt> {
         let assert = self.parse_assert_core()?;
-        self.end_stmt("after '#assert'")?;
+        self.end_stmt("after `#assert`")?;
         Ok(assert)
     }
 
@@ -241,7 +241,7 @@ impl Parser<'_> {
             while message.is_some() && self.eat(P::Comma) && !self.at(P::RParen) {
                 args.push(self.parse_expr()?);
             }
-            self.expect(P::RParen, "after '#assert' message")?;
+            self.expect(P::RParen, "after `#assert` message")?;
             return Ok(stmt(
                 StmtKind::Assert {
                     cond,
@@ -272,7 +272,7 @@ impl Parser<'_> {
 
     fn parse_add_context(&mut self) -> PResult<Stmt> {
         let add_context = self.parse_add_context_core()?;
-        self.end_stmt("after '#add_context'")?;
+        self.end_stmt("after `#add_context`")?;
         Ok(add_context)
     }
 
@@ -286,7 +286,7 @@ impl Parser<'_> {
             }
             _ => Err(crate::source::Diagnostic::error(
                 start,
-                "expected a declaration after '#add_context'",
+                "expected a declaration after `#add_context`",
             )),
         }
     }
@@ -319,11 +319,11 @@ impl Parser<'_> {
 
     fn parse_placeholder(&mut self) -> PResult<Stmt> {
         let start = self.bump();
-        let mut names = vec![self.ident("after '#placeholder'")?];
+        let mut names = vec![self.ident("after `#placeholder`")?];
         while self.eat(P::Comma) {
-            names.push(self.ident("after ','")?);
+            names.push(self.ident("after `,`")?);
         }
-        self.end_stmt("after '#placeholder'")?;
+        self.end_stmt("after `#placeholder`")?;
         Ok(stmt(
             StmtKind::Placeholder(names),
             start.to(self.prev_span()),
@@ -333,15 +333,15 @@ impl Parser<'_> {
     fn parse_place(&mut self) -> PResult<Stmt> {
         let start = self.bump();
         let target = self.parse_expr()?;
-        self.end_stmt("after '#place'")?;
+        self.end_stmt("after `#place`")?;
         Ok(stmt(StmtKind::Place(target), start.to(self.prev_span())))
     }
 
     fn parse_overlay(&mut self) -> PResult<Stmt> {
         let start = self.bump();
-        self.expect(P::LParen, "after '#overlay'")?;
+        self.expect(P::LParen, "after `#overlay`")?;
         let target = self.parse_expr()?;
-        let end = self.expect(P::RParen, "after the '#overlay' target")?;
+        let end = self.expect(P::RParen, "after the `#overlay` target")?;
         Ok(stmt(StmtKind::Overlay(target), start.to(end)))
     }
 

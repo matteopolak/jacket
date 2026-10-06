@@ -194,7 +194,7 @@ impl Compiler {
         }
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
-            S::Case(_) => err(span, "'case' outside of a switch"),
+            S::Case(_) => err(span, "`case` outside of a switch"),
             S::Expr(e) => {
                 self.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
@@ -331,17 +331,7 @@ impl Compiler {
             } => {
                 if !self.eval_static_condition(scope, cond)? {
                     let msg = self.assert_message(scope, message.as_ref(), args)?;
-                    return err(
-                        span,
-                        format!(
-                            "#assert failed{}{msg}",
-                            if msg.is_empty() {
-                                ""
-                            } else {
-                                ": "
-                            }
-                        ),
-                    );
+                    return Err(Box::new(self.static_assert_failed(cond, span, msg)));
                 }
                 Ok(())
             }
@@ -528,10 +518,27 @@ impl Compiler {
                         Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
                         Operand::Type(_) => TypeId::TYPE,
                         Operand::Void => {
-                            return err(
-                                span,
-                                "cannot declare a variable from an expression with no value",
-                            );
+                            let value = decl.value.as_ref().map_or(span, |v| v.span);
+                            let text = self.sources.snippet_or_empty(value).trim();
+                            let shown = if text.is_empty() || text.contains('\n') || text.len() > 60
+                            {
+                                "this expression".to_string()
+                            } else {
+                                format!("`{text}`")
+                            };
+                            return Err(Box::new(
+                                Diagnostic::error(
+                                    value,
+                                    format!(
+                                        "cannot declare `{}` from {shown}, which has no value",
+                                        name.name
+                                    ),
+                                )
+                                .with_label("this gives no value")
+                                .with_help(
+                                    "a procedure without a return type returns nothing: call it on its own line, or give the variable a value of its own",
+                                ),
+                            ));
                         }
                         // `p := null;` declares a `*void`.
                         ref o if o.ty() == TypeId::NULL => self.types.pointer(TypeId::VOID),
@@ -550,7 +557,9 @@ impl Compiler {
             let addr = f.b.alloca(size.max(1), align);
             match value {
                 Some(op) => {
-                    let op = self.convert(f, op, ty, span)?;
+                    let op = self
+                        .convert(f, op, ty, span)
+                        .map_err(|e| self.declared_type_mismatch(e, decl, decl.names.len() == 1))?;
                     let (_, v) = self.rvalue(f, op, span)?;
                     self.store_value(f, ty, addr, v, span)?;
                 }
@@ -563,10 +572,23 @@ impl Compiler {
                 continue;
             }
             if !discard && self.declares_local(target, name.name) {
-                return err(
+                let mut d = Diagnostic::error(
                     name.span,
-                    format!("'{}' is already declared in this scope", name.name),
-                );
+                    format!("`{}` is already declared in this scope", name.name),
+                )
+                .with_label("declared again here");
+                if let Some(first) = self.local_declaration(target, name.name) {
+                    d = d.with_note(first, format!("`{}` is first declared here", name.name));
+                }
+                let help = if decl.value.is_some() {
+                    format!(
+                        "to change its value, assign with `{} = ...`; to make a new variable, use another name",
+                        name.name
+                    )
+                } else {
+                    "use another name for the new variable".to_string()
+                };
+                return Err(Box::new(d.with_help(help)));
             }
             let depth = self.scope(target).proc_depth;
             let kind = EntityKind::Local {
@@ -591,6 +613,33 @@ impl Compiler {
     }
 
     /// Whether `scope` itself already holds a runtime local called `name`.
+    /// Where the local `name` in `scope` was declared.
+    fn local_declaration(&self, scope: ScopeId, name: Sym) -> Option<Span> {
+        let ids = self.scope(scope).names.get(&name)?;
+        ids.iter()
+            .find(|&&e| matches!(self.entity(e).kind, EntityKind::Local { .. }))
+            .map(|&e| self.entity(e).span)
+    }
+
+    /// A value that does not fit the declared type of `x: T = value;`: the error points at
+    /// the value, with the type it had to match as a note.
+    fn declared_type_mismatch(
+        &self,
+        mut e: Box<Diagnostic>,
+        decl: &ast::Decl,
+        single: bool,
+    ) -> Box<Diagnostic> {
+        if !single || !e.message.starts_with("type mismatch: expected") {
+            return e;
+        }
+        if let (Some(value), Some(ty)) = (&decl.value, &decl.ty) {
+            e.span = value.span;
+            e.notes
+                .insert(0, (ty.span, "expected because of this type".to_string()));
+        }
+        e
+    }
+
     fn declares_local(&self, scope: ScopeId, name: Sym) -> bool {
         self.scope(scope).names.get(&name).is_some_and(|ids| {
             ids.iter()
@@ -1191,7 +1240,7 @@ impl Compiler {
             other => {
                 return err(
                     value.span,
-                    format!("cannot use 'using' on {}", self.describe(&other)),
+                    format!("cannot use `using` on {}", self.describe(&other)),
                 );
             }
         };
@@ -1534,7 +1583,7 @@ impl Compiler {
                 "continue"
             };
             return match label {
-                Some(l) => err(span, format!("{what}: no enclosing loop named '{l}'")),
+                Some(l) => err(span, format!("{what}: no enclosing loop named `{l}`")),
                 None => err(span, format!("{what} outside of a loop")),
             };
         };
@@ -2025,7 +2074,7 @@ impl Compiler {
             return err(
                 span,
                 format!(
-                    "no '{macro_name}' is visible for iterating over {}",
+                    "no `{macro_name}` is visible for iterating over {}",
                     self.types.name(collection.ty())
                 ),
             );
@@ -2450,7 +2499,7 @@ impl Compiler {
                     .ok_or_else(|| {
                         Box::new(Diagnostic::error(
                             n.span,
-                            format!("no return value named '{}'", n.name),
+                            format!("no return value named `{}`", n.name),
                         ))
                     })?,
                 None => {

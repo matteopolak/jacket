@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Error messages say what is wrong and, where jaic can tell, what to change. See `docs/compiler/diagnostics.md` for the style guide, the layouts and the exit statuses.
+  - One renderer (`jaic::render`) draws diagnostics for `jaic` and `jailint`: rustc's layout with context lines, labels, `help:` lines and fix previews, in colour on a terminal (`--color auto|always|never`, `NO_COLOR`, `FORCE_COLOR`) and with box drawing where the terminal supports it (`JAIC_DIAGNOSTICS=plain|ascii|unicode`). Piped output keeps the `path:line:col: error: message` form, with paths relative to where jaic started.
+  - Runtime errors name the check that failed (an array index outside the array, with the index and count, null dereference, division by zero...), point at the user's line, and list the call stack innermost first with standard-library frames folded and internal names hidden. A failed `assert` shows its message or its condition (``assertion failed: `x == 4` is false``), in `jaic run` and in built executables alike.
+  - An unknown identifier names the module that declares it (``help: `print` is declared in the `Basic` module: add `#import "Basic";` ``), the build metaprogram that adds it, or a similar visible name. A missing module points at a nearby folder that holds it and the `-import_dir` that finds it.
+  - Type and call mismatches underline the value or argument, show the declaration as a note, and suggest the conversion (`cast`, `.data`, `tprint`, `.*`, `#char`); an unknown member or parameter suggests the closest one or lists them. `#assert` failures show the condition and, for `OS`/`CPU` checks, the target being compiled for.
+  - A metaprogram's own error (`compiler_report`, a workspace marked as failed) is shown at the place it names, without the compile-time-execution prefix.
+  - Names and tokens in messages are quoted with backticks (`` `x` ``) rather than single quotes.
+  - Command lines: `jaic` and `jailsp` take `--help` and `--version`, `jailint` and `jaifmt` `--help`; all four suggest the closest command, option or rule for a typo, and exit with 2 for a command-line mistake. `jaic` explains an unwritable output, a missing linker, a link failure (missing library or symbol), a program without `main` and an unknown library. `jailint` and `jaifmt` report config mistakes as ``in `path`, line N: ...`` with the fix, and `jaifmt` errors use the `error:`/`help:` form with `--color`. `jailsp` run from a terminal explains that an editor starts it.
+  - `jaic check` words its warning about workspace output it does not write as ``warning: `jaic check` does not write build/game (workspace `Build` asks for an executable)`` with ``help: `jaic build first.jai` (or `jaic run first.jai`) writes it``.
+
+### Fixed
+
+- `File_Async.initialize_queue` no longer tests the result of `Thread.init` on its condition variables, which returns nothing; any program importing `File_Async` failed to compile.
+
 ## [0.3.0] - 2026-10-06
 
 ### Added

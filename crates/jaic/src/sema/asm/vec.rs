@@ -407,7 +407,7 @@ impl Compiler {
                 // `movq.q` / `movd.d` and friends: the vector size is the default.
                 "b" | "w" | "d" | "q" | "8" | "16" | "32" | "64" => cx.vec_width,
                 other => {
-                    return err(s.span, format!("unknown vector size suffix '.{other}'"));
+                    return err(s.span, format!("unknown vector size suffix `.{other}`"));
                 }
             },
             Some(AsmSize::Dynamic(e)) => {
@@ -419,7 +419,7 @@ impl Compiler {
             if n < lo || n > hi {
                 return err(
                     span,
-                    format!("'{name}' takes {lo} to {hi} operands, found {n}"),
+                    format!("`{name}` takes {lo} to {hi} operands, found {n}"),
                 );
             }
             Ok(())
@@ -543,7 +543,7 @@ impl Compiler {
                         let v = f.b.load(it, src);
                         self.vec_scalar_write(f, dst, it, v, span)?;
                     }
-                    _ => return err(span, format!("'{name}' needs a vector register operand")),
+                    _ => return err(span, format!("`{name}` needs a vector register operand")),
                 }
             }
             VOp::MovScalarFloat(ty) => {
@@ -573,7 +573,7 @@ impl Compiler {
                         f.b.copy(tmp, b, size);
                         self.vec_store(f, cx, ops[0], tmp, 16, span)?;
                     }
-                    _ => return err(span, format!("'{name}' needs a vector register operand")),
+                    _ => return err(span, format!("`{name}` needs a vector register operand")),
                 }
             }
             VOp::Broadcast(size) => {
@@ -763,7 +763,7 @@ impl Compiler {
                 // AVX2: `gatherdps dst, [vsib], vmask`; AVX-512: `gatherdps dst &k, [vsib]`.
                 want(2, 3)?;
                 if n == 2 && writemask.is_none() {
-                    return err(span, format!("'{name}' needs a mask: a vector or &k"));
+                    return err(span, format!("`{name}` needs a mask: a vector or &k"));
                 }
                 let VOpd::Vsib {
                     base,
@@ -774,7 +774,7 @@ impl Compiler {
                     return err(
                         span,
                         format!(
-                            "'{name}' needs a vector-indexed memory operand ([base + vindex*scale])"
+                            "`{name}` needs a vector-indexed memory operand ([base + vindex*scale])"
                         ),
                     );
                 };

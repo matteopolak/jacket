@@ -284,7 +284,7 @@ impl Compiler {
                     .ok_or_else(|| {
                         Box::new(Diagnostic::error(
                             span,
-                            format!("'{name}' has no parameter '{n}'"),
+                            format!("`{name}` has no parameter `{n}`"),
                         ))
                     })?,
                 None => {
@@ -294,7 +294,7 @@ impl Compiler {
                 }
             };
             if index >= values.len() {
-                return err(span, format!("too many arguments for '{name}'"));
+                return err(span, format!("too many arguments for `{name}`"));
             }
             values[index] = Some(v);
         }
@@ -341,7 +341,7 @@ impl Compiler {
                     None => {
                         return err(
                             span,
-                            format!("missing argument for parameter '{pname}' of '{name}'"),
+                            format!("missing argument for parameter `{pname}` of `{name}`"),
                         );
                     }
                 },
@@ -554,7 +554,7 @@ impl Compiler {
                 let name = self.types.struct_info(s).name;
                 return err(
                     span,
-                    format!("struct '{name}' contains itself (use a pointer)"),
+                    format!("struct `{name}` contains itself (use a pointer)"),
                 );
             }
             LayoutState::Pending => {}
@@ -636,7 +636,7 @@ impl Compiler {
                 FieldItem::Alias(alias) => aliases.push(alias),
                 FieldItem::Place(name, span) | FieldItem::Overlay(name, span) => {
                     let Some(f) = fields.iter().find(|f: &&Field| f.name == Some(name)) else {
-                        return err(span, format!("no field named '{name}' before this point"));
+                        return err(span, format!("no field named `{name}` before this point"));
                     };
                     if matches!(item, FieldItem::Place(..)) {
                         cursor = f.offset;
@@ -1073,7 +1073,7 @@ impl Compiler {
                 let Some((mut path, t)) = self.find_member(at, step, span)? else {
                     return err(
                         span,
-                        format!("'{step}' is not a member of {}", self.types.name(at)),
+                        format!("`{step}` is not a member of {}", self.types.name(at)),
                     );
                 };
                 full.append(&mut path);
@@ -1179,7 +1179,7 @@ impl Compiler {
                     Found::Entities(ids) if ids.is_empty() => err(
                         span,
                         format!(
-                            "module '{}' has no exported member '{name}'",
+                            "module `{}` has no exported member `{name}`",
                             self.modules[m.0 as usize].name
                         ),
                     ),
@@ -1260,7 +1260,7 @@ impl Compiler {
                         val: addr,
                     });
                 }
-                _ => return err(span, format!("fixed array has no member '{name}'")),
+                _ => return err(span, format!("fixed array has no member `{name}`")),
             }
         }
         // Auto-dereference one level of pointer to struct.
@@ -1298,7 +1298,7 @@ impl Compiler {
                         val: addr,
                     })
                 }
-                _ => err(span, format!("fixed array has no member '{name}'")),
+                _ => err(span, format!("fixed array has no member `{name}`")),
             };
         }
         if let Some((path, mty)) = self.find_member(target, name, span)? {
@@ -1311,10 +1311,7 @@ impl Compiler {
         if let Some(ids) = self.struct_constant(target, name)? {
             return self.entities_operand(f, scope, &ids, span);
         }
-        err(
-            span,
-            format!("type {} has no member '{name}'", self.types.name(target)),
-        )
+        Err(Box::new(self.no_member(target, name, span)))
     }
 
     fn type_member(
@@ -1350,10 +1347,7 @@ impl Compiler {
                         untyped: false,
                     });
                 }
-                err(
-                    span,
-                    format!("enum {} has no member '{name}'", self.types.name(t)),
-                )
+                Err(Box::new(self.no_member(t, name, span)))
             }
             TypeKind::Struct(_) => {
                 if let Some(ids) = self.struct_constant(t, name)? {
@@ -1367,7 +1361,7 @@ impl Compiler {
                 err(
                     span,
                     format!(
-                        "type {} has no constant member '{name}'",
+                        "type {} has no constant member `{name}`",
                         self.types.name(t)
                     ),
                 )
@@ -1380,10 +1374,7 @@ impl Compiler {
                 let base = self.types.distincts[d.0 as usize].base;
                 self.type_member(f, scope, base, name, span)
             }
-            _ => err(
-                span,
-                format!("type {} has no member '{name}'", self.types.name(t)),
-            ),
+            _ => Err(Box::new(self.no_member(t, name, span))),
         }
     }
 
@@ -1452,7 +1443,7 @@ impl Compiler {
                 }
                 err(
                     value.span,
-                    format!("cannot use 'using' on {}", self.describe(&other)),
+                    format!("cannot use `using` on {}", self.describe(&other)),
                 )
             }
         }
@@ -1768,7 +1759,7 @@ impl Compiler {
                 None => {
                     return err(
                         span,
-                        "cannot infer the type of '.{...}' here; write 'Type.{...}'",
+                        "cannot infer the type of `.{...}` here; write `Type.{...}`",
                     );
                 }
             },
@@ -1813,10 +1804,7 @@ impl Compiler {
                 Some(n) => match self.find_member(ty, n.name, n.span)? {
                     Some(m) => m,
                     None => {
-                        return err(
-                            n.span,
-                            format!("type {} has no member '{}'", self.types.name(ty), n.name),
-                        );
+                        return Err(Box::new(self.no_member(ty, n.name, n.span)));
                     }
                 },
                 None => {

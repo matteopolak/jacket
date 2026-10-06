@@ -81,7 +81,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
 - No real clock on wasm32 (`std::time::SystemTime::now` panics): `#cycle_counter` counts calls, and `SandboxHost`
   implements `clock_gettime`/`gettimeofday`/`time` (virtual, deterministic, +1 microsecond per call), `nanosleep`/`usleep`
   (advance the virtual clock, never block) and `wasm_debug_break` (runtime error), so `current_time_monotonic`,
-  `random_seed` and friends work. Other native `#foreign` symbols fail with `foreign procedure 'x' is not available here`
+  `random_seed` and friends work. Other native `#foreign` symbols fail with ``foreign procedure `x` is not available here``
   or `unknown library`.
 - **POSIX on WASM**: `OS == .WASM` is treated like Linux by `stdlib/POSIX` (Linux x86-64 bindings and struct layouts),
   `File`, `File_Utilities`, `Thread`, `Basic` time, so those modules compile and call into `SandboxHost`. Windowing

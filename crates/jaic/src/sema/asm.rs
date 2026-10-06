@@ -657,7 +657,7 @@ impl Compiler {
             if !FEATURES.contains(&feature.name.as_str()) {
                 return err(
                     feature.span,
-                    format!("unsupported #asm feature modifier '{}'", feature.name),
+                    format!("unsupported #asm feature modifier `{}`", feature.name),
                 );
             }
         }
@@ -705,7 +705,7 @@ impl Compiler {
             Found::Entities(ids) if !ids.is_empty() => Ok(()),
             _ => err(
                 decl.name.span,
-                format!("unknown identifier '{}'", decl.name.name),
+                format!("unknown identifier `{}`", decl.name.name),
             ),
         }
     }
@@ -729,7 +729,7 @@ impl Compiler {
             other => {
                 return err(
                     decl.class.map_or(decl.name.span, |c| c.span),
-                    format!("unknown #asm register class '{other}'"),
+                    format!("unknown #asm register class `{other}`"),
                 );
             }
         };
@@ -868,7 +868,7 @@ impl Compiler {
                 return err(
                     span,
                     format!(
-                        "#asm operand of type '{}' is not a scalar",
+                        "#asm operand of type `{}` is not a scalar",
                         self.types.name(ty)
                     ),
                 );
@@ -1192,7 +1192,7 @@ impl Compiler {
             }
             return err(
                 inst.mnemonic.span,
-                format!("unsupported #asm instruction '{name}'"),
+                format!("unsupported #asm instruction `{name}`"),
             );
         };
         let mut opds = Vec::with_capacity(inst.operands.len());
@@ -1209,7 +1209,7 @@ impl Compiler {
                 };
                 return err(
                     span,
-                    format!("'{name}' takes {expected} operand(s), found {n}"),
+                    format!("`{name}` takes {expected} operand(s), found {n}"),
                 );
             }
             Ok(())
@@ -1579,13 +1579,13 @@ impl Compiler {
                 (Some(s), Some(d)) if s.size() < d.size() => Ok((s, d)),
                 _ => err(
                     span,
-                    format!("invalid operand sizes in '{}'", inst.mnemonic.name),
+                    format!("invalid operand sizes in `{}`", inst.mnemonic.name),
                 ),
             },
             _ => err(
                 span,
                 format!(
-                    "'{}' needs source and destination sizes (for example movzxbw)",
+                    "`{}` needs source and destination sizes (for example movzxbw)",
                     inst.mnemonic.name
                 ),
             ),
@@ -1604,7 +1604,7 @@ impl Compiler {
                 other => err(
                     s.span,
                     format!(
-                        "unsupported #asm operand size '.{other}' (vector sizes are not supported)"
+                        "unsupported #asm operand size `.{other}` (vector sizes are not supported)"
                     ),
                 ),
             },
@@ -1618,7 +1618,7 @@ impl Compiler {
                     _ => {
                         return err(
                             e.span,
-                            "the size after '?' must be a type or a number of bits",
+                            "the size after `?` must be a type or a number of bits",
                         );
                     }
                 };

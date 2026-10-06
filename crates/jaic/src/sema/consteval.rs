@@ -298,14 +298,14 @@ impl Compiler {
     pub fn module_type(&mut self, module: ModuleId, name: &str, span: Span) -> Result<TypeId> {
         let ids = self.module_declarations(module, Sym::intern(name))?;
         let Some(&id) = ids.first() else {
-            return err(span, format!("'{name}' not found"));
+            return err(span, format!("`{name}` not found"));
         };
         match self.resolve_entity(id)? {
             scope::Resolved::Const {
                 value: Value::Type(t),
                 ..
             } => Ok(t),
-            _ => err(span, format!("'{name}' is not a type")),
+            _ => err(span, format!("`{name}` is not a type")),
         }
     }
 
@@ -389,17 +389,7 @@ impl Compiler {
             self.asserts_done += 1;
             if !holds? {
                 let msg = self.assert_message(scope, message.as_ref(), &args)?;
-                return err(
-                    cond.span,
-                    format!(
-                        "#assert failed{}{msg}",
-                        if msg.is_empty() {
-                            ""
-                        } else {
-                            ": "
-                        }
-                    ),
-                );
+                return Err(Box::new(self.static_assert_failed(&cond, cond.span, msg)));
             }
         }
         Ok(())

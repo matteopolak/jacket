@@ -108,7 +108,6 @@ fn colour_marks_severity_gutter_and_labels() {
     );
     assert!(text.contains("\x1b[34m│\x1b[0m"), "{text}");
     assert!(text.contains("\x1b[1;31m━━━━━━\x1b[0m"), "{text}");
-    assert!(!Style::PLAIN.color);
     assert!(!unknown_name().render_with(UNICODE_STYLE).contains('\x1b'));
 }
 
@@ -258,10 +257,10 @@ fn detection_follows_terminal_flags_and_environment() {
     let utf8 = env(&[("LANG", "en_US.UTF-8"), ("TERM", "xterm-256color")]);
     let auto = ColorChoice::Auto;
     // Pipes: the plain layout, no colour.
-    assert_eq!(detect_with(auto, false, &utf8), Style::PLAIN);
+    assert_eq!(detect_with(auto, false, utf8), Style::PLAIN);
     // A UTF-8 terminal.
     assert_eq!(
-        detect_with(auto, true, &utf8),
+        detect_with(auto, true, utf8),
         Style {
             layout: Layout::Unicode,
             color: true
@@ -275,7 +274,7 @@ fn detection_follows_terminal_flags_and_environment() {
     // NO_COLOR, whatever its value; --color always wins over it.
     assert!(!detect_with(auto, true, env(&[("NO_COLOR", ""), ("TERM", "xterm")])).color);
     assert!(detect_with(ColorChoice::Always, false, env(&[("NO_COLOR", "1")])).color);
-    assert!(!detect_with(ColorChoice::Never, true, &utf8).color);
+    assert!(!detect_with(ColorChoice::Never, true, utf8).color);
     // Forcing colour into a pipe.
     assert!(detect_with(auto, false, env(&[("FORCE_COLOR", "1")])).color);
     assert!(detect_with(auto, false, env(&[("CLICOLOR_FORCE", "1")])).color);

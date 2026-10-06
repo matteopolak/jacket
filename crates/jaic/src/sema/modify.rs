@@ -41,7 +41,7 @@ impl Compiler {
             variables.push((name, Value::Type(initial), TypeId::TYPE));
         }
         let scope = self.proc(proc).scope;
-        let what = format!("'{}'", self.proc(proc).name);
+        let what = format!("`{}`", self.proc(proc).name);
         let results = self.run_modify_block(scope, block, variables, constants, &what, span)?;
         for (name, value, ty) in results {
             // A type variable left `void` stays unbound.
@@ -64,7 +64,7 @@ impl Compiler {
         bindings: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<Vec<(Sym, Value, TypeId)>> {
-        let what = format!("'{name}'");
+        let what = format!("`{name}`");
         self.run_modify_block(def_scope, block, bindings, Vec::new(), &what, span)
     }
 

@@ -28,12 +28,12 @@ impl Parser<'_> {
         let start = self.bump();
         let mut features = Vec::new();
         while !self.at(P::LBrace) {
-            features.push(self.ident("as an '#asm' feature name or '{'")?);
+            features.push(self.ident("as an `#asm` feature name or `{`")?);
             if !self.eat(P::Comma) {
                 break;
             }
         }
-        self.expect(P::LBrace, "after '#asm'")?;
+        self.expect(P::LBrace, "after `#asm`")?;
         let mut items = Vec::new();
         loop {
             if self.eat(P::Semi) {
@@ -43,11 +43,11 @@ impl Parser<'_> {
                 break;
             }
             if self.at_eof() {
-                return Err(self.error("unterminated '#asm' block"));
+                return Err(self.error("unterminated `#asm` block"));
             }
             items.push(self.parse_asm_item()?);
             if !self.at(P::RBrace) {
-                self.expect(P::Semi, "after the '#asm' instruction")?;
+                self.expect(P::Semi, "after the `#asm` instruction")?;
             }
         }
         let end = self.bump();
@@ -128,7 +128,7 @@ impl Parser<'_> {
             let name = match self.tok().clone() {
                 Tok::Ident(name) => name,
                 Tok::Int(bits) => Sym::intern(&bits.to_string()),
-                _ => return Err(self.expected("operand size", "after '.'")),
+                _ => return Err(self.expected("operand size", "after `.`")),
             };
             self.bump();
             return Ok(Some(AsmSize::Suffix(Ident {
@@ -173,7 +173,7 @@ impl Parser<'_> {
                     self.bump();
                     AsmPin::Index(index)
                 }
-                _ => return Err(self.expected("register name or number", "after '==='")),
+                _ => return Err(self.expected("register name or number", "after `===`")),
             })
         } else {
             None

@@ -24,7 +24,7 @@ main :: () {
 
 ### The opt-in mechanism
 
-The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `unknown jaic extension type 'x'` {#ext.3}. Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: reachable only through this module, and documented on this page.
+The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `` unknown jaic extension type `x` `` {#ext.3}. Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: reachable only through this module, and documented on this page.
 
 ### `Long_Double` per target
 

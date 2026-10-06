@@ -1196,24 +1196,24 @@ fn assignments() {
 fn diagnostics_name_the_expected_and_found_tokens() {
     assert_eq!(
         error("x := 1\ny := 2;"),
-        "expected ';' after statement, found 'y'"
+        "expected `;` after statement, found `y`"
     );
     assert_eq!(
         error("f :: () { return 1 }"),
-        "expected ';' after 'return', found '}'"
+        "expected `;` after `return`, found `}`"
     );
-    assert_eq!(error("x := ;"), "expected expression, found ';'");
+    assert_eq!(error("x := ;"), "expected expression, found `;`");
     assert_eq!(
         error("x := f(1, 2;"),
-        "expected ')' in argument list, found ';'"
+        "expected `)` in argument list, found `;`"
     );
     assert_eq!(
         error("S :: struct { x: int;"),
-        "expected '}' to close the block, found end of file"
+        "expected `}` to close the block, found end of file"
     );
     assert_eq!(
         error("#import 5;"),
-        "expected string literal after '#import', found number"
+        "expected string literal after `#import`, found number"
     );
 }
 
@@ -1295,7 +1295,7 @@ fn asm_declarations_and_pins() {
 
 #[test]
 fn asm_errors() {
-    assert!(error("x := #asm { mov a, 1 mov b, 2; };").contains("expected ';'"));
+    assert!(error("x := #asm { mov a, 1 mov b, 2; };").contains("expected `;`"));
     assert!(error("x := #asm { mov a, [b + ; };").contains("expected"));
     assert!(error("x := #asm { mov a, 1;").contains("unterminated"));
 }

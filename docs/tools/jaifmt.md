@@ -11,7 +11,19 @@ target/jaifmt --check stdlib tests         # CI: list files that would change, e
 target/jaifmt --stdin < in.jai > out.jai   # editor integration
 ```
 
-Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`). Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change.
+Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`), `--color auto|always|never` (`auto` colours on a terminal unless `NO_COLOR` is set; `FORCE_COLOR`/`CLICOLOR_FORCE` turn it on), `--help`/`-h`. Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change.
+
+Errors use the compilers' layout, a lowercase message and a `help:` line saying what to do; paths are relative to the current directory:
+
+```
+src/bad.jai:1:20: error: unbalanced `}`
+help: the file was left unchanged; jaifmt formats only code whose brackets balance
+error: `missing.jai` does not exist
+error: unknown option `--chek`
+help: `jaifmt --help` lists the options
+```
+
+A bad `jaifmt.toml` is reported as ``in `path`, line N: ...`` with the fix.
 
 Under the interpreter: `jaic run jaifmt/main.jai -- --check "$PWD/stdlib"`. `jaic run` starts programs in the main file's directory, so pass absolute paths.
 

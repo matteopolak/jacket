@@ -24,7 +24,7 @@ The comments above hold for the plain {#import.2}, named {#import.3}, `using` {#
 - `#load` and `#import,file` resolve relative to the file that wrote them {#import.11}. Loading a file twice into one module is a no-op {#import.12}.
 - A module instance is keyed by canonical entry path plus parameter values, so two plain `#import "M"` share one {#import.13}. See [module parameters](module-parameters.md).
 - Imports resolve eagerly during `expand_all`, so a module's top-level `#run`s and `#add_context`s are known before they matter {#import.14}.
-- Only exported names are reachable through the namespace (see [scoping](scoping.md)): `P.secret` on a `#scope_file` name fails with `module 'Plain' has no exported member 'secret'` {#import.15}.
+- Only exported names are reachable through the namespace (see [scoping](scoping.md)): `P.secret` on a `#scope_file` name fails with `` module `Plain` has no exported member `secret` `` {#import.15}.
 
 ### Filters
 

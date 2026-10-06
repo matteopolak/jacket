@@ -134,7 +134,11 @@ pub struct Trap {
     pub frames: Vec<TrapFrame>,
     pub omitted_frames: usize,
     /// A failed `assert`: the location it was given (path, line, column).
-    pub assertion: Option<(String, u32, u32)>,
+    pub assertion: Option<Box<(String, u32, u32)>>,
+    /// An error a metaprogram reported itself (`compiler_report`, a failed workspace): the
+    /// message is the program's own, shown without the compile-time-execution prefix, at the
+    /// location it named (path, line, column; an empty path names none).
+    pub reported: Option<Box<(String, u32, u32)>>,
 }
 
 /// The message for a load or store at an address in the never-mapped first page.
@@ -626,7 +630,7 @@ impl Interp {
             Some(a) => a,
             None if foreign.is_data => {
                 return self.trap(format!(
-                    "foreign variable '{}' is not available",
+                    "foreign variable `{}` is not available",
                     foreign.symbol
                 ));
             }
@@ -675,7 +679,7 @@ impl Interp {
         let addr = self.foreign_addr(program, id)?;
         if addr & TAG_MASK == FOREIGN_TAG {
             return self.trap(format!(
-                "foreign procedure '{symbol}' is not available here"
+                "foreign procedure `{symbol}` is not available here"
             ));
         }
         #[cfg(target_os = "macos")]
@@ -780,7 +784,7 @@ impl Interp {
                 .cloned()
                 .unwrap_or_default();
             return self.trap(format!(
-                "procedure '{name}' has no body available at this point"
+                "procedure `{name}` has no body available at this point"
             ));
         };
         if self.depth >= MAX_DEPTH {
@@ -961,7 +965,7 @@ impl Interp {
                         format!("assertion failed: {message}")
                     })
                     .unwrap_err();
-                trap.assertion = Some((path, line, col));
+                trap.assertion = Some(Box::new((path, line, col)));
                 return Err(trap);
             }
             Hook::Meta(op, has_context) => {

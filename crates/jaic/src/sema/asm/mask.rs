@@ -90,14 +90,14 @@ impl Compiler {
         let n = opds.len();
         let want = |k: usize| -> Result<()> {
             if n != k {
-                return err(span, format!("'{name}' takes {k} operand(s), found {n}"));
+                return err(span, format!("`{name}` takes {k} operand(s), found {n}"));
             }
             Ok(())
         };
         let need_mask = |o: KOpd| -> Result<Val> {
             match o {
                 KOpd::Mask(p) => Ok(p),
-                KOpd::Other(_) => err(span, format!("'{name}' needs mask register operands")),
+                KOpd::Other(_) => err(span, format!("`{name}` needs mask register operands")),
             }
         };
         match op {
@@ -170,7 +170,7 @@ impl Compiler {
                 let a = Self::mask_load(f, need_mask(opds[1])?, ty);
                 let count = match opds[2] {
                     KOpd::Other(Opd::Imm(Imm::Int(c))) if (0..=255).contains(&c) => c as u64,
-                    _ => return err(span, format!("'{name}' takes an 8-bit immediate count")),
+                    _ => return err(span, format!("`{name}` takes an 8-bit immediate count")),
                 };
                 // Counts at or above the mask width clear it (IR shifts are total).
                 let c = konst(f, ty, count.min(bits(ty)));

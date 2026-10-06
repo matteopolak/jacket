@@ -292,6 +292,128 @@ fn unknown_identifier_suggests_a_visible_name() {
 }
 
 #[test]
+fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
+    let dir = scratch("unknown-module-name");
+    // A standard-library name without its `#import`.
+    let output = jaic_on(
+        &dir,
+        "i.jai",
+        "main :: () {\n    print(\"hi\\n\");\n}\n",
+        "check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "i.jai:2:5: error: unknown identifier `print`",
+            "help: `print` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
+        ],
+    );
+    // A constant a build metaprogram adds with `add_build_string`, checked on its own.
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("build.jai"),
+        "#import \"Compiler\";\n#run {\n    w := compiler_create_workspace();\n    add_build_string(\"MODE :: 2;\", w);\n    add_build_file(\"src/main.jai\", w);\n}\n",
+    )
+    .unwrap();
+    let output = jaic_on(
+        &dir,
+        "src/main.jai",
+        "#import \"Basic\";\nmain :: () { print(\"%\\n\", MODE); }\n",
+        "check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "error: unknown identifier `MODE`",
+            "help: `MODE` is added by `build.jai` (with `add_build_string`) when it builds this file: build through it, as in `jaic build build.jai`",
+        ],
+    );
+}
+
+#[test]
+fn mismatches_point_at_the_value_and_say_what_was_expected() {
+    let dir = scratch("mismatch");
+    let cases: &[(&str, &[&str])] = &[
+        (
+            "main :: () {\n    x: int = \"hello\";\n}\n",
+            &[
+                "m.jai:2:14: error: type mismatch: expected `s64`, found `string`",
+                "m.jai:2:8: note: expected because of this type",
+            ],
+        ),
+        (
+            "main :: () { a := 1.5; b: int = a; }\n",
+            &[
+                "error: type mismatch: expected `s64`, found `float32`",
+                "help: convert with `cast(s64)`, which drops the fraction",
+            ],
+        ),
+        (
+            "f :: (a: int, b: float) {}\nmain :: () {\n    f(1, 2.0, 3);\n}\n",
+            &[
+                "m.jai:3:15: error: in call to `f`: too many arguments: it takes at most 2",
+                "m.jai:1:6: note: `f` is declared here",
+            ],
+        ),
+        (
+            "f :: (count: int) {}\nmain :: () { f(cuont = 1); }\n",
+            &[
+                "error: in call to `f`: no parameter named `cuont`",
+                "help: did you mean `count`?",
+            ],
+        ),
+        (
+            "f :: (a: int, b: int) {}\nmain :: () { f(1); }\n",
+            &[
+                "error: in call to `f`: missing argument for parameter `b`",
+                "note: `f` is declared here",
+                "help: pass a value for `b`",
+            ],
+        ),
+        (
+            "P :: struct { width: int; }\nmain :: () { p: P; p.widht = 1; }\n",
+            &[
+                "error: type `P` has no member `widht`",
+                "help: a member with a similar name exists: `width`",
+            ],
+        ),
+        (
+            "main :: () { x := 1; x := 2; }\n",
+            &[
+                "m.jai:1:22: error: `x` is already declared in this scope",
+                "m.jai:1:14: note: `x` is first declared here",
+                "help: to change its value, assign with `x = ...`",
+            ],
+        ),
+        (
+            "f :: () {}\nmain :: () { r := f(); }\n",
+            &[
+                "error: cannot declare `r` from `f()`, which has no value",
+                "help: a procedure without a return type returns nothing",
+            ],
+        ),
+        (
+            "digit :: (n: u8) -> u8 { return n + \"0\"; }\nmain :: () {}\n",
+            &[
+                "error: type mismatch: `u8` and `string` cannot be combined",
+                "help: `\"0\"` is a string; for the character's code write `#char \"0\"`",
+            ],
+        ),
+        (
+            "#assert size_of(int) == 4;\nmain :: () {}\n",
+            &["error: #assert failed: `size_of(int) == 4` is false"],
+        ),
+    ];
+    for (source, expected) in cases {
+        let output = jaic_on(&dir, "m.jai", source, "check", &[]);
+        assert_eq!(output.status.code(), Some(1), "{source}");
+        assert_in_order(&stderr(&output), expected);
+    }
+}
+
+#[test]
 fn missing_module_lists_where_it_looked_and_a_close_name() {
     let dir = scratch("missing-module");
     let output = jaic_on(
@@ -325,6 +447,22 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
     assert_in_order(
         &stderr(&output),
         &["help: a module of your own goes in a `modules` folder"],
+    );
+    // A module in a folder jaic does not search: say which `-import_dir` finds it.
+    std::fs::create_dir_all(dir.join("libs/Gadgets")).unwrap();
+    std::fs::write(dir.join("libs/Gadgets/module.jai"), "gadget :: 1;\n").unwrap();
+    let output = jaic_on(
+        &dir,
+        "g.jai",
+        "#import \"Gadgets\";\nmain :: () {}\n",
+        "check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "help: a module `Gadgets` exists in `libs`, which is not searched: pass `-import_dir libs`",
+        ],
     );
 }
 

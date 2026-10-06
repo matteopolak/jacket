@@ -16,7 +16,7 @@
 
 Which scope the inserted code resolves in:
 
-- Statement position: the `Code`'s defining scope. So in a macro, a plain `#insert c` can't see names the macro defines, such as `it` (`unknown identifier 'it'`); use `#insert,scope()` {#code.14}.
+- Statement position: the `Code`'s defining scope. So in a macro, a plain `#insert c` can't see names the macro defines, such as `it` (``unknown identifier `it` ``); use `#insert,scope()` {#code.14}.
 - `#insert,scope(code)` / `#insert,scope()`: the given scope, or the insertion site (`check_insert` in `sema/stmt.rs`). A string becomes `Code` first {#code.11}.
 - Expression position (`eval_insert_expr`): a `Code` value checks in its defining scope {#code.9}; a string is parsed as a parenthesized expression and checked at the insertion site {#code.10}.
 - Code from `compiler_get_code` without a scope to copy resolves at the insertion site, falling back to where its nodes were written (see [compiler records](compiler-records.md)) {#code.8}.

@@ -115,7 +115,7 @@ impl Compiler {
                     .ok_or_else(|| {
                         Box::new(Diagnostic::error(
                             n.span,
-                            format!("no parameter named '{}' to bake", n.name),
+                            format!("no parameter named `{}` to bake", n.name),
                         ))
                     })?,
                 None if i < params.len() => i,

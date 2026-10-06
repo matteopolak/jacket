@@ -9,11 +9,11 @@ skip Default_Metaprogram
 skip Minimal_Metaprogram
 
 # Bindings to native libraries that have no wasm build.
-Curl wasm: Curl/format.jai: unknown identifier 'curl_mprintf_CFormat'
+Curl wasm: Curl/format.jai: unknown identifier `curl_mprintf_CFormat`
 Gamepad wasm: SDL/module.jai: unknown library `SDL2`
 ImGui wasm: ImGui/unix.jai: unknown library `imgui`
 Keymap wasm: SDL/module.jai: unknown library `SDL2`
-Mail wasm: Mail.jai: module 'Curl' has no exported member 'curl_easy_init'
+Mail wasm: Mail.jai: module `Curl` has no exported member `curl_easy_init`
 SDL wasm: SDL/SDL_surface.jai: unknown library `SDL2`
 meshoptimizer wasm: meshoptimizer/meshoptimizer.jai: unknown library `meshopt_lib`
 
@@ -32,12 +32,12 @@ Debug macos-x64: Debug/module.jai: #assert failed: Pointer mapping validation re
 Debug wasm: Debug/module.jai: #assert failed: Debugger detection requires a host adapter
 Debug windows-arm64: Debug/module.jai: #assert failed: Native stack capture is not implemented for this target
 Debug windows-x64: Debug/module.jai: #assert failed: Native stack capture is not implemented for this target
-GetRect wasm: Window_Creation/module.jai: #assert failed
-GetRect_LeftHanded wasm: stb_image/module.jai: #assert failed
-Linux windows-arm64: POSIX/module.jai: #assert failed
-Linux windows-x64: POSIX/module.jai: #assert failed
-MacOS_Bundler windows-arm64: POSIX/module.jai: #assert failed
-MacOS_Bundler windows-x64: POSIX/module.jai: #assert failed
+GetRect wasm: Window_Creation/module.jai: #assert failed: this `#assert(false)` was compiled
+GetRect_LeftHanded wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
+Linux windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+Linux windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+MacOS_Bundler windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+MacOS_Bundler windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
 Metal linux-arm64: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
 Metal linux-x64: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
 Metal wasm: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
@@ -48,16 +48,16 @@ Objective_C linux-x64: Objective_C/module.jai: #assert failed: Objective_C is on
 Objective_C wasm: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
 Objective_C windows-arm64: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
 Objective_C windows-x64: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
-POSIX windows-arm64: POSIX/module.jai: #assert failed
-POSIX windows-x64: POSIX/module.jai: #assert failed
-POSIX_old wasm: POSIX_old/module.jai: #assert failed
-POSIX_old windows-arm64: POSIX_old/module.jai: #assert failed
-POSIX_old windows-x64: POSIX_old/module.jai: #assert failed
+POSIX windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+POSIX windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+POSIX_old wasm: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
+POSIX_old windows-arm64: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
+POSIX_old windows-x64: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
 Runtime_Support_Crash_Handler wasm: Runtime_Support_Crash_Handler.jai: #assert failed: Runtime crash handling requires a native host adapter for this target
-Simp wasm: stb_image/module.jai: #assert failed
-Sound_Player wasm: stb_vorbis/module.jai: #assert failed
-Thekla_Atlas wasm: Thekla_Atlas/unix.jai: #assert failed
-Thekla_Baker wasm: Thekla_Baker/module.jai: #assert failed
+Simp wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
+Sound_Player wasm: stb_vorbis/module.jai: #assert failed: this `#assert(false)` was compiled
+Thekla_Atlas wasm: Thekla_Atlas/unix.jai: #assert failed: this `#assert(false)` was compiled
+Thekla_Baker wasm: Thekla_Baker/module.jai: #assert failed: this `#assert(false)` was compiled
 Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX virtual-memory backend
 Unmapping_Allocator windows-arm64: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX virtual-memory backend
 Unmapping_Allocator windows-x64: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX virtual-memory backend
@@ -70,66 +70,66 @@ Wasi_Runtime macos-arm64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime 
 Wasi_Runtime macos-x64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Wasi_Runtime windows-arm64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Wasi_Runtime windows-x64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Window_Creation wasm: Window_Creation/module.jai: #assert failed
-Windows linux-arm64: Windows.jai: #assert failed
-Windows linux-x64: Windows.jai: #assert failed
-Windows macos-arm64: Windows.jai: #assert failed
-Windows macos-x64: Windows.jai: #assert failed
-Windows wasm: Windows.jai: #assert failed
-Windows_Registry linux-arm64: Windows.jai: #assert failed
-Windows_Registry linux-x64: Windows.jai: #assert failed
-Windows_Registry macos-arm64: Windows.jai: #assert failed
-Windows_Registry macos-x64: Windows.jai: #assert failed
-Windows_Registry wasm: Windows.jai: #assert failed
-Windows_Resources linux-arm64: Windows.jai: #assert failed
-Windows_Resources linux-x64: Windows.jai: #assert failed
-Windows_Resources macos-arm64: Windows.jai: #assert failed
-Windows_Resources macos-x64: Windows.jai: #assert failed
-Windows_Resources wasm: Windows.jai: #assert failed
-X11 windows-arm64: POSIX/module.jai: #assert failed
-X11 windows-x64: POSIX/module.jai: #assert failed
-d3d11 linux-arm64: Windows.jai: #assert failed
-d3d11 linux-x64: Windows.jai: #assert failed
-d3d11 macos-arm64: Windows.jai: #assert failed
-d3d11 macos-x64: Windows.jai: #assert failed
-d3d11 wasm: Windows.jai: #assert failed
-d3d12 linux-arm64: Windows.jai: #assert failed
-d3d12 linux-x64: Windows.jai: #assert failed
-d3d12 macos-arm64: Windows.jai: #assert failed
-d3d12 macos-x64: Windows.jai: #assert failed
-d3d12 wasm: Windows.jai: #assert failed
-d3d_compiler linux-arm64: Windows.jai: #assert failed
-d3d_compiler linux-x64: Windows.jai: #assert failed
-d3d_compiler macos-arm64: Windows.jai: #assert failed
-d3d_compiler macos-x64: Windows.jai: #assert failed
-d3d_compiler wasm: Windows.jai: #assert failed
+Window_Creation wasm: Window_Creation/module.jai: #assert failed: this `#assert(false)` was compiled
+Windows linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Registry linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Registry linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Registry macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Registry macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Registry wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Resources linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Resources linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Resources macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Resources macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+Windows_Resources wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+X11 windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+X11 windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
+d3d11 linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d11 linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d11 macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d11 macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d11 wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d12 linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d12 linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d12 macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d12 macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d12 wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d_compiler linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d_compiler linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d_compiler macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d_compiler macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+d3d_compiler wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
 dxc_compiler linux-arm64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
 dxc_compiler linux-x64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
 dxc_compiler macos-arm64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
 dxc_compiler macos-x64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
 dxc_compiler wasm: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
-dxgi linux-arm64: Windows.jai: #assert failed
-dxgi linux-x64: Windows.jai: #assert failed
-dxgi macos-arm64: Windows.jai: #assert failed
-dxgi macos-x64: Windows.jai: #assert failed
-dxgi wasm: Windows.jai: #assert failed
-freetype wasm: freetype-2.12.1/unix.jai: #assert failed
-freetype-2.12.1 wasm: freetype-2.12.1/unix.jai: #assert failed
+dxgi linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+dxgi linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+dxgi macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+dxgi macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+dxgi wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+freetype wasm: freetype-2.12.1/unix.jai: #assert failed: this `#assert(false)` was compiled
+freetype-2.12.1 wasm: freetype-2.12.1/unix.jai: #assert failed: this `#assert(false)` was compiled
 macos linux-arm64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
 macos linux-x64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
 macos wasm: macos/module.jai: #assert failed: macos is only supported on Apple platforms
 macos windows-arm64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
 macos windows-x64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
-nvidia_aftermath linux-arm64: Windows.jai: #assert failed
-nvidia_aftermath linux-x64: Windows.jai: #assert failed
-nvidia_aftermath macos-arm64: Windows.jai: #assert failed
-nvidia_aftermath macos-x64: Windows.jai: #assert failed
-nvidia_aftermath wasm: Windows.jai: #assert failed
+nvidia_aftermath linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+nvidia_aftermath linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+nvidia_aftermath macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+nvidia_aftermath macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
+nvidia_aftermath wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
 nvtt linux-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
 nvtt macos-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
 nvtt wasm: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
 nvtt windows-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
-stb_image wasm: stb_image/module.jai: #assert failed
-stb_image_resize wasm: stb_image_resize/bindings.jai: #assert failed
-stb_image_write wasm: stb_image_write/bindings.jai: #assert failed
-stb_vorbis wasm: stb_vorbis/module.jai: #assert failed
+stb_image wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
+stb_image_resize wasm: stb_image_resize/bindings.jai: #assert failed: this `#assert(false)` was compiled
+stb_image_write wasm: stb_image_write/bindings.jai: #assert failed: this `#assert(false)` was compiled
+stb_vorbis wasm: stb_vorbis/module.jai: #assert failed: this `#assert(false)` was compiled

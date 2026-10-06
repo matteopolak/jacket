@@ -34,6 +34,8 @@ Options: `--fix`, `--config <file>`, `-A`/`-W`/`-D <rule>` (allow, warn, deny; `
 
 Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a usage or configuration error. A summary goes to stderr.
 
+Findings and command-line errors go through jaic's shared renderer (`jaic::render`), so they look like compiler diagnostics and follow `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` the same way (see [diagnostics](../compiler/diagnostics.md)). Mistakes say what to change: an unknown option or rule suggests the closest one, a missing path says so, and a bad `jailint.toml` is reported as ``in `path`, line N: ...`` with a `help:` line.
+
 ## Rules
 
 | Rule | Default | Fix | Finds |

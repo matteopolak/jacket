@@ -169,13 +169,13 @@ report_format_error :: (path: string, error: string) {
 ERROR_COLOR :: "\e[1;31m";
 HELP_COLOR :: "\e[1;36m";
 
-color_choice := 0;  // 0 auto, 1 always, 2 never
+color_choice := 0; // 0 auto, 1 always, 2 never
 
 set_color :: (when: string) {
     if when == {
-        case "auto";   color_choice = 0;
+        case "auto"; color_choice = 0;
         case "always"; color_choice = 1;
-        case "never";  color_choice = 2;
+        case "never"; color_choice = 2;
         case; fatal_usage(tprint("unknown `--color` value `%`", when), "use auto, always or never");
     }
 }

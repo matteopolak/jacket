@@ -178,7 +178,7 @@ impl Parser<'_> {
         };
         let mut notes = self.parse_notes();
         if !(self.eat(P::Semi) || self.eat(P::Comma) || self.at(P::RBrace)) {
-            return Err(self.expected("';'", "after the enum member"));
+            return Err(self.expected("`;`", "after the enum member"));
         }
         notes.extend(self.parse_notes());
         Ok(EnumMember {
@@ -209,9 +209,9 @@ impl Parser<'_> {
     }
 
     fn parse_enum_branch(&mut self) -> PResult<Vec<EnumItem>> {
-        self.expect(P::LBrace, "to start the '#if' body")?;
+        self.expect(P::LBrace, "to start the `#if` body")?;
         let items = self.parse_enum_items()?;
-        self.expect(P::RBrace, "to end the '#if' body")?;
+        self.expect(P::RBrace, "to end the `#if` body")?;
         Ok(items)
     }
 }

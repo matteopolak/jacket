@@ -123,7 +123,12 @@ fn every_stdlib_module_checks_for_every_target() {
                     if !cpu.is_empty() {
                         command.args(["-cpu", cpu]);
                     }
-                    let output = command.env("JAIC_STDLIB", &stdlib).output().unwrap();
+                    // From the stdlib folder, jaic names its files relative to it.
+                    let output = command
+                        .env("JAIC_STDLIB", &stdlib)
+                        .current_dir(&stdlib)
+                        .output()
+                        .unwrap();
                     if !output.status.success() {
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         actual.lock().unwrap().insert(

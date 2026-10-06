@@ -21,7 +21,7 @@ An untyped float literal also prefers a `float32` overload over a `float64` one 
 Implicit conversion only goes to a type that holds the whole source range {#num.5}. Narrowing {#num.6}, and constants that don't fit {#num.7}, are errors:
 
 ```
-error: type mismatch: expected u8, found u16        // b: u8 = some_u16;
+error: type mismatch: expected `u8`, found `u16`        // b: u8 = some_u16;
 error: constant 300 does not fit in u8              // c: u8 = 300;
 ```
 

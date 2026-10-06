@@ -81,12 +81,12 @@ fn long_double_extension_on_wide_targets() {
         (
             "no_import",
             "main :: () { x: Long_Double; }\n",
-            "unknown identifier 'Long_Double'",
+            "unknown identifier `Long_Double`",
         ),
         (
             "unknown_name",
             "T :: #jaic_type quad_float;\nmain :: () { x: T; }\n",
-            "unknown jaic extension type 'quad_float'",
+            "unknown jaic extension type `quad_float`",
         ),
         (
             "no_name",
@@ -133,7 +133,7 @@ fn long_double_extension_on_wide_targets() {
         (
             "narrowing",
             "x: Long_Double = 7; f: float64 = x;",
-            "expected float64, found Long_Double",
+            "expected `float64`, found `Long_Double`",
         ),
         (
             "remainder",

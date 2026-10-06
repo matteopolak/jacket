@@ -245,7 +245,7 @@ pub const MAX_INSTANCES: usize = 2000;
 
 fn too_many_instances(name: Sym) -> String {
     format!(
-        "'{name}' has more than {MAX_INSTANCES} polymorphic instances (does it instantiate itself \
+        "`{name}` has more than {MAX_INSTANCES} polymorphic instances (does it instantiate itself \
          with ever new arguments?)"
     )
 }

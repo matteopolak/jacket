@@ -23,7 +23,7 @@ Each form above compiles and has the value it suggests {#decl.3}.
 - A struct body can hold constants and procedures (`Node.LIM`, `Node.read`) {#decl.5}. `TRUE : s32 : 1;` inside a struct is a constant member, so it is not in `type_info(Rec).members` or `size_of` {#decl.6}.
 - `x: int = ---;` leaves `x` uninitialised {#decl.7}; `a, b := 1, 2.5;` declares several at once {#decl.8}; struct fields with defaults (`v := 5;`) initialise on declaration {#decl.9}.
 - Assigning to a constant fails: `cannot assign to constant 3 of type s64` {#decl.10}.
-- A nested procedure sees constants, types and globals of its enclosing scope, not its locals {#decl.11}: `cannot access local 'local' of an enclosing procedure` {#decl.12}. It is a plain procedure, not a closure.
+- A nested procedure sees constants, types and globals of its enclosing scope, not its locals {#decl.11}: ``cannot access local `local` of an enclosing procedure`` {#decl.12}. It is a plain procedure, not a closure.
 - `#run` initialisers run at compile time {#decl.13}. Changes other compile-time code makes to a global do not reach the running program unless the global is `#no_reset` (`tests/stdlib/compile-time-globals-reset.jai`) {#decl.14}.
 - `a, b :: f();` binds every value of a multi-value constant, evaluated once per scope. `Compiler::multi_consts` is keyed by declaration and scope, so each macro expansion gets its own {#decl.15}. Naming more values than the expression has is an error (`3 names but 2 values`), while fewer names take the leading values {#decl.16}. `#run f()` keeps all of f's values {#decl.17}.
 - `#assert cond "message";` and `#assert(cond, "message");` run at compile time and report at the assertion {#decl.18}: `#assert failed: Rec must be 8 bytes` {#decl.19}.

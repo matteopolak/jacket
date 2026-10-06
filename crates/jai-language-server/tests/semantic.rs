@@ -299,9 +299,10 @@ fn type_error_in_an_unused_procedure_is_published() {
     assert!(found[0].message.contains("type mismatch"), "{found:?}");
     assert_eq!(
         found[0].range.start,
+        // The value that does not fit, not the start of the declaration.
         Position {
             line: 2,
-            character: 4
+            character: 13
         }
     );
     let fixed = TextChange {

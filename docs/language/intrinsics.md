@@ -13,7 +13,7 @@ compare_and_swap :: (pointer: *$T, old: T, new: T) -> (success: bool, old_value:
 
 ## How it works
 
-`emit_intrinsic` in `sema/calls.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`. Any other name is `error: unknown intrinsic 'frob'` {#intrin.2}.
+`emit_intrinsic` in `sema/calls.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`. Any other name is `` error: unknown intrinsic `frob` `` {#intrin.2}.
 
 A jaic extension: a bodiless procedure declared `#intrinsic "llvm.<name>"` calls the LLVM intrinsic of that name in native builds, with the procedure's signature as the intrinsic's type (`llvm_intrinsic` in `sema/procs.rs` makes it a foreign procedure whose symbol is the intrinsic's name; `crates/jaic-llvm` declares it without a wasm import). Immediate arguments must be constants at the call. The interpreter has no such intrinsics, so call these only from code that is compiled:
 

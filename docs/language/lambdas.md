@@ -22,7 +22,7 @@ twice(() { n += 1; }, 3)           // block body; n is a global
 
 The commented results are what jaic computes {#lambda.5}; the block-bodied `twice` call runs its body three times {#lambda.6}.
 
-Lambdas do not capture locals. Using one is `error: cannot access local 'n' of an enclosing procedure` {#lambda.7}; pass state through parameters, pointers or globals.
+Lambdas do not capture locals. Using one is ``error: cannot access local `n` of an enclosing procedure`` {#lambda.7}; pass state through parameters, pointers or globals.
 
 ## How to change it
 

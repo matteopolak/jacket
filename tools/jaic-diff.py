@@ -34,7 +34,7 @@ ALL_BACKENDS = ["interp", "native", "native-O2", "wasm", "wasm-native"]
 
 # The wasm engine says so when a program needs a host service the sandbox lacks: these mean
 # "cannot run here", never "ran differently". Source: SandboxHost in crates/jaic/src/interp.
-WASM_UNSUPPORTED = re.compile(r"foreign procedure '[^']*' is not available here|unknown library|"
+WASM_UNSUPPORTED = re.compile(r"foreign procedure [`'][^`']*[`'] is not available here|unknown library|"
                               r"is not supported on wasm|no browser backend")
 
 

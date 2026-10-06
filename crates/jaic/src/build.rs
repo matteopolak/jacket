@@ -387,7 +387,7 @@ impl Workspaces {
             "output_path" => s.output_path = value.into(),
             "output_type" => {
                 s.output_type = OutputType::parse(value)
-                    .ok_or_else(|| format!("unknown output_type '{value}'"))?
+                    .ok_or_else(|| format!("unknown output_type `{value}`"))?
             }
             "do_output" => s.do_output = flag(),
             "import_path_clear" => s.import_paths = Some(Vec::new()),
@@ -1019,10 +1019,12 @@ pub fn call(
             } else {
                 "warning"
             };
-            let rendered = format!("{location}{severity}: {}", message.trim_end());
             if is_error {
-                return Err(trap(rendered));
+                let mut t = trap(message.trim_end().to_string());
+                t.reported = Some(Box::new((file, line as u32, column as u32)));
+                return Err(t);
             }
+            let rendered = format!("{location}{severity}: {}", message.trim_end());
             (shared.borrow_mut().env.report)(&rendered);
             Ok(Vec::new())
         }

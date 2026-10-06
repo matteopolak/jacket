@@ -57,6 +57,7 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 How `crates/jaic`, the interpreter and the language server work.
 
 - [Compiler architecture](compiler/architecture.md)
+- [Diagnostics](compiler/diagnostics.md): error message style guide, rendering, runtime failures, exit statuses
 - [jaic `#asm` blocks](compiler/asm.md)
 - [Threads under `jaic run`](compiler/interpreter-threads.md)
 - [jaic interpreter](compiler/interpreter.md)

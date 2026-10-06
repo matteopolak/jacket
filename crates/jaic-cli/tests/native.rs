@@ -1621,7 +1621,7 @@ fn run_writes_workspace_output() {
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
-    assert!(!stderr.contains("was not written"), "{stderr}");
+    assert!(!stderr.contains("does not write"), "{stderr}");
     let exe = dir.join(if cfg!(windows) {
         "target-prog.exe"
     } else {

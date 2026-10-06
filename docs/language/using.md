@@ -14,7 +14,7 @@ Plain :: struct { using i: Inner; }
 p: Plain;   // p.n == 5, p.i.n == 5, Plain.K == 3
 ```
 
-`using #as` also lets the outer type convert implicitly to the embedded one, so a `Derived` passes where `Base` or `*Base` is expected {#using.3}. Without `#as`, passing `Plain` to `(i: Inner)` fails with `argument of type Plain does not match parameter type Inner` {#using.4}.
+`using #as` also lets the outer type convert implicitly to the embedded one, so a `Derived` passes where `Base` or `*Base` is expected {#using.3}. Without `#as`, passing `Plain` to `(i: Inner)` fails with ``argument of type `Plain` does not match parameter type `Inner` `` {#using.4}.
 
 ```jai
 Derived :: struct { using #as b: Base; y: int; }

@@ -14,7 +14,7 @@ So this program fails to compile, although `main` never touches `y` or `bad`:
 
 ```jai
 #import "Basic";
-y: int = "a";                  // error: type mismatch: expected s64, found string
+y: int = "a";                  // error: type mismatch: expected `s64`, found `string`
 bad :: () { x: int = "a"; }
 main :: () { print("hi\n"); }
 ```

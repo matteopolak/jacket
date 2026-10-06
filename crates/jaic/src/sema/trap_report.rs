@@ -72,6 +72,38 @@ impl Compiler {
             .map(|loc| self.statement_span(loc))
             .or(site)
             .unwrap_or(Span::NONE);
+        // A metaprogram's own report: its message, at the place it named when it named one;
+        // the line that reported it becomes a note.
+        if let Some((path, line, col)) = trap.reported.as_deref() {
+            let named = (!path.is_empty())
+                .then(|| self.file_by_path(path))
+                .flatten()
+                .map(|file| self.statement_span((file.0, *line, (*col).max(1))));
+            // The line of the program's own code that made the report (not the stdlib's).
+            let reporter = frames
+                .iter()
+                .find(|f| f.loc.is_some() && !is_library(f.loc))
+                .and_then(|f| f.loc)
+                .map(|loc| self.statement_span(loc))
+                .or(site)
+                .unwrap_or(span);
+            let primary = named.unwrap_or(reporter);
+            let mut d = Diagnostic::error(primary, message);
+            if named.is_some() && reporter != primary && Some(reporter) != site {
+                d = d.with_note(reporter, "reported by the metaprogram here");
+            } else if named.is_none() && !path.is_empty() {
+                d = d.with_note(Span::NONE, format!("reported for {path}:{line}:{col}"));
+            }
+            // (Not when the report is already inside the directive's own line.)
+            if let Some(site) = site
+                && !(site.file == primary.file
+                    && site.start <= primary.start
+                    && primary.end <= site.end)
+            {
+                d = d.with_note(site, "while running compile-time code started here");
+            }
+            return d;
+        }
         let mut d = Diagnostic::error(span, format!("{prefix}: {message}"));
         if let Some(condition) = condition.filter(|_| trap.message != "assertion failed") {
             d = d.with_label(format!("`{condition}` is false"));
@@ -201,14 +233,24 @@ impl Compiler {
     fn loc_suffix(&self, loc: Option<(u32, u32, u32)>) -> String {
         match loc {
             Some((file, line, _)) if (file as usize) < self.sources.len() => {
-                format!(" at {}:{line}", self.sources.get(FileId(file)).path)
+                let path = Path::new(&self.sources.get(FileId(file)).path);
+                format!(" at {}:{line}", crate::display_path(path))
             }
             _ => String::new(),
         }
     }
 
+    /// The loaded file at `path`, compared as given and as an absolute path.
+    fn file_by_path(&self, path: &str) -> Option<FileId> {
+        let wanted = std::path::absolute(path).ok();
+        (0..self.sources.len() as u32).map(FileId).find(|&id| {
+            let have = &self.sources.get(id).path;
+            have == path || wanted.as_deref().is_some_and(|w| Path::new(have) == w)
+        })
+    }
+
     /// The statement at `loc`: from its column to the end of that line (without a trailing
-    /// `;` or comment-free whitespace), so the carets cover what ran.
+    /// `;` or whitespace), so the carets cover what ran.
     fn statement_span(&self, (file, line, col): (u32, u32, u32)) -> Span {
         if file as usize >= self.sources.len() {
             return Span::NONE;

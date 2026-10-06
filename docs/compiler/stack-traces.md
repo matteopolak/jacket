@@ -34,8 +34,10 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   clears `Func.trace`, so the interpreter does not push a second node. Test: `stack_traces` in
   `crates/jaic-cli/tests/native.rs`.
 - `runtime_support_assertion_failed` (`stdlib/Runtime_Support.jai`) prints
-  `path:line,col: Assertion failed: message` then `Stack trace:` and one `path:line: name` per
-  node, in the official format.
+  `path:line:col: error: assertion failed: message` (`assertion failed` alone when there is
+  none), then `call stack (innermost first):` and one `name at path:line` per node, the same
+  layout `jaic run` uses for runtime errors (see [diagnostics](diagnostics.md)).
+  Its own frames (`runtime_support_assertion_failed`, `assert_helper`) are left out.
 
 ## How to change it
 

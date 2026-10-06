@@ -18,7 +18,7 @@ secret :: 1;         // this file only
 
 Declarations are exported by default {#scope.1}; after `#scope_module` they are visible to every file of the module but not to importers {#scope.2}; after `#scope_file` only to the declaring file {#scope.3}.
 
-`G.module_only()` from another module fails with `module 'Greeter' has no exported member 'module_only'`. A `#import` under `#scope_file` is visible only in that file {#scope.4}, but as a last resort a name unknown everywhere else is looked up in sibling files' file-scope imports (`lookup_sibling_file_imports`).
+`G.module_only()` from another module fails with `` module `Greeter` has no exported member `module_only` ``. A `#import` under `#scope_file` is visible only in that file {#scope.4}, but as a last resort a name unknown everywhere else is looked up in sibling files' file-scope imports (`lookup_sibling_file_imports`).
 
 `using`:
 

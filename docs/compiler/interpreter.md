@@ -6,7 +6,7 @@
 
 ## How it works
 
-`Interp::call` is the entry from the compiler; `exec` sets up a frame and `run_code` (`interp/code.rs`) runs the body. Procedure values are tagged addresses (`FUNC_TAG`). Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with `foreign procedure '...' is not available here` when called.
+`Interp::call` is the entry from the compiler; `exec` sets up a frame and `run_code` (`interp/code.rs`) runs the body. Procedure values are tagged addresses (`FUNC_TAG`). Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with ``foreign procedure `...` is not available here`` when called.
 
 `#compiler` procedures of the `Compiler` module are hooks (`Hook`, `run_hook`) handled by `MetaOp` in `build.rs`. `codes` mirrors the compiler's `Code` values so `compiler_get_nodes` can export them, and `made_codes` lists codes created by `compiler_get_code`; see [compiler records](../metaprogramming/compiler-records.md).
 

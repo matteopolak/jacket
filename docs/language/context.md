@@ -30,7 +30,7 @@ The example prints `depth=99` inside the `push_context` block and `depth=7` afte
 `has_context` in `sema/procs.rs` decides once per signature whether the hidden parameter exists: not for `#c_call`, `#no_context` or `#intrinsic` {#ctx.8}. Direct and indirect calls pass the active pointer {#ctx.13}. Using `context` in such a procedure is an error {#ctx.9}:
 
 ```
-'context' is not available here (procedure is #c_call or #no_context; use push_context)
+`context` is not available here (procedure is #c_call or #no_context; use push_context)
 ```
 
 A `#c_call` body can create one with `new_context: #Context; push_context new_context { ... }` {#ctx.10}.

@@ -267,7 +267,7 @@ impl Compiler {
         if lock && !matches!(op, XOp::CmpxchgPair(_)) {
             return err(
                 inst.mnemonic.span,
-                format!("'{name}' cannot take the lock_ prefix"),
+                format!("`{name}` cannot take the lock_ prefix"),
             );
         }
         let mut opds = Vec::with_capacity(inst.operands.len());
@@ -284,7 +284,7 @@ impl Compiler {
                 };
                 return err(
                     span,
-                    format!("'{name}' takes {expected} operand(s), found {n}"),
+                    format!("`{name}` takes {expected} operand(s), found {n}"),
                 );
             }
             Ok(())
@@ -296,7 +296,7 @@ impl Compiler {
                 if n == 2 {
                     // `div.b ax, src`: ax / src -> al (quotient), ah (remainder).
                     if sz != Ty::I8 {
-                        return err(span, format!("'{name}' takes 3 operands (hi, lo, divisor)"));
+                        return err(span, format!("`{name}` takes 3 operands (hi, lo, divisor)"));
                     }
                     let ax = self.asm_read(f, opds[0], Ty::I16, span)?;
                     let eight = konst(f, Ty::I16, 8);
@@ -602,7 +602,7 @@ impl Compiler {
             XOp::Hint => {
                 want(1, 1)?;
                 if !matches!(opds[0], Opd::Mem(_)) {
-                    return err(span, format!("'{name}' takes a memory operand"));
+                    return err(span, format!("`{name}` takes a memory operand"));
                 }
             }
             XOp::Direction(set) => {
@@ -612,7 +612,7 @@ impl Compiler {
             XOp::CmpxchgPair(half) => {
                 want(5, 5)?;
                 let Opd::Mem(addr) = opds[2] else {
-                    return err(span, format!("'{name}' compares a memory operand ([ptr])"));
+                    return err(span, format!("`{name}` compares a memory operand ([ptr])"));
                 };
                 self.asm_cmpxchg_pair(f, cx, half, addr, &opds, lock, span)?;
             }
@@ -640,7 +640,7 @@ impl Compiler {
             XOp::Stmxcsr | XOp::Ldmxcsr => {
                 want(1, 1)?;
                 if !matches!(opds[0], Opd::Mem(_)) {
-                    return err(span, format!("'{name}' takes a memory operand"));
+                    return err(span, format!("`{name}` takes a memory operand"));
                 }
                 if op == XOp::Stmxcsr {
                     let v = konst(f, Ty::I32, 0x1f80);
@@ -991,20 +991,20 @@ impl Compiler {
             } else {
                 ", c"
             };
-            return err(span, format!("'{name}' takes the operands {regs}{count}"));
+            return err(span, format!("`{name}` takes the operands {regs}{count}"));
         }
         let sz = match &inst.size {
             Some(_) => self.asm_size(f, cx, inst, &[])?,
             None => {
                 return err(
                     span,
-                    format!("'{name}' needs an element size (.b/.w/.d/.q)"),
+                    format!("`{name}` needs an element size (.b/.w/.d/.q)"),
                 );
             }
         };
         for &o in opds {
             if !matches!(o, Opd::Reg(_)) {
-                return err(span, format!("the operands of '{name}' must be registers"));
+                return err(span, format!("the operands of `{name}` must be registers"));
             }
         }
         let step = konst(

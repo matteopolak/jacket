@@ -318,7 +318,7 @@ impl<'a> Lexer<'a> {
                     .find(|(t, _)| rest.starts_with(t.as_bytes()))
                 else {
                     self.at += 1;
-                    return Err(self.err(start, &format!("unexpected character '{}'", c as char)));
+                    return Err(self.err(start, &format!("unexpected character `{}`", c as char)));
                 };
                 self.at += text.len();
                 self.push(Tok::Punct(p), start);

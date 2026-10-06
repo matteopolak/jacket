@@ -232,7 +232,7 @@ impl Compiler {
         let Some(current) = f.context else {
             return err(
                 span,
-                "',,' context arguments need a context (not in #c_call code)",
+                "`,,` context arguments need a context (not in #c_call code)",
             );
         };
         let ctx_ty = self.context_type(span)?;
@@ -240,7 +240,7 @@ impl Compiler {
         for o in overrides {
             let name = o.name.map_or_else(|| Sym::intern("allocator"), |n| n.name);
             let Some((path, fty)) = self.find_member(ctx_ty, name, o.value.span)? else {
-                return err(o.value.span, format!("Context has no member '{name}'"));
+                return err(o.value.span, format!("Context has no member `{name}`"));
             };
             let op = self.check_expr(f, scope, &o.value, Some(fty))?;
             let op = self.convert(f, op, fty, o.value.span)?;
@@ -338,9 +338,9 @@ impl Compiler {
         procs: &[ProcId],
         args: &[CallArg],
         span: Span,
-    ) -> (Vec<Candidate>, Vec<String>) {
+    ) -> (Vec<Candidate>, Vec<Diagnostic>) {
         let mut best: Vec<Candidate> = Vec::new();
-        let mut errors: Vec<String> = Vec::new();
+        let mut errors: Vec<Diagnostic> = Vec::new();
         for &proc in procs {
             match self.match_candidate(proc, args, span) {
                 Ok(c) => {
@@ -350,7 +350,7 @@ impl Compiler {
                         best.push(c);
                     }
                 }
-                Err(e) => errors.push(e.message.clone()),
+                Err(e) => errors.push(*e),
             }
         }
         (best, errors)
@@ -406,16 +406,17 @@ impl Compiler {
                 .map(|&p| self.proc(p).name.to_string())
                 .unwrap_or_default();
             if procs.len() == 1 {
-                return err(span, format!("in call to '{name}': {}", errors.join("; ")));
+                let error = errors.into_iter().next();
+                return Err(Box::new(self.call_mismatch(procs[0], &name, error, span)));
             }
             let mut d = Diagnostic::error(
                 span,
-                format!("no overload of '{name}' matches these arguments"),
+                format!("no overload of `{name}` matches these arguments"),
             );
             for (i, &p) in procs.iter().enumerate().take(8) {
                 d = d.with_note(
                     self.proc(p).span,
-                    errors.get(i).cloned().unwrap_or_default(),
+                    errors.get(i).map(|e| e.message.clone()).unwrap_or_default(),
                 );
             }
             return Err(Box::new(d));
@@ -434,6 +435,44 @@ impl Compiler {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args);
         }
         self.emit_call(f, scope, chosen, args, span)
+    }
+
+    /// Why the only candidate of a call does not accept its arguments: the problem at the
+    /// argument it concerns, and where the procedure is declared.
+    fn call_mismatch(
+        &self,
+        proc: ProcId,
+        name: &str,
+        error: Option<Diagnostic>,
+        span: Span,
+    ) -> Diagnostic {
+        let Some(error) = error else {
+            return Diagnostic::error(span, format!("in call to `{name}`"));
+        };
+        // A name that does not exist is the argument's own problem, not the call's.
+        if error.message.starts_with("unknown identifier") {
+            return error;
+        }
+        let inside = error.span.file == span.file
+            && error.span.start >= span.start
+            && error.span.end <= span.end
+            && error.span != Span::default();
+        let mut d = Diagnostic {
+            span: if inside {
+                error.span
+            } else {
+                span
+            },
+            message: format!("in call to `{name}`: {}", error.message),
+            ..error
+        };
+        let header = self.proc(proc).lit.header.span;
+        let overlaps =
+            header.file == span.file && header.start < span.end && span.start < header.end;
+        if header != Span::default() && header != Span::NONE && !overlaps {
+            d.notes.push((header, format!("`{name}` is declared here")));
+        }
+        d
     }
 
     /// Check whether `proc` accepts `args`, instantiating polymorphic procedures.
@@ -502,7 +541,15 @@ impl Compiler {
                 Slot::Default => {
                     if param.default.is_none() && !param.variadic {
                         let name = param.name.map(|n| n.to_string()).unwrap_or_default();
-                        return err(span, format!("missing argument for parameter '{name}'"));
+                        return Err(Box::new(
+                            Diagnostic::error(
+                                span,
+                                format!("missing argument for parameter `{name}`"),
+                            )
+                            .with_help(format!(
+                                "pass a value for `{name}`, or give the parameter a default value (`{name} := ...`)"
+                            )),
+                        ));
                     }
                 }
                 Slot::Arg(a) => cost += self.arg_cost(&args[*a], param.ty, is_macro)?,
@@ -969,14 +1016,18 @@ impl Compiler {
             return Ok(convert::LITERAL);
         }
         self.implicit_cost(from, untyped, param).ok_or_else(|| {
-            Box::new(Diagnostic::error(
+            let mut d = Diagnostic::error(
                 arg.span,
                 format!(
-                    "argument of type {} does not match parameter type {}",
+                    "argument of type `{}` does not match parameter type `{}`",
                     self.types.name(from),
                     self.types.name(param)
                 ),
-            ))
+            );
+            if let Some(help) = self.conversion_help(from, param) {
+                d = d.with_help(help);
+            }
+            Box::new(d)
         })
     }
 
@@ -1006,7 +1057,7 @@ impl Compiler {
                 (None, None) => return err(arg.span, "missing value"),
             };
             let Operand::Type(t) = op else {
-                return err(arg.span, format!("'${name}' must be given a type"));
+                return err(arg.span, format!("`${name}` must be given a type"));
             };
             bindings.push((name, Value::Type(t), TypeId::TYPE));
         }
@@ -1046,7 +1097,7 @@ impl Compiler {
                     }
                     return err(
                         span,
-                        format!("missing argument for baked parameter '{name}'"),
+                        format!("missing argument for baked parameter `{name}`"),
                     );
                 };
                 // `$c: Code` takes the argument expression itself, unevaluated.
@@ -1121,7 +1172,7 @@ impl Compiler {
                     _ => {
                         return err(
                             arg.span,
-                            format!("argument for '${name}' must be a compile-time constant"),
+                            format!("argument for `${name}` must be a compile-time constant"),
                         );
                     }
                 };
@@ -1362,7 +1413,7 @@ impl Compiler {
                         if !bindings.iter().any(|(n, _, _)| *n == name) {
                             return err(
                                 span,
-                                format!("could not infer polymorphic type '${name}'"),
+                                format!("could not infer polymorphic type `${name}`"),
                             );
                         }
                     }
@@ -1570,7 +1621,7 @@ impl Compiler {
                     return err(
                         span,
                         format!(
-                            "conflicting types for '${name}': {} and {}",
+                            "conflicting types for `${name}`: {} and {}",
                             existing.render(&c.types),
                             value.render(&c.types)
                         ),
@@ -1604,7 +1655,7 @@ impl Compiler {
                         Some(t) => bind(self, bindings, *name, Value::Type(t), TypeId::TYPE),
                         None => err(
                             span,
-                            format!("{} is not an instance of '{name}'", self.types.name(ty)),
+                            format!("{} is not an instance of `{name}`", self.types.name(ty)),
                         ),
                     }
                 }
@@ -1629,7 +1680,7 @@ impl Compiler {
                         _ => {
                             return err(
                                 span,
-                                format!("{} is not an instance of '{r}'", self.types.name(ty)),
+                                format!("{} is not an instance of `{r}`", self.types.name(ty)),
                             );
                         }
                     }
@@ -1646,7 +1697,7 @@ impl Compiler {
                     return err(
                         span,
                         format!(
-                            "{} does not satisfy the restriction '{}'",
+                            "{} does not satisfy the restriction `{}`",
                             self.types.name(ty),
                             self.types.name(want)
                         ),
@@ -1828,7 +1879,7 @@ impl Compiler {
         if must.iter().skip(used).any(|&m| m) {
             return err(
                 call_span,
-                format!("the result of '{name}' is marked #must and cannot be discarded"),
+                format!("the result of `{name}` is marked #must and cannot be discarded"),
             );
         }
         Ok(())
@@ -1861,7 +1912,7 @@ impl Compiler {
                 return err(
                     span,
                     format!(
-                        "cannot call '{}' without a context (use push_context in #c_call code)",
+                        "cannot call `{}` without a context (use push_context in #c_call code)",
                         self.proc(proc).name
                     ),
                 );
@@ -2098,7 +2149,7 @@ impl Compiler {
                     .ok_or_else(|| {
                         Box::new(Diagnostic::error(
                             arg.span,
-                            format!("no parameter named '{name}'"),
+                            format!("no parameter named `{name}`"),
                         ))
                     })?,
                 None => {
@@ -2255,7 +2306,7 @@ impl Compiler {
             "abs" | "fabs" => ir::Intrinsic::Fabs,
             "rdtsc" | "get_cpu_cycle_count" => ir::Intrinsic::CycleCounter,
             "pause" | "mm_pause" => ir::Intrinsic::Pause,
-            other => return err(span, format!("unknown intrinsic '{other}'")),
+            other => return err(span, format!("unknown intrinsic `{other}`")),
         };
         let returns: Vec<Ty> = sig
             .returns
@@ -3369,10 +3420,32 @@ fn assign_slots(
                 .iter()
                 .position(|p| p.name.map(|n| n.name) == Some(name))
             else {
-                return err(arg.span, format!("no parameter named '{name}'"));
+                let names: Vec<&str> = params
+                    .iter()
+                    .filter_map(|p| p.name.map(|n| n.name.as_str()))
+                    .collect();
+                let help = match crate::suggest::closest(name.as_str(), names.iter().copied()) {
+                    Some(near) => format!("did you mean `{near}`?"),
+                    None if names.is_empty() => "this procedure has no named parameters".into(),
+                    None => format!(
+                        "its parameters are {}",
+                        names
+                            .iter()
+                            .map(|n| format!("`{n}`"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                };
+                return Err(Box::new(
+                    Diagnostic::error(arg.span, format!("no parameter named `{name}`"))
+                        .with_help(help),
+                ));
             };
             if slots[p].is_some() {
-                return err(arg.span, format!("parameter '{name}' given twice"));
+                return Err(Box::new(
+                    Diagnostic::error(arg.span, format!("parameter `{name}` given twice"))
+                        .with_help("remove one of the two arguments"),
+                ));
             }
             slots[p] = Some(if arg.spread {
                 Slot::Spread(i)
@@ -3397,10 +3470,13 @@ fn assign_slots(
             positional += 1;
         }
         if positional >= params.len() {
-            return err(
-                arg.span,
-                format!("too many arguments (expected at most {})", params.len()),
-            );
+            return Err(Box::new(
+                Diagnostic::error(
+                    arg.span,
+                    format!("too many arguments: it takes at most {}", params.len()),
+                )
+                .with_label("this argument has no parameter"),
+            ));
         }
         if Some(positional) == variadic_index {
             if arg.spread {

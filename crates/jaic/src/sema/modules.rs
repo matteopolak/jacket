@@ -219,12 +219,53 @@ impl Compiler {
             ),
         );
         if near_found {
-            d
-        } else {
-            d.with_help(
-                "a module of your own goes in a `modules` folder next to the main file, or in a directory passed with `-import_dir`",
-            )
+            return d;
         }
+        // The module may be nearby, in a folder jaic does not search.
+        if let Some(found) = self.module_nearby(name, from_dir) {
+            let shown = crate::display_path(&found);
+            let shown = if shown.is_empty() {
+                ".".to_string()
+            } else {
+                shown
+            };
+            return d.with_help(format!(
+                "a module `{name}` exists in `{shown}`, which is not searched: pass `-import_dir {shown}`, or move it into a `modules` folder next to the main file"
+            ));
+        }
+        d.with_help(
+            "a module of your own goes in a `modules` folder next to the main file, or in a directory passed with `-import_dir`",
+        )
+    }
+
+    /// A directory near `from_dir` (it, its parents up to three levels, and their immediate
+    /// subdirectories) that holds the module `name`.
+    fn module_nearby(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
+        let holds = |dir: &Path| {
+            self.fs.is_file(&dir.join(format!("{name}.jai")))
+                || self.fs.is_file(&dir.join(name).join("module.jai"))
+        };
+        let start = self.fs.canonical(from_dir);
+        for ancestor in start.ancestors().take(4) {
+            if holds(ancestor) {
+                return Some(ancestor.to_path_buf());
+            }
+            let mut subdirs: Vec<String> = self
+                .fs
+                .list_dir(ancestor)
+                .into_iter()
+                .filter(|(n, is_dir)| *is_dir && !n.starts_with('.') && n != "node_modules")
+                .map(|(n, _)| n)
+                .collect();
+            subdirs.sort();
+            for sub in subdirs {
+                let dir = ancestor.join(sub);
+                if holds(&dir) {
+                    return Some(dir);
+                }
+            }
+        }
+        None
     }
 
     /// `#load` (or another read) of a file that is not there, with a close name if one is.
@@ -470,7 +511,7 @@ impl Compiler {
                     return err(
                         span,
                         format!(
-                            "module parameter '{name}' is set here after the module already used another value"
+                            "module parameter `{name}` is set here after the module already used another value"
                         ),
                     );
                 }

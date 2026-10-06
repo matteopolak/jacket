@@ -21,7 +21,7 @@ impl Compiler {
                 let e = self.entity(id);
                 return err(
                     e.span,
-                    format!("circular dependency while resolving '{}'", e.name),
+                    format!("circular dependency while resolving `{}`", e.name),
                 );
             }
             EntityState::Failed(e) => return Err(e.clone()),
@@ -65,14 +65,14 @@ impl Compiler {
                 ..
             } => err(
                 span,
-                format!("internal: local '{name}' resolved as a declaration"),
+                format!("internal: local `{name}` resolved as a declaration"),
             ),
             EntityKind::Placeholder => {
                 // Top-level items that needed it wait for the metaprogram to define it.
                 self.placeholder_misses += 1;
                 err(
                     span,
-                    format!("'{name}' is a #placeholder that was never defined"),
+                    format!("`{name}` is a #placeholder that was never defined"),
                 )
             }
             EntityKind::Import(import) => {
@@ -87,7 +87,7 @@ impl Compiler {
             // finds, so a builtin proc is an answer they skip, not an invariant violation.
             EntityKind::Builtin(Builtin::Proc(_)) => err(
                 span,
-                format!("'{name}' is a builtin procedure without a declaration"),
+                format!("`{name}` is a builtin procedure without a declaration"),
             ),
             EntityKind::Builtin(Builtin::TargetConstant(sym)) => self.target_constant(sym, span),
             EntityKind::Decl {
@@ -140,7 +140,7 @@ impl Compiler {
             _ => unreachable!(),
         };
         let Some(preload) = self.preload else {
-            return err(span, format!("'{sym}' requires Preload"));
+            return err(span, format!("`{sym}` requires Preload"));
         };
         let ids = self.module_declarations(preload, Sym::intern(enum_name))?;
         let Some(&enum_entity) = ids.first() else {

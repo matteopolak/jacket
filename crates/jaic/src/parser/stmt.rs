@@ -55,7 +55,7 @@ impl Parser<'_> {
         let mut stmts = Vec::new();
         while !self.at(P::RBrace) {
             if self.at_eof() {
-                return Err(self.expected("'}'", "to close the block"));
+                return Err(self.expected("`}`", "to close the block"));
             }
             stmts.push(self.parse_stmt()?);
         }
@@ -108,7 +108,7 @@ impl Parser<'_> {
             Some("defer") => self.parse_defer(backtick),
             Some("using") => self.parse_using(),
             Some("push_context") => self.parse_push_context(),
-            Some("case") => Err(self.error("'case' outside of a switch")),
+            Some("case") => Err(self.error("`case` outside of a switch")),
             _ => self.parse_terminated_simple(),
         }
     }
@@ -128,7 +128,7 @@ impl Parser<'_> {
         if self.eat(P::Semi) || self.ends_block() || (self.at_prev(P::Semi) && self.at(P::RBrace)) {
             return Ok(());
         }
-        Err(self.expected("';'", context))
+        Err(self.expected("`;`", context))
     }
 
     /// True if the previous token closed a brace body or a here-string: no `;` is needed.
@@ -361,7 +361,7 @@ impl Parser<'_> {
     pub(super) fn parse_case(&mut self) -> PResult<Case> {
         let start = self.span();
         if !self.eat_kw("case") {
-            return Err(self.expected("'case'", "in switch body"));
+            return Err(self.expected("`case`", "in switch body"));
         }
         let mut values = Vec::new();
         while !matches!(self.tok(), Tok::Punct(P::Semi | P::Colon | P::LBrace)) {
@@ -371,17 +371,17 @@ impl Parser<'_> {
             }
         }
         if !(self.eat(P::Semi) || self.eat(P::Colon) || self.at(P::LBrace)) {
-            return Err(self.expected("';'", "after the case values"));
+            return Err(self.expected("`;`", "after the case values"));
         }
         let mut body = Vec::new();
         let mut through = false;
         while !self.at(P::RBrace) && !self.at_kw("case") {
             if self.at_eof() {
-                return Err(self.expected("'}'", "to end the switch body"));
+                return Err(self.expected("`}`", "to end the switch body"));
             }
             if self.at_directive("through") {
                 self.bump();
-                self.end_stmt("after '#through'")?;
+                self.end_stmt("after `#through`")?;
                 through = true;
                 break;
             }
@@ -570,7 +570,7 @@ impl Parser<'_> {
                 break;
             }
         }
-        self.end_stmt("after 'return'")?;
+        self.end_stmt("after `return`")?;
         Ok(stmt(
             StmtKind::Return {
                 values,
@@ -644,7 +644,7 @@ impl Parser<'_> {
         // `using,only(a, b) #import "M";` imports just those names.
         if self.at_directive("import") {
             let mut import = self.parse_import(None, start)?;
-            self.end_stmt("after '#import'")?;
+            self.end_stmt("after `#import`")?;
             if let StmtKind::Import(i) = &mut import.kind
                 && let Some(i) = Rc::get_mut(i)
             {
@@ -653,7 +653,7 @@ impl Parser<'_> {
             return Ok(import);
         }
         let value = self.parse_expr()?;
-        self.end_stmt("after 'using'")?;
+        self.end_stmt("after `using`")?;
         Ok(stmt(
             StmtKind::Using {
                 value,

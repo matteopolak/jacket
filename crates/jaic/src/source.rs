@@ -144,7 +144,7 @@ pub struct Diagnostic {
     pub help: Vec<String>,
     /// The fix the first help line describes: replace this span with this text. Shown as the
     /// changed line under the help, outside the plain layout.
-    pub fix: Option<(Span, String)>,
+    pub fix: Option<Box<(Span, String)>>,
 }
 
 impl Diagnostic {
@@ -191,7 +191,7 @@ impl Diagnostic {
         replacement: impl Into<String>,
     ) -> Self {
         self.help.insert(0, message.into());
-        self.fix = Some((span, replacement.into()));
+        self.fix = Some(Box::new((span, replacement.into())));
         self
     }
 
@@ -233,7 +233,7 @@ impl Diagnostic {
         for (i, help) in self.help.iter().enumerate() {
             let fix = self
                 .fix
-                .as_ref()
+                .as_deref()
                 .filter(|_| i == 0)
                 .and_then(|(span, text)| {
                     has_location(sources, *span).then(|| Fix {

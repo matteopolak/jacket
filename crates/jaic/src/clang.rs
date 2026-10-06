@@ -1017,7 +1017,7 @@ pub fn call(op: &str, a: i64, b: i64, text: &[u8]) -> Result<i64, String> {
                 s.type_id(t)
             }
             "t_num_template_args" => unsafe { (api.num_template_args)(s.ty(a)) as i64 },
-            other => return Err(format!("unknown clang operation '{other}'")),
+            other => return Err(format!("unknown clang operation `{other}`")),
         };
         let _ = b;
         Ok(r)

@@ -429,7 +429,7 @@ impl Renderer {
             };
             let (line, col) = line_col(label.text, label.start);
             let head = self.header(severity, None, message);
-            let location = format!("{}:{line}:{col}: ", label.path);
+            let location = format!("{}:{line}:{col}: ", shown(label.path));
             self.line(&format!("{location}{head}"));
             let (start, end) = line_range(label.text, line).unwrap_or((0, 0));
             let source = &label.text[start..end];
@@ -489,6 +489,7 @@ impl Renderer {
                 .collect();
             let (first, _) = in_file[0];
             let (line, col) = line_col(first.text, first.start);
+            let path = shown(path);
             if self.plain || g.close.is_empty() {
                 let arrow = if i == 0 {
                     g.open
@@ -919,3 +920,9 @@ pub fn changed_lines(text: &str, edits: &[(usize, usize, String)]) -> Vec<(Strin
 
 #[cfg(test)]
 mod tests;
+
+/// A file name as the user sees it: relative to where the command started
+/// (`crate::set_display_base`), when that is near.
+fn shown(path: &str) -> String {
+    crate::display_path(std::path::Path::new(path))
+}

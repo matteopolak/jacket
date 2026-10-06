@@ -163,12 +163,12 @@ impl Parser<'_> {
     fn parse_cast(&mut self) -> PResult<Expr> {
         let start = self.bump();
         let flags = self.parse_cast_flags();
-        self.expect(P::LParen, "after 'cast'")?;
+        self.expect(P::LParen, "after `cast`")?;
         let ty = self.parse_expr()?;
         // Newer syntax: `cast(T, value)`.
         if self.eat(P::Comma) {
             let value = self.parse_expr()?;
-            let end = self.expect(P::RParen, "after the value in 'cast'")?;
+            let end = self.expect(P::RParen, "after the value in `cast`")?;
             let span = start.to(end);
             let cast = mk(
                 ExprKind::Cast {
@@ -180,7 +180,7 @@ impl Parser<'_> {
             );
             return self.postfix_loop(cast, true);
         }
-        self.expect(P::RParen, "after the type in 'cast'")?;
+        self.expect(P::RParen, "after the type in `cast`")?;
         let value = self.parse_cast_value()?;
         let span = start.to(value.span);
         Ok(mk(
@@ -297,7 +297,7 @@ impl Parser<'_> {
                             _ => flags.truncate = true,
                         }
                     }
-                    let end = self.expect(P::RParen, "after the type in '.(T)'")?;
+                    let end = self.expect(P::RParen, "after the type in `.(T)`")?;
                     let kind = ExprKind::Cast {
                         ty: Some(Box::new(ty)),
                         value: Box::new(expr),
@@ -310,7 +310,7 @@ impl Parser<'_> {
                     let member = if self.operator_name_follows() {
                         self.parse_operator_name()?
                     } else {
-                        self.ident("after '.'")?
+                        self.ident("after `.`")?
                     };
                     expr = mk(
                         ExprKind::Member(Box::new(expr), member),
@@ -559,7 +559,7 @@ impl Parser<'_> {
             }
             P::Dot => {
                 self.bump();
-                let member = self.ident("after '.'")?;
+                let member = self.ident("after `.`")?;
                 Ok(mk(ExprKind::InferredMember(member), span.to(member.span)))
             }
             P::LBrace if self.brace_is_struct_literal() => {
@@ -574,7 +574,16 @@ impl Parser<'_> {
                 ))
             }
             P::LBrace => {
-                let block = self.parse_block()?;
+                // `f({1, 2})`: a block where a value was meant reads as a broken statement.
+                let block = self.parse_block().map_err(|mut e| {
+                    if e.help.is_empty() {
+                        e.help.push(
+                            "a struct or array literal in an expression starts with a dot: `.{1, 2}` or `Type.{1, 2}`; `{ }` alone is a block of statements"
+                                .into(),
+                        );
+                    }
+                    e
+                })?;
                 let span = block.span;
                 Ok(mk(ExprKind::Block(block), span))
             }
@@ -709,7 +718,7 @@ impl Parser<'_> {
         let start = self.span();
         let baked = self.at(P::DollarDollar);
         self.bump();
-        let name = self.ident("after '$'")?;
+        let name = self.ident("after `$`")?;
         let mut end = name.span;
         if self.at(P::Slash) {
             self.bump();
