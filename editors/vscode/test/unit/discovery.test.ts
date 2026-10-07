@@ -51,6 +51,9 @@ describe("binary discovery", () => {
       path: "/storage/toolchain/0.3.0/jaic-linux-x64/jailsp",
       source: "toolchain",
     });
+    // Releases after 0.4.0 unpack to jai-<platform>.
+    const newer = machine(["/storage/toolchain/0.4.1/jai-linux-x64/jailsp"]);
+    assert.equal(findServer({}, newer, "/storage/toolchain/0.4.1/jai-linux-x64")?.path, "/storage/toolchain/0.4.1/jai-linux-x64/jailsp");
     const both = machine(["/usr/bin/jailsp", "/storage/t/jailsp"]);
     assert.equal(findServer({}, both, "/storage/t")?.source, "path");
   });

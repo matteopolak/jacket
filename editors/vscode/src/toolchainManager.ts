@@ -25,6 +25,7 @@ export interface Installed {
 
 export class ToolchainManager {
   readonly version: string;
+  /** This version's archive; undefined on a platform without prebuilt releases. */
   readonly asset: string | undefined;
   readonly store: ToolchainStore;
   private downloading: Promise<Installed | undefined> | undefined;
@@ -34,7 +35,7 @@ export class ToolchainManager {
     private readonly log: vscode.LogOutputChannel,
   ) {
     this.version = context.extension.packageJSON.version as string;
-    this.asset = assetFor(process.platform, process.arch);
+    this.asset = assetFor(process.platform, process.arch, this.version);
     this.store = new ToolchainStore(context.globalStorageUri.fsPath);
   }
 
@@ -58,9 +59,11 @@ export class ToolchainManager {
     if (this.store.isInstalled(this.version, this.asset)) {
       return { version: this.version, dir: this.store.binDir(this.version, this.asset) };
     }
+    // Each version's own archive name: one downloaded by an older extension unpacked as jaic-*.
     for (const version of await this.store.installedVersions()) {
-      if (this.store.isInstalled(version, this.asset)) {
-        return { version, dir: this.store.binDir(version, this.asset) };
+      const asset = assetFor(process.platform, process.arch, version);
+      if (asset && this.store.isInstalled(version, asset)) {
+        return { version, dir: this.store.binDir(version, asset) };
       }
     }
     return undefined;

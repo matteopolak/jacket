@@ -517,7 +517,7 @@ impl Compiler {
                         Operand::Type(_) => TypeId::TYPE,
                         Operand::Void => {
                             let value = decl.value.as_ref().map_or(span, |v| v.span);
-                            let text = self.sources.snippet_or_empty(value).trim();
+                            let text = self.sources.snippet(value).trim();
                             let shown = if text.is_empty() || text.contains('\n') || text.len() > 60
                             {
                                 "this expression".to_string()

@@ -18,11 +18,11 @@ class Jai < Formula
     depends_on arch: :arm64
 
     on_arm do
-      url "@BASE_URL@/jaic-macos-arm64.tar.gz"
+      url "@BASE_URL@/@ARCHIVE_PREFIX@-macos-arm64.tar.gz"
       sha256 "@SHA256_MACOS_ARM64@"
     end
     on_intel do
-      url "@BASE_URL@/jaic-macos-arm64.tar.gz"
+      url "@BASE_URL@/@ARCHIVE_PREFIX@-macos-arm64.tar.gz"
       sha256 "@SHA256_MACOS_ARM64@"
     end
   end
@@ -31,11 +31,11 @@ class Jai < Formula
     depends_on arch: :x86_64
 
     on_arm do
-      url "@BASE_URL@/jaic-linux-x64.tar.gz"
+      url "@BASE_URL@/@ARCHIVE_PREFIX@-linux-x64.tar.gz"
       sha256 "@SHA256_LINUX_X64@"
     end
     on_intel do
-      url "@BASE_URL@/jaic-linux-x64.tar.gz"
+      url "@BASE_URL@/@ARCHIVE_PREFIX@-linux-x64.tar.gz"
       sha256 "@SHA256_LINUX_X64@"
     end
   end

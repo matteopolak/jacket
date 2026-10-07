@@ -8,13 +8,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import render_packages
 
 SUMS = "\n".join([
-    f"{'a' * 64}  jaic-linux-x64.tar.gz",
-    f"{'b' * 64}  jaic-macos-arm64.tar.gz",
-    f"{'c' * 64} *jaic-windows-arm64.zip",
-    f"{'D' * 64}  jaic-windows-x64.zip",
+    f"{'a' * 64}  jai-linux-x64.tar.gz",
+    f"{'b' * 64}  jai-macos-arm64.tar.gz",
+    f"{'c' * 64} *jai-windows-arm64.zip",
+    f"{'D' * 64}  jai-windows-x64.zip",
     f"{'e' * 64}  jai-vscode-1.2.3.vsix",
     "",
 ])
+# 0.4.0 and earlier named their archives jaic-<platform>.
+OLD_SUMS = SUMS.replace("  jai-", "  jaic-").replace(" *jai-", " *jaic-").replace("jaic-vscode", "jai-vscode")
 
 
 class RenderTests(unittest.TestCase):
@@ -28,7 +30,7 @@ class RenderTests(unittest.TestCase):
         _, files = self.render()
         formula = files["homebrew/jai.rb"]
         self.assertIn("for release v1.2.3.", formula)
-        self.assertIn('url "https://github.com/matteopolak/jai/releases/download/v1.2.3/jaic-macos-arm64.tar.gz"',
+        self.assertIn('url "https://github.com/matteopolak/jai/releases/download/v1.2.3/jai-macos-arm64.tar.gz"',
                       formula)
         self.assertIn(f'sha256 "{"b" * 64}"', formula)
         self.assertIn(f'sha256 "{"a" * 64}"', formula)
@@ -45,8 +47,9 @@ class RenderTests(unittest.TestCase):
         self.assertIn(f"InstallerSha256: {'D' * 64}", installer)
         self.assertIn(f"InstallerSha256: {'C' * 64}", installer)
         self.assertIn("ReleaseDate: 2026-10-07", installer)
-        self.assertIn("InstallerUrl: https://github.com/matteopolak/jai/releases/download/v1.2.3/jaic-windows-x64.zip",
+        self.assertIn("InstallerUrl: https://github.com/matteopolak/jai/releases/download/v1.2.3/jai-windows-x64.zip",
                       installer)
+        self.assertIn("RelativeFilePath: jai-windows-arm64\\jaifmt.exe", installer)
         for text in files.values():
             self.assertIsNone(re.search(r"@[A-Z0-9_]+@", text))
             if "PackageIdentifier" in text:
@@ -64,8 +67,29 @@ class RenderTests(unittest.TestCase):
 
     def test_missing_asset_is_an_error(self):
         sums = "\n".join(line for line in SUMS.splitlines() if "windows-arm64" not in line)
-        with self.assertRaisesRegex(ValueError, "jaic-windows-arm64.zip"):
+        with self.assertRaisesRegex(ValueError, "jai-windows-arm64.zip"):
             self.render(sums)
+
+    def test_releases_up_to_0_4_0_keep_their_jaic_archive_names(self):
+        _, files = self.render(OLD_SUMS, version="0.4.0")
+        self.assertIn('url "https://github.com/matteopolak/jai/releases/download/v0.4.0/jaic-linux-x64.tar.gz"',
+                      files["homebrew/jai.rb"])
+        installer = files["winget/manifests/m/matteopolak/jai/0.4.0/matteopolak.jai.installer.yaml"]
+        self.assertIn("RelativeFilePath: jaic-windows-x64\\jaic.exe", installer)
+        self.assertIn("/v0.4.0/jaic-windows-arm64.zip", installer)
+        self.assertNotIn("/jai-windows", installer)
+        with self.assertRaisesRegex(ValueError, "jaic-windows-arm64.zip"):
+            self.render("\n".join(line for line in OLD_SUMS.splitlines() if "windows-arm64" not in line),
+                        version="0.3.0")
+
+    def test_the_prefix_follows_the_archives_present(self):
+        # A dry run of release.yml builds jai-* archives while Cargo.toml still says 0.4.0.
+        self.assertIn("/v0.4.0/jai-macos-arm64.tar.gz", self.render(SUMS, version="0.4.0")[1]["homebrew/jai.rb"])
+        self.assertEqual(render_packages.expected_prefix("0.4.0"), "jaic")
+        self.assertEqual(render_packages.expected_prefix("0.3.9"), "jaic")
+        self.assertEqual(render_packages.expected_prefix("0.4.1"), "jai")
+        self.assertEqual(render_packages.expected_prefix("0.4.1-rc.1"), "jai")
+        self.assertEqual(render_packages.expected_prefix("1.0.0"), "jai")
 
     def test_malformed_input_is_an_error(self):
         with self.assertRaisesRegex(ValueError, "line 1"):
@@ -83,11 +107,12 @@ class RenderTests(unittest.TestCase):
 
     def test_archives_are_hashed_like_sha256sum(self):
         with tempfile.TemporaryDirectory() as tmp:
-            for name in render_packages.ASSETS.values():
+            names = [f"jai-{asset}" for asset in render_packages.PLATFORM_ASSETS.values()]
+            for name in names:
                 (Path(tmp) / name).write_bytes(b"")
             sums = render_packages.hash_archives(tmp)
         empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        self.assertEqual(sums, {name: empty for name in render_packages.ASSETS.values()})
+        self.assertEqual(sums, {name: empty for name in names})
 
 
 if __name__ == "__main__":

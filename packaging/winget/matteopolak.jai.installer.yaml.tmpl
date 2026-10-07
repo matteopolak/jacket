@@ -14,27 +14,27 @@ ReleaseDate: @RELEASE_DATE@
 Installers:
 - Architecture: x64
   NestedInstallerFiles:
-  - RelativeFilePath: jaic-windows-x64\jaic.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-x64\jaic.exe
     PortableCommandAlias: jaic
-  - RelativeFilePath: jaic-windows-x64\jailsp.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-x64\jailsp.exe
     PortableCommandAlias: jailsp
-  - RelativeFilePath: jaic-windows-x64\jailint.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-x64\jailint.exe
     PortableCommandAlias: jailint
-  - RelativeFilePath: jaic-windows-x64\jaifmt.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-x64\jaifmt.exe
     PortableCommandAlias: jaifmt
-  InstallerUrl: @BASE_URL@/jaic-windows-x64.zip
+  InstallerUrl: @BASE_URL@/@ARCHIVE_PREFIX@-windows-x64.zip
   InstallerSha256: @SHA256_WINDOWS_X64@
 - Architecture: arm64
   NestedInstallerFiles:
-  - RelativeFilePath: jaic-windows-arm64\jaic.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-arm64\jaic.exe
     PortableCommandAlias: jaic
-  - RelativeFilePath: jaic-windows-arm64\jailsp.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-arm64\jailsp.exe
     PortableCommandAlias: jailsp
-  - RelativeFilePath: jaic-windows-arm64\jailint.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-arm64\jailint.exe
     PortableCommandAlias: jailint
-  - RelativeFilePath: jaic-windows-arm64\jaifmt.exe
+  - RelativeFilePath: @ARCHIVE_PREFIX@-windows-arm64\jaifmt.exe
     PortableCommandAlias: jaifmt
-  InstallerUrl: @BASE_URL@/jaic-windows-arm64.zip
+  InstallerUrl: @BASE_URL@/@ARCHIVE_PREFIX@-windows-arm64.zip
   InstallerSha256: @SHA256_WINDOWS_ARM64@
 ManifestType: installer
 ManifestVersion: 1.12.0

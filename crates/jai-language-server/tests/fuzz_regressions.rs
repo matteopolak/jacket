@@ -86,3 +86,23 @@ fn definition_of_a_builtin_constant() {
     let found = session.definition(&uri, position);
     assert!(found.as_ref().is_ok_and(Vec::is_empty), "{found:?}");
 }
+
+#[test]
+fn every_location_query_on_a_builtin_constant() {
+    // The same `Span::NONE` reached every query that turns declaration spans into locations or
+    // reads their text; each now leaves out what has no file.
+    let (session, uri) = open_checked("#if OS == .LINUX {\n}\nmain :: () { x := OS; }\n");
+    for (line, character) in [(0, 4), (2, 18)] {
+        let position = Position {
+            line,
+            character,
+        };
+        let _ = session.hover(&uri, position);
+        let _ = session.definition(&uri, position);
+        let _ = session.type_definition(&uri, position);
+        let _ = session.references(&uri, position, true);
+        let _ = session.document_highlights(&uri, position);
+        let _ = session.prepare_rename(&uri, position);
+        let _ = session.rename(&uri, position, "y");
+    }
+}

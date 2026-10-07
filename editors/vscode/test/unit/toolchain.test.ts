@@ -9,6 +9,7 @@ import {
   RELEASE_ASSETS,
   ToolchainError,
   ToolchainStore,
+  archivePrefix,
   archiveRoot,
   assetFor,
   compareVersions,
@@ -28,16 +29,26 @@ const offline: Fetch = async () => {
 
 describe("platform to release archive", () => {
   it("maps each released platform", () => {
-    assert.equal(assetFor("darwin", "arm64"), "jaic-macos-arm64.tar.gz");
-    assert.equal(assetFor("linux", "x64"), "jaic-linux-x64.tar.gz");
-    assert.equal(assetFor("win32", "x64"), "jaic-windows-x64.zip");
-    assert.equal(assetFor("win32", "arm64"), "jaic-windows-arm64.zip");
+    assert.equal(assetFor("darwin", "arm64", "0.4.1"), "jai-macos-arm64.tar.gz");
+    assert.equal(assetFor("linux", "x64", "0.4.1"), "jai-linux-x64.tar.gz");
+    assert.equal(assetFor("win32", "x64", "0.5.0"), "jai-windows-x64.zip");
+    assert.equal(assetFor("win32", "arm64", "1.0.0"), "jai-windows-arm64.zip");
+  });
+
+  it("keeps the jaic- names of releases up to 0.4.0", () => {
+    assert.equal(assetFor("darwin", "arm64", "0.4.0"), "jaic-macos-arm64.tar.gz");
+    assert.equal(assetFor("linux", "x64", "0.3.0"), "jaic-linux-x64.tar.gz");
+    assert.equal(assetFor("win32", "arm64", "0.4.0"), "jaic-windows-arm64.zip");
+    assert.equal(archivePrefix("0.4.0"), "jaic");
+    assert.equal(archivePrefix("0.4.1"), "jai");
+    assert.equal(archivePrefix("0.4.1-rc.1"), "jai");
+    assert.equal(archivePrefix("0.10.0"), "jai");
   });
 
   it("has no archive for Intel Macs, Linux arm64 or other systems", () => {
-    assert.equal(assetFor("darwin", "x64"), undefined);
-    assert.equal(assetFor("linux", "arm64"), undefined);
-    assert.equal(assetFor("freebsd", "x64"), undefined);
+    assert.equal(assetFor("darwin", "x64", "0.4.1"), undefined);
+    assert.equal(assetFor("linux", "arm64", "0.4.1"), undefined);
+    assert.equal(assetFor("freebsd", "x64", "0.4.0"), undefined);
     assert.match(unsupportedMessage("darwin", "x64"), /no prebuilt Jai toolchain for Intel Macs/);
     assert.match(unsupportedMessage("darwin", "x64"), /jai\.server\.path/);
   });
@@ -47,12 +58,13 @@ describe("platform to release archive", () => {
     const matrix = workflow.slice(workflow.indexOf("include:"), workflow.indexOf("runs-on:"));
     const built = [...matrix.matchAll(/- name: ([a-z0-9-]+)/g)].map((m) => m[1]);
     assert.ok(built.length >= 4, `found ${built.join(", ")}`);
+    assert.match(workflow, /dir="jai-\$\{\{ matrix\.name \}\}"/, "release.yml packages jai-<platform>");
     for (const name of built) {
-      const asset = `jaic-${name}.${name.startsWith("windows") ? "zip" : "tar.gz"}`;
+      const asset = `${name}.${name.startsWith("windows") ? "zip" : "tar.gz"}`;
       assert.ok(Object.values(RELEASE_ASSETS).includes(asset), `release.yml builds ${asset}; add it to RELEASE_ASSETS`);
     }
     for (const asset of Object.values(RELEASE_ASSETS)) {
-      assert.ok(built.includes(archiveRoot(asset).replace(/^jaic-/, "")), `${asset} is not built by release.yml`);
+      assert.ok(built.includes(archiveRoot(asset)), `${asset} is not built by release.yml`);
     }
   });
 
@@ -84,8 +96,9 @@ describe("checksums", () => {
   it("the committed pins name only released archives", () => {
     const pins = JSON.parse(readFileSync(path.join(__dirname, "..", "..", "..", "toolchain-checksums.json"), "utf8"));
     assert.match(pins.version, /^\d+\.\d+\.\d+/);
+    const released = Object.values(RELEASE_ASSETS).map((asset) => `${archivePrefix(pins.version)}-${asset}`);
     for (const [asset, sum] of Object.entries(pins.sha256)) {
-      assert.ok(Object.values(RELEASE_ASSETS).includes(asset), asset);
+      assert.ok(released.includes(asset), asset);
       assert.match(sum as string, /^[0-9a-f]{64}$/);
     }
   });
@@ -126,6 +139,25 @@ describe("install", () => {
   const asset = "jaic-linux-x64.tar.gz";
   const archive = new TextEncoder().encode("pretend this is a tarball");
   const pinned = { version: "0.4.0", sha256: { [asset]: sha256(archive) } };
+
+  it("installs a jai-* archive of a release after 0.4.0", async () => {
+    const newer = "jai-linux-x64.tar.gz";
+    const store = new ToolchainStore(mkdtempSync(path.join(tmpdir(), "jai-toolchain-")), "linux");
+    const { fetcher, requests } = fakeRelease({ [newer]: archive });
+    const dir = await install({
+      version: "0.4.1",
+      asset: newer,
+      store,
+      fetcher,
+      pinned: { version: "0.4.1", sha256: { [newer]: sha256(archive) } },
+      log: () => {},
+      unpack: fakeUnpack(newer),
+    });
+    assert.equal(dir, path.join(store.root, "0.4.1", "jai-linux-x64"));
+    assert.deepEqual(requests, [downloadUrl("0.4.1", newer)]);
+    assert.ok(store.isInstalled("0.4.1", newer));
+    assert.ok(!store.isInstalled("0.4.1", asset));
+  });
 
   it("downloads, verifies, unpacks into a versioned folder and removes older versions", async () => {
     const storage = mkdtempSync(path.join(tmpdir(), "jai-toolchain-"));

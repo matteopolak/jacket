@@ -3,9 +3,9 @@
 #
 #   irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 | iex
 #
-# Environment:
-#   JAIC_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
-#   JAIC_INSTALL_DIR  where releases are unpacked (default: %LOCALAPPDATA%\Programs\jai)
+# Environment (each JAI_* name also works as JAIC_*; JAI_* wins when both are set):
+#   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
+#   JAI_INSTALL_DIR  where releases are unpacked (default: %LOCALAPPDATA%\Programs\jai)
 #
 # Each version is unpacked into <dir>\<version>; <dir>\current is a directory junction to the
 # installed one and is the folder added to the user PATH. Running it again installs the
@@ -29,16 +29,20 @@
         default { throw "There is no prebuilt Jai toolchain for Windows on $arch; see https://github.com/$repo#install" }
     }
 
-    $version = "$env:JAIC_VERSION".Trim()
+    $version = if ($env:JAI_VERSION) { "$env:JAI_VERSION".Trim() } else { "$env:JAIC_VERSION".Trim() }
     if ($version.StartsWith('v')) { $version = $version.Substring(1) }
     if (-not $version -or $version -eq 'latest') {
         $release = Invoke-RestMethod -UseBasicParsing -Headers @{ 'User-Agent' = 'jai-install.ps1' } "https://api.github.com/repos/$repo/releases/latest"
         $version = $release.tag_name.TrimStart('v')
     }
-    if ($version -notmatch '^[0-9A-Za-z.-]+$') { throw "JAIC_VERSION '$version' is not a version like 0.4.0" }
+    if ($version -notmatch '^[0-9A-Za-z.-]+$') { throw "JAI_VERSION '$version' is not a version like 0.4.0" }
 
-    $installDir = if ($env:JAIC_INSTALL_DIR) { $env:JAIC_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\jai' }
-    $archive = "jaic-$platform.zip"
+    $installDir = if ($env:JAI_INSTALL_DIR) { $env:JAI_INSTALL_DIR } elseif ($env:JAIC_INSTALL_DIR) { $env:JAIC_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\jai' }
+    # The archive and its top folder are jai-<platform> since 0.4.1, jaic-<platform> before.
+    $prefix = 'jai'
+    if ($version -match '^(\d+)\.(\d+)\.(\d+)' -and [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])" -le [version]'0.4.0') { $prefix = 'jaic' }
+    $root = "$prefix-$platform"
+    $archive = "$root.zip"
     $base = "https://github.com/$repo/releases/download/v$version"
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("jai-install-" + [Guid]::NewGuid())
     New-Item -ItemType Directory -Force $tmp | Out-Null
@@ -59,8 +63,8 @@
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $unpack = Join-Path $tmp 'unpack'
         [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $tmp $archive), $unpack)
-        $unpacked = Join-Path $unpack "jaic-$platform"
-        if (-not (Test-Path (Join-Path $unpacked 'jaic.exe'))) { throw "$archive does not contain jaic-$platform\jaic.exe" }
+        $unpacked = Join-Path $unpack $root
+        if (-not (Test-Path (Join-Path $unpacked 'jaic.exe'))) { throw "$archive does not contain $root\jaic.exe" }
 
         New-Item -ItemType Directory -Force $installDir | Out-Null
         $target = Join-Path $installDir $version

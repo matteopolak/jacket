@@ -209,7 +209,7 @@ impl Compiler {
     /// `span` widened back to the directive (`#insert`, `#if`...) written before it, when one
     /// of `names` is: the operand's span is what the compiler has.
     fn ide_widen(&self, span: Span, names: &[&str]) -> Option<Span> {
-        let text = &self.sources.get(span.file).text;
+        let text = &self.sources.try_get(span.file)?.text;
         let start = span.start as usize;
         if start > text.len() {
             return None;
@@ -252,13 +252,13 @@ impl Compiler {
     }
 
     fn ide_snippet(&self, span: Span) -> &str {
-        let text = &self.sources.get(span.file).text;
+        let Some(file) = self.sources.try_get(span.file) else {
+            return "";
+        };
+        let text = &file.text;
         let end = (span.end as usize).min(text.len());
         let start = (span.start as usize).min(end);
-        if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
-            return "";
-        }
-        &text[start..end]
+        text.get(start..end).unwrap_or("")
     }
 
     /// `#insert` evaluated `value` (a string or `Code`) to `op`.

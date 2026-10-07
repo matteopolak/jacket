@@ -207,7 +207,7 @@ impl Compiler {
         let tokens = crate::lexer::lex(file, &self.sources.get(file).text).ok()?;
         let text = self
             .sources
-            .snippet_or_empty(crate::lexer::balanced(&tokens, span))
+            .snippet(crate::lexer::balanced(&tokens, span))
             .trim();
         (!text.is_empty() && !text.contains('\n')).then(|| text.to_string())
     }

@@ -779,8 +779,13 @@ impl Compiler {
         };
         spans
             .into_iter()
-            // Builtins such as `OS` are declared nowhere: `Span::NONE` has no file.
-            .filter(|(s, _)| (s.file.0 as usize) < self.sources.len() && s.end >= s.start)
+            // Builtins such as `OS` are declared nowhere: `Span::NONE` has no file. The slicing
+            // below needs a range of whole characters in it.
+            .filter(|(s, _)| {
+                self.sources
+                    .try_get(s.file)
+                    .is_some_and(|f| f.text.get(s.start as usize..s.end as usize).is_some())
+            })
             .map(|(s, name)| {
                 let text = self.sources.snippet(s);
                 if let Some(at) = text.find(name.as_str())

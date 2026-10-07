@@ -138,7 +138,8 @@ jobs:
         run: |
           exe=""
           if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
-          dir="jaic-${{ matrix.name }}"
+          # jai-<platform> since 0.4.1 (0.4.0 and earlier shipped jaic-<platform>).
+          dir="jai-${{ matrix.name }}"
           mkdir -p "$dir"
           out="target/pgo/dist"
           cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$dir/"
@@ -300,7 +301,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "jaic $TAG" --notes-file notes.md --latest
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest
 
   # The extension stores, each in its own job after the GitHub release: a store that is down or
   # rejects the upload fails only its job, never the release or the other store. Each publishes

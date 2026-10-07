@@ -4,7 +4,7 @@
 // the archives it just built; run it by hand after a release to update the committed pins.
 //
 //   node scripts/pin-toolchain.mjs --version 0.4.0 --sums path/to/SHA256SUMS
-//   node scripts/pin-toolchain.mjs --version 0.4.0 --archives dist/   # hash jaic-* archives
+//   node scripts/pin-toolchain.mjs --version 0.4.0 --archives dist/   # hash jai-* archives
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,7 +22,8 @@ if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
 }
 
 const sha256 = {};
-const isArchive = (name) => /^jaic-[a-z0-9-]+\.(?:tar\.gz|zip)$/.test(name);
+// jai-<platform> since 0.4.1; jaic-<platform> for 0.4.0 and earlier (re-pinning an old release).
+const isArchive = (name) => /^jaic?-(?!vscode-)[a-z0-9-]+\.(?:tar\.gz|zip)$/.test(name);
 if (arg("--sums")) {
   for (const line of readFileSync(arg("--sums"), "utf8").split(/\r?\n/)) {
     const match = /^([0-9a-f]{64})\s+\*?(\S+)$/i.exec(line.trim());
@@ -38,7 +39,7 @@ if (arg("--sums")) {
   process.exit(2);
 }
 if (Object.keys(sha256).length === 0) {
-  console.error("no jaic-* archives found to pin");
+  console.error("no jai-* (or jaic-*) archives found to pin");
   process.exit(1);
 }
 

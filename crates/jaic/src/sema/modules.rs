@@ -270,11 +270,7 @@ impl Compiler {
 
     /// `#load` (or another read) of a file that is not there, with a close name if one is.
     fn unreadable_file(&self, path: &Path, span: Span) -> Diagnostic {
-        let shown = self
-            .sources
-            .snippet_or_empty(span)
-            .trim_matches('"')
-            .to_string();
+        let shown = self.sources.snippet(span).trim_matches('"').to_string();
         let shown = if shown.is_empty() || shown.contains('\n') {
             path.display().to_string()
         } else {

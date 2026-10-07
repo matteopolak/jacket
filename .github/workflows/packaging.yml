@@ -68,13 +68,13 @@ jobs:
           jailint hello.jai
           test "$(echo 'main::(){x:=1;}' | jaifmt --stdin)" = "$(printf 'main :: () {\n    x := 1;\n}')"
           command -v jailsp
-      - name: Custom directories, and a re-run of the same version
+      - name: Custom directories (the JAI_* names; the steps around use JAIC_*), and a re-run of the same version
         run: |
-          export JAIC_INSTALL_DIR="$RUNNER_TEMP/custom/share" JAIC_BIN_DIR="$RUNNER_TEMP/custom/bin"
+          export JAI_INSTALL_DIR="$RUNNER_TEMP/custom/share" JAI_BIN_DIR="$RUNNER_TEMP/custom/bin"
           ./install.sh
           ./install.sh
-          test "$(find "$JAIC_INSTALL_DIR" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 1
-          cd "$RUNNER_TEMP" && "$JAIC_BIN_DIR/jaic" run hello.jai
+          test "$(find "$JAI_INSTALL_DIR" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 1
+          cd "$RUNNER_TEMP" && "$JAI_BIN_DIR/jaic" run hello.jai
       - name: Bad versions and occupied commands fail with a message
         run: |
           if JAIC_VERSION=0.0.0-missing JAIC_INSTALL_DIR="$RUNNER_TEMP/x" JAIC_BIN_DIR="$RUNNER_TEMP/xb" ./install.sh 2> err.txt; then exit 1; fi

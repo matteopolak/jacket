@@ -96,8 +96,15 @@ impl SourceMap {
         FileId(self.files.len() as u32 - 1)
     }
 
+    /// The file `id` names. Only for ids of files known to exist; a span's file may be
+    /// `Span::NONE`'s (builtins such as `OS` are declared nowhere), so take it with `try_get`.
     pub fn get(&self, id: FileId) -> &SourceFile {
         &self.files[id.0 as usize]
+    }
+
+    /// The file `id` names, or `None` for an id with no file (`Span::NONE`).
+    pub fn try_get(&self, id: FileId) -> Option<&SourceFile> {
+        self.files.get(id.0 as usize)
     }
 
     pub fn len(&self) -> usize {
@@ -108,20 +115,12 @@ impl SourceMap {
         self.files.is_empty()
     }
 
-    /// The text of `span`, or "" for a span without a place.
-    pub fn snippet_or_empty(&self, span: Span) -> &str {
-        if (span.file.0 as usize) < self.files.len() {
-            let text = &self.get(span.file).text;
-            text.get(span.start as usize..span.end as usize)
-                .unwrap_or("")
-        } else {
-            ""
-        }
-    }
-
+    /// The text of `span`, or "" for a span without a place: no file (`Span::NONE`), or a
+    /// range that is reversed, past the end or not on character boundaries.
     pub fn snippet(&self, span: Span) -> &str {
-        let file = self.get(span.file);
-        &file.text[span.start as usize..span.end as usize]
+        self.try_get(span.file)
+            .and_then(|f| f.text.get(span.start as usize..span.end as usize))
+            .unwrap_or("")
     }
 }
 
@@ -343,7 +342,7 @@ impl Diagnostic {
 
 /// Whether `span` names a place in a file (`Span::NONE` does not).
 fn has_location(sources: &SourceMap, span: Span) -> bool {
-    (span.file.0 as usize) < sources.len()
+    sources.try_get(span.file).is_some()
 }
 
 impl fmt::Display for Diagnostic {

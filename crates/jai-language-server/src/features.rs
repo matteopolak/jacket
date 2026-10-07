@@ -666,7 +666,7 @@ impl Session {
                     .ide_references(f, byte as u32)
                     .into_iter()
                     .filter(|(_, decl)| declaration || !decl)
-                    .map(|(span, _)| a.location(span))
+                    .filter_map(|(span, _)| a.location(span))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
@@ -774,7 +774,7 @@ impl Session {
                 a.compiler
                     .ide_type_definition(f, byte as u32)
                     .into_iter()
-                    .map(|span| a.location(span))
+                    .filter_map(|span| a.location(span))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();

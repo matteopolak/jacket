@@ -149,7 +149,10 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
 
 /// The name at `span` is called: `(` follows it.
 fn is_callee(cx: &Cx, span: jaic::source::Span) -> bool {
-    let text = &cx.compiler.sources.get(span.file).text;
-    text.get(span.end as usize..)
+    let Some(file) = cx.compiler.sources.try_get(span.file) else {
+        return false;
+    };
+    file.text
+        .get(span.end as usize..)
         .is_some_and(|rest| rest.trim_start().starts_with('('))
 }

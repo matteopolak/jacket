@@ -46,7 +46,7 @@ impl Compiler {
             .find_map(|p| Some((p.name?, p.ty.as_ref()?)));
         match runtime {
             Some((param, ty)) => {
-                let ty = self.sources.snippet_or_empty(ty.span).to_string();
+                let ty = self.sources.snippet(ty.span).to_string();
                 let pname = param.name;
                 d = d
                     .with_fix(

@@ -139,15 +139,16 @@ impl Analysis {
             })
     }
 
-    /// A span of any compiled file as (path, text, start, end).
-    pub fn location(&self, span: jaic::source::Span) -> (String, Rc<str>, usize, usize) {
-        let source = self.compiler.sources.get(span.file);
-        (
+    /// A span of any compiled file as (path, text, start, end); `None` for a span in no file
+    /// (`Span::NONE`, which builtins carry).
+    pub fn location(&self, span: jaic::source::Span) -> Option<(String, Rc<str>, usize, usize)> {
+        let source = self.compiler.sources.try_get(span.file)?;
+        Some((
             source.path.clone(),
             source.text.clone(),
             span.start as usize,
             span.end as usize,
-        )
+        ))
     }
 
     /// Hover at `offset` as (start, end, description, memory layout).
@@ -179,15 +180,7 @@ impl Analysis {
         self.compiler
             .ide_definition(file, offset as u32)
             .into_iter()
-            .map(|span| {
-                let source = self.compiler.sources.get(span.file);
-                (
-                    source.path.clone(),
-                    source.text.clone(),
-                    span.start as usize,
-                    span.end as usize,
-                )
-            })
+            .filter_map(|span| self.location(span))
             .collect()
     }
 

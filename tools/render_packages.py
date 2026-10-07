@@ -20,13 +20,15 @@ TEMPLATES = ROOT / "packaging"
 REPOSITORY = "matteopolak/jai"
 WINGET_ID = "matteopolak.jai"
 
-# Placeholder -> release asset whose SHA-256 it takes.
-ASSETS = {
-    "SHA256_MACOS_ARM64": "jaic-macos-arm64.tar.gz",
-    "SHA256_LINUX_X64": "jaic-linux-x64.tar.gz",
-    "SHA256_WINDOWS_X64": "jaic-windows-x64.zip",
-    "SHA256_WINDOWS_ARM64": "jaic-windows-arm64.zip",
+# Placeholder -> release asset (without its `<prefix>-`) whose SHA-256 it takes.
+PLATFORM_ASSETS = {
+    "SHA256_MACOS_ARM64": "macos-arm64.tar.gz",
+    "SHA256_LINUX_X64": "linux-x64.tar.gz",
+    "SHA256_WINDOWS_X64": "windows-x64.zip",
+    "SHA256_WINDOWS_ARM64": "windows-arm64.zip",
 }
+# Archives are `jai-<platform>` since 0.4.1; 0.4.0 and earlier shipped `jaic-<platform>`.
+LAST_JAIC_NAMED = (0, 4, 0)
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
 PLACEHOLDER = re.compile(r"@([A-Z0-9_]+)@")
 
@@ -53,6 +55,25 @@ def hash_archives(directory):
     return sums
 
 
+def expected_prefix(version):
+    """The archive prefix a release of `version` was published with: `jaic` up to 0.4.0, else `jai`."""
+    core = tuple(int(part) for part in re.match(r"(\d+)\.(\d+)\.(\d+)", version).groups())
+    return "jaic" if core <= LAST_JAIC_NAMED else "jai"
+
+
+def archive_prefix(version, sums):
+    """The prefix whose archives `sums` lists for every platform: the one `version` was released
+    with, else the other (a dry run of the release workflow builds `jai-*` archives at whatever
+    version Cargo.toml has, 0.4.0 included)."""
+    preferred = expected_prefix(version)
+    other = "jai" if preferred == "jaic" else "jaic"
+    for prefix in (preferred, other):
+        if all(f"{prefix}-{asset}" in sums for asset in PLATFORM_ASSETS.values()):
+            return prefix
+    missing = [f"{preferred}-{asset}" for asset in PLATFORM_ASSETS.values() if f"{preferred}-{asset}" not in sums]
+    raise ValueError(f"SHA256SUMS has no entry for {', '.join(missing)}")
+
+
 def substitutions(version, sums, base_url, release_date):
     if not VERSION.fullmatch(version):
         raise ValueError(f"version {version!r} is not x.y.z (without the leading v)")
@@ -63,11 +84,10 @@ def substitutions(version, sums, base_url, release_date):
         "BASE_URL": base_url or f"https://github.com/{REPOSITORY}/releases/download/v{version}",
         "RELEASE_DATE": release_date,
     }
-    missing = [asset for asset in ASSETS.values() if asset not in sums]
-    if missing:
-        raise ValueError(f"SHA256SUMS has no entry for {', '.join(missing)}")
-    for key, asset in ASSETS.items():
-        values[key] = sums[asset]
+    prefix = archive_prefix(version, sums)
+    values["ARCHIVE_PREFIX"] = prefix
+    for key, asset in PLATFORM_ASSETS.items():
+        values[key] = sums[f"{prefix}-{asset}"]
     return values
 
 

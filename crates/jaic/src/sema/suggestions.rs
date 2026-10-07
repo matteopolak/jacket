@@ -145,7 +145,7 @@ impl Compiler {
             return None;
         };
         let span = d.span;
-        let wanted = self.sources.snippet_or_empty(span);
+        let wanted = self.sources.snippet(span);
         if wanted.is_empty() {
             return None;
         }
@@ -334,7 +334,7 @@ impl Compiler {
         span: Span,
         message: String,
     ) -> Diagnostic {
-        let text = self.sources.snippet_or_empty(cond.span).trim();
+        let text = self.sources.snippet(cond.span).trim();
         let shown = (!text.is_empty() && !text.contains('\n') && text.len() <= 80).then_some(text);
         let literal_false = matches!(cond.kind, ExprKind::Bool(false));
         let mut d = match (message.is_empty(), shown) {

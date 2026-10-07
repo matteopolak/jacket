@@ -12,13 +12,22 @@ Ways to install a released Jai toolchain (`jaic`, `jailsp`, `jailint`, `jaifmt` 
 | `install.ps1` | Windows x64, arm64 | `irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 \| iex` | same |
 | Nix flake | Linux, macOS (builds from source) | `nix profile install github:matteopolak/jai` | [Nix flake](nix.md) |
 
-The package is named `jai` (formula `jai`, winget `matteopolak.jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives keep their `jaic-<platform>` names, which the VS Code extension depends on. There is no Intel macOS or arm64 Linux build: Homebrew refuses those with `depends_on arch:` and the installer script says so (build from source, or use Nix).
+The package is named `jai` (formula `jai`, winget `matteopolak.jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives are named after it too: `jai-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jai-<platform>/`, since 0.4.1. Releases up to 0.4.0 shipped `jaic-<platform>` and keep those names, so everything that downloads an archive picks the name from the version (see [archive names](#archive-names)). There is no Intel macOS or arm64 Linux build: Homebrew refuses those with `depends_on arch:` and the installer script says so (build from source, or use Nix).
 
 ## How it works
 
+### Archive names
+
+| Release | Archive | Top folder |
+| --- | --- | --- |
+| 0.4.0 and earlier | `jaic-<platform>.tar.gz` / `.zip` | `jaic-<platform>/` |
+| 0.4.1 and later | `jai-<platform>.tar.gz` / `.zip` | `jai-<platform>/` |
+
+Published assets are never renamed. The rule (`jaic` up to 0.4.0, else `jai`) lives in four places, kept in step by hand: `archive_prefix` in `install.sh`, `$prefix` in `install.ps1`, `archivePrefix` in the extension's `src/toolchain.ts`, and `expected_prefix` in `tools/render_packages.py`. `release.yml` always packages `jai-<platform>`, even on a dry run while `Cargo.toml` still says 0.4.0, so the renderer takes whichever prefix `SHA256SUMS` (or the archive folder) has for every platform, trying the version's own first. The installed layout does not depend on the name: both install scripts move the archive's top folder to `<install dir>/<version>`, so upgrading a 0.4.0 install to a `jai-` release (or back) is an ordinary upgrade.
+
 ### Rendering
 
-`tools/render_packages.py` fills the templates in `packaging/` (`@VERSION@`, `@BASE_URL@`, `@SHA256_<PLATFORM>@`, `@RELEASE_DATE@`):
+`tools/render_packages.py` fills the templates in `packaging/` (`@VERSION@`, `@BASE_URL@`, `@ARCHIVE_PREFIX@` (`jai` or `jaic`), `@SHA256_<PLATFORM>@`, `@RELEASE_DATE@`):
 
 ```sh
 python3 tools/render_packages.py --version v0.4.0 --sums SHA256SUMS --out out
@@ -39,28 +48,32 @@ Without its secret a job prints that it skipped and succeeds. A run without a ta
 
 ### Homebrew formula
 
-`packaging/homebrew/jai.rb.tmpl` downloads `jaic-macos-arm64.tar.gz` or `jaic-linux-x64.tar.gz`, installs the four binaries, `stdlib/` and `prelude/` into `libexec`, and links the binaries into `bin`. `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Intel macOS and arm64 Linux get a URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic run`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
+`packaging/homebrew/jai.rb.tmpl` downloads `jai-macos-arm64.tar.gz` or `jai-linux-x64.tar.gz` (`jaic-*` when rendered for 0.4.0 or earlier), installs the four binaries, `stdlib/` and `prelude/` into `libexec`, and links the binaries into `bin`. `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Intel macOS and arm64 Linux get a URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic run`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
 
 ### winget manifests
 
 `packaging/winget/` holds the version, installer and default-locale manifests at schema 1.12.0, the version komac 2.16.0 writes. `komac submit` re-serializes the manifests before committing them (its own `# Created with komac` header, sorted lists, and the installer manifest in its own schema version), so the templates must use the same version as the pinned komac: with 1.10.0 templates its pull request would mix a 1.12.0 installer manifest with 1.10.0 locale and version manifests. The `winget` on GitHub's Windows runners (1.11) does not know 1.12.0 and warns "The schema header URL does not match the expected pattern" (exit code `-1978335192`, valid with warnings); `packaging/winget/validate.ps1` accepts that one warning and fails on any other warning or error.
 
-The installer is `InstallerType: zip` with `NestedInstallerType: portable` and one `NestedInstallerFiles` entry per tool with a `PortableCommandAlias`. winget extracts the whole zip into `%LOCALAPPDATA%\Microsoft\WinGet\Packages\matteopolak.jai_<source>\`, so `jaic-windows-x64\stdlib` stays next to `jaic.exe`, and creates symbolic links named `jaic.exe` and so on in `%LOCALAPPDATA%\Microsoft\WinGet\Links` (on `PATH`). Through such a link, `std::env::current_exe` gives the link's path, which has no `stdlib` beside it; `jaic::stdlib_dir` then canonicalizes it to the real file in the package folder and finds the standard library there. The `packaging` workflow checks this: it installs from the rendered manifests with `winget install --manifest` and runs `jaic run`, `jailint` and `jaifmt` through the links.
+The installer is `InstallerType: zip` with `NestedInstallerType: portable` and one `NestedInstallerFiles` entry per tool with a `PortableCommandAlias`. winget extracts the whole zip into `%LOCALAPPDATA%\Microsoft\WinGet\Packages\matteopolak.jai_<source>\`, so `jai-windows-x64\stdlib` stays next to `jaic.exe` (each `RelativeFilePath` names that folder, `@ARCHIVE_PREFIX@-windows-x64\jaic.exe` in the template), and creates symbolic links named `jaic.exe` and so on in `%LOCALAPPDATA%\Microsoft\WinGet\Links` (on `PATH`). Through such a link, `std::env::current_exe` gives the link's path, which has no `stdlib` beside it; `jaic::stdlib_dir` then canonicalizes it to the real file in the package folder and finds the standard library there. The `packaging` workflow checks this: it installs from the rendered manifests with `winget install --manifest` and runs `jaic run`, `jailint` and `jaifmt` through the links.
 
 ### install.sh
 
 POSIX `sh` (checked with `shellcheck -s sh`). It maps `uname` to an archive (`macos-arm64`, `linux-x64`; on macOS it also detects Apple silicon under Rosetta), finds the latest version from the `releases/latest` redirect (no API rate limit), downloads the archive and `SHA256SUMS` with `curl` or `wget`, checks the hash with `sha256sum` or `shasum`, and unpacks into `~/.local/share/jai/<version>`. It then points `~/.local/bin/{jaic,jailsp,jailint,jaifmt}` at it (only the tools the archive has: 0.2.0 shipped just `jaic` and `jailsp`), deletes the versions it installed earlier, and prints how to add the bin folder to `PATH` when it is missing. It refuses to replace a bin entry that is not a symlink, so it never overwrites another install. The whole script is one function called on the last line, so a download cut short by `curl | sh` runs nothing.
 
 ```sh
-JAIC_VERSION=0.3.0 sh install.sh                     # a specific release (v prefix optional)
-JAIC_INSTALL_DIR=/opt/jai JAIC_BIN_DIR=/usr/local/bin sh install.sh
+JAI_VERSION=0.3.0 sh install.sh                      # a specific release (v prefix optional)
+JAI_INSTALL_DIR=/opt/jai JAI_BIN_DIR=/usr/local/bin sh install.sh
 ```
+
+`JAI_VERSION`, `JAI_INSTALL_DIR` and `JAI_BIN_DIR` are also read as `JAIC_VERSION`, `JAIC_INSTALL_DIR` and `JAIC_BIN_DIR` (the names before 0.4.1, still used by `packaging.yml`); the `JAI_` name wins when both are set. A version up to 0.4.0 downloads the `jaic-<platform>` archive, a later one `jai-<platform>`.
+
+To try a change against a release that does not exist yet, repackage an archive under the new name with its own `SHA256SUMS` in a folder `<dir>/v<version>/`, and run a copy of the script with the `base=` URL replaced by `file://<dir>/v$version` and curl's `--proto '=https' --tlsv1.2` removed (curl reads `file://` URLs); the script itself has no URL override.
 
 Uninstall: `rm -rf ~/.local/share/jai ~/.local/bin/{jaic,jailsp,jailint,jaifmt}`.
 
 ### install.ps1
 
-Runs in Windows PowerShell 5.1 and PowerShell 7 (`irm ... | iex`, so it never calls `exit`). It picks `windows-x64` or `windows-arm64` from the OS architecture (not the process's, which may be emulated), gets the latest tag from the GitHub API, verifies the zip against `SHA256SUMS`, unpacks it into `%LOCALAPPDATA%\Programs\jai\<version>`, points the directory junction `%LOCALAPPDATA%\Programs\jai\current` at it, adds `current` to the user `PATH` once, and deletes older versions. A junction needs no administrator rights or developer mode, unlike a symbolic link, and `jaic.exe` started through it finds `current\stdlib`. `JAIC_VERSION` and `JAIC_INSTALL_DIR` work as in `install.sh`.
+Runs in Windows PowerShell 5.1 and PowerShell 7 (`irm ... | iex`, so it never calls `exit`). It picks `windows-x64` or `windows-arm64` from the OS architecture (not the process's, which may be emulated), gets the latest tag from the GitHub API, verifies the zip against `SHA256SUMS`, unpacks it into `%LOCALAPPDATA%\Programs\jai\<version>`, points the directory junction `%LOCALAPPDATA%\Programs\jai\current` at it, adds `current` to the user `PATH` once, and deletes older versions. A junction needs no administrator rights or developer mode, unlike a symbolic link, and `jaic.exe` started through it finds `current\stdlib`. `JAI_VERSION` and `JAI_INSTALL_DIR` (or `JAIC_VERSION` and `JAIC_INSTALL_DIR`) work as in `install.sh`, as does the archive name.
 
 ### Validation in CI
 
@@ -77,7 +90,7 @@ Nothing in `packaging.yml` publishes.
 ## How to change it
 
 - Formula or manifests: edit the templates in `packaging/`, then render against the latest release and check locally (`brew tap-new --no-git you/local`, copy `out/homebrew/jai.rb` into its `Formula/`, `brew style`, `brew audit --formula --strict --online you/local/jai`, `brew install`, `brew test`, `brew uninstall`, `brew untap`). A new placeholder needs a value in `substitutions()` in `tools/render_packages.py`; an unknown one is an error.
-- A new platform archive: add it to `ASSETS` in `tools/render_packages.py` and to the formula (`on_macos`/`on_linux` with `on_arm`/`on_intel`) or the installer list, and to the `platform` functions of both install scripts.
+- A new platform archive: add it to `PLATFORM_ASSETS` in `tools/render_packages.py` and to the formula (`on_macos`/`on_linux` with `on_arm`/`on_intel`) or the installer list, and to the `platform` functions of both install scripts.
 - A newer winget schema: change the three `ManifestVersion` lines and `$schema` headers together, to the version the pinned komac writes (`komac submit --dry-run` prints it), and check `packaging.yml`'s `winget` job.
 - komac: bump `KOMAC_VERSION` and `KOMAC_SHA256` in `release.yml` (the `x86_64-pc-windows-msvc.exe` asset's SHA-256, from the release's `SHA256SUMS` or the asset digest), after the release is 14 days old ([dependency policy](dependency-policy.md)).
 - Re-running the `winget` job for a version that already has a pull request opens another one; close the duplicate.
@@ -101,8 +114,8 @@ The first winget pull request:
 - needs the Microsoft Contributor License Agreement signed once: the CLA bot comments on the pull request with instructions (`@microsoft-github-policy-service agree`).
 - is validated by Microsoft's pipeline and then reviewed by a winget-pkgs moderator, as every new package is; later versions of an existing package are usually merged automatically once validation passes. `winget install matteopolak.jai` works only after the first one is merged.
 
-Other knobs: `JAIC_VERSION`, `JAIC_INSTALL_DIR`, `JAIC_BIN_DIR` (install scripts), `KOMAC_VERSION`/`KOMAC_SHA256` (`release.yml`), the identifiers `REPOSITORY` and `WINGET_ID` in `tools/render_packages.py`.
+Other knobs: `JAI_VERSION`, `JAI_INSTALL_DIR`, `JAI_BIN_DIR` (install scripts; also as `JAIC_*`), `KOMAC_VERSION`/`KOMAC_SHA256` (`release.yml`), the identifiers `REPOSITORY` and `WINGET_ID` in `tools/render_packages.py`.
 
 ## Dependencies
 
-The GitHub release assets (`jaic-*.tar.gz`/`.zip`, `SHA256SUMS`), Homebrew on the runners, `winget` on the `windows-2025` runner, [komac](https://github.com/russellbanks/Komac) (pinned, checksum verified), Python 3 for the renderer, and `curl`/`wget`, `tar` and `sha256sum`/`shasum` on users' machines for `install.sh`.
+The GitHub release assets (`jai-*.tar.gz`/`.zip`, `jaic-*` up to 0.4.0, and `SHA256SUMS`), Homebrew on the runners, `winget` on the `windows-2025` runner, [komac](https://github.com/russellbanks/Komac) (pinned, checksum verified), Python 3 for the renderer, and `curl`/`wget`, `tar` and `sha256sum`/`shasum` on users' machines for `install.sh`.

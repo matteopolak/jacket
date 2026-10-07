@@ -4,10 +4,10 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh | sh
 #
-# Environment:
-#   JAIC_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
-#   JAIC_INSTALL_DIR  where releases are unpacked, one folder per version (default: ~/.local/share/jai)
-#   JAIC_BIN_DIR      where the command symlinks go (default: ~/.local/bin)
+# Environment (each JAI_* name also works as JAIC_*; JAI_* wins when both are set):
+#   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
+#   JAI_INSTALL_DIR  where releases are unpacked, one folder per version (default: ~/.local/share/jai)
+#   JAI_BIN_DIR      where the command symlinks go (default: ~/.local/bin)
 #
 # Running it again installs the requested (or latest) version, points the symlinks at it and
 # removes the versions it installed before. See docs/tools/package-managers.md.
@@ -39,7 +39,7 @@ latest_version() {
     url="$(printf '%s' "$url" | tr -d '\r')"
     case "$url" in
         */tag/v*) printf '%s\n' "${url##*/tag/v}" ;;
-        *) fail "could not find the latest release of $REPO (got '$url'); set JAIC_VERSION" ;;
+        *) fail "could not find the latest release of $REPO (got '$url'); set JAI_VERSION" ;;
     esac
 }
 
@@ -51,6 +51,13 @@ sha256() {
     else
         fail "neither sha256sum nor shasum is installed, so the download cannot be verified"
     fi
+}
+
+# The release archive's name before -<platform>: jai since 0.4.1, jaic for 0.4.0 and earlier.
+archive_prefix() { # version
+    printf '%s\n' "$1" | awk -F '[.-]' '{
+        if ($1 + 0 > 0 || $2 + 0 > 4 || ($2 + 0 == 4 && $3 + 0 > 0)) print "jai"; else print "jaic"
+    }'
 }
 
 platform() {
@@ -84,17 +91,18 @@ Build from source or use the Nix flake instead: https://github.com/$REPO#install
 
 main() {
     plat="$(platform)"
-    version="${JAIC_VERSION:-}"
+    version="${JAI_VERSION:-${JAIC_VERSION:-}}"
     version="${version#v}"
     if [ -z "$version" ] || [ "$version" = latest ]; then
         version="$(latest_version)"
     fi
     case "$version" in
-        *[!0-9A-Za-z.-]* | "") fail "JAIC_VERSION '$version' is not a version like 0.4.0" ;;
+        *[!0-9A-Za-z.-]* | "") fail "JAI_VERSION '$version' is not a version like 0.4.0" ;;
     esac
-    install_dir="${JAIC_INSTALL_DIR:-$HOME/.local/share/jai}"
-    bin_dir="${JAIC_BIN_DIR:-$HOME/.local/bin}"
-    archive="jaic-$plat.tar.gz"
+    install_dir="${JAI_INSTALL_DIR:-${JAIC_INSTALL_DIR:-$HOME/.local/share/jai}}"
+    bin_dir="${JAI_BIN_DIR:-${JAIC_BIN_DIR:-$HOME/.local/bin}}"
+    root="$(archive_prefix "$version")-$plat" # the archive's top folder
+    archive="$root.tar.gz"
     base="https://github.com/$REPO/releases/download/v$version"
 
     tmp="$(mktemp -d 2> /dev/null || mktemp -d -t jai-install)"
@@ -112,19 +120,19 @@ main() {
 
     mkdir -p "$tmp/unpack"
     tar -xzf "$tmp/$archive" -C "$tmp/unpack"
-    [ -x "$tmp/unpack/jaic-$plat/jaic" ] || fail "$archive does not contain jaic-$plat/jaic"
+    [ -x "$tmp/unpack/$root/jaic" ] || fail "$archive does not contain $root/jaic"
 
     mkdir -p "$install_dir" "$bin_dir"
     # Refuse to replace a command that is not one of our symlinks (another install of jaic).
     for tool in $TOOLS; do
         link="$bin_dir/$tool"
         if [ -e "$link" ] && [ ! -L "$link" ]; then
-            fail "$link exists and is not a symlink; remove it or set JAIC_BIN_DIR"
+            fail "$link exists and is not a symlink; remove it or set JAI_BIN_DIR"
         fi
     done
     target="$install_dir/$version"
     rm -rf "$target.new"
-    mv "$tmp/unpack/jaic-$plat" "$target.new"
+    mv "$tmp/unpack/$root" "$target.new"
     rm -rf "$target"
     mv "$target.new" "$target"
     linked=""
