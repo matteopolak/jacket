@@ -98,6 +98,7 @@ pub fn jaifmt(data: &[u8]) {
     let options = PlayOptions {
         budget: Some(FORMAT_BUDGET),
         compile_only: false,
+        styled: false,
     };
     let result = crate::on_compiler_stack(|| run_with(&files, "main.jai", options));
     let verbose = std::env::var_os("JAI_FUZZ_VERBOSE").is_some();

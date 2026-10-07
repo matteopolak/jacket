@@ -62,6 +62,7 @@ fn play(source: &[u8], compile_only: bool) {
     let options = PlayOptions {
         budget: Some(BLOCK_BUDGET),
         compile_only,
+        styled: false,
     };
     let result = on_compiler_stack(|| run_with(&files, "main.jai", options));
     if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
