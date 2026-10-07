@@ -1,0 +1,92 @@
+{
+  "main": {
+    "prefix": "main",
+    "description": "Entry point that imports Basic",
+    "body": ["#import \"Basic\";", "", "main :: () {", "\t$0", "}"]
+  },
+  "procedure": {
+    "prefix": "proc",
+    "description": "Procedure declaration",
+    "body": ["${1:name} :: (${2}) ${3:-> ${4:int} }{", "\t$0", "}"]
+  },
+  "macro": {
+    "prefix": "macro",
+    "description": "Macro (#expand procedure)",
+    "body": ["${1:name} :: (${2}) #expand {", "\t$0", "}"]
+  },
+  "struct": {
+    "prefix": "struct",
+    "description": "Struct declaration",
+    "body": ["${1:Name} :: struct {", "\t${2:field}: ${3:int};$0", "}"]
+  },
+  "enum": {
+    "prefix": "enum",
+    "description": "Enum declaration",
+    "body": ["${1:Name} :: enum {", "\t${2:VALUE};$0", "}"]
+  },
+  "for": {
+    "prefix": "for",
+    "description": "Loop over an array or range (`it`, `it_index`)",
+    "body": ["for ${1:items} {", "\t$0", "}"]
+  },
+  "for named": {
+    "prefix": "forn",
+    "description": "Loop with named value and index",
+    "body": ["for ${1:value}, ${2:index}: ${3:items} {", "\t$0", "}"]
+  },
+  "for range": {
+    "prefix": "forr",
+    "description": "Loop over a range",
+    "body": ["for ${1:i}: 0..${2:count} - 1 {", "\t$0", "}"]
+  },
+  "while": {
+    "prefix": "while",
+    "description": "While loop",
+    "body": ["while ${1:condition} {", "\t$0", "}"]
+  },
+  "if": {
+    "prefix": "if",
+    "description": "If statement",
+    "body": ["if ${1:condition} {", "\t$0", "}"]
+  },
+  "if else": {
+    "prefix": "ife",
+    "description": "If-else statement",
+    "body": ["if ${1:condition} {", "\t$2", "} else {", "\t$0", "}"]
+  },
+  "switch": {
+    "prefix": "switch",
+    "description": "Switch (`if x == { case ...; }`)",
+    "body": ["if ${1:value} == {", "\tcase ${2:A};", "\t\t$0", "}"]
+  },
+  "defer": {
+    "prefix": "defer",
+    "description": "Defer a statement to the end of the scope",
+    "body": ["defer ${1:free(${2:p})};"]
+  },
+  "run": {
+    "prefix": "run",
+    "description": "Run code at compile time",
+    "body": ["#run {", "\t$0", "}"]
+  },
+  "import": {
+    "prefix": "import",
+    "description": "Import a module",
+    "body": ["#import \"${1:Basic}\";"]
+  },
+  "load": {
+    "prefix": "load",
+    "description": "Load a file",
+    "body": ["#load \"${1:file}.jai\";"]
+  },
+  "here string": {
+    "prefix": "string",
+    "description": "Here-string",
+    "body": ["#string ${1:END}", "$0", "$1"]
+  },
+  "print": {
+    "prefix": "print",
+    "description": "print with a format string",
+    "body": ["print(\"${1:%}\\n\", ${2:value});"]
+  }
+}

@@ -6,5 +6,8 @@
 /rustc-ice-*.txt
 /result
 /result-*
+
+# npm (editors/vscode and any stray installs)
+node_modules/
 /TODO.md
 /HANDOFF.md

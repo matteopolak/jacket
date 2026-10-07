@@ -1,0 +1,9 @@
+{
+  "version": "0.3.0",
+  "sha256": {
+    "jaic-linux-x64.tar.gz": "043ae30be4745f3731c0ec7c65a6735a254357234dab33a018c23762364fe34f",
+    "jaic-macos-arm64.tar.gz": "d76987f6698760425708d94c48e3764cb4256788d782983c19b598b42301a195",
+    "jaic-windows-arm64.zip": "d1d0d89934e85ed33261d78ceb1a1a5623a63ab99ef8cde26266183ba1035aa3",
+    "jaic-windows-x64.zip": "3bda9b981b5e3caa9bf59a5fdd63b899c446f57915da8937533bc6390186b88e"
+  }
+}

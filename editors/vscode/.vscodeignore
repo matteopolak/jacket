@@ -1,0 +1,13 @@
+**
+!dist/extension.js
+!syntaxes/*.json
+!snippets/*.json
+!schemas/*.json
+!images/icon.png
+!images/jai-file-*.svg
+!language-configuration.json
+!toml-language-configuration.json
+!toolchain-checksums.json
+!README.md
+!LICENSE
+!package.json

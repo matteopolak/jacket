@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+.vscode-test/
+*.vsix
+# Copied from the repository root when packaging.
+LICENSE

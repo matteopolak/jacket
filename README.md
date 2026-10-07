@@ -119,6 +119,32 @@ jailint src/                                       # lint every .jai file under 
 jailint src/ --fix                                 # apply the safe fixes
 ```
 
+## Editors
+
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/matteopolak.jai?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai)
+[![Open VSX](https://img.shields.io/open-vsx/v/matteopolak/jai?label=Open%20VSX)](https://open-vsx.org/extension/matteopolak/jai)
+
+**VS Code** (and VSCodium, Cursor and other Open VSX editors): the [Jai extension](editors/vscode/README.md) (`matteopolak.jai`) brings highlighting, the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai) once it is published there, or download `jai-vscode-<version>.vsix` from the [releases page](https://github.com/matteopolak/jai/releases) and run:
+
+```sh
+code --install-extension jai-vscode-0.4.0.vsix
+```
+
+It finds `jailsp`, `jaic` and `jaifmt` on `PATH`, or asks before downloading the matching release. Useful settings:
+
+```jsonc
+{
+  "jai.server.path": "/opt/jaic/jailsp",   // when the toolchain is not on PATH
+  "jai.compiler.path": "/opt/jaic/jaic",
+  "[jai]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.fixAll.jailint": "explicit" }
+  }
+}
+```
+
+Other editors can start `jailsp` (it speaks the Language Server Protocol over stdio) and run `jaifmt --stdin` as the formatter. See [the VS Code extension](docs/tools/vscode-extension.md) and [the language server](docs/compiler/language-server.md).
+
 ## Contributing
 
 Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md).

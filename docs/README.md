@@ -141,6 +141,7 @@ Scripts, CI and project policies.
 - [Releases](tools/releases.md)
 - [Rule coverage](tools/rule-coverage.md): rule IDs in the language docs and the tests that cite them
 - [Upstream corpus](tools/upstream-corpus.md)
+- [VS Code extension](tools/vscode-extension.md): `editors/vscode`, grammar, language client, jaifmt formatting, toolchain download, packaging and publishing
 
 ## Language and library specifications
 

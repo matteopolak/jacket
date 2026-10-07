@@ -1,0 +1,2 @@
+# The integration tests check that ignored files are left alone.
+ignore = ["sub/**"]

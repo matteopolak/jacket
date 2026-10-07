@@ -1,0 +1,312 @@
+{
+  "name": "jai",
+  "displayName": "Jai",
+  "description": "Jai language support: language server, linter, formatter and syntax highlighting",
+  "version": "0.3.0",
+  "publisher": "matteopolak",
+  "license": "AGPL-3.0-or-later",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/matteopolak/jai/blob/main/docs/tools/vscode-extension.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matteopolak/jai.git",
+    "directory": "editors/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/matteopolak/jai/issues"
+  },
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters",
+    "Snippets"
+  ],
+  "keywords": [
+    "jai",
+    "jaic",
+    "jailsp",
+    "jailint",
+    "jaifmt",
+    "language server",
+    "lsp",
+    "linter",
+    "formatter"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/*.jai",
+    "workspaceContains:**/jailint.toml"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "jai",
+        "aliases": [
+          "Jai",
+          "jai"
+        ],
+        "extensions": [
+          ".jai"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/jai-file-light.svg",
+          "dark": "./images/jai-file-dark.svg"
+        }
+      },
+      {
+        "id": "toml",
+        "aliases": [
+          "TOML",
+          "toml"
+        ],
+        "filenames": [
+          "jaifmt.toml",
+          "jailint.toml"
+        ],
+        "configuration": "./toml-language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "jai",
+        "scopeName": "source.jai",
+        "path": "./syntaxes/jai.tmLanguage.json"
+      },
+      {
+        "language": "toml",
+        "scopeName": "source.toml.jai-settings",
+        "path": "./syntaxes/toml.tmLanguage.json"
+      }
+    ],
+    "tomlValidation": [
+      {
+        "fileMatch": "jailint.toml",
+        "url": "./schemas/jailint.schema.json"
+      },
+      {
+        "fileMatch": "jaifmt.toml",
+        "url": "./schemas/jaifmt.schema.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "jai",
+        "path": "./snippets/jai.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "formatSpecifier",
+        "superType": "string",
+        "description": "A `%` directive in a print-family format string."
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "jai",
+        "scopes": {
+          "formatSpecifier": [
+            "constant.character.format.placeholder.jai"
+          ],
+          "macro": [
+            "entity.name.function.macro.jai"
+          ],
+          "decorator": [
+            "storage.modifier.note.jai"
+          ]
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "jai.restartServer",
+        "title": "Restart Language Server",
+        "category": "Jai"
+      },
+      {
+        "command": "jai.runFile",
+        "title": "Run File",
+        "category": "Jai",
+        "icon": "$(play)"
+      },
+      {
+        "command": "jai.buildFile",
+        "title": "Build File",
+        "category": "Jai"
+      },
+      {
+        "command": "jai.checkFile",
+        "title": "Check File",
+        "category": "Jai"
+      },
+      {
+        "command": "jai.downloadToolchain",
+        "title": "Download Toolchain",
+        "category": "Jai"
+      },
+      {
+        "command": "jai.showOutput",
+        "title": "Show Output",
+        "category": "Jai"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "jai.runFile",
+          "when": "editorLangId == jai"
+        },
+        {
+          "command": "jai.buildFile",
+          "when": "editorLangId == jai"
+        },
+        {
+          "command": "jai.checkFile",
+          "when": "editorLangId == jai"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "jai.runFile",
+          "when": "resourceLangId == jai"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Jai",
+      "properties": {
+        "jai.server.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to `jailsp`. Empty: `jailsp` on `PATH`, then next to `#jai.compiler.path#` or the `jaic` on `PATH`, then the downloaded toolchain."
+        },
+        "jai.compiler.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to `jaic`, used by the Run/Build/Check commands. `jailsp`, `jaifmt` and `jailint` are also looked for next to it. Empty: `jaic` on `PATH`, then the downloaded toolchain."
+        },
+        "jai.formatter.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to `jaifmt`. Empty: `jaifmt` on `PATH`, then next to `jaic`, then the downloaded toolchain."
+        },
+        "jai.stdlib.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Standard library directory, passed to `jailsp` and `jaic` as `JAIC_STDLIB`. Empty: the `stdlib` folder next to the executable."
+        },
+        "jai.toolchain.autoDownload": {
+          "type": "string",
+          "enum": [
+            "prompt",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Ask before downloading the toolchain from the GitHub release (once per toolchain version).",
+            "Download the pinned toolchain without asking when no jailsp is found.",
+            "Never download; show how to install the toolchain instead."
+          ],
+          "default": "prompt",
+          "scope": "machine",
+          "markdownDescription": "What to do when no `jailsp` is configured or on `PATH`: download the toolchain release whose version matches this extension from github.com/matteopolak/jai, verified against pinned SHA-256 checksums."
+        },
+        "jai.run.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Extra arguments for `jaic run`, `jaic build` and `jaic check` (before the file), such as `-O2`."
+        },
+        "jai.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Log the messages between VS Code and jailsp to the Jai Language Server output channel."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[jai]": {
+        "editor.defaultFormatter": "matteopolak.jai",
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
+    "taskDefinitions": [
+      {
+        "type": "jai",
+        "required": [
+          "command",
+          "file"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "run",
+              "build",
+              "check"
+            ],
+            "description": "The jaic command."
+          },
+          "file": {
+            "type": "string",
+            "description": "The .jai file."
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build-grammar.mjs && node scripts/build-schemas.mjs && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "eslint . && tsc --noEmit -p . && node scripts/build-grammar.mjs --check && node scripts/build-schemas.mjs --check && node scripts/build-icon.mjs --check",
+    "test": "npm run test:unit && npm run test:grammar",
+    "test:unit": "node esbuild.mjs --tests && node --test \"out/test/unit/*.test.js\"",
+    "test:grammar": "vscode-tmgrammar-test 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.mjs",
+    "test:e2e": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/e2e/run.js",
+    "package": "npm run build -- --production && node scripts/copy-license.mjs && vsce package --no-dependencies",
+    "check-ages": "node scripts/check-dependency-age.mjs",
+    "icons": "node scripts/build-icon.mjs",
+    "screenshots": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/screenshots/run.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@resvg/resvg-js": "2.6.2",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.20.4",
+    "@types/vscode": "1.91.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "mocha": "12.0.2",
+    "ovsx": "1.2.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2",
+    "vscode-tmgrammar-test": "0.1.3"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/matteopolak/jai/editors/vscode/schemas/jaifmt.schema.json",
+  "title": "jaifmt.toml",
+  "description": "Settings for the jaifmt formatter. https://github.com/matteopolak/jai/blob/main/docs/tools/jaifmt.md#configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "indent_width": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16,
+      "default": 4,
+      "markdownDescription": "Spaces per indentation level."
+    },
+    "case_indent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent_width`."
+    },
+    "case_body_indent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "markdownDescription": "Indentation of the statements under a `case`. Default: `indent_width`."
+    },
+    "max_blank_lines": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 2,
+      "markdownDescription": "Consecutive blank lines kept."
+    },
+    "max_width": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 10000,
+      "default": 100,
+      "markdownDescription": "Line width reported by `jaifmt --verbose`; lines are never wrapped."
+    },
+    "brace_style": {
+      "type": "string",
+      "enum": [
+        "same_line",
+        "preserve"
+      ],
+      "default": "same_line",
+      "markdownDescription": "`same_line` joins a `{` on its own line to its header; `preserve` leaves it."
+    },
+    "ignore": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "markdownDescription": "Globs (relative to this file) of files and directories not to format."
+    }
+  }
+}
