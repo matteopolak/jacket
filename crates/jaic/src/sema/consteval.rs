@@ -116,6 +116,7 @@ impl Compiler {
         let outer_exports = (
             std::mem::take(&mut self.interp.code_exports),
             std::mem::take(&mut self.interp.code_export_cursor),
+            std::mem::take(&mut self.interp.run_codes),
         );
         let mut result = self.interp.call(&self.program, id, &[ctx]);
         // Run again from the start while nothing observable happened, when the run
@@ -153,9 +154,14 @@ impl Compiler {
             }
             self.interp.run_effects = Some(self.interp.effects);
             self.interp.code_export_cursor.clear();
+            self.interp.run_codes.1 = 0;
             result = self.interp.call(&self.program, id, &[ctx]);
         }
-        (self.interp.code_exports, self.interp.code_export_cursor) = outer_exports;
+        (
+            self.interp.code_exports,
+            self.interp.code_export_cursor,
+            self.interp.run_codes,
+        ) = outer_exports;
         self.interp.export_request = None;
         self.interp.missing_func = None;
         self.interp.run_effects = outer;

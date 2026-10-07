@@ -352,6 +352,10 @@ pub struct Interp {
     /// Codes made by compile-time code (`compiler_get_code`): their index and the
     /// index of the code whose scope they take. The compiler adopts them lazily.
     pub made_codes: Vec<(usize, usize)>,
+    /// The codes the current compile-time run made, in order, and how many of them its
+    /// current attempt has made again: a repeated run (`export_request`) replays the earlier
+    /// attempt, so its `compiler_get_code` calls give the codes the earlier one got.
+    pub run_codes: (Vec<usize>, usize),
     /// Codes handed to `compiler_get_nodes`, newest last: the scopes a made code without
     /// its own scope falls back on for names its insertion site does not have.
     pub nodes_codes: Vec<usize>,
@@ -451,6 +455,7 @@ impl Interp {
             workspaces: None,
             codes: Vec::new(),
             made_codes: Vec::new(),
+            run_codes: (Vec::new(), 0),
             nodes_codes: Vec::new(),
             effects: 0,
             run_effects: None,
