@@ -473,6 +473,20 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         self.shard.is_none_or(|s| s.owner[i] == s.index)
     }
 
+    /// Whether a `#program_export` is one of Wasi_Runtime's C library definitions (`malloc`,
+    /// `fopen`, `fma`...) rather than an entry point. Those stay external symbols, which the
+    /// program's references bind to, but are not exports of the wasm module: wasm-ld then drops
+    /// the ones nothing calls, as it would members of a C library. `_start` is still exported.
+    fn is_wasi_library(&self, func: &jaic::ir::Func, name: &str) -> bool {
+        name != "_start"
+            && self
+                .program
+                .file_paths
+                .get(func.source_file as usize)
+                .and_then(|p| std::path::Path::new(p).parent()?.file_name())
+                .is_some_and(|dir| dir == "Wasi_Runtime")
+    }
+
     /// Linkage of an internal symbol: hidden and external when other modules refer to it.
     fn internal_linkage(&self, gv: GlobalValue<'ctx>) {
         if self.shard.is_some() {
@@ -503,7 +517,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 // `#program_export`: in a DLL's export table (harmless in an executable).
                 f.as_global_value()
                     .set_dll_storage_class(DLLStorageClass::Export);
-            } else if self.arch.is_wasm() && self.owns_func(i) {
+            } else if self.arch.is_wasm() && self.owns_func(i) && !self.is_wasi_library(func, &name)
+            {
                 // `#program_export`: an export of the wasm module, which is how the host calls in.
                 f.add_attribute(
                     AttributeLoc::Function,
