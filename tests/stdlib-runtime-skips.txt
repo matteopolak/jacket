@@ -4,10 +4,17 @@
 # (interp, native, wasm-interp, wasm-native) or `*`. A listed test still runs, and the run fails
 # with --strict (CI) when it passes, so remove its line then. See docs/tools/stdlib-runtime-tests.md.
 
-# Bindings_Generator drives libclang through a compiler primitive that only `jaic run` provides.
-bindings-generator-c * native Bindings_Generator runs libclang at run time, which only the interpreter can
-bindings-generator-cpp * native Bindings_Generator runs libclang at run time, which only the interpreter can
-bindings-generator-declaration-api * native,wasm-native Bindings_Generator runs libclang at run time, which only the interpreter can
+# Programs for what the browser and WASI lack: `playground` is the browser engine
+# (tools/check_playground_stdlib.mjs), which runs tests/stdlib/*.jai.
+getrect-simp-gl-frame * wasm-interp,wasm-native,playground wasm has no window system or OpenGL
+simp-gl-render-readback * wasm-interp,wasm-native,playground wasm has no window system or OpenGL
+simp-software-drawing * wasm-interp,wasm-native,playground stb_image and FreeType have no wasm build
+sound-player-offline-api * wasm-interp,wasm-native,playground stb_vorbis has no wasm build
+sound-player-device * wasm-interp,wasm-native,playground wasm has no audio output
+socket-loopback * wasm-interp,wasm-native,playground wasm has no sockets
+unmapping-allocator * wasm-interp,wasm-native,playground the module needs POSIX virtual memory calls, which wasm lacks
+window-fullscreen-toggle * wasm-interp,wasm-native,playground wasm has no window system
+window-input-native-events * wasm-interp,wasm-native,playground wasm has no window system
 
 # Native libraries with no wasm build (tests/stdlib-targets.txt lists the same modules).
 GetRect_LeftHanded/tests/geometry-tests * wasm-interp,wasm-native stb_image has no wasm build
@@ -61,6 +68,9 @@ unmapping-allocator windows-* * the module needs POSIX virtual memory calls
 # Windows cross builds from Linux (tools/windows_cross.py): `OS` is the target in compile-time code
 # too, so a `#run` that reads files or the clock takes the Windows path, which the Linux host
 # cannot run. The native Windows builds run the same code on Windows and pass.
+bindings-generator-c windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
+bindings-generator-cpp windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
+bindings-generator-declaration-api windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
 bindings-generator-bitfields windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
 bindings-generator-bitfields-msvc windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
 bindings-generator-checks windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run

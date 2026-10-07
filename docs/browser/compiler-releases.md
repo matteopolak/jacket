@@ -19,7 +19,7 @@
    - runs the staged tour within the playground budget and checks its key output lines (`tests/examples.json`);
    - formats a file with the staged driver;
    - checks the language server (initialize, definition, hover, completion, versioned diagnostics) when the module exports it;
-   - runs `check_playground_stdlib.mjs`, where every `tests/stdlib` program must pass.
+   - runs `check_playground_stdlib.mjs`, where every `tests/stdlib` program must pass apart from those `tests/stdlib-runtime-skips.txt` lists for `playground`.
 
    Any failure means nothing is published.
 5. **Archive.** Source cleanliness and the commit are checked again. The ZIP uses fixed timestamps and modes, so the same inputs give identical bytes, and every member is read back and checked against the inventory. The archive and manifest are moved into the output directory together. The output directory must be absent or empty, and existing releases are never overwritten.

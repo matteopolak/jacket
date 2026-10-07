@@ -100,9 +100,11 @@ cleanly). Put scratch files under `.scratch/<name>/`. Run it in every mode local
 `jaic check t.jai -os windows` and `-os linux` for the other hosts.
 
 **`tests/stdlib/` and the playground.** `tools/check_playground_stdlib.mjs` also runs every
-`tests/stdlib/*.jai` in the browser engine and has no exclusion list, so a test there must handle
-`OS == .WASM` itself (for example a `main` that only prints `ok`) instead of using a `wasm-interp`
-skip line.
+`tests/stdlib/*.jai` in the browser engine. It reads the same skip list: a line whose modes include
+`playground` (and whose platforms match `browser`, as `*` does) marks a test that cannot pass
+there, and a listed test that passes fails the check as stale. A test that needs what wasm lacks
+(sockets, windows, native libraries) is listed for `wasm-interp,wasm-native,playground` rather
+than given a `main` that only prints `ok` under `OS == .WASM`.
 
 **When a run cannot pass**, fix the bug if there is one. Otherwise add a skip line whose reason
 says what is missing on that platform; never skip a test because it is flaky.

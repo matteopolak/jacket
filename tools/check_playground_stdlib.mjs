@@ -2,8 +2,9 @@
 // Usage:
 //   node tools/check_playground_stdlib.mjs <staged-dir> [name.jai...]
 // A test passes when it finishes with exit code 0 and no error diagnostics, the same bar as the native loop
-// (`jaic run` exits 0). There is no exclusion list: a test that needs something the browser lacks (processes,
-// native libraries, a window system) says so itself with `OS == .WASM`, the target the engine compiles for.
+// (`jaic run` exits 0). A test that cannot pass in the browser (it needs processes, native libraries, a window
+// system) has a line in tests/stdlib-runtime-skips.txt whose modes include `playground` (platform `browser`);
+// it still runs, and passing then fails the check as stale, as `stdlib_runtime.py --strict` does.
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -12,6 +13,26 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 const testDir = path.join(root, "tests/stdlib");
+
+// A shell pattern (`*`, `?`) from the skip list as a regular expression.
+const pattern = glob => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*").replaceAll("?", ".")}$`);
+
+// Test name (`socket-loopback.jai`) -> why it cannot pass in the browser, from the skip list lines whose
+// platforms match `browser` and whose modes include `playground` (or are `*`).
+async function loadSkips() {
+  const skips = new Map();
+  const text = await readFile(path.join(root, "tests/stdlib-runtime-skips.txt"), "utf8");
+  for (const raw of text.split("\n")) {
+    const line = raw.split("#")[0].trim();
+    if (!line) continue;
+    const [test, platforms, modes, ...reason] = line.split(/\s+/);
+    if (test.includes("/")) continue;
+    if (modes !== "*" && !modes.split(",").includes("playground")) continue;
+    if (!platforms.split(",").some(p => pattern(p).test("browser"))) continue;
+    skips.set(`${test}.jai`, reason.join(" "));
+  }
+  return skips;
+}
 
 async function collectModules(dir, base, files) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -53,12 +74,16 @@ if (!isMainThread) {
   const results = new Map();
   let next = 0;
   await Promise.all(Array.from({ length: 4 }, async () => { while (next < names.length) { const n = names[next++]; results.set(n, await runOne(n)); } }));
-  const passed = names.filter(n => results.get(n).pass);
-  const failed = names.filter(n => !results.get(n).pass);
+  const skips = await loadSkips();
+  const passed = names.filter(n => results.get(n).pass && !skips.has(n));
+  const failed = names.filter(n => !results.get(n).pass && !skips.has(n));
+  const skipped = names.filter(n => !results.get(n).pass && skips.has(n));
+  const stale = names.filter(n => results.get(n).pass && skips.has(n));
   for (const n of failed) console.log(`FAIL ${n}: ${results.get(n).why}`);
+  for (const n of stale) console.log(`STALE ${n}: passes, so remove its playground skip line (${skips.get(n)})`);
   const missing = only.filter(n => !names.includes(n));
   if (missing.length) console.log(`no such test in tests/stdlib: ${missing.join(", ")}`);
-  console.log(`${passed.length} of ${names.length} stdlib tests pass in the playground`);
+  console.log(`${passed.length} of ${names.length} stdlib tests pass in the playground, ${skipped.length} skipped (tests/stdlib-runtime-skips.txt)`);
   // A failure blocks CI and the browser release (check_browser_release.mjs), so a broken bundle is never published.
-  if (failed.length || missing.length || !names.length) process.exit(1);
+  if (failed.length || stale.length || missing.length || !names.length) process.exit(1);
 }

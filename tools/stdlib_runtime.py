@@ -42,6 +42,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SKIPS = ROOT / "tests/stdlib-runtime-skips.txt"
 MODES = ["interp", "native", "wasm-interp", "wasm-native"]
+# Skip lines may also name `playground`: the browser engine, run by tools/check_playground_stdlib.mjs
+# (platform `browser`) on tests/stdlib/*.jai.
+SKIP_MODES = MODES + ["playground"]
 COVERAGE_LOCK = threading.Lock()
 
 
@@ -78,8 +81,8 @@ def load_skips(path=SKIPS):
         if len(parts) < 4:
             raise SystemExit(f"{path.name}:{number}: expected `test platforms modes reason`")
         test, platforms, modes, reason = parts
-        modes = MODES if modes == "*" else modes.split(",")
-        unknown = [m for m in modes if m not in MODES]
+        modes = SKIP_MODES if modes == "*" else modes.split(",")
+        unknown = [m for m in modes if m not in SKIP_MODES]
         if unknown:
             raise SystemExit(f"{path.name}:{number}: unknown mode {unknown[0]!r}")
         skips.append((test, platforms.split(","), modes, reason))

@@ -44,6 +44,8 @@
 ### Fixed
 
 - `#asm` rejects `punpckl*`/`punpckh*` spellings other than `bw`, `wd`, `dq` and `qdq` (`punpcklb`, `punpckhwq`) as unsupported instructions; they were taken as a narrower interleave.
+- Compiled programs no longer corrupt the stack when a procedure takes a struct smaller than a pointer: the debug-info prologue stored the incoming pointer into the parameter's copy, 8 bytes into a smaller slot, which crashed Windows x64 programs on return.
+- `Tagged_Union.isa` returns a pointer into the caller's union again, so writes through it stick: it is now a macro, since parameters are copied on entry and the pointer pointed into that copy.
 - A procedure that changes a struct or string parameter (`advance(*s, 1)`, `p.a += 1`) changes its own copy: before, it changed the caller's variable, in `jaic run`, `#run` and built executables.
 - A `$$` parameter whose argument is omitted bakes its constant default, so `#if must` works in the body of `skip :: (p: *$T, $$must := false)` called as `skip(p)`.
 - A `#modify` block on a procedure without polymorph variables (`foo :: (x: int) #modify { ... }`) or on a struct without parameters is an error at the block, whether or not it is used: before, the block was silently ignored and never even checked. The help suggests baking the parameter (`$x: int`) when that was the intent.
