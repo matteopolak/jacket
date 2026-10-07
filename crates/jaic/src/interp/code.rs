@@ -21,7 +21,7 @@
 //! That is only done for values defined exactly once (parameters count as a definition)
 //! whose definition cannot run again in between: constants anywhere, and other values
 //! within one block.
-use super::{Frame, Interp, Res, Rets, cmp, mask};
+use super::{Frame, Interp, Res, Rets, TrapKind, cmp, mask};
 use crate::ir::{self, BinOp, CmpOp, ConvOp, ForeignId, GlobalId, Inst, Term, Ty, UnOp, Val};
 
 #[derive(Clone, Copy, Debug)]
@@ -213,6 +213,19 @@ pub(super) struct Code {
     /// `(blocks pointer, block count, value count, slot count)` of the source `Func`: a
     /// procedure replaced or rewritten since gets new code (see `Interp::frame`).
     pub source: (usize, usize, usize, usize),
+}
+
+impl Code {
+    /// The IR block and instruction an `Op::Ir` at `op` runs.
+    pub(super) fn ir_op(&self, op: usize) -> Option<(u32, u32)> {
+        match self.ops.get(op)? {
+            &Op::Ir {
+                block,
+                inst,
+            } => Some((block, inst)),
+            _ => None,
+        }
+    }
 }
 
 pub(super) fn fingerprint(func: &ir::Func) -> (usize, usize, usize, usize) {
@@ -1104,7 +1117,9 @@ fn op_srcs(op: &Op) -> [Option<u32>; 2] {
 
 impl Interp {
     /// Runs `frame.code` (made from `func`) in a frame at `stack_base`. `vals` has one
-    /// register per IR value, which `build` checked every operand against.
+    /// register per IR value, which `build` checked every operand against. `start`: the block
+    /// and op to continue at (a resumed thread, see `threads_inline.rs`) instead of the entry.
+    /// A thread that suspends records where in `Interp::suspend_at`.
     pub(super) fn run_code(
         &mut self,
         program: &ir::Program,
@@ -1112,6 +1127,7 @@ impl Interp {
         frame: &Frame,
         stack_base: u64,
         vals: &mut [u64],
+        start: Option<(usize, usize)>,
     ) -> Res<Rets> {
         let code = &frame.code;
         assert_eq!(vals.len(), func.vals.len());
@@ -1120,30 +1136,44 @@ impl Interp {
         // below `func.vals.len()`, and `vals` has exactly that many.
         let get = |i: u32| unsafe { *regs.add(i as usize) };
         let set = |i: u32, v: u64| unsafe { *regs.add(i as usize) = v };
-        let mut block = 0usize;
+        let (mut block, mut resume_op) = match start {
+            Some((block, op)) => (block, Some(op)),
+            None => (0, None),
+        };
         loop {
-            if let Some(left) = self.block_budget.as_mut() {
-                if *left == 0 {
-                    return self.trap("execution budget exhausted");
-                }
-                *left -= 1;
-            }
-            if self.multi {
-                if self.host.cooperative_threads() {
-                    self.inline_preempt(program)?;
-                } else {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    self.preempt()?;
-                }
-            }
             let b = &code.blocks[block];
             let ir_block = &func.blocks[block];
-            self.frame_blocks += 1;
-            self.frame_insts += ir_block.insts.len() as u64;
-            if let Some(counts) = self.profile.as_mut() {
-                counts.block(ir_block, &code.ops[b.start as usize..b.end as usize]);
-            }
-            for op in &code.ops[b.start as usize..b.end as usize] {
+            let from = match resume_op.take() {
+                Some(op) => op,
+                None => {
+                    if let Some(left) = self.block_budget.as_mut() {
+                        if *left == 0 {
+                            return self.trap("execution budget exhausted");
+                        }
+                        *left -= 1;
+                    }
+                    if self.multi {
+                        if self.host.cooperative_threads() {
+                            if let Err(trap) = self.inline_preempt(program) {
+                                if trap.kind == Some(TrapKind::Suspended) {
+                                    self.suspend_at = Some((block, b.start as usize));
+                                }
+                                return Err(trap);
+                            }
+                        } else {
+                            #[cfg(not(target_arch = "wasm32"))]
+                            self.preempt()?;
+                        }
+                    }
+                    self.frame_blocks += 1;
+                    self.frame_insts += ir_block.insts.len() as u64;
+                    if let Some(counts) = self.profile.as_mut() {
+                        counts.block(ir_block, &code.ops[b.start as usize..b.end as usize]);
+                    }
+                    b.start as usize
+                }
+            };
+            for (at, op) in code.ops[from..b.end as usize].iter().enumerate() {
                 match *op {
                     Op::Const {
                         dst,
@@ -1310,13 +1340,18 @@ impl Interp {
                         col,
                     } => self.loc = Some((file, line, col)),
                     Op::Ir {
-                        block,
+                        block: ir_block,
                         inst,
                     } => {
-                        let inst = &func.blocks[block as usize].insts[inst as usize];
+                        let inst = &func.blocks[ir_block as usize].insts[inst as usize];
                         // SAFETY: the same registers, borrowed for this one step only.
                         let vals = unsafe { std::slice::from_raw_parts_mut(regs, func.vals.len()) };
-                        self.step(program, inst, vals, frame, stack_base)?;
+                        if let Err(trap) = self.step(program, inst, vals, frame, stack_base) {
+                            if trap.kind == Some(TrapKind::Suspended) {
+                                self.suspend_at = Some((block, from + at));
+                            }
+                            return Err(trap);
+                        }
                     }
                 }
             }

@@ -89,9 +89,10 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   FreeType, stb_image, libclang and `Process` have no browser backend.
 - **Files**: reads see the workspace (cwd is `/workspace`, so `read_entire_file("lib/data.txt")` works) and the bundled
   stdlib (`/stdlib/...`); writes go to an in-memory overlay (`/tmp` exists) that lives for one `play`. Nothing persists.
-- **Threads**: run one after another on the interpreter stack, see [interpreter threads](../compiler/interpreter-threads.md).
-  `Thread`, `Mutex`, `Condition_Variable`, `Semaphore` and `Thread_Group` work; a thread that busy-waits for a
-  thread lower on the stack hangs.
+- **Threads**: take turns on the one host thread, each suspended while it waits, see
+  [interpreter threads](../compiler/interpreter-threads.md#inline-threads-sandbox-host-browser).
+  `Thread`, `Mutex`, `Condition_Variable`, `Semaphore`, `Thread_Group` and `File_Async` work; a busy wait must poll
+  (an atomic read, `pause`, `sched_yield`) for the other threads to run, and sleeping only moves the virtual clock.
 - **Path semantics**: `normalize` clamps `..` at the root, so `#load "../../stdlib/X.jai"` from `/workspace/a.jai`
   reaches `/stdlib/X.jai` as on a real file system.
 - Regression sweep for the wasm build: `node tools/check_playground_stdlib.mjs <staged-dir>` runs every
@@ -102,8 +103,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   and keeps the rest running: processes (`Process`, `BuildCpp`, the bindings generators' compiler runs),
   native C libraries (libc callbacks and variadics). Prefer a runtime `if OS == .WASM` over
   `#if` where the skipped code can still compile, so it stays type-checked in the browser. A test with nothing
-  left to run there (sockets, windows, OpenGL, audio, libclang, Debug's stack capture, File_Async's worker
-  thread) has a `playground` line in `tests/stdlib-runtime-skips.txt`
+  left to run there (sockets, windows, OpenGL, audio, libclang, Debug's stack capture) has a `playground` line in `tests/stdlib-runtime-skips.txt`
   instead; it still runs, and the check fails if it passes, so the line goes once it can. `PLAYGROUND_VERBOSE=1 ... name.jai`
   prints that test's output; passing test names runs only those.
 - Debug browser-only behavior natively: `jaic run test.jai -os wasm` uses the same `SandboxHost`.

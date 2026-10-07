@@ -100,34 +100,41 @@ ordinary native call, so other threads run while it waits.
 ## Inline threads (sandbox host, browser)
 
 `interp/threads_inline.rs` replaces the baton scheduler when the host returns `cooperative_threads() == true`
-(`SandboxHost`, `SharedHost`). wasm32 has no `std::thread`, so nothing runs concurrently and a started
-thread cannot be suspended: the interpreter is recursive Rust and a blocked thread keeps its Rust frames.
+(`SandboxHost`, `SharedHost`). wasm32 has no `std::thread`, so all threads take turns on the one host thread,
+each on a value stack of its own (`THREAD_STACK`, 8 MiB; the first thread keeps `Interp::call`'s).
 
-- `pthread_create` only records `(func, argument)`; the thread is `Pending`.
-- A pending thread runs to completion *on top of the stack of the thread that blocks first*: at
-  `pthread_join`, a contended mutex, `pthread_cond_wait`/`timedwait`, `sleep`/`usleep`/`nanosleep`, `sched_yield`,
-  and after `POLLS_BEFORE_SWITCH` polls (so a busy wait on an atomic progresses). A poll (`inline_poll`) is a
-  `compare_and_swap` that fails or writes the value already there (`atomic_read`, a spin on a taken lock), a
-  `pause`, or a `trylock`/`tryjoin` that finds the mutex or thread busy.
-  The set of started threads is therefore a stack (`levels`), main at the bottom.
-- Optional switches (polls, `sleep`, `sched_yield`) never start a pending thread while a started thread holds an
-  emulated mutex (`mutex_held`): the new thread could need it, and the holder below it cannot run again until the
-  new one returns, so it would be abandoned and its work lost. The switch happens at the unlock that frees the
-  last mutex instead (`preempt_due`, `inline_unlocked`). Spin locks built on `compare_and_swap` (the default
-  allocator's ledger, `Runtime_Support`'s output lock) are invisible to the scheduler, which is why switches are
-  driven by polls rather than by a basic-block count: a switch at an arbitrary block could land inside such a
-  lock and leave the new thread spinning forever. A busy wait that polls nothing (a plain, non-atomic flag) does
-  not let pending threads run.
-- `wait_until` is the single blocking primitive. If the wait is not satisfied and nothing is pending:
-  a timed wait times out at once and advances the virtual clock (`Host::advance_clock`); otherwise it looks for
-  the nearest thread lower on the stack whose own wait is over and *abandons* every thread above it (they are
-  unwound with a special trap, their mutexes released, and they count as finished); with no such thread it
-  reports `deadlock: every thread is blocked`.
-- Abandoning is what lets a `Thread_Group` worker, parked on its semaphore with no work, hand control back to
-  the main thread that polls for results. Limitation: an abandoned thread never resumes, so work added to a
-  group *after* its workers were abandoned is never processed (the program ends in a deadlock error or keeps
-  polling). `thread_is_done` (stdlib/Thread/primitives.jai) asks `pthread_tryjoin_np` on WASM so that
-  `shutdown` still succeeds for abandoned workers.
+- `pthread_create` only records `(func, argument)`; the thread is `Pending` until the scheduler picks it.
+- The interpreter is recursive Rust, so a thread cannot be paused in place. A thread that must wait *suspends*:
+  it returns a `TrapKind::Suspended` trap, and each interpreted frame it unwinds through is saved by `exec`
+  (`SuspFrame`: the block and op it stopped at, its value registers and what `exec` restores on return; the
+  frame's memory stays on the thread's value stack). `run_code` records the stopping point in
+  `Interp::suspend_at`. The trap ends at the scheduler loop, `inline_schedule`, which runs in the outermost
+  `Interp::call`.
+- `inline_schedule` saves the thread's frames and `ExecState`, picks the next thread and either starts it or
+  resumes it: `resume_frames` runs the innermost saved frame again from its op (the blocking foreign call, which
+  now finds its wait over) and hands each frame's results to its caller, which goes on after the call.
+  A blocking call whose progress the scheduler cannot recompute keeps a `Resume` record on its thread: a
+  condition wait that already released its mutex (`Cond`, then `Relock` while it takes the mutex back), a
+  sleep's deadline, a yield. Mutex locks and joins simply try again.
+- Threads switch when one blocks (`pthread_join`, a contended mutex, `pthread_cond_wait`/`timedwait`,
+  `sleep`/`usleep`/`nanosleep`), yields (`sched_yield`), or has polled `POLLS_BEFORE_SWITCH` times (so a busy wait
+  on an atomic progresses). A poll (`inline_poll`) is a `compare_and_swap` that fails or writes the value already
+  there (`atomic_read`, a spin on a taken lock), a `pause`, or a `trylock`/`tryjoin` that finds the mutex or
+  thread busy. A busy wait that polls nothing (a plain, non-atomic flag) never lets other threads run.
+- Picking (`inline_pick`), round-robin from the thread that stopped: first a thread that is pending or whose wait
+  is over; else the clock jumps to the earliest deadline (timed waits and sleeps, `Host::advance_clock`) and that
+  thread's wait times out; else a thread that only yielded. So time passes only when no thread can run, and a
+  thread spinning on a flag that another sets after a sleep still sees it. Nothing to pick is
+  `deadlock: every thread is blocked`; `wait_until` reports it at once when the blocking thread can see that
+  nothing else could ever run.
+- `wait_until` is the single blocking primitive: it returns when the wait holds or its deadline passed, and
+  otherwise suspends the thread (or, when no other thread can run before this deadline, advances the clock).
+- Threads switch only inside the outermost `Interp::call` (`call_nesting == 1`), where every Rust frame of a
+  thread is an interpreted frame that can be saved. In a nested call (a C callback, a compiler hook running Jai)
+  a wait that is not over times out at once if it is timed and is otherwise reported as a deadlock.
+- A switch can happen anywhere a thread polls, also inside a spin lock built on `compare_and_swap` (the default
+  allocator's ledger, `Runtime_Support`'s output lock) or while it holds a mutex: the holder simply runs again
+  later. When the first thread returns, the program ends, whatever the others are doing.
 - Output order is deterministic. Sleeping never takes real time.
 - `Thread` on WASM uses the Linux x86-64 POSIX layouts (`POSIX_THREADS` includes `OS == .WASM`).
 
@@ -144,7 +151,10 @@ Tuning: `NATIVE_SLICE` trades switch latency against wakeups of runnable threads
 that period while another thread holds the baton). A new Win32 waitable
 object is an `Object` variant with `signaled` and `consume`; call `wake_object_waiters` when it
 becomes signaled. Unknown handles must keep falling through to the real procedure. For the inline scheduler add a `Wait` variant, its `satisfied` rule,
-and a case in `inline_thread_foreign`.
+and a case in `inline_thread_foreign`. A blocking call there must be safe to run again after it suspends:
+it is re-executed from the start when its thread resumes, so anything it did before suspending that the
+retry cannot see (releasing a mutex, computing a deadline) goes in a `Resume` record. A Rust frame that is
+not an `exec`/`run_code` frame and can see a suspension must raise `call_nesting` around it.
 
 ## Configuration
 
@@ -156,7 +166,10 @@ None at run time. Constants in `threads.rs`: `PREEMPT_TICKS` (20,000 blocks), `N
 
 `stdlib/Thread/`, `stdlib/Atomics.jai`, `interp/native/callbacks.rs` (`Gate`, `calling_out`).
 Tests: `tests/stdlib/threads-cooperative.jai`,
-`tests/stdlib/threads-group-and-condition.jai` (both run natively and in the playground);
+`tests/stdlib/threads-group-and-condition.jai`, `tests/stdlib/threads-worker-requests.jai` (a worker serving
+repeated requests from a semaphore) and `tests/stdlib/file-async.jai` (all run natively and in the playground);
+`sandbox_threads_wake_waiters_and_report_deadlocks` in `crates/jaic-cli/tests/cli.rs` (deadlocks and timed waits
+under `-os wasm`);
 `c_thread_callbacks_block_on_jai_threads` in `crates/jaic-cli/tests/native.rs`
 (`tests/native/c-callback-threads`: a C thread's callback waiting on a Jai mutex, condition
 variable, join and sleep, nested callbacks on the main thread, a C thread and a Jai thread, a Jai

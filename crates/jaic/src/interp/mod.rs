@@ -176,9 +176,9 @@ pub enum TrapKind {
     BareAssertion,
     /// A foreign procedure neither the host nor a loaded library provides.
     Unavailable,
-    /// Not a failure: unwinds a thread of the single-threaded scheduler that nothing can wake,
-    /// so one lower on the stack can go on (`threads_inline.rs`). Never reported.
-    Abandoned,
+    /// Not a failure: unwinds a thread of the sandbox's scheduler that blocks or yields, its
+    /// frames saved so it can resume later (`threads_inline.rs`). Never reported.
+    Suspended,
 }
 
 /// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).
@@ -396,6 +396,15 @@ pub struct Interp {
     isched: Option<Box<threads_inline::InlineSched>>,
     /// More than one thread exists: `run` offers the baton to the others now and then.
     multi: bool,
+    /// `Interp::call`s (and C callbacks) running: the sandbox scheduler switches threads only
+    /// in the outermost one, where every Rust frame of a thread is resumable.
+    call_nesting: u32,
+    /// While a thread suspends (`TrapKind::Suspended`): the block and op where the innermost
+    /// `run_code` stopped, and the value registers `run` hands over, for `exec` to save.
+    suspend_at: Option<(usize, usize)>,
+    suspend_vals: Option<Vec<u64>>,
+    /// The frames of the suspending thread saved so far, innermost first.
+    captured: Vec<threads_inline::SuspFrame>,
     /// Basic blocks left to run before execution traps (editors bound compile-time code).
     pub block_budget: Option<u64>,
     /// Reused value-register vectors (see `run`).
@@ -419,6 +428,24 @@ pub struct Interp {
     callback_stacks: Vec<Box<[u64]>>,
     /// Procedures already recorded for `JAIC_COVERAGE`, by `FuncId`; `None` when it is unset.
     covered: Option<Vec<bool>>,
+}
+
+/// What `exec` saved on entering a frame, to restore when it returns.
+struct FrameExit {
+    id: FuncId,
+    /// `sp` before the frame.
+    base: u64,
+    saved_loc: Option<(u32, u32, u32)>,
+    saved_trace_loc: Option<Option<(u32, u32, u32)>>,
+    /// The `context.stack_trace` slot and its previous top (`trace_enter`).
+    pushed: Option<(u64, u64)>,
+    /// The caller's profile counts.
+    outer: (u64, u64),
+}
+
+/// Whether `result` is a thread of the sandbox's scheduler switching out (`threads_inline.rs`).
+fn suspended<T>(result: &Res<T>) -> bool {
+    matches!(result, Err(trap) if trap.kind == Some(TrapKind::Suspended))
 }
 
 /// What a thread running interpreted code keeps of `Interp` while another thread has it, or
@@ -481,6 +508,10 @@ impl Interp {
             ticks: 0,
             isched: None,
             multi: false,
+            call_nesting: 0,
+            suspend_at: None,
+            suspend_vals: None,
+            captured: Vec::new(),
             block_budget: None,
             val_pool: Vec::new(),
             frame_blocks: 0,
@@ -1051,7 +1082,9 @@ impl Interp {
             stack,
             ..ExecState::default()
         });
+        self.call_nesting += 1;
         let result = self.exec(program, func, args);
+        self.call_nesting -= 1;
         let mine = self.take_exec_state();
         self.put_exec_state(outer);
         self.callback_stacks.push(mine.stack);
@@ -1068,7 +1101,19 @@ impl Interp {
             self.stack = vec![0u64; STACK_SIZE / 8].into_boxed_slice();
             self.sp = 0;
         }
-        let result = self.exec(program, func, args).map(Rets::into_vec);
+        let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
+        self.call_nesting += 1;
+        let mut result = self.exec(program, func, args);
+        if self.call_nesting == 1 && suspended(&result) {
+            // A thread of the sandbox's scheduler blocked: run the others until this one ends.
+            result = self.inline_schedule(program, result);
+            if result.is_err() {
+                (self.sp, self.depth) = (sp, depth);
+                self.calls.truncate(calls);
+            }
+        }
+        self.call_nesting -= 1;
+        let result = result.map(Rets::into_vec);
         if self.forked_child {
             // Compile-time code forked and the child came back here (its `exec*` failed
             // or it trapped): it must not go on compiling alongside the parent.
@@ -1141,27 +1186,51 @@ impl Interp {
         }
         let outer = (self.frame_blocks, self.frame_insts);
         (self.frame_blocks, self.frame_insts) = (0, 0);
-        let mut result = self.run(program, func, &frame, stack_base, args);
+        let result = self.run(program, func, &frame, stack_base, args);
+        let exit = FrameExit {
+            id,
+            base,
+            saved_loc,
+            saved_trace_loc,
+            pushed,
+            outer,
+        };
+        if suspended(&result) {
+            // The thread is switching out: the frame stays on its value stack, to be resumed.
+            (self.frame_blocks, self.frame_insts) = outer;
+            self.capture_frame(exit, frame, stack_base);
+            return result;
+        }
+        self.leave_frame(func, exit, result)
+    }
+
+    /// What `exec` restores when a frame returns (also for a frame `resume_frames` resumed).
+    fn leave_frame(
+        &mut self,
+        func: &ir::Func,
+        exit: FrameExit,
+        mut result: Res<Rets>,
+    ) -> Res<Rets> {
         if let Err(trap) = &mut result {
             trap.push_frame(func, self.loc);
         }
         if let Some(counts) = self.profile.as_mut() {
             counts.add(
-                id.0 as usize,
+                exit.id.0 as usize,
                 &func.name,
                 self.frame_blocks,
                 self.frame_insts,
             );
         }
-        (self.frame_blocks, self.frame_insts) = outer;
-        if let Some((slot, previous)) = pushed {
+        (self.frame_blocks, self.frame_insts) = exit.outer;
+        if let Some((slot, previous)) = exit.pushed {
             unsafe { std::ptr::write_unaligned(slot as *mut u64, previous) };
         }
-        self.loc = saved_loc;
-        self.trace_loc = saved_trace_loc;
+        self.loc = exit.saved_loc;
+        self.trace_loc = exit.saved_trace_loc;
         self.depth -= 1;
         self.calls.pop();
-        self.sp = base;
+        self.sp = exit.base;
         result
     }
 
@@ -1332,8 +1401,12 @@ impl Interp {
         vals.resize(func.vals.len(), 0);
         vals[..args.len().min(func.sig.params.len())]
             .copy_from_slice(&args[..args.len().min(func.sig.params.len())]);
-        let result = self.run_code(program, func, frame, stack_base, &mut vals);
-        self.val_pool.push(vals);
+        let result = self.run_code(program, func, frame, stack_base, &mut vals, None);
+        if suspended(&result) {
+            self.suspend_vals = Some(vals);
+        } else {
+            self.val_pool.push(vals);
+        }
         result
     }
 

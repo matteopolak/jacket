@@ -311,6 +311,88 @@ fn memory_limit_stops_unbounded_allocation() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "10000\n");
 }
 
+/// The sandbox (`-os wasm`, the browser's engine) runs every thread on one host thread. A wait
+/// nothing can end any more is reported as a deadlock instead of hanging, whether the thread
+/// that could have ended it has returned or is blocked itself, and timed waits and sleeps move
+/// the virtual clock: a short wait times out, a longer one sees the signal sent after a sleep.
+#[test]
+fn sandbox_threads_wake_waiters_and_report_deadlocks() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-sandbox-threads");
+    std::fs::create_dir_all(&dir).unwrap();
+    let programs = [
+        (
+            "returned.jai",
+            "quick :: (t: *Thread) -> s64 { return 0; }\n\
+             main :: () {\n\
+             \x20   init(*sem);\n\
+             \x20   t: Thread;\n\
+             \x20   thread_init(*t, quick);\n\
+             \x20   thread_start(*t);\n\
+             \x20   wait_for(*sem);\n\
+             \x20   print(\"woken\\n\");\n\
+             }\n",
+        ),
+        (
+            "blocked.jai",
+            "stuck :: (t: *Thread) -> s64 { wait_for(*sem); return 0; }\n\
+             main :: () {\n\
+             \x20   init(*sem);\n\
+             \x20   t: Thread;\n\
+             \x20   thread_init(*t, stuck);\n\
+             \x20   thread_start(*t);\n\
+             \x20   thread_deinit(*t);\n\
+             \x20   print(\"joined\\n\");\n\
+             }\n",
+        ),
+        (
+            "timed.jai",
+            "late :: (t: *Thread) -> s64 {\n\
+             \x20   sleep_milliseconds(50);\n\
+             \x20   signal(*sem);\n\
+             \x20   sleep_milliseconds(50);\n\
+             \x20   atomic_write(*flag, 1);\n\
+             \x20   return 0;\n\
+             }\n\
+             main :: () {\n\
+             \x20   init(*sem);\n\
+             \x20   t: Thread;\n\
+             \x20   thread_init(*t, late);\n\
+             \x20   thread_start(*t);\n\
+             \x20   early := wait_for(*sem, 10);\n\
+             \x20   later := wait_for(*sem, 1000);\n\
+             \x20   while atomic_read(*flag) == 0 {}\n\
+             \x20   thread_deinit(*t);\n\
+             \x20   print(\"% %\\n\", early, later);\n\
+             }\n",
+        ),
+    ];
+    let header = "#import \"Basic\";\n#import \"Thread\";\n#import \"Atomics\";\n\
+                  sem: Semaphore;\nflag: s32;\n";
+    for (name, body) in programs {
+        let path = dir.join(name);
+        std::fs::write(&path, format!("{header}{body}")).unwrap();
+        let output = Command::new(JAIC)
+            .arg("run")
+            .arg(&path)
+            .args(["-os", "wasm"])
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if name == "timed.jai" {
+            assert!(output.status.success(), "{name}: {stderr}");
+            assert_eq!(stdout, "TIMEOUT SUCCESS\n", "{name}");
+        } else {
+            assert!(!output.status.success(), "{name}: {stdout}");
+            assert!(
+                stderr.contains("deadlock: every thread is blocked"),
+                "{name}: {stderr}"
+            );
+            assert!(stdout.is_empty(), "{name}: {stdout}");
+        }
+    }
+}
+
 /// A plugin that prints each hook as it is called, tagged with its module parameter.
 const ORDER_PLUGIN: &str = r#"#module_parameters(TAG := "default");
 #import "Basic";
