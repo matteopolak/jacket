@@ -1,0 +1,1 @@
+#import"Basic";#import"Compiler";#insert->string{root:=compiler_get_nodes(2==4).(*Code_Binary_Operator);assert(root.left.type==type_info(int),"",root.left.type,root.left.kind);}#run{ compiler_get_nodes(f());}

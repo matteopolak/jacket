@@ -23,7 +23,7 @@ A metaprogram runs in its own compiler's interpreter, which borrows that compile
 - Backticked identifiers and declarations set `HAS_SCOPE_MODIFIER` {#records.15}. `#assert` and `#run` statements export as `Code_Directive_Run` (with jaic's extra `expression` and `message`) {#records.16}, `#exists(x)` as `Code_Directive_Exists` {#records.17}.
 - `a, b := f()` is a `Code_Compound_Declaration`: the names in `comma_separated_assignment`, the shared type and values in a nameless `declaration_properties` {#records.20}.
 
-`build::step` takes the record table out of the registry while exporting (resolving can run compile-time code) and queues IMPORT, FILE and TYPECHECKED events whose int 0 is the message record.
+`build::step` takes the record table out of the registry while exporting (resolving can run compile-time code) and queues IMPORT, FILE and TYPECHECKED events whose int 0 is the message record. A typed `compiler_get_nodes` export (`Compiler::export_code_typed`) does the same. `Records::lend` leaves the registry an empty part that draws ids from the same counter, so compile-time code run meanwhile (a pending `#insert` that a lookup expands, which may itself call `compiler_get_nodes`) makes records with new ids; `Records::give_back` merges them. Ids must never repeat: the Jai side builds each record's struct once and keeps it by id (`record_structs`), so a reused id hands code another record's struct.
 
 ### Procedures in TYPECHECKED
 

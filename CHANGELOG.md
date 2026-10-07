@@ -49,6 +49,7 @@
 
 ### Fixed
 
+- Compile-time code that runs while `compiler_get_nodes` exports a tree with names and types (a pending `#insert` that resolving a name expands, itself calling `compiler_get_nodes`) no longer gets syntax-tree and type structs of unrelated records, which crashed the compiler or the language server: its records were numbered from 1 again, and `Compiler` builds each record's struct once by id.
 - The playground's execution budget (and jailsp's and jailint's) now covers the compile-time code of workspaces a metaprogram compiles. A workspace's compiler had no budget in the playground, so an endless `#run` in a program a metaprogram compiled hung it, and jailsp and jailint gave each workspace a fresh budget, so a metaprogram creating many of them was not bounded.
 - jailsp: go to definition on a builtin constant such as `OS` no longer crashes the server; it has no declaration to go to.
 - A statement starting with `ifx` no longer takes time exponential in how deeply `ifx` statements nest inside its condition or branches (a 2.5 KB file of nested `{ifx` hung the parser): it was parsed once as an assigning `if` and again as an expression.

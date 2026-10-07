@@ -636,7 +636,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     if intercepted {
         // The registry's records are taken out while the compiler exports:
         // resolving declarations may run compile-time code.
-        let mut records = std::mem::take(&mut shared.borrow_mut().records);
+        let mut records = Records::lend(&mut shared.borrow_mut().records);
         for (kind, record) in compiler.export_file_events(&mut records) {
             file_events.push(record_event(
                 if kind == crate::sema::code_export::message_kind::IMPORT {
@@ -666,9 +666,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
             let at = events.len().saturating_sub(1);
             events.insert(at, record_event(EVENT_TYPECHECKED, message));
         }
-        let mut reg = shared.borrow_mut();
-        let added = std::mem::replace(&mut reg.records, records);
-        debug_assert!(added.is_empty());
+        Records::give_back(&mut shared.borrow_mut().records, records);
     }
     // Lowering reported more: the metaprogram gets another TYPECHECKED_ALL_WE_CAN to
     // add code. Otherwise the program is complete.

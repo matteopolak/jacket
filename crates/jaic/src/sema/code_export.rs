@@ -344,10 +344,9 @@ impl Compiler {
         };
         // No further requests while exporting: nested compile-time code gets plain nodes.
         let outer = self.interp.run_effects.take();
-        let mut records = std::mem::take(&mut shared.borrow_mut().records);
+        let mut records = Records::lend(&mut shared.borrow_mut().records);
         let exported = export_code_in(Some(self), scope, &mut records, &body, &text);
-        let added = std::mem::replace(&mut shared.borrow_mut().records, records);
-        debug_assert!(added.is_empty());
+        Records::give_back(&mut shared.borrow_mut().records, records);
         self.interp.run_effects = outer;
         self.interp
             .code_exports

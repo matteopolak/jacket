@@ -6,6 +6,8 @@
 
 ## How it works
 
+A push to a branch cancels that branch's older `ci.yml` run still in progress (`concurrency`, keyed by workflow and ref), so only the newest commit is checked; tags and other branches are separate groups. `fuzz.yml` does the same for push replays only: nightly and dispatched fuzzing runs are never cancelled.
+
 `ci.yml` has four jobs:
 
 - `scripting-wasm` (ubuntu): dependency-age and include checks, `cargo test -p jai-language-server -p jai-wasm`, a release `wasm32-unknown-unknown` build staged by `tools/build_scripting_wasm.py`, then `node tools/check_scripting_wasm.mjs` executes the real module, `node tools/check_jai_format_wasm.mjs` formats the Jai_Format golden cases through it ([jaifmt](jaifmt.md#browser-playground)), and `node tools/check_playground_stdlib.mjs` runs every `tests/stdlib` program in the browser engine; any failure fails the job. The browser release (`tools/package_browser_release.py`, which the portfolio's publish workflow runs) makes the same check before it writes any asset, so a broken bundle is never published. A stdlib test that needs processes, native libraries or windows is listed in `tests/stdlib-runtime-skips.txt` with the `playground` mode ([stdlib runtime tests](stdlib-runtime-tests.md)). Last, it builds an LLVM-free host `jaic` (`--no-default-features`) and runs [differential testing](differential-testing.md) of the interpreter against the browser engine (`--backends interp,wasm corpus gen:1:40`).

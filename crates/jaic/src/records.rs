@@ -12,6 +12,7 @@
 //! Record ids are global to a top-level compilation, start at 1, and 0 means
 //! null. Records live until the compilation ends, so a record id (and the
 //! struct the metaprogram built from it) keeps its identity across messages.
+use std::cell::Cell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
@@ -90,43 +91,77 @@ pub const KIND_STRING: i64 = 2;
 pub const KIND_REF: i64 = 3;
 pub const KIND_LIST: i64 = 4;
 
+/// Every record of one compilation, by id (1, 2, ...).
+///
+/// Ids are dense and never reused: `stdlib/Compiler` builds each record's struct once and
+/// keeps it in an array indexed by id for the rest of the compilation. An exporter takes
+/// the records out of the registry while it runs ([`Records::lend`]), because resolving
+/// names may run compile-time code that reads and makes records of its own; that code gets
+/// a part that draws ids from the same counter, merged back by [`Records::give_back`].
 #[derive(Default)]
 pub struct Records {
-    list: Vec<Record>,
+    /// Records by `id - 1 - first`. `None`: an id the other side of a lend gave out.
+    list: Vec<Option<Record>>,
+    /// Ids up to this belong to the records this part was lent from.
+    first: usize,
+    /// The last id given out, shared by all parts.
+    last: Rc<Cell<usize>>,
 }
 
 impl Records {
     /// Reserve an id now and fill the record later (records may refer to themselves).
     pub fn reserve(&mut self, tag: &'static str) -> i64 {
-        self.list.push(Record::new(tag));
-        self.list.len() as i64
+        self.add(Record::new(tag))
     }
 
     pub fn add(&mut self, record: Record) -> i64 {
-        self.list.push(record);
-        self.list.len() as i64
+        let id = self.last.get() + 1;
+        self.last.set(id);
+        self.put(id, record);
+        id as i64
+    }
+
+    fn put(&mut self, id: usize, record: Record) {
+        let at = id - 1 - self.first;
+        if self.list.len() <= at {
+            self.list.resize_with(at + 1, || None);
+        }
+        self.list[at] = Some(record);
+    }
+
+    fn index(&self, id: i64) -> Option<usize> {
+        (id as usize).checked_sub(1 + self.first).filter(|_| id > 0)
     }
 
     pub fn get(&self, id: i64) -> Option<&Record> {
-        if id <= 0 {
-            return None;
-        }
-        self.list.get(id as usize - 1)
+        self.list.get(self.index(id)?)?.as_ref()
     }
 
     pub fn get_mut(&mut self, id: i64) -> Option<&mut Record> {
-        if id <= 0 {
-            return None;
+        let at = self.index(id)?;
+        self.list.get_mut(at)?.as_mut()
+    }
+
+    /// Take the records out of `slot`, leaving an empty part in their place that numbers
+    /// new records after every id given out so far (on either side).
+    pub fn lend(slot: &mut Records) -> Records {
+        let part = Records {
+            list: Vec::new(),
+            first: slot.last.get(),
+            last: slot.last.clone(),
+        };
+        std::mem::replace(slot, part)
+    }
+
+    /// Put `records` (from [`Records::lend`]) back in `slot`, with the records added to the
+    /// part meanwhile.
+    pub fn give_back(slot: &mut Records, records: Records) {
+        let part = std::mem::replace(slot, records);
+        for (at, record) in part.list.into_iter().enumerate() {
+            if let Some(record) = record {
+                slot.put(part.first + at + 1, record);
+            }
         }
-        self.list.get_mut(id as usize - 1)
-    }
-
-    pub fn len(&self) -> usize {
-        self.list.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.list.is_empty()
     }
 
     pub fn field(&self, id: i64, name: &str) -> Option<&Field> {
@@ -150,5 +185,34 @@ impl Records {
             (Field::List(items), Some(i)) => items.get(i),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn records_made_while_lent_keep_unique_ids() {
+        // Found by the `lsp_edits` fuzz target: compile-time code run while `compiler_get_nodes`
+        // exported a tree numbered its records from 1 again, and `stdlib/Compiler`, which
+        // builds each record's struct once by id, handed it structs of other records.
+        let mut registry = Records::default();
+        let before = registry.add(Record::new("A"));
+        let mut lent = Records::lend(&mut registry);
+        let outer = lent.reserve("B");
+        let nested = registry.add(Record::new("C"));
+        let mut deeper = Records::lend(&mut registry);
+        let deepest = registry.add(Record::new("D"));
+        let after_nested = deeper.add(Record::new("E"));
+        Records::give_back(&mut registry, deeper);
+        let last = lent.add(Record::new("F"));
+        Records::give_back(&mut registry, lent);
+        let ids = [before, outer, nested, deepest, after_nested, last];
+        assert_eq!(ids, [1, 2, 3, 4, 5, 6]);
+        for (id, tag) in ids.into_iter().zip(["A", "B", "C", "D", "E", "F"]) {
+            assert_eq!(registry.get(id).map(|r| r.tag), Some(tag), "record {id}");
+        }
+        assert!(registry.get(0).is_none() && registry.get(7).is_none());
     }
 }

@@ -2,6 +2,10 @@ name: compiler checks
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
+# A newer push to the same branch supersedes an older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   scripting-wasm:
     name: scripting interpreter (LLVM-free WebAssembly)
