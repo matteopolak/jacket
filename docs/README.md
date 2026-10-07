@@ -135,6 +135,7 @@ Scripts, CI and project policies.
 - [jailint (Jai linter)](tools/jailint.md): rules, `jailint.toml`, suppression, adding a rule
 - [LLVM setup](tools/llvm-setup.md)
 - [Nix flake](tools/nix.md)
+- [Package managers and installers](tools/package-managers.md): Homebrew tap, winget, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup
 - [PGO and BOLT](tools/pgo-and-bolt.md): profile-guided and post-link optimisation of the released binaries, `tools/build_pgo.py`
 - [Third-party native libraries](tools/native-libs.md)
 - [Third-party smoke test](tools/third-party-smoke-test.md): finding public Jai repositories and trying them

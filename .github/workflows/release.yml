@@ -388,3 +388,152 @@ jobs:
             echo "$out"
           fi
           pnpm exec ovsx publish "$vsix" -p "$OVSX_PAT" --skip-duplicate
+
+  # Package managers (docs/tools/package-managers.md). After the GitHub release, the Homebrew
+  # formula and the winget manifests are rendered from the tag and the release's own SHA256SUMS
+  # by tools/render_packages.py, validated, and published when their secret is set (otherwise the
+  # job says it skipped). They run after `publish`, so a failure here never holds up the release.
+  # A run without a tag renders and validates from this run's archives and publishes nothing.
+  homebrew:
+    needs: [build, publish]
+    if: >-
+      inputs.publish_integrations &&
+      (!cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      HOMEBREW_NO_ENV_HINTS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: env.TAG == ''
+        with:
+          pattern: '*64'
+          path: archives
+          merge-multiple: true
+      - name: Render the formula from the release's version and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$TAG" ]; then
+            version="${TAG#v}"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
+            source=(--sums "$RUNNER_TEMP/SHA256SUMS")
+          else
+            version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+            source=(--archives archives)
+          fi
+          python3 tools/render_packages.py --version "$version" "${source[@]}" --out "$RUNNER_TEMP/packages"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          cat "$RUNNER_TEMP/packages/homebrew/jai.rb"
+      - name: Validate the formula (and, for a release, install and test it)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew tap-new --no-git jairelease/local
+          cp "$RUNNER_TEMP/packages/homebrew/jai.rb" "$(brew --repository jairelease/local)/Formula/jai.rb"
+          brew trust jairelease/local 2> /dev/null || true
+          brew style jairelease/local/jai
+          if [ -z "$TAG" ]; then
+            # The URLs exist only once the release does.
+            brew audit --formula --strict jairelease/local/jai
+          else
+            brew audit --formula --strict --online jairelease/local/jai
+            brew install --build-from-source jairelease/local/jai
+            brew test jairelease/local/jai
+          fi
+      # The tap may hold only a README: the first push creates Formula/.
+      - name: Push the formula to matteopolak/homebrew-tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAG" ]; then echo "No tag (dry run); not pushing the formula"; exit 0; fi
+          if [ -z "$TAP_TOKEN" ]; then echo "HOMEBREW_TAP_TOKEN is not set; skipping the Homebrew tap"; exit 0; fi
+          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/matteopolak/homebrew-tap.git" "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          mkdir -p Formula
+          cp "$RUNNER_TEMP/packages/homebrew/jai.rb" Formula/jai.rb
+          git add Formula/jai.rb
+          if git diff --cached --quiet; then echo "Formula/jai.rb is already at $VERSION"; exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "jai $VERSION"
+          git push origin HEAD
+          echo "Pushed jai $VERSION to matteopolak/homebrew-tap"
+
+  # winget submits from the fork of microsoft/winget-pkgs that belongs to WINGET_TOKEN's owner
+  # (komac finds it), after syncing that fork with upstream. Microsoft's pipeline then validates
+  # the pull request and moderators review it (the first submission of a package by hand).
+  winget:
+    needs: [build, publish]
+    if: >-
+      inputs.publish_integrations &&
+      (!cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+      KOMAC_VERSION: 2.16.0
+      KOMAC_SHA256: bdc45baf028f750da7519cc8a5f2eab5dfef46dfe88650eeb0d0a9bf51446e4f
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: env.TAG == ''
+        with:
+          pattern: '*64'
+          path: archives
+          merge-multiple: true
+      - name: Render the manifests from the release's version and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$TAG" ]; then
+            version="${TAG#v}"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
+            source=(--sums "$RUNNER_TEMP/SHA256SUMS")
+          else
+            version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+            source=(--archives archives)
+          fi
+          python tools/render_packages.py --version "$version" "${source[@]}" --out "$RUNNER_TEMP/packages"
+          manifests="$RUNNER_TEMP/packages/winget/manifests/m/matteopolak/jai/$version"
+          cat "$manifests"/*.yaml
+          echo "MANIFESTS=$(cygpath -w "$manifests")" >> "$GITHUB_ENV"
+      - name: Validate the manifests
+        shell: pwsh
+        run: ./packaging/winget/validate.ps1 $env:MANIFESTS
+      - name: Install komac (pinned, checksum verified)
+        run: |
+          curl -fsSL -o komac.exe "https://github.com/russellbanks/Komac/releases/download/v$KOMAC_VERSION/komac-$KOMAC_VERSION-x86_64-pc-windows-msvc.exe"
+          echo "$KOMAC_SHA256  komac.exe" | sha256sum -c -
+          ./komac.exe --version
+      - name: Submit to winget-pkgs
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [ -z "$WINGET_TOKEN" ]; then echo "WINGET_TOKEN is not set; skipping winget"; exit 0; fi
+          export GITHUB_TOKEN="$WINGET_TOKEN"
+          if [ -z "$TAG" ]; then
+            echo "No tag (dry run); komac only reads the manifests"
+            ./komac.exe submit --dry-run --yes "$MANIFESTS"
+            exit 0
+          fi
+          # A fork that is behind microsoft/winget-pkgs is fast-forwarded first.
+          ./komac.exe sync || echo "::warning::could not sync the winget-pkgs fork; submitting anyway"
+          ./komac.exe submit --yes "$MANIFESTS"

@@ -18,6 +18,8 @@
 
 `nix.yml` runs on ubuntu and macOS when the flake, `nix/`, `Cargo.lock` or `rust-toolchain.toml` change: it checks `flake.lock` is current, runs `nix flake check` and `nix build`, and smoke-tests the result. See [Nix flake](nix.md).
 
+`packaging.yml` runs when `install.sh`, `install.ps1`, `packaging/` or `tools/render_packages.py` change: it installs the latest release with both install scripts and from the rendered Homebrew formula and winget manifests, on macOS, Linux and Windows, and runs the tools. See [package managers](package-managers.md#validation-in-ci).
+
 `fuzz.yml` replays the saved fuzz crash inputs (`fuzz/regressions/`) on every push and pull request, and fuzzes every cargo-fuzz target nightly for 10 minutes each with a cached corpus. See [fuzzing](fuzzing.md).
 
 The full corpus sweep (`tools/jaic-sweep.py` with the `upstream` set) is not part of CI because the upstream corpus is fetched, not committed; run it locally ([jaic-sweep](jaic-sweep.md)).

@@ -9,19 +9,99 @@ An independent toolchain for the [Jai](https://en.wikipedia.org/wiki/Jai_(progra
 - `jaifmt`, a formatter;
 - `jailint`, a linter.
 
+It is written from public documentation and third-party Jai code, without access to Jai or its modules.
+
 The compiler, language server and formatter also run in the browser through WebAssembly, and the language server shows jailint's findings there too.
 
 **[Try it in the browser →](https://matteopolak.com/playground/jai)**
 
-- [What works](#what-works)
-- [Performance](#performance)
-- [What is missing](#what-is-missing)
 - [Install](#install)
 - [Usage](#usage)
+- [Editors](#editors)
+- [What works](#what-works)
+- [Performance](#performance)
 - [Language server](docs/compiler/language-server.md) · [Formatter (jaifmt)](docs/tools/jaifmt.md) · [Linter (jailint)](docs/tools/jailint.md) · [Browser build](docs/browser/playground.md)
 - [Compatibility with real projects](docs/tools/upstream-corpus.md#project-status)
-- [Contributing](#contributing) · [Development](#development) · [Developer docs](docs/README.md)
-- [License](#license)
+- [What is missing](#what-is-missing) · [Contributing](#contributing) · [License](#license)
+
+## Install
+
+Each install includes `jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library.
+
+**macOS (Apple silicon) and Linux (x86-64)**, with [Homebrew](https://brew.sh):
+
+```sh
+brew install matteopolak/tap/jai
+```
+
+or with the install script, which verifies the download and installs into `~/.local`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh | sh
+```
+
+**Windows (x86-64 and arm64)**, with winget:
+
+```sh
+winget install matteopolak.jai
+```
+
+or with the PowerShell install script:
+
+```powershell
+irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 | iex
+```
+
+**Nix:**
+
+```sh
+nix profile install github:matteopolak/jai
+```
+
+Prebuilt archives for every platform are also on the [releases page](https://github.com/matteopolak/jai/releases) ([changelog](CHANGELOG.md)): unpack one anywhere and put `jaic` on your `PATH`, directly or through a symlink. See [package managers](docs/tools/package-managers.md) for details.
+
+To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([setup guide](docs/tools/llvm-setup.md)):
+
+```sh
+git clone https://github.com/matteopolak/jai.git
+cd jai
+cargo build -p jaic-cli -p jai-language-server -p jailint --release --locked
+```
+
+## Usage
+
+```jai
+Node :: struct(T: Type) {
+    next: *Node(T);
+    value: T = 19;
+}
+
+answer :: () -> int { return 23; }
+
+main :: () -> int {
+    node: Node(int);
+    return node.value + #run answer(); // Exit status: 42
+}
+```
+
+```sh
+jaic check examples/compile-time-record.jai        # type-check only
+jaic run examples/compile-time-record.jai          # run in the interpreter
+jaic build examples/compile-time-record.jai -O2    # native executable (-os windows to cross-build)
+jaic check broken.jai --color always               # force coloured errors (or NO_COLOR=1 to turn them off)
+jaic run examples/tour/main.jai                    # the language tour the playground opens with
+jailint src/                                       # lint every .jai file under src/
+jailint src/ --fix                                 # apply the safe fixes
+```
+
+## Editors
+
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-matteopolak.jai-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai)
+[![Open VSX](https://img.shields.io/open-vsx/v/matteopolak/jai?label=Open%20VSX)](https://open-vsx.org/extension/matteopolak/jai)
+
+The Jai extension for VS Code (and VSCodium, Cursor and other Open VSX editors) brings highlighting, the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai); it uses the toolchain on your `PATH`, or offers to download it.
+
+Other editors can start `jailsp` (the Language Server Protocol over stdio) and run `jaifmt --stdin` as the formatter. See [the VS Code extension](docs/tools/vscode-extension.md) and [the language server](docs/compiler/language-server.md).
 
 ## What works
 
@@ -73,96 +153,9 @@ Release builds spend most of their time in LLVM's optimiser. The formatter compi
 
 Anything unsupported fails with a compile error rather than being silently accepted.
 
-## Install
-
-Prebuilt archives for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64), with `jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library, are on the [releases page](https://github.com/matteopolak/jai/releases); see the [changelog](CHANGELOG.md). Unpack one anywhere (say `/opt/jaic`) and put `jaic` on your `PATH`, directly or through a symlink; it finds the `stdlib` folder next to the real file.
-
-With Nix (see [Nix](docs/tools/nix.md)):
-
-```sh
-nix run github:matteopolak/jai -- run hello.jai
-nix profile install github:matteopolak/jai
-```
-
-To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([setup guide](docs/tools/llvm-setup.md)):
-
-```sh
-git clone https://github.com/matteopolak/jai.git
-cd jai
-cargo build -p jaic-cli --release --locked
-cargo build -p jai-language-server -p jailint --release --locked   # jailsp and jailint
-```
-
-## Usage
-
-```jai
-Node :: struct(T: Type) {
-    next: *Node(T);
-    value: T = 19;
-}
-
-answer :: () -> int { return 23; }
-
-main :: () -> int {
-    node: Node(int);
-    return node.value + #run answer(); // Exit status: 42
-}
-```
-
-```sh
-jaic check examples/compile-time-record.jai        # type-check only
-jaic run examples/compile-time-record.jai          # run in the interpreter
-jaic build examples/compile-time-record.jai -O2    # native executable (-os windows to cross-build)
-jaic check broken.jai --color always               # force coloured errors (or NO_COLOR=1 to turn them off)
-jaic run examples/tour/main.jai                    # the language tour the playground opens with
-jailint src/                                       # lint every .jai file under src/
-jailint src/ --fix                                 # apply the safe fixes
-```
-
-## Editors
-
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/matteopolak.jai?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai)
-[![Open VSX](https://img.shields.io/open-vsx/v/matteopolak/jai?label=Open%20VSX)](https://open-vsx.org/extension/matteopolak/jai)
-
-**VS Code** (and VSCodium, Cursor and other Open VSX editors): the [Jai extension](editors/vscode/README.md) (`matteopolak.jai`) brings highlighting, the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai) once it is published there, or download `jai-vscode-<version>.vsix` from the [releases page](https://github.com/matteopolak/jai/releases) and run:
-
-```sh
-code --install-extension jai-vscode-0.4.0.vsix
-```
-
-It finds `jailsp`, `jaic` and `jaifmt` on `PATH`, or asks before downloading the matching release. Useful settings:
-
-```jsonc
-{
-  "jai.server.path": "/opt/jaic/jailsp",   // when the toolchain is not on PATH
-  "jai.compiler.path": "/opt/jaic/jaic",
-  "[jai]": {
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": { "source.fixAll.jailint": "explicit" }
-  }
-}
-```
-
-Other editors can start `jailsp` (it speaks the Language Server Protocol over stdio) and run `jaifmt --stdin` as the formatter. See [the VS Code extension](docs/tools/vscode-extension.md) and [the language server](docs/compiler/language-server.md).
-
 ## Contributing
 
 Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Development
-
-```sh
-cargo test --workspace --locked --no-fail-fast
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-python3 tools/jaic-sweep.py corpus negative stdlib modules upstream howto --timeout 900   # everything should pass
-target/jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples   # build: jaic build jaifmt/build.jai
-cargo run -p jailint -- -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks
-```
-
-The workspace is `crates/jaic` (lexer, parser, semantic analysis, IR, interpreter), `crates/jaic-cli` (the `jaic` binary), `crates/jaic-llvm` (native backend), `crates/jai-language-server`, `crates/jailint` (the linter) and `crates/jai-wasm` (browser build). Start with the [developer docs](docs/README.md) and the [compiler architecture](docs/compiler/architecture.md).
-
-This project is a clean-room implementation, written without reading the source of an official Jai distribution: its modules, `how_to` programs, compiler or any other part of it. It is built from public documentation, third-party Jai code and the behaviour of programs in this repository's tests.
 
 ## License
 
