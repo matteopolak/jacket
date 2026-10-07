@@ -42,6 +42,8 @@ Verdicts:
 - `invalid`: every backend failed to compile the program.
 - `skip`: fewer than two backends could run the program.
 
+The `wasm` engine reports no exit code both for a failed compile and for a program stopped by a runtime error; the harness tells them apart by the error's `runtime-error` code and compares a runtime error's output like the other backends' (a `runtime error` compares status and stdout, not the wording on stderr).
+
 The exit code is 1 on any `DISAGREE` or `invalid`. `--json FILE` writes every result, and `-v` prints them all.
 
 ### What a backend may decline (`unsupported`)
@@ -71,7 +73,7 @@ It covers:
 - integers of every width (`s8`..`u64`), with literals at powers of two ±1 and at float32/float64 rounding ties;
 - `float32` and `float64`, including `-0.0`, subnormals and values near the largest float;
 - arithmetic, bitwise operators, shifts and rotates, comparisons and `&&`/`||`;
-- casts: plain, `trunc` and `no_check`, int↔float, guarded float→int;
+- casts: `trunc` and `no_check` between integer types (a plain cast checks that the value fits, `Build_Options.cast_bounds_check`, so it is only generated where the value always fits), int↔float, guarded float→int. Typed literals are parenthesised, `(cast(u8) 0x30)`, because a prefix cast absorbs a following shift, rotate, `&` or `|` ([operators](../language/operators.md));
 - `#no_aoc` blocks;
 - structs with defaults and nested structs, a polymorphic struct `Pair(T)`;
 - `using` struct members (fields read and written through the promoted name) and `using v;` blocks ([using](../language/using.md));

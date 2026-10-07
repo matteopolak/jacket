@@ -11,7 +11,8 @@ print the same text; tools/jaic-diff.py runs them (`gen:SEED:COUNT`).
 Only behaviour that docs/language/*.md defines is generated:
 - integer + - * wrap at the type's width (numbers.md); shift and rotate amounts are masked below the width;
   division and remainder only by a divisor that is neither 0 nor -1 (truncating, numbers.md);
-- integer casts wrap (casts-and-conversions.md); float -> integer casts only of values guarded into range;
+- integer casts that may not fit are written `cast,trunc` or `cast,no_check` and wrap
+  (casts-and-conversions.md); a plain, checked cast only converts values that fit; float -> integer casts only of values guarded into range;
 - floats are IEEE: NaN payloads and signs are not observed (hashed and printed through a canonical form);
 - procedures used inside expressions are pure, because operand and argument evaluation order is not
   documented; side effects on the checksum happen in statements only;
@@ -123,9 +124,11 @@ class Gen:
             v = self.edge_int(lo, hi)
         else:
             v = self.r.randint(lo, hi)
-        # Typed, so that folding a constant subexpression wraps at the width instead of failing to fit.
+        # Typed, so that folding a constant subexpression wraps at the width instead of failing to fit;
+        # parenthesised, because a prefix cast absorbs a following shift, rotate, `&` or `|`
+        # (operators.md, ops.5) and would apply that operator to the untyped literal first.
         text = f"({v})" if v < 0 else (str(v) if self.chance(0.7) else hex(v))
-        return f"cast({t}) {text}"
+        return f"(cast({t}) {text})"
 
     def edge_int(self, lo, hi):
         """Bit patterns where conversions and rounding go wrong: powers of two and their
@@ -284,7 +287,9 @@ class Gen:
             return self.pick([f"(~{a()})", f"(0 - {a()})"])
         if k == 8:
             src = self.pick([x for x in INTS if x != t])
-            mod = self.pick(["", "", ",trunc", ",no_check"])
+            # A plain cast checks that the value fits (Build_Options.cast_bounds_check); the
+            # generator wants the wrapping conversion, so it says `trunc` (or skips the check).
+            mod = self.pick([",trunc", ",trunc", ",no_check"])
             return f"(cast{mod}({t}) {self.expr(src, d)})"
         if k == 9:
             src = self.pick(FLOATS)
@@ -308,7 +313,7 @@ class Gen:
             s = self.string_expr()
             if self.chance(0.5):
                 return f"(cast,no_check({t}) {s}.count)"
-            return f"(cast({t}) string_byte({s}, {self.expr('s64', d)}))"
+            return f"(cast,trunc({t}) string_byte({s}, {self.expr('s64', d)}))"
         poly = [p for p in self.procs if p.poly and p.pure]
         if poly:
             p = self.pick(poly)

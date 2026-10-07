@@ -174,7 +174,9 @@ class WasmPool:
                 return Result("missing-file", r["stdout"], r["stderr"], note=f"{text.splitlines()[0][:200]} (not in the sandbox)")
             if missing := re.search(r"Unable to open '([^']*)'", r["stderr"]):
                 return Result("missing-file", r["stdout"], r["stderr"], note=f"no {missing.group(1)} in the sandbox")
-            if r["exitCode"] is None:
+            # The engine reports a trap in the running program as an error diagnostic and no exit
+            # code; its output up to the trap is the program's, as on the other backends.
+            if r["exitCode"] is None and "runtime-error" not in codes:
                 return Result("compile error", note=text[:300])
             return Result("runtime error", r["stdout"], r["stderr"], note=text[:300])
         return Result(f"exit {r['exitCode']}", r["stdout"], r["stderr"])

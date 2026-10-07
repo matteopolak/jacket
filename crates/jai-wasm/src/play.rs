@@ -482,6 +482,16 @@ mod tests {
     }
 
     #[test]
+    fn a_trap_in_the_running_program_is_a_runtime_error() {
+        let r = single(
+            "#import \"Basic\";\nmain :: () {\n    print(\"before\\n\");\n    a: [2] int;\n    i := 5;\n    a[i] = 1;\n}\n",
+        );
+        assert_eq!(r.stdout, "before\n");
+        let codes: Vec<_> = r.diagnostics.iter().map(|d| d.code).collect();
+        assert_eq!(codes, [Some("runtime-error")], "{:?}", r.diagnostics);
+    }
+
+    #[test]
     fn threads_run_cooperatively_and_files_live_in_memory() {
         let r = single(
             r##"#import "Basic";

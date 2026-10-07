@@ -106,7 +106,10 @@ impl Compiler {
             return span;
         }
         let text = &self.sources.get(span.file).text;
-        match text.get(..span.start as usize).and_then(|t| t.rfind("#modify")) {
+        match text
+            .get(..span.start as usize)
+            .and_then(|t| t.rfind("#modify"))
+        {
             Some(at) => Span {
                 file: span.file,
                 start: at as u32,

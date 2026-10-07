@@ -156,6 +156,9 @@ pub enum DiagnosticKind {
     /// A `#modify` block on a procedure or struct with no polymorph variables, which would
     /// never run. Reported at the declaration, not as a call's mismatch.
     ModifyWithoutPolymorphs,
+    /// The compiled program stopped with a trap (a failed check, an assertion) while running
+    /// `main`, after it compiled; a trap in compile-time code is a compile error instead.
+    Runtime,
 }
 
 impl DiagnosticKind {
@@ -173,6 +176,7 @@ impl DiagnosticKind {
             DiagnosticKind::MissingFile => Some("missing-file"),
             DiagnosticKind::Unavailable => Some("unavailable"),
             DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
+            DiagnosticKind::Runtime => Some("runtime-error"),
         }
     }
 }

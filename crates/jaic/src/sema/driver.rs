@@ -680,12 +680,23 @@ impl Compiler {
         self.interp.compile_time = false;
         self.enable_stack_traces(Span::NONE);
         if let Err(trap) = self.interp.reset_globals(&self.program) {
-            return Err(Box::new(self.trap_diagnostic(&trap, "runtime error", None)));
+            return Err(Box::new(self.runtime_error(&trap)));
         }
         let result = self.interp.call(&self.program, main, &[argc, argv]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
-            Err(trap) => Err(Box::new(self.trap_diagnostic(&trap, "runtime error", None))),
+            Err(trap) => Err(Box::new(self.runtime_error(&trap))),
+        }
+    }
+
+    /// A trap that stopped the running program, as a diagnostic of kind `Runtime` (unless the
+    /// trap has a more specific kind, such as a foreign procedure the host cannot provide).
+    fn runtime_error(&self, trap: &crate::interp::Trap) -> Diagnostic {
+        let d = self.trap_diagnostic(trap, "runtime error", None);
+        if d.kind == DiagnosticKind::Other {
+            d.with_kind(DiagnosticKind::Runtime)
+        } else {
+            d
         }
     }
 }
