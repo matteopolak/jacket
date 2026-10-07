@@ -186,6 +186,7 @@
         flowing_text();
         text_editing_helpers();
         compatibility_helpers();
+        temporary_storage_frames();
 
         GR.ui_deinit();
         if saved_clipboard.count os_clipboard_set_text(saved_clipboard);
@@ -424,6 +425,56 @@
 
     String_Starts :: (s: string, prefix: string) -> bool {
         return s.count >= prefix.count && string.{ prefix.count, s.data } == prefix;
+    }
+
+    // A game running on temporary storage it resets every frame. Widget states (with their text
+    // and command history), slider runtimes and GetRect's per-frame lists are made during frames,
+    // so they must survive the reset and the reuse of that storage.
+    temporary_storage_frames :: () {
+        push_allocator(temp);
+        here := #location();
+        theme := GR.default_overall_theme.text_input_theme;
+        slider_theme := GR.default_overall_theme.slider_theme;
+        slider_theme.use_spinboxes = false;
+        slider_theme.text_editable = false;
+        scribble :: () {
+            reset_temporary_storage();
+            junk := NewArray(256 * 1024, u8, false);
+            memset(junk.data, 0xa5, junk.count);
+        }
+        for widget: 0..11 {
+            r := get_rect(10, 300, 200, 20);
+            begin_frame(center(r), press());
+            action, text, state := GR.text_input(r, "go", *theme, identifier = 100 + widget, loc = here);
+            first_state := state;
+            GR.draw_popups();
+            scribble();
+            begin_frame(center(r), release(), key(.END, true), typed(cast(u32) (#char "a" + widget)));
+            action, text, state = GR.text_input(r, "go", *theme, identifier = 100 + widget, loc = here);
+            assert(state == first_state, "widget %: the state was not kept", widget);
+            letters := "abcdefghijkl";
+            assert(text == tprint("go%", string.{ 1, letters.data + widget }), "widget %: typed \"%\"", widget, text);
+            GR.draw_popups();
+            scribble();
+            begin_frame(center(r), key(.ENTER, true));
+            action, text, state = GR.text_input(r, "go", *theme, identifier = 100 + widget, loc = here);
+            assert((action & .ENTERED) != 0 && state.command_history.count == 1, "widget %: enter gave %, % history", widget, action, state.command_history.count);
+            GR.draw_popups();
+            scribble();
+            // The history entry and the text from before the edit outlive the frames that made them.
+            assert(state.command_history[0] == text, "widget %: history \"%\", text \"%\"", widget, state.command_history[0], text);
+            amount: float = 0;
+            slider_rect := get_rect(10, 200, 200, 20);
+            begin_frame(center(slider_rect), press());
+            GR.slider(slider_rect, *amount, 0.0, 100.0, 1.0, *slider_theme, identifier = 100 + widget, loc = here);
+            GR.draw_popups();
+            scribble();
+            begin_frame(.{ slider_rect.x + slider_rect.w + 50, center(slider_rect).y }, release());
+            GR.slider(slider_rect, *amount, 0.0, 100.0, 1.0, *slider_theme, identifier = 100 + widget, loc = here);
+            assert(amount == 100, "widget %: the slider gave %", widget, amount);
+            GR.draw_popups();
+            scribble();
+        }
     }
 
     text_inputs :: () {
