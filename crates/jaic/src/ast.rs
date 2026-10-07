@@ -771,6 +771,9 @@ pub enum StmtKind {
     PushContext {
         context: Expr,
         body: Box<Stmt>,
+        /// No context was named (`push_context { }`): `context` is the current one, and a copy
+        /// of it is pushed (a default one where there is none).
+        bare: bool,
     },
     /// `#if cond { } else { }`, also at file and struct scope.
     StaticIf {
@@ -825,6 +828,8 @@ pub enum StmtKind {
     /// `push_context,defer_pop ctx;`: push now, pop at the end of the scope.
     PushContextDefer {
         context: Expr,
+        /// `push_context,defer_pop;`: as `PushContext::bare`.
+        bare: bool,
     },
     /// Empty statement (`;`).
     Empty,

@@ -33,10 +33,11 @@ impl Compiler {
         for (i, stmt) in stmts.iter().enumerate() {
             if let S::PushContextDefer {
                 context,
+                bare,
             } = &stmt.kind
             {
                 // `push_context,defer_pop ctx;` holds for the rest of the block.
-                let addr = self.push_context_addr(f, scope, context, stmt.span)?;
+                let addr = self.push_context_addr(f, scope, context, *bare, stmt.span)?;
                 let saved = f.context.replace(addr);
                 let result = self.check_block_stmts_from(f, scope, &stmts[i + 1..]);
                 f.context = saved;
@@ -70,6 +71,7 @@ impl Compiler {
         f: &mut FnCtx,
         scope: ScopeId,
         context: &ast::Expr,
+        bare: bool,
         span: Span,
     ) -> Result<crate::ir::Val> {
         let ctx_ty = self.context_type(span)?;
@@ -79,6 +81,19 @@ impl Compiler {
             let align = self.align_of(ctx_ty, span)?;
             let addr = f.b.alloca(size, align);
             self.init_default(f, ctx_ty, addr, span)?;
+            Operand::Place {
+                ty: ctx_ty,
+                addr,
+            }
+        } else if bare {
+            // No context named: push a copy of the current one, so what the block changes
+            // stays inside it.
+            let current = self.check_expr(f, scope, context, None)?;
+            let size = self.size_of(ctx_ty, span)?;
+            let align = self.align_of(ctx_ty, span)?;
+            let addr = f.b.alloca(size, align);
+            let (_, from) = self.address_of(f, current, span)?;
+            f.b.copy(addr, from, size);
             Operand::Place {
                 ty: ctx_ty,
                 addr,
@@ -286,8 +301,9 @@ impl Compiler {
             S::PushContext {
                 context,
                 body,
+                bare,
             } => {
-                let addr = self.push_context_addr(f, scope, context, span)?;
+                let addr = self.push_context_addr(f, scope, context, *bare, span)?;
                 let saved = f.context.replace(addr);
                 let result = self.check_scoped(f, scope, body);
                 f.context = saved;

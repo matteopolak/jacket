@@ -11,6 +11,7 @@
 ### Fixed
 
 - A pointer to a struct passes where its `#as` member's type is expected even when that member is itself a pointer (`#as handle: VkPhysicalDevice` given a `*Physical_Device`), as it already did for other member types; no_api's `module.jai` now checks for Windows.
+- `push_context, defer_pop;` and `push_context { ... }` without a context are accepted again: they push a copy of the current context (a default one in a `#c_call` procedure), so the block's changes don't leak out. 0.4.0 made the first an error, which broke Vk-Engine.
 
 ## [0.4.1] - 2026-10-07
 

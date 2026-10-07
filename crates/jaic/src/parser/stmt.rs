@@ -678,13 +678,14 @@ impl Parser<'_> {
     fn parse_push_context(&mut self) -> PResult<Stmt> {
         let start = self.bump();
         if self.at(P::LBrace) {
-            // `push_context { ... }` re-pushes the current context.
+            // `push_context { ... }` pushes a copy of the current context.
             let context = super::expr::mk(crate::ast::ExprKind::Context, start);
             let body = Box::new(self.parse_stmt()?);
             return Ok(stmt(
                 StmtKind::PushContext {
                     context,
                     body,
+                    bare: true,
                 },
                 start.to(self.prev_span()),
             ));
@@ -692,19 +693,18 @@ impl Parser<'_> {
         if self.at(P::Comma) && self.kw_at(1) == Some("defer_pop") {
             self.bump();
             self.bump();
-            if self.at(P::Semi) {
-                // There is no context to push: re-pushing the current one would not restore
-                // what the block changes.
-                return Err(self.error(
-                    "'push_context,defer_pop' needs the context to push, as in \
-                     'push_context,defer_pop new_context;'",
-                ));
-            }
-            let context = self.parse_expr()?;
+            // `push_context,defer_pop;` pushes a copy of the current context, like `push_context { }`.
+            let bare = self.at(P::Semi);
+            let context = if bare {
+                super::expr::mk(crate::ast::ExprKind::Context, start)
+            } else {
+                self.parse_expr()?
+            };
             self.end_stmt("after 'push_context,defer_pop'")?;
             return Ok(stmt(
                 StmtKind::PushContextDefer {
                     context,
+                    bare,
                 },
                 start.to(self.prev_span()),
             ));
@@ -715,6 +715,7 @@ impl Parser<'_> {
             StmtKind::PushContext {
                 context,
                 body,
+                bare: false,
             },
             start.to(self.prev_span()),
         ))

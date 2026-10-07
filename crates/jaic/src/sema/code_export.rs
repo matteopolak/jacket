@@ -1679,6 +1679,7 @@ impl Exporter<'_> {
         let then_block = self.block(&case.body, 1, case.span);
         let mut rec = self.node("Code_Case", node::CASE, case.span);
         rec.ptr("condition", cond)
+                ..
             .ptr("then_block", then_block)
             .int("marked_as_fallthrough", case.through as i64);
         self.add(rec)

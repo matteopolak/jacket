@@ -2449,19 +2449,6 @@
       "rules": [
         "poly.19"
       ]
-    },
-    {
-      "id": "push-context-defer-pop-no-context",
-      "source": "negative/push-context-defer-pop-no-context.jai",
-      "sha256": "5c571ed9f00a09ca1ef6ac03f20b1de3f47aa23f90f85b759d6c02458180eee2",
-      "suite": "negative",
-      "feature": "push_context,defer_pop",
-      "kind": "negative",
-      "target": "host",
-      "dependencies": [],
-      "negative": {
-        "check": "'push_context,defer_pop' needs the context to push"
-      }
     }
   ]
 }

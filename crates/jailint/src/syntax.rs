@@ -352,6 +352,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
         S::PushContext {
             context,
             body,
+            ..
         } => {
             e(context);
             out.push(Node::Stmt(body));
@@ -393,7 +394,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             }
         }
         S::PushContextDefer {
-            context: x,
+            context: x, ..
         } => e(x),
         S::Directive {
             args, ..
