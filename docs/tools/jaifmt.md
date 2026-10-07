@@ -48,7 +48,7 @@ The output is canonical: it depends on the tokens, comments and blank lines of t
 
 `stdlib/Extensions/Jai_Format/module.jai` holds the public API (below) and loads three files:
 
-- `lexer.jai`: a tokenizer with the same token boundaries as `crates/jaic/src/lexer.rs` (same punctuation table, here-strings, `@` notes, `\` identifier separators, `.5` floats), but comments are tokens and every token records the whitespace before it (`ws_start`, `newlines`, `column`).
+- `lexer.jai`: a tokenizer with the same token boundaries as `crates/jaic/src/lexer.rs` (same punctuation table, here-strings, `@` notes, `\` identifier separators, `.5` floats, a leading `#!` line, which it keeps as a line comment), but comments are tokens and every token records the whitespace before it (`ws_start`, `newlines`, `column`).
 - `format.jai`: two passes over the tokens. `plan_lines` decides the line structure (`breaks[i]`: line breaks before token i). The emit loop then writes each line: indentation from a stack of `Frame`s, and zero or one space between neighbors (`spacing_rule`).
 - `config.jai`: `jaifmt.toml` parsing and ignore globs (the caller reads the file).
 

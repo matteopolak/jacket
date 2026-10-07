@@ -279,6 +279,13 @@ impl<'a> Lexer<'a> {
         if self.src.starts_with(&[0xEF, 0xBB, 0xBF]) {
             self.at = 3;
         }
+        // A `#!` line at the very start (`#!/usr/bin/env jai`) is ignored, so a script can be run
+        // directly.
+        if self.src[self.at..].starts_with(b"#!") {
+            while self.at < self.src.len() && self.src[self.at] != b'\n' {
+                self.at += 1;
+            }
+        }
         loop {
             self.skip_trivia()?;
             if self.at >= self.src.len() {

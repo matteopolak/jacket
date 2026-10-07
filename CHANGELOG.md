@@ -15,6 +15,7 @@
 - A by-value `it` in a `for` over an array is the element itself, so `*it` points into the array and a change through it stays, as toml-jai's `first` example and Photon expect; it was a copy.
 - A struct's `type_info` lists its constants (types, values, and procedures whose signature is already known) among `members`, in declaration order with the `CONSTANT` flag, so member indexes match the official layout (toml-jai's `custom_handlers` reads `Hash_Table.Table`'s `members[5]`).
 - Metaprograms: a call to a polymorphic procedure in a `TYPECHECKED` body resolves to the instance it made, whose body is reported too, and a static `#if` or `#if x == {` says which branch the compiler took (`EVALUATED_AS_TRUE`, `static_if_accepted_case`). MetaThreadSafe no longer flags the untaken branch of a baked instance.
+- A `#!` line at the start of a file (`#!/usr/bin/env jai`) is skipped by jaic and kept by jaifmt, so jai-protobuf's `build.jai` compiles.
 
 ## [0.4.1] - 2026-10-07
 

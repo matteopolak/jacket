@@ -15,6 +15,7 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
 - Expressions use precedence climbing (`expr.rs`) over Jai's table in `binary_op` ([operator precedence](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`, `.(T)`).
 - Files, struct bodies and blocks share one statement grammar (`stmt.rs`). Declarations (`decl.rs`) are recognised by lookahead: `name {, name} :`, `::` or `:=`.
 - A statement needs `;` unless the previous token closed a brace body, a here-string, or `{} #flags` (`Parser::ends_block`). `@notes` after a statement attach to it.
+- A UTF-8 byte order mark and then a `#!` line at the very start of a file (`#!/usr/bin/env jai`, as in jai-protobuf's `build.jai`) are skipped by `Lexer::run`; a `#!` anywhere else is still an error. Test: `tests/stdlib/shebang-line.jai`.
 - Here-strings (`here_string` in `lexer.rs`) keep every line ending of the body, including the one before the terminator line: `#string END\nabc\nEND` is `"abc\n"`. See [strings and literals](../language/strings-and-literals.md).
 
 ### Lookahead decisions

@@ -68,6 +68,9 @@ lex :: (src: string) -> Lex_Result {
     at: s64 = 0;
     // A UTF-8 byte order mark is not a token; the formatter copies it through.
     if src.count >= 3 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF at = 3;
+    // A `#!` line right at the start (`#!/usr/bin/env jai`) is a line comment to the formatter;
+    // the compiler skips it.
+    shebang_at := at;
 
     fail :: (message: string, offset: s64) #expand {
         `result.error = message;
@@ -119,7 +122,7 @@ lex :: (src: string) -> Lex_Result {
         }
 
         c := src[at];
-        if c == #char "/" && peek(1) == #char "/" {
+        if (c == #char "/" && peek(1) == #char "/") || (at == shebang_at && c == #char "#" && peek(1) == #char "!") {
             while at < src.count && src[at] != #char "\n" at += 1;
             // A carriage return belongs to the line break, not the comment.
             end := at;
