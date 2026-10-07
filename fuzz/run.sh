@@ -25,6 +25,8 @@ if [ -z "$(ls -A "corpus/$target")" ] && [ "$target" != generated ]; then
   python3 seed_corpus.py "$target"
 fi
 
+# A unit is slow only when it reaches the target's timeout (libFuzzer's default, 10 s, is below
+# the LSP targets' 20 s, and run.sh fails on any file in artifacts/).
 # No sanitizer: the compiler is safe Rust except the interpreter's program memory, and ASan
 # would also flag the interpreted program's own (intended) raw memory use. Debug assertions
 # turn arithmetic overflow into panics.
@@ -33,6 +35,7 @@ cargo fuzz run --sanitizer none --debug-assertions "$target" "corpus/$target" --
   -artifact_prefix="artifacts/$target/" \
   -max_total_time="$seconds" \
   -timeout="$timeout" \
+  -report_slow_units="$timeout" \
   -rss_limit_mb=4096 \
   -max_len="$max_len" \
   -fork="$workers" -ignore_crashes=1 -ignore_timeouts=1 -ignore_ooms=1 \

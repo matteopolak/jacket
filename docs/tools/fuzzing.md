@@ -72,7 +72,7 @@ fuzz/run.sh check 1200 4      # target, seconds, parallel workers
 fuzz/run.sh lexer 600
 ```
 
-`run.sh` seeds an empty corpus, builds without a sanitizer but with debug assertions (arithmetic overflow panics), and runs libFuzzer in fork mode. Crashes, timeouts and OOMs are collected in `fuzz/artifacts/<target>/` without stopping the run. Per-target limits: `-max_len` 16 KiB (lexer/parser), 8 KiB (compiling targets and `jaifmt`), 4 KiB (LSP targets); `-timeout` 5/10/20 s (`jaifmt` 20 s); `-rss_limit_mb=4096`.
+`run.sh` seeds an empty corpus, builds without a sanitizer but with debug assertions (arithmetic overflow panics), and runs libFuzzer in fork mode. Crashes, timeouts and OOMs are collected in `fuzz/artifacts/<target>/` without stopping the run. Per-target limits: `-max_len` 16 KiB (lexer/parser), 8 KiB (compiling targets and `jaifmt`), 4 KiB (LSP targets); `-timeout` 5/10/20 s (`jaifmt` 20 s); `-rss_limit_mb=4096`. `-report_slow_units` equals the timeout: libFuzzer's default (10 s) is below the LSP targets' timeout, and a slow unit is a file in `artifacts/`, which fails the run. A test that compiles many workspaces (`tests/stdlib/arithmetic-overflow-check.jai`: 19, each importing Basic) costs about 2 s per `lsp` input on an M-series laptop, since the target compiles the document about ten times; on a CI runner that crossed 10 s.
 
 ASan is off on purpose. The compiler is safe Rust apart from the interpreter's program memory, and the interpreted program's own raw memory use (which ASan would flag) is not a compiler bug.
 
@@ -148,7 +148,7 @@ These explain the limits listed under Configuration; each has a regression test.
 | Nested `#insert` of strings | `MAX_INSERT_DEPTH` in `sema/consteval.rs` | 256 |
 | Largest compile-time value (constant, initializer, default image) | `jaic::sema::value::MAX_IMAGE` | 4 GiB |
 | `#align` range | `eval_align` in `sema/structs.rs` | 0..=2^30 |
-| `-max_len`, `-timeout`, `-rss_limit_mb` | `fuzz/run.sh` | see above |
+| `-max_len`, `-timeout`, `-report_slow_units`, `-rss_limit_mb` | `fuzz/run.sh` | see above |
 | Interpreter budget for formatting one input twice | `FORMAT_BUDGET` in `harness/src/jaifmt.rs` | 400,000,000 blocks |
 | Steps per `lsp_edits` input | `MAX_STEPS` in `harness/src/lsp_edits.rs` | 24 |
 | Print diagnostics / generated source (`jaifmt`: the formatted text and both syntax trees) | `JAI_FUZZ_VERBOSE` env var | off |
