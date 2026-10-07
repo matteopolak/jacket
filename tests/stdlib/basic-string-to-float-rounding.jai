@@ -9,6 +9,7 @@ Case64 :: struct {
     text: string;
     bits: u64;
 }
+
 Case32 :: struct {
     text: string;
     bits: u32;

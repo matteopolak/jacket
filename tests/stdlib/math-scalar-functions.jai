@@ -7,12 +7,15 @@
 near :: (actual: float64, expected: float64, tolerance := 1e-13) -> bool {
     return abs(actual - expected) <= tolerance * abs(expected) + 1e-300;
 }
+
 near32 :: (actual: float32, expected: float64, tolerance := 1e-6) -> bool {
     return abs(cast(float64) actual - expected) <= tolerance * abs(expected) + 1e-30;
 }
+
 bits_of :: (x: float64) -> u64 {
     return (cast(*u64) *x).*;
 }
+
 is_negative_zero :: (x: float64) -> bool {
     return bits_of(x) == 0x8000_0000_0000_0000;
 }
@@ -246,6 +249,7 @@ Pow_Case :: struct {
     power: s64;
     bits: u64;
 }
+
 // [base bits, whole exponent, bits of the nearest double to the exact power]
 POW_CASES :: Pow_Case.[
     .{ 0x4024000000000000, -3, 0x3f50624dd2f1a9fc },

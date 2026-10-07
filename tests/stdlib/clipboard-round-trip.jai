@@ -5,6 +5,7 @@
 // The browser build keeps the clipboard in memory.
 #import "Basic";
 #import "Clipboard";
+
 #if OS == .LINUX {
     #import "File_Utilities";
 }
@@ -75,11 +76,13 @@ clipboard_available :: () -> bool {
 
 #if OS == .LINUX {
     POSIX :: #import "POSIX";
+
     get_env :: (name: string) -> string {
         value := POSIX.getenv(temp_c_string(name));
         if !value return "";
         return to_string(value);
     }
+
     on_path :: (program: string) -> bool {
         for directory: string.["/usr/bin", "/bin", "/usr/local/bin"] {
             if file_exists(tprint("%/%", directory, program)) return true;

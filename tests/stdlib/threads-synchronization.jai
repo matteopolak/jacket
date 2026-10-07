@@ -18,6 +18,7 @@ Shared :: struct {
     value: s64;
     racy_window: s64;
 }
+
 shared: Shared;
 
 add_under_mutex :: (thread: *Thread) -> s64 {
@@ -80,6 +81,7 @@ capture_logger :: (message: string, data: *void, info: Log_Info) {
 }
 
 counting_allocator_calls: s64;
+
 counting_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     atomic_add(*counting_allocator_calls, 1);
     return Context_Base.default_allocator.proc(mode, size, old_size, old_memory, allocator_data);

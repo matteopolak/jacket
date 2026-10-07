@@ -41,6 +41,16 @@ pub fn library_dirs() -> &'static [std::path::PathBuf] {
     LIBRARY_DIRS.get().map_or(&[], Vec::as_slice)
 }
 
+/// Homebrew's library directory on this Mac: `/opt/homebrew/lib` on Apple silicon,
+/// `/usr/local/lib` on Intel (searched after the system's own libraries).
+pub fn homebrew_lib_dir() -> &'static str {
+    if cfg!(target_arch = "x86_64") {
+        "/usr/local/lib"
+    } else {
+        "/opt/homebrew/lib"
+    }
+}
+
 #[cfg(unix)]
 mod sys {
     use std::ffi::{c_char, c_int, c_void};
@@ -112,7 +122,7 @@ impl Library {
             candidates.push(format!(
                 "/System/Library/Frameworks/{name}.framework/{name}"
             ));
-            candidates.push(format!("/opt/homebrew/lib/lib{name}.dylib"));
+            candidates.push(format!("{}/lib{name}.dylib", homebrew_lib_dir()));
         }
         for c in candidates {
             let Ok(path) = CString::new(c) else {

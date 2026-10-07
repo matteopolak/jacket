@@ -8,26 +8,33 @@ EPS :: 0.0001;
 close :: (a: float, b: float, eps: float = EPS) -> bool {
     return abs(a - b) <= eps * (1 + abs(b));
 }
+
 close :: (a: Vector2, b: Vector2, eps: float = EPS) -> bool {
     return close(a.x, b.x, eps) && close(a.y, b.y, eps);
 }
+
 close :: (a: Vector3, b: Vector3, eps: float = EPS) -> bool {
     return close(a.x, b.x, eps) && close(a.y, b.y, eps) && close(a.z, b.z, eps);
 }
+
 close :: (a: Vector4, b: Vector4, eps: float = EPS) -> bool {
     return close(a.x, b.x, eps) && close(a.y, b.y, eps) && close(a.z, b.z, eps) && close(a.w, b.w, eps);
 }
+
 close_floats :: (a: [] float, b: [] float, eps: float = EPS) -> bool {
     if a.count != b.count return false;
     for a if !close(it, b[it_index], eps) return false;
     return true;
 }
+
 close :: (a: Matrix3, b: Matrix3, eps: float = EPS) -> bool {
     return close_floats(a.floats, b.floats, eps);
 }
+
 close :: (a: Matrix4, b: Matrix4, eps: float = EPS) -> bool {
     return close_floats(a.floats, b.floats, eps);
 }
+
 // The same rotation: q and -q are equal rotations.
 same_rotation :: (a: Quaternion, b: Quaternion) -> bool {
     return abs(abs(dot(a, b)) - 1) <= EPS;

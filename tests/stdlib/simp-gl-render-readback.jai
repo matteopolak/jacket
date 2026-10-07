@@ -25,15 +25,18 @@ read_target :: (target: *Texture) -> Bitmap {
     }
     return pixel_read_end(reader);
 }
+
 pixel :: (bitmap: *Bitmap, x: int, y: int) -> [4] u8 {
     p := bitmap.data.data + y * bitmap.stride + x * 4;
     return .[p[0], p[1], p[2], p[3]];
 }
+
 // Within a little of the expected color: drivers may round differently.
 rgb_near :: (bitmap: *Bitmap, x: int, y: int, r: int, g: int, b: int) -> bool {
     p := pixel(bitmap, x, y);
     return abs(p[0] - r) <= 3 && abs(p[1] - g) <= 3 && abs(p[2] - b) <= 3;
 }
+
 lit_count :: (bitmap: *Bitmap, channel := 0) -> int {
     count := 0;
     for y: 0..bitmap.height - 1 for x : 0..bitmap.width - 1 if pixel(bitmap, x, y)[channel] > 32 count += 1;

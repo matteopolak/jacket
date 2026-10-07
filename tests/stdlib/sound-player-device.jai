@@ -9,6 +9,7 @@
 #import "Sound_Player";
 
 released: int;
+
 note_release :: (stream: *Sound_Stream, data: *Sound_Data) {
     released += 1;
 }

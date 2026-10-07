@@ -41,11 +41,13 @@ read_target :: (target: *Simp.Texture) -> Simp.Bitmap {
     }
     return Simp.pixel_read_end(reader);
 }
+
 // y counts up from the bottom, as GetRect's right-handed rects do; the readback is top row first.
 pixel :: (bitmap: *Simp.Bitmap, x: int, y: int) -> [4] u8 {
     p := bitmap.data.data + (bitmap.height - 1 - y) * bitmap.stride + x * 4;
     return .[p[0], p[1], p[2], p[3]];
 }
+
 near :: (bitmap: *Simp.Bitmap, x: int, y: int, color: Vector4) -> bool {
     p := pixel(bitmap, x, y);
     return abs(p[0] - color.x * 255) <= 4 && abs(p[1] - color.y * 255) <= 4 && abs(p[2] - color.z * 255) <= 4;

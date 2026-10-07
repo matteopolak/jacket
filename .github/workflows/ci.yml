@@ -257,9 +257,13 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
-      - name: Install LLVM 23 and LLD (macOS)
+      - name: Install LLVM 23, LLD and FreeType (macOS)
         if: runner.os == 'macOS'
-        run: tools/install_ci_llvm_macos.sh --lld
+        run: |
+          tools/install_ci_llvm_macos.sh --lld
+          # Simp and GetRect load FreeType from Homebrew's library directory; the arm64 image
+          # already has it, the Intel one does not.
+          brew list freetype > /dev/null 2>&1 || brew install freetype
       - name: Install LLVM 23, the window libraries and a virtual display (Linux)
         if: runner.os == 'Linux'
         run: |

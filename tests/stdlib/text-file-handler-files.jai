@@ -14,6 +14,7 @@ path :: (name: string) -> string {
 
 // Counts the reports error and warn send to the logger.
 reports: [..] string;
+
 capture_logger :: (message: string, data: *void, info: Log_Info) {
     tag := ifx info.common_flags & .ERROR then "error: " else ifx info.common_flags & .WARNING then "warning: " else "";
     array_add(*reports, sprint("%1%2", tag, message));

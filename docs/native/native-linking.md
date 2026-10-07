@@ -13,7 +13,7 @@
 - `libc` / `c`: nothing; it is implicit.
 - Non-system library (`#library "native/own"`): looked up relative to the declaring file as `own.a`, `libown.a`, then `own.dylib`/`.so`, `libown.dylib`/`.so`. A static archive wins; a shared library adds `-Wl,-rpath,<dir>`. If the name contains `/` and nothing is found, the error says where it looked.
 - Apple framework (`/System/Library/Frameworks/<name>.framework` exists): `-framework <name>`.
-- Otherwise a `lib<name>.a` in the native-libs directories is linked by path, else `-l<name>` (a leading `lib` is stripped; `/opt/homebrew/lib` is added on macOS if present).
+- Otherwise a `lib<name>.a` in the native-libs directories is linked by path, else `-l<name>` (a leading `lib` is stripped; Homebrew's library directory, `/opt/homebrew/lib` on Apple silicon or `/usr/local/lib` on Intel, is added on macOS if present).
 
 Identical argument groups are added once. A missing system library fails at link time:
 

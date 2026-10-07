@@ -96,6 +96,7 @@ Arena :: struct {
     used: s64;
     frees: s64;
 }
+
 arena_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
     arena := cast(*Arena) data;
     if mode == .ALLOCATE || mode == .RESIZE {
@@ -113,11 +114,13 @@ Assertion :: struct {
     count: s64;
     last: string;
 }
+
 note_assertion :: (location: Source_Code_Location, message: string) -> bool {
     assertions.count += 1;
     assertions.last = copy_string(message);
     return false;
 }
+
 assertions: Assertion;
 
 check_overwriting_allocator :: () {

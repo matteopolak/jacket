@@ -242,6 +242,7 @@ Foreign_Base :: struct {
     logger_data: *void;
     log_level: u64;
 }
+
 Foreign_Context :: struct {
     using base: Foreign_Base;
     print_style: s32;

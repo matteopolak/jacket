@@ -159,6 +159,7 @@ days_of :: (year: s32, month: s32) -> s64 {
 }
 
 state: u64 = 0x9e37_79b9_7f4a_7c15;
+
 next :: () -> u64 {
     state ^= state << 13;
     state ^= state >> 7;

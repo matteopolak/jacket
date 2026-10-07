@@ -10,6 +10,7 @@ F32_ONE :: 0h3F800000;
 pick :: (x: float64) -> string {
     return "float64";
 }
+
 pick :: (x: float32) -> string {
     return "float32";
 }

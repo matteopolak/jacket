@@ -19,10 +19,12 @@ pixel :: (bitmap: *S.Bitmap, x: int, y: int) -> [4] u8 {
     p := bitmap.data.data + y * bitmap.stride + x * 4;
     return .[p[0], p[1], p[2], p[3]];
 }
+
 rgb_is :: (bitmap: *S.Bitmap, x: int, y: int, r: u8, g: u8, b: u8) -> bool {
     p := pixel(bitmap, x, y);
     return p[0] == r && p[1] == g && p[2] == b;
 }
+
 lit_count :: (bitmap: *S.Bitmap) -> int {
     count := 0;
     for y: 0..bitmap.height - 1 for x : 0..bitmap.width - 1 if pixel(bitmap, x, y)[0] > 0 count += 1;
@@ -35,13 +37,16 @@ host_pixels: S.Bitmap;
 host_width: s32 = 8;
 host_height: s32 = 6;
 presented: int;
+
 host_size :: (window: Window_Type) -> s32, s32 {
     return host_width, host_height;
 }
+
 host_target :: (window: Window_Type) -> *S.Bitmap {
     if window != FAKE_WINDOW return null;
     return *host_pixels;
 }
+
 host_present :: (window: Window_Type, vsync: bool) -> bool {
     presented += 1;
     return window == FAKE_WINDOW;

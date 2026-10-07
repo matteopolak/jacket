@@ -48,9 +48,11 @@ apply_many :: (f: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, l: La
 
 apply_mixed :: (f: (a: float64, b: s32, c: float, d: s64, e: float64, g: s16) -> Mixed #c_call) -> Mixed #foreign structs;
 apply_mixed_v2 :: (f: (a: float, b: s64, c: float64, d: s32) -> V2 #c_call) -> V2 #foreign structs;
+
 narrow_tail :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, h: s64,
     d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64,
     i: s8, j: s16, k: u8, l: s32, m: float, n: s16) -> s64 #foreign structs;
+
 apply_narrow_tail :: (f: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, h: s64,
     d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64,
     i: s8, j: s16, k: u8, l: s32, m: float, n: s16) -> s64 #c_call) -> s64 #foreign structs;

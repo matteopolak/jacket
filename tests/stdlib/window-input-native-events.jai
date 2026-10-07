@@ -145,16 +145,19 @@ main :: () {
         call = cast(type_of(call)) objc_msgSend;
         return call(window, sel_registerName("windowNumber"));
     }
+
     utf8_string :: (text: *u8) -> *void {
         call: (receiver: *void, selector: SEL, text: *u8) -> *void #c_call;
         call = cast(type_of(call)) objc_msgSend;
         return call(cast(*void) objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), text);
     }
+
     post :: (event: *void) {
         call: (receiver: *void, selector: SEL, event: *void, at_start: BOOL) #c_call;
         call = cast(type_of(call)) objc_msgSend;
         call(NSApplication.sharedApplication(), sel_registerName("postEvent:atStart:"), event, NO);
     }
+
     post_key :: (window: *NSWindow, down: bool) {
         make: (receiver: *void, selector: SEL, type: u64, location: NSPoint, flags: u64, time: float64, number: s64, ctx: *void, characters: *void, unmodified: *void, repeat: BOOL, code: u16) -> *void #c_call;
         make = cast(type_of(make)) objc_msgSend;
@@ -166,6 +169,7 @@ main :: () {
         assert(event != null, "NSEvent key event");
         post(event);
     }
+
     post_click :: (window: *NSWindow, down: bool) {
         make: (receiver: *void, selector: SEL, type: u64, location: NSPoint, flags: u64, time: float64, number: s64, ctx: *void, event_number: s64, clicks: s64, pressure: float32) -> *void #c_call;
         make = cast(type_of(make)) objc_msgSend;
@@ -176,14 +180,17 @@ main :: () {
         assert(event != null, "NSEvent mouse event");
         post(event);
     }
+
     close_like_the_user :: (window: *NSWindow) {
         call: (receiver: *void, selector: SEL, sender: *void) #c_call;
         call = cast(type_of(call)) objc_msgSend;
         call(window, sel_registerName("performClose:"), null);
     }
+
     show_hand :: (window: *NSWindow) {
         NSCursor.set(NSCursor.pointingHandCursor());
     }
+
     move_pointer :: (window: *NSWindow) {
         make: (receiver: *void, selector: SEL, type: u64, location: NSPoint, flags: u64, time: float64, number: s64, ctx: *void, event_number: s64, clicks: s64, pressure: float32) -> *void #c_call;
         make = cast(type_of(make)) objc_msgSend;
@@ -194,6 +201,7 @@ main :: () {
         assert(event != null, "NSEvent mouse moved event");
         post(event);
     }
+
     hand_shown :: (window: *NSWindow) -> bool {
         call: (receiver: *void, selector: SEL) -> *void #c_call;
         call = cast(type_of(call)) objc_msgSend;
@@ -213,24 +221,30 @@ main :: () {
         ok := PostMessageW(window, ifx down then 0x100 else 0x101, 0x41, ifx down then 1 else 0xc000_0001);
         assert(ok != 0, "PostMessageW key");
     }
+
     post_click :: (window: HWND, down: bool) {
         // WM_LBUTTONDOWN / WM_LBUTTONUP at client (40, 40).
         ok := PostMessageW(window, ifx down then 0x201 else 0x202, ifx down then 1 else 0, (40 << 16) | 40);
         assert(ok != 0, "PostMessageW click");
     }
+
     close_like_the_user :: (window: HWND) {
         // The close button sends WM_SYSCOMMAND SC_CLOSE, which becomes a sent WM_CLOSE.
         SendMessageW(window, 0x112, 0xf060, 0);
     }
+
     GetCursor :: () -> HCURSOR #foreign user32;
+
     show_hand :: (window: HWND) {
         SetCursor(LoadCursorW(null, cast(*s16) IDC_HAND));
     }
+
     move_pointer :: (window: HWND) {
         // What Windows sends as the pointer moves over the client area: WM_SETCURSOR with
         // HTCLIENT and WM_MOUSEMOVE.
         SendMessageW(window, 0x20, cast(u64) window, 1 | (0x200 << 16));
     }
+
     hand_shown :: (window: HWND) -> bool {
         return GetCursor() == LoadCursorW(null, cast(*s16) IDC_HAND);
     }
@@ -253,6 +267,7 @@ main :: () {
         assert(sent != 0, "XSendEvent key");
         XFlush(x_global_display);
     }
+
     post_click :: (window: Window, down: bool) {
         event: XEvent;
         event.xbutton.type = ifx down then ButtonPress else ButtonRelease;
@@ -267,6 +282,7 @@ main :: () {
         assert(sent != 0, "XSendEvent click");
         XFlush(x_global_display);
     }
+
     close_like_the_user :: (window: Window) {
         // What a window manager sends when the user closes a window: WM_DELETE_WINDOW.
         event: XEvent;
@@ -283,6 +299,7 @@ main :: () {
 
     // The cursor the server shows, through XFixes: each cursor has its own serial number.
     xfixes :: #system_library "Xfixes";
+
     XFixesCursorImage :: struct {
         x: s16;
         y: s16;
@@ -295,9 +312,11 @@ main :: () {
         atom: u64;
         name: *u8;
     }
+
     XFixesGetCursorImage :: (display: *Display) -> *XFixesCursorImage #foreign xfixes;
     hand_cursor: Cursor;
     hand_serial: u64;
+
     shown_serial :: () -> u64 {
         XSync(x_global_display, False);
         image := XFixesGetCursorImage(x_global_display);
@@ -306,6 +325,7 @@ main :: () {
         XFree(image);
         return serial;
     }
+
     show_hand :: (window: Window) {
         before := shown_serial();
         if !hand_cursor hand_cursor = XCreateFontCursor(x_global_display, 60); // hand2
@@ -319,10 +339,12 @@ main :: () {
             hand_serial = shown_serial();
         }
     }
+
     move_pointer :: (window: Window) {
         XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 30, 30);
         XFlush(x_global_display);
     }
+
     hand_shown :: (window: Window) -> bool {
         return shown_serial() == hand_serial;
     }

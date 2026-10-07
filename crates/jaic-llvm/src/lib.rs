@@ -987,8 +987,9 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
         }
     }
     let mut args = Vec::new();
-    if cfg!(target_os = "macos") && !cross && Path::new("/opt/homebrew/lib").exists() {
-        args.push(LinkArg::SearchDir("/opt/homebrew/lib".to_string()));
+    let homebrew = jaic::interp::homebrew_lib_dir();
+    if cfg!(target_os = "macos") && !cross && Path::new(homebrew).exists() {
+        args.push(LinkArg::SearchDir(homebrew.to_string()));
     }
     args.push(LinkArg::Lib(name.to_string()));
     Ok(args)

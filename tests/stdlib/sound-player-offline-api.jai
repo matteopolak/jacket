@@ -14,9 +14,11 @@ RATE :: 48000;
 SCRATCH :: ".scratch/sound-player-offline-api";
 
 released: [..] *Sound_Stream;
+
 note_release :: (stream: *Sound_Stream, data: *Sound_Data) {
     array_add(*released, stream);
 }
+
 was_released :: (stream: *Sound_Stream) -> bool {
     for released if it == stream return true;
     return false;

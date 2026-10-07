@@ -9,7 +9,9 @@
 Assertion :: struct {
     count: s64;
 }
+
 assertions: Assertion;
+
 note_assertion :: (location: Source_Code_Location, message: string) -> bool {
     assertions.count += 1;
     return false;

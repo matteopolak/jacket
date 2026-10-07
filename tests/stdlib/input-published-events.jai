@@ -18,11 +18,13 @@ state_of :: (key: Input.Key_Code) -> Input.Key_Current_State {
 }
 
 pointer_calls: int;
+
 pointer_at :: (window: Window_Type, client_area: bool) -> float, float {
     pointer_calls += 1;
     if client_area return 12.5, 34.25;
     return cast(float) window, -1;
 }
+
 query_at :: (window: Window_Type, client_area: bool) -> float, float, bool {
     return 7, 8, window != cast(Window_Type) 99;
 }

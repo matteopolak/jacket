@@ -7,6 +7,7 @@ Captured :: struct {
     message: string;
     info: Log_Info;
 }
+
 captured: [..] Captured;
 
 capture :: (message: string, data: *void, info: Log_Info) {
@@ -18,6 +19,7 @@ Assertion :: struct {
     location: Source_Code_Location;
     message: string;
 }
+
 assertions: [..] Assertion;
 
 record_assertion :: (location: Source_Code_Location, message: string) -> bool {
@@ -242,6 +244,7 @@ check_builder :: () {
 Failing :: struct {
     budget: s64;
 }
+
 failing_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
     state := cast(*Failing) data;
     if mode == .ALLOCATE || mode == .RESIZE {

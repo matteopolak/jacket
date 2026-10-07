@@ -23,6 +23,7 @@ Counters :: struct {
     racy_pad: s64;
     finished: s64;
 }
+
 counters: Counters;
 
 hammer :: (thread: *Thread) -> s64 {

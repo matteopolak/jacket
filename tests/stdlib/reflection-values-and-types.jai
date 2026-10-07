@@ -9,10 +9,12 @@ Small :: enum s8 {
     MID :: 0;
     HIGH :: 100;
 }
+
 Wide :: enum u64 {
     NONE :: 0;
     TOP :: 0xffff_ffff_ffff_ffff;
 }
+
 Record :: struct {
     id: u16;
     name: string;

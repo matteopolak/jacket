@@ -11,13 +11,16 @@ ROOT :: ".scratch/ico-wav-files";
 u16_at :: (s: string, at: int) -> int {
     return s[at] | ((cast(int) s[at + 1]) << 8);
 }
+
 u32_at :: (s: string, at: int) -> int {
     return u16_at(s, at) | (u16_at(s, at + 2) << 16);
 }
+
 put16 :: (b: *String_Builder, v: int) {
     append(b, cast,trunc(u8) v);
     append(b, cast,trunc(u8) (v >> 8));
 }
+
 put32 :: (b: *String_Builder, v: int) {
     put16(b, v & 0xffff);
     put16(b, v >> 16);

@@ -27,7 +27,7 @@ use crate::ir::{
 };
 #[cfg(target_os = "macos")]
 pub use native::main_thread;
-pub use native::{library_dirs, set_library_dirs};
+pub use native::{homebrew_lib_dir, library_dirs, set_library_dirs};
 pub use sandbox::{SandboxHost, SharedHost};
 use std::collections::BTreeMap;
 use std::rc::Rc;

@@ -83,6 +83,9 @@ python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --uncovered
   Mesa (`libgl1-mesa-dri`), X11, EGL and FreeType development packages, `libxfixes-dev` (the input
   test reads the cursor), `xclip` (clipboard) and `libasound2-dev` with a `~/.asoundrc` that makes
   the default PCM `type null`, so Sound_Player plays without a sound card.
+- **macOS**: Simp and GetRect link the system FreeType (`freetype255`), found in Homebrew's library
+  directory (`/opt/homebrew/lib`, or `/usr/local/lib` on Intel). The arm64 runner image has it; on
+  the Intel one CI runs `brew install freetype`.
 - **Windows**: run from a Developer PowerShell (MSVC and the Windows SDK on `PATH`) with
   `--modes interp,native`; the wasm modes are not run there.
 - **Native libraries** (stb_image, FreeType, stb_vorbis...): on macOS and Linux the harness builds

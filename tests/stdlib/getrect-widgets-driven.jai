@@ -12,6 +12,7 @@
 #if OS == .WASM {
     // The helpers live in files GetRect loads; read them directly, as the y-down module would.
     GETRECT_Y_UP :: false;
+
     Math :: #import "Math";
     #load "../../stdlib/GetRect_Common/geometry.jai";
     #load "../../stdlib/GetRect_Common/geometry-helpers.jai";
@@ -107,12 +108,14 @@
         event.key_pressed = xx pressed;
         return event;
     }
+
     typed :: (character: u32) -> Input.Event {
         event: Input.Event;
         event.type = .TEXT_INPUT;
         event.utf32 = character;
         return event;
     }
+
     wheel :: (delta: s32) -> Input.Event {
         event: Input.Event;
         event.type = .MOUSE_WHEEL;
@@ -129,15 +132,19 @@
         array_reset(*drawn_texts);
         GR.ui_per_frame_update(WINDOW, WIDTH, HEIGHT, now);
     }
+
     press :: () -> Input.Event {
         return key(.MOUSE_BUTTON_LEFT, true);
     }
+
     release :: () -> Input.Event {
         return key(.MOUSE_BUTTON_LEFT, false);
     }
+
     center :: (r: Rect) -> Vector2 {
         return .{ r.x + r.w / 2, r.y + r.h / 2 };
     }
+
     was_drawn :: (text: string) -> bool {
         for drawn_texts if it == text return true;
         return false;
@@ -148,12 +155,14 @@
         PEAR;
         PLUM;
     }
+
     Options :: enum_flags u8 {
         SALT;
         PEPPER;
     }
 
     WORDS :: string.["apple", "apricot"];
+
     completions :: (prefix: string, data: *void) -> [] string, int {
         return WORDS, 2;
     }
