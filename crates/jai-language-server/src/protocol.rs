@@ -962,8 +962,23 @@ fn completion_wire(completion: &CompletionList) -> Value {
                 CompletionKind::EnumMember => 20,
                 CompletionKind::File => 17,
                 CompletionKind::Folder => 19,
+                CompletionKind::Instruction => 14,
+                CompletionKind::Snippet => 15,
             };
-            json!({ "label": item.label, "kind": kind, "detail": item.detail })
+            let mut wire = json!({ "label": item.label, "kind": kind, "detail": item.detail });
+            if let Some(doc) = &item.documentation {
+                wire["documentation"] = json!({ "kind": "markdown", "value": doc });
+            }
+            if let Some(text) = &item.insert_text {
+                wire["insertText"] = json!(text);
+                // 2: snippet syntax (`${1:name}`), 1: plain text.
+                wire["insertTextFormat"] = json!(if item.kind == CompletionKind::Snippet {
+                    2
+                } else {
+                    1
+                });
+            }
+            wire
         })
         .collect();
     json!({ "isIncomplete": completion.is_incomplete, "items": items })

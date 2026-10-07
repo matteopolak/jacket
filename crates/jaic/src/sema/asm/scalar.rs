@@ -10,7 +10,7 @@
 use super::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum StrOp {
+pub(super) enum StrOp {
     Movs,
     Stos,
     Lods,
@@ -19,7 +19,7 @@ enum StrOp {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Rep {
+pub(super) enum Rep {
     Once,
     /// Repeat `c` times.
     Count,
@@ -30,7 +30,7 @@ enum Rep {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum XOp {
+pub(super) enum XOp {
     /// `div` / `idiv` (signed).
     Div(bool),
     /// `cbw` / `cwde` / `cdqe`: sign-extend the low half of the accumulator into this size.
@@ -75,7 +75,7 @@ enum XOp {
     Rdpid,
 }
 
-fn lookup_xop(name: &str) -> Option<XOp> {
+pub(super) fn lookup_xop(name: &str) -> Option<XOp> {
     Some(match name {
         "div" => XOp::Div(false),
         "idiv" => XOp::Div(true),

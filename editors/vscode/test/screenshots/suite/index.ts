@@ -117,6 +117,24 @@ async function shots(): Promise<void> {
   await capture("error");
   await reset();
 
+  // Instruction completion inside `#asm AVX2 {`, with the selected instruction's forms.
+  editor = await open("simd.jai");
+  await waitForDiagnostics(editor.document.uri, () => true);
+  await sleep(1500);
+  await editor.edit((edit) => edit.replace(new vscode.Range(9, 8, 9, 28), "vpad"));
+  place(editor, 9, 12);
+  await sleep(1500);
+  await vscode.commands.executeCommand("editor.action.triggerSuggest");
+  await sleep(2500);
+  // vpaddb comes first; select vpaddd, the instruction the block uses.
+  await vscode.commands.executeCommand("selectNextSuggestion");
+  await vscode.commands.executeCommand("toggleSuggestionDetails");
+  await sleep(1000);
+  await capture("asm-completion");
+  await vscode.commands.executeCommand("hideSuggestWidget");
+  await vscode.commands.executeCommand("undo");
+  await reset();
+
   // Formatting: the file before, and formatted beside it.
   copyFileSync(path.join(workspace(), "messy.jai"), path.join(workspace(), "formatted.jai"));
   await open("messy.jai");

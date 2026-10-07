@@ -370,4 +370,46 @@ mod tests {
             &source[..source.len().min(200)]
         );
     }
+
+    #[test]
+    fn asm_blocks_get_instruction_completion_and_hover_in_the_bridge() {
+        let mut bridge = Bridge::default();
+        send(
+            &mut bridge,
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+        );
+        // An unterminated block, as it is while being typed.
+        let open = concat!(
+            r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"#,
+            r#""uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"#,
+            r#""text":"main :: () {\n    total := 1;\n    #asm AVX2 {\n        vpaddd v:, v, v;\n        vpad\n}\n"}}}"#,
+        );
+        send(&mut bridge, open);
+        let completion = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":2,"method":"textDocument/completion","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":4,"character":12}}}"#,
+            ),
+        );
+        assert!(
+            completion.contains(r#""label":"vpaddd""#)
+                && completion.contains("vpaddd dst: vec, a: vec, b: vec/mem (AVX2)")
+                && completion.contains("Add packed dwords"),
+            "{completion}"
+        );
+        let hover = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":3,"method":"textDocument/hover","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":3,"character":10}}}"#,
+            ),
+        );
+        assert!(
+            hover.contains("Requires AVX2") && hover.contains(r#""id":3"#),
+            "{hover}"
+        );
+    }
 }

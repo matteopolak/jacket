@@ -33,7 +33,7 @@ const grammar = await registry.loadGrammar("source.jai");
 
 function* jaiFiles(path) {
   if (statSync(path).isDirectory()) {
-    for (const entry of readdirSync(path).sort()) {
+    for (const entry of readdirSync(path).toSorted()) {
       if (entry.startsWith(".")) continue;
       yield* jaiFiles(join(path, entry));
     }

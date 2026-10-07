@@ -508,8 +508,12 @@ pub(super) fn lookup_simd(name: &str) -> Option<SOp> {
             {
                 // punpcklbw / punpckhwd / punpckhdq: the source lane is the first letter.
                 let high = name.starts_with("punpckh");
-                let mut chars = rest.chars();
-                let lane = size_letter(chars.next()?)?;
+                let lane = match rest {
+                    "bw" => Ty::I8,
+                    "wd" => Ty::I16,
+                    "dq" => Ty::I32,
+                    _ => return None,
+                };
                 return Some(Unpack(high, lane));
             }
             for (prefix, op) in [

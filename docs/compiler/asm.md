@@ -162,6 +162,11 @@ the baseline path.
   (`dst_class`) if it writes a mask or gpr, and an arm in `asm_simd`. Helpers: `simd_args` (sources), `simd_out`
   (store with masking), `load_lane`/`store_lane`, `when` (conditional block).
 - New condition code: `Cond` + `lookup_cond` + `eval_cond`.
+- Editor data (`sema/asm/catalog.rs`, public as `jaic::sema::asm_catalog`): every new semantic variant needs an arm
+  in its feature, forms and description matches there (they are exhaustive, so the build says where). A new spelling
+  is picked up when a `PATTERNS` entry expands to it; the catalog tests fail if a string literal of the `asm`
+  sources (alone or with a short suffix) is accepted by the lookups but not listed. Register classes live in
+  `REG_CLASSES` (`asm.rs`), which both `asm_declare` and the catalog read.
 - Tests: add a case to the matching `tests/stdlib/asm-*.jai`. For instructions the host can run, record the expected
   value on real hardware (an x86-64 C program with intrinsics or inline asm, run natively or under Rosetta with
   `ROSETTA_ADVERTISE_AVX=1` for AVX2/FMA/BMI) rather than deriving it from the implementation. AVX-512 has no

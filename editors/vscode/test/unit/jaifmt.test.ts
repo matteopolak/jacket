@@ -4,6 +4,10 @@ import * as path from "node:path";
 import { describe, it } from "node:test";
 import { findConfig, globToRegExp, ignoreGlobs, isIgnored, minimalReplacement, runJaifmt } from "../../src/jaifmt";
 
+function repoFile(rel: string): string {
+  return path.join(path.sep, "repo", ...rel.split("/"));
+}
+
 function apply(text: string, change: ReturnType<typeof minimalReplacement>): string {
   return change ? text.slice(0, change.start) + change.text + text.slice(change.end) : text;
 }
@@ -33,9 +37,8 @@ describe("jaifmt.toml", () => {
 
   it("matches files relative to the config's directory", () => {
     const config = path.join(path.sep, "repo", "jaifmt.toml");
-    const file = (rel: string) => path.join(path.sep, "repo", ...rel.split("/"));
-    assert.ok(isIgnored(config, ["tests/corpus/**"], file("tests/corpus/ok/a.jai")));
-    assert.ok(!isIgnored(config, ["tests/corpus/**"], file("tests/other/a.jai")));
+    assert.ok(isIgnored(config, ["tests/corpus/**"], repoFile("tests/corpus/ok/a.jai")));
+    assert.ok(!isIgnored(config, ["tests/corpus/**"], repoFile("tests/other/a.jai")));
     assert.ok(!isIgnored(config, ["**"], path.join(path.sep, "elsewhere", "a.jai")));
   });
 

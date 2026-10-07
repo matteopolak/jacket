@@ -200,15 +200,18 @@ function didOpen(target: LanguageClient, document: vscode.TextDocument): void {
   });
 }
 
+function runningClient(): LanguageClient | undefined {
+  return client?.isRunning() ? client : undefined;
+}
+
 function syncSettingsFiles(): vscode.Disposable[] {
-  const running = () => (client?.isRunning() ? client : undefined);
   return [
     vscode.workspace.onDidOpenTextDocument((document) => {
-      const target = running();
+      const target = runningClient();
       if (target && isSettingsFile(document)) didOpen(target, document);
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
-      const target = running();
+      const target = runningClient();
       if (!target || !isSettingsFile(event.document) || event.contentChanges.length === 0) return;
       void target.sendNotification("textDocument/didChange", {
         textDocument: { uri: event.document.uri.toString(), version: event.document.version },
@@ -216,7 +219,7 @@ function syncSettingsFiles(): vscode.Disposable[] {
       });
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
-      const target = running();
+      const target = runningClient();
       if (target && isSettingsFile(document)) {
         void target.sendNotification("textDocument/didClose", { textDocument: { uri: document.uri.toString() } });
       }

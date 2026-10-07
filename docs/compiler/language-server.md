@@ -26,6 +26,7 @@ It has two layers:
 | Hover on `#if` / `#ifx` / `#assert`: whether the condition held (per instance) | `textDocument/hover` | semantic |
 | Hover on a format string: each `%` with the argument it formats and its type | `textDocument/hover` | syntax + semantic types |
 | Completion: scope-aware names, members after `.`, directives after `#`, `#load`/`#import` paths | `textDocument/completion` | semantic, syntax fallback |
+| `#asm` blocks: completion of instruction mnemonics (operand forms, CPU feature, description), operands (declared registers, Jai variables and constants in scope), register classes after `name:`, pins after `===`, size suffixes after `.`, declaration snippets, and feature modifiers after `#asm`; hover on a mnemonic or a declared register; operand signature help. Works in unterminated blocks | `textDocument/completion`, `textDocument/hover`, `textDocument/signatureHelp` | syntax (compiler instruction table), semantic for Jai operands |
 | Go to definition (also into modules and the stdlib) | `textDocument/definition` | semantic, syntax fallback |
 | Go to the file of a `#load` / `#import` / `#import,file` / `#import,dir`, and of a module name (`B` in `B.print`) | `textDocument/definition` | environment |
 | Document links on `#load` / `#import` strings | `textDocument/documentLink` | environment |
@@ -170,6 +171,18 @@ return (total + 2) * (total + 2);
 ```
 
 The hosted playground asks for Markdown, draws a break followed by an emphasis-only paragraph as a rule with the label set into it, and styles the list as rows (see the portfolio's `docs/jai-language-features.md`). It reads only standard Markdown, so a new hover kind needs no client change unless it wants a layout of its own.
+
+### `#asm` blocks
+
+`asm.rs` gives editor help inside `#asm { ... }` without the parser, because a block being typed rarely parses. `code_only` blanks comments and string contents, `locate` finds the `#asm` whose header (`#asm AVX2,`) or body holds the cursor by counting braces (an unterminated block runs to the brace that closes it or to the end of the file), and statements are the `;`-separated pieces of the body.
+
+- **Data.** Everything about instructions comes from `jaic::sema::asm_catalog` (`crates/jaic/src/sema/asm/catalog.rs`), which derives the list from the compiler's own mnemonic lookups. A mnemonic in the list is one that compiles; nothing in the language server names an instruction.
+- **Completion** (`asm_completion`, tried before every other completion) depends on the slot (`slot`): at the start of a statement, mnemonics filtered by the typed prefix (kind 14, detail `vpaddd dst: vec, a: vec, b: vec/mem (AVX2)`, Markdown `documentation` with the description, every form and the feature) plus `name: gpr` style declaration snippets when nothing is typed yet; after `mnemonic.`, the size suffixes; after `name:`, the register classes; after `===`, register names; in an operand, the block's registers (declared by `x: class;` or inline `x:`, whose class `asm_catalog::inline_register_class` gives as the lowering would) and the Jai variables and constants visible at `#asm`; between `#asm` and `{`, the feature modifiers.
+- **Jai operands** come from the type checker with the whole block blanked out and any brace it left open closed at the end of the probe, so the probe parses while the block does not and stays the same text, and compile, for every keystroke in the block. Without an environment, the syntax rows are used.
+- **Hover** (`asm_hover`, before the semantic hover) on a mnemonic shows its forms, description and feature; on a register declared in the block, `name: class` and what the class is.
+- **Signature help** (`asm_signature_help`) lists the instruction's forms with the operand under the cursor active.
+
+To support new syntax (an operand decoration, say), extend `parse_stmt`/`slot`; to change what an instruction shows, change the catalog in jaic.
 
 ### Definition, references and type definition
 

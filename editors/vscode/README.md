@@ -14,6 +14,10 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
 
   ![Completing the fields of a struct](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/completion.png)
 
+- **Inline assembly help**: inside `#asm` blocks, completion and hover for every instruction jaic accepts, with its operand forms and the CPU feature it needs, and signature help for its operands.
+
+  ![Completing an AVX2 instruction in an #asm block](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/asm-completion.png)
+
 - **Lints** from `jailint` with quick fixes; `source.fixAll.jailint` applies every safe fix, on demand or on save. Unsaved edits to `jailint.toml` apply at once.
 
   ![A jailint warning and its documentation link](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/lint.png)

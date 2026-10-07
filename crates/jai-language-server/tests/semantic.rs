@@ -1,6 +1,6 @@
 //! Type-checked hover and completion against the repository's stdlib.
 use jai_language_server::{
-    CompletionKind, DocumentUri, Environment, Limits, Position, Session, TextChange,
+    CompletionItem, CompletionKind, DocumentUri, Environment, Limits, Position, Session, TextChange,
 };
 use std::path::PathBuf;
 
@@ -489,4 +489,197 @@ fn layout_hovers_are_markdown_paragraphs() {
         hover,
         "```jai\nPair :: struct { a: u8; b: s32; }\n```\n\nsize 8, align 4 (3 bytes of padding)"
     );
+}
+
+// ---------------------------------------------------------------------------------------------
+// `#asm` blocks
+// ---------------------------------------------------------------------------------------------
+
+const ASM: &str = r#"#import "Basic";
+main :: () {
+    total: s64 = 10;
+    LIMIT :: 4;
+    data: [8] s32;
+    p := data.data;
+    #asm AVX2 {
+        acc: gpr;
+        v: vec;
+        mov acc, total;
+        vpaddd.y w:, v, [p];
+        ADD_HERE
+    }
+    print("%\n", total);
+}
+"#;
+
+fn asm_session(statement: &str) -> (Session, String) {
+    let mut s = session();
+    let text = ASM.replace("ADD_HERE", statement);
+    s.open(uri(), 1, text.clone()).unwrap();
+    (s, text)
+}
+
+fn items(s: &Session, at: Position) -> Vec<CompletionItem> {
+    s.completion(&uri(), at).unwrap().items
+}
+
+fn names(s: &Session, at: Position) -> Vec<String> {
+    items(s, at).into_iter().map(|i| i.label).collect()
+}
+
+fn replace_text(s: &mut Session, version: i32, text: &str) {
+    s.change(
+        &uri(),
+        version,
+        &[TextChange {
+            range: None,
+            range_length: None,
+            text: text.into(),
+        }],
+    )
+    .unwrap();
+}
+
+#[test]
+fn asm_mnemonic_completion_filters_the_compilers_instruction_table() {
+    let (s, text) = asm_session("vpad");
+    let found = items(&s, after(&text, "vpad", 0, 0));
+    assert!(!found.is_empty());
+    assert!(
+        found.iter().all(|i| i.label.starts_with("vpad")),
+        "{found:?}"
+    );
+    let vpaddd = found.iter().find(|i| i.label == "vpaddd").expect("vpaddd");
+    assert_eq!(vpaddd.kind, CompletionKind::Instruction);
+    assert_eq!(vpaddd.detail, "vpaddd dst: vec, a: vec, b: vec/mem (AVX2)");
+    let doc = vpaddd.documentation.as_deref().unwrap();
+    assert!(
+        doc.starts_with("Add packed dwords, wrapping on overflow."),
+        "{doc}"
+    );
+    assert!(doc.contains("Requires `AVX2`"), "{doc}");
+    assert!(found.iter().any(|i| i.label == "vpaddsw"));
+    // Every item is something the compiler accepts.
+    for item in &found {
+        assert!(
+            jaic::sema::asm_catalog::is_supported(&item.label),
+            "{}",
+            item.label
+        );
+    }
+    let (s, text) = asm_session("sha");
+    assert!(names(&s, after(&text, "sha", 0, 0)).contains(&"sha256rnds2".to_string()));
+    let (s, text) = asm_session("kandn");
+    assert_eq!(
+        names(&s, after(&text, "kandn", 0, 0)),
+        ["kandnb", "kandnd", "kandnq", "kandnw"]
+    );
+}
+
+#[test]
+fn asm_operand_completion_offers_registers_and_jai_variables() {
+    let (s, text) = asm_session("add acc, ");
+    let found = items(&s, after(&text, "add acc, ", 0, 0));
+    let has = |name: &str| found.iter().find(|i| i.label == name);
+    assert_eq!(has("acc").unwrap().detail, "gpr register (#asm)");
+    assert_eq!(has("v").unwrap().detail, "vec register (#asm)");
+    // `w:` was declared inline as the destination of a vector instruction.
+    assert_eq!(has("w").unwrap().detail, "vec register (#asm)");
+    assert_eq!(has("total").unwrap().kind, CompletionKind::Variable);
+    assert!(has("p").is_some(), "{found:?}");
+    assert!(has("LIMIT").is_some(), "{found:?}");
+    // Procedures are not operands; neither are instructions.
+    assert!(has("print").is_none() && has("add").is_none(), "{found:?}");
+    let (s, text) = asm_session("add acc, to");
+    assert_eq!(names(&s, after(&text, "acc, to", 0, 0)), ["total"]);
+}
+
+#[test]
+fn asm_declarations_classes_pins_and_features_complete() {
+    let (s, text) = asm_session("k: o");
+    assert_eq!(names(&s, after(&text, "k: o", 0, 0)), ["omr"]);
+    let (s, text) = asm_session("t: gpr === r1");
+    let pins = names(&s, after(&text, "=== r1", 0, 0));
+    assert!(pins.contains(&"r12".to_string()) && pins.iter().all(|l| l.starts_with("r1")));
+    // At the start of a statement: declaration snippets alongside the instructions.
+    let (s, text) = asm_session("");
+    let found = items(&s, after(&text, "[p];\n        ", 0, 0));
+    let decl = found
+        .iter()
+        .find(|i| i.label == "name: vec")
+        .expect("vec declaration");
+    assert_eq!(decl.kind, CompletionKind::Snippet);
+    assert_eq!(decl.insert_text.as_deref(), Some("${1:name}: vec;"));
+    let mut s = session();
+    let text = ASM
+        .replace("#asm AVX2 {", "#asm AVX51 {")
+        .replace("ADD_HERE", "");
+    s.open(uri(), 1, text.clone()).unwrap();
+    let features = names(&s, after(&text, "AVX51", 0, 0));
+    assert!(features.contains(&"AVX512F".to_string()), "{features:?}");
+    assert!(features.iter().all(|l| l.starts_with("AVX51")));
+}
+
+#[test]
+fn asm_hover_shows_the_instruction_and_register_classes() {
+    let (s, text) = asm_session("");
+    let shown = hover(&s, after(&text, "vpaddd", 0, 2));
+    assert!(
+        shown.starts_with("vpaddd dst: vec, a: vec, b: vec/mem\n"),
+        "{shown}"
+    );
+    assert!(shown.contains("Add packed dwords"), "{shown}");
+    assert!(shown.contains("Requires AVX2"), "{shown}");
+    let shown = hover(&s, after(&text, "mov acc", 0, 1));
+    assert!(shown.starts_with("acc: gpr\n"), "{shown}");
+    let shown = hover(&s, after(&text, "w:, v", 0, 1));
+    assert!(shown.starts_with("v: vec\n"), "{shown}");
+}
+
+#[test]
+fn asm_signature_help_lists_operand_forms() {
+    let (s, text) = asm_session("vpaddd w, v, ");
+    let help = s
+        .signature_help(&uri(), after(&text, "vpaddd w, v, ", 0, 0))
+        .unwrap()
+        .expect("signature help");
+    assert_eq!(
+        help.signatures[0].label,
+        "vpaddd dst: vec, a: vec, b: vec/mem"
+    );
+    assert_eq!(help.signatures[0].parameters[2], "b: vec/mem");
+    assert_eq!((help.active_signature, help.active_parameter), (0, 2));
+}
+
+#[test]
+fn asm_completion_works_in_an_unterminated_block() {
+    let mut s = session();
+    let text = "main :: () {\n    total: s64 = 1;\n    #asm {\n        x: gpr;\n        ad\n}\n";
+    s.open(uri(), 1, text.into()).unwrap();
+    let found = names(&s, after(text, "        ad", 0, 0));
+    assert!(found.contains(&"add".to_string()), "{found:?}");
+    assert!(found.contains(&"adcx".to_string()), "{found:?}");
+    // Nothing closes the block or the procedure.
+    let text = "main :: () {\n    total: s64 = 1;\n    #asm {\n        x: gpr;\n        add x, ";
+    replace_text(&mut s, 2, text);
+    let found = names(&s, after(text, "add x, ", 0, 0));
+    assert!(found.contains(&"x".to_string()), "{found:?}");
+    assert!(found.contains(&"total".to_string()), "{found:?}");
+}
+
+#[test]
+fn asm_items_are_not_offered_outside_asm_blocks() {
+    let (mut s, _) = asm_session("");
+    let text = ASM
+        .replace("ADD_HERE", "")
+        .replace("    print(", "    vpad\n    print(");
+    replace_text(&mut s, 2, &text);
+    let found = items(&s, after(&text, "    vpad\n", 0, 1));
+    assert!(
+        found.iter().all(|i| i.kind != CompletionKind::Instruction),
+        "{found:?}"
+    );
+    let found = items(&s, after(&text, "    print", 0, 2));
+    assert!(found.iter().any(|i| i.label == "print"));
+    assert!(found.iter().all(|i| i.kind != CompletionKind::Instruction));
 }

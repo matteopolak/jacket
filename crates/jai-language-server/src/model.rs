@@ -34,9 +34,10 @@ pub enum DiagnosticCode {
     Lint(&'static str),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CompletionKind {
     Function,
+    #[default]
     Variable,
     TypeAlias,
     Enum,
@@ -48,6 +49,10 @@ pub enum CompletionKind {
     EnumMember,
     File,
     Folder,
+    /// An `#asm` instruction mnemonic.
+    Instruction,
+    /// A template with placeholders (`insert_text` is a snippet).
+    Snippet,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -95,14 +100,18 @@ pub struct Hover {
     pub range: Range,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CompletionItem {
     pub label: String,
     pub kind: CompletionKind,
     pub detail: String,
+    /// Markdown shown next to the list.
+    pub documentation: Option<String>,
+    /// What to insert instead of the label: an LSP snippet for `CompletionKind::Snippet`.
+    pub insert_text: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CompletionList {
     pub is_incomplete: bool,
     pub items: Vec<CompletionItem>,

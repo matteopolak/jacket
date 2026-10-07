@@ -19,6 +19,7 @@
   "bugs": {
     "url": "https://github.com/matteopolak/jai/issues"
   },
+  "packageManager": "pnpm@12.6.0",
   "engines": {
     "vscode": "^1.91.0"
   },
@@ -278,12 +279,12 @@
     "build": "node scripts/build-grammar.mjs && node scripts/build-schemas.mjs && node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit -p .",
-    "lint": "eslint . && tsc --noEmit -p . && node scripts/build-grammar.mjs --check && node scripts/build-schemas.mjs --check && node scripts/build-icon.mjs --check",
-    "test": "npm run test:unit && npm run test:grammar",
+    "lint": "oxlint --deny-warnings && tsc --noEmit -p . && node scripts/build-grammar.mjs --check && node scripts/build-schemas.mjs --check && node scripts/build-icon.mjs --check",
+    "test": "pnpm run test:unit && pnpm run test:grammar",
     "test:unit": "node esbuild.mjs --tests && node --test \"out/test/unit/*.test.js\"",
     "test:grammar": "vscode-tmgrammar-test 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.mjs",
     "test:e2e": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/e2e/run.js",
-    "package": "npm run build -- --production && node scripts/copy-license.mjs && vsce package --no-dependencies",
+    "package": "pnpm run build --production && node scripts/copy-license.mjs && vsce package --no-dependencies",
     "check-ages": "node scripts/check-dependency-age.mjs",
     "icons": "node scripts/build-icon.mjs",
     "screenshots": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/screenshots/run.js"
@@ -292,7 +293,6 @@
     "vscode-languageclient": "10.1.1"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
     "@resvg/resvg-js": "2.6.2",
     "@types/mocha": "10.0.10",
     "@types/node": "22.20.4",
@@ -300,11 +300,10 @@
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2",
-    "eslint": "10.11.0",
     "mocha": "12.0.2",
     "ovsx": "1.2.0",
+    "oxlint": "1.85.0",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.70.0",
     "vscode-oniguruma": "2.0.1",
     "vscode-textmate": "9.3.2",
     "vscode-tmgrammar-test": "0.1.3"

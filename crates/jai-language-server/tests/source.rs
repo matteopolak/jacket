@@ -338,3 +338,39 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
     );
     assert!(all.iter().any(|item| item.label == "Color"));
 }
+
+#[test]
+fn asm_completion_and_hover_work_without_a_type_checker() {
+    let mut session = Session::new(Limits::default());
+    let main = uri("main.jai");
+    let text = "main :: () {\n    count: s64 = 0;\n    #asm {\n        r: gpr;\n        popcnt r, co\n    }\n}\n";
+    session.open(main.clone(), 1, text.into()).unwrap();
+    let mut typed = at(text, ", co");
+    typed.character += 4;
+    let labels: Vec<String> = session
+        .completion(&main, typed)
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|i| i.label)
+        .collect();
+    assert_eq!(labels, ["count"]);
+    let mut operand = at(text, ", co");
+    operand.character += 2;
+    let labels: Vec<String> = session
+        .completion(&main, operand)
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|i| i.label)
+        .collect();
+    assert!(labels.contains(&"r".to_string()), "{labels:?}");
+    let mut mnemonic = at(text, "popcnt");
+    mnemonic.character += 3;
+    let hover = session.hover(&main, mnemonic).unwrap().expect("hover");
+    assert!(
+        hover.contents.value.contains("POPCNT"),
+        "{}",
+        hover.contents.value
+    );
+}

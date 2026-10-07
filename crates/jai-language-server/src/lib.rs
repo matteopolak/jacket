@@ -1,5 +1,6 @@
 //! Bounded source analysis shared by native LSP and the actual WebAssembly bridge.
 mod analysis;
+mod asm;
 mod document;
 pub(crate) mod features;
 pub(crate) mod format;

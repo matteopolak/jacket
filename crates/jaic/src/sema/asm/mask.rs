@@ -8,7 +8,7 @@
 use super::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum KOp {
+pub(super) enum KOp {
     Mov,
     Bin(BinOp),
     AndNot,
@@ -30,7 +30,7 @@ pub(super) enum KOpd {
     Other(Opd),
 }
 
-fn lookup_kop(name: &str) -> Option<(KOp, Ty)> {
+pub(super) fn lookup_kop(name: &str) -> Option<(KOp, Ty)> {
     let letter = |c: &str| -> Option<Ty> {
         Some(match c {
             "b" => Ty::I8,

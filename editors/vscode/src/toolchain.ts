@@ -222,7 +222,7 @@ export class ToolchainStore {
       return [];
     }
     const versions = entries.filter((e) => /^\d+\.\d+\.\d+/.test(e) && existsSync(path.join(this.versionDir(e), INSTALLED_MARKER)));
-    return versions.sort(compareVersions).reverse();
+    return versions.toSorted((a, b) => compareVersions(b, a));
   }
 
   /** Removes every version but `keep`, and leftovers of interrupted downloads. */
@@ -253,10 +253,13 @@ export class ToolchainStore {
 
 export const INSTALLED_MARKER = "installed.json";
 
+function versionParts(v: string): (number | string)[] {
+  return v.split(/[.-]/).map((p) => (/^\d+$/.test(p) ? Number(p) : p));
+}
+
 export function compareVersions(a: string, b: string): number {
-  const parts = (v: string) => v.split(/[.-]/).map((p) => (/^\d+$/.test(p) ? Number(p) : p));
-  const x = parts(a);
-  const y = parts(b);
+  const x = versionParts(a);
+  const y = versionParts(b);
   for (let i = 0; i < Math.max(x.length, y.length); i++) {
     if (x[i] === y[i]) continue;
     if (x[i] === undefined) return -1;

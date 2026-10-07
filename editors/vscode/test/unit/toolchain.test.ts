@@ -22,6 +22,10 @@ import {
 
 const repository = path.join(__dirname, "..", "..", "..", "..", "..");
 
+const offline: Fetch = async () => {
+  throw new TypeError("fetch failed", { cause: { code: "ENOTFOUND" } });
+};
+
 describe("platform to release archive", () => {
   it("maps each released platform", () => {
     assert.equal(assetFor("darwin", "arm64"), "jaic-macos-arm64.tar.gz");
@@ -91,7 +95,7 @@ describe("versions", () => {
   it("orders semantic versions", () => {
     assert.ok(compareVersions("0.10.0", "0.9.9") > 0);
     assert.ok(compareVersions("1.0.0", "1.0.0") === 0);
-    assert.deepEqual(["0.2.0", "0.10.1", "0.3.0"].sort(compareVersions), ["0.2.0", "0.3.0", "0.10.1"]);
+    assert.deepEqual(["0.2.0", "0.10.1", "0.3.0"].toSorted(compareVersions), ["0.2.0", "0.3.0", "0.10.1"]);
   });
 });
 
@@ -204,9 +208,6 @@ describe("install", () => {
 
   it("turns network failures into an offline error", async () => {
     const store = new ToolchainStore(mkdtempSync(path.join(tmpdir(), "jai-toolchain-")), "linux");
-    const offline: Fetch = async () => {
-      throw new TypeError("fetch failed", { cause: { code: "ENOTFOUND" } });
-    };
     await assert.rejects(
       install({ version: "0.4.0", asset, store, fetcher: offline, pinned, log: () => {} }),
       (e: ToolchainError) => e.kind === "offline" && /ENOTFOUND/.test(e.message),

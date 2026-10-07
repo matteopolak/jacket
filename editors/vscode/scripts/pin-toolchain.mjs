@@ -29,7 +29,7 @@ if (arg("--sums")) {
     if (match && isArchive(match[2])) sha256[match[2]] = match[1].toLowerCase();
   }
 } else if (arg("--archives")) {
-  for (const name of readdirSync(arg("--archives")).sort()) {
+  for (const name of readdirSync(arg("--archives")).toSorted()) {
     if (!isArchive(name)) continue;
     sha256[name] = createHash("sha256").update(readFileSync(join(arg("--archives"), name))).digest("hex");
   }

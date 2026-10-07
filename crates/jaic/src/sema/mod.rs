@@ -44,6 +44,8 @@ use crate::intern::Sym;
 use crate::ir;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, SourceMap, Span};
 use crate::types::{TypeId, Types};
+/// The `#asm` instruction table, for editors (`jailsp`).
+pub use asm::catalog as asm_catalog;
 pub use code_export::ModifiedStmt;
 pub use driver::ProgramSource;
 pub use modules::{FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};

@@ -586,6 +586,9 @@ impl Session {
         if let Some((start, end, text)) = self.directive_hover(uri, byte) {
             return found(start, end, text);
         }
+        if let Some((start, end, text)) = self.asm_hover(&doc.text, byte) {
+            return found(start, end, text);
+        }
         let Some((_, token)) = self.word(uri, position)? else {
             return match self.expansion_hover(uri, byte) {
                 Some((start, end, text)) => found(start, end, text),
@@ -754,6 +757,7 @@ impl Session {
                             "module"
                         }
                         .into(),
+                        ..CompletionItem::default()
                     }),
                     (false, Some(stem)) => Some(CompletionItem {
                         label: if load {
@@ -772,6 +776,7 @@ impl Session {
                             "module"
                         }
                         .into(),
+                        ..CompletionItem::default()
                     }),
                     _ => None,
                 }
@@ -796,6 +801,9 @@ impl Session {
     ) -> Result<CompletionList, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
+        if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
+            return Ok(list);
+        }
         // `#` and the start of a directive: offer directives (labels include the `#`).
         // Past the whole separator: it may be multi-byte (a no-break space).
         let word_start = doc.text[..byte]
@@ -813,6 +821,7 @@ impl Session {
                         label: format!("#{name}"),
                         kind: CompletionKind::Keyword,
                         detail: (*detail).into(),
+                        ..CompletionItem::default()
                     })
                     .collect(),
             });
@@ -858,6 +867,7 @@ impl Session {
                     label: name.name,
                     kind,
                     detail: name.detail,
+                    ..CompletionItem::default()
                 });
             }
             return Ok(CompletionList {
@@ -911,6 +921,7 @@ impl Session {
                         label: name.into(),
                         kind,
                         detail: self.source_detail(candidate, row).into(),
+                        ..CompletionItem::default()
                     });
                 } else if visible && items.len() >= self.limits.symbols {
                     incomplete = true;
@@ -923,6 +934,7 @@ impl Session {
                     label: (*name).into(),
                     kind: CompletionKind::Keyword,
                     detail: "keyword".into(),
+                    ..CompletionItem::default()
                 });
             }
         }

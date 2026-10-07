@@ -89,7 +89,7 @@ export class MissingConfiguredTool extends Error {
   }
 }
 
-function configured(value: string | undefined, setting: string, env: Environment): Found | undefined {
+function configuredTool(value: string | undefined, setting: string, env: Environment): Found | undefined {
   if (!value?.trim()) return undefined;
   const expanded = expandPath(value, env);
   if (!env.isFile(expanded)) throw new MissingConfiguredTool(setting, expanded);
@@ -101,7 +101,7 @@ function configured(value: string | undefined, setting: string, env: Environment
  * (`toolchainDir`).
  */
 export function findCompiler(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
-  const fromSetting = configured(settings.compilerPath, "jai.compiler.path", env);
+  const fromSetting = configuredTool(settings.compilerPath, "jai.compiler.path", env);
   if (fromSetting) return fromSetting;
   const fromPath = onPath("jaic", env);
   if (fromPath) return { path: fromPath, source: "path" };
@@ -113,7 +113,7 @@ export function findCompiler(settings: Settings, env: Environment, toolchainDir?
  * `jai.compiler.path` or PATH, else the downloaded toolchain.
  */
 export function findServer(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
-  const fromSetting = configured(settings.serverPath, "jai.server.path", env);
+  const fromSetting = configuredTool(settings.serverPath, "jai.server.path", env);
   if (fromSetting) return fromSetting;
   const fromPath = onPath("jailsp", env);
   if (fromPath) return { path: fromPath, source: "path" };
@@ -128,14 +128,14 @@ export function findServer(settings: Settings, env: Environment, toolchainDir?: 
  * next to the server, else the downloaded toolchain.
  */
 export function findFormatter(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
-  const fromSetting = configured(settings.formatterPath, "jai.formatter.path", env);
+  const fromSetting = configuredTool(settings.formatterPath, "jai.formatter.path", env);
   if (fromSetting) return fromSetting;
   const fromPath = onPath("jaifmt", env);
   if (fromPath) return { path: fromPath, source: "path" };
   const compiler = findCompiler(settings, env);
   const besideCompiler = compiler && nextTo(compiler.path, "jaifmt", env);
   if (besideCompiler) return { path: besideCompiler, source: "next to jaic" };
-  const server = configured(settings.serverPath, "jai.server.path", env) ?? optional(onPath("jailsp", env));
+  const server = configuredTool(settings.serverPath, "jai.server.path", env) ?? optional(onPath("jailsp", env));
   const besideServer = server && nextTo(server.path, "jaifmt", env);
   if (besideServer) return { path: besideServer, source: "next to jailsp" };
   return inToolchain("jaifmt", env, toolchainDir);

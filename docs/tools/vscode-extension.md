@@ -60,32 +60,36 @@ Offline, the request fails with *could not reach github.com (ENOTFOUND)* and a R
 
 ```sh
 cd editors/vscode
-npm ci                    # node_modules stays untracked (.gitignore)
-npm run build             # grammar, schemas, dist/extension.js
-npm run lint              # eslint, tsc, generated files up to date
-npm test                  # unit tests (node --test) and grammar tests
-JAILSP=../../target/debug/jailsp [JAIFMT=../../target/release/jaifmt] npm run test:e2e
-npm run package           # jai-<version>.vsix
+corepack enable           # once: provides the pnpm version pinned by packageManager
+pnpm install              # node_modules stays untracked (.gitignore)
+pnpm run build            # grammar, schemas, dist/extension.js
+pnpm run lint             # oxlint, tsc, generated files up to date
+pnpm test                 # unit tests (node --test) and grammar tests
+JAILSP=../../target/debug/jailsp [JAIFMT=../../target/release/jaifmt] pnpm run test:e2e
+pnpm run package          # jai-<version>.vsix
 code --install-extension jai-<version>.vsix
 ```
 
-For development, open `editors/vscode` in VS Code and run the extension host (F5) after `npm run watch`.
+For development, open `editors/vscode` in VS Code and run the extension host (F5) after `pnpm run watch`.
 
-- **Grammar**: edit `scripts/build-grammar.mjs`, run `npm run build`, add assertions to `test/grammar/*.jai` ([vscode-tmgrammar-test](https://github.com/PanAeon/vscode-tmgrammar-test) syntax: `^` under the tested columns, `<-` for column 0). `scripts/tokenize-corpus.mjs` tokenizes every `.jai` file in `examples/` and `stdlib/` (or the paths given) and fails if one ends inside a string, comment or here-string, or has an `invalid` token; run it on `corpus/upstream` too after a big change. Keep the grammar derived from the compiler's lexer and parser and this repository's code.
+- **Grammar**: edit `scripts/build-grammar.mjs`, run `pnpm run build`, add assertions to `test/grammar/*.jai` ([vscode-tmgrammar-test](https://github.com/PanAeon/vscode-tmgrammar-test) syntax: `^` under the tested columns, `<-` for column 0). `scripts/tokenize-corpus.mjs` tokenizes every `.jai` file in `examples/` and `stdlib/` (or the paths given) and fails if one ends inside a string, comment or here-string, or has an `invalid` token; run it on `corpus/upstream` too after a big change. Keep the grammar derived from the compiler's lexer and parser and this repository's code.
 - **New directive or keyword**: add it to the lists at the top of `build-grammar.mjs`. Unknown `#names` are still highlighted as directives.
-- **New jailint rule**: nothing to do here; `npm run build` regenerates `schemas/jailint.schema.json` from `crates/jailint/src/rules/mod.rs`, and `npm run lint` (CI) fails while it is stale.
+- **New jailint rule**: nothing to do here; `pnpm run build` regenerates `schemas/jailint.schema.json` from `crates/jailint/src/rules/mod.rs`, and `pnpm run lint` (CI) fails while it is stale.
 - **New jaifmt.toml key**: add it to `build-schemas.mjs`.
 - **New release platform**: add one row to `RELEASE_ASSETS` in `src/toolchain.ts`. A unit test compares it with the matrix in `.github/workflows/release.yml`, so CI fails until both agree.
 - **New server command or custom request**: handle its result in `ExpansionDocuments.handle` (middleware) or register it in `extension.ts`.
-- **Icons**: `scripts/build-icon.mjs` (`npm run icons`) writes `images/icon.svg`, `images/jai-file-dark.svg` and `images/jai-file-light.svg` from the playground's Jai file glyph (a rounded tile with a `J` cut out, 16x16, even-odd fill) and renders `images/icon.png` (256x256, transparent) with `@resvg/resvg-js`. The colour is the playground's `color-mix(in oklch, var(--red) 62%, white)` with `--red: oklch(63.259% 0.24086 31.631)`, computed in the script (`#ff8e78`); the light-theme file icon uses the red itself (`#fa2b03`). `npm run lint` fails when the SVGs are stale; commit the PNG with them.
-- **Screenshots** (`images/hover.png`, `completion.png`, `lint.png`, `quick-fix.png`, `error.png`, `formatting.png`, shown by `editors/vscode/README.md`): `JAILSP=... JAIFMT=... VSCODE_EXECUTABLE=".../Visual Studio Code.app/Contents/MacOS/Code" npm run screenshots` on macOS. `test/screenshots/run.ts` opens a real VS Code window with a throwaway profile (`--user-data-dir` and `--extensions-dir` in a temp folder) on `test/screenshots/workspace/`; `suite/index.ts` sets up each scene with editor commands and captures only that window (`screencapture -l<id>`, the id from `window-id.swift`, restricted to the VS Code processes above the extension host), then scales it to 1200 px wide. Add a scene there and a line to the README. The README links images by `raw.githubusercontent.com/.../main/...` URLs, which the Marketplace and Open VSX show as is; the `.vsix` itself carries only the icons.
-- **Dependencies**: every npm package, transitive ones included, must be at least 14 days old, as for Cargo ([dependency policy](dependency-policy.md)). Install with `npm install --save-exact <pkg>@<version> --before=<date 14 days ago>` and run `node scripts/check-dependency-age.mjs`, which CI runs before `npm ci`. `typescript-eslint` limits TypeScript to below 6.1, and `@types/vscode` must not be newer than `engines.vscode` (vsce refuses to package otherwise).
+- **Icons**: `scripts/build-icon.mjs` (`pnpm run icons`) writes `images/icon.svg`, `images/jai-file-dark.svg` and `images/jai-file-light.svg` from the playground's Jai file glyph (a rounded tile with a `J` cut out, 16x16, even-odd fill) and renders `images/icon.png` (256x256, transparent) with `@resvg/resvg-js`. The colour is the playground's `color-mix(in oklch, var(--red) 62%, white)` with `--red: oklch(63.259% 0.24086 31.631)`, computed in the script (`#ff8e78`); the light-theme file icon uses the red itself (`#fa2b03`). `pnpm run lint` fails when the SVGs are stale; commit the PNG with them.
+- **Screenshots** (`images/hover.png`, `completion.png`, `asm-completion.png`, `lint.png`, `quick-fix.png`, `error.png`, `formatting.png`, shown by `editors/vscode/README.md`): `JAILSP=... JAIFMT=... VSCODE_EXECUTABLE=".../Visual Studio Code.app/Contents/MacOS/Code" pnpm run screenshots` on macOS. `test/screenshots/run.ts` opens a real VS Code window with a throwaway profile (`--user-data-dir` and `--extensions-dir` in a temp folder) on `test/screenshots/workspace/`; `suite/index.ts` sets up each scene with editor commands and captures only that window (`screencapture -l<id>`, the id from `window-id.swift`, restricted to the VS Code processes above the extension host), then scales it to 1200 px wide. Add a scene there and a line to the README. The README links images by `raw.githubusercontent.com/.../main/...` URLs, which the Marketplace and Open VSX show as is; the `.vsix` itself carries only the icons.
+- **Dependencies**: pnpm, pinned by `packageManager` in `package.json` (CI installs it with `pnpm/action-setup`, locally `corepack enable`). Every npm package, transitive ones included, and that pnpm release must be at least 14 days old, as for Cargo ([dependency policy](dependency-policy.md)). `pnpm-workspace.yaml` sets `minimumReleaseAge: 20160` (minutes), so `pnpm add -D -E <pkg>@<version>` refuses anything younger; `node scripts/check-dependency-age.mjs` checks every entry of `pnpm-lock.yaml` and the `packageManager` version against the registry, and CI runs it before `pnpm install --frozen-lockfile`. The same file lists the packages whose install scripts may run (`allowBuilds`: none; esbuild works from its platform package, and keytar and vsce-sign are not used to package or publish with a token). `@types/vscode` must not be newer than `engines.vscode` (vsce refuses to package otherwise).
+- **Lint rules**: `.oxlintrc.json` enables oxlint's `correctness` and `suspicious` categories with the eslint, typescript, unicorn and oxc plugins, as errors (`--deny-warnings`). Unused arguments may start with `_`; empty `catch` blocks are allowed.
 
 Gotchas:
 
 - `jaifmt --stdin` ignores `ignore` globs and has no `--color` option in 0.3.0; the extension handles the first and does not pass the second.
 - The integration tests start VS Code with a short `--user-data-dir` because macOS limits socket paths to 103 bytes; `VSCODE_EXECUTABLE` uses an installed VS Code instead of downloading one into `.vscode-test/`.
-- `vsce` needs a `LICENSE` next to `package.json`; `npm run package` copies the repository's (untracked in `editors/vscode`).
+- `vsce` needs a `LICENSE` next to `package.json`; `pnpm run package` copies the repository's (untracked in `editors/vscode`).
+- `vsce package` runs with `--no-dependencies`: everything the extension needs is bundled into `dist/extension.js`, and without the flag vsce runs `npm list`, which fails on pnpm's `node_modules` layout.
+- pnpm passes the arguments after the script name through without `--`: `pnpm run package -o out.vsix`.
 
 ## Configuration
 
@@ -114,30 +118,31 @@ Test environment variables: `JAILSP`, `JAIFMT` (unit and integration tests), `VS
 
 ### CI and releases
 
-The `vscode-extension` job in `ci.yml` checks npm and Cargo dependency ages, runs `npm run lint` and `npm test`, builds a debug `jailsp`, runs the integration tests under `xvfb-run` (with a stand-in formatter, `test/e2e/fake-jaifmt.ts`, since building jaifmt needs LLVM) and uploads the `.vsix` as an artifact.
+The `vscode-extension` job in `ci.yml` checks npm and Cargo dependency ages, installs with `pnpm install --frozen-lockfile --ignore-scripts`, runs `pnpm run lint` and `pnpm test`, builds a debug `jailsp`, runs the integration tests under `xvfb-run` (with a stand-in formatter, `test/e2e/fake-jaifmt.ts`, since building jaifmt needs LLVM) and uploads the `.vsix` as an artifact.
 
-In `release.yml`, the `vscode` job runs after the platform builds: it takes the version from the tag (from `Cargo.toml` on a dry run, and fails if the two differ), pins the SHA-256 of the archives just built with `scripts/pin-toolchain.mjs`, and packages `jai-vscode-<version>.vsix`. The `publish` job attaches it to the GitHub release (it is listed in `SHA256SUMS` too), then publishes it to the Marketplace and Open VSX when their tokens are set. A manual run without a tag builds and keeps the `.vsix` as an artifact but publishes nothing.
+In `release.yml`, the `vscode` job runs after the platform builds: it takes the version from the tag (from `Cargo.toml` on a dry run, and fails if the two differ), pins the SHA-256 of the archives just built with `scripts/pin-toolchain.mjs`, and packages `jai-vscode-<version>.vsix`. The `publish` job attaches it to the GitHub release (it is listed in `SHA256SUMS` too). After it, the `marketplace` and `open-vsx` jobs each publish the same `.vsix` when their token is set; they are separate jobs so that one store failing neither stops the other nor touches the release. The `open-vsx` job first runs `ovsx create-namespace matteopolak` and accepts "Namespace already exists", so the first publish works without creating the namespace by hand. Both pass `--skip-duplicate`, so re-running a tag's workflow does not fail on a version already published. A manual run without a tag builds and keeps the `.vsix` as an artifact but publishes nothing.
 
 ### Publishing
 
 Publishing needs accounts only the repository owner can create. Until the secrets exist, the publish steps print that they skipped. One-time setup:
 
 1. **Marketplace publisher.** Sign in at <https://marketplace.visualstudio.com/manage> with a Microsoft account and create the publisher `matteopolak` (the `publisher` in `package.json`).
-2. **Marketplace token.** In Azure DevOps (<https://dev.azure.com>, any organization), *User settings → Personal access tokens → New token*: organization *All accessible organizations*, scope *Marketplace → Manage*. Check it with `npx vsce verify-pat matteopolak`.
-3. **Open VSX.** Sign in at <https://open-vsx.org> with GitHub, sign the Eclipse Foundation publisher agreement from your profile, create an access token (*Settings → Access Tokens*), and create the namespace once: `npx ovsx create-namespace matteopolak -p <token>`.
+2. **Marketplace token.** In Azure DevOps (<https://dev.azure.com>, any organization), *User settings → Personal access tokens → New token*: organization *All accessible organizations*, scope *Marketplace → Manage*. Check it with `pnpm exec vsce verify-pat matteopolak`.
+3. **Open VSX.** Sign in at <https://open-vsx.org> with GitHub, sign the Eclipse Foundation publisher agreement from your profile, and create an access token (*Settings → Access Tokens*). The release workflow creates the `matteopolak` namespace if it does not exist yet.
 4. **Repository secrets.** *Settings → Secrets and variables → Actions*: `VSCE_PAT` (step 2) and `OVSX_PAT` (step 3).
 
 The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
 
 ```sh
-cd editors/vscode && npm ci
+cd editors/vscode && pnpm install --frozen-lockfile
 gh release download v0.4.0 -p 'jai-vscode-*.vsix'
-VSCE_PAT=... npx vsce publish --packagePath jai-vscode-0.4.0.vsix
-OVSX_PAT=... npx ovsx publish --packagePath jai-vscode-0.4.0.vsix
+VSCE_PAT=... pnpm exec vsce publish --packagePath jai-vscode-0.4.0.vsix
+pnpm exec ovsx create-namespace matteopolak -p "$OVSX_PAT"   # once; "already exists" is fine
+pnpm exec ovsx publish jai-vscode-0.4.0.vsix -p "$OVSX_PAT"
 ```
 
 ## Dependencies
 
 - Runtime: VS Code 1.91 or later, `vscode-languageclient` (bundled into `dist/extension.js` by esbuild, so the `.vsix` has no `node_modules`), the system `tar` for downloads, and the toolchain itself (`jailsp`, `jaic`, `jaifmt`).
-- Development: TypeScript, esbuild, ESLint with typescript-eslint, `@vscode/test-electron` and mocha (integration tests), `vscode-tmgrammar-test`, `vscode-textmate` and `vscode-oniguruma` (grammar tests), `@vscode/vsce` and `ovsx` (packaging and publishing), `@resvg/resvg-js` (the PNG icon).
+- Development: pnpm, TypeScript, esbuild, oxlint, `@vscode/test-electron` and mocha (integration tests), `vscode-tmgrammar-test`, `vscode-textmate` and `vscode-oniguruma` (grammar tests), `@vscode/vsce` and `ovsx` (packaging and publishing), `@resvg/resvg-js` (the PNG icon).
 - Internal: jailsp's protocol (`crates/jai-language-server/src/protocol.rs`: capabilities, `jai.showExpansion`, `jai.showPolymorphs`, `jai/source`, `jailint.toml` documents), jailint's rule table, jaifmt's `--stdin` contract and `jaifmt.toml` keys, and the release archive names in `release.yml`.

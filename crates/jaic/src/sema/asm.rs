@@ -34,6 +34,7 @@ use crate::ast::{
 };
 use crate::ir::{BinOp, BlockId, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 
+pub mod catalog;
 mod mask;
 mod scalar;
 mod simd;
@@ -264,6 +265,15 @@ pub enum AsmReg {
     /// AVX-512 op-mask register (`omr`, k0-k7): a 64-bit local.
     Mask,
 }
+
+/// The register classes a declaration may name (`x: gpr;`), with their storage in bytes.
+const REG_CLASSES: &[(&str, AsmReg, u64)] = &[
+    ("gpr", AsmReg::Gpr, 8),
+    ("vec", AsmReg::Vec, 64),
+    ("str", AsmReg::Vec, 64),
+    ("omr", AsmReg::Mask, 8),
+    ("kmask", AsmReg::Mask, 8),
+];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Alu {
@@ -726,17 +736,11 @@ impl Compiler {
         default_class: &str,
     ) -> Result<(AsmReg, Val)> {
         let class = decl.class.map_or(default_class, |c| c.name.as_str());
-        let (kind, size) = match class {
-            "gpr" => (AsmReg::Gpr, 8),
-            "vec" => (AsmReg::Vec, 64),
-            "str" => (AsmReg::Vec, 64),
-            "omr" | "kmask" => (AsmReg::Mask, 8),
-            other => {
-                return err(
-                    decl.class.map_or(decl.name.span, |c| c.span),
-                    format!("unknown #asm register class `{other}`"),
-                );
-            }
+        let Some(&(_, kind, size)) = REG_CLASSES.iter().find(|(name, ..)| *name == class) else {
+            return err(
+                decl.class.map_or(decl.name.span, |c| c.span),
+                format!("unknown #asm register class `{class}`"),
+            );
         };
         let name = decl.name.name;
         if let Some(ids) = self.scope(cx.scope).names.get(&name)

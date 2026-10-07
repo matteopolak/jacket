@@ -803,6 +803,9 @@ impl Session {
         let doc = self.document(uri)?;
         let text = &doc.text;
         let byte = doc.index.byte(text, position)?;
+        if let Some(help) = self.asm_signature_help(text, byte) {
+            return Ok(Some(help));
+        }
         let Some((open, chain, active_arg, named)) = open_call(text, byte) else {
             return Ok(None);
         };

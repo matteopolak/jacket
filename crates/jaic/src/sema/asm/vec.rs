@@ -63,14 +63,14 @@ pub(super) enum Lane {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Shift {
+pub(super) enum Shift {
     Left,
     Logical,
     Arith,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Cvt {
+pub(super) enum Cvt {
     /// `cvtdq2ps`
     IntToFloat,
     /// `cvtps2dq`: round to nearest even.
@@ -80,7 +80,7 @@ enum Cvt {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum VOp {
+pub(super) enum VOp {
     Move,
     /// `movd` / `movq` between a vector register and a scalar (bytes moved).
     MovScalarInt(u64),
@@ -115,7 +115,7 @@ fn elem_size(op: VOp) -> u64 {
     }
 }
 
-fn lookup_vec(name: &str) -> Option<VOp> {
+pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
     let int_lane = |c: &str| -> Option<Ty> {
         Some(match c {
             "b" => Ty::I8,
@@ -228,6 +228,17 @@ fn lookup_vec(name: &str) -> Option<VOp> {
             return simd::lookup_simd(name).map(VOp::Ext);
         }
     })
+}
+
+/// The class of a fresh `name:` destination of `op` at this vector width.
+pub(super) fn dst_class(op: VOp, width: u64) -> &'static str {
+    match op {
+        VOp::Bin(Lane::CmpEq | Lane::CmpGt, ..) if width == 64 => "omr",
+        VOp::Ext(s) => simd::dst_class(s, width),
+        // The sign-bit mask lands in a general-purpose register.
+        VOp::Movmsk(_) => "gpr",
+        _ => "vec",
+    }
 }
 
 pub(super) fn lane_addr(f: &mut FnCtx, base: Val, offset: u64) -> Val {
@@ -426,13 +437,7 @@ impl Compiler {
         };
         // AVX-512 compares write a mask register; a fresh `name:` destination is a mask
         // when the instruction produces one (always for 512-bit compares).
-        let dst_class = match op {
-            VOp::Bin(Lane::CmpEq | Lane::CmpGt, ..) if width == 64 => "omr",
-            VOp::Ext(s) => simd::dst_class(s, width),
-            // The sign-bit mask lands in a general-purpose register.
-            VOp::Movmsk(_) => "gpr",
-            _ => "vec",
-        };
+        let dst_class = dst_class(op, width);
         let mut ops: Vec<VOpd> = Vec::with_capacity(n);
         for (i, o) in inst.operands.iter().enumerate() {
             let class = if i == 0 {
