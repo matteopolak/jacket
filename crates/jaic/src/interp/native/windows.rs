@@ -90,6 +90,9 @@ pub fn lookup(lib: Option<usize>, symbol: &str) -> Option<u64> {
     if let Some(found) = defaults.iter().copied().chain(opened).find_map(find) {
         return Some(found);
     }
+    if let Some(found) = stdio::inline_only(symbol) {
+        return Some(found);
+    }
     // `long double` is `double` on Windows, and the C runtime's `<math.h>` makes `sqrtl` and
     // friends inline calls of the `double` functions instead of exporting them.
     let stem = symbol.strip_suffix('l')?;
@@ -105,6 +108,229 @@ const LONG_DOUBLE_MATH: &str = "acos acosh asin asinh atan atan2 atanh cbrt ceil
     cosh erf erfc exp exp2 expm1 fabs fdim floor fma fmax fmin fmod frexp hypot ilogb ldexp lgamma \
     llrint llround log log10 log1p log2 logb lrint lround modf nearbyint nextafter pow remainder \
     remquo rint round scalbln scalbn sin sinh sqrt tan tanh tgamma trunc";
+
+/// The UCRT's printf family. Its DLLs export only the `__stdio_common_*` workers; `snprintf`,
+/// `vsnprintf` and the rest are inline functions of `<stdio.h>` that call them with an options
+/// word and the argument list. A program that names them through `#foreign` finds them in no
+/// DLL (msvcrt.dll exports the older ones, but not `snprintf`), so these stand in, doing what
+/// the header inlines do.
+///
+/// A variadic call puts its arguments in positional 8-byte slots on both CPUs (Win64: the
+/// first four in registers, floats duplicated in the integer ones; arm64: x0-x7, then the
+/// stack), and `va_list` is a pointer to such slots. So each stand-in takes the slots as plain
+/// integer parameters, copies the variadic ones into an array, and passes its address as the
+/// `va_list`.
+mod stdio {
+    use std::ffi::c_void;
+
+    /// Argument slots a stand-in reads: as many as the interpreter's call passes on either CPU.
+    const SLOTS: usize = 24;
+
+    /// `_CRT_INTERNAL_PRINTF_STANDARD_SNPRINTF_BEHAVIOR`: C99 truncation and result for the
+    /// counted forms. The header's default options word is otherwise zero.
+    const STANDARD_SNPRINTF: u64 = 1 << 1;
+
+    /// `_CRT_INTERNAL_PRINTF_LEGACY_VSPRINTF_NULL_TERMINATION`, which the uncounted forms set.
+    const LEGACY_NULL_TERMINATION: u64 = 1;
+
+    type VSprintf =
+        unsafe extern "C" fn(u64, *mut u8, usize, *const u8, *mut c_void, *const u64) -> i32;
+
+    type VFprintf =
+        unsafe extern "C" fn(u64, *mut c_void, *const u8, *mut c_void, *const u64) -> i32;
+
+    type IobFunc = unsafe extern "C" fn(u32) -> *mut c_void;
+
+    /// A function of ucrtbase.dll by name.
+    fn ucrt(name: &str) -> Option<u64> {
+        let module = super::load("ucrtbase.dll")?;
+        let name: Vec<u8> = name.bytes().chain(Some(0)).collect();
+        // SAFETY: `module` is a loaded module handle and `name` is NUL-terminated.
+        let p = unsafe { super::GetProcAddress(module as *mut c_void, name.as_ptr()) };
+        (!p.is_null()).then_some(p as u64)
+    }
+
+    fn vsprintf_fn() -> VSprintf {
+        let addr =
+            ucrt("__stdio_common_vsprintf").expect("ucrtbase.dll exports __stdio_common_vsprintf");
+        // SAFETY: the UCRT's documented signature of this export.
+        unsafe { std::mem::transmute::<usize, VSprintf>(addr as usize) }
+    }
+
+    fn vfprintf_fn() -> VFprintf {
+        let addr =
+            ucrt("__stdio_common_vfprintf").expect("ucrtbase.dll exports __stdio_common_vfprintf");
+        // SAFETY: as above.
+        unsafe { std::mem::transmute::<usize, VFprintf>(addr as usize) }
+    }
+
+    /// The UCRT's `stdout`.
+    fn stdout() -> *mut c_void {
+        let addr = ucrt("__acrt_iob_func").expect("ucrtbase.dll exports __acrt_iob_func");
+        // SAFETY: as above; 1 is standard output.
+        unsafe { std::mem::transmute::<usize, IobFunc>(addr as usize)(1) }
+    }
+
+    /// Counted formatting: negative results (an encoding error) become -1, as in the header.
+    fn counted(buffer: u64, count: u64, format: u64, list: *const u64) -> i32 {
+        // SAFETY: the caller passed a buffer of `count` bytes, a format and matching arguments.
+        let n = unsafe {
+            vsprintf_fn()(
+                STANDARD_SNPRINTF,
+                buffer as *mut u8,
+                count as usize,
+                format as *const u8,
+                std::ptr::null_mut(),
+                list,
+            )
+        };
+        n.max(-1)
+    }
+
+    /// Unbounded formatting into a buffer (`sprintf`): the count is "no limit".
+    fn unbounded(buffer: u64, format: u64, list: *const u64) -> i32 {
+        // SAFETY: as in `counted`; the caller's buffer is large enough by contract.
+        let n = unsafe {
+            vsprintf_fn()(
+                LEGACY_NULL_TERMINATION,
+                buffer as *mut u8,
+                usize::MAX,
+                format as *const u8,
+                std::ptr::null_mut(),
+                list,
+            )
+        };
+        n.max(-1)
+    }
+
+    fn to_stream(stream: *mut c_void, format: u64, list: *const u64) -> i32 {
+        // SAFETY: a UCRT stream, a format and matching arguments.
+        unsafe { vfprintf_fn()(0, stream, format as *const u8, std::ptr::null_mut(), list) }
+    }
+
+    fn snprintf(s: &[u64; SLOTS]) -> i32 {
+        counted(s[0], s[1], s[2], s[3..].as_ptr())
+    }
+
+    fn vsnprintf(s: &[u64; SLOTS]) -> i32 {
+        counted(s[0], s[1], s[2], s[3] as *const u64)
+    }
+
+    fn sprintf(s: &[u64; SLOTS]) -> i32 {
+        unbounded(s[0], s[1], s[2..].as_ptr())
+    }
+
+    fn vsprintf(s: &[u64; SLOTS]) -> i32 {
+        unbounded(s[0], s[1], s[2] as *const u64)
+    }
+
+    fn printf(s: &[u64; SLOTS]) -> i32 {
+        to_stream(stdout(), s[0], s[1..].as_ptr())
+    }
+
+    fn vprintf(s: &[u64; SLOTS]) -> i32 {
+        to_stream(stdout(), s[0], s[1] as *const u64)
+    }
+
+    fn fprintf(s: &[u64; SLOTS]) -> i32 {
+        to_stream(s[0] as *mut c_void, s[1], s[2..].as_ptr())
+    }
+
+    fn vfprintf(s: &[u64; SLOTS]) -> i32 {
+        to_stream(s[0] as *mut c_void, s[1], s[2] as *const u64)
+    }
+
+    /// A C entry point taking `SLOTS` integer slots that hands them to `$body` as an array.
+    macro_rules! entry {
+        ($name:ident => $body:ident) => {
+            #[allow(clippy::too_many_arguments)]
+            unsafe extern "C" fn $name(
+                s0: u64,
+                s1: u64,
+                s2: u64,
+                s3: u64,
+                s4: u64,
+                s5: u64,
+                s6: u64,
+                s7: u64,
+                s8: u64,
+                s9: u64,
+                s10: u64,
+                s11: u64,
+                s12: u64,
+                s13: u64,
+                s14: u64,
+                s15: u64,
+                s16: u64,
+                s17: u64,
+                s18: u64,
+                s19: u64,
+                s20: u64,
+                s21: u64,
+                s22: u64,
+                s23: u64,
+            ) -> i32 {
+                $body(&[
+                    s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17,
+                    s18, s19, s20, s21, s22, s23,
+                ])
+            }
+        };
+    }
+
+    entry!(snprintf_entry => snprintf);
+    entry!(vsnprintf_entry => vsnprintf);
+    entry!(sprintf_entry => sprintf);
+    entry!(vsprintf_entry => vsprintf);
+    entry!(printf_entry => printf);
+    entry!(vprintf_entry => vprintf);
+    entry!(fprintf_entry => fprintf);
+    entry!(vfprintf_entry => vfprintf);
+
+    /// The stand-in for `symbol`, when it is one of the inline-only printf functions.
+    pub fn inline_only(symbol: &str) -> Option<u64> {
+        type Entry = unsafe extern "C" fn(
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+            u64,
+        ) -> i32;
+        let entry: Entry = match symbol {
+            "snprintf" => snprintf_entry,
+            "vsnprintf" => vsnprintf_entry,
+            "sprintf" => sprintf_entry,
+            "vsprintf" => vsprintf_entry,
+            "printf" => printf_entry,
+            "vprintf" => vprintf_entry,
+            "fprintf" => fprintf_entry,
+            "vfprintf" => vfprintf_entry,
+            _ => return None,
+        };
+        // The UCRT must be there for the stand-in to call.
+        ucrt("__stdio_common_vsprintf")?;
+        Some(entry as usize as u64)
+    }
+}
 
 /// Positional argument slots the prototype passes: four register slots and 20 stack slots.
 #[cfg(target_arch = "x86_64")]
