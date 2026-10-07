@@ -8,6 +8,7 @@
 #import "File";
 #import "Process";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 #import "Jaic_Extensions";
 
 FIXTURE :: #filepath;
@@ -22,10 +23,8 @@ generate :: () -> string {
     #if OS != .MACOS && OS != .LINUX return "";
     fixture := tprint("%/../native/c-long-double", FIXTURE);
     target := clang_target();
-    dir := tprint("/tmp/jai_bindgen_long_double_%", target);
-    // mkdir through a process: when cross-compiling for x86-64 macOS, the compile-time File
-    // calls would name the x86-64 symbol variants (stat$INODE64), which the host lacks.
-    run_command("mkdir", "-p", dir);
+    // Kept: the program loads the library from here when it runs.
+    dir := scratch_directory(tprint("bindgen-long-double-%", target));
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/liblongdouble.%", dir, ext);
     result := run_command("clang", "-target", target, "-shared", "-fPIC", "-o", library_path,

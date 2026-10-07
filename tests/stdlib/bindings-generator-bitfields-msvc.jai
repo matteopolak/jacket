@@ -10,6 +10,7 @@
 #import "File";
 #import "Process";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 #pragma once
@@ -57,12 +58,18 @@ END;
 EXPECTED_SIZES :: int.[12, 8, 8, 8, 24, 4, 4];
 STRUCT_NAMES :: string.["Mixed", "SameType", "Zero", "Tail", "Wide", "Shorts", "Signs"];
 
+// Where the library is built. Kept: the program loads the library from here when it runs.
+LIBRARY_DIRECTORY :: #run library_directory();
+library_directory :: () -> string {
+    #if OS == .WASM return "";
+    return scratch_directory("bindgen-bitfields-msvc");
+}
+
 build_and_generate :: () -> string {
     // The WASM target (the browser playground) starts no processes and loads no native
     // libraries, so there is no compiler or libclang to call: skip like a host without them.
     #if OS == .WASM return "";
-    dir := "/tmp/jai_bindgen_bitfields_msvc";
-    make_directory_if_it_does_not_exist(dir);
+    dir := LIBRARY_DIRECTORY;
     header_path := tprint("%/msbits.h", dir);
     source_path := tprint("%/msbits.c", dir);
     check_path := tprint("%/check.c", dir);
@@ -108,7 +115,7 @@ HAVE_C :: BINDINGS.count > 0;
 #if HAVE_C {
     #insert BINDINGS;
 
-    ms :: #library "/tmp/jai_bindgen_bitfields_msvc/libmsbits";
+    #insert #run tprint("ms :: #library \"%/libmsbits\";", LIBRARY_DIRECTORY);
     ms_size :: (which: s32) -> s32 #foreign ms;
     ms_mixed_set :: (m: *Mixed, a: s32, b: s32, c: s32) #foreign ms;
     ms_mixed_get :: (m: *Mixed, which: s32) -> s32 #foreign ms;

@@ -71,15 +71,41 @@ fn same_gate(a: &Arc<dyn Gate>, b: &Arc<dyn Gate>) -> bool {
 pub fn release(gate: &Arc<dyn Gate>) {
     let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
     for family in table.iter_mut() {
-        for slot in family.iter_mut() {
-            if slot.as_ref().is_some_and(|s| same_gate(&s.gate, gate)) {
-                *slot = None;
-            }
-        }
+        free_slots(family, |s| same_gate(&s.gate, gate));
     }
     drop(table);
     #[cfg(all(windows, target_arch = "x86_64"))]
     win64::release(gate);
+}
+
+/// The slot of a thunk family for a procedure: the one already serving it (`serves`), else a
+/// free one, else a new one while there are fewer than `limit`.
+fn slot_for<S>(
+    slots: &mut Vec<Option<S>>,
+    limit: usize,
+    serves: impl Fn(&S) -> bool,
+) -> Option<usize> {
+    let reused = slots
+        .iter()
+        .position(|s| s.as_ref().is_some_and(&serves))
+        .or_else(|| slots.iter().position(Option::is_none));
+    if reused.is_some() {
+        return reused;
+    }
+    if slots.len() == limit {
+        return None;
+    }
+    slots.push(None);
+    Some(slots.len() - 1)
+}
+
+/// Empty the slots `owned` picks.
+fn free_slots<S>(slots: &mut [Option<S>], owned: impl Fn(&S) -> bool) {
+    for slot in slots {
+        if slot.as_ref().is_some_and(&owned) {
+            *slot = None;
+        }
+    }
 }
 
 /// Thunks per return shape.
@@ -155,22 +181,12 @@ pub fn callback_addr(
     };
     let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
     let slots = &mut table[shape];
-    let existing = slots.iter().position(|s| {
-        s.as_ref()
-            .is_some_and(|s| s.program == program && s.func == func && s.sig == *sig)
-    });
-    let k = match existing.or_else(|| slots.iter().position(Option::is_none)) {
-        Some(k) => k,
-        None if slots.len() == SLOTS => {
-            return Err(format!(
-                "more than {SLOTS} interpreted procedures of one shape were passed to C"
-            ));
-        }
-        None => {
-            slots.push(None);
-            slots.len() - 1
-        }
-    };
+    let k = slot_for(slots, SLOTS, |s| {
+        s.program == program && s.func == func && s.sig == *sig
+    })
+    .ok_or_else(|| {
+        format!("more than {SLOTS} interpreted procedures of one shape were passed to C")
+    })?;
     // A later interpreter running the same program takes the thunk over.
     slots[k] = Some(Slot {
         program,

@@ -44,9 +44,9 @@ const PREEMPT_TICKS: u64 = 20_000;
 /// Runnable threads also check this often whether the holder has entered such a call.
 const NATIVE_SLICE: Duration = Duration::from_millis(1);
 
-/// Once C holds thunks, a thread C started may call one and wake the blocked threads: every
-/// thread must stay blocked this long before that counts as a deadlock.
-const DEADLOCK_GRACE: Duration = Duration::from_secs(1);
+/// Once C may hold thunks (`Sched::callbacks`), a thread C started may call one and wake the
+/// blocked threads: every thread must stay blocked this long before that counts as a deadlock.
+pub const DEADLOCK_GRACE: Duration = Duration::from_secs(1);
 
 const EPERM: u64 = 1;
 const EBUSY: u64 = 16;
@@ -128,7 +128,9 @@ pub(super) struct Sched {
     native_calls: u64,
     /// Callbacks waiting for the baton: a holder entering C wakes them at once.
     urgent: usize,
-    /// C holds thunks, so threads the scheduler does not know yet may call back.
+    /// A foreign call ran after a thunk was made that does not start a Jai thread, so C may
+    /// hold it and threads the scheduler does not know yet may call back
+    /// (`Interp::hand_thunks_to_c`).
     callbacks: bool,
     /// A blocked thread became runnable: its OS thread must be woken to wait for its turn
     /// (`with_sched`).
@@ -435,7 +437,7 @@ impl Shared {
         drop(self.acquire(s, me));
     }
 
-    /// C has been given a thunk.
+    /// C may have been given a thunk.
     pub(super) fn callbacks_possible(&self) {
         self.lock().callbacks = true;
     }
@@ -589,6 +591,8 @@ impl Interp {
         let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
         };
+        // The scheduler runs this thunk, not C: it gives no thread of C's a way back in.
+        self.unseen_thunks.retain(|&t| t != start);
         let shared = self.shared();
         let id = {
             let mut s = shared.lock();

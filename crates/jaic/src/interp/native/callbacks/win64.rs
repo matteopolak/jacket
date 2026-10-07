@@ -16,7 +16,7 @@
 //! Unlike System V there is a single family: the return shape is decided in `dispatch` (an
 //! integer or aggregate of 1, 2, 4 or 8 bytes in RAX, a float in XMM0, anything else through
 //! the hidden pointer in the first slot, also returned in RAX).
-use super::{Gate, Reenter, enter, fatal, same_gate};
+use super::{Gate, Reenter, enter, fatal, free_slots, same_gate, slot_for};
 use crate::abi::{self, Arch, Passing};
 use crate::interp::native::{read_bytes, write_bytes};
 use crate::ir::{FuncId, Sig, Ty};
@@ -115,22 +115,10 @@ pub(super) fn callback_addr(
     sig: &Sig,
 ) -> Result<u64, String> {
     let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
-    let existing = table.iter().position(|s| {
-        s.as_ref()
-            .is_some_and(|s| s.program == program && s.func == func && s.sig == *sig)
-    });
-    let k = match existing.or_else(|| table.iter().position(Option::is_none)) {
-        Some(k) => k,
-        None if table.len() == SLOTS => {
-            return Err(format!(
-                "more than {SLOTS} interpreted procedures were passed to C"
-            ));
-        }
-        None => {
-            table.push(None);
-            table.len() - 1
-        }
-    };
+    let k = slot_for(&mut table, SLOTS, |s| {
+        s.program == program && s.func == func && s.sig == *sig
+    })
+    .ok_or_else(|| format!("more than {SLOTS} interpreted procedures were passed to C"))?;
     table[k] = Some(Slot {
         program,
         gate: gate.clone(),
@@ -169,11 +157,7 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
 /// Free every stub assigned to `gate`'s interpreter.
 pub(super) fn release(gate: &Arc<dyn Gate>) {
     let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
-    for slot in table.iter_mut() {
-        if slot.as_ref().is_some_and(|s| same_gate(&s.gate, gate)) {
-            *slot = None;
-        }
-    }
+    free_slots(&mut table, |s| same_gate(&s.gate, gate));
 }
 
 struct Incoming<S, X> {

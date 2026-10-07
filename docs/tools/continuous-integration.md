@@ -26,7 +26,7 @@ Edit the workflow files. Keep the `format`/`jai-format`/`jai-lint`/`lint`/`corre
 
 ## Configuration
 
-Runners: `macos-15`, `ubuntu-24.04`, `ubuntu-24.04-arm` (and `windows-2025`, `windows-11-arm` in `windows-native.yml`); 30 minute timeouts (45 for `sanitizers`); `CARGO_INCREMENTAL=0`; toolchain `nightly-2026-08-29`; Python 3.14.
+Runners: `macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.04-arm` (and `windows-2025`, `windows-11-arm` in `windows-native.yml`); 30 minute timeouts (45 for `sanitizers`); `CARGO_INCREMENTAL=0`; toolchain `nightly-2026-08-29`; Python 3.14.
 
 ## Dependencies
 

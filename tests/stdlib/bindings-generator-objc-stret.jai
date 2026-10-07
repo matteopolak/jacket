@@ -9,6 +9,7 @@
 #import "File";
 #import "Process"; // jailint: allow(unused_import) only the macOS bindings use it
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 struct Big { long a, b, c; };
@@ -30,8 +31,8 @@ END;
 
 generate :: (cpu: type_of(Generate_Bindings_Options.cpu)) -> string {
     #if OS == .MACOS {
-        dir := "/tmp/jai_bindgen_objc_stret";
-        make_directory_if_it_does_not_exist(dir);
+        dir := scratch_directory("bindgen-objc-stret");
+        defer delete_directory(dir);
         header_path := tprint("%/maker.h", dir);
         if !write_entire_file(header_path, HEADER) return "";
 

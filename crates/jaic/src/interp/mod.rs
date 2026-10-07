@@ -29,6 +29,7 @@ use crate::ir::{
 pub use native::main_thread;
 pub use native::{library_dirs, set_library_dirs};
 pub use sandbox::{SandboxHost, SharedHost};
+pub use threads::DEADLOCK_GRACE;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -353,6 +354,11 @@ pub struct Interp {
     proc_values: Vec<u64>,
     /// Thunk address -> procedure, for every thunk this interpreter made.
     thunk_funcs: HashMap<u64, FuncId>,
+    /// Thunks made since the last foreign call, which C has not been able to see yet. One that
+    /// starts a Jai thread (`pthread_create`, `CreateThread`) leaves the list, since the
+    /// scheduler runs it; the next foreign call hands the rest to C (`hand_thunks_to_c`).
+    #[cfg(not(target_arch = "wasm32"))]
+    unseen_thunks: Vec<u64>,
     /// Value stacks for procedures C calls back, reused.
     #[cfg(not(target_arch = "wasm32"))]
     callback_stacks: Vec<Box<[u64]>>,
@@ -422,6 +428,8 @@ impl Interp {
             profile: profile::enabled().then(Default::default),
             proc_values: Vec::new(),
             thunk_funcs: HashMap::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             callback_stacks: Vec::new(),
         }
@@ -828,6 +836,8 @@ impl Interp {
                 ..Trap::default()
             })?;
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.hand_thunks_to_c();
         let mine = self.take_exec_state();
         let loc = mine.loc;
         // A crash in C names `symbol` and this thread's interpreted call stack.
@@ -910,12 +920,23 @@ impl Interp {
     /// A C-callable thunk for `#c_call` procedure `id`.
     #[cfg(not(target_arch = "wasm32"))]
     fn thunk(&mut self, program: &Program, id: FuncId, sig: &ir::Sig) -> Result<u64, String> {
-        let shared = self.shared();
-        shared.callbacks_possible();
-        let gate: std::sync::Arc<dyn native::Gate> = shared;
+        let gate: std::sync::Arc<dyn native::Gate> = self.shared();
         let addr = native::callback_addr(&gate, program as *const Program as u64, id, sig)?;
-        self.thunk_funcs.insert(addr, id);
+        if self.thunk_funcs.insert(addr, id).is_none() {
+            self.unseen_thunks.push(addr);
+        }
         Ok(addr)
+    }
+
+    /// A foreign call is about to run: C can reach every thunk made so far (as an argument, or
+    /// through memory the program shares with it), so from now on a thread C started may call
+    /// back, and the scheduler must not take all-threads-blocked for a deadlock at once.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn hand_thunks_to_c(&mut self) {
+        if !self.unseen_thunks.is_empty() {
+            self.unseen_thunks.clear();
+            self.shared().callbacks_possible();
+        }
     }
 
     #[cfg(target_arch = "wasm32")]

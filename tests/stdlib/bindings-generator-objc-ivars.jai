@@ -8,6 +8,7 @@
 #import "File";
 #import "Process";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 #import <objc/NSObject.h>
@@ -61,8 +62,8 @@ END;
 
 build_and_generate :: () -> string {
     #if OS == .MACOS {
-        dir := "/tmp/jai_bindgen_objc_ivars";
-        make_directory_if_it_does_not_exist(dir);
+        // Kept: the program loads the library from here when it runs.
+        dir := scratch_directory("bindgen-objc-ivars");
         header_path := tprint("%/ivars.h", dir);
         source_path := tprint("%/ivars.m", dir);
         library_path := tprint("%/libivars.dylib", dir);

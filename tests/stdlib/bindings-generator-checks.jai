@@ -7,16 +7,24 @@
 #import "File";
 #import "Process";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 FIXTURE :: #filepath;
+
+// Where the library is built, shared by both generations. Kept: the program loads the library
+// from here when it runs.
+LIBRARY_DIRECTORY :: #run library_directory();
+library_directory :: () -> string {
+    #if OS == .WASM return "";
+    return scratch_directory("bindgen-checks");
+}
 
 generate :: (strip: Strip_Flags, checks: bool) -> string {
     // The WASM target (the browser playground) starts no processes and loads no native
     // libraries, so there is no compiler or libclang to call: skip like a host without them.
     #if OS == .WASM return "";
     fixture := tprint("%/../native/bindgen-checks", FIXTURE);
-    dir := "/tmp/jai_bindgen_checks";
-    make_directory_if_it_does_not_exist(dir);
+    dir := LIBRARY_DIRECTORY;
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/libchecks.%", dir, ext);
     result := run_command("clang++", "-shared", "-fPIC", "-o", library_path, tprint("%/checks.cpp", fixture), capture_and_return_output = true);
@@ -60,7 +68,7 @@ main :: () {
 
         // The library is declared at the end, in the file scope, by the path it was found at.
         assert(has(BINDINGS, "#scope_file"));
-        assert(has(BINDINGS, "libchecks :: #library \"/tmp/jai_bindgen_checks/libchecks\";") || has(BINDINGS, "checks :: #library"));
+        assert(has(BINDINGS, tprint("libchecks :: #library \"%/libchecks\";", LIBRARY_DIRECTORY)));
 
         // Inline functions defined in the header are stripped; the others stay.
         assert(!has(BINDINGS, "twice_x"));

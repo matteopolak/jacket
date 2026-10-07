@@ -612,15 +612,18 @@ fn c_thread_callbacks_block_on_jai_threads() {
         String::from_utf8_lossy(&output.stdout).replace('\r', ""),
         expected
     );
-    for args in [
-        &["run", "deadlock.jai"][..],
-        &["run", "deadlock.jai", "--", "callback"],
-    ] {
+    // Only a thunk C may hold delays the report by the scheduler's grace period: the thunk
+    // `Thread` starts its threads through is run by the scheduler, not C. Both runs compile the
+    // same program, so how long that takes cancels out of the difference between them.
+    let grace = jaic::interp::DEADLOCK_GRACE;
+    let report = |args: &[&str]| {
+        let started = std::time::Instant::now();
         let output = Command::new(JAIC)
             .args(args)
             .current_dir(&dir)
             .output()
             .unwrap();
+        let took = started.elapsed();
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{args:?} did not fail");
         assert!(
@@ -628,7 +631,15 @@ fn c_thread_callbacks_block_on_jai_threads() {
             "{args:?}: {stderr}"
         );
         assert!(output.stdout.is_empty(), "{args:?}");
-    }
+        took
+    };
+    let jai_only = report(&["run", "deadlock.jai"]);
+    let callback = report(&["run", "deadlock.jai", "--", "callback"]);
+    assert!(callback >= grace, "the callback case took {callback:?}");
+    assert!(
+        jai_only + grace / 2 <= callback,
+        "the Jai-only case took {jai_only:?}, the callback case {callback:?}"
+    );
 }
 
 /// The interpreter's crash report on Windows (its vectored exception handler; see
@@ -922,12 +933,16 @@ fn c_long_double() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    // The copied Bindings_Generator test imports the stdlib tests' own modules.
+    let test_modules = repo_root().join("tests/stdlib/modules");
     let x86 = |name: &str| {
         jaic(&[
             "build",
             &format!("{name}.jai"),
             "-target",
             "x86_64-apple-darwin",
+            "-import_dir",
+            test_modules.to_str().unwrap(),
             "-o",
             name,
         ]);
@@ -1048,10 +1063,6 @@ fn bindings_generator_objc_stret() {
 
 #[test]
 fn bindings_generator_parity() {
-    // The test program writes its headers under /tmp and imports POSIX (for `FILE`).
-    if cfg!(windows) {
-        return;
-    }
     native_bindings_generator_test("bindings-generator-parity");
 }
 

@@ -39,9 +39,15 @@ Win32 counterparts on Windows) run in the interpreter on a cooperative scheduler
   `wake_object_waiters`) sets `Sched::woke`, and `with_sched` then notifies the waiters.
 - Deadlocks: when nothing is runnable, nothing waits for a deadline and no thread is in native
   code (`Sched::stuck`; a thread in C may come back and wake the others), the thread that blocked
-  last gets ``deadlock: every thread is blocked``. Once C holds a thunk (`Sched::callbacks`), a
+  last gets ``deadlock: every thread is blocked``. Once C may hold a thunk (`Sched::callbacks`), a
   thread the scheduler does not know yet may still call one and wake somebody, so the blocked
-  threads wait `DEADLOCK_GRACE` (1 s) first and then report it to the first one. A deadlock that
+  threads wait `DEADLOCK_GRACE` (1 s) first and then report it to the first one. C may hold a
+  thunk once a foreign call runs after it was made (`Interp::hand_thunks_to_c`: as an argument or
+  through memory, C can only have seen it from a call). A thunk passed to an intercepted
+  `pthread_create` or `CreateThread` is dropped from `Interp::unseen_thunks` first: the scheduler
+  runs it, so `Thread` programs get their deadlock reports at once. A thunk written to memory
+  that a C thread started earlier reads without another foreign call would escape this; nothing
+  in the corpus does that. A deadlock that
   involves a thread in native code (the main thread in `pthread_join` on a C thread whose callback
   waits for a lock the main thread holds) hangs, as it does natively.
 - Output order of racing threads is deterministic apart from sleep timing and native calls, but

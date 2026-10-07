@@ -4,6 +4,7 @@
 #import "String";
 #import "File";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 #include <stdio.h>
@@ -51,7 +52,14 @@ has :: (text: string, needle: string) -> bool {
     return contains(text, needle);
 }
 
-generate :: (header_path: string, output_path: string, cpp: bool) -> string {
+// The bindings generated from `header`, written to and read back from a scratch directory.
+generate :: (name: string, header: string, cpp: bool) -> string {
+    dir := scratch_directory(name);
+    defer delete_directory(dir);
+    header_path := tprint("%/test.h", dir);
+    output_path := tprint("%/test.jai", dir);
+    assert(write_entire_file(header_path, header));
+
     opts: Generate_Bindings_Options;
     array_add(*opts.source_files, header_path);
     if cpp array_add(*opts.extra_clang_arguments, "-x", "c++");
@@ -72,13 +80,8 @@ LIBCLANG :: OS != .WASM;
 #if LIBCLANG #run check_generated_text();
 
 check_generated_text :: () {
-    dir := "/tmp";
-    header_path := tprint("%/jai_bindgen_parity_test.h", dir);
-    output_path := tprint("%/jai_bindgen_parity_test.jai", dir);
-    assert(write_entire_file(header_path, HEADER));
-
     for cpp: bool.[false, true] {
-        text := generate(header_path, output_path, cpp);
+        text := generate("bindgen-parity", HEADER, cpp);
 
         // Types from system headers are referred to by name and not generated.
         assert(has(text, "open_log :: (path: *u8) -> *FILE #foreign lib;"));
@@ -128,7 +131,9 @@ END;
 // x86-64 `long double` is 16 bytes. By default it is jaic's Long_Double extension; without it,
 // fields keep their layout as bytes and functions that pass one are stripped.
 check_long_double :: () {
-    header_path := "/tmp/jai_bindgen_parity_ld.h";
+    dir := scratch_directory("bindgen-parity-long-double");
+    defer delete_directory(dir);
+    header_path := tprint("%/test.h", dir);
     assert(write_entire_file(header_path, LONG_DOUBLE_HEADER));
     generate_for_x64 :: (header_path: string, extension: bool) -> string {
         opts: Generate_Bindings_Options;
@@ -171,12 +176,11 @@ main :: () {
 
 // The same bindings, generated while compiling and inserted below (it ends in #scope_file).
 generated_for_insert :: () -> string {
-    header_path := "/tmp/jai_bindgen_parity_insert.h";
-    assert(write_entire_file(header_path, HEADER));
-    return generate(header_path, "/tmp/jai_bindgen_parity_insert.jai", false);
+    return generate("bindgen-parity-insert", HEADER, false);
 }
 
-#import "POSIX"; // FILE
+// stdio's `FILE`, which the bindings name but do not declare; they only point to it.
+FILE :: struct {}
 lib :: #library "does_not_exist";
 #if LIBCLANG {
     #insert #run generated_for_insert();

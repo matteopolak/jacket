@@ -9,6 +9,7 @@
 #import "File";
 #import "Process";
 #import "Bindings_Generator";
+#import "Scratch_Directory";
 
 HEADER :: #string END
 #import <objc/NSObject.h>
@@ -58,8 +59,8 @@ END;
 
 build_and_generate :: () -> string {
     #if OS == .MACOS {
-        dir := "/tmp/jai_bindgen_objc_blocks";
-        make_directory_if_it_does_not_exist(dir);
+        // Kept: the program loads the library from here when it runs.
+        dir := scratch_directory("bindgen-objc-blocks");
         header_path := tprint("%/blocks.h", dir);
         source_path := tprint("%/blocks.m", dir);
         library_path := tprint("%/libblocks.dylib", dir);
