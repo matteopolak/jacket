@@ -441,7 +441,7 @@ impl Compiler {
         match body {
             Some(b) => Ok(b.stmts),
             None => err(
-                Span::default(),
+                Span::NONE,
                 "compiler_modify_procedure: could not parse inserted code",
             ),
         }
@@ -508,7 +508,7 @@ impl Compiler {
             return id;
         }
         let kind = self.types.kind(ty).clone();
-        let span = Span::default();
+        let span = Span::NONE;
         let size = match &kind {
             TypeKind::Struct(s) => {
                 let _ = self.layout_struct(*s, span);
@@ -756,7 +756,7 @@ impl Exporter<'_> {
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
         };
-        if (span.file.0 as usize) < c.sources.len() && span != Span::default() {
+        if (span.file.0 as usize) < c.sources.len() {
             let file = c.file_record(self.r, span.file);
             let source = c.sources.get(span.file);
             let (l0, c0) = source.line_col(span.start);
@@ -789,7 +789,7 @@ impl Exporter<'_> {
                 return id;
             }
             let addr = c
-                .type_info_global(ty, Span::default())
+                .type_info_global(ty, Span::NONE)
                 .ok()
                 .and_then(|g| c.interp.global_addr(&c.program, g).ok());
             if let Some(addr) = addr {

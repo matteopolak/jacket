@@ -161,8 +161,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
             message: message.to_string(),
         };
     }
-    let has_location = d.span.start != 0 || d.span.end != 0;
-    if has_location && (d.span.file.0 as usize) < compiler.sources.len() {
+    if (d.span.file.0 as usize) < compiler.sources.len() {
         let file = compiler.sources.get(d.span.file);
         let (line, column) = file.line_col(d.span.start);
         return PlayDiagnostic {

@@ -29,7 +29,7 @@ The other rules:
 
 ### The `Diagnostic` value (compiler)
 
-`source::Diagnostic` holds the severity, the primary `span`, the `message`, an optional `label` (text under the carets), `notes` (each with a span, or `Span::NONE` for text only), `help` lines and an optional `fix` (span + replacement). Builders: `Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_fix(help, span, text)`. Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form for a message with nothing else.
+`source::Diagnostic` holds the severity, the primary `span`, the `message`, an optional `label` (text under the carets), `notes` (each with a span, or `Span::NONE` for text only; `Span` has no `Default`, so `Span::NONE` is the one span without a location), `help` lines and an optional `fix` (span + replacement). Builders: `Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_fix(help, span, text)`. Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form for a message with nothing else.
 
 Suggestions that need extra work are computed when the error is rendered, not when it is created, because failed lookups are routine while checking overloads and `#if`s (`sema/suggestions.rs`):
 

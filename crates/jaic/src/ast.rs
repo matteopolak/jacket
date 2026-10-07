@@ -571,7 +571,7 @@ pub struct EnumLit {
 // Statements and declarations
 // ---------------------------------------------------------------------------
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,

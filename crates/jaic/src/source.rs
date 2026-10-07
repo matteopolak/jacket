@@ -5,7 +5,7 @@ use std::rc::Rc;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct FileId(pub u32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Span {
     pub file: FileId,
     pub start: u32,
@@ -14,6 +14,8 @@ pub struct Span {
 
 impl Span {
     /// No location: a diagnostic or note with this span prints without a file and snippet.
+    /// It is the only span without one; `Span` has no `Default`, so an empty span at the start
+    /// of the first file always means that place.
     pub const NONE: Span = Span {
         file: FileId(u32::MAX),
         start: 0,
@@ -108,7 +110,7 @@ impl SourceMap {
 
     /// The text of `span`, or "" for a span without a place.
     pub fn snippet_or_empty(&self, span: Span) -> &str {
-        if (span.file.0 as usize) < self.files.len() && span != Span::default() {
+        if (span.file.0 as usize) < self.files.len() {
             let text = &self.get(span.file).text;
             text.get(span.start as usize..span.end as usize)
                 .unwrap_or("")
@@ -250,10 +252,9 @@ impl Diagnostic {
     }
 }
 
-/// Whether `span` names a place in a file. `Span::NONE` does not, and neither does the default
-/// span (file 0, empty, at offset 0), which diagnostics without a location have long used.
+/// Whether `span` names a place in a file (`Span::NONE` does not).
 fn has_location(sources: &SourceMap, span: Span) -> bool {
-    (span.file.0 as usize) < sources.len() && span != Span::default()
+    (span.file.0 as usize) < sources.len()
 }
 
 impl fmt::Display for Diagnostic {

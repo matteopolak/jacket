@@ -185,7 +185,7 @@ impl Compiler {
     /// Offset of a `#as` member of type `to` inside struct `from` (searching recursively).
     pub fn as_offset(&mut self, from: TypeId, to: TypeId) -> Option<u64> {
         let s = self.types.as_struct(from)?;
-        if self.layout_struct(s, Span::default()).is_err() {
+        if self.layout_struct(s, Span::NONE).is_err() {
             return None;
         }
         let fields = self.types.struct_info(s).fields.clone();

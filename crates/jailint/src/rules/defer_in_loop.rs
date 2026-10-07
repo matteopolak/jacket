@@ -102,7 +102,7 @@ fn examine(
     };
     // A variable the loop's header reads is the loop's own state: deferring its step makes
     // `continue` take the step too.
-    let no_span = jaic::source::Span::default();
+    let no_span = jaic::source::Span::NONE;
     if names
         .iter()
         .any(|&n| cx.mentions(n, loop_stmt.span.start, body.span.start, no_span))

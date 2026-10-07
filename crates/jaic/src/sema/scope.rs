@@ -325,7 +325,7 @@ impl Compiler {
             self.add_const(
                 root,
                 Sym::intern(name),
-                Span::default(),
+                Span::NONE,
                 Value::Type(ty),
                 TypeId::TYPE,
             );
@@ -344,7 +344,7 @@ impl Compiler {
             let id = self.add_entity(
                 root,
                 Sym::intern(name),
-                Span::default(),
+                Span::NONE,
                 EntityKind::Builtin(Builtin::Proc(p)),
                 true,
             );
@@ -362,7 +362,7 @@ impl Compiler {
             self.add_entity(
                 root,
                 Sym::intern(name),
-                Span::default(),
+                Span::NONE,
                 EntityKind::Builtin(Builtin::TargetConstant(Sym::intern(name))),
                 true,
             );

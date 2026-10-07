@@ -175,7 +175,7 @@ impl Compiler {
             Value::Type(_) => TypeId::TYPE,
             Value::Null => TypeId::NULL,
             Value::Proc(p) => self
-                .proc_type(*p, Span::default())
+                .proc_type(*p, Span::NONE)
                 .unwrap_or(TypeId::VOID_PTR),
             Value::Code(_) => TypeId::CODE,
             Value::Bytes(_) | Value::Void => TypeId::VOID,

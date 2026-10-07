@@ -795,7 +795,7 @@ impl Compiler {
     fn names_field(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
         Ok(self.types.as_struct(ty).is_some()
             && self.struct_constant(ty, name)?.is_none()
-            && self.find_member(ty, name, Span::default())?.is_some())
+            && self.find_member(ty, name, Span::NONE)?.is_some())
     }
 
     /// `local.CONSTANT` where `local` belongs to an enclosing procedure: compile-time code

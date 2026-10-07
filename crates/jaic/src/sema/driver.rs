@@ -26,7 +26,7 @@ pub struct ProgramMark {
 impl Compiler {
     /// Load the bootstrap modules (Preload, Runtime_Support).
     pub fn load_bootstrap(&mut self) -> Result<()> {
-        let span = Span::default();
+        let span = Span::NONE;
         if let Some(preload) = self.options.preload.clone() {
             let m = self.load_module("Preload", &preload, Vec::new(), span)?;
             self.preload = Some(m);
@@ -110,11 +110,11 @@ impl Compiler {
     /// Load one more file or string into the main module; `settle` runs it.
     pub fn add_source(&mut self, source: &ProgramSource) -> Result<()> {
         let Some(m) = self.main_module else {
-            return err(Span::default(), "no main module to add sources to");
+            return err(Span::NONE, "no main module to add sources to");
         };
         self.added_sources += 1;
         match source {
-            ProgramSource::File(path) => self.load_file(path, m, Span::default()),
+            ProgramSource::File(path) => self.load_file(path, m, Span::NONE),
             ProgramSource::String(text) => {
                 let label = format!("<added string {}>", self.added_sources);
                 self.load_string(&label, text, m)
@@ -586,7 +586,7 @@ impl Compiler {
     pub fn prepare_compiled_output(&mut self) {
         self.bake_no_reset_globals();
         self.drop_unreferenced_code();
-        self.enable_stack_traces(Span::default());
+        self.enable_stack_traces(Span::NONE);
         if let Some(offset) = self.program.stack_trace_offset {
             crate::stack_trace::instrument(&mut self.program, offset);
         }
@@ -603,7 +603,7 @@ impl Compiler {
             let Some(addr) = self.interp.materialized_global(global) else {
                 continue;
             };
-            let Ok(Value::Bytes(agg)) = self.read_aggregate(addr, ty, Span::default()) else {
+            let Ok(Value::Bytes(agg)) = self.read_aggregate(addr, ty, Span::NONE) else {
                 continue;
             };
             let g = &mut self.program.globals[global.0 as usize];
@@ -650,12 +650,12 @@ impl Compiler {
                 return Ok(0);
             }
             return err(
-                Span::default(),
+                Span::NONE,
                 "`main` is declared, but no entry point calls it (is Runtime_Support loaded?)",
             );
         };
         self.interp.compile_time = false;
-        self.enable_stack_traces(Span::default());
+        self.enable_stack_traces(Span::NONE);
         if let Err(trap) = self.interp.reset_globals(&self.program) {
             return Err(Box::new(self.trap_diagnostic(&trap, "runtime error", None)));
         }

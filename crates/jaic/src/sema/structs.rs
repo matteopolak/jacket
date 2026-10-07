@@ -1121,7 +1121,7 @@ impl Compiler {
         if self.types.struct_info(s).layout == LayoutState::InProgress {
             return Ok(None);
         }
-        self.layout_struct(s, Span::default())?;
+        self.layout_struct(s, Span::NONE)?;
         let usings: Vec<TypeId> = self
             .types
             .struct_info(s)
@@ -1162,7 +1162,7 @@ impl Compiler {
             let tag = src.lit.tag.as_ref().map(|t| t.name.name);
             return Ok(tag == Some(name) || declares_field(&src.lit.body, name));
         }
-        Ok(self.find_member(target, name, Span::default())?.is_some())
+        Ok(self.find_member(target, name, Span::NONE)?.is_some())
     }
 
     pub(super) fn apply_path(

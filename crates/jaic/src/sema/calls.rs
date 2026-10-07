@@ -455,8 +455,7 @@ impl Compiler {
         }
         let inside = error.span.file == span.file
             && error.span.start >= span.start
-            && error.span.end <= span.end
-            && error.span != Span::default();
+            && error.span.end <= span.end;
         let mut d = Diagnostic {
             span: if inside {
                 error.span
@@ -469,7 +468,7 @@ impl Compiler {
         let header = self.proc(proc).lit.header.span;
         let overlaps =
             header.file == span.file && header.start < span.end && span.start < header.end;
-        if header != Span::default() && header != Span::NONE && !overlaps {
+        if header != Span::NONE && !overlaps {
             d.notes.push((header, format!("`{name}` is declared here")));
         }
         d
@@ -1579,7 +1578,7 @@ impl Compiler {
         let Some(s) = self.types.as_struct(ty) else {
             return false;
         };
-        if self.layout_struct(s, Span::default()).is_err() {
+        if self.layout_struct(s, Span::NONE).is_err() {
             return false;
         }
         let fields = self.types.struct_info(s).fields.clone();
@@ -1622,7 +1621,7 @@ impl Compiler {
             return Some(ty);
         }
         let s = self.types.as_struct(ty)?;
-        self.layout_struct(s, Span::default()).ok()?;
+        self.layout_struct(s, Span::NONE).ok()?;
         let fields = self.types.struct_info(s).fields.clone();
         fields
             .iter()
