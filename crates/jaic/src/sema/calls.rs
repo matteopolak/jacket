@@ -541,6 +541,10 @@ impl Compiler {
                 .sum();
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
             proc_id = self.instantiate(proc, bindings, span)?;
+            let made = self.export.call_instances.entry(span).or_default();
+            if !made.contains(&proc_id) {
+                made.push(proc_id);
+            }
             extra = 1 + self.as_base_matches(proc, &header, &slots, args)? * convert::SUBTYPE;
         }
         let sig = self.signature(proc_id, span)?;

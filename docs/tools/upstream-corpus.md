@@ -170,7 +170,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 - AST_Utils `examples/build.jai` sets `FormatStruct.recursive_long_form_depth`, which current Basic does not have, in a procedure of its own files, so it fails to check.
 - epic-fail is a `-plug` plugin ([metaprogram plugins](../metaprogramming/metaprogram-plugins.md)); its `assert` works when imported directly.
-- MetaThreadSafe's examples fail on purpose. The diagnostics match, except that jaic still checks the untaken `#if` branch of a baked instance.
+- MetaThreadSafe's examples fail on purpose, with the same diagnostics; `compile_time_example` passes. It used to report the untaken `#if` branch of a baked instance: a call to a polymorphic procedure resolved to the generic header, and a static `#if` carried no evaluated flag. The call now resolves to the instance, whose body is reported with `EVALUATED_AS_TRUE` and `static_if_accepted_case` set (rules `records.30`, `records.31`). MetaThreadSafe is not pinned.
 - jai-control-flow uses `%%` as an escaped percent, which current Jai reads as two arguments; a corrected copy passes all its tests.
 
 **rluba's libraries.** All compile; what runs depends on the services they talk to.

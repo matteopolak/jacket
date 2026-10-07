@@ -96,6 +96,9 @@ pub struct ExportState {
     resolved_headers: HashMap<(ProcId, bool), i64>,
     /// Declarations made for `resolved_declaration` of names outside the exported tree.
     resolved_decls: HashMap<EntityId, i64>,
+    /// The polymorph instances made for each call (by the call's span), so a call's
+    /// `resolved_procedure_expression` is the instance it called, not the generic procedure.
+    pub call_instances: HashMap<Span, Vec<ProcId>>,
 }
 
 impl ExportState {
@@ -234,37 +237,11 @@ impl Compiler {
             }
             decls.push((id, decl, index, home));
         }
-        // Bodies lowered since their header was reported.
-        let pending = std::mem::take(&mut self.export.pending_bodies);
-        let (ready, waiting): (Vec<_>, Vec<_>) = pending
-            .into_iter()
-            .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
-        self.export.pending_bodies = waiting;
-        if decls.is_empty() && ready.is_empty() {
-            return None;
-        }
         let mut out = Typechecked::default();
-        for (p, header_id, scope) in ready {
-            let lit = self.proc(p).lit.clone();
-            let Some(body) = &lit.body else {
-                continue;
-            };
-            let mut ex = Exporter {
-                c: Some(self),
-                r,
-                scope,
-                sub: Vec::new(),
-                locals: Vec::new(),
-                compound_members: Vec::new(),
-                own: false,
-                out: &mut out,
-            };
-            let body_id = ex.body(body, header_id, Some(p));
-            let sub = std::mem::take(&mut ex.sub);
-            if let Some(header) = r.get_mut(header_id) {
-                header.ptr("body_or_null", body_id);
-            }
-            out.bodies.push((body_id, sub));
+        // Bodies lowered since their header was reported.
+        let mut exported = self.export_ready_bodies(r, &mut out);
+        if decls.is_empty() && exported == 0 {
+            return None;
         }
         for (id, decl, index, home) in decls {
             let Ok(resolved) = self.resolve_entity(id) else {
@@ -293,6 +270,11 @@ impl Compiler {
                 (rec, ex.sub)
             };
             out.declarations.push((rec, sub));
+        }
+        // Bodies whose headers this message reports for the first time (polymorph instances
+        // that calls resolved to), when they are already lowered.
+        while exported > 0 {
+            exported = self.export_ready_bodies(r, &mut out);
         }
         let mut message = Record::new("Message_Typechecked");
         let group = |r: &mut Records, items: &[(i64, Vec<i64>)]| -> Vec<Item> {
@@ -324,6 +306,40 @@ impl Compiler {
             .list("others", Vec::new())
             .list("all", group(r, &all));
         Some(r.add(message))
+    }
+
+    /// Export the bodies of reported headers that are lowered by now, into `out`. Returns how
+    /// many it exported.
+    fn export_ready_bodies(&mut self, r: &mut Records, out: &mut Typechecked) -> usize {
+        let pending = std::mem::take(&mut self.export.pending_bodies);
+        let (ready, waiting): (Vec<_>, Vec<_>) = pending
+            .into_iter()
+            .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
+        self.export.pending_bodies = waiting;
+        let count = ready.len();
+        for (p, header_id, scope) in ready {
+            let lit = self.proc(p).lit.clone();
+            let Some(body) = &lit.body else {
+                continue;
+            };
+            let mut ex = Exporter {
+                c: Some(self),
+                r,
+                scope,
+                sub: Vec::new(),
+                locals: Vec::new(),
+                compound_members: Vec::new(),
+                own: false,
+                out,
+            };
+            let body_id = ex.body(body, header_id, Some(p));
+            let sub = std::mem::take(&mut ex.sub);
+            if let Some(header) = r.get_mut(header_id) {
+                header.ptr("body_or_null", body_id);
+            }
+            out.bodies.push((body_id, sub));
+        }
+        count
     }
 
     /// Export `Code` value `code` with resolved names and types for `compiler_get_nodes`
@@ -953,6 +969,16 @@ impl Exporter<'_> {
         c.export.resolved_headers.insert((p, own), id);
         let info = c.proc(p);
         let (name, lit, span, is_poly) = (info.name, info.lit.clone(), info.span, info.is_poly);
+        // A polymorph instance has no declaration of its own to report: its body goes out
+        // once lowered, with its constants bound (`#if` in it knows which branch it took).
+        if !own
+            && !is_poly
+            && !info.is_macro
+            && lit.body.is_some()
+            && let Some(bindings) = info.bindings
+        {
+            c.export.pending_bodies.push((p, id, bindings));
+        }
         let sig = if is_poly {
             None
         } else {
@@ -1010,6 +1036,25 @@ impl Exporter<'_> {
             .int("serial", id);
         *self.r.get_mut(id).unwrap() = rec;
         id
+    }
+
+    /// For a call at `span` resolved to polymorphic `p`: the instance the call made, if
+    /// the compiler recorded one, else `p`.
+    fn instance_called_at(&self, p: ProcId, span: Span) -> ProcId {
+        let Some(c) = self.c.as_deref() else {
+            return p;
+        };
+        if !c.proc(p).is_poly {
+            return p;
+        }
+        let made = c.export.call_instances.get(&span);
+        made.and_then(|list| {
+            list.iter()
+                .rev()
+                .find(|inst| c.proc(p).instances.values().any(|i| i == *inst))
+                .copied()
+        })
+        .unwrap_or(p)
     }
 
     /// The procedure a call to `callee` with `args` resolves to: the one candidate, or the
@@ -1191,7 +1236,9 @@ impl Exporter<'_> {
                 args,
                 ..
             } => {
-                let resolved = self.resolve_call(callee, args.len());
+                let resolved = self
+                    .resolve_call(callee, args.len())
+                    .map(|p| self.instance_called_at(p, span));
                 let callee = self.expr(callee);
                 let (unsorted, sorted) = self.args(args);
                 let mut rec = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
@@ -1526,12 +1573,26 @@ impl Exporter<'_> {
             S::StaticSwitch {
                 value,
                 cases,
-            } => self.switch(value, cases, 0x1 | 0x4, span),
+            } => {
+                let scope = self.scope;
+                let accepted = self.c.as_deref_mut().and_then(|c| {
+                    let case = c.static_switch_case(scope, value, cases).ok()??;
+                    cases.iter().position(|it| std::ptr::eq(it, case))
+                });
+                self.switch_accepting(value, cases, 0x1 | 0x4, accepted, span)
+            }
             S::StaticIf {
                 cond,
                 then_branch,
                 else_branch,
             } => {
+                // Which branch the compiler took, where the condition is known here (it is in
+                // a procedure or a polymorph instance: `#if async` with `async` baked in).
+                let scope = self.scope;
+                let taken = self
+                    .c
+                    .as_deref_mut()
+                    .and_then(|c| c.eval_static_condition(scope, cond).ok());
                 let cond = self.expr(cond);
                 let then_block = self.block(then_branch, 1, span);
                 let else_block = self.block(else_branch, 1, span);
@@ -1540,6 +1601,9 @@ impl Exporter<'_> {
                     .ptr("then_block", then_block)
                     .ptr("else_block", else_block)
                     .int("if_flags", 0x4);
+                if taken == Some(true) {
+                    rec.int("static_if_flags", 0x1);
+                }
                 self.add(rec)
             }
             S::While {
@@ -1615,6 +1679,7 @@ impl Exporter<'_> {
             S::PushContext {
                 context,
                 body,
+                ..
             } => {
                 let context = self.expr(context);
                 let block = self.stmt_block(body);
@@ -1679,15 +1744,27 @@ impl Exporter<'_> {
         let then_block = self.block(&case.body, 1, case.span);
         let mut rec = self.node("Code_Case", node::CASE, case.span);
         rec.ptr("condition", cond)
-                ..
             .ptr("then_block", then_block)
             .int("marked_as_fallthrough", case.through as i64);
         self.add(rec)
     }
 
     fn switch(&mut self, value: &ast::Expr, cases: &[ast::Case], flags: i64, span: Span) -> i64 {
+        self.switch_accepting(value, cases, flags, None, span)
+    }
+
+    /// A switch; `accepted` is the index of the case a static switch (`#if x == {`) took.
+    fn switch_accepting(
+        &mut self,
+        value: &ast::Expr,
+        cases: &[ast::Case],
+        flags: i64,
+        accepted: Option<usize>,
+        span: Span,
+    ) -> i64 {
         let value = self.expr(value);
         let case_ids = cases.iter().map(|case| self.case(case)).collect::<Vec<_>>();
+        let accepted_case = accepted.and_then(|i| case_ids.get(i).copied());
         let mut block = self.node("Code_Block", node::BLOCK, span);
         block.int("block_type", 1).refs("statements", case_ids);
         let block = self.add(block);
@@ -1695,6 +1772,9 @@ impl Exporter<'_> {
         rec.ptr("condition", value)
             .ptr("then_block", block)
             .int("if_flags", flags);
+        if let Some(case) = accepted_case {
+            rec.ptr("static_if_accepted_case", case);
+        }
         self.add(rec)
     }
 
