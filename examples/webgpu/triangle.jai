@@ -8,6 +8,7 @@
 #import "Random";
 #import "Window_Type";
 #import "WebGPU";
+
 #if OS != .WASM {
     #import "Window_Creation";
 }
@@ -41,7 +42,7 @@ WGSL
 Uniforms :: struct {
     angle: float32;
     aspect: float32;
-    _: [2] float32;  // uniform buffers are 16-byte aligned
+    _: [2] float32; // uniform buffers are 16-byte aligned
 }
 
 main :: () {
@@ -65,9 +66,8 @@ main :: () {
     print("Adapter: % (%)\n", to_string(info.description), info.backendType);
     wgpuAdapterInfoFreeMembers(info);
 
-    caps: WGPUSurfaceCapabilities;
-    wgpuSurfaceGetCapabilities(surface, adapter, *caps);
-    format := caps.formats[0];
+    // Not an sRGB format, so the colors below look the same natively and in the browser.
+    format := webgpu_surface_format(surface, adapter);
     print("Surface format: %\n", format);
 
     width, height := webgpu_window_size(window);
@@ -111,7 +111,7 @@ main :: () {
     bind_desc.entries = *entry;
     bind_group := wgpuDeviceCreateBindGroup(device, *bind_desc);
 
-    background := Vector3.{0.08, 0.08, 0.12};
+    background := Vector3.{ 0.08, 0.08, 0.12 };
     angle: float32;
     paused := false;
     frames := 0;
@@ -129,7 +129,7 @@ main :: () {
             if it.key_code == .ESCAPE quit = true;
             if it.key_code == .SPACEBAR paused = !paused;
             if it.key_code == .MOUSE_BUTTON_LEFT {
-                background = .{random_get_zero_to_one() * 0.4, random_get_zero_to_one() * 0.4, random_get_zero_to_one() * 0.4};
+                background = .{ random_get_zero_to_one() * 0.4, random_get_zero_to_one() * 0.4, random_get_zero_to_one() * 0.4 };
                 print("Background %\n", background);
             }
         }
@@ -138,7 +138,7 @@ main :: () {
         now := seconds_since_init();
         if !paused angle += cast(float32) (now - last);
         last = now;
-        u := Uniforms.{angle = angle, aspect = cast(float32) width / cast(float32) max(height, 1)};
+        u := Uniforms.{ angle = angle, aspect = cast(float32) width / cast(float32) max(height, 1) };
         wgpuQueueWriteBuffer(queue, uniforms, 0, *u, size_of(Uniforms));
 
         frame: WGPUSurfaceTexture;
@@ -154,7 +154,7 @@ main :: () {
         color.view = view;
         color.loadOp = .Clear;
         color.storeOp = .Store;
-        color.clearValue = .{background.x, background.y, background.z, 1};
+        color.clearValue = .{ background.x, background.y, background.z, 1 };
         pass_desc: WGPURenderPassDescriptor;
         pass_desc.colorAttachmentCount = 1;
         pass_desc.colorAttachments = *color;

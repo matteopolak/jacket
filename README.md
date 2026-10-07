@@ -123,7 +123,7 @@ Other editors can start `jailsp` (the Language Server Protocol over stdio) and r
 
 On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitizer and LLVM's bounds checks ([sanitizers](docs/native/sanitizers.md)); CI runs the test programs that way.
 
-**Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals).
+**Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals). A [WebGPU](docs/stdlib/webgpu.md) module covers the whole `webgpu.h` API: the same program draws in a window on macOS, Linux and Windows (wgpu-native, shipped in the release archives) and in the playground's Render pane in browsers with WebGPU and JSPI.
 
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jailsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).

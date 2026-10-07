@@ -52,6 +52,7 @@
         "  sqrt(2) as Long_Double: 1.414213562373095048801688724209698",
         " 16. Finale: a ray-marched scene",
         "%%%%%%",
+        "No WebGPU in this browser, so this stop is skipped.",
         "That's the tour. Now break something!"
       ],
       "stdout_excludes": ["saw 0 allocations"]

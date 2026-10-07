@@ -24,6 +24,7 @@
 #load "files/files.jai";
 #load "machine/machine.jai";
 #load "finale/raymarch.jai";
+#load "gpu/raymarch_gpu.jai";
 
 main :: () {
     print("A whirlwind tour of Jai, running in your browser.\n");
@@ -50,6 +51,7 @@ main :: () {
         .{ "Files", tour_files },
         .{ "#asm and Long_Double", tour_machine },
         .{ "Finale: a ray-marched scene", tour_finale },
+        .{ "Encore: ray marching on the GPU", tour_gpu },
     ];
 
     for stops {

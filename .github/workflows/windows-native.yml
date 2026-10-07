@@ -15,6 +15,9 @@ on:
       - 'tools/build_native_libs.py'
       - 'tools/native-libs.json'
       - 'tools/install_ci_mesa_windows.sh'
+      - 'tools/fetch_wgpu_native.py'
+      - 'tools/test_webgpu_native.py'
+      - 'tools/webgpu.json'
       - 'tools/windows-llvm/**'
       - '.github/workflows/windows-native.yml'
   workflow_dispatch:
@@ -135,6 +138,10 @@ jobs:
           cp "$RUNNER_TEMP"/mesa/*.dll target/x86_64-pc-windows-msvc/debug/
           python -u tools/stdlib_runtime.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls "$RUNNER_TEMP/mesa"
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-x64 --check --print-baseline
+      - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
+        # tests/webgpu/headless.jai interpreted and built; docs/stdlib/webgpu.md#tests.
+        if: success() || failure()
+        run: python -u tools/test_webgpu_native.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --require-adapter
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
@@ -246,6 +253,9 @@ jobs:
         run: |
           python -u tools/stdlib_runtime.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --modes interp,native --strict --coverage target/stdlib-coverage.txt
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-arm64 --check --print-baseline
+      - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
+        if: success() || failure()
+        run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
