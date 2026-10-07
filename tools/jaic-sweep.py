@@ -123,10 +123,14 @@ def stale_sources(jaic):
 
 # jaic's exit status when JAIC_MEMORY_LIMIT stops it (`jaic::memory_limit::EXIT_CODE`).
 MEMORY_LIMIT_EXIT = 120
+# `jaic build`'s exit status for a program without `main` (NO_MAIN_STATUS in jaic-cli).
+NO_MAIN_EXIT = 3
 
-def run_limited(command, cwd, timeout, limit_bytes):
+def run_limited(command, cwd, timeout, limit_bytes, jaic=True):
     """Runs `command` with jaic's exact allocation limit armed, killing it on timeout. Returns
-    (stdout, stderr, code), with code -1 and a one-line verdict as stderr when a limit stopped it."""
+    (stdout, stderr, code), with code -1 and a one-line verdict as stderr when a limit stopped it.
+    `jaic` says whether the command is jaic, whose exit status MEMORY_LIMIT_EXIT means the limit
+    (another program may exit with any status)."""
     env = dict(os.environ, JAIC_MEMORY_LIMIT=str(limit_bytes))
     # Output goes to files rather than pipes: a program the case launched may outlive a killed
     # jaic and would keep a pipe open.
@@ -143,8 +147,8 @@ def run_limited(command, cwd, timeout, limit_bytes):
         err_file.seek(0)
         out = out_file.read().decode(errors="replace")
         err = err_file.read().decode(errors="replace")
-    if code == MEMORY_LIMIT_EXIT and "error: memory limit of" in err:
-        return "", next(l for l in err.splitlines() if "error: memory limit of" in l), -1
+    if jaic and code == MEMORY_LIMIT_EXIT:
+        return "", next((l for l in err.splitlines() if l.strip()), "memory limit exceeded"), -1
     return out, err, code
 
 # Runtime options for sanitized executables. Leaks are not reported: programs routinely leave
@@ -195,7 +199,7 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, ru
                                    path.parent, timeout, limit_bytes)
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
-        if code != 0 and "has no `main` procedure" in err:
+        if code == NO_MAIN_EXIT:
             return "", "", NO_EXECUTABLE
         if code != 0:
             cause = next((l.strip() for l in err.splitlines() if "error" in l.lower()), "")
@@ -204,7 +208,7 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, ru
             return "", "", NO_EXECUTABLE
         if not run:
             return "", "", 0
-        out, err, code = run_limited([str(exe), *program_args], path.parent, timeout, limit_bytes)
+        out, err, code = run_limited([str(exe), *program_args], path.parent, timeout, limit_bytes, jaic=False)
         report = sanitizer_report(err)
         if report:
             return out, f"error: sanitizer: {report}\n{err}", code if code != 0 else 1
@@ -284,7 +288,7 @@ def main():
         if code == 0 and expect and expect.get("run_after"):
             program = expect["run_after"]
             out, err, code = run_limited([str(path.parent / program[0]), *program[1:]], path.parent,
-                                         a.timeout, limit_bytes)
+                                         a.timeout, limit_bytes, jaic=False)
         if expect is None:
             ok = code == 0
         elif "upstream" in expect:

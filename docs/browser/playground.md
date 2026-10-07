@@ -30,8 +30,8 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
    (`OS == .WASM`). It installs a `SharedHost` (wraps
    `jaic::interp::SandboxHost`, which provides libc shims, an in-memory file system and captures stdout/stderr) as the interpreter host,
    calls `compile_program` then `run_program`, and returns a `PlayResult`
-   `{exitCode|null, stdout, stderr, output[{stream,text}], rendered, diagnostics[{severity,file,line,column,message}]}`
-   as JSON. `output` is everything the program wrote in write order, as runs of `"stdout"` or `"stderr"`
+   `{exitCode|null, stdout, stderr, output[{stream,text}], rendered, diagnostics[{severity,file,line,column,message,code?}]}`
+   as JSON (`code`, when present, is the error's stable name from `DiagnosticKind::code`, such as `unavailable` or `static-assert`). `output` is everything the program wrote in write order, as runs of `"stdout"` or `"stderr"`
    (`SandboxHost::order` records the run lengths). `run_with(files, main, PlayOptions { budget })` bounds the
    main compile's interpreter to `budget` basic blocks; past it the run fails with "execution budget exhausted".
    Diagnostics with a `path:line:col:` message prefix (runtime traps) are split apart; others use the span.

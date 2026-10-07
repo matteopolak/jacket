@@ -32,10 +32,11 @@ _spec.loader.exec_module(sweep)
 
 ALL_BACKENDS = ["interp", "native", "native-O2", "wasm", "wasm-native"]
 
-# The wasm engine says so when a program needs a host service the sandbox lacks: these mean
-# "cannot run here", never "ran differently". Source: SandboxHost in crates/jaic/src/interp.
-WASM_UNSUPPORTED = re.compile(r"foreign procedure [`'][^`']*[`'] is not available here|unknown library|"
-                              r"is not supported on wasm|no browser backend")
+# Diagnostic codes (`DiagnosticKind::code` in crates/jaic/src/source.rs) with which the wasm engine
+# says a program needs something the sandbox lacks: they mean "cannot run here", never "ran
+# differently". `unavailable` is a foreign procedure no library there provides; `unknown-library`
+# a library declared only for other targets.
+WASM_UNSUPPORTED = {"unavailable", "unknown-library"}
 
 
 # Programs whose output legitimately differs between targets. Only their status (exit code or
@@ -160,14 +161,19 @@ class WasmPool:
         errors = [d for d in r["diagnostics"] if d["severity"] == "error"]
         if r["exitCode"] is None or errors:
             text = "\n".join(f"{d['file']}:{d['line']}: {d['message']}" for d in errors) or r["stderr"]
-            if WASM_UNSUPPORTED.search(text):
+            codes = {d.get("code") for d in errors}
+            if codes & WASM_UNSUPPORTED:
                 return Result("unsupported", note=text.splitlines()[0][:200])
             # A stdlib module that rejects the target with `#assert` (stb_image needs a native C library).
-            if any(d["file"].startswith("/stdlib/") and d["message"].startswith("#assert failed") for d in errors):
+            if any(d["file"].startswith("/stdlib/") and d.get("code") == "static-assert" for d in errors):
                 return Result("unsupported", note=f"{errors[0]['file']}: the module does not support the WASM target")
-            # The sandbox file system holds the workspace and the stdlib, nothing else from the repository.
-            if missing := re.search(r"Unable to open '([^']*)'|file `([^`]*)` does not exist", r["stderr"] + text):
-                return Result("missing-file", r["stdout"], r["stderr"], note=f"no {missing.group(1) or missing.group(2)} in the sandbox")
+            # The sandbox file system holds the workspace and the stdlib, nothing else from the repository:
+            # a `#load` of another file fails to compile, and File's procedures log that they could not
+            # open it (the program's own output, so its wording).
+            if "missing-file" in codes:
+                return Result("missing-file", r["stdout"], r["stderr"], note=f"{text.splitlines()[0][:200]} (not in the sandbox)")
+            if missing := re.search(r"Unable to open '([^']*)'", r["stderr"]):
+                return Result("missing-file", r["stdout"], r["stderr"], note=f"no {missing.group(1)} in the sandbox")
             if r["exitCode"] is None:
                 return Result("compile error", note=text[:300])
             return Result("runtime error", r["stdout"], r["stderr"], note=text[:300])
@@ -182,8 +188,8 @@ class Runner:
         self.timeout, self.limit_bytes = timeout, int(memory_gib * 2**30)
         self.wasm = WasmPool(Path(wasm_bundle).resolve(), timeout) if "wasm" in backends else None
 
-    def capped(self, cmd, cwd):
-        return sweep.run_limited([str(x) for x in cmd], cwd, self.timeout, self.limit_bytes)
+    def capped(self, cmd, cwd, jaic=True):
+        return sweep.run_limited([str(x) for x in cmd], cwd, self.timeout, self.limit_bytes, jaic=jaic)
 
     @staticmethod
     def classify(out, err, code):
@@ -212,7 +218,7 @@ class Runner:
                 return Result("timeout" if berr == "timeout" else "memory", note=berr)
             if "runtime error" in berr:
                 return Result("runtime error", bout, berr, note="during compile-time execution")
-            if "has no `main` procedure" in berr:
+            if bcode == sweep.NO_MAIN_EXIT:
                 return Result("unsupported", note="no main: the program only runs at compile time")
             return Result("compile error", note=berr.strip()[:300])
         if not exe.exists():
@@ -220,7 +226,7 @@ class Runner:
             # written; the program it compiled is not this executable.
             return Result("unsupported", note="the build wrote no executable at -o (the program's metaprogram controls output)")
         run = ["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", exe] if wasm else [exe]
-        out, err, code = self.capped([*run, *case.args], case.path.parent)
+        out, err, code = self.capped([*run, *case.args], case.path.parent, jaic=False)
         exe.unlink(missing_ok=True)
         if wasm and (missing := re.search(r"wasm link error: .*", err)):
             # The program calls a C function Wasi_Runtime does not provide.

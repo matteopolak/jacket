@@ -25,6 +25,8 @@ pub struct PlayDiagnostic {
     pub line: u32,
     pub column: u32,
     pub message: String,
+    /// What it reports, for tools (`DiagnosticKind::code`); `None` for most messages.
+    pub code: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -78,6 +80,9 @@ impl PlayResult {
                 d.line, d.column
             );
             json_string(&mut out, &d.message);
+            if let Some(code) = d.code {
+                let _ = write!(out, ",\"code\":\"{code}\"");
+            }
             out.push('}');
         }
         out.push_str("]}");
@@ -159,6 +164,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
             line,
             column,
             message: message.to_string(),
+            code: d.kind.code(),
         };
     }
     if (d.span.file.0 as usize) < compiler.sources.len() {
@@ -170,6 +176,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
             line,
             column,
             message: d.message.clone(),
+            code: d.kind.code(),
         };
     }
     PlayDiagnostic {
@@ -178,6 +185,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
         line: 0,
         column: 0,
         message: d.message.clone(),
+        code: d.kind.code(),
     }
 }
 
@@ -223,6 +231,7 @@ fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions
             line: 0,
             column: 0,
             message: format!("main file '{main}' was not supplied"),
+            code: None,
         });
         return result;
     }
@@ -459,6 +468,17 @@ mod tests {
             r.diagnostics
         );
         assert!(d.message.contains("missing"));
+        assert_eq!(d.code, Some("unknown-identifier"));
+        assert!(r.to_json().contains("\"code\":\"unknown-identifier\""));
+    }
+
+    #[test]
+    fn a_foreign_procedure_the_sandbox_lacks_has_a_code() {
+        let r = single(
+            "lib :: #library \"libnothere\";\nnothere :: () #foreign lib;\nmain :: () { nothere(); }\n",
+        );
+        let codes: Vec<_> = r.diagnostics.iter().map(|d| d.code).collect();
+        assert_eq!(codes, [Some("unavailable")], "{:?}", r.diagnostics);
     }
 
     #[test]

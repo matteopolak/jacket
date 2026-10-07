@@ -671,7 +671,7 @@ fn build_problems_say_what_to_change() {
     let cases: &[(&[&str], Option<i32>, &[&str])] = &[
         (
             &["build", "lib.jai"],
-            Some(1),
+            Some(3),
             &[
                 "error: `lib.jai` has no `main` procedure, so there is no program to write",
                 "help: add `main :: () { ... }`",

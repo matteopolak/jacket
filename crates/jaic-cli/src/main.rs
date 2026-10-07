@@ -178,6 +178,10 @@ impl Cli {
 /// What `jaic build -os wasm` targets: wasm64 with the `Wasi_Runtime` module linked in.
 const WASI_TRIPLE: &str = "wasm64-unknown-wasi";
 
+/// `jaic build`'s exit status when the program has no `main` (its work is all `#run`s), so
+/// tools can tell "nothing to build" from a failed compile.
+const NO_MAIN_STATUS: u8 = 3;
+
 /// The triple a Windows build for `cpu` targets: the MSVC environment on a Windows host,
 /// MinGW-w64 (whose cross toolchains exist for macOS and Linux) elsewhere.
 fn windows_triple(cpu: TargetCpu, msvc: bool) -> &'static str {
@@ -253,9 +257,11 @@ environment:
 
 exit status: 0 success, 1 the program failed to compile, an input file cannot be read
 or a runtime error stopped it (`run` otherwise exits with the program's own status),
-2 a command-line mistake, {limit} the memory limit, {crash} native code crashed under
-the interpreter, 101 an internal compiler error",
+2 a command-line mistake, {no_main} `build` found no `main` to make an executable from,
+{limit} the memory limit, {crash} native code crashed under the interpreter, 101 an
+internal compiler error",
         version = env!("CARGO_PKG_VERSION"),
+        no_main = NO_MAIN_STATUS,
         limit = jaic::memory_limit::EXIT_CODE,
         crash = jaic::interp::CRASH_STATUS,
     )
@@ -998,6 +1004,17 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Command::Build if !settings.do_output || settings.output_type == OutputType::NoOutput => {
             ExitCode::SUCCESS
         }
+        Command::Build
+            if settings.output_type == OutputType::Executable
+                && compiler.exported_func("main").is_none() =>
+        {
+            let file = shown(&path);
+            print_error(&format!(
+                "`{file}` has no `main` procedure, so there is no program to write\n\
+                 help: add `main :: () {{ ... }}` as the program's starting point, or use `jaic check {file}` to only check the code"
+            ));
+            ExitCode::from(NO_MAIN_STATUS)
+        }
         Command::Build => match build(&mut compiler, &cli, &path, settings) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
@@ -1061,13 +1078,6 @@ fn build(
     source: &Path,
     mut settings: BuildSettings,
 ) -> Result<(), String> {
-    if settings.output_type == OutputType::Executable && compiler.exported_func("main").is_none() {
-        let file = shown(source);
-        return Err(format!(
-            "`{file}` has no `main` procedure, so there is no program to write\n\
-             help: add `main :: () {{ ... }}` as the program's starting point, or use `jaic check {file}` to only check the code"
-        ));
-    }
     let output = cli.output.clone().unwrap_or_else(|| {
         let name = if settings.output_executable_name.is_empty() {
             source

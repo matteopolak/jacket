@@ -48,9 +48,9 @@ The exit code is 1 on any `DISAGREE` or `invalid`. `--json FILE` writes every re
 
 A backend is excluded from a case only for a stated reason, and as far as possible that reason comes from metadata that already exists rather than a list in the harness:
 
-- `wasm`, any program: the engine's own refusal messages (`foreign procedure ... is not available here`, `unknown library`, `is not supported on wasm`), and a stdlib module that rejects the target with `#assert`.
-- `wasm`, missing files: a file the sandbox lacks (the sandbox holds the workspace and the stdlib only). This counts only when no host backend complained about the same file.
-- `native`, no `main`: the build fails with ``... has no `main` procedure``, so the program runs only at compile time.
+- `wasm`, any program: the engine's own refusals, recognised by their diagnostic `code` in the engine's JSON (`unavailable` for a foreign procedure no library there provides, `unknown-library` for a library declared only for other targets), and a stdlib module that rejects the target with `#assert` (`static-assert`). The codes are `DiagnosticKind::code` in `crates/jaic/src/source.rs`; the harness never matches message wording.
+- `wasm`, missing files: a file the sandbox lacks (the sandbox holds the workspace and the stdlib only): a `#load` that fails with `missing-file`, or File's own `Unable to open` log line in the program's output. This counts only when no host backend complained about the same file.
+- `native`, no `main`: `jaic build` exits with status 3 (the program has no `main`), so the program runs only at compile time.
 - `native`, no executable: the build wrote nothing at `-o` because the program's metaprogram decides what to write (its own workspaces, `NO_OUTPUT`).
 - `native`, compiler primitives: the program calls a `#compiler` primitive at run time, which exists only inside the compiler. The compiled stub says `is a compiler primitive; it runs only at compile time`.
 
