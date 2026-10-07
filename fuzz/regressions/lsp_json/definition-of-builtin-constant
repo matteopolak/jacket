@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///workspace/main.jai","languageId":"jai","version":1,"text":"\n\n\n#if OS{\n}\n"}}}
+{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":"file:///workspace/main.jai"},"position":{"line":3,"character":4}}}

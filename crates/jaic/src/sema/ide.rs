@@ -779,7 +779,8 @@ impl Compiler {
         };
         spans
             .into_iter()
-            .filter(|(s, _)| s.end >= s.start)
+            // Builtins such as `OS` are declared nowhere: `Span::NONE` has no file.
+            .filter(|(s, _)| (s.file.0 as usize) < self.sources.len() && s.end >= s.start)
             .map(|(s, name)| {
                 let text = self.sources.snippet(s);
                 if let Some(at) = text.find(name.as_str())

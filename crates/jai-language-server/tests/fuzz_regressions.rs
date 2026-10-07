@@ -73,3 +73,16 @@ fn queries_on_a_builtin_procedure_name() {
         let _ = session.definition(&uri, position);
     }
 }
+
+#[test]
+fn definition_of_a_builtin_constant() {
+    // `OS` is declared by the compiler, not in a file (`Span::NONE`): definition read the
+    // source text of that span and indexed past the file table.
+    let (session, uri) = open_checked("#if OS {\n}\nmain :: () {}\n");
+    let position = Position {
+        line: 0,
+        character: 4,
+    };
+    let found = session.definition(&uri, position);
+    assert!(found.as_ref().is_ok_and(Vec::is_empty), "{found:?}");
+}
