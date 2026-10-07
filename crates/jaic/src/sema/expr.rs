@@ -1845,6 +1845,27 @@ impl Compiler {
         f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
     }
 
+    /// Stop the program when `addr`, the address of a place about to be used without a load,
+    /// is null (`ir::TRAP_NULL_POINTER`). A load through it would stop there anyway; this is
+    /// for an address that escapes instead, such as `p.*` boxed into an `Any`, where the
+    /// reader would see a null value pointer rather than a null dereference. Addresses that
+    /// are never null (a variable's, a global's) are not checked.
+    pub(crate) fn emit_null_check(&mut self, f: &mut FnCtx, addr: ir::Val, span: Span) {
+        if f.type_only || !f.b.may_be_null(addr) {
+            return;
+        }
+        let null = f.b.iconst(Ty::Ptr, 0);
+        let is_null = f.b.cmp(ir::CmpOp::Eq, Ty::Ptr, addr, null);
+        let fail = f.b.new_block();
+        let cont = f.b.new_block();
+        f.b.branch(is_null, fail, cont);
+        f.b.switch_to(fail);
+        let zero = f.b.iconst(Ty::I64, 0);
+        self.emit_check_failed(f, ir::TRAP_NULL_POINTER, zero, zero, true, span);
+        f.b.jump(cont);
+        f.b.switch_to(cont);
+    }
+
     /// The type an untyped literal takes next to a typed operand: the operand's
     /// type, or a 64-bit integer when the literal does not fit.
     fn literal_meets(&self, lit: &Operand, ty: TypeId) -> TypeId {

@@ -310,6 +310,9 @@ def main():
             if code == 0 and not ok:
                 err += "".join(f"\nerror: stdout lacks {line!r}" for line in missing)
                 err += "".join(f"\nerror: stdout has {text!r}" for text in present)
+        elif "error" in expect:
+            # A runtime error: any failing status (a native build traps), with the message.
+            ok = code not in (0, -1) and expect["error"] in err and out == expect.get("stdout", "")
         else:
             ok = code == expect.get("exit_code", 0) and out == expect.get("stdout", "")
         return cid, ok, out, err, code

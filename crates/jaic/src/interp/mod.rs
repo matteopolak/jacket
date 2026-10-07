@@ -572,6 +572,10 @@ impl Interp {
 
     /// A failed runtime check (`ir::TRAP_*`), worded by `ir::check_message`.
     fn check_trap<T>(&self, reason: u64, a: u64, b: u64) -> Res<T> {
+        if reason == ir::TRAP_NULL_POINTER {
+            // Reported like the load the check stands in for.
+            return self.null_trap(null_access("read", 0));
+        }
         self.trap_of(
             TrapKind::Check {
                 reason,

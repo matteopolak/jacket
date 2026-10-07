@@ -10,7 +10,8 @@
 the self-checking programs in WINDOWS_PROGRAMS, the C struct fixture and, with `--stdlib`,
 the stdlib runtime tests (tools/stdlib_runtime.py, minus the skips tests/stdlib-runtime-skips.txt
 lists for `windows-<cpu>-mingw`, or `windows-<cpu>` with `--host`) to `dir/<id>.exe` and writes
-`dir/expected.json`. `run` executes them and compares exit code and stdout. See
+`dir/expected.json`. `run` executes them and compares exit code and stdout (for a case that
+expects a runtime error, a failing status and the error's message on stderr). See
 docs/native/windows.md.
 """
 import argparse
@@ -46,7 +47,8 @@ def skip_platform(args):
 
 
 def cases(stdlib, platform=None):
-    """(id, source, exit code, stdout or None for "not checked", must build)."""
+    """(id, source, exit code or the runtime error message (a str) the program must stop with,
+    stdout or None for "not checked", must build)."""
     manifest = json.loads((ROOT / "tests/corpus/manifest.json").read_text())
     for case in manifest["cases"]:
         runtime = case.get("runtime")
@@ -55,7 +57,7 @@ def cases(stdlib, platform=None):
         yield (
             case["id"],
             ROOT / "tests/corpus" / case["source"],
-            runtime.get("exit_code", 0),
+            runtime.get("error", runtime.get("exit_code", 0)),
             runtime.get("stdout", ""),
             True,
         )
@@ -149,7 +151,8 @@ def build(args):
             continue
         # Programs run from their source directory (relative to the checkout), as the sweep does.
         cwd = source.parent.relative_to(ROOT).as_posix()
-        expected[case_id] = {"exit_code": exit_code, "stdout": stdout, "cwd": cwd}
+        status = {"error": exit_code} if isinstance(exit_code, str) else {"exit_code": exit_code}
+        expected[case_id] = {**status, "stdout": stdout, "cwd": cwd}
     work = out / "c-structs-src"
     shutil.copytree(ROOT / "tests/native/c-structs-by-value", work, dirs_exist_ok=True)
     error = c_structs_library(args, work)
@@ -189,12 +192,20 @@ def run(args):
             failures.append(f"{case_id}: timed out")
             continue
         stdout = result.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        stderr = result.stderr.decode("utf-8", "replace")
         stdout_ok = want["stdout"] is None or stdout == want["stdout"]
-        if result.returncode != want["exit_code"] or not stdout_ok:
+        if "error" in want:
+            # A runtime error: any failing status, with the check's message on stderr.
+            status_ok = result.returncode != 0 and want["error"] in stderr
+            wanted = f"a runtime error, {want['error']!r}"
+        else:
+            status_ok = result.returncode == want["exit_code"]
+            wanted = want["exit_code"]
+        if not status_ok or not stdout_ok:
             failures.append(
-                f"{case_id}: exit {result.returncode} (want {want['exit_code']}), "
+                f"{case_id}: exit {result.returncode} (want {wanted}), "
                 f"stdout {stdout!r} (want {want['stdout']!r}), "
-                f"stderr {result.stderr.decode('utf-8', 'replace')[-2000:]!r}"
+                f"stderr {stderr[-2000:]!r}"
             )
     print(f"{len(expected) - len(failures)} of {len(expected)} programs match")
     for failure in failures:

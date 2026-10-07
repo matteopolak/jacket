@@ -1012,10 +1012,19 @@ impl Compiler {
                 let v = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
                 (TypeId::TYPE, self.spill(f, TypeId::TYPE, v, span)?)
             }
+            // The `Any` points at the place itself, so nothing reads it here. A place reached
+            // through a pointer (`p.*`) is checked for null now, as reading it would be:
+            // otherwise the reader sees a null value pointer and `print` shows `null`. A
+            // zero-sized place (`void`) has nothing to read.
             Operand::Place {
                 ty,
                 addr,
-            } => (ty, addr),
+            } => {
+                if self.size_of(ty, span).map_or(true, |size| size > 0) {
+                    self.emit_null_check(f, addr, span);
+                }
+                (ty, addr)
+            }
             other => {
                 let other = self.settle_untyped(other, None);
                 let (ty, v) = self.rvalue(f, other, span)?;

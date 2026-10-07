@@ -19,6 +19,9 @@ struct Case {
     source: PathBuf,
     exit_code: i32,
     stdout: String,
+    /// The runtime error the program must stop with (any failing status, the message on
+    /// stderr), instead of `exit_code`.
+    error: Option<String>,
 }
 
 fn corpus_cases() -> Vec<Case> {
@@ -36,14 +39,20 @@ fn corpus_cases() -> Vec<Case> {
                 source: corpus.join(c["source"].as_str()?),
                 exit_code: runtime["exit_code"].as_i64().unwrap_or(0) as i32,
                 stdout: runtime["stdout"].as_str().unwrap_or("").to_string(),
+                error: runtime["error"].as_str().map(str::to_string),
             })
         })
         .collect()
 }
 
 fn matches(case: &Case, output: &std::process::Output) -> bool {
-    output.status.code() == Some(case.exit_code)
-        && String::from_utf8_lossy(&output.stdout) == case.stdout
+    let status = match &case.error {
+        Some(error) => {
+            !output.status.success() && String::from_utf8_lossy(&output.stderr).contains(error)
+        }
+        None => output.status.code() == Some(case.exit_code),
+    };
+    status && String::from_utf8_lossy(&output.stdout) == case.stdout
 }
 
 /// The path of executable `name` in `dir` (`name.exe` on Windows, where `jaic build` adds it).
@@ -1279,13 +1288,13 @@ END
 
 /// A failed check in a built executable says what failed and where (through Runtime_Support's
 /// `runtime_support_check_failed`), with the interpreter's wording, before it stops.
-// rules: ptr.18 cast.33 flow.27
+// rules: ptr.18 ptr.19 cast.33 flow.27
 #[test]
 fn failed_checks_say_what_and_where() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-checks");
     std::fs::create_dir_all(&dir).unwrap();
     // (name, body of main, the report's line, its message)
-    let cases: [(&str, &str, u32, &str); 4] = [
+    let cases: [(&str, &str, u32, &str); 5] = [
         (
             "bounds",
             "a: [3] int;\n    i := 5 + a[0];\n    print(\"%\\n\", a[i]);",
@@ -1309,6 +1318,12 @@ fn failed_checks_say_what_and_where() {
             "z := get_command_line_arguments().count - 1;\n    print(\"%\\n\", 7 / z);",
             5,
             "integer division by zero",
+        ),
+        (
+            "null",
+            "p: *int;\n    print(\"%\\n\", p.*);",
+            5,
+            "null pointer dereference: read through a null pointer",
         ),
     ];
     for (name, body, line, message) in cases {

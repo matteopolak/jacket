@@ -10,7 +10,7 @@ Each set yields `(id, path, mode, expectation, extra args)`; the tool runs `jaic
 
 | set | source | mode |
 |---|---|---|
-| `corpus` | `tests/corpus/manifest.json` cases with a `runtime` record | run, exact stdout + exit code |
+| `corpus` | `tests/corpus/manifest.json` cases with a `runtime` record | run, exact stdout + exit code; a record with `error` instead expects a runtime error: any failing status and that text on stderr |
 | `negative` | `kind: negative` cases of `tests/corpus/manifest.json` (`tests/corpus/negative/*.jai`) | check, non-zero exit and the recorded text in stderr |
 | `stdlib` | `tests/stdlib/*.jai` | run, exit code 0 |
 | `modules` | the stdlib's own tests: `stdlib/<Module>/tests/*.jai`, `stdlib/tests/**/*.jai` (not under a `modules/` folder, which holds a test directory's mock modules) | run, exit code 0 |
@@ -30,6 +30,7 @@ Each case runs with an exact allocation cap (`--memory-limit`, default 3 GiB), w
 
 - New negative program (must be rejected): drop it in `tests/corpus/negative/`, add a `kind: negative` entry with `sha256` and a `negative.check` string that appears in the diagnostic to `tests/corpus/manifest.json`.
 - New regression program: drop a self-checking `tests/stdlib/<name>.jai` (return non-zero / `assert` on failure).
+- New program that must stop with a runtime error on every backend: drop it in `tests/corpus/positive/` and give its manifest entry `"runtime": {"error": "<message>", "stdout": "<output before the error>"}`. The sweep (`--native` too), `crates/jaic-cli/tests/native.rs` and `tools/windows_cross.py` accept any failing status with the message on stderr; [differential testing](differential-testing.md) requires every backend to stop with a runtime error. Example: `null-deref-print-any`.
 - An upstream case may list `setup` commands (argv lists, run once in the case's directory before the cases
   start), e.g. compiling the C++ library `ttwj-30-cpp-library-main` loads.
 - A case whose program writes into its own tree (generated bindings, `module_api.public.jai`) lists the corpus

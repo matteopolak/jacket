@@ -22,6 +22,7 @@
 - A `#run` constant holding a pointer made from an integer (such as `cast(*T) 80000000`) no longer crashes the compiler. Everywhere the compiler reads or writes memory a program points it at (`#run` results, metaprogram strings and messages, `compiler_*` out-parameters) it now checks the address first: an unreadable pointer in a constant stays a number, and other bad addresses are an error.
 - jailsp: a format string naming an absurdly large argument number (`%77777777777777777777777777`) no longer crashes the format diagnostics.
 - jailsp: references, type definition and the other queries that read a declaration's source no longer crash on a builtin constant such as `OS`, which has no source location; they leave it out, as go to definition already did.
+- `print("%", p.*)` with a null `p` stops with `null pointer dereference: read through a null pointer`, as `v := p.*;` does, in the interpreter, the browser and native and wasm builds; it printed `null`. The same holds for any `p.*` (or a member at offset 0) passed as an `Any` or `..Any` argument. `*(p.*)` still just gives back `p`.
 
 ## [0.4.0] - 2026-10-07
 
