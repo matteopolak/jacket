@@ -3,12 +3,24 @@
 // that the block binds, a baked `$n`, and `$$` parameters (the block runs for calls that bake).
 #import "Basic";
 
-widen :: (x: $T) -> $R #modify { R = float64; } { return cast(R) x; }
+widen :: (x: $T) -> $R #modify {
+    R = float64;
+} {
+    return cast(R) x;
+}
 
-positive :: ($n: int) -> int #modify { return n > 0, "n must be positive"; } { return n; }
+positive :: ($n: int) -> int #modify {
+    return n > 0, "n must be positive";
+} {
+    return n;
+}
 
 // `n` is visible to the block only in the instances that baked it; `twice(v)` does not run it.
-twice :: ($$n: int) -> int #modify { return n < 100, "n is too large to bake"; } { return n * 2; }
+twice :: ($$n: int) -> int #modify {
+    return n < 100, "n is too large to bake";
+} {
+    return n * 2;
+}
 
 main :: () {
     w := widen(5);

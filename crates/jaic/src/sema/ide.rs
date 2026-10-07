@@ -6,7 +6,7 @@ use super::lower::Operand;
 use super::scope::{EntityId, EntityKind, EntityState, Found, Resolved, ScopeId, ScopeKind};
 use super::value::ProcId;
 use super::*;
-use crate::types::{ArrayKind, TypeKind};
+use crate::types::{ArrayKind, StructId, TypeKind};
 
 #[derive(Default)]
 pub struct IdeFacts {
@@ -35,6 +35,43 @@ pub struct IdeFacts {
     pub used: HashSet<EntityId>,
     /// Imports (scope, index into its `imports`) a name lookup found something through.
     pub used_imports: HashSet<(ScopeId, usize)>,
+    /// The value type left of each `a.b` of the recorded files, by the span of `b` (`None`
+    /// when checking it several times gave different types).
+    pub receivers: HashMap<Span, Option<TypeId>>,
+    /// The struct each `Poly(args)` of the recorded files instantiated, by the span of `Poly`.
+    pub instances: HashMap<Span, Option<TypeId>>,
+    /// The struct each field name of the recorded files was laid out in, by the name's span
+    /// (`None` when several structs share it: the instances of a polymorphic struct).
+    pub fields: HashMap<Span, Option<IdeFieldSite>>,
+}
+
+/// Where a declared field lives: `field` of `declaring`, at `offset` in `owner` (a struct
+/// that includes `declaring` as an anonymous `struct { ... }` member, or `declaring` itself).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IdeFieldSite {
+    pub owner: StructId,
+    pub declaring: StructId,
+    pub field: usize,
+    pub offset: u64,
+}
+
+/// Memory layout for a hover, from the compiler's own layout: a type's size and alignment
+/// (with `padding` the bytes no field covers), or a field's offset, size and alignment (with
+/// `padding` the bytes skipped before it).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IdeLayout {
+    pub offset: Option<u64>,
+    pub size: u64,
+    pub align: u64,
+    pub padding: u64,
+}
+
+/// A hover: the span it covers, a declaration-like description and the layout, if any.
+#[derive(Clone, Debug)]
+pub struct IdeHover {
+    pub span: Span,
+    pub text: String,
+    pub layout: Option<IdeLayout>,
 }
 
 /// What checking one expression gave. A span checked several times (polymorphic instances,
@@ -142,6 +179,24 @@ impl Compiler {
                         conflicting: false,
                     });
             }
+        }
+        if let ast::ExprKind::Call {
+            callee, ..
+        } = &expr.kind
+            && let Operand::Type(t) = op
+            && matches!(self.types.kind(*t), TypeKind::Struct(_))
+        {
+            let name = match &callee.kind {
+                ast::ExprKind::Ident(_) => Some(callee.span),
+                ast::ExprKind::Member(_, name) => Some(name.span),
+                _ => None,
+            };
+            if let Some(span) = name
+                && self.ide_wants(span.file)
+            {
+                self.ide_note_instance(span, *t);
+            }
+            return;
         }
         let (span, what) = match &expr.kind {
             ast::ExprKind::Ident(_) => {
@@ -322,16 +377,46 @@ impl Compiler {
         })
     }
 
-    pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<(Span, String)> {
-        let r = self
-            .ide
-            .as_ref()?
-            .refs
+    /// The innermost recorded name at `offset` of `file`, and whether every record of that
+    /// exact span agrees (a polymorphic body is checked once per instance).
+    fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {
+        let refs = &self.ide.as_ref()?.refs;
+        let r = refs
             .iter()
             .filter(|r| r.span.file == file && r.span.start <= offset && offset <= r.span.end)
-            .min_by_key(|r| r.span.end - r.span.start)?
-            .clone();
+            .min_by_key(|r| r.span.end - r.span.start)?;
+        let same = refs
+            .iter()
+            .filter(|o| o.span == r.span)
+            .all(|o| o.ty == r.ty && same_what(&o.what, &r.what));
+        Some((r.clone(), same))
+    }
+
+    pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
+        let Some((r, same)) = self.ide_hover_ref(file, offset) else {
+            return self.ide_field_hover(file, offset);
+        };
         let name = self.sources.snippet(r.span).to_string();
+        // `Poly(args)`: the instance, not the polymorphic struct.
+        if let IdeWhat::Entity(e) = r.what
+            && matches!(
+                self.entity(e).state,
+                EntityState::Done(Resolved::PolyStruct(_))
+            )
+            && let Some(&Some(t)) = self.ide.as_ref()?.instances.get(&r.span)
+        {
+            let text = self.ide_type_hover(&self.types.name(t), t);
+            let layout = if same {
+                self.ide_type_layout(t)
+            } else {
+                None
+            };
+            return Some(IdeHover {
+                span: r.span,
+                text,
+                layout,
+            });
+        }
         let text = match &r.what {
             IdeWhat::Entity(e) => self.ide_entity_hover(*e, Some(r.ty)),
             IdeWhat::Member(_) => format!("{name}: {}", self.types.name(r.ty)),
@@ -350,7 +435,306 @@ impl Compiler {
                 format!("{name} :: #import \"{}\"", self.modules[m.0 as usize].name)
             }
         };
-        Some((r.span, text))
+        let layout = if same {
+            match &r.what {
+                IdeWhat::Entity(e) => self.ide_entity_layout(*e),
+                IdeWhat::Member(m) => self.ide_member_layout(r.span, *m),
+                IdeWhat::Type(t) => self.ide_type_layout(*t),
+                IdeWhat::Procs(_) | IdeWhat::Module(_) => None,
+            }
+        } else {
+            None
+        };
+        Some(IdeHover {
+            span: r.span,
+            text,
+            layout,
+        })
+    }
+
+    /// The name of a field where its struct declares it. A field laid out in several structs
+    /// (the instances of a polymorphic struct) has no one type and layout to show.
+    fn ide_field_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
+        let (span, site) = self
+            .ide
+            .as_ref()?
+            .fields
+            .iter()
+            .find(|(s, _)| s.file == file && s.start <= offset && offset <= s.end)
+            .map(|(s, site)| (*s, *site))?;
+        let site = site?;
+        let f = &self.types.struct_info(site.declaring).fields[site.field];
+        let text = format!("{}: {}", f.name?, self.types.name(f.ty));
+        Some(IdeHover {
+            span,
+            text,
+            layout: Some(self.ide_field_layout(site)),
+        })
+    }
+
+    /// Lay out what a hover describes (the program may not have needed its layout).
+    fn ide_laid_out(&mut self, t: TypeId) -> bool {
+        let span = Span {
+            file: FileId(0),
+            start: 0,
+            end: 0,
+        };
+        self.ensure_complete(t, span).is_ok()
+    }
+
+    /// Size and alignment of a type, and for a struct the bytes its fields leave unused.
+    fn ide_type_layout(&mut self, t: TypeId) -> Option<IdeLayout> {
+        if matches!(
+            self.types.kind(t),
+            TypeKind::Void | TypeKind::CompileTimeOnly
+        ) || !self.ide_laid_out(t)
+        {
+            return None;
+        }
+        let size = self.types.size_of(t);
+        let padding = match self.types.kind(t) {
+            TypeKind::Struct(s) => {
+                let mut spans: Vec<(u64, u64)> = self
+                    .types
+                    .struct_info(*s)
+                    .fields
+                    .iter()
+                    .map(|f| (f.offset, f.offset + self.types.size_of(f.ty)))
+                    .collect();
+                spans.sort_unstable();
+                let mut covered = 0;
+                let mut reached = 0;
+                for (start, end) in spans {
+                    let start = start.max(reached);
+                    if end > start {
+                        covered += end - start;
+                        reached = end;
+                    }
+                }
+                size.saturating_sub(covered)
+            }
+            _ => 0,
+        };
+        Some(IdeLayout {
+            offset: None,
+            size,
+            align: self.types.align_of(t),
+            padding,
+        })
+    }
+
+    /// A named type's layout, or a variable's or constant's when its type is an aggregate.
+    fn ide_entity_layout(&mut self, id: EntityId) -> Option<IdeLayout> {
+        let ty = match &self.entity(id).kind {
+            EntityKind::Local {
+                ty, ..
+            } => *ty,
+            EntityKind::Const {
+                value: value::Value::Type(t),
+                ..
+            } => return self.ide_type_layout(*t),
+            EntityKind::Const {
+                ty, ..
+            } => *ty,
+            EntityKind::Decl {
+                ..
+            } => match &self.entity(id).state {
+                EntityState::Done(Resolved::Const {
+                    value: value::Value::Type(t),
+                    ..
+                }) => return self.ide_type_layout(*t),
+                EntityState::Done(
+                    Resolved::Const {
+                        ty, ..
+                    }
+                    | Resolved::Global {
+                        ty, ..
+                    },
+                ) => *ty,
+                _ => return None,
+            },
+            _ => return None,
+        };
+        if !self.ide_aggregate(ty) {
+            return None;
+        }
+        self.ide_type_layout(ty)
+    }
+
+    /// Structs, unions, arrays, strings and `Any`: types whose size is worth showing on a value.
+    fn ide_aggregate(&self, ty: TypeId) -> bool {
+        match self.types.kind(ty) {
+            TypeKind::Struct(_)
+            | TypeKind::Array {
+                ..
+            }
+            | TypeKind::String
+            | TypeKind::Any => true,
+            TypeKind::Distinct(d) => self.ide_aggregate(self.types.distincts[d.0 as usize].base),
+            _ => false,
+        }
+    }
+
+    /// The field `name` of the value left of the `.` at `span`.
+    fn ide_member_layout(&mut self, span: Span, name: Sym) -> Option<IdeLayout> {
+        let mut ty = (*self.ide.as_ref()?.receivers.get(&span)?)?;
+        while let Some(p) = self.types.pointee(ty) {
+            ty = p;
+        }
+        let TypeKind::Struct(s) = *self.types.kind(self.types.repr(ty)) else {
+            return None;
+        };
+        if !self.ide_laid_out(ty) {
+            return None;
+        }
+        let site = self.ide_find_field(s, name, 0, 0)?;
+        Some(self.ide_field_layout(site))
+    }
+
+    /// Where `name` is in struct `s` (through `using` members held by value), `base` bytes
+    /// into the struct the search started from.
+    fn ide_find_field(
+        &self,
+        s: StructId,
+        name: Sym,
+        base: u64,
+        depth: u32,
+    ) -> Option<IdeFieldSite> {
+        let fields = &self.types.struct_info(s).fields;
+        if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
+            return Some(IdeFieldSite {
+                owner: s,
+                declaring: s,
+                field: at,
+                offset: base + fields[at].offset,
+            });
+        }
+        if depth > 16 {
+            return None;
+        }
+        fields.iter().filter(|f| f.using).find_map(|f| {
+            let TypeKind::Struct(inner) = *self.types.kind(self.types.repr(f.ty)) else {
+                return None;
+            };
+            self.ide_find_field(inner, name, base + f.offset, depth + 1)
+        })
+    }
+
+    /// A field's offset (in the struct it is reached through or declared in), size, alignment
+    /// and the bytes skipped before it.
+    fn ide_field_layout(&self, site: IdeFieldSite) -> IdeLayout {
+        let info = self.types.struct_info(site.declaring);
+        let f = &info.fields[site.field];
+        let padding = if f.overlay || info.is_union {
+            0
+        } else {
+            let before = info.fields[..site.field]
+                .iter()
+                .map(|g| g.offset + self.types.size_of(g.ty))
+                .max()
+                .unwrap_or(0);
+            f.offset.saturating_sub(before)
+        };
+        IdeLayout {
+            offset: Some(site.offset),
+            size: self.types.size_of(f.ty),
+            align: f.align,
+            padding,
+        }
+    }
+
+    /// `b` of `a.b` was checked with `a` being `base`.
+    pub(super) fn ide_note_receiver(&mut self, span: Span, base: &Operand) {
+        if matches!(
+            base,
+            Operand::Type(_) | Operand::Module(_) | Operand::Procs(_)
+        ) || !self.ide_wants(span.file)
+        {
+            return;
+        }
+        let ty = base.ty();
+        if let Some(ide) = self.ide.as_mut() {
+            ide.receivers
+                .entry(span)
+                .and_modify(|t| {
+                    if *t != Some(ty) {
+                        *t = None;
+                    }
+                })
+                .or_insert(Some(ty));
+        }
+    }
+
+    /// `Poly(args)` with `Poly` at `span` gave the struct `t`.
+    fn ide_note_instance(&mut self, span: Span, t: TypeId) {
+        if let Some(ide) = self.ide.as_mut() {
+            ide.instances
+                .entry(span)
+                .and_modify(|old| {
+                    if *old != Some(t) {
+                        *old = None;
+                    }
+                })
+                .or_insert(Some(t));
+        }
+    }
+
+    /// Struct `s` was laid out: record where its named fields are, and move the fields of its
+    /// anonymous `struct { ... }` / `union { ... }` members into it. The fields of a
+    /// polymorphic struct's instance are recorded as having no one layout: their source is the
+    /// polymorphic definition.
+    pub(super) fn ide_note_layout(&mut self, s: StructId) {
+        let info = self.types.struct_info(s);
+        let instance = !info.poly_args.is_empty();
+        let mut sites = Vec::new();
+        let mut absorbed = Vec::new();
+        for (field, f) in info.fields.iter().enumerate() {
+            if f.name.is_some() {
+                let site = IdeFieldSite {
+                    owner: s,
+                    declaring: s,
+                    field,
+                    offset: f.offset,
+                };
+                sites.push((f.span, site));
+            } else if f.using
+                && let TypeKind::Struct(inner) = *self.types.kind(f.ty)
+                && self.types.struct_info(inner).name.as_str() == "anonymous"
+            {
+                absorbed.push((inner, f.offset));
+            }
+        }
+        let sites: Vec<_> = sites
+            .into_iter()
+            .filter(|(span, _)| span.end > span.start && self.ide_wants(span.file))
+            .collect();
+        let Some(ide) = self.ide.as_mut() else {
+            return;
+        };
+        for (span, site) in sites {
+            let site = (!instance).then_some(site);
+            ide.fields
+                .entry(span)
+                .and_modify(|old| {
+                    if *old != site {
+                        *old = None;
+                    }
+                })
+                .or_insert(site);
+        }
+        for (inner, base) in absorbed {
+            for entry in ide.fields.values_mut() {
+                if let Some(site) = entry
+                    && site.owner == inner
+                {
+                    site.owner = s;
+                    site.offset += base;
+                    if instance {
+                        *entry = None;
+                    }
+                }
+            }
+        }
     }
 
     /// Declarations the identifier at `offset` names: an entity's declaration, each procedure
@@ -981,5 +1365,17 @@ fn clip(text: &str) -> String {
         format!("{}…", &line[..end])
     } else {
         line.to_string()
+    }
+}
+
+/// The same thing named (a polymorphic body checked again for another instance may not be).
+fn same_what(a: &IdeWhat, b: &IdeWhat) -> bool {
+    match (a, b) {
+        (IdeWhat::Entity(x), IdeWhat::Entity(y)) => x == y,
+        (IdeWhat::Member(x), IdeWhat::Member(y)) => x == y,
+        (IdeWhat::Type(x), IdeWhat::Type(y)) => x == y,
+        (IdeWhat::Procs(x), IdeWhat::Procs(y)) => x == y,
+        (IdeWhat::Module(x), IdeWhat::Module(y)) => x == y,
+        _ => false,
     }
 }

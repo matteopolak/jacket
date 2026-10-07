@@ -451,6 +451,40 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
             "help: `print` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
         ],
     );
+    assert!(
+        !stderr(&output).contains("other modules"),
+        "{}",
+        stderr(&output)
+    );
+    // A name several modules declare: the most used first, then the others.
+    let output = jaic_on(
+        &dir,
+        "l.jai",
+        "main :: () {\n    x := log(2.0);\n}\n",
+        "check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "help: `log` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
+            "help: other modules that declare `log`: `Math`",
+        ],
+    );
+    // A module used as a namespace: bind it to its name.
+    let output = jaic_on(
+        &dir,
+        "n.jai",
+        "main :: () {\n    x := Math.sqrt(2.0);\n}\n",
+        "check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "help: `Math` is the name of a module: import it under that name with `Math :: #import \"Math\";`",
+        ],
+    );
     // A constant a build metaprogram adds with `add_build_string`, checked on its own.
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(

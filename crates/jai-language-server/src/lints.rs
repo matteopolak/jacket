@@ -38,7 +38,8 @@ pub(crate) fn is_config(uri: &DocumentUri) -> bool {
 pub struct ActionContext {
     /// Only actions of these kinds (or their sub-kinds); `None` for all.
     pub only: Option<Vec<String>>,
-    /// Lint diagnostics the client shows at the request: `(rule, range)`.
+    /// Diagnostics the client shows at the request, jailint's and jaic's: `(code, range)` (a
+    /// lint's code is its rule).
     pub diagnostics: Vec<(String, Range)>,
 }
 

@@ -142,6 +142,9 @@ impl Compiler {
                     return Ok(op);
                 }
                 let base_op = self.check_expr(f, scope, base, None)?;
+                if self.ide.is_some() {
+                    self.ide_note_receiver(member.span, &base_op);
+                }
                 self.member_access(f, scope, base_op, member.name, member.span)
             }
             E::InferredMember(name) => self.check_inferred_member(f, scope, name, expected),

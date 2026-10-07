@@ -9,7 +9,7 @@ use crate::{
     position::LineIndex,
 };
 use jaic::intern::Sym;
-use jaic::sema::ide::{IdeKind, IdeName};
+use jaic::sema::ide::{IdeKind, IdeLayout, IdeName};
 use jaic::sema::ide_meta::IdeClass;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -592,8 +592,13 @@ impl Session {
                 None => Ok(None),
             };
         };
-        if let Some((start, end, value)) = self.semantic_hover(uri, &doc.text, byte) {
-            let text = self.with_macro_expansion(uri, start, HoverText::code(value));
+        if let Some((start, end, value, layout)) = self.semantic_hover(uri, &doc.text, byte) {
+            let mut text = HoverText::code(value);
+            if let Some(layout) = layout {
+                text.blocks
+                    .push(Block::Para(vec![Inline::Text(layout_line(layout))]));
+            }
+            let text = self.with_macro_expansion(uri, start, text);
             return found(start, end, text);
         }
         let rows = self.bindings(uri, position)?;
@@ -624,11 +629,12 @@ impl Session {
         uri: &DocumentUri,
         text: &str,
         byte: usize,
-    ) -> Option<(usize, usize, String)> {
+    ) -> Option<(usize, usize, String, Option<IdeLayout>)> {
         let probe = repair(text, None)?;
-        let (start, end, value) = self.with_semantic(uri, &probe, |a, path| a.hover(path, byte))?;
+        let (start, end, value, layout) =
+            self.with_semantic(uri, &probe, |a, path| a.hover(path, byte))?;
         (end <= text.len() && text.is_char_boundary(start) && text.is_char_boundary(end))
-            .then_some((start, end, value))
+            .then_some((start, end, value, layout))
     }
 
     /// Completion from the type checker. The word being typed (and `a.b.` before it) is cut
@@ -1147,4 +1153,32 @@ fn blank_line(text: &str, byte: usize) -> String {
 
 pub(crate) fn contains(span: Span, byte: usize) -> bool {
     span.start <= byte && byte <= span.end
+}
+
+/// A hover's memory layout line: `size 24, align 8 (4 bytes of padding)` for a type,
+/// `offset 8, size 4, align 4 (4 bytes of padding before)` for a field.
+fn layout_line(layout: IdeLayout) -> String {
+    let bytes = |n: u64| {
+        if n == 1 {
+            "1 byte".to_owned()
+        } else {
+            format!("{n} bytes")
+        }
+    };
+    let mut line = match layout.offset {
+        Some(offset) => format!(
+            "offset {offset}, size {}, align {}",
+            layout.size, layout.align
+        ),
+        None => format!("size {}, align {}", layout.size, layout.align),
+    };
+    if layout.padding > 0 {
+        let before = if layout.offset.is_some() {
+            " before"
+        } else {
+            ""
+        };
+        line.push_str(&format!(" ({} of padding{before})", bytes(layout.padding)));
+    }
+    line
 }

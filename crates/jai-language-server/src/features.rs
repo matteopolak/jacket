@@ -429,7 +429,8 @@ impl Session {
         Some(self.expansion(&document, position).ok()??.text)
     }
 
-    /// Show an expansion; inline an `#insert` or a `#run` value; apply a lint's fix, or all.
+    /// Show an expansion; inline an `#insert` or a `#run` value; add an `#import` an unknown name
+    /// needs; apply a lint's fix, or all.
     pub fn code_actions(&self, uri: &DocumentUri, range: Range) -> Result<Vec<CodeAction>, Error> {
         self.code_actions_in(uri, range, &crate::lints::ActionContext::default())
     }
@@ -459,7 +460,8 @@ impl Session {
         let start = doc.index.byte(&doc.text, range.start)?;
         let end = doc.index.byte(&doc.text, range.end)?;
         let text = &doc.text;
-        let fixes = self.lint_actions(uri, start, end, context);
+        let mut fixes = self.import_actions(uri, start, end, context);
+        fixes.extend(self.lint_actions(uri, start, end, context));
         let Some(e) = self
             .expansions(uri)
             .into_iter()

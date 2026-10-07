@@ -187,17 +187,48 @@ pub struct Diagnostic {
     pub span: Span,
     pub message: String,
     pub kind: DiagnosticKind,
-    /// Text under the primary span's carets (outside the plain layout). Boxed, as `fix` is,
-    /// to keep `Result<_, Diagnostic>` small.
+    /// Text under the primary span's carets (outside the plain layout). Boxed, as `fixes`
+    /// is, to keep `Result<_, Diagnostic>` small.
     pub label: Option<Box<str>>,
     /// Related locations; a note whose span has no file (`Span::NONE`) prints as text only.
     /// Outside the plain layout, a located note is a label in the snippet.
     pub notes: Vec<(Span, String)>,
     /// `help:` lines printed last: how to fix the problem, when that is clear.
     pub help: Vec<String>,
+    /// What the help lines suggest, in a form tools can apply.
+    pub fixes: Option<Box<Fixes>>,
+}
+
+/// The changes a diagnostic's help suggests. Boxed in the diagnostic, as its label is.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Fixes {
     /// The fix the first help line describes: replace this span with this text. Shown as the
     /// changed line under the help, outside the plain layout.
-    pub fix: Option<Box<(Span, String)>>,
+    pub replace: Option<(Span, String)>,
+    /// The `#import`s that would declare an unknown name, best first (worked out with the "did
+    /// you mean" help when the error is rendered): the help names the first, an editor offers
+    /// each.
+    pub imports: Vec<ImportSuggestion>,
+}
+
+/// An `#import` that would bring an unknown name into scope.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImportSuggestion {
+    /// The module to import, as written in `#import "module"`.
+    pub module: String,
+    /// The name to bind the module to (`name :: #import "module";`) when the unknown name is
+    /// the module itself, used as a namespace (`Math.sqrt`); `None` imports its names.
+    pub name: Option<String>,
+}
+
+impl ImportSuggestion {
+    /// The import statement, as it would be written: `#import "Basic";`.
+    pub fn statement(&self) -> String {
+        match &self.name {
+            Some(name) => format!("{name} :: #import \"{}\";", self.module),
+            None => format!("#import \"{}\";", self.module),
+        }
+    }
 }
 
 impl Diagnostic {
@@ -218,7 +249,7 @@ impl Diagnostic {
             label: None,
             notes: Vec::new(),
             help: Vec::new(),
-            fix: None,
+            fixes: None,
         }
     }
 
@@ -250,7 +281,7 @@ impl Diagnostic {
         replacement: impl Into<String>,
     ) -> Self {
         self.help.insert(0, message.into());
-        self.fix = Some(Box::new((span, replacement.into())));
+        self.fixes.get_or_insert_default().replace = Some((span, replacement.into()));
         self
     }
 
@@ -291,8 +322,9 @@ impl Diagnostic {
         }
         for (i, help) in self.help.iter().enumerate() {
             let fix = self
-                .fix
+                .fixes
                 .as_deref()
+                .and_then(|f| f.replace.as_ref())
                 .filter(|_| i == 0)
                 .and_then(|(span, text)| {
                     has_location(sources, *span).then(|| Fix {

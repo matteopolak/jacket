@@ -5,6 +5,7 @@ pub(crate) mod features;
 pub(crate) mod format;
 pub mod framing;
 pub(crate) mod hover;
+mod imports;
 mod links;
 pub mod lints;
 mod model;

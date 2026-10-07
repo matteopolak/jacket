@@ -225,6 +225,7 @@ mod tests {
             "    print(\"%\", count);\n",
             "    \n",
             "}\n",
+            "Pair :: struct { a: u8; b: s32; }\n",
         );
         let escaped = text
             .replace('\\', "\\\\")
@@ -248,6 +249,18 @@ mod tests {
             ),
         );
         assert!(hover.contains("count: s64"), "{hover}");
+        let layout = send(
+            &mut bridge,
+            concat!(
+                r#"{"jsonrpc":"2.0","id":4,"method":"textDocument/hover","params":{"#,
+                r#""textDocument":{"uri":"file:///jai-script/main.jai"},"#,
+                r#""position":{"line":6,"character":1}}}"#,
+            ),
+        );
+        assert!(
+            layout.contains("size 8, align 4 (3 bytes of padding)"),
+            "{layout}"
+        );
         let completion = send(
             &mut bridge,
             concat!(

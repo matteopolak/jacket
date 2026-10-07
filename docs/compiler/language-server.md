@@ -19,6 +19,7 @@ It has two layers:
 | Diagnostics: the type checker's first error, also in code nothing calls (`jai-check` as `code`, see [dead-code elimination](../language/dead-code-elimination.md)) | `textDocument/publishDiagnostics` | semantic |
 | Diagnostics: jailint lints (rule as `code`, `jailint` as `source`) | `textDocument/publishDiagnostics` | semantic |
 | Hover: types of locals, members, procedures (every overload), structs, enums, constants | `textDocument/hover` | semantic |
+| Hover: memory layout of types (size, alignment, padding), fields (offset, size, alignment) and aggregate-typed variables | `textDocument/hover` | semantic |
 | Hover on a macro call: the macro's body with the arguments substituted | `textDocument/hover` | semantic |
 | Hover on `#insert`: the inserted code | `textDocument/hover` | semantic |
 | Hover on `#run`: its value and type, and what it printed | `textDocument/hover` | semantic |
@@ -33,7 +34,7 @@ It has two layers:
 | Rename (locals, globals, procedures with their overload declarations, types, modules, constants) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
 | Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
 | Inlay hints: inferred types of `x :=`, parameter names of literal arguments (only for parameters that share their type with another, so `print`'s format string gets none), `#run` values | `textDocument/inlayHint` | semantic |
-| Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value, apply a lint's fix (`quickfix`) | `textDocument/codeAction` | semantic |
+| Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value, add the `#import` an unknown name needs, apply a lint's fix (`quickfix`) | `textDocument/codeAction` | semantic |
 | Commands `jai.showExpansion`, `jai.showPolymorphs` | `workspace/executeCommand` | semantic |
 | Expansion documents (`jai-expansion:` URIs) | `jai/expansion`, `jai/source` (non-standard) | semantic |
 | Code lens: how many polymorphs each polymorphic procedure has, and their bindings | `textDocument/codeLens` | semantic |
@@ -81,6 +82,24 @@ For completion, the word being typed and any `a.b.` chain before it are cut out 
   3. the smallest recorded **reference** at the offset: a local or member as `name: Type`, each overload of a procedure as `name :: <header>`, a type with its fields or members, a constant with its value. When the name is the callee of an `#expand` macro call, the expansion is appended (`with_macro_expansion`);
   4. any **expansion** containing the cursor where there is no name (the string of `#insert "..."`);
   5. the syntax layer's declaration text, or `keyword return` on a keyword (completion details say `keyword` too; hover text does not repeat the language name).
+
+#### Memory layout in hovers
+
+A semantic hover ends with a layout line when there is one layout to show (`IdeHover::layout`, written by `session.rs` `layout_line`):
+
+```text
+Pair :: struct { a: u8; b: s32; }
+size 8, align 4 (3 bytes of padding)
+
+b: s32
+offset 4, size 4, align 4 (3 bytes of padding before)
+```
+
+- **Types** (structs, unions, enums, aliases, a `Poly(args)` instance): `size`, `align` and, for a struct, the bytes no field covers. A polymorphic struct's definition has none; hovering the name in `Node(int)` shows that instance (`IdeFacts::instances`, keyed by the callee's span).
+- **Fields**, at their declaration or at `a.b`: the offset in the struct named (through `using` and `#as using` members held by value, and in the struct holding an anonymous `struct { ... }` / `union { ... }`), size, the alignment the layout used (a member's `#align` replaces the type's), and the gap since the previous fields of the same struct. `#place` / `#overlay` members show their shared offset.
+- **Variables and constants** of structs, arrays, strings and `Any` show their type's size and alignment; scalars do not.
+
+The numbers are the compiler's own (`StructInfo::fields[i].offset`/`align`, `Types::size_of`/`align_of`), the ones `size_of` and `type_info` report for the workspace's target; the language server computes nothing. Field declarations are not names the checker resolves, so `layout_struct` records each field's span (`IdeFacts::fields`, via `ide_note_layout`), and `a.b` records the type of `a` (`IdeFacts::receivers`). A field laid out in several structs (a polymorphic struct's instances) and a name checked with different types in a polymorphic body get no layout rather than one instance's.
 
 Hover contents are built once as blocks (`hover.rs` `HoverText`: code, program output, prose, format rows and section starts) and written in the format the client asked for. `JsonSession` reads `capabilities.textDocument.hover.contentFormat` at `initialize`: if it lists `markdown`, hovers are `"kind": "markdown"`, otherwise `"kind": "plaintext"`. `Session::hover` is plain text; `Session::hover_as(uri, position, MarkupKind)` picks.
 
@@ -215,6 +234,16 @@ For an `#insert`, `#run` or macro call under the cursor (`code_actions` picks th
 - **Quick fixes.** `code_actions` adds a `quickfix` for each lint with a fix that touches the requested range, or that the request's `context.diagnostics` names (matched by `source: "jailint"`, rule `code` and range). Each carries its lint as `diagnostics`, the rule as `data.rule`, and `isPreferred: true` when the fix is machine-applicable. Titles are the fix's description in sentence case (`Remove the unused variable`); identify the rule by `data.rule` or the diagnostic's `code`, not the title. Lint fixes come after the expansion actions.
 - **Fix all.** A `source.fixAll.jailint` action applies every machine-applicable fix in the document that does not overlap an earlier one (`jailint::fix::choose`, the same choice as `jailint --fix`) as one edit, titled `Fix N lint problems`. `context.only` filters every action by kind (`source.fixAll` or `source` select it, `quickfix` leaves it out). `codeActionKinds` advertises `quickfix`, `refactor.inline` and `source.fixAll.jailint`.
 
+### Missing imports
+
+`imports.rs` turns the type checker's error into "Add `#import`" quick fixes when it is an unknown identifier that a standard-library module declares (`print` without `#import "Basic";`):
+
+- **Where the modules come from.** The compiler works them out with the error's "did you mean" help (`Compiler::with_name_suggestion` in `sema/suggestions.rs`) and puts them on the diagnostic as data, `Diagnostic::fixes.imports` (`jaic::source::ImportSuggestion`: a module, and the name to bind it to for the namespaced form). Nothing parses the message. The order is the help's: a module named like the unknown name first (`Math.sqrt` gets `Math :: #import "Math";`), then the modules that declare it at their top level outside `#scope_file`/`#scope_module`, common ones (`Basic`, `String`, `Math`, ...) first, at most four. `semantic::Analysis::missing_imports` computes them the first time a code action asks (it reads the standard library) and caches them with the compile.
+- **Actions.** One `quickfix` per module, titled ``Add `#import "Basic";` ``, carrying the `jai-check` diagnostic. It is offered when the error touches the requested range, or when `context.diagnostics` names it (`source: "jai"`, `code: "jai-check"`, same range). `isPreferred` is set only when the compiler found one module; with several (`log` is in `Basic` and `Math`) none is.
+- **The edit.** It goes into the document the error is in, even when that file is `#load`ed by another one. After the last top-level `#import` (on the next line), else above the first line of code, below leading comments, followed by a blank line. A module the file already imports the same way (same module, same bound name) is not offered.
+- **Not in fix-all.** `source.fixAll.jailint` stays jailint's machine-applicable fixes. Choosing a module is a decision about the program, and only the first compile error is known at a time, so this is a quick fix only.
+- **Changing it.** The ranking (`COMMON_MODULES`, `MAX_IMPORTS`) and the help wording live in `sema/suggestions.rs`; where the line goes is `imports::insertion`.
+
 ### `#load` and `#import` links
 
 `links.rs` finds `#load "..."` and `#import[,file|,dir] "..."` in the token stream (so links work while the text does not parse; `#import,string` has no file). `Session::link_target` resolves each with the compiler's own functions, `jaic::sema::import_entry` and `find_module_in` (which `Compiler::find_module` and `resolve_import` also call):
@@ -312,7 +341,7 @@ The worker carries `{type: "lsp", id, message}`. The wasm bridge (`crates/jai-wa
 Tests:
 
 - `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
-- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, lint diagnostics and quick fixes, the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
+- `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, lint diagnostics and quick fixes, "Add `#import`" quick fixes (one module, several, namespaced, a `#load`ed file, asked for by diagnostic), the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
 - `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
 - `crates/jai-language-server/tests/protocol.rs`: hover format negotiation (`markdown` listed or not).
 - Unit tests: `hover.rs` (escaping, fences, sections), `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).

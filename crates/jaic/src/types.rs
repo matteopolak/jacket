@@ -80,6 +80,8 @@ pub struct Field {
     pub name: Option<Sym>,
     pub ty: TypeId,
     pub offset: u64,
+    /// Alignment the layout used: the type's, or the member's `#align`.
+    pub align: u64,
     pub using: bool,
     pub as_: bool,
     /// Declared after `#overlay(f)`: shares another field's storage.

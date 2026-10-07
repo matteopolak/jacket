@@ -84,7 +84,10 @@ fn hover_shows_types_of_locals_procedures_structs_and_members() {
         hover(&s, after(PROGRAM, "thing: Thing", 0, 1))
             .starts_with("Thing :: struct { alpha: s64; beta: float32; label: string; }"),
     );
-    assert_eq!(hover(&s, after(PROGRAM, "t.alpha", 0, 1)), "alpha: s64");
+    assert_eq!(
+        hover(&s, after(PROGRAM, "t.alpha", 0, 1)),
+        "alpha: s64\noffset 0, size 8, align 8"
+    );
     // Bodies nothing calls are checked too.
     assert_eq!(
         hover(&s, after(PROGRAM, "return doubled", 0, 1)),
@@ -312,4 +315,178 @@ fn type_error_in_an_unused_procedure_is_published() {
     };
     s.change(&uri(), 2, &[fixed]).unwrap();
     assert!(checks(&s).is_empty());
+}
+
+const LAYOUT: &str = r#"Pair :: struct { a: u8; b: s32; }
+Wide :: struct #align 16 { x: s32; }
+Packed :: struct { a32: u32; b64: u64 #align 4; }
+Number :: union { i: s64; f: float32; }
+Pixel :: struct {
+    r, g, b, a: u8;
+    #overlay(r) rgba: u32;
+    after: u16;
+}
+Split :: struct {
+    lo: u32;
+    hi: u32;
+    #place lo;
+    whole: u64 #align 4;
+}
+Color :: struct {
+    tag: u16;
+    union {
+        word: u32;
+        struct { lo16: u16; hi16: u16; }
+    }
+}
+Entity :: struct { id: u32; }
+Player :: struct { #as using entity: Entity; health: float32; pos: [2] float64; }
+Node :: struct (T: Type) { value: T; next: *Node(T); }
+Small :: enum u8 { A; B; }
+Quad :: [4] u16;
+main :: () {
+    p: Player;
+    h := p.id;
+    w := p.health;
+    n: Node(u8);
+    q: Quad;
+    s := Small.A;
+    count := 3;
+    c: Color;
+    c.hi16 = 1;
+}
+"#;
+
+/// The hover at the `n`th `marker` (its first character) in `LAYOUT`.
+fn layout_hover(s: &Session, marker: &str, n: usize) -> String {
+    hover(s, after(LAYOUT, marker, n, marker.len()))
+}
+
+/// The memory layout line of a hover (after the declaration).
+fn layout_of(s: &Session, marker: &str, n: usize) -> Option<String> {
+    let text = layout_hover(s, marker, n);
+    let (_, line) = text.rsplit_once('\n')?;
+    (line.starts_with("size ") || line.starts_with("offset ")).then(|| line.to_owned())
+}
+
+#[test]
+fn hovers_show_the_compilers_memory_layout() {
+    let mut s = session();
+    s.open(uri(), 1, LAYOUT.into()).unwrap();
+    let layout = |marker: &str, n: usize| layout_of(&s, marker, n);
+    // A struct and its padding, at the definition and at a use.
+    assert_eq!(
+        layout_hover(&s, "Pair ::", 0),
+        "Pair :: struct { a: u8; b: s32; }\nsize 8, align 4 (3 bytes of padding)"
+    );
+    assert_eq!(
+        layout("b: s32", 0).as_deref(),
+        Some("offset 4, size 4, align 4 (3 bytes of padding before)")
+    );
+    assert_eq!(
+        layout("a: u8", 0).as_deref(),
+        Some("offset 0, size 1, align 1")
+    );
+    // `#align` on a struct and on a member (which may lower the alignment).
+    assert_eq!(
+        layout("Wide ::", 0).as_deref(),
+        Some("size 16, align 16 (12 bytes of padding)")
+    );
+    assert_eq!(layout("Packed ::", 0).as_deref(), Some("size 12, align 4"));
+    assert_eq!(
+        layout("b64", 0).as_deref(),
+        Some("offset 4, size 8, align 4")
+    );
+    // A union's members all start at 0.
+    assert_eq!(layout("Number ::", 0).as_deref(), Some("size 8, align 8"));
+    assert_eq!(
+        layout("f: float32", 0).as_deref(),
+        Some("offset 0, size 4, align 4")
+    );
+    // `#overlay` shares a member's storage; `#place` moves back to one.
+    assert_eq!(
+        layout("rgba", 0).as_deref(),
+        Some("offset 0, size 4, align 4")
+    );
+    assert_eq!(
+        layout("after", 0).as_deref(),
+        Some("offset 4, size 2, align 2")
+    );
+    assert_eq!(
+        layout("Pixel ::", 0).as_deref(),
+        Some("size 8, align 4 (2 bytes of padding)")
+    );
+    assert_eq!(
+        layout("whole", 0).as_deref(),
+        Some("offset 0, size 8, align 4")
+    );
+    assert_eq!(layout("Split ::", 0).as_deref(), Some("size 8, align 4"));
+    // Members of anonymous unions and structs: offsets in the struct that holds them.
+    assert_eq!(
+        layout("Color ::", 0).as_deref(),
+        Some("size 8, align 4 (2 bytes of padding)")
+    );
+    assert_eq!(
+        layout("word", 0).as_deref(),
+        Some("offset 4, size 4, align 4")
+    );
+    assert_eq!(
+        layout("hi16", 0).as_deref(),
+        Some("offset 6, size 2, align 2")
+    );
+    assert_eq!(
+        layout("hi16", 1).as_deref(),
+        Some("offset 6, size 2, align 2")
+    );
+    // `#as using`: a member reached through it is at its offset in the outer struct.
+    assert_eq!(layout("Player ::", 0).as_deref(), Some("size 24, align 8"));
+    assert_eq!(
+        layout_hover(&s, "id;", 0),
+        "id: u32\noffset 0, size 4, align 4"
+    );
+    assert_eq!(
+        layout("health;", 0).as_deref(),
+        Some("offset 4, size 4, align 4")
+    );
+    // Variables of aggregate types show their type's size; scalars do not.
+    assert_eq!(
+        layout_hover(&s, "p: Player", 0),
+        "p: Player\nsize 24, align 8"
+    );
+    assert_eq!(layout("count", 0), None);
+    assert_eq!(layout("s :=", 0), None);
+    // A polymorphic struct: an instance has a layout, the definition does not.
+    assert_eq!(
+        layout_hover(&s, "Node(u8)", 0),
+        "Node(u8) :: struct { value: u8; next: *Node(u8); }\nsize 16, align 8 (7 bytes of padding)"
+    );
+    assert_eq!(layout("Node ::", 0), None);
+    assert_eq!(layout("value: T", 0), None);
+    // An enum with an explicit base, a fixed array alias.
+    assert_eq!(layout("Small ::", 0).as_deref(), Some("size 1, align 1"));
+    assert_eq!(
+        layout_hover(&s, "Quad ::", 0),
+        "Quad :: [4] u16\nsize 8, align 2"
+    );
+    assert_eq!(layout("q: Quad", 0).as_deref(), Some("size 8, align 2"));
+}
+
+#[test]
+fn layout_hovers_are_markdown_paragraphs() {
+    let mut s = session();
+    s.open(uri(), 1, LAYOUT.into()).unwrap();
+    let hover = s
+        .hover_as(
+            &uri(),
+            after(LAYOUT, "Pair ::", 0, 7),
+            jai_language_server::MarkupKind::Markdown,
+        )
+        .unwrap()
+        .expect("hover")
+        .contents
+        .value;
+    assert_eq!(
+        hover,
+        "```jai\nPair :: struct { a: u8; b: s32; }\n```\n\nsize 8, align 4 (3 bytes of padding)"
+    );
 }

@@ -3,9 +3,9 @@
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
 use super::scope::{ScopeId, UsingEntry};
 use super::{Compiler, Sym};
-use crate::ast::{Expr, ExprKind, StmtKind};
+use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
 use crate::lexer::{P, Tok};
-use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span};
 use std::path::{Path, PathBuf};
 
 /// Modules searched first for an unknown name, most used first.
@@ -35,11 +35,47 @@ const COMMON_MODULES: &[&str] = &[
     "Calendar",
 ];
 
+/// The most modules an unknown name's help offers to import.
+const MAX_IMPORTS: usize = 4;
+
 /// Modules the compiler loads itself; they are never imported by name.
 const COMPILER_INTERNAL_MODULES: &[&str] = &["Preload", "Runtime_Support"];
 
-/// Whether `text` declares `name` at the start of a line, outside a `#scope_file` section.
+/// Whether the module file `text` declares `name` for its importers: at its top level (or in a
+/// top-level `#if`), outside `#scope_file` and `#scope_module` sections. Only a file whose lines
+/// look like such a declaration is parsed.
 fn exports_name(text: &str, name: &str) -> bool {
+    if !may_export_name(text, name) {
+        return false;
+    }
+    let Ok(file) = crate::parser::parse_file(FileId(u32::MAX), text) else {
+        return true;
+    };
+    fn declares(stmts: &[crate::ast::Stmt], name: &str, exported: &mut bool) -> bool {
+        stmts.iter().any(|stmt| match &stmt.kind {
+            StmtKind::Scope(kind) => {
+                *exported = *kind == ScopeKind::Export;
+                false
+            }
+            StmtKind::Decl(decl) => *exported && decl.names.iter().any(|n| n.name.as_str() == name),
+            StmtKind::StaticIf {
+                then_branch,
+                else_branch,
+                ..
+            } => {
+                let (mut then_exported, mut else_exported) = (*exported, *exported);
+                declares(then_branch, name, &mut then_exported)
+                    || declares(else_branch, name, &mut else_exported)
+            }
+            _ => false,
+        })
+    }
+    declares(&file.stmts, name, &mut true)
+}
+
+/// Whether `text` has a line, indented at most four spaces and outside a `#scope_file` section,
+/// that starts with a declaration of `name` (a quick test before [`exports_name`] parses).
+fn may_export_name(text: &str, name: &str) -> bool {
     let mut file_scope = false;
     for line in text.lines() {
         let trimmed = line.trim_start();
@@ -100,8 +136,8 @@ fn mentions_target(cond: &Expr) -> bool {
 
 impl Compiler {
     /// `d` with a `help: a similar name exists` line when it reports an unknown identifier
-    /// and a visible name is close to it.
-    pub(crate) fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
+    /// and a visible name is close to it, and the modules that declare it (`d.imports`).
+    pub fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
         let DiagnosticKind::UnknownIdentifier {
             scope: Some(scope),
         } = d.kind
@@ -124,10 +160,27 @@ impl Compiler {
         if let Some(found) = crate::suggest::closest(wanted, names.iter().copied()) {
             d = d.with_fix(format!("a similar name exists: `{found}`"), span, found);
         }
-        if let Some(module) = self.module_declaring(wanted) {
-            d = d.with_help(format!(
-                "`{wanted}` is declared in the `{module}` module: add `#import \"{module}\";` to this file"
-            ));
+        let imports = self.imports_declaring(wanted);
+        if let Some((first, rest)) = imports.split_first() {
+            let module = &first.module;
+            d = d.with_help(match &first.name {
+                Some(name) => format!(
+                    "`{name}` is the name of a module: import it under that name with `{}`",
+                    first.statement()
+                ),
+                None => format!(
+                    "`{wanted}` is declared in the `{module}` module: add `{}` to this file",
+                    first.statement()
+                ),
+            });
+            if !rest.is_empty() {
+                let others: Vec<String> = rest.iter().map(|i| format!("`{}`", i.module)).collect();
+                d = d.with_help(format!(
+                    "other modules that declare `{wanted}`: {}",
+                    others.join(", ")
+                ));
+            }
+            d.fixes.get_or_insert_default().imports = imports;
         }
         Some(d)
     }
@@ -159,13 +212,17 @@ impl Compiler {
         None
     }
 
-    /// The standard-library module that declares `name` at its top level (outside
-    /// `#scope_file`), common modules first.
-    fn module_declaring(&self, name: &str) -> Option<String> {
+    /// The `#import`s that would declare `name`, best first: the standard-library module of
+    /// that name (bound to it, for `Name.member`), then the modules that declare it at their top
+    /// level (outside `#scope_file`), common modules first. At most [`MAX_IMPORTS`].
+    fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
+        let mut found = Vec::new();
         if name.len() < 2 || name.starts_with("__") {
-            return None;
+            return found;
         }
-        let stdlib = self.options.preload.as_deref()?.parent()?;
+        let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent) else {
+            return found;
+        };
         let mut modules: Vec<(String, bool)> = self
             .fs
             .list_dir(stdlib)
@@ -188,23 +245,36 @@ impl Compiler {
                 .unwrap_or(usize::MAX)
         };
         modules.sort_by(|a, b| (rank(&a.0), &a.0).cmp(&(rank(&b.0), &b.0)));
+        modules.dedup_by(|a, b| a.0 == b.0);
+        if modules.iter().any(|(m, _)| m == name) {
+            found.push(ImportSuggestion {
+                module: name.to_string(),
+                name: Some(name.to_string()),
+            });
+        }
         for (module, is_dir) in modules {
+            if found.len() >= MAX_IMPORTS {
+                break;
+            }
             let mut files = Vec::new();
             if is_dir {
                 self.module_files(&stdlib.join(&module), &mut files, 0);
             } else {
                 files.push(stdlib.join(format!("{module}.jai")));
             }
-            for path in files {
-                let Some(bytes) = self.fs.read(&path) else {
-                    continue;
-                };
-                if exports_name(&String::from_utf8_lossy(&bytes), name) {
-                    return Some(module);
-                }
+            let declares = files.iter().any(|path| {
+                self.fs
+                    .read(path)
+                    .is_some_and(|bytes| exports_name(&String::from_utf8_lossy(&bytes), name))
+            });
+            if declares {
+                found.push(ImportSuggestion {
+                    module,
+                    name: None,
+                });
             }
         }
-        None
+        found
     }
 
     /// The `.jai` files of a module directory, leaving out tests and examples.

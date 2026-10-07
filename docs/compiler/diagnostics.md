@@ -33,7 +33,7 @@ The other rules:
 
 Suggestions that need extra work are computed when the error is rendered, not when it is created, because failed lookups are routine while checking overloads and `#if`s (`sema/suggestions.rs`):
 
-- unknown identifier: a visible name within edit distance (`suggest::closest`); else a build metaprogram next to the file that adds the name with `add_build_string`; else the stdlib module that declares it (`` help: `print` is declared in the `Basic` module: add `#import "Basic";` ``).
+- unknown identifier: a build metaprogram next to the file that adds the name with `add_build_string`; else a visible name within edit distance (`suggest::closest`) and the stdlib modules that declare it at their top level, the most used first (`` help: `print` is declared in the `Basic` module: add `#import "Basic";` ``, then ``other modules that declare `log`: `Math` `` when there are several), or, for a name that is itself a module (`Math.sqrt`), `Math :: #import "Math";`. The suggested imports are also data on the diagnostic (`Diagnostic::fixes.imports`), which the language server turns into quick fixes.
 - missing module (`sema/modules.rs`): the directories searched, a module with a close name, or a folder nearby that holds it and the `-import_dir` that finds it.
 - missing `#load` file: where it looked and a file with a close name.
 - unknown member: the closest member, or the list of members.

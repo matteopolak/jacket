@@ -687,6 +687,7 @@ impl Compiler {
                         name: d.name,
                         ty: d.ty,
                         offset,
+                        align: a,
                         using: d.using,
                         as_: d.as_,
                         overlay: overlaid,
@@ -721,6 +722,9 @@ impl Compiler {
         info.align = align;
         info.layout = LayoutState::Done;
         self.struct_asts.get_mut(&s).unwrap().inits = inits;
+        if self.ide.is_some() {
+            self.ide_note_layout(s);
+        }
         Ok(())
     }
 

@@ -4,9 +4,9 @@
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::intern::Sym;
 use jaic::interp::{SandboxHost, SharedHost};
-use jaic::sema::ide::{IdeFacts, IdeName};
+use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
 use jaic::sema::{Compiler, FileSystem, Options};
-use jaic::source::FileId;
+use jaic::source::{FileId, ImportSuggestion};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -66,6 +66,9 @@ pub struct Analysis {
     error: Option<Box<jaic::source::Diagnostic>>,
     /// Lints found so far, by file.
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
+    /// The imports that would declare the error's unknown name (worked out on first use: it
+    /// reads the standard library).
+    imports: Option<Vec<ImportSuggestion>>,
 }
 
 impl Analysis {
@@ -102,6 +105,28 @@ impl Analysis {
         Some((span.start as usize, span.end as usize, message))
     }
 
+    /// The `#import`s that would declare the unknown name the compile error in `path` reports,
+    /// best first, with the error's span as (start, end).
+    pub fn missing_imports(
+        &mut self,
+        path: &Path,
+    ) -> Option<(usize, usize, Vec<ImportSuggestion>)> {
+        let file = self.file(path)?;
+        let error = self.error.as_ref()?;
+        if error.span.file != file {
+            return None;
+        }
+        let span = error.span;
+        let imports = self.imports.get_or_insert_with(|| {
+            self.compiler
+                .with_name_suggestion(error)
+                .and_then(|d| d.fixes)
+                .map(|fixes| fixes.imports)
+                .unwrap_or_default()
+        });
+        Some((span.start as usize, span.end as usize, imports.clone()))
+    }
+
     pub fn file(&self, path: &Path) -> Option<FileId> {
         let want = self.compiler.fs.canonical(path);
         (0..self.compiler.sources.len() as u32)
@@ -125,10 +150,20 @@ impl Analysis {
         )
     }
 
-    pub fn hover(&mut self, path: &Path, offset: usize) -> Option<(usize, usize, String)> {
+    /// Hover at `offset` as (start, end, description, memory layout).
+    pub fn hover(
+        &mut self,
+        path: &Path,
+        offset: usize,
+    ) -> Option<(usize, usize, String, Option<IdeLayout>)> {
         let file = self.file(path)?;
-        let (span, text) = self.compiler.ide_hover(file, offset as u32)?;
-        Some((span.start as usize, span.end as usize, text))
+        let hover = self.compiler.ide_hover(file, offset as u32)?;
+        Some((
+            hover.span.start as usize,
+            hover.span.end as usize,
+            hover.text,
+            hover.layout,
+        ))
     }
 
     /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte
@@ -216,6 +251,7 @@ impl Cache {
                 complete: error.is_none(),
                 error,
                 lints: BTreeMap::new(),
+                imports: None,
             });
         }
         self.entries.last_mut().expect("just pushed")
