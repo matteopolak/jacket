@@ -93,6 +93,10 @@ jobs:
         run: |
           brew install zstd
           ls -l /opt/homebrew/lib/libzstd.a
+          # llvm-sys turns that absolute path into `-L/opt/homebrew/lib -lzstd`, for which ld
+          # prefers the dylib beside the archive (and jaic would then need Homebrew's zstd at run
+          # time). Without the dylib links in that folder, the archive is linked.
+          rm -f /opt/homebrew/lib/libzstd*.dylib
           ls "$RUNNER_TEMP/llvm/bin/ld64.lld"
           find "$RUNNER_TEMP/llvm/lib" \( -name 'libc++*' -o -name 'libunwind*' \) -print -delete
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
@@ -182,13 +186,16 @@ jobs:
             set -e
             test "$status" = 42
           fi
+          # (`! cmd` would not stop the script: `set -e` ignores a negated command.)
           if [ "$RUNNER_OS" = "macOS" ]; then
             otool -L "$jaic"
-            ! otool -L "$jaic" | grep -E '/opt/homebrew|/usr/local|@rpath'
+            if otool -L "$jaic" | grep -E '/opt/homebrew|/usr/local|@rpath'; then
+              echo "jaic links a library outside the system"; exit 1
+            fi
           fi
           if [ "$RUNNER_OS" = "Linux" ]; then
             ldd "$jaic"
-            ! ldd "$jaic" | grep -i llvm
+            if ldd "$jaic" | grep -i llvm; then echo "jaic links a shared LLVM"; exit 1; fi
           fi
           # Installed the usual way: unpacked elsewhere, linked from a bin folder, with no
           # checkout to fall back on (the build's own stdlib path is baked in as the fallback).
