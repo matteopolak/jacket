@@ -132,11 +132,51 @@ pub enum Severity {
     Note,
 }
 
+/// What a diagnostic reports, for code that treats particular errors specially: the message
+/// is for people, and nothing matches its text. Tools outside the compiler see it as `code()`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum DiagnosticKind {
+    #[default]
+    Other,
+    /// A name no scope in reach declares. `scope` is the index of the sema scope the lookup
+    /// started from, for the "did you mean" help worked out when the error is rendered.
+    UnknownIdentifier { scope: Option<u32> },
+    /// A value whose type does not convert to the type expected there.
+    TypeMismatch,
+    /// A failed `#assert`.
+    StaticAssert,
+    /// A `#foreign` procedure names a library no `#library` declares (often one declared only
+    /// under another OS's `#if`).
+    UnknownLibrary,
+    /// A `#load` names a file that does not exist.
+    MissingFile,
+    /// The program called a foreign procedure this host cannot provide (the browser's sandbox
+    /// has no native libraries).
+    Unavailable,
+}
+
+impl DiagnosticKind {
+    /// A stable name for tools (the playground's JSON, the language server), or `None` for
+    /// diagnostics without a kind of their own.
+    pub fn code(self) -> Option<&'static str> {
+        match self {
+            DiagnosticKind::Other => None,
+            DiagnosticKind::UnknownIdentifier { .. } => Some("unknown-identifier"),
+            DiagnosticKind::TypeMismatch => Some("type-mismatch"),
+            DiagnosticKind::StaticAssert => Some("static-assert"),
+            DiagnosticKind::UnknownLibrary => Some("unknown-library"),
+            DiagnosticKind::MissingFile => Some("missing-file"),
+            DiagnosticKind::Unavailable => Some("unavailable"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
     pub severity: Severity,
     pub span: Span,
     pub message: String,
+    pub kind: DiagnosticKind,
     /// Text under the primary span's carets (outside the plain layout).
     pub label: Option<String>,
     /// Related locations; a note whose span has no file (`Span::NONE`) prints as text only.
@@ -163,11 +203,17 @@ impl Diagnostic {
             severity,
             span,
             message,
+            kind: DiagnosticKind::Other,
             label: None,
             notes: Vec::new(),
             help: Vec::new(),
             fix: None,
         }
+    }
+
+    pub fn with_kind(mut self, kind: DiagnosticKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     pub fn with_label(mut self, label: impl Into<String>) -> Self {

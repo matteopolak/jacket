@@ -758,6 +758,7 @@ impl Compiler {
             let name = ident.name;
             return Err(Box::new(
                 Diagnostic::error(ident.span, format!("unknown library `{name}`"))
+                    .with_kind(DiagnosticKind::UnknownLibrary)
                     .with_label("no library of this name is declared here")
                     .with_help(format!(
                         "declare it with `{name} :: #library \"path/to/lib{name}\";` (or `#system_library`); a declaration under `#if OS == ...` exists only for that OS"

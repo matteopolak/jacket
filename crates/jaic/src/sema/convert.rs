@@ -305,7 +305,8 @@ impl Compiler {
                     self.types.name(to),
                     self.types.name(from)
                 ),
-            );
+            )
+            .with_kind(DiagnosticKind::TypeMismatch);
             if let Some(help) = self.conversion_help(from, to) {
                 d = d.with_help(help);
             }

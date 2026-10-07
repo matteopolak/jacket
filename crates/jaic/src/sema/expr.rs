@@ -597,8 +597,13 @@ impl Compiler {
                             addr,
                         });
                     }
-                    self.note_unknown_name(span, scope);
-                    return err(span, format!("unknown identifier `{name}`"));
+                    return Err(Box::new(
+                        Diagnostic::error(span, format!("unknown identifier `{name}`")).with_kind(
+                            DiagnosticKind::UnknownIdentifier {
+                                scope: Some(scope.0),
+                            },
+                        ),
+                    ));
                 }
                 let op = self.entities_operand(f, scope, &ids, span);
                 if let Some(ide) = self.ide.as_mut() {

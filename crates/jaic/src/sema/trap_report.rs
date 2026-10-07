@@ -4,7 +4,7 @@
 use super::Compiler;
 use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
-use crate::source::{Diagnostic, FileId, Span};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 use std::path::{Path, PathBuf};
 
 /// The procedures between a failed `assert` and its report: left out of the call stack.
@@ -155,6 +155,9 @@ impl Compiler {
         }
         if let Some(help) = trap.kind.and_then(help_for) {
             d = d.with_help(help);
+        }
+        if trap.kind == Some(TrapKind::Unavailable) {
+            d = d.with_kind(DiagnosticKind::Unavailable);
         }
         d
     }
@@ -342,7 +345,7 @@ fn help_for(kind: TrapKind) -> Option<String> {
             "check the pointer against null before using it, or make sure it is set"
         }
         TrapKind::StackOverflow => "check that the recursion has a base case it reaches",
-        TrapKind::BareAssertion => return None,
+        TrapKind::BareAssertion | TrapKind::Unavailable => return None,
     };
     Some(fixed.to_string())
 }

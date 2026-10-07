@@ -286,7 +286,8 @@ impl Compiler {
                     "`#load` takes a .jai file; `#import,dir` imports a directory's module.jai",
                 );
         }
-        let mut d = Diagnostic::error(span, format!("file `{shown}` does not exist"));
+        let mut d = Diagnostic::error(span, format!("file `{shown}` does not exist"))
+            .with_kind(DiagnosticKind::MissingFile);
         let dir = path.parent().unwrap_or(Path::new("."));
         let name = path
             .file_name()

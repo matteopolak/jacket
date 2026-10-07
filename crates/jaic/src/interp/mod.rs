@@ -161,6 +161,8 @@ pub enum TrapKind {
     StackOverflow,
     /// A failed `assert` without a message of its own.
     BareAssertion,
+    /// A foreign procedure neither the host nor a loaded library provides.
+    Unavailable,
 }
 
 /// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).
@@ -781,9 +783,11 @@ impl Interp {
         }
         let addr = self.foreign_addr(program, id)?;
         if addr & TAG_MASK == FOREIGN_TAG {
-            return self.trap(format!(
-                "foreign procedure `{symbol}` is not available here"
-            ));
+            let mut trap = self
+                .trap::<()>(format!("foreign procedure `{symbol}` is not available here"))
+                .unwrap_err();
+            trap.kind = Some(TrapKind::Unavailable);
+            return Err(trap);
         }
         #[cfg(target_os = "macos")]
         native::main_thread::note_symbol(&symbol);

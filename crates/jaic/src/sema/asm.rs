@@ -703,10 +703,15 @@ impl Compiler {
         // `x === a` pins an existing variable.
         match self.lookup_full(cx.scope, decl.name.name)? {
             Found::Entities(ids) if !ids.is_empty() => Ok(()),
-            _ => err(
-                decl.name.span,
-                format!("unknown identifier `{}`", decl.name.name),
-            ),
+            _ => Err(Box::new(
+                Diagnostic::error(
+                    decl.name.span,
+                    format!("unknown identifier `{}`", decl.name.name),
+                )
+                .with_kind(DiagnosticKind::UnknownIdentifier {
+                    scope: Some(cx.scope.0),
+                }),
+            )),
         }
     }
 

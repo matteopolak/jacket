@@ -632,7 +632,7 @@ impl Compiler {
         proc: Option<ProcId>,
         index: usize,
     ) -> Box<Diagnostic> {
-        if !e.message.starts_with("type mismatch: expected") {
+        if e.kind != DiagnosticKind::TypeMismatch {
             return e;
         }
         let Some(p) = proc else {
@@ -656,7 +656,7 @@ impl Compiler {
         decl: &ast::Decl,
         single: bool,
     ) -> Box<Diagnostic> {
-        if !single || !e.message.starts_with("type mismatch: expected") {
+        if !single || e.kind != DiagnosticKind::TypeMismatch {
             return e;
         }
         if let (Some(value), Some(ty)) = (&decl.value, &decl.ty) {

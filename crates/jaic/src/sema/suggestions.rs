@@ -3,7 +3,9 @@
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
 use super::scope::{ScopeId, UsingEntry};
 use super::{Compiler, Sym};
-use crate::source::{Diagnostic, Span};
+use crate::ast::{Expr, ExprKind, StmtKind};
+use crate::lexer::{P, Tok};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 use std::path::{Path, PathBuf};
 
 /// Modules searched first for an unknown name, most used first.
@@ -59,21 +61,56 @@ fn declares_name(code: &str, name: &str) -> bool {
         .is_some_and(|rest| rest.trim_start().starts_with(':'))
 }
 
-impl Compiler {
-    /// Remember where the last unknown identifier was looked up, for `render`.
-    pub(crate) fn note_unknown_name(&mut self, span: Span, scope: ScopeId) {
-        self.last_unknown_name = Some((span, scope));
-    }
+/// Whether `code`, parsed as top-level Jai, declares `name`.
+fn code_declares(code: &[u8], name: &str) -> bool {
+    let Ok(code) = std::str::from_utf8(code) else {
+        return false;
+    };
+    let Ok(file) = crate::parser::parse_file(FileId(u32::MAX), code) else {
+        return false;
+    };
+    file.stmts.iter().any(|stmt| match &stmt.kind {
+        StmtKind::Decl(decl) => decl.names.iter().any(|n| n.name.as_str() == name),
+        _ => false,
+    })
+}
 
-    /// `d` with a `help: a similar name exists` line when it reports the last unknown
-    /// identifier and a visible name is close to it.
+/// Whether the metaprogram `text` calls `add_build_string` with a string literal whose code
+/// declares `name`.
+fn adds_declaration(text: &str, name: &str) -> bool {
+    let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
+        return false;
+    };
+    tokens.windows(3).any(|w| {
+        matches!(&w[0].tok, Tok::Ident(f) if f.as_str() == "add_build_string")
+            && w[1].tok == Tok::Punct(P::LParen)
+            && matches!(&w[2].tok, Tok::Str(code) if code_declares(code, name))
+    })
+}
+
+/// Whether `cond` compares the compile target: it names `OS` or `CPU`.
+fn mentions_target(cond: &Expr) -> bool {
+    match &cond.kind {
+        ExprKind::Ident(name) => matches!(name.as_str(), "OS" | "CPU"),
+        ExprKind::Binary(_, a, b) => mentions_target(a) || mentions_target(b),
+        ExprKind::Unary(_, a) => mentions_target(a),
+        _ => false,
+    }
+}
+
+impl Compiler {
+    /// `d` with a `help: a similar name exists` line when it reports an unknown identifier
+    /// and a visible name is close to it.
     pub(crate) fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
-        let (span, scope) = self.last_unknown_name?;
-        if d.span != span || !d.message.starts_with("unknown identifier") {
+        let DiagnosticKind::UnknownIdentifier { scope: Some(scope) } = d.kind else {
+            return None;
+        };
+        let span = d.span;
+        let wanted = self.sources.snippet_or_empty(span);
+        if wanted.is_empty() {
             return None;
         }
-        let wanted = self.sources.snippet(span);
-        let names = self.names_visible_from(scope);
+        let names = self.names_visible_from(ScopeId(scope));
         let mut d = d.clone().with_label("not found in this scope");
         // An exact declaration elsewhere is a better lead than a similar name in scope.
         if let Some(builder) = self.metaprogram_defining(wanted, span) {
@@ -100,15 +137,6 @@ impl Compiler {
         }
         let file = PathBuf::from(&self.sources.get(span.file).path);
         let dir = file.parent()?;
-        let declares = |text: &str| {
-            text.contains("add_build_string")
-                && text.lines().any(|l| {
-                    l.contains("add_build_string")
-                        && l.split('"')
-                            .nth(1)
-                            .is_some_and(|code| declares_name(code, name))
-                })
-        };
         for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
             let mut entries = self.fs.list_dir(candidate_dir);
             entries.sort();
@@ -120,7 +148,7 @@ impl Compiler {
                 let Some(bytes) = self.fs.read(&path) else {
                     continue;
                 };
-                if declares(&String::from_utf8_lossy(&bytes)) {
+                if adds_declaration(&String::from_utf8_lossy(&bytes), name) {
                     return Some(crate::display_path(&path));
                 }
             }
@@ -235,25 +263,25 @@ impl Compiler {
     ) -> Diagnostic {
         let text = self.sources.snippet_or_empty(cond.span).trim();
         let shown = (!text.is_empty() && !text.contains('\n') && text.len() <= 80).then_some(text);
+        let literal_false = matches!(cond.kind, ExprKind::Bool(false));
         let mut d = match (message.is_empty(), shown) {
             (false, _) => Diagnostic::error(span, format!("#assert failed: {message}")),
-            (true, Some("false")) => {
+            (true, _) if literal_false => {
                 Diagnostic::error(span, "#assert failed: this `#assert(false)` was compiled")
             }
             (true, Some(text)) => {
                 Diagnostic::error(span, format!("#assert failed: `{text}` is false"))
             }
             (true, None) => Diagnostic::error(span, "#assert failed: its condition is false"),
-        };
+        }
+        .with_kind(DiagnosticKind::StaticAssert);
         if !message.is_empty()
             && let Some(text) = shown
         {
             d = d.with_label(format!("`{text}` is false"));
         }
         // A condition on the target: say which one this compile is for.
-        if let Some(text) = shown
-            && (text.contains("OS ") || text.contains("CPU "))
-        {
+        if mentions_target(cond) {
             let os = match self.options.os {
                 super::TargetOs::Windows => ".WINDOWS",
                 super::TargetOs::Linux => ".LINUX",
@@ -270,7 +298,7 @@ impl Compiler {
                 format!("this compile targets `OS == {os}` and `CPU == {cpu}`; the code is written for other targets"),
             );
         }
-        if shown == Some("false") {
+        if literal_false {
             d = d.with_note(
                 Span::NONE,
                 "`#assert(false)` marks code that does not support this configuration (OS, CPU or build options); the code around it says which",

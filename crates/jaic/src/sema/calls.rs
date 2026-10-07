@@ -450,7 +450,7 @@ impl Compiler {
             return Diagnostic::error(span, format!("in call to `{name}`"));
         };
         // A name that does not exist is the argument's own problem, not the call's.
-        if error.message.starts_with("unknown identifier") {
+        if matches!(error.kind, DiagnosticKind::UnknownIdentifier { .. }) {
             return error;
         }
         let inside = error.span.file == span.file
@@ -463,6 +463,8 @@ impl Compiler {
                 span
             },
             message: format!("in call to `{name}`: {}", error.message),
+            // The call's problem now, whatever the argument's was.
+            kind: DiagnosticKind::Other,
             ..error
         };
         let header = self.proc(proc).lit.header.span;

@@ -42,7 +42,7 @@ use crate::ast;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
-use crate::source::{Diagnostic, FileId, SourceMap, Span};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, SourceMap, Span};
 use crate::types::{TypeId, Types};
 pub use code_export::ModifiedStmt;
 pub use driver::ProgramSource;
@@ -256,8 +256,6 @@ fn too_many_instances(name: Sym) -> String {
 
 pub struct Compiler {
     pub options: Options,
-    /// Where the last unknown identifier was looked up, for `render`'s suggestion.
-    last_unknown_name: Option<(Span, ScopeId)>,
     pub fs: Rc<dyn FileSystem>,
     pub sources: SourceMap,
     pub types: Types,
@@ -446,7 +444,6 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let mut c = Compiler {
             options,
-            last_unknown_name: None,
             fs,
             sources: SourceMap::default(),
             types: Types::new(),
