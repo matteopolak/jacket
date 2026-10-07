@@ -179,8 +179,9 @@ pub struct Diagnostic {
     pub span: Span,
     pub message: String,
     pub kind: DiagnosticKind,
-    /// Text under the primary span's carets (outside the plain layout).
-    pub label: Option<String>,
+    /// Text under the primary span's carets (outside the plain layout). Boxed, as `fix` is,
+    /// to keep `Result<_, Diagnostic>` small.
+    pub label: Option<Box<str>>,
     /// Related locations; a note whose span has no file (`Span::NONE`) prints as text only.
     /// Outside the plain layout, a located note is a label in the snippet.
     pub notes: Vec<(Span, String)>,
@@ -219,7 +220,7 @@ impl Diagnostic {
     }
 
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
-        self.label = Some(label.into());
+        self.label = Some(label.into().into_boxed_str());
         self
     }
 
@@ -273,7 +274,7 @@ impl Diagnostic {
             },
             self.message.clone(),
         );
-        report.primary = label(self.span, self.label.clone());
+        report.primary = label(self.span, self.label.as_deref().map(String::from));
         for (span, note) in &self.notes {
             match label(*span, Some(note.clone())) {
                 Some(l) => report.secondary.push(l),
