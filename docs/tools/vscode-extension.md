@@ -131,7 +131,7 @@ Publishing needs accounts only the repository owner can create. Until the secret
 3. **Open VSX.** Sign in at <https://open-vsx.org> with GitHub, sign the Eclipse Foundation publisher agreement from your profile, and create an access token (*Settings → Access Tokens*). The release workflow creates the `matteopolak` namespace if it does not exist yet.
 4. **Repository secrets.** *Settings → Secrets and variables → Actions*: `VSCE_PAT` (step 2) and `OVSX_PAT` (step 3).
 
-The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
+The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace requires a display name no other extension uses, which is why it is *Jai Toolchain*: another publisher's extension already has *Jai*, and 0.4.0's Marketplace publish failed on it. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
 
 ```sh
 cd editors/vscode && pnpm install --frozen-lockfile

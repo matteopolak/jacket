@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The VS Code extension's display name is now *Jai Toolchain* (its ID stays `matteopolak.jai`): the VS Code Marketplace needs a display name no other extension uses, and *Jai* is taken, so 0.4.0 reached only Open VSX and the GitHub release.
+
 ## [0.4.0] - 2026-10-07
 
 ### Added
