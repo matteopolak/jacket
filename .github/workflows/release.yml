@@ -119,7 +119,8 @@ jobs:
           echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
       - name: Install static zlib and zstd (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libzstd-dev libxml2-dev
+        # X11 and GL: Window_Creation, which the smoke test's WebGPU triangle links.
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev
       # Instrumented build, training run over this repository's tests and examples, then the
       # profile-guided build into target/pgo/dist. On Linux the result is also rewritten by the
       # llvm-bolt that ships in the official LLVM release (macOS and Windows: PGO only).
@@ -146,6 +147,10 @@ jobs:
           # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
+          # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/webgpu.json),
+          # where jaic looks for native libraries: <stdlib>/../artifacts/native-libs/<platform>.
+          # The static library is what `jaic build` links, the shared one what `jaic run` loads.
+          python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
           # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
           "$dir/jaic$exe" build jaifmt/main.jai -O2 --no-debug-info -o "$dir/jaifmt"
@@ -187,6 +192,19 @@ jobs:
             set -e
             test "$status" = 42
           fi
+          # WebGPU programs need nothing beyond the archive: the triangle example links the
+          # packaged static wgpu-native, and `jaic run` loads the packaged shared one (exit 77:
+          # the runner has no GPU adapter, which still proves the library loaded).
+          cp "$GITHUB_WORKSPACE/examples/webgpu/triangle.jai" "$GITHUB_WORKSPACE/tests/webgpu/headless.jai" .
+          if [ -n "${{ matrix.llvm }}" ]; then
+            "$jaic" build triangle.jai -o triangle
+            ls -l triangle$exe
+          fi
+          set +e
+          "$jaic" run headless.jai
+          status=$?
+          set -e
+          test "$status" = 0 || test "$status" = 77
           # (`! cmd` would not stop the script: `set -e` ignores a negated command.)
           if [ "$RUNNER_OS" = "macOS" ]; then
             otool -L "$jaic"

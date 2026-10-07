@@ -90,3 +90,12 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 `cc` and `ar` on macOS and Linux; `clang`, `llvm-lib` and `llvm-nm` (the official LLVM release) and the
 MSVC libraries on Windows; network access to `raw.githubusercontent.com` and `github.com` on first
 build. Release archives do not include these libraries on any platform.
+
+## wgpu-native (WebGPU)
+
+wgpu-native is not built here: `tools/fetch_wgpu_native.py [--platform P] [--out DIR] [--force]` downloads the
+release zip pinned in `tools/webgpu.json` (sha256 per platform), checks that its bundled `webgpu.yml` is the
+revision the bindings were generated from, and puts the static and shared library (`libwgpu_native.a` +
+`.dylib`/`.so`, or `wgpu_native.lib` + `.dll`) into the same `artifacts/native-libs/<os>-<arch>/`. Unlike the
+libraries above, release archives do ship it, in `artifacts/native-libs/<platform>/` beside `stdlib/`, which is
+the default search directory. See [WebGPU](../specs/stdlib/README.md).
