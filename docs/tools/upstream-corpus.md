@@ -134,10 +134,10 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | [KodaJai](https://github.com/kujukuju/KodaJai) | partial | Needs the author's unpinned modules |
 | [no_api](https://github.com/UnNabbo/no_api) | partial | `module.jai` checks for Windows; the entry point loads a file missing upstream |
 | [reflector](https://github.com/n00bmind/reflector) | works | Its unotest suite builds natively and passes (`reflector-tests`) |
-| [jai-format](https://github.com/OrangeLightning219/jai-format) | partial | Builds a `File` from the C `stdin` (`*FILE`); jaic's `File.handle` is an `s64` descriptor |
+| [jai-format](https://github.com/OrangeLightning219/jai-format) | works | Its tests pass and the formatter builds (`jai-format-tests`, `jai-format-build`) |
 | [toml-jai](https://github.com/sjorsdonkers/toml-jai) | works | 5 examples run and pass; `file_examples` checks (see above) |
 | [jai-xml](https://github.com/smari/jai-xml) | works | `test.jai` passes its 6 cases and `continue_iter` runs; the other examples check (their `traverse.xml` is not in the repository) |
-| [jai-protobuf](https://github.com/segcore/jai-protobuf) | partial | Pinned with its `.proto` inputs; its tests write generated code into the tree and do not pass yet |
+| [jai-protobuf](https://github.com/segcore/jai-protobuf) | works | Tests and the four examples pass on a scratch copy; `protoc-jai` checks |
 
 ### Notes per project
 
@@ -206,6 +206,10 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 **KodaJai.** Imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer, BlockAllocatorJai, JaiMath, lz4_static and JaiParallel, none pinned.
 
 **no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`. Its code uses dotless struct literals (`f({1})`) and `A : :5` enum members, which jaic now accepts; "struct `Rendering_Context` contains itself" was a jaic bug: its file-scope `using gpu_context;` (a `*Rendering_Context`) made every name in the struct's field types ask whether `Rendering_Context` has such a member, which laid the struct out again (rule `using.17`). Checked with `-os linux`, `module.jai` now stops at `VkDeviceMemory` in `modules/vulkan_memory_allocator/linux.jai`, which imports a `jai-vulkan` module the repository doesn't contain; with `-os windows` it checks (`no-api-module-windows-check`). It used to stop at `vkGetPhysicalDeviceFeatures2(physical_device, ...)`, which passes a `*Physical_Device` where its `#as` member `VkPhysicalDevice` (a pointer type) is expected; jaic only dereferenced a pointer for an `#as` member of non-pointer type. Now a pointer to a struct passes as its `#as` member's value whatever that type is (rule `using.18`). Its bindings generators use the older `Bindings_Generator` API (`*Enum.Enumerate`; a library renamed through `Library_Info.name`) and `Hash_Table`'s old `table_find_new`, and do not type-check.
+
+**jai-protobuf.** The cases run on a scratch copy, since the tests and examples write generated code next to their `.proto` files: `jai-protobuf-tests` (`All tests passed!`), the four examples (`jai-protobuf-01-compiletime`, `-02a-pregenerate`, `-02b-use-generated`, `-03-imports`, `-04-memory-allocation`) and `jai-protobuf-protoc-check`. Two jaic gaps stopped them: `build.jai` starts with `#!/usr/bin/env jai`, which the lexer now skips at the start of a file, and the library builds a `File` from the C `stdin`. The well-known-types example is not a case: it reads `google/protobuf/*.proto` from `/usr/include`.
+
+**jai-format.** `jai-format-tests` (`first.jai - test`) and `jai-format-build` link jai_parser. It builds `File.{ stdin }` from the C `stdin`, so on macOS and Linux jaic's `File.handle` is now a `*FILE`, as that code expects (it was an `s64` descriptor); Windows keeps its `HANDLE`.
 
 Excluded: jaithon, which is its own language in `.jai` files.
 

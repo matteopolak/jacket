@@ -388,5 +388,14 @@
   {"id": "toml-jai-file-examples-check", "path": "sjorsdonkers--toml-jai/examples/file_examples.jai", "mode": "check"},
   {"id": "no-api-module-windows-check", "path": "UnNabbo--no_api/module.jai", "mode": "check", "args": ["-os", "windows"]},
   {"id": "toml-jai-first", "path": "sjorsdonkers--toml-jai/examples/first.jai", "mode": "run"},
-  {"id": "toml-jai-custom-handlers", "path": "sjorsdonkers--toml-jai/examples/custom_handlers.jai", "mode": "run"}
+  {"id": "toml-jai-custom-handlers", "path": "sjorsdonkers--toml-jai/examples/custom_handlers.jai", "mode": "run"},
+  {"id": "jai-protobuf-tests", "path": "segcore--jai-protobuf/tests/test.jai", "mode": "run", "copy": ["segcore--jai-protobuf"], "expect": {"stdout_contains": ["All tests passed!"], "source": "segcore/jai-protobuf tests/test.jai main: prints All tests passed! unless a test failed, then exits 1"}},
+  {"id": "jai-protobuf-01-compiletime", "path": "segcore--jai-protobuf/examples/01-compiletime.jai", "mode": "run", "copy": ["segcore--jai-protobuf"]},
+  {"id": "jai-protobuf-02a-pregenerate", "path": "segcore--jai-protobuf/examples/02a-pregenerate.jai", "mode": "run", "copy": ["segcore--jai-protobuf"]},
+  {"id": "jai-protobuf-02b-use-generated", "path": "segcore--jai-protobuf/examples/02b-use_generated.jai", "mode": "run", "copy": ["segcore--jai-protobuf"]},
+  {"id": "jai-protobuf-03-imports", "path": "segcore--jai-protobuf/examples/03-imports.jai", "mode": "run", "copy": ["segcore--jai-protobuf"]},
+  {"id": "jai-protobuf-04-memory-allocation", "path": "segcore--jai-protobuf/examples/04-memory-allocation.jai", "mode": "run", "copy": ["segcore--jai-protobuf"]},
+  {"id": "jai-protobuf-protoc-check", "path": "segcore--jai-protobuf/tools/protoc-jai.jai", "mode": "check"},
+  {"id": "jai-format-tests", "path": "OrangeLightning219--jai-format/first.jai", "mode": "run", "args": ["-", "test"], "copy": ["OrangeLightning219--jai-format"], "link": ["OrangeLightning219--jai_parser"]},
+  {"id": "jai-format-build", "path": "OrangeLightning219--jai-format/first.jai", "mode": "build", "copy": ["OrangeLightning219--jai-format"], "link": ["OrangeLightning219--jai_parser"]}
 ]
