@@ -6,7 +6,8 @@
 Items are the declarations at the top of a file and inside `impl`, `trait`, `mod` and `extern`
 blocks. A multi-line item gets a blank line before and after it; runs of one-line items (`use`,
 `mod a;`, constants, type aliases) may stay together. Comments and attributes in front of an item
-belong to it, so the blank line goes above them. Imports (`use`, `mod a;`) form one block, set
+belong to it, so the blank line goes above them;
+a blank line between a comment and the next item (a section banner) detaches the comment. Imports (`use`, `mod a;`) form one block, set
 apart from the items after it. Function bodies, struct fields and enum variants
 are left alone.
 
@@ -183,6 +184,12 @@ def space_items(text: str) -> str:
     open_items = {}
     spans = []
     for k, ln in enumerate(lines):
+        if ln.blank and not raw[k].strip():
+            # A blank line detaches comments above it (a section banner) from the next item.
+            start = open_items.get(ln.depth_start)
+            if start is not None and not any(lines[j].code.strip() for j in range(start, k)):
+                del open_items[ln.depth_start]
+            continue
         if ln.blank or raw[k].lstrip().startswith(("//!", "#![")):
             continue  # inner docs and attributes belong to the enclosing module
         depth = ln.depth_start

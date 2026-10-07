@@ -614,7 +614,6 @@ fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static 
 // ---------------------------------------------------------------------------
 
 const BIN: &str = "dst: vec, src: vec/mem";
-
 const BIN3: &str = "dst: vec, a: vec, b: vec/mem";
 const BIN_IMM: &str = "dst: vec, src: vec/mem, imm";
 const BIN3_IMM: &str = "dst: vec, a: vec, b: vec/mem, imm";
