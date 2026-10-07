@@ -191,6 +191,49 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     Ok(lx.out)
 }
 
+/// `span` widened to balance its parentheses: the parser leaves grouping parentheses out of
+/// an expression's span, so `(a + b) * c` spans `a + b) * c` and `a && (b` ends early.
+/// `tokens` are the file's, from `lex`.
+pub fn balanced(tokens: &[Token], span: Span) -> Span {
+    let first = tokens.partition_point(|t| t.span.start < span.start);
+    let last = tokens.partition_point(|t| t.span.end <= span.end);
+    let (mut depth, mut lowest) = (0i32, 0i32);
+    for t in &tokens[first..last.max(first)] {
+        match t.tok {
+            Tok::Punct(P::LParen) => depth += 1,
+            Tok::Punct(P::RParen) => {
+                depth -= 1;
+                lowest = lowest.min(depth);
+            }
+            _ => {}
+        }
+    }
+    let mut out = span;
+    // Openers before the span for the closers it has too many of.
+    let mut need = -lowest;
+    for t in tokens[..first].iter().rev() {
+        if need == 0 {
+            break;
+        }
+        if matches!(t.tok, Tok::Punct(P::LParen)) {
+            need -= 1;
+            out.start = t.span.start;
+        }
+    }
+    // Closers after it for the openers it leaves open.
+    let mut open = depth - lowest;
+    for t in &tokens[last.min(tokens.len())..] {
+        if open == 0 {
+            break;
+        }
+        if matches!(t.tok, Tok::Punct(P::RParen)) {
+            open -= 1;
+            out.end = t.span.end;
+        }
+    }
+    out
+}
+
 struct Lexer<'a> {
     file: FileId,
     text: &'a str,

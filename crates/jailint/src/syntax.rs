@@ -76,43 +76,12 @@ impl<'a> Cx<'a> {
             .unwrap_or("")
     }
 
-    /// Byte range of `span` widened to balance its parentheses. The parser leaves grouping
-    /// parentheses out of spans, so `(a + b) * c` spans `a + b) * c`.
+    /// Byte range of `span` widened to balance its parentheses (`jaic::lexer::balanced`) and to
+    /// take in parentheses written around the whole expression.
     pub fn whole(&self, span: Span) -> (usize, usize) {
-        let first = self.tokens.partition_point(|t| t.span.start < span.start);
-        let last = self.tokens.partition_point(|t| t.span.end <= span.end);
-        let (mut depth, mut lowest) = (0i32, 0i32);
-        for t in &self.tokens[first..last] {
-            match t.tok {
-                Tok::Punct(P::LParen) => depth += 1,
-                Tok::Punct(P::RParen) => {
-                    depth -= 1;
-                    lowest = lowest.min(depth);
-                }
-                _ => {}
-            }
-        }
-        let mut start = span.start as usize;
-        let mut end = span.end as usize;
-        // Openers before the span for the closers it has too many of.
-        let mut need = -lowest;
-        let mut i = first;
-        while need > 0 && i > 0 {
-            i -= 1;
-            if matches!(self.tokens[i].tok, Tok::Punct(P::LParen)) {
-                need -= 1;
-                start = self.tokens[i].span.start as usize;
-            }
-        }
-        let mut open = depth - lowest;
-        let mut j = last;
-        while open > 0 && j < self.tokens.len() {
-            if matches!(self.tokens[j].tok, Tok::Punct(P::RParen)) {
-                open -= 1;
-                end = self.tokens[j].span.end as usize;
-            }
-            j += 1;
-        }
+        let balanced = jaic::lexer::balanced(self.tokens, span);
+        let mut start = balanced.start as usize;
+        let mut end = balanced.end as usize;
         // Parentheses written around the whole expression.
         let mut a = self
             .tokens
