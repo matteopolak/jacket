@@ -1,6 +1,7 @@
 // Sound_Player through its offline output (no audio device, the mix is pulled with render_offline):
 // loading a WAV file, master volume, the entity-update protocol that stops unmarked streams, the
-// listener orientation, loudness queries and the small helpers. Mixed samples are checked exactly
+// listener orientation, loudness queries, the small helpers, and streams that outlive frames of a
+// program running on temporary storage it resets every frame. Mixed samples are checked exactly
 // enough to catch wrong gains. Sound_Player needs stb_vorbis, which has no wasm build, so the wasm
 // targets skip it (see the skip list).
 #import "Basic";
@@ -53,6 +54,38 @@ render :: (frames: int) -> [] s16 {
     got := render_offline(out);
     assert(got == frames, "render_offline mixed % frames, wanted %", got, frames);
     return out;
+}
+
+// A game that runs on temporary storage and resets it every frame: each frame starts a stream and
+// stops the one from three frames back, so streams live across resets and are freed on a later frame.
+temporary_storage_frames :: (data: *Sound_Data) {
+    push_allocator(temp);
+    FIRST_ID :: 100;
+    started: [60] *Sound_Stream;
+    for frame: 0..59 {
+        stream := make_stream(data);
+        assert(stream != null);
+        stream.entity_id = FIRST_ID + frame;
+        set_repeating(stream, true);
+        start_playing(stream);
+        started[frame] = stream;
+        if frame >= 3 {
+            stop_stream_abruptly(FIRST_ID + frame - 3);
+            assert(was_released(started[frame - 3]), "frame %: the stopped stream was not released", frame);
+        }
+        render(64);
+        update();
+        reset_temporary_storage();
+        junk := NewArray(64 * 1024, u8, false);
+        memset(junk.data, 0xa5, junk.count);
+        for back: 0..min(frame, 2) {
+            live := find(FIRST_ID + frame - back, 0);
+            assert(live != null && live.sound_data == data && live.entity_id == FIRST_ID + frame - back, "frame %: stream % lost after the reset", frame, frame - back);
+        }
+        reset_temporary_storage();
+    }
+    for 57..59 stop_stream_abruptly(FIRST_ID + it);
+    render(64);
 }
 
 near :: (sample: s16, expected: float, slack := 3.0) -> bool {
@@ -169,6 +202,8 @@ main :: () {
     stop_all_sounds_abruptly(9);
     assert(was_released(side));
     update_listener(.{}, Quaternion_Identity);
+
+    temporary_storage_frames(*data);
 
     sound_player_shutdown();
     assert(render_offline(nothing) == 0, "rendered after shutdown");
