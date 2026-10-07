@@ -39,14 +39,14 @@ wasm-ld -mwasm64 <objects> -o out.wasm [--no-entry] --stack-first -z stack-size=
 
 - A `#foreign` procedure or `#elsewhere` global becomes a wasm import. The import module is the library's name (`#system_library "host_graphics"` imports from `host_graphics`); no library, or `libc`/`c`/`crt`/`msvcrt`/`m`/`libm`, imports from `env`. The import name is the foreign symbol.
 - If the program itself `#program_export`s a procedure with the foreign symbol's name, the reference binds to that definition instead of importing. This is how Wasi_Runtime supplies `malloc` or `write` to the rest of the stdlib.
-- `#program_export` procedures get a `wasm-export-name` and are exported, along with `memory`.
+- `#program_export` procedures get a `wasm-export-name` and are exported, along with `memory`. Wasi_Runtime's are the exception (`is_wasi_library`): only its `_start` is exported, so `wasm-ld` drops the runtime functions a program never calls, along with the WASI imports only they use. A hello world imports four WASI calls.
 - `#intrinsic "llvm.<name>"` on a bodiless procedure calls the LLVM intrinsic of that name (for example `llvm.wasm.memory.grow.i64`, `llvm.ctpop.i64`, `llvm.trap`); this works on every LLVM target ([intrinsics](../language/intrinsics.md)).
 - Every function has `no-builtins`: otherwise LLVM turns the runtime's own loops into calls to `strlen`/`memset`, which recurse into themselves.
 - A weak `__multi3` (128-bit multiply) is emitted, because LLVM uses it for 64-bit division by constants and no compiler-rt is linked. Return addresses are null, the cycle counter reads 0 and `pause` is a no-op.
 
 **ABI** (`crates/jaic/src/abi.rs`, `Arch::Wasm64`): a struct whose single scalar field is an `s64`, pointer, `float64` or `float32` is passed directly; every other aggregate goes by pointer (byval arguments, sret results). Clang passes single small-integer structs as `i32`, so a C library compiled with Clang and taking such a struct by value would disagree.
 
-**Wasi_Runtime** (`stdlib/Wasi_Runtime/module.jai`), written in Jai, implements what the stdlib's `OS == .WASM` code calls, on top of WASI preview 1:
+**Wasi_Runtime** (`stdlib/Wasi_Runtime/`), written in Jai, implements what the stdlib's `OS == .WASM` code calls, on top of WASI preview 1:
 
 | Export | From |
 | --- | --- |
@@ -57,14 +57,22 @@ wasm-ld -mwasm64 <objects> -o out.wasm [--no-entry] --stack-first -z stack-size=
 | `exit`, `_exit`, `abort` | `proc_exit`, `llvm.trap` |
 | `malloc`, `calloc`, `realloc`, `free` | a power-of-two size-class heap above `__heap_base`, growing memory with `memory.grow` |
 | `memmove`, `memcpy`, `memset`, `memcmp`, `strlen` | plain loops (LLVM lowers the copies to `memory.copy`) |
+| `open`, `close`, `lseek`, `stat`/`fstat`/`lstat`, `access`, `mkdir`, `rmdir`, `unlink`, `remove`, `rename`, `link`, `realpath`, `getcwd`, `chdir`, `opendir`/`readdir`/`closedir`, `fopen` and the `f*` stream calls, `chmod`, `sysconf`, `strerror` | `files.jai`: `path_open`, `fd_readdir`, `path_filestat_get` and the other descriptor and path calls, below |
+| `fork`, `execvp`, `pipe`, `dup2`, `socketpair` (`ENOSYS`), `waitpid` (`ECHILD`), `kill` (`ESRCH`), `fcntl`, `poll` (no descriptors: a sleep), `usleep` | `module.jai`: a sandbox with no processes, so Process and friends fail cleanly |
+| libm: `round`, `fma`, `floor`, `ceil`, `trunc`, `sqrt`, `fabs`, `copysign`, `fmin`, `fmax`, `fmod` (exact); `sin`, `cos`, `tan`, `exp`, `exp2`, `log`, `log2`, `log10`, `pow`, `atan`, `atan2`, `asin`, `acos` (within an ulp); each with its `f` form | `math.jai`, `elementary.jai` |
+| `__addtf3`, `__subtf3`, `__multf3`, `__divtf3`, `__negtf2`, the `__*tf2` comparisons, `__extend{s,d}ftf2`, `__trunctf{s,d}f2`, `__fix*tf*i`, `__float*itf` | `quad.jai`: compiler-rt's binary128 helpers, for Long_Double, correctly rounded |
 
 WASI preview 1 is defined for 32-bit memories, so its pointers are `u32` offsets into our 64-bit memory; that works while the stack and heap stay under 4 GiB. A WASI module's only imports are `wasi_snapshot_preview1` functions.
+
+**Files.** WASI has no global file system: the host pre-opens directories (descriptors 3 and up, each with a name and the rights files opened under it may have), and every path call names one of them plus a relative path. `files.jai` lists the pre-opens once, makes each C path absolute against its working directory, removes `.` and `..` lexically, and hands it to the pre-open whose name is its longest prefix; a path no pre-open covers fails with `ENOENT`. The working directory starts as `$PWD` when a pre-open covers it, else `/`, and `chdir` only changes that string. `realpath` resolves symlinks one component at a time with `path_readlink`. Results use the Linux x86-64 `struct stat`/`struct dirent` layouts and errno numbers the stdlib's `OS == .WASM` code already shares with the sandbox host. WASI has no modes or owners: `stat` reports 0644 files and 0755 directories, and `chmod` only checks the path exists. `FILE *` streams are unbuffered descriptors.
+
+**Math.** `round` and `fma` are what LLVM calls for `roundsd`/`vfmadd` emulation and the `#intrinsic` procedures of those names; the rest are for programs that declare them `#foreign` from libm. `fma`, `fmod` and the binary128 helpers round once from a wide exact accumulator. The transcendental functions work in float64 pairs (about 106 bits) and round once; `sin`, `cos` and `tan` reduce with 2/pi to 1344 bits, so huge arguments are right too. The float32 forms compute in float64.
 
 jaic adds `#import "Wasi_Runtime"` to the first workspace when the target triple has a component starting with `wasi` (`jaic::build::wants_wasi_runtime`). With a bare `wasm64-unknown-unknown` nothing is added, as in Jai: Runtime_Support's own needs (`malloc`, `free`, `memmove`, `memcmp`, `wasm_write_string`, `wasm_debug_break`) are `env` imports the host provides, and `tests/native/wasm/exports.mjs` shows a host that does.
 
 **Why the sandbox's `OS == .WASM` code is unaffected.** The stdlib's `OS == .WASM` branches call ordinary C names (`malloc`, `write`, `clock_gettime`, `getenv`, ...). Under the interpreter, in the browser engine and in the compile-time code of a wasm build (`make_host` gives `.WASM` workspaces the `SandboxHost`), the sandbox host answers those `#foreign` calls. In a native wasm build the same calls bind to Wasi_Runtime's exports. No stdlib code distinguishes the two, so `tools/check_playground_stdlib.mjs` sees no change.
 
-**Running.** `tools/wasi_run.mjs` runs a command with node's WASI, this process's stdio and environment, and exits with the module's status (134 and `wasm trap: ...` on a trap, 127 and `wasm link error: missing imports a.b, c.d` naming every import the module lacks, checked before it starts).
+**Running.** `tools/wasi_run.mjs` runs a command with node's WASI, this process's stdio and environment (plus `PWD` set to its working directory), with the host's `/` pre-opened as `/`, and exits with the module's status (134 and `wasm trap: ...` on a trap, 127 and `wasm link error: missing imports a.b, c.d` naming every import the module lacks, checked before it starts).
 
 ## How to change it
 
@@ -73,7 +81,8 @@ jaic adds `#import "Wasi_Runtime"` to the first workspace when the target triple
 - **Linker flags**: `link_wasm` in `crates/jaic-llvm/src/wasm.rs`; per-program flags go in `additional_linker_arguments`.
 - **ABI changes**: `classify_arg`/`wasm_single_scalar` in `crates/jaic/src/abi.rs` and the test next to them.
 - **wasm-ld discovery**: `find_llvm_tool` in `wasm.rs`. When LLVM's major version changes, update the versioned names there with the rest ([LLVM setup](../tools/llvm-setup.md)).
-- Gotchas: anything that makes LLVM emit a libcall breaks the link (`sin`, `pow`, `fmod`/float `%` need libm; `Long_Double` needs compiler-rt's `__addtf3` and friends). Threads, files beyond stdin/stdout/stderr, and processes are not available. Every `#program_export` stays alive in the module.
+- **A libm or compiler-rt function** LLVM starts calling: a `#program_export` under its name in `math.jai`/`elementary.jai`/`quad.jai`. `fp128` arguments arrive as two `u64`s (low first) and results go through a pointer passed first. Check accuracy against the host's libm with a probe that reads bit patterns from stdin.
+- Gotchas: a libcall Wasi_Runtime does not define (`sinh`, `cbrt`, `__powitf2`...) becomes an `env` import and the module fails to instantiate. Threads, sockets and processes are not available: WASI preview 1 has none. Under a runtime that pre-opens nothing (wasmtime without `--dir`), every path call fails with `ENOENT`. Wasi_Runtime's `#program_export`s are not wasm exports (`is_wasi_library` in `lower.rs` checks the source directory's name), so a host cannot call `malloc` on a WASI command.
 - **Tests**: `crates/jaic-cli/tests/wasm_target/` (part of the `native` test binary) builds hello, `tests/native/wasm/program.jai` at `-O0` and `-O2`, the metaprogram build, the bare exports module, jaifmt.wasm and every corpus case, and runs them under node. `python3 tools/jaic-diff.py --backends interp,wasm-native corpus gen:1:200` compares the interpreter with WASI builds ([differential testing](../tools/differential-testing.md)).
 
 ## Configuration
@@ -101,4 +110,4 @@ Runtimes need Memory64:
 
 ## Dependencies
 
-LLVM 23 with the WebAssembly target (Homebrew and apt.llvm.org builds include it), LLD's `wasm-ld`, and node 24 to run the tests and `tools/wasi_run.mjs`. Internal: `crates/jaic-llvm` (`lower.rs`, `wasm.rs`, `lib.rs`), `crates/jaic/src/abi.rs`, `crates/jaic/src/build.rs` (options, `wants_wasi_runtime`), `crates/jaic-cli/src/main.rs` (CLI target, linking), `stdlib/Wasi_Runtime`, and the `Runtime_Support` entry points it calls.
+LLVM 23 with the WebAssembly target (Homebrew and apt.llvm.org builds include it), LLD's `wasm-ld`, and node 24 to run the tests and `tools/wasi_run.mjs`. Internal: `crates/jaic-llvm` (`lower.rs`, `wasm.rs`, `lib.rs`), `crates/jaic/src/abi.rs`, `crates/jaic/src/build.rs` (options, `wants_wasi_runtime`), `crates/jaic-cli/src/main.rs` (CLI target, linking), `stdlib/Wasi_Runtime` (`module.jai`, `files.jai`, `math.jai`, `elementary.jai`, `quad.jai`), and the `Runtime_Support` entry points it calls.

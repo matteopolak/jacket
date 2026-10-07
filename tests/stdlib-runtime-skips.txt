@@ -21,7 +21,7 @@ bindings-generator-declaration-api * wasm-interp,wasm-native,playground Bindings
 bindings-generator-parity * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 debug-assert-handlers * wasm-interp,wasm-native,playground Debug does not build for wasm, which has no native stack to capture
 debug-backtrace-and-pointers * wasm-interp,wasm-native,playground Debug does not build for wasm, which has no native stack or memory map
-file-async * wasm-native WASI preview 1 has no threads, and Wasi_Runtime has no file system
+file-async * wasm-native WASI preview 1 has no threads
 getrect-right-handed-api * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-right-handed-surface * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-text-display-compiles * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
@@ -37,16 +37,7 @@ Simp/tests/readback-tests * wasm-interp,wasm-native stb_image has no wasm build
 Simp/tests/software-render-tests * wasm-interp,wasm-native stb_image has no wasm build
 Sound_Player/tests/offline-mix * wasm-interp,wasm-native stb_vorbis has no wasm build
 
-# WASI builds (`jaic build -os wasm`) link no libm or compiler-rt (docs/native/wasm-target.md).
-asm-evex-decorations * wasm-native needs libm's round, which WASI builds do not link
-asm-simd-extended * wasm-native needs libm's round and fma, which WASI builds do not link
-asm-vector-instructions * wasm-native needs libm's round, which WASI builds do not link
-rules-simd-asm * wasm-native needs libm's round, which WASI builds do not link
-jaic-extensions-long-double * wasm-native binary128 Long_Double needs compiler-rt, which WASI builds do not link
-rules-jaic-extensions * wasm-native binary128 Long_Double needs compiler-rt, which WASI builds do not link
-
-# WASI builds have no threads and no processes; Wasi_Runtime does not provide them.
-autorun-plugin * wasm-native starts a process, which WASI cannot
+# WASI builds have no threads (docs/native/wasm-target.md).
 threads-cooperative * wasm-native WASI preview 1 has no threads
 threads-group-and-condition * wasm-native WASI preview 1 has no threads
 threads-synchronization * wasm-native WASI preview 1 has no threads
@@ -55,26 +46,6 @@ threads-allocators * wasm-native WASI preview 1 has no threads
 threads-switch-while-locked * wasm-native WASI preview 1 has no threads
 threads-worker-requests * wasm-native WASI preview 1 has no threads
 atomics-contention * wasm-native WASI preview 1 has no threads
-
-# WASI builds have no file system: Wasi_Runtime provides stdio, the clock and the working
-# directory, not files or directories.
-baked-enum-default * wasm-native System's processor count reads /sys, and Wasi_Runtime has no file system (fopen, stat, opendir...)
-buildcpp-api * wasm-native runs a C compiler, and WASI has no processes or file system
-file-handles * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-file-io-roundtrip * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-file-utilities-paths * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-file-utilities-tree * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-file-watcher-scan * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-ico-wav-files * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-iprof-call-graph * wasm-native writes its report to a file, and Wasi_Runtime has no file system (fopen, stat, opendir...)
-macos-bundler * wasm-native runs processes and writes a bundle, and WASI has neither
-posix-stat-and-mutex * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-system-info * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-text-file-handler * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-text-file-handler-files * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-zip-file-directory * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
-Jai_Format/tests/golden * wasm-native reads its cases from files, and Wasi_Runtime has no file system (fopen, stat, opendir...)
-tests/os-file-process/file-roundtrip * wasm-native Wasi_Runtime has no file system (fopen, stat, opendir...)
 
 # Unmapping_Allocator is POSIX-only.
 unmapping-allocator windows-* * the module needs POSIX virtual memory calls
