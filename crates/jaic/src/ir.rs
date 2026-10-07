@@ -169,10 +169,6 @@ pub const TRAP_SWITCH_UNMATCHED: u64 = 5;
 /// Check failure reason: an integer division or remainder by zero.
 pub const TRAP_DIVIDE_BY_ZERO: u64 = 6;
 
-/// Check failure reason: the address of a dereferenced null pointer escaped without the load
-/// that would have stopped it, as when `p.*` is boxed into an `Any`.
-pub const TRAP_NULL_POINTER: u64 = 7;
-
 /// `b` of a `TRAP_CAST_OVERFLOW` failure: the target's size in bytes (low byte), whether the
 /// target is signed (bit 8) and whether the value is (bit 9).
 pub fn cast_check_code(target_bytes: u64, target_signed: bool, value_signed: bool) -> u64 {
@@ -221,7 +217,6 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
             format!("cast of {value} to `{}` overflows", cast_check_target(b))
         }
         TRAP_DIVIDE_BY_ZERO => "integer division by zero".into(),
-        TRAP_NULL_POINTER => "null pointer dereference: read through a null pointer".into(),
         TRAP_SWITCH_UNMATCHED => {
             format!(
                 "no case of the `#complete` switch matches its value, {}",
@@ -840,9 +835,6 @@ pub struct Builder {
     terminated: crate::fxhash::HashSet<BlockId>,
     /// The last `loc` marker, for `repeat_loc`.
     last_loc: Option<(u32, u32, u32, u32)>,
-    /// Addresses that are never null: a slot's, a global's or a procedure's, and those plus a
-    /// constant offset (`may_be_null`).
-    non_null: crate::fxhash::HashSet<Val>,
 }
 
 impl Builder {
@@ -868,7 +860,6 @@ impl Builder {
             current: BlockId(0),
             terminated: Default::default(),
             last_loc: None,
-            non_null: Default::default(),
         }
     }
 
@@ -879,13 +870,6 @@ impl Builder {
     pub fn new_val(&mut self, ty: Ty) -> Val {
         self.func.vals.push(ty);
         Val(self.func.vals.len() as u32 - 1)
-    }
-
-    /// False when `addr` is a slot's, a global's or a procedure's address, or one of those plus a
-    /// constant offset, which are never null; true for anything else, such as a pointer loaded
-    /// from memory.
-    pub fn may_be_null(&self, addr: Val) -> bool {
-        !self.non_null.contains(&addr)
     }
 
     pub fn val_ty(&self, v: Val) -> Ty {
@@ -1010,7 +994,6 @@ impl Builder {
             dst,
             slot,
         });
-        self.non_null.insert(dst);
         dst
     }
 
@@ -1034,7 +1017,6 @@ impl Builder {
             dst,
             global,
         });
-        self.non_null.insert(dst);
         dst
     }
 
@@ -1044,7 +1026,6 @@ impl Builder {
             dst,
             func,
         });
-        self.non_null.insert(dst);
         dst
     }
 
@@ -1090,11 +1071,7 @@ impl Builder {
             return base;
         }
         let off = self.iconst(Ty::I64, offset);
-        let dst = self.ptr_add(base, off);
-        if self.non_null.contains(&base) {
-            self.non_null.insert(dst);
-        }
-        dst
+        self.ptr_add(base, off)
     }
 
     pub fn copy(&mut self, dst: Val, src: Val, size: u64) {

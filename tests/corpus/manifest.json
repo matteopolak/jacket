@@ -1418,7 +1418,7 @@
     {
       "id": "null-deref-print-any",
       "source": "positive/null-deref-print-any.jai",
-      "sha256": "54f47f17db14ccde406cf9e0053f8d51fed39a8bf628132e435e5ce396628c8c",
+      "sha256": "16d7a42a1e3e0beb637a039db2bc392535baf28886488610aef0c0f5e1d11fe6",
       "suite": "core",
       "feature": "print of a dereferenced null pointer stops with a null pointer dereference",
       "kind": "program",
@@ -1431,22 +1431,23 @@
       },
       "rules": [
         "ptr.19",
-        "ptr.20"
+        "ptr.20",
+        "ptr.21"
       ]
     },
     {
       "id": "null-deref-any-member",
       "source": "positive/null-deref-any-member.jai",
-      "sha256": "5462201e7e85d8f32e882eb254fbb1850069da78b88021cd25f8b37825bf20b2",
+      "sha256": "fb2e897fd0d6b1ead691ebe10adbf02c16098d1552a365375535cd8668ef0144",
       "suite": "core",
-      "feature": "a null struct pointer's first member as a ..Any argument stops with a null pointer dereference",
+      "feature": "a null struct pointer's member boxed into a ..Any argument reads nothing",
       "kind": "program",
       "target": "host",
       "dependencies": [],
       "host_build_reviewed": true,
       "runtime": {
-        "error": "null pointer dereference: read through a null pointer",
-        "stdout": "2\n"
+        "exit_code": 0,
+        "stdout": "2\n0\ndone\n"
       },
       "rules": [
         "ptr.19"

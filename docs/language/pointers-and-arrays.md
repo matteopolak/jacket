@@ -45,7 +45,7 @@ In a built executable the failure path calls `runtime_support_check_failed` in `
 
 The interpreter stops on any load, store or copy through the first page (`null pointer dereference: read through a null pointer`). Native code has no check on plain loads: the access faults on the host, and a wasm build reads its address 0 without stopping.
 
-A place reached through a pointer and boxed into an `Any` is not read where it is boxed: the `Any`'s value pointer is the place's address. So `print("%", p.*)` with a null `p` would hand `print` a null value pointer, which it shows as `null`. Instead, boxing a place whose address may be null (anything but a variable's or a global's, `Builder::may_be_null`) compares it with null first and stops with the same error as `v := p.*;`, on every backend: the interpreter reports it as a null dereference, native and wasm builds through `runtime_support_check_failed` (`ir::TRAP_NULL_POINTER`). This covers `print`, `..Any` arguments, `a: Any = p.*` and `cast(Any)`, and members at offset 0 (`p.first`) or index 0 (`r.*[0]`) {#ptr.19}. A place at a nonzero offset from null (`p.second`) is not exactly null; the reader's load stops there instead.
+A place reached through a pointer and boxed into an `Any` is not read where it is boxed: the `Any`'s value pointer is the place's address, so `p.*` (or a member, or an element) of a null `p` gives an `Any` with a type and a null value pointer, and the program goes on. This holds for `..Any` arguments, `a: Any = p.*` and `cast(Any)` {#ptr.19}. Code relies on it: jaison's `assert(!table_find_pointer(table, name), "...", ..., (.*) table_find_pointer(table, name))` boxes the null result whenever the assertion holds, and its tests pass. Whoever reads the value finds the null: `print` (`__append_item` in `Basic/Print.jai`), given a typed `Any` of nonzero size with a null value pointer, writes `error: null pointer dereference: read through a null pointer` to standard error and stops through `debug_break`, on every backend, rather than show `null` {#ptr.21}. An `Any` with no type (a zero-initialized one) still prints `null`.
 
 Taking the address back reads nothing and is not checked: `*(p.*)` is `p`, and `*p.x` is `p` plus the member's offset, even for a null `p` (the `offsetof` idiom) {#ptr.20}. Converting `p.*` of a fixed array to a view does not check either; indexing the view does.
 
@@ -55,9 +55,9 @@ Index lowering is in `sema/expr.rs` around `BoundsCheck`. The opt-out is `FnCtx:
 
 The check lives in the IR, so the interpreter and LLVM agree. Don't add a check to only one backend.
 
-The `Any` null check is `emit_null_check` (`sema/expr.rs`), called from `box_any` (`sema/convert.rs`). Any other place whose address escapes without a load, and whose reader treats null as a value, needs the same call. Zero-sized places (`void`) are not checked.
+`box_any` (`sema/convert.rs`) must not check or read the place: a check there broke jaison. The stop for a null value lives in the reader (`Basic/Print.jai`).
 
-Tests: `tests/stdlib/reverse-for-remove.jai`, `array-bounds-check-opt-out.jai` (every `#no_abc` placement), `cpp-method-and-array-decay.jai`; for null checks, the corpus cases `null-deref-print-any` and `null-deref-any-member` (they expect a runtime error on every backend) and `failed_checks_say_what_and_where` in `crates/jaic-cli/tests/native.rs`.
+Tests: `tests/stdlib/reverse-for-remove.jai`, `array-bounds-check-opt-out.jai` (every `#no_abc` placement), `cpp-method-and-array-decay.jai`; for null `Any`s, the corpus cases `null-deref-print-any` (a runtime error on every backend) and `null-deref-any-member` (runs to the end).
 
 ## Configuration
 

@@ -17,6 +17,7 @@
 - Metaprograms: a call to a polymorphic procedure in a `TYPECHECKED` body resolves to the instance it made, whose body is reported too, and a static `#if` or `#if x == {` says which branch the compiler took (`EVALUATED_AS_TRUE`, `static_if_accepted_case`). MetaThreadSafe no longer flags the untaken branch of a baked instance.
 - A `#!` line at the start of a file (`#!/usr/bin/env jai`) is skipped by jaic and kept by jaifmt, so jai-protobuf's `build.jai` compiles.
 - On macOS and Linux `File.handle` is the C stream (`*FILE`), so `File.{ stdin }` works, as jai-format and jai-protobuf expect; it was an `s64`.
+- Passing `p.*` of a null `p` as an `Any` or `..Any` argument no longer stops the program; 0.4.1 stopped there, which broke jaison's `assert` arguments. Boxing reads nothing, so code that never reads the value runs on. `print` is what stops, with `null pointer dereference: read through a null pointer`.
 
 ## [0.4.1] - 2026-10-07
 

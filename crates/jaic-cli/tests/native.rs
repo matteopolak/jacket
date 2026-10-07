@@ -1288,13 +1288,13 @@ END
 
 /// A failed check in a built executable says what failed and where (through Runtime_Support's
 /// `runtime_support_check_failed`), with the interpreter's wording, before it stops.
-// rules: ptr.18 ptr.19 cast.33 flow.27
+// rules: ptr.18 cast.33 flow.27
 #[test]
 fn failed_checks_say_what_and_where() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-checks");
     std::fs::create_dir_all(&dir).unwrap();
     // (name, body of main, the report's line, its message)
-    let cases: [(&str, &str, u32, &str); 5] = [
+    let cases: [(&str, &str, u32, &str); 4] = [
         (
             "bounds",
             "a: [3] int;\n    i := 5 + a[0];\n    print(\"%\\n\", a[i]);",
@@ -1318,12 +1318,6 @@ fn failed_checks_say_what_and_where() {
             "z := get_command_line_arguments().count - 1;\n    print(\"%\\n\", 7 / z);",
             5,
             "integer division by zero",
-        ),
-        (
-            "null",
-            "p: *int;\n    print(\"%\\n\", p.*);",
-            5,
-            "null pointer dereference: read through a null pointer",
         ),
     ];
     for (name, body, line, message) in cases {

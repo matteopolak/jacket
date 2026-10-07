@@ -1,5 +1,7 @@
-// A member at offset 0 of a null struct pointer boxed into an `Any` (here a `..Any` argument)
-// stops with a null pointer dereference instead of handing the callee a null value pointer.
+// Boxing a place behind a null pointer into an `Any` (here a `..Any` argument) reads nothing:
+// the callee gets the type and a null value pointer, and only stops if it reads the value.
+// jaison passes `(.*) table_find_pointer(...)` to an `assert` that holds, so the pointer is null
+// whenever the arguments are boxed.
 #import "Basic";
 
 Node :: struct {
@@ -19,5 +21,6 @@ main :: () {
     print("%\n", describe(p.value, p.next));
     p = p.next;
     print("%\n", describe(p.value));
-    print("unreachable\n");
+    assert(p == null, "p was %", p.*);
+    print("done\n");
 }

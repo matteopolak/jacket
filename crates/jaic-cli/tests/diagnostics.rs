@@ -250,7 +250,8 @@ fn null_pointer_and_missing_return_and_recursion() {
             "null.jai:4:5: error: runtime error: null pointer dereference: read through a null pointer",
         ],
     );
-    // Boxing `p.*` into an `Any` reads nothing, so it is checked: the same error, not `null`.
+    // Boxing `p.*` into an `Any` reads nothing; `print` finds the null value pointer and stops
+    // with the same wording, not `null`, and the call stack leads back to the line.
     let boxed = jaic_on(
         &dir,
         "boxed.jai",
@@ -261,8 +262,9 @@ fn null_pointer_and_missing_return_and_recursion() {
     assert_in_order(
         &stderr(&boxed),
         &[
-            "boxed.jai:4:5: error: runtime error: null pointer dereference: read through a null pointer",
-            "help: check the pointer against null before using it, or make sure it is set",
+            "error: null pointer dereference: read through a null pointer",
+            "boxed.jai:4:5: error: runtime error: debug_break() was called",
+            "`main` at boxed.jai:4",
         ],
     );
     assert_eq!(String::from_utf8_lossy(&boxed.stdout), "");
