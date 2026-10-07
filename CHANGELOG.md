@@ -49,6 +49,7 @@
 
 ### Fixed
 
+- An unknown escape of a multibyte character in a string (`"\é"`, or of a byte that is not UTF-8, which reads as U+FFFD) no longer crashes the compiler while it reports the error: the error's span ended inside the character. The message names the whole character.
 - WASI modules no longer export every Wasi_Runtime function: only `_start` is exported, so `wasm-ld` drops what a program never calls and a hello world imports four WASI calls instead of every one the runtime uses.
 - Threads in the browser playground and under `jaic run -os wasm` no longer hang or end in a false deadlock when one waits for more work: the sandbox ran a started thread to completion on top of the thread that blocked, and gave up for good on one that waited while the thread below it could go on, so a worker waiting on a semaphore for its next request (`File_Async`, `Thread_Group` work added later) never served it. Every thread now keeps its own value stack and a blocked thread is suspended, its interpreted frames saved, and resumed when another thread signals it however long it waited; time passes on the virtual clock only when no thread can run, and a wait no thread can end is still reported as `deadlock: every thread is blocked`. `tests/stdlib/file-async.jai` now runs in the playground too.
 - The macOS release's `jaic` linked Homebrew's `libzstd.1.dylib`, so it did not start on a Mac without Homebrew's zstd; it now links zstd statically, and the release check that should have caught it (`! otool -L ... | grep`, which `set -e` ignores) now fails the build.

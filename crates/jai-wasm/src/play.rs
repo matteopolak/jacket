@@ -397,6 +397,20 @@ mod tests {
     }
 
     #[test]
+    fn unknown_escape_of_invalid_utf8() {
+        // Found by the `check` fuzz target: the invalid byte reads as U+FFFD (three bytes), and
+        // the error's span ended inside it, so rendering the error panicked.
+        let mut files = BTreeMap::new();
+        files.insert("main.jai".to_string(), b"x := \"\\\x8b\";\n".to_vec());
+        let r = run(&files, "main.jai");
+        assert!(
+            r.rendered.contains("unknown escape sequence"),
+            "{}",
+            r.rendered
+        );
+    }
+
+    #[test]
     fn allocations_the_host_cannot_make_fail_without_aborting() {
         // Found by fuzzing: an infallible host allocation aborted the whole compiler.
         let r = single(concat!(

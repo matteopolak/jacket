@@ -114,7 +114,7 @@ To act on a nightly failure, download the artifact, replay it with the `replay` 
 
 These explain the limits listed under Configuration; each has a regression test.
 
-- **Lexer:** a here-string flag (`#string,\`) at the end of the file sliced past the end of the input.
+- **Lexer:** a here-string flag (`#string,\`) at the end of the file sliced past the end of the input. An unknown escape of a multibyte character (`"\é"`, or an invalid byte, which reads as the three-byte U+FFFD) ended its error span inside the character, and rendering the error panicked (`check`, `interp`). Lexer error spans now end on a character boundary.
 - **Parser stack overflow:** deeply nested parentheses, blocks or array types recursed until the stack overflowed. Now `MAX_NESTING` gives a diagnostic.
 - **Parser hang:** `#assert(` tried the `(cond, message)` form, rewound and parsed again, so each nested `#assert(` doubled the work. The form is now chosen up front, by looking for a top-level comma.
 - **LSP:** the native server ran on the 8 MiB main thread. Completion after a multibyte character split a UTF-8 boundary.

@@ -253,14 +253,12 @@ fn is_ident_char(c: u8) -> bool {
 
 impl<'a> Lexer<'a> {
     fn err(&self, start: usize, msg: &str) -> Diagnostic {
-        Diagnostic::error(
-            Span::new(
-                self.file,
-                start,
-                self.at.max(start + 1).min(self.src.len().max(start + 1)),
-            ),
-            msg,
-        )
+        let mut end = self.at.max(start + 1).min(self.src.len().max(start + 1));
+        // A span covers whole characters: the renderer slices the text with it.
+        while end < self.text.len() && !self.text.is_char_boundary(end) {
+            end += 1;
+        }
+        Diagnostic::error(Span::new(self.file, start, end), msg)
     }
 
     fn peek(&self, n: usize) -> u8 {
@@ -599,9 +597,12 @@ impl<'a> Lexer<'a> {
                             out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
                         }
                         _ => {
+                            // The escaped character may be several bytes long.
+                            let ch = self.text[self.at - 1..].chars().next().unwrap_or('?');
+                            self.at += ch.len_utf8() - 1;
                             return Err(self.err(
-                                self.at - 2,
-                                &format!("unknown escape sequence '\\{}'", e as char),
+                                self.at - 1 - ch.len_utf8(),
+                                &format!("unknown escape sequence '\\{ch}'"),
                             ));
                         }
                     }
@@ -775,5 +776,22 @@ mod tests {
     fn nested_comments_and_escapes() {
         let t = kinds("/* a /* b */ c */ \"\\x41\\%\\u00e9\"");
         assert_eq!(t[0], Tok::Str(vec![b'A', 0x1f, 0xc3, 0xa9].into()));
+    }
+
+    #[test]
+    fn unknown_escape_of_a_multibyte_character() {
+        // Found by the `check` fuzz target: the error span ended inside the escaped character
+        // (here U+FFFD, which invalid UTF-8 in a file turns into), and rendering it panicked.
+        for src in ["x := \"\\\u{fffd}\";", "x := \"\\é", "\"\\\u{1d11e}"] {
+            let e = lex(FileId(0), src).unwrap_err();
+            let (start, end) = (e.span.start as usize, e.span.end as usize);
+            assert!(src.is_char_boundary(end), "{src:?}: {start}..{end}");
+            let escape = &src[start..end];
+            assert!(
+                escape.starts_with('\\') && escape.chars().count() == 2,
+                "{escape:?}"
+            );
+            assert_eq!(e.message, format!("unknown escape sequence '{escape}'"));
+        }
     }
 }
