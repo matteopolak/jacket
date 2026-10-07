@@ -174,6 +174,77 @@ fn unreferenced_code_is_not_compiled() {
     assert_eq!(String::from_utf8_lossy(&run.stdout), "7\n");
 }
 
+/// A struct or union passed by value arrives as a pointer the callee copies from. The debug
+/// info's prologue spill of parameters must store only scalars: storing that pointer into the
+/// parameter's slot wrote 8 bytes into a smaller slot, which corrupted neighbouring locals
+/// (crashes at -O0 on Linux) and tripped the sanitizers' bounds checks.
+#[test]
+fn small_aggregate_parameters_are_not_spilled_as_pointers() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-small-aggregate-params");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("small.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         Tiny :: struct { a: u8; b: u8; }\n\
+         Word :: union { bits: u32; real: float32; }\n\
+         sum_small_qz :: (t: Tiny, w: Word, n: s64) -> s64 { return t.a + t.b + w.bits + n; }\n\
+         main :: () { print(\"%\\n\", sum_small_qz(.{ 1, 2 }, .{ bits = 1000 }, 4)); }\n",
+    )
+    .unwrap();
+    let ir = dir.join("small.ll");
+    let exe = exe_path(&dir, "small");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&exe)
+        .arg("--emit-ir")
+        .arg(&ir)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let ir = std::fs::read_to_string(&ir).unwrap();
+    let body = ir
+        .split("\ndefine ")
+        .skip(1)
+        .find(|f| {
+            f.lines()
+                .next()
+                .is_some_and(|l| l.contains("@sum_small_qz"))
+        })
+        .expect("sum_small_qz is compiled");
+    let prologue = body.split("\nb0:").next().unwrap();
+    let mut sizes = std::collections::HashMap::new();
+    for line in prologue.lines() {
+        if let Some((slot, rest)) = line.trim().split_once(" = alloca [")
+            && let Some((bytes, _)) = rest.split_once(" x i8]")
+        {
+            sizes.insert(slot.to_string(), bytes.parse::<u64>().unwrap());
+        }
+    }
+    for line in prologue.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("store ptr ")
+            && let Some((_, slot)) = rest.split_once(", ptr ")
+        {
+            let slot = slot.split(',').next().unwrap();
+            assert!(
+                sizes.get(slot).is_some_and(|&n| n >= 8),
+                "a pointer is stored into the {:?}-byte slot {slot}: {line}\n{prologue}",
+                sizes.get(slot)
+            );
+        }
+    }
+    let run = Command::new(&exe).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "1007\n");
+}
+
 /// Self-checking stdlib tests whose bugs showed only in compiled code; each prints "ok".
 #[test]
 fn stdlib_tests_run_natively() {

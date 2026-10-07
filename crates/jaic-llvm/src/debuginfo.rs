@@ -865,6 +865,21 @@ impl<'ctx> FnDebug<'ctx> {
                 slot_of.insert(dst.0, slot.0);
             }
         }
+        // (slot, value) pairs the body stores as a scalar. An aggregate parameter arrives as
+        // a pointer that the body copies from; storing that pointer into the parameter's slot
+        // would write the address, not the value, and past the end of a slot under 8 bytes.
+        let mut scalar_stores = std::collections::HashSet::new();
+        for inst in func.blocks.iter().flat_map(|b| &b.insts) {
+            if let Inst::Store {
+                addr,
+                value,
+                ..
+            } = inst
+                && let Some(&slot) = slot_of.get(&addr.0)
+            {
+                scalar_stores.insert((slot, value.0));
+            }
+        }
         // The stores below have no location: they belong to the prologue, so LLVM ends the
         // prologue after them, where a breakpoint on the procedure sees the parameters.
         let deref = raw::expression(di.builder, &mut [DW_OP_DEREF]);
@@ -879,11 +894,12 @@ impl<'ctx> FnDebug<'ctx> {
                 continue;
             };
             let scope = self.scope(di, func, var.scope);
-            let (storage, expr) = if let Some(&slot) = slot_of.get(&var.addr.0) {
-                let slot = slots[slot as usize];
+            let (storage, expr) = if let Some(&slot_id) = slot_of.get(&var.addr.0) {
+                let slot = slots[slot_id as usize];
                 // A scalar parameter spilled to its slot: store it already in the entry
                 // block, where a breakpoint on the procedure stops (the body stores it again).
                 if var.arg > 0
+                    && scalar_stores.contains(&(slot_id, var.arg - 1))
                     && let Some(value) = vals.get(var.arg as usize - 1).copied().flatten()
                 {
                     let _ = allocas.build_store(slot, value);
