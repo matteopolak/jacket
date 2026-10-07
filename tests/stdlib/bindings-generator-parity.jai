@@ -72,12 +72,8 @@ generate :: (name: string, header: string, cpp: bool) -> string {
     return text;
 }
 
-// libclang is a native library: the WASM target (the browser playground) cannot load it, so
-// there the generator only compiles and nothing is generated or inserted.
-LIBCLANG :: OS != .WASM;
-
 // Text checks run while compiling, so the test also builds natively (libclang is compile-time only).
-#if LIBCLANG #run check_generated_text();
+#run check_generated_text();
 
 check_generated_text :: () {
     for cpp: bool.[false, true] {
@@ -160,18 +156,16 @@ check_long_double :: () {
     assert(has(text, "get_double :: () -> float64 #foreign lib;"));
 }
 
-#if LIBCLANG #run check_long_double();
+#run check_long_double();
 
 main :: () {
     // The bindings compile (with their layout checks) and match the C layout.
-    #if LIBCLANG {
-        p: Packed4;
-        assert(size_of(Packed4) == 12);
-        assert(cast(*u8) *p.wide - cast(*u8) *p == 4);
-        assert(SEPARATOR == #char "%");
-        assert(ALL_ONES == 0xffff_ffff);
-        assert(USES_PROTO == 12);
-    }
+    p: Packed4;
+    assert(size_of(Packed4) == 12);
+    assert(cast(*u8) *p.wide - cast(*u8) *p == 4);
+    assert(SEPARATOR == #char "%");
+    assert(ALL_ONES == 0xffff_ffff);
+    assert(USES_PROTO == 12);
     print("ok\n");
 }
 
@@ -184,6 +178,4 @@ generated_for_insert :: () -> string {
 FILE :: struct {}
 lib :: #library "does_not_exist";
 
-#if LIBCLANG {
-    #insert #run generated_for_insert();
-}
+#insert #run generated_for_insert();

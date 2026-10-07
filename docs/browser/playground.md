@@ -100,9 +100,10 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   `check_browser_release.mjs`, so a broken bundle is never published. A test that needs something the browser
   lacks for only part of its work skips that part in Jai with `OS == .WASM` (the target the engine compiles for)
   and keeps the rest running: processes (`Process`, `BuildCpp`, the bindings generators' compiler runs),
-  `dlopen` (libclang), native C libraries (libc callbacks and variadics). Prefer a runtime `if OS == .WASM` over
+  native C libraries (libc callbacks and variadics). Prefer a runtime `if OS == .WASM` over
   `#if` where the skipped code can still compile, so it stays type-checked in the browser. A test with nothing
-  left to run there (sockets, windows, OpenGL, audio) has a `playground` line in `tests/stdlib-runtime-skips.txt`
+  left to run there (sockets, windows, OpenGL, audio, libclang, Debug's stack capture, File_Async's worker
+  thread) has a `playground` line in `tests/stdlib-runtime-skips.txt`
   instead; it still runs, and the check fails if it passes, so the line goes once it can. `PLAYGROUND_VERBOSE=1 ... name.jai`
   prints that test's output; passing test names runs only those.
 - Debug browser-only behavior natively: `jaic run test.jai -os wasm` uses the same `SandboxHost`.

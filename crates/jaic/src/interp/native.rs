@@ -475,7 +475,8 @@ pub mod main_thread {
     type Job = Box<dyn FnOnce() + Send>;
 
     struct Route {
-        jobs: Mutex<Sender<Job>>,
+        /// Calls for the main thread to make; `None` (from `serve`) means the worker is done.
+        jobs: Mutex<Sender<Option<Job>>>,
         worker: std::thread::ThreadId,
     }
 
@@ -520,10 +521,22 @@ pub mod main_thread {
         stack: usize,
         body: impl FnOnce() -> T + Send + 'static,
     ) -> Option<T> {
-        let (tx, rx): (Sender<Job>, Receiver<Job>) = channel();
+        let (tx, rx): (Sender<Option<Job>>, Receiver<Option<Job>>) = channel();
+        // Ends the loop below once `body` returns or unwinds: `ROUTE` keeps its sender alive
+        // for good, so the channel never disconnects on its own.
+        struct Finished(Sender<Option<Job>>);
+
+        impl Drop for Finished {
+            fn drop(&mut self) {
+                let _ = self.0.send(None);
+            }
+        }
+
+        let finished = Finished(tx.clone());
         let worker = std::thread::Builder::new()
             .stack_size(stack)
             .spawn(move || {
+                let _finished = finished;
                 let _ = ROUTE.set(Route {
                     jobs: Mutex::new(tx),
                     worker: std::thread::current().id(),
@@ -531,12 +544,8 @@ pub mod main_thread {
                 body()
             });
         let handle = worker.ok()?;
-        loop {
-            match rx.recv_timeout(std::time::Duration::from_millis(5)) {
-                Ok(job) => job(),
-                Err(_) if handle.is_finished() => break,
-                Err(_) => {}
-            }
+        while let Ok(Some(job)) = rx.recv() {
+            job();
         }
         handle.join().ok()
     }
@@ -617,7 +626,7 @@ pub mod main_thread {
             let result = callbacks::calling_out(caller, || call_with(addr, args, sig));
             let _ = done_tx.send(Carry(result));
         });
-        route.jobs.lock().ok()?.send(job).ok()?;
+        route.jobs.lock().ok()?.send(Some(job)).ok()?;
         done_rx.recv().ok().map(|c| c.0)
     }
 }

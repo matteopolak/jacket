@@ -11,12 +11,6 @@ path :: (name: string) -> string {
 }
 
 main :: () {
-    // The WASM target has no threads, which the queue's worker needs.
-    #if OS == .WASM {
-        print("ok\n");
-        return;
-    }
-
     delete_directory(ROOT);
     assert(make_directory_if_it_does_not_exist(ROOT, recursive = true));
 

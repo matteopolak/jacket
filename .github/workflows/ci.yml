@@ -34,8 +34,9 @@ jobs:
           node tools/check_scripting_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
           node tools/check_jai_format_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
       - name: Run every stdlib test in the browser engine
-        # Every test must pass: one that needs what the browser lacks (processes, native libraries,
-        # windows) skips that part itself under `OS == .WASM`. The browser release runs the same check.
+        # Every test must pass, except those tests/stdlib-runtime-skips.txt lists for `playground`
+        # because they need what the browser lacks (native libraries, windows); a test that only
+        # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
         run: node tools/check_playground_stdlib.mjs artifacts/ci-wasm
       - name: Interpreter and browser engine agree (corpus and generated programs)
         # docs/tools/differential-testing.md; the host jaic needs no LLVM to interpret.

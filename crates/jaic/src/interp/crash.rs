@@ -241,9 +241,9 @@ fn report_and_exit(what: &str) -> bool {
         return false;
     }
     if REPORTING.swap(true, std::sync::atomic::Ordering::Acquire) {
-        loop {
-            std::hint::spin_loop();
-        }
+        // Another thread is reporting and exits the process when done: sleep until then
+        // instead of spinning on the flag.
+        sys::wait_forever();
     }
     // SAFETY: this thread set `REPORTING` first, so no other thread uses the buffer, and it
     // exits without returning.
@@ -314,6 +314,7 @@ mod sys {
         fn sigaction(sig: c_int, act: *const SigAction, old: *mut SigAction) -> c_int;
         fn write(fd: c_int, buf: *const c_void, count: usize) -> isize;
         fn _exit(status: c_int) -> !;
+        fn pause() -> c_int;
     }
 
     const SIGNALS: [c_int; 4] = [SIGSEGV, SIGBUS, SIGILL, SIGFPE];
@@ -410,6 +411,16 @@ mod sys {
         // SAFETY: `_exit` is async-signal-safe and ends the process.
         unsafe { _exit(status) }
     }
+
+    /// Block this thread until the process ends.
+    pub fn wait_forever() -> ! {
+        loop {
+            // SAFETY: `pause` is async-signal-safe and only suspends the calling thread.
+            unsafe {
+                pause();
+            }
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -458,6 +469,7 @@ mod sys {
 
         fn GetCurrentProcess() -> *mut c_void;
         fn TerminateProcess(process: *mut c_void, code: u32) -> i32;
+        fn Sleep(milliseconds: u32);
     }
 
     pub fn install() {
@@ -522,6 +534,14 @@ mod sys {
         }
         std::process::abort()
     }
+
+    /// Block this thread until the process ends.
+    pub fn wait_forever() -> ! {
+        loop {
+            // SAFETY: suspends the calling thread (0xFFFFFFFF is INFINITE).
+            unsafe { Sleep(u32::MAX) }
+        }
+    }
 }
 
 #[cfg(not(any(windows, all(unix, any(target_os = "macos", target_os = "linux")))))]
@@ -534,5 +554,11 @@ mod sys {
 
     pub fn exit_now(status: i32) -> ! {
         std::process::exit(status)
+    }
+
+    pub fn wait_forever() -> ! {
+        loop {
+            std::thread::park();
+        }
     }
 }

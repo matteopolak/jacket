@@ -78,7 +78,7 @@ Not covered: variadic callbacks, and on arm64 callbacks returning a struct throu
 
 ### macOS main thread
 
-`native::main_thread`: `jaic` parks the process main thread in `serve` and runs the compiler on a 1 GiB worker. After the first Objective-C or AppKit call (`note_symbol`), the program's foreign calls go to the main thread, because AppKit and GL contexts need it. `fork` always runs on the worker. Calls into libSystem and libc++ (`needs_main_thread`, decided once per address with `dladdr`) stay on the worker: they're thread-safe, and the round trip made allocation-heavy programs like Focus twice as slow.
+`native::main_thread`: `jaic` parks the process main thread in `serve` and runs the compiler on a 1 GiB worker. The main thread blocks on the job channel; a guard the worker drops when it returns or unwinds sends `None`, which ends `serve`. After the first Objective-C or AppKit call (`note_symbol`), the program's foreign calls go to the main thread, because AppKit and GL contexts need it. `fork` always runs on the worker. Calls into libSystem and libc++ (`needs_main_thread`, decided once per address with `dladdr`) stay on the worker: they're thread-safe, and the round trip made allocation-heavy programs like Focus twice as slow.
 
 ### Performance notes
 

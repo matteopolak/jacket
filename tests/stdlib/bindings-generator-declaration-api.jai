@@ -51,8 +51,6 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
 
 // Runs at compile time: libclang is the compiler's, and executables cannot call it.
 check_bindings :: () {
-    // The WASM target (the browser playground) loads no native libraries, so no libclang.
-    #if OS == .WASM return;
     dir := scratch_directory("bindgen-declaration-api");
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);

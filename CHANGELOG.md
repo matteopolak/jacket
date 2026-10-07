@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- `jaic run` on macOS no longer wakes its main thread every 5 ms while it waits for the program to finish: it blocks until the interpreter thread sends a foreign call to run or ends. When two threads crash in native code at once, the one that does not write the report sleeps until jaic exits instead of spinning a CPU core.
 - `#asm` rejects `punpckl*`/`punpckh*` spellings other than `bw`, `wd`, `dq` and `qdq` (`punpcklb`, `punpckhwq`) as unsupported instructions; they were taken as a narrower interleave.
 - On Intel Macs, `#system_library` names installed by Homebrew (in `/usr/local/lib`, such as FreeType for Simp and GetRect) are found by `jaic run`, `#run` and the native link, as `/opt/homebrew/lib` already was on Apple silicon.
 - `Simp.deinit_fonts` no longer reads freed memory when more than one font is live: it freed each font's record before deinitializing the next font, whose record lookup walks them all.
