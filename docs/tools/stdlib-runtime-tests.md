@@ -31,7 +31,7 @@ paths such as `.scratch/<test>/` land (gitignored).
 
 ```
 <test id> <platforms> <modes> <reason>
-simp-window-program windows-* * the CI runners have no OpenGL 3.3 driver (only the GDI generic 1.1 renderer)
+simp-window-program windows-arm64* * no OpenGL 3.3 driver (mesa-dist-win has no arm64 build)
 ```
 
 The test id is the file stem for `tests/stdlib/`, else the path without `.jai`
@@ -46,6 +46,15 @@ soon as its reason does. A line naming a test that does not exist is an error.
 Linux with `tools/windows_cross.py` and run the executables on a Windows runner; its required
 programs are the same tests minus the skip-list lines for `windows-<cpu>-mingw` (cross builds run
 compile-time code on Linux, so a `#run` that takes Windows-only paths cannot work there).
+In `native` mode the harness first builds the third-party libraries for the platform
+([native libraries](native-libs.md); FreeType too on Windows) and points `JAIC_NATIVE_LIBS` at
+them; the MinGW cross builds link none, so tests that need them are skipped for
+`windows-*-mingw`. The window tests need OpenGL 3.3, which the Windows runners lack: the x64 jobs
+unpack Mesa's llvmpipe (`tools/install_ci_mesa_windows.sh`, a pinned and checksum-verified
+mesa-dist-win release) and put its `opengl32.dll` next to `jaic.exe`, next to each native test
+program (`--dlls DIR` copies DIR's DLLs beside every executable before running it) and into the
+cross-built programs' directory, with `GALLIUM_DRIVER=llvmpipe`. mesa-dist-win has no arm64
+build, so arm64 keeps those skips.
 
 **Coverage.** With `--coverage FILE`, every `interp` and `wasm-interp` run sets `JAIC_COVERAGE`,
 which makes the interpreter append `path:line name` for every procedure it executes (also when the

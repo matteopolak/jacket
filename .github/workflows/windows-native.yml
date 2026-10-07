@@ -11,6 +11,10 @@ on:
       - 'prelude/**'
       - 'tests/**'
       - 'tools/windows_cross.py'
+      - 'tools/stdlib_runtime.py'
+      - 'tools/build_native_libs.py'
+      - 'tools/native-libs.json'
+      - 'tools/install_ci_mesa_windows.sh'
       - 'tools/windows-llvm/**'
       - '.github/workflows/windows-native.yml'
   workflow_dispatch:
@@ -21,6 +25,13 @@ env:
   LLVM_VERSION: 23.1.2
   # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for arm64.
   LLVM_MINGW_VERSION: '20260922'
+  # Mesa's llvmpipe software OpenGL for the window tests (the runners only have GDI's OpenGL
+  # 1.1): the MSVC build of https://github.com/pal1000/mesa-dist-win, which has x64 and x86
+  # DLLs but none for arm64. Its opengl32.dll goes next to the programs (and jaic.exe), which
+  # Windows searches before System32.
+  MESA_VERSION: 26.1.8
+  MESA_SHA256: 4c6d32e653e0ff9ad07796e40c0bcfabf2764d849e3ce4f3b1590112c87e42f9
+  GALLIUM_DRIVER: llvmpipe
 jobs:
   cross:
     name: cross-build (Linux, MinGW-w64)
@@ -64,8 +75,12 @@ jobs:
         with:
           name: cross-exes
           path: cross-exes
+      - name: Install Mesa's software OpenGL
+        run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
       - name: Run
-        run: python tools/windows_cross.py run --dir cross-exes
+        run: |
+          cp "$RUNNER_TEMP"/mesa/*.dll cross-exes/
+          python tools/windows_cross.py run --dir cross-exes
 
   native:
     name: jaic build on Windows (MSVC)
@@ -109,11 +124,16 @@ jobs:
           target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
           python -u tools/windows_cross.py build --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
+      - name: Install Mesa's software OpenGL
+        if: success() || failure()
+        run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
       - name: Stdlib runtime tests (interpreter and native) and coverage
         # docs/tools/stdlib-runtime-tests.md; skips for windows-x64 in tests/stdlib-runtime-skips.txt.
+        # The third-party libraries (FreeType, stb_*...) are built first (tools/build_native_libs.py).
         if: success() || failure()
         run: |
-          python -u tools/stdlib_runtime.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --modes interp,native --strict --coverage target/stdlib-coverage.txt
+          cp "$RUNNER_TEMP"/mesa/*.dll target/x86_64-pc-windows-msvc/debug/
+          python -u tools/stdlib_runtime.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls "$RUNNER_TEMP/mesa"
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-x64 --check --print-baseline
       - name: Native backend tests
         if: success() || failure()

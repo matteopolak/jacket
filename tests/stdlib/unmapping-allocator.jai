@@ -1,7 +1,7 @@
-// Unmapping_Allocator (POSIX virtual memory): every block ends at a guard page, addresses are
-// never reused, resizes copy, and a double free is reported. Touching freed memory or the guard
-// page would crash the program, so this checks only what can be observed safely.
-// Windows and WASM have no implementation of the module.
+// Unmapping_Allocator (POSIX or Windows virtual memory): every block ends at a guard page,
+// addresses are never reused, resizes copy, and a double free is reported. Touching freed memory
+// or the guard page would crash the program, so this checks only what can be observed safely.
+// WASM has no implementation of the module.
 #import "Basic";
 
 #import "Unmapping_Allocator";
