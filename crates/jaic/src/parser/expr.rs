@@ -574,11 +574,14 @@ impl Parser<'_> {
                 ))
             }
             P::LBrace => {
-                // `f({1, 2})`: a block where a value was meant reads as a broken statement.
+                // `f({x: 1, y: 2})`: fields named with `:` read as declarations, so as a block.
+                let colon_fields = matches!(self.tok_at(1), Tok::Ident(_))
+                    && self.at_n(2, P::Colon)
+                    && self.brace_separator() == Some(P::Comma);
                 let block = self.parse_block().map_err(|mut e| {
-                    if e.help.is_empty() {
+                    if colon_fields && e.help.is_empty() {
                         e.help.push(
-                            "a struct or array literal in an expression starts with a dot: `.{1, 2}` or `Type.{1, 2}`; `{ }` alone is a block of statements"
+                            "a struct literal names its fields with `=`, as in `{x = 1, y = 2}`; with `:` the braces hold declarations"
                                 .into(),
                         );
                     }
@@ -606,23 +609,11 @@ impl Parser<'_> {
         if self.at_prev(P::FatArrow) {
             return false;
         }
-        let statement = matches!(
-            self.kw_at(1),
-            Some(
-                "if" | "for"
-                    | "while"
-                    | "switch"
-                    | "case"
-                    | "return"
-                    | "defer"
-                    | "using"
-                    | "break"
-                    | "continue"
-                    | "remove"
-                    | "inline"
-                    | "push_context"
-            )
-        ) || matches!(self.tok_at(1), Tok::Directive(d) if d.as_str() != "char")
+        let statement = self
+            .kw_at(1)
+            .and_then(super::stmt::Keyword::of)
+            .is_some_and(super::stmt::Keyword::only_starts_statements)
+            || matches!(self.tok_at(1), Tok::Directive(d) if d.as_str() != "char")
             || self.at_n(1, P::Backtick);
         if statement {
             return false;
@@ -636,6 +627,12 @@ impl Parser<'_> {
         {
             return false;
         }
+        self.brace_separator() != Some(P::Semi)
+    }
+
+    /// At `{`: the first `;` or `,` directly inside the braces, `None` when there is neither.
+    /// An unclosed brace counts as holding statements.
+    fn brace_separator(&self) -> Option<P> {
         let mut depth = 0usize;
         for i in 0.. {
             match self.tok_at(i) {
@@ -648,12 +645,12 @@ impl Parser<'_> {
                         break;
                     }
                 }
-                Tok::Punct(P::Semi) if depth == 1 => return false,
-                Tok::Eof => return false,
+                Tok::Punct(p @ (P::Semi | P::Comma)) if depth == 1 => return Some(*p),
+                Tok::Eof => return Some(P::Semi),
                 _ => {}
             }
         }
-        true
+        None
     }
 
     /// At `operator` followed by an operator symbol (`Basic.operator-`, `operator==`).

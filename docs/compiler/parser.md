@@ -22,7 +22,7 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
 | Question | Rule |
 | --- | --- |
 | Is `(` a procedure header or a parenthesized expression? | `paren_starts_header`: a header if the matching `)` is followed by `->`, `=>` or a header directive (`#c_call`, ...), or the interior is empty or starts like a parameter (`name:`, `$T`, `using`, `..`, a top-level comma). |
-| Struct literal or block? | `.{` is one token, so `T.{..}` is always a literal and `cond {` always a block. A bare `{1, .A}` or `{ a = 1 }` in expression position is a literal (`brace_is_struct_literal`) unless it holds a `;` at its own level, starts with a statement keyword (`if`, `for`, `return`, ...), a directive other than `#char`, a backtick or a declaration (`name :=`), or follows `=>` (a lambda body). |
+| Struct literal or block? | `.{` is one token, so `T.{..}` is always a literal and `cond {` always a block. A bare `{1, .A}` or `{ a = 1 }` in expression position is a literal (`brace_is_struct_literal`) unless it holds a `;` at its own level, starts with a statement keyword (`if`, `for`, `return`, ...: `stmt::Keyword`, the list statement parsing dispatches on, minus `ifx`, which also starts expressions), a directive other than `#char`, a backtick or a declaration (`name :=`), or follows `=>` (a lambda body). |
 | `if x == {` | `peek_binary_op` refuses `==` when `{` or `#complete {` follows, so the `if` parser sees a switch. |
 | `[2]int.[1, 2]` | The element type is parsed without `.{`/`.[` postfix, so the literal applies to the whole array type. |
 | `#run,stallable` | `parse_directive_flags`: a comma right after the directive, then an identifier. A few known flags (`distinct`, `file`, ...) may be spaced. |

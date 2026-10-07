@@ -383,6 +383,13 @@ fn struct_literal_without_dot() {
         };
         assert!(!is_literal(&args[0].value), "{src}");
     }
+    // Fields named with `:` read as declarations; only then does the error explain `=`.
+    let help = |src: &str| match parse_file(FileId(0), src) {
+        Ok(_) => panic!("expected a parse error for:\n{src}"),
+        Err(d) => d.help,
+    };
+    assert!(help("v := f({x: 1, y: 2});")[0].contains("names its fields with `=`"));
+    assert!(help("v := f({ y := 2 z := 3; });").is_empty());
 }
 
 #[test]

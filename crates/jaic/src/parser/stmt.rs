@@ -7,6 +7,48 @@ use crate::ast::{
 };
 use crate::lexer::{P, Tok};
 
+/// A word that starts a statement of its own kind (`parse_keyword_stmt`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Keyword {
+    If,
+    Ifx,
+    While,
+    For,
+    Break,
+    Continue,
+    Remove,
+    Return,
+    Defer,
+    Using,
+    PushContext,
+    Case,
+}
+
+impl Keyword {
+    pub(super) fn of(word: &str) -> Option<Keyword> {
+        Some(match word {
+            "if" => Keyword::If,
+            "ifx" => Keyword::Ifx,
+            "while" => Keyword::While,
+            "for" => Keyword::For,
+            "break" => Keyword::Break,
+            "continue" => Keyword::Continue,
+            "remove" => Keyword::Remove,
+            "return" => Keyword::Return,
+            "defer" => Keyword::Defer,
+            "using" => Keyword::Using,
+            "push_context" => Keyword::PushContext,
+            "case" => Keyword::Case,
+            _ => return None,
+        })
+    }
+
+    /// Whether the word can only start a statement: `ifx` also starts an expression.
+    pub(super) fn only_starts_statements(self) -> bool {
+        self != Keyword::Ifx
+    }
+}
+
 pub(super) fn stmt(kind: StmtKind, span: crate::source::Span) -> Stmt {
     Stmt {
         kind,
@@ -96,20 +138,20 @@ impl Parser<'_> {
     }
 
     fn parse_keyword_stmt(&mut self, backtick: bool) -> PResult<Stmt> {
-        match self.kw() {
-            Some("if") => self.parse_if(),
-            Some("ifx") => self.parse_ifx_stmt(),
-            Some("while") => self.parse_while(),
-            Some("for") => self.parse_for(),
-            Some("break") => self.parse_jump(StmtKind::Break),
-            Some("continue") => self.parse_jump(StmtKind::Continue),
-            Some("remove") => self.parse_jump(StmtKind::Remove),
-            Some("return") => self.parse_return(backtick),
-            Some("defer") => self.parse_defer(backtick),
-            Some("using") => self.parse_using(),
-            Some("push_context") => self.parse_push_context(),
-            Some("case") => Err(self.error("`case` outside of a switch")),
-            _ => self.parse_terminated_simple(),
+        match self.kw().and_then(Keyword::of) {
+            Some(Keyword::If) => self.parse_if(),
+            Some(Keyword::Ifx) => self.parse_ifx_stmt(),
+            Some(Keyword::While) => self.parse_while(),
+            Some(Keyword::For) => self.parse_for(),
+            Some(Keyword::Break) => self.parse_jump(StmtKind::Break),
+            Some(Keyword::Continue) => self.parse_jump(StmtKind::Continue),
+            Some(Keyword::Remove) => self.parse_jump(StmtKind::Remove),
+            Some(Keyword::Return) => self.parse_return(backtick),
+            Some(Keyword::Defer) => self.parse_defer(backtick),
+            Some(Keyword::Using) => self.parse_using(),
+            Some(Keyword::PushContext) => self.parse_push_context(),
+            Some(Keyword::Case) => Err(self.error("`case` outside of a switch")),
+            None => self.parse_terminated_simple(),
         }
     }
 
