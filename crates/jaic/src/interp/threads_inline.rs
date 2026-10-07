@@ -264,8 +264,10 @@ impl Interp {
                 match self.isched().threads.get(id) {
                     Some(t) if t.state == State::Finished => {
                         let value = t.result;
-                        if arg(1) != 0 {
-                            self.write(arg(1), &value.to_le_bytes());
+                        if arg(1) != 0
+                            && let Err(trap) = self.put(arg(1), &value.to_le_bytes())
+                        {
+                            return Some(Err(trap));
                         }
                         Ok(0)
                     }
@@ -317,18 +319,21 @@ impl Interp {
             }
             "pthread_cond_wait" => self.inline_cond_wait(arg(0), arg(1), None),
             "pthread_cond_timedwait" => {
-                let deadline = unsafe {
-                    std::ptr::read_unaligned(arg(2) as *const u64)
-                        .saturating_mul(1_000_000_000)
-                        .saturating_add(std::ptr::read_unaligned((arg(2) + 8) as *const u64))
-                };
-                self.inline_cond_wait(arg(0), arg(1), Some(deadline))
+                match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
+                    (Ok(secs), Ok(nanos)) => {
+                        let deadline = secs.saturating_mul(1_000_000_000).saturating_add(nanos);
+                        self.inline_cond_wait(arg(0), arg(1), Some(deadline))
+                    }
+                    (Err(trap), _) | (_, Err(trap)) => Err(trap),
+                }
             }
             // Sleeping and yielding only matter once another thread exists.
-            "nanosleep" if started => {
-                let (secs, nanos) = (self.read_u64(arg(0)), self.read_u64(arg(0) + 8));
-                self.inline_sleep(secs.saturating_mul(1_000_000_000) + nanos)
-            }
+            "nanosleep" if started => match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
+                (Ok(secs), Ok(nanos)) => {
+                    self.inline_sleep(secs.saturating_mul(1_000_000_000) + nanos)
+                }
+                (Err(trap), _) | (_, Err(trap)) => Err(trap),
+            },
             "usleep" if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000),
             "sleep" if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000_000_000),
             "sched_yield" | "pthread_yield_np" if started => self.inline_yield().map(|_| 0),
@@ -349,7 +354,7 @@ impl Interp {
         let id = sched.threads.len() - 1;
         self.multi = true;
         if out != 0 {
-            self.write(out, &(id as u64 + 1).to_le_bytes());
+            self.put(out, &(id as u64 + 1).to_le_bytes())?;
         }
         Ok(0)
     }
@@ -363,7 +368,7 @@ impl Interp {
         self.wait_until(Wait::Join(id), None)?;
         if result_out != 0 {
             let value = self.isched().threads[id].result;
-            self.write(result_out, &value.to_le_bytes());
+            self.put(result_out, &value.to_le_bytes())?;
         }
         Ok(0)
     }

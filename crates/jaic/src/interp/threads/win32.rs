@@ -103,7 +103,12 @@ impl Interp {
                 if count == 0 || count > MAXIMUM_WAIT_OBJECTS {
                     return None;
                 }
-                let handles: Vec<u64> = (0..count).map(|i| self.read_u64(arg(1) + i * 8)).collect();
+                let handles: Res<Vec<u64>> =
+                    (0..count).map(|i| self.fetch_u64(arg(1) + i * 8)).collect();
+                let handles = match handles {
+                    Ok(handles) => handles,
+                    Err(trap) => return Some(Err(trap)),
+                };
                 if !handles.iter().all(|&h| self.owns(h)) {
                     return None;
                 }
@@ -121,8 +126,10 @@ impl Interp {
                     set_last_error(ERROR_INVALID_PARAMETER);
                     return Some(Ok(vec![0]));
                 };
-                if arg(1) != 0 {
-                    self.write(arg(1), &code.to_le_bytes());
+                if arg(1) != 0
+                    && let Err(trap) = self.put(arg(1), &code.to_le_bytes())
+                {
+                    return Some(Err(trap));
                 }
                 Ok(1)
             }
@@ -216,8 +223,10 @@ impl Interp {
                         return Some(Ok(vec![0]));
                     }
                 };
-                if arg(2) != 0 {
-                    self.write(arg(2), &previous.to_le_bytes());
+                if arg(2) != 0
+                    && let Err(trap) = self.put(arg(2), &previous.to_le_bytes())
+                {
+                    return Some(Err(trap));
                 }
                 Ok(1)
             }
@@ -290,7 +299,7 @@ impl Interp {
             return Ok(0);
         };
         if id_out != 0 {
-            self.write(id_out, &(id as u32 + 1).to_le_bytes());
+            self.put(id_out, &(id as u32 + 1).to_le_bytes())?;
         }
         Ok(self.new_object(Object::Thread(id)))
     }

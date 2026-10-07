@@ -615,12 +615,12 @@ impl Compiler {
     /// Read a value of type `ty` at interpreter address `addr` as a constant.
     pub fn read_value(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
         match self.types.kind(ty).clone() {
-            TypeKind::Bool => Ok(Value::Bool(self.interp.read(addr, 1)[0] != 0)),
+            TypeKind::Bool => Ok(Value::Bool(self.program_bytes(addr, 1, span)?[0] != 0)),
             TypeKind::Int {
                 bits,
                 signed,
             } => {
-                let bytes = self.interp.read(addr, bits as usize / 8);
+                let bytes = self.program_bytes(addr, bits as usize / 8, span)?;
                 let mut buf = [0u8; 8];
                 buf[..bytes.len()].copy_from_slice(&bytes);
                 let raw = u64::from_le_bytes(buf);
@@ -629,14 +629,14 @@ impl Compiler {
             TypeKind::Float {
                 bits: 32,
             } => {
-                let b = self.interp.read(addr, 4);
+                let b = self.program_bytes(addr, 4, span)?;
                 Ok(Value::Float(
                     f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64
                 ))
             }
             TypeKind::Float {
                 ..
-            } => Ok(Value::Float(f64::from_bits(self.interp.read_u64(addr)))),
+            } => Ok(Value::Float(f64::from_bits(self.program_u64(addr, span)?))),
             TypeKind::Enum(_) | TypeKind::Distinct(_) => {
                 let r = self.types.repr(ty);
                 if r != ty && self.ir_ty(r).is_some() && !self.types.is_pointer(r) {
@@ -645,25 +645,25 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Type => {
-                let p = self.interp.read_u64(addr);
+                let p = self.program_u64(addr, span)?;
                 self.type_at(p, span).map(Value::Type)
             }
             TypeKind::Code => {
                 self.adopt_made_codes();
                 // Any integer can be cast to `Code`; only ids of real code are usable.
-                let id = self.interp.read_u64(addr);
+                let id = self.program_u64(addr, span)?;
                 if id >= self.codes.len() as u64 {
                     return err(span, format!("{id} is not a valid Code value"));
                 }
                 Ok(Value::Code(value::CodeId(id as u32)))
             }
             TypeKind::String => {
-                let count = self.interp.read_u64(addr) as usize;
-                let data = self.interp.read_u64(addr + 8);
-                Ok(Value::String(self.interp.read(data, count).into()))
+                let count = self.program_u64(addr, span)? as usize;
+                let data = self.program_u64(addr + 8, span)?;
+                Ok(Value::String(self.program_bytes(data, count, span)?.into()))
             }
             TypeKind::Proc(_) => {
-                let p = self.interp.read_u64(addr);
+                let p = self.program_u64(addr, span)?;
                 if p == 0 {
                     return Ok(Value::Null);
                 }
@@ -675,7 +675,7 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Pointer(_) | TypeKind::Null => {
-                if self.interp.read_u64(addr) == 0 {
+                if self.program_u64(addr, span)? == 0 {
                     return Ok(Value::Null);
                 }
                 self.read_aggregate(addr, ty, span)
@@ -700,7 +700,7 @@ impl Compiler {
     pub(super) fn read_aggregate(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
         let size = self.size_of(ty, span)?;
         let mut agg = Aggregate {
-            bytes: self.interp.read(addr, size as usize),
+            bytes: self.program_bytes(addr, size as usize, span)?,
             relocs: Vec::new(),
         };
         self.frozen.clear();
@@ -750,11 +750,11 @@ impl Compiler {
                 elem,
                 kind,
             } => {
-                let count = self.interp.read_u64(addr);
-                let data = self.interp.read_u64(addr + 8);
+                let count = self.program_u64(addr, span)?;
+                let data = self.program_u64(addr + 8, span)?;
                 let esize = self.size_of(elem, span)?;
                 let len = if kind == ArrayKind::Resizable {
-                    self.interp.read_u64(addr + 16).max(count)
+                    self.program_u64(addr + 16, span)?.max(count)
                 } else {
                     count
                 };
@@ -767,12 +767,12 @@ impl Compiler {
                 }
             }
             TypeKind::String => {
-                let count = self.interp.read_u64(addr);
-                let data = self.interp.read_u64(addr + 8);
+                let count = self.program_u64(addr, span)?;
+                let data = self.program_u64(addr + 8, span)?;
                 self.freeze_pointer(agg, offset + 8, data, TypeId::U8, count, count, span)?;
             }
             TypeKind::Pointer(to) => {
-                let p = self.interp.read_u64(addr);
+                let p = self.program_u64(addr, span)?;
                 let size = if to == TypeId::VOID {
                     0
                 } else {
@@ -781,7 +781,7 @@ impl Compiler {
                 self.freeze_pointer(agg, offset, p, to, size, 1, span)?;
             }
             TypeKind::Type => {
-                let p = self.interp.read_u64(addr);
+                let p = self.program_u64(addr, span)?;
                 if p != 0 {
                     let t = self.type_at(p, span)?;
                     let g = self.type_info_global(t, span)?;
@@ -794,7 +794,7 @@ impl Compiler {
                 }
             }
             TypeKind::Proc(_) => {
-                let p = self.interp.read_u64(addr);
+                let p = self.program_u64(addr, span)?;
                 agg.bytes[offset as usize..offset as usize + 8].fill(0);
                 if let Some(func) = self.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
@@ -814,8 +814,8 @@ impl Compiler {
                 }
             }
             TypeKind::Any => {
-                let t = self.interp.read_u64(addr);
-                let v = self.interp.read_u64(addr + 8);
+                let t = self.program_u64(addr, span)?;
+                let v = self.program_u64(addr + 8, span)?;
                 agg.bytes[offset as usize..offset as usize + 16].fill(0);
                 if t != 0 {
                     let vt = self.type_at(t, span)?;
@@ -870,6 +870,12 @@ impl Compiler {
                 "a compile-time value holds a pointer to memory of unknown size",
             );
         }
+        // Nothing to copy where nothing can be read: an integer cast to a pointer that the
+        // range above does not catch (`cast(*T) 80000000`). It stays a number, like those.
+        let Some(contents) = self.interp.read(p, bytes as usize) else {
+            agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
+            return Ok(());
+        };
         if let Some(&g) = self.frozen.get(&(p, bytes)) {
             agg.relocs.push(ir::Reloc {
                 offset,
@@ -895,7 +901,7 @@ impl Compiler {
         });
         self.frozen.insert((p, bytes), g);
         let mut inner = Aggregate {
-            bytes: self.interp.read(p, bytes as usize),
+            bytes: contents,
             relocs: Vec::new(),
         };
         if elem != TypeId::U8 && elem != TypeId::VOID {
@@ -959,6 +965,33 @@ impl Compiler {
         }
         Ok(out)
     }
+}
+
+impl Compiler {
+    /// `len` bytes of compile-time memory at `addr`, which a `#run` result points to.
+    fn program_bytes(&self, addr: u64, len: usize, span: Span) -> Result<Vec<u8>> {
+        match self.interp.read(addr, len) {
+            Some(bytes) => Ok(bytes),
+            None => unreadable(addr, span),
+        }
+    }
+
+    /// The `u64` at `addr` in compile-time memory.
+    fn program_u64(&self, addr: u64, span: Span) -> Result<u64> {
+        match self.interp.read_u64(addr) {
+            Some(v) => Ok(v),
+            None => unreadable(addr, span),
+        }
+    }
+}
+
+/// A `#run` result points at memory that cannot be read (an integer made into a string's or an
+/// array's data pointer, say): an error, where reading it would crash the compiler.
+fn unreadable<T>(addr: u64, span: Span) -> Result<T> {
+    err(
+        span,
+        format!("a compile-time value points to memory that cannot be read ({addr:#x})"),
+    )
 }
 
 /// A pointer value that cannot address compile-time memory, so it is an integer cast to a

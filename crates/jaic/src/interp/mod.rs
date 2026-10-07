@@ -16,6 +16,7 @@ mod crash;
 pub use crash::CRASH_STATUS;
 mod executable_path;
 mod native;
+mod probe;
 pub mod profile;
 mod sandbox;
 #[cfg(not(target_arch = "wasm32"))]
@@ -274,6 +275,21 @@ const UNOBSERVABLE_FOREIGNS: &[&str] = &[
     "strncmp",
 ];
 
+/// Foreign procedures that never release memory, so the pages `probe` found accessible stay so.
+const KEEPS_MEMORY: &[&str] = &[
+    "malloc",
+    "calloc",
+    "posix_memalign",
+    "aligned_alloc",
+    "memcpy",
+    "memmove",
+    "memset",
+    "memcmp",
+    "strlen",
+    "strcmp",
+    "strncmp",
+];
+
 struct Frame {
     offsets: Vec<u64>,
     size: u64,
@@ -316,6 +332,8 @@ impl ZeroedBlock {
 impl Drop for ZeroedBlock {
     fn drop(&mut self) {
         unsafe { std::alloc::dealloc(self.ptr.as_ptr(), self.layout) };
+        // Its pages may be unmapped now.
+        probe::invalidate();
     }
 }
 
@@ -689,27 +707,68 @@ impl Interp {
         (addr < end).then_some((g, addr - start))
     }
 
-    pub fn read(&self, addr: u64, len: usize) -> Vec<u8> {
-        if len == 0 {
-            return Vec::new();
+    // The compiler's own accesses to program memory (reading `#run` results, the arguments of
+    // `compiler_*` calls, writing their out-parameters) go through `probe`, so an address the
+    // program made up is an error instead of a crash. Interpreted loads and stores do not: they
+    // behave like the native program's.
+
+    /// `len` bytes of program memory at `addr`, or `None` when they cannot all be read.
+    pub fn read(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
+        let mut out = vec![0; len];
+        probe::read(addr, &mut out).then_some(out)
+    }
+
+    /// The `u64` at `addr` in program memory, or `None` when it cannot be read.
+    pub fn read_u64(&self, addr: u64) -> Option<u64> {
+        let mut out = [0; 8];
+        probe::read(addr, &mut out).then(|| u64::from_le_bytes(out))
+    }
+
+    /// Store `bytes` at `addr` in program memory; false when it cannot be written.
+    #[must_use]
+    pub fn write(&mut self, addr: u64, bytes: &[u8]) -> bool {
+        probe::write(addr, bytes)
+    }
+
+    /// `read` for a pointer an intrinsic or emulated library call was given: a trap when the
+    /// memory cannot be read.
+    fn fetch(&self, addr: u64, len: usize) -> Res<Vec<u8>> {
+        match self.read(addr, len) {
+            Some(bytes) => Ok(bytes),
+            None => self.unreadable(addr, len),
         }
-        unsafe { std::slice::from_raw_parts(addr as *const u8, len) }.to_vec()
     }
 
-    /// `len` bytes of program memory at `addr`, borrowed (empty for a null address).
-    pub fn bytes(&self, addr: u64, len: usize) -> &[u8] {
-        if len == 0 || addr == 0 {
-            return &[];
+    /// `read_u64` for a pointer an intrinsic or emulated library call was given.
+    fn fetch_u64(&self, addr: u64) -> Res<u64> {
+        match self.read_u64(addr) {
+            Some(v) => Ok(v),
+            None => self.unreadable(addr, 8),
         }
-        unsafe { std::slice::from_raw_parts(addr as *const u8, len) }
     }
 
-    pub fn read_u64(&self, addr: u64) -> u64 {
-        unsafe { std::ptr::read_unaligned(addr as *const u64) }
+    /// `write` for a pointer an intrinsic or emulated library call was given: a trap when the
+    /// memory cannot be written.
+    fn put(&mut self, addr: u64, bytes: &[u8]) -> Res<()> {
+        if self.write(addr, bytes) {
+            return Ok(());
+        }
+        if addr < 4096 {
+            return self.null_trap(null_access("write", addr));
+        }
+        self.trap(format!(
+            "invalid memory access: {} bytes at {addr:#x} cannot be written",
+            bytes.len()
+        ))
     }
 
-    pub fn write(&mut self, addr: u64, bytes: &[u8]) {
-        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
+    fn unreadable<T>(&self, addr: u64, len: usize) -> Res<T> {
+        if addr < 4096 {
+            return self.null_trap(null_access("read", addr));
+        }
+        self.trap(format!(
+            "invalid memory access: {len} bytes at {addr:#x} cannot be read"
+        ))
     }
 
     #[inline]
@@ -853,6 +912,10 @@ impl Interp {
         sig: &ir::Sig,
     ) -> Res<Vec<u64>> {
         let symbol = program.foreigns[id.0 as usize].symbol.clone();
+        // Foreign code may release memory the compiler has found readable.
+        if !KEEPS_MEMORY.contains(&symbol.as_str()) {
+            probe::invalidate();
+        }
         if !UNOBSERVABLE_FOREIGNS.contains(&symbol.as_str()) {
             self.effects += 1;
         }
@@ -921,6 +984,11 @@ impl Interp {
         symbol: Option<&str>,
         release: bool,
     ) -> Res<Vec<u64>> {
+        // Native code (through a procedure pointer too) may release memory, unless it is one of
+        // the C library procedures known not to.
+        if !symbol.is_some_and(|symbol| KEEPS_MEMORY.contains(&symbol)) {
+            probe::invalidate();
+        }
         // A `#c_call` procedure handed to C is a native thunk already (`proc_value`), unless C
         // cannot call it: that stayed tagged, and asking for its thunk again says why.
         let mut argv = args.to_vec();
@@ -1328,24 +1396,24 @@ impl Interp {
         match hook {
             Hook::WriteString => {
                 let s = args[0];
-                let count = self.read_u64(s) as usize;
-                let data = self.read_u64(s + 8);
-                let bytes = self.read(data, count);
+                let count = self.fetch_u64(s)? as usize;
+                let data = self.fetch_u64(s + 8)?;
+                let bytes = self.fetch(data, count)?;
                 self.effects += 1;
                 self.host
                     .write(&bytes, args.get(1).is_some_and(|&v| v & 1 != 0));
             }
             Hook::WriteStrings => {
                 let view = args[0];
-                let count = self.read_u64(view) as usize;
-                let data = self.read_u64(view + 8);
+                let count = self.fetch_u64(view)? as usize;
+                let data = self.fetch_u64(view + 8)?;
                 let to_stderr = args.get(1).is_some_and(|&v| v & 1 != 0);
                 self.effects += 1;
                 for i in 0..count {
                     let s = data + i as u64 * 16;
-                    let n = self.read_u64(s) as usize;
-                    let p = self.read_u64(s + 8);
-                    let bytes = self.read(p, n);
+                    let n = self.fetch_u64(s)? as usize;
+                    let p = self.fetch_u64(s + 8)?;
+                    let bytes = self.fetch(p, n)?;
                     self.host.write(&bytes, to_stderr);
                 }
             }
@@ -1355,16 +1423,16 @@ impl Interp {
                 location,
             } => {
                 let args = &args[usize::from(context)..];
-                let string = |s: &Self, at: u64| {
-                    let count = s.read_u64(at) as usize;
-                    let data = s.read_u64(at + 8);
-                    String::from_utf8_lossy(&s.read(data, count)).into_owned()
+                let string = |s: &Self, at: u64| -> Res<String> {
+                    let count = s.fetch_u64(at)? as usize;
+                    let data = s.fetch_u64(at + 8)?;
+                    Ok(String::from_utf8_lossy(&s.fetch(data, count)?).into_owned())
                 };
                 let (loc, message) = (args[0], args[1]);
-                let path = string(self, loc + location.path);
-                let line = self.read_u64(loc + location.line) as u32;
-                let col = self.read_u64(loc + location.column) as u32;
-                let message = string(self, message);
+                let path = string(self, loc + location.path)?;
+                let line = self.fetch_u64(loc + location.line)? as u32;
+                let col = self.fetch_u64(loc + location.column)? as u32;
+                let message = string(self, message)?;
                 let mut trap = self
                     .trap::<()>(if message.is_empty() {
                         "assertion failed".to_string()
@@ -1784,7 +1852,7 @@ impl Interp {
             // Needs the program for its location: `step` handles it.
             I::CheckFailed => unreachable!("CheckFailed is handled by `step`"),
             I::CompilerWrite => {
-                let bytes = self.read(a[0], a[1] as usize);
+                let bytes = self.fetch(a[0], a[1] as usize)?;
                 self.effects += 1;
                 self.host.write(&bytes, a.get(2).is_some_and(|&v| v != 0));
                 vec![]
@@ -1859,14 +1927,18 @@ impl Interp {
                 return s.null_trap(null_access("read", addr));
             }
             let mut out = [0u8; 16];
-            out.copy_from_slice(&s.read(addr, 16));
+            out.copy_from_slice(&s.fetch(addr, 16)?);
             Ok(out)
         };
         let put = |s: &mut Self, addr: u64, v: w::Bytes| -> Res<Vec<u64>> {
             if addr < 4096 {
                 return s.null_trap(null_access("write", addr));
             }
-            s.write(addr, &v);
+            if !s.write(addr, &v) {
+                return s.trap(format!(
+                    "invalid memory access: 16 bytes at {addr:#x} cannot be written"
+                ));
+            }
             Ok(Vec::new())
         };
         match op {

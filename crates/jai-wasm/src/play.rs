@@ -439,6 +439,42 @@ mod tests {
     }
 
     #[test]
+    fn made_up_pointers_in_compile_time_values() {
+        // Found by the `interp` fuzz target: freezing a `#run` result read the memory behind a
+        // pointer made from an integer (80000000, above the 64 KiB that are always treated as a
+        // number), and the compiler crashed. A pointer to memory that cannot be read stays a
+        // number; a string whose data cannot be read is an error.
+        let run = |source: &str| {
+            let mut files = BTreeMap::new();
+            files.insert("main.jai".to_string(), source.as_bytes().to_vec());
+            run_with(&files, "main.jai", PlayOptions::default())
+        };
+        let r = run(concat!(
+            "#import \"Basic\";\n",
+            "Handle :: *struct { unused: u8; };\n",
+            "H :: cast(Handle) 80000000;\n",
+            "P :: #run cast(*int) 80000000;\n",
+            "main :: () { assert(cast(u64) H == 80000000 && cast(u64) P == 80000000); }\n",
+        ));
+        assert!(
+            r.diagnostics.is_empty() && r.exit_code == Some(0),
+            "{}{}",
+            r.rendered,
+            r.stderr
+        );
+        let r = run(concat!(
+            "S :: #run () -> string { s: string; s.count = 5; s.data = cast(*u8) 80000000; return s; }();\n",
+            "main :: () {}\n",
+        ));
+        assert!(
+            r.rendered.contains("cannot be read"),
+            "{}{}",
+            r.rendered,
+            r.stderr
+        );
+    }
+
+    #[test]
     fn code_added_every_round_is_expanded() {
         // Found by the `lsp_edits` fuzz target: a metaprogram that adds code at every
         // TYPECHECKED_ALL_WE_CAN made each round revisit every scope and file so far, so a

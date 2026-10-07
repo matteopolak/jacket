@@ -13,6 +13,7 @@ After a thunk returns, `read_value` (`sema/consteval.rs`) copies the result out 
 - a pointer into a global becomes a relocation to that global {#ctdata.2};
 - heap memory (say, a `[..]` built with `array_add`) is copied into a new read-only blob, recursively {#ctdata.3};
 - integers below `0x10000` cast to pointers stay plain numbers {#ctdata.4}, and so do values with the top bit set, which are never user-space addresses on a 64-bit host (sign-extended handles such as `HKEY_CLASSES_ROOT :: cast(HKEY) cast(s64) cast,trunc(s32) 0x80000000`) {#ctdata.14};
+- any other pointer the compiler cannot read (say `cast(*int) 80000000`) also stays a plain number, and a `string` whose data cannot be read fails with `a compile-time value points to memory that cannot be read` (`Interp::read` checks the address first);
 - a pointer to memory of unknown size (`*void` from `alloc`) fails with `a compile-time value holds a pointer to memory of unknown size` {#ctdata.5};
 - union members are copied as raw bytes, without following pointers {#ctdata.6}.
 

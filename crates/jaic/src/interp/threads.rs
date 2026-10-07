@@ -577,14 +577,19 @@ impl Interp {
             }
             "pthread_cond_wait" => self.cond_wait(arg(0), arg(1), None),
             "pthread_cond_timedwait" => {
-                let deadline = absolute_deadline(arg(2));
-                self.cond_wait(arg(0), arg(1), Some(deadline))
+                match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
+                    (Ok(secs), Ok(nanos)) => {
+                        let deadline = absolute_deadline(secs, nanos);
+                        self.cond_wait(arg(0), arg(1), Some(deadline))
+                    }
+                    (Err(trap), _) | (_, Err(trap)) => Err(trap),
+                }
             }
             // Sleeping and yielding only matter once another thread may exist.
-            "nanosleep" if started => {
-                let (secs, nanos) = (self.read_u64(arg(0)), self.read_u64(arg(0) + 8));
-                self.sleep_for(Duration::new(secs, nanos as u32))
-            }
+            "nanosleep" if started => match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
+                (Ok(secs), Ok(nanos)) => self.sleep_for(Duration::new(secs, nanos as u32)),
+                (Err(trap), _) | (_, Err(trap)) => Err(trap),
+            },
             "usleep" if started => self.sleep_for(Duration::from_micros(arg(0) as u32 as u64)),
             "sleep" if started => self.sleep_for(Duration::from_secs(arg(0) as u32 as u64)),
             "sched_yield" | "pthread_yield_np" if started => self.yield_now().map(|_| 0),
@@ -633,7 +638,7 @@ impl Interp {
             return Ok(11); // EAGAIN
         };
         if out != 0 {
-            self.write(out, &(id as u64 + 1).to_le_bytes());
+            self.put(out, &(id as u64 + 1).to_le_bytes())?;
         }
         Ok(0)
     }
@@ -650,7 +655,7 @@ impl Interp {
         }
         if result_out != 0 {
             let value = self.with_sched(|s| s.threads[id].result);
-            self.write(result_out, &value.to_le_bytes());
+            self.put(result_out, &value.to_le_bytes())?;
         }
         Ok(0)
     }
@@ -829,13 +834,7 @@ impl Interp {
 }
 
 /// The instant a POSIX absolute `timespec` (seconds and nanoseconds since the epoch) names.
-fn absolute_deadline(timespec: u64) -> Instant {
-    let (secs, nanos) = unsafe {
-        (
-            std::ptr::read_unaligned(timespec as *const u64),
-            std::ptr::read_unaligned((timespec + 8) as *const u64),
-        )
-    };
+fn absolute_deadline(secs: u64, nanos: u64) -> Instant {
     let target = Duration::new(secs, nanos as u32);
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)

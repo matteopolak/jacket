@@ -866,29 +866,32 @@ pub fn call(
     ) {
         interp.effects += 1;
     }
-    let string = |interp: &Interp, i: usize| -> Vec<u8> {
-        let p = arg(i);
-        if p == 0 {
-            return Vec::new();
-        }
-        let count = interp.read_u64(p) as usize;
-        let data = interp.read_u64(p + 8);
-        if count == 0 || data == 0 {
-            Vec::new()
-        } else {
-            interp.read(data, count)
-        }
-    };
-    let text = |interp: &Interp, i: usize| String::from_utf8_lossy(&string(interp, i)).into_owned();
     let trap = |message: String| Trap {
         message,
         ..Trap::default()
     };
+    // Every pointer here comes from the program: reading or writing through one it made up is
+    // an error, not a crash.
+    let load = |interp: &Interp, p: u64| interp.read_u64(p).ok_or_else(|| unreadable(p));
+    let string = |interp: &Interp, i: usize| -> Result<Vec<u8>, Trap> {
+        let p = arg(i);
+        if p == 0 {
+            return Ok(Vec::new());
+        }
+        let count = load(interp, p)? as usize;
+        let data = load(interp, p + 8)?;
+        if count == 0 || data == 0 {
+            Ok(Vec::new())
+        } else {
+            interp.read(data, count).ok_or_else(|| unreadable(data))
+        }
+    };
+    let text = |interp: &Interp, i: usize| -> Result<String, Trap> {
+        Ok(String::from_utf8_lossy(&string(interp, i)?).into_owned())
+    };
     let return_string = |interp: &mut Interp, bytes: &[u8], out_index: usize| {
         let (count, data) = shared.borrow_mut().keep_string(bytes);
-        let out = arg(out_index);
-        interp.write(out, &count.to_le_bytes());
-        interp.write(out + 8, &data.to_le_bytes());
+        store_pair(interp, arg(out_index), count, data)
     };
     match op {
         MetaOp::SetTypeInfoFlags => {
@@ -906,14 +909,14 @@ pub fn call(
                 .and_then(|(g, offset)| (offset == 0).then_some(g))
                 .and_then(|g| interp.struct_locations.get(&g).cloned());
             if let Some((path, line, col)) = found {
-                return_string(interp, path.as_bytes(), 1);
-                interp.write(arg(2), &line.to_le_bytes());
-                interp.write(arg(3), &col.to_le_bytes());
+                return_string(interp, path.as_bytes(), 1)?;
+                store(interp, arg(2), &line.to_le_bytes())?;
+                store(interp, arg(3), &col.to_le_bytes())?;
             }
             Ok(Vec::new())
         }
         MetaOp::WorkspaceCreate => {
-            let name = text(interp, 0);
+            let name = text(interp, 0)?;
             let mut reg = shared.borrow_mut();
             let ws = Workspace::new(name);
             reg.list.push(ws);
@@ -922,7 +925,7 @@ pub fn call(
         MetaOp::CurrentWorkspace => Ok(vec![shared.borrow().current_id() as u64]),
         MetaOp::AddFile | MetaOp::AddString => {
             let id = arg(0) as i64;
-            let value = text(interp, 1);
+            let value = text(interp, 1)?;
             let mut reg = shared.borrow_mut();
             let ws = reg.ws(id).map_err(trap)?;
             if ws.stage == Stage::Done {
@@ -954,7 +957,7 @@ pub fn call(
             Ok(Vec::new())
         }
         MetaOp::SetOption => {
-            let (key, value) = (text(interp, 1), text(interp, 2));
+            let (key, value) = (text(interp, 1)?, text(interp, 2)?);
             shared
                 .borrow_mut()
                 .set_option(arg(0) as i64, &key, &value)
@@ -1007,7 +1010,7 @@ pub fn call(
                 .get(arg(0) as usize)
                 .cloned()
                 .unwrap_or_default();
-            return_string(interp, &bytes, 1);
+            return_string(interp, &bytes, 1)?;
             Ok(Vec::new())
         }
         MetaOp::CommandLineCount => Ok(vec![shared.borrow().env.command_line.len() as u64]),
@@ -1019,11 +1022,11 @@ pub fn call(
                 .get(arg(0) as usize)
                 .cloned()
                 .unwrap_or_default();
-            return_string(interp, value.as_bytes(), 1);
+            return_string(interp, value.as_bytes(), 1)?;
             Ok(Vec::new())
         }
         MetaOp::Report => {
-            let (message, file) = (text(interp, 0), text(interp, 1));
+            let (message, file) = (text(interp, 0)?, text(interp, 1)?);
             let (line, column, is_error) = (arg(2), arg(3), arg(4) & 1 != 0);
             let location = if file.is_empty() {
                 String::new()
@@ -1045,12 +1048,12 @@ pub fn call(
             Ok(Vec::new())
         }
         MetaOp::CompilerVersion => {
-            return_string(interp, COMPILER_VERSION.as_bytes(), 0);
+            return_string(interp, COMPILER_VERSION.as_bytes(), 0)?;
             Ok(Vec::new())
         }
         MetaOp::CustomLinkComplete => Ok(Vec::new()),
         MetaOp::AddStringToModule => {
-            let (id, value, record) = (arg(0) as i64, text(interp, 1), arg(2) as i64);
+            let (id, value, record) = (arg(0) as i64, text(interp, 1)?, arg(2) as i64);
             let mut reg = shared.borrow_mut();
             // A FILE message stands for its module (the enclosing import).
             let records = &reg.records;
@@ -1097,7 +1100,7 @@ pub fn call(
             Ok(vec![reg.records.add(result) as u64])
         }
         MetaOp::ParseCode => {
-            let (source, scope_from) = (text(interp, 0), arg(1) as usize);
+            let (source, scope_from) = (text(interp, 0)?, arg(1) as usize);
             if scope_from >= interp.codes.len() {
                 return Err(trap(
                     "compiler_get_code: no code to take the scope from".into(),
@@ -1130,30 +1133,34 @@ pub fn call(
                 (arg(0) as i64, arg(1) as i64, arg(2), arg(3), arg(4));
             // A statement without a record (new, or edited in place) comes as source text.
             let stmts = (0..count)
-                .map(|i| match interp.read_u64(data + i * 8) as i64 {
-                    0 => {
-                        let at = sources + i * 16;
-                        let (len, ptr) = (interp.read_u64(at), interp.read_u64(at + 8));
-                        let bytes = interp.read(ptr, len as usize);
-                        crate::sema::ModifiedStmt::Source(
-                            String::from_utf8_lossy(&bytes).into_owned(),
-                        )
-                    }
-                    r => crate::sema::ModifiedStmt::Record(r),
+                .map(|i| {
+                    Ok(match load(interp, data + i * 8)? as i64 {
+                        0 => {
+                            let at = sources + i * 16;
+                            let (len, ptr) = (load(interp, at)?, load(interp, at + 8)?);
+                            let bytes = interp
+                                .read(ptr, len as usize)
+                                .ok_or_else(|| unreadable(ptr))?;
+                            crate::sema::ModifiedStmt::Source(
+                                String::from_utf8_lossy(&bytes).into_owned(),
+                            )
+                        }
+                        r => crate::sema::ModifiedStmt::Record(r),
+                    })
                 })
-                .collect();
+                .collect::<Result<_, Trap>>()?;
             let mut reg = shared.borrow_mut();
             reg.ws(id).map_err(trap)?.modifications.push((body, stmts));
             Ok(Vec::new())
         }
         MetaOp::Clang => {
-            let (name, bytes) = (text(interp, 0), string(interp, 3));
+            let (name, bytes) = (text(interp, 0)?, string(interp, 3)?);
             crate::clang::call(&name, arg(1) as i64, arg(2) as i64, &bytes)
                 .map(|v| vec![v as u64])
                 .map_err(trap)
         }
         MetaOp::ClangText => {
-            return_string(interp, &crate::clang::last_text(), 0);
+            return_string(interp, &crate::clang::last_text(), 0)?;
             Ok(Vec::new())
         }
         MetaOp::RecTag => {
@@ -1163,9 +1170,7 @@ pub fn call(
                 .records
                 .get(arg(0) as i64)
                 .map_or("", |r| r.tag);
-            let out = arg(1);
-            interp.write(out, &(tag.len() as u64).to_le_bytes());
-            interp.write(out + 8, &(tag.as_ptr() as u64).to_le_bytes());
+            store_pair(interp, arg(1), tag.len() as u64, tag.as_ptr() as u64)?;
             Ok(Vec::new())
         }
         MetaOp::RecTagId => {
@@ -1185,26 +1190,27 @@ pub fn call(
         }
         MetaOp::RecFill => {
             let mut reg = shared.borrow_mut();
-            Ok(vec![rec_fill(&mut reg, interp, args)])
+            Ok(vec![rec_fill(&mut reg, interp, args)?])
         }
         MetaOp::RecFillList => {
             let mut reg = shared.borrow_mut();
-            Ok(vec![rec_fill_list(&mut reg, interp, args)])
+            Ok(vec![rec_fill_list(&mut reg, interp, args)?])
         }
         MetaOp::RecField => Ok(vec![
             shared
                 .borrow()
                 .records
-                .kind(arg(0) as i64, field_name(interp, arg(1))) as u64,
+                .kind(arg(0) as i64, &field_name(interp, arg(1))) as u64,
         ]),
         MetaOp::RecCount => {
             let reg = shared.borrow();
-            Ok(vec![
-                match reg.records.field(arg(0) as i64, field_name(interp, arg(1))) {
-                    Some(Field::List(items)) => items.len() as u64,
-                    _ => 0,
-                },
-            ])
+            Ok(vec![match reg
+                .records
+                .field(arg(0) as i64, &field_name(interp, arg(1)))
+            {
+                Some(Field::List(items)) => items.len() as u64,
+                _ => 0,
+            }])
         }
         MetaOp::RecInt | MetaOp::RecRef | MetaOp::RecItemInt | MetaOp::RecItemRef => {
             let index =
@@ -1212,7 +1218,7 @@ pub fn call(
             let reg = shared.borrow();
             Ok(vec![match reg
                 .records
-                .item(arg(0) as i64, field_name(interp, arg(1)), index)
+                .item(arg(0) as i64, &field_name(interp, arg(1)), index)
             {
                 Some(Item::Int(v) | Item::Ref(v)) => *v as u64,
                 _ => 0,
@@ -1228,7 +1234,7 @@ pub fn call(
             let (count, data) =
                 match reg
                     .records
-                    .item(arg(0) as i64, field_name(interp, arg(1)), index)
+                    .item(arg(0) as i64, &field_name(interp, arg(1)), index)
                 {
                     Some(Item::Str(s)) => {
                         let s = s.clone();
@@ -1236,22 +1242,46 @@ pub fn call(
                     }
                     _ => (0, 0),
                 };
-            let out = arg(out);
-            interp.write(out, &count.to_le_bytes());
-            interp.write(out + 8, &data.to_le_bytes());
+            store_pair(interp, arg(out), count, data)?;
             Ok(Vec::new())
         }
     }
 }
 
 /// The Jai `string` at `p` as a field name. Field names are ASCII identifiers, so anything else
-/// (or a null string) names no field.
-fn field_name(interp: &Interp, p: u64) -> &str {
-    if p == 0 {
-        return "";
+/// (a null string, or one that cannot be read) names no field.
+fn field_name(interp: &Interp, p: u64) -> String {
+    let (Some(count), Some(data)) = (interp.read_u64(p), interp.read_u64(p + 8)) else {
+        return String::new();
+    };
+    let bytes = interp.read(data, count as usize).unwrap_or_default();
+    String::from_utf8(bytes).unwrap_or_default()
+}
+
+/// The error for a program pointer the compiler could not read.
+fn unreadable(p: u64) -> Trap {
+    Trap {
+        message: format!("invalid memory access: {p:#x} cannot be read"),
+        ..Trap::default()
     }
-    let bytes = interp.bytes(interp.read_u64(p + 8), interp.read_u64(p) as usize);
-    std::str::from_utf8(bytes).unwrap_or("")
+}
+
+/// Store `bytes` at program address `p`, or the error for one that cannot be written.
+fn store(interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
+    if interp.write(p, bytes) {
+        Ok(())
+    } else {
+        Err(Trap {
+            message: format!("invalid memory access: {p:#x} cannot be written"),
+            ..Trap::default()
+        })
+    }
+}
+
+/// Store a Jai `string` or array view (`count`, `data`) at program address `p`.
+fn store_pair(interp: &mut Interp, p: u64, count: u64, data: u64) -> Result<(), Trap> {
+    store(interp, p, &count.to_le_bytes())?;
+    store(interp, p + 8, &data.to_le_bytes())
 }
 
 /// Plan entry kinds shared with `Record_Plan_Entry` in `stdlib/Compiler/records.jai`.
@@ -1277,35 +1307,35 @@ fn write_item(
     size: usize,
     item: &Item,
     target: u64,
-) -> bool {
-    match (kind, item) {
+) -> Result<bool, Trap> {
+    Ok(match (kind, item) {
         (PLAN_INT, Item::Int(v) | Item::Ref(v)) => {
-            interp.write(target, &v.to_le_bytes()[..size.min(8)]);
+            store(interp, target, &v.to_le_bytes()[..size.min(8)])?;
             true
         }
         (PLAN_STRING, Item::Str(s)) => {
-            interp.write(target, &(s.len() as u64).to_le_bytes());
-            interp.write(target + 8, &(s.as_ptr() as u64).to_le_bytes());
+            store_pair(interp, target, s.len() as u64, s.as_ptr() as u64)?;
             keep.push(s.clone());
             true
         }
         (PLAN_POINTER, Item::Ref(r)) => {
             if *r <= 0 {
-                return true;
+                return Ok(true);
             }
             let pointer = if *r < built.count {
-                interp.read_u64(built.data + *r as u64 * 8)
+                let at = built.data + *r as u64 * 8;
+                interp.read_u64(at).ok_or_else(|| unreadable(at))?
             } else {
                 0
             };
-            interp.write(target, &pointer.to_le_bytes());
+            store(interp, target, &pointer.to_le_bytes())?;
             pointer != 0
         }
         (PLAN_POINTER, Item::Int(_)) => false,
         // Mismatched shapes read as zero, and the memory is already zeroed.
         (PLAN_INT | PLAN_STRING | PLAN_POINTER, _) => true,
         _ => false,
-    }
+    })
 }
 
 /// `__jaic_rec_fill(record, memory, plan, plan_count, built, built_count) -> left`: write the
@@ -1313,7 +1343,7 @@ fn write_item(
 /// written only when the referenced record is already built (`built[ref]`, the Jai side's
 /// `record_structs`). Returns a bit per plan entry (first 64) that Jai must still fill itself:
 /// the field exists but is an array, an in-place struct or an unbuilt reference.
-fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
+fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> Result<u64, Trap> {
     let arg = |i: usize| args.get(i).copied().unwrap_or(0);
     let (id, memory, plan, count) = (arg(0) as i64, arg(1), arg(2), arg(3) as usize);
     let built = Built {
@@ -1321,7 +1351,7 @@ fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
         count: arg(5) as i64,
     };
     let Some(record) = reg.records.get(id) else {
-        return 0;
+        return Ok(0);
     };
     let mut left = 0u64;
     let mut keep = Vec::new();
@@ -1329,13 +1359,12 @@ fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
     const ENTRY: u64 = 48;
     for k in 0..count.min(64) {
         let entry = plan + k as u64 * ENTRY;
-        let offset = interp.read_u64(entry);
-        let kind = interp.read_u64(entry + 8);
-        let size = interp.read_u64(entry + 16) as usize;
-        let filled = match record.field(field_name(interp, entry + 24)) {
+        let read = |at: u64| interp.read_u64(at).ok_or_else(|| unreadable(at));
+        let (offset, kind, size) = (read(entry)?, read(entry + 8)?, read(entry + 16)? as usize);
+        let filled = match record.field(&field_name(interp, entry + 24)) {
             None => true,
             Some(Field::Item(item)) => {
-                write_item(interp, &mut keep, &built, kind, size, item, memory + offset)
+                write_item(interp, &mut keep, &built, kind, size, item, memory + offset)?
             }
             // A list read as a single value is zero, except as an array member.
             Some(Field::List(_)) => kind != PLAN_OTHER,
@@ -1345,32 +1374,32 @@ fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
         }
     }
     reg.kept.extend(keep);
-    left
+    Ok(left)
 }
 
 /// `__jaic_rec_fill_list(record, name, data, count, kind, size, built, built_count) -> left`:
 /// write the elements of list field `name` into `data` (`count` elements of `size` bytes).
 /// Returns how many elements Jai must still fill (see `write_item`).
-fn rec_fill_list(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> u64 {
+fn rec_fill_list(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> Result<u64, Trap> {
     let arg = |i: usize| args.get(i).copied().unwrap_or(0);
     let (id, data, count, kind, size) = (arg(0) as i64, arg(2), arg(3), arg(4), arg(5));
     let built = Built {
         data: arg(6),
         count: arg(7) as i64,
     };
-    let Some(Field::List(items)) = reg.records.field(id, field_name(interp, arg(1))) else {
-        return count;
+    let Some(Field::List(items)) = reg.records.field(id, &field_name(interp, arg(1))) else {
+        return Ok(count);
     };
     let mut left = 0;
     let mut keep = Vec::new();
     for (k, item) in items.iter().take(count as usize).enumerate() {
         let target = data + k as u64 * size;
-        if !write_item(interp, &mut keep, &built, kind, size as usize, item, target) {
+        if !write_item(interp, &mut keep, &built, kind, size as usize, item, target)? {
             left += 1;
         }
     }
     reg.kept.extend(keep);
-    left
+    Ok(left)
 }
 
 /// Parse the source text of a `Code` value (an expression, statement or block).

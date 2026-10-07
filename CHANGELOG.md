@@ -19,6 +19,7 @@
 
 - jailsp: a `cast,trunc(T) x` or `xx,no_check x` argument of `print` and friends counts as one argument; the commas after `cast`/`xx` no longer split it, which reported arguments as unused by the format string.
 - A metaprogram that adds code at every `TYPECHECKED_ALL_WE_CAN` no longer slows down with every round: each round revisited every scope, declaration and file compiled so far, so a long run took quadratic time (16 000 rounds under jailsp's budget took seconds). A round now costs only the code it adds.
+- A `#run` constant holding a pointer made from an integer (such as `cast(*T) 80000000`) no longer crashes the compiler. Everywhere the compiler reads or writes memory a program points it at (`#run` results, metaprogram strings and messages, `compiler_*` out-parameters) it now checks the address first: an unreadable pointer in a constant stays a number, and other bad addresses are an error.
 - jailsp: references, type definition and the other queries that read a declaration's source no longer crash on a builtin constant such as `OS`, which has no source location; they leave it out, as go to definition already did.
 
 ## [0.4.0] - 2026-10-07
