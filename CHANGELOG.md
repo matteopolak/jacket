@@ -2,33 +2,59 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-07
+
+WebGPU graphics on every platform and in the playground, threads in WASI builds, and a round of fuzzer-found crash fixes. The jaic-only modules move to `stdlib/Extensions/`, and the VS Code extension reaches the Marketplace as **Jai Toolchain**.
+
 ### Heads-up
 
-- `Jaic_Extensions` is gone: import `Long_Double` with `#import "Extensions/Long_Double";`. The modules only jaic has now live in `stdlib/Extensions/` and are imported by that path (`Extensions/Jai_Format`, `Extensions/Wasi_Runtime`, and the new `Extensions/WebGPU`), so a bare `#import "Jai_Format";` no longer finds them; the error names the import to write. `Bindings_Generator` output imports `Extensions/Long_Double`.
+| Before | Now |
+| --- | --- |
+| `#import "Jaic_Extensions";` | `#import "Extensions/Long_Double";` |
+| `#import "Jai_Format";`, `"Wasi_Runtime"` | `#import "Extensions/Jai_Format";`, `"Extensions/Wasi_Runtime"` |
+| `jaic-<platform>` release archives | `jai-<platform>` (installers and the extension pick the right name for older versions) |
+| `JAIC_VERSION`, `JAIC_INSTALL_DIR`, `JAIC_BIN_DIR` | `JAI_VERSION`, `JAI_INSTALL_DIR`, `JAI_BIN_DIR` (old names still work) |
 
-### Added
+A bare import of a moved module fails with an error naming the import to write. See [stdlib extensions](docs/stdlib/extensions.md).
 
-- The VS Code extension highlights a here-string's body in the language its terminator names: `#string WGSL`, `GLSL`, `HLSL`, `METAL`, `SQL`, `JSON`, `HTML`, `CSS`, `JS`, `TS`, `PY`, `SH`, `C`, `CPP`, `OBJC`, `RUST`, `XML`, `YAML`, `TOML`, `MD`, `LUA` or `JAI` (ignoring case), with that language's comments and brackets; other terminators stay plain strings. It bundles a WGSL grammar and uses VS Code's own or an installed extension's grammar for the rest. jailsp no longer marks such a body as one string, and the playground highlights `#string WGSL` and `#string JAI` bodies. See [embedded languages](docs/tools/vscode-extension.md#embedded-languages).
-- The playground's language tour has four new stops: runtime safety checks and their opt-outs (with a switch that triggers each runtime error), threads (a `Thread_Group` and a producer/consumer on semaphores), files in the browser's workspace, and `#asm` with the 128-bit `Long_Double`.
-- `Extensions/WebGPU` module (`#import "Extensions/WebGPU";`, a jaic extension): the whole `webgpu.h` API, generated from webgpu-headers' `webgpu.yml` (`tools/webgpu_gen.py`, pinned in `tools/webgpu.json`), plus helpers for windows, adapters, surface formats, buffer mapping and error scopes. The same program draws in a window on macOS (Metal), Linux (Vulkan, X11) and Windows (D3D12), and in the playground. Release archives ship the pinned wgpu-native, so `jaic run` and `jaic build` of a WebGPU program need nothing else. Examples: `examples/webgpu/triangle.jai`, `raymarch.jai` and `compute.jai`. See `docs/stdlib/webgpu.md`.
-- Browser build: page host functions. A foreign procedure the sandbox lacks is offered to the page by name (`createEngine(bytes, { host })`), with every pointer checked against the program's memory; a promise result suspends the program through JSPI (`playAsync`), while other Jai threads keep running. The playground draws WebGPU programs in a new Render pane (browsers with WebGPU and JSPI), and the tour ends with a GPU ray marcher that prints a skip line elsewhere.
-- CI runs a headless WebGPU test (offscreen rendering, compute, texture upload, buffer mapping, error scopes), interpreted and built, on Linux (lavapipe), macOS (Metal) and Windows x64 and arm64 (WARP), and tests the browser host against a mock WebGPU.
+### WebGPU
 
-### Changed
+- New `Extensions/WebGPU` module: the whole `webgpu.h` API, generated from webgpu-headers, plus helpers for windows, adapters, surface formats, buffer mapping and error scopes.
+- One program draws in a window on macOS (Metal), Linux (Vulkan) and Windows (D3D12), and in the playground's new **Render** pane (Chromium browsers).
+- Release archives ship the pinned wgpu-native, so `jaic run` and `jaic build` need nothing else.
+- Examples: `examples/webgpu/triangle.jai`, `raymarch.jai`, `compute.jai`, and a GPU ray marcher at the end of the tour. See [WebGPU](docs/stdlib/webgpu.md).
 
-- Release archives are now named `jai-<platform>` (`jai-macos-arm64.tar.gz`, `jai-linux-x64.tar.gz`, `jai-windows-x64.zip`, `jai-windows-arm64.zip`, each unpacking to `jai-<platform>/`), since they hold all four tools. Releases up to 0.4.0 keep their `jaic-` names: `install.sh`, `install.ps1`, the Homebrew formula, the winget manifests and the VS Code extension pick the name by version, so installing an older release and upgrading an existing install keep working. The install scripts also read `JAI_VERSION`, `JAI_INSTALL_DIR` and `JAI_BIN_DIR`; the `JAIC_` names still work.
-- The stdlib's jaic-only modules are in their own folder, `stdlib/Extensions/` ([stdlib extensions](docs/stdlib/extensions.md)). jailsp completes `#import "Extensions/` and its "Add `#import`" fix offers them.
-- The VS Code extension is listed as **Jai Toolchain** (its ID stays `matteopolak.jai`), so it can go on the VS Code Marketplace, where the name *Jai* is taken. 0.4.0 reached only Open VSX and the GitHub release.
+### Playground and editor
 
-### Fixed
+| Where | Change |
+| --- | --- |
+| Tour | Four new stops: runtime safety checks, threads, files, and `#asm` with `Long_Double` |
+| VS Code | A here-string body is highlighted in the language its terminator names: `#string WGSL`, `GLSL`, `SQL`, `JSON`, `JAI` and more ([embedded languages](docs/tools/vscode-extension.md#embedded-languages)) |
+| Playground | Highlights `#string WGSL` and `#string JAI` bodies |
+| Marketplace | The extension is listed as **Jai Toolchain** (ID still `matteopolak.jai`) |
 
-- jailsp: a `cast,trunc(T) x` or `xx,no_check x` argument of `print` and friends counts as one argument; the commas after `cast`/`xx` no longer split it, which reported arguments as unused by the format string.
-- A metaprogram that adds code at every `TYPECHECKED_ALL_WE_CAN` no longer slows down with every round: each round revisited every scope, declaration and file compiled so far, so a long run took quadratic time (16 000 rounds under jailsp's budget took seconds). A round now costs only the code it adds.
-- A `#run` constant holding a pointer made from an integer (such as `cast(*T) 80000000`) no longer crashes the compiler. Everywhere the compiler reads or writes memory a program points it at (`#run` results, metaprogram strings and messages, `compiler_*` out-parameters) it now checks the address first: an unreadable pointer in a constant stays a number, and other bad addresses are an error.
-- jailsp: a format string naming an absurdly large argument number (`%77777777777777777777777777`) no longer crashes the format diagnostics.
-- jailsp: references, type definition and the other queries that read a declaration's source no longer crash on a builtin constant such as `OS`, which has no source location; they leave it out, as go to definition already did.
-- `print("%", p.*)` with a null `p` stops with `null pointer dereference: read through a null pointer`, as `v := p.*;` does, in the interpreter, the browser and native and wasm builds; it printed `null`. The same holds for any `p.*` (or a member at offset 0) passed as an `Any` or `..Any` argument. `*(p.*)` still just gives back `p`.
-- A `jaic build -os wasm` program that starts threads no longer hangs or fails under WASI, which has no threads (the language tour stopped at its threads stop): Wasi_Runtime runs them as green threads that take turns on the host's thread, and jaic rewrites the procedures that may block so a waiting thread can be set aside and resumed ([threads in WASI builds](docs/native/wasm-threads.md)). Mutexes, condition variables, semaphores, joins, sleeps and `Thread_Group` work as natively; a busy wait that never blocks still keeps the turn.
+### Threads in WASI builds
+
+`jaic build -os wasm` programs that start threads used to fail or hang under WASI, which has no threads. They now run as green threads that take turns on one host thread: mutexes, condition variables, semaphores, joins, sleeps and `Thread_Group` behave as natively. A busy wait that never blocks still keeps the turn. See [threads in WASI builds](docs/native/wasm-threads.md).
+
+### Crash fixes
+
+The nightly fuzzer's findings are fixed by class rather than one by one:
+
+- The compiler checks every address a program hands it (`#run` results, metaprogram messages, `compiler_*` out-parameters) instead of crashing on a bad pointer.
+- Metaprograms that add code every round no longer slow down quadratically.
+- jailsp no longer crashes on builtin constants such as `OS` or on huge `%N` argument numbers.
+- `print("%", p.*)` with a null `p` now stops with a null-dereference error instead of printing `null`.
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Browser build: a foreign procedure the sandbox lacks is offered to the page by name (`createEngine(bytes, { host })`), with every pointer checked; a promise result suspends the program through JSPI while other Jai threads keep running.
+- CI runs a headless WebGPU test on Linux, macOS and Windows x64 and arm64, and tests the browser host against a mock WebGPU.
+- jailsp: a `cast,trunc(T) x` or `xx,no_check x` argument of `print` counts as one argument.
+- `Bindings_Generator` output imports `Extensions/Long_Double`.
+
+</details>
 
 ## [0.4.0] - 2026-10-07
 
