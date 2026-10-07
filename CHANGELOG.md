@@ -6,6 +6,10 @@
 
 - The VS Code extension's display name is now *Jai Toolchain* (its ID stays `matteopolak.jai`): the VS Code Marketplace needs a display name no other extension uses, and *Jai* is taken, so 0.4.0 reached only Open VSX and the GitHub release.
 
+### Fixed
+
+- A metaprogram that adds code at every `TYPECHECKED_ALL_WE_CAN` no longer slows down with every round: each round revisited every scope, declaration and file compiled so far, so a long run took quadratic time (16 000 rounds under jailsp's budget took seconds). A round now costs only the code it adds.
+
 ## [0.4.0] - 2026-10-07
 
 ### Added

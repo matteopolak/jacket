@@ -583,12 +583,15 @@ impl Compiler {
                 ast::StmtKind::StaticIf {
                     ..
                 } => {
-                    self.scope_mut(scope).pending.push(Pending {
-                        stmt: stmt.clone(),
-                        exported,
-                        file_scope,
-                        state: PendingState::Waiting,
-                    });
+                    self.push_pending(
+                        scope,
+                        Pending {
+                            stmt: stmt.clone(),
+                            exported,
+                            file_scope,
+                            state: PendingState::Waiting,
+                        },
+                    );
                 }
                 _ => {}
             }
@@ -705,22 +708,25 @@ impl Compiler {
                     && let [name] = decl.names.as_slice()
                 {
                     // `using E :: enum {...}`: also bring the type's members into scope.
-                    self.scope_mut(target).pending.push(Pending {
-                        stmt: ast::Stmt {
-                            kind: ast::StmtKind::Using {
-                                value: ast::Expr {
-                                    kind: ast::ExprKind::Ident(using_name.unwrap_or(name.name)),
-                                    span: name.span,
+                    self.push_pending(
+                        target,
+                        Pending {
+                            stmt: ast::Stmt {
+                                kind: ast::StmtKind::Using {
+                                    value: ast::Expr {
+                                        kind: ast::ExprKind::Ident(using_name.unwrap_or(name.name)),
+                                        span: name.span,
+                                    },
+                                    filter: ast::UsingFilter::None,
                                 },
-                                filter: ast::UsingFilter::None,
+                                span: stmt.span,
+                                notes: Vec::new(),
                             },
-                            span: stmt.span,
-                            notes: Vec::new(),
+                            exported,
+                            file_scope,
+                            state: PendingState::Waiting,
                         },
-                        exported,
-                        file_scope,
-                        state: PendingState::Waiting,
-                    });
+                    );
                 }
             }
             ast::StmtKind::Import(import) => {
@@ -744,22 +750,28 @@ impl Compiler {
                                 .exported_using_imports
                                 .push(index);
                         }
-                        self.scope_mut(target).imports.push(ImportEntry {
+                        self.push_import(
+                            target,
+                            ImportEntry {
+                                import: import.clone(),
+                                module: None,
+                                loading: false,
+                                from_scope: file_scope,
+                                filter: filter.clone(),
+                            },
+                        );
+                    }
+                } else {
+                    self.push_import(
+                        target,
+                        ImportEntry {
                             import: import.clone(),
                             module: None,
                             loading: false,
                             from_scope: file_scope,
-                            filter: filter.clone(),
-                        });
-                    }
-                } else {
-                    self.scope_mut(target).imports.push(ImportEntry {
-                        import: import.clone(),
-                        module: None,
-                        loading: false,
-                        from_scope: file_scope,
-                        filter: import.using.clone().unwrap_or(ast::UsingFilter::None),
-                    });
+                            filter: import.using.clone().unwrap_or(ast::UsingFilter::None),
+                        },
+                    );
                 }
             }
             ast::StmtKind::Load {
@@ -779,12 +791,15 @@ impl Compiler {
             | ast::StmtKind::Insert {
                 ..
             } => {
-                self.scope_mut(target).pending.push(Pending {
-                    stmt: stmt.clone(),
-                    exported,
-                    file_scope,
-                    state: PendingState::Waiting,
-                });
+                self.push_pending(
+                    target,
+                    Pending {
+                        stmt: stmt.clone(),
+                        exported,
+                        file_scope,
+                        state: PendingState::Waiting,
+                    },
+                );
             }
             ast::StmtKind::Run(expr) => self.top_level_runs.push((expr.clone(), file_scope)),
             ast::StmtKind::Assert {
@@ -882,19 +897,22 @@ impl Compiler {
                 filter,
             } => {
                 // `using Module;` / `using SomeStruct;` at file scope: resolved lazily.
-                self.scope_mut(target).pending.push(Pending {
-                    stmt: ast::Stmt {
-                        kind: ast::StmtKind::Using {
-                            value: value.clone(),
-                            filter: filter.clone(),
+                self.push_pending(
+                    target,
+                    Pending {
+                        stmt: ast::Stmt {
+                            kind: ast::StmtKind::Using {
+                                value: value.clone(),
+                                filter: filter.clone(),
+                            },
+                            span: stmt.span,
+                            notes: Vec::new(),
                         },
-                        span: stmt.span,
-                        notes: Vec::new(),
+                        exported,
+                        file_scope,
+                        state: PendingState::Waiting,
                     },
-                    exported,
-                    file_scope,
-                    state: PendingState::Waiting,
-                });
+                );
             }
             _ => return err(stmt.span, "this statement is not allowed at file scope"),
         }
@@ -1283,35 +1301,35 @@ impl Compiler {
     pub fn expand_all(&mut self) -> Result<()> {
         // First the plain `#if`s and imports everywhere (they decide which files and
         // `#add_context`s exist), then everything else.
-        let mut plain_index = 0;
-        while plain_index < self.scopes.len() {
-            let sid = ScopeId(plain_index as u32);
-            if matches!(self.scope(sid).kind, ScopeKind::Module | ScopeKind::File) {
-                self.expand_plain_ifs(sid)?;
+        // Only unsettled module and file scopes are visited, in scope order (scopes made on the
+        // way are visited too); a scope whose items and imports are all done has nothing to do.
+        let mut next = 0;
+        while let Some(sid) = self.unsettled.range(ScopeId(next)..).next().copied() {
+            next = sid.0 + 1;
+            self.expand_plain_ifs(sid)?;
+            for i in 0..self.scope(sid).imports.len() {
+                self.import_module(sid, i)?;
+            }
+        }
+        let mut next = 0;
+        loop {
+            while let Some(sid) = self.unsettled.range(ScopeId(next)..).next().copied() {
+                next = sid.0 + 1;
+                self.expand_pending(sid)?;
                 for i in 0..self.scope(sid).imports.len() {
                     self.import_module(sid, i)?;
                 }
-            }
-            plain_index += 1;
-        }
-        let mut scope_index = 0;
-        let mut entity_index = 0;
-        loop {
-            while scope_index < self.scopes.len() {
-                let sid = ScopeId(scope_index as u32);
-                if matches!(self.scope(sid).kind, ScopeKind::Module | ScopeKind::File) {
-                    self.expand_pending(sid)?;
-                    for i in 0..self.scope(sid).imports.len() {
-                        self.import_module(sid, i)?;
-                    }
+                if self.settled(sid) {
+                    self.unsettled.remove(&sid);
                 }
-                scope_index += 1;
             }
             // Named imports (`X :: #import`) load eagerly too, so every module's
-            // `#add_context` is known before the Context type is laid out.
-            while entity_index < self.entities.len() {
-                let id = EntityId(entity_index as u32);
-                entity_index += 1;
+            // `#add_context` is known before the Context type is laid out. The mark moves past
+            // an import only once it resolved: one that failed (in a nested call whose caller
+            // went on) is tried, and reports its error, again.
+            let mut index = self.named_imports_done;
+            while index < self.entities.len() {
+                let id = EntityId(index as u32);
                 let e = self.entity(id);
                 if matches!(e.kind, EntityKind::Import(_))
                     && matches!(
@@ -1321,6 +1339,8 @@ impl Compiler {
                 {
                     self.resolve_entity(id)?;
                 }
+                index += 1;
+                self.named_imports_done = self.named_imports_done.max(index);
             }
             // Deferred items wait until no body is mid-lowering (an outer `expand_all`).
             let lowering = self
@@ -1338,7 +1358,8 @@ impl Compiler {
                 result?;
                 continue;
             }
-            if scope_index == self.scopes.len() {
+            // Resolving a named import may have loaded a module: its scopes come next.
+            if self.unsettled.range(ScopeId(next)..).next().is_none() {
                 return Ok(());
             }
         }

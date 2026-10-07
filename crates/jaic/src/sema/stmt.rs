@@ -396,13 +396,16 @@ impl Compiler {
                 // `using Name :: #import` brings the names in like an unnamed import.
                 S::Import(import) if import.name.is_none() || import.using.is_some() => {
                     if self.hoisted_imports.insert(import.span) {
-                        self.scope_mut(file_scope).imports.push(scope::ImportEntry {
-                            import: import.clone(),
-                            module: None,
-                            loading: false,
-                            from_scope: file_scope,
-                            filter: import.using.clone().unwrap_or(ast::UsingFilter::None),
-                        });
+                        self.push_import(
+                            file_scope,
+                            scope::ImportEntry {
+                                import: import.clone(),
+                                module: None,
+                                loading: false,
+                                from_scope: file_scope,
+                                filter: import.using.clone().unwrap_or(ast::UsingFilter::None),
+                            },
+                        );
                     }
                 }
                 _ if !nested => {}

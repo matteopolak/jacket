@@ -26,6 +26,8 @@ This is deliberate. Separate per-path lookups once diverged: `GL.glViewport` fai
 
 `expand_all` first makes a pass over every scope that expands imports and `#if` items whose condition is a plain constant (`expand_plain_ifs`: no calls, no `#run`). After that, lookups expand pending items lazily (`expand_pending`).
 
+`expand_all` runs again after each source a metaprogram adds, so it visits only the module and file scopes in `Compiler::unsettled`, in scope order. `new_scope` adds every module and file scope there, `push_pending` and `push_import` add the scope they queue work for, and `expand_all` drops a scope once every item in it is `Done` and every import is loaded (`settled`). Named imports (`X :: #import`) are resolved from `named_imports_done` onward. Without this, a metaprogram that adds code at every `TYPECHECKED_ALL_WE_CAN` paid for all scopes and entities so far on each round, quadratic overall.
+
 The early pass exists so that a module's `#if FLAG #load "x.jai"`, and any `#add_context` in it, lands before a `#run` lays out the Context. A static `#if X == { case ...; }` counts as plain when its value and every case are plain (ui_builder picks a backend this way). While checking a condition, the pass sets `lookup_without_expansion` so a lookup never starts `expand_pending` and runs compile-time code early; a condition that doesn't resolve yet (`plain_condition_resolves`) is left for the lazy pass.
 
 A lookup skips `expand_pending` when the scope already binds the name to a non-overloadable, non-placeholder entity, so an `#if` reading `DEBUG` doesn't run every `#insert` in the scope.
@@ -38,6 +40,7 @@ An item that fails while a procedure body is mid-lowering is retried later (see 
 
 - Per-module state goes on `Module` (`mod.rs`).
 - Anything that must be visible before compile-time code runs belongs in the plain pass of `expand_all`. Keep that pass free of calls; most declarations aren't resolved yet.
+- Queue top-level items and imports with `push_pending` / `push_import`, never by pushing onto `Scope::pending` or `Scope::imports` directly: a scope `expand_all` has already retired would never see them.
 - A new kind of module member goes into `module_lookup`, never into one caller, with a line in `tests/stdlib/module-member-resolution.jai`.
 
 Test: `tests/stdlib/static-switch-add-context.jai`.

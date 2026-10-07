@@ -434,6 +434,12 @@ pub struct Compiler {
     /// Scopes with top-level items put back to waiting because they failed while
     /// procedure bodies were mid-lowering (retried by `expand_all`).
     pub deferred_pending: Vec<ScopeId>,
+    /// Module and file scopes that may still have top-level items to expand or imports to load.
+    /// `expand_all` visits only these (in scope order) and drops the ones it finishes, so each
+    /// round a metaprogram drives costs what is new rather than everything declared so far.
+    pub unsettled: std::collections::BTreeSet<ScopeId>,
+    /// Entities below this index have had their named imports (`X :: #import`) resolved.
+    pub named_imports_done: usize,
     /// Why each deferred item failed; shown with a later error if it is never retried.
     pub deferred_errors: Vec<Box<Diagnostic>>,
     /// Parameter names and defaults written in procedure types (`(s: string, start := 0) -> s64`),
@@ -569,6 +575,8 @@ impl Compiler {
             asm_aes_tables: None,
             export: code_export::ExportState::default(),
             deferred_pending: Vec::new(),
+            unsettled: std::collections::BTreeSet::new(),
+            named_imports_done: 0,
             deferred_errors: Vec::new(),
             proc_type_params: HashMap::default(),
             program_param_settings: Vec::new(),

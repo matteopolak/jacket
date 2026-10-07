@@ -221,7 +221,37 @@ impl Compiler {
             proc: None,
             fallbacks: Vec::new(),
         });
-        ScopeId(self.scopes.len() as u32 - 1)
+        let id = ScopeId(self.scopes.len() as u32 - 1);
+        if matches!(kind, ScopeKind::Module | ScopeKind::File) {
+            self.unsettled.insert(id);
+        }
+        id
+    }
+
+    /// Queue a top-level item of `scope` for expansion.
+    pub fn push_pending(&mut self, scope: ScopeId, item: Pending) {
+        self.scope_mut(scope).pending.push(item);
+        self.unsettle(scope);
+    }
+
+    /// Queue an unnamed (or `using`) import of `scope` for loading.
+    pub fn push_import(&mut self, scope: ScopeId, entry: ImportEntry) {
+        self.scope_mut(scope).imports.push(entry);
+        self.unsettle(scope);
+    }
+
+    fn unsettle(&mut self, scope: ScopeId) {
+        if matches!(self.scope(scope).kind, ScopeKind::Module | ScopeKind::File) {
+            self.unsettled.insert(scope);
+        }
+    }
+
+    /// Has `expand_all` nothing left to do in `scope`: every item expanded, every import
+    /// loaded (or being loaded by a caller further up)?
+    pub(super) fn settled(&self, scope: ScopeId) -> bool {
+        let s = self.scope(scope);
+        s.pending.iter().all(|p| p.state == PendingState::Done)
+            && s.imports.iter().all(|i| i.module.is_some() || i.loading)
     }
 
     pub fn scope(&self, id: ScopeId) -> &Scope {

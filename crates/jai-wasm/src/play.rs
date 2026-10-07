@@ -436,6 +436,58 @@ mod tests {
     }
 
     #[test]
+    fn code_added_every_round_is_expanded() {
+        // Found by the `lsp_edits` fuzz target: a metaprogram that adds code at every
+        // TYPECHECKED_ALL_WE_CAN made each round revisit every scope and file so far, so a
+        // long run of rounds took quadratic time. Rounds now visit only what is unfinished; the
+        // `#if`s and imports in each added string must still expand.
+        let source = concat!(
+            "#import \"Basic\";\n",
+            "#import \"Compiler\";\n",
+            "#run {\n",
+            "    w := compiler_create_workspace();\n",
+            "    options := get_build_options(w);\n",
+            "    options.output_type = .NO_OUTPUT;\n",
+            "    set_build_options(options, w);\n",
+            "    compiler_begin_intercept(w);\n",
+            "    add_build_string(\"#import \\\"Basic\\\";\\nmain :: () {}\\n\", w);\n",
+            "    rounds := 0;\n",
+            "    failed := true;\n",
+            "    while true {\n",
+            "        message := compiler_wait_for_message();\n",
+            "        if message.kind == .PHASE {\n",
+            "            phase := cast(*Message_Phase) message;\n",
+            "            if phase.phase == .TYPECHECKED_ALL_WE_CAN && rounds < 300 {\n",
+            "                add_build_string(tprint(\"#import \\\"Math\\\";\\n#if % >= 0 { X_% :: %; }\\n\", rounds, rounds, rounds), w);\n",
+            "                rounds += 1;\n",
+            "                if rounds == 300 add_build_string(\"#run assert(X_0 + X_299 == 299);\\n\", w);\n",
+            "            }\n",
+            "        }\n",
+            "        if message.kind == .COMPLETE {\n",
+            "            failed = (cast(*Message_Complete) message).error_code != .NONE;\n",
+            "            break;\n",
+            "        }\n",
+            "    }\n",
+            "    compiler_end_intercept(w);\n",
+            "    assert(rounds == 300 && !failed);\n",
+            "}\n",
+            "main :: () {}\n",
+        );
+        let mut files = BTreeMap::new();
+        files.insert("main.jai".to_string(), source.as_bytes().to_vec());
+        let r = run_with(
+            &files,
+            "main.jai",
+            PlayOptions {
+                compile_only: true,
+                ..PlayOptions::default()
+            },
+        );
+        let text = format!("{:?}{}{}", r.diagnostics, r.rendered, r.stderr);
+        assert!(r.diagnostics.is_empty(), "{text}");
+    }
+
+    #[test]
     fn unknown_escape_of_invalid_utf8() {
         // Found by the `check` fuzz target: the invalid byte reads as U+FFFD (three bytes), and
         // the error's span ended inside it, so rendering the error panicked.

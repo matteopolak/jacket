@@ -151,12 +151,15 @@ impl Compiler {
                 ast::StmtKind::StaticIf {
                     ..
                 } => {
-                    self.scope_mut(scope).pending.push(scope::Pending {
-                        stmt: stmt.clone(),
-                        exported: true,
-                        file_scope,
-                        state: scope::PendingState::Waiting,
-                    });
+                    self.push_pending(
+                        scope,
+                        scope::Pending {
+                            stmt: stmt.clone(),
+                            exported: true,
+                            file_scope,
+                            state: scope::PendingState::Waiting,
+                        },
+                    );
                 }
                 _ => {}
             }

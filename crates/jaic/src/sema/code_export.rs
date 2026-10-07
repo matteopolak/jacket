@@ -114,14 +114,14 @@ impl Compiler {
     pub fn export_file_events(&mut self, r: &mut Records) -> Vec<FileEvent> {
         let mut events = Vec::new();
         while self.export.files_announced < self.files.len() {
-            let file = self.files[self.export.files_announced].id;
+            let info = &self.files[self.export.files_announced];
+            let (file, module) = (info.id, info.module);
             self.export.files_announced += 1;
-            let module = self.file_module(file);
             if !self.export.modules.contains_key(&module) {
                 let id = self.module_record(r, module);
                 events.push((message_kind::IMPORT, id));
             }
-            let id = self.file_record(r, file);
+            let id = self.file_record_in(r, file, module);
             events.push((message_kind::FILE, id));
         }
         events
@@ -164,6 +164,14 @@ impl Compiler {
             return id;
         }
         let module = self.file_module(file);
+        self.file_record_in(r, file, module)
+    }
+
+    /// `file_record` for a file whose module is known (finding it searches every file).
+    fn file_record_in(&mut self, r: &mut Records, file: FileId, module: ModuleId) -> i64 {
+        if let Some(&id) = self.export.files.get(&file) {
+            return id;
+        }
         let import = self.module_record(r, module);
         let path = self.sources.get(file).path.clone();
         let mut rec = Record::new("Message_File");
