@@ -340,6 +340,12 @@ pub struct Interp {
     /// program's own executable-path queries return (not `jaic`'s path), so paths relative to
     /// the executable (`../assets`) work the same in both. `None`: no substitution.
     pub run_executable: Option<String>,
+    /// The arguments `jaic run` hands the program (`argv`): what its Windows command-line
+    /// query (`GetCommandLineW`) returns while `run_executable` is set, not `jaic`'s own.
+    pub run_arguments: Vec<String>,
+    /// `run_arguments` as a Windows command line, made on the first query and kept for the
+    /// rest of the process, as the OS keeps its own.
+    run_command_line: Option<u64>,
     /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
     pub pending_type_flags: Vec<(GlobalId, u32)>,
     /// Declaration of each struct whose descriptor exists: file path, line, column
@@ -452,6 +458,8 @@ impl Interp {
             trace_loc: None,
             compile_time: true,
             run_executable: None,
+            run_arguments: Vec::new(),
+            run_command_line: None,
             pending_type_flags: Vec::new(),
             struct_locations: std::collections::HashMap::new(),
             workspaces: None,

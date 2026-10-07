@@ -1665,8 +1665,14 @@ fn windows_runtime_program() {
         String::from_utf8_lossy(&output.stderr)
     );
     if cfg!(windows) {
-        // Its threads run on the interpreter's scheduler through the Win32 calls.
-        let run = Command::new(JAIC).arg("run").arg(&source).output().unwrap();
+        // Its threads run on the interpreter's scheduler through the Win32 calls, and its
+        // arguments come back through GetCommandLineW as the program's, not jaic's.
+        let run = Command::new(JAIC)
+            .arg("run")
+            .arg(&source)
+            .args(["--", "runtime-arg"])
+            .output()
+            .unwrap();
         assert_eq!(
             String::from_utf8_lossy(&run.stdout).replace('\r', ""),
             "ok\n",

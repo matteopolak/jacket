@@ -4,6 +4,11 @@
 //! executable `jaic build` would write, so a program that finds its data next to itself
 //! (`join(path_strip_filename(get_path_of_running_executable()), "../assets")`) runs the same
 //! either way. Compile-time code keeps the real answer (the compiler, as with any compiler).
+//!
+//! The same goes for the command line on Windows: Runtime_Support reads the arguments again
+//! from `GetCommandLineW` (the C runtime's `argv` is in the ANSI code page), which would give
+//! `jaic run file.jai -- ...`. While `run_executable` is set it gets `Interp::run_arguments`
+//! quoted so that `CommandLineToArgvW` splits them back unchanged.
 use super::{Interp, Res};
 use crate::ir::Ty;
 
@@ -62,9 +67,29 @@ impl Interp {
                     cap as u64
                 })
             })(),
+            // LPWSTR GetCommandLineW(void): the program's arguments, not jaic's.
+            "GetCommandLineW" => Ok(self.run_command_line()),
+            // No arguments at all (`jaic run` without `--`) has no Windows spelling: an empty
+            // command line splits into the executable's path. Report the split as failed, which
+            // keeps the empty `argv` the program started with.
+            "CommandLineToArgvW"
+                if self.run_arguments.is_empty() && arg(0) == self.run_command_line() =>
+            {
+                self.store(Ty::I32, arg(1), 0).map(|()| 0)
+            }
             _ => return None,
         };
         Some(result.map(|value| vec![value]))
+    }
+
+    fn run_command_line(&mut self) -> u64 {
+        *self.run_command_line.get_or_insert_with(|| {
+            let mut wide: Vec<u16> = windows_command_line(&self.run_arguments)
+                .encode_utf16()
+                .collect();
+            wide.push(0);
+            Box::leak(wide.into_boxed_slice()).as_ptr() as u64
+        })
     }
 
     fn write_bytes(&self, address: u64, bytes: &[u8]) -> Res<()> {
@@ -84,5 +109,69 @@ impl Interp {
             bytes.push(byte);
         }
         Ok(String::from_utf8_lossy(&bytes).into_owned())
+    }
+}
+
+/// `args` as one Windows command line that `CommandLineToArgvW` splits back into `args`. The
+/// first argument (the program) is read up to the next quote with no escapes; the others treat
+/// backslashes before a quote as escapes.
+pub fn windows_command_line(args: &[String]) -> String {
+    let mut line = String::new();
+    for (index, arg) in args.iter().enumerate() {
+        if index > 0 {
+            line.push(' ');
+        }
+        let plain = !arg.is_empty() && !arg.contains([' ', '\t', '\n', '\x0b', '"']);
+        if plain {
+            line.push_str(arg);
+        } else if index == 0 {
+            line.push('"');
+            line.push_str(arg);
+            line.push('"');
+        } else {
+            line.push('"');
+            let mut backslashes = 0;
+            for c in arg.chars() {
+                match c {
+                    '\\' => backslashes += 1,
+                    '"' => {
+                        line.extend(std::iter::repeat_n('\\', 2 * backslashes + 1));
+                        line.push('"');
+                        backslashes = 0;
+                    }
+                    _ => {
+                        line.extend(std::iter::repeat_n('\\', backslashes));
+                        line.push(c);
+                        backslashes = 0;
+                    }
+                }
+            }
+            line.extend(std::iter::repeat_n('\\', 2 * backslashes));
+            line.push('"');
+        }
+    }
+    line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::windows_command_line;
+
+    fn line(args: &[&str]) -> String {
+        let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
+        windows_command_line(&args)
+    }
+
+    #[test]
+    fn quotes_only_what_command_line_to_argv_would_split() {
+        assert_eq!(line(&[r"C:\a\prog.jai", "x", "y"]), r"C:\a\prog.jai x y");
+        assert_eq!(line(&[r"C:\my dir\p.jai", ""]), r#""C:\my dir\p.jai" """#);
+        assert_eq!(line(&["p", "two words", r"dir\"]), r#"p "two words" dir\"#);
+        assert_eq!(line(&["p", r"my dir\"]), r#"p "my dir\\""#);
+        assert_eq!(
+            line(&["p", r#"say "hi""#, r#"a\"b"#]),
+            r#"p "say \"hi\"" "a\\\"b""#
+        );
+        assert_eq!(line(&["p", r"c:\path\file"]), r"p c:\path\file");
     }
 }

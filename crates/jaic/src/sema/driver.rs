@@ -644,6 +644,7 @@ impl Compiler {
     /// `get_command_line_arguments` returns). `args[0]` is conventionally the program name;
     /// an empty slice passes `argc = 0, argv = null`. The strings live for the whole process.
     pub fn run_program_with_args(&mut self, args: &[String]) -> Result<i32> {
+        self.interp.run_arguments = args.to_vec();
         let (argc, argv) = if args.is_empty() {
             (0, 0)
         } else {

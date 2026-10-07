@@ -40,6 +40,12 @@ fn run_passes_program_arguments() {
     assert_eq!(run(&[]), "0\n");
     assert_eq!(run(&["--", "a", "b c"]), "[a][b c]3\n");
     assert_eq!(run(&["-", "meta", "--", "x"]), "[x]2\n");
+    // Windows programs read their arguments again from the command line; they must still see
+    // these exactly, not `jaic`'s own command line.
+    assert_eq!(
+        run(&["--", "", r#"q"uote"#, r"c:\dir\", r"tail\\", "two  spaces"]),
+        "[][q\"uote][c:\\dir\\][tail\\\\][two  spaces]6\n"
+    );
 }
 
 /// The `Long_Double` extension on targets whose C `long double` is wider than float64: the

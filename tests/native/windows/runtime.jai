@@ -80,9 +80,15 @@ main :: () {
     free(big);
     check(abs(sqrt(2.0) - 1.41421356) < 0.00001, "sqrt");
     args := get_command_line_arguments();
-    for args check(it.count > 0, "command line argument"); // `jaic run` passes none.
-    // Under `jaic run` on Windows the wide command line is jaic's own (`jaic.exe run runtime.jai`).
-    #if OS == .WINDOWS check(args.count >= 1 && ends_with(args[0], ".exe"), "argv[0] from the wide command line");
+    for args check(it.count > 0, "command line argument");
+    // Built, argv[0] is the executable. `jaic run runtime.jai -- runtime-arg` passes the source
+    // file and that argument; on Windows they are read again from the wide command line, which
+    // must be the program's and not jaic's own (`jaic.exe run runtime.jai -- runtime-arg`).
+    if args.count > 1 {
+        check(args.count == 2 && ends_with(args[0], "runtime.jai") && args[1] == "runtime-arg", "arguments under jaic run");
+    } else {
+        #if OS == .WINDOWS check(args.count == 1 && ends_with(args[0], ".exe"), "argv[0] from the wide command line");
+    }
 
     // String.
     parts := split("alpha,beta,gamma", ",");
