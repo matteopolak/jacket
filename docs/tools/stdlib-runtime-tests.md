@@ -19,7 +19,7 @@ registered. Each test runs in the requested modes:
 | `interp` | `jaic run t.jai` | every host |
 | `native` | `jaic build t.jai -o x` then `./x` | every host |
 | `wasm-interp` | `jaic run t.jai -os wasm` (the browser playground's sandbox: virtual file system, no threads or native libraries) | macOS, Linux |
-| `wasm-native` | `jaic build t.jai -os wasm` then `node tools/wasi_run.mjs x.wasm` (WASI preview 1 with the host's `/` pre-opened: files, a libm and binary128, but no threads, processes or sockets) | macOS, Linux |
+| `wasm-native` | `jaic build t.jai -os wasm` then `node tools/wasi_run.mjs x.wasm` (WASI preview 1 with the host's `/` pre-opened: files, a libm and binary128, green threads, but no processes or sockets) | macOS, Linux |
 
 A test passes when it exits with 0; output is not compared (tests `assert` what they check). A
 build that writes no executable, or reports `no exported 'main'`, did its work at compile time

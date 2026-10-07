@@ -190,6 +190,66 @@ fn wasm_allocation_heavy_program() {
     }
 }
 
+/// The playground's language tour as a WASI command: its threads stop runs on green threads
+/// (docs/native/wasm-threads.md) and prints what the browser prints. The WebGPU imports are
+/// left unresolved (`--unknown-imports-trap`); Wasi_Runtime's `jai_host_provides` says there is
+/// no page, so the GPU stop is skipped without calling them.
+#[test]
+fn wasm_tour_runs_as_a_wasi_command() {
+    let examples: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(repo_root().join("tests/examples.json")).unwrap())
+            .unwrap();
+    let case = examples["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "tour")
+        .unwrap();
+    let tour = repo_root().join("examples/tour");
+    let dir = scratch("wasm-tour");
+    let module = dir.join("tour.wasm");
+    let main = tour.join("main.jai");
+    if jaic(
+        &tour,
+        &[
+            "build",
+            main.to_str().unwrap(),
+            "-os",
+            "wasm",
+            "-o",
+            module.to_str().unwrap(),
+        ],
+    )
+    .is_none()
+    {
+        return;
+    }
+    let output = node()
+        .unwrap()
+        .arg(repo_root().join("tools/wasi_run.mjs"))
+        .arg("--unknown-imports-trap")
+        .arg(&module)
+        .current_dir(&tour)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    let stdout = text(&output.stdout);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{stdout}{}",
+        text(&output.stderr)
+    );
+    for line in case["stdout_contains"].as_array().unwrap() {
+        let line = line.as_str().unwrap();
+        assert!(stdout.contains(line), "missing {line:?} in:\n{stdout}");
+    }
+    for line in case["stdout_excludes"].as_array().unwrap() {
+        let line = line.as_str().unwrap();
+        assert!(!stdout.contains(line), "unexpected {line:?} in:\n{stdout}");
+    }
+}
+
 /// A metaprogram targets wasm the way it would in Jai: os_target .WASM, cpu_target .CUSTOM,
 /// an LLVM triple and features, and extra wasm-ld arguments.
 #[test]

@@ -81,6 +81,7 @@ The LLVM backend, C ABI and linking.
 - [Vk-Engine corpus project](native/vk-engine.md)
 - [Native Windows executables](native/windows.md)
 - [WebAssembly target (wasm64, WASI, `Wasi_Runtime`)](native/wasm-target.md)
+- [Threads in WASI builds (green threads)](native/wasm-threads.md)
 
 ## Standard library
 

@@ -4,6 +4,7 @@
 //! object file ([`emit_objects`] splits large unoptimized builds across threads); [`link`] turns object files into an executable with the
 //! system C compiler driver.
 mod debuginfo;
+mod green;
 mod lower;
 mod split;
 mod wasm;
@@ -273,6 +274,8 @@ fn emit_module(
 
 /// Translate `program` to a single native object file at `path`.
 pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+    let instrumented = green::instrument(program);
+    let program = instrumented.as_ref().unwrap_or(program);
     emit_module(program, options, path, None, false).map(drop)
 }
 
@@ -308,6 +311,9 @@ pub fn emit_objects(
     options: &Options,
     path: &Path,
 ) -> Result<Vec<PathBuf>, String> {
+    // WASI programs that start threads run them as green threads (`green.rs`).
+    let instrumented = green::instrument(program);
+    let program = instrumented.as_ref().unwrap_or(program);
     let units = codegen_units(program, options);
     if units == 1 {
         // Optimized builds keep one module through the optimizer and split only machine

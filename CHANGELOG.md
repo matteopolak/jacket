@@ -28,6 +28,7 @@
 - jailsp: a format string naming an absurdly large argument number (`%77777777777777777777777777`) no longer crashes the format diagnostics.
 - jailsp: references, type definition and the other queries that read a declaration's source no longer crash on a builtin constant such as `OS`, which has no source location; they leave it out, as go to definition already did.
 - `print("%", p.*)` with a null `p` stops with `null pointer dereference: read through a null pointer`, as `v := p.*;` does, in the interpreter, the browser and native and wasm builds; it printed `null`. The same holds for any `p.*` (or a member at offset 0) passed as an `Any` or `..Any` argument. `*(p.*)` still just gives back `p`.
+- A `jaic build -os wasm` program that starts threads no longer hangs or fails under WASI, which has no threads (the language tour stopped at its threads stop): Wasi_Runtime runs them as green threads that take turns on the host's thread, and jaic rewrites the procedures that may block so a waiting thread can be set aside and resumed ([threads in WASI builds](docs/native/wasm-threads.md)). Mutexes, condition variables, semaphores, joins, sleeps and `Thread_Group` work as natively; a busy wait that never blocks still keeps the turn.
 
 ## [0.4.0] - 2026-10-07
 

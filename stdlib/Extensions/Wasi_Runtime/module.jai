@@ -6,8 +6,9 @@
 // It supplies, in Jai, the C library entry points the stdlib reaches for under `OS == .WASM`
 // (the same ones the interpreter's sandbox host implements): a heap, `memmove`/`memcmp`,
 // `read`/`write`, `clock_gettime`, `exit`, files and directories (files.jai), process calls that
-// fail the way a sandbox without processes would, a libm (math.jai, elementary.jai), the
-// compiler-rt binary128 helpers Long_Double needs (quad.jai), plus Runtime_Support's
+// fail the way a sandbox without processes would, green threads for the pthread calls
+// (threads.jai), a libm (math.jai, elementary.jai), the compiler-rt binary128 helpers
+// Long_Double needs (quad.jai), plus Runtime_Support's
 // `wasm_write_string` and `wasm_debug_break`, and `_start`, which collects the WASI arguments and
 // calls `main`. Every definition is a `#program_export` under its C name; jaic's LLVM backend
 // binds the program's `#foreign` references to them without exporting them from the module, so
@@ -25,6 +26,7 @@
 #load "math.jai";
 #load "elementary.jai";
 #load "quad.jai";
+#load "threads.jai";
 
 c_runtime :: #system_library "libc";
 wasi :: #system_library "wasi_snapshot_preview1";
@@ -87,6 +89,12 @@ wasi_start :: () #c_call {
         count = 0;
     }
     table[count] = 0;
+    // A program that starts threads runs `main` as the first of them (threads.jai).
+    if green.enabled {
+        main_argument_count = cast(s32) count;
+        main_arguments = cast(**u8) table;
+        run_threads();
+    }
     wasi_proc_exit(program_main(cast(s32) count, cast(**u8) table));
 }
 
@@ -103,6 +111,14 @@ wasi_debug_break :: () #c_call {
     message :: "debug_break() reached; stopping.\n";
     write_all(2, message.data, message.count);
     trap();
+}
+
+// The browser playground's page answers `jai_*` host calls (WebGPU, the canvas). A WASI command
+// has no page, so it provides none of them: `webgpu_available()` is false, and a program that
+// checks it never calls the rest.
+#program_export "jai_host_provides"
+wasi_host_provides :: (name: *u8, count: u64) -> u32 #c_call {
+    return 0;
 }
 
 #program_export "write"
@@ -175,9 +191,7 @@ Seconds_And_Nanoseconds :: struct {
     nanoseconds: s64;
 }
 
-// Sleeping polls on relative CLOCK_MONOTONIC timeouts until the clock reaches the deadline: a
-// host may wake a poll slightly early (Node's can). The whole interval is slept, so `remaining`
-// is never written.
+// The whole interval is slept, so `remaining` is never written. Other threads run meanwhile.
 #program_export "nanosleep"
 wasi_nanosleep :: (requested: *Seconds_And_Nanoseconds, remaining: *Seconds_And_Nanoseconds) -> s32 #c_call {
     if !requested || requested.seconds < 0 || requested.nanoseconds < 0 || requested.nanoseconds >= 1_000_000_000 {
@@ -185,23 +199,9 @@ wasi_nanosleep :: (requested: *Seconds_And_Nanoseconds, remaining: *Seconds_And_
         return -1;
     }
     total := cast(u64) requested.seconds * 1_000_000_000 + cast(u64) requested.nanoseconds;
-    if total == 0 return 0;
-    now: u64;
-    if wasi_clock_time_get(1, 1, offset32(*now)) != 0 now = 0;
-    deadline := now + total;
-    while true {
-        subscription: Clock_Subscription;
-        subscription.kind = 0; // clock
-        subscription.clock_id = 1; // monotonic
-        subscription.timeout = total;
-        event: Poll_Event;
-        happened: u32;
-        if wasi_poll_oneoff(offset32(*subscription), offset32(*event), 1, offset32(*happened)) != 0 {
-            error_number = EINVAL;
-            return -1;
-        }
-        if now == 0 || wasi_clock_time_get(1, 1, offset32(*now)) != 0 || now >= deadline break;
-        total = deadline - now;
+    if !sleep_running(total) {
+        error_number = EINVAL;
+        return -1;
     }
     return 0;
 }
@@ -266,108 +266,6 @@ wasi_gettimeofday :: (result: *Seconds_And_Microseconds, zone: *void) -> s32 #c_
 Seconds_And_Microseconds :: struct {
     seconds: s64;
     microseconds: s64;
-}
-
-// ---------------------------------------------------------------------------------------------
-// Threads: WASI preview 1 has none. The program is the only thread, so locks always succeed and
-// nothing can ever signal a condition variable: a timed wait sleeps out its deadline, an untimed
-// one reports the deadlock. Creating a thread fails, so `thread_start` returns false.
-
-#program_export "pthread_create"
-wasi_pthread_create :: (thread: *u64, attributes: *void, start: *void, argument: *void) -> s32 #c_call {
-    return EAGAIN;
-}
-
-#program_export "pthread_join"
-wasi_pthread_join :: (thread: u64, result: **void) -> s32 #c_call {
-    return ESRCH;
-}
-
-#program_export "pthread_tryjoin_np"
-wasi_pthread_tryjoin_np :: (thread: u64, result: **void) -> s32 #c_call {
-    return ESRCH;
-}
-
-#program_export "pthread_mutexattr_init"
-wasi_pthread_mutexattr_init :: (attributes: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutexattr_settype"
-wasi_pthread_mutexattr_settype :: (attributes: *void, kind: s32) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutexattr_destroy"
-wasi_pthread_mutexattr_destroy :: (attributes: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutex_init"
-wasi_pthread_mutex_init :: (mutex: *void, attributes: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutex_destroy"
-wasi_pthread_mutex_destroy :: (mutex: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutex_lock"
-wasi_pthread_mutex_lock :: (mutex: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutex_trylock"
-wasi_pthread_mutex_trylock :: (mutex: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_mutex_unlock"
-wasi_pthread_mutex_unlock :: (mutex: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_cond_init"
-wasi_pthread_cond_init :: (condition: *void, attributes: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_cond_destroy"
-wasi_pthread_cond_destroy :: (condition: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_cond_signal"
-wasi_pthread_cond_signal :: (condition: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_cond_broadcast"
-wasi_pthread_cond_broadcast :: (condition: *void) -> s32 #c_call {
-    return 0;
-}
-
-#program_export "pthread_cond_wait"
-wasi_pthread_cond_wait :: (condition: *void, mutex: *void) -> s32 #c_call {
-    return EDEADLK;
-}
-
-// `deadline` is CLOCK_REALTIME, as pthread_cond_timedwait takes it by default.
-#program_export "pthread_cond_timedwait"
-wasi_pthread_cond_timedwait :: (condition: *void, mutex: *void, deadline: *Seconds_And_Nanoseconds) -> s32 #c_call {
-    if !deadline return EINVAL;
-    now: Seconds_And_Nanoseconds;
-    if wasi_clock_gettime(0, *now) != 0 return EINVAL;
-    remaining: Seconds_And_Nanoseconds;
-    remaining.seconds = deadline.seconds - now.seconds;
-    remaining.nanoseconds = deadline.nanoseconds - now.nanoseconds;
-    if remaining.nanoseconds < 0 {
-        remaining.nanoseconds += 1_000_000_000;
-        remaining.seconds -= 1;
-    }
-    if remaining.seconds >= 0 wasi_nanosleep(*remaining, null);
-    return ETIMEDOUT;
 }
 
 // ---------------------------------------------------------------------------------------------

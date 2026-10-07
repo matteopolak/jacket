@@ -21,7 +21,6 @@ bindings-generator-declaration-api * wasm-interp,wasm-native,playground Bindings
 bindings-generator-parity * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 debug-assert-handlers * wasm-interp,wasm-native,playground Debug does not build for wasm, which has no native stack to capture
 debug-backtrace-and-pointers * wasm-interp,wasm-native,playground Debug does not build for wasm, which has no native stack or memory map
-file-async * wasm-native WASI preview 1 has no threads
 getrect-right-handed-api * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-right-handed-surface * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-text-display-compiles * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
@@ -37,15 +36,9 @@ Simp/tests/readback-tests * wasm-interp,wasm-native stb_image has no wasm build
 Simp/tests/software-render-tests * wasm-interp,wasm-native stb_image has no wasm build
 Sound_Player/tests/offline-mix * wasm-interp,wasm-native stb_vorbis has no wasm build
 
-# WASI builds have no threads (docs/native/wasm-target.md).
-threads-cooperative * wasm-native WASI preview 1 has no threads
-threads-group-and-condition * wasm-native WASI preview 1 has no threads
-threads-synchronization * wasm-native WASI preview 1 has no threads
-threads-group-work * wasm-native WASI preview 1 has no threads
-threads-allocators * wasm-native WASI preview 1 has no threads
-threads-switch-while-locked * wasm-native WASI preview 1 has no threads
-threads-worker-requests * wasm-native WASI preview 1 has no threads
-atomics-contention * wasm-native WASI preview 1 has no threads
+# WASI builds run threads as green threads that switch only when one blocks
+# (docs/native/wasm-threads.md), so a busy wait never lets the thread it waits for run.
+threads-switch-while-locked * wasm-native a busy wait on an atomic never blocks, so the green thread it waits for never runs
 
 # Windows cross builds from Linux (tools/windows_cross.py): `OS` is the target in compile-time code
 # too, so a `#run` that reads files or the clock takes the Windows path, which the Linux host

@@ -764,7 +764,7 @@ pub struct TraceInfoLayout {
 }
 
 /// All lowered code. Functions are lowered on demand, so slots may be empty.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Program {
     pub funcs: Vec<Option<Func>>,
     pub func_names: Vec<String>,
