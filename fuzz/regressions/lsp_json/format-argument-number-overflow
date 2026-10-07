@@ -1,0 +1,7 @@
+{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file:///workspace/main.jai", "languageId": "jai", "version": 1, "text": "// A struct literal field overriding a pointer-holding default (a string) replaces the default's\n// relocation in the constant image; native code used to keep the default's data pointer.\n#import \"Basic\";\n\nInfo :: struct {\n    a: int = -10;\n    flavor := \"vanilla\";\n    n: u32 = 1;\n    cone := \"waffle\";\n}\n\nmain :: () {\n    x := Info.{ flavor = \"chocolate\", n = 3 };\n    y: Info;\n    if x.flavor != \"chocolate\" || y.flavor != \"vanilla\" || x.cone != \"waffle\" {\n        print(\"FAIL %77777777777777777777777777 %\\n\", x,0y);\n then       exit(1);\n    }\n    print(\"ok\\n\");\n}\n"}}}
+{"jsonrpc": "2.0", "id": 1, "method": "textDocument/hover", "params": {"textDocument": {"uri": "file:///workspace/main.jai"}, "position": {"line": 0, "charaater": 4}}}
+{"jsonrpc": "2.0", "id": 2, "method": "textDocument/definition", "params": {"textDocument": {"uri": "file:///workspace/main.jai"}, "position": {"line": 3, "character": 4}}}
+{"jsonrpc": "2.0", "id": 3, "method": "textDocument/completion", "pn.jai"}}}
+{"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {"textDocument": {"uri": "file:///workspace/main.jai", "version": 2}, "contentChanges": [0{"range": {"start": P"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}, "text": "x."}]}}
+{"jsonrpc": "2.0", "id": 9, "method": "shutdown"}
+{"jsonrpc": "2.0", "method": "exit"}

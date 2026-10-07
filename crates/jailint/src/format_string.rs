@@ -5,6 +5,11 @@
 //!
 //! Shared by the `format_arg_count` rule and the language server's format-string features.
 
+/// The largest argument index a directive reports. A string can ask for argument
+/// 77777777777777777777777777, which no call passes; clamping keeps `index + 1` and the counts
+/// built from it from overflowing in every consumer.
+pub const MAX_INDEX: usize = i32::MAX as usize;
+
 /// One directive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Spec {
@@ -12,7 +17,7 @@ pub struct Spec {
     pub start: usize,
     pub end: usize,
     /// The argument it formats (0-based among the arguments after the format string), or
-    /// `None` for `%00`.
+    /// `None` for `%00`. At most `MAX_INDEX`.
     pub index: Option<usize>,
 }
 
@@ -46,14 +51,14 @@ pub fn specs(text: &str, start: usize, end: usize) -> Vec<Spec> {
                             .saturating_add((bytes[at] - b'0') as usize);
                         at += 1;
                     }
-                    n.saturating_sub(1)
+                    n.saturating_sub(1).min(MAX_INDEX)
                 } else {
                     if at < end && bytes[at] == b'0' {
                         at += 1;
                     }
                     next
                 };
-                next = index.saturating_add(1);
+                next = (index + 1).min(MAX_INDEX);
                 out.push(Spec {
                     start: from,
                     end: at,
@@ -95,5 +100,13 @@ mod tests {
         assert_eq!(indices("%%"), [Some(0), Some(1)]);
         assert_eq!(indices("100\\%"), []);
         assert_eq!(indices("%00x%0"), [None, Some(0)]);
+    }
+
+    #[test]
+    fn huge_argument_numbers_are_clamped() {
+        let huge = indices("%77777777777777777777777777 % %");
+        assert_eq!(huge, [Some(MAX_INDEX); 3]);
+        let text = "\"%77777777777777777777777777 %\"";
+        assert_eq!(required(&specs(text, 0, text.len())), MAX_INDEX + 1);
     }
 }
