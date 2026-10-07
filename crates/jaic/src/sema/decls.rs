@@ -230,6 +230,7 @@ impl Compiler {
                         scope,
                     )));
                 }
+                self.check_struct_modify(name, lit)?;
                 let ty = self.new_struct_type(name, lit.clone(), scope, Vec::new(), None);
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),

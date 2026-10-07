@@ -786,6 +786,7 @@ impl Compiler {
                 ast::StmtKind::Expr(e) => match &e.kind {
                     E::Struct(lit) => {
                         // Anonymous nested struct/union: its members are reachable directly.
+                        self.check_struct_modify(Sym::intern("anonymous"), lit)?;
                         let t = self.new_struct_type(
                             Sym::intern("anonymous"),
                             lit.clone(),

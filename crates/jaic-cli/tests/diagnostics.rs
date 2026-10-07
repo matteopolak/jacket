@@ -572,6 +572,45 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
 }
 
 #[test]
+fn modify_without_polymorph_variables_is_reported_at_the_block() {
+    let dir = scratch("modify-without-polymorphs");
+    let cases: &[(&str, &[&str])] = &[
+        (
+            // Called: the error is the declaration's, not the call's.
+            "main :: () {\n    foo(5);\n}\nfoo :: (x: int) -> int #modify {\n    print(\"%\", x);\n    return x > 5;\n} {\n    return x + 1;\n}\n",
+            &[
+                "m.jai:4:24: error: `#modify` needs polymorph variables to modify, but `foo` has none",
+                "help: if `x` should be known at compile time, bake it: `$x: int`",
+                "help: `#modify` runs at compile time, once per polymorph, over the `$` parameters",
+                "`x: int` is a runtime value",
+            ],
+        ),
+        (
+            // Never called.
+            "main :: () {}\nbar :: () #modify { return true; } {}\n",
+            &[
+                "m.jai:2:11: error: `#modify` needs polymorph variables to modify, but `bar` has none",
+                "add one for it to work on, or remove the block",
+            ],
+        ),
+        (
+            "main :: () {}\nFoo :: struct #modify { return true; } { a: int; }\n",
+            &[
+                "m.jai:2:15: error: `#modify` needs polymorph variables to modify, but `Foo` has none",
+                "help: a struct's `#modify` runs at compile time over the struct's parameters",
+            ],
+        ),
+    ];
+    for (source, expected) in cases {
+        let output = jaic_on(&dir, "m.jai", source, "check", &[]);
+        assert_eq!(output.status.code(), Some(1), "{source}");
+        let text = stderr(&output);
+        assert_in_order(&text, expected);
+        assert!(!text.contains("in call to"), "{text}");
+    }
+}
+
+#[test]
 fn missing_module_lists_where_it_looked_and_a_close_name() {
     let dir = scratch("missing-module");
     let output = jaic_on(

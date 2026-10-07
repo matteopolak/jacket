@@ -152,15 +152,20 @@ pub enum Conv {
 
 /// `Intrinsic::Trap` reason: a procedure with results fell off the end of its body.
 pub const TRAP_MISSING_RETURN: u64 = 1;
+
 /// `Intrinsic::Trap` reason: an `#asm` divide faulted (`#DE`: divisor zero or quotient too big).
 pub const TRAP_ASM_DIVIDE: u64 = 2;
+
 /// Check failure reason: an array index out of range (a: the index, b: the count).
 pub const TRAP_BOUNDS: u64 = 3;
+
 /// Check failure reason: an integer cast whose value does not fit the target (a: the value's
 /// bits, b: `cast_check_code`).
 pub const TRAP_CAST_OVERFLOW: u64 = 4;
+
 /// Check failure reason: a `#complete` switch without a default matched no case (a: the value).
 pub const TRAP_SWITCH_UNMATCHED: u64 = 5;
+
 /// Check failure reason: an integer division or remainder by zero.
 pub const TRAP_DIVIDE_BY_ZERO: u64 = 6;
 

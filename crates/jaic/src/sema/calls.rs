@@ -392,6 +392,13 @@ impl Compiler {
             }];
         }
         let (mut best, mut errors) = self.rank_candidates(procs, &args, span);
+        // A candidate's own declaration is wrong, whichever overload the call picks.
+        if let Some(i) = errors
+            .iter()
+            .position(|e| matches!(e.kind, DiagnosticKind::ModifyWithoutPolymorphs))
+        {
+            return Err(Box::new(errors.swap_remove(i)));
+        }
         if best.is_empty()
             && let Some(spread) = spread_args
         {

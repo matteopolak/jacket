@@ -1,6 +1,6 @@
 /target/
 /artifacts/
-/corpus/upstream/
+/corpus/upstream
 **/__pycache__/
 *.jai-output
 /rustc-ice-*.txt

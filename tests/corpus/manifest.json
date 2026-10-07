@@ -2380,6 +2380,38 @@
       "rules": [
         "flow.27"
       ]
+    },
+    {
+      "id": "modify-without-polymorphs",
+      "source": "negative/modify-without-polymorphs.jai",
+      "sha256": "1a8d236b0e97d1613eddebdfa6366be5ace7e7147cea2d6ccf2af9c99ce3e01c",
+      "suite": "negative",
+      "feature": "#modify on a procedure without polymorph variables is an error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`#modify` needs polymorph variables to modify, but `foo` has none"
+      },
+      "rules": [
+        "poly.19"
+      ]
+    },
+    {
+      "id": "modify-without-polymorphs-struct",
+      "source": "negative/modify-without-polymorphs-struct.jai",
+      "sha256": "9fa97ddd55291efcb7cf422d6a034bdae0c2f2f5ac7f32f2e7c4605a6e13fd38",
+      "suite": "negative",
+      "feature": "#modify on a struct without parameters is an error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`#modify` needs polymorph variables to modify, but `Foo` has none"
+      },
+      "rules": [
+        "poly.19"
+      ]
     }
   ]
 }

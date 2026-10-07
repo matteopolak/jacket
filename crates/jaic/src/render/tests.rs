@@ -37,6 +37,7 @@ const ASCII_STYLE: Style = Style {
     layout: Layout::Ascii,
     color: false,
 };
+
 const UNICODE_STYLE: Style = Style {
     layout: Layout::Unicode,
     color: false,

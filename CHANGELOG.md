@@ -38,6 +38,7 @@
 
 - A procedure that changes a struct or string parameter (`advance(*s, 1)`, `p.a += 1`) changes its own copy: before, it changed the caller's variable, in `jaic run`, `#run` and built executables.
 - A `$$` parameter whose argument is omitted bakes its constant default, so `#if must` works in the body of `skip :: (p: *$T, $$must := false)` called as `skip(p)`.
+- A `#modify` block on a procedure without polymorph variables (`foo :: (x: int) #modify { ... }`) or on a struct without parameters is an error at the block, whether or not it is used: before, the block was silently ignored and never even checked. The help suggests baking the parameter (`$x: int`) when that was the intent.
 - A struct literal's `null` (`U.{p = null}`) clears what a union member's default (`s: string = "default"`) put in the same storage.
 - `using g;` of a global `g: *S` at file scope no longer reports "struct `S` contains itself" while `S`'s field types are resolved.
 - `FormatFloat` and `FormatInt` print variants of variants (`#type,isa` of a `#type,distinct float64`) instead of `<non-float>`.

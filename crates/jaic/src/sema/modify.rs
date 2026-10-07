@@ -11,6 +11,111 @@ use super::*;
 use crate::ir::Ty;
 
 impl Compiler {
+    /// A `#modify` block on a procedure without polymorph variables would never run: the
+    /// block runs per instantiation, and such a procedure is never instantiated. Report it
+    /// instead of ignoring it. A procedure with `$$` parameters is accepted: calls passing a
+    /// constant bake them, and the block runs for those instances.
+    pub(super) fn check_proc_modify(&mut self, id: ProcId) -> Result<()> {
+        let p = self.proc(id);
+        if p.lit.header.modify.is_none() || p.is_poly || p.bindings.is_some() {
+            return Ok(());
+        }
+        let header = p.lit.header.clone();
+        let name = p.name;
+        if header.params.iter().any(|p| p.auto_bake)
+            || self.auto_bake_variants.values().any(|&v| v == id)
+        {
+            return Ok(());
+        }
+        self.refresh_implicit_poly(id)?;
+        if self.proc(id).is_poly {
+            return Ok(());
+        }
+        let Some(block) = &header.modify else {
+            return Ok(());
+        };
+        let mut d = Diagnostic::error(
+            self.modify_directive_span(block),
+            format!("`#modify` needs polymorph variables to modify, but `{name}` has none"),
+        )
+        .with_label("this block never runs")
+        .with_kind(DiagnosticKind::ModifyWithoutPolymorphs);
+        let runtime = header
+            .params
+            .iter()
+            .find_map(|p| Some((p.name?, p.ty.as_ref()?)));
+        match runtime {
+            Some((param, ty)) => {
+                let ty = self.sources.snippet_or_empty(ty.span).to_string();
+                let pname = param.name;
+                d = d
+                    .with_fix(
+                        format!(
+                            "if `{pname}` should be known at compile time, bake it: `${pname}: {ty}`"
+                        ),
+                        param.span,
+                        format!("${pname}"),
+                    )
+                    .with_help(format!(
+                        "`#modify` runs at compile time, once per polymorph, over the `$` \
+                         parameters (`x: $T`, `$n: int`); `{pname}: {ty}` is a runtime value, \
+                         so there is nothing for the block to see or change"
+                    ));
+            }
+            None => {
+                d = d.with_help(
+                    "`#modify` runs at compile time, once per polymorph, over the `$` \
+                     parameters (`x: $T`, `$n: int`); add one for it to work on, or remove the block",
+                );
+            }
+        }
+        Err(Box::new(d))
+    }
+
+    /// The same for a struct without parameters: its `#modify` would never run.
+    pub(super) fn check_struct_modify(&self, name: Sym, lit: &ast::StructLit) -> Result<()> {
+        let Some(block) = &lit.modify else {
+            return Ok(());
+        };
+        if !lit.params.is_empty() {
+            return Ok(());
+        }
+        let what = if name.as_str() == "struct" || name.as_str() == "anonymous" {
+            "this struct".to_string()
+        } else {
+            format!("`{name}`")
+        };
+        Err(Box::new(
+            Diagnostic::error(
+                self.modify_directive_span(block),
+                format!("`#modify` needs polymorph variables to modify, but {what} has none"),
+            )
+            .with_label("this block never runs")
+            .with_kind(DiagnosticKind::ModifyWithoutPolymorphs)
+            .with_help(
+                "a struct's `#modify` runs at compile time over the struct's parameters \
+                 (`struct (N: int) #modify { ... }`); give the struct parameters, or remove the block",
+            ),
+        ))
+    }
+
+    /// The `#modify` directive in front of `block`, or the block when it cannot be found.
+    fn modify_directive_span(&self, block: &ast::Block) -> Span {
+        let span = block.span;
+        if (span.file.0 as usize) >= self.sources.len() {
+            return span;
+        }
+        let text = &self.sources.get(span.file).text;
+        match text.get(..span.start as usize).and_then(|t| t.rfind("#modify")) {
+            Some(at) => Span {
+                file: span.file,
+                start: at as u32,
+                end: at as u32 + "#modify".len() as u32,
+            },
+            None => span,
+        }
+    }
+
     pub(super) fn run_modify(
         &mut self,
         proc: ProcId,

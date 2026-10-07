@@ -38,6 +38,7 @@ Implementation notes for the parts of `crates/jaic/src/sema` that handle declara
 
 - `bake.rs`: `T = Type` for a `$T` variable instantiates the baked copy. Constants baked into a polymorphic struct live in `PolyStruct::baked` and become members of every instance.
 - `#modify` (`modify.rs`, `run_modify_block`): after inference, the block runs in the interpreter with each type variable as a mutable `Type` (globals read back afterwards). Unbound variables start as `void`. `return false` rejects the candidate; `return false, "why";` adds the message to the error via the `modify.message` global. The resulting bindings replace the inferred ones.
+- A `#modify` with nothing to modify (`check_proc_modify` from `build_signature`, `check_struct_modify` where a parameterless struct type is made) is an error with kind `ModifyWithoutPolymorphs`. `call_procs` returns that error as it is instead of wrapping it as the call's mismatch, so it points at the `#modify` whether the procedure is called or only checked as unreferenced code. Instances (`bindings` set) and `$$` procedures and their auto-bake variants are skipped: the block runs for the variants that bake.
 - Struct `#modify` (`run_struct_modify`, from `instantiate_struct`): every struct parameter is assignable (`if N < 8 N = 8;`) and the final values form the instance key, so `Holder(3, T)` and `Holder(8, T)` can be one type.
 
 ### Operators and conversions
@@ -78,7 +79,7 @@ Sema is demand-driven, so a struct nothing needs would never be laid out. Jai ty
 - To check more kinds of unused declarations, extend the filter in `check_declared_structs`. Whatever it resolves must not depend on code a metaprogram adds later; it runs after `placeholders_final`. Negative tests: `tests/corpus/negative/undefined-*.jai`.
 - New `#modify` features go in `run_modify_block`, shared by procedures and structs. It builds one IR function per call, so watch per-call cost.
 
-Tests: `tests/stdlib/struct-modify.jai`, `null-poly-baked-default.jai`, `compiler-module-placeholder-insert.jai`.
+Tests: `tests/stdlib/struct-modify.jai`, `modify-polymorph-forms.jai`, `tests/corpus/negative/modify-without-polymorphs*.jai`, `null-poly-baked-default.jai`, `compiler-module-placeholder-insert.jai`.
 
 ## Dependencies
 

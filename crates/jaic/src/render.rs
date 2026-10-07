@@ -328,12 +328,16 @@ impl<'a> Report<'a> {
 
 /// Longest stretch of changed code shown under a help.
 const MAX_FIX_LINES: usize = 8;
+
 /// Lines shown around each label outside the plain layout.
 const CONTEXT_LINES: usize = 1;
+
 /// Lines of a long multi-line label shown at its start and end.
 const SPAN_EDGE_LINES: usize = 2;
+
 /// Source lines longer than this (in characters) are cut down around their labels.
 const MAX_LINE_WIDTH: usize = 120;
+
 /// Spaces a tab stands for outside the plain layout.
 const TAB_WIDTH: usize = 4;
 

@@ -153,6 +153,9 @@ pub enum DiagnosticKind {
     /// The program called a foreign procedure this host cannot provide (the browser's sandbox
     /// has no native libraries).
     Unavailable,
+    /// A `#modify` block on a procedure or struct with no polymorph variables, which would
+    /// never run. Reported at the declaration, not as a call's mismatch.
+    ModifyWithoutPolymorphs,
 }
 
 impl DiagnosticKind {
@@ -169,6 +172,7 @@ impl DiagnosticKind {
             DiagnosticKind::UnknownLibrary => Some("unknown-library"),
             DiagnosticKind::MissingFile => Some("missing-file"),
             DiagnosticKind::Unavailable => Some("unavailable"),
+            DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
         }
     }
 }

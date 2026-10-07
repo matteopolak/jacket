@@ -289,6 +289,7 @@ impl Compiler {
     }
 
     fn build_signature(&mut self, id: ProcId) -> Result<Signature> {
+        self.check_proc_modify(id)?;
         let p = self.proc(id);
         let header = p.lit.header.clone();
         let scope = p.bindings.unwrap_or(p.scope);

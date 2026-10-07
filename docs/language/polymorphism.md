@@ -31,6 +31,29 @@ A parameter typed with a bare polymorphic struct (`r: *Reflector`) makes the pro
 
 A `$$x` parameter is baked when its argument is a constant and stays a runtime parameter otherwise. An omitted argument takes the default, which is baked when it is a constant, so `#if x` works in the body: `skip :: (p: *$T, $$must := false) { #if must ... }` called as `skip(p)` {#poly.17}.
 
+### `#modify`
+
+A `#modify` block runs at compile time once per polymorph, before the instance is made, with the polymorph variables in scope: type variables as assignable `Type` values (unbound ones start as `void`) and baked `$x` values as constants. Whatever it leaves in a type variable becomes the binding, so it can bind a `$R` that appears only in the return type; `return false` (or `return false, "why"`) rejects the call {#poly.18}:
+
+```jai
+widen    :: (x: $T) -> $R #modify { R = float64; } { return cast(R) x; }   // widen(5) is 5.0
+positive :: ($n: int) -> int #modify { return n > 0, "n must be positive"; } { return n; }
+```
+
+On a struct, every struct parameter is assignable and the final values pick the instance (`tests/stdlib/struct-modify.jai`).
+
+A `#modify` on a procedure with no polymorph variables (no `$T`, no `$x`, no parameter typed with a bare polymorphic struct), or on a struct without parameters, is an error at the `#modify`, whether or not the procedure is called: such a procedure is never instantiated, so the block would never run {#poly.19}:
+
+```
+error: `#modify` needs polymorph variables to modify, but `foo` has none
+    foo :: (x: int) -> int #modify {
+                           ^^^^^^^
+help: if `x` should be known at compile time, bake it: `$x: int`
+help: `#modify` runs at compile time, once per polymorph, over the `$` parameters (`x: $T`, `$n: int`); `x: int` is a runtime value, so there is nothing for the block to see or change
+```
+
+A procedure whose only polymorph-like parameters are `$$x` is accepted: a call passing a constant bakes `x` and the block runs for that instance with `x` in scope, while a call passing a runtime value uses the procedure as written and does not run the block {#poly.20}. Rejecting it would forbid a block that is useful for the baked calls; running it for runtime calls would leave it nothing to read.
+
 ### `#bake_arguments`
 
 `check_bake` in `sema/bake.rs` binds named parameters; the result takes the remaining ones in order {#poly.7}:
@@ -54,7 +77,7 @@ An `ifx` argument is typed by its target, so inference looks at its branches ins
 
 New inference rules go in `calls.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order.
 
-Tests: `tests/stdlib/baked-default-uses-poly.jai`, `auto-bake-omitted-default.jai`, `baked-struct-restriction.jai`, `baked-overload-runtime-field.jai`, `lang-poly-misc.jai`, `lang-lambdas.jai`.
+Tests: `tests/stdlib/baked-default-uses-poly.jai`, `modify-polymorph-forms.jai`, `auto-bake-omitted-default.jai`, `baked-struct-restriction.jai`, `baked-overload-runtime-field.jai`, `lang-poly-misc.jai`, `lang-lambdas.jai`.
 
 ## Dependencies
 

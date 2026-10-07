@@ -7,6 +7,7 @@
 //! address.
 
 use crate::ir::*;
+
 const HASH_SEED: u64 = 0xcbf2_9ce4_8422_2325;
 const HASH_PRIME: u64 = 0x0100_0000_01b3;
 

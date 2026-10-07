@@ -250,6 +250,7 @@ impl Compiler {
                 if let Some(&t) = self.anonymous_types.get(&(lit.id, scope)) {
                     return Ok(Operand::Type(t));
                 }
+                self.check_struct_modify(Sym::intern("struct"), lit)?;
                 let t = self.new_struct_type(
                     Sym::intern("struct"),
                     lit.clone(),

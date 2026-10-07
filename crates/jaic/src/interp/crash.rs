@@ -230,23 +230,29 @@ mod sys {
     const SIGILL: c_int = 4;
     const SIGFPE: c_int = 8;
     const SIGSEGV: c_int = 11;
+
     #[cfg(target_os = "macos")]
     const SIGBUS: c_int = 10;
+
     #[cfg(target_os = "linux")]
     const SIGBUS: c_int = 7;
 
     #[cfg(target_os = "macos")]
     const SA_SIGINFO: c_int = 0x40;
+
     #[cfg(target_os = "macos")]
     const SA_ONSTACK: c_int = 0x1;
+
     #[cfg(target_os = "linux")]
     const SA_SIGINFO: c_int = 4;
+
     #[cfg(target_os = "linux")]
     const SA_ONSTACK: c_int = 0x0800_0000;
 
     /// Offset of `si_addr` in `siginfo_t`.
     #[cfg(target_os = "macos")]
     const SI_ADDR: usize = 24;
+
     #[cfg(target_os = "linux")]
     const SI_ADDR: usize = 16;
 
@@ -307,14 +313,18 @@ mod sys {
             // SAFETY: the kernel passes a `siginfo_t`; `si_addr` is at `SI_ADDR`.
             unsafe { std::ptr::read_unaligned(info.cast::<u8>().add(SI_ADDR).cast::<usize>()) }
         };
+
         let mut text = super::Report {
             bytes: [0; 8192],
             len: 0,
         };
+
         let what = describe(sig, address, &mut text);
+
         if super::report_and_exit(what) {
             return;
         }
+
         // Not during a foreign call: put the previous action back and let the fault repeat
         // under it.
         if let Some(i) = SIGNALS.iter().position(|&s| s == sig) {
@@ -401,6 +411,7 @@ mod sys {
     unsafe extern "system" {
         fn AddVectoredExceptionHandler(first: u32, handler: Handler) -> *mut c_void;
         fn GetStdHandle(which: u32) -> *mut c_void;
+
         fn WriteFile(
             file: *mut c_void,
             buffer: *const c_void,
@@ -408,6 +419,7 @@ mod sys {
             written: *mut u32,
             overlapped: *mut c_void,
         ) -> i32;
+
         fn GetCurrentProcess() -> *mut c_void;
         fn TerminateProcess(process: *mut c_void, code: u32) -> i32;
     }
@@ -422,16 +434,20 @@ mod sys {
     unsafe extern "system" fn on_exception(pointers: *mut ExceptionPointers) -> i32 {
         // SAFETY: Windows passes valid exception pointers.
         let record = unsafe { &*(*pointers).record };
+
         let address = record.address as usize;
+
         let target = if record.parameter_count >= 2 {
             record.information[1]
         } else {
             0
         };
+
         let mut text = super::Report {
             bytes: [0; 8192],
             len: 0,
         };
+
         let what = {
             use std::fmt::Write;
             let _ = match record.code {
@@ -447,6 +463,7 @@ mod sys {
             };
             std::str::from_utf8(&text.bytes[..text.len]).unwrap_or("a fault")
         };
+
         super::report_and_exit(what);
         EXCEPTION_CONTINUE_SEARCH
     }
@@ -478,8 +495,10 @@ mod sys {
 mod sys {
     pub fn install() {
     }
+
     pub fn write_stderr(_bytes: &[u8]) {
     }
+
     pub fn exit_now(status: i32) -> ! {
         std::process::exit(status)
     }
