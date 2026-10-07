@@ -138,7 +138,21 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
         });
         true
     };
+    // `cast,trunc(u8) x` and `xx,no_check x`: the commas after `cast`/`xx` and between its
+    // modifiers do not separate arguments. 1: after `cast`/`xx` or a modifier, 2: after such a comma.
+    let mut cast_modifiers = 0u8;
     while i < tokens.len() {
+        let modifier_comma = cast_modifiers == 1 && matches!(tokens[i].tok, Tok::Punct(P::Comma));
+        cast_modifiers = match &tokens[i].tok {
+            Tok::Ident(name) if matches!(name.as_str(), "cast" | "xx") => 1,
+            Tok::Punct(P::Comma) if modifier_comma => 2,
+            Tok::Ident(_) if cast_modifiers == 2 => 1,
+            _ => 0,
+        };
+        if modifier_comma {
+            i += 1;
+            continue;
+        }
         match &tokens[i].tok {
             Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
                 depth += 1
@@ -198,5 +212,23 @@ mod tests {
         assert_eq!(indices("%%"), [Some(0), Some(1)]);
         assert_eq!(indices("100\\%"), []);
         assert_eq!(indices("%00x%0"), [None, Some(0)]);
+    }
+
+    #[test]
+    fn cast_modifier_commas_do_not_split_arguments() {
+        let text =
+            "f :: () { print(\"% % % %\", cast,trunc(u8) a, xx,no_check b, cast(u8) c, xx d); }";
+        let tokens = jaic::lexer::lex(jaic::source::FileId(0), text).unwrap();
+        let calls = calls(&tokens, text);
+        assert_eq!(calls.len(), 1);
+        let args: Vec<&str> = calls[0]
+            .args
+            .iter()
+            .map(|a| &text[a.start..a.end])
+            .collect();
+        assert_eq!(
+            args,
+            ["cast,trunc(u8) a", "xx,no_check b", "cast(u8) c", "xx d"]
+        );
     }
 }
