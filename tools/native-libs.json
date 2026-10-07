@@ -18,6 +18,15 @@
         "rpmalloc/rpmalloc.c": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
         "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1"
       }
+    },
+    "freetype": {
+      "repository": "freetype/freetype",
+      "revision": "0a0221a1347e2f1e07c395263540026e9a0aa7c7",
+      "archive": {
+        "url": "https://github.com/freetype/freetype/archive/0a0221a1347e2f1e07c395263540026e9a0aa7c7.tar.gz",
+        "sha256": "11cd478953fc1d382f20a233b8e2aed6c31b47cbf0568c4bdb3334bcc1550698",
+        "root": "freetype-0a0221a1347e2f1e07c395263540026e9a0aa7c7"
+      }
     }
   },
   "libraries": {
@@ -25,6 +34,24 @@
     "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
     "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
     "stb_vorbis": {"source": "stb", "code": "#include \"stb_vorbis.c\"\n"},
-    "rpmalloc": {"source": "rpmalloc", "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"}
+    "rpmalloc": {"source": "rpmalloc", "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"},
+    "freetype": {
+      "source": "freetype",
+      "platforms": ["windows"],
+      "include": ["include"],
+      "defines": ["FT2_BUILD_LIBRARY"],
+      "units": [
+        "src/autofit/autofit.c", "src/base/ftbase.c", "src/base/ftbbox.c", "src/base/ftbdf.c",
+        "src/base/ftbitmap.c", "src/base/ftcid.c", "src/base/ftdebug.c", "src/base/ftfstype.c",
+        "src/base/ftgasp.c", "src/base/ftglyph.c", "src/base/ftgxval.c", "src/base/ftinit.c",
+        "src/base/ftmm.c", "src/base/ftotval.c", "src/base/ftpatent.c", "src/base/ftpfr.c",
+        "src/base/ftstroke.c", "src/base/ftsynth.c", "src/base/ftsystem.c", "src/base/fttype1.c",
+        "src/base/ftwinfnt.c", "src/bdf/bdf.c", "src/cache/ftcache.c", "src/cff/cff.c",
+        "src/cid/type1cid.c", "src/gzip/ftgzip.c", "src/lzw/ftlzw.c", "src/pcf/pcf.c", "src/pfr/pfr.c",
+        "src/psaux/psaux.c", "src/pshinter/pshinter.c", "src/psnames/psnames.c", "src/raster/raster.c",
+        "src/sdf/sdf.c", "src/sfnt/sfnt.c", "src/smooth/smooth.c", "src/svg/svg.c",
+        "src/truetype/truetype.c", "src/type1/type1.c", "src/type42/type42.c", "src/winfonts/winfnt.c"
+      ]
+    }
   }
 }

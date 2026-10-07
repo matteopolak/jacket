@@ -74,6 +74,7 @@ fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     let os = match std::env::consts::OS {
         "macos" => "macos",
         "linux" => "linux",
+        "windows" => "windows",
         _ => return Vec::new(),
     };
     let arch = match std::env::consts::ARCH {

@@ -3,27 +3,39 @@
 ## What it is
 
 The stdlib binds some C libraries that no system ships: `stb_image`, `stb_image_write`,
-`stb_image_resize`, `stb_vorbis`, and `rpmalloc` (built with first-class heaps). `tools/build_native_libs.py` builds them from pinned, hash-checked
+`stb_image_resize`, `stb_vorbis`, and `rpmalloc` (built with first-class heaps), plus FreeType on
+Windows (macOS and Linux use the system's, from Homebrew or the distribution). `tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
 output. Without it, programs that use those modules type-check but can't call into them or link.
 
 ## How it works
 
-- `tools/native-libs.json` pins each source (repository, revision, sha256 per file) and gives each
-  library a one-line C translation unit (`#define STB_IMAGE_IMPLEMENTATION` + `#include`).
+- `tools/native-libs.json` pins each source: a GitHub repository and revision with a sha256 per
+  file, or (FreeType) a source `archive` URL with its sha256 and top-level directory. Each library
+  has a one-line C translation unit (`code`: `#define STB_IMAGE_IMPLEMENTATION` + `#include`) or a
+  list of `units` with `include` directories and `defines`; `platforms` limits it to some OSes
+  (`["windows"]`).
 - The tool downloads the files into `artifacts/native-libs/sources/` (verifying hashes), compiles each
   unit once with `cc -O2 -fPIC`, and writes `lib<name>.a` and `lib<name>.dylib`/`.so` (macOS dylibs get
   an `@rpath/` install name).
+- On Windows it compiles with `clang --target=<x86_64|aarch64>-pc-windows-msvc -fms-runtime-lib=dll`
+  (the dynamic CRT `jaic build` links) and writes `<name>.lib` (`llvm-lib`) and `<name>.dll`, whose
+  exports are every external symbol of the objects (`llvm-nm` into a `.def` file). `--platform
+  windows-arm64` picks the CPU explicitly; `tools/stdlib_runtime.py` passes its `--platform`, since
+  the Python on an arm64 runner may be an x64 build.
 - `jaic-cli` (`native_lib_dirs`) passes the directory to `jaic::interp::set_library_dirs` at startup.
-  - Interpreter (`interp/native.rs` `Library::open`): `<dir>/lib<name>.<dylib|so>` is tried before the
-    system's search, with a leading `lib` in the Jai name stripped.
-  - Linker (`jaic-llvm` `library_args`): `<dir>/lib<name>.a` is linked by path, so executables are
-    self-contained.
+  - Interpreter (`interp/native.rs` `Library::open`): `<dir>/lib<name>.<dylib|so>` (Windows:
+    `<dir>/<name>.dll`) is tried before the system's search, with a leading `lib` in the Jai name
+    stripped.
+  - Linker (`jaic-llvm` `library_args`): `<dir>/lib<name>.a` (Windows MSVC: `<dir>/<name>.lib`) is
+    linked by path, so executables are self-contained. Cross builds (`-os windows` from macOS or
+    Linux) ignore the directory.
 
 ```bash
 python3 tools/build_native_libs.py              # all libraries
 python3 tools/build_native_libs.py stb_image    # just one
+python tools/build_native_libs.py --platform windows-arm64   # Windows: needs clang, llvm-lib, llvm-nm
 ```
 
 The output goes to the main checkout's `artifacts/` even when run from a git worktree (resolved through
@@ -70,8 +82,11 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 ## Configuration
 
 - `JAIC_NATIVE_LIBS`: path list replacing the default directory
-  (`<stdlib>/../artifacts/native-libs/<os>-<arch>`, `os` in `macos`/`linux`, `arch` in `arm64`/`x64`).
+  (`<stdlib>/../artifacts/native-libs/<os>-<arch>`, `os` in `macos`/`linux`/`windows`, `arch` in
+  `arm64`/`x64`).
 
 ## Dependencies
 
-`cc` and `ar` on the host; network access to `raw.githubusercontent.com` on first build.
+`cc` and `ar` on macOS and Linux; `clang`, `llvm-lib` and `llvm-nm` (the official LLVM release) and the
+MSVC libraries on Windows; network access to `raw.githubusercontent.com` and `github.com` on first
+build. Release archives do not include these libraries on any platform.

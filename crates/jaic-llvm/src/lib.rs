@@ -961,6 +961,17 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
             ));
         }
     }
+    // Built third-party libraries (`tools/build_native_libs.py`: `freetype.lib`...) link
+    // statically, as on macOS and Linux below.
+    if flavor == LinkFlavor::Msvc && !cross {
+        let bare = name.strip_prefix("lib").unwrap_or(name);
+        for dir in jaic::interp::library_dirs() {
+            let archive = dir.join(format!("{bare}.lib"));
+            if archive.exists() {
+                return Ok(vec![LinkArg::File(archive.display().to_string())]);
+            }
+        }
+    }
     if flavor.is_windows() {
         // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
         // Windows file names ignore case, but a MinGW toolchain on Linux or macOS has

@@ -3,6 +3,7 @@
 
     stdlib_runtime.py [--jaic PATH] [--modes interp,native,wasm-interp,wasm-native]
                       [--platform KEY] [--filter TEXT] [--coverage FILE] [--strict] [-j N]
+                      [--dlls DIR]
 
 The tests are `tests/stdlib/*.jai` and the stdlib's own module tests (`stdlib/<Module>/tests/*.jai`,
 `stdlib/tests/**/*.jai`, minus their `modules/` folders of mock modules). Each one checks its own
@@ -97,16 +98,21 @@ def skip_reason(skips, test, plat, mode):
     return None
 
 
-def use_native_libs():
-    """Point jaic at the third-party C libraries some tests link (stb_vorbis, rpmalloc...),
-    building any that are missing, as tools/jaic-sweep.py does."""
-    if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in ("darwin", "linux"):
+def use_native_libs(plat):
+    """Point jaic at the third-party C libraries some tests link (stb_vorbis, rpmalloc, FreeType
+    on Windows...), building any that are missing for `plat`, as tools/jaic-sweep.py does."""
+    if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in ("darwin", "linux", "win32"):
         return
+    if plat.endswith("-mingw"):
+        return
+    # On Windows the skip-list platform names the CPU (`python` may be an x64 build on arm64).
+    plat = plat if sys.platform == "win32" else None
     sys.path.insert(0, str(ROOT / "tools"))
     import build_native_libs
-    if build_native_libs.missing():
-        subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True)
-    os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir())
+    if build_native_libs.missing(plat):
+        extra = ["--platform", plat] if plat else []
+        subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py"), *extra], check=True)
+    os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir(plat))
 
 
 def run_command(command, cwd, timeout, env):
@@ -158,6 +164,10 @@ def run_mode(args, test, path, mode, scratch):
         built = [p for p in exe.parent.iterdir() if p.name in (exe.name, exe.name + ".exe", exe.name + ".wasm")]
         if not built:
             return None, "no executable: compile-time only"
+        if args.dlls and not wasm:
+            # Windows loads a DLL from the executable's directory before the system's.
+            for dll in args.dlls.glob("*.dll"):
+                shutil.copy2(dll, exe.parent / dll.name)
         command = ["node", "--no-warnings", str(ROOT / "tools/wasi_run.mjs"), str(built[0])] if wasm else [str(built[0])]
         code, out = run_command(command, path.parent, args.timeout, env)
         return code == 0, out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
@@ -176,6 +186,8 @@ def main():
     ap.add_argument("--strict", action="store_true", help="a skipped test that passes fails the run")
     ap.add_argument("--timeout", type=float, default=180)
     ap.add_argument("--jobs", "-j", type=int, default=0, help="tests at once (default: CPU count, at most 8)")
+    ap.add_argument("--dlls", type=Path,
+                    help="copy this directory's DLLs next to each native executable (Mesa's opengl32.dll in CI)")
     ap.add_argument("--verbose", "-v", action="store_true", help="print the output of every failure in full")
     args = ap.parse_args()
     args.jaic = str(Path(args.jaic).resolve())
@@ -189,7 +201,7 @@ def main():
         args.coverage.unlink(missing_ok=True)
     skips = load_skips()
     if "native" in modes:
-        use_native_libs()
+        use_native_libs(args.platform)
     todo = [(t, p) for t, p in cases() if args.filter in t]
     known = {t for t, _ in cases()}
     for test, *_ in skips:
