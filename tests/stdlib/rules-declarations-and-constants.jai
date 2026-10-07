@@ -1,5 +1,5 @@
 // Checks the claims of docs/language/declarations-and-constants.md, one group per rule.
-// rules: decl.1 decl.3 decl.4 decl.5 decl.6 decl.7 decl.8 decl.9 decl.11 decl.13 decl.15 decl.16 decl.17 decl.18 decl.20
+// rules: decl.23 decl.1 decl.3 decl.4 decl.5 decl.6 decl.7 decl.8 decl.9 decl.11 decl.13 decl.15 decl.16 decl.17 decl.18 decl.20
 #import "Basic";
 
 // decl.1: file-level names may be used before their declaration.
@@ -84,9 +84,19 @@ main :: () {
     assert(Rec.Count == 2 && Rec.LIM == 3, "struct constants");
     assert(Rec.read(r) == 27, "struct procedure");
 
-    // decl.6: a typed constant in a struct is not a field.
+    // decl.6: a typed constant in a struct is not a field. Constants are listed in
+    // `members` too, in declaration order, flagged CONSTANT, their values in constant_storage.
     assert(Rec.TRUE == 1, "constant member");
-    assert(type_info(Rec).members.count == 2, "only v and w are fields");
+    info := type_info(Rec);
+    assert(info.members.count == 6, "four constants, then v and w");
+    fields := 0;
+    for info.members if !(it.flags & .CONSTANT) fields += 1;
+    assert(fields == 2, "only v and w are fields");
+    true_member := info.members[0];
+    assert(true_member.name == "TRUE" && true_member.type == type_info(s32), "TRUE is listed first");
+    assert((cast(*s32) (info.constant_storage.data + true_member.offset_into_constant_storage)).* == 1, "its value");
+    assert(info.members[3].name == "read" && info.members[3].type.type == .PROCEDURE, "procedures are listed");
+    assert(info.members[4].name == "v" && !(info.members[4].flags & .CONSTANT), "then the fields");
     assert(size_of(Rec) == 8, "constants take no space");
 
     // decl.7: `---` declares without initialising.
@@ -133,7 +143,7 @@ main :: () {
     #assert(Later == 2, "parenthesized form");
 
     // decl.20: notes after a field.
-    member := type_info(Rec).members[0];
+    member := type_info(Rec).members[4];
     assert(member.name == "v" && member.notes.count == 1 && member.notes[0] == "Hidden", "field note");
 
     print("ok\n");

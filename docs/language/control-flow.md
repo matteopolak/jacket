@@ -27,6 +27,7 @@ Here `for <` visits `3` down to `1` {#flow.1}, `continue outer` leaves the inner
 
 - Ranges are inclusive {#flow.7}; both ends are evaluated once, left to right {#flow.8}. `for #v2 a..b` means the same {#flow.12}.
 - The default names are `it` and `it_index`; naming either replaces it {#flow.9}.
+- Over an array (fixed, view or dynamic), a by-value `it` is the element itself, not a copy: `*it` is the element's address and stays valid after the loop, so `for table if it.key == key return *it.value;` returns a pointer into the array {#flow.28}. Third-party code depends on this (toml-jai's `find_or_insert_key`, Photon's `for buffers reset(*it);`).
 - `while name := cond` binds `name` to the condition's value (re-evaluated each iteration) and names the loop for `break name` {#flow.24}. `while :name cond` only names it {#flow.25}.
 - `remove it;` (or `remove;`) over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]` {#flow.11}.
 

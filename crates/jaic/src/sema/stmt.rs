@@ -2071,10 +2071,9 @@ impl Compiler {
             let pt = self.types.pointer(elem);
             (pt, self.spill(f, pt, elem_addr, span)?)
         } else {
-            let align = self.align_of(elem, span)?;
-            let slot = f.b.alloca(esize.max(1), align);
-            f.b.copy(slot, elem_addr, esize);
-            (elem, slot)
+            // A by-value `it` names the element itself, as in jai: `*it` is the element's
+            // address and stays valid after the loop (toml-jai, Photon rely on it).
+            (elem, elem_addr)
         };
         self.declare_loop_vars(
             f,

@@ -98,14 +98,16 @@ on a variant of a float, `null` in a struct literal over a union member's defaul
 struct and string parameters changed through their address (`advance(*s, 1)` in
 `string_to_int_checked`), which changed the caller's variable (`proc.12`).
 
-`union_and_overlay`, `validation` and `formatting_control` run and pass (`toml-jai-*` cases);
-`file_examples` checks (its `data/` files are not pinned). Two still fail:
+`first`, `custom_handlers`, `union_and_overlay`, `validation` and `formatting_control` run and pass
+(`toml-jai-*` cases); `file_examples` checks (its `data/` files are not pinned). The last two were jaic bugs:
 
-- `first.jai` stops at `andies[1]` (line 387): toml-jai's `find_or_insert_key` returns `*it.value`
-  from a by-value `for table.table`, and jaic's `it` is a copy, so the second `[[andy]]` header adds
-  to the copy. Whether Jai's `it` aliases the element there is not established.
+- `first.jai` stopped at `andies[1]` (line 387): toml-jai's `find_or_insert_key` returns `*it.value`
+  from a by-value `for table.table`, and jaic's `it` was a copy, so the second `[[andy]]` header added
+  to the copy. A by-value `it` over an array is now the element itself (rule `flow.28`); toml-jai's
+  `tests.jai` expects `first` to pass, and Photon relies on the same (`reset(*it)` in a by-value loop).
 - `custom_handlers.jai` reads `Hash_Table.Table`'s type info by member index (`members[5]` is
-  `entries`), which depends on the official module's private layout.
+  `entries`). jaic left a struct's constants out of `members`; they are now listed in declaration
+  order with the `CONSTANT` flag (rule `decl.23`), which puts `entries` at index 5.
 
 ### Project status
 
@@ -133,7 +135,7 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | [no_api](https://github.com/UnNabbo/no_api) | partial | `module.jai` checks for Windows; the entry point loads a file missing upstream |
 | [reflector](https://github.com/n00bmind/reflector) | works | Its unotest suite builds natively and passes (`reflector-tests`) |
 | [jai-format](https://github.com/OrangeLightning219/jai-format) | partial | Builds a `File` from the C `stdin` (`*FILE`); jaic's `File.handle` is an `s64` descriptor |
-| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | partial | 4 of 6 examples pass; `first` and `custom_handlers` stop (see above) |
+| [toml-jai](https://github.com/sjorsdonkers/toml-jai) | works | 5 examples run and pass; `file_examples` checks (see above) |
 | [jai-xml](https://github.com/smari/jai-xml) | works | `test.jai` passes its 6 cases and `continue_iter` runs; the other examples check (their `traverse.xml` is not in the repository) |
 | [jai-protobuf](https://github.com/segcore/jai-protobuf) | partial | Pinned with its `.proto` inputs; its tests write generated code into the tree and do not pass yet |
 

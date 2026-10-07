@@ -1,7 +1,7 @@
 //! Runtime type information: one read-only `Type_Info_*` descriptor global
 //! per type, laid out with Preload's reflection structs. A `Type` value at
 //! runtime is the address of its descriptor.
-use super::scope::EntityKind;
+use super::scope::{EntityKind, Resolved};
 use super::value::Aggregate;
 use super::*;
 use crate::types::{ArrayKind, TypeKind};
@@ -442,11 +442,56 @@ impl Compiler {
                         }
                     }
                 }
-                let mut members = Aggregate {
-                    bytes: vec![0; (msize as usize) * fields.len()],
+                // `constant_storage` holds the polymorphic arguments, then the body's constants.
+                let mut storage = Aggregate {
+                    bytes: Vec::new(),
                     relocs: Vec::new(),
                 };
+                if !info.poly_args.is_empty() {
+                    self.poly_struct_info(&mut agg, desc, s, &mut storage, span)?;
+                }
+                let constants = if tflags & 0x1 != 0 {
+                    Vec::new()
+                } else {
+                    self.struct_constants(s)
+                };
+                // Members in declaration order: each constant goes before the first field
+                // declared after it.
+                let mut order = Vec::with_capacity(fields.len() + constants.len());
+                let mut next_const = 0;
                 for (i, field) in fields.iter().enumerate() {
+                    while next_const < constants.len()
+                        && constants[next_const].0.file == field.span.file
+                        && constants[next_const].0.start < field.span.start
+                    {
+                        order.push(Err(next_const));
+                        next_const += 1;
+                    }
+                    order.push(Ok(i));
+                }
+                order.extend((next_const..constants.len()).map(Err));
+                let mut members = Aggregate {
+                    bytes: vec![0; (msize as usize) * order.len()],
+                    relocs: Vec::new(),
+                };
+                for (slot, entry) in order.iter().enumerate() {
+                    let field = match *entry {
+                        Ok(i) => &fields[i],
+                        Err(c) => {
+                            let (_, name, ty, ref value) = constants[c];
+                            let m = self.constant_member(
+                                member_ty,
+                                msize,
+                                name,
+                                ty,
+                                value.clone(),
+                                &mut storage,
+                                span,
+                            )?;
+                            structs::write_agg(&mut members, slot as u64 * msize, &m);
+                            continue;
+                        }
+                    };
                     let mut m = Aggregate {
                         bytes: vec![0; msize as usize],
                         relocs: Vec::new(),
@@ -488,17 +533,29 @@ impl Compiler {
                         field.notes.iter().map(|n| Rc::from(n.as_bytes())).collect();
                     let notes_data = self.string_view(&notes, span)?;
                     self.set_view(&mut m, member_ty, "notes", notes.len(), notes_data, 8, span)?;
-                    structs::write_agg(&mut members, i as u64 * msize, &m);
+                    structs::write_agg(&mut members, slot as u64 * msize, &m);
                 }
                 self.set_view(
                     &mut agg,
                     desc,
                     "members",
-                    fields.len(),
+                    order.len(),
                     members,
                     malign,
                     span,
                 )?;
+                if !info.poly_args.is_empty() || !storage.bytes.is_empty() {
+                    let storage_len = storage.bytes.len();
+                    self.set_view(
+                        &mut agg,
+                        desc,
+                        "constant_storage",
+                        storage_len,
+                        storage,
+                        8,
+                        span,
+                    )?;
+                }
                 if !bindings.is_empty() {
                     self.set_tagged_union_bindings(&mut agg, desc, &bindings, span)?;
                 }
@@ -514,9 +571,6 @@ impl Compiler {
                         0x2
                     };
                     self.set_field(&mut agg, desc, "textual_flags", Value::Int(flags), span)?;
-                }
-                if !info.poly_args.is_empty() {
-                    self.poly_struct_info(&mut agg, desc, s, span)?;
                 }
                 // Notes written on the struct itself: `S :: struct @thing { ... }`.
                 let struct_notes: Vec<Rc<[u8]>> = self
@@ -699,22 +753,140 @@ impl Compiler {
         bindings.into_iter().map(|(_, n, v, t)| (n, v, t)).collect()
     }
 
-    /// `specified_parameters`, `constant_storage` and `polymorph_source_struct`
-    /// of a polymorphic struct instance's runtime descriptor.
+    /// The constants a struct body declares (`Entry :: struct {..}`, `K :: 3;`, procedures),
+    /// in declaration order, with their types and values. Overload sets and polymorphic
+    /// procedures have no single value and are not listed. They are listed in
+    /// `Type_Info_Struct.members` with the `CONSTANT` flag. A constant that fails to resolve
+    /// is left out: type info never reports errors for code nothing uses.
+    fn struct_constants(
+        &mut self,
+        s: crate::types::StructId,
+    ) -> Vec<(Span, Sym, TypeId, Option<Value>)> {
+        let Some(scope) = self.struct_asts.get(&s).map(|src| src.scope) else {
+            return Vec::new();
+        };
+        let mut ids: Vec<EntityId> = self
+            .scope(scope)
+            .names
+            .values()
+            .flatten()
+            .copied()
+            .filter(|&id| {
+                matches!(
+                    &self.entity(id).kind,
+                    EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Const
+                )
+            })
+            .collect();
+        ids.sort_by_key(|&id| {
+            let span = self.entity(id).span;
+            (span.file, span.start)
+        });
+        let mut out = Vec::new();
+        for id in ids {
+            let (name, span) = (self.entity(id).name, self.entity(id).span);
+            let resolved = match self.resolve_entity(id) {
+                Ok(Resolved::Const {
+                    value,
+                    ty,
+                }) => Ok((ty, Some(value))),
+                // A procedure's value is its address (Objective_C reads methods from there).
+                // Only once its signature is known: resolving it here can lay out the types it
+                // names early. Vk-Engine's entity methods take a `*World`, whose `#insert` reads
+                // a list the metaprogram has not finished, so it failed.
+                Ok(Resolved::Proc(p)) if !self.proc(p).is_poly && self.proc(p).sig.is_some() => {
+                    self.proc_type(p, span).map(|ty| (ty, Some(Value::Proc(p))))
+                }
+                Ok(_) => continue,
+                Err(e) => Err(e),
+            };
+            if let Ok((ty, value)) = resolved {
+                out.push((span, name, ty, value));
+            }
+        }
+        out
+    }
+
+    /// One `CONSTANT` entry of `Type_Info_Struct.members`; its value, if it has one, is
+    /// appended to `storage` and `offset_into_constant_storage` points at it.
+    #[allow(clippy::too_many_arguments)]
+    fn constant_member(
+        &mut self,
+        member_ty: TypeId,
+        msize: u64,
+        name: Sym,
+        mut ty: TypeId,
+        value: Option<Value>,
+        storage: &mut Aggregate,
+        span: Span,
+    ) -> Result<Aggregate> {
+        let mut m = Aggregate {
+            bytes: vec![0; msize as usize],
+            relocs: Vec::new(),
+        };
+        if let Some(img) = self.default_initializer(member_ty, span)? {
+            structs::write_agg(&mut m, 0, &img);
+        }
+        if let Some(v) = &value
+            && self.size_of(ty, span).is_err()
+        {
+            ty = self.type_of_value(v); // Untyped literals.
+        }
+        let mut offset: i128 = -1;
+        if let Some(value) = value
+            && let (Ok(size), Ok(align)) = (self.size_of(ty, span), self.align_of(ty, span))
+        {
+            let at = storage.bytes.len().next_multiple_of(align.max(1) as usize);
+            storage.bytes.resize(at + size as usize, 0);
+            if let Value::Type(t) = value {
+                let g = self.type_info_global(t, span)?;
+                storage.relocs.push(ir::Reloc {
+                    offset: at as u64,
+                    target: ir::RelocTarget::Global(g),
+                    addend: 0,
+                });
+                offset = at as i128;
+            } else if self
+                .write_value(storage, at as u64, &value, ty, span)
+                .is_ok()
+            {
+                offset = at as i128;
+            } else {
+                storage.bytes.truncate(at);
+            }
+        }
+        self.set_field(
+            &mut m,
+            member_ty,
+            "name",
+            Value::String(name.as_str().as_bytes().into()),
+            span,
+        )?;
+        self.set_info_ptr(&mut m, member_ty, "type", ty, span)?;
+        self.set_field(&mut m, member_ty, "flags", Value::Int(0x1), span)?;
+        self.set_field(
+            &mut m,
+            member_ty,
+            "offset_into_constant_storage",
+            Value::Int(offset),
+            span,
+        )?;
+        Ok(m)
+    }
+
+    /// `specified_parameters` and `polymorph_source_struct` of a polymorphic struct instance's
+    /// runtime descriptor. The arguments' values go to `storage` (`constant_storage`).
     fn poly_struct_info(
         &mut self,
         agg: &mut Aggregate,
         desc: TypeId,
         s: crate::types::StructId,
+        storage: &mut Aggregate,
         span: Span,
     ) -> Result<()> {
         let member_ty = self.preload_type("Type_Info_Struct_Member", span)?;
         let msize = self.size_of(member_ty, span)?;
         let malign = self.align_of(member_ty, span)?;
-        let mut storage = Aggregate {
-            bytes: Vec::new(),
-            relocs: Vec::new(),
-        };
         let mut members = Aggregate {
             bytes: Vec::new(),
             relocs: Vec::new(),
@@ -737,7 +909,7 @@ impl Compiler {
                     addend: 0,
                 });
             } else if self
-                .write_value(&mut storage, offset as u64, &value, ty, span)
+                .write_value(storage, offset as u64, &value, ty, span)
                 .is_err()
             {
                 storage.bytes.truncate(offset);
@@ -777,9 +949,6 @@ impl Compiler {
             malign,
             span,
         )?;
-        let storage_len = storage.bytes.len();
-        self.set_view(agg, desc, "constant_storage", storage_len, storage, 8, span)?;
-
         // A stand-in descriptor for the generic struct, carrying its name: one per generic
         // struct, so every instance's `polymorph_source_struct` is the same pointer.
         let generic_key = self.struct_asts.get(&s).map(|src| src.lit.id);
