@@ -672,7 +672,7 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         let file = self.scope_file(scope);
-        let mut f = self.thunk_ctx("#const", file);
+        let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
         // Runtime locals of the enclosing procedure are not visible to constants.
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, expected)?;
@@ -708,7 +708,7 @@ impl Compiler {
             _ => expr,
         };
         let file = self.scope_file(scope);
-        let mut f = self.thunk_ctx("#const", file);
+        let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, None)?;
         match op {

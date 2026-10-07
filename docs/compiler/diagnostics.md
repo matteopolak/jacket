@@ -23,7 +23,7 @@ The other rules:
 - A help that is a code change uses `with_fix` (shown as a diff outside the plain layout); one that is advice uses `with_help`.
 - Prefer naming things the user can type: `jaic check file.jai`, `-import_dir ../libs`, `#import "Basic";`.
 - Paths are shown relative to where the tool was started when they are inside it (`jaic::display_path`).
-- Internal names stay out: `__`-prefixed procedures, `name#N` polymorphic suffixes, the interpreter's thunks (`#run`/`#const` code is described as such).
+- Internal names stay out: `__`-prefixed procedures, `name#N` polymorphic suffixes, the interpreter's thunks (`#run`/`#const` code is described as such, by the `ir::FuncOrigin` its function and `TrapFrame` carry).
 
 ## How it works
 

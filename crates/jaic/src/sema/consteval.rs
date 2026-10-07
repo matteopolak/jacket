@@ -9,7 +9,7 @@ use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
     /// A fresh compile-time function context. Thunks take the context pointer.
-    pub fn thunk_ctx(&self, name: &str, file: FileId) -> FnCtx {
+    pub fn thunk_ctx(&self, origin: ir::FuncOrigin, file: FileId) -> FnCtx {
         let sig = ir::Sig {
             params: vec![Ty::Ptr],
             returns: vec![],
@@ -18,7 +18,8 @@ impl Compiler {
             c_fixed: 0,
             c_abi: None,
         };
-        let mut f = FnCtx::new(name.into(), sig, file);
+        let mut f = FnCtx::new(origin.thunk_name().into(), sig, file);
+        f.b.func.origin = origin;
         f.compile_time = true;
         f.context = Some(f.b.param(0));
         f
@@ -339,7 +340,7 @@ impl Compiler {
         let file = self.scope_file(scope);
         match body {
             ast::RunBody::Expr(e) => {
-                let mut f = self.thunk_ctx("#run", file);
+                let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
                 let op = self.check_expr(&mut f, tscope, e, expected)?;
                 match op {
                     Operand::Const {
@@ -351,7 +352,7 @@ impl Compiler {
                 }
             }
             ast::RunBody::Block(block) => {
-                let mut f = self.thunk_ctx("#run", file);
+                let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
                 let module = self.scope(tscope).module;
                 let inner = self.new_scope(scope::ScopeKind::Block, Some(tscope), module, None);
                 self.check_block_stmts(&mut f, inner, &block.stmts)?;

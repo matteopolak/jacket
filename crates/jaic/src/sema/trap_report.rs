@@ -56,7 +56,7 @@ impl Compiler {
         {
             format!(
                 "{} reached the end of its body without returning a value",
-                display_name(&frame.name)
+                display_name(frame)
             )
         } else {
             trap.message.clone()
@@ -120,7 +120,7 @@ impl Compiler {
             let within = if std::ptr::eq(called, innermost) || is_internal_name(&innermost.name) {
                 String::new()
             } else {
-                format!(" in {}", display_name(&innermost.name))
+                format!(" in {}", display_name(innermost))
             };
             d = d.with_note(
                 Span::NONE,
@@ -131,7 +131,7 @@ impl Compiler {
                     } else {
                         "this call failed"
                     },
-                    display_name(&called.name),
+                    display_name(called),
                     self.loc_suffix(innermost.loc),
                 ),
             );
@@ -177,7 +177,7 @@ impl Compiler {
                 .count();
             text += &format!(
                 "\n    {}{}",
-                display_name(&frame.name),
+                display_name(frame),
                 self.loc_suffix(frame.loc)
             );
             if repeats > 0 {
@@ -277,17 +277,18 @@ fn is_internal_name(name: &str) -> bool {
     name.is_empty() || name.starts_with("__")
 }
 
-fn display_name(name: &str) -> String {
+fn display_name(frame: &TrapFrame) -> String {
+    match frame.origin {
+        ir::FuncOrigin::Run => return "the `#run` code".to_string(),
+        ir::FuncOrigin::ConstInit => return "a constant's compile-time initializer".to_string(),
+        ir::FuncOrigin::Procedure => {}
+    }
     // A polymorphic instance is `name#N`; the user knows it as `name`.
-    let name = match name.rsplit_once('#') {
+    let name = match frame.name.rsplit_once('#') {
         Some((base, n)) if !base.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => base,
-        _ => name,
+        _ => &frame.name,
     };
-    if name == "#run" {
-        "the `#run` code".to_string()
-    } else if name == "#const" {
-        "a constant's compile-time initializer".to_string()
-    } else if name.is_empty() {
+    if name.is_empty() {
         "an anonymous procedure".to_string()
     } else if let Some(ty) = name.strip_prefix("__init_") {
         format!("the initializer of `{ty}`")

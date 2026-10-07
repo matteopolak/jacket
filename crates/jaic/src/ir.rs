@@ -504,6 +504,9 @@ pub enum Linkage {
 #[derive(Clone, Debug)]
 pub struct Func {
     pub name: String,
+    /// What the function was made for: a procedure, or compile-time code the compiler wraps
+    /// in one.
+    pub origin: FuncOrigin,
     pub sig: Sig,
     pub linkage: Linkage,
     pub slots: Vec<Slot>,
@@ -517,6 +520,29 @@ pub struct Func {
     /// Native debug information (named variables, lexical scopes), recorded only when the
     /// program is built with debug info. Boxed so the interpreter's hot data stays small.
     pub debug: Option<Box<FuncDebug>>,
+}
+
+/// What a function was made for. Compile-time code outside a procedure runs in a function of
+/// its own, which reports name by what it is rather than by its `name`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FuncOrigin {
+    #[default]
+    Procedure,
+    /// A `#run` directive's code.
+    Run,
+    /// A constant's initializer evaluated at compile time.
+    ConstInit,
+}
+
+impl FuncOrigin {
+    /// The function name for compile-time code (IR dumps, stack trace nodes).
+    pub fn thunk_name(self) -> &'static str {
+        match self {
+            FuncOrigin::Procedure => "",
+            FuncOrigin::Run => "#run",
+            FuncOrigin::ConstInit => "#const",
+        }
+    }
 }
 
 /// Debug information of one procedure, for the native backend (`docs/native/debug-info.md`).
@@ -811,6 +837,7 @@ impl Builder {
         let vals = sig.params.clone();
         let func = Func {
             name,
+            origin: FuncOrigin::Procedure,
             sig,
             linkage: Linkage::Internal,
             slots: Vec::new(),

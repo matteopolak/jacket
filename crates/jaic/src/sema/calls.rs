@@ -638,7 +638,7 @@ impl Compiler {
             p.bindings.unwrap_or(p.scope)
         };
         let file = self.scope_file(scope);
-        let mut f = self.thunk_ctx("#const", file);
+        let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
         let scope = self.thunk_scope(scope);
         matches!(self.check_expr(&mut f, scope, default, None), Ok(op) if op.is_const())
     }

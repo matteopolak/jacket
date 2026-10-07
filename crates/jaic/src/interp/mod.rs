@@ -194,6 +194,7 @@ fn null_access(kind: &str, addr: u64) -> String {
 #[derive(Debug, Clone)]
 pub struct TrapFrame {
     pub name: String,
+    pub origin: ir::FuncOrigin,
     /// (file, line, column) of the statement this procedure was executing.
     pub loc: Option<(u32, u32, u32)>,
 }
@@ -230,10 +231,11 @@ impl Trap {
         out
     }
 
-    fn push_frame(&mut self, name: &str, loc: Option<(u32, u32, u32)>) {
+    fn push_frame(&mut self, func: &ir::Func, loc: Option<(u32, u32, u32)>) {
         if self.frames.len() < MAX_TRAP_FRAMES {
             self.frames.push(TrapFrame {
-                name: name.to_string(),
+                name: func.name.clone(),
+                origin: func.origin,
                 loc,
             });
         } else {
@@ -1122,7 +1124,7 @@ impl Interp {
         (self.frame_blocks, self.frame_insts) = (0, 0);
         let mut result = self.run(program, func, &frame, stack_base, args);
         if let Err(trap) = &mut result {
-            trap.push_frame(&func.name, self.loc);
+            trap.push_frame(func, self.loc);
         }
         if let Some(counts) = self.profile.as_mut() {
             counts.add(
