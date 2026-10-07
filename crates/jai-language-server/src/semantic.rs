@@ -1,7 +1,7 @@
 //! Type-checked answers for hover and completion: the open documents are compiled with jaic
 //! (bundled or on-disk stdlib) and the compiler's editor facts (`jaic::sema::ide`) are queried.
 //! Compilation happens on demand and is cached per source text.
-use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
+use jaic::build::{BuildEnv, Workspaces};
 use jaic::intern::Sym;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
@@ -258,18 +258,6 @@ impl Cache {
     }
 }
 
-/// Gives the compilers of a metaprogram's workspaces the analysis's block budget.
-struct Budgeted;
-
-impl WorkspaceObserver for Budgeted {
-    fn created(&mut self, compiler: &mut Compiler) {
-        compiler.interp.block_budget = Some(BLOCK_BUDGET);
-    }
-
-    fn finished(&mut self, _compiler: Box<Compiler>, _failed: bool) {
-    }
-}
-
 /// The compiled program, and its first error if it has one.
 fn compile(
     env: &Environment,
@@ -290,7 +278,8 @@ fn compile(
     compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
-    // the same way, with no output, the same host and the same budget.
+    // the same way, with no output and the same host, and their compile-time code draws from
+    // this compiler's budget.
     let workspace_host = host.clone();
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
@@ -300,7 +289,7 @@ fn compile(
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(|_| {}),
-        observer: Some(Box::new(Budgeted)),
+        observer: None,
     });
     compiler.attach_workspaces(workspaces);
     let mut prefix = env.fs.canonical(&dir).to_string_lossy().into_owned();

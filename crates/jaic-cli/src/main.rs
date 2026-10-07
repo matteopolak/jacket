@@ -938,7 +938,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         eprintln!("{}", compiler.render(&d));
         return ExitCode::from(1);
     }
-    let finished = timings::time("workspaces", || jaic::build::finish_all(&workspaces));
+    let finished = timings::time("workspaces", || {
+        jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
+    });
     if cli.command == Command::Build {
         flush_sandbox(&shared_sandbox);
     }

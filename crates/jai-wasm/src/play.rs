@@ -264,7 +264,9 @@ fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
     let outcome = match compiler.compile_program(&entry) {
         Ok(()) => {
-            if let Err(message) = jaic::build::finish_all(&workspaces) {
+            if let Err(message) =
+                jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
+            {
                 let text = format!("error: {message}\n");
                 host.borrow_mut().write(text.as_bytes(), true);
             }
@@ -393,6 +395,43 @@ mod tests {
         assert_eq!(r.stdout, "start\n");
         assert!(r.exit_code.is_none() || r.exit_code != Some(0));
         let text = format!("{:?}{}", r.diagnostics, r.rendered);
+        assert!(text.contains("execution budget exhausted"), "{text}");
+    }
+
+    #[test]
+    fn budget_covers_the_workspaces_a_metaprogram_compiles() {
+        // A workspace's compiler had no budget of its own, so an endless `#run` in a program
+        // that a metaprogram compiled hung the playground.
+        let source = concat!(
+            "#import \"Basic\";\n",
+            "#import \"Compiler\";\n",
+            "#run {\n",
+            "    w := compiler_create_workspace();\n",
+            "    options := get_build_options(w);\n",
+            "    options.output_type = .NO_OUTPUT;\n",
+            "    set_build_options(options, w);\n",
+            "    compiler_begin_intercept(w);\n",
+            "    add_build_string(\"work :: () { while true {} }\\n#run work();\\n\", w);\n",
+            "    while true {\n",
+            "        message := compiler_wait_for_message();\n",
+            "        if message.kind == .COMPLETE break;\n",
+            "    }\n",
+            "    compiler_end_intercept(w);\n",
+            "}\n",
+            "main :: () {}\n",
+        );
+        let mut files = BTreeMap::new();
+        files.insert("main.jai".to_string(), source.as_bytes().to_vec());
+        let r = run_with(
+            &files,
+            "main.jai",
+            PlayOptions {
+                budget: Some(100_000),
+                compile_only: true,
+                ..PlayOptions::default()
+            },
+        );
+        let text = format!("{:?}{}{}", r.diagnostics, r.rendered, r.stderr);
         assert!(text.contains("execution budget exhausted"), "{text}");
     }
 

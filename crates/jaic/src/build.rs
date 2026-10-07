@@ -563,7 +563,12 @@ fn phase(p: i64) -> Event {
 /// Advance workspace `id` by one step, queueing the messages it produces:
 /// Open → (load, run directives) Checked → (more sources, or generate code
 /// and write output) Done. Errors are reported and end in a failed COMPLETE.
-fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
+///
+/// `budget` is the interpreter block budget of whoever drives the workspace (the metaprogram's
+/// interpreter, or the top-level compiler). The workspace's compile-time code draws from it
+/// and hands back what is left, so one budget bounds the whole compilation however many
+/// workspaces a metaprogram creates.
+fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<(), String> {
     let (stage, mut compiler, pending, modifications) = {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
@@ -582,6 +587,7 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
         Some(c) => c,
         None => new_compiler(shared, id)?,
     };
+    compiler.interp.block_budget = *budget;
     let mut events = Vec::new();
     // The registry borrow is released while the compiler runs: its
     // compile-time code may call back into the registry.
@@ -675,6 +681,7 @@ fn step(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
         other => other,
     };
     shared.borrow_mut().current.pop();
+    *budget = compiler.interp.block_budget;
     let mut failed = false;
     let next = match result {
         Ok(Stage::Done) => {
@@ -794,8 +801,9 @@ fn output_path(settings: &BuildSettings, compiler: &Compiler) -> PathBuf {
 }
 
 /// Compile every workspace created but never driven by a message loop
-/// (Jai compiles them after the metaprogram's `#run` returns).
-pub fn finish_all(shared: &SharedWorkspaces) -> Result<(), String> {
+/// (Jai compiles them after the metaprogram's `#run` returns). Their compile-time code draws
+/// from `budget`, the top-level compiler's interpreter budget.
+pub fn finish_all(shared: &SharedWorkspaces, budget: &mut Option<u64>) -> Result<(), String> {
     let mut id = TOP_LEVEL_WORKSPACE + 1;
     while id < shared.borrow().list.len() as i64 {
         // A workspace nobody added a file or string to has nothing to compile; building it
@@ -808,7 +816,7 @@ pub fn finish_all(shared: &SharedWorkspaces) -> Result<(), String> {
             }
         }
         while shared.borrow().list[id as usize].stage != Stage::Done {
-            step(shared, id)?;
+            step(shared, id, budget)?;
         }
         shared.borrow_mut().list[id as usize].events.clear();
         id += 1;
@@ -981,7 +989,10 @@ pub fn call(
                     return Ok(vec![0]);
                 }
                 drop(reg);
-                step(shared, id).map_err(trap)?;
+                let mut budget = interp.block_budget;
+                let stepped = step(shared, id, &mut budget);
+                interp.block_budget = budget;
+                stepped.map_err(trap)?;
             }
         }
         MetaOp::EventInt => {

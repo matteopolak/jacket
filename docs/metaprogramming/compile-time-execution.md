@@ -32,7 +32,7 @@ The expression or block is compiled into a throwaway thunk (`thunk_ctx`, `run_th
 ## How to change it
 
 - New run syntax: `parser/directive.rs`, then `E::Run` in `sema/expr.rs` and `check_run`.
-- There is no instruction budget, so an infinite loop in `#run` hangs the compiler. Add one in the interpreter's step loop if needed.
+- `jaic` sets no instruction budget, so an infinite loop in `#run` hangs it. The playground, jailsp and jailint set `Interp::block_budget`, which also covers the workspaces a metaprogram compiles (see [workspaces](workspaces.md)).
 - Work that must happen before `main` but isn't a `#run` (global reset, runtime info) belongs in `Compiler::run_program` (`sema/driver.rs`).
 
 ## Configuration

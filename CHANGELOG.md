@@ -49,6 +49,7 @@
 
 ### Fixed
 
+- The playground's execution budget (and jailsp's and jailint's) now covers the compile-time code of workspaces a metaprogram compiles. A workspace's compiler had no budget in the playground, so an endless `#run` in a program a metaprogram compiled hung it, and jailsp and jailint gave each workspace a fresh budget, so a metaprogram creating many of them was not bounded.
 - jailsp: go to definition on a builtin constant such as `OS` no longer crashes the server; it has no declaration to go to.
 - A statement starting with `ifx` no longer takes time exponential in how deeply `ifx` statements nest inside its condition or branches (a 2.5 KB file of nested `{ifx` hung the parser): it was parsed once as an assigning `if` and again as an expression.
 - An unknown escape of a multibyte character in a string (`"\é"`, or of a byte that is not UTF-8, which reads as U+FFFD) no longer crashes the compiler while it reports the error: the error's span ended inside the character. The message names the whole character.

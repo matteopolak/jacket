@@ -315,7 +315,7 @@ Every finding below was checked by hand. Findings that turned out wrong were fix
    - every entity a name resolved to (`used`);
    - which import answered each lookup (`used_imports`).
 
-   Compile-time code runs in the sandboxed host with a block budget. Workspaces a metaprogram creates are compiled too: a `build.jai` that adds `src/main.jai` gets `src/` linted. This uses `jaic::build::WorkspaceObserver`, which hands each workspace's compiler to jailint. Relative paths a metaprogram names resolve against the root file's directory.
+   Compile-time code runs in the sandboxed host with a block budget, which also covers the workspaces' compile-time code. Workspaces a metaprogram creates are compiled too: a `build.jai` that adds `src/main.jai` gets `src/` linted. This uses `jaic::build::WorkspaceObserver`, which hands each workspace's compiler to jailint. Relative paths a metaprogram names resolve against the root file's directory.
 3. **Lint** (`lib.rs`, `lint_files`). Per file:
    - re-parse and lex;
    - build the in-source suppressions;

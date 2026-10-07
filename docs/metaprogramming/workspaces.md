@@ -41,6 +41,8 @@ The `__jaic_rec_*`, `__jaic_code_nodes`, `__jaic_parse_code` and `__jaic_modify_
 
 The registry borrow is released while a compiler runs, so nested metaprograms work {#ws.9}. Sources a `#run` adds to its own workspace (`add_build_string(s, -1)`, for example to define a `#placeholder`) are pulled by `Compiler::pull_workspace_sources` right after that `#run`; `run_top_level` is incremental {#ws.10}. `compiler_modify_procedure` calls are queued and applied at the start of the next `step`, so bodies are replaced before they are lowered {#ws.14}.
 
+A workspace's compile-time code runs on its driver's interpreter budget (`Interp::block_budget`, set by the playground, jailsp and jailint; the CLI has none): `step` takes the budget of the interpreter reading the events (or, from `finish_all`, the top-level compiler's), gives it to the workspace's compiler and hands back what is left. One budget therefore bounds the whole compilation; an endless `#run` in a workspace ends in `execution budget exhausted` for the workspace and then for the metaprogram waiting on it.
+
 ### Events
 
 | Kind | Payload |

@@ -33,7 +33,8 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
    `{exitCode|null, stdout, stderr, output[{stream,text}], rendered, diagnostics[{severity,file,line,column,message,code?}]}`
    as JSON (`code`, when present, is the error's stable name from `DiagnosticKind::code`, such as `unavailable`, `static-assert` or `runtime-error`; `exitCode` is null both when compilation failed and when the running program stopped with a runtime error, and `runtime-error` tells the second apart). `output` is everything the program wrote in write order, as runs of `"stdout"` or `"stderr"`
    (`SandboxHost::order` records the run lengths). `run_with(files, main, PlayOptions { budget })` bounds the
-   main compile's interpreter to `budget` basic blocks; past it the run fails with "execution budget exhausted".
+   main compile's interpreter to `budget` basic blocks, including the compile-time code of workspaces a metaprogram
+   compiles; past it the run fails with "execution budget exhausted".
    Diagnostics with a `path:line:col:` message prefix (runtime traps) are split apart; others use the span.
 3. `src/play_exports.rs` is the pointer-free scalar ABI (same style as the other exports):
    `jai_play_reset`, `jai_play_push(channel, byte)` (0 = path, 1 = contents, 2 = main path),

@@ -29,7 +29,7 @@ The harnesses call library entry points directly. Nothing on these paths uses `c
 
 ### Sandboxing
 
-Compile-time execution and `main` run through the browser playground's sandbox, the same one `jaic run -os wasm` uses: target OS/CPU `wasm`, the stdlib from an in-memory file system, and `SandboxHost`, a small in-memory libc with no dynamic linker, real files, network or clock. `BLOCK_BUDGET` (2M interpreter basic blocks per input) stops infinite loops in `#run` and `main` with an "execution budget exhausted" diagnostic. Any hang that is left is in the compiler itself.
+Compile-time execution and `main` run through the browser playground's sandbox, the same one `jaic run -os wasm` uses: target OS/CPU `wasm`, the stdlib from an in-memory file system, and `SandboxHost`, a small in-memory libc with no dynamic linker, real files, network or clock. `BLOCK_BUDGET` (2M interpreter basic blocks per input) stops infinite loops in `#run` and `main` with an "execution budget exhausted" diagnostic, also in the workspaces a metaprogram compiles, which draw from the same budget. Any hang that is left is in the compiler itself.
 
 Compiling harnesses (`check`, `interp`, `generated`, `lsp`, `lsp_json`, `lsp_edits`, `jaifmt`) run on a 256 MiB thread, the stack the wasm build links with. The native CLI and `jailsp` use 1 GiB. `lexer` and `parser` run on libFuzzer's main thread (8 MiB).
 
@@ -126,6 +126,7 @@ These explain the limits listed under Configuration; each has a regression test.
 - **Formatter, more (`jaifmt`):** `1.2.3` (`1.2`, `.`, `3`) was spaced to `1.2 .3`, where `.3` lexes as a float; and a note with an open `(` (`@Note(x`) swallowed the trailing blank lines the formatter trims. Both were caught by the formatter's own token check, so the tool refused valid input with an "internal error" instead of corrupting it.
 - **Signature help (`lsp_edits`):** a call whose callee starts at byte 0 underflowed computing the callee's start, and in text that does not parse the callee lookup resolved a builtin procedure (`type_info(`) as a declaration, which the resolver treated as unreachable.
 - **Unary operators on `Type` (`interp`):** `~T` and `-T` with `T := int` type-checked and produced a garbage type id, and printing it crashed the interpreter (`~` on a `bool` likewise made the byte 254). Unary `-` and `~` now require an integer, enum or float operand unless an operator overload applies.
+- **Workspace budgets (`check`):** a workspace's compiler had no interpreter budget in the playground (and a fresh one per workspace in jailsp and jailint), so an endless `#run` in a program a metaprogram compiled hung. The workspace now runs on what is left of its driver's budget.
 - **Compile-time values:** a `#run` result holding a pointer cycle was copied into the program recursively until the stack overflowed. An integer cast to `Code` indexed past the code table. `#align` accepted values that broke layout arithmetic.
 
 ## How to change it

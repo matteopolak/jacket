@@ -245,7 +245,6 @@ struct Collect {
 
 impl WorkspaceObserver for Collect {
     fn created(&mut self, compiler: &mut Compiler) {
-        compiler.interp.block_budget = Some(BLOCK_BUDGET);
         crate::facts::enable(compiler, vec![self.prefix.clone()]);
     }
 
@@ -328,7 +327,10 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     };
     let mut error = result.err().map(|e| e.message.clone());
     let top_complete = error.is_none();
-    if top_complete && let Err(message) = jaic::build::finish_all(&workspaces) {
+    if top_complete
+        && let Err(message) =
+            jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
+    {
         error = Some(message);
     }
     // The workspaces' programs first: a file both compile is the target program's.
