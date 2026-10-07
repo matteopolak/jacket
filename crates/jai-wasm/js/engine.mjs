@@ -13,9 +13,20 @@ export async function createEngine(wasmBytes, { host } = {}) {
   let instance;
   let pending = null;
   let lastError = "";
+  // Addresses cross the imports and exports as wasm32 `usize` values, which JavaScript sees as
+  // signed i32 numbers (a memory64 build would pass BigInts): `address` makes them the unsigned
+  // byte offsets they are, and `view` checks a range against the memory before touching it.
+  const address = value => (typeof value === "bigint" ? Number(BigInt.asUintN(64, value)) : value >>> 0);
+  function view(Type, at, count, what) {
+    const start = address(at);
+    const bytes = count * Type.BYTES_PER_ELEMENT;
+    const size = instance.exports.memory.buffer.byteLength;
+    if (start + bytes > size) throw new RangeError(`${what} at ${start} (+${bytes} bytes) is outside the module's memory (${size} bytes)`);
+    return new Type(instance.exports.memory.buffer, start, count);
+  }
   const memory = {
     get buffer() { return instance.exports.memory.buffer; },
-    alloc: size => instance.exports.jai_host_alloc(size),
+    alloc: size => address(instance.exports.jai_host_alloc(size)),
     free: (ptr, size) => instance.exports.jai_host_free(ptr, size),
   };
   const utf8 = new TextDecoder();
@@ -26,19 +37,19 @@ export async function createEngine(wasmBytes, { host } = {}) {
     else if (typeof value === "boolean") bits = value ? 1n : 0n;
     else if (Number.isInteger(value)) bits = BigInt.asUintN(64, BigInt(value));
     else throw new TypeError(`host function returned ${value}`);
-    new BigUint64Array(memory.buffer, results, count)[0] = bits;
+    view(BigUint64Array, results, count, "results")[0] = bits;
   }
   function fail(error) { lastError = String(error?.message ?? error); return 2; }
   const imports = { jai_host: {
     call(name, nameLength, args, count, results, resultCount) {
       const functions = host?.functions;
       if (!functions) return 1;
-      const key = utf8.decode(new Uint8Array(memory.buffer, name, nameLength));
-      if (!Object.hasOwn(functions, key)) return 1;
       try {
-        const value = functions[key](Array.from(new BigUint64Array(memory.buffer, args, count)), memory);
+        const key = utf8.decode(view(Uint8Array, name, address(nameLength), "name"));
+        if (!Object.hasOwn(functions, key)) return 1;
+        const value = functions[key](Array.from(view(BigUint64Array, args, address(count), "arguments")), memory);
         if (value && typeof value.then === "function") { pending = value; return 3; }
-        store(results, resultCount, value);
+        store(results, address(resultCount), value);
         return 0;
       } catch (error) { return fail(error); }
     },
@@ -46,16 +57,16 @@ export async function createEngine(wasmBytes, { host } = {}) {
       ? new WebAssembly.Suspending(async (results, resultCount) => {
           const promise = pending;
           pending = null;
-          try { store(results, resultCount, await promise); return 0; } catch (error) { return fail(error); }
+          try { store(results, address(resultCount), await promise); return 0; } catch (error) { return fail(error); }
         })
       : () => fail("waiting for the page needs JavaScript Promise Integration (WebAssembly.Suspending)"),
     error(buffer, capacity) {
-      const bytes = new TextEncoder().encode(lastError).subarray(0, capacity);
-      new Uint8Array(memory.buffer, buffer, bytes.length).set(bytes);
+      const bytes = new TextEncoder().encode(lastError).subarray(0, address(capacity));
+      view(Uint8Array, buffer, bytes.length, "error buffer").set(bytes);
       return bytes.length;
     },
     output(data, length, toStderr) {
-      host?.output?.(utf8.decode(new Uint8Array(memory.buffer, data, length)), toStderr ? "stderr" : "stdout");
+      host?.output?.(utf8.decode(view(Uint8Array, data, address(length), "output")), toStderr ? "stderr" : "stdout");
     },
     now_ms: () => performance.now(),
   } };

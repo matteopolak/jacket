@@ -178,6 +178,19 @@ pub extern "C" fn jai_play_panic_byte(index: u32) -> u32 {
     })
 }
 
+/// Zeroed, 16-byte aligned memory the page fills for the running program (mapped buffer
+/// ranges, strings it returns); 0 when it cannot be had. See `host_bridge::host_alloc`.
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_host_alloc(size: usize) -> usize {
+    crate::host_bridge::host_alloc(size)
+}
+
+/// Release what `jai_host_alloc` returned (the size is not needed).
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_host_free(address: usize, _size: usize) {
+    crate::host_bridge::host_free(address);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -14,8 +14,10 @@ jai-language-server = { path = "../jai-language-server" }
 jaic = { path = "../jaic" }
 
 # Export-name attributes are the only permitted unsafe syntax, in the play_exports.rs and
-# language_server.rs modules. The playground and language-server bridges use no unsafe blocks or raw host
-# memory pointers (the jaic interpreter's own unsafe stays inside that crate).
+# language_server.rs modules, plus the `unsafe extern` block that declares the page's `jai_host`
+# imports as safe functions taking addresses (host_bridge.rs). The playground and language-server
+# bridges use no unsafe blocks or raw host memory pointers (the jaic interpreter's own unsafe
+# stays inside that crate).
 [lints.rust]
 unsafe_code = "deny"
 [lints.clippy]

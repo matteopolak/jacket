@@ -6,25 +6,43 @@
 //!
 //! Status codes of `call` and `wait`: 0 done, 1 not provided, 2 failed (`error` has the
 //! message), 3 pending (call `wait`).
+//!
+//! No unsafe blocks: the imports are declared `safe` and exchange plain addresses (`usize`), so
+//! the only unsafe syntax is the `unsafe extern` block itself, which wasm imports need. They are
+//! safe to call because the page only reads and writes the ranges passed, in this module's
+//! memory (engine.mjs checks each range against the memory's size), and Rust never holds a
+//! reference into a range while the page writes it.
 use jaic::interp::{Host, SharedHost};
 use jaic::ir;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 #[cfg(target_arch = "wasm32")]
+#[allow(unsafe_code)]
 mod imports {
     #[link(wasm_import_module = "jai_host")]
     unsafe extern "C" {
-        pub fn call(
-            name: *const u8,
+        /// Call the page's host function named by the UTF-8 bytes at `name`: it reads `nargs`
+        /// u64 slots at `args` and writes up to `nresults` at `results`.
+        pub safe fn call(
+            name: usize,
             name_len: usize,
-            args: *const u64,
+            args: usize,
             nargs: usize,
-            results: *mut u64,
+            results: usize,
             nresults: usize,
         ) -> i32;
-        pub fn wait(results: *mut u64, nresults: usize) -> i32;
-        pub fn error(buffer: *mut u8, capacity: usize) -> usize;
-        pub fn output(data: *const u8, len: usize, to_stderr: i32);
-        pub fn now_ms() -> f64;
+
+        /// Suspend until the promise of the last `call` settles; writes its results.
+        pub safe fn wait(results: usize, nresults: usize) -> i32;
+
+        /// Write the last failure's message (at most `capacity` bytes) to `buffer`.
+        pub safe fn error(buffer: usize, capacity: usize) -> usize;
+
+        /// Hand the page `len` bytes of program output.
+        pub safe fn output(data: usize, len: usize, to_stderr: i32);
+
+        pub safe fn now_ms() -> f64;
     }
 }
 
@@ -82,18 +100,23 @@ impl Host for PlayHost {
         args: &[u64],
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
-        if let Some(result) = self.shared.foreign(symbol, args, sig) {
+        // Asked of the page first: a page without the procedure (or without any host) answers
+        // that nothing is provided, which the sandbox says too.
+        let ask_page_first = symbol == "jai_host_provides";
+        if !ask_page_first && let Some(result) = self.shared.foreign(symbol, args, sig) {
             return Some(result);
         }
         let mut results = vec![0u64; sig.returns.len()];
-        match host_call(symbol, args, &mut results)? {
-            Ok(waited) => {
+        match host_call(symbol, args, &mut results) {
+            Some(Ok(waited)) => {
                 if waited {
                     self.after_wait();
                 }
                 Some(Ok(results))
             }
-            Err(message) => Some(Err(format!("{symbol}: {message}"))),
+            Some(Err(message)) => Some(Err(format!("{symbol}: {message}"))),
+            None if ask_page_first => self.shared.foreign(symbol, args, sig),
+            None => None,
         }
     }
 
@@ -124,22 +147,18 @@ impl Host for PlayHost {
 
 /// `None`: the page does not provide `symbol`. `Ok(true)`: it answered after a wait.
 #[cfg(target_arch = "wasm32")]
-#[allow(unsafe_code)]
 fn host_call(symbol: &str, args: &[u64], results: &mut [u64]) -> Option<Result<bool, String>> {
-    // SAFETY: the imports read `args` and write `results` within the lengths passed.
-    let status = unsafe {
-        imports::call(
-            symbol.as_ptr(),
-            symbol.len(),
-            args.as_ptr(),
-            args.len(),
-            results.as_mut_ptr(),
-            results.len(),
-        )
-    };
+    let status = imports::call(
+        symbol.as_ptr() as usize,
+        symbol.len(),
+        args.as_ptr() as usize,
+        args.len(),
+        results.as_mut_ptr() as usize,
+        results.len(),
+    );
     let (status, waited) = match status {
         3 => (
-            unsafe { imports::wait(results.as_mut_ptr(), results.len()) },
+            imports::wait(results.as_mut_ptr() as usize, results.len()),
             true,
         ),
         s => (s, false),
@@ -149,8 +168,7 @@ fn host_call(symbol: &str, args: &[u64], results: &mut [u64]) -> Option<Result<b
         1 => None,
         _ => {
             let mut buffer = vec![0u8; 4096];
-            // SAFETY: the import writes at most `capacity` bytes.
-            let len = unsafe { imports::error(buffer.as_mut_ptr(), buffer.len()) };
+            let len = imports::error(buffer.as_mut_ptr() as usize, buffer.len());
             buffer.truncate(len.min(4096));
             Some(Err(String::from_utf8_lossy(&buffer).into_owned()))
         }
@@ -163,11 +181,9 @@ fn host_call(_symbol: &str, _args: &[u64], _results: &mut [u64]) -> Option<Resul
 }
 
 #[cfg(target_arch = "wasm32")]
-#[allow(unsafe_code)]
 fn send_output(bytes: &[u8], to_stderr: bool) {
     if !bytes.is_empty() {
-        // SAFETY: the import only reads `bytes`.
-        unsafe { imports::output(bytes.as_ptr(), bytes.len(), to_stderr as i32) };
+        imports::output(bytes.as_ptr() as usize, bytes.len(), to_stderr as i32);
     }
 }
 
@@ -176,10 +192,8 @@ fn send_output(_bytes: &[u8], _to_stderr: bool) {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[allow(unsafe_code)]
 fn now_ms() -> f64 {
-    // SAFETY: no arguments.
-    unsafe { imports::now_ms() }
+    imports::now_ms()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -187,26 +201,55 @@ fn now_ms() -> f64 {
     0.0
 }
 
-/// Memory the page fills for the program (mapped buffer ranges, strings it returns).
-#[allow(unsafe_code)]
-#[unsafe(no_mangle)]
-pub extern "C" fn jai_host_alloc(size: usize) -> usize {
-    match std::alloc::Layout::from_size_align(size.max(1), 16) {
-        // SAFETY: the layout has a non-zero size.
-        Ok(layout) => unsafe { std::alloc::alloc_zeroed(layout) as usize },
-        Err(_) => 0,
-    }
+thread_local! {
+    /// Blocks the page asked for (`jai_host_alloc`), by address. 16-byte units keep them aligned
+    /// for any value the program reads from them.
+    static HOST_BLOCKS: RefCell<HashMap<usize, Box<[u128]>>> = RefCell::new(HashMap::new());
 }
 
-/// Free what `jai_host_alloc(size)` returned.
-#[allow(unsafe_code)]
-#[unsafe(no_mangle)]
-pub extern "C" fn jai_host_free(ptr: usize, size: usize) {
-    if ptr == 0 {
-        return;
+/// Zeroed memory the page fills for the program (mapped buffer ranges, strings it returns),
+/// 16-byte aligned; 0 when `size` is too large.
+pub fn host_alloc(size: usize) -> usize {
+    let Some(units) = size.max(1).checked_add(15).map(|n| n / 16) else {
+        return 0;
+    };
+    let mut block = Vec::new();
+    if block.try_reserve_exact(units).is_err() {
+        return 0;
     }
-    if let Ok(layout) = std::alloc::Layout::from_size_align(size.max(1), 16) {
-        // SAFETY: the page passes back a pointer and size from jai_host_alloc.
-        unsafe { std::alloc::dealloc(ptr as *mut u8, layout) };
+    block.resize(units, 0u128);
+    let block = block.into_boxed_slice();
+    let address = block.as_ptr() as usize;
+    HOST_BLOCKS.with(|blocks| blocks.borrow_mut().insert(address, block));
+    address
+}
+
+/// Release a block `host_alloc` returned; other addresses are ignored.
+pub fn host_free(address: usize) {
+    HOST_BLOCKS.with(|blocks| blocks.borrow_mut().remove(&address));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_blocks_are_aligned_zeroed_and_freed() {
+        let a = host_alloc(3);
+        let b = host_alloc(100);
+        assert!(a != 0 && b != 0 && a != b);
+        assert_eq!(a % 16, 0);
+        assert_eq!(b % 16, 0);
+        HOST_BLOCKS.with(|blocks| {
+            let blocks = blocks.borrow();
+            assert_eq!(blocks[&b].len(), 7);
+            assert!(blocks[&b].iter().all(|&unit| unit == 0));
+        });
+        host_free(a);
+        host_free(a);
+        host_free(12345);
+        HOST_BLOCKS.with(|blocks| assert!(!blocks.borrow().contains_key(&a)));
+        host_free(b);
+        assert_eq!(host_alloc(usize::MAX), 0);
     }
 }

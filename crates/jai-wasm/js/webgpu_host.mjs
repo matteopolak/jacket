@@ -9,8 +9,17 @@
 // that return structs). Objects cross as small integer handles; a callback-taking function
 // returns a future and queues its callback for the Jai side (stdlib/WebGPU/wasm.jai) to call.
 //
-// Usage: const host = createWebGPUHost({ canvas, output }); createEngine(bytes, { host });
+// Usage:
+//   const host = createWebGPUHost({ canvas, output, onSurface });
+//   const engine = await createEngine(bytes, { host }); await engine.playAsync(files, "main.jai");
 // host.input(event) queues a canvas event (see `pollEvent`), host.resize(w, h) sizes the canvas.
+// onSurface({ width, height }) is called when the program configures its surface (the page can
+// show the canvas then), onSurface(null) when it unconfigures it.
+//
+// Pointers: the program's pointers are byte addresses in the module's memory (wasm32 today, so
+// below 4 GiB; a memory64 module would work the same). Every address that comes from the program
+// goes through `addr`/`span`, which reject one outside `memory.buffer` with a RangeError naming
+// it, instead of reading the wrong bytes.
 import { CALLBACKS, ENUMS, FUNCTIONS, STRUCTS } from "./webgpu_bindings.generated.mjs";
 
 const MAX64 = 0xFFFF_FFFF_FFFF_FFFFn;
@@ -19,9 +28,14 @@ const FROM_JS = Object.fromEntries(Object.entries(ENUMS).map(([name, table]) => 
   name, new Map(Object.entries(table).map(([value, js]) => [js, Number(value)])),
 ]));
 const enumValue = (name, js) => FROM_JS[name].get(js) ?? 0;
+const STYPES = new Map(Object.entries(STRUCTS).filter(([, s]) => s.sType !== undefined).map(([name, s]) => [s.sType, name]));
 const RECORD_SIZE = 88; // Webgpu_Callback_Record in stdlib/WebGPU/wasm.jai
+const FUTURE_WAIT_INFO_SIZE = 16; // WGPUFutureWaitInfo: future id, completed (WGPUBool), padding
+// WGPUCallbackMode, and which modes a dispatch runs (`how` of jai_webgpu_poll).
+const WAIT_ANY_ONLY = 1, ALLOW_PROCESS_EVENTS = 2, ALLOW_SPONTANEOUS = 3;
+const PROCESS_EVENTS = 0, WAIT_ANY = 1, SPONTANEOUS = 2;
 
-export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, output } = {}) {
+export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, output, onSurface } = {}) {
   let memory = null;
   let view = null;
   const dv = () => (view && view.buffer === memory.buffer ? view : (view = new DataView(memory.buffer)));
@@ -55,6 +69,18 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   }
 
   // --- Memory ---------------------------------------------------------------------------------
+  // An address from the program (a BigInt slot or a number read from memory) as a number, after
+  // checking that `size` bytes from it lie in the module's memory.
+  function span(address, size, what = "pointer") {
+    const a = typeof address === "bigint" ? address : BigInt(address);
+    const end = a + BigInt(size);
+    if (a < 0n || end > BigInt(memory.buffer.byteLength)) {
+      throw new RangeError(`${what} 0x${a.toString(16)} (+${size} bytes) is outside the program's memory (${memory.buffer.byteLength} bytes)`);
+    }
+    return Number(a);
+  }
+  const addr = (address, size = 0, what) => span(address, size, what);
+  const bytes = (address, size, what) => new Uint8Array(memory.buffer, span(address, size, what), size);
   const ptrAt = p => Number(dv().getBigUint64(p, true));
   function alloc(size) {
     const p = memory.alloc(size);
@@ -71,16 +97,20 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     const data = ptrAt(p);
     const length = dv().getBigUint64(p + 8, true);
     if (!data) return undefined;
-    let n = Number(length);
-    if (length === MAX64) { const bytes = new Uint8Array(memory.buffer, data); n = bytes.indexOf(0); }
-    return utf8.decode(new Uint8Array(memory.buffer, data, n));
+    if (length === MAX64) {
+      const all = new Uint8Array(memory.buffer, addr(data, 0, "string"));
+      const n = all.indexOf(0);
+      if (n < 0) throw new RangeError(`string at 0x${data.toString(16)} has no terminating zero`);
+      return utf8.decode(all.subarray(0, n));
+    }
+    return utf8.decode(bytes(data, Number(length), "string"));
   }
   function writeString(p, text) {
-    const bytes = encoder.encode(text ?? "");
-    const data = bytes.length ? alloc(bytes.length) : 0;
-    if (data) new Uint8Array(memory.buffer, data, bytes.length).set(bytes);
+    const encoded = encoder.encode(text ?? "");
+    const data = encoded.length ? alloc(encoded.length) : 0;
+    if (data) new Uint8Array(memory.buffer, data, encoded.length).set(encoded);
     dv().setBigUint64(p, BigInt(data), true);
-    dv().setBigUint64(p + 8, BigInt(bytes.length), true);
+    dv().setBigUint64(p + 8, BigInt(encoded.length), true);
   }
   const sizeOf = kind => typeof kind === "string" ? SIZES[kind]
     : kind[0] === "struct" ? STRUCTS[kind[1]].size : kind[0] === "enum" ? 4 : 8;
@@ -102,7 +132,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     switch (kind[0]) {
       case "enum": { const v = d.getUint32(p, true); return ENUMS[kind[1]][v]; }
       case "obj": return get(ptrAt(p));
-      case "objptr": { const q = ptrAt(p); return q ? get(ptrAt(q)) : undefined; }
+      case "objptr": { const q = ptrAt(p); return q ? get(ptrAt(addr(q, 8))) : undefined; }
       case "struct": return readStruct(kind[1], p);
       case "ptr": { const q = ptrAt(p); return q ? readStruct(kind[1], q) : undefined; }
       case "callback": return readCallbackInfo(kind[1], p);
@@ -112,6 +142,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   function readArray(kind, p, count) {
     const out = [];
     const size = sizeOf(kind);
+    addr(p, size * count, "array");
     for (let i = 0; i < count; i++) out.push(read(kind, p + i * size));
     return out;
   }
@@ -122,6 +153,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   }
   function readStruct(name, p) {
     const info = STRUCTS[name];
+    addr(p, info.size, `WGPU${name}`);
     let out = {};
     for (const [key, off, kind, sentinel] of info.members) {
       if (kind === "chain") { readChain(ptrAt(p + off), out); continue; }
@@ -145,9 +177,11 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   // Chained extensions become members of the parent dictionary, which is where the JS API has
   // them (WGPUShaderSourceWGSL.code -> GPUShaderModuleDescriptor.code).
   function readChain(p, out) {
-    for (; p; p = ptrAt(p)) {
+    for (let n = 0; p; p = ptrAt(p), n++) {
+      if (n > 64) throw new Error("WebGPU: a nextInChain list loops");
+      addr(p, 16, "chained struct");
       const sType = dv().getUint32(p + 8, true);
-      const name = Object.keys(STRUCTS).find(n => STRUCTS[n].sType === sType);
+      const name = STYPES.get(sType);
       if (!name) { console.warn(`WebGPU: chained struct sType ${sType} is not supported`); continue; }
       Object.assign(out, readStruct(name, p));
     }
@@ -155,8 +189,9 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   function readCallbackInfo(name, p) {
     const d = dv();
     const at = CALLBACKS[name].mode ? 16 : 8;
+    addr(p, at + 24, `WGPU${name}CallbackInfo`);
     return {
-      mode: CALLBACKS[name].mode ? d.getUint32(p + 8, true) : 3,
+      mode: CALLBACKS[name].mode ? d.getUint32(p + 8, true) : ALLOW_SPONTANEOUS,
       callback: d.getBigUint64(p + at, true),
       userdata1: d.getBigUint64(p + at + 8, true),
       userdata2: d.getBigUint64(p + at + 16, true),
@@ -200,6 +235,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   // the others keep what the program put there. Strings and arrays go to memory this host
   // allocates, which the program releases with the struct's FreeMembers.
   function writeStruct(name, p, value) {
+    addr(p, STRUCTS[name].size, `WGPU${name}`);
     for (const [key, off, kind] of STRUCTS[name].members) {
       if (kind === "chain" || value[key] === undefined) continue;
       if (kind[0] === "array") {
@@ -213,6 +249,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     }
   }
   function freeMembers(name, p) {
+    addr(p, STRUCTS[name].size, `WGPU${name}`);
     for (const [, off, kind] of STRUCTS[name].members) {
       if (kind === "str" || kind === "ostr" || kind === "nstr" || kind[0] === "array") free(ptrAt(p + off));
     }
@@ -220,21 +257,22 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
 
   // --- Futures and callbacks ------------------------------------------------------------------
   let nextFuture = 1;
-  const futures = new Map(); // id -> { done, settled }
+  const futures = new Map(); // id -> { done, settled, internal? }
   const finished = []; // records the Jai side has not run yet
   let lastMessage = 0;
-  function startFuture(callback, info, promise, convert) {
+  function newFuture(promise, onSettled) {
     const id = nextFuture++;
     const entry = { done: false };
-    const cb = CALLBACKS[callback];
-    entry.settled = Promise.resolve(promise).then(
-      value => convert.ok(value),
-      error => convert.error(error),
-    ).then(([args, message]) => {
-      entry.done = true;
-      finished.push({ kind: cb.id, mode: info.mode, future: id, info, args, message: message ?? "" });
-    });
+    entry.settled = Promise.resolve(promise).then(onSettled).then(() => { entry.done = true; });
     futures.set(id, entry);
+    return [id, entry];
+  }
+  function startFuture(callback, info, promise, convert) {
+    const cb = CALLBACKS[callback];
+    const [id] = newFuture(
+      Promise.resolve(promise).then(value => convert.ok(value), error => convert.error(error)),
+      ([args, message]) => { finished.push({ kind: cb.id, mode: info.mode, future: id, info, args, message: message ?? "" }); },
+    );
     return id;
   }
   function statusOf(callback, which) {
@@ -255,20 +293,36 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
         : [statusOf(callback, ["error", "aborted"])], String(error?.message ?? error)],
     };
   }
-  function pollRecord(record, futuresPtr, count, waitAny) {
+  function waitedFutures(futuresPtr, count) {
+    if (count) addr(futuresPtr, count * FUTURE_WAIT_INFO_SIZE, "WGPUFutureWaitInfo array");
+    const list = [];
+    for (let i = 0; i < count; i++) list.push(Number(dv().getBigUint64(futuresPtr + i * FUTURE_WAIT_INFO_SIZE, true)));
+    return list;
+  }
+  // Whether dispatch `how` runs a record: wgpuInstanceProcessEvents runs AllowProcessEvents and
+  // AllowSpontaneous callbacks; wgpuInstanceWaitAny the ones of its futures, whatever their mode,
+  // and AllowSpontaneous ones; a frame (webgpu_present) only AllowSpontaneous ones.
+  function runs(how, record, wanted) {
+    if (record.mode === ALLOW_SPONTANEOUS) return true;
+    if (how === PROCESS_EVENTS) return record.mode === ALLOW_PROCESS_EVENTS;
+    if (how === WAIT_ANY) return wanted.has(record.future);
+    return false;
+  }
+  function pollRecord(record, futuresPtr, count, how) {
     if (lastMessage) { free(lastMessage); lastMessage = 0; }
-    const wanted = new Set();
-    for (let i = 0; i < count; i++) {
-      const id = Number(dv().getBigUint64(futuresPtr + i * 16, true));
-      wanted.add(id);
-      if (futures.get(id)?.done) dv().setUint32(futuresPtr + i * 16 + 8, 1, true);
-    }
-    const index = finished.findIndex(r => waitAny ? wanted.has(r.future) || r.mode !== 1 : r.mode !== 1);
+    const list = waitedFutures(futuresPtr, count);
+    const wanted = new Set(list);
+    list.forEach((id, i) => {
+      const f = futures.get(id);
+      if (!f || f.done) dv().setUint32(futuresPtr + i * FUTURE_WAIT_INFO_SIZE + 8, 1, true);
+      if (f?.done && f.internal) futures.delete(id);
+    });
+    const index = finished.findIndex(r => runs(how, r, wanted));
     if (index < 0) return 0;
     const [r] = finished.splice(index, 1);
     futures.delete(r.future);
     const d = dv();
-    new Uint8Array(memory.buffer, record, RECORD_SIZE).fill(0);
+    bytes(record, RECORD_SIZE, "callback record").fill(0);
     d.setUint32(record, r.kind, true);
     d.setUint32(record + 4, r.mode, true);
     d.setBigUint64(record + 8, BigInt(r.future), true);
@@ -276,12 +330,12 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     d.setBigUint64(record + 24, r.info.userdata1, true);
     d.setBigUint64(record + 32, r.info.userdata2, true);
     r.args.forEach((v, i) => d.setBigUint64(record + 40 + i * 8, BigInt(v), true));
-    const bytes = encoder.encode(r.message);
-    if (bytes.length) {
-      lastMessage = alloc(bytes.length);
-      new Uint8Array(memory.buffer, lastMessage, bytes.length).set(bytes);
+    const message = encoder.encode(r.message);
+    if (message.length) {
+      lastMessage = alloc(message.length);
+      new Uint8Array(memory.buffer, lastMessage, message.length).set(message);
       d.setBigUint64(record + 72, BigInt(lastMessage), true);
-      d.setBigUint64(record + 80, BigInt(bytes.length), true);
+      d.setBigUint64(record + 80, BigInt(message.length), true);
     }
     return 1;
   }
@@ -293,14 +347,15 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
   function waitAny(futuresPtr, count, timeout) {
     const waitStatus = js => enumValue("WaitStatus", js);
     if (count === 0) return turn().then(() => 0);
-    const list = [];
-    for (let i = 0; i < count; i++) list.push(futures.get(Number(dv().getBigUint64(futuresPtr + i * 16, true))));
+    const list = waitedFutures(futuresPtr, count).map(id => futures.get(id));
     if (list.some(f => !f || f.done)) return waitStatus("success");
     const race = [...list.map(f => f.settled.then(() => "success"))];
     if (timeout !== MAX64) race.push(new Promise(r => setTimeout(() => r("timed-out"), Number(timeout / 1_000_000n))));
     // Even a zero timeout gives the page one turn, or a polling loop could never see a result.
     return Promise.race(race).then(js => turn().then(() => waitStatus(js)));
   }
+  const nextFrame = () => new Promise(resolve =>
+    typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => resolve()) : setTimeout(resolve, 16));
 
   // --- Canvas and input -------------------------------------------------------------------------
   const events = [];
@@ -309,7 +364,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     const e = events.shift();
     if (!e) return 0;
     const d = dv();
-    new Uint8Array(memory.buffer, p, 32).fill(0);
+    bytes(p, 32, "Canvas_Event").fill(0);
     d.setUint32(p, e.type, true);
     d.setUint32(p + 4, e.key ?? 0, true);
     d.setUint32(p + 8, e.pressed ? 1 : 0, true);
@@ -334,15 +389,15 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
       case "f32": return floatArg(slot);
       case "f64": return doubleArg(slot);
       case "bool": return slot !== 0n;
-      case "ptr": return Number(slot);
-      case "str": case "nstr": case "ostr": return readString(Number(slot));
+      case "ptr": return addr(slot);
+      case "str": case "nstr": case "ostr": return readString(addr(slot, 16, "WGPUStringView"));
     }
     switch (kind[0]) {
       case "enum": return ENUMS[kind[1]][Number(slot & 0xFFFF_FFFFn)];
       case "obj": return slot ? get(slot) : undefined;
-      case "struct": return readStruct(kind[1], Number(slot));
-      case "ptr": return slot ? readStruct(kind[1], Number(slot)) : undefined;
-      case "callback": return readCallbackInfo(kind[1], Number(slot));
+      case "struct": return readStruct(kind[1], addr(slot));
+      case "ptr": return slot ? readStruct(kind[1], addr(slot)) : undefined;
+      case "callback": return readCallbackInfo(kind[1], addr(slot));
     }
     throw new Error(`cannot pass ${JSON.stringify(kind)}`);
   }
@@ -351,8 +406,8 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     let i = start;
     for (const kind of f.args) {
       if (kind[0] === "array") {
-        const count = Number(slots[i++]); const data = Number(slots[i++]);
-        out.push(data && count ? readArray(kind[1], data, count) : []);
+        const count = Number(slots[i++]); const data = slots[i++];
+        out.push(data && count ? readArray(kind[1], addr(data), count) : []);
       } else out.push(arg(kind, slots[i++]));
     }
     return [out, i];
@@ -364,6 +419,8 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     if (kind[0] === "enum") return enumValue(kind[1], value);
     throw new Error(`cannot return ${JSON.stringify(kind)}`);
   }
+  // A callback-taking function writes its WGPUFuture through the last slot.
+  const writeFuture = (slot, id) => dv().setBigUint64(addr(slot, 8, "WGPUFuture"), BigInt(id), true);
   const success = 1; // WGPUStatus_Success
   const mappings = new Map(); // GPUBuffer -> [{ pointer, range }]
   const OVERRIDES = {
@@ -371,17 +428,19 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
       if (!gpu) throw new Error("this browser has no WebGPU (navigator.gpu)");
       return put(gpu);
     },
-    wgpuGetInstanceFeatures: ([p]) => { writeStruct("SupportedInstanceFeatures", Number(p), { features: ["timed-wait-any"] }); },
-    wgpuGetInstanceLimits: ([p]) => { writeStruct("InstanceLimits", Number(p), { timedWaitAnyMaxCount: 64 }); return success; },
+    wgpuGetInstanceFeatures: ([p]) => { writeStruct("SupportedInstanceFeatures", addr(p), { features: ["timed-wait-any"] }); },
+    wgpuGetInstanceLimits: ([p]) => { writeStruct("InstanceLimits", addr(p), { timedWaitAnyMaxCount: 64 }); return success; },
     wgpuHasInstanceFeature: ([feature]) => ENUMS.InstanceFeatureName[Number(feature)] === "timed-wait-any",
     wgpuInstanceHasWGSLLanguageFeature: ([, feature]) => gpu.wgslLanguageFeatures.has(ENUMS.WGSLLanguageFeatureName[Number(feature)]),
-    wgpuInstanceGetWGSLLanguageFeatures: ([, p]) => { writeStruct("SupportedWGSLLanguageFeatures", Number(p), { features: [...gpu.wgslLanguageFeatures] }); return success; },
+    wgpuInstanceGetWGSLLanguageFeatures: ([, p]) => { writeStruct("SupportedWGSLLanguageFeatures", addr(p), { features: [...gpu.wgslLanguageFeatures] }); return success; },
     wgpuInstanceCreateSurface: () => {
       if (!canvas) throw new Error("the page gave the program no canvas");
       return put({ canvas, context: canvas.getContext("webgpu") });
     },
+    // The canvas offers plain formats only (no -srgb ones): webgpu_surface_format picks the same
+    // kind natively.
     wgpuSurfaceGetCapabilities: ([, , p]) => {
-      writeStruct("SurfaceCapabilities", Number(p), {
+      writeStruct("SurfaceCapabilities", addr(p), {
         usages: 0x1F, // copy src/dst, texture and storage binding, render attachment
         formats: [gpu.getPreferredCanvasFormat(), "rgba8unorm", "rgba16float"],
         presentModes: ["fifo"],
@@ -391,35 +450,37 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     },
     wgpuSurfaceConfigure: ([surface, p]) => {
       const { canvas: target, context } = get(surface);
-      const c = readStruct("SurfaceConfiguration", Number(p));
+      const c = readStruct("SurfaceConfiguration", addr(p));
       target.width = c.width; target.height = c.height;
       context.configure({
         device: c.device, format: c.format, usage: c.usage, viewFormats: c.viewFormats,
         alphaMode: c.alphaMode === "premultiplied" ? "premultiplied" : "opaque",
       });
+      onSurface?.({ width: c.width, height: c.height });
     },
-    wgpuSurfaceUnconfigure: ([surface]) => { get(surface).context.unconfigure(); },
+    wgpuSurfaceUnconfigure: ([surface]) => { get(surface).context.unconfigure(); onSurface?.(null); },
     wgpuSurfaceGetCurrentTexture: ([surface, p]) => {
       const texture = get(surface).context.getCurrentTexture();
-      writeStruct("SurfaceTexture", Number(p), { texture, status: "success-optimal" });
+      writeStruct("SurfaceTexture", addr(p), { texture, status: "success-optimal" });
     },
     // The page shows the canvas when the program waits for the next frame (webgpu_present).
     wgpuSurfacePresent: () => success,
-    wgpuAdapterGetInfo: ([adapter, p]) => { writeInfo(get(adapter).info, Number(p)); return success; },
-    wgpuDeviceGetAdapterInfo: ([device, p]) => { writeInfo(get(device).adapterInfo, Number(p)); return success; },
-    wgpuAdapterGetLimits: ([adapter, p]) => { writeStruct("Limits", Number(p), get(adapter).limits); return success; },
-    wgpuDeviceGetLimits: ([device, p]) => { writeStruct("Limits", Number(p), get(device).limits); return success; },
-    wgpuAdapterGetFeatures: ([adapter, p]) => { writeStruct("SupportedFeatures", Number(p), { features: get(adapter).features }); },
-    wgpuDeviceGetFeatures: ([device, p]) => { writeStruct("SupportedFeatures", Number(p), { features: get(device).features }); },
+    wgpuAdapterGetInfo: ([adapter, p]) => { writeInfo(get(adapter).info, addr(p)); return success; },
+    wgpuDeviceGetAdapterInfo: ([device, p]) => { writeInfo(get(device).adapterInfo, addr(p)); return success; },
+    wgpuAdapterGetLimits: ([adapter, p]) => { writeStruct("Limits", addr(p), get(adapter).limits); return success; },
+    wgpuDeviceGetLimits: ([device, p]) => { writeStruct("Limits", addr(p), get(device).limits); return success; },
+    wgpuAdapterGetFeatures: ([adapter, p]) => { writeStruct("SupportedFeatures", addr(p), { features: get(adapter).features }); },
+    wgpuDeviceGetFeatures: ([device, p]) => { writeStruct("SupportedFeatures", addr(p), { features: get(device).features }); },
     wgpuAdapterHasFeature: ([adapter, f]) => get(adapter).features.has(ENUMS.FeatureName[Number(f)]),
     wgpuDeviceHasFeature: ([device, f]) => get(device).features.has(ENUMS.FeatureName[Number(f)]),
     wgpuAdapterRequestDevice: ([adapter, p, infoPtr, out]) => {
-      const desc = p ? readStruct("DeviceDescriptor", Number(p)) : {};
+      const desc = p ? readStruct("DeviceDescriptor", addr(p)) : {};
       const { deviceLostCallbackInfo: lost, uncapturedErrorCallbackInfo: uncaptured, ...rest } = desc;
-      const info = readCallbackInfo("RequestDevice", Number(infoPtr));
+      const info = readCallbackInfo("RequestDevice", addr(infoPtr));
       const id = startFuture("RequestDevice", info, get(adapter).requestDevice(rest).then(device => {
+        // Uncaptured errors may come at any time: they run like AllowSpontaneous callbacks.
         if (uncaptured?.callback) device.addEventListener("uncapturederror", event => {
-          finished.push({ kind: CALLBACKS.UncapturedError.id, mode: 3, future: 0, info: uncaptured,
+          finished.push({ kind: CALLBACKS.UncapturedError.id, mode: ALLOW_SPONTANEOUS, future: 0, info: uncaptured,
             args: [put(device), errorType(event.error)], message: event.error.message });
         });
         if (lost?.callback) startFuture("DeviceLost", lost, device.lost, {
@@ -428,18 +489,18 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
         });
         return device;
       }), generic("RequestDevice"));
-      dv().setBigUint64(Number(out), BigInt(id), true);
+      writeFuture(out, id);
     },
     wgpuDevicePopErrorScope: ([device, infoPtr, out]) => {
-      const info = readCallbackInfo("PopErrorScope", Number(infoPtr));
+      const info = readCallbackInfo("PopErrorScope", addr(infoPtr));
       const id = startFuture("PopErrorScope", info, get(device).popErrorScope(), {
         ok: e => [[statusOf("PopErrorScope", ["success"]), errorType(e)], e?.message ?? ""],
         error: e => [[statusOf("PopErrorScope", ["error"]), 0], String(e?.message ?? e)],
       });
-      dv().setBigUint64(Number(out), BigInt(id), true);
+      writeFuture(out, id);
     },
     wgpuShaderModuleGetCompilationInfo: ([module, infoPtr, out]) => {
-      const info = readCallbackInfo("CompilationInfo", Number(infoPtr));
+      const info = readCallbackInfo("CompilationInfo", addr(infoPtr));
       const id = startFuture("CompilationInfo", info, get(module).getCompilationInfo(), {
         ok: ci => {
           const p = alloc(STRUCTS.CompilationInfo.size);
@@ -450,16 +511,16 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
         },
         error: e => [[statusOf("CompilationInfo", ["callback-cancelled"]), 0], String(e)],
       });
-      dv().setBigUint64(Number(out), BigInt(id), true);
+      writeFuture(out, id);
     },
     // Writes read the program's memory in place: no copy on this side.
     wgpuQueueWriteBuffer: ([queue, buffer, offset, data, size]) => {
-      get(queue).writeBuffer(get(buffer), Number(offset), new Uint8Array(memory.buffer, Number(data), Number(size)));
+      get(queue).writeBuffer(get(buffer), Number(offset), bytes(data, Number(size), "wgpuQueueWriteBuffer data"));
     },
     wgpuQueueWriteTexture: ([queue, dest, data, size, layout, extent]) => {
-      get(queue).writeTexture(readStruct("TexelCopyTextureInfo", Number(dest)),
-        new Uint8Array(memory.buffer, Number(data), Number(size)),
-        readStruct("TexelCopyBufferLayout", Number(layout)), readStruct("Extent3D", Number(extent)));
+      get(queue).writeTexture(readStruct("TexelCopyTextureInfo", addr(dest)),
+        bytes(data, Number(size), "wgpuQueueWriteTexture data"),
+        readStruct("TexelCopyBufferLayout", addr(layout)), readStruct("Extent3D", addr(extent)));
     },
     // A mapped range lives in an ArrayBuffer the program cannot address: it gets a copy in its
     // memory, written back when it unmaps.
@@ -476,31 +537,33 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     },
     wgpuBufferReadMappedRange: ([buffer, offset, data, size]) => {
       const range = get(buffer).getMappedRange(Number(offset), Number(size));
-      new Uint8Array(memory.buffer, Number(data), Number(size)).set(new Uint8Array(range));
+      bytes(data, Number(size), "wgpuBufferReadMappedRange data").set(new Uint8Array(range));
       return success;
     },
     wgpuBufferWriteMappedRange: ([buffer, offset, data, size]) => {
       const range = get(buffer).getMappedRange(Number(offset), Number(size));
-      new Uint8Array(range).set(new Uint8Array(memory.buffer, Number(data), Number(size)));
+      new Uint8Array(range).set(bytes(data, Number(size), "wgpuBufferWriteMappedRange data"));
       return success;
     },
     wgpuDeviceGetLostFuture: ([device, out]) => {
-      const entry = { done: false };
-      entry.settled = get(device).lost.then(() => { entry.done = true; });
-      const id = nextFuture++;
-      futures.set(id, entry);
-      dv().setBigUint64(Number(out), BigInt(id), true);
+      const [id] = newFuture(get(device).lost, () => {});
+      writeFuture(out, id);
     },
-    // Host procedures of stdlib/WebGPU/wasm.jai.
-    jai_webgpu_poll: ([record, list, count, any]) => pollRecord(Number(record), Number(list), Number(count), any !== 0n),
-    jai_webgpu_wait: ([list, count, timeout]) => waitAny(Number(list), Number(count), timeout),
-    jai_webgpu_next_frame: () => new Promise(resolve =>
-      typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => resolve()) : setTimeout(resolve, 16)),
+    // Host procedures of stdlib/WebGPU (wasm.jai, module.jai).
+    jai_host_provides: ([name, length]) => Object.hasOwn(functions, utf8.decode(bytes(name, Number(length), "name"))),
+    jai_webgpu_available: () => !!gpu,
+    jai_webgpu_poll: ([record, list, count, how]) => pollRecord(addr(record), addr(list), Number(count), Number(how)),
+    jai_webgpu_wait: ([list, count, timeout]) => waitAny(addr(list), Number(count), timeout),
+    jai_webgpu_request_frame: () => {
+      const [id, entry] = newFuture(nextFrame(), () => {});
+      entry.internal = true; // no callback: forgotten once a wait or poll saw it complete
+      return id;
+    },
     jai_canvas_size: ([w, h]) => {
-      dv().setUint32(Number(w), size.width, true);
-      dv().setUint32(Number(h), size.height, true);
+      dv().setUint32(addr(w, 4), size.width, true);
+      dv().setUint32(addr(h, 4), size.height, true);
     },
-    jai_canvas_poll_event: ([p]) => pollEvent(Number(p)),
+    jai_canvas_poll_event: ([p]) => pollEvent(addr(p)),
   };
   function mapRange([buffer, offset, size]) {
     const b = get(buffer);
@@ -529,7 +592,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     const override = OVERRIDES[name];
     if (override) return override(slots);
     const f = FUNCTIONS[name];
-    if (f.free) { freeMembers(f.free, Number(slots[0])); return; }
+    if (f.free) { freeMembers(f.free, addr(slots[0])); return; }
     let i = 0;
     const self = f.self ? get(slots[i++]) : undefined;
     if (f.method === "addRef") { refs[Number(slots[0])]++; return; }
@@ -537,9 +600,9 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     const [values, next] = args(f, slots, i);
     if (f.method === "setLabel") { self.label = values[0] ?? ""; return; }
     if (f.callback) {
-      const info = readCallbackInfo(f.callback, Number(slots[next]));
+      const info = readCallbackInfo(f.callback, addr(slots[next]));
       const id = startFuture(f.callback, info, (async () => self[f.method](...values))(), generic(f.callback));
-      dv().setBigUint64(Number(slots[next + 1]), BigInt(id), true);
+      writeFuture(slots[next + 1], id);
       return;
     }
     // Getters of attributes: wgpuBufferGetSize -> buffer.size, wgpuDeviceGetQueue -> device.queue.
