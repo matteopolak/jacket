@@ -1193,14 +1193,20 @@ impl Compiler {
             return Ok(true);
         }
         // A name looked up while this struct is being laid out, through a `using g;` of a
-        // global of its type (no_api's `using gpu_context;`): only the fields it declares by
-        // name can match, and laying it out again would be a false cycle.
+        // global of its type (no_api's `using gpu_context;`), from its own body. Layout goes
+        // through the body in order, so the struct's members are what it has so far: its tag
+        // and the fields above (`field_types`); later fields do not exist yet, and laying it
+        // out again would be a false cycle.
         if let Some(s) = self.types.as_struct(self.types.repr_struct(target))
             && self.types.struct_info(s).layout == LayoutState::InProgress
             && let Some(src) = self.struct_asts.get(&s)
         {
             let tag = src.lit.tag.as_ref().map(|t| t.name.name);
-            return Ok(tag == Some(name) || declares_field(&src.lit.body, name));
+            let above = self
+                .field_types
+                .get(&src.scope)
+                .is_some_and(|fields| fields.iter().any(|&(n, _)| n == name));
+            return Ok(tag == Some(name) || above);
         }
         Ok(self.find_member(target, name, Span::NONE)?.is_some())
     }
@@ -2167,24 +2173,4 @@ fn const_operand(value: Value, ty: TypeId) -> Operand {
             untyped: false,
         },
     }
-}
-
-/// Whether a struct body declares a field called `name`, read from the source alone: both
-/// branches of an `#if`, and the members of anonymous nested structs and unions.
-fn declares_field(stmts: &[ast::Stmt], name: Sym) -> bool {
-    stmts.iter().any(|stmt| match &stmt.kind {
-        ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
-            decl.names.iter().any(|n| n.name == name)
-        }
-        ast::StmtKind::StaticIf {
-            then_branch,
-            else_branch,
-            ..
-        } => declares_field(then_branch, name) || declares_field(else_branch, name),
-        ast::StmtKind::Expr(e) => match &e.kind {
-            E::Struct(lit) => declares_field(&lit.body, name),
-            _ => false,
-        },
-        _ => false,
-    })
 }
