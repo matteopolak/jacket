@@ -143,6 +143,11 @@ jobs:
         # tests/webgpu/headless.jai interpreted and built; docs/stdlib/webgpu.md#tests.
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --require-adapter
+      - name: WebGPU in a window (HWND surface on WARP, presented)
+        # tests/webgpu/window.jai: a Window_Creation window in the runner's interactive desktop
+        # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames presented and read back.
+        if: success() || failure()
+        run: python -u tools/test_webgpu_native.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --require-adapter --test window --frames 120
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
@@ -258,6 +263,9 @@ jobs:
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter
+      - name: WebGPU in a window (HWND surface on WARP, presented)
+        if: success() || failure()
+        run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter --test window --frames 120
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2

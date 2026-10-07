@@ -28,7 +28,7 @@ The compiler, language server and formatter also run in the browser through WebA
 
 Each install includes `jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library.
 
-**macOS (Apple silicon) and Linux (x86-64)**, with [Homebrew](https://brew.sh):
+**macOS and Linux (arm64 and x86-64)**, with [Homebrew](https://brew.sh):
 
 ```sh
 brew install matteopolak/tap/jai

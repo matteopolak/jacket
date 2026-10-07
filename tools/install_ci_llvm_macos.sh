@@ -9,10 +9,19 @@
 # would build LLVM from source, which takes longer than the job's timeout. conda-forge still
 # builds LLVM for osx-64: the pinned micromamba below installs the same 23.1 release into the
 # runner's temp directory.
-# Usage: tools/install_ci_llvm_macos.sh [--lld]
+#
+# --static (x86-64 only, for release.yml's macos-x64 archive): only the static LLVM libraries,
+# conda-forge's static zstd and libc++, and no rpath into the temp directory. Every dylib in the
+# environment's lib is deleted, so that llvm-sys's `-lz -lzstd -lxml2 -lc++` and rustc's `-liconv`
+# (searched in the environment's lib first) link the system's libz, libxml2 and libiconv and the
+# zstd and libc++ archives: the binary then needs nothing outside /usr/lib and /System. llvm-config itself
+# still runs, on the system's libc++ (dyld's fallback for its @rpath/libc++.1.dylib).
+# Usage: tools/install_ci_llvm_macos.sh [--lld | --static]
 set -euo pipefail
 lld=false
+static=false
 [[ "${1:-}" == "--lld" ]] && lld=true
+[[ "${1:-}" == "--static" ]] && static=true
 
 if [[ "$(uname -m)" == x86_64 ]]; then
     llvm_version=23.1.2
@@ -31,8 +40,22 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "llvm-tools=$llvm_version"
               "clang=$llvm_version" "compiler-rt=$llvm_version")
     $lld && packages+=("lld=$llvm_version")
+    # zstd-static: libzstd.a, which LLVM's support library needs; libcxx carries libc++.a.
+    $static && packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "zstd-static" "libcxx")
     MAMBA_ROOT_PREFIX="$tools/root" "$tools/bin/micromamba" create --yes --quiet \
         --prefix "$prefix" --override-channels --channel conda-forge "${packages[@]}"
+    if $static; then
+        # Every dylib, not only those LLVM names: rustc's own `-liconv` (std on Apple) would
+        # otherwise find conda's libiconv here before the system's.
+        find "$prefix/lib" -maxdepth 1 -name '*.dylib' -delete -print | wc -l | xargs echo "deleted dylibs:"
+        ls -l "$prefix/lib/libzstd.a" "$prefix/lib/libc++.a"
+        version="$("$prefix/bin/llvm-config" --version)"
+        [[ "$version" == 23.* ]] || { echo "expected LLVM 23, got $version" >&2; exit 1; }
+        echo "system libraries: $("$prefix/bin/llvm-config" --link-static --system-libs)"
+        echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
+        echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
+        exit 0
+    fi
     # conda's libraries are found through @rpath: give every binary cargo links an rpath to
     # them (jaic loads libLLVM at start).
     echo "RUSTFLAGS=-C link-arg=-Wl,-rpath,$prefix/lib" >> "$GITHUB_ENV"

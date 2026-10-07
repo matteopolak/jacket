@@ -71,14 +71,16 @@ platform() {
             fi
             case "$arch" in
                 arm64 | aarch64) echo macos-arm64 ;;
-                *) fail "there is no prebuilt Jai toolchain for macOS on Intel ($arch): releases ship Apple silicon builds only.
+                x86_64 | amd64) echo macos-x64 ;;
+                *) fail "there is no prebuilt Jai toolchain for macOS on $arch: releases ship arm64 and x86-64 builds.
 Build from source instead: https://github.com/$REPO#install (or use the Nix flake)." ;;
             esac
             ;;
         Linux)
             case "$arch" in
                 x86_64 | amd64) echo linux-x64 ;;
-                *) fail "there is no prebuilt Jai toolchain for Linux on $arch: releases ship x86-64 builds only.
+                aarch64 | arm64) echo linux-arm64 ;;
+                *) fail "there is no prebuilt Jai toolchain for Linux on $arch: releases ship x86-64 and arm64 builds.
 Build from source or use the Nix flake instead: https://github.com/$REPO#install" ;;
             esac
             ;;
@@ -111,9 +113,11 @@ main() {
 
     say "Downloading jai $version ($archive)"
     download "$base/SHA256SUMS" "$tmp/SHA256SUMS" || fail "could not download $base/SHA256SUMS (is $version a release?)"
-    download "$base/$archive" "$tmp/$archive" || fail "could not download $base/$archive"
     expected="$(awk -v f="$archive" '$2 == f || $2 == "*" f { print $1 }' "$tmp/SHA256SUMS")"
-    [ -n "$expected" ] || fail "SHA256SUMS of $version has no entry for $archive"
+    # Releases up to 0.4.1 have no Intel macOS or Linux arm64 archive.
+    [ -n "$expected" ] || fail "jai $version has no $archive (SHA256SUMS lists no build for $plat).
+Install a later version, or build from source: https://github.com/$REPO#install"
+    download "$base/$archive" "$tmp/$archive" || fail "could not download $base/$archive"
     actual="$(sha256 "$tmp/$archive")"
     [ "$actual" = "$expected" ] || fail "checksum mismatch for $archive: expected $expected, got $actual"
     say "Verified SHA-256 $actual"

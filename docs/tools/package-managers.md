@@ -6,13 +6,13 @@ Ways to install a released Jai toolchain (`jaic`, `jailsp`, `jailint`, `jaifmt` 
 
 | Channel | Platforms | Users run | Published by |
 | --- | --- | --- | --- |
-| Homebrew tap | macOS arm64, Linux x86-64 | `brew install matteopolak/tap/jai` | `homebrew` job in `release.yml`, secret `HOMEBREW_TAP_TOKEN` |
+| Homebrew tap | macOS arm64 and x86-64, Linux x86-64 and arm64 | `brew install matteopolak/tap/jai` | `homebrew` job in `release.yml`, secret `HOMEBREW_TAP_TOKEN` |
 | winget | Windows x64, arm64 | `winget install matteopolak.jai` | `winget` job in `release.yml`, secret `WINGET_TOKEN` |
-| `install.sh` | macOS arm64, Linux x86-64 | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh \| sh` | nothing to publish: it reads the latest release |
+| `install.sh` | macOS arm64 and x86-64, Linux x86-64 and arm64 | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh \| sh` | nothing to publish: it reads the latest release |
 | `install.ps1` | Windows x64, arm64 | `irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 \| iex` | same |
 | Nix flake | Linux, macOS (builds from source) | `nix profile install github:matteopolak/jai` | [Nix flake](nix.md) |
 
-The package is named `jai` (formula `jai`, winget `matteopolak.jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives are named after it too: `jai-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jai-<platform>/`, since 0.4.1. Releases up to 0.4.0 shipped `jaic-<platform>` and keep those names, so everything that downloads an archive picks the name from the version (see [archive names](#archive-names)). There is no Intel macOS or arm64 Linux build: Homebrew refuses those with `depends_on arch:` and the installer script says so (build from source, or use Nix).
+The package is named `jai` (formula `jai`, winget `matteopolak.jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives are named after it too: `jai-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jai-<platform>/`, since 0.4.1. Releases up to 0.4.0 shipped `jaic-<platform>` and keep those names, so everything that downloads an archive picks the name from the version (see [archive names](#archive-names)). Releases after 0.4.1 have Intel macOS (`macos-x64`) and arm64 Linux (`linux-arm64`) archives too; 0.4.1 and earlier do not, so for those versions Homebrew refuses the two platforms with `depends_on arch:` and the installer script says the release has no build for them (build from source, use Nix, or install a later version).
 
 ## How it works
 
@@ -27,7 +27,7 @@ Published assets are never renamed. The rule (`jaic` up to 0.4.0, else `jai`) li
 
 ### Rendering
 
-`tools/render_packages.py` fills the templates in `packaging/` (`@VERSION@`, `@BASE_URL@`, `@ARCHIVE_PREFIX@` (`jai` or `jaic`), `@SHA256_<PLATFORM>@`, `@RELEASE_DATE@`):
+`tools/render_packages.py` fills the templates in `packaging/` (`@VERSION@`, `@BASE_URL@`, `@ARCHIVE_PREFIX@` (`jai` or `jaic`), `@SHA256_<PLATFORM>@`, `@RELEASE_DATE@`, and for the formula's Intel macOS and arm64 Linux blocks `@MACOS_INTEL_ASSET@`/`@SHA256_MACOS_INTEL@`, `@LINUX_ARM_ASSET@`/`@SHA256_LINUX_ARM@` and `@MACOS_ARCH@`/`@LINUX_ARCH@`):
 
 ```sh
 python3 tools/render_packages.py --version v0.4.0 --sums SHA256SUMS --out out
@@ -35,7 +35,7 @@ python3 tools/render_packages.py --version v0.4.0 --sums SHA256SUMS --out out
 # out/winget/manifests/m/matteopolak/jai/0.4.0/matteopolak.jai{,.installer,.locale.en-US}.yaml
 ```
 
-`--sums` reads a release's `SHA256SUMS`; `--archives DIR` hashes the archives in a directory instead (dry runs, before a release exists). It fails if an archive is missing from the checksums or a placeholder is unknown. The Homebrew formula takes lower-case hex, winget upper-case. Tests: `tools/test_render_packages.py`.
+`--sums` reads a release's `SHA256SUMS`; `--archives DIR` hashes the archives in a directory instead (dry runs, before a release exists). It fails if an archive is missing from the checksums or a placeholder is unknown. The `macos-x64` and `linux-arm64` archives (`NEWER_PLATFORMS`) are required only for a version after 0.4.1; when a release lacks one, its block gets the nearest build's URL and checksum (`macos-arm64`, `linux-x64`) and a `depends_on arch:` line (`@MACOS_ARCH@` is `:arm64`, `@LINUX_ARCH@` `:x86_64`). With both present those placeholders are `None`, and `render` leaves out every line holding a `None` placeholder, plus the blank line after it. The Homebrew formula takes lower-case hex, winget upper-case. Tests: `tools/test_render_packages.py`.
 
 ### Release jobs
 
@@ -48,7 +48,7 @@ Without its secret a job prints that it skipped and succeeds. A run without a ta
 
 ### Homebrew formula
 
-`packaging/homebrew/jai.rb.tmpl` downloads `jai-macos-arm64.tar.gz` or `jai-linux-x64.tar.gz` (`jaic-*` when rendered for 0.4.0 or earlier), installs the four binaries, `stdlib/` and `prelude/` into `libexec`, and links the binaries into `bin`. `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Intel macOS and arm64 Linux get a URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic run`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
+`packaging/homebrew/jai.rb.tmpl` downloads `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz` or `jai-linux-arm64.tar.gz` (`on_macos`/`on_linux` with `on_arm`/`on_intel`; `jaic-*` when rendered for 0.4.0 or earlier), installs the four binaries, `stdlib/` and `prelude/` into `libexec`, and links the binaries into `bin`. `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Rendered for 0.4.1 or earlier, Intel macOS and arm64 Linux get the other architecture's URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic run`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
 
 ### winget manifests
 
@@ -58,7 +58,7 @@ The installer is `InstallerType: zip` with `NestedInstallerType: portable` and o
 
 ### install.sh
 
-POSIX `sh` (checked with `shellcheck -s sh`). It maps `uname` to an archive (`macos-arm64`, `linux-x64`; on macOS it also detects Apple silicon under Rosetta), finds the latest version from the `releases/latest` redirect (no API rate limit), downloads the archive and `SHA256SUMS` with `curl` or `wget`, checks the hash with `sha256sum` or `shasum`, and unpacks into `~/.local/share/jai/<version>`. It then points `~/.local/bin/{jaic,jailsp,jailint,jaifmt}` at it (only the tools the archive has: 0.2.0 shipped just `jaic` and `jailsp`), deletes the versions it installed earlier, and prints how to add the bin folder to `PATH` when it is missing. It refuses to replace a bin entry that is not a symlink, so it never overwrites another install. The whole script is one function called on the last line, so a download cut short by `curl | sh` runs nothing.
+POSIX `sh` (checked with `shellcheck -s sh`). It maps `uname` to an archive (`macos-arm64`, `macos-x64`, `linux-x64`, `linux-arm64`; on macOS it also detects Apple silicon under Rosetta, so a translated shell still gets the arm64 build), finds the latest version from the `releases/latest` redirect (no API rate limit), downloads `SHA256SUMS` and then the archive with `curl` or `wget` (a release whose `SHA256SUMS` lists no archive for the platform, such as 0.4.1 on an Intel Mac, stops with a message before the download), checks the hash with `sha256sum` or `shasum`, and unpacks into `~/.local/share/jai/<version>`. It then points `~/.local/bin/{jaic,jailsp,jailint,jaifmt}` at it (only the tools the archive has: 0.2.0 shipped just `jaic` and `jailsp`), deletes the versions it installed earlier, and prints how to add the bin folder to `PATH` when it is missing. It refuses to replace a bin entry that is not a symlink, so it never overwrites another install. The whole script is one function called on the last line, so a download cut short by `curl | sh` runs nothing.
 
 ```sh
 JAI_VERSION=0.3.0 sh install.sh                      # a specific release (v prefix optional)
@@ -80,9 +80,9 @@ Runs in Windows PowerShell 5.1 and PowerShell 7 (`irm ... | iex`, so it never ca
 `.github/workflows/packaging.yml` runs when these files change (and by hand), always against the latest published release:
 
 - `shellcheck`: `install.sh` as POSIX sh.
-- `install.sh` on ubuntu-24.04 and macos-15: installs the previous release, upgrades to the latest through `sh < install.sh` (checking that the old version is removed and the `PATH` advice is printed), runs `jaic run`, `jailint` and `jaifmt` from another directory, re-runs with custom directories, and checks the failures for a missing version and an occupied bin entry.
+- `install.sh` on ubuntu-24.04, ubuntu-24.04-arm, macos-15 and macos-15-intel: where the latest release has no archive for the runner's platform (0.4.1 on the arm64 Linux and Intel macOS runners), only checks that `install.sh` fails naming that archive; otherwise installs the previous release, upgrades to the latest through `sh < install.sh` (checking that the old version is removed and the `PATH` advice is printed), runs `jaic run`, `jailint` and `jaifmt` from another directory, re-runs with custom directories, and checks the failures for a missing version and an occupied bin entry.
 - `install-ps1` on windows-2025: installs twice under Windows PowerShell 5.1, then runs the tools from `PATH` under PowerShell 7.
-- `homebrew` on macos-15 and ubuntu-24.04: renders the formula, then `brew style`, `brew audit --strict --online`, `brew install --build-from-source`, `brew test` and `brew uninstall` from a local tap.
+- `homebrew` on macos-15 and ubuntu-24.04: renders a formula from synthetic checksums for all six archives and checks it has the Intel macOS and arm64 Linux URLs and no `depends_on arch:` (`brew style`, offline `brew audit --strict`); then renders the latest release's formula and runs `brew style`, `brew audit --strict --online`, `brew install --build-from-source`, `brew test` and `brew uninstall` from a local tap.
 - `winget` on windows-2025: renders the manifests, `winget validate`, `winget install --manifest`, runs the tools through the WinGet links, and `winget uninstall --manifest`.
 
 Nothing in `packaging.yml` publishes.
@@ -90,7 +90,7 @@ Nothing in `packaging.yml` publishes.
 ## How to change it
 
 - Formula or manifests: edit the templates in `packaging/`, then render against the latest release and check locally (`brew tap-new --no-git you/local`, copy `out/homebrew/jai.rb` into its `Formula/`, `brew style`, `brew audit --formula --strict --online you/local/jai`, `brew install`, `brew test`, `brew uninstall`, `brew untap`). A new placeholder needs a value in `substitutions()` in `tools/render_packages.py`; an unknown one is an error.
-- A new platform archive: add it to `PLATFORM_ASSETS` in `tools/render_packages.py` and to the formula (`on_macos`/`on_linux` with `on_arm`/`on_intel`) or the installer list, and to the `platform` functions of both install scripts.
+- A new platform archive: add it to `PLATFORM_ASSETS` in `tools/render_packages.py` (or, if older releases lack it and their formulas must still render, to `NEWER_PLATFORMS` with a fallback), to the formula (`on_macos`/`on_linux` with `on_arm`/`on_intel`) or the installer list, to the `platform` functions of both install scripts, to `RELEASE_ASSETS` in the extension's `src/toolchain.ts`, and to `packaging.yml`'s runners.
 - A newer winget schema: change the three `ManifestVersion` lines and `$schema` headers together, to the version the pinned komac writes (`komac submit --dry-run` prints it), and check `packaging.yml`'s `winget` job.
 - komac: bump `KOMAC_VERSION` and `KOMAC_SHA256` in `release.yml` (the `x86_64-pc-windows-msvc.exe` asset's SHA-256, from the release's `SHA256SUMS` or the asset digest), after the release is 14 days old ([dependency policy](dependency-policy.md)).
 - Re-running the `winget` job for a version that already has a pull request opens another one; close the duplicate.

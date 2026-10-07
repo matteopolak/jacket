@@ -238,6 +238,11 @@ webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
     }
 }
 
+// wgpu-native's own wgpuSurfaceGetCurrentTexture status (wgpu.h, not webgpu.h): the window is not
+// visible, so there is no texture this frame. Only its Metal backend reports it, instead of
+// blocking for up to a second; skip the frame (handle events, wait a little) and try again.
+WEBGPU_SURFACE_OCCLUDED :: cast(WGPUSurfaceGetCurrentTextureStatus) 0x0003_0001;
+
 // Show the frame drawn into the surface's current texture and wait until the next one is due.
 // Natively that is wgpuSurfacePresent (a FIFO surface blocks for vsync). The browser presents on
 // its own; there this suspends the program until the page's next animation frame (other Jai

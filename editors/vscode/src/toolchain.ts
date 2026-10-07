@@ -13,12 +13,15 @@ export type Tool = (typeof TOOLS)[number];
 
 /**
  * The release archive per `${process.platform}-${process.arch}`, without its `jai-`/`jaic-`
- * prefix (see `archivePrefix`). A platform without a row has no prebuilt toolchain (Intel Macs,
- * for one): add a row here when release.yml starts building it.
+ * prefix (see `archivePrefix`). A platform without a row has no prebuilt toolchain: add a row
+ * here when release.yml starts building it. Releases up to 0.4.1 have no `macos-x64` or
+ * `linux-arm64` archive; their pinned checksums then lack the asset (an "unsupported" error).
  */
 export const RELEASE_ASSETS: Readonly<Record<string, string>> = {
   "darwin-arm64": "macos-arm64.tar.gz",
+  "darwin-x64": "macos-x64.tar.gz",
   "linux-x64": "linux-x64.tar.gz",
+  "linux-arm64": "linux-arm64.tar.gz",
   "win32-x64": "windows-x64.zip",
   "win32-arm64": "windows-arm64.zip",
 };
@@ -40,9 +43,8 @@ export function assetFor(platform: NodeJS.Platform, arch: string, version: strin
 
 /** Why there is no download for a platform, and what to do instead. */
 export function unsupportedMessage(platform: NodeJS.Platform, arch: string): string {
-  const what = platform === "darwin" && arch === "x64" ? "Intel Macs" : platformName(platform, arch);
   return (
-    `There is no prebuilt Jai toolchain for ${what}. Build jaic, jailsp and jailint from source ` +
+    `There is no prebuilt Jai toolchain for ${platformName(platform, arch)}. Build jaic, jailsp and jailint from source ` +
     `(https://github.com/${REPOSITORY}#install) and put them on PATH, or set jai.server.path and jai.compiler.path.`
   );
 }

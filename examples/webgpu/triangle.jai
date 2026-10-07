@@ -143,6 +143,11 @@ main :: () {
 
         frame: WGPUSurfaceTexture;
         wgpuSurfaceGetCurrentTexture(surface, *frame);
+        if frame.status == WEBGPU_SURFACE_OCCLUDED {
+            // A hidden window on macOS: nothing to draw into until it shows again.
+            sleep_milliseconds(16);
+            continue;
+        }
         if frame.status != .SuccessOptimal && frame.status != .SuccessSuboptimal {
             width, height = webgpu_window_size(window);
             configure(surface, device, format, width, height);

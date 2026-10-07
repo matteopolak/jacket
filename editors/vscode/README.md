@@ -35,7 +35,7 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
 
 ## Getting the toolchain
 
-The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next to `jai.compiler.path` or the `jaic` on `PATH`. If none is found it **asks** before downloading the release that matches its own version (`jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library) from [github.com/matteopolak/jai/releases](https://github.com/matteopolak/jai/releases), and checks it against SHA-256 checksums pinned into the extension. Set `jai.toolchain.autoDownload` to `never` to turn this off, or `always` to skip the question. Prebuilt toolchains exist for macOS on Apple silicon, Linux x86-64 and Windows (x86-64 and arm64); elsewhere, build from source and set the paths.
+The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next to `jai.compiler.path` or the `jaic` on `PATH`. If none is found it **asks** before downloading the release that matches its own version (`jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library) from [github.com/matteopolak/jai/releases](https://github.com/matteopolak/jai/releases), and checks it against SHA-256 checksums pinned into the extension. Set `jai.toolchain.autoDownload` to `never` to turn this off, or `always` to skip the question. Prebuilt toolchains exist for macOS, Linux and Windows, each on x86-64 and arm64; elsewhere, build from source and set the paths.
 
 ## Settings
 

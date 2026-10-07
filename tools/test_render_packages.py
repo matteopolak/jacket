@@ -10,13 +10,16 @@ import render_packages
 SUMS = "\n".join([
     f"{'a' * 64}  jai-linux-x64.tar.gz",
     f"{'b' * 64}  jai-macos-arm64.tar.gz",
+    f"{'1' * 64}  jai-linux-arm64.tar.gz",
+    f"{'2' * 64}  jai-macos-x64.tar.gz",
     f"{'c' * 64} *jai-windows-arm64.zip",
     f"{'D' * 64}  jai-windows-x64.zip",
     f"{'e' * 64}  jai-vscode-1.2.3.vsix",
     "",
 ])
-# 0.4.0 and earlier named their archives jaic-<platform>.
-OLD_SUMS = SUMS.replace("  jai-", "  jaic-").replace(" *jai-", " *jaic-").replace("jaic-vscode", "jai-vscode")
+# 0.4.0 and earlier named their archives jaic-<platform>, and had no Intel macOS or arm64 Linux build.
+OLD_SUMS = "\n".join(line for line in SUMS.splitlines() if "macos-x64" not in line and "linux-arm64" not in line)
+OLD_SUMS = OLD_SUMS.replace("  jai-", "  jaic-").replace(" *jai-", " *jaic-").replace("jaic-vscode", "jai-vscode")
 
 
 class RenderTests(unittest.TestCase):
@@ -35,6 +38,27 @@ class RenderTests(unittest.TestCase):
         self.assertIn(f'sha256 "{"b" * 64}"', formula)
         self.assertIn(f'sha256 "{"a" * 64}"', formula)
         self.assertIn("class Jai < Formula", formula)
+        # Every platform has its own build: no architecture requirement.
+        self.assertIn('url "https://github.com/matteopolak/jai/releases/download/v1.2.3/jai-macos-x64.tar.gz"', formula)
+        self.assertIn('url "https://github.com/matteopolak/jai/releases/download/v1.2.3/jai-linux-arm64.tar.gz"', formula)
+        self.assertIn(f'sha256 "{"1" * 64}"', formula)
+        self.assertIn(f'sha256 "{"2" * 64}"', formula)
+        self.assertNotIn("depends_on arch: :", formula)
+        self.assertNotIn("do\n\n", formula)
+
+    def test_releases_without_intel_macos_or_arm64_linux_require_the_built_architecture(self):
+        jai_named = "\n".join(line for line in SUMS.splitlines() if "macos-x64" not in line and "linux-arm64" not in line)
+        for version, sums, prefix in (("0.3.0", OLD_SUMS, "jaic"), ("0.4.0", OLD_SUMS, "jaic"), ("0.4.1", jai_named, "jai")):
+            formula = self.render(sums, version=version)[1]["homebrew/jai.rb"]
+            self.assertIn("depends_on arch: :arm64\n\n    on_arm do", formula)
+            self.assertIn("depends_on arch: :x86_64\n\n    on_arm do", formula)
+            self.assertNotIn("macos-x64", formula)
+            self.assertNotIn("linux-arm64", formula)
+            self.assertEqual(formula.count(f"/{prefix}-macos-arm64.tar.gz"), 2)
+        # A later release must have them.
+        sums = "\n".join(line for line in SUMS.splitlines() if "macos-x64" not in line)
+        with self.assertRaisesRegex(ValueError, "jai-macos-x64.tar.gz"):
+            self.render(sums, version="0.4.2")
 
     def test_winget_manifests_live_under_the_identifier_path_with_uppercase_checksums(self):
         _, files = self.render()

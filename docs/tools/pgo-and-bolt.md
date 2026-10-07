@@ -31,7 +31,8 @@ The results are copied to `--out` (default `<target-dir>/pgo/dist`).
 | Release target | Optimisation | Notes |
 |---|---|---|
 | Linux x86-64 | PGO + BOLT | `llvm-bolt` and `merge-fdata` come from the official LLVM release tarball the job already unpacks (`$RUNNER_TEMP/llvm/bin`). |
-| macOS arm64 | PGO | BOLT's Mach-O support is not production ready. |
+| Linux arm64 | PGO | Ubuntu's arm64 linker adds Cortex-A53 erratum 843419 veneers, which `llvm-bolt` refuses (`BOLT-ERROR: binary contains Cortex-A53 erratum 843419 workaround veneers`); dropping them, or relinking without the fix, would make the binary unsafe on Cortex-A53 cores. |
+| macOS arm64, x86-64 | PGO | BOLT's Mach-O support is not production ready. |
 | Windows x86-64 | PGO | BOLT only rewrites ELF. |
 | Windows arm64 | none | Plain release build: the profile runtime does not work there (below). |
 

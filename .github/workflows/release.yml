@@ -1,6 +1,7 @@
 name: release
-# Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon), Linux (x86-64) and Windows (x86-64 and arm64),
-# optimized with PGO (except Windows arm64) and BOLT on Linux (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
+# Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
+# Windows (x86-64 and arm64), optimized with PGO (except Windows arm64) and BOLT on Linux x86-64
+# (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
 # A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
 # a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
 on:
@@ -32,9 +33,20 @@ jobs:
           - name: macos-arm64
             runner: macos-15
             llvm: LLVM-23.1.2-macOS-ARM64.tar.xz
+          # LLVM publishes no Intel macOS build: conda-forge's static libraries instead
+          # (tools/install_ci_llvm_macos.sh --static).
+          - name: macos-x64
+            runner: macos-15-intel
+            llvm: conda-forge
           - name: linux-x64
             runner: ubuntu-24.04
             llvm: LLVM-23.1.2-Linux-X64.tar.xz
+            bolt: true
+          # No BOLT: Ubuntu's arm64 linker adds Cortex-A53 erratum 843419 veneers, which llvm-bolt
+          # refuses to keep; dropping them would break the binary on Cortex-A53 (Raspberry Pi 3).
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            llvm: LLVM-23.1.2-Linux-ARM64.tar.xz
           - name: windows-x64
             runner: windows-2025
             llvm: clang+llvm-23.1.2-x86_64-pc-windows-msvc.tar.xz
@@ -66,7 +78,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/check_dependency_age.py
       - name: Install the official LLVM release (static libraries)
-        if: matrix.llvm != ''
+        if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
         run: |
           curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/${{ matrix.llvm }}"
           llvm="$RUNNER_TEMP/llvm"
@@ -88,8 +100,8 @@ jobs:
       # release's own clang and lld (which run that LTO) against the Xcode SDK. The release also
       # ships its own libc++ (static, and a dylib found through @rpath); removing it makes `-lc++`
       # link the system's /usr/lib/libc++.1.dylib from the SDK.
-      - name: Install static zstd and link with LLVM's lld (macOS)
-        if: runner.os == 'macOS'
+      - name: Install static zstd and link with LLVM's lld (macOS arm64)
+        if: runner.os == 'macOS' && matrix.llvm != 'conda-forge'
         run: |
           brew install zstd
           ls -l /opt/homebrew/lib/libzstd.a
@@ -102,6 +114,15 @@ jobs:
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=$RUNNER_TEMP/llvm/bin/clang" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> "$GITHUB_ENV"
+      # conda-forge's LLVM for osx-64 (static libraries of ordinary objects, which Xcode's ld
+      # links) with its static zstd and libc++; the script deletes the environment's dylibs, so
+      # `-lz -lxml2 -liconv` link the system's and `-lzstd -lc++` the archives. The static libc++ needs the system's libc++abi. Nothing points into the
+      # runner's temp directory afterwards (the smoke test's otool check).
+      - name: Install conda-forge's static LLVM (macOS x64)
+        if: matrix.llvm == 'conda-forge'
+        run: |
+          tools/install_ci_llvm_macos.sh --static
+          echo "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-lc++abi" >> "$GITHUB_ENV"
       # The Windows release's llvm-config names static libraries the archive lacks (libxml2,
       # and zstd by an absolute build-machine path llvm-sys cannot parse); prepare.sh supplies
       # them and an llvm-config front (docs/tools/llvm-setup.md). The release is built against
@@ -125,15 +146,15 @@ jobs:
           apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
           "${apt[@]}" update && "${apt[@]}" install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev
       # Instrumented build, training run over this repository's tests and examples, then the
-      # profile-guided build into target/pgo/dist. On Linux the result is also rewritten by the
-      # llvm-bolt that ships in the official LLVM release (macOS and Windows: PGO only).
-      - name: Build (PGO, and BOLT on Linux)
+      # profile-guided build into target/pgo/dist. On Linux x86-64 the result is also rewritten by
+      # the llvm-bolt that ships in the official LLVM release (elsewhere: PGO only).
+      - name: Build (PGO, and BOLT on Linux x86-64)
         id: build
         run: |
           llvm=none
           if [ -n "${{ matrix.llvm }}" ]; then llvm=static; fi
           bolt=()
-          if [ "$RUNNER_OS" = "Linux" ]; then bolt=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
+          if [ "${{ matrix.bolt }}" = true ]; then bolt=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
           python3 tools/build_pgo.py --llvm "$llvm" --jobs 4 "${bolt[@]}"
       - name: Show the failing link
         if: failure() && steps.build.outcome == 'failure' && matrix.llvm != ''

@@ -27,6 +27,14 @@ PLATFORM_ASSETS = {
     "SHA256_WINDOWS_X64": "windows-x64.zip",
     "SHA256_WINDOWS_ARM64": "windows-arm64.zip",
 }
+# Platforms built since the release after 0.4.1: (placeholder suffix, asset, the asset a release
+# without it falls back to, the architecture the formula then requires on that OS). A release
+# up to 0.4.1 (or a dry run of the workflow at such a version) may lack them; a later one may not.
+NEWER_PLATFORMS = [
+    ("MACOS_INTEL", "macos-x64.tar.gz", "macos-arm64.tar.gz", "MACOS_ARCH", ":arm64"),
+    ("LINUX_ARM", "linux-arm64.tar.gz", "linux-x64.tar.gz", "LINUX_ARCH", ":x86_64"),
+]
+LAST_WITHOUT_NEWER_PLATFORMS = (0, 4, 1)
 # Archives are `jai-<platform>` since 0.4.1; 0.4.0 and earlier shipped `jaic-<platform>`.
 LAST_JAIC_NAMED = (0, 4, 0)
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
@@ -55,10 +63,14 @@ def hash_archives(directory):
     return sums
 
 
+def version_core(version):
+    """(major, minor, patch) of `version`."""
+    return tuple(int(part) for part in re.match(r"(\d+)\.(\d+)\.(\d+)", version).groups())
+
+
 def expected_prefix(version):
     """The archive prefix a release of `version` was published with: `jaic` up to 0.4.0, else `jai`."""
-    core = tuple(int(part) for part in re.match(r"(\d+)\.(\d+)\.(\d+)", version).groups())
-    return "jaic" if core <= LAST_JAIC_NAMED else "jai"
+    return "jaic" if version_core(version) <= LAST_JAIC_NAMED else "jai"
 
 
 def archive_prefix(version, sums):
@@ -88,10 +100,24 @@ def substitutions(version, sums, base_url, release_date):
     values["ARCHIVE_PREFIX"] = prefix
     for key, asset in PLATFORM_ASSETS.items():
         values[key] = sums[f"{prefix}-{asset}"]
+    newer_required = version_core(version) > LAST_WITHOUT_NEWER_PLATFORMS
+    for name, asset, fallback, arch_key, arch in NEWER_PLATFORMS:
+        if f"{prefix}-{asset}" in sums:
+            values[f"{name}_ASSET"] = asset
+            values[f"SHA256_{name}"] = sums[f"{prefix}-{asset}"]
+            values[arch_key] = None
+        elif newer_required:
+            raise ValueError(f"SHA256SUMS has no entry for {prefix}-{asset}")
+        else:
+            values[f"{name}_ASSET"] = fallback
+            values[f"SHA256_{name}"] = sums[f"{prefix}-{fallback}"]
+            values[arch_key] = arch
     return values
 
 
 def render(template, values, uppercase_hashes=False):
+    """Fill in the @PLACEHOLDERS@. A line holding one whose value is None is left out, together
+    with a blank line right after it."""
     def replace(match):
         key = match.group(1)
         if key not in values:
@@ -99,7 +125,16 @@ def render(template, values, uppercase_hashes=False):
         value = values[key]
         return value.upper() if uppercase_hashes and key.startswith("SHA256_") else value
 
-    return PLACEHOLDER.sub(replace, template)
+    lines = []
+    dropped = False
+    for line in template.splitlines(keepends=True):
+        if dropped and not line.strip():
+            dropped = False
+            continue
+        dropped = any(values.get(key, "") is None for key in PLACEHOLDER.findall(line))
+        if not dropped:
+            lines.append(PLACEHOLDER.sub(replace, line))
+    return "".join(lines)
 
 
 def render_all(values, out):

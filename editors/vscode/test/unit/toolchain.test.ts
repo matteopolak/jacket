@@ -30,7 +30,9 @@ const offline: Fetch = async () => {
 describe("platform to release archive", () => {
   it("maps each released platform", () => {
     assert.equal(assetFor("darwin", "arm64", "0.4.1"), "jai-macos-arm64.tar.gz");
+    assert.equal(assetFor("darwin", "x64", "0.4.1"), "jai-macos-x64.tar.gz");
     assert.equal(assetFor("linux", "x64", "0.4.1"), "jai-linux-x64.tar.gz");
+    assert.equal(assetFor("linux", "arm64", "0.4.1"), "jai-linux-arm64.tar.gz");
     assert.equal(assetFor("win32", "x64", "0.5.0"), "jai-windows-x64.zip");
     assert.equal(assetFor("win32", "arm64", "1.0.0"), "jai-windows-arm64.zip");
   });
@@ -45,11 +47,11 @@ describe("platform to release archive", () => {
     assert.equal(archivePrefix("0.10.0"), "jai");
   });
 
-  it("has no archive for Intel Macs, Linux arm64 or other systems", () => {
-    assert.equal(assetFor("darwin", "x64", "0.4.1"), undefined);
-    assert.equal(assetFor("linux", "arm64", "0.4.1"), undefined);
+  it("has no archive for other systems", () => {
     assert.equal(assetFor("freebsd", "x64", "0.4.0"), undefined);
-    assert.match(unsupportedMessage("darwin", "x64"), /no prebuilt Jai toolchain for Intel Macs/);
+    assert.equal(assetFor("linux", "ia32", "0.4.1"), undefined);
+    assert.equal(assetFor("win32", "ia32", "0.4.1"), undefined);
+    assert.match(unsupportedMessage("freebsd", "x64"), /no prebuilt Jai toolchain for freebsd x64/);
     assert.match(unsupportedMessage("darwin", "x64"), /jai\.server\.path/);
   });
 

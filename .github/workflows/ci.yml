@@ -310,6 +310,14 @@ jobs:
           require=()
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
           python3 -u tools/test_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
+      - name: WebGPU in a window (surface, configure, present, read back)
+        # tests/webgpu/window.jai opens a Window_Creation window and presents frames to its
+        # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
+        if: ${{ always() && !cancelled() }}
+        run: |
+          run=() require=()
+          [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24") require=(--require-adapter)
+          "${run[@]}" python3 -u tools/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
       - name: Stdlib coverage ratchet
         if: ${{ always() && !cancelled() }}
         run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }} --check --print-baseline

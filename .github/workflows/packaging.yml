@@ -37,14 +37,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Releases up to 0.4.1 have no Intel macOS or arm64 Linux archive: there install.sh must
+      # pick the platform and then say the release has no build for it.
+      - name: Does the latest release have this platform's archive?
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$(uname -s)-$(uname -m)" in
+            Darwin-arm64) plat=macos-arm64 ;;
+            Darwin-x86_64) plat=macos-x64 ;;
+            Linux-x86_64) plat=linux-x64 ;;
+            Linux-aarch64) plat=linux-arm64 ;;
+          esac
+          echo "PLATFORM=$plat" >> "$GITHUB_ENV"
+          assets="$(gh release view --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')"
+          if echo "$assets" | grep -Eqx "jaic?-$plat\.tar\.gz"; then has=true; else has=false; fi
+          echo "$plat in the latest release: $has"
+          echo "has=$has" >> "$GITHUB_OUTPUT"
+      - name: Without one, install.sh names the missing archive
+        if: steps.release.outputs.has == 'false'
+        run: |
+          if ./install.sh 2> err.txt; then exit 1; fi
+          cat err.txt
+          grep -Eq "has no jaic?-$PLATFORM\.tar\.gz" err.txt
       - name: Install an older release, then upgrade to the latest through a pipe
+        if: steps.release.outputs.has == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -61,6 +86,7 @@ jobs:
           test "$(readlink "$HOME/.local/bin/jaic")" = "$HOME/.local/share/jai/${latest#v}/jaic"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run the installed toolchain outside the checkout
+        if: steps.release.outputs.has == 'true'
         run: |
           cd "$RUNNER_TEMP"
           printf '#import "Basic";\n\nmain :: () {\n    print("hello from install.sh\\n");\n}\n' > hello.jai
@@ -69,6 +95,7 @@ jobs:
           test "$(echo 'main::(){x:=1;}' | jaifmt --stdin)" = "$(printf 'main :: () {\n    x := 1;\n}')"
           command -v jailsp
       - name: Custom directories (the JAI_* names; the steps around use JAIC_*), and a re-run of the same version
+        if: steps.release.outputs.has == 'true'
         run: |
           export JAI_INSTALL_DIR="$RUNNER_TEMP/custom/share" JAI_BIN_DIR="$RUNNER_TEMP/custom/bin"
           ./install.sh
@@ -79,6 +106,8 @@ jobs:
         run: |
           if JAIC_VERSION=0.0.0-missing JAIC_INSTALL_DIR="$RUNNER_TEMP/x" JAIC_BIN_DIR="$RUNNER_TEMP/xb" ./install.sh 2> err.txt; then exit 1; fi
           cat err.txt && grep -q "could not download" err.txt
+          # (Without an archive for this platform, install.sh stops before looking at the links.)
+          if [ "${{ steps.release.outputs.has }}" != true ]; then exit 0; fi
           mkdir -p "$RUNNER_TEMP/occupied" && touch "$RUNNER_TEMP/occupied/jaic"
           if JAIC_BIN_DIR="$RUNNER_TEMP/occupied" ./install.sh 2> err.txt; then exit 1; fi
           cat err.txt && grep -q "is not a symlink" err.txt
@@ -139,6 +168,26 @@ jobs:
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
           python3 tools/render_packages.py --version "$tag" --sums "$RUNNER_TEMP/SHA256SUMS" --out "$RUNNER_TEMP/packages"
           cat "$RUNNER_TEMP/packages/homebrew/jai.rb"
+      # Every platform's url and sha256 from synthetic checksums: the formula a release after
+      # 0.4.1 gets, with Intel macOS and arm64 Linux builds and no `depends_on arch:`.
+      - name: Render and audit a formula for all six platforms
+        run: |
+          sums="$RUNNER_TEMP/all-platforms.SHA256SUMS"
+          for asset in macos-arm64.tar.gz macos-x64.tar.gz linux-x64.tar.gz linux-arm64.tar.gz windows-x64.zip windows-arm64.zip; do
+            echo "$(printf '%s' "$asset" | shasum -a 256 | cut -d ' ' -f 1)  jai-$asset"
+          done > "$sums"
+          python3 tools/render_packages.py --version 99.0.0 --sums "$sums" --out "$RUNNER_TEMP/all-platforms"
+          formula="$RUNNER_TEMP/all-platforms/homebrew/jai.rb"
+          cat "$formula"
+          grep -q 'jai-macos-x64.tar.gz' "$formula" && grep -q 'jai-linux-arm64.tar.gz' "$formula"
+          if grep -q 'depends_on arch: :' "$formula"; then echo "the formula still restricts the architecture"; exit 1; fi
+          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
+          brew tap-new --no-git jaiall/local
+          cp "$formula" "$(brew --repository jaiall/local)/Formula/jai.rb"
+          brew trust jaiall/local 2> /dev/null || true
+          brew style jaiall/local/jai
+          brew audit --formula --strict jaiall/local/jai
+          brew untap jaiall/local
       - name: Install the formula from a local tap and run its test
         run: |
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
