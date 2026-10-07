@@ -43,7 +43,9 @@ class Jai < Formula
   def install
     # jaic, jailint and jailsp find stdlib/ (including its bootstrap entry) next to the real file
     # behind the bin/ symlinks, and native libraries (wgpu-native) in ../artifacts/native-libs.
-    libexec.install "jaic", "jailsp", "jailint", "jaifmt", "stdlib", "artifacts"
+    # Archives up to 0.4.0 have no artifacts/.
+    libexec.install "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
+    libexec.install "artifacts" if File.directory?("artifacts")
     bin.install_symlink libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
     doc.install "README.md", "CHANGELOG.md"
   end

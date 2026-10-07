@@ -7,7 +7,7 @@
 // mock's promise settles.
 //
 //   node --test tools/test_webgpu_host.mjs
-//   JAI_WASM_DIR=artifacts/ci-wasm node --experimental-wasm-jspi --test --test-isolation=none tools/test_webgpu_host.mjs
+//   JAI_WASM_DIR=artifacts/ci-wasm node --experimental-wasm-jspi tools/test_webgpu_host.mjs
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
