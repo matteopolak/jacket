@@ -64,7 +64,7 @@ impl Parser<'_> {
     }
 
     /// Continues `parse_binary` after its first operand.
-    fn parse_binary_after(&mut self, mut lhs: Expr, min_prec: u8) -> PResult<Expr> {
+    pub(super) fn parse_binary_after(&mut self, mut lhs: Expr, min_prec: u8) -> PResult<Expr> {
         while let Some((prec, op)) = self.peek_binary_op() {
             if prec <= min_prec {
                 break;
@@ -776,6 +776,16 @@ impl Parser<'_> {
     pub(super) fn parse_ifx(&mut self, is_static: bool) -> PResult<Expr> {
         let start = self.bump();
         let cond = self.parse_expr()?;
+        self.parse_ifx_after(start, cond, is_static)
+    }
+
+    /// `ifx` after its condition.
+    pub(super) fn parse_ifx_after(
+        &mut self,
+        start: Span,
+        cond: Expr,
+        is_static: bool,
+    ) -> PResult<Expr> {
         let ends_here = matches!(
             self.tok(),
             Tok::Punct(P::Semi | P::Comma | P::RParen | P::RBracket | P::RBrace) | Tok::Eof
@@ -807,7 +817,7 @@ impl Parser<'_> {
         ))
     }
 
-    fn parse_branch_value(&mut self) -> PResult<Expr> {
+    pub(super) fn parse_branch_value(&mut self) -> PResult<Expr> {
         if self.at(P::LBrace) {
             let block = self.parse_block()?;
             let span = block.span;

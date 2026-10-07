@@ -1410,3 +1410,53 @@ fn nested_assert_is_parsed_once() {
     parse("#assert(f(a, b));");
     parse("#assert (a) == b, \"m\";");
 }
+
+#[test]
+fn nested_ifx_statements_are_parsed_once() {
+    // Found by the `parser` fuzz target: a statement starting with `ifx` was parsed as an
+    // assignment `if`, then rewound and parsed again as an expression, so each `{ifx` nested in
+    // the condition doubled the work (2.5 KB timed out).
+    let n = 40;
+    // Debug frames are large; a test thread has 2 MiB.
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(move || {
+            assert!(!error(&format!("main :: () {{ {} }}", "{ifx ".repeat(n))).is_empty());
+            for branch in [
+                "ifx c then { ",
+                "ifx c then x = { ",
+                "ifx c then f() else { ",
+            ] {
+                assert!(!error(&format!("main :: () {{ {} }}", branch.repeat(n))).is_empty());
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+    // Both forms still parse: a branch that assigns makes an `if`, anything else an expression.
+    let body = |src: &str| {
+        let value = value(&format!("main :: () {{ {src} }}"));
+        proc_of(&value).body.clone().unwrap().stmts
+    };
+    let stmts = body(
+        "ifx c then a = 1 else a = 2; ifx c then f() else b = 3; ifx c then f() else g(); ifx c f(); ifx c then { f(); } else { g(); }",
+    );
+    assert!(
+        matches!(stmts[0].kind, StmtKind::If { .. }),
+        "{:?}",
+        stmts[0].kind
+    );
+    assert!(
+        matches!(stmts[1].kind, StmtKind::If { .. }),
+        "{:?}",
+        stmts[1].kind
+    );
+    for stmt in &stmts[2..] {
+        let StmtKind::Expr(e) = &stmt.kind else {
+            panic!("expected an expression statement, found {:?}", stmt.kind);
+        };
+        assert!(matches!(e.kind, ExprKind::Ifx { .. }), "{:?}", e.kind);
+    }
+    // `ifx` as a name.
+    assert!(matches!(body("ifx := 1;")[0].kind, StmtKind::Decl(_)));
+}

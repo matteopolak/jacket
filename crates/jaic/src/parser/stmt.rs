@@ -206,7 +206,13 @@ impl Parser<'_> {
             return self.parse_decl(false, false);
         }
         let start = self.span();
-        let mut lhs = vec![self.parse_assign_target()?];
+        let first = self.parse_assign_target()?;
+        self.finish_simple_stmt(start, first)
+    }
+
+    /// An assignment or expression statement after its first operand.
+    fn finish_simple_stmt(&mut self, start: crate::source::Span, first: Expr) -> PResult<Stmt> {
+        let mut lhs = vec![first];
         while self.eat(P::Comma) {
             lhs.push(self.parse_assign_target()?);
         }
@@ -324,45 +330,80 @@ impl Parser<'_> {
         ))
     }
 
-    /// `ifx c then a = 1 else a = 2;`: an `ifx` statement whose branches assign is an `if`
-    /// (toml-jai). Anything else is parsed as an expression statement.
+    /// `ifx` at the start of a statement. When a branch assigns (`ifx c then a = 1 else a = 2;`,
+    /// as toml-jai writes) it is an `if` statement, otherwise an expression statement. Each part is parsed once and the
+    /// form chosen afterwards: parsing the statement form and reparsing as an expression when
+    /// it did not fit doubled the work for every nested `ifx`.
     fn parse_ifx_stmt(&mut self) -> PResult<Stmt> {
-        let (pos, block_end, notes) = (self.pos, self.block_end, self.pending_notes.len());
-        if let Ok(Some(statement)) = self.try_ifx_assignments() {
-            return Ok(statement);
+        // `ifx :: ...` declares a name.
+        if self.tagged_member_ahead() || self.decl_modifiers_end(0).is_some() || self.decl_ahead(0)
+        {
+            return self.parse_terminated_simple();
         }
-        self.pos = pos;
-        self.block_end = block_end;
-        self.pending_notes.truncate(notes);
-        self.parse_terminated_simple()
-    }
-
-    fn try_ifx_assignments(&mut self) -> PResult<Option<Stmt>> {
         let start = self.bump();
         let cond = self.parse_expr()?;
         if !self.eat_kw("then") {
-            return Ok(None);
+            let ifx = self.parse_ifx_after(start, cond, false)?;
+            return self.finish_expr_stmt(start, ifx);
         }
-        let then_branch = self.parse_simple_stmt()?;
+        let then_branch = self.parse_ifx_branch()?;
         let else_branch = if self.eat_kw("else") {
-            Some(self.parse_simple_stmt()?)
+            Some(self.parse_ifx_branch()?)
         } else {
             None
         };
         let assigns = |s: &Stmt| matches!(s.kind, StmtKind::Assign { .. });
-        if !assigns(&then_branch) && !else_branch.as_ref().is_some_and(assigns) {
-            return Ok(None);
+        if assigns(&then_branch) || else_branch.as_ref().is_some_and(assigns) {
+            self.end_stmt("after statement")?;
+            let span = start.to(self.prev_span());
+            return Ok(stmt(
+                StmtKind::If {
+                    cond,
+                    then_branch: Box::new(then_branch),
+                    else_branch: else_branch.map(Box::new),
+                },
+                span,
+            ));
         }
-        self.end_stmt("after statement")?;
+        let value = |branch: Stmt| match branch.kind {
+            StmtKind::Expr(e) => Ok(Box::new(e)),
+            _ => Err(crate::source::Diagnostic::error(
+                branch.span,
+                "expected an expression or an assignment in this `ifx` branch",
+            )),
+        };
+        let then_value = Some(value(then_branch)?);
+        let else_value = else_branch.map(value).transpose()?;
         let span = start.to(self.prev_span());
-        Ok(Some(stmt(
-            StmtKind::If {
-                cond,
-                then_branch: Box::new(then_branch),
-                else_branch: else_branch.map(Box::new),
+        let ifx = super::expr::mk(
+            crate::ast::ExprKind::Ifx {
+                cond: Box::new(cond),
+                then_value,
+                else_value,
+                is_static: false,
             },
             span,
-        )))
+        );
+        self.finish_expr_stmt(start, ifx)
+    }
+
+    /// One branch of a statement-level `ifx`: a block, or an assignment or expression.
+    fn parse_ifx_branch(&mut self) -> PResult<Stmt> {
+        if self.at(P::LBrace) {
+            let value = self.parse_branch_value()?;
+            let span = value.span;
+            return Ok(stmt(StmtKind::Expr(value), span));
+        }
+        self.parse_simple_stmt()
+    }
+
+    /// The rest of a simple statement whose first operand, `first`, is parsed already.
+    fn finish_expr_stmt(&mut self, start: crate::source::Span, first: Expr) -> PResult<Stmt> {
+        let first = self.postfix_loop(first, true)?;
+        let first = self.parse_binary_after(first, 0)?;
+        let statement = self.finish_simple_stmt(start, first)?;
+        self.end_stmt("after statement")?;
+        Ok(statement)
     }
 
     /// At `==` of `if value == { case ...; }`.
