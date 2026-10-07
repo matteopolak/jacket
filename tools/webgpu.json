@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "webgpu_headers": {
+    "repository": "webgpu-native/webgpu-headers",
+    "revision": "673658bc2bd70ec39fc55ebe6bb0173cf6d0a603",
+    "files": {
+      "webgpu.yml": "f9e2ef6f1b5f91ad1c077c15c6fba5f55e6f52935af2adef40bc5597b06bb5ca"
+    },
+    "note": "The revision wgpu-native's ffi/webgpu-headers submodule points at in the release below."
+  },
+  "wgpu_native": {
+    "repository": "gfx-rs/wgpu-native",
+    "tag": "v29.0.1.1",
+    "library": "wgpu_native",
+    "assets": {
+      "macos-arm64": {"name": "wgpu-macos-aarch64-release.zip", "sha256": "a5797a37b1adf720bcd5dcffb291edbbd5b7b14be0a3874c28e6393a655a7a3e"},
+      "macos-x64": {"name": "wgpu-macos-x86_64-release.zip", "sha256": "8e2f7378548ddd0e2cf21e7d864dda46e953f0af724855a33778b85ead206d41"},
+      "linux-arm64": {"name": "wgpu-linux-aarch64-release.zip", "sha256": "015fcdf1dbae82e614a783cc38017e5399ae0927a889fe9b69c9b664bc61b47a"},
+      "linux-x64": {"name": "wgpu-linux-x86_64-release.zip", "sha256": "95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a"},
+      "windows-x64": {"name": "wgpu-windows-x86_64-msvc-release.zip", "sha256": "7e67d7445c42aeb85e30f88930fd8d7d83ee769e3390aeb1ada75ebf3cf78132"},
+      "windows-arm64": {"name": "wgpu-windows-aarch64-msvc-release.zip", "sha256": "4a876421a8c1e5fe72f849b3722214280fe485cb1c56f77f8b0c82414be5b29f"}
+    }
+  }
+}
