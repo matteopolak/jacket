@@ -121,7 +121,11 @@ impl Compiler {
                     return Some(POINTER);
                 }
                 // *Derived → *Base through `#as` members.
-                self.as_offset(*f, *t).map(|_| SUBTYPE)
+                if self.as_offset(*f, *t).is_some() {
+                    return Some(SUBTYPE);
+                }
+                // `*Wrapper` → the pointer type of its `#as` member (`#as handle: VkDevice`).
+                self.as_offset(*f, to).map(|_| SUBTYPE + 1)
             }
             (TypeKind::Null, TypeKind::Pointer(_) | TypeKind::Proc(_)) => Some(LITERAL),
             // `E.loose` and `E` convert to each other (a node's `operator_type` passed as
@@ -169,10 +173,11 @@ impl Compiler {
                 self.implicit_cost(base, false, to).map(|c| c + 1)
             }
             (TypeKind::Struct(_), _) => self.as_offset(from, to).map(|_| SUBTYPE),
-            // Auto-dereference: `*Thing` → `Thing` (structs only), also through `#as`.
-            (TypeKind::Pointer(f), TypeKind::Struct(_)) => {
+            // Auto-dereference: `*Thing` → `Thing` (structs only), and `*Thing` → the type of
+            // any of its `#as` members.
+            (TypeKind::Pointer(f), _) => {
                 let f = *f;
-                if f == to {
+                if f == to && matches!(tk, TypeKind::Struct(_)) {
                     return Some(SUBTYPE + 1);
                 }
                 self.as_offset(f, to).map(|_| SUBTYPE + 1)
@@ -560,6 +565,20 @@ impl Compiler {
                 })
             }
             (TypeKind::Pointer(inner), TypeKind::Pointer(target))
+                if *target != TypeId::VOID
+                    && *inner != TypeId::VOID
+                    && self.as_offset(*inner, *target).is_none()
+                    && self.as_offset(*inner, to).is_some() =>
+            {
+                // `*Wrapper` → its `#as` member's pointer value: load the member.
+                let offset = self.as_offset(*inner, to).unwrap();
+                let (_, v) = self.rvalue(f, op, span)?;
+                Ok(Operand::Place {
+                    ty: to,
+                    addr: f.b.ptr_offset(v, offset),
+                })
+            }
+            (TypeKind::Pointer(inner), TypeKind::Pointer(target))
                 if *target != TypeId::VOID && *inner != TypeId::VOID =>
             {
                 let offset = self.as_offset(*inner, *target).unwrap_or(0);
@@ -567,6 +586,18 @@ impl Compiler {
                 Ok(Operand::Value {
                     ty: to,
                     val: f.b.ptr_offset(v, offset),
+                })
+            }
+            // `*Wrapper` → the value of its `#as` member (`#as id: u32`).
+            (TypeKind::Pointer(inner), _)
+                if self.types.as_struct(*inner).is_some()
+                    && self.as_offset(*inner, to).is_some() =>
+            {
+                let offset = self.as_offset(*inner, to).unwrap();
+                let (_, v) = self.rvalue(f, op, span)?;
+                Ok(Operand::Place {
+                    ty: to,
+                    addr: f.b.ptr_offset(v, offset),
                 })
             }
             _ => self.scalar_convert(f, op, to, span),

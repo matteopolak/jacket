@@ -54,3 +54,40 @@ box_value :: (b: $B/Box) -> B.T {
     b := Box(int).{ 9 };
     assert(box_value(*b) == 9);
 }
+
+// rules: using.18
+// A pointer to a struct passes as the value of its `#as` member, whatever the member's type: a
+// handle wrapper (`#as handle: VkDevice`, itself a pointer type) given as `*Wrapper`, and a scalar.
+Handle_Payload :: struct {
+    x: int;
+}
+
+Handle :: *Handle_Payload;
+
+Handle_Wrapper :: struct {
+    other: int;
+    #as handle: Handle;
+}
+
+Id_Wrapper :: struct {
+    #as id: u32;
+}
+
+handle_x :: (h: Handle) -> int {
+    return h.x;
+}
+
+id_of :: (id: u32) -> u32 {
+    return id;
+}
+
+#run {
+    payload := Handle_Payload.{ 7 };
+    w: Handle_Wrapper;
+    w.handle = *payload;
+    assert(handle_x(w) == 7);
+    assert(handle_x(*w) == 7);
+
+    id := Id_Wrapper.{ 5 };
+    assert(id_of(*id) == 5);
+}

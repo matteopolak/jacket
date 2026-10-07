@@ -21,6 +21,8 @@ Derived :: struct { using #as b: Base; y: int; }
 get_x(*d);   // get_x :: (b: *Base) -> int
 ```
 
+A pointer to such a struct also passes where the `#as` member's own type is expected: the pointer is dereferenced and the member read, as for `*Thing` passed as `Thing`. This holds for any member type, including pointer types, so with `Device :: struct { #as handle: VkDevice; }` a `*Device` passes as a `VkDevice` (`*VkDevice_T`) {#using.18}. Converting `*Derived` to `*Base` (the pointer to an `#as` member) is preferred when both apply.
+
 Such a member has `USING | AS` in its `type_info` flags {#using.5}. `using #as x` and `#as using x` both parse {#using.16}.
 
 A `using` member of pointer type (`using meta: *Meta`) promotes the pointee's members {#using.6}; writes go through the pointer {#using.7}.

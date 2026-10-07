@@ -8,6 +8,10 @@
 - CI opens real windows for WebGPU: a new test presents frames to a `Window_Creation` window's surface and checks each frame's status, the error scopes and a readback of the last frame, interpreted and built, on Linux under Xvfb (X11 surface, Mesa's lavapipe), macOS (Metal) and Windows x64 and arm64 (HWND surface, WARP). See [WebGPU tests](docs/stdlib/webgpu.md#tests).
 - `WEBGPU_SURFACE_OCCLUDED` in `Extensions/WebGPU`: wgpu-native's status for a hidden window on macOS (the first frame after `create_window` included), which the triangle example now waits out instead of reconfiguring the surface every frame.
 
+### Fixed
+
+- A pointer to a struct passes where its `#as` member's type is expected even when that member is itself a pointer (`#as handle: VkPhysicalDevice` given a `*Physical_Device`), as it already did for other member types; no_api's `module.jai` now checks for Windows.
+
 ## [0.4.1] - 2026-10-07
 
 WebGPU graphics on every platform and in the playground, threads in WASI builds, and a round of fuzzer-found crash fixes. The jaic-only modules move to `stdlib/Extensions/`, and the VS Code extension reaches the Marketplace as **Jai Toolchain**.

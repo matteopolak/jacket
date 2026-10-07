@@ -385,5 +385,6 @@
   {"id": "toml-jai-union-and-overlay", "path": "sjorsdonkers--toml-jai/examples/union_and_overlay.jai", "mode": "run"},
   {"id": "toml-jai-validation", "path": "sjorsdonkers--toml-jai/examples/validation.jai", "mode": "run"},
   {"id": "toml-jai-formatting-control", "path": "sjorsdonkers--toml-jai/examples/formatting_control.jai", "mode": "run"},
-  {"id": "toml-jai-file-examples-check", "path": "sjorsdonkers--toml-jai/examples/file_examples.jai", "mode": "check"}
+  {"id": "toml-jai-file-examples-check", "path": "sjorsdonkers--toml-jai/examples/file_examples.jai", "mode": "check"},
+  {"id": "no-api-module-windows-check", "path": "UnNabbo--no_api/module.jai", "mode": "check", "args": ["-os", "windows"]}
 ]
