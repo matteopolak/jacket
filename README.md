@@ -96,10 +96,10 @@ jailint src/ --fix                                 # apply the safe fixes
 
 ## Editors
 
-[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-matteopolak.jai-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai)
-[![Open VSX](https://img.shields.io/open-vsx/v/matteopolak/jai?label=Open%20VSX)](https://open-vsx.org/extension/matteopolak/jai)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-matteopolak.jai--toolchain-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain)
+[![Open VSX](https://img.shields.io/open-vsx/v/matteopolak/jai-toolchain?label=Open%20VSX)](https://open-vsx.org/extension/matteopolak/jai-toolchain)
 
-The Jai extension for VS Code (and VSCodium, Cursor and other Open VSX editors) brings highlighting, the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai); it uses the toolchain on your `PATH`, or offers to download it.
+The Jai extension for VS Code (and VSCodium, Cursor and other Open VSX editors) brings highlighting, the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai-toolchain); it uses the toolchain on your `PATH`, or offers to download it.
 
 Other editors can start `jailsp` (the Language Server Protocol over stdio) and run `jaifmt --stdin` as the formatter. See [the VS Code extension](docs/tools/vscode-extension.md) and [the language server](docs/compiler/language-server.md).
 

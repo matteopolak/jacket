@@ -28,7 +28,7 @@ describe("Jai extension", () => {
   let api: { client(): { isRunning(): boolean } | undefined };
 
   before(async () => {
-    const extension = vscode.extensions.getExtension("matteopolak.jai");
+    const extension = vscode.extensions.getExtension("matteopolak.jai-toolchain");
     assert.ok(extension, "the extension is installed");
     await open("broken.jai");
     api = await extension.activate();

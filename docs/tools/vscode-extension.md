@@ -2,7 +2,7 @@
 
 ## What it is
 
-`editors/vscode/` is the Visual Studio Code extension for Jai: a TextMate grammar, language configuration and snippets, a client for [`jailsp`](../compiler/language-server.md) (which also carries [jailint](jailint.md)'s findings and fixes), [`jaifmt`](jaifmt.md) as the document formatter, *Run/Build/Check File* commands, and a downloader for the toolchain release that matches the extension's version. Its ID is `matteopolak.jai` (publisher `matteopolak`, name `jai`), under the repository's AGPL-3.0-or-later license. It ships as a `.vsix` attached to every GitHub release, and is published to the Marketplace and Open VSX once their tokens are configured ([Publishing](#publishing)).
+`editors/vscode/` is the Visual Studio Code extension for Jai: a TextMate grammar, language configuration and snippets, a client for [`jailsp`](../compiler/language-server.md) (which also carries [jailint](jailint.md)'s findings and fixes), [`jaifmt`](jaifmt.md) as the document formatter, *Run/Build/Check File* commands, and a downloader for the toolchain release that matches the extension's version. Its ID is `matteopolak.jai-toolchain` (publisher `matteopolak`, name `jai-toolchain`; up to 0.4.1 it was `matteopolak.jai`, see [The old extension ID](#the-old-extension-id)), under the repository's AGPL-3.0-or-later license. It ships as a `.vsix` attached to every GitHub release, and is published to the Marketplace and Open VSX once their tokens are configured ([Publishing](#publishing)).
 
 ## How it works
 
@@ -101,8 +101,8 @@ pnpm run build            # grammar, schemas, dist/extension.js
 pnpm run lint             # oxlint, tsc, generated files up to date
 pnpm test                 # unit tests (node --test) and grammar tests
 JAILSP=../../target/debug/jailsp [JAIFMT=../../target/release/jaifmt] pnpm run test:e2e
-pnpm run package          # jai-<version>.vsix
-code --install-extension jai-<version>.vsix
+pnpm run package          # jai-toolchain-<version>.vsix
+code --install-extension jai-toolchain-<version>.vsix
 ```
 
 For development, open `editors/vscode` in VS Code and run the extension host (F5) after `pnpm run watch`.
@@ -167,15 +167,31 @@ Publishing needs accounts only the repository owner can create. Until the secret
 3. **Open VSX.** Sign in at <https://open-vsx.org> with GitHub, sign the Eclipse Foundation publisher agreement from your profile, and create an access token (*Settings → Access Tokens*). The release workflow creates the `matteopolak` namespace if it does not exist yet.
 4. **Repository secrets.** *Settings → Secrets and variables → Actions*: `VSCE_PAT` (step 2) and `OVSX_PAT` (step 3).
 
-The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace requires a display name no other extension uses, which is why it is *Jai Toolchain*: another publisher's extension already has *Jai*, and 0.4.0's Marketplace publish failed on it. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
+The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace requires a `name` (and display name) no other extension uses, across all publishers: another publisher's extension is already named `jai` and displayed as *Jai*, so 0.4.0's Marketplace publish failed on the display name and 0.4.1's on the name. That is why the extension is `jai-toolchain`, displayed as *Jai Toolchain*, on both stores. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
 
 ```sh
 cd editors/vscode && pnpm install --frozen-lockfile
-gh release download v0.4.0 -p 'jai-vscode-*.vsix'
-VSCE_PAT=... pnpm exec vsce publish --packagePath jai-vscode-0.4.0.vsix
+gh release download v0.4.2 -p 'jai-vscode-*.vsix'   # 0.4.2 or later: older ones are named jai
+VSCE_PAT=... pnpm exec vsce publish --packagePath jai-vscode-0.4.2.vsix
 pnpm exec ovsx create-namespace matteopolak -p "$OVSX_PAT"   # once; "already exists" is fine
-pnpm exec ovsx publish jai-vscode-0.4.0.vsix -p "$OVSX_PAT"
+pnpm exec ovsx publish jai-vscode-0.4.2.vsix -p "$OVSX_PAT"
 ```
+
+The release asset keeps the name `jai-vscode-<version>.vsix` whatever the extension's `name` is; the stores read the ID from the manifest inside, not from the file name.
+
+### The old extension ID
+
+Up to 0.4.1 the extension was `matteopolak.jai`, published only to Open VSX (the Marketplace refused it). Editors never move an installed extension to a new ID, so anyone who installed `matteopolak.jai` keeps it until they uninstall it. Open VSX has no publisher-side deprecation setting; it is done by a pull request adding the old ID to the `deprecated` object of [`extension-control/extensions.json`](https://github.com/open-vsx/publish-extensions/blob/master/extension-control/extensions.json), which a nightly job applies. Open VSX editors then show `matteopolak.jai` as deprecated with `matteopolak.jai-toolchain` as its replacement, and `disallowInstall` stops new installs of it:
+
+```json
+"matteopolak.jai": {
+  "disallowInstall": true,
+  "extension": { "id": "matteopolak.jai-toolchain", "displayName": "Jai Toolchain" },
+  "additionalInfo": "Renamed so the extension has the same ID on Open VSX and the Visual Studio Marketplace."
+}
+```
+
+Both extensions contribute the same language, settings and command IDs, and `registerCommand` throws when a command already exists, so whichever activates second would fail. `activate` in `src/extension.ts` therefore checks for `OLD_EXTENSION_ID` first: when it is installed, the new extension registers nothing and shows a warning with an *Uninstall matteopolak.jai* button (`workbench.extensions.uninstallExtension`), then offers to reload the window. The old one keeps working meanwhile. The check can go once few installs of the old ID remain.
 
 ## Dependencies
 

@@ -9,6 +9,8 @@ import { CONFIG_FILE, findConfig, ignoreGlobs, isIgnored, minimalReplacement, ru
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
 const JAILINT_SETTINGS = "jailint.toml";
+/** The extension's ID up to 0.4.1, before the Marketplace's name clash forced a new one. */
+const OLD_EXTENSION_ID = "matteopolak.jai";
 
 let client: LanguageClient | undefined;
 let log: vscode.LogOutputChannel;
@@ -51,6 +53,12 @@ function locate<T>(find: () => T): T | undefined {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<{ client: () => LanguageClient | undefined }> {
+  // Both register the same command IDs and whichever activates second fails, so this one
+  // stands aside until the old one is uninstalled.
+  if (vscode.extensions.getExtension(OLD_EXTENSION_ID)) {
+    void offerToUninstallOldExtension();
+    return { client: () => undefined };
+  }
   log = vscode.window.createOutputChannel("Jai", { log: true });
   serverOutput = vscode.window.createOutputChannel("Jai Language Server", { log: true });
   toolchain = new ToolchainManager(context, log);
@@ -94,6 +102,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
   installed = await toolchain.installed();
   void start(expansions);
   return { client: () => client };
+}
+
+async function offerToUninstallOldExtension(): Promise<void> {
+  const uninstall = `Uninstall ${OLD_EXTENSION_ID}`;
+  const choice = await vscode.window.showWarningMessage(
+    `Jai Toolchain is now matteopolak.jai-toolchain, but the old ${OLD_EXTENSION_ID} is still installed. Both provide the same commands, so this one stays off until the old one is uninstalled.`,
+    uninstall,
+  );
+  if (choice !== uninstall) return;
+  await vscode.commands.executeCommand("workbench.extensions.uninstallExtension", OLD_EXTENSION_ID);
+  const reload = "Reload Window";
+  if ((await vscode.window.showInformationMessage(`Uninstalled ${OLD_EXTENSION_ID}. Reload the window to start Jai Toolchain.`, reload)) === reload) {
+    await vscode.commands.executeCommand("workbench.action.reloadWindow");
+  }
 }
 
 export async function deactivate(): Promise<void> {

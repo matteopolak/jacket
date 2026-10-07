@@ -67,7 +67,7 @@ async function reset(): Promise<void> {
 }
 
 async function shots(): Promise<void> {
-  await vscode.extensions.getExtension("matteopolak.jai")!.activate();
+  await vscode.extensions.getExtension("matteopolak.jai-toolchain")!.activate();
   await reset();
 
   // Hover: a struct's type and memory layout.

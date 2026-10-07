@@ -1,5 +1,5 @@
 {
-  "name": "jai",
+  "name": "jai-toolchain",
   "displayName": "Jai Toolchain",
   "description": "Jai language support: language server, linter, formatter and syntax highlighting",
   "version": "0.3.0",

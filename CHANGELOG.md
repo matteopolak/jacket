@@ -6,6 +6,7 @@
 
 - `Build_Options` jaic does not act on are no longer accepted silently ([build options](docs/metaprogramming/build-options.md)). `set_build_options` warns about each one a call changes, such as `backend = .X64`, `use_natvis_compatible_types` and `llvm_options.command_line`. What it cannot do at all is an error: an `os_target` it cannot build for, `add_build_string` with a `code` scope, a user data segment, or another workspace's type table. `compiler_report(..., mode = .ERROR_CONTINUABLE)` now fails the build (it printed a warning).
 - Workspaces built with `set_build_options` now get the code generation their `Build_Options` describe. Frame pointers, inlining, tail calls, loop unrolling and vectorization, split modules, the machine-code level and the crash handler (`backtrace_on_crash`, `.ON` by default) used to be jaic's own; `set_optimization` sets them per flavor.
+- The VS Code extension's ID is now `matteopolak.jai-toolchain` on both the Marketplace and Open VSX, since the Marketplace already has an extension named `jai`. Install the new one and uninstall `matteopolak.jai`; it offers to do that for you, and stays inactive while the old one is installed. Settings (`jai.*`, `jailint.*`) carry over.
 
 ### Added
 
