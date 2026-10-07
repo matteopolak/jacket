@@ -109,12 +109,43 @@ impl Drop for ForeignCall {
 }
 
 /// A fixed-size message buffer: the report must not allocate.
-struct Report {
-    bytes: [u8; 8192],
+struct Report<const N: usize> {
+    bytes: [u8; N],
     len: usize,
 }
 
-impl std::fmt::Write for Report {
+impl<const N: usize> Report<N> {
+    const fn new() -> Self {
+        Self {
+            bytes: [0; N],
+            len: 0,
+        }
+    }
+
+    fn text(&self) -> &str {
+        std::str::from_utf8(&self.bytes[..self.len]).unwrap_or("a fault")
+    }
+}
+
+/// Bytes for the name of the fault (`describe`), which the handler keeps on its stack.
+const WHAT_BYTES: usize = 160;
+
+/// The report itself lives in a static buffer, not on the stack: the handler runs on the
+/// thread's alternate signal stack, which Rust makes `SIGSTKSZ` bytes (8 KiB on x86-64
+/// Linux), and overflowing it there kills the process before anything is printed.
+struct ReportBuffer(std::cell::UnsafeCell<Report<8192>>);
+
+// SAFETY: only the thread that sets `REPORTING` first touches the buffer.
+unsafe impl Sync for ReportBuffer {
+}
+
+static REPORT: ReportBuffer = ReportBuffer(std::cell::UnsafeCell::new(Report::new()));
+
+/// Set by the first thread to report a crash; another thread faulting meanwhile waits for
+/// the process to exit instead of writing into the same buffer.
+static REPORTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+impl<const N: usize> std::fmt::Write for Report<N> {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         let room = self.bytes.len() - self.len;
         let n = s.len().min(room);
@@ -136,7 +167,7 @@ fn shown_path(path: &str) -> &str {
 }
 
 /// The report for a fault while `current` was in progress: `what` names the fault.
-fn write_report(current: Current, what: &str, out: &mut Report) {
+fn write_report(current: Current, what: &str, out: &mut Report<8192>) {
     use std::fmt::Write;
     // SAFETY: `current` is only published while its `ForeignCall` (and so the symbol, the
     // thread's state and the program it points at) is alive, and the fault interrupted that
@@ -209,11 +240,15 @@ fn report_and_exit(what: &str) -> bool {
     if current.program.is_null() || current.state.is_null() {
         return false;
     }
-    let mut out = Report {
-        bytes: [0; 8192],
-        len: 0,
-    };
-    write_report(current, what, &mut out);
+    if REPORTING.swap(true, std::sync::atomic::Ordering::Acquire) {
+        loop {
+            std::hint::spin_loop();
+        }
+    }
+    // SAFETY: this thread set `REPORTING` first, so no other thread uses the buffer, and it
+    // exits without returning.
+    let out = unsafe { &mut *REPORT.0.get() };
+    write_report(current, what, out);
     sys::write_stderr(&out.bytes[..out.len]);
     sys::exit_now(CRASH_STATUS)
 }
@@ -314,10 +349,7 @@ mod sys {
             unsafe { std::ptr::read_unaligned(info.cast::<u8>().add(SI_ADDR).cast::<usize>()) }
         };
 
-        let mut text = super::Report {
-            bytes: [0; 8192],
-            len: 0,
-        };
+        let mut text = super::Report::<{ super::WHAT_BYTES }>::new();
 
         let what = describe(sig, address, &mut text);
 
@@ -341,7 +373,11 @@ mod sys {
         }
     }
 
-    fn describe(sig: c_int, address: usize, out: &mut super::Report) -> &str {
+    fn describe(
+        sig: c_int,
+        address: usize,
+        out: &mut super::Report<{ super::WHAT_BYTES }>,
+    ) -> &str {
         use std::fmt::Write;
         let _ = match sig {
             SIGSEGV => write!(
@@ -356,7 +392,7 @@ mod sys {
             ),
             _ => write!(out, "signal {sig}"),
         };
-        std::str::from_utf8(&out.bytes[..out.len]).unwrap_or("a fault")
+        out.text()
     }
 
     pub fn write_stderr(mut bytes: &[u8]) {
@@ -443,10 +479,7 @@ mod sys {
             0
         };
 
-        let mut text = super::Report {
-            bytes: [0; 8192],
-            len: 0,
-        };
+        let mut text = super::Report::<{ super::WHAT_BYTES }>::new();
 
         let what = {
             use std::fmt::Write;
@@ -461,7 +494,7 @@ mod sys {
                 EXCEPTION_STACK_OVERFLOW => write!(text, "stack overflow"),
                 _ => return EXCEPTION_CONTINUE_SEARCH,
             };
-            std::str::from_utf8(&text.bytes[..text.len]).unwrap_or("a fault")
+            text.text()
         };
 
         super::report_and_exit(what);
