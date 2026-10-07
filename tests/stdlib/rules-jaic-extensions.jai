@@ -2,7 +2,7 @@
 // Long_Double passes to and returns from C functions declared with it (here libm's sqrtl),
 // whatever the host's C `long double` is.
 #import "Basic";
-#import "Jaic_Extensions";
+#import "Extensions/Long_Double";
 
 libm :: #system_library "libm";
 sqrtl :: (x: Long_Double) -> Long_Double #foreign libm;

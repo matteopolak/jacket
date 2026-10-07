@@ -469,8 +469,8 @@ impl Compiler {
         }
     }
 
-    /// `#jaic_type name`: a type only jaic has, for the `Jaic_Extensions` module to export
-    /// (`docs/language/jaic-extensions.md`). `long_double` is the target C compiler's
+    /// `#jaic_type name`: a type only jaic has, for the `Extensions/Long_Double` module to export
+    /// (`docs/language/long-double.md`). `long_double` is the target C compiler's
     /// `long double`: `float64` where the two are the same, else the wide `Long_Double` type.
     fn jaic_type(&mut self, operand: Option<&ast::Expr>, span: Span) -> Result<TypeId> {
         let name = match operand.map(|e| &e.kind) {

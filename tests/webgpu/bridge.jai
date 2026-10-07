@@ -4,7 +4,7 @@
 
 #import "Basic";
 #import "Thread";
-#import "WebGPU";
+#import "Extensions/WebGPU";
 
 ticks: s64;
 stop: bool;

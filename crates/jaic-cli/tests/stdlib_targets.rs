@@ -27,9 +27,22 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// `stdlib/X.jai` and `stdlib/X/module.jai`, by import name.
+/// `stdlib/X.jai` and `stdlib/X/module.jai`, by import name, and jaic's extension modules as
+/// `Extensions/X`.
 fn modules(stdlib: &Path, skip: &[String]) -> Vec<String> {
-    let mut names: Vec<String> = std::fs::read_dir(stdlib)
+    let mut names = modules_in(stdlib, "", skip);
+    names.extend(modules_in(stdlib, "Extensions", skip));
+    names
+}
+
+/// The modules of `stdlib/folder`, named `folder/X` (`X` for the stdlib itself).
+fn modules_in(stdlib: &Path, folder: &str, skip: &[String]) -> Vec<String> {
+    let prefix = if folder.is_empty() {
+        String::new()
+    } else {
+        format!("{folder}/")
+    };
+    let mut names: Vec<String> = std::fs::read_dir(stdlib.join(folder))
         .unwrap()
         .filter_map(|e| {
             let path = e.unwrap().path();
@@ -46,7 +59,7 @@ fn modules(stdlib: &Path, skip: &[String]) -> Vec<String> {
             } else {
                 path.extension().is_some_and(|x| x == "jai")
             };
-            module.then_some(name)
+            module.then(|| format!("{prefix}{name}"))
         })
         .filter(|name| !skip.contains(name))
         .collect();
@@ -111,7 +124,7 @@ fn every_stdlib_module_checks_for_every_target() {
                     let Some((module, os)) = next.lock().unwrap().next() else {
                         return;
                     };
-                    let source = dir.join(format!("{module}.{os}.jai"));
+                    let source = dir.join(format!("{}.{os}.jai", module.replace('/', "-")));
                     std::fs::write(&source, format!("#import \"{module}\";\nmain :: () {{}}\n"))
                         .unwrap();
                     let (target_os, cpu) = os.split_once('-').unwrap_or((os, ""));

@@ -1,10 +1,10 @@
-// `Long_Double` from the Jaic_Extensions module: C's `long double` with the target's format.
+// `Long_Double` from the Extensions/Long_Double module: C's `long double` with the target's format.
 // Where that is float64 (Apple arm64, MSVC) only the format-independent checks run; the CLI tests
 // also run this file with `-target x86_64-linux-gnu` (x87) and `-target aarch64-linux-gnu`
 // (binary128), where the interpreter's soft-float does the arithmetic.
 // rules: ext.4 ext.5 ext.6 ext.7 ext.9 ext.10 ext.11 ext.12 ext.13 ext.14 ext.15
 #import "Basic";
-#import "Jaic_Extensions";
+#import "Extensions/Long_Double";
 #import "Reflection";
 
 THIRD :: cast(Long_Double) 1 / 3;

@@ -9,7 +9,7 @@
 #import "Process";
 #import "Bindings_Generator";
 #import "Scratch_Directory";
-#import "Jaic_Extensions";
+#import "Extensions/Long_Double";
 
 FIXTURE :: #filepath;
 
@@ -52,7 +52,7 @@ main :: () {
     #if HAVE_BINDINGS {
         // Wide: Long_Double everywhere, nothing stripped. Otherwise long double is double.
         assert(contains(BINDINGS, "ld_third :: () -> Long_Double") == LONG_DOUBLE_IS_WIDE);
-        assert(contains(BINDINGS, "#import \"Jaic_Extensions\"") == LONG_DOUBLE_IS_WIDE);
+        assert(contains(BINDINGS, "#import \"Extensions/Long_Double\"") == LONG_DOUBLE_IS_WIDE);
         assert(contains(BINDINGS, "ld_spill :: "));
         assert(contains(BINDINGS, "box_apply :: "));
 

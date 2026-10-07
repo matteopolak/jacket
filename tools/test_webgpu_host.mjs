@@ -1,4 +1,4 @@
-// The browser side of stdlib/WebGPU (crates/jai-wasm/js/webgpu_host.mjs) against a small mock of
+// The browser side of stdlib/Extensions/WebGPU (crates/jai-wasm/js/webgpu_host.mjs) against a small mock of
 // the WebGPU JavaScript API: argument marshalling, handles, strings, chained structs, sentinels,
 // futures and callback records with their modes, mapping, and pointer checks. With a built
 // browser bundle (JAI_WASM_DIR=<dir with jai_wasm.wasm>) and JSPI (Node 24 needs the V8 flag
@@ -128,7 +128,7 @@ function setup() {
 function mockCanvas() {
   return { width: 300, height: 150, getContext: () => ({ configure(c) { this.config = c; }, unconfigure() {} }) };
 }
-// A callback record (Webgpu_Callback_Record in stdlib/WebGPU/wasm.jai) as an object.
+// A callback record (Webgpu_Callback_Record in stdlib/Extensions/WebGPU/wasm.jai) as an object.
 function readRecord(d, p) {
   return {
     kind: d.getUint32(p, true), mode: d.getUint32(p + 4, true), future: d.getBigUint64(p + 8, true),
@@ -381,6 +381,6 @@ test("a program waits for the page and other threads keep running", { skip: !bun
 
   // Without a host the same program learns there is no WebGPU instead of failing.
   const plain = await createEngine(bytes);
-  const fallback = plain.play({ "main.jai": '#import "Basic";\n#import "WebGPU";\nmain :: () { print("%\\n", webgpu_available()); }\n' }, "main.jai");
+  const fallback = plain.play({ "main.jai": '#import "Basic";\n#import "Extensions/WebGPU";\nmain :: () { print("%\\n", webgpu_available()); }\n' }, "main.jai");
   assert.equal(fallback.stdout, "false\n");
 });

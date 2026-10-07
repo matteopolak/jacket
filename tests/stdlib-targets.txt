@@ -56,12 +56,12 @@ Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: unmapp
 Vulkan macos-arm64: Vulkan/module.jai: #assert failed: Unsupported OS
 Vulkan macos-x64: Vulkan/module.jai: #assert failed: Unsupported OS
 Vulkan wasm: Vulkan/module.jai: #assert failed: Unsupported OS
-Wasi_Runtime linux-arm64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Wasi_Runtime linux-x64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Wasi_Runtime macos-arm64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Wasi_Runtime macos-x64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Wasi_Runtime windows-arm64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Wasi_Runtime windows-x64: Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime linux-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime linux-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime macos-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime windows-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime windows-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Window_Creation wasm: Window_Creation/module.jai: #assert failed: this `#assert(false)` was compiled
 Windows linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
 Windows linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false

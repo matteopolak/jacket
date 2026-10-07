@@ -6,6 +6,7 @@
                       [--dlls DIR]
 
 The tests are `tests/stdlib/*.jai` and the stdlib's own module tests (`stdlib/<Module>/tests/*.jai`,
+`stdlib/Extensions/<Module>/tests/*.jai`,
 `stdlib/tests/**/*.jai`, minus their `modules/` folders of mock modules). Each one checks its own
 results with `assert` and must exit 0 in every mode:
 
@@ -62,7 +63,8 @@ def cases():
     for path in sorted((ROOT / "tests/stdlib").glob("*.jai")):
         yield path.stem, path
     stdlib = ROOT / "stdlib"
-    found = set(stdlib.glob("*/tests/*.jai")) | set((stdlib / "tests").glob("**/*.jai"))
+    found = (set(stdlib.glob("*/tests/*.jai")) | set(stdlib.glob("Extensions/*/tests/*.jai"))
+             | set((stdlib / "tests").glob("**/*.jai")))
     for path in sorted(found):
         rel = path.relative_to(stdlib)
         if "modules" not in rel.parts:

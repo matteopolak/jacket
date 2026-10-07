@@ -36,7 +36,7 @@ main :: () -> int {
 
 #import "Basic";
 #import "File";
-#import "Jai_Format";
+#import "Extensions/Jai_Format";
 
 WORKSPACE :: "/workspace";
 

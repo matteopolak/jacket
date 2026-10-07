@@ -2,17 +2,21 @@
 
 ## [Unreleased]
 
+### Heads-up
+
+- `Jaic_Extensions` is gone: import `Long_Double` with `#import "Extensions/Long_Double";`. The modules only jaic has now live in `stdlib/Extensions/` and are imported by that path (`Extensions/Jai_Format`, `Extensions/Wasi_Runtime`, and the new `Extensions/WebGPU`), so a bare `#import "Jai_Format";` no longer finds them; the error names the import to write. `Bindings_Generator` output imports `Extensions/Long_Double`.
+
 ### Added
 
 - The playground's language tour has four new stops: runtime safety checks and their opt-outs (with a switch that triggers each runtime error), threads (a `Thread_Group` and a producer/consumer on semaphores), files in the browser's workspace, and `#asm` with the 128-bit `Long_Double`.
-- `WebGPU` module: the whole `webgpu.h` API, generated from webgpu-headers' `webgpu.yml` (`tools/webgpu_gen.py`, pinned in `tools/webgpu.json`), plus helpers for windows, adapters, surface formats, buffer mapping and error scopes. The same program draws in a window on macOS (Metal), Linux (Vulkan, X11) and Windows (D3D12), and in the playground. Release archives ship the pinned wgpu-native, so `jaic run` and `jaic build` of a WebGPU program need nothing else. Examples: `examples/webgpu/triangle.jai`, `raymarch.jai` and `compute.jai`. See `docs/stdlib/webgpu.md`.
+- `Extensions/WebGPU` module (`#import "Extensions/WebGPU";`, a jaic extension): the whole `webgpu.h` API, generated from webgpu-headers' `webgpu.yml` (`tools/webgpu_gen.py`, pinned in `tools/webgpu.json`), plus helpers for windows, adapters, surface formats, buffer mapping and error scopes. The same program draws in a window on macOS (Metal), Linux (Vulkan, X11) and Windows (D3D12), and in the playground. Release archives ship the pinned wgpu-native, so `jaic run` and `jaic build` of a WebGPU program need nothing else. Examples: `examples/webgpu/triangle.jai`, `raymarch.jai` and `compute.jai`. See `docs/stdlib/webgpu.md`.
 - Browser build: page host functions. A foreign procedure the sandbox lacks is offered to the page by name (`createEngine(bytes, { host })`), with every pointer checked against the program's memory; a promise result suspends the program through JSPI (`playAsync`), while other Jai threads keep running. The playground draws WebGPU programs in a new Render pane (browsers with WebGPU and JSPI), and the tour ends with a GPU ray marcher that prints a skip line elsewhere.
 - CI runs a headless WebGPU test (offscreen rendering, compute, texture upload, buffer mapping, error scopes), interpreted and built, on Linux (lavapipe), macOS (Metal) and Windows x64 and arm64 (WARP), and tests the browser host against a mock WebGPU.
 
 ### Changed
 
 - Release archives are now named `jai-<platform>` (`jai-macos-arm64.tar.gz`, `jai-linux-x64.tar.gz`, `jai-windows-x64.zip`, `jai-windows-arm64.zip`, each unpacking to `jai-<platform>/`), since they hold all four tools. Releases up to 0.4.0 keep their `jaic-` names: `install.sh`, `install.ps1`, the Homebrew formula, the winget manifests and the VS Code extension pick the name by version, so installing an older release and upgrading an existing install keep working. The install scripts also read `JAI_VERSION`, `JAI_INSTALL_DIR` and `JAI_BIN_DIR`; the `JAIC_` names still work.
-
+- The stdlib's jaic-only modules are in their own folder, `stdlib/Extensions/` ([stdlib extensions](docs/stdlib/extensions.md)). jailsp completes `#import "Extensions/` and its "Add `#import`" fix offers them.
 - The VS Code extension is listed as **Jai Toolchain** (its ID stays `matteopolak.jai`), so it can go on the VS Code Marketplace, where the name *Jai* is taken. 0.4.0 reached only Open VSX and the GitHub release.
 
 ### Fixed

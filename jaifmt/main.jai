@@ -10,7 +10,7 @@
 #import "File_Utilities";
 #import "Sort";
 
-#import "Jai_Format";
+#import "Extensions/Jai_Format";
 
 USAGE :: #string END
 usage: jaifmt [options] <file or directory>...

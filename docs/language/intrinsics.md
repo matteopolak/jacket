@@ -22,7 +22,7 @@ memory_add_pages :: (memory: s32, pages: s64) -> s64 #intrinsic "llvm.wasm.memor
 bit_count :: (x: u64) -> u64 #intrinsic "llvm.ctpop.i64";
 ```
 
-`stdlib/Wasi_Runtime` uses it for `memory.size`/`memory.grow` ([wasm target](../native/wasm-target.md)).
+`stdlib/Extensions/Wasi_Runtime` uses it for `memory.size`/`memory.grow` ([wasm target](../native/wasm-target.md)).
 
 `compare_and_swap` takes its width (1, 2, 4 or 8 bytes) from the value type {#intrin.3}:
 
@@ -36,7 +36,7 @@ ok, old  = compare_and_swap(*x, 5, 1);   // false 9, x stays 9
 
 Taking an intrinsic's address goes through `lower_intrinsic_wrapper` (`sema/procs.rs`), which generates a small function around the op. Only `memcpy`, `memset`, `memcmp` and `debug_break` have real wrappers {#intrin.6}; any other becomes a `Trap`, so don't take pointers to the math intrinsics.
 
-The compiler also emits IR operations that user code never names: `BoundsCheck` for indexing, `IsCompileTime` for `#compile_time`, bit operations for `#asm` lowering (see [SIMD and asm](simd-asm.md)), and `Wide(WideOp, WideFloat)` for every `Long_Double` operation (see [jaic extensions](jaic-extensions.md)).
+The compiler also emits IR operations that user code never names: `BoundsCheck` for indexing, `IsCompileTime` for `#compile_time`, bit operations for `#asm` lowering (see [SIMD and asm](simd-asm.md)), and `Wide(WideOp, WideFloat)` for every `Long_Double` operation (see [Long_Double](long-double.md)).
 
 ## How to change it
 

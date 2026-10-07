@@ -178,6 +178,71 @@ fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
 const INFERRED_PARAM: &str = "\0inferred.";
 
 impl Compiler {
+    /// For a missing module that is one of jaic's `stdlib/Extensions/` modules imported without
+    /// the `Extensions/` path (or the folder itself, or the old `Jaic_Extensions`): `d` with that
+    /// help, which replaces the general search help. `Err(d)` unchanged otherwise.
+    fn with_extension_help(
+        &self,
+        d: Diagnostic,
+        name: &str,
+        span: Span,
+    ) -> std::result::Result<Diagnostic, Diagnostic> {
+        let folder = crate::STDLIB_EXTENSIONS_DIR;
+        let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent) else {
+            return Err(d);
+        };
+        if name == folder {
+            let mut modules: Vec<String> = self
+                .stdlib_modules_under(stdlib, folder)
+                .into_iter()
+                .map(|(m, _)| format!("`{m}`"))
+                .collect();
+            modules.sort();
+            if modules.is_empty() {
+                return Err(d);
+            }
+            return Ok(d.with_help(format!(
+                "`{folder}` is the folder of jaic's extension modules, not a module: import one of them by its path: {}",
+                modules.join(", ")
+            )));
+        }
+        if name.contains('/') {
+            return Err(d);
+        }
+        // `Jaic_Extensions` held only Long_Double, which is now a module of its own.
+        let wanted = if name == "Jaic_Extensions" {
+            "Long_Double"
+        } else {
+            name
+        };
+        let path = format!("{folder}/{wanted}");
+        let exists = self.fs.is_file(&stdlib.join(&path).join("module.jai"))
+            || self.fs.is_file(&stdlib.join(format!("{path}.jai")));
+        if !exists {
+            return Err(d);
+        }
+        let message = if wanted == name {
+            format!(
+                "`{name}` is a jaic extension (not official Jai), imported by its path: `#import \"{path}\";`"
+            )
+        } else {
+            format!("`{name}` was replaced by `{path}`: `#import \"{path}\";`")
+        };
+        Ok(
+            match self.sources.snippet(span).find(&format!("\"{name}\"")) {
+                Some(at) => {
+                    let start = span.start as usize + at + 1;
+                    d.with_fix(
+                        message,
+                        Span::new(span.file, start, start + name.len()),
+                        path,
+                    )
+                }
+                None => d.with_help(message),
+            },
+        )
+    }
+
     /// `module `X` not found`, with where jaic looked and the closest module name there.
     fn module_not_found(&self, name: &str, from_dir: &Path, span: Span) -> Diagnostic {
         let mut dirs = vec![from_dir.join("modules")];
@@ -187,8 +252,22 @@ impl Compiler {
             dirs.iter().flat_map(|d| modules_in(&*self.fs, d)).collect();
         available.sort();
         available.dedup();
-        let mut d = Diagnostic::error(span, format!("module `{name}` not found"))
+        let d = Diagnostic::error(span, format!("module `{name}` not found"))
             .with_label("no module of this name");
+        let mut d = match self.with_extension_help(d, name, span) {
+            Ok(d) => return d,
+            Err(d) => d,
+        };
+        // A misspelled `Extensions/Name`: the closest extension module.
+        if name.starts_with(&format!("{}/", crate::STDLIB_EXTENSIONS_DIR))
+            && let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent)
+        {
+            available.extend(
+                self.stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR)
+                    .into_iter()
+                    .map(|(m, _)| m),
+            );
+        }
         let near =
             crate::suggest::closest(name, available.iter().map(String::as_str)).map(str::to_string);
         let near_found = near.is_some();

@@ -214,7 +214,8 @@ impl Compiler {
 
     /// The `#import`s that would declare `name`, best first: the standard-library module of
     /// that name (bound to it, for `Name.member`), then the modules that declare it at their top
-    /// level (outside `#scope_file`), common modules first. At most [`MAX_IMPORTS`].
+    /// level (outside `#scope_file`), common modules first and jaic's `Extensions/` modules
+    /// (named by that path) last. At most [`MAX_IMPORTS`].
     fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
         let mut found = Vec::new();
         if name.len() < 2 || name.starts_with("__") {
@@ -224,25 +225,17 @@ impl Compiler {
             return found;
         };
         let mut modules: Vec<(String, bool)> = self
-            .fs
-            .list_dir(stdlib)
+            .stdlib_modules_under(stdlib, "")
             .into_iter()
-            .filter_map(|(entry, is_dir)| {
-                if is_dir {
-                    self.fs
-                        .is_file(&stdlib.join(&entry).join("module.jai"))
-                        .then_some((entry, true))
-                } else {
-                    entry.strip_suffix(".jai").map(|m| (m.to_string(), false))
-                }
-            })
+            .chain(self.stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR))
             .filter(|(m, _)| !COMPILER_INTERNAL_MODULES.contains(&m.as_str()))
             .collect();
         let rank = |m: &str| {
-            COMMON_MODULES
+            let common = COMMON_MODULES
                 .iter()
                 .position(|c| *c == m)
-                .unwrap_or(usize::MAX)
+                .unwrap_or(usize::MAX);
+            (common, m.contains('/'))
         };
         modules.sort_by(|a, b| (rank(&a.0), &a.0).cmp(&(rank(&b.0), &b.0)));
         modules.dedup_by(|a, b| a.0 == b.0);
@@ -275,6 +268,32 @@ impl Compiler {
             }
         }
         found
+    }
+
+    /// The modules in `stdlib/folder` as (import name, is a folder): `Name` for the stdlib
+    /// itself (`folder` empty), `folder/Name` below it.
+    pub(crate) fn stdlib_modules_under(&self, stdlib: &Path, folder: &str) -> Vec<(String, bool)> {
+        let dir = stdlib.join(folder);
+        let prefix = if folder.is_empty() {
+            String::new()
+        } else {
+            format!("{folder}/")
+        };
+        self.fs
+            .list_dir(&dir)
+            .into_iter()
+            .filter_map(|(entry, is_dir)| {
+                if is_dir {
+                    self.fs
+                        .is_file(&dir.join(&entry).join("module.jai"))
+                        .then(|| (format!("{prefix}{entry}"), true))
+                } else {
+                    entry
+                        .strip_suffix(".jai")
+                        .map(|m| (format!("{prefix}{m}"), false))
+                }
+            })
+            .collect()
     }
 
     /// The `.jai` files of a module directory, leaving out tests and examples.

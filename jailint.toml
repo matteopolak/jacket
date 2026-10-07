@@ -3,13 +3,13 @@
 # Every Jai file the repository owns is linted, except:
 # - tests/corpus/negative: programs that must fail to compile.
 # - tests/lint: each rule's bad cases, which must trigger it.
-# - stdlib/Jai_Format/tests/cases: formatter golden inputs, whose code is only there to be
+# - stdlib/Extensions/Jai_Format/tests/cases: formatter golden inputs, whose code is only there to be
 #   formatted.
 # - fuzz: fuzzer seeds and byte-exact regressions, many deliberately broken.
 exclude = [
     "tests/corpus/negative/**",
     "tests/lint/**",
-    "stdlib/Jai_Format/tests/cases/**",
+    "stdlib/Extensions/Jai_Format/tests/cases/**",
     "fuzz/**",
 ]
 

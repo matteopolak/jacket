@@ -43,7 +43,7 @@ function native(source, config) {
   return execFileSync(nativePath, args, { input: source, encoding: "utf8" });
 }
 
-const cases = path.join(root, "stdlib/Jai_Format/tests/cases");
+const cases = path.join(root, "stdlib/Extensions/Jai_Format/tests/cases");
 const names = readdirSync(cases).filter(n => n.endsWith(".in.jai")).map(n => n.slice(0, -".in.jai".length)).sort();
 const times = [];
 for (const name of names) {

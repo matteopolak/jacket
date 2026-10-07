@@ -926,6 +926,17 @@ fn an_unknown_name_offers_the_import_that_declares_it() {
 }
 
 #[test]
+fn an_unknown_extension_name_offers_its_extensions_import() {
+    let text = "main :: () {\n    x: Long_Double;\n}\n";
+    let actions = quick_fixes_at(text, "Long_Double");
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    assert_eq!(
+        actions[0].title,
+        "Add `#import \"Extensions/Long_Double\";`"
+    );
+}
+
+#[test]
 fn an_import_goes_after_the_existing_imports() {
     let text = "#import \"Math\";\n#load \"other.jai\";\n\nmain :: () {\n    print(\"%\\n\", sqrt(2.0));\n}\n";
     let mut s = session();

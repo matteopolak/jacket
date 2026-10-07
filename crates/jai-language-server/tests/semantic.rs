@@ -282,6 +282,29 @@ fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
     assert_eq!(names(after(text, "util/h", 0, 0)), ["helpers.jai"]);
 }
 
+#[test]
+fn import_completion_offers_the_extension_modules_by_their_path() {
+    let mut s = session();
+    let text = "#import \"Ext\";\n#import \"Extensions/Lo\";\n";
+    s.open(uri(), 1, text.into()).unwrap();
+    assert_eq!(
+        labels(&s, after(text, "\"Ext", 0, 0)),
+        [(
+            "Extensions".to_string(),
+            CompletionKind::Folder,
+            "jaic extension modules (not official Jai)".to_string()
+        )]
+    );
+    assert_eq!(
+        labels(&s, after(text, "Extensions/Lo", 0, 0)),
+        [(
+            "Long_Double".to_string(),
+            CompletionKind::Module,
+            "jaic extension module".to_string()
+        )]
+    );
+}
+
 /// The type checker's error is published, also for a procedure nothing calls (the program's
 /// own code is checked whether or not it is used), at the offending code; fixed, it goes away.
 // rules: dce.2

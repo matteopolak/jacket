@@ -734,12 +734,27 @@ impl Session {
                 entries.insert((first.to_string_lossy().into_owned(), parts.next().is_some()));
             }
         }
+        // jaic's own modules, imported as `Extensions/Name` (stdlib/Extensions).
+        let extensions = jaic::STDLIB_EXTENSIONS_DIR;
+        let module_detail = if folder == extensions {
+            "jaic extension module"
+        } else {
+            "module"
+        };
         let items = entries
             .into_iter()
             .filter(|(name, _)| name.starts_with(partial) && !name.starts_with('.'))
-            .filter_map(|(name, folder)| {
+            .filter_map(|(name, is_folder)| {
                 let jai = name.strip_suffix(".jai");
-                match (folder, jai) {
+                match (is_folder, jai) {
+                    (true, _) if !load && folder.is_empty() && name == extensions => {
+                        Some(CompletionItem {
+                            label: name,
+                            kind: CompletionKind::Folder,
+                            detail: "jaic extension modules (not official Jai)".into(),
+                            ..CompletionItem::default()
+                        })
+                    }
                     (true, _) => Some(CompletionItem {
                         label: if load {
                             format!("{name}/")
@@ -754,7 +769,7 @@ impl Session {
                         detail: if load {
                             "folder"
                         } else {
-                            "module"
+                            module_detail
                         }
                         .into(),
                         ..CompletionItem::default()
@@ -773,7 +788,7 @@ impl Session {
                         detail: if load {
                             "file"
                         } else {
-                            "module"
+                            module_detail
                         }
                         .into(),
                         ..CompletionItem::default()

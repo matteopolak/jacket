@@ -513,7 +513,7 @@ impl Interp {
         self.suspend_as(Wait::None, None)
     }
 
-    /// `jai_sched_yield_for_wait` (stdlib/WebGPU/wasm.jai): the running thread is about to wait
+    /// `jai_sched_yield_for_wait` (stdlib/Extensions/WebGPU/wasm.jai): the running thread is about to wait
     /// for the embedding page, which stops every thread. First the threads that can run now run
     /// (this one suspends with `Wait::Host`); then the result says whether another thread may
     /// still run later (a sleeper, a yielded thread), so the caller waits in short slices and

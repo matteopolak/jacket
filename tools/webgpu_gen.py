@@ -6,8 +6,8 @@
 Reads the pinned webgpu.yml (tools/webgpu.json: revision + sha256; downloaded into
 artifacts/webgpu/ unless --yml is given) and writes:
 
-  stdlib/WebGPU/generated.jai                      types, enums, structs, callbacks, #foreign procs
-  stdlib/WebGPU/generated_wasm.jai                 callback dispatch for the browser sandbox
+  stdlib/Extensions/WebGPU/generated.jai                      types, enums, structs, callbacks, #foreign procs
+  stdlib/Extensions/WebGPU/generated_wasm.jai                 callback dispatch for the browser sandbox
   crates/jai-wasm/js/webgpu_bindings.generated.mjs layouts and call descriptors for the JS host
 
 --check-header renders every struct, enum value and function back to C and compares them with
@@ -27,8 +27,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'webgpu.json'
-OUT_JAI = ROOT / 'stdlib' / 'WebGPU' / 'generated.jai'
-OUT_JAI_WASM = ROOT / 'stdlib' / 'WebGPU' / 'generated_wasm.jai'
+OUT_JAI = ROOT / 'stdlib' / 'Extensions' / 'WebGPU' / 'generated.jai'
+OUT_JAI_WASM = ROOT / 'stdlib' / 'Extensions' / 'WebGPU' / 'generated_wasm.jai'
 OUT_JS = ROOT / 'crates' / 'jai-wasm' / 'js' / 'webgpu_bindings.generated.mjs'
 
 

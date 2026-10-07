@@ -7,7 +7,7 @@
 #import "Input";
 #import "Random";
 #import "Window_Type";
-#import "WebGPU";
+#import "Extensions/WebGPU";
 
 #if OS != .WASM {
     #import "Window_Creation";

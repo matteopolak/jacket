@@ -284,7 +284,7 @@ pub enum Intrinsic {
     USubOverflow,
     SMulOverflow,
     UMulOverflow,
-    /// `long double` operations of a wide format (`Jaic_Extensions.Long_Double`), on values in
+    /// `long double` operations of a wide format (`Long_Double` from `Extensions/Long_Double`), on values in
     /// memory; see `WideOp` for the operands.
     Wide(WideOp, WideFloat),
 }

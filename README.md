@@ -148,7 +148,7 @@ Release builds spend most of their time in LLVM's optimiser. The formatter compi
 
 ## What is missing
 
-- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Long_Double` extension](docs/language/jaic-extensions.md); C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
+- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Long_Double` extension](docs/language/long-double.md); C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
 - WebAssembly builds are wasm64 only, have no threads, processes or sockets, see only the directories their runtime pre-opens, and can call only the common part of libm (`sin`, `pow`, `fmod` and the like, not `sinh` or `cbrt`).
 
 Anything unsupported fails with a compile error rather than being silently accepted.

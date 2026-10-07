@@ -76,7 +76,8 @@ def cases(name):
         for p in sorted((ROOT / "tests/stdlib").glob("*.jai")):
             yield p.stem, p, "run", None, []
     elif name == "modules":
-        found = list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib/tests").glob("**/*.jai"))
+        found = (list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib").glob("Extensions/*/tests/*.jai"))
+                 + list((ROOT / "stdlib/tests").glob("**/*.jai")))
         for p in sorted(set(found)):
             if "modules" not in p.relative_to(ROOT / "stdlib").parts:
                 yield str(p.relative_to(ROOT / "stdlib").with_suffix("")), p, "run", None, []

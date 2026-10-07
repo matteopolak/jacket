@@ -1,14 +1,12 @@
-# jaic extensions (`Jaic_Extensions`)
+# `Long_Double` (jaic extension)
 
 ## What it is
 
-`stdlib/Jaic_Extensions/module.jai` holds features only `jaic` has. They are not official Jai, no other compiler knows them, and they may change between jaic releases. A program sees none of them unless it writes `#import "Jaic_Extensions";` {#ext.1}, so code that doesn't opt in stays portable.
-
-The one feature so far is `Long_Double`: C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one {#ext.2}.
+`stdlib/Extensions/Long_Double/module.jai` gives Jai C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one {#ext.2}. Like every module under [`stdlib/Extensions/`](../specs/stdlib/README.md) it is not official Jai: no other compiler knows it, and it may change between jaic releases. A program sees none of it unless it writes `#import "Extensions/Long_Double";` {#ext.1}, so code that doesn't opt in stays portable.
 
 ```jai
 #import "Basic";
-#import "Jaic_Extensions";
+#import "Extensions/Long_Double";
 
 libm :: #system_library "libm";
 sqrtl :: (x: Long_Double) -> Long_Double #foreign libm;
@@ -24,7 +22,7 @@ main :: () {
 
 ### The opt-in mechanism
 
-The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `` unknown jaic extension type `x` `` {#ext.3}. Without the import, `Long_Double` is just an unknown identifier. New extensions should follow the same pattern: reachable only through this module, and documented on this page.
+The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `` unknown jaic extension type `x` `` {#ext.3}. Without the import, `Long_Double` is just an unknown identifier. A new compiler-backed extension follows the same pattern: a builtin named only by a module of its own under `stdlib/Extensions/`, documented like this page.
 
 ### `Long_Double` per target
 
@@ -66,16 +64,13 @@ The IR has no wide scalar register: like a small struct, a `Long_Double` lives i
 - `jaic run`: a C library cannot call a Jai `#c_call` procedure that passes a wide `Long_Double` (the callback thunks have no x87/q-register path); native builds can. Foreign calls *to* C work in the interpreter on x86-64 and arm64 hosts.
 - The interpreter's foreign calls need the host to match the target (an arm64 Linux host for binary128, an x86-64 host for x87); `jaic run -target x86_64-...` on an arm64 Mac still computes in soft-float, but cannot call x86-64 C code.
 
-### Outside this module
+### Other jaic-only additions
 
-Two jaic-only additions live elsewhere because they belong to native builds, not to the language a program sees:
-
-- `#intrinsic "llvm.<name>"` calls an LLVM intrinsic directly ([intrinsics](intrinsics.md)).
-- `stdlib/Wasi_Runtime`, the WASI runtime that `jaic build -os wasm` adds to a program ([wasm target](../native/wasm-target.md)). A program never imports it itself.
+The other modules under `stdlib/Extensions/` are listed in [stdlib extensions](../specs/stdlib/README.md). `#intrinsic "llvm.<name>"`, which calls an LLVM intrinsic directly ([intrinsics](intrinsics.md)), is a directive rather than a module.
 
 ## How to change it
 
-- Another extension: add it to `stdlib/Jaic_Extensions/module.jai`, add a name to `jaic_type` in `sema/expr.rs` (or another directive), document it here.
+- Another `#jaic_type` builtin: add a name to `jaic_type` in `sema/expr.rs`, export it from a new module `stdlib/Extensions/<Name>/module.jai` (see [stdlib extensions](../specs/stdlib/README.md)), and document it on a page like this one.
 - Long_Double format for a target: `long_double_for` in `sema/mod.rs`, plus the C ABI rules in `abi.rs`. Check against `clang -target <triple> -S -emit-llvm`.
 - New operation: add a `WideOp`, implement it in `wide_float.rs`, `interp/mod.rs` (`wide`) and `jaic-llvm` (`wide`), and emit it from `sema/wide.rs`.
 - Gotcha: `ir_ty` returns `None` for the wide type (it is memory-class); `materialize` and `convert_const` encode constants into 16 bytes with `wide_const`.
@@ -89,4 +84,4 @@ Two jaic-only additions live elsewhere because they belong to native builds, not
 
 - `crates/jaic/src/wide_float.rs`, `sema/wide.rs`, `sema/expr.rs`, `sema/convert.rs`, `ir.rs`, `abi.rs`, `interp/native/wide.rs`, `crates/jaic-llvm/src/lower.rs`.
 - `stdlib/Basic/Print.jai` for printing.
-- Tests: `tests/stdlib/jaic-extensions-long-double.jai` (also run with four `-target`s by `long_double_extension_on_wide_targets` in `crates/jaic-cli/tests/cli.rs`), `tests/native/c-long-double/` (`c_long_double` in `crates/jaic-cli/tests/native.rs`), `tests/stdlib/bindings-generator-long-double.jai`.
+- Tests: `tests/stdlib/extensions-long-double.jai` (also run with four `-target`s by `long_double_extension_on_wide_targets` in `crates/jaic-cli/tests/cli.rs`), `tests/native/c-long-double/` (`c_long_double` in `crates/jaic-cli/tests/native.rs`), `tests/stdlib/bindings-generator-long-double.jai`.

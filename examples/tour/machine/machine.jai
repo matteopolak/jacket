@@ -1,6 +1,6 @@
 // Close to the machine: inline x64 assembly with #asm, and C's `long double`.
 
-#import "Jaic_Extensions";
+#import "Extensions/Long_Double";
 
 tour_machine :: () {
     // #asm blocks name Jai variables directly. jaic lowers each instruction

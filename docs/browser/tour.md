@@ -22,7 +22,7 @@
 | `safety/safety.jai` | Runtime checks with their opt-outs (`cast,trunc`, `cast,no_check`, `#no_abc`) and a `BREAK_ON_PURPOSE` switch that triggers a narrowing-cast, bounds or null-pointer runtime error, so the default run stays green |
 | `threads/threads.jai` | A `Thread_Group` counting primes over 8 work items on 3 workers, and a producer thread and the main thread sharing a 4-slot ring through two `Semaphore`s |
 | `files/files.jai` | `visit_files` over the tour's own folder (`#filepath`), reading `tour.md`, writing `/tmp/jai-tour-log.txt` with `file_open`/`file_write`, reading it back and deleting it |
-| `machine/machine.jai` | `#asm` (`bswap`, `popcnt`, `lzcnt`, a 128-bit `mul`) and `Long_Double` from `Jaic_Extensions`, 128-bit on WebAssembly, against `float64` on a Newton square root |
+| `machine/machine.jai` | `#asm` (`bswap`, `popcnt`, `lzcnt`, a 128-bit `mul`) and `Long_Double` from `Extensions/Long_Double`, 128-bit on WebAssembly, against `float64` on a Newton square root |
 | `finale/raymarch.jai` | An ASCII ray marcher (signed distance fields, smooth union, soft lighting, shadows, fog) built on `Math`'s `Vector3` |
 | `gpu/raymarch_gpu.jai` | Encore: the same kind of scene as a WGSL fragment shader through [WebGPU](../specs/stdlib/README.md), drawn in the playground's Render pane for 20 seconds; prints a skip line where the browser has no WebGPU (and under `jaic run`, where no page host exists) |
 

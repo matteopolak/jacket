@@ -60,7 +60,7 @@ A program whose source mentions `.WASM` (as in `OS == .WASM`) may skip work in t
 
 `OUTPUT_VARIES` in the harness lists cases where only the status is compared. Each entry has its reason:
 
-- `jaic-extensions-long-double` prints which `Long_Double` representation the target ABI has: float64 on arm64 macOS, binary128 on wasm32.
+- `extensions-long-double` prints which `Long_Double` representation the target ABI has: float64 on arm64 macOS, binary128 on wasm32.
 - `iprof-runtime-manual` prints measured times.
 - `debug-assert-handlers` prints a native stack trace: addresses, and the symbols of whatever executable is running. Under `jaic run` that is the interpreter itself.
 

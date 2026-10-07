@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the stdlib module `Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
+`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
 
 ```sh
 target/debug/jaic build jaifmt/build.jai   # or: jaic build jaifmt/main.jai -O2 -o target/jaifmt
@@ -46,7 +46,7 @@ jaic build jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
 
 The output is canonical: it depends on the tokens, comments and blank lines of the input, not on how the input was spaced. Two inputs that differ only in spacing between tokens, in where braces and `else` sit, or in how many statements share a line format to the same text (like rustfmt). Formatting is idempotent.
 
-`stdlib/Jai_Format/module.jai` holds the public API (below) and loads three files:
+`stdlib/Extensions/Jai_Format/module.jai` holds the public API (below) and loads three files:
 
 - `lexer.jai`: a tokenizer with the same token boundaries as `crates/jaic/src/lexer.rs` (same punctuation table, here-strings, `@` notes, `\` identifier separators, `.5` floats), but comments are tokens and every token records the whitespace before it (`ws_start`, `newlines`, `column`).
 - `format.jai`: two passes over the tokens. `plan_lines` decides the line structure (`breaks[i]`: line breaks before token i). The emit loop then writes each line: indentation from a stack of `Frame`s, and zero or one space between neighbors (`spacing_rule`).
@@ -156,14 +156,14 @@ Binary versus prefix is decided from the previous code token: an operand (identi
 
 ## How to change it
 
-- New spacing rule: add it to `spacing_rule` in `stdlib/Jai_Format/format.jai`, above the more general rules it should override, and add a line to `stdlib/Jai_Format/tests/cases/spacing.in.jai`. Return `.PRESENCE` only where the parser itself looks at adjacency; everything else must be `.NONE` or `.SPACE` so the output stays canonical.
+- New spacing rule: add it to `spacing_rule` in `stdlib/Extensions/Jai_Format/format.jai`, above the more general rules it should override, and add a line to `stdlib/Extensions/Jai_Format/tests/cases/spacing.in.jai`. Return `.PRESENCE` only where the parser itself looks at adjacency; everything else must be `.NONE` or `.SPACE` so the output stays canonical.
 - New line-structure rule: `plan_lines` (where breaks are added or removed). Any break it adds or removes must be one `break_change_allowed` accepts, and that function must only accept breaks the parser ignores.
 - New indentation behavior: `line_indent` (where a line starts) and `track` (what a token does to the frame stack). `starts_statement` decides statement versus continuation lines.
 - Lexer changes must mirror `crates/jaic/src/lexer.rs`; if the two disagree about where a token ends, the safety check can accept output that `jaic` lexes differently. Likewise, if the parser starts to depend on whitespace somewhere new (look for `newline_before` and `span.start == ...end` in `crates/jaic/src/parser/`), teach `check_equivalent` about it and make the formatter keep that spacing.
 - The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and `corpus/upstream` (point a worktree's `corpus/upstream` symlink at the copy) and run the sweep. This is how the directive-flag adjacency rule was found.
-- Golden tests: `stdlib/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (with `<name>.toml` as config if present). Run `jaic run stdlib/Jai_Format/tests/golden.jai` (part of the sweep's `modules` set); after an intended change, regenerate with `jaic run stdlib/Jai_Format/tests/golden.jai -- --bless` and review the diff. The same test checks idempotence, the refusal of malformed input, the safety check, config parsing and globs, and that the formatter's own sources are formatted.
+- Golden tests: `stdlib/Extensions/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (with `<name>.toml` as config if present). Run `jaic run stdlib/Extensions/Jai_Format/tests/golden.jai` (part of the sweep's `modules` set); after an intended change, regenerate with `jaic run stdlib/Extensions/Jai_Format/tests/golden.jai -- --bless` and review the diff. The same test checks idempotence, the refusal of malformed input, the safety check, config parsing and globs, and that the formatter's own sources are formatted.
 - `tests/stdlib/jai-format-api.jai` exercises the public API on in-memory text only, so it runs unchanged in the browser engine (`tools/check_playground_stdlib.mjs`). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | staged-dir>` runs the browser driver through the wasm engine on every golden case (CI runs it on the debug wasm).
-- Moving or renaming `jaifmt/`: CI (`ci.yml`), `nix/jaifmt.nix`, `tools/build_scripting_wasm.py` (and its test), `tools/build_pgo.py`, `tools/check_jaifmt_wasm.mjs`, `tools/check_jai_format_wasm.mjs`, the jaic-cli tests and the last entry of `SOURCES` in `stdlib/Jai_Format/tests/golden.jai` all name its files. The browser bundle's names (`jaifmt-playground.jai`, `jaifmt.wasm`) are what pages fetch, so they do not follow the source path.
+- Moving or renaming `jaifmt/`: CI (`ci.yml`), `nix/jaifmt.nix`, `tools/build_scripting_wasm.py` (and its test), `tools/build_pgo.py`, `tools/check_jaifmt_wasm.mjs`, `tools/check_jai_format_wasm.mjs`, the jaic-cli tests and the last entry of `SOURCES` in `stdlib/Extensions/Jai_Format/tests/golden.jai` all name its files. The browser bundle's names (`jaifmt-playground.jai`, `jaifmt.wasm`) are what pages fetch, so they do not follow the source path.
 - Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
 - `crates/jaic-cli/tests/native.rs` (`jaifmt_builds_and_formats`) builds the tool natively and checks the CLI: `--stdin`, `--check`, in-place rewrites, ignore globs and exit codes. `jaifmt_build_metaprogram` (and `jaifmt_wasm_from_the_build_metaprogram` in `tests/wasm_target`) builds it through `jaifmt/build.jai`. `jaifmt_is_idempotent_on_the_repository` formats a copy of every `.jai` file under `stdlib/`, `tests/` (minus `tests/corpus`), `tools/`, `jaifmt/`, `benchmarks/` and `examples/` and checks that a second run changes nothing.
 - A file whose layout matters (generated tables, test fixtures with recorded line numbers such as `tests/native/debug-info`): add it to `ignore`, or wrap the region in `// jaifmt: off` / `// jaifmt: on`. Tests that compare `#location` lines must not rely on two statements sharing a line, since they will be split.
@@ -183,7 +183,7 @@ blank_lines_between_items = true  # or false: no blank lines added between file-
 ignore = ["tests/corpus/**", "generated/*.jai"]
 ```
 
-Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more.
+Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Extensions/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more.
 
 **CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
 
@@ -201,7 +201,7 @@ Ignore globs are relative to the config file's directory: `*` and `?` stay withi
 ## Module API
 
 ```jai
-#import "Jai_Format";
+#import "Extensions/Jai_Format";
 
 config, ok, error := parse_config(toml_text);       // Format_Config, bool, string
 formatted, ok, error := format_source(source, config); // config defaults to .{}
@@ -224,7 +224,7 @@ if (result.exitCode === 0) editor.setText(result.stdout);   // the formatted fil
 else showError(result.stderr);                                // "jaifmt: main.jai:3:7: unbalanced ..."
 ```
 
-`tools/build_scripting_wasm.py` stages the driver as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it is part of every browser release bundle (`tools/package_browser_release.py`, [browser compiler](../browser/playground.md)); the portfolio serves it from `/jai/<commit>/jaifmt-playground.jai`. Exit code 0 means stdout is the whole formatted file; 1 means stdout is empty and stderr has one `jaifmt: ...` line (bad config, unreadable file, or input that cannot be formatted safely). To let users configure it, create `/workspace/jaifmt.toml`, for example `indent_width = 2`. The page can instead call the module from its own driver: `#import "Jai_Format"` is bundled with the rest of `stdlib/`.
+`tools/build_scripting_wasm.py` stages the driver as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it is part of every browser release bundle (`tools/package_browser_release.py`, [browser compiler](../browser/playground.md)); the portfolio serves it from `/jai/<commit>/jaifmt-playground.jai`. Exit code 0 means stdout is the whole formatted file; 1 means stdout is empty and stderr has one `jaifmt: ...` line (bad config, unreadable file, or input that cannot be formatted safely). To let users configure it, create `/workspace/jaifmt.toml`, for example `indent_width = 2`. The page can instead call the module from its own driver: `#import "Extensions/Jai_Format"` is bundled with the rest of `stdlib/`.
 
 ### WebAssembly build (`jaifmt.wasm`)
 

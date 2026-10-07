@@ -1,7 +1,7 @@
 //! Software arithmetic for the C `long double` formats wider than `f64`: the x87 80-bit
 //! extended format (x86-64 System V, MinGW) and IEEE binary128 (Linux AArch64, wasm32).
 //!
-//! The interpreter evaluates `Long_Double` (module `Jaic_Extensions`) operations with these
+//! The interpreter evaluates `Long_Double` (module `Extensions/Long_Double`) operations with these
 //! on every host, so compile-time code and `jaic run` get the target's full precision, and
 //! sema uses them to encode constants. Values are 16 little-endian bytes, the target's memory
 //! image; for x87 the last six bytes are padding and written as zero.

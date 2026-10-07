@@ -27,7 +27,7 @@ function format(source, { config, target = "main.jai" } = {}) {
   return { ...result, exitCode: Number(result.exitCode), ms: performance.now() - started };
 }
 
-const cases = path.join(root, "stdlib/Jai_Format/tests/cases");
+const cases = path.join(root, "stdlib/Extensions/Jai_Format/tests/cases");
 const names = (await readdir(cases)).filter(n => n.endsWith(".in.jai")).map(n => n.slice(0, -".in.jai".length)).sort();
 const times = [];
 for (const name of names) {

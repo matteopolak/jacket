@@ -39,7 +39,7 @@ Icon 4
 Input 21
 IntroSort 2
 Iprof 20
-Jai_Format 6
+Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -122,7 +122,7 @@ Icon 4
 Input 21
 IntroSort 2
 Iprof 20
-Jai_Format 6
+Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -205,7 +205,7 @@ Icon 4
 Input 21
 IntroSort 2
 Iprof 20
-Jai_Format 6
+Extensions/Jai_Format 6
 Jai_Lexer 37
 MacOS_Bundler 8
 Machine_X64 14
@@ -290,7 +290,7 @@ Icon 4
 Input 21
 IntroSort 2
 Iprof 20
-Jai_Format 6
+Extensions/Jai_Format 6
 Jai_Lexer 37
 MacOS_Bundler 8
 Machine_X64 14
@@ -375,7 +375,7 @@ Icon 4
 Input 22
 IntroSort 2
 Iprof 20
-Jai_Format 6
+Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -458,7 +458,7 @@ Icon 4
 Input 22
 IntroSort 2
 Iprof 20
-Jai_Format 6
+Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279

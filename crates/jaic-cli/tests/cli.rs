@@ -51,12 +51,12 @@ fn run_passes_program_arguments() {
 /// The `Long_Double` extension on targets whose C `long double` is wider than float64: the
 /// interpreter's soft-float runs x87 (`x86_64-linux-gnu`, `x86_64-apple-darwin`) and binary128
 /// (`aarch64-linux-gnu`, `wasm32`) arithmetic whatever the host. The name only exists after
-/// `#import "Jaic_Extensions"`, and `#jaic_type` rejects names it does not know.
+/// `#import "Extensions/Long_Double"`, and `#jaic_type` rejects names it does not know.
 // rules: ext.1 ext.3 ext.4 ext.8 ext.9 ext.17
 #[test]
 fn long_double_extension_on_wide_targets() {
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/stdlib/jaic-extensions-long-double.jai");
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/stdlib/extensions-long-double.jai");
     for target in [
         "x86_64-linux-gnu",
         "x86_64-apple-darwin",
@@ -115,7 +115,7 @@ fn long_double_extension_on_wide_targets() {
     let source = dir.join("varargs.jai");
     std::fs::write(
         &source,
-        "#import \"Jaic_Extensions\";\n\
+        "#import \"Extensions/Long_Double\";\n\
          libc :: #system_library \"libc\";\n\
          printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc;\n\
          main :: () { x: Long_Double = 2.5; printf(\"%Lf\\n\", x); }\n",
@@ -155,7 +155,7 @@ fn long_double_extension_on_wide_targets() {
         let source = dir.join(format!("wide_{name}.jai"));
         std::fs::write(
             &source,
-            format!("#import \"Jaic_Extensions\";\nmain :: () {{ {body} }}\n"),
+            format!("#import \"Extensions/Long_Double\";\nmain :: () {{ {body} }}\n"),
         )
         .unwrap();
         let output = Command::new(JAIC)

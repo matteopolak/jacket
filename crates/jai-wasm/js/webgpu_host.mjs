@@ -1,4 +1,4 @@
-// The browser side of stdlib/WebGPU: host functions for engine.mjs that run a Jai program's
+// The browser side of stdlib/Extensions/WebGPU: host functions for engine.mjs that run a Jai program's
 // wgpu* calls on the page's WebGPU (navigator.gpu), plus its canvas and input.
 //
 // Most calls need no code here: webgpu_bindings.generated.mjs (tools/webgpu_gen.py, from
@@ -7,7 +7,7 @@
 // the same name (wgpuDeviceCreateBuffer -> device.createBuffer) and converts the result. OVERRIDES
 // covers where the C API and the JS API differ (mapping, writes from memory, surfaces, getters
 // that return structs). Objects cross as small integer handles; a callback-taking function
-// returns a future and queues its callback for the Jai side (stdlib/WebGPU/wasm.jai) to call.
+// returns a future and queues its callback for the Jai side (stdlib/Extensions/WebGPU/wasm.jai) to call.
 //
 // Usage:
 //   const host = createWebGPUHost({ canvas, output, onSurface });
@@ -29,7 +29,7 @@ const FROM_JS = Object.fromEntries(Object.entries(ENUMS).map(([name, table]) => 
 ]));
 const enumValue = (name, js) => FROM_JS[name].get(js) ?? 0;
 const STYPES = new Map(Object.entries(STRUCTS).filter(([, s]) => s.sType !== undefined).map(([name, s]) => [s.sType, name]));
-const RECORD_SIZE = 88; // Webgpu_Callback_Record in stdlib/WebGPU/wasm.jai
+const RECORD_SIZE = 88; // Webgpu_Callback_Record in stdlib/Extensions/WebGPU/wasm.jai
 const FUTURE_WAIT_INFO_SIZE = 16; // WGPUFutureWaitInfo: future id, completed (WGPUBool), padding
 // WGPUCallbackMode, and which modes a dispatch runs (`how` of jai_webgpu_poll).
 const WAIT_ANY_ONLY = 1, ALLOW_PROCESS_EVENTS = 2, ALLOW_SPONTANEOUS = 3;
@@ -549,7 +549,7 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
       const [id] = newFuture(get(device).lost, () => {});
       writeFuture(out, id);
     },
-    // Host procedures of stdlib/WebGPU (wasm.jai, module.jai).
+    // Host procedures of stdlib/Extensions/WebGPU (wasm.jai, module.jai).
     jai_host_provides: ([name, length]) => Object.hasOwn(functions, utf8.decode(bytes(name, Number(length), "name"))),
     jai_webgpu_available: () => !!gpu,
     jai_webgpu_poll: ([record, list, count, how]) => pollRecord(addr(record), addr(list), Number(count), Number(how)),

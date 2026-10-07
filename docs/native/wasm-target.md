@@ -46,7 +46,7 @@ wasm-ld -mwasm64 <objects> -o out.wasm [--no-entry] --stack-first -z stack-size=
 
 **ABI** (`crates/jaic/src/abi.rs`, `Arch::Wasm64`): a struct whose single scalar field is an `s64`, pointer, `float64` or `float32` is passed directly; every other aggregate goes by pointer (byval arguments, sret results). Clang passes single small-integer structs as `i32`, so a C library compiled with Clang and taking such a struct by value would disagree.
 
-**Wasi_Runtime** (`stdlib/Wasi_Runtime/`), written in Jai, implements what the stdlib's `OS == .WASM` code calls, on top of WASI preview 1:
+**Wasi_Runtime** (`stdlib/Extensions/Wasi_Runtime/`), written in Jai, implements what the stdlib's `OS == .WASM` code calls, on top of WASI preview 1:
 
 | Export | From |
 | --- | --- |
@@ -68,7 +68,7 @@ WASI preview 1 is defined for 32-bit memories, so its pointers are `u32` offsets
 
 **Math.** `round` and `fma` are what LLVM calls for `roundsd`/`vfmadd` emulation and the `#intrinsic` procedures of those names; the rest are for programs that declare them `#foreign` from libm. `fma`, `fmod` and the binary128 helpers round once from a wide exact accumulator. The transcendental functions work in float64 pairs (about 106 bits) and round once; `sin`, `cos` and `tan` reduce with 2/pi to 1344 bits, so huge arguments are right too. The float32 forms compute in float64.
 
-jaic adds `#import "Wasi_Runtime"` to the first workspace when the target triple has a component starting with `wasi` (`jaic::build::wants_wasi_runtime`). With a bare `wasm64-unknown-unknown` nothing is added, as in Jai: Runtime_Support's own needs (`malloc`, `free`, `memmove`, `memcmp`, `wasm_write_string`, `wasm_debug_break`) are `env` imports the host provides, and `tests/native/wasm/exports.mjs` shows a host that does.
+jaic adds `#import "Extensions/Wasi_Runtime"` to the first workspace when the target triple has a component starting with `wasi` (`jaic::build::wants_wasi_runtime`). With a bare `wasm64-unknown-unknown` nothing is added, as in Jai: Runtime_Support's own needs (`malloc`, `free`, `memmove`, `memcmp`, `wasm_write_string`, `wasm_debug_break`) are `env` imports the host provides, and `tests/native/wasm/exports.mjs` shows a host that does.
 
 **Why the sandbox's `OS == .WASM` code is unaffected.** The stdlib's `OS == .WASM` branches call ordinary C names (`malloc`, `write`, `clock_gettime`, `getenv`, ...). Under the interpreter, in the browser engine and in the compile-time code of a wasm build (`make_host` gives `.WASM` workspaces the `SandboxHost`), the sandbox host answers those `#foreign` calls. In a native wasm build the same calls bind to Wasi_Runtime's exports. No stdlib code distinguishes the two, so `tools/check_playground_stdlib.mjs` sees no change.
 
@@ -110,4 +110,4 @@ Runtimes need Memory64:
 
 ## Dependencies
 
-LLVM 23 with the WebAssembly target (Homebrew and apt.llvm.org builds include it), LLD's `wasm-ld`, and node 24 to run the tests and `tools/wasi_run.mjs`. Internal: `crates/jaic-llvm` (`lower.rs`, `wasm.rs`, `lib.rs`), `crates/jaic/src/abi.rs`, `crates/jaic/src/build.rs` (options, `wants_wasi_runtime`), `crates/jaic-cli/src/main.rs` (CLI target, linking), `stdlib/Wasi_Runtime` (`module.jai`, `files.jai`, `math.jai`, `elementary.jai`, `quad.jai`), and the `Runtime_Support` entry points it calls.
+LLVM 23 with the WebAssembly target (Homebrew and apt.llvm.org builds include it), LLD's `wasm-ld`, and node 24 to run the tests and `tools/wasi_run.mjs`. Internal: `crates/jaic-llvm` (`lower.rs`, `wasm.rs`, `lib.rs`), `crates/jaic/src/abi.rs`, `crates/jaic/src/build.rs` (options, `wants_wasi_runtime`), `crates/jaic-cli/src/main.rs` (CLI target, linking), `stdlib/Extensions/Wasi_Runtime` (`module.jai`, `files.jai`, `math.jai`, `elementary.jai`, `quad.jai`), and the `Runtime_Support` entry points it calls.

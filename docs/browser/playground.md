@@ -11,7 +11,7 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 | File | Source | Purpose |
 | --- | --- | --- |
 | `jai_wasm.wasm` | `crates/jai-wasm` | Compiler, interpreter and `jai_lsp_*` language server. Its only imports are the optional `jai_host` page functions (below). |
-| `webgpu_host.mjs`, `webgpu_bindings.generated.mjs` | `crates/jai-wasm/js/` | Page host functions for `stdlib/WebGPU` and canvas input ([WebGPU](../specs/stdlib/README.md)) |
+| `webgpu_host.mjs`, `webgpu_bindings.generated.mjs` | `crates/jai-wasm/js/` | Page host functions for `stdlib/Extensions/WebGPU` and canvas input ([WebGPU](../specs/stdlib/README.md)) |
 | `engine.mjs` | `crates/jai-wasm/js/engine.mjs` | Optional glue: `createEngine(bytes)` returns `play` and `lsp`. The Node checks use it too. |
 | `jaifmt-playground.jai` | `jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
 | `jaifmt.wasm` | `jaifmt/wasm.jai`, built by a native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) |

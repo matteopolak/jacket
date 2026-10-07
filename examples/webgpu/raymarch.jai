@@ -6,7 +6,7 @@
 #import "Basic";
 #import "Input";
 #import "Window_Type";
-#import "WebGPU";
+#import "Extensions/WebGPU";
 
 #if OS != .WASM {
     #import "Window_Creation";

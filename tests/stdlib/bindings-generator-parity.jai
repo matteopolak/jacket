@@ -147,12 +147,12 @@ check_long_double :: () {
     assert(has(text, "value: Long_Double;"));
     assert(has(text, "assert(size_of(WithLongDouble) == 32"));
     assert(has(text, "get_long_double :: () -> Long_Double #foreign lib;"));
-    assert(has(text, "#import \"Jaic_Extensions\";"));
+    assert(has(text, "#import \"Extensions/Long_Double\";"));
     text = generate_for_x64(header_path, false);
     assert(has(text, "value: [16] u8;"));
     assert(has(text, "assert(size_of(WithLongDouble) == 32"));
     assert(!has(text, "get_long_double"));
-    assert(!has(text, "Jaic_Extensions"));
+    assert(!has(text, "Extensions/Long_Double"));
     assert(has(text, "get_double :: () -> float64 #foreign lib;"));
 }
 

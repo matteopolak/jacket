@@ -43,7 +43,7 @@ pub enum TypeKind {
         bits: u8,
     },
     /// C `long double` where it is wider than `float64` (a jaic extension, reached only through
-    /// `#jaic_type long_double`, see `docs/language/jaic-extensions.md`). Its values live in
+    /// `#jaic_type long_double`, see `docs/language/long-double.md`). Its values live in
     /// 16 bytes of memory, like a small struct.
     WideFloat(crate::wide_float::WideFloat),
     String,

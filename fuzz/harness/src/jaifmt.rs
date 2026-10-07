@@ -22,7 +22,7 @@ const DRIVER: &str = r#"
 #import "Basic";
 #import "File";
 #import "String";
-#import "Jai_Format";
+#import "Extensions/Jai_Format";
 
 main :: () -> s32 {
     source, read := read_entire_file("/workspace/input.jai", log_errors = false);

@@ -41,13 +41,15 @@ SCOPE = re.compile(r"^\s*#scope_(export|file|module)\b")
 
 
 def modules():
-    """{import name: entry file} for `stdlib/X.jai` and `stdlib/X/module.jai`."""
+    """{import name: entry file} for `stdlib/X.jai` and `stdlib/X/module.jai`, and jaic's
+    extension modules as `Extensions/X` (`stdlib/Extensions/X/module.jai`)."""
     found = {}
-    for path in sorted(STDLIB.iterdir()):
-        if path.is_dir() and (path / "module.jai").is_file():
-            found[path.name] = path / "module.jai"
-        elif path.suffix == ".jai" and path.is_file():
-            found[path.stem] = path
+    for folder, prefix in ((STDLIB, ""), (STDLIB / "Extensions", "Extensions/")):
+        for path in sorted(folder.iterdir()):
+            if path.is_dir() and (path / "module.jai").is_file():
+                found[prefix + path.name] = path / "module.jai"
+            elif path.suffix == ".jai" and path.is_file():
+                found[prefix + path.stem] = path
     return found
 
 

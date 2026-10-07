@@ -50,7 +50,7 @@ The LLVM backend uses `classify_vararg` for every parameter of a variadic signat
 
 ### `long double`
 
-[`Long_Double`](../language/jaic-extensions.md) is a 16-byte memory-class value flattened into an `AggLayout` with one `Ty::F80` (x87) or `Ty::F128` (binary128) field, so it follows the aggregate rules:
+[`Long_Double`](../language/long-double.md) is a 16-byte memory-class value flattened into an `AggLayout` with one `Ty::F80` (x87) or `Ty::F128` (binary128) field, so it follows the aggregate rules:
 
 - x86-64 System V: an aggregate that is exactly one `F80` is `Registers([PieceTy::X87])`: passed in a 16-aligned stack slot, returned in `st0`. Any other aggregate containing an `F80` is MEMORY (`byval`/`sret`), matching clang.
 - AArch64 Linux: `F128` counts as a float member of an HFA (up to four `q` registers, `PieceTy::F128`).

@@ -660,6 +660,52 @@ fn modify_without_polymorph_variables_is_reported_at_the_block() {
     }
 }
 
+// rules: import.19
+/// jaic's own modules live in stdlib/Extensions and are imported by that path: a bare name
+/// (or the folder, or the old `Jaic_Extensions`) says which import to write.
+#[test]
+fn an_extension_module_without_its_path_names_the_extensions_import() {
+    let dir = scratch("extension-module-path");
+    let cases: [(&str, &str); 4] = [
+        (
+            "Long_Double",
+            "help: `Long_Double` is a jaic extension (not official Jai), imported by its path: `#import \"Extensions/Long_Double\";`",
+        ),
+        ("Wasi_Runtime", "`#import \"Extensions/Wasi_Runtime\";`"),
+        (
+            "Jaic_Extensions",
+            "help: `Jaic_Extensions` was replaced by `Extensions/Long_Double`: `#import \"Extensions/Long_Double\";`",
+        ),
+        (
+            "Extensions",
+            "help: `Extensions` is the folder of jaic's extension modules, not a module: import one of them by its path: `Extensions/Jai_Format`, `Extensions/Long_Double`",
+        ),
+    ];
+    for (i, (name, help)) in cases.iter().enumerate() {
+        let file = format!("e{i}.jai");
+        let output = jaic_on(
+            &dir,
+            &file,
+            &format!("#import \"{name}\";\nmain :: () {{}}\n"),
+            "check",
+            &[],
+        );
+        assert_eq!(output.status.code(), Some(1), "{name}");
+        let text = stderr(&output);
+        assert_in_order(&text, &[&format!("error: module `{name}` not found"), help]);
+        assert!(!text.contains("looked for"), "{text}");
+    }
+    // With the path it resolves.
+    let output = jaic_on(
+        &dir,
+        "ok.jai",
+        "#import \"Extensions/Long_Double\";\nmain :: () { x: Long_Double = 1; }\n",
+        "check",
+        &[],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+}
+
 #[test]
 fn missing_module_lists_where_it_looked_and_a_close_name() {
     let dir = scratch("missing-module");

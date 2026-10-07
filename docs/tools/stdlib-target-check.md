@@ -8,7 +8,7 @@ Without it, a module's code for other platforms (`#if OS == .MACOS`) and the pro
 
 ## How it works
 
-1. The test lists `stdlib/X.jai` files and `stdlib/X/module.jai` folders by import name, minus the `skip` lines of `tests/stdlib-targets.txt`, which name the metaprograms (`Default_Metaprogram`, `Minimal_Metaprogram`) that build the command line's program when imported.
+1. The test lists `stdlib/X.jai` files and `stdlib/X/module.jai` folders by import name (and `stdlib/Extensions/X/module.jai` as `Extensions/X`), minus the `skip` lines of `tests/stdlib-targets.txt`, which name the metaprograms (`Default_Metaprogram`, `Minimal_Metaprogram`) that build the command line's program when imported.
 2. For each module and target it writes `#import "X"; main :: () {}` and checks it with `-no_dce`, which checks every declaration and procedure body in modules too, and `-os` and `-cpu`, which select the `#if OS` and `#if CPU` branches. Checks run in parallel, one per CPU; the whole run takes a few seconds with a release `jaic`.
 3. A failed check is reduced to its first error as `file: message`, with the stdlib path and the line and column removed so that unrelated edits do not change it.
 4. The result must match `tests/stdlib-targets.txt` exactly: a failure that is not listed, a listed failure with a different first error, and a listed module that now passes all fail the test, and the message lists each one.

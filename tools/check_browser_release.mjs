@@ -132,7 +132,7 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   const gpuless = createWebGPUHost({ gpu: undefined });
   assert.equal(typeof gpuless.functions.wgpuDeviceCreateBuffer, "function");
   const hosted = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")), { host: gpuless });
-  const webgpu = '#import "Basic"; #import "WebGPU"; main :: () { print("%\\n", webgpu_available()); }';
+  const webgpu = '#import "Basic"; #import "Extensions/WebGPU"; main :: () { print("%\\n", webgpu_available()); }';
   assert.equal(hosted.play({ "main.jai": webgpu }, "main.jai").stdout, "false\n", "WebGPU without a GPU");
   assert.equal(play(webgpu).stdout, "false\n", "WebGPU without a host");
   // Recent-feature smoke tests: stdlib containers, compile-time metaprograms, empty views, the virtual clock.

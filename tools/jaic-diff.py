@@ -44,7 +44,7 @@ WASM_UNSUPPORTED = {"unavailable", "unknown-library"}
 OUTPUT_VARIES = {
     # Long_Double is float64 on arm64 macOS and binary128 on wasm32 (each target's C ABI); the
     # program prints which representation it tested.
-    "jaic-extensions-long-double": "prints whether Long_Double is wide, which depends on the target ABI",
+    "extensions-long-double": "prints whether Long_Double is wide, which depends on the target ABI",
     # A profiler report: the numbers are measured times (a virtual clock on wasm).
     "iprof-runtime-manual": "prints measured times",
     # trace_assert prints the native call stack: return addresses and the running executable's
@@ -86,7 +86,8 @@ def cases(name, gen_dir, gen_size=1.0):
         for p in sorted((ROOT / "tests/stdlib").glob("*.jai")):
             yield Case(p.stem, p, ROOT / "tests/stdlib")
     elif name == "modules":
-        found = list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib/tests").glob("**/*.jai"))
+        found = (list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib").glob("Extensions/*/tests/*.jai"))
+                 + list((ROOT / "stdlib/tests").glob("**/*.jai")))
         for p in sorted(set(found)):
             rel = p.relative_to(ROOT / "stdlib")
             if "modules" not in rel.parts:

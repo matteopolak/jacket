@@ -3,7 +3,7 @@
 // it runs natively (wgpu-native) and in the browser playground alike.
 
 #import "Basic";
-#import "WebGPU";
+#import "Extensions/WebGPU";
 
 COUNT :: 100_000;
 

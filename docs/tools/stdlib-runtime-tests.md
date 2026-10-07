@@ -2,7 +2,7 @@
 
 ## What it is
 
-Every stdlib runtime test (`tests/stdlib/*.jai`, `stdlib/<Module>/tests/*.jai` and
+Every stdlib runtime test (`tests/stdlib/*.jai`, `stdlib/<Module>/tests/*.jai`, `stdlib/Extensions/<Module>/tests/*.jai` and
 `stdlib/tests/**/*.jai`) runs on every CI platform in up to four ways, and a coverage report
 says which public stdlib procedures those runs reach, per module, with a ratchet so coverage
 cannot drop unnoticed. The point is to catch platform bugs at run time (a missing Windows code

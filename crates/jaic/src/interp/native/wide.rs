@@ -1,5 +1,5 @@
 //! Foreign calls involving a C `long double` wider than `f64` (`Long_Double` from
-//! `Jaic_Extensions`), which the Rust prototypes of `call_as` cannot express:
+//! `Extensions/Long_Double`), which the Rust prototypes of `call_as` cannot express:
 //!
 //! - x86-64 System V returns an x87 `long double` in `st(0)`. Its arguments need nothing
 //!   special (they are 16-byte aligned stack slots, which `Regs` lays out).

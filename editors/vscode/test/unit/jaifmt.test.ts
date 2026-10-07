@@ -46,7 +46,7 @@ describe("jaifmt.toml", () => {
     // The root jaifmt.toml leaves the formatter's golden inputs alone.
     const config = path.join(__dirname, "..", "..", "..", "..", "..", "jaifmt.toml");
     const globs = ignoreGlobs(readFileSync(config, "utf8"));
-    const golden = path.join(path.dirname(config), "stdlib", "Jai_Format", "tests", "cases", "spacing.in.jai");
+    const golden = path.join(path.dirname(config), "stdlib", "Extensions", "Jai_Format", "tests", "cases", "spacing.in.jai");
     assert.ok(isIgnored(config, globs, golden));
     assert.ok(!isIgnored(config, globs, path.join(path.dirname(config), "examples", "tour", "main.jai")));
   });

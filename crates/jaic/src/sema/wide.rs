@@ -1,4 +1,4 @@
-//! `Long_Double` (the `Jaic_Extensions` module's name for `#jaic_type long_double`) on targets
+//! `Long_Double` (the `Extensions/Long_Double` module's name for `#jaic_type long_double`) on targets
 //! where C's `long double` is wider than `float64`.
 //!
 //! Such a value is a memory-class type like a small struct: operands are addresses of 16-byte

@@ -3,7 +3,7 @@
 // The finale marched rays on the CPU, one character at a time. Here a
 // fragment shader (WGSL, in the string at the end) marches one ray per
 // pixel, every frame: a twisting torus orbiting a blobby sphere. The Jai
-// side is the standard WebGPU C API (#import "WebGPU"), which the
+// side is the standard WebGPU C API (#import "Extensions/WebGPU"), which the
 // playground forwards to your browser's WebGPU; natively the same code
 // runs on wgpu-native in a window (examples/webgpu/raymarch.jai).
 //
@@ -13,7 +13,7 @@
 
 #import "Input";
 #import "Window_Type";
-#import "WebGPU";
+#import "Extensions/WebGPU";
 
 GPU_SECONDS :: 20.0;
 

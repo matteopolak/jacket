@@ -12,7 +12,7 @@
 // adapter.
 
 #import "Basic";
-#import "WebGPU";
+#import "Extensions/WebGPU";
 
 SIZE :: 64; // the render target is SIZE x SIZE
 ROW_BYTES :: SIZE * 4; // rgba8, already a multiple of 256 as copies need

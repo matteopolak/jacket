@@ -456,7 +456,7 @@ fn check_level(value: &str) -> u8 {
 
 /// The module that makes a wasm program a WASI command (`_start`, the C library subset the
 /// stdlib calls, an allocator); see `docs/native/wasm-target.md`.
-pub const WASI_RUNTIME_IMPORT: &str = "#import \"Wasi_Runtime\";";
+pub const WASI_RUNTIME_IMPORT: &str = "#import \"Extensions/Wasi_Runtime\";";
 
 /// Whether a build for `os` with LLVM triple `triple` is a WASI program, which gets
 /// [`WASI_RUNTIME_IMPORT`] added to its sources. Other wasm builds supply their own runtime.
