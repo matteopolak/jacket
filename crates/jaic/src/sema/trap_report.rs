@@ -37,12 +37,11 @@ impl Compiler {
         let is_library = |loc: Option<(u32, u32, u32)>| {
             loc.is_some_and(|(file, ..)| self.is_library_file(FileId(file), &library_roots))
         };
-        // The asserted condition, read from the `assert(...)` call.
-        let condition = frames
-            .first()
-            .filter(|_| assertion)
-            .and_then(|f| f.loc)
-            .and_then(|loc| self.assert_condition(loc));
+        // The asserted condition: the first argument of the `assert(...)` call.
+        let condition = trap
+            .assertion
+            .as_deref()
+            .and_then(|(path, line, col)| self.assert_condition(path, *line, *col));
         let bare_assertion = trap.kind == Some(TrapKind::BareAssertion);
         let message = if bare_assertion && let Some(condition) = &condition {
             format!("assertion failed: `{condition}` is false")
@@ -200,36 +199,17 @@ impl Compiler {
         text
     }
 
-    /// The condition of the `assert(...)` call at `loc`, when that is what the line holds.
-    fn assert_condition(&self, (file, line, col): (u32, u32, u32)) -> Option<String> {
-        if file as usize >= self.sources.len() {
-            return None;
-        }
-        let text = self.sources.get(FileId(file)).line_text(line);
-        let call = text.get(col.saturating_sub(1) as usize..)?.trim_start();
-        let args = call
-            .strip_prefix("assert")?
-            .trim_start()
-            .strip_prefix('(')?;
-        // Up to the first comma or closing parenthesis outside brackets and strings.
-        let mut depth = 0i32;
-        let mut quoted = false;
-        let mut previous = ' ';
-        for (i, c) in args.char_indices() {
-            match c {
-                '"' if previous != '\\' => quoted = !quoted,
-                _ if quoted => {}
-                '(' | '[' | '{' => depth += 1,
-                ')' | ']' | '}' if depth > 0 => depth -= 1,
-                ')' | ',' if depth == 0 => {
-                    let condition = args[..i].trim();
-                    return (!condition.is_empty()).then(|| condition.to_string());
-                }
-                _ => {}
-            }
-            previous = c;
-        }
-        None
+    /// The condition of the `assert(...)` call at `path:line:col` (its `#caller_location`), as
+    /// written, when it fits on one line.
+    fn assert_condition(&self, path: &str, line: u32, col: u32) -> Option<String> {
+        let file = self.file_by_path(path)?;
+        let span = *self.first_arguments.get(&(file.0, line, col))?;
+        let tokens = crate::lexer::lex(file, &self.sources.get(file).text).ok()?;
+        let text = self
+            .sources
+            .snippet_or_empty(crate::lexer::balanced(&tokens, span))
+            .trim();
+        (!text.is_empty() && !text.contains('\n')).then(|| text.to_string())
     }
 
     /// ` at path:line` for a frame location, or nothing.

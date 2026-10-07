@@ -70,7 +70,10 @@ pub fn closest<'a>(wanted: &str, candidates: impl IntoIterator<Item = &'a str>) 
 
 /// For a file `name` that does not exist: the directory entry the user most likely meant,
 /// `name.jai` when there is one (the extension was left off), else the closest name.
-pub fn similar_entry<'a>(name: &str, entries: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+pub fn similar_entry<'a>(
+    name: &str,
+    entries: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
     let entries: Vec<&'a str> = entries.into_iter().collect();
     let with_extension = format!("{name}.jai");
     entries

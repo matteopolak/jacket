@@ -337,6 +337,20 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
             "`main` at ",
         ],
     );
+    // The condition as written, commas in strings and grouping parentheses included.
+    let output = jaic_on(
+        &dir,
+        "d.jai",
+        "#import \"Basic\";\nf :: (s: string) -> int { return s.count; }\nmain :: () {\n    if true assert(f(\"a,b\") == 1 && (2 > 1));\n}\n",
+        "run",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "d.jai:4:13: error: runtime error: assertion failed: `f(\"a,b\") == 1 && (2 > 1)` is false",
+        ],
+    );
     // An assert inside the stdlib: the user's call is the primary location.
     let output = jaic_on(
         &dir,

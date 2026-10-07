@@ -234,9 +234,7 @@ impl Compiler {
                 ..
             }
             | TypeKind::Any => {
-                let members = self
-                    .builtin_members(ty, Span::NONE)
-                    .unwrap_or_default();
+                let members = self.builtin_members(ty, Span::NONE).unwrap_or_default();
                 DebugTypeKind::Struct {
                     fields: members
                         .into_iter()

@@ -360,6 +360,10 @@ pub struct Compiler {
     pub unscoped_codes: HashMap<usize, Vec<ScopeId>>,
     /// Notes after a procedure declaration's body (`f :: () { ... } @thread`).
     pub proc_decl_notes: HashMap<ProcId, Vec<ast::Note>>,
+    /// Calls that received their `#caller_location` by default, by that location (file,
+    /// line, column): the span of their first argument. A failed `assert` names its call's
+    /// location, so the report shows this as the condition.
+    pub first_arguments: HashMap<(u32, u32, u32), Span>,
     /// `using,only(...) field.path;` aliases declared in struct bodies.
     pub member_aliases: HashMap<crate::types::StructId, Vec<structs::MemberAlias>>,
     pub default_images: HashMap<TypeId, Option<Rc<value::Aggregate>>>,
@@ -506,6 +510,7 @@ impl Compiler {
             code_scopes: Vec::new(),
             unscoped_codes: HashMap::default(),
             proc_decl_notes: HashMap::default(),
+            first_arguments: HashMap::default(),
             member_aliases: HashMap::default(),
             default_images: HashMap::default(),
             default_globals: HashMap::default(),

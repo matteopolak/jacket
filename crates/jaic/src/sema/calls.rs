@@ -2101,7 +2101,16 @@ impl Compiler {
                 }
                 let d = param.default.clone().unwrap();
                 let op = match &d.kind {
-                    E::CallerLocation => self.location_operand(f, span)?,
+                    E::CallerLocation => {
+                        if let Some(first) = args.first()
+                            && (span.file.0 as usize) < self.sources.len()
+                        {
+                            let (line, col) = self.sources.get(span.file).line_col(span.start);
+                            self.first_arguments
+                                .insert((span.file.0, line, col), first.span);
+                        }
+                        self.location_operand(f, span)?
+                    }
                     _ => self.check_expr(f, sig.scope, &d, Some(param.ty))?,
                 };
                 self.convert(f, op, param.ty, d.span)?

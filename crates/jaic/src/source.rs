@@ -161,7 +161,9 @@ impl DiagnosticKind {
     pub fn code(self) -> Option<&'static str> {
         match self {
             DiagnosticKind::Other => None,
-            DiagnosticKind::UnknownIdentifier { .. } => Some("unknown-identifier"),
+            DiagnosticKind::UnknownIdentifier {
+                ..
+            } => Some("unknown-identifier"),
             DiagnosticKind::TypeMismatch => Some("type-mismatch"),
             DiagnosticKind::StaticAssert => Some("static-assert"),
             DiagnosticKind::UnknownLibrary => Some("unknown-library"),

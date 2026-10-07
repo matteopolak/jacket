@@ -29,9 +29,9 @@ use crate::ir::{
 pub use native::main_thread;
 pub use native::{library_dirs, set_library_dirs};
 pub use sandbox::{SandboxHost, SharedHost};
-pub use threads::DEADLOCK_GRACE;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+pub use threads::DEADLOCK_GRACE;
 
 /// Tag bits marking an interpreted procedure address.
 pub const FUNC_TAG: u64 = 0xFEED_0000_0000_0000;
@@ -784,7 +784,9 @@ impl Interp {
         let addr = self.foreign_addr(program, id)?;
         if addr & TAG_MASK == FOREIGN_TAG {
             let mut trap = self
-                .trap::<()>(format!("foreign procedure `{symbol}` is not available here"))
+                .trap::<()>(format!(
+                    "foreign procedure `{symbol}` is not available here"
+                ))
                 .unwrap_err();
             trap.kind = Some(TrapKind::Unavailable);
             return Err(trap);

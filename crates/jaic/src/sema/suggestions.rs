@@ -102,7 +102,10 @@ impl Compiler {
     /// `d` with a `help: a similar name exists` line when it reports an unknown identifier
     /// and a visible name is close to it.
     pub(crate) fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
-        let DiagnosticKind::UnknownIdentifier { scope: Some(scope) } = d.kind else {
+        let DiagnosticKind::UnknownIdentifier {
+            scope: Some(scope),
+        } = d.kind
+        else {
             return None;
         };
         let span = d.span;
