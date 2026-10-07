@@ -6,13 +6,16 @@
 Base :: struct {
     x: int;
 }
+
 Derived :: struct {
     #as using base: Base;
     y: int;
 }
+
 Via_Ptr :: struct {
     #as using inner: *Derived;
 }
+
 Not_As :: struct {
     z: int;
     #as using base: Base;

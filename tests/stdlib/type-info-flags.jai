@@ -11,18 +11,22 @@ Plain :: struct {
     a := 1;
     p := helper;
 }
+
 Voided :: struct {
     a := 1;
     p := helper;
 }
+
 Hidden :: struct {
     a := 1;
     p := helper;
 }
+
 Directive :: struct #type_info_procedures_are_void_pointers {
     a := 1;
     p := helper;
 }
+
 Empty :: struct #type_info_none {
     a := 1;
 }

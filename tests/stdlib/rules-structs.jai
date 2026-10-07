@@ -55,10 +55,12 @@ Mode :: enum {
     B;
     C;
 }
+
 Base :: struct {
     mode: Mode = .A;
     extra: int = 11;
 }
+
 Child :: struct {
     using base: Base;
     mode = .C;

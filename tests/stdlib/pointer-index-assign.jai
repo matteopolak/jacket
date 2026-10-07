@@ -1,15 +1,19 @@
 // Through a raw pointer, `p[i] = v` writes memory unless an operator []= takes that struct.
 #import "Basic";
+
 Array :: struct(T: Type) {
     data: *T;
     count: int;
 }
+
 operator []= :: (a: *Array($T), i: int, v: T) {
     a.data[i] = v;
 }
+
 Cursor :: struct {
     pos: int;
 }
+
 main :: () {
     cs := Cursor.[.{ 1 }, .{ 2 }, .{ 3 }];
     a: Array(Cursor);

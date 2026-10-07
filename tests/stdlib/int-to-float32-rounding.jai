@@ -12,6 +12,7 @@ S_BITS :: 0x5e80_0001; // 2^62 + 2^39
 to_f32_u :: (x: u64) -> float32 {
     return cast(float32) x;
 }
+
 to_f32_s :: (x: s64) -> float32 {
     return cast(float32) x;
 }

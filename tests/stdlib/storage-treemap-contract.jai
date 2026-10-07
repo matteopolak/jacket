@@ -10,12 +10,14 @@ Treemap_Layout :: struct {
     root: *T.Treemap_Node;
     dirty := true;
 }
+
 Treemap_Display_Layout :: struct {
     nodes: [..] T.Display_Node;
     treemap: *T.Treemap;
     outer_size: M.Vector2;
     dirty := true;
 }
+
 #assert size_of(T.Treemap) == size_of(Treemap_Layout);
 #assert size_of(T.Treemap_Display) == size_of(Treemap_Display_Layout);
 
@@ -104,6 +106,7 @@ check_treemap_contract :: () -> int {
 }
 
 #assert #run check_treemap_contract() == 0;
+
 main :: () -> int {
     return check_treemap_contract();
 }

@@ -64,15 +64,18 @@ returns_of :: ($call: Code) -> int #expand {
 count_baked :: ($names: ..string) -> int {
     return names.count;
 }
+
 NAMES :: string.["a", "b", "c"];
 #run assert(count_baked(..NAMES) == 3);
 
 inner :: ($c: Code) -> bool #expand {
     return #run compiler_get_nodes(c).kind == .PROCEDURE_CALL;
 }
+
 outer :: ($c: Code) -> bool #expand {
     return inner(c);
 }
+
 #run assert(outer(pair(1)));
 
 TARGET :: #string END

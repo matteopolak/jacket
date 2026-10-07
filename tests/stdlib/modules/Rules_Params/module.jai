@@ -32,9 +32,11 @@ greeting :: (name: string) -> string {
 count_type :: () -> Type {
     return type_of(COUNT);
 }
+
 tag_type :: () -> Type {
     return type_of(TAG);
 }
+
 style_is_fancy :: () -> bool {
     return STYLE == .FANCY;
 }

@@ -6,10 +6,12 @@
 Base :: struct($Reading: bool) {
     depth: int;
 }
+
 Writer :: struct {
     #as using b: Base(false);
     buffer: int;
 }
+
 Reader :: struct {
     #as using b: Base(true);
     head: int;
@@ -36,9 +38,11 @@ depth_of :: (r: Base) -> int {
 Item :: struct {
     x: int;
 }
+
 visit :: (d: *$T, r: *Base) -> string {
     return "generic";
 }
+
 visit :: (d: *Item, r: *$R) -> string {
     return "custom";
 }

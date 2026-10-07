@@ -8,6 +8,7 @@ put16 :: (b: *String_Builder, v: int) {
     append(b, cast(u8) (v & 0xff));
     append(b, cast(u8) ((v >> 8) & 0xff));
 }
+
 put32 :: (b: *String_Builder, v: int) {
     put16(b, v & 0xffff);
     put16(b, (v >> 16) & 0xffff);

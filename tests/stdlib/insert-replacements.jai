@@ -2,10 +2,12 @@
 // `remove` become the macro's replacements (here: leave both nested loops; count removals).
 // rules: code.12
 #import "Basic";
+
 Grid :: struct {
     rows: [3][3] int;
     removed: int;
 }
+
 for_expansion :: (g: *Grid, body: Code, flags: For_Flags) #expand {
     `it_index := 0;
     for row, r: g.rows {
@@ -18,6 +20,7 @@ for_expansion :: (g: *Grid, body: Code, flags: For_Flags) #expand {
         }
     }
 }
+
 main :: () {
     g: Grid;
     for r: 0..2 for c : 0..2 g.rows[r][c] = r * 3 + c;

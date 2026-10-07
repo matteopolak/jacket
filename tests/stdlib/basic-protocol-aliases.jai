@@ -2,6 +2,7 @@
 // jailint: allow-file(unused_variable) -- the declarations only type-check the API.
 Basic :: #import "Basic";
 Protocol :: #import "Preload";
+
 main :: () -> s64 {
     allocator: Basic.Allocator;
     plain: Protocol.Allocator = allocator;

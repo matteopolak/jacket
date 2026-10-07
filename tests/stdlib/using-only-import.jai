@@ -8,6 +8,7 @@ using,only(join) #import "String";
 assert :: (ok: bool) {
     if !ok exit(1);
 } // Basic's assert is not the one picked
+
 exit :: (code: s32) #foreign libc;
 libc :: #system_library "libc";
 

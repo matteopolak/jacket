@@ -4,6 +4,7 @@ Basic :: #import "Basic";
 copy_context :: (source: *Basic.Context) -> *#Context {
     return source;
 }
+
 copy_back :: (source: *#Context) -> *Basic.Context {
     return source;
 }

@@ -1,6 +1,7 @@
 // Unicode exports the classic UTF-8 tables: decode "é" (C3 A9) by hand.
 #import "Basic";
 #import "Unicode";
+
 main :: () {
     s := "é";
     extra := trailingBytesForUTF8[s[0]];

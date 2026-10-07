@@ -31,9 +31,11 @@ count_all :: (s := "", f := 0.0, v: ..string) -> int {
 apply :: (f: (int) -> int, x: int) -> int {
     return f(x);
 }
+
 twice :: (f: (x: int) -> int, x: int) -> int {
     return f(f(x));
 }
+
 square :: (x: $T) -> T {
     return x * x;
 }
@@ -45,6 +47,7 @@ widen :: (a: $T) -> T #modify {
 } {
     return a;
 }
+
 sum_widened :: (a: [] $T) -> $R #modify {
     R = T;
     info := cast(*Type_Info) T;
@@ -66,11 +69,15 @@ sum_widened :: (a: [] $T) -> $R #modify {
 show :: (v: $T) -> T {
     return v;
 }
+
 show_vec :: #bake_constants show(T = Vec);
+
 Grid :: struct(M: int, N: int) {
     cells: [M][N] int;
 }
+
 Grid5 :: #bake_arguments Grid(M = 5);
+
 Defaulted :: struct(n := 3) {
     values: [n] int;
 }
@@ -79,9 +86,11 @@ Defaulted :: struct(n := 3) {
 Bag :: struct {
     items: [4] int;
 }
+
 operator *= :: (b: *Bag, k: int) {
     for 0..3 b.items[it] *= k;
 }
+
 operator *[] :: (b: *Bag, i: int) -> *int {
     return *b.items[i];
 }
@@ -90,9 +99,11 @@ operator *[] :: (b: *Bag, i: int) -> *int {
 area :: (v: Vec) -> int {
     return v.x * v.y;
 }
+
 area :: (a: int, b: int) -> int {
     return a * b;
 }
+
 size_of_thing :: area;
 
 main :: () -> int {

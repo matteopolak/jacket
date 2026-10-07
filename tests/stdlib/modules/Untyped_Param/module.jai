@@ -5,6 +5,7 @@
 as_count :: (n: u64) -> u64 {
     return n;
 }
+
 as_byte :: (n: u8) -> u8 {
     return n;
 }
@@ -12,6 +13,7 @@ as_byte :: (n: u8) -> u8 {
 frames_as_count :: () -> u64 {
     return as_count(FRAMES);
 }
+
 limit_as_byte :: () -> u8 {
     return as_byte(LIMIT);
 }

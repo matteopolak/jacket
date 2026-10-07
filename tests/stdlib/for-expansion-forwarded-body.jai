@@ -2,9 +2,11 @@
 // macro that inserts the body.
 // rules: macro.11
 #import "Basic";
+
 A :: struct {
     x: [3] int;
 }
+
 for_expansion :: (a: *A, body: Code, flags: For_Flags) #expand {
     for i: 0..a.x.count - 1 {
         `it := a.x[i];
@@ -12,12 +14,15 @@ for_expansion :: (a: *A, body: Code, flags: For_Flags) #expand {
         #insert body;
     }
 }
+
 B :: struct {
     a: A;
 }
+
 for_expansion :: (b: *B, body: Code, flags: For_Flags) #expand {
     for_expansion(*b.a, body, flags);
 }
+
 main :: () {
     b: B;
     b.a.x = .[1, 2, 3];

@@ -1,12 +1,15 @@
 // Instances of polymorphic structs print their parameters, like `Entity(Payload=s64)`.
 // rules: struct.14
 #import "Basic";
+
 Entity :: struct(Payload: Type) {
     payload: Payload;
 }
+
 Grid :: struct(W: int, H: int) {
     cells: [W * H] u8;
 }
+
 main :: () -> s64 {
     e: Entity(s64);
     if tprint("%", type_of(e)) != "Entity(Payload=s64)" return 1;

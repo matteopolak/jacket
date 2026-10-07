@@ -1,5 +1,6 @@
 // rules: ptr.1
 #import "Basic";
+
 main :: () {
     a: [..] int;
     for 1..6 array_add(*a, it);

@@ -8,9 +8,11 @@
 width_of :: (size: Vector2) -> float {
     return size.x;
 }
+
 width_or_default :: (size := Vector2.{ -1, -1 }) -> float {
     return size.x;
 }
+
 three :: () -> bool, int, float {
     return true, 7, 0.5;
 }

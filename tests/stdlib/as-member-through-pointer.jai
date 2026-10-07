@@ -4,6 +4,7 @@
 Base :: struct {
     x: int;
 }
+
 Derived :: struct {
     pad: int;
     #as using base: Base;
@@ -25,9 +26,11 @@ main :: () {
 Thing :: struct {
     v: int;
 }
+
 thing_v :: (t: Thing) -> int {
     return t.v;
 }
+
 deref_return :: (p: *Thing) -> Thing {
     return p;
 }
@@ -42,6 +45,7 @@ deref_return :: (p: *Thing) -> Thing {
 Box :: struct(T: Type) {
     v: T;
 }
+
 box_value :: (b: $B/Box) -> B.T {
     return b.v;
 }

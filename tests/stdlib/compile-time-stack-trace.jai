@@ -14,6 +14,7 @@ depth_here :: () -> int {
 outer :: () -> int {
     return inner();
 }
+
 inner :: () -> int {
     return depth_here();
 }

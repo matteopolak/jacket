@@ -1,6 +1,8 @@
 // `for *=cond` and `for <=cond` iterate by pointer / in reverse when the constant holds.
 #import "Basic";
+
 BY_POINTER :: true;
+
 main :: () {
     values := int.[1, 2, 3];
     for *= BY_POINTER values it.* *= 10;

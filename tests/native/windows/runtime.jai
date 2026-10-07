@@ -9,6 +9,7 @@
 #import "Thread";
 
 failures := 0;
+
 check :: (condition: bool, what: string, loc := #caller_location) {
     if condition return;
     failures += 1;
@@ -19,9 +20,11 @@ Pair :: struct {
     a: s32;
     b: s32;
 }
+
 Big :: struct {
     x, y, z: s64;
 }
+
 Floats :: struct {
     f: float;
     g: float;
@@ -30,12 +33,15 @@ Floats :: struct {
 add_pair :: (p: Pair) -> Pair #c_call {
     return .{ p.a + 1, p.b + 2 };
 }
+
 sum_big :: (b: Big) -> Big #c_call {
     return .{ b.x + b.y + b.z, b.y, b.z };
 }
+
 scale_floats :: (f: Floats, k: float) -> Floats #c_call {
     return .{ f.f * k, f.g * k };
 }
+
 many :: (a: s64, b: float64, c: s64, d: float, e: s64, f: float64, g: Pair) -> float64 #c_call {
     return cast(float64) (a + c + e + g.a + g.b) + b + d + f;
 }

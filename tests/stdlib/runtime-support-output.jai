@@ -1,4 +1,5 @@
 Runtime :: #import "Runtime_Support"(DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = false, ENABLE_BACKTRACE_ON_CRASH = false);
+
 probe :: () -> bool {
     if Runtime.c_style_strlen("abc\0ignored".data) != 3 return false;
     if Runtime.c_style_strlen(null) != 0 return false;
@@ -8,5 +9,6 @@ probe :: () -> bool {
     Runtime.write_strings("authored runtime ", "source output\n");
     return true;
 }
+
 VERIFIED :: #run probe();
 #assert VERIFIED;

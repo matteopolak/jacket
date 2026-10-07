@@ -60,7 +60,58 @@ The output is canonical: it depends on the tokens, comments and blank lines of t
 - Every non-empty `{ ... }` (procedure bodies, struct/enum bodies, control flow, `#code`, `#run` and procedure literals in expressions) has its body on lines of its own: a break after `{` and before `}`. `{}` stays, and `{` `}` with only whitespace between become `{}`. A statement written after a block's `}` on the same line moves down (`{ a(); } b();`).
 - Statements separated by `;` inside a block (or at file level) go on separate lines: `x:=1;   if x>0 {...}` becomes two statements. Exception: a `case` label keeps one simple statement after it when written on the same line (`case .A; return 1;`, `case 2; #through;`), the common Jai idiom; `case 2; a(); b();` is split.
 - Unchanged: `.{ }` and `.[ ]` literals keep their line structure, braceless bodies (`if x return;`), `#run f()` without a block, expressions continued over lines, trailing comments (`x := 1; // why`). A `{` with a comment between it and its header stays on its own line (joining would reorder the comment).
+- Blank lines between file-level items (`separate_items`, on unless `blank_lines_between_items = false`); see below.
 - Trailing whitespace is removed, runs of blank lines are capped at `max_blank_lines`, leading blank lines are dropped and the file ends with exactly one newline. Files that mostly use CRLF keep CRLF.
+
+**Blank lines between items** (`separate_items`).
+
+An *item* is a file-level declaration or directive: everything up to its `;`, or up to the `}` of its block when no `else`, note, `;` or `,` follows on the next line. Between two neighbouring items, at least one blank line is ensured when:
+
+- either item spans more than one output line (a procedure with a body, a struct, enum or union, a here-string or multi-line string, a `#run { }` or `#if { }` block, a declaration continued over lines), or
+- one is an import and the other is not. An import is an item with a `#import` or `#load` of its own: `#import "A";`, `#import,file "a.jai";`, `A :: #import "A";`, `#if OS == .MACOS #load "mac.jai";`.
+
+Consecutive imports never get one forced between them (even a multi-line `A :: #import "A"(X = 1, ...)`), and neither do consecutive one-line items (`COUNT :: 4;`, `Handle :: u32;`, `empty :: () {}`, `#run f();`). Note that `Vec2 :: struct { x, y: float; }` is not a one-line item: the block rule above puts its body on its own lines first.
+
+Before:
+
+```jai
+#import "Basic";
+#load "util.jai";
+COUNT :: 4;
+LIMIT :: 8;
+// Doubles x.
+twice :: (x: int) -> int {
+    return x * 2;
+}
+#scope_file
+helper :: () {}
+```
+
+After:
+
+```jai
+#import "Basic";
+#load "util.jai";
+
+COUNT :: 4;
+LIMIT :: 8;
+
+// Doubles x.
+twice :: (x: int) -> int {
+    return x * 2;
+}
+
+#scope_file
+helper :: () {}
+```
+
+Details:
+
+- Comments directly above an item (no blank line between) belong to it: the blank line goes before the first line after the previous item, so above the comments. If there is already a blank line anywhere between the two items, nothing changes. Comments are never moved.
+- A `#scope_file`/`#scope_module`/`#scope_export` line is not an item; like a comment it belongs to the item below it, so the blank line goes above the directive and none is forced between it and that item.
+- The body of a file-level `#if` (and its `else` blocks, including `else #if`) is file-level too: its items are separated by the same rules, and the `#if` block as a whole is a multi-line item. A `#if x == { case ...; }` switch is not, nor are struct bodies, procedure bodies or `#run` blocks.
+- Blank lines are only added, never removed; the usual `max_blank_lines` cap still applies (with `max_blank_lines = 0` none is written). Only line breaks that already exist are deepened, so the token check is unaffected. Items inside `// jaifmt: off` regions, and items sharing a line, are left alone.
+- To change the rules: `separate_pair` (when a blank is wanted), `finish_item` (what makes an item multi-line or an import), `block_ends_item` (where an item ends) and `is_item_container` (which `{` holds file-level items), at the end of `plan_lines` in `format.jai`. Golden cases: `items` and `items-off`.
 
 **Indentation** follows bracket nesting:
 
@@ -128,6 +179,7 @@ case_body_indent = 4      # statements under a case; default indent_width
 max_blank_lines = 2       # consecutive blank lines kept
 max_width = 100           # only reported by --verbose; lines are never wrapped
 brace_style = "same_line" # or "preserve"
+blank_lines_between_items = true  # or false: no blank lines added between file-level items
 ignore = ["tests/corpus/**", "generated/*.jai"]
 ```
 
@@ -157,7 +209,7 @@ formatted, ok, error := format_source(source, config); // config defaults to .{}
 
 - `format_source(text, config = .{}) -> result: string, ok: bool, error: string`: on success `result` is newly allocated (`free` it); on failure it is `""` and `error` (temporary storage) says why, usually as `line:column: message`: text that does not lex, unbalanced brackets, or a failed token check. Input is never partially formatted.
 - `parse_config(text) -> config: Format_Config, ok: bool, error: string`: parses `jaifmt.toml` text. `config.root` is left empty; set it to the config's directory if you use `format_is_ignored`.
-- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `ignore`, `root`.
+- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `blank_lines_between_items` (true), `ignore`, `root`.
 - Also: `format_tokens_equivalent(before, after) -> ok, why` (the safety check), `format_is_ignored(config, path)`, `format_glob_match(pattern, text)`, `format_count_long_lines(text, max_width)`, `FORMAT_CONFIG_FILE_NAME` (`"jaifmt.toml"`).
 
 ## Browser playground

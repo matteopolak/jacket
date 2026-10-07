@@ -9,6 +9,7 @@ Flags :: enum_flags u32 {
 pick :: (s: string, flags := Flags.A) -> u32 {
     return cast(u32) flags;
 }
+
 pick :: (n: int, reversed := false) -> u32 {
     return 99;
 }

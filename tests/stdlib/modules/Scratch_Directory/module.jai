@@ -27,19 +27,23 @@ scratch_directory :: (name: string) -> string {
 
 #if OS == .WINDOWS {
     Windows :: #import "Windows";
+
     environment_value :: (name: string) -> string {
         value := Windows.getenv(temp_c_string(name));
         return ifx value then to_string(value) else "";
     }
+
     process_id :: () -> u32 {
         return Windows.GetCurrentProcessId();
     }
 } else {
     POSIX :: #import "POSIX";
+
     environment_value :: (name: string) -> string {
         value := POSIX.getenv(temp_c_string(name));
         return ifx value then to_string(value) else "";
     }
+
     process_id :: () -> s64 {
         return POSIX.getpid();
     }

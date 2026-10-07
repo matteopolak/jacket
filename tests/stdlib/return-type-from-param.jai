@@ -3,13 +3,16 @@ Asset :: struct(T: Type) {
     ref_count: int;
     value: T;
 }
+
 add_ref :: (using asset: *Asset, _location := #caller_location) -> type_of(asset) {
     ref_count += 1;
     return asset;
 }
+
 twice :: (x: $T) -> type_of(x) {
     return x + x;
 }
+
 main :: () -> s64 {
     a: Asset(float);
     p := add_ref(*a);

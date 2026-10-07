@@ -2,6 +2,7 @@
 trace_enabled :: () -> bool {
     return TRACE;
 }
+
 width :: () -> int {
     return WIDTH;
 }

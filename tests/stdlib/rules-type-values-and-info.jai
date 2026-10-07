@@ -5,26 +5,33 @@
 Base :: struct {
     a: int;
 }
+
 Derived :: struct {
     using #as base: Base;
     b: float @tagged;
 }
+
 Same :: struct {
     a: int;
 }
+
 Twin :: struct {
     a: int;
 }
+
 Alias :: Base;
 Count :: #type,distinct s64;
 Ratio :: #type,isa float;
+
 Box :: struct(T: Type) {
     v: T;
 }
+
 Fruit :: enum {
     APPLE;
     PEAR;
 }
+
 Noted :: struct @persist @v2 {
     x: int;
 }

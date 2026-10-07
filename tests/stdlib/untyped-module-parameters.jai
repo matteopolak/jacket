@@ -3,7 +3,9 @@
 // `MAX_FRAME_IN_FLIGHT := 3` to an `NSUInteger`).
 // rules: modparam.8
 #import "Basic";
+
 FRAME_COUNT :: 2;
+
 Frames :: #import "Untyped_Param"(FRAMES = FRAME_COUNT);
 
 main :: () {

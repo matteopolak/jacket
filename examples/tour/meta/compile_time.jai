@@ -2,6 +2,7 @@
 
 // `#run` calls a procedure while compiling; the answer is baked into the binary.
 FIBONACCI :: #run fibonacci_table();
+
 fibonacci_table :: () -> [20] int {
     table: [20] int;
     table[0], table[1] = 0, 1;
@@ -11,6 +12,7 @@ fibonacci_table :: () -> [20] int {
 
 // A sine lookup table, computed once by the compiler instead of at startup.
 SINE_STEPS :: 16;
+
 SINE_TABLE :: #run -> [SINE_STEPS] float {
     table: [SINE_STEPS] float;
     for *table it.* = sin(cast(float) it_index * TAU / SINE_STEPS);
@@ -41,6 +43,7 @@ DONE
 Planet :: enum {
     #insert #run planet_members();
 }
+
 PLANET_GRAVITY :: #insert #run planet_gravity_literal();
 
 planet_members :: () -> string {
@@ -69,6 +72,7 @@ planet_gravity_literal :: () -> string {
 CHECKS :: #code {
     print("  inserted code says: 6 * 7 = %\n", 6 * 7);
 }
+
 run_checks :: () {
     #insert CHECKS;
 }

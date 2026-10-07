@@ -5,6 +5,7 @@ arena: [65536] u64;
 arena_position: s64;
 release_count: s64;
 fail_allocations: bool;
+
 arena_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
     if mode == .FREE {
         release_count += 1;

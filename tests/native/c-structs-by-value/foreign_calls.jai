@@ -1,6 +1,8 @@
 // Foreign calls passing and returning C structs by value (interpreter and native).
 #import "Basic";
+
 structs :: #library "libstructs";
+
 #load "types.jai";
 
 main :: () {

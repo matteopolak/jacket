@@ -5,9 +5,11 @@
 words :: () -> bool, [] string {
     return true, .["The", "number"];
 }
+
 numbers :: () -> [] int {
     return .[1, 2, 3];
 }
+
 EMPTY :: string.[];
 
 main :: () {

@@ -6,15 +6,19 @@
 parse :: (x: int) -> int, bool #must {
     return x * 2, x > 0;
 }
+
 only :: (x: int) -> int #must {
     return x + 1;
 }
+
 macro_only :: (x: int) -> int #must #expand {
     return x + 2;
 }
+
 lenient :: (x: int) -> int {
     return x;
 }
+
 ignore :: (code: Code) #expand {}
 
 main :: () {

@@ -1,6 +1,7 @@
 // Simp: a window program using automatic GL context creation. Checked (not run) for every desktop OS.
 #import "Basic";
 #import "Math";
+
 // Simp needs native C libraries (stb_image, FreeType) and a window system, so the WASM
 // target (the browser playground) cannot import it: there the test is empty.
 #if OS != .WASM {

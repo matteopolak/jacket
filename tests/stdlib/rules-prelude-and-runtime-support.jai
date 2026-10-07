@@ -7,10 +7,12 @@ Pair :: struct {
     left: int;
     right: int;
 }
+
 PAIR_INFO :: #run -> int {
     info := cast(*Type_Info_Struct) type_info(Pair);
     return info.members.count;
 };
+
 #assert PAIR_INFO == 2;
 
 // prelude.2: modules see them too (Rules_Prelude imports nothing).

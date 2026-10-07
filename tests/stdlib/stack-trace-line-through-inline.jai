@@ -5,6 +5,7 @@
 caller_line :: () -> s64 {
     return context.stack_trace.next.line_number;
 }
+
 through_inline :: inline () -> s64 {
     x := 1;
     return caller_line() * x;

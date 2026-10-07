@@ -1,6 +1,7 @@
 // Math vectors expose overlaid views (xy, xyz, component...); Quaternion.{} is the identity.
 #import "Basic";
 #import "Math";
+
 main :: () {
     v := Vector4.{ 1, 2, 3, 4 };
     assert(v.xyz.z == 3 && v.zw.y == 4 && v.component[1] == 2 && v.yzw.x == 2);

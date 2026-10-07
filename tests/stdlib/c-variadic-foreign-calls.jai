@@ -5,6 +5,7 @@
 
 libc :: #system_library "libc";
 snprintf :: (buf: *u8, n: u64, fmt: *u8, args: ..Any) -> s32 #foreign libc;
+
 #if OS != .WINDOWS {
     fcntl :: (fd: s32, cmd: s32, args: ..Any) -> s32 #foreign libc;
     pipe :: (fds: *[2] s32) -> s32 #foreign libc;

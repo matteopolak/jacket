@@ -2,10 +2,12 @@
 // so both sides agree on the type (modules/Poke_Target).
 #import "Basic";
 Poke_Target :: #import "Poke_Target";
+
 Mode :: enum {
     a;
     b;
 }
+
 #poke_name Poke_Target Mode;
 
 main :: () {

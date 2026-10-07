@@ -52,6 +52,7 @@ count_calls :: (code: Code) -> int, int {
     // Entry order is the depth-first preorder.
     for entered assert(it == depth[it_index], "entry %", it_index);
 }
+
 #run {
     // Each expansion declares `it` and `preorder` in the caller's scope, hence one per block.
     root := compiler_get_nodes(#code {

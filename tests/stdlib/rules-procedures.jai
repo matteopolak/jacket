@@ -7,9 +7,11 @@
 named :: (a: int, b := 7, c := "z") -> int, string {
     return a * 100 + b, c;
 }
+
 pair :: () -> int, string {
     return 4, "four";
 }
+
 sum :: (args: ..int) -> int {
     t := 0;
     for args t += it;
@@ -19,9 +21,11 @@ sum :: (args: ..int) -> int {
 show :: (x: int) -> string {
     return "int";
 }
+
 show :: (x: float) -> string {
     return "float";
 }
+
 show :: (x: string) -> string {
     return "string";
 }
@@ -29,15 +33,18 @@ show :: (x: string) -> string {
 from_int :: (x: int) -> int {
     return 1;
 }
+
 from_float :: (x: float) -> int {
     return 2;
 }
+
 either :: from_int;
 either :: from_float;
 
 caller_line :: (l := #caller_location) -> int {
     return l.line_number;
 }
+
 caller_file :: (l := #caller_location) -> string {
     return l.fully_pathed_filename;
 }
@@ -46,6 +53,7 @@ caller_file :: (l := #caller_location) -> string {
 root_kind :: (code: Code) -> Code_Node.Kind {
     return compiler_get_nodes(code).kind;
 }
+
 STORED :: #code 4 + 5;
 PASSED_EXPRESSION :: #run root_kind(1 + 2 * 3);
 PASSED_CODE :: #run root_kind(STORED);
@@ -53,6 +61,7 @@ PASSED_CODE :: #run root_kind(STORED);
 old_api :: (x: int) -> int #deprecated "use new_api" {
     return x + 1;
 }
+
 quiet :: (x: int) -> int #no_debug {
     return x * 3;
 }

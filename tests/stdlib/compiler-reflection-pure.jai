@@ -1,5 +1,6 @@
 #load "../../stdlib/Protocol_For_Memory_Visualization.jai";
 #load "../../stdlib/Jai_Lexer/classify.jai";
+
 probe :: () -> bool {
     if !starts_identifier(#char "_") || !starts_identifier(#char "Z") return false;
     if starts_identifier(#char "9") || starts_identifier(#char "@") return false;
@@ -14,5 +15,6 @@ probe :: () -> bool {
     if compare_alloc_and_free_traces(identical, unequal) return false;
     return true;
 }
+
 VERIFIED :: #run probe();
 #assert VERIFIED;

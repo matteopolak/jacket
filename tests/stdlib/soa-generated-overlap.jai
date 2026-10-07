@@ -1,8 +1,10 @@
 Columns :: #import "Soa";
+
 Overlaid :: union {
     first: u32;
     second: float;
 }
+
 main :: () -> s64 {
     rows: Columns.Soa(Overlaid, 2);
     rows.first[0] = 42;

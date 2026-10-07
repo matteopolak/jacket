@@ -5,6 +5,7 @@
 Obj :: struct {
     base: s32;
 }
+
 Vtable :: struct {
     add: #type (this: *Obj, x: s32) -> s32 #cpp_method;
 }

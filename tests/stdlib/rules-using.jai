@@ -6,6 +6,7 @@ Inner :: struct {
     n: int = 5;
     K :: 3;
 }
+
 Plain :: struct {
     using i: Inner;
 }
@@ -13,16 +14,20 @@ Plain :: struct {
 Base :: struct {
     x: int = 1;
 }
+
 Derived :: struct {
     using #as b: Base;
     y: int;
 }
+
 Flipped :: struct {
     #as using b: Base;
 }
+
 get_x :: (b: *Base) -> int {
     return b.x;
 }
+
 get_x_value :: (b: Base) -> int {
     return b.x;
 }
@@ -30,6 +35,7 @@ get_x_value :: (b: Base) -> int {
 Meta :: struct {
     count: int;
 }
+
 Owner :: struct {
     using meta: *Meta;
 }
@@ -39,15 +45,18 @@ Mode :: enum {
     B;
     C;
 }
+
 Settings :: struct {
     mode: Mode;
     extra: int = 7;
     limit: int = 2;
 }
+
 Tuned :: struct {
     using settings: Settings;
     mode = .B;
 }
+
 Nested :: struct {
     using #as settings: Settings;
     settings.limit = 40;
@@ -62,6 +71,7 @@ Pt :: struct {
     x: int;
     y: int;
 }
+
 move :: (using p: *Pt, dx: int) {
     x += dx;
 }
@@ -69,12 +79,14 @@ move :: (using p: *Pt, dx: int) {
 Config :: struct {
     level: int = 4;
 }
+
 using file_config := Config.{ level = 6 };
 
 Fruit :: enum {
     APPLE;
     MANGO;
 }
+
 Basket :: struct {
     tag: Fruit;
 }

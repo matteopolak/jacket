@@ -2,9 +2,11 @@
 Unload :: #type (*int);
 Count :: #type (int, int) -> int;
 unload_count := 0;
+
 drop :: (p: *int) {
     unload_count += p.*;
 }
+
 main :: () -> s64 {
     f: Unload = drop;
     x := 5;

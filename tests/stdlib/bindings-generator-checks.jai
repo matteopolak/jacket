@@ -14,6 +14,7 @@ FIXTURE :: #filepath;
 // Where the library is built, shared by both generations. Kept: the program loads the library
 // from here when it runs.
 LIBRARY_DIRECTORY :: #run library_directory();
+
 library_directory :: () -> string {
     #if OS == .WASM return "";
     return scratch_directory("bindgen-checks");

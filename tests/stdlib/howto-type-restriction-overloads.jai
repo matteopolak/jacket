@@ -7,10 +7,12 @@ Entity :: struct {
     id: s32;
     name: string;
 }
+
 Tree :: struct {
     #as using base: Entity;
     seeds: s32;
 }
+
 Strange :: struct {
     x, y: float64;
 }
@@ -18,6 +20,7 @@ Strange :: struct {
 describe :: (x: $T/Entity) -> string {
     return x.name;
 }
+
 describe :: (x: $T/Strange) -> string {
     return "strange";
 }

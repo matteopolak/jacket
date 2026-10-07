@@ -9,6 +9,7 @@ Hue :: enum {
     BLUE;
     CRIMSON :: 0;
 }
+
 Bits :: enum_flags {
     A;
     B;

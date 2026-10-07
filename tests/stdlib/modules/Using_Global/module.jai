@@ -2,11 +2,14 @@
 Procs :: struct {
     answer: () -> int #c_call;
 }
+
 procs: Procs;
 using procs;
+
 load_procs :: () {
     procs.answer = xx forty_two;
 }
+
 #scope_file
 forty_two :: () -> int #c_call {
     return 42;

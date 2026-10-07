@@ -1,19 +1,23 @@
 // Formatter record factories (Any payload) and the strings they print as.
 // Reflection assertions prove the selected Any descriptor and member offset.
 #import "Basic";
+
 Wrapped_Value :: struct {
     marker: s64;
     using #as formatter: Formatter;
 }
+
 Sample_Record :: struct {
     count: s64;
     name: string;
 }
+
 Sample_Flags :: enum_flags u8 {
     A :: 1;
     B :: 2;
     C :: 4;
 }
+
 Procedure_Kind :: #type (s64) -> bool;
 
 main :: () -> s64 {

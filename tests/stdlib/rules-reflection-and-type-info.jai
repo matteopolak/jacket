@@ -8,15 +8,19 @@ Shade :: enum u8 {
     MID;
     LIGHT;
 }
+
 Point3 :: struct {
     px: float;
     py: float;
     label: string;
 }
+
 Box :: struct(Item: Type, N: int) {
     slots: [N] Item;
 }
+
 Meters :: #type,distinct float64;
+
 only_in_table :: struct {
     q: u16;
 }

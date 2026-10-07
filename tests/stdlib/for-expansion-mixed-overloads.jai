@@ -4,11 +4,13 @@
 Bag :: struct {
     items: [3] int = .[1, 2, 3];
 }
+
 Other :: struct {
     x: int;
 }
 
 for_expansion :: (o: Other, body: Code, flags: For_Flags) #expand {}
+
 for_expansion :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
     for i: 0..bag.items.count - 1 {
         `it := bag.items[i];

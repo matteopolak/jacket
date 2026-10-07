@@ -9,10 +9,12 @@ Turn :: enum s32 {
     WHITE :: 0;
     BLACK :: 1;
 }
+
 Flags :: enum_flags {
     REVERSE;
     POINTER;
 }
+
 Pair :: struct {
     x: s64;
     y: s64;

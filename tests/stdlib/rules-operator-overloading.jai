@@ -6,22 +6,28 @@
 V2 :: struct {
     x, y: float;
 }
+
 operator + :: (a: V2, b: V2) -> V2 {
     return .{ a.x + b.x, a.y + b.y };
 }
+
 operator == :: (a: V2, b: V2) -> bool {
     return a.x == b.x && a.y == b.y;
 }
+
 operator [] :: (v: V2, i: int) -> float {
     if i == 0 return v.x;
     return v.y;
 }
+
 operator - :: (a: V2) -> V2 {
     return .{ -a.x, -a.y };
 }
+
 operator * :: (a: V2, k: float) -> V2 {
     return .{ a.x * k, a.y * k };
 }
+
 operator * :: (a: V2, b: V2) -> float {
     return a.x * b.x + a.y * b.y;
 }
@@ -29,6 +35,7 @@ operator * :: (a: V2, b: V2) -> float {
 Slots :: struct {
     cells: [3] int;
 }
+
 operator *[] :: (s: *Slots, i: int) -> *int {
     return *s.cells[i];
 }
@@ -36,9 +43,11 @@ operator *[] :: (s: *Slots, i: int) -> *int {
 Doubler :: struct {
     stored: [4] int;
 }
+
 operator [] :: (d: Doubler, i: int) -> int {
     return d.stored[i];
 }
+
 operator []= :: (d: *Doubler, i: int, value: int) {
     d.stored[i] = value * 2;
 }

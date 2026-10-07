@@ -39,6 +39,7 @@ Rec :: struct {
 pair :: () -> int, string {
     return 3, "three";
 }
+
 triple :: () -> int, int, int {
     return 1, 2, 3;
 }

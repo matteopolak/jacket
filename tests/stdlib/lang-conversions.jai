@@ -6,10 +6,12 @@ Mode :: enum {
     ON;
     AUTO;
 }
+
 using Flags :: enum_flags u8 {
     FLAG_A :: 1;
     FLAG_B :: 2;
 }
+
 Pair :: struct {
     x: float;
     y: float;
@@ -25,6 +27,7 @@ c_string_length :: (s: *u8) -> int {
 quad :: (a: float, b: float, c: float, d: float, tint: float) -> int {
     return 1;
 }
+
 quad :: (a: Pair, b: Pair, c: Pair, d: Pair, tint: float) -> int {
     return 2;
 }
@@ -32,6 +35,7 @@ quad :: (a: Pair, b: Pair, c: Pair, d: Pair, tint: float) -> int {
 choose :: (flag: bool) -> int {
     return 10;
 }
+
 choose :: (m: Mode) -> int {
     return 20;
 }

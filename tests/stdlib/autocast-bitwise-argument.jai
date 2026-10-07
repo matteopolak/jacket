@@ -12,6 +12,7 @@ using Squares :: enum_flags u64 {
 bits :: (x: u64) -> u64 {
     return x;
 }
+
 bits_macro :: (x: u64) -> u64 #expand {
     return x;
 }

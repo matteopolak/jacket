@@ -159,6 +159,7 @@ check_long_double :: () {
     assert(!has(text, "Jaic_Extensions"));
     assert(has(text, "get_double :: () -> float64 #foreign lib;"));
 }
+
 #if LIBCLANG #run check_long_double();
 
 main :: () {
@@ -182,6 +183,7 @@ generated_for_insert :: () -> string {
 // stdio's `FILE`, which the bindings name but do not declare; they only point to it.
 FILE :: struct {}
 lib :: #library "does_not_exist";
+
 #if LIBCLANG {
     #insert #run generated_for_insert();
 }

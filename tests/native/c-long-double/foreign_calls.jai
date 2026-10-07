@@ -1,7 +1,9 @@
 // C `long double` arguments, results and struct members through #foreign (interpreter and
 // native). The same output is expected whatever the target's long double is.
 #import "Basic";
+
 longdouble :: #library "liblongdouble";
+
 #load "types.jai";
 
 main :: () {

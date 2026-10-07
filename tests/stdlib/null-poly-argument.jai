@@ -3,6 +3,7 @@
 visit :: (user_data: $T, proc: (n: int, user_data: T)) {
     proc(3, user_data);
 }
+
 store :: (x: $T) -> T {
     return x;
 }

@@ -12,6 +12,7 @@ by_value :: (a: *void, b: *void) -> s32 #c_call {
 }
 
 compared := 0;
+
 counting :: (a: *void, b: *void) -> s32 #c_call {
     compared += 1; // Globals are shared with the interpreter.
     return by_value(a, b);

@@ -16,6 +16,7 @@ printed :: (node: *Code_Node) -> string {
 two :: () -> int, bool {
     return 7, true;
 }
+
 declare_two :: () #expand {
     a, `b := two();
 }
@@ -24,6 +25,7 @@ declare_two :: () #expand {
 pair_consts :: () -> int, string {
     return 3, "three";
 }
+
 N, NAME :: #run pair_consts();
 #assert N == 3 && NAME == "three";
 
@@ -41,9 +43,11 @@ Fruit :: enum {
     APPLE;
     MANGO;
 }
+
 Basket :: struct {
     tag: Fruit;
 }
+
 is_mango :: (basket: Basket) -> bool {
     using basket.tag;
     if basket.tag == {
@@ -58,6 +62,7 @@ is_mango :: (basket: Basket) -> bool {
 helper :: () -> int {
     return 40;
 }
+
 #scope_export
 made_code :: () -> Code {
     root := compiler_get_nodes(#code helper() + LOCAL_ONLY);

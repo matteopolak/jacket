@@ -1,5 +1,6 @@
 // Prepared actual Basic fixture. It must execute through the real module.
 #import "Basic";
+
 main :: () -> s64 {
     if tprint("%", formatFloat(1234567.89, mode = .SHORTEST)) != "1.23457e+06" return 1;
     if tprint("%", formatFloat(2.5, trailing_width = 0)) != "2" return 2;

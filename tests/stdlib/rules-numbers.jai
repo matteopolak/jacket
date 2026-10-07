@@ -5,6 +5,7 @@
 which :: (x: float32) -> int {
     return 32;
 }
+
 which :: (x: float64) -> int {
     return 64;
 }

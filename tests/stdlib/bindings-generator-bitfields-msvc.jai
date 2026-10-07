@@ -60,6 +60,7 @@ STRUCT_NAMES :: string.["Mixed", "SameType", "Zero", "Tail", "Wide", "Shorts", "
 
 // Where the library is built. Kept: the program loads the library from here when it runs.
 LIBRARY_DIRECTORY :: #run library_directory();
+
 library_directory :: () -> string {
     #if OS == .WASM return "";
     return scratch_directory("bindgen-bitfields-msvc");

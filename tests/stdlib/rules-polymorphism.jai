@@ -6,15 +6,19 @@ bigger :: (a: $T, b: T) -> T {
     if a > b return a;
     return b;
 }
+
 make :: ($T: Type, v: $U) -> T {
     return cast(T) v;
 }
+
 length_of :: (items: [] $T) -> int {
     return items.count;
 }
+
 apply :: (a: $A, f: (A) -> $R) -> R {
     return f(a);
 }
+
 twice :: ($N: int) -> int {
     return N * 2;
 }
@@ -26,17 +30,20 @@ tag :: (x: $T) -> Type {
 weighted :: (a: int, b: int, c: int) -> int {
     return a * 100 + b * 10 + c;
 }
+
 weighted_b :: #bake_arguments weighted(b = 5);
 weighted_ab :: #bake_arguments weighted(a = 1, b = 2);
 
 Grid :: struct($T: Type, $N: int) {
     cells: [N] T;
 }
+
 IntGrid :: #bake_arguments Grid(T = int);
 
 Holder :: struct(sample: $T) {
     value: T;
 }
+
 Fixed :: struct(shape: [$N] $T) {
     items: [N] T;
 }
@@ -44,16 +51,20 @@ Fixed :: struct(shape: [$N] $T) {
 Entity :: struct {
     id: int;
 }
+
 Player :: struct {
     #as using base: Entity;
     score: int;
 }
+
 Rock :: struct {
     mass: int;
 }
+
 kind :: (x: $T/Entity) -> int {
     return 1;
 }
+
 kind :: (x: $T) -> int {
     return 2;
 }

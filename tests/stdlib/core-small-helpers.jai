@@ -14,6 +14,7 @@ on_change :: (watcher: *File_Watcher(void), change: *File_Change, user_data: *vo
 Inner :: struct {
     a: int;
 }
+
 Outer :: struct {
     inner: Inner;
 }

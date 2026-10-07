@@ -11,15 +11,18 @@ press :: (key: Input.Key_Code) -> Input.Event {
     event.key_pressed = 1;
     return event;
 }
+
 release :: (key: Input.Key_Code) -> Input.Event {
     event: Input.Event;
     event.type = .KEYBOARD;
     event.key_code = key;
     return event;
 }
+
 is_down :: (key: Input.Key_Code) -> bool {
     return (Input.input_button_states[cast(u32) key] & .DOWN) != 0;
 }
+
 main :: () {
     Input.input_event_source = null;
     first := cast(Window_Type) 1001;

@@ -7,12 +7,15 @@
 seven :: () -> int {
     return 3 + 4;
 }
+
 greeting :: () -> string {
     return sprint("hello %", 5);
 }
+
 pick_type :: () -> Type {
     return float64;
 }
+
 SEVEN :: #run seven();
 GREETING :: #run greeting();
 PICKED :: #run pick_type();
@@ -21,9 +24,11 @@ PICKED :: #run pick_type();
 
 // ctdata.2: a pointer into a global stays a pointer to that global.
 anchor: [4] int;
+
 point_at_anchor :: () -> *int {
     return *anchor[2];
 }
+
 ANCHOR_PTR :: #run point_at_anchor();
 
 // ctdata.3: heap memory reached from the result is copied along, recursively.
@@ -31,6 +36,7 @@ Link :: struct {
     value: int;
     next: *Link;
 }
+
 build_chain :: () -> *Link {
     first := New(Link);
     first.value = 10;
@@ -40,18 +46,21 @@ build_chain :: () -> *Link {
     first.next.next.value = 30;
     return first;
 }
+
 CHAIN :: #run build_chain();
 
 // ctdata.4: small integers cast to pointers keep their numeric value.
 small_pointer :: () -> *u8 {
     return cast(*u8) 0x40;
 }
+
 SMALL_PTR :: #run small_pointer();
 
 // ctdata.14: a sign-extended handle (top bit set) cast to a pointer keeps its value too.
 Opaque_Handle :: *struct {
     unused: u8;
 };
+
 TOP_BIT_HANDLE :: cast(Opaque_Handle) (cast(s64) (cast,trunc(s32) 0x80000000));
 
 // ctdata.6: union members are copied as raw bytes.
@@ -59,16 +68,19 @@ Either :: union {
     as_pointer: *int;
     as_number: s64;
 }
+
 Holder :: struct {
     tag: int;
     payload: Either;
 }
+
 make_holder :: () -> Holder {
     h: Holder;
     h.tag = 2;
     h.payload.as_number = 0x1234_5678;
     return h;
 }
+
 HOLDER :: #run make_holder();
 
 // ctdata.7: the doc's example (a struct holding a string and an array built with array_add).
@@ -76,32 +88,39 @@ Item :: struct {
     name: string;
     tags: [] int;
 }
+
 make_item :: () -> Item {
     arr: [..] int;
     for 1..4 array_add(*arr, it * it);
     return .{ "sq", arr };
 }
+
 TABLE :: #run make_item();
 
 // ctdata.8 / ctdata.9 / ctdata.11: compile-time writes to globals are undone before main,
 // except for #no_reset globals and initializers that are themselves #run results.
 counter := 5;
 #no_reset keep := 0;
+
 #run {
     counter = 99;
     keep = 7;
 }
+
 calls := 0;
+
 counted :: () -> int {
     calls += 1;
     return 64;
 }
+
 initialized := #run counted();
 
 Marker_Type :: struct {
     a: u32;
     b: u16;
 }
+
 marker_global: Marker_Type;
 
 main :: () {

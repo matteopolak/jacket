@@ -7,10 +7,12 @@
 Line :: struct {
     member: int #align 64;
 }
+
 Two_Lines :: struct {
     first: int #align 64;
     second: int #align 64;
 }
+
 Odd :: struct {
     tag: u8;
     payload: [100] u8;

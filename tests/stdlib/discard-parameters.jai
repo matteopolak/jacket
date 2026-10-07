@@ -4,22 +4,27 @@
 #import "Basic";
 
 calls: int;
+
 side :: () -> bool {
     calls += 1;
     return true;
 }
+
 side_int :: () -> int {
     calls += 1;
     return 7;
 }
 
 check :: (#discard cond: bool) {}
+
 two :: (a: int, #discard b: int, c: int) -> int {
     return a + c;
 }
+
 labelled :: (#discard text := "none", #discard rest: ..Any) -> int {
     return 5;
 }
+
 pick :: (#discard x: $T, y: T) -> T {
     return y;
 }

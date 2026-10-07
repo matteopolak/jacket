@@ -3,6 +3,7 @@ answer :: 42;
 other :: 7;
 
 hits: int;
+
 bump :: () -> int {
     hits += 1;
     return hits;

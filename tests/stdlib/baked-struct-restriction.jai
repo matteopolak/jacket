@@ -4,12 +4,14 @@
 Vector :: struct(T: Type, N: int) {
     data: [N] T;
 }
+
 Vec2 :: #bake_arguments Vector(N = 2);
 Vec3 :: #bake_arguments Vector(N = 3);
 
 which :: (v: $V/Vec2) -> int {
     return 2;
 }
+
 which :: (v: $V/Vec3) -> int {
     return 3;
 }

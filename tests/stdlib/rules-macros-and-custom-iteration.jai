@@ -9,6 +9,7 @@ return_from_caller :: (v: int) #expand {
         `return v * 10;
     }
 }
+
 outer :: (v: int) -> int {
     return_from_caller(v);
     return 1;
@@ -18,6 +19,7 @@ outer :: (v: int) -> int {
 bump_caller :: () #expand {
     `counter += 1;
 }
+
 exchange :: (a: *int, b: *int) #expand {
     t := a.*;
     a.* = b.*;
@@ -26,6 +28,7 @@ exchange :: (a: *int, b: *int) #expand {
 
 // macro.3: a Code argument is inserted where the macro says, as often as it says.
 log: [..] string;
+
 run_twice :: (c: Code) #expand {
     #insert c;
     #insert c;
@@ -36,6 +39,7 @@ run_twice :: (c: Code) #expand {
 Bag :: struct {
     items: [3] int = .[1, 2, 3];
 }
+
 for_expansion :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
     for i: 0..bag.items.count - 1 {
         `it := bag.items[i];
@@ -57,6 +61,7 @@ walk :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
 Countdown :: struct {
     from: int;
 }
+
 for_expansion :: (c: Countdown, body: Code, flags: For_Flags) #expand {
     n := c.from;
     while n > 0 {

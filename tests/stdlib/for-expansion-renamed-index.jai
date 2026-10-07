@@ -12,6 +12,7 @@ for_expansion :: (list: *$T, body: Code, flags: For_Flags) #expand
 #modify {
     return T == Node;
 }
+
 {
     `it := list;
     `it_index := 0;

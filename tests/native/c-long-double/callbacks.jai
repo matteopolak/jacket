@@ -1,7 +1,9 @@
 // Jai #c_call procedures taking and returning C `long double` (alone and in a struct), called
 // from C (interpreter and native).
 #import "Basic";
+
 longdouble :: #library "liblongdouble";
+
 #load "types.jai";
 
 difference :: (a: Long_Double, b: Long_Double) -> Long_Double #c_call {

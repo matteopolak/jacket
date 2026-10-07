@@ -1,9 +1,11 @@
 Columns :: #import "Soa";
+
 Point :: struct {
     x: s32 = 5;
     y: float64;
     LABEL :: "point";
 }
+
 main :: () -> s64 {
     rows: Columns.Soa(Point, 3);
     if rows.x.count != 3 || rows.y.count != 3 return 1;

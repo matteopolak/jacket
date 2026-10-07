@@ -33,9 +33,11 @@ later_math_user :: () -> float {
 }
 
 seen: *void;
+
 Remember :: () #expand {
     seen = cast(*void) #this;
 }
+
 remembering :: () {
     Remember();
 }

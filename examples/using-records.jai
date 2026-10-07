@@ -1,9 +1,11 @@
 Inner :: struct {
     value: int = 3;
 }
+
 Middle :: struct {
     using inner: Inner;
 }
+
 Outer :: struct {
     using middle: Middle;
 }

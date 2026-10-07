@@ -1,21 +1,26 @@
 // Struct-body overrides of members reached through a dotted path (`base.f = show;`), as focus-editor's dialogs use.
 #import "Basic";
+
 Base :: struct(T: Type) {
     id: s64;
     f: (x: s64) -> ();
     g: () -> ();
 }
+
 Derived :: struct {
     using #as base: Base(int);
     base.id = 7;
     base.f = show;
 }
+
 Plain :: struct {
     h: () -> () = hello;
 }
+
 show :: (x: s64) {
     print("show %\n", x);
 }
+
 hello :: () {
     print("hello\n");
 }

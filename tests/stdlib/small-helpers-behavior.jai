@@ -12,9 +12,11 @@ Sparse :: enum s32 {
     C :: 12;
     D :: 0;
 }
+
 Lonely :: enum {
     ONLY :: 7;
 }
+
 Pair :: struct(N: int, T: Type) {
     values: [N] T;
 }

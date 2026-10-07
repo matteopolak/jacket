@@ -6,6 +6,7 @@ Color :: enum {
     RED;
     GREEN;
 }
+
 Pair :: struct {
     a: s32;
     b: s32;

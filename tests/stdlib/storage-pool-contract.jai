@@ -23,6 +23,7 @@ Pool_Layout :: struct {
         LOG_OVERSIZED_ALLOCATIONS_STACK_TRACE :: 0x4;
     }
 }
+
 #assert size_of(P.Pool) == size_of(Pool_Layout);
 #assert P.HEADER_SIZE == 8;
 
@@ -81,6 +82,7 @@ check_pool_contract :: () -> int {
 }
 
 #assert #run check_pool_contract() == 0;
+
 main :: () -> int {
     return check_pool_contract();
 }

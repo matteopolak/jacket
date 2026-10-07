@@ -65,9 +65,11 @@ hail :: (who: string, times := 1, ending := "!") -> string {
 describe :: (value: int) {
     print("  % is an int\n", value);
 }
+
 describe :: (value: float) {
     print("  % is a float\n", value);
 }
+
 describe :: (value: string) {
     print("  \"%\" is a string of % bytes\n", value, value.count);
 }

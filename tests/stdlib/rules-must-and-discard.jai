@@ -4,10 +4,12 @@
 #import "Basic"()(ENABLE_ASSERT = false);
 
 calls: int;
+
 expensive :: () -> bool {
     calls += 1;
     return false;
 }
+
 side :: () -> int {
     calls += 1;
     return 4;
@@ -17,6 +19,7 @@ side :: () -> int {
 first_must :: () -> int #must, bool {
     return 3, true;
 }
+
 only :: (x: int) -> int #must {
     return x + 1;
 }
@@ -24,6 +27,7 @@ only :: (x: int) -> int #must {
 V :: struct {
     x: int;
 }
+
 operator + :: (a: V, b: V) -> V #must {
     return .{ a.x + b.x };
 }
@@ -31,10 +35,12 @@ operator + :: (a: V, b: V) -> V #must {
 with_default :: (#discard v := side()) -> int {
     return 1;
 }
+
 typed :: (#discard x: $T) -> T {
     zero: T;
     return zero;
 }
+
 discarded_arg :: (#discard x: int) {}
 
 main :: () {

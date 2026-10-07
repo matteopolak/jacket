@@ -11,6 +11,7 @@ Dir :: #import,dir "modules/Rules_Plain";
 Str :: #import,string "str_val :: 11; str_twice :: (x: int) -> int { return x * 2; }";
 #load "modules/rules_import_files/loaded.jai";
 Filtered :: #import,string "filtered_answer :: 5; filtered_other :: 6;";
+
 using,only(filtered_answer) Filtered;
 
 LOADER_BASE :: 9;

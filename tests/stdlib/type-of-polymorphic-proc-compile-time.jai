@@ -4,6 +4,7 @@
 poly :: (x: $T) -> T {
     return x * x;
 }
+
 concrete :: (x: int) -> int {
     return x * x;
 }

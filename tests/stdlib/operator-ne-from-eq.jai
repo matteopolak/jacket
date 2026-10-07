@@ -6,6 +6,7 @@
 Id :: struct {
     v: int;
 }
+
 operator != :: (a: Id, b: Id) -> bool {
     return a.v != b.v;
 }
@@ -13,6 +14,7 @@ operator != :: (a: Id, b: Id) -> bool {
 P :: struct {
     x: int;
 }
+
 operator == :: (a: P, b: P) -> bool {
     return a.x == b.x;
 }

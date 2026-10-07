@@ -6,6 +6,7 @@
 Slots :: struct {
     cells: [3] int;
 }
+
 operator *[] :: (s: *Slots, i: int) -> *int {
     return *s.cells[i];
 }
@@ -13,6 +14,7 @@ operator *[] :: (s: *Slots, i: int) -> *int {
 Other :: struct {
     v: int;
 }
+
 operator []= :: (o: *Other, i: int, value: int) {
     o.v = value;
 }

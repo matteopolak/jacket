@@ -44,6 +44,7 @@ stops :: Stop.[.{ "one", one }, .{ "two", two }];
 one :: () {
     print("1\n");
 }
+
 two :: () {
     print("2\n");
 }

@@ -55,6 +55,7 @@ check_many :: () -> bool {
 
 #assert #run check_heap();
 #assert #run check_many();
+
 main :: () -> int {
     return 0;
 }

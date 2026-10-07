@@ -1,6 +1,7 @@
 // #c_call procedures that C reads from memory (a struct field, a global), not from its
 // arguments, called on the calling thread and on threads C starts (interpreter and native).
 #import "Basic";
+
 stored :: #library "libstored";
 
 Unary :: #type (x: s32) -> s32 #c_call;
@@ -46,6 +47,7 @@ global_holder := Holder.{ 1000, triple };
 make_holder :: () -> Holder {
     return .{ 10, negate };
 }
+
 baked_holder :: #run make_holder();
 
 main :: () {

@@ -27,7 +27,9 @@ rebuilt :: (code: Code) -> Code {
     root := compiler_get_nodes(code);
     return compiler_get_code(root);
 }
+
 base_value := 100;
+
 with_rebuilt :: (code: Code) #expand {
     offset := 7;
     copy :: #run rebuilt(code);
@@ -42,6 +44,7 @@ double_it :: (expr: Code) -> int #expand {
 
 // code.11: `#insert,scope()` checks in the macro's scope, so the macro's names are visible.
 index_total := 0;
+
 each_index :: (count: int, body: Code) #expand {
     for 0..count - 1 {
         index := it;
@@ -51,16 +54,20 @@ each_index :: (count: int, body: Code) #expand {
 
 // code.13: the verified program of the doc, with output collected instead of printed.
 log: [..] string;
+
 make_decl :: (name: string) -> string {
     return tprint("% :: 42;\n", name);
 }
+
 #insert #run make_decl("ANSWER");
+
 twice_with_defer :: (c: Code) #expand {
     for 0..1 {
         `defer array_add(*log, tprint("d%", it));
         #insert,scope() c;
     }
 }
+
 code_val :: #code array_add(*log, "hi");
 
 main :: () {

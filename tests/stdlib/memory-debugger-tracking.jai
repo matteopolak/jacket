@@ -1,4 +1,5 @@
 Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
+
 Node :: struct {
     child: *void;
 }
@@ -12,6 +13,7 @@ totals :: (report: Basic.Leak_Report) -> (count: s64, bytes: s64) {
     }
     return count, bytes;
 }
+
 main :: () -> s64 {
     Basic.allocations_before_this_call_will_not_be_considered_leaks();
     options: Basic.Leak_Report_Options;

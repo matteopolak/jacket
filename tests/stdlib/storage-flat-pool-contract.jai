@@ -10,6 +10,7 @@ Flat_Pool_Layout :: struct {
     first_uncommitted_page: *u8;
     address_limit: *u8;
 }
+
 #assert size_of(P.Flat_Pool) == size_of(Flat_Pool_Layout);
 
 check_flat_pool_contract :: () -> int {
@@ -75,6 +76,7 @@ check_flat_pool_contract :: () -> int {
 }
 
 #assert #run check_flat_pool_contract() == 0;
+
 main :: () -> int {
     return check_flat_pool_contract();
 }

@@ -6,6 +6,7 @@ Collector :: struct($T: Type) {
 }
 
 total := 0;
+
 add :: (x: *int) {
     total += x.*;
 }

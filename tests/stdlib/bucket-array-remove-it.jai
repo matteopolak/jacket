@@ -1,6 +1,7 @@
 // `remove it` inside a for loop over a Bucket_Array frees that slot.
 #import "Basic";
 #import "Bucket_Array";
+
 main :: () {
     array: Bucket_Array(int, 4);
     for 1..10 bucket_array_add(*array, it);

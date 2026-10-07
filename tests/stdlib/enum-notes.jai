@@ -8,6 +8,7 @@ Hue :: enum_flags @Hi {
     R;
     G;
 }
+
 Size :: enum u8 @Small @Tiny {
     S;
     M;

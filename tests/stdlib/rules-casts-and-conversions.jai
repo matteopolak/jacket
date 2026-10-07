@@ -24,9 +24,11 @@ name_length :: (n: Name) -> int {
 Vec3 :: struct {
     x, y, z: float;
 }
+
 operator + :: (a: Vec3, b: Vec3) -> Vec3 {
     return .{ a.x + b.x, a.y + b.y, a.z + b.z };
 }
+
 Place :: #type,isa Vec3;
 
 doubled :: (v: Vec3) -> Vec3 {

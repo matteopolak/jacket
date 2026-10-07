@@ -11,6 +11,7 @@ Op :: enum {
     PLUS;
     MINUS;
 }
+
 strict :: (op: Op) -> int {
     return xx op;
 }

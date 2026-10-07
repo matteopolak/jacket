@@ -8,6 +8,7 @@ Flags :: enum_flags u8 {
     B;
     C;
 }
+
 Dir :: enum {
     NORTH;
     EAST;

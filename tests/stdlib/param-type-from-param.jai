@@ -9,6 +9,7 @@ Cache :: struct(T: Type) {
 init :: (cache: *$C/Cache, proc: cache.Proc) {
     cache.proc = proc;
 }
+
 init_plain :: (cache: *Cache(int), proc: cache.Proc) {
     cache.proc = proc;
 }

@@ -11,13 +11,17 @@ factorial :: (n: int) -> int {
     if n <= 1 return 1;
     return n * factorial(n - 1);
 }
+
 F10 :: #run factorial(10); // expression form, a constant
+
 NAMES :: #run -> [3] string {
     return .["a", "b", "c"];
 }; // body with a return type
+
 CHOSEN :: #run -> Type {
     return u16;
 }; // a Type
+
 initialized_global := #run factorial(5); // a global initializer
 #assert F10 == 3628800;
 #assert CHOSEN == u16;
@@ -26,15 +30,19 @@ initialized_global := #run factorial(5); // a global initializer
 // evaluated after all of them, so this one, written before the last #run, sees three steps.
 #no_reset run_order: [3] int;
 #no_reset run_steps := 0;
+
 #run {
     run_order[run_steps] = 1;
     run_steps += 1;
 }
+
 #assert run_steps == 3;
+
 #run {
     run_order[run_steps] = 2;
     run_steps += 1;
 }
+
 #run {
     run_order[run_steps] = 3;
     run_steps += 1;
@@ -44,6 +52,7 @@ initialized_global := #run factorial(5); // a global initializer
 PHASE :: #run -> bool {
     return #compile_time;
 };
+
 #assert PHASE;
 
 // ctexec.11: compile-time code reads files and starts processes.
@@ -52,12 +61,15 @@ own_source_mentions_marker :: () -> bool {
     if !ok return false;
     return contains(text, "ctexec-11-marker");
 }
+
 SOURCE_READ :: #run own_source_mentions_marker();
+
 echo_output :: () -> string {
     result, output := run_command("echo", "from child", capture_and_return_output = true);
     if result.exit_code != 0 return "";
     return trim(output);
 }
+
 // The browser engine cannot start processes.
 #if OS != .WASM CHILD_OUTPUT :: #run echo_output();
 
@@ -72,9 +84,11 @@ echo_output :: () -> string {
 
 // ctexec.13: `#run,stallable` is accepted and runs like a plain #run, synchronously.
 #no_reset stall_steps := 0;
+
 #run,stallable {
     stall_steps += 1;
 }
+
 #assert stall_steps == 1;
 STALLED :: #run,stallable factorial(4);
 

@@ -8,6 +8,7 @@ Map :: struct(K: Type) {
         hash: u32;
     }
 }
+
 Anim :: struct {
     joints: Map(int);
     count: int;

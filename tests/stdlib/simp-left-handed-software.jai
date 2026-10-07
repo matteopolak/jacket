@@ -2,6 +2,7 @@
 #import "Basic";
 Math :: #import "Math";
 String :: #import "String";
+
 // Simp needs native C libraries (stb_image, FreeType) and a window system, so the WASM
 // target (the browser playground) cannot import it: there the test is empty.
 #if OS != .WASM {

@@ -5,6 +5,7 @@
 Cmd :: struct {
     v: int;
 }
+
 Holder :: struct {
     pools: Bucket_Array(Cmd, 4);
 }

@@ -5,12 +5,15 @@
 lg :: (x: float64) -> float64 {
     return 64;
 }
+
 lg :: (x: float32) -> float32 {
     return 32;
 }
+
 pick :: (x: s32) -> int {
     return 1;
 }
+
 pick :: (x: float64) -> int {
     return 2;
 }

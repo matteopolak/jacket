@@ -7,7 +7,9 @@
 stalled_value :: () -> int {
     return 6 * 7;
 }
+
 STALLED :: #run,stallable stalled_value();
+
 #run,stallable {
     assert(STALLED == 42, "stallable run at compile time");
 }
@@ -23,6 +25,7 @@ Noted :: struct @Whatever @"free text" {
     a: int @Unknown;
     b: int;
 }
+
 noted_add :: (x: int, y: int) -> int {
     return x + y;
 } @SomeNote

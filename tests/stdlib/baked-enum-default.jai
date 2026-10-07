@@ -7,6 +7,7 @@ Mode :: enum {
     slow;
     fast;
 }
+
 speed :: ($mode: Mode = .fast) -> int {
     return ifx mode == .fast then 2 else 1;
 }
@@ -21,7 +22,9 @@ Info :: struct {
     background := false;
     translucent := false;
 }
+
 flags :: ($info := Info.{}) -> int {
     return cast(int) info.background + 2 * cast(int) info.translucent;
 }
+
 #run assert(flags() == 0 && flags(info = .{ translucent = true }) == 2 && flags(.{ background = true }) == 1);

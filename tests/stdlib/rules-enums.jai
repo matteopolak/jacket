@@ -8,23 +8,28 @@ Shade :: enum {
     LIGHT;
     BRIGHT;
 }
+
 Tiny :: enum u8 {
     P;
     Q;
     R;
 }
+
 Medium :: enum s16 {
     P;
 }
+
 Perm :: enum_flags u32 {
     READ;
     WRITE;
     EXEC;
 }
+
 Exact :: enum u16 #specified {
     ONE :: 1;
     TWO :: 2;
 }
+
 Whole :: enum #complete {
     YES;
     NO;
@@ -40,6 +45,7 @@ Sc :: enum s32 {
     LAST;
     IPV6 :: LAST + cast(Sc) 50;
 }
+
 Rank :: enum {
     FIRST;
     SECOND;

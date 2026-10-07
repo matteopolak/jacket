@@ -1,9 +1,11 @@
 // Constants in a for_expansion body exist in every expansion (here two loops in one procedure).
 #import "Basic";
+
 Array :: struct(T: Type) {
     data: *T;
     count: s32;
 }
+
 for_expansion :: (array: *Array($T), body: Code, flags: For_Flags) #expand {
     DO_POINTER :: cast(bool) (flags & .POINTER);
     `it_index: s32;
@@ -23,6 +25,7 @@ for_expansion :: (array: *Array($T), body: Code, flags: For_Flags) #expand {
         #insert body;
     }
 }
+
 main :: () {
     v := int.[1, 2, 3];
     a: Array(int);

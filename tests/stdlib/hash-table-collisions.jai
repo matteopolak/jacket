@@ -1,7 +1,9 @@
 Tables :: #import "Hash_Table"(COUNT_COLLISIONS = true);
+
 constant_hash :: (key: s64) -> u32 {
     return 9;
 }
+
 main :: () -> s64 {
     table: Tables.Table(s64, s64, constant_hash);
     Tables.init(*table, 32);

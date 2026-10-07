@@ -8,6 +8,7 @@ Holder :: struct(N: int, T: Type)
     if T == u8 T = u16;
     return true;
 }
+
 {
     values: [N] T;
 }

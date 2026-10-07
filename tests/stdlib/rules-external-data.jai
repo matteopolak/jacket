@@ -10,6 +10,7 @@
     __stdoutp: *void #elsewhere c_runtime;
     // extdata.3: a string after the library names a different symbol.
     renamed_out: *void #elsewhere c_runtime "__stdoutp";
+
     default_named :: () -> *void {
         return __stdoutp;
     }
@@ -18,6 +19,7 @@
     c_runtime :: #system_library "libc";
     stdout: *void #elsewhere c_runtime;
     renamed_out: *void #elsewhere c_runtime "stdout";
+
     default_named :: () -> *void {
         return stdout;
     }

@@ -35,6 +35,7 @@ show_ring :: (ring: $R/Ring) {
 Has_Position :: struct {
     x, y: float;
 }
+
 Ship :: struct {
     name: string;
     x, y: float;
@@ -71,6 +72,7 @@ power :: (base: int, $$exponent: int) -> result: int, baked: bool {
 scale_by :: (value: float, factor: float) -> float {
     return value * factor;
 }
+
 double_it :: #bake_arguments scale_by(factor = 2);
 
 tour_polymorphism :: () {

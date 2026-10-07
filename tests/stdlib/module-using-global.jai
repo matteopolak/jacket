@@ -2,6 +2,7 @@
 // rules: scope.9
 #import "Basic";
 #import "Using_Global";
+
 main :: () {
     load_procs();
     assert(answer() == 42);

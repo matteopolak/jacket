@@ -90,6 +90,7 @@ HAVE_OBJC :: BINDINGS.count > 0;
 
 #if HAVE_OBJC {
     #import "Objective_C";
+
     #insert BINDINGS;
 }
 

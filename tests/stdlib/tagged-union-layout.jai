@@ -2,11 +2,13 @@
 // anonymous union of the members, all reachable directly.
 // rules: reflect.9 union.5 union.6 union.7 union.10 union.11 union.12
 #import "Basic";
+
 Kind :: enum u8 {
     INT;
     TEXT;
     PAIR;
 }
+
 Value :: union kind: Kind {
     .INT,, int_value: s64;
     .TEXT,, text: string;
@@ -15,9 +17,11 @@ Value :: union kind: Kind {
         b: s32;
     };
 }
+
 make :: (n: s64) -> Value {
     return .{ kind = .INT, int_value = n };
 }
+
 main :: () {
     v := make(42);
     t: Value = .{ kind = .TEXT, text = "hi" };

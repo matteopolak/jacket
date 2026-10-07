@@ -8,6 +8,7 @@ Vec2 :: struct {
 operator + :: (a: Vec2, b: Vec2) -> Vec2 {
     return .{ a.x + b.x, a.y + b.y };
 }
+
 // `#symmetric` lets the scalar go on either side: v * 2 and 2 * v both work.
 operator * :: (v: Vec2, s: float) -> Vec2 #symmetric {
     return .{ v.x * s, v.y * s };

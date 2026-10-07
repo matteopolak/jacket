@@ -38,16 +38,16 @@ help: loop over the elements: `for names`, with `it` and `it_index`
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `stops` to index it
-  --> tests/lint/index_only_loop/bad.jai:52:5
+  --> tests/lint/index_only_loop/bad.jai:53:5
    |
-52 |     for i: 0..stops.count - 1 {
+53 |     for i: 0..stops.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for stops`, with `it` and `it_index`
    |
-52 ~     for stops {
-53 ~         print("% %\n", it_index + 1, it.title);
-54 ~         it.run();
+53 ~     for stops {
+54 ~         print("% %\n", it_index + 1, it.title);
+55 ~         it.run();
    |
    = note: `index_only_loop` is `warn` by default
 

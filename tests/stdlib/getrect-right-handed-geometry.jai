@@ -1,8 +1,11 @@
 Math :: #import "Math";
 #import "Math";
+
 GETRECT_Y_UP :: true;
+
 #load "../../stdlib/GetRect_Common/geometry.jai";
 #load "../../stdlib/GetRect_Common/geometry-helpers.jai";
+
 rectangle_cases :: () -> bool {
     if size_of(Rect) != 16 return false;
     r := get_rect(x = 10, y = 20, w = 100, h = 60);
@@ -32,6 +35,7 @@ rectangle_cases :: () -> bool {
     if p0.x != 0 || p0.y != 1 || p1.x != 2 || p1.y != 1 || p2.x != 2 || p2.y != 4 || p3.x != 0 || p3.y != 4 return false;
     return true;
 }
+
 color_cases :: () -> bool {
     original := xyzw(0.2, 0.4, 0.8, 0.6);
     dim := darken(original, 0.5);
@@ -52,6 +56,7 @@ color_cases :: () -> bool {
     if value != 0.5 || fract(-0.25) != 0.75 return false;
     return true;
 }
+
 hash_cases :: () -> bool {
     loc := Source_Code_Location.{ fully_pathed_filename = "/geometry-fixture.jai", line_number = 7 };
     first := get_hash(loc, 7);
@@ -59,6 +64,7 @@ hash_cases :: () -> bool {
     if combine_hashes(0, 0) != 0 || combine_hashes(1, 0) != KNUTH_GOLDEN_RATIO_64 return false;
     return true;
 }
+
 #assert #run rectangle_cases();
 #assert #run color_cases();
 #assert #run hash_cases();

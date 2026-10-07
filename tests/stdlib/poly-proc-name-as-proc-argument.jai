@@ -12,6 +12,7 @@ square :: x => x * x;
 twice :: (x: int) -> int {
     return x * 2;
 }
+
 twice :: (s: string) -> string {
     return tprint("%%", s, s);
 }

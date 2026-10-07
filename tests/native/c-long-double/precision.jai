@@ -5,6 +5,7 @@
 #import "Jaic_Extensions";
 
 state: u64 = 0x1234_5678_9abc_def1;
+
 next :: () -> u64 {
     state ^= state << 13;
     state ^= state >> 7;

@@ -4,6 +4,7 @@
 
 #if OS == .MACOS || OS == .LINUX || OS == .WINDOWS || OS == .WASM {
     #load "context_part.jai";
+
     LOADED_PART :: true;
 } else {
     LOADED_PART :: false;

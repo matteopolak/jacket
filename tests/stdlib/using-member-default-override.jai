@@ -8,10 +8,12 @@ Kind :: enum {
     B;
     C;
 }
+
 Base :: struct {
     kind: Kind;
     extra: int = 7;
 }
+
 Derived :: struct {
     #as using base: Base;
     kind = .B;

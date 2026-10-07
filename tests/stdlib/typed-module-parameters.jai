@@ -2,6 +2,7 @@
 // rules: modparam.6
 #import "Basic";
 #import "Typed_Param"(SAMPLES = 0);
+
 main :: () {
     assert(samples() == 0);
 }

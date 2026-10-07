@@ -5,18 +5,22 @@ Pair :: struct {
     a: int;
     b: int;
 }
+
 Payload :: union {
     i: s64;
     f: float64;
 }
+
 Holder :: struct {
     tag: int;
     value: Payload;
 }
+
 Base :: struct {
     x: int;
     y: int;
 }
+
 Derived :: struct {
     z: int;
     using base: Base;
