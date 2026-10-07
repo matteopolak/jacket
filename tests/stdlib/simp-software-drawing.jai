@@ -215,6 +215,34 @@ main :: () {
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ];
 
+    // A game running on temporary storage it resets every frame: the fonts, glyphs and atlas pages
+    // Simp makes during a frame are cached, so they must still measure and draw on later frames.
+    temporary_storage_frames :: (directory: string, name: string, image: *S.Bitmap) {
+        push_allocator(temp);
+        widths: [5] s64;
+        fonts: [5] *S.Dynamic_Font;
+        for frame: 0..24 {
+            size := frame % 5;
+            font := S.get_font_at_size(directory, name, 20 + size);
+            assert(font != null && font.character_height == 20 + size, "frame %: font at size %", frame, 20 + size);
+            if frame < 5 {
+                fonts[size] = font;
+                widths[size] = S.get_text_width(font, tprint("Hi % \xc3\x80", frame));
+            }
+            assert(font == fonts[size], "frame %: the size % font was not cached", frame, 20 + size);
+            S.clear_render_target(0, 0, 0, 1);
+            S.draw_text(font, 1, 20, tprint("% \xc3\x89\xc3\x8e", frame));
+            reset_temporary_storage();
+            junk := NewArray(256 * 1024, u8, false);
+            memset(junk.data, 0xa5, junk.count);
+            assert(S.get_text_width(font, tprint("Hi % \xc3\x80", size)) == widths[size], "frame %: the width changed after a reset", frame);
+            S.clear_render_target(0, 0, 0, 1);
+            S.draw_text(font, 1, 20, "Hi");
+            assert(lit_count(image) > 0, "frame %: text drew nothing after a reset", frame);
+            reset_temporary_storage();
+        }
+    }
+
     fonts :: (target: *S.Texture) {
         found := "";
         for FONT_CANDIDATES if file_exists(it) {
@@ -364,6 +392,7 @@ main :: () {
         assert(loaded != null && loaded.name == "copy");
         S.destroy(loaded);
         free(loaded);
+        temporary_storage_frames(directory, name, image);
         S.deinit_fonts();
         // Starting over works after a full release.
         again := S.get_font_at_size(directory, name, 12);
