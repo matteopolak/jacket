@@ -26,8 +26,9 @@ MAX_FILE_BYTES = 64 * 1024**2
 MAX_TOTAL_BYTES = 128 * 1024**2
 SUFFIXES = {'.mjs', '.wasm', '.json', '.md', '.jai'}
 FORBIDDEN = {'reference', 'corpus', 'artifacts', 'target', '.git', 'node_modules'}
-REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'jaifmt-playground.jai', 'jaifmt.wasm', 'build-metadata.json',
-            'README.md', 'tour.json', 'tour/main.jai'}
+REQUIRED = {'jai_wasm.wasm', 'engine.mjs', 'webgpu_host.mjs', 'webgpu_bindings.generated.mjs',
+            'jaifmt-playground.jai', 'jaifmt.wasm', 'build-metadata.json', 'README.md', 'tour.json',
+            'tour/main.jai'}
 METADATA = 'build-metadata.json'
 
 

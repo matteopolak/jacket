@@ -10,7 +10,8 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { checkExample, exampleCases } from "./examples_wasm.mjs";
 
-export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "tour.json"];
+export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "tour.json",
+  "webgpu_bindings.generated.mjs", "webgpu_host.mjs"];
 /** Example workspaces shipped as folders, each described by `<name>.json` (tools/build_scripting_wasm.py). */
 export const BUNDLE_EXAMPLES = ["tour"];
 
@@ -57,6 +58,12 @@ export async function inspectAssets(directory) {
   assert.equal(metadata.jaifmt_wasm_sha256, formatter, "build-metadata.json must describe the staged jaifmt.wasm");
   const engine = await readFile(path.join(directory, "engine.mjs"), "utf8");
   assert(!/^\s*(?:import\b|export\b[^;\n]*\bfrom\b)|\bimport\s*\(/m.test(engine), "engine.mjs must be self-contained");
+  // The WebGPU host (docs/stdlib/webgpu.md) imports only its generated bindings, which import nothing.
+  const imports = text => [...text.matchAll(/^\s*import\b[^;]*?from\s*"([^"]+)"|\bimport\s*\(/gm)].map(m => m[1] ?? "dynamic import");
+  assert.deepEqual(imports(await readFile(path.join(directory, "webgpu_host.mjs"), "utf8")), ["./webgpu_bindings.generated.mjs"],
+    "webgpu_host.mjs may import only ./webgpu_bindings.generated.mjs");
+  assert.deepEqual(imports(await readFile(path.join(directory, "webgpu_bindings.generated.mjs"), "utf8")), [],
+    "webgpu_bindings.generated.mjs must be self-contained");
   return metadata;
 }
 
@@ -119,6 +126,15 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   const missing = play("main :: () -> int { return missing; }");
   assert.equal(missing.exitCode, null);
   assert(missing.diagnostics.some(item => /missing/.test(item.message)));
+  // The staged WebGPU host loads and builds its table of host functions; without a GPU, a
+  // program learns that WebGPU is unavailable instead of failing.
+  const { createWebGPUHost } = await import(pathToFileURL(path.join(directory, "webgpu_host.mjs")).href);
+  const gpuless = createWebGPUHost({ gpu: undefined });
+  assert.equal(typeof gpuless.functions.wgpuDeviceCreateBuffer, "function");
+  const hosted = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")), { host: gpuless });
+  const webgpu = '#import "Basic"; #import "WebGPU"; main :: () { print("%\\n", webgpu_available()); }';
+  assert.equal(hosted.play({ "main.jai": webgpu }, "main.jai").stdout, "false\n", "WebGPU without a GPU");
+  assert.equal(play(webgpu).stdout, "false\n", "WebGPU without a host");
   // Recent-feature smoke tests: stdlib containers, compile-time metaprograms, empty views, the virtual clock.
   const features = [
     ['#import "Basic"; #import "Hash_Table"; main :: () { t: Table(int, string); table_set(*t, 1, "one"); ok, v := table_find(*t, 1); print("% %\\n", v, ok); }', "one true\n"],

@@ -17,6 +17,8 @@ async function fixture() {
   await writeFile(path.join(directory, "jaifmt-playground.jai"), "main :: () {}\n");
   await writeFile(path.join(directory, "engine.mjs"), 'export async function createEngine(bytes) { const module = await WebAssembly.compile(bytes); const instance = await WebAssembly.instantiate(module, {}); return { play() { return instance.exports.missing(); } }; }');
   await writeFile(path.join(directory, "jai_wasm.wasm"), wasm);
+  await writeFile(path.join(directory, "webgpu_host.mjs"), 'import { STRUCTS } from "./webgpu_bindings.generated.mjs";\nexport function createWebGPUHost() { return { functions: { STRUCTS } }; }\n');
+  await writeFile(path.join(directory, "webgpu_bindings.generated.mjs"), "export const STRUCTS = {};\n");
   await writeFile(path.join(directory, "jaifmt.wasm"), formatter);
   await mkdir(path.join(directory, "tour", "nested"), { recursive: true });
   await writeFile(path.join(directory, "tour", "main.jai"), '#load "nested/part.jai";\n');

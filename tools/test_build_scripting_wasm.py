@@ -18,6 +18,8 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             compiled.parent.mkdir(parents=True); compiled.write_bytes(b'\x00asm\x01\x00\x00\x00')
             glue = root / 'crates/jai-wasm/js'; glue.mkdir(parents=True)
             (glue / 'engine.mjs').write_text('// authored inert staging fixture\n')
+            (glue / 'webgpu_host.mjs').write_text('// own WebGPU host fixture\n')
+            (glue / 'webgpu_bindings.generated.mjs').write_text('// own bindings fixture\n')
             (glue / 'README.md').write_text('own bundle readme fixture\n')
             (glue / 'unrelated.mjs').write_text('not part of the bundle\n')
             driver = root / 'jaifmt/playground.jai'; driver.parent.mkdir(parents=True)
@@ -53,7 +55,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             self.assertFalse((root / 'target').exists())
             self.assertEqual(sorted(path.name for path in output.iterdir()),
                              ['README.md', 'build-metadata.json', 'engine.mjs', 'jai_wasm.wasm', 'jaifmt-playground.jai',
-                              'walk', 'walk.json'])
+                              'walk', 'walk.json', 'webgpu_bindings.generated.mjs', 'webgpu_host.mjs'])
             self.assertEqual((output / 'jaifmt-playground.jai').read_text(), '// own formatter driver fixture\n')
             # Bundled examples are copied as a tree (without dotfiles) and indexed.
             self.assertEqual(json.loads((output / 'walk.json').read_text()),
