@@ -34,7 +34,7 @@
     "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
     "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
     "stb_vorbis": {"source": "stb", "code": "#include \"stb_vorbis.c\"\n"},
-    "rpmalloc": {"source": "rpmalloc", "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"},
+    "rpmalloc": {"source": "rpmalloc", "platforms": ["macos", "linux"], "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"},
     "freetype": {
       "source": "freetype",
       "platforms": ["windows"],

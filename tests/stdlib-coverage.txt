@@ -411,6 +411,7 @@ Text_File_Handler 10
 Thread 28
 Treemap 9
 Unicode 5
+Unmapping_Allocator 4
 Wav_File 3
 Window_Creation 5
 Windows 2
@@ -447,9 +448,9 @@ File_Utilities 15
 File_Watcher 7
 Flat_Pool 5
 Float16 6
-GL 1
-GetRect 252
-GetRect_LeftHanded 255
+GL 3
+GetRect 256
+GetRect_LeftHanded 259
 Hash 9
 Hash_Table 19
 Ico_File 4
@@ -477,9 +478,9 @@ Random 16
 Reflection 11
 Relative_Pointers 8
 Remap_Context 3
-Runtime_Support 14
+Runtime_Support 13
 Shared_Memory_Channel 12
-Simp 69
+Simp 100
 Sloppy_Math 6
 Soa 3
 Socket 20
@@ -493,6 +494,7 @@ Text_File_Handler 10
 Thread 28
 Treemap 9
 Unicode 5
+Unmapping_Allocator 4
 Wav_File 3
 Window_Creation 5
 Windows 2

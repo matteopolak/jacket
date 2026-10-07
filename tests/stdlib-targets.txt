@@ -52,9 +52,7 @@ Simp wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compi
 Sound_Player wasm: stb_vorbis/module.jai: #assert failed: this `#assert(false)` was compiled
 Thekla_Atlas wasm: Thekla_Atlas/unix.jai: #assert failed: this `#assert(false)` was compiled
 Thekla_Baker wasm: Thekla_Baker/module.jai: #assert failed: this `#assert(false)` was compiled
-Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX virtual-memory backend
-Unmapping_Allocator windows-arm64: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX virtual-memory backend
-Unmapping_Allocator windows-x64: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX virtual-memory backend
+Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX or Windows virtual-memory backend
 Vulkan macos-arm64: Vulkan/module.jai: #assert failed: Unsupported OS
 Vulkan macos-x64: Vulkan/module.jai: #assert failed: Unsupported OS
 Vulkan wasm: Vulkan/module.jai: #assert failed: Unsupported OS

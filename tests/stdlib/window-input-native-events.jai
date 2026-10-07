@@ -52,6 +52,9 @@ pump :: (windows: [] Window_Type, seen: [] Seen, done: (seen: [] Seen) -> bool, 
     return false;
 }
 
+// The window whose cursor the pump's stop condition watches.
+cursor_window: Window_Type;
+
 has :: (codes: [] Key_Code, wanted: Key_Code) -> bool {
     for codes if it == wanted return true;
     return false;
@@ -108,13 +111,23 @@ main :: () {
 
     // Over Input's windows the arrow comes back as the pointer moves, unless the program
     // handles the cursor itself (set_custom_cursor_handling).
+    cursor_window = first;
     for custom: bool.[false, true] {
         set_custom_cursor_handling(custom);
         show_hand(first);
         move_pointer(first);
-        pump(windows, seen, (seen: [] Seen) -> bool {
-            return false;
-        }, 10);
+        if custom {
+            // Nothing may restore the arrow: give the pump time to do it wrongly.
+            pump(windows, seen, (seen: [] Seen) -> bool {
+                return false;
+            }, 20);
+        } else {
+            // Input restores the arrow when the pump sees the motion, and the window system
+            // may show it a moment later: wait for it, up to a few seconds.
+            pump(windows, seen, (seen: [] Seen) -> bool {
+                return !hand_shown(cursor_window);
+            }, 600);
+        }
         assert(hand_shown(first) == custom, "custom cursor handling %: hand cursor shown %", custom, hand_shown(first));
     }
     set_custom_cursor_handling(false);

@@ -3,7 +3,7 @@
 ## What it is
 
 The stdlib binds some C libraries that no system ships: `stb_image`, `stb_image_write`,
-`stb_image_resize`, `stb_vorbis`, and `rpmalloc` (built with first-class heaps), plus FreeType on
+`stb_image_resize`, `stb_vorbis`, and `rpmalloc` (built with first-class heaps; macOS and Linux only), plus FreeType on
 Windows (macOS and Linux use the system's, from Homebrew or the distribution). `tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
