@@ -123,7 +123,7 @@ Tests: `crash_in_native_code_names_the_foreign_call` and `crash_on_a_c_thread_is
 
 ### Command-line errors
 
-`jaic`'s argument parser returns a `CliError` (message + helps): unknown commands and options get the closest match, misplaced files and options say where they go, `-os`/`-cpu` list their values. Input files are checked before compiling (missing file with a close name, a directory with its entry file, permissions). `jailint`, `jaifmt` and `jailsp` follow the same rules; `jailsp` run by hand says it is a language server and how to check a file instead.
+`jaic`'s argument parser returns a `CliError` (message + helps): unknown commands and options get the closest match, misplaced files and options say where they go, `-os`/`-cpu` list their values. Input files are checked before compiling (missing file with a close name, a directory with its entry file, permissions). A missing file's suggestion is `suggest::similar_sibling` (`name.jai` when only the extension was left off, else the closest entry of its directory), shared by `jaic`, `jailint` and, through `suggest::similar_entry` over the compiler's file system, a missing `#load`. `jailint`, `jaifmt` and `jailsp` follow the same rules; `jailsp` run by hand says it is a language server and how to check a file instead.
 
 Build problems are caught before the backend runs where possible: an output path that is a directory or cannot be written, a program without `main`, an unknown sanitizer. A linker that is missing says how to install one (and that `jaic run` needs none); a failed link keeps the linker's output and adds a help when it says a library or symbol is missing.
 

@@ -617,29 +617,11 @@ fn check_input(file: &str) -> Result<(), CliError> {
         names.sort();
         names
     };
-    let shown = |dir: &Path, name: &str| {
-        if dir == Path::new(".") && !file.starts_with("./") {
-            name.to_string()
-        } else {
-            dir.join(name).display().to_string()
-        }
-    };
     match std::fs::metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             let mut error = CliError::new(format!("file `{file}` does not exist"));
-            let name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let candidates = jai_files(parent);
-            let with_ext = format!("{name}.jai");
-            let near = if candidates.contains(&with_ext) {
-                Some(with_ext.as_str())
-            } else {
-                jaic::suggest::closest(&name, candidates.iter().map(String::as_str))
-            };
-            if let Some(near) = near {
-                error = error.help(format!("did you mean `{}`?", shown(parent, near)));
+            if let Some(near) = jaic::suggest::similar_sibling(path, |n| n.ends_with(".jai")) {
+                error = error.help(format!("did you mean `{}`?", near.display()));
             } else if !parent.is_dir() {
                 error = error.help(format!(
                     "the directory `{}` does not exist either",

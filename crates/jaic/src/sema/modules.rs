@@ -300,7 +300,7 @@ impl Compiler {
             .filter(|(n, is_dir)| !is_dir && n.ends_with(".jai"))
             .map(|(n, _)| n)
             .collect();
-        if let Some(near) = crate::suggest::closest(&name, files.iter().map(String::as_str)) {
+        if let Some(near) = crate::suggest::similar_entry(&name, files.iter().map(String::as_str)) {
             d = d.with_help(format!("a file with a similar name exists: `{near}`"));
         }
         d.with_note(Span::NONE, format!("looked for {}", path.display()))

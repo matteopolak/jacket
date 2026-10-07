@@ -151,22 +151,8 @@ fn run() -> Result<ExitCode, String> {
             if e.kind() != std::io::ErrorKind::NotFound {
                 return Err(format!("cannot read `{shown}`: {}", jaic::io_reason(&e)));
             }
-            let parent = match path.parent() {
-                Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
-                _ => PathBuf::from("."),
-            };
-            let name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let siblings: Vec<String> = std::fs::read_dir(&parent)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .map(|e| e.file_name().to_string_lossy().into_owned())
-                .collect();
-            let help = match jaic::suggest::closest(&name, siblings.iter().map(String::as_str)) {
-                Some(near) => format!("did you mean `{}`?", path.with_file_name(near).display()),
+            let help = match jaic::suggest::similar_sibling(path, |_| true) {
+                Some(near) => format!("did you mean `{}`?", near.display()),
                 None => {
                     "pass .jai files or directories that hold them (default: the current directory)"
                         .to_string()

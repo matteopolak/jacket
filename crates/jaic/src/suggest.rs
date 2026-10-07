@@ -1,4 +1,5 @@
 //! "Did you mean" suggestions: the known name closest to a misspelled one.
+use std::path::{Path, PathBuf};
 
 /// Edit distance between `a` and `b` (insertions, deletions, substitutions and swaps of two
 /// neighbouring characters each count one), or `None` once it exceeds `limit`.
@@ -67,9 +68,49 @@ pub fn closest<'a>(wanted: &str, candidates: impl IntoIterator<Item = &'a str>) 
     best.map(|(_, name)| name)
 }
 
+/// For a file `name` that does not exist: the directory entry the user most likely meant,
+/// `name.jai` when there is one (the extension was left off), else the closest name.
+pub fn similar_entry<'a>(name: &str, entries: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+    let entries: Vec<&'a str> = entries.into_iter().collect();
+    let with_extension = format!("{name}.jai");
+    entries
+        .iter()
+        .copied()
+        .find(|e| *e == with_extension)
+        .or_else(|| closest(name, entries.iter().copied()))
+}
+
+/// For a `path` that does not exist: the `similar_entry` among the entries of its directory
+/// that `keep` accepts, spelled with `path`'s own directory (`foo` gives `foo.jai`, `./src/mian.jai`
+/// gives `./src/main.jai`). For command lines; the compiler goes through its `FileSystem`.
+pub fn similar_sibling(path: &Path, keep: impl Fn(&str) -> bool) -> Option<PathBuf> {
+    let dir = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let name = path.file_name()?.to_string_lossy();
+    let mut entries: Vec<String> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| keep(n))
+        .collect();
+    entries.sort();
+    similar_entry(&name, entries.iter().map(String::as_str)).map(|near| path.with_file_name(near))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::closest;
+    use super::{closest, similar_entry};
+
+    #[test]
+    fn a_missing_file_suggests_its_jai_file_first() {
+        let entries = ["build.jai", "main.jai", "mian"];
+        assert_eq!(similar_entry("main", entries), Some("main.jai"));
+        assert_eq!(similar_entry("bulid.jai", entries), Some("build.jai"));
+        assert_eq!(similar_entry("other.jai", entries), None);
+    }
 
     #[test]
     fn suggests_near_names_only() {
