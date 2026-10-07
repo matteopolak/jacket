@@ -37,7 +37,9 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   `path:line:col: error: assertion failed: message` (`assertion failed` alone when there is
   none), then `call stack (innermost first):` and one `name at path:line` per node, the same
   layout `jaic run` uses for runtime errors (see [diagnostics](diagnostics.md)).
-  Its own frames (`runtime_support_assertion_failed`, `assert_helper`) are left out.
+  The stack starts at the node running the line the assertion names (`loc`), which leaves out
+  the assertion machinery above it (`assert_helper`, the context's handler, the report itself)
+  without naming it; the interpreter's report skips its frames the same way (`trap_report.rs`).
 
 ## How to change it
 

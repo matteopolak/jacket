@@ -7,13 +7,6 @@ use crate::ir;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 use std::path::{Path, PathBuf};
 
-/// The procedures between a failed `assert` and its report: left out of the call stack.
-const ASSERTION_FRAMES: &[&str] = &[
-    "runtime_support_report_assertion",
-    "runtime_support_assertion_failed",
-    "assert_helper",
-];
-
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
 
@@ -30,11 +23,16 @@ impl Compiler {
         site: Option<Span>,
     ) -> Diagnostic {
         let assertion = trap.assertion.is_some();
-        let frames: Vec<&TrapFrame> = trap
-            .frames
-            .iter()
-            .skip_while(|f| assertion && ASSERTION_FRAMES.contains(&f.name.as_str()))
-            .collect();
+        // A failed `assert`: the frames inside the assertion machinery (`assert_helper`, the
+        // context's handler, Runtime_Support's report) are left out, down to the frame running
+        // the line the assertion names.
+        let asserting = trap.assertion.as_deref().and_then(|(path, line, _)| {
+            let file = self.file_by_path(path)?;
+            trap.frames
+                .iter()
+                .position(|f| f.loc.is_some_and(|(id, l, _)| id == file.0 && l == *line))
+        });
+        let frames: Vec<&TrapFrame> = trap.frames.iter().skip(asserting.unwrap_or(0)).collect();
         let library_roots = self.library_roots();
         let is_library = |loc: Option<(u32, u32, u32)>| {
             loc.is_some_and(|(file, ..)| self.is_library_file(FileId(file), &library_roots))
