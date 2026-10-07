@@ -127,6 +127,11 @@ each on a value stack of its own (`THREAD_STACK`, 8 MiB; the first thread keeps 
   thread spinning on a flag that another sets after a sleep still sees it. Nothing to pick is
   `deadlock: every thread is blocked`; `wait_until` reports it at once when the blocking thread can see that
   nothing else could ever run.
+- A host wait (a page promise, [WebGPU](../specs/stdlib/README.md)) suspends the whole module, so
+  the stdlib first calls `jai_sched_yield_for_wait` (`inline_yield_for_wait`). It marks sleeping threads whose
+  deadline passed as expired, and when another thread can run it suspends the caller with `Wait::Host`, which
+  is over as soon as the thread is picked again (like a yield). It returns whether other threads could run, so
+  the caller waits in short slices instead of one long suspension. Outside the inline scheduler it returns 0.
 - `wait_until` is the single blocking primitive: it returns when the wait holds or its deadline passed, and
   otherwise suspends the thread (or, when no other thread can run before this deadline, advances the clock).
 - Threads switch only inside the outermost `Interp::call` (`call_nesting == 1`), where every Rust frame of a

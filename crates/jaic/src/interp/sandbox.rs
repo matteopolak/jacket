@@ -765,6 +765,9 @@ impl Host for SandboxHost {
             | "pthread_mutex_destroy" => 0,
             "isatty" => 0,
             "getenv" => 0,
+            // Whether the embedding page offers a host procedure (stdlib/WebGPU): not here. The
+            // browser playground's host (jai-wasm `host_bridge`) asks its page instead.
+            "jai_host_provides" => 0,
             "strerror" => {
                 let code = arg(0) as u32 as u64;
                 if let Some(&text) = self.error_texts.get(&code) {

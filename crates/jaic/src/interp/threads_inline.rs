@@ -55,6 +55,10 @@ enum Wait {
     Cond(u64),
     /// Only a deadline ends it (sleep).
     Time,
+    /// Let the others run before it waits for the embedding page (`jai_sched_yield_for_wait`):
+    /// unlike a yield, it may run again as soon as they stop, before the clock jumps to a
+    /// sleeper's deadline, since its wait takes real time that moves the clock anyway.
+    Host,
 }
 
 /// What a blocking call that suspended had done already, for when it runs again.
@@ -165,6 +169,7 @@ impl InlineSched {
                 .is_none_or(|m| m.owner.is_none() || m.owner == Some(thread)),
             Wait::Cond(token) => self.woken.contains(&token),
             Wait::Time => false,
+            Wait::Host => true,
         }
     }
 
@@ -179,7 +184,10 @@ impl InlineSched {
         let rec = &self.threads[t];
         match rec.state {
             State::Pending => true,
-            State::Suspended => rec.wait != Wait::None && self.satisfied(t, rec.wait),
+            // `expired`: its deadline passed while another thread waited for the page.
+            State::Suspended => {
+                rec.expired || (rec.wait != Wait::None && self.satisfied(t, rec.wait))
+            }
             State::Running | State::Finished => false,
         }
     }
@@ -324,6 +332,7 @@ impl Interp {
             "usleep" if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000),
             "sleep" if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000_000_000),
             "sched_yield" | "pthread_yield_np" if started => self.inline_yield().map(|_| 0),
+            "jai_sched_yield_for_wait" => self.inline_yield_for_wait(),
             _ => return None,
         };
         Some(result.map(|v| vec![v]))
@@ -497,6 +506,33 @@ impl Interp {
         }
         self.set_resume(Resume::Yield);
         self.suspend_as(Wait::None, None)
+    }
+
+    /// `jai_sched_yield_for_wait` (stdlib/WebGPU/wasm.jai): the running thread is about to wait
+    /// for the embedding page, which stops every thread. First the threads that can run now run
+    /// (this one suspends with `Wait::Host`); then the result says whether another thread may
+    /// still run later (a sleeper, a yielded thread), so the caller waits in short slices and
+    /// asks again. Sleepers whose deadline the page's real time has passed count as ready.
+    fn inline_yield_for_wait(&mut self) -> Res<u64> {
+        if !self.multi || self.isched.is_none() {
+            return Ok(0);
+        }
+        let resumed = matches!(self.take_resume(), Some(Resume::Yield));
+        if let Some(now) = self.host.virtual_now_ns() {
+            for rec in &mut self.isched().threads {
+                if rec.state == State::Suspended && rec.deadline.is_some_and(|at| at <= now) {
+                    rec.expired = true;
+                }
+            }
+        }
+        let can_suspend = self.can_suspend();
+        let sched = self.isched();
+        let me = sched.current;
+        if !resumed && can_suspend && sched.order().any(|t| t != me && sched.ready(t)) {
+            self.set_resume(Resume::Yield);
+            return self.suspend_as(Wait::Host, None);
+        }
+        Ok(u64::from(self.isched().others_can_go_on()))
     }
 
     /// A sign that the running thread waits for another one: an atomic compare-and-swap that
