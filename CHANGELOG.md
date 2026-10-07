@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-07
+
 ### Added
 
 - Package managers and installers: `brew install matteopolak/tap/jai` (macOS arm64, Linux x86-64), `winget install matteopolak.jai` (Windows x64 and arm64), and `install.sh` (`curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh | sh`) and `install.ps1` scripts that install a release verified against its `SHA256SUMS` and upgrade in place (`JAIC_VERSION`, `JAIC_INSTALL_DIR`). Each release renders the Homebrew formula and winget manifests from its own tag and checksums, pushes the formula to the tap and opens the winget-pkgs pull request. See `docs/tools/package-managers.md`.

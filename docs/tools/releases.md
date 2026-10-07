@@ -28,8 +28,8 @@ To cut a release:
 3. Commit, then tag and push:
 
 ```sh
-git tag -s v0.3.0 -m 'jaic 0.3.0'
-git push origin v0.3.0
+git tag -s v0.4.0 -m 'jaic 0.4.0'
+git push origin v0.4.0
 ```
 
 To test the build without publishing, run the workflow by hand (Actions → release → Run workflow) with an empty tag. The archives are kept as workflow artifacts. To publish an existing tag after a fix to the workflow, run it with that tag.
