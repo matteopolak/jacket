@@ -38,17 +38,17 @@ impl Compiler {
             let params = vec![
                 (
                     Sym::intern("DEFINE_SYSTEM_ENTRY_POINT"),
-                    Value::Bool(true),
+                    Value::Bool(self.options.runtime_entry_point),
                     TypeId::BOOL,
                 ),
                 (
                     Sym::intern("DEFINE_INITIALIZATION"),
-                    Value::Bool(true),
+                    Value::Bool(self.options.runtime_initialization),
                     TypeId::BOOL,
                 ),
                 (
                     Sym::intern("ENABLE_BACKTRACE_ON_CRASH"),
-                    Value::Bool(false),
+                    Value::Bool(self.options.backtrace_on_crash),
                     TypeId::BOOL,
                 ),
                 (
@@ -171,7 +171,10 @@ impl Compiler {
             return Ok(false);
         };
         let scope = self.modules[m.0 as usize].scope;
-        if self.lookup(scope, Sym::intern("main"))?.is_empty() {
+        if self
+            .lookup(scope, Sym::intern(&self.options.entry_point))?
+            .is_empty()
+        {
             return Ok(false);
         }
         let mut i = 0;
@@ -517,13 +520,14 @@ impl Compiler {
         Ok(())
     }
 
-    /// The `main` procedure of the main module.
+    /// The `main` procedure of the main module (or the one `entry_point_name` names).
     pub fn program_main(&mut self, span: Span) -> Result<ProcId> {
         let Some(m) = self.main_module else {
             return err(span, "no main module");
         };
         let scope = self.modules[m.0 as usize].scope;
-        let ids = self.lookup(scope, Sym::intern("main"))?;
+        let name = self.options.entry_point.clone();
+        let ids = self.lookup(scope, Sym::intern(&name))?;
         for id in ids {
             match self.resolve_entity(id)? {
                 Resolved::Proc(p) => return Ok(p),
@@ -534,7 +538,10 @@ impl Compiler {
                 _ => {}
             }
         }
-        err(span, "the program has no 'main :: () { ... }' procedure")
+        err(
+            span,
+            format!("the program has no '{name} :: () {{ ... }}' procedure"),
+        )
     }
 
     /// The exported IR function named `name` (e.g. `"main"`).
@@ -666,7 +673,9 @@ impl Compiler {
             let declares_main = match self.main_module {
                 Some(m) => {
                     let scope = self.modules[m.0 as usize].scope;
-                    !self.lookup(scope, Sym::intern("main"))?.is_empty()
+                    !self
+                        .lookup(scope, Sym::intern(&self.options.entry_point))?
+                        .is_empty()
                 }
                 None => false,
             };

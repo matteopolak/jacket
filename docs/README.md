@@ -42,6 +42,7 @@ Jai language behavior as implemented by `jaic`.
 
 Compile-time execution, the `Compiler` module, reflection and code values.
 
+- [Build options and the metaprogram API: what jaic honours](metaprogramming/build-options.md)
 - [Code values and #insert](metaprogramming/code-values-and-insertion.md)
 - [Compile-time values, globals and runtime info](metaprogramming/compile-time-data-and-state.md)
 - [Compile-time execution (`#run`)](metaprogramming/compile-time-execution.md)

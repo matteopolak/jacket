@@ -17,13 +17,12 @@ main :: () {
 }
 JAI
 
-// Check looks at procedures noted @PrintLike.
-BAD_FORMAT :: #string JAI
+// Check looks at procedures noted @PrintLike; these calls give as many arguments as they use.
+PRINT_LIKE :: #string JAI
 say :: (format: string, args: ..Any) {} @PrintLike
 main :: () {
     say("% and %%", 1);
     say("%1 %1 %2", 1, 2);
-    say("% and %", 1);
 }
 JAI
 
@@ -122,12 +121,11 @@ check_plugin :: () {
     assert(build_with_plugins(file, (*Metaprogram_Plugin).[*checker.base], .[]), "a correct program passes Check");
     Check.finish_error_checking();
 
-    // Check's format-count findings are continuable errors, which jaic prints without failing
-    // the workspace, so only the walk over @PrintLike calls runs here; its verdict is not
-    // observable from the build result.
-    strict := make_recorder(BAD_FORMAT, true);
+    // Check walks the @PrintLike calls. A count that differs would be a continuable error,
+    // which fails the build, so only matching calls can be checked from a test that passes.
+    strict := make_recorder(PRINT_LIKE, true);
     strict.message = Check.do_error_checking;
-    build_with_plugins(file, (*Metaprogram_Plugin).[*strict.base], .[]);
+    assert(build_with_plugins(file, (*Metaprogram_Plugin).[*strict.base], .[]), "matching format counts pass Check");
 }
 
 #run {

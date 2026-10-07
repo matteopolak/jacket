@@ -705,3 +705,132 @@ fn unreferenced_struct_constant_names_a_member() {
         );
     }
 }
+
+/// Build_Options jaic does not act on are reported where the metaprogram sets them, once; the
+/// SKIP_ intercept flags leave those kinds out of TYPECHECKED messages; ERROR_CONTINUABLE lets
+/// the metaprogram go on but fails the build.
+// rules: bo.1 bo.2 bo.3 bo.4
+#[test]
+fn ignored_build_options_are_reported() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-build-options-reported");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("meta.jai");
+    std::fs::write(
+        &source,
+        r##"#import "Basic";
+#import "Compiler";
+#run {
+    set_build_options_dc(.{do_output = false});
+    w := compiler_create_workspace("prog");
+    options := get_build_options(w);
+    options.output_type = .NO_OUTPUT;
+    options.backend = .X64;
+    options.use_natvis_compatible_types = true;
+    options.text_output_flags = 0;
+    options.enable_bytecode_inliner = true;
+    options.llvm_options.command_line = .["-x"];
+    set_optimization(*options, .OPTIMIZED_SMALL);
+    set_build_options(options, w);
+    set_build_options(options, w);
+    compiler_begin_intercept(w, .SKIP_DECLARATIONS | .SKIP_PROCEDURE_BODIES | .SKIP_OTHERS);
+    add_build_string("main :: () { x := 1; } S :: struct { a: int; }", w);
+    while true {
+        message := compiler_wait_for_message();
+        if message.kind == .TYPECHECKED {
+            tc := cast(*Message_Typechecked) message;
+            print("% % % % %\n", tc.declarations.count, tc.procedure_headers.count, tc.procedure_bodies.count, tc.structs.count, tc.all.count);
+        }
+        if message.kind == .COMPLETE break;
+    }
+    compiler_end_intercept(w);
+    compiler_report("continuing", mode = .ERROR_CONTINUABLE);
+    print("still running\n");
+}
+"##,
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .arg("check")
+        .arg("meta.jai")
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout, "0 1 0 1 2\nstill running\n", "{stderr}");
+    // Locations name the file as jaic resolved it.
+    let lines: Vec<&str> = stderr
+        .lines()
+        .map(|line| {
+            line.rsplit_once("/meta.jai:")
+                .map_or(line, |(_, rest)| rest)
+        })
+        .collect();
+    let warning = |what: &str| format!("14:5: warning: jaic ignores Build_Options.{what}");
+    let expected = [
+        warning("backend: jaic always generates code with LLVM, and x64_options do not apply"),
+        warning(
+            "use_natvis_compatible_types: debug information describes types as they are declared",
+        ),
+        warning("llvm_options.command_line: jaic does not pass options to LLVM"),
+        "27:5: error: continuing".to_string(),
+    ];
+    assert_eq!(lines, expected, "{stderr}");
+}
+
+/// What jaic cannot do stops the metaprogram with an error instead of building something else.
+// rules: bo.5
+#[test]
+fn unsupported_compiler_requests_are_errors() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-compiler-unsupported");
+    std::fs::create_dir_all(&dir).unwrap();
+    let cases = [
+        (
+            "os",
+            "options := get_build_options(w); options.os_target = .PS5; set_build_options(options, w);",
+            "jaic cannot build for `os_target = .PS5`",
+        ),
+        (
+            "scope",
+            "add_build_string(\"x :: 1;\", w, #code { y := 2; });",
+            "add_build_string: jaic cannot add a string in the scope of a Code value",
+        ),
+        (
+            "segment",
+            "add_global_data(.[1, 2], .USER_SEGMENT);",
+            "add_global_data: jaic has no user data segments",
+        ),
+        (
+            "table",
+            "get_type_table(w);",
+            "get_runtime_info: jaic has the type table of the running program only",
+        ),
+        (
+            "link",
+            "compiler_custom_link_command_is_complete(w, 0);",
+            "is not waiting for a custom link",
+        ),
+    ];
+    for (name, body, message) in cases {
+        let source = dir.join(format!("{name}.jai"));
+        std::fs::write(
+            &source,
+            format!(
+                "#import \"Compiler\";\n#run {{\n    set_build_options_dc(.{{do_output = false}});\n    \
+                 w := compiler_create_workspace(\"prog\");\n    {body}\n}}\n"
+            ),
+        )
+        .unwrap();
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !output.status.success() && stderr.contains(message),
+            "{name}: {stderr}"
+        );
+    }
+}

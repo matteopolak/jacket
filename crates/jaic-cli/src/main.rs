@@ -1079,7 +1079,20 @@ fn build(
         PathBuf::from(&settings.output_path).join(name)
     });
     if let Some(level) = cli.opt_level {
+        // `-O` stands for a whole flavor: the metaprogram's code generation switches go too.
         settings.optimization = level.into();
+        settings.machine_code_optimization.clear();
+        settings.llvm_switches.clear();
+        settings.frame_pointers = None;
+    }
+    if settings.use_custom_link_command {
+        // Nothing waits for the top-level program's messages, so nothing could link it.
+        return Err(
+            "`use_custom_link_command` is set for the top-level program, which no \
+             metaprogram links\nhelp: set it on a workspace the metaprogram creates and link \
+             on READY_FOR_CUSTOM_LINK_COMMAND"
+                .into(),
+        );
     }
     timings::time("prepare output", || compiler.prepare_compiled_output());
     native_backend(cli).write_output(&compiler.program, &settings, &output)
@@ -1128,14 +1141,21 @@ struct LlvmBackend {
     sanitize: String,
 }
 
+/// What one write of a workspace's output needs, worked out from its settings.
 #[cfg(feature = "llvm")]
-impl OutputBackend for LlvmBackend {
-    fn write_output(
-        &mut self,
-        program: &jaic::ir::Program,
-        settings: &BuildSettings,
-        output: &Path,
-    ) -> Result<(), String> {
+struct Prepared {
+    output: PathBuf,
+    /// The first object file (`emit_objects` numbers the others after it).
+    object: PathBuf,
+    target: Option<String>,
+    options: jaic_llvm::Options,
+    /// Linker arguments beyond the metaprogram's (`-mmacosx-version-min`).
+    extra_link_args: Vec<String>,
+}
+
+#[cfg(feature = "llvm")]
+impl LlvmBackend {
+    fn prepare(&self, settings: &BuildSettings, output: &Path) -> Result<Prepared, String> {
         // `-target`/`-os` win; a workspace built for `os_target = .WASM` names its triple in
         // `llvm_options.target_system_triple` (default: bare wasm64, its runtime up to the program).
         let wasm_settings = settings.os == Some(TargetOs::Wasm);
@@ -1148,9 +1168,9 @@ impl OutputBackend for LlvmBackend {
                 }
             })
         });
-        let target = target.as_deref();
         let non_empty = |s: &String| (!s.is_empty()).then(|| s.clone());
-        // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's.
+        // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's,
+        // unless the metaprogram turned `append_executable_filename_extension` off.
         use jaic_llvm::OutputKind;
         let kind = match settings.output_type {
             OutputType::Executable => Some(OutputKind::Executable),
@@ -1159,46 +1179,58 @@ impl OutputBackend for LlvmBackend {
             OutputType::ObjectFile | OutputType::NoOutput => None,
         };
         let mut output = output.to_path_buf();
-        if output.extension().is_none()
-            && let Some(ext) = kind.and_then(|k| jaic_llvm::output_extension(target, k))
+        if settings.append_extension
+            && output.extension().is_none()
+            && let Some(ext) = kind.and_then(|k| jaic_llvm::output_extension(target.as_deref(), k))
         {
             output.set_extension(ext);
         }
-        let output = output.as_path();
         if output.is_dir() {
             let name = output.join("program");
             return Err(format!(
                 "the output path `{}` is a directory\nhelp: name the file to write inside it, as in `-o {}`",
-                shown(output),
+                shown(&output),
                 shown(&name)
             ));
         }
-        if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
+        let create_dir = |dir: &Path, what: &str| {
             std::fs::create_dir_all(dir).map_err(|e| {
                 format!(
-                    "could not create the output directory `{}`: {}\nhelp: choose another place with `-o`",
+                    "could not create the {what} directory `{}`: {}\nhelp: choose another place with `-o`",
                     shown(dir),
                     jaic::io_reason(&e)
                 )
-            })?;
+            })
+        };
+        if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
+            create_dir(dir, "output")?;
         }
-        let with_ext = |ext: &str| {
-            let mut name = output.to_path_buf().into_os_string();
-            name.push(ext);
-            PathBuf::from(name)
+        // Objects, IR and bitcode go to `intermediate_path` when it is set, else next to the
+        // output.
+        let file_name = output.file_name().unwrap_or_default().to_os_string();
+        let intermediate = if settings.intermediate_path.is_empty() {
+            output.parent().map(Path::to_path_buf).unwrap_or_default()
+        } else {
+            let dir = PathBuf::from(&settings.intermediate_path);
+            create_dir(&dir, "intermediate")?;
+            dir
+        };
+        let beside = |suffix: &str| {
+            let mut name = file_name.clone();
+            name.push(suffix);
+            intermediate.join(name)
         };
         let object = if settings.output_type == OutputType::ObjectFile {
-            output.to_path_buf()
+            output.clone()
         } else {
-            with_ext(".o")
+            beside(".o")
         };
-        // The object file goes next to the output: creating it now finds out, with the
-        // system's reason, when that place cannot be written, rather than from LLVM or the
-        // linker after code generation.
+        // Creating the object file now finds out, with the system's reason, when that place
+        // cannot be written, rather than from LLVM or the linker after code generation.
         if let Err(e) = std::fs::File::create(&object) {
             return Err(format!(
                 "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
-                shown(output),
+                shown(&object),
                 jaic::io_reason(&e)
             ));
         }
@@ -1206,26 +1238,101 @@ impl OutputBackend for LlvmBackend {
         let opt_level = match settings.optimization.as_str() {
             // `llvm_options.bitcode_optimization_setting` member names.
             "O1" => OptLevel::O1,
-            "O2" | "OS" | "OZ" => OptLevel::O2,
+            "O2" => OptLevel::O2,
+            "OS" => OptLevel::Os,
+            "OZ" => OptLevel::Oz,
             "O3" => OptLevel::O3,
             _ => OptLevel::O0,
         };
-        // `Build_Options.emit_debug_info = .NONE` (or `set_optimization(..., false)`) turns it off.
-        let debug_info = self.debug_info && settings.emit_debug_info != Some(false);
+        // `Build_Options.emit_debug_info = .NONE`, `llvm_options.preserve_debug_info = false`
+        // (or `set_optimization(..., false)`) turn it off.
+        let debug_info = self.debug_info
+            && settings.emit_debug_info != Some(false)
+            && settings.llvm_switch("preserve_debug_info") != Some(false);
         let sanitize = if self.sanitize.is_empty() {
             jaic_llvm::Sanitize::default()
         } else {
             jaic_llvm::Sanitize::parse(&self.sanitize)?
         };
+        let macos = target
+            .as_deref()
+            .map_or(cfg!(target_os = "macos"), |t| t.contains("apple"));
+        let macos_version = (macos && !settings.minimum_os_version.is_empty())
+            .then(|| settings.minimum_os_version.clone());
+        let mut extra_link_args = Vec::new();
+        if let Some(version) = &macos_version {
+            extra_link_args.push(format!("-mmacosx-version-min={version}"));
+        }
+        let switch = |name: &str| settings.llvm_switch(name);
+        let wanted = |on: bool, suffix: &str| on.then(|| beside(suffix));
+        let codegen = jaic_llvm::Codegen {
+            machine_level: match settings.machine_code_optimization.as_str() {
+                "NONE" => Some(OptLevel::O0),
+                "LESS" => Some(OptLevel::O1),
+                "DEFAULT" => Some(OptLevel::O2),
+                "AGGRESSIVE" => Some(OptLevel::O3),
+                _ => None,
+            },
+            loop_unrolling: switch("enable_loop_unrolling"),
+            loop_vectorization: switch("enable_loop_vectorization"),
+            slp_vectorization: switch("enable_slp_vectorization"),
+            merge_functions: switch("merge_functions"),
+            disable_inlining: switch("disable_inlining"),
+            tail_calls: switch("enable_tail_calls"),
+            split_modules: switch("enable_split_modules"),
+            frame_pointers: settings.frame_pointers,
+            no_red_zone: settings.disable_redzone,
+            ir_after: wanted(settings.output_llvm_ir, ".ll"),
+            bitcode_after: wanted(settings.output_bitcode, ".bc"),
+            bitcode_before: wanted(
+                settings.output_bitcode_before_optimizations,
+                ".unoptimized.bc",
+            ),
+            macos_version,
+        };
+        // `-emit-ir` wins over `output_llvm_ir_before_optimizations`.
+        let emit_ir = self.emit_ir.clone().or_else(|| {
+            wanted(
+                settings.output_llvm_ir_before_optimizations,
+                ".unoptimized.ll",
+            )
+        });
         let options = jaic_llvm::Options {
             opt_level,
-            target: target.map(str::to_string),
-            emit_ir: self.emit_ir.clone(),
+            target: target.clone(),
+            emit_ir,
             debug_info,
             sanitize,
             cpu: non_empty(&settings.llvm_cpu),
             features: non_empty(&settings.llvm_features),
+            codegen,
         };
+        Ok(Prepared {
+            output,
+            object,
+            target,
+            options,
+            extra_link_args,
+        })
+    }
+}
+
+#[cfg(feature = "llvm")]
+impl OutputBackend for LlvmBackend {
+    fn write_output(
+        &mut self,
+        program: &jaic::ir::Program,
+        settings: &BuildSettings,
+        output: &Path,
+    ) -> Result<(), String> {
+        let Prepared {
+            output,
+            object,
+            target,
+            options,
+            extra_link_args,
+        } = self.prepare(settings, output)?;
+        let (output, target) = (output.as_path(), target.as_deref());
         if matches!(
             settings.output_type,
             OutputType::ObjectFile | OutputType::NoOutput
@@ -1239,6 +1346,9 @@ impl OutputBackend for LlvmBackend {
         })?;
         let libraries = jaic_llvm::used_libraries(program);
         let wasm = target.is_some_and(jaic_llvm::is_wasm_target);
+        let mut link_args = settings.additional_linker_arguments.clone();
+        link_args.extend(extra_link_args);
+        let debug_info = options.debug_info;
         let linked = timings::time("link", || match settings.output_type {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
             OutputType::Executable | OutputType::DynamicLibrary if wasm => {
@@ -1258,9 +1368,9 @@ impl OutputBackend for LlvmBackend {
                 &libraries,
                 output,
                 settings.output_type == OutputType::DynamicLibrary,
-                &settings.additional_linker_arguments,
+                &link_args,
                 target,
-                sanitize,
+                options.sanitize,
                 debug_info,
             ),
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
@@ -1278,6 +1388,25 @@ impl OutputBackend for LlvmBackend {
             let _ = std::fs::remove_file(object);
         }
         linked
+    }
+
+    fn write_objects(
+        &mut self,
+        program: &jaic::ir::Program,
+        settings: &BuildSettings,
+        output: &Path,
+    ) -> Result<jaic::build::LinkObjects, String> {
+        let prepared = self.prepare(settings, output)?;
+        let objects = timings::time("codegen", || {
+            jaic_llvm::emit_objects(program, &prepared.options, &prepared.object)
+        })?;
+        let libraries = jaic_llvm::used_libraries(program);
+        let inputs = jaic_llvm::link_inputs(&libraries, prepared.target.as_deref())?;
+        Ok(jaic::build::LinkObjects {
+            objects: objects.iter().map(|o| o.display().to_string()).collect(),
+            system_libraries: inputs.system_libraries,
+            user_libraries: inputs.user_libraries,
+        })
     }
 }
 

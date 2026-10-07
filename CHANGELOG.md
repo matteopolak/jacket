@@ -2,11 +2,27 @@
 
 ## [Unreleased]
 
+### Heads-up
+
+- `Build_Options` jaic does not act on are no longer accepted silently ([build options](docs/metaprogramming/build-options.md)). `set_build_options` warns about each one a call changes, such as `backend = .X64`, `use_natvis_compatible_types` and `llvm_options.command_line`. What it cannot do at all is an error: an `os_target` it cannot build for, `add_build_string` with a `code` scope, a user data segment, or another workspace's type table. `compiler_report(..., mode = .ERROR_CONTINUABLE)` now fails the build (it printed a warning).
+- Workspaces built with `set_build_options` now get the code generation their `Build_Options` describe. Frame pointers, inlining, tail calls, loop unrolling and vectorization, split modules, the machine-code level and the crash handler (`backtrace_on_crash`, `.ON` by default) used to be jaic's own; `set_optimization` sets them per flavor.
+
 ### Added
 
 - Release archives for Intel Macs (`jai-macos-x64.tar.gz`) and arm64 Linux (`jai-linux-arm64.tar.gz`), with wgpu-native, built like the others with static LLVM and PGO (Intel macOS from conda-forge's LLVM, since LLVM publishes no Intel macOS build). `install.sh`, the Homebrew formula and the VS Code extension's toolchain download use them; for 0.4.1 and earlier, which have none, they say the release has no build for the platform.
 - CI opens real windows for WebGPU: a new test presents frames to a `Window_Creation` window's surface and checks each frame's status, the error scopes and a readback of the last frame, interpreted and built, on Linux under Xvfb (X11 surface, Mesa's lavapipe), macOS (Metal) and Windows x64 and arm64 (HWND surface, WARP). See [WebGPU tests](docs/stdlib/webgpu.md#tests).
 - `WEBGPU_SURFACE_OCCLUDED` in `Extensions/WebGPU`: wgpu-native's status for a hidden window on macOS (the first frame after `create_window` included), which the triangle example now waits out instead of reconfiguring the surface every frame.
+- Metaprograms can link a workspace themselves. With `use_custom_link_command`, jaic writes the objects and sends `READY_FOR_CUSTOM_LINK_COMMAND` with the object files, system and user libraries. It waits for `compiler_custom_link_command_is_complete`, whose exit code decides whether the build failed (Focus and forbear link this way). `POST_WRITE_EXECUTABLE` fills `executable_write_failed` and `linker_exit_code`.
+- `Build_Options` fields jaic ignored before now work:
+  - `intermediate_path` (objects and IR);
+  - `entry_point_name`;
+  - `append_executable_filename_extension`;
+  - `minimum_os_version` (macOS);
+  - `runtime_support_definitions` and `backtrace_on_crash`;
+  - `enable_frame_pointers` and `disable_redzone`;
+  - `llvm_options`: the `output_llvm_ir`/`output_bitcode` files, `machine_code_optimization_setting`, the inlining, tail call, unrolling, vectorization, merge and split switches, `preserve_debug_info`, and `.OS`/`.OZ` size pipelines.
+
+  `SKIP_*` intercept flags filter `TYPECHECKED` messages, and `compiler_destroy_workspace` keeps a workspace from compiling.
 
 ### Fixed
 

@@ -2058,3 +2058,176 @@ fn run_writes_workspace_output() {
     let ran = Command::new(&exe).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&ran.stdout), "built\n");
 }
+
+/// A metaprogram that builds a workspace with `use_custom_link_command`, with `@LINK@` in place of
+/// what it does on READY_FOR_CUSTOM_LINK_COMMAND and `@OPTIONS@` in place of more options.
+#[cfg(unix)]
+const CUSTOM_LINK: &str = r##"#import "Basic";
+#import "Compiler";
+#import "Process";
+
+SOURCE :: #string END
+#import "Basic";
+start :: () {
+    print("started at start\n");
+    if get_command_line_arguments().count > 1 {
+        p: *int;
+        p.* = 3;
+    }
+}
+END
+
+#run {
+    set_build_options_dc(.{do_output = false});
+    w := compiler_create_workspace("prog");
+    options := get_build_options(w);
+    options.output_executable_name = "linked";
+    options.output_path = "out";
+    options.intermediate_path = "obj";
+    options.use_custom_link_command = true;
+    options.entry_point_name = "start";
+    options.llvm_options.output_llvm_ir = true;
+    @OPTIONS@
+    set_build_options(options, w);
+    compiler_begin_intercept(w);
+    add_build_string(SOURCE, w);
+    while true {
+        message := compiler_wait_for_message();
+        if message.kind == .PHASE {
+            phase := cast(*Message_Phase) message;
+            if phase.phase == .READY_FOR_CUSTOM_LINK_COMMAND {
+                print("objects %\n", phase.compiler_generated_object_files.count);
+                args: [..] string;
+                array_add(*args, "cc", "-o", phase.executable_name);
+                array_add(*args, ..phase.compiler_generated_object_files);
+                array_add(*args, ..phase.system_libraries);
+                array_add(*args, ..phase.user_libraries);
+                @LINK@
+            }
+            if phase.phase == .POST_WRITE_EXECUTABLE {
+                print("written: failed %, linker exit code %\n", phase.executable_write_failed, phase.linker_exit_code);
+            }
+        }
+        if message.kind == .COMPLETE break;
+    }
+    compiler_end_intercept(w);
+}
+"##;
+
+/// With `use_custom_link_command` the metaprogram links the objects jaic wrote (to
+/// `intermediate_path`, with the LLVM IR asked for) and says how its link went; a metaprogram
+/// that never says, or whose linker fails, fails the build. The program starts in the procedure
+/// `entry_point_name` names.
+// rules: bo.6 bo.7 bo.8 bo.9 bo.12
+#[cfg(unix)]
+#[test]
+fn custom_link_command() {
+    let build = |name: &str, link: &str, options: &str| {
+        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-custom-link-{name}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = CUSTOM_LINK
+            .replace("@LINK@", link)
+            .replace("@OPTIONS@", options);
+        std::fs::write(dir.join("meta.jai"), source).unwrap();
+        let output = Command::new(JAIC)
+            .args(["build", "meta.jai"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        (dir, output)
+    };
+    let linked = "result := run_command(..args); compiler_custom_link_command_is_complete(w, result.exit_code);";
+    let (dir, output) = build("linked", linked, "");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "objects 1\nwritten: failed false, linker exit code 0\n"
+    );
+    assert!(dir.join("obj/linked.o").exists() && !dir.join("out/linked.o").exists());
+    let ir = std::fs::read_to_string(dir.join("obj/linked.ll")).unwrap();
+    // `enable_frame_pointers` (true unless set_optimization says otherwise) keeps every frame.
+    assert!(ir.contains("\"frame-pointer\"=\"all\""), "{ir}");
+    let ran = Command::new(dir.join("out/linked")).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&ran.stdout), "started at start\n");
+
+    let (_, output) = build("unlinked", "", "");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !output.status.success()
+            && stderr.contains("error: the metaprogram did not link")
+            && stderr.contains("help: call `compiler_custom_link_command_is_complete"),
+        "{stderr}"
+    );
+
+    let (_, output) = build(
+        "failed",
+        "compiler_custom_link_command_is_complete(w, 3);",
+        "",
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !output.status.success() && stderr.contains("failed with exit code 3"),
+        "{stderr}"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .ends_with("written: failed true, linker exit code 3\n")
+    );
+}
+
+/// `backtrace_on_crash` decides whether the program installs the crash handler, and
+/// `minimum_os_version` is the oldest macOS the program says it runs on.
+// rules: bo.10 bo.11
+#[cfg(unix)]
+#[test]
+fn backtrace_on_crash_and_minimum_os_version() {
+    for on in [true, false] {
+        let name = if on {
+            "crash-on"
+        } else {
+            "crash-off"
+        };
+        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-{name}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let options = format!(
+            "options.use_custom_link_command = false; options.minimum_os_version = .{{12, 0}}; \
+             options.backtrace_on_crash = .{};",
+            if on {
+                "ON"
+            } else {
+                "OFF"
+            }
+        );
+        let source = CUSTOM_LINK
+            .replace("@OPTIONS@", &options)
+            .replace("@LINK@", "");
+        std::fs::write(dir.join("meta.jai"), source).unwrap();
+        let output = Command::new(JAIC)
+            .args(["build", "meta.jai"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let exe = dir.join("out/linked");
+        let crashed = Command::new(&exe).arg("crash").output().unwrap();
+        assert!(!crashed.status.success());
+        let stderr = String::from_utf8_lossy(&crashed.stderr);
+        assert_eq!(
+            stderr.contains("fatal runtime signal"),
+            on,
+            "{name}: {stderr}"
+        );
+        if cfg!(target_os = "macos") {
+            let load = Command::new("otool").arg("-l").arg(&exe).output().unwrap();
+            let load = String::from_utf8_lossy(&load.stdout);
+            assert!(load.contains("minos 12.0"), "{load}");
+        }
+    }
+}

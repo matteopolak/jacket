@@ -73,6 +73,44 @@ pub struct BuildSettings {
     pub llvm_triple: String,
     pub llvm_cpu: String,
     pub llvm_features: String,
+    /// `intermediate_path`: where object files (and LLVM IR or bitcode) go; empty: next to
+    /// the output.
+    pub intermediate_path: String,
+    /// `entry_point_name`: the procedure the program starts in; empty: `main`.
+    pub entry_point_name: String,
+    /// `runtime_support_definitions` (`AUTO`...) and `backtrace_on_crash`, once a metaprogram
+    /// changes them.
+    pub runtime_support_definitions: Option<String>,
+    pub backtrace_on_crash: Option<bool>,
+    /// `append_executable_filename_extension` (`.exe`, `.dll` on Windows...).
+    pub append_extension: bool,
+    /// `use_custom_link_command`: write objects, send `READY_FOR_CUSTOM_LINK_COMMAND` and let
+    /// the metaprogram link.
+    pub use_custom_link_command: bool,
+    /// `minimum_os_version` as `major.minor`, for macOS targets; empty: jaic's default.
+    pub minimum_os_version: String,
+    /// `enable_frame_pointers`, `disable_redzone` and the `llvm_options` switches, each
+    /// `None` until a metaprogram changes it (`docs/metaprogramming/build-options.md`).
+    pub frame_pointers: Option<bool>,
+    pub disable_redzone: bool,
+    pub machine_code_optimization: String,
+    pub llvm_switches: Vec<(String, bool)>,
+    /// `output_llvm_ir`, `output_bitcode` and their `_before_optimizations` variants.
+    pub output_llvm_ir: bool,
+    pub output_bitcode: bool,
+    pub output_llvm_ir_before_optimizations: bool,
+    pub output_bitcode_before_optimizations: bool,
+}
+
+impl BuildSettings {
+    /// The value a metaprogram gave `llvm_options.<name>` (`enable_loop_unrolling`...).
+    pub fn llvm_switch(&self, name: &str) -> Option<bool> {
+        self.llvm_switches
+            .iter()
+            .rev()
+            .find(|(n, _)| n == name)
+            .map(|(_, on)| *on)
+    }
 }
 
 impl Default for BuildSettings {
@@ -97,6 +135,21 @@ impl Default for BuildSettings {
             llvm_triple: String::new(),
             llvm_cpu: String::new(),
             llvm_features: String::new(),
+            intermediate_path: String::new(),
+            entry_point_name: String::new(),
+            runtime_support_definitions: None,
+            backtrace_on_crash: None,
+            append_extension: true,
+            use_custom_link_command: false,
+            minimum_os_version: String::new(),
+            frame_pointers: None,
+            disable_redzone: false,
+            machine_code_optimization: String::new(),
+            llvm_switches: Vec::new(),
+            output_llvm_ir: false,
+            output_bitcode: false,
+            output_llvm_ir_before_optimizations: false,
+            output_bitcode_before_optimizations: false,
         }
     }
 }
@@ -109,6 +162,38 @@ pub trait OutputBackend {
         settings: &BuildSettings,
         output: &std::path::Path,
     ) -> Result<(), String>;
+
+    /// For `use_custom_link_command`: write the object files for `output` and say what a
+    /// linker needs, without linking.
+    fn write_objects(
+        &mut self,
+        _program: &ir::Program,
+        _settings: &BuildSettings,
+        _output: &std::path::Path,
+    ) -> Result<LinkObjects, String> {
+        Err(
+            "this backend cannot leave linking to the metaprogram (`use_custom_link_command`)"
+                .into(),
+        )
+    }
+}
+
+/// What `READY_FOR_CUSTOM_LINK_COMMAND` hands the metaprogram (`Message_Phase` fields).
+#[derive(Clone, Debug, Default)]
+pub struct LinkObjects {
+    /// `compiler_generated_object_files`.
+    pub objects: Vec<String>,
+    /// `system_libraries`: libraries linked by name.
+    pub system_libraries: Vec<String>,
+    /// `user_libraries`: library files by path and the directories they need.
+    pub user_libraries: Vec<String>,
+}
+
+/// A workspace whose objects are written and whose metaprogram links them.
+struct PendingLink {
+    /// The linker's exit code, once `compiler_custom_link_command_is_complete` says so.
+    exit_code: Option<i64>,
+    output: String,
 }
 
 /// Everything needed to compile a workspace besides its sources.
@@ -186,6 +271,8 @@ struct Workspace {
     failed: bool,
     /// `compiler_modify_procedure` calls not applied yet: (body record, statement records).
     modifications: Vec<(i64, Vec<crate::sema::ModifiedStmt>)>,
+    /// Set from `READY_FOR_CUSTOM_LINK_COMMAND` until the metaprogram's link is reported.
+    link: Option<PendingLink>,
 }
 
 impl Workspace {
@@ -200,6 +287,7 @@ impl Workspace {
             events: VecDeque::new(),
             failed: false,
             modifications: Vec::new(),
+            link: None,
         }
     }
 }
@@ -223,6 +311,7 @@ const PHASE_TYPECHECKED_ALL_WE_CAN: i64 = 1;
 const PHASE_ALL_TARGET_CODE_BUILT: i64 = 2;
 const PHASE_PRE_WRITE_EXECUTABLE: i64 = 3;
 const PHASE_POST_WRITE_EXECUTABLE: i64 = 4;
+const PHASE_READY_FOR_CUSTOM_LINK_COMMAND: i64 = 5;
 
 /// The workspace registry of one top-level compilation.
 pub struct Workspaces {
@@ -264,6 +353,7 @@ pub enum MetaOp {
     CustomLinkComplete,
     AddStringToModule,
     CodeNodes,
+    CodeIsNull,
     ParseCode,
     ModifyProcedure,
     SetTypeInfoFlags,
@@ -303,6 +393,7 @@ impl MetaOp {
             "__jaic_custom_link_complete" => Self::CustomLinkComplete,
             "__jaic_workspace_add_string_to_module" => Self::AddStringToModule,
             "__jaic_code_nodes" => Self::CodeNodes,
+            "__jaic_code_is_null" => Self::CodeIsNull,
             "__jaic_parse_code" => Self::ParseCode,
             "__jaic_modify_procedure" => Self::ModifyProcedure,
             "__jaic_set_type_info_flags" => Self::SetTypeInfoFlags,
@@ -401,7 +492,7 @@ impl Workspaces {
                     "LINUX" => TargetOs::Linux,
                     "MACOS" => TargetOs::MacOS,
                     "WASM" => TargetOs::Wasm,
-                    _ => return Ok(()), // Targets jaic cannot build for keep the default.
+                    _ => return Err(format!("jaic cannot build for `os_target = .{value}`")),
                 })
             }
             "cpu_target" => {
@@ -410,7 +501,7 @@ impl Workspaces {
                     "ARM64" => TargetCpu::Arm64,
                     // `.CUSTOM` is how a wasm target spells its CPU (the triple says which).
                     "WASM" | "CUSTOM" => TargetCpu::Wasm,
-                    _ => return Ok(()),
+                    _ => return Err(format!("jaic cannot build for `cpu_target = .{value}`")),
                 })
             }
             "optimization" => s.optimization = value.into(),
@@ -426,8 +517,34 @@ impl Workspaces {
             "llvm_target_system_triple" => s.llvm_triple = value.into(),
             "llvm_target_system_cpu" => s.llvm_cpu = value.into(),
             "llvm_target_system_features" => s.llvm_features = value.into(),
-            // Accepted and ignored: checks, added-string dumps...
-            _ => {}
+            "intermediate_path" => s.intermediate_path = value.into(),
+            "entry_point_name" => s.entry_point_name = value.into(),
+            "runtime_support_definitions" => s.runtime_support_definitions = Some(value.into()),
+            "backtrace_on_crash" => s.backtrace_on_crash = Some(value == "ON"),
+            "append_executable_filename_extension" => s.append_extension = flag(),
+            "use_custom_link_command" => s.use_custom_link_command = flag(),
+            "minimum_os_version" => s.minimum_os_version = value.into(),
+            "enable_frame_pointers" => s.frame_pointers = Some(flag()),
+            "disable_redzone" => s.disable_redzone = flag(),
+            "machine_code_optimization" => s.machine_code_optimization = value.into(),
+            "output_llvm_ir" => s.output_llvm_ir = flag(),
+            "output_bitcode" => s.output_bitcode = flag(),
+            "output_llvm_ir_before_optimizations" => s.output_llvm_ir_before_optimizations = flag(),
+            "output_bitcode_before_optimizations" => s.output_bitcode_before_optimizations = flag(),
+            "destroy" => {
+                // `compiler_destroy_workspace`: what was added is never compiled.
+                let ws = self.ws(id)?;
+                ws.pending.clear();
+                if ws.stage == Stage::Open {
+                    ws.stage = Stage::Done;
+                }
+            }
+            _ => match key.strip_prefix("llvm_") {
+                Some(name) => s.llvm_switches.push((name.into(), flag())),
+                // The Compiler module sends only keys listed here: anything else is a bug there,
+                // not a setting to drop.
+                None => return Err(format!("internal: unknown build option `{key}`")),
+            },
         }
         Ok(())
     }
@@ -532,6 +649,18 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     if let Some(mode) = settings.dead_code_elimination {
         options.dead_code = mode;
     }
+    if !settings.entry_point_name.is_empty() {
+        options.entry_point = settings.entry_point_name.clone();
+    }
+    if let Some(which) = &settings.runtime_support_definitions {
+        // AUTO and ENTRY_POINT_AND_INIT: both; ONLY_INIT: the program has its own entry point.
+        options.runtime_entry_point = !matches!(which.as_str(), "ONLY_INIT" | "OMIT");
+        options.runtime_initialization = which != "OMIT";
+    }
+    if let Some(on) = settings.backtrace_on_crash {
+        // WebAssembly has no signals to catch (`docs/metaprogramming/build-options.md`).
+        options.backtrace_on_crash = on && options.os != TargetOs::Wasm;
+    }
     let mut compiler = Box::new(Compiler::new(options, fs));
     compiler.interp.host = host;
     compiler.workspace = id;
@@ -569,6 +698,9 @@ fn phase(p: i64) -> Event {
 /// and hands back what is left, so one budget bounds the whole compilation however many
 /// workspaces a metaprogram creates.
 fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<(), String> {
+    if shared.borrow_mut().ws(id)?.link.is_some() {
+        return finish_custom_link(shared, id);
+    }
     let (stage, mut compiler, pending, modifications) = {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
@@ -682,10 +814,14 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     *budget = compiler.interp.block_budget;
     let mut failed = false;
     let next = match result {
-        Ok(Stage::Done) => {
-            failed = !write_output(shared, id, &mut compiler, &mut events)?;
-            Stage::Done
-        }
+        Ok(Stage::Done) => match write_output(shared, id, &mut compiler, &mut events)? {
+            Written::Done(ok) => {
+                failed = !ok;
+                Stage::Done
+            }
+            // The metaprogram links; `finish_custom_link` ends the workspace.
+            Written::AwaitingLink => Stage::Checked,
+        },
         Ok(next) => next,
         Err(d) => {
             let text = compiler.render(&d);
@@ -721,18 +857,25 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     Ok(())
 }
 
+/// What [`write_output`] did.
+enum Written {
+    /// Whether the output was written (or not wanted).
+    Done(bool),
+    /// Objects are written and `READY_FOR_CUSTOM_LINK_COMMAND` queued: the metaprogram links.
+    AwaitingLink,
+}
+
 /// Code generation is done: queue the write phases and call the backend.
-/// Returns whether the output was written (or not wanted).
 fn write_output(
     shared: &SharedWorkspaces,
     id: i64,
     compiler: &mut Compiler,
     events: &mut Vec<Event>,
-) -> Result<bool, String> {
+) -> Result<Written, String> {
     events.push(phase(PHASE_ALL_TARGET_CODE_BUILT));
     let settings = shared.borrow_mut().ws(id)?.settings.clone();
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
-        return Ok(true);
+        return Ok(Written::Done(true));
     }
     let output = output_path(&settings, compiler);
     let name = output.display().to_string().into_bytes();
@@ -742,6 +885,45 @@ fn write_output(
         strings: vec![name.clone()],
     });
     compiler.prepare_compiled_output();
+    let links = matches!(
+        settings.output_type,
+        OutputType::Executable | OutputType::DynamicLibrary
+    );
+    if settings.use_custom_link_command && links {
+        let mut reg = shared.borrow_mut();
+        if let Some(backend) = reg.env.backend.as_mut() {
+            let objects = backend.write_objects(&compiler.program, &settings, &output);
+            return match objects {
+                Ok(o) => {
+                    let mut strings: Vec<Vec<u8>> = Vec::new();
+                    for list in [&o.objects, &o.system_libraries, &o.user_libraries] {
+                        strings.extend(list.iter().map(|s| s.clone().into_bytes()));
+                    }
+                    strings.push(name);
+                    events.push(Event {
+                        kind: EVENT_PHASE,
+                        ints: vec![
+                            PHASE_READY_FOR_CUSTOM_LINK_COMMAND,
+                            o.objects.len() as i64,
+                            0,
+                            o.system_libraries.len() as i64,
+                            o.user_libraries.len() as i64,
+                        ],
+                        strings,
+                    });
+                    reg.ws(id)?.link = Some(PendingLink {
+                        exit_code: None,
+                        output: output.display().to_string(),
+                    });
+                    Ok(Written::AwaitingLink)
+                }
+                Err(message) => {
+                    (reg.env.report)(&format!("error: writing {}: {message}", output.display()));
+                    Ok(Written::Done(false))
+                }
+            };
+        }
+    }
     let written = {
         let mut reg = shared.borrow_mut();
         match reg.env.backend.as_mut() {
@@ -776,10 +958,66 @@ fn write_output(
     }
     events.push(Event {
         kind: EVENT_PHASE,
-        ints: vec![PHASE_POST_WRITE_EXECUTABLE, 0],
+        ints: vec![PHASE_POST_WRITE_EXECUTABLE, written.is_err() as i64, 0],
         strings: vec![name],
     });
-    Ok(written.is_ok())
+    Ok(Written::Done(written.is_ok()))
+}
+
+/// End a workspace whose metaprogram links it (`use_custom_link_command`): the linker's exit
+/// code decides whether it failed. A metaprogram that waits for the next message without
+/// saying the link is done gets an error instead of a workspace that never finishes.
+fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
+    let (link, compiler) = {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        (ws.link.take().expect("a pending link"), ws.compiler.take())
+    };
+    let failed = match link.exit_code {
+        Some(0) => false,
+        Some(code) => {
+            (shared.borrow_mut().env.report)(&format!(
+                "error: the custom link command for {} failed with exit code {code}",
+                link.output
+            ));
+            true
+        }
+        None => {
+            (shared.borrow_mut().env.report)(&format!(
+                "error: the metaprogram did not link {} after READY_FOR_CUSTOM_LINK_COMMAND\n\
+                 help: call `compiler_custom_link_command_is_complete(workspace, exit_code)` once \
+                 its link command has run",
+                link.output
+            ));
+            true
+        }
+    };
+    {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        ws.events.push_back(Event {
+            kind: EVENT_PHASE,
+            ints: vec![
+                PHASE_POST_WRITE_EXECUTABLE,
+                failed as i64,
+                link.exit_code.unwrap_or(-1),
+            ],
+            strings: vec![link.output.into_bytes()],
+        });
+        ws.events.push_back(Event {
+            kind: EVENT_COMPLETE,
+            ints: vec![failed as i64],
+            strings: Vec::new(),
+        });
+        ws.failed |= failed;
+        ws.stage = Stage::Done;
+    }
+    let observer = shared.borrow_mut().env.observer.take();
+    if let (Some(mut o), Some(compiler)) = (observer, compiler) {
+        o.finished(compiler, failed);
+        shared.borrow_mut().env.observer = Some(o);
+    }
+    Ok(())
 }
 
 /// Where a workspace's output goes: `output_path/output_executable_name`
@@ -1027,31 +1265,52 @@ pub fn call(
         }
         MetaOp::Report => {
             let (message, file) = (text(interp, 0)?, text(interp, 1)?);
-            let (line, column, is_error) = (arg(2), arg(3), arg(4) & 1 != 0);
+            // `mode`: `Report` in the Compiler module (ERROR, ERROR_CONTINUABLE, WARNING, INFO).
+            let (line, column, mode) = (arg(2), arg(3), arg(4));
             let location = if file.is_empty() {
                 String::new()
             } else {
                 format!("{file}:{line}:{column}: ")
             };
-            let severity = if is_error {
-                "error"
-            } else {
-                "warning"
-            };
-            if is_error {
+            if mode == 0 {
                 let mut t = trap(message.trim_end().to_string());
                 t.reported = Some(Box::new((file, line as u32, column as u32)));
                 return Err(t);
             }
+            let severity = match mode {
+                1 => "error",
+                2 => "warning",
+                _ => "info",
+            };
             let rendered = format!("{location}{severity}: {}", message.trim_end());
-            (shared.borrow_mut().env.report)(&rendered);
+            let mut reg = shared.borrow_mut();
+            (reg.env.report)(&rendered);
+            if mode == 1 {
+                // A continuable error: the metaprogram goes on, but the build has failed.
+                let current = reg.current_id();
+                reg.ws(current).map_err(trap)?.failed = true;
+            }
             Ok(Vec::new())
         }
         MetaOp::CompilerVersion => {
             return_string(interp, COMPILER_VERSION.as_bytes(), 0)?;
             Ok(Vec::new())
         }
-        MetaOp::CustomLinkComplete => Ok(Vec::new()),
+        MetaOp::CustomLinkComplete => {
+            let (id, exit_code) = (arg(0) as i64, arg(1) as i64);
+            let mut reg = shared.borrow_mut();
+            match reg.ws(id).map_err(trap)?.link.as_mut() {
+                Some(link) => {
+                    link.exit_code = Some(exit_code);
+                    Ok(Vec::new())
+                }
+                None => Err(trap(format!(
+                    "compiler_custom_link_command_is_complete: workspace {id} is not waiting \
+                     for a custom link (it gets READY_FOR_CUSTOM_LINK_COMMAND first, with \
+                     `use_custom_link_command` set)"
+                ))),
+            }
+        }
         MetaOp::AddStringToModule => {
             let (id, value, record) = (arg(0) as i64, text(interp, 1)?, arg(2) as i64);
             let mut reg = shared.borrow_mut();
@@ -1068,6 +1327,12 @@ pub fn call(
             let ws = reg.ws(id).map_err(trap)?;
             ws.pending.push(ProgramSource::ModuleString(value, module));
             Ok(Vec::new())
+        }
+        MetaOp::CodeIsNull => {
+            let null = interp.codes.get(arg(0) as usize).is_some_and(|(body, _)| {
+                matches!(&**body, crate::ast::CodeBody::Expr(e) if matches!(e.kind, crate::ast::ExprKind::Null))
+            });
+            Ok(vec![null as u64])
         }
         MetaOp::CodeNodes => {
             let code = arg(0) as usize;

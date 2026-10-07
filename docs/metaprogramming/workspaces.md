@@ -26,8 +26,10 @@ Bodiless `#compiler` procedures named `__jaic_*` are bound to `Hook::Meta(MetaOp
 | `__jaic_workspace_next_event(ws) -> s64` | advance the workspace if needed, pop the next event kind (0 = none) |
 | `__jaic_event_int(i)`, `__jaic_event_string(i)` | fields of the current event |
 | `__jaic_command_line_count/arg(i)` | metaprogram arguments |
-| `__jaic_report(msg, file, line, col, is_error)` | errors fail the compile {#ws.5}; warnings go to the report sink {#ws.6} |
-| `__jaic_compiler_version()`, `__jaic_custom_link_complete(ws, code)` | |
+| `__jaic_report(msg, file, line, col, mode)` | `mode` 0 (`ERROR`) fails the compile {#ws.5}; 2 and 3 (`WARNING`, `INFO`) go to the report sink {#ws.6}; 1 (`ERROR_CONTINUABLE`) goes to the sink as an error and marks the current workspace failed |
+| `__jaic_compiler_version()` | |
+| `__jaic_custom_link_complete(ws, code)` | the metaprogram's linker exit code for a workspace waiting after `READY_FOR_CUSTOM_LINK_COMMAND`; an error otherwise |
+| `__jaic_code_is_null(code)` | whether a `Code` value is `#code,null` |
 
 The `__jaic_rec_*`, `__jaic_code_nodes`, `__jaic_parse_code` and `__jaic_modify_procedure` primitives belong to [compiler records](compiler-records.md).
 
@@ -50,7 +52,7 @@ A workspace's compile-time code runs on its driver's interpreter budget (`Interp
 | `IMPORT` (4) | int 0 = record; sent before a module's first file |
 | `FILE` (1) | int 0 = record; one per loaded file {#ws.11} |
 | `TYPECHECKED` (5) | int 0 = record; just before PHASE `TYPECHECKED_ALL_WE_CAN` {#ws.12} |
-| `PHASE` (2) | int 0 = phase: 0 `ALL_SOURCE_CODE_PARSED`, 1 `TYPECHECKED_ALL_WE_CAN`, 2 `ALL_TARGET_CODE_BUILT`, 3 `PRE_WRITE_EXECUTABLE` (int 1 = object count `n`, strings = objects then output path), 4 `POST_WRITE_EXECUTABLE` (string 0 = output path) |
+| `PHASE` (2) | int 0 = phase: 0 `ALL_SOURCE_CODE_PARSED`, 1 `TYPECHECKED_ALL_WE_CAN`, 2 `ALL_TARGET_CODE_BUILT`, 3 `PRE_WRITE_EXECUTABLE` (int 1 = object count `n`, strings = objects then output path), 4 `POST_WRITE_EXECUTABLE` (int 1 = write failed, int 2 = linker exit code, string 0 = output path), 5 `READY_FOR_CUSTOM_LINK_COMMAND` (ints 1..4 = counts of objects, support objects, system and user libraries; strings = those lists, then the output path) |
 | `COMPLETE` (3) | int 0 = error code (0 none, 1 failed) {#ws.13} |
 
 IMPORT, FILE and TYPECHECKED are only produced for intercepted workspaces.
@@ -70,7 +72,7 @@ Workspace 2's own settings decide whether `jaic build` writes the top-level prog
 
 ## Configuration
 
-Option keys handled by `set_option`: `output_executable_name`, `output_path`, `output_type`, `do_output`, `import_path_clear`, `import_path`, `os_target`, `cpu_target` (targets jaic can't build for are ignored), `optimization`, `temporary_storage_size`, `additional_linker_arguments_clear`, `additional_linker_argument`, `array_bounds_check`, `arithmetic_overflow_check`, `stack_trace`, `emit_debug_info`. Other keys are accepted and ignored. `arithmetic_overflow_check` applies to workspaces a metaprogram creates, not the program's own.
+Option keys handled by `set_option` are listed in [compiler module](compiler-module.md); `os_target` and `cpu_target` values jaic can't build for, and keys it does not know, are errors. [Build options](build-options.md) says what each does. A workspace with `use_custom_link_command` stops after writing its objects (`Workspace::link`) until `__jaic_custom_link_complete` gives the exit code; the next step sends `POST_WRITE_EXECUTABLE` and `COMPLETE` (`finish_custom_link`). `arithmetic_overflow_check` applies to workspaces a metaprogram creates, not the program's own.
 
 `jaic build build.jai - arg1 arg2` passes `arg1 arg2` to the metaprogram.
 

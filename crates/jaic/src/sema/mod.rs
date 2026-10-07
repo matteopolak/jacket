@@ -133,6 +133,14 @@ pub struct Options {
     pub long_double: Option<crate::wide_float::WideFloat>,
     /// `Build_Options.dead_code_elimination`.
     pub dead_code: DeadCode,
+    /// `Build_Options.entry_point_name`: the procedure the program starts in (`main`).
+    pub entry_point: String,
+    /// `Build_Options.runtime_support_definitions`: whether Runtime_Support defines the
+    /// system entry point and the runtime initialization.
+    pub runtime_entry_point: bool,
+    pub runtime_initialization: bool,
+    /// `Build_Options.backtrace_on_crash`: Runtime_Support installs its crash handler.
+    pub backtrace_on_crash: bool,
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
@@ -213,6 +221,10 @@ impl Options {
             debug_info: false,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
             dead_code: DeadCode::default(),
+            entry_point: "main".into(),
+            runtime_entry_point: true,
+            runtime_initialization: true,
+            backtrace_on_crash: false,
         }
     }
 }

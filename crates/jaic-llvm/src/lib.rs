@@ -32,6 +32,10 @@ pub enum OptLevel {
     O1,
     O2,
     O3,
+    /// `default<O2>` tuned for size (`.OS`).
+    Os,
+    /// Smaller still (`.OZ`).
+    Oz,
 }
 
 impl OptLevel {
@@ -39,7 +43,7 @@ impl OptLevel {
         match self {
             OptLevel::O0 => OptimizationLevel::None,
             OptLevel::O1 => OptimizationLevel::Less,
-            OptLevel::O2 => OptimizationLevel::Default,
+            OptLevel::O2 | OptLevel::Os | OptLevel::Oz => OptimizationLevel::Default,
             OptLevel::O3 => OptimizationLevel::Aggressive,
         }
     }
@@ -51,6 +55,8 @@ impl OptLevel {
             OptLevel::O1 => Some("default<O1>"),
             OptLevel::O2 => Some("default<O2>"),
             OptLevel::O3 => Some("default<O3>"),
+            OptLevel::Os => Some("default<Os>"),
+            OptLevel::Oz => Some("default<Oz>"),
         }
     }
 }
@@ -71,6 +77,40 @@ pub struct Options {
     /// LLVM feature string for a cross target (`llvm_options.target_system_features`, such as
     /// `+simd128`); `None`: the target's default. wasm always gets `+bulk-memory` added.
     pub features: Option<String>,
+    /// What a metaprogram's `Build_Options` asked of code generation (`None`: jaic's default).
+    pub codegen: Codegen,
+}
+
+/// Code generation choices from `Build_Options` and its `llvm_options`
+/// (`docs/metaprogramming/build-options.md`). Every `None` keeps jaic's default.
+#[derive(Clone, Debug, Default)]
+pub struct Codegen {
+    /// `machine_code_optimization_setting`: the target machine's level, apart from the IR's.
+    pub machine_level: Option<OptLevel>,
+    /// `enable_loop_unrolling`, `enable_loop_vectorization`, `enable_slp_vectorization`,
+    /// `merge_functions`: the optimization pipeline's switches.
+    pub loop_unrolling: Option<bool>,
+    pub loop_vectorization: Option<bool>,
+    pub slp_vectorization: Option<bool>,
+    pub merge_functions: Option<bool>,
+    /// `disable_inlining`: every function not marked `inline` gets `noinline`.
+    pub disable_inlining: Option<bool>,
+    /// `enable_tail_calls = false`: `"disable-tail-calls"` on every function.
+    pub tail_calls: Option<bool>,
+    /// `enable_split_modules`: `Some(false)` keeps unoptimized codegen in one module.
+    pub split_modules: Option<bool>,
+    /// `enable_frame_pointers`: `Some(true)` keeps a frame record in every function,
+    /// `Some(false)` in none (Apple targets keep their ABI's frame records regardless).
+    pub frame_pointers: Option<bool>,
+    /// `disable_redzone`: `noredzone` on every function.
+    pub no_red_zone: bool,
+    /// `output_llvm_ir`, `output_bitcode` (after optimization) and the `_before_optimizations`
+    /// variants: where to write them.
+    pub ir_after: Option<PathBuf>,
+    pub bitcode_after: Option<PathBuf>,
+    pub bitcode_before: Option<PathBuf>,
+    /// `minimum_os_version` for a macOS target, as `major.minor` (the triple's version).
+    pub macos_version: Option<String>,
 }
 
 /// Which sanitizers instrument a native build. [`link`] links the runtime they call.
@@ -138,13 +178,15 @@ impl Sanitize {
 /// The host triple. On macOS LLVM's default names the Darwin kernel version, which it maps to
 /// a newer macOS than the SDK the linker targets (a warning per link); objects are built for a
 /// deployment target instead (`MACOSX_DEPLOYMENT_TARGET`, default 11.0, the first arm64 macOS).
-fn host_triple() -> TargetTriple {
+fn host_triple(macos_version: Option<&str>) -> TargetTriple {
     let default = TargetMachine::get_default_triple();
     let text = default.as_str().to_string_lossy().into_owned();
     match text.split_once("-apple-darwin") {
         Some((arch, _)) => {
-            let version =
-                std::env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| "11.0".into());
+            let version = macos_version
+                .map(str::to_string)
+                .or_else(|| std::env::var("MACOSX_DEPLOYMENT_TARGET").ok())
+                .unwrap_or_else(|| "11.0".into());
             TargetTriple::create(&format!("{arch}-apple-macosx{version}"))
         }
         None => default,
@@ -161,7 +203,7 @@ fn target_machine(
     let host = options.target.is_none();
     let triple = match &options.target {
         Some(t) => TargetTriple::create(t),
-        None => host_triple(),
+        None => host_triple(options.codegen.macos_version.as_deref()),
     };
     let triple_str = triple.as_str().to_string_lossy().into_owned();
     let arch = jaic::abi::Arch::from_triple(&triple_str)
@@ -199,7 +241,11 @@ fn target_machine(
             &triple,
             &cpu,
             &features,
-            options.opt_level.llvm(),
+            options
+                .codegen
+                .machine_level
+                .unwrap_or(options.opt_level)
+                .llvm(),
             reloc,
             CodeModel::Default,
         )
@@ -239,6 +285,12 @@ fn emit_module(
     module
         .verify()
         .map_err(|e| format!("invalid LLVM IR: {e}"))?;
+    apply_codegen_attributes(&context, &module, &options.codegen, &triple);
+    if let Some(path) = &options.codegen.bitcode_before
+        && !module.write_bitcode_to_path(path)
+    {
+        return Err(format!("could not write `{}`", path.display()));
+    }
     if options.sanitize.address {
         // ASan instruments only functions with this attribute (Clang adds it to each
         // definition it emits); declarations are left alone.
@@ -255,9 +307,32 @@ fn emit_module(
     let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
     passes.extend(options.sanitize.passes(options.opt_level));
     if !passes.is_empty() {
+        let pass_options = PassBuilderOptions::create();
+        let c = &options.codegen;
+        if let Some(on) = c.loop_unrolling {
+            pass_options.set_loop_unrolling(on);
+        }
+        if let Some(on) = c.loop_vectorization {
+            pass_options.set_loop_vectorization(on);
+            pass_options.set_loop_interleaving(on);
+        }
+        if let Some(on) = c.slp_vectorization {
+            pass_options.set_loop_slp_vectorization(on);
+        }
+        if let Some(on) = c.merge_functions {
+            pass_options.set_merge_functions(on);
+        }
         module
-            .run_passes(&passes.join(","), &machine, PassBuilderOptions::create())
+            .run_passes(&passes.join(","), &machine, pass_options)
             .map_err(|e| e.to_string())?;
+    }
+    if let Some(path) = &options.codegen.ir_after {
+        module.print_to_file(path).map_err(|e| e.to_string())?;
+    }
+    if let Some(path) = &options.codegen.bitcode_after
+        && !module.write_bitcode_to_path(path)
+    {
+        return Err(format!("could not write `{}`", path.display()));
     }
     if split_after_opt && !options.sanitize.any() {
         let units = split::units_for(&module);
@@ -270,6 +345,53 @@ fn emit_module(
         .write_to_file(&module, FileType::Object, path)
         .map_err(|e| e.to_string())?;
     Ok(vec![path.to_path_buf()])
+}
+
+/// The function attributes `Build_Options` asks for, on every function with a body.
+fn apply_codegen_attributes(
+    context: &Context,
+    module: &inkwell::module::Module,
+    codegen: &Codegen,
+    triple: &TargetTriple,
+) {
+    let apple = triple.as_str().to_string_lossy().contains("apple");
+    let frame_pointer = match codegen.frame_pointers {
+        Some(true) => Some("all"),
+        // Apple's ABIs require frame records (`docs/metaprogramming/build-options.md`).
+        Some(false) if !apple => Some("none"),
+        _ => None,
+    };
+    let enum_attr =
+        |name: &str| context.create_enum_attribute(Attribute::get_named_enum_kind_id(name), 0);
+    let always_inline = Attribute::get_named_enum_kind_id("alwaysinline");
+    for function in module.get_functions() {
+        if function.count_basic_blocks() == 0 {
+            continue;
+        }
+        if let Some(value) = frame_pointer {
+            function.remove_string_attribute(AttributeLoc::Function, "frame-pointer");
+            function.add_attribute(
+                AttributeLoc::Function,
+                context.create_string_attribute("frame-pointer", value),
+            );
+        }
+        if codegen.no_red_zone {
+            function.add_attribute(AttributeLoc::Function, enum_attr("noredzone"));
+        }
+        if codegen.disable_inlining == Some(true)
+            && function
+                .get_enum_attribute(AttributeLoc::Function, always_inline)
+                .is_none()
+        {
+            function.add_attribute(AttributeLoc::Function, enum_attr("noinline"));
+        }
+        if codegen.tail_calls == Some(false) {
+            function.add_attribute(
+                AttributeLoc::Function,
+                context.create_string_attribute("disable-tail-calls", "true"),
+            );
+        }
+    }
 }
 
 /// Translate `program` to a single native object file at `path`.
@@ -292,7 +414,13 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
     {
         return n.max(1);
     }
-    if options.opt_level != OptLevel::O0 || options.emit_ir.is_some() {
+    if options.opt_level != OptLevel::O0
+        || options.emit_ir.is_some()
+        || options.codegen.split_modules == Some(false)
+        || options.codegen.ir_after.is_some()
+        || options.codegen.bitcode_after.is_some()
+        || options.codegen.bitcode_before.is_some()
+    {
         return 1;
     }
     let insts: usize = program.funcs.iter().flatten().map(func_weight).sum();
@@ -320,6 +448,7 @@ pub fn emit_objects(
         // code generation, unless `JAIC_CODEGEN_UNITS` asked for exactly one unit.
         let split = options.opt_level != OptLevel::O0
             && options.emit_ir.is_none()
+            && options.codegen.split_modules != Some(false)
             && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
         return emit_module(program, options, path, None, split);
     }
@@ -557,6 +686,51 @@ pub fn link(
     } else {
         Err(link_failure(&program, &out))
     }
+}
+
+/// The libraries a program links, as linker arguments for a metaprogram that links it itself
+/// (`use_custom_link_command`, `Message_Phase.system_libraries` and `.user_libraries`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LinkInputs {
+    /// Libraries linked by name: `-lm`, `-framework Metal` (two arguments), `user32.lib`.
+    pub system_libraries: Vec<String>,
+    /// Library files by path, with the search and run-time directories they need.
+    pub user_libraries: Vec<String>,
+}
+
+/// [`LinkInputs`] for `libraries` on `target` (`None`: the host), rendered as [`link`] would
+/// pass them: `cc`-style arguments, or `name.lib` for an MSVC target.
+pub fn link_inputs(libraries: &[Library], target: Option<&str>) -> Result<LinkInputs, String> {
+    let flavor = LinkFlavor::for_target(target);
+    let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
+    let mut seen: Vec<Vec<LinkArg>> = Vec::new();
+    for lib in libraries {
+        let args = library_args(lib, flavor, cross)?;
+        if !args.is_empty() && !seen.contains(&args) {
+            seen.push(args);
+        }
+    }
+    order_link_groups(&mut seen);
+    let mut inputs = LinkInputs::default();
+    for arg in seen.concat() {
+        match arg {
+            LinkArg::Lib(name) if flavor == LinkFlavor::Msvc => {
+                inputs.system_libraries.push(format!("{name}.lib"))
+            }
+            LinkArg::Lib(name) => inputs.system_libraries.push(format!("-l{name}")),
+            LinkArg::Framework(name) => {
+                inputs.system_libraries.push("-framework".into());
+                inputs.system_libraries.push(name);
+            }
+            LinkArg::File(path) => inputs.user_libraries.push(path),
+            LinkArg::Rpath(dir) => inputs.user_libraries.push(format!("-Wl,-rpath,{dir}")),
+            LinkArg::SearchDir(dir) if flavor == LinkFlavor::Msvc => {
+                inputs.user_libraries.push(format!("/LIBPATH:{dir}"))
+            }
+            LinkArg::SearchDir(dir) => inputs.user_libraries.push(format!("-L{dir}")),
+        }
+    }
+    Ok(inputs)
 }
 
 /// The error for a linker that could not be started, with how to get one.

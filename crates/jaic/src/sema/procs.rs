@@ -693,10 +693,17 @@ impl Compiler {
         let main = self.program_main(span)?;
         let main_sig = self.signature(main, span)?;
         if !main_sig.params.is_empty() {
-            return err(self.proc(main).span, "`main` must not take parameters");
+            let name = &self.options.entry_point;
+            return err(
+                self.proc(main).span,
+                format!("`{name}` must not take parameters"),
+            );
         }
         let ProcTarget::Func(main_func) = self.proc_func(main, span)? else {
-            return err(span, "`main` must have a body");
+            return err(
+                span,
+                format!("`{}` must have a body", self.options.entry_point),
+            );
         };
         let main_ir = self.ir_sig(main_sig.ty, span)?;
         let mut f = FnCtx::new("__entry_point".into(), ir_sig, FileId(0));

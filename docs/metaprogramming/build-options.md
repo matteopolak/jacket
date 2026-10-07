@@ -1,0 +1,178 @@
+# Build options and the metaprogram API: what jaic honours
+
+## What it is
+
+The support matrix for everything a metaprogram can ask of the compiler: every `Build_Options` and `Build_Options_During_Compile` field, the `compiler_*` procedures, message kinds and `Code_Node` kinds. jaic's rule is that a request it cannot carry out is never dropped without a word. It is either honoured, reported as an error, or reported as a warning where projects commonly set it and the program comes out the same.
+
+## How it works
+
+`set_build_options` (`stdlib/Compiler/options.jai`) stores the options. `check_build_options` then compares them with the workspace's previous options and reports each field that this call changed to a value jaic does not act on. The report goes to the caller's location (`loc`) and appears once, not on every call {#bo.1}:
+
+```
+first.jai:14:5: warning: jaic ignores Build_Options.backend: jaic always generates code with LLVM, and x64_options do not apply
+```
+
+Options left at their defaults, or set to values jaic acts on, say nothing {#bo.4}. Examples are `text_output_flags = 0`, `enable_bytecode_inliner = true` and `set_optimization(*options, .OPTIMIZED_SMALL)`. `forward_options` then sends every field jaic acts on to `Workspaces::set_option` (`crates/jaic/src/build.rs`) as a key and a text value. `set_option` rejects keys it does not know, so a field cannot be forwarded and then dropped.
+
+Warnings and errors use `__jaic_report`'s `mode`, which is `Report` in the Compiler module:
+
+- `ERROR` stops the metaprogram.
+- `ERROR_CONTINUABLE` prints `error:`, lets the metaprogram go on and fails the build with exit code 1 {#bo.3}.
+- `WARNING` and `INFO` only print.
+
+`compiler_begin_intercept`'s `SKIP_DECLARATIONS`, `SKIP_PROCEDURE_HEADERS`, `SKIP_PROCEDURE_BODIES`, `SKIP_STRUCTS` and `SKIP_OTHERS` remove those kinds from `TYPECHECKED` messages, including `all`. A message left with nothing in it is not sent {#bo.2}.
+
+What jaic cannot do at all stops the metaprogram with an error {#bo.5}:
+
+- an `os_target` or `cpu_target` it cannot build for (`.PS5`);
+- `add_build_string` with a `code` scope;
+- `add_global_data` into a user segment;
+- `get_runtime_info` or `get_type_table` of another workspace;
+- `compiler_custom_link_command_is_complete` for a workspace that is not waiting for a link;
+- `compiler_set_workspace_status(.OK)` on a failed workspace.
+
+### Custom link commands
+
+With `use_custom_link_command` on a workspace that writes an executable or a dynamic library, `write_output` does not link. It calls `OutputBackend::write_objects` instead, which writes the objects to `intermediate_path` (or next to the output). It then queues `PHASE` `READY_FOR_CUSTOM_LINK_COMMAND` with:
+
+- `compiler_generated_object_files`;
+- `system_libraries`, linker arguments for libraries linked by name (`-lm`, `-framework Metal`, `user32.lib` for MSVC);
+- `user_libraries`, library files by path with their `-L` and `-Wl,-rpath,` arguments;
+- `executable_name`.
+
+`support_object_files` is empty because jaic links no support objects {#bo.6}. The metaprogram runs its linker and calls `compiler_custom_link_command_is_complete(w, exit_code)`. The next time the workspace is stepped, it sends `POST_WRITE_EXECUTABLE` and then `COMPLETE`. `POST_WRITE_EXECUTABLE` carries `linker_exit_code`, and `executable_write_failed` is set when the exit code is not 0.
+
+The build fails with an error in two cases {#bo.7}:
+
+- a non-zero exit code: `the custom link command for out/game failed with exit code 3`;
+- a metaprogram that asks for the next message without reporting the link: `the metaprogram did not link ...` plus a `help:` naming the call.
+
+`use_custom_link_command` on the top-level program is an error: nothing receives its messages.
+
+### Code generation
+
+`prepare` in `LlvmBackend` (`crates/jaic-cli/src/main.rs`) turns the settings into `jaic_llvm::Options` and `Codegen`:
+
+- `intermediate_path` holds the object files and the IR or bitcode a metaprogram asks for {#bo.8}:
+  - `<output name>.ll` for `output_llvm_ir`;
+  - `.bc` for `output_bitcode`;
+  - `.unoptimized.ll` and `.unoptimized.bc` for the `_before_optimizations` variants.
+- `enable_frame_pointers`, `disable_redzone`, `llvm_options.disable_inlining` and `enable_tail_calls` become function attributes (`apply_codegen_attributes` in `crates/jaic-llvm/src/lib.rs`) {#bo.12}:
+  - `"frame-pointer"="all"` or `"none"`. Apple targets keep their ABI's frame records either way.
+  - `noredzone`.
+  - `noinline`, except on `inline` procedures.
+  - `"disable-tail-calls"`.
+- `enable_loop_unrolling`, `enable_loop_vectorization` (with interleaving), `enable_slp_vectorization` and `merge_functions` are the pass builder's switches.
+- `enable_split_modules = false` keeps one codegen unit.
+- `machine_code_optimization_setting` sets the target machine's level apart from the IR's.
+- `bitcode_optimization_setting` `.OS` and `.OZ` run `default<Os>` and `default<Oz>`.
+- `preserve_debug_info = false` turns debug information off.
+
+Every `set_build_options` call forwards these, so a workspace built from the defaults gets the debug flavor they describe. `set_optimization` sets them per flavor. `-O` on the command line replaces them for the top-level program.
+
+`entry_point_name` names the procedure the program starts in instead of `main`, through `sema::Options::entry_point` {#bo.9}. `runtime_support_definitions` and `backtrace_on_crash` become the `Runtime_Support` module parameters:
+
+- `DEFINE_SYSTEM_ENTRY_POINT` and `DEFINE_INITIALIZATION`: `ONLY_INIT` leaves out the entry point and `OMIT` leaves out both.
+- `ENABLE_BACKTRACE_ON_CRASH`, which installs `Runtime_Support_Crash_Handler` {#bo.10}. Its default is `ON`, as in `Build_Options`. WebAssembly has no signals, so it is off there.
+
+`minimum_os_version` (`major.minor`) is the deployment version in a macOS target's triple, and the link adds `-mmacosx-version-min` {#bo.11}.
+
+## Support matrix
+
+The before column is jaic 0.4.1. "Silently ignored" means the value was accepted or forwarded but changed nothing, with no message.
+
+### `Build_Options`
+
+| Field | Before | After |
+| --- | --- | --- |
+| `output_type`, `output_executable_name`, `output_path`, `import_path`, `additional_linker_arguments` | honoured | honoured |
+| `os_target`, `cpu_target` | honoured; targets jaic cannot build for silently ignored | honoured; others an error |
+| `intermediate_path` | silently ignored | honoured: objects, IR and bitcode go there |
+| `entry_point_name` | silently ignored | honoured |
+| `append_executable_filename_extension` | silently ignored | honoured |
+| `use_custom_link_command` | silently ignored (jaic linked itself, `READY_FOR_CUSTOM_LINK_COMMAND` never came) | honoured (see above); an error for the top-level program |
+| `temporary_storage_size`, `stack_trace`, `dead_code_elimination`, `cast_bounds_check`, `arithmetic_overflow_check` | honoured | honoured |
+| `array_bounds_check` | honoured; `.ALWAYS` silently `.ON` | `.ALWAYS` warns (`#no_abc` still turns checks off) |
+| `null_pointer_check` | silently ignored | not forwarded, documented: jaic inserts no null checks in native code, so `.OFF` is what it does; a null dereference faults (and the crash handler reports it) |
+| `emit_debug_info` | honoured (`.NONE` off; `CODEVIEW`/`DWARF` pick nothing, the target's format is used) | same |
+| `write_added_strings` | silently ignored | not forwarded, documented: jaic never writes added strings to disk, which is what `false` asks |
+| `runtime_support_definitions` | silently ignored | honoured (module parameters) |
+| `backtrace_on_crash` | silently ignored (never installed) | honoured |
+| `minimum_os_version` | silently ignored | honoured on macOS (triple and link) |
+| `enable_frame_pointers`, `disable_redzone` | silently ignored | honoured (function attributes) |
+| `backend` | silently ignored | `.X64` warns |
+| `x64_options`, `machine_options` | silently ignored | covered by the `backend` warning; `machine_options` is an opaque layout placeholder |
+| `runtime_storageless_type_info`, `shorten_filenames_in_error_messages`, `use_visual_studio_message_format`, `use_natvis_compatible_types`, `lazy_foreign_function_lookups`, `interactive_bytecode_debugger`, `debug_for_expansions`, `prevent_compile_time_calls_from_runtime` | silently ignored | `true` warns |
+| `enable_bytecode_inliner`, `enable_bytecode_deduplication` | silently ignored | documented: jaic has no bytecode inliner or deduplication, which is what `false` asks; `true` (the default) is Jai's speed-up and changes no program |
+| `max_bytecode_instructions_for_inlined_initializer`, `context_size_max`, `maximum_polymorph_depth`, `maximum_array_count_before_compile_time_returns_are_not_reflected_in_ast` | silently ignored | a change warns |
+| `info_flags` | silently ignored | non-zero warns |
+| `text_output_flags` | silently ignored | non-zero warns (jaic prints neither link lines nor timings; `-time` does timings) |
+| `compile_time_command_line`, `user_data_*` | stored | stored (returned by `get_build_options`) |
+
+### `Llvm_Options`
+
+| Field | Before | After |
+| --- | --- | --- |
+| `bitcode_optimization_setting` | honoured; `.OS`, `.OZ` silently `.O2` | honoured, with size pipelines |
+| `machine_code_optimization_setting` | silently ignored | honoured |
+| `enable_tail_calls`, `enable_loop_unrolling`, `enable_slp_vectorization`, `enable_loop_vectorization`, `merge_functions`, `disable_inlining`, `enable_split_modules`, `preserve_debug_info` | silently ignored | honoured |
+| `output_llvm_ir`, `output_bitcode`, `output_llvm_ir_before_optimizations`, `output_bitcode_before_optimizations` | silently ignored | honoured |
+| `target_system_triple`, `target_system_cpu`, `target_system_features` | honoured | honoured |
+| `function_sections`, `disable_mem2reg` | silently ignored | `true` warns |
+| `command_line` | silently ignored | non-empty warns |
+
+### `Build_Options_During_Compile`
+
+| Field | Before | After |
+| --- | --- | --- |
+| `do_output`, `output_executable_name`, `output_path`, `append_linker_arguments` | honoured | honoured |
+| `append_executable_filename_extension` | silently ignored | honoured |
+| `write_added_strings` | silently ignored | documented as above |
+| `interactive_bytecode_debugger` | silently ignored | `true` warns |
+
+### Procedures
+
+| Procedure | Before | After |
+| --- | --- | --- |
+| `compiler_create_workspace`, `get_current_workspace`, `get_name`, `add_build_file`, `add_build_string(data, w, message)`, `set_build_options`, `get_build_options`, `set_optimization`, `copy_commonly_propagated_fields`, `compiler_wait_for_message`, `compiler_end_intercept`, `compiler_get_version_info`, `get_toplevel_command_line`, `compiler_get_nodes`, `compiler_get_code`, `code_to_string`, `print_expression`, `compiler_modify_procedure`, `compiler_set_type_info_flags`, `compiler_get_struct_location`, `make_location`, `get_filename`, `is_subclass_of` | honoured | honoured |
+| `compiler_destroy_workspace` | silently ignored (the workspace was still compiled) | a workspace not compiled yet never is |
+| `add_build_string(data, w, code)` | `code` silently ignored | a non-null `code` is an error |
+| `compiler_begin_intercept` flags | silently ignored | `SKIP_*` filter `TYPECHECKED`; `DO_PERFORMANCE_REPORT_*` warn; `SKIP_EXPRESSIONS_WITHOUT_NOTES` is a hint jaic does not need (every expression is delivered) |
+| `compiler_custom_link_command_is_complete` | silently ignored | honoured; an error without a pending link |
+| `compiler_report` | `ERROR_CONTINUABLE` silently a warning | `ERROR_CONTINUABLE` prints an error and fails the build; `INFO` prints `info:` |
+| `compiler_set_workspace_status` | `.OK` silently ignored | `.OK` on a failed workspace is an error |
+| `get_runtime_info`, `get_type_table` | another workspace's `w` silently gave the running program's | an error for another workspace |
+| `add_global_data` | segment silently ignored | data goes with the program's other constant data whatever the segment; a user segment is an error |
+| `get_root_type`, `compiler_make_procedure_live`, `compiler_report_errors_for_*`, `compiler_set_memory_breakpoint`, `compiler_add_library_search_directory`, `compiler_get_base_path`, `remap_import`, `provide_import`, `add_data_segment` | error when called | error when called |
+
+### Messages and nodes
+
+| What | Status |
+| --- | --- |
+| `FILE`, `IMPORT`, `TYPECHECKED`, `COMPLETE` | sent |
+| `PHASE` | `ALL_SOURCE_CODE_PARSED`, `TYPECHECKED_ALL_WE_CAN`, `ALL_TARGET_CODE_BUILT`, `PRE_WRITE_EXECUTABLE`, `POST_WRITE_EXECUTABLE` sent; `READY_FOR_CUSTOM_LINK_COMMAND` now sent with `use_custom_link_command`; `POST_WRITE_EXECUTABLE` now fills `executable_write_failed` and `linker_exit_code` |
+| `FAILED_IMPORT` | not sent: a failed import is a compile error (and `provide_import` is an error) |
+| `ERROR` | not sent: errors are printed and `COMPLETE` carries `COMPILATION_FAILED` |
+| `PERFORMANCE_REPORT`, `DEBUG_DUMP` | not sent; the flags that ask for performance reports warn |
+| `Code_Node` kinds | see [compiler records](compiler-records.md). Expressions the exporter does not model (`#asm`, `#bake`, `#bytes`, `#this`, `#procedure_name`, `#caller_code`, `#compile_time`, `#file`/`#filepath`/`#line`, `$T` declarations) and statements (`#load`, `#place`, `#add_context`, `#module_parameters`, `#overlay`) arrive as `.PLACEHOLDER` nodes, which `Program_Print` (and so `compiler_get_code` and edited statements in `compiler_modify_procedure`) reports as unsupported instead of printing something else |
+
+## How to change it
+
+- **A new option jaic acts on.** Forward it in `forward_options` and add the key to `Workspaces::set_option`. Read it in `new_compiler` (sema options) or `LlvmBackend::prepare` (code generation). Then update the matrix above and the key table in [compiler module](compiler-module.md).
+- **An option jaic can only report.** Add a line to `check_build_options`. Use `option_warning` when the program comes out the same and `option_error` when it would not. Compare with `previous` so it is reported once.
+- **Unknown keys.** `set_option` returns an error for any key it does not know. Forgetting the Rust side therefore fails loudly in every test that sets options.
+- **Custom links.** Another backend implements `OutputBackend::write_objects`. The default refuses with an error.
+
+## Configuration
+
+- `MACOSX_DEPLOYMENT_TARGET` is used when no `minimum_os_version` was forwarded, for example for the top-level program.
+- `-O0`..`-O3` replace the metaprogram's code generation switches for the top-level program.
+
+## Dependencies
+
+- `stdlib/Compiler/options.jai`: `check_build_options`, `forward_options`.
+- `stdlib/Compiler/workspace.jai`: reports, intercept flags and phase messages.
+- `crates/jaic/src/build.rs`: `BuildSettings`, `set_option`, custom link state.
+- `crates/jaic-cli/src/main.rs`: `LlvmBackend::prepare`, `write_objects`.
+- `crates/jaic-llvm/src/lib.rs`: `Codegen`, `link_inputs`.
+- `stdlib/Runtime_Support.jai` and `Runtime_Support_Crash_Handler.jai`.
