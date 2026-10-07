@@ -3,11 +3,11 @@
 #import "Basic";
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 say :: (format: string, args: ..Any) {}
 gather :: (first: $T, rest: ..T) {}
 main :: () { say("x"); gather(1, 2); }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("varargs flag");

@@ -122,6 +122,18 @@ describe("Jai extension", () => {
     assert.equal(document.languageId, "jai");
   });
 
+  it("highlights a language-tagged here-string body with that language's grammar", async () => {
+    // VS Code's own grammars (SQL, Python) and the bundled WGSL one, as the editor applies them.
+    const file = vscode.Uri.file(path.join(workspace(), "here-strings.jai"));
+    const tokens = await vscode.commands.executeCommand<{ c: string; t: string }[]>("_workbench.captureSyntaxTokens", file);
+    const scopes = (text: string) => tokens.find((token) => token.c === text)?.t ?? `no token ${text}`;
+    assert.match(scopes("SELECT"), /meta\.embedded\.block\.sql .*keyword\.other\.DML\.sql/);
+    assert.match(scopes("def"), /meta\.embedded\.block\.python .*storage\.type\.function\.python/);
+    assert.match(scopes("vertex"), /meta\.embedded\.block\.wgsl .*entity\.name\.function\.decorator\.wgsl/);
+    assert.match(scopes("plain text"), /string\.unquoted\.here-string\.body\.jai/);
+    assert.doesNotMatch(scopes("after"), /here-string/);
+  });
+
   it("restarts the language server", async () => {
     await vscode.commands.executeCommand("jai.restartServer");
     assert.ok(api.client()?.isRunning());

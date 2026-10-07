@@ -1,10 +1,10 @@
 // With dead_code_elimination = .NONE a module's bodies are checked though nothing calls them.
 #import "Compiler";
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 #import "Dce_Called";
 main :: () { fine(); }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("no dce");

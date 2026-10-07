@@ -5,11 +5,11 @@
 #import "Basic";
 #import "Compiler";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Noted_Unused";
 local_only :: () -> int { z := 4; return z; } @Tagged
 main :: () { bump(1); }
-END
+JAI
 
 #run {
     options := get_build_options();

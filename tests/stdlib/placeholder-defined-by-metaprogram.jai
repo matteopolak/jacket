@@ -4,7 +4,7 @@
 #import "Basic";
 #import "Compiler";
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 #import "Basic";
 #placeholder Kinds;
 
@@ -17,7 +17,7 @@ PROGRAM :: #string END
 }
 
 main :: () { #assert Ready; }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("t");

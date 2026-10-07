@@ -29,6 +29,7 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
   ![A file before and after Format Document](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/formatting.png)
 
 - **Highlighting**: a TextMate grammar for keywords, directives, here-strings, numbers (`0x`, `0b`, `0h`, `_`), nested comments, declarations and `$T`/`$$x` polymorph variables, refined by the server's semantic tokens.
+- **Embedded languages**: a here-string whose terminator names a language is highlighted as that language: `#string WGSL`, `GLSL`, `HLSL`, `SQL`, `JSON`, `HTML`, `CSS`, `JS`, `TS`, `PY`, `SH`, `C`, `CPP`, `RUST`, `YAML`, `TOML`, `JAI` and more (ignoring case). A WGSL grammar is bundled; GLSL and Metal need an extension that provides their grammar. Other terminators (`END`) stay plain strings.
 - **Commands**: *Jai: Run File*, *Build File* and *Check File* (`jaic run|build|check` in a terminal), *Restart Language Server*, *Download Toolchain*.
 - Snippets, bracket and comment configuration, a file icon, and schemas for `jailint.toml`/`jaifmt.toml` (validated by TOML extensions that read `tomlValidation`, such as Even Better TOML).
 

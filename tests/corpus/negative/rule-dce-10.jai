@@ -1,10 +1,10 @@
 // Even with dead_code_elimination = .ALL every struct declaration is laid out.
 #import "Compiler";
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 Unused :: struct { member: Missing_Member_Type; }
 main :: () {}
-END
+JAI
 
 #run {
     w := compiler_create_workspace("all dce");

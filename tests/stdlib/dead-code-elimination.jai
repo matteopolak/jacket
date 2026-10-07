@@ -27,10 +27,10 @@ expand_unused :: () #expand {
 }
 
 // A program with an error only in a procedure nothing calls.
-UNUSED_BODY :: #string END
+UNUSED_BODY :: #string JAI
 unused :: () { x: int = "wrong"; }
 main :: () {}
-END
+JAI
 
 Mode :: type_of(Build_Options.dead_code_elimination);
 

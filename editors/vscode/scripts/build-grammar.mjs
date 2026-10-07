@@ -46,6 +46,83 @@ const VALUE_DIRECTIVES = [
   "location", "compile_time", "exists", "bytes", "procedure_of_call", "placeholder",
 ];
 
+// Here-strings whose terminator names a language: `#string WGSL` ... `WGSL` highlights the body
+// as WGSL. The terminator is compared with `tags` ignoring case; any other terminator (END,
+// DONE, ...) stays a plain string. `scopes` are the grammars included for the body, the first
+// that exists winning where they overlap: VS Code's built-in ones, or for languages it does not
+// ship, the usual scope of a grammar extension plus, where we have one, our own bundled grammar.
+// `language` is the VS Code language ID the body gets (comments, brackets, snippets), written to
+// package.json's `embeddedLanguages`; an ID no installed extension registers is ignored.
+//
+// Keep the tags in step with LANGUAGE_TAGS in crates/jai-language-server/src/here_string.rs
+// (jailsp leaves these here-strings to the grammar; this script fails when the lists differ)
+// and, where the languages overlap, with the playground's table (EMBEDDED_LANGUAGES in the
+// portfolio's src/lib/jai/embedded-languages.ts).
+const EMBEDDED_LANGUAGES = [
+  { tags: ["WGSL"], name: "wgsl", scopes: ["source.wgsl", "source.wgsl.jai-embedded"], language: "wgsl" },
+  { tags: ["GLSL", "VERT", "FRAG", "COMP", "GEOM", "TESC", "TESE"], name: "glsl", scopes: ["source.glsl"], language: "glsl" },
+  { tags: ["HLSL"], name: "hlsl", scopes: ["source.hlsl"], language: "hlsl" },
+  { tags: ["MSL", "METAL"], name: "metal", scopes: ["source.metal"], language: "metal" },
+  { tags: ["SQL"], name: "sql", scopes: ["source.sql"], language: "sql" },
+  { tags: ["JSON"], name: "json", scopes: ["source.json"], language: "json" },
+  { tags: ["HTML"], name: "html", scopes: ["text.html.basic"], language: "html" },
+  { tags: ["CSS"], name: "css", scopes: ["source.css"], language: "css" },
+  { tags: ["JS", "JAVASCRIPT"], name: "javascript", scopes: ["source.js"], language: "javascript" },
+  { tags: ["TS", "TYPESCRIPT"], name: "typescript", scopes: ["source.ts"], language: "typescript" },
+  { tags: ["PY", "PYTHON"], name: "python", scopes: ["source.python"], language: "python" },
+  { tags: ["SH", "BASH", "SHELL"], name: "shellscript", scopes: ["source.shell"], language: "shellscript" },
+  { tags: ["C"], name: "c", scopes: ["source.c"], language: "c" },
+  { tags: ["CPP"], name: "cpp", scopes: ["source.cpp"], language: "cpp" },
+  { tags: ["OBJC"], name: "objc", scopes: ["source.objc"], language: "objective-c" },
+  { tags: ["RS", "RUST"], name: "rust", scopes: ["source.rust"], language: "rust" },
+  { tags: ["XML"], name: "xml", scopes: ["text.xml"], language: "xml" },
+  { tags: ["YAML", "YML"], name: "yaml", scopes: ["source.yaml"], language: "yaml" },
+  { tags: ["TOML"], name: "toml", scopes: ["source.toml", "source.toml.jai-settings"], language: "toml" },
+  { tags: ["MD", "MARKDOWN"], name: "markdown", scopes: ["text.html.markdown"], language: "markdown" },
+  { tags: ["LUA"], name: "lua", scopes: ["source.lua"], language: "lua" },
+  { tags: ["JAI"], name: "jai", scopes: ["source.jai"], language: "jai" },
+];
+
+// jailsp's copy of the tags must match, or it would paint a tagged body as one string again.
+{
+  const rust = readFileSync(join(root, "..", "..", "crates", "jai-language-server", "src", "here_string.rs"), "utf8");
+  const list = /LANGUAGE_TAGS: &\[&str\] = &\[([^\]]*)\]/.exec(rust);
+  const theirs = [...(list?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const ours = EMBEDDED_LANGUAGES.flatMap((l) => l.tags);
+  if (theirs.join() !== ours.join()) {
+    console.error(`LANGUAGE_TAGS in here_string.rs differs from EMBEDDED_LANGUAGES:\n  rust: ${theirs.join(" ")}\n  here: ${ours.join(" ")}`);
+    process.exit(1);
+  }
+}
+
+// `#string,cr TAG` with TAG naming a language. The outer rule looks ahead to capture the tag for
+// its end pattern; the inner rule takes the header and then *continues while* a line does not
+// start with the tag, so an embedded construct left open (an unclosed `/*`) cannot run past the
+// terminator. The rest of the header line is not part of the body, as in the lexer.
+function embeddedHereString({ tags, name, scopes }) {
+  const flags = `(?:\\s*,\\s*(?:\\\\.|${ID}))*`;
+  return {
+    name: `meta.here-string.${name}.jai`,
+    begin: `(?=#string${flags}\\s*((?i:${tags.join("|")}))(?![${ID_CHAR}]))`,
+    end: `^[ \\t]*(\\1)(?![${ID_CHAR}])`,
+    endCaptures: { 1: { name: "entity.name.tag.here-string.jai" } },
+    patterns: [
+      {
+        begin: `\\G(#string)(${flags})\\s*(${ID})(.*)`,
+        beginCaptures: {
+          1: { name: "keyword.other.directive.here-string.jai" },
+          2: { name: "storage.modifier.here-string.jai" },
+          3: { name: "entity.name.tag.here-string.jai" },
+          4: { name: "string.unquoted.here-string.body.jai" },
+        },
+        while: `^(?![ \\t]*\\3(?![${ID_CHAR}]))`,
+        contentName: `meta.embedded.block.${name}`,
+        patterns: scopes.map((scope) => ({ include: scope })),
+      },
+    ],
+  };
+}
+
 // `<lead> *[..] Type`: the type named after a declaration's colon or a procedure's arrow.
 function typeAfter(lead, leadScope) {
   return {
@@ -117,9 +194,12 @@ const grammar = {
       patterns: [{ include: "#block-comment" }],
     },
 
+    "here-string": {
+      patterns: [...EMBEDDED_LANGUAGES.map(embeddedHereString), { include: "#plain-here-string" }],
+    },
     // `#string TAG` (flags such as `,cr` or `,\%` allowed) up to a line that starts with TAG.
     // The rest of the opening line is not code: the body starts on the next line.
-    "here-string": {
+    "plain-here-string": {
       name: "string.unquoted.here-string.jai",
       begin: `(#string)((?:\\s*,\\s*(?:\\\\.|${ID}))*)\\s*(${ID})`,
       beginCaptures: {
@@ -342,6 +422,15 @@ const grammar = {
   },
 };
 
+// package.json maps each embedded body's scope to its language ID.
+const manifestPath = join(root, "package.json");
+const manifestText = readFileSync(manifestPath, "utf8");
+const manifest = JSON.parse(manifestText);
+manifest.contributes.grammars.find((g) => g.scopeName === "source.jai").embeddedLanguages = Object.fromEntries(
+  EMBEDDED_LANGUAGES.map(({ name, language }) => [`meta.embedded.block.${name}`, language]),
+);
+const manifestOut = JSON.stringify(manifest, null, 2) + "\n";
+
 const text = JSON.stringify(grammar, null, 2) + "\n";
 if (process.argv.includes("--check")) {
   let current = "";
@@ -352,6 +441,11 @@ if (process.argv.includes("--check")) {
     console.error("syntaxes/jai.tmLanguage.json is stale: run `node scripts/build-grammar.mjs`");
     process.exit(1);
   }
+  if (manifestText !== manifestOut) {
+    console.error("package.json's embeddedLanguages are stale: run `node scripts/build-grammar.mjs`");
+    process.exit(1);
+  }
 } else {
   writeFileSync(output, text);
+  writeFileSync(manifestPath, manifestOut);
 }

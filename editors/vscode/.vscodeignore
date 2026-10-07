@@ -7,6 +7,7 @@
 !images/jai-file-*.svg
 !language-configuration.json
 !toml-language-configuration.json
+!wgsl-language-configuration.json
 !toolchain-checksums.json
 !README.md
 !LICENSE

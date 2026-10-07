@@ -71,6 +71,7 @@ jobs:
         run: rustup run "$PINNED_TOOLCHAIN" cargo test --offline --locked -j 1 -p jai-language-server -p jai-wasm
       # A native jaic (LLVM and wasm-ld) compiles jaifmt.wasm into the bundle.
       - name: Install LLVM 23 and LLD
+        timeout-minutes: 15
         run: |
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"

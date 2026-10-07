@@ -1,12 +1,12 @@
 // Build_Options.arithmetic_overflow_check = .FATAL: an unsigned add stops the program that is run in the new workspace.
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 work :: () {
     x: u8 = 250; y: u8 = 10; z := x + y;
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

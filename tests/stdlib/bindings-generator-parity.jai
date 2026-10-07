@@ -6,7 +6,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string C
 #include <stdio.h>
 #ifdef __cplusplus
 extern "C" {
@@ -46,7 +46,7 @@ int write_all(write_func *func, void *context);
 #ifdef __cplusplus
 }
 #endif
-END;
+C;
 
 has :: (text: string, needle: string) -> bool {
     return contains(text, needle);
@@ -118,11 +118,11 @@ check_generated_text :: () {
     }
 }
 
-LONG_DOUBLE_HEADER :: #string END
+LONG_DOUBLE_HEADER :: #string C
 struct WithLongDouble { char tag; long double value; };
 long double get_long_double(void);
 double get_double(void);
-END;
+C;
 
 // x86-64 `long double` is 16 bytes. By default it is jaic's Long_Double extension; without it,
 // fields keep their layout as bytes and functions that pass one are stripped.

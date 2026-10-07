@@ -17,13 +17,13 @@ main :: () {
     print("ok\n");
 }
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 Top :: #code();
 generate :: () {
     #insert,scope(Top) -> string { return "Proxy :: struct { a: int; } @Marker"; }
 }
 main :: () { generate(); }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("t");

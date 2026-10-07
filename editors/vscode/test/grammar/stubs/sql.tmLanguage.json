@@ -1,0 +1,5 @@
+{
+  "name": "Stand-in for VS Code's SQL grammar (grammar tests only)",
+  "scopeName": "source.sql",
+  "patterns": [{ "name": "keyword.other.sql", "match": "\\b(?i:select|from|where)\\b" }]
+}

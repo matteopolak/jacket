@@ -10,7 +10,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string CPP
 #pragma once
 
 namespace Pad {
@@ -62,9 +62,9 @@ int offset_of_d();
 int offset_of_e();
 
 }
-END;
+CPP;
 
-SOURCE :: #string END
+SOURCE :: #string CPP
 #include <cstddef>
 #include "pad.h"
 namespace Pad {
@@ -84,7 +84,7 @@ int offset_of_c() { return (int)offsetof(Derived, c); }
 int offset_of_d() { return (int)offsetof(Derived, d); }
 int offset_of_e() { return (int)offsetof(Longer, e); }
 }
-END;
+CPP;
 
 build_and_generate :: () -> string {
     // The WASM target (the browser playground) starts no processes and loads no native

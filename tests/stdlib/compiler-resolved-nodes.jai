@@ -78,7 +78,7 @@ outer :: ($c: Code) -> bool #expand {
 
 #run assert(outer(pair(1)));
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 value :: () -> int {
     a, b := pair(1);
@@ -86,7 +86,7 @@ value :: () -> int {
 }
 pair :: (a: int) -> int, bool { return a, true; }
 main :: () { value(); }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("resolved nodes");

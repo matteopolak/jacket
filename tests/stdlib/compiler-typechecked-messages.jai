@@ -4,7 +4,7 @@
 #import "Basic";
 #import "Compiler";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 Settings :: struct {
     width: int; @v1
@@ -18,7 +18,7 @@ Grid4 :: #bake_arguments Grid(N = 4);
 counter: int;
 bump :: () { counter += 10; }
 work :: (cells: *Grid4(float32), scale := 2) -> int { counter += 1; return counter; } @Public
-END
+JAI
 
 #run {
     w := compiler_create_workspace("target");

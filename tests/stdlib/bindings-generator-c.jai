@@ -5,7 +5,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string C
 #define LIMIT 5
 #define MASK (LIMIT << 2)
 #define NAME "hello"
@@ -25,7 +25,7 @@ typedef struct Opaque_T *Opaque;
 int add(int a, int b);
 void log_message(const char *fmt, ...);
 Opaque make_opaque(Node *node, Color color, Flags flags);
-END;
+C;
 
 has :: (text: string, needle: string) -> bool {
     return contains(text, needle);

@@ -101,6 +101,7 @@ jobs:
           tools/install_ci_llvm_macos.sh --lld
       - name: Install LLVM 23 (Linux)
         if: runner.os == 'Linux'
+        timeout-minutes: 15
         run: |
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
@@ -279,6 +280,7 @@ jobs:
           brew list freetype > /dev/null 2>&1 || brew install freetype
       - name: Install LLVM 23, the window libraries and a virtual display (Linux)
         if: runner.os == 'Linux'
+        timeout-minutes: 15
         run: |
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
@@ -339,6 +341,7 @@ jobs:
           tools/install_ci_llvm_macos.sh
       - name: Install LLVM 23 and its sanitizer runtimes (Linux)
         if: runner.os == 'Linux'
+        timeout-minutes: 15
         run: |
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"

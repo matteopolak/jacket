@@ -31,6 +31,14 @@ The body starts on the line after the header and ends at a line whose first non-
 
 Gotcha: the terminator is matched after stripping indentation, so a body line that starts with the terminator word ends the string.
 
+Editor convention: the terminator can say what the body is. The VS Code extension and the playground highlight the body of `#string WGSL`, `#string GLSL`, `#string SQL`, `#string JSON`, `#string JAI` and other language names as that language (ignoring case; the full table is in [the VS Code extension's docs](../tools/vscode-extension.md#embedded-languages)), and `END`, `DONE` and other words as a plain string. The compiler gives the tag no meaning beyond ending the string, so pick the language's name when the body is code:
+
+```jai
+SHADER :: #string WGSL
+@fragment fn fs() -> @location(0) vec4f { return vec4f(1.0); }
+WGSL
+```
+
 `==` and `!=` compare length and bytes: `"x\0y" == "x\0z"` is false {#str.13}.
 
 A string literal in a `*u8` context becomes a pointer to static bytes with a NUL appended, which is how literals reach C {#str.14}; `inspect("A\0B")` sees `A`, `0`, `B` {#str.15}. A `string` variable doesn't convert to `*u8` {#str.16}; use `.data` or the library's C-string helpers.

@@ -11,7 +11,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string OBJC
 #import <objc/NSObject.h>
 
 int blocks_ping(void);
@@ -32,9 +32,9 @@ typedef void (^Handler)(int code, double weight);
 - (double)weight;
 @end
 #pragma clang assume_nonnull end
-END;
+OBJC;
 
-SOURCE :: #string END
+SOURCE :: #string OBJC
 #include <Block.h>
 #include "blocks.h"
 int blocks_ping(void) { return 5; }
@@ -55,7 +55,7 @@ int blocks_ping(void) { return 5; }
 - (void (^)(int, double))recorder { return Block_copy(^(int c, double w) { _lastCode = c; _weight = w; }); }
 - (void)setCompletion:(void (^)(void))completion { if (completion) completion(); }
 @end
-END;
+OBJC;
 
 build_and_generate :: () -> string {
     #if OS == .MACOS {

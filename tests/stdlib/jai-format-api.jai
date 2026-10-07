@@ -5,7 +5,7 @@
 #import "String";
 #import "Extensions/Jai_Format";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 main :: ()
 {
   x:=add(1,2);
@@ -13,16 +13,16 @@ main :: ()
   print("big\n");
   }
 }
-END
+JAI
 
-EXPECTED_TWO_SPACES :: #string END
+EXPECTED_TWO_SPACES :: #string JAI
 main :: () {
   x := add(1, 2);
   if x > 2 {
     print("big\n");
   }
 }
-END
+JAI
 
 main :: () {
     // Defaults: 4 spaces, braces on the same line.

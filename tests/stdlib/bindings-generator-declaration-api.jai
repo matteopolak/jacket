@@ -8,14 +8,14 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string C
 typedef enum Kind { KIND_NONE, KIND_LINE = 3, KIND_CIRCLE, KIND_INTERNAL_COUNT } Kind;
 typedef enum Signed_Kind { SIGNED_KIND_LOW = -2, SIGNED_KIND_HIGH = 7 } Signed_Kind;
 typedef struct Shape { Kind kind; float size; } Shape;
 #define MODE_FAST 1
 #define MODE_SAFE (MODE_FAST << 1)
 int shape_area(Shape *shape);
-END;
+C;
 
 kind_enum: *Enum;
 values_seen: int;

@@ -316,6 +316,8 @@ The legend is append-only so older clients keep their mapping:
 
 The syntax layer classifies declarations from the parse rows. With an environment, `ide_classes` refines every recorded identifier: a use of a type is `type`, of a procedure `function`, of an `#expand` procedure `function` + `macro`, of a constant or enum member `readonly`, of a module `namespace`, of a struct field `property`. `$T` and `$$T` and every use of that name inside the procedure are `typeParameter` (from tokens, so it works without checking). Directives (`#run`) stay `macro` as before; notes (`@note`) are `decorator`.
 
+A here-string whose terminator names a language (`#string WGSL`, `#string,cr sql`; the list is `LANGUAGE_TAGS` in `here_string.rs`, compared ignoring case) gets no token at all: an editor highlights its body as that language ([VS Code](../tools/vscode-extension.md#embedded-languages)), and one `string` token over it would paint over that. Other here-strings (`#string END`) are `string` as before. `LANGUAGE_TAGS` must list the same tags as `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.mjs`; that script fails when they differ.
+
 ### Syntax-only extras
 
 - **Workspace symbols** search the declaration rows of every open document (top-level and nested), case-insensitive substring.

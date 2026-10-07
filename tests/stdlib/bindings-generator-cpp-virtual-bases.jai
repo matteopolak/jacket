@@ -10,7 +10,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string CPP
 struct Base { int b; double d; };
 struct Small { int s; };
 struct Left : virtual Base { int l; };
@@ -25,9 +25,9 @@ extern "C" int left_sum(Left *p);
 
 void take(int &v);
 void take(const int &v);
-END;
+CPP;
 
-SOURCE :: #string END
+SOURCE :: #string CPP
 #include "vbases.h"
 int Right::f() { return r * 2; }
 extern "C" Left *make_left(int b, double d, int l) { Left *p = new Left(); p->b = b; p->d = d; p->l = l; return p; }
@@ -36,7 +36,7 @@ extern "C" Tight *make_tight(int s, char c) { Tight *p = new Tight(); p->s = s; 
 extern "C" int left_sum(Left *p) { return p->b + p->l + (int) p->d; }
 void take(int &v) { v += 1; }
 void take(const int &v) {}
-END;
+CPP;
 
 build_and_generate :: () -> string {
     // The WASM target (the browser playground) starts no processes and loads no native

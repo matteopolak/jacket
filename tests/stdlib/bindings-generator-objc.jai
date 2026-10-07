@@ -10,7 +10,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string OBJC
 #import <objc/NSObject.h>
 
 int counter_ping(void);
@@ -37,9 +37,9 @@ int counter_ping(void);
 @interface Sub : Counter
 - (int)subValue;
 @end
-END;
+OBJC;
 
-SOURCE :: #string END
+SOURCE :: #string OBJC
 #include "counter.h"
 int counter_ping(void) { return 42; }
 
@@ -61,7 +61,7 @@ int counter_ping(void) { return 42; }
 @implementation Sub
 - (int)subValue { return self.value + 1000; }
 @end
-END;
+OBJC;
 
 build_and_generate :: () -> string {
     #if OS == .MACOS {

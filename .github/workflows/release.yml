@@ -120,7 +120,10 @@ jobs:
       - name: Install static zlib and zstd (Linux)
         if: runner.os == 'Linux'
         # X11 and GL: Window_Creation, which the smoke test's WebGPU triangle links.
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev
+        timeout-minutes: 15
+        run: |
+          apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          "${apt[@]}" update && "${apt[@]}" install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev
       # Instrumented build, training run over this repository's tests and examples, then the
       # profile-guided build into target/pgo/dist. On Linux the result is also rewritten by the
       # llvm-bolt that ships in the official LLVM release (macOS and Windows: PGO only).

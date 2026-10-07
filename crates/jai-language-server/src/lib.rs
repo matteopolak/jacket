@@ -5,6 +5,7 @@ mod document;
 pub(crate) mod features;
 pub(crate) mod format;
 pub mod framing;
+mod here_string;
 pub(crate) mod hover;
 mod imports;
 mod links;

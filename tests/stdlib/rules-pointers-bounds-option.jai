@@ -5,7 +5,7 @@
 #import "Basic";
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 #import "Basic";
 work :: () {
     backing := int.[4, 5, 6];
@@ -15,7 +15,7 @@ work :: () {
     assert(view[index] == 6);
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

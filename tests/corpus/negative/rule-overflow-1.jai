@@ -3,13 +3,13 @@
 // rules: overflow.1 overflow.3 overflow.4
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 work :: () {
     x: u8 = 200;
     x *= 2;
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

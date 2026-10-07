@@ -1,12 +1,12 @@
 // Build_Options.arithmetic_overflow_check = .FATAL: an overflow after a #no_aoc block stops the program that is run in the new workspace.
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 work :: () {
     x: u8 = 250; #no_aoc { x += 1; } x += 10;
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

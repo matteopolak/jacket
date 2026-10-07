@@ -2,12 +2,12 @@
 // arithmetic_overflow_check = .FATAL the u16 subtraction underflows before the conversion.
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 work :: () {
     w: u16 = 15; f := cast(float32) (0 - w);
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

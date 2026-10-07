@@ -10,7 +10,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string OBJC
 #import <objc/NSObject.h>
 
 int ivars_ping(void);
@@ -40,9 +40,9 @@ int ivars_ping(void);
 }
 - (float)z;
 @end
-END;
+OBJC;
 
-SOURCE :: #string END
+SOURCE :: #string OBJC
 #include "ivars.h"
 int ivars_ping(void) { return 3; }
 
@@ -58,7 +58,7 @@ int ivars_ping(void) { return 3; }
 @implementation Point3
 - (float)z { return _z; }
 @end
-END;
+OBJC;
 
 build_and_generate :: () -> string {
     #if OS == .MACOS {

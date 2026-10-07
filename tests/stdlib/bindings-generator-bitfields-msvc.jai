@@ -12,7 +12,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string C
 #pragma once
 
 struct Mixed { char a : 3; int b : 5; char c : 2; };
@@ -22,9 +22,9 @@ struct Tail { char c; int x : 4; };
 struct Wide { unsigned long long a : 40; unsigned long long b : 30; char after; };
 struct Shorts { short a : 9; short b : 9; };
 struct Signs { unsigned int a : 4; int b : 4; };
-END;
+C;
 
-SOURCE :: #string END
+SOURCE :: #string C
 #include "msbits.h"
 #include <stddef.h>
 int ms_size(int which) {
@@ -52,7 +52,7 @@ void ms_shorts_set(struct Shorts *s, int a, int b) { s->a = a; s->b = b; }
 int ms_shorts_get(const struct Shorts *s, int which) { return which == 0 ? s->a : s->b; }
 void ms_signs_set(struct Signs *s, unsigned a, int b) { s->a = a; s->b = b; }
 int ms_signs_get(const struct Signs *s, int which) { return which == 0 ? (int)s->a : s->b; }
-END;
+C;
 
 // What MSVC lays out, written down by hand from its rules (`sizeof`, in this order).
 EXPECTED_SIZES :: int.[12, 8, 8, 8, 24, 4, 4];

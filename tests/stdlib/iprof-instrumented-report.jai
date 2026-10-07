@@ -4,7 +4,7 @@
 #import "Compiler";
 Iprof :: #import "Iprof";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 #import "String";
 
@@ -58,7 +58,7 @@ verify :: () {
     assert(!contains(text, "skipped"), "%", text);
     print("instrumented report ok\n");
 } @NoProfile
-END
+JAI
 
 #run {
     w := compiler_create_workspace("iprof target");

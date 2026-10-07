@@ -11,7 +11,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string C
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
@@ -44,9 +44,9 @@ void bits_gap_set(struct Gap *g, char c, int b);
 int bits_gap_b(const struct Gap *g);
 uint64_t bits_instance_get(const struct Instance *i, int which);
 void bits_instance_set(struct Instance *i, uint32_t index, uint32_t mask, uint32_t offset, uint32_t flags);
-END;
+C;
 
-SOURCE :: #string END
+SOURCE :: #string C
 #include "bits.h"
 int bits_packed_get(const struct Packed *p, int which) { return which == 0 ? (int)p->a : which == 1 ? (int)p->b : p->tail; }
 void bits_packed_set(struct Packed *p, unsigned a, unsigned b, int tail) { p->a = a; p->b = b; p->tail = tail; }
@@ -65,7 +65,7 @@ void bits_gap_set(struct Gap *g, char c, int b) { g->c = c; g->b = b; }
 int bits_gap_b(const struct Gap *g) { return g->b; }
 uint64_t bits_instance_get(const struct Instance *i, int which) { return which == 0 ? i->index : which == 1 ? i->mask : which == 2 ? i->offset : i->flags; }
 void bits_instance_set(struct Instance *i, uint32_t index, uint32_t mask, uint32_t offset, uint32_t flags) { i->index = index; i->mask = mask; i->offset = offset; i->flags = flags; }
-END;
+C;
 
 build_and_generate :: () -> string {
     // The WASM target (the browser playground) starts no processes and loads no native

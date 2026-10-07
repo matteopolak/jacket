@@ -36,10 +36,10 @@ Plain :: struct {
 
 // note.9 (struct half): struct notes reach metaprograms as Code_Struct.notes. The enum half
 // (`enum_flags @Hi { ... }` giving Code_Enum.notes) is pending: jaic does not parse notes on an enum.
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 Box :: struct @Boxed { v: int; }
 main :: () {}
-END
+JAI
 
 #run {
     w := compiler_create_workspace("notes");

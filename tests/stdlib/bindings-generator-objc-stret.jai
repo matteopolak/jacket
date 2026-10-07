@@ -11,7 +11,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string OBJC
 struct Big { long a, b, c; };
 struct Edge { long a, b; };
 struct Small { int a, b; };
@@ -27,7 +27,7 @@ __attribute__((objc_root_class))
 - (double)ratio;
 + (struct Big)classBig:(int)x;
 @end
-END;
+OBJC;
 
 generate :: (cpu: type_of(Generate_Bindings_Options.cpu)) -> string {
     #if OS == .MACOS {

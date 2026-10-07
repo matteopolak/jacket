@@ -5,7 +5,7 @@
 #import "Basic";
 #import "Compiler";
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 #import "Basic";
 
 Find :: (arr: []$T, item: T, $compare: (T, T) -> bool = (a, b) => a == b) -> s64 {
@@ -25,7 +25,7 @@ Square :: (x: s64) -> s64 { return x * x; }
     print_to_builder(*b, "}\n");
     return builder_to_string(*b);
 }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("t");

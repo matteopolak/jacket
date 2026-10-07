@@ -11,7 +11,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string CPP
 #pragma once
 
 namespace Multi {
@@ -45,9 +45,9 @@ int offset_z();
 int offset_n();
 
 }
-END;
+CPP;
 
-SOURCE :: #string END
+SOURCE :: #string CPP
 #include <cstddef>
 #include "multi.h"
 namespace Multi {
@@ -86,7 +86,7 @@ int offset_f_in_g() { G g; return (int)((char*)static_cast<PartF*>(&g) - (char*)
 int offset_z() { return (int)offsetof(G, z); }
 int offset_n() { return (int)offsetof(N, n); }
 }
-END;
+CPP;
 
 build_and_generate :: () -> string {
     // The WASM target (the browser playground) starts no processes and loads no native

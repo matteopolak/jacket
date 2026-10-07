@@ -73,18 +73,54 @@
           "jailint.toml"
         ],
         "configuration": "./toml-language-configuration.json"
+      },
+      {
+        "id": "wgsl",
+        "aliases": [
+          "WGSL",
+          "wgsl"
+        ],
+        "configuration": "./wgsl-language-configuration.json"
       }
     ],
     "grammars": [
       {
         "language": "jai",
         "scopeName": "source.jai",
-        "path": "./syntaxes/jai.tmLanguage.json"
+        "path": "./syntaxes/jai.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.wgsl": "wgsl",
+          "meta.embedded.block.glsl": "glsl",
+          "meta.embedded.block.hlsl": "hlsl",
+          "meta.embedded.block.metal": "metal",
+          "meta.embedded.block.sql": "sql",
+          "meta.embedded.block.json": "json",
+          "meta.embedded.block.html": "html",
+          "meta.embedded.block.css": "css",
+          "meta.embedded.block.javascript": "javascript",
+          "meta.embedded.block.typescript": "typescript",
+          "meta.embedded.block.python": "python",
+          "meta.embedded.block.shellscript": "shellscript",
+          "meta.embedded.block.c": "c",
+          "meta.embedded.block.cpp": "cpp",
+          "meta.embedded.block.objc": "objective-c",
+          "meta.embedded.block.rust": "rust",
+          "meta.embedded.block.xml": "xml",
+          "meta.embedded.block.yaml": "yaml",
+          "meta.embedded.block.toml": "toml",
+          "meta.embedded.block.markdown": "markdown",
+          "meta.embedded.block.lua": "lua",
+          "meta.embedded.block.jai": "jai"
+        }
       },
       {
         "language": "toml",
         "scopeName": "source.toml.jai-settings",
         "path": "./syntaxes/toml.tmLanguage.json"
+      },
+      {
+        "scopeName": "source.wgsl.jai-embedded",
+        "path": "./syntaxes/wgsl.tmLanguage.json"
       }
     ],
     "tomlValidation": [
@@ -282,7 +318,7 @@
     "lint": "oxlint --deny-warnings && tsc --noEmit -p . && node scripts/build-grammar.mjs --check && node scripts/build-schemas.mjs --check && node scripts/build-icon.mjs --check",
     "test": "pnpm run test:unit && pnpm run test:grammar",
     "test:unit": "node esbuild.mjs --tests && node --test \"out/test/unit/*.test.js\"",
-    "test:grammar": "vscode-tmgrammar-test 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.mjs",
+    "test:grammar": "vscode-tmgrammar-test -g test/grammar/stubs/sql.tmLanguage.json -g test/grammar/stubs/json.tmLanguage.json 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.mjs",
     "test:e2e": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/e2e/run.js",
     "package": "pnpm run build --production && node scripts/copy-license.mjs && vsce package --no-dependencies",
     "check-ages": "node scripts/check-dependency-age.mjs",

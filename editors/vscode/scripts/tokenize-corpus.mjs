@@ -23,9 +23,13 @@ const registry = new vsctm.Registry({
     createOnigScanner: (patterns) => new oniguruma.OnigScanner(patterns),
     createOnigString: (text) => new oniguruma.OnigString(text),
   }),
+  // The extension's own grammars (the bundled WGSL one highlights `#string WGSL` bodies); the
+  // ones VS Code ships are not here, so those here-strings stay plain strings.
   loadGrammar: async (scopeName) => {
-    if (scopeName !== "source.jai") return null;
-    const path = join(root, "syntaxes", "jai.tmLanguage.json");
+    const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+    const entry = manifest.contributes.grammars.find((g) => g.scopeName === scopeName);
+    if (!entry) return null;
+    const path = join(root, entry.path);
     return vsctm.parseRawGrammar(readFileSync(path, "utf8"), path);
   },
 });

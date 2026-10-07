@@ -10,7 +10,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string OBJC
 #import <objc/NSObject.h>
 
 int generics_ping(void);
@@ -37,9 +37,9 @@ int generics_ping(void);
 @interface Sub : Box<Item *>
 - (int)itemTag;
 @end
-END;
+OBJC;
 
-SOURCE :: #string END
+SOURCE :: #string OBJC
 #include "generics.h"
 int generics_ping(void) { return 7; }
 
@@ -68,7 +68,7 @@ int generics_ping(void) { return 7; }
 @implementation Sub
 - (int)itemTag { return ((Item *)[self item]).tag; }
 @end
-END;
+OBJC;
 
 build_and_generate :: () -> string {
     #if OS == .MACOS {

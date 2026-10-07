@@ -11,7 +11,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string CPP
 #pragma once
 #include <stdint.h>
 
@@ -98,9 +98,9 @@ extern "C" int shapes_live_counters();
 extern "C" Geo::Shape* shapes_new_circle(int id, float r);
 extern "C" void shapes_delete(Geo::Shape* s);
 extern "C" int shapes_format(char* out, int capacity, const char* fmt, ...);
-END;
+CPP;
 
-SOURCE :: #string END
+SOURCE :: #string CPP
 #include "shapes.h"
 namespace Geo {
 int Vec2::instances = 0;
@@ -156,7 +156,7 @@ extern "C" int shapes_format(char* out, int capacity, const char* fmt, ...) {
     va_end(args);
     return n;
 }
-END;
+CPP;
 
 build_and_generate :: () -> string {
     // The WASM target (the browser playground) starts no processes and loads no native

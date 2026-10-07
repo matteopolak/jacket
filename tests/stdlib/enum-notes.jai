@@ -14,10 +14,10 @@ Size :: enum u8 @Small @Tiny {
     M;
 }
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 Hue :: enum_flags @Hi @There { R; G; }
 main :: () {}
-END
+JAI
 
 #run {
     w := compiler_create_workspace("notes");

@@ -8,24 +8,24 @@
 #import "String";
 Check :: #import "Check";
 
-GOOD_SOURCE :: #string END
+GOOD_SOURCE :: #string JAI
 #import "Basic";
 copy_it :: (a: [4] int) -> int { return a[0]; }
 main :: () {
     numbers: [4] int;
     print("% and %\n", 1, copy_it(numbers));
 }
-END
+JAI
 
 // Check looks at procedures noted @PrintLike.
-BAD_FORMAT :: #string END
+BAD_FORMAT :: #string JAI
 say :: (format: string, args: ..Any) {} @PrintLike
 main :: () {
     say("% and %%", 1);
     say("%1 %1 %2", 1, 2);
     say("% and %", 1);
 }
-END
+JAI
 
 Recorder :: struct {
     using base: Metaprogram_Plugin;

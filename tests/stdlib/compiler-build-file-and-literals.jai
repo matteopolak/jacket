@@ -8,10 +8,10 @@ Program_Print :: #import "Program_Print";
 #import "Code_Visit";
 #import "String";
 
-EXTRA :: #string END
+EXTRA :: #string JAI
 main :: () {}
 typed_value : int = 3;
-END
+JAI
 
 // Each wanted declaration printed on its own line, in name order.
 build_and_print :: () -> string {

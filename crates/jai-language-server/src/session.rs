@@ -1005,6 +1005,8 @@ impl Session {
             let readonly = row.is_some_and(|row| row.readonly);
             let piece = |kind| (token.span, kind, declaration, readonly, false);
             match token.kind {
+                // `#string WGSL`: the editor highlights the body as that language.
+                TokenKind::String if crate::here_string::names_language(token.spelling(text)) => {}
                 TokenKind::String => {
                     let mut at = token.span.start;
                     for spec in specs

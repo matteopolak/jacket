@@ -1,12 +1,12 @@
 // Build_Options.arithmetic_overflow_check = .FATAL: a multiplication stops the program that is run in the new workspace.
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 work :: () {
     x: s32 = 100000; z := x * x;
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

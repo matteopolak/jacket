@@ -3,10 +3,10 @@
 #import "Basic";
 #import "Compiler";
 
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 Mode :: enum u8 { A; B; C; }
 main :: () {}
-END
+JAI
 
 #run {
     w := compiler_create_workspace("t");

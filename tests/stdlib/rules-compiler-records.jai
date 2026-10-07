@@ -4,12 +4,12 @@
 #import "Basic";
 #import "Compiler";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 ratio: float32 = 0.5;
 limit :: 9;
 main :: () { print("%\n", ratio); }
-END
+JAI
 
 check_messages :: () -> bool {
     w := compiler_create_workspace("records probe");

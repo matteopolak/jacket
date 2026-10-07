@@ -6,7 +6,7 @@
 #import "Basic";
 #import "Compiler";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 #import "Generated_Kinds";
 main :: () {
@@ -14,12 +14,12 @@ main :: () {
     k := Kind.STONE;
     print("% %\n", k, label_of(k));
 }
-END
+JAI
 
-GENERATED :: #string END
+GENERATED :: #string JAI
 Kind_Names :: string.["", "STONE", "TREE"];
 Kind_Labels :: string.["", "Stone", "Tree"];
-END
+JAI
 
 #run {
     options := get_build_options();

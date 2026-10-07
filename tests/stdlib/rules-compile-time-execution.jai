@@ -93,7 +93,7 @@ echo_output :: () -> string {
 STALLED :: #run,stallable factorial(4);
 
 // ctexec.4: a top-level #run that needs a #placeholder waits until a metaprogram defines it.
-PROGRAM :: #string END
+PROGRAM :: #string JAI
 #import "Basic";
 #placeholder Width;
 Doubled :: #run Width * 2;
@@ -101,7 +101,7 @@ Doubled :: #run Width * 2;
     assert(Width == 9, "top-level #run saw the placeholder's value");
 }
 main :: () { #assert Doubled == 18; }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("placeholder run");

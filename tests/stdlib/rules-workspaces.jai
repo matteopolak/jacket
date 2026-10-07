@@ -4,13 +4,13 @@
 #import "Basic";
 #import "Compiler";
 
-GOOD :: #string END
+GOOD :: #string JAI
 #import "Basic";
 main :: () { print("unused\n"); }
-END
+JAI
 
 // The target is itself a metaprogram: its #run drives a workspace of its own.
-NESTED :: #string END
+NESTED :: #string JAI
 #import "Basic";
 #import "Compiler";
 #run {
@@ -30,7 +30,7 @@ NESTED :: #string END
     compiler_end_intercept(inner);
 }
 main :: () {}
-END
+JAI
 
 Event :: struct {
     kind: type_of(Message.kind);

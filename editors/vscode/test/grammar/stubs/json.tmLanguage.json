@@ -1,0 +1,5 @@
+{
+  "name": "Stand-in for VS Code's JSON grammar (grammar tests only)",
+  "scopeName": "source.json",
+  "patterns": [{ "name": "string.quoted.double.json", "match": "\"[^\"]*\"" }]
+}

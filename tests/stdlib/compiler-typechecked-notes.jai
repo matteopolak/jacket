@@ -6,14 +6,14 @@
 #import "Basic";
 #import "Compiler";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 In :: struct { a: int; }
 entry :: () { checked(); } @entry
 checked :: () -> int { x := 2; return x; } @checked
 shader :: (using input: In) -> int { y := a + 1; return y; } @shader
 main :: () { entry(); }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("notes");

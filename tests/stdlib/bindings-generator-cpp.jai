@@ -6,7 +6,7 @@
 #import "Bindings_Generator";
 #import "Scratch_Directory";
 
-HEADER :: #string END
+HEADER :: #string CPP
 struct Vec2 { float x, y; };
 namespace Gui {
     bool Button(const char* label, const Vec2& size);
@@ -28,7 +28,7 @@ void f3(P2 a = P2(1.0f, -1.0f), const P2& b = P2());
 #define GUI_ID_NONE ((Id)-1)
 #define GUI_INDEX_TYPE int
 #define GUI_ID_TYPE Id
-END;
+CPP;
 
 visited: int;
 

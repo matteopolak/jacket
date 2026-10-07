@@ -4,10 +4,10 @@
 #import "Compiler";
 #import "String";
 
-SMALL :: #string END
+SMALL :: #string JAI
 answer :: () -> int { return 42; }
 main :: () { answer(); }
-END
+JAI
 
 check_options :: () -> bool {
     // compiler.1: the program's own options start from the target constants.

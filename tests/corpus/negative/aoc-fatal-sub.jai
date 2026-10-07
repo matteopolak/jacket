@@ -1,12 +1,12 @@
 // Build_Options.arithmetic_overflow_check = .FATAL: a signed subtraction stops the program that is run in the new workspace.
 #import "Compiler";
 
-SOURCE :: #string END
+SOURCE :: #string JAI
 work :: () {
     x: s8 = -120; y: s8 = 20; z := x - y;
 }
 #run work();
-END
+JAI
 
 #run {
     w := compiler_create_workspace();

@@ -5,7 +5,7 @@
 #import "Basic";
 #import "Compiler";
 
-TARGET :: #string END
+TARGET :: #string JAI
 #import "Basic";
 Compiler :: #import "Compiler";
 Callback :: #type (s: string) -> string;
@@ -20,7 +20,7 @@ returns_two :: ($code: Code) -> bool #expand
     return true;
 } { return true; }
 main :: () { assert(returns_two(pair(1))); }
-END
+JAI
 
 #run {
     w := compiler_create_workspace("own types");

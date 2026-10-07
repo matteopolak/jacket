@@ -362,6 +362,27 @@ fn semantic_tokens_distinguish_jai_constructs() {
 }
 
 #[test]
+fn semantic_tokens_leave_language_tagged_here_strings_to_the_editor() {
+    const TEXT: &str =
+        "SHADER :: #string,cr wgsl\n@vertex fn vs() {}\nwgsl;\nTEXT :: #string END\nplain\nEND;\n";
+    let mut s = Session::new(Limits::default());
+    s.open(uri(), 1, TEXT.into()).unwrap();
+    let tokens = s.semantic_tokens(&uri()).unwrap();
+    let strings: Vec<u32> = tokens
+        .iter()
+        .filter(|t| t.kind == SemanticTokenKind::String)
+        .map(|t| t.position.line)
+        .collect();
+    // Only the untagged here-string, one token per line.
+    assert_eq!(strings, [3, 4, 5], "{tokens:?}");
+    assert!(
+        tokens
+            .iter()
+            .any(|t| t.position == at(TEXT, "SHADER", 0, 0))
+    );
+}
+
+#[test]
 fn references_type_definitions_and_signature_help() {
     let mut s = session();
     s.open(uri(), 1, PROGRAM.into()).unwrap();
