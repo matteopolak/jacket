@@ -106,6 +106,7 @@ The LLVM backend, C ABI and linking.
 - [Drawing, windows and audio](specs/stdlib/README.md)
 - [Simp (2D renderer)](specs/stdlib/README.md)
 - [Sound_Player (audio mixing and output)](specs/stdlib/README.md)
+- [WebGPU (generated bindings, native and in the playground; prototype)](specs/stdlib/README.md)
 
 ## Browser
 

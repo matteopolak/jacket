@@ -11,3 +11,7 @@ pub mod play;
 #[allow(unsafe_code)]
 mod play_exports;
 pub use play_exports::*;
+
+/// Host functions of the embedding page (WebGPU, the canvas), reached through `jai_host` imports.
+#[allow(unsafe_code)]
+pub mod host_bridge;

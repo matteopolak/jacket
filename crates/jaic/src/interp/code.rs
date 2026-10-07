@@ -1148,7 +1148,10 @@ impl Interp {
                 None => {
                     if let Some(left) = self.block_budget.as_mut() {
                         if *left == 0 {
-                            return self.trap("execution budget exhausted");
+                            match self.host.refill_budget() {
+                                Some(more) => *left = more,
+                                None => return self.trap("execution budget exhausted"),
+                            }
                         }
                         *left -= 1;
                     }

@@ -258,7 +258,10 @@ fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions
         observer: None,
     });
     let mut compiler = Compiler::new(options(main), fs);
-    compiler.interp.host = Box::new(SharedHost(host.clone()));
+    compiler.interp.host = Box::new(crate::host_bridge::PlayHost::new(
+        SharedHost(host.clone()),
+        limits.budget,
+    ));
     compiler.interp.block_budget = limits.budget;
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));

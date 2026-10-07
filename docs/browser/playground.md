@@ -10,7 +10,8 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 
 | File | Source | Purpose |
 | --- | --- | --- |
-| `jai_wasm.wasm` | `crates/jai-wasm` | Compiler, interpreter and `jai_lsp_*` language server. It takes no host imports. |
+| `jai_wasm.wasm` | `crates/jai-wasm` | Compiler, interpreter and `jai_lsp_*` language server. Its only imports are the optional `jai_host` page functions (below). |
+| `webgpu_host.mjs`, `webgpu_bindings.generated.mjs` | `crates/jai-wasm/js/` | Page host functions for `stdlib/WebGPU` and canvas input ([WebGPU](../specs/stdlib/README.md)) |
 | `engine.mjs` | `crates/jai-wasm/js/engine.mjs` | Optional glue: `createEngine(bytes)` returns `play` and `lsp`. The Node checks use it too. |
 | `jaifmt-playground.jai` | `jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
 | `jaifmt.wasm` | `jaifmt/wasm.jai`, built by a native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) |
@@ -39,7 +40,8 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 3. `src/play_exports.rs` is the pointer-free scalar ABI (same style as the other exports):
    `jai_play_reset`, `jai_play_push(channel, byte)` (0 = path, 1 = contents, 2 = main path),
    `jai_play_finish_file`, `jai_play_set_budget(thousands)` (0 = unbounded, kept across resets), `jai_play_set_styled(1)` (errors in `rendered` with ANSI colour and box drawing, as a terminal shows them, for an output pane that draws SGR codes; 0, the default, gives plain text; kept across resets), `jai_play_run`, then `jai_play_output_len/byte` (JSON) and `jai_play_error_len/byte`.
-4. `crates/jai-wasm/js/engine.mjs::createEngine(wasmBytes)` instantiates the module (rejecting any host import) and returns `play(files, main, { budget })` and, when the module exports it, `lsp(message)`. Both exchange bounded scalar bytes with the module; no pointers cross the boundary.
+4. `crates/jai-wasm/js/engine.mjs::createEngine(wasmBytes, { host })` instantiates the module and returns `play(files, main, { budget })`, `playAsync` and, when the module exports it, `lsp(message)`. These exchange bounded scalar bytes with the module.
+5. Page host functions (`src/host_bridge.rs`): a `#foreign` procedure the sandbox does not implement is offered to `host.functions[name]` through the `jai_host.call` import, with its 64-bit argument slots; pointers are addresses in the module's memory, which the page reads and writes (`jai_host_alloc`/`jai_host_free` give it memory to hand back). A promise result suspends the module through JSPI (`jai_host.wait` is `WebAssembly.Suspending`; run with `playAsync`). After such a wait the run's budget is refilled, the virtual clock advances by the real time spent and new output goes to `host.output`. Without a host every name is "not provided" and programs behave as before. See [WebGPU](../specs/stdlib/README.md).
 
 ### Embedding
 

@@ -13,7 +13,7 @@ import subprocess
 from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
 
 ROOT = Path(__file__).resolve().parents[1]
-BUNDLED_GLUE = ("engine.mjs", "README.md")
+BUNDLED_GLUE = ("engine.mjs", "webgpu_host.mjs", "webgpu_bindings.generated.mjs", "README.md")
 
 
 def storage_directory(path):
