@@ -23,6 +23,10 @@ purpose: the error messages are part of the tour.
 - [meta/macros.jai](meta/macros.jai): `#expand` macros, backticks, custom `for` loops.
 - [meta/reflection.jai](meta/reflection.jai): Type_Info, `Any`, notes, and a JSON writer.
 - [meta/metaprogram.jai](meta/metaprogram.jai): Driving the compiler from your own code.
+- [safety/safety.jai](safety/safety.jai): Runtime checks on casts, indexes and pointers, and their opt-outs: `cast,trunc`, `cast,no_check`, `#no_abc`.
+- [threads/threads.jai](threads/threads.jai): A Thread_Group sharing out work, and a producer and consumer passing items through semaphores.
+- [files/files.jai](files/files.jai): Walking the workspace, reading tour.md, writing and deleting a file.
+- [machine/machine.jai](machine/machine.jai): `#asm` (bswap, popcnt, lzcnt, a 128-bit mul) and the 128-bit `Long_Double`.
 - [finale/raymarch.jai](finale/raymarch.jai): A ray marcher that draws a 3D scene in text.
 
 ## Things to try
@@ -32,6 +36,11 @@ purpose: the error messages are part of the tour.
 - In meta/compile_time.jai, add a planet to PLANET_DATA.
   The enum and the gravity table both grow, generated
   at compile time.
+- In safety/safety.jai, set BREAK_ON_PURPOSE to
+  `.NARROWING_CAST`, `.INDEX_PAST_END` or `.NULL_POINTER`
+  and read the runtime error.
+- In threads/threads.jai, change the number of workers
+  or the ring's size and see how often the producer waits.
 - In finale/raymarch.jai, move CAMERA or LIGHT_DIRECTION,
   or add a third sphere to `scene`.
 - Add a file of your own, `#load` it from main.jai and add

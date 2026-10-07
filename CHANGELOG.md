@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- The playground's language tour has four new stops: runtime safety checks and their opt-outs (with a switch that triggers each runtime error), threads (a `Thread_Group` and a producer/consumer on semaphores), files in the browser's workspace, and `#asm` with the 128-bit `Long_Double`.
+
 ### Changed
 
 - Release archives are now named `jai-<platform>` (`jai-macos-arm64.tar.gz`, `jai-linux-x64.tar.gz`, `jai-windows-x64.zip`, `jai-windows-arm64.zip`, each unpacking to `jai-<platform>/`), since they hold all four tools. Releases up to 0.4.0 keep their `jaic-` names: `install.sh`, `install.ps1`, the Homebrew formula, the winget manifests and the VS Code extension pick the name by version, so installing an older release and upgrading an existing install keep working. The install scripts also read `JAI_VERSION`, `JAI_INSTALL_DIR` and `JAI_BIN_DIR`; the `JAIC_` names still work.
@@ -10,6 +14,7 @@
 
 ### Fixed
 
+- jailsp: a `cast,trunc(T) x` or `xx,no_check x` argument of `print` and friends counts as one argument; the commas after `cast`/`xx` no longer split it, which reported arguments as unused by the format string.
 - A metaprogram that adds code at every `TYPECHECKED_ALL_WE_CAN` no longer slows down with every round: each round revisited every scope, declaration and file compiled so far, so a long run took quadratic time (16 000 rounds under jailsp's budget took seconds). A round now costs only the code it adds.
 - jailsp: references, type definition and the other queries that read a declaration's source no longer crash on a builtin constant such as `OS`, which has no source location; they leave it out, as go to definition already did.
 

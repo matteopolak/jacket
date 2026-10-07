@@ -19,6 +19,10 @@
 #load "meta/macros.jai";
 #load "meta/reflection.jai";
 #load "meta/metaprogram.jai";
+#load "safety/safety.jai";
+#load "threads/threads.jai";
+#load "files/files.jai";
+#load "machine/machine.jai";
 #load "finale/raymarch.jai";
 
 main :: () {
@@ -41,6 +45,10 @@ main :: () {
         .{ "Macros and custom loops", tour_macros },
         .{ "Reflection", tour_reflection },
         .{ "A metaprogram", tour_metaprogram },
+        .{ "Runtime safety", tour_safety },
+        .{ "Threads", tour_threads },
+        .{ "Files", tour_files },
+        .{ "#asm and Long_Double", tour_machine },
         .{ "Finale: a ray-marched scene", tour_finale },
     ];
 

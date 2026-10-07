@@ -19,6 +19,10 @@
 | `meta/macros.jai` | `#expand` with `Code`, backtick variables, `` `defer`` and `` `return``, `for_expansion` for a Collatz sequence and a linked list |
 | `meta/reflection.jai` | Types as values, `type_info` members, offsets and notes, an `Any`-based JSON writer |
 | `meta/metaprogram.jai` | A `#run` that compiles a second program in its own workspace and reports on its TYPECHECKED messages (a tiny style checker) |
+| `safety/safety.jai` | Runtime checks with their opt-outs (`cast,trunc`, `cast,no_check`, `#no_abc`) and a `BREAK_ON_PURPOSE` switch that triggers a narrowing-cast, bounds or null-pointer runtime error, so the default run stays green |
+| `threads/threads.jai` | A `Thread_Group` counting primes over 8 work items on 3 workers, and a producer thread and the main thread sharing a 4-slot ring through two `Semaphore`s |
+| `files/files.jai` | `visit_files` over the tour's own folder (`#filepath`), reading `tour.md`, writing `/tmp/jai-tour-log.txt` with `file_open`/`file_write`, reading it back and deleting it |
+| `machine/machine.jai` | `#asm` (`bswap`, `popcnt`, `lzcnt`, a 128-bit `mul`) and `Long_Double` from `Jaic_Extensions`, 128-bit on WebAssembly, against `float64` on a Newton square root |
 | `finale/raymarch.jai` | An ASCII ray marcher (signed distance fields, smooth union, soft lighting, shadows, fog) built on `Math`'s `Vector3` |
 
 ## How it works
@@ -37,6 +41,7 @@
 
 - Add a stop: write `examples/tour/<topic>/<file>.jai` with a `tour_<topic> :: ()` procedure, `#load` it in `main.jai` and add `.{ "Title", tour_<topic> }` to `stops`. Mention it in `tour.md`.
 - All files share one global scope, so give helpers distinct names. A helper named `scale`, for example, collides with `Math`'s and makes `#bake_arguments scale(...)` ambiguous.
+- A stop that shows a failure must not fail the default run: put the failing code behind a constant the reader flips (`BREAK_ON_PURPOSE` in `safety/safety.jai`). The playground always runs `main.jai`, so a separate failing file could not be run on its own.
 - Keep it browser-safe: no processes, sockets, windows or native `#foreign` libraries (see how `tests/stdlib` programs skip those parts under `OS == .WASM`, [playground](playground.md)). Keep runtime small: auto-run recompiles and reruns on every edit.
 - Keep lines short (the editor is narrow on phones) and run jaifmt: `jaic run jaifmt/main.jai -- --check "$PWD/examples/tour"`. The portfolio's `JAI_WASM_DIR=<bundle> pnpm test:jai` also checks the tour is formatted under the playground's default `jaifmt.toml`.
 - When output changes, update `stdout_contains` in `tests/examples.json`.
