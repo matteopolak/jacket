@@ -661,9 +661,12 @@ impl Compiler {
                     "write_string" => Some(crate::interp::Hook::WriteString),
                     "write_strings" => Some(crate::interp::Hook::WriteStrings),
                     "compile_time_debug_break" => Some(crate::interp::Hook::DebugBreak),
-                    "runtime_support_report_assertion" => Some(
-                        crate::interp::Hook::AssertionFailed(!header.flags.no_context),
-                    ),
+                    "runtime_support_report_assertion" => {
+                        Some(crate::interp::Hook::AssertionFailed {
+                            context: !header.flags.no_context,
+                            location: self.location_layout(span)?,
+                        })
+                    }
                     other => crate::build::MetaOp::from_name(other)
                         .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context)),
                 };

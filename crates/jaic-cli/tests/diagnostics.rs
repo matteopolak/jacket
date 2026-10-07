@@ -150,6 +150,24 @@ fn crash_in_native_code_names_the_foreign_call() {
     );
 }
 
+/// A failed check in a procedure C called ends the run (it cannot unwind through C), saying
+/// where it failed and which procedures it was in.
+#[cfg(unix)]
+#[test]
+fn failure_in_a_procedure_called_from_c_says_where() {
+    let dir = scratch("callback-trap");
+    let source = "libc :: #system_library \"libc\";\nqsort :: (base: *void, n: u64, size: u64, compare: (*void, *void) -> s32 #c_call) #foreign libc;\ncompare :: (a: *void, b: *void) -> s32 #c_call {\n    x: [2] s32;\n    i := 5;\n    return x[i];\n}\nmain :: () {\n    a := int.[3, 1, 2];\n    qsort(a.data, 3, 8, compare);\n}\n";
+    let run = jaic_on(&dir, "callback.jai", source, "run", &[]);
+    assert_eq!(run.status.code(), Some(1), "{}", stderr(&run));
+    assert_in_order(
+        &stderr(&run),
+        &[
+            "error: in a procedure called from C: array bounds check failed: index 5 is outside an array of 2 elements (at callback.jai:6:5)",
+            "    in `compare` at callback.jai:6:5",
+        ],
+    );
+}
+
 /// A crash on a thread C started itself is not blamed on the foreign call the interpreter is
 /// making meanwhile (`pthread_join` here): no foreign call is in progress on that thread, so
 /// the fault takes its default course.

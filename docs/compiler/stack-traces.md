@@ -12,7 +12,7 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   location of the call that entered them, so a traced call made there records the caller's own line
   (test: `tests/stdlib/stack-trace-line-through-inline.jai`).
 - `Interp::exec` (`interp/mod.rs`) pushes a node when such a function is entered. The node lives in
-  the callee's interpreter stack frame (32 bytes after the frame). Its fields: `next` (the
+  the callee's interpreter stack frame (right after the frame). Its fields: `next` (the
   previous top), `info` (a leaked `Stack_Trace_Procedure_Info` cached per `FuncId`), `hash`,
   `call_depth` (previous + 1, first node 1) and `line_number`.
 - The caller's node `line_number` is the line of the call being made: on entry the callee writes
@@ -20,13 +20,15 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   node starts with the procedure's declaration line.
 - On return `context.stack_trace` is restored to `next`. `exec` also restores `self.loc` so a
   statement with several calls reports the right line for each.
-- `Program.stack_trace_offset` (byte offset of `stack_trace` in `#Context`) and
-  `Program.file_paths` are filled by `Compiler::enable_stack_traces`, called from `run_program` and
+- `Program.stack_trace` (an `ir::TraceLayout`: where `stack_trace` sits in `#Context`, and
+  the field offsets and sizes of `Stack_Trace_Node` and `Stack_Trace_Procedure_Info`, read
+  from their declarations in the Preload) and `Program.file_paths` are filled by
+  `Compiler::enable_stack_traces`, called from `run_program` and
   from `call_thunk` (so `#run` code also gets traces; the thunk itself has no node, so the first
-  node's `next` is null). Nothing is pushed when the offset is `None`.
+  node's `next` is null). Nothing is pushed when the layout is `None`, which is also what a Preload whose fields have other sizes gets.
 - **Compiled output**: `Compiler::prepare_compiled_output` (called by both `jaic build` and the
   metaprogram's output path before the backend writes) runs `stack_trace::instrument`
-  (`crates/jaic/src/stack_trace.rs`), an IR pass. Each traced function gets a 32-byte node slot; a new
+  (`crates/jaic/src/stack_trace.rs`), an IR pass. Each traced function gets a node slot; a new
   entry block links it (depth and hash from the previous top, or 1 and a seed for the first node) and
   makes it the top; every `Ret` restores the previous top; after each `Loc` whose statement makes a
   call, the line is stored into the node, so callees see their call line. A
@@ -43,8 +45,10 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
 
 ## How to change it
 
-- The node layout must match `Stack_Trace_Node` in `stdlib/prelude/module.jai` (and the constants in
-  `trace_enter`).
+- Field offsets come from `Stack_Trace_Node` and `Stack_Trace_Procedure_Info` in
+  `stdlib/prelude/module.jai` (`Compiler::trace_layout`), so fields can be moved or added there.
+  Their sizes are fixed: `trace_layout` checks them and turns traces off on a mismatch, since
+  `trace_enter` and the pass write a `u64` hash and `u32` depth and line.
 - Hash values differ from Jai's; they only mix the caller hash, procedure id and call line.
 - There is no sentinel node from `push_context`, and leaf procedures also get nodes (the official
   compiler omits them), so call depths can differ in those cases.
@@ -56,5 +60,5 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
 
 ## Dependencies
 
-`ir::Func::trace`, `ir::Program::{file_paths, stack_trace_offset}`, `interp::Interp::trace_enter`.
+`ir::Func::trace`, `ir::Program::{file_paths, stack_trace}`, `interp::Interp::trace_enter`.
 Tests: `tests/stdlib/stack-trace-nodes.jai`, `tests/stdlib/compile-time-stack-trace.jai`.

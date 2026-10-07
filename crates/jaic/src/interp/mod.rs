@@ -31,6 +31,7 @@ pub use native::{library_dirs, set_library_dirs};
 pub use sandbox::{SandboxHost, SharedHost};
 use std::collections::BTreeMap;
 use std::rc::Rc;
+#[cfg(not(target_arch = "wasm32"))]
 pub use threads::DEADLOCK_GRACE;
 
 /// Tag bits marking an interpreted procedure address.
@@ -54,11 +55,23 @@ pub enum Hook {
     DebugBreak,
     /// `runtime_support_report_assertion(loc: Source_Code_Location, message: string)`: a failed
     /// `assert`, reported by the compiler as a runtime error (`Trap::assertion`) rather than
-    /// printed by the runtime. The flag says whether it takes a context pointer.
-    AssertionFailed(bool),
+    /// printed by the runtime. `context` says whether it takes a context pointer.
+    AssertionFailed {
+        context: bool,
+        location: LocationLayout,
+    },
     /// A `Compiler` module primitive (`__jaic_*`); the flag says whether the
     /// procedure takes a context pointer.
     Meta(crate::build::MetaOp, bool),
+}
+
+/// Byte offsets of a `Source_Code_Location`'s fields, from the Preload's declaration
+/// (`Compiler::location_layout`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LocationLayout {
+    pub path: u64,
+    pub line: u64,
+    pub column: u64,
 }
 
 /// Where program output and platform services go.
@@ -163,6 +176,9 @@ pub enum TrapKind {
     BareAssertion,
     /// A foreign procedure neither the host nor a loaded library provides.
     Unavailable,
+    /// Not a failure: unwinds a thread of the single-threaded scheduler that nothing can wake,
+    /// so one lower on the stack can go on (`threads_inline.rs`). Never reported.
+    Abandoned,
 }
 
 /// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).
@@ -186,6 +202,34 @@ pub struct TrapFrame {
 const MAX_TRAP_FRAMES: usize = 64;
 
 impl Trap {
+    /// The trap as text, for a report made where the compiler's sources are out of reach (a
+    /// procedure called from C): the message, where it happened, and the procedures it unwound
+    /// through. `file_paths` names files by id (`Program::file_paths`); without them a
+    /// location is its line and column.
+    pub fn describe(&self, file_paths: &[String]) -> String {
+        let at = |(file, line, col): (u32, u32, u32)| match file_paths.get(file as usize) {
+            Some(path) => format!(
+                "{}:{line}:{col}",
+                crate::display_path(std::path::Path::new(path))
+            ),
+            None => format!("line {line}, column {col}"),
+        };
+        let mut out = self.message.clone();
+        if let Some(loc) = self.loc {
+            out += &format!(" (at {})", at(loc));
+        }
+        for frame in &self.frames {
+            out += &format!("\n    in `{}`", frame.name);
+            if let Some(loc) = frame.loc {
+                out += &format!(" at {}", at(loc));
+            }
+        }
+        if self.omitted_frames > 0 {
+            out += &format!("\n    ... {} more", self.omitted_frames);
+        }
+        out
+    }
+
     fn push_frame(&mut self, name: &str, loc: Option<(u32, u32, u32)>) {
         if self.frames.len() < MAX_TRAP_FRAMES {
             self.frames.push(TrapFrame {
@@ -230,9 +274,6 @@ struct Frame {
     /// The body in the interpreter's form (`code.rs`).
     code: code::Code,
 }
-
-/// Size of a `Stack_Trace_Node`.
-const TRACE_NODE_SIZE: u64 = 32;
 
 struct GlobalMem {
     _storage: ZeroedBlock,
@@ -982,12 +1023,7 @@ impl Interp {
     /// Run `func` for C, on whichever thread now holds the baton: on a value stack of its own,
     /// since a thread inside a native call keeps its frames.
     #[cfg(not(target_arch = "wasm32"))]
-    fn run_callback(
-        &mut self,
-        program: &Program,
-        func: FuncId,
-        args: &[u64],
-    ) -> Result<Vec<u64>, String> {
+    fn run_callback(&mut self, program: &Program, func: FuncId, args: &[u64]) -> Res<Vec<u64>> {
         let stack = self
             .callback_stacks
             .pop()
@@ -1001,10 +1037,7 @@ impl Interp {
         let mine = self.take_exec_state();
         self.put_exec_state(outer);
         self.callback_stacks.push(mine.stack);
-        result.map(Rets::into_vec).map_err(|t| match t.loc {
-            Some((_, line, col)) => format!("{} (line {line}, column {col})", t.message),
-            None => t.message,
-        })
+        result.map(Rets::into_vec)
     }
 
     // -----------------------------------------------------------------------
@@ -1061,12 +1094,11 @@ impl Interp {
         let base = self.sp;
         let stack_start = self.stack.as_mut_ptr() as u64;
         let start = (stack_start + base).next_multiple_of(frame.align) - stack_start;
-        let traced = func.trace.is_some() && program.stack_trace_offset.is_some();
-        let node_size = if traced {
-            TRACE_NODE_SIZE
-        } else {
-            0
+        let node_size = match &program.stack_trace {
+            Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),
+            _ => 0,
         };
+        let traced = node_size != 0;
         if start + frame.size + node_size > (self.stack.len() * 8) as u64 {
             return self.trap_of(TrapKind::StackOverflow, "interpreter stack overflow");
         }
@@ -1123,13 +1155,14 @@ impl Interp {
         args: &[u64],
         node: u64,
     ) -> Option<(u64, u64)> {
-        let offset = program.stack_trace_offset?;
+        let layout = program.stack_trace.as_ref()?;
+        let n = &layout.node;
         let info = func.trace.as_ref()?;
         let context = *args.first()?;
         if context == 0 {
             return None;
         }
-        let slot = context + offset;
+        let slot = context + layout.context;
         let line = self
             .trace_loc
             .unwrap_or(self.loc)
@@ -1138,17 +1171,18 @@ impl Interp {
             let previous = std::ptr::read_unaligned(slot as *const u64);
             let (mut depth, mut hash) = (1u32, 0xcbf2_9ce4_8422_2325u64);
             if previous != 0 {
-                std::ptr::write_unaligned((previous + 28) as *mut u32, line);
-                depth = std::ptr::read_unaligned((previous + 24) as *const u32).wrapping_add(1);
-                hash = std::ptr::read_unaligned((previous + 16) as *const u64);
+                std::ptr::write_unaligned((previous + n.line_number) as *mut u32, line);
+                depth = std::ptr::read_unaligned((previous + n.call_depth) as *const u32)
+                    .wrapping_add(1);
+                hash = std::ptr::read_unaligned((previous + n.hash) as *const u64);
             }
             hash = (hash ^ (id.0 as u64) ^ ((line as u64) << 32)).wrapping_mul(0x0100_0000_01b3);
             let info_addr = self.trace_info(program, id, info);
-            std::ptr::write_unaligned(node as *mut u64, previous);
-            std::ptr::write_unaligned((node + 8) as *mut u64, info_addr);
-            std::ptr::write_unaligned((node + 16) as *mut u64, hash);
-            std::ptr::write_unaligned((node + 24) as *mut u32, depth);
-            std::ptr::write_unaligned((node + 28) as *mut u32, info.line);
+            std::ptr::write_unaligned((node + n.next) as *mut u64, previous);
+            std::ptr::write_unaligned((node + n.info) as *mut u64, info_addr);
+            std::ptr::write_unaligned((node + n.hash) as *mut u64, hash);
+            std::ptr::write_unaligned((node + n.call_depth) as *mut u32, depth);
+            std::ptr::write_unaligned((node + n.line_number) as *mut u32, info.line);
             std::ptr::write_unaligned(slot as *mut u64, node);
             Some((slot, previous))
         }
@@ -1168,20 +1202,24 @@ impl Interp {
             .file_paths
             .get(info.file as usize)
             .map_or("", String::as_str);
-        let words: [u64; 7] = [
-            leak(&info.name),
-            info.name.len() as u64,
-            leak(path),
-            path.len() as u64,
-            info.line as u64,
-            info.col as u64,
-            FUNC_TAG | id.0 as u64,
-        ];
-        // `name` is {count, data}.
-        let layout = [
-            words[1], words[0], words[3], words[2], words[4], words[5], words[6],
-        ];
-        let addr = Box::leak(Box::new(layout)).as_ptr() as u64;
+        let Some(layout) = &program.stack_trace else {
+            return 0;
+        };
+        let at = &layout.info;
+        let words = vec![0u64; at.size.div_ceil(8) as usize];
+        let addr = Box::leak(words.into_boxed_slice()).as_mut_ptr() as u64;
+        // A string is {count, data}.
+        for (offset, value) in [
+            (at.name, info.name.len() as u64),
+            (at.name + 8, leak(&info.name)),
+            (at.path, path.len() as u64),
+            (at.path + 8, leak(path)),
+            (at.line, info.line as u64),
+            (at.column, info.col as u64),
+            (at.procedure_address, FUNC_TAG | id.0 as u64),
+        ] {
+            unsafe { std::ptr::write_unaligned((addr + offset) as *mut u64, value) };
+        }
         if self.trace_infos.len() <= id.0 as usize {
             self.trace_infos.resize(id.0 as usize + 1, 0);
         }
@@ -1215,17 +1253,20 @@ impl Interp {
                 }
             }
             Hook::DebugBreak => return self.trap("debug_break() was called"),
-            Hook::AssertionFailed(has_context) => {
-                let args = &args[usize::from(has_context)..];
+            Hook::AssertionFailed {
+                context,
+                location,
+            } => {
+                let args = &args[usize::from(context)..];
                 let string = |s: &Self, at: u64| {
                     let count = s.read_u64(at) as usize;
                     let data = s.read_u64(at + 8);
                     String::from_utf8_lossy(&s.read(data, count)).into_owned()
                 };
                 let (loc, message) = (args[0], args[1]);
-                let path = string(self, loc);
-                let line = self.read_u64(loc + 16) as u32;
-                let col = self.read_u64(loc + 24) as u32;
+                let path = string(self, loc + location.path);
+                let line = self.read_u64(loc + location.line) as u32;
+                let col = self.read_u64(loc + location.column) as u32;
                 let message = string(self, message);
                 let mut trap = self
                     .trap::<()>(if message.is_empty() {

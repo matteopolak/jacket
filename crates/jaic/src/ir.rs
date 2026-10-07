@@ -692,6 +692,41 @@ pub struct Library {
     pub base_dir: String,
 }
 
+/// `context.stack_trace` and the Preload types it links, as byte offsets read from their
+/// declarations (`Compiler::enable_stack_traces`). The interpreter and the stack trace pass
+/// (`stack_trace.rs`) write nodes with it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TraceLayout {
+    /// `stack_trace` in the Context.
+    pub context: u64,
+    pub node: TraceNodeLayout,
+    pub info: TraceInfoLayout,
+}
+
+/// `Stack_Trace_Node`: `next` and `info` are pointers, `hash` a `u64`, `call_depth` and
+/// `line_number` `u32`s.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TraceNodeLayout {
+    pub size: u64,
+    pub next: u64,
+    pub info: u64,
+    pub hash: u64,
+    pub call_depth: u64,
+    pub line_number: u64,
+}
+
+/// `Stack_Trace_Procedure_Info`: `name` and the location's path are strings, its line and
+/// column `s64`s, `procedure_address` a pointer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TraceInfoLayout {
+    pub size: u64,
+    pub name: u64,
+    pub path: u64,
+    pub line: u64,
+    pub column: u64,
+    pub procedure_address: u64,
+}
+
 /// All lowered code. Functions are lowered on demand, so slots may be empty.
 #[derive(Default)]
 pub struct Program {
@@ -708,8 +743,9 @@ pub struct Program {
     pub reset_globals: Vec<GlobalId>,
     /// Path of each source file by `FileId`, for stack trace nodes.
     pub file_paths: Vec<String>,
-    /// Byte offset of `stack_trace` in the Context (`None`: stack traces are off).
-    pub stack_trace_offset: Option<u64>,
+    /// Where `context.stack_trace` is and how its nodes are laid out (`None`: stack traces
+    /// are off).
+    pub stack_trace: Option<TraceLayout>,
     /// Types named by debug information (`FuncDebug`, `debug_globals`), by key.
     pub debug_types: crate::fxhash::HashMap<u32, DebugType>,
     pub debug_globals: Vec<DebugGlobal>,

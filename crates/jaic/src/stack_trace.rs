@@ -2,40 +2,45 @@
 //! `Stack_Trace_Node` on entry and pop it on return. The interpreter maintains the list itself
 //! (`Interp::trace_enter`); native backends get it from this pass instead.
 //!
-//! Node layout (as `Stack_Trace_Node`): `next` at 0, `info` at 8, `hash` at 16, `call_depth: u32`
-//! at 24, `line_number: u32` at 28. `info` points at a `Stack_Trace_Procedure_Info` global:
-//! `name: string`, `location: {fully_pathed_filename: string, line_number, character_number}`,
-//! `procedure_address`.
+//! Nodes are `Stack_Trace_Node`s, laid out as `Program::stack_trace` says; `info` points at
+//! a `Stack_Trace_Procedure_Info` global holding the procedure's name, declaration site and
+//! address.
 
 use crate::ir::*;
-
-const NODE_SIZE: u64 = 32;
 const HASH_SEED: u64 = 0xcbf2_9ce4_8422_2325;
 const HASH_PRIME: u64 = 0x0100_0000_01b3;
 
 /// Instrument every function that has `trace` info; the info is then cleared, so running the
 /// result in the interpreter does not push a second node.
-pub fn instrument(program: &mut Program, context_offset: u64) {
+pub fn instrument(program: &mut Program, layout: &TraceLayout) {
     for i in 0..program.funcs.len() {
         let Some(info) = program.funcs[i].as_ref().and_then(|f| f.trace.clone()) else {
             continue;
         };
-        let info_global = info_global(program, FuncId(i as u32), &info);
+        let info_global = info_global(program, FuncId(i as u32), &info, &layout.info);
         let func = program.funcs[i].as_mut().unwrap();
         func.trace = None;
-        instrument_func(func, FuncId(i as u32), &info, info_global, context_offset);
+        instrument_func(func, FuncId(i as u32), &info, info_global, layout);
     }
 }
 
-fn info_global(program: &mut Program, id: FuncId, info: &TraceInfo) -> GlobalId {
+fn info_global(
+    program: &mut Program,
+    id: FuncId,
+    info: &TraceInfo,
+    at: &TraceInfoLayout,
+) -> GlobalId {
     let path = program
         .file_paths
         .get(info.file as usize)
         .cloned()
         .unwrap_or_default();
-    let mut init = vec![0u8; 56];
+    let mut init = vec![0u8; at.size as usize];
     let mut relocs = Vec::new();
-    for (offset, text) in [(0usize, info.name.as_str()), (16, path.as_str())] {
+    for (offset, text) in [
+        (at.name as usize, info.name.as_str()),
+        (at.path as usize, path.as_str()),
+    ] {
         init[offset..offset + 8].copy_from_slice(&(text.len() as u64).to_le_bytes());
         if !text.is_empty() {
             let mut bytes = text.as_bytes().to_vec();
@@ -56,16 +61,17 @@ fn info_global(program: &mut Program, id: FuncId, info: &TraceInfo) -> GlobalId 
             });
         }
     }
-    init[32..40].copy_from_slice(&(info.line as u64).to_le_bytes());
-    init[40..48].copy_from_slice(&(info.col as u64).to_le_bytes());
+    let (line, column) = (at.line as usize, at.column as usize);
+    init[line..line + 8].copy_from_slice(&(info.line as u64).to_le_bytes());
+    init[column..column + 8].copy_from_slice(&(info.col as u64).to_le_bytes());
     relocs.push(Reloc {
-        offset: 48,
+        offset: at.procedure_address,
         target: RelocTarget::Func(id),
         addend: 0,
     });
     program.add_global(Global {
         name: format!("trace_info.{}", id.0),
-        size: 56,
+        size: at.size,
         align: 8,
         init,
         relocs,
@@ -150,14 +156,15 @@ fn instrument_func(
     id: FuncId,
     info: &TraceInfo,
     info_global: GlobalId,
-    context_offset: u64,
+    layout: &TraceLayout,
 ) {
     if func.blocks.is_empty() || func.sig.params.first() != Some(&Ty::Ptr) {
         return;
     }
+    let n = &layout.node;
     let original_blocks = func.blocks.len();
     func.slots.push(Slot {
-        size: NODE_SIZE,
+        size: n.size,
         align: 8,
     });
     let slot = SlotId(func.slots.len() as u32 - 1);
@@ -185,7 +192,7 @@ fn instrument_func(
         dst: node,
         slot,
     });
-    let top = e.offset(&mut entry, Val(0), context_offset);
+    let top = e.offset(&mut entry, Val(0), layout.context);
     let previous = e.load(&mut entry, Ty::Ptr, top);
     let null = e.iconst(&mut entry, Ty::Ptr, 0);
     let is_first = e.val(Ty::I8);
@@ -199,14 +206,14 @@ fn instrument_func(
 
     // Common tail: link the node and make it the top.
     let mut link = Vec::new();
-    e.store_at(&mut link, Ty::Ptr, node, 0, previous);
+    e.store_at(&mut link, Ty::Ptr, node, n.next, previous);
     let info_addr = e.val(Ty::Ptr);
     link.push(Inst::GlobalAddr {
         dst: info_addr,
         global: info_global,
     });
-    e.store_at(&mut link, Ty::Ptr, node, 8, info_addr);
-    let line_addr = e.offset(&mut link, node, 28);
+    e.store_at(&mut link, Ty::Ptr, node, n.info, info_addr);
+    let line_addr = e.offset(&mut link, node, n.line_number);
     let line = e.iconst(&mut link, Ty::I32, info.line as u64);
     link.push(Inst::Store {
         ty: Ty::I32,
@@ -223,23 +230,23 @@ fn instrument_func(
     // First node: depth 1, seed hash.
     let mut first = Vec::new();
     let one = e.iconst(&mut first, Ty::I32, 1);
-    e.store_at(&mut first, Ty::I32, node, 24, one);
+    e.store_at(&mut first, Ty::I32, node, n.call_depth, one);
     let seed = e.iconst(&mut first, Ty::I64, HASH_SEED ^ id.0 as u64);
     let prime = e.iconst(&mut first, Ty::I64, HASH_PRIME);
     let hash = e.bin(&mut first, BinOp::Mul, Ty::I64, seed, prime);
-    e.store_at(&mut first, Ty::I64, node, 16, hash);
+    e.store_at(&mut first, Ty::I64, node, n.hash, hash);
     let first_id = e.block(first, Term::Jump(link_id));
 
     // Nested: depth + 1; the hash mixes the caller's hash, this procedure and the call line.
     let mut nested = Vec::new();
-    let depth_addr = e.offset(&mut nested, previous, 24);
+    let depth_addr = e.offset(&mut nested, previous, n.call_depth);
     let depth = e.load(&mut nested, Ty::I32, depth_addr);
     let one = e.iconst(&mut nested, Ty::I32, 1);
     let depth = e.bin(&mut nested, BinOp::Add, Ty::I32, depth, one);
-    e.store_at(&mut nested, Ty::I32, node, 24, depth);
-    let hash_addr = e.offset(&mut nested, previous, 16);
+    e.store_at(&mut nested, Ty::I32, node, n.call_depth, depth);
+    let hash_addr = e.offset(&mut nested, previous, n.hash);
     let hash = e.load(&mut nested, Ty::I64, hash_addr);
-    let caller_line_addr = e.offset(&mut nested, previous, 28);
+    let caller_line_addr = e.offset(&mut nested, previous, n.line_number);
     let caller_line = e.load(&mut nested, Ty::I32, caller_line_addr);
     let caller_line64 = e.val(Ty::I64);
     nested.push(Inst::Conv {
@@ -256,7 +263,7 @@ fn instrument_func(
     let mixed = e.bin(&mut nested, BinOp::Xor, Ty::I64, mixed, shifted);
     let prime = e.iconst(&mut nested, Ty::I64, HASH_PRIME);
     let hash = e.bin(&mut nested, BinOp::Mul, Ty::I64, mixed, prime);
-    e.store_at(&mut nested, Ty::I64, node, 16, hash);
+    e.store_at(&mut nested, Ty::I64, node, n.hash, hash);
     let nested_id = e.block(nested, Term::Jump(link_id));
 
     e.func.blocks[0] = Block {

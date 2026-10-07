@@ -553,32 +553,55 @@ impl Compiler {
         if !self.options.stack_trace {
             return;
         }
-        if self.program.stack_trace_offset.is_some()
-            && self.program.file_paths.len() == self.sources.len()
+        if self.program.stack_trace.is_some() && self.program.file_paths.len() == self.sources.len()
         {
             return;
         }
-        let Ok(context) = self.context_type(span) else {
+        let Some(layout) = self.trace_layout(span) else {
             return;
         };
-        let Ok(Some((path, _))) = self.find_member(context, Sym::intern("stack_trace"), span)
-        else {
-            return;
-        };
-        let offset = path
-            .iter()
-            .map(|step| {
-                if let structs::PathStep::Offset(o) = step {
-                    *o
-                } else {
-                    0
-                }
-            })
-            .sum();
         self.program.file_paths = (0..self.sources.len())
             .map(|i| self.sources.get(FileId(i as u32)).path.clone())
             .collect();
-        self.program.stack_trace_offset = Some(offset);
+        self.program.stack_trace = Some(layout);
+    }
+
+    /// `context.stack_trace`'s place and its node types' layout, from their declarations;
+    /// `None` when they are missing or their fields are not the sizes the nodes are written
+    /// with.
+    fn trace_layout(&mut self, span: Span) -> Option<ir::TraceLayout> {
+        let context = self.context_type(span).ok()?;
+        let node = self.preload_type("Stack_Trace_Node", span).ok()?;
+        let info = self.preload_type("Stack_Trace_Procedure_Info", span).ok()?;
+        let location = self.location_layout(span).ok()?;
+        let field = |s: &mut Self, ty: TypeId, name: &str, size: u64| -> Option<u64> {
+            let (offset, fty) = s.member_offset(ty, name, span).ok()??;
+            (s.size_of(fty, span).ok()? == size).then_some(offset)
+        };
+        let location_ty = self.preload_type("Source_Code_Location", span).ok()?;
+        let (location_at, ty) = self.member_offset(info, "location", span).ok()??;
+        if ty != location_ty {
+            return None;
+        }
+        Some(ir::TraceLayout {
+            context: field(self, context, "stack_trace", 8)?,
+            node: ir::TraceNodeLayout {
+                size: self.size_of(node, span).ok()?,
+                next: field(self, node, "next", 8)?,
+                info: field(self, node, "info", 8)?,
+                hash: field(self, node, "hash", 8)?,
+                call_depth: field(self, node, "call_depth", 4)?,
+                line_number: field(self, node, "line_number", 4)?,
+            },
+            info: ir::TraceInfoLayout {
+                size: self.size_of(info, span).ok()?,
+                name: field(self, info, "name", 16)?,
+                path: location_at + location.path,
+                line: location_at + location.line,
+                column: location_at + location.column,
+                procedure_address: field(self, info, "procedure_address", 8)?,
+            },
+        })
     }
 
     /// Before a backend writes the program: compiled code keeps `context.stack_trace` itself
@@ -587,8 +610,8 @@ impl Compiler {
         self.bake_no_reset_globals();
         self.drop_unreferenced_code();
         self.enable_stack_traces(Span::NONE);
-        if let Some(offset) = self.program.stack_trace_offset {
-            crate::stack_trace::instrument(&mut self.program, offset);
+        if let Some(layout) = self.program.stack_trace {
+            crate::stack_trace::instrument(&mut self.program, &layout);
         }
         if self.options.debug_info {
             self.collect_debug_types();

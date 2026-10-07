@@ -23,7 +23,7 @@ Calling conventions:
 - `globals`: initial bytes plus `Reloc`s for pointer slots. Type descriptors and `__runtime_info` are ordinary globals;
 - `foreigns`, `libraries`;
 - `reset_globals`: user globals whose compile-time state is discarded before `main` unless `#no_reset`;
-- `file_paths`, `stack_trace_offset` (the `stack_trace` field's offset in `Context`) for stack traces;
+- `file_paths`, `stack_trace` (`TraceLayout`: the `stack_trace` field's offset in `Context` and the node types' field offsets) for stack traces;
 - `debug_types`, `debug_globals`, and per-function `FuncDebug` side tables for [native debug info](../native/debug-info.md).
 
 `Builder` is the construction API lowering uses (`new_block`, `slot`, `iconst`, `bin`, `call`, `finish`, ...).

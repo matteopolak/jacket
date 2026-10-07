@@ -586,27 +586,15 @@ impl Compiler {
             bytes: vec![0; size as usize],
             relocs: Vec::new(),
         };
-        for (name, value, vty) in [
+        for (name, value) in [
             (
                 "fully_pathed_filename",
                 Value::String(path.as_bytes().into()),
-                TypeId::STRING,
             ),
-            ("line_number", Value::Int(line as i128), TypeId::S64),
-            ("character_number", Value::Int(col as i128), TypeId::S64),
+            ("line_number", Value::Int(line as i128)),
+            ("character_number", Value::Int(col as i128)),
         ] {
-            if let Some((p, fty)) = self.find_member(ty, Sym::intern(name), span)? {
-                let off: u64 = p
-                    .iter()
-                    .map(|s| {
-                        if let structs::PathStep::Offset(o) = s {
-                            *o
-                        } else {
-                            0
-                        }
-                    })
-                    .sum();
-                let _ = vty;
+            if let Some((off, fty)) = self.member_offset(ty, name, span)? {
                 self.write_value(&mut agg, off, &value, fty, span)?;
             }
         }

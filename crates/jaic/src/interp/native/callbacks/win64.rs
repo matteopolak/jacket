@@ -18,6 +18,7 @@
 //! the hidden pointer in the first slot, also returned in RAX).
 use super::{Gate, Reenter, enter, fatal, free_slots, same_gate, slot_for};
 use crate::abi::{self, Arch, Passing};
+use crate::interp::Trap;
 use crate::interp::native::{read_bytes, write_bytes};
 use crate::ir::{FuncId, Sig, Ty};
 use std::sync::{Arc, Mutex};
@@ -148,8 +149,7 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
     };
     let result = enter(&*gate, program, |reenter| {
         invoke(reenter, func, &sig, &incoming)
-    })
-    .unwrap_or_else(|m| fatal(&m));
+    });
     // SAFETY: `out` is the 16-byte result area in `common`'s frame.
     unsafe { out.write(result) };
 }
@@ -190,7 +190,7 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
     func: FuncId,
     sig: &Sig,
     incoming: &Incoming<S, X>,
-) -> Result<[u64; 2], String> {
+) -> Result<[u64; 2], Trap> {
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);

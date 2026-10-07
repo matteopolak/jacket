@@ -9,6 +9,7 @@
 //! Windows x64 passes arguments by position instead, which needs its own thunks (`win64.rs`).
 use super::{FF, FFF, FFFF, FI, IF, II, STACK_SLOTS, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
+use crate::interp::Trap;
 use crate::ir::{FuncId, Sig};
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
@@ -17,7 +18,7 @@ use std::sync::{Arc, Mutex};
 mod win64;
 
 /// Runs an interpreted procedure on behalf of a thunk.
-pub type Reenter<'a> = dyn FnMut(FuncId, &[u64]) -> Result<Vec<u64>, String> + 'a;
+pub type Reenter<'a> = dyn FnMut(FuncId, &[u64]) -> Result<Vec<u64>, Trap> + 'a;
 
 thread_local! {
     /// The interpreter (its scheduler's `key`) and scheduler thread whose native call is in
@@ -46,10 +47,18 @@ pub trait Gate: Send + Sync {
     /// Take the baton on this thread, call `f` with a way to run procedures of `program`, and
     /// give the baton back.
     fn run(&self, program: u64, f: &mut dyn FnMut(&mut Reenter<'_>)) -> Result<(), String>;
+
+    /// `trap`, raised by a procedure of `program` that C called, as the text of a report.
+    fn describe(&self, program: u64, trap: &Trap) -> String;
 }
 
-/// Run `f` through `gate`.
-fn enter<T>(gate: &dyn Gate, program: u64, f: impl FnOnce(&mut Reenter<'_>) -> T) -> T {
+/// Run `f` through `gate`. A trap in the procedure ends the process: it cannot unwind through
+/// the C code that called it.
+fn enter<T>(
+    gate: &dyn Gate,
+    program: u64,
+    f: impl FnOnce(&mut Reenter<'_>) -> Result<T, Trap>,
+) -> T {
     let mut f = Some(f);
     let mut out = None;
     let entered = gate.run(program, &mut |reenter| {
@@ -60,7 +69,11 @@ fn enter<T>(gate: &dyn Gate, program: u64, f: impl FnOnce(&mut Reenter<'_>) -> T
     if let Err(m) = entered {
         fatal(&m)
     }
-    out.unwrap_or_else(|| fatal("the interpreter did not run a procedure C called"))
+    match out {
+        Some(Ok(value)) => value,
+        Some(Err(trap)) => fatal(&gate.describe(program, &trap)),
+        None => fatal("the interpreter did not run a procedure C called"),
+    }
 }
 
 fn same_gate(a: &Arc<dyn Gate>, b: &Arc<dyn Gate>) -> bool {
@@ -383,7 +396,6 @@ fn dispatch(
     enter(&*gate, program, |reenter| {
         invoke(reenter, func, &sig, sret, ints, floats, stack)
     })
-    .unwrap_or_else(|m| fatal(&m))
 }
 
 /// Arguments in the order the C ABI assigns them, consumed like `Regs` fills them.
@@ -454,8 +466,9 @@ fn invoke(
     ints: [u64; 8],
     floats: [u64; 8],
     stack: [u64; STACK_SLOTS],
-) -> Result<Vec<u64>, String> {
-    let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
+) -> Result<Vec<u64>, Trap> {
+    // `callback_addr` makes thunks only on CPUs it knows.
+    let arch = Arch::host().expect("a thunk on an unknown CPU");
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     // x86-64 has six integer argument registers (the hidden result pointer takes the first);

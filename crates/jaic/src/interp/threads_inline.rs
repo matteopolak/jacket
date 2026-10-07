@@ -28,9 +28,6 @@ const ETIMEDOUT: u64 = 110;
 /// Block transitions between preemption checks.
 const PREEMPT_TICKS: u64 = 20_000;
 
-/// Marks the trap that unwinds an abandoned thread.
-const ABANDONED: &str = "\0thread abandoned";
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
     Pending,
@@ -384,8 +381,9 @@ impl Interp {
                 Some(k) => {
                     sched.unwind_to = Some(k);
                     Err(Trap {
-                        message: ABANDONED.into(),
+                        message: "thread abandoned".into(),
                         loc,
+                        kind: Some(TrapKind::Abandoned),
                         ..Trap::default()
                     })
                 }
@@ -426,7 +424,7 @@ impl Interp {
                 sched.threads[id].result = values.first().copied().unwrap_or(0);
                 Ok(true)
             }
-            Err(trap) if trap.message == ABANDONED => {
+            Err(trap) if trap.kind == Some(TrapKind::Abandoned) => {
                 // Free what the abandoned thread held and forget its waits.
                 for state in sched.mutexes.values_mut() {
                     if state.owner == Some(id) {

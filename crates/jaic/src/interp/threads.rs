@@ -498,6 +498,13 @@ impl native::Gate for Shared {
         }
         Ok(())
     }
+
+    fn describe(&self, program: u64, trap: &Trap) -> String {
+        // SAFETY: `program` is the program the thunk was made for, alive while its
+        // interpreter is, and only read here.
+        let program = unsafe { &*(program as *const Program) };
+        trap.describe(&program.file_paths)
+    }
 }
 
 impl Interp {

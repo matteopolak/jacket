@@ -1011,6 +1011,46 @@ impl Compiler {
         self.find_member_in(ty, name, span, &mut Vec::new())
     }
 
+    /// The byte offset and type of field `name` of `ty`, when it sits inline (not behind a
+    /// `using` pointer).
+    pub fn member_offset(
+        &mut self,
+        ty: TypeId,
+        name: &str,
+        span: Span,
+    ) -> Result<Option<(u64, TypeId)>> {
+        let Some((path, fty)) = self.find_member(ty, Sym::intern(name), span)? else {
+            return Ok(None);
+        };
+        let mut offset = 0;
+        for step in &path {
+            match step {
+                PathStep::Offset(o) => offset += o,
+                PathStep::Deref => return Ok(None),
+            }
+        }
+        Ok(Some((offset, fty)))
+    }
+
+    /// Where `Source_Code_Location`'s path, line and column sit in it.
+    pub fn location_layout(&mut self, span: Span) -> Result<crate::interp::LocationLayout> {
+        let ty = self.preload_type("Source_Code_Location", span)?;
+        let mut at = |name: &str| -> Result<u64> {
+            match self.member_offset(ty, name, span)? {
+                Some((offset, _)) => Ok(offset),
+                None => err(
+                    span,
+                    format!("Preload's `Source_Code_Location` has no `{name}`"),
+                ),
+            }
+        };
+        Ok(crate::interp::LocationLayout {
+            path: at("fully_pathed_filename")?,
+            line: at("line_number")?,
+            column: at("character_number")?,
+        })
+    }
+
     /// `find_member`, skipping structs already searched: `using` pointers can form a cycle
     /// (`S :: struct { using next: *S; }`), which would otherwise recurse forever.
     fn find_member_in(
