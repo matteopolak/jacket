@@ -175,6 +175,17 @@ jobs:
           # where jaic looks for native libraries: <stdlib>/../artifacts/native-libs/<platform>.
           # The static library is what `jaic build` links, the shared one what `jaic run` loads.
           python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
+          # The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
+          # stb_vorbis; rpmalloc on macOS and Linux, FreeType on Windows), built from the pinned,
+          # checksum-verified sources in tools/native-libs.json, static and shared like
+          # wgpu-native. Simp, GetRect and Sound_Player need them. macOS: for the oldest macOS
+          # the jaic binary runs on, not the runner's.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            export MACOSX_DEPLOYMENT_TARGET="${{ matrix.name == 'macos-x64' && '10.12' || '11.0' }}"
+          fi
+          python3 tools/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
+          unset MACOSX_DEPLOYMENT_TARGET
+          ls -l "$dir/artifacts/native-libs/${{ matrix.name }}"
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
           # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
           "$dir/jaic$exe" build jaifmt/main.jai -O2 --no-debug-info -o "$dir/jaifmt"
@@ -243,6 +254,25 @@ jobs:
           status=$?
           set -e
           test "$status" = 0 || test "$status" = 77
+          # Simp and the stb libraries need nothing beyond the archive either: `jaic run` loads
+          # the packaged shared libraries, and the built executable links the static ones.
+          cp "$GITHUB_WORKSPACE/tests/native-libs/simp-image.jai" .
+          "$jaic" run simp-image.jai
+          if [ -n "${{ matrix.llvm }}" ]; then
+            "$jaic" build simp-image.jai -o simp-image
+            ./simp-image$exe
+          fi
+          # Windows without Clang on PATH, where Git's coreutils `link` is in /usr/bin: jaic
+          # skips it and links with Visual Studio's link.exe (0.4.2: `link: extra operand`).
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            (
+              PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi llvm | paste -sd:)"
+              export PATH
+              which -a link
+              "$jaic" build simp-image.jai -o simp-image-msvc
+              ./simp-image-msvc.exe
+            )
+          fi
           # (`! cmd` would not stop the script: `set -e` ignores a negated command.)
           if [ "$RUNNER_OS" = "macOS" ]; then
             otool -L "$jaic"
@@ -264,6 +294,9 @@ jobs:
             set +e
             "$RUNNER_TEMP/bin/jaic" run main.jai
             status=$?
+            # The native libraries are found beside the real stdlib behind the symlink.
+            "$RUNNER_TEMP/bin/jaic" run simp-image.jai
+            simp_status=$?
             # jaifmt is self-contained: it needs neither the stdlib nor a checkout.
             ln -s "$RUNNER_TEMP/opt-jaic/jaifmt" "$RUNNER_TEMP/bin/jaifmt"
             linked_fmt="$(printf 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
@@ -271,6 +304,7 @@ jobs:
             set -e
             mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
             test "$status" = 42
+            test "$simp_status" = 0
             test "$fmt_status" = 0
             test "$linked_fmt" = "$formatted"
           fi

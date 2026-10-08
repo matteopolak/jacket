@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Release archives ship the stdlib's C libraries (`stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, plus `rpmalloc` on macOS and Linux and FreeType on Windows) for every platform, so Simp programs run and build from an installed toolchain. Before, `jaic run` stopped with ``foreign procedure `stbi_load` is not available here`` and `jaic build` could not find `stb_image`.
+
 ## [0.4.3] - 2026-10-08
 
 Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. The language server also gains auto-import completion, and formatting works again with the renamed VS Code extension.

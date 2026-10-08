@@ -170,8 +170,9 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
         shared = out / f'lib{name}.{shared_ext}'
         args = ['cc', '-shared', '-o', str(shared), *map(str, objects), '-lm']
         if shared_ext == 'dylib':
-            # Executables find it through their rpath, not the working directory.
-            args.append(f'-Wl,-install_name,@rpath/lib{name}.dylib')
+            # Executables find it through their rpath, not the working directory. The header
+            # padding lets Homebrew rewrite the install name when it installs a release archive.
+            args += [f'-Wl,-install_name,@rpath/lib{name}.dylib', '-Wl,-headerpad_max_install_names']
         subprocess.run(args, check=True)
 
 
@@ -180,6 +181,9 @@ def main() -> None:
     parser.add_argument('names', nargs='*', help='libraries to build (default: all for the platform)')
     parser.add_argument('--platform', default=None,
                         help='output directory name, e.g. windows-arm64 (default: the host\'s)')
+    parser.add_argument('--out', type=Path, default=None,
+                        help='directory to write the libraries to (default: the main checkout\'s '
+                             'artifacts/native-libs/<platform>); release.yml builds into the package')
     args = parser.parse_args()
     plat = args.platform or host_dir()
     if plat.split('-')[0] != host_dir().split('-')[0]:
@@ -188,9 +192,10 @@ def main() -> None:
         sys.exit(f'{plat}: not one of {", ".join(WINDOWS_TRIPLES)}')
     manifest = json.loads(MANIFEST.read_text())
     names = args.names or sorted(n for n, lib in manifest['libraries'].items() if wanted(lib, plat))
-    out = output_dir(plat)
+    out = (args.out or output_dir(plat)).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    cache = out.parent / 'sources'
+    # Downloaded sources stay in the shared cache, never in --out (which may be a package).
+    cache = output_dir(plat).parent / 'sources'
     for name in names:
         lib = manifest['libraries'].get(name)
         if lib is None:

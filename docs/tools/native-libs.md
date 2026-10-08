@@ -8,6 +8,9 @@ Windows (macOS and Linux use the system's, from Homebrew or the distribution). `
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
 output. Without it, programs that use those modules type-check but can't call into them or link.
+Release archives ship the libraries for their platform in `artifacts/native-libs/<platform>/`, built by
+`release.yml` from the same pinned sources, so an installed toolchain runs and builds Simp, GetRect and
+Sound_Player programs with no setup (FreeType still comes from the system on macOS and Linux).
 
 ## How it works
 
@@ -36,12 +39,17 @@ output. Without it, programs that use those modules type-check but can't call in
 python3 tools/build_native_libs.py              # all libraries
 python3 tools/build_native_libs.py stb_image    # just one
 python tools/build_native_libs.py --platform windows-arm64   # Windows: needs clang, llvm-lib, llvm-nm
+python3 tools/build_native_libs.py --out jai-linux-x64/artifacts/native-libs/linux-x64   # into a package
 ```
 
 The output goes to the main checkout's `artifacts/` even when run from a git worktree (resolved through
 the git common dir), so worktrees share one build. `tools/jaic-sweep.py` builds any missing library
 before it starts and sets `JAIC_NATIVE_LIBS` to that directory, so sweeps from any checkout or worktree
-can call and link these libraries without setup.
+can call and link these libraries without setup. `--out DIR` writes the libraries somewhere else (the
+downloaded sources stay in the shared cache); `release.yml` uses it to build them into each archive, with
+`MACOSX_DEPLOYMENT_TARGET` set to the oldest macOS `jaic` supports (11.0 on arm64, 10.12 on Intel) so the
+dylibs load there too. macOS dylibs are linked with `-headerpad_max_install_names`, so Homebrew can rewrite
+their install names when it installs an archive.
 
 ## Slang (sgpu)
 
@@ -89,13 +97,16 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 
 `cc` and `ar` on macOS and Linux; `clang`, `llvm-lib` and `llvm-nm` (the official LLVM release) and the
 MSVC libraries on Windows; network access to `raw.githubusercontent.com` and `github.com` on first
-build. Release archives do not include these libraries on any platform.
+build. Release archives include these libraries (`release.yml`'s Package step; the smoke test runs
+`tests/native-libs/simp-image.jai` from the unpacked archive with `jaic run` and as a built executable). Archives
+up to 0.4.2 did not, so Simp programs stopped with ``foreign procedure `stbi_load` is not available here``
+under `jaic run` and with a missing `stb_image` library when linking.
 
 ## wgpu-native (WebGPU)
 
 wgpu-native is not built here: `tools/fetch_wgpu_native.py [--platform P] [--out DIR] [--force]` downloads the
 release zip pinned in `tools/webgpu.json` (sha256 per platform), checks that its bundled `webgpu.yml` is the
 revision the bindings were generated from, and puts the static and shared library (`libwgpu_native.a` +
-`.dylib`/`.so`, or `wgpu_native.lib` + `.dll`) into the same `artifacts/native-libs/<os>-<arch>/`. Unlike the
-libraries above, release archives do ship it, in `artifacts/native-libs/<platform>/` beside `stdlib/`, which is
+`.dylib`/`.so`, or `wgpu_native.lib` + `.dll`) into the same `artifacts/native-libs/<os>-<arch>/`. Release
+archives ship it next to the libraries above, in `artifacts/native-libs/<platform>/` beside `stdlib/`, which is
 the default search directory. See [WebGPU](../specs/stdlib/README.md).
