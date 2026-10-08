@@ -6,6 +6,7 @@
 
 - `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
 - `Random`'s float32 draws use the low 24 bits of the next value, and `random_get_within_range` returns `min + (max - min) * fraction`.
+- `make_look_at_matrix(..., x_is_forward = false)` builds a right-handed view: the camera's right is `+x` (it was `-x`).
 
 ## [0.4.2] - 2026-10-08
 

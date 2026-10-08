@@ -336,6 +336,9 @@ transforms :: () {
     assert(close(view * xyzw(eye, 1), Vector4.{ 0, 0, 0, 1 }) && close(view * xyzw(target, 1), Vector4.{ 0, 0, -5, 1 }), "-z forward: %", view * xyzw(target, 1));
     above := view * xyzw(eye + Vector3.{ 0, 0, 1 }, 1);
     assert(close(above, Vector4.{ 0, 1, 0, 1 }), "up stays up: %", above);
+    // The -z forward view is right-handed: the camera's right is +x.
+    right := view * xyzw(eye + Vector3.{ 0.8, -0.6, 0 }, 1);
+    assert(close(right, Vector4.{ 1, 0, 0, 1 }), "right is +x: %", right);
 
     // Projections map the view volume's corners onto the clip cube.
     ortho := orthographic_projection_matrix(-2, 2, -1, 1, 1, 10);
