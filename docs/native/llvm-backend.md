@@ -9,6 +9,7 @@
 `emit_object(program, options, path)` in `lib.rs`:
 
 1. Creates a target machine for the host or `Options::target` (for example `x86_64-pc-windows-gnu` for `-os windows`). The triple picks the `jaic::abi::Arch`.
+   The CPU is the oldest one the triple runs on (`baseline_cpu`: `x86-64`, `apple-m1` for arm64 macOS, else `generic`), never the build machine's: release archives (jaifmt) are built on one CI runner and run on others, and 0.4.1's jaifmt, built for a runner with AVX-512, died with SIGILL on runners without it. `Build_Options.llvm_options.target_system_cpu` / `target_system_features` override it; `target_system_cpu = "native"` targets the build machine's CPU and features (`cpu_and_features`). The jaifmt native test and the release smoke test fail if an x86-64 Linux jaifmt uses `ymm`/`zmm` registers or AVX-512 masks.
 2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in global initialisers, then defines function bodies.
 3. Verifies the module, optionally runs the `default<On>` pipeline, and writes the object.
 
@@ -76,7 +77,7 @@ Definitions with C signatures (`#c_call` callbacks that C calls with structs) do
 - `JAIC_CODEGEN_UNITS=N` forces the unit count; `1` turns splitting off. (before and after the optimizer).
 - `JAIC_SPLIT_UNITS=N` forces the post-optimizer unit count of an optimized build (for tests); `1` turns that split off.
 - `INSTS_PER_UNIT` and `MAX_UNITS` in `split.rs`.
-- `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize }`, set from the CLI flags `-O0..-O3`, `--emit-ir file.ll`, `--no-debug-info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`.
+- `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize, cpu, features }`, set from the CLI flags `-O0..-O3`, `--emit-ir file.ll`, `--no-debug-info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`; `cpu` and `features` come from `llvm_options.target_system_cpu` / `target_system_features` (empty: the baseline CPU; `"native"`: the build machine's).
 - Building the crate needs `LLVM_SYS_231_PREFIX` pointing at LLVM 23 (for example `/opt/homebrew/opt/llvm`); see [LLVM setup](../tools/llvm-setup.md).
 
 ## Dependencies

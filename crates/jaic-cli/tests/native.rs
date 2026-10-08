@@ -1453,23 +1453,46 @@ fn jaifmt_builds_and_formats() {
         String::from_utf8_lossy(&build.stderr)
     );
 
-    let mut child = Command::new(&exe)
-        .arg("--stdin")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    use std::io::Write;
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(b"f :: ()\n{\n  x:=1;\n}\n")
-        .unwrap();
-    let output = child.wait_with_output().unwrap();
+    // Built for baseline x86-64, not this machine's CPU: release archives are built on one CI
+    // runner and run on others (the 0.4.1 jaifmt used AVX-512 and died with SIGILL elsewhere).
+    if cfg!(all(target_os = "linux", target_arch = "x86_64"))
+        && let Ok(dump) = Command::new("objdump").arg("-d").arg(&exe).output()
+    {
+        let dump = String::from_utf8_lossy(&dump.stdout);
+        let beyond = dump
+            .lines()
+            .find(|l| l.contains("%ymm") || l.contains("%zmm") || l.contains("{%k"));
+        assert!(beyond.is_none(), "beyond baseline x86-64: {beyond:?}");
+    }
+
+    let format_stdin = |input: &[u8]| {
+        let mut child = Command::new(&exe)
+            .arg("--stdin")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        use std::io::Write;
+        // Writes everything, then closes the pipe (as Homebrew's `pipe_output` does).
+        child.stdin.take().unwrap().write_all(input).unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(
+            output.status.success(),
+            "{:?}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
     assert_eq!(
-        String::from_utf8_lossy(&output.stdout),
+        format_stdin(b"f :: ()\n{\n  x:=1;\n}\n"),
         "f :: () {\n    x := 1;\n}\n"
+    );
+    // Input that ends without a newline.
+    assert_eq!(
+        format_stdin(b"main::(){x:=1;}"),
+        "main :: () {\n    x := 1;\n}\n"
     );
 
     let messy = "main :: () {\nx:=1;\n}\n";

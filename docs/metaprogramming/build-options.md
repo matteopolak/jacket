@@ -117,7 +117,7 @@ The before column is jaic 0.4.1. "Silently ignored" means the value was accepted
 | `machine_code_optimization_setting` | silently ignored | honoured |
 | `enable_tail_calls`, `enable_loop_unrolling`, `enable_slp_vectorization`, `enable_loop_vectorization`, `merge_functions`, `disable_inlining`, `enable_split_modules`, `preserve_debug_info` | silently ignored | honoured |
 | `output_llvm_ir`, `output_bitcode`, `output_llvm_ir_before_optimizations`, `output_bitcode_before_optimizations` | silently ignored | honoured |
-| `target_system_triple`, `target_system_cpu`, `target_system_features` | honoured | honoured |
+| `target_system_triple`, `target_system_cpu`, `target_system_features` | honoured (an empty CPU meant the build machine's) | honoured; an empty CPU is the target's baseline, `"native"` the build machine's ([LLVM backend](../native/llvm-backend.md)) |
 | `function_sections`, `disable_mem2reg` | silently ignored | `true` warns |
 | `command_line` | silently ignored | non-empty warns |
 

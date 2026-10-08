@@ -11,6 +11,7 @@
 `used_libraries` keeps the libraries referenced by a foreign symbol plus `link_always` ones, including unnamed statements like `#library,system,link_always "libc++";` (registered by `declare_library` in `sema/modules.rs`). `library_args` turns each into linker inputs (`LinkArg`), and `render_link_arg` renders them per linker style. On macOS and Linux:
 
 - `libc` / `c`: nothing; it is implicit.
+- libm: always linked (`-lm`), named or not. Builds target the baseline CPU ([LLVM backend](llvm-backend.md)), and on x86-64 without SSE4.1 LLVM turns float rounding (`#asm` `roundps`, `floor`, `trunc`) into calls to libm's `trunc`, `floor`, `ceil` and `round`.
 - Non-system library (`#library "native/own"`): looked up relative to the declaring file as `own.a`, `libown.a`, then `own.dylib`/`.so`, `libown.dylib`/`.so`. A static archive wins; a shared library adds `-Wl,-rpath,<dir>`. If the name contains `/` and nothing is found, the error says where it looked.
 - Apple framework (`/System/Library/Frameworks/<name>.framework` exists): `-framework <name>`.
 - Otherwise a `lib<name>.a` in the native-libs directories is linked by path, else `-l<name>` (a leading `lib` is stripped; Homebrew's library directory, `/opt/homebrew/lib` on Apple silicon or `/usr/local/lib` on Intel, is added on macOS if present).

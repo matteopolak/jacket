@@ -198,9 +198,23 @@ jobs:
           jailint="$PWD/$PACKAGE_DIR/jailint$exe"
           jaifmt="$PWD/$PACKAGE_DIR/jaifmt$exe"
           cd "$work"
-          formatted="$(echo 'main::(){x:=1;}' | "$jaifmt" --stdin | tr -d '\r')"
+          # Input without a final newline, as Homebrew's formula test sends it; the exit status
+          # is checked too (a crash prints nothing, which an output check alone could miss).
+          set +e
+          printf 'main::(){x:=1;}' | "$jaifmt" --stdin > fmt.out
+          status=$?
+          set -e
+          formatted="$(tr -d '\r' < fmt.out)"
           echo "$formatted"
+          test "$status" = 0
           test "$formatted" = "$(printf 'main :: () {\n    x := 1;\n}')"
+          # Built for the baseline x86-64 CPU, not this runner's: the archive runs on machines
+          # without AVX (the 0.4.1 jaifmt had AVX-512 and died with SIGILL on other runners).
+          if [ "${{ matrix.name }}" = "linux-x64" ]; then
+            if objdump -d "$jaifmt" | grep -E -m 5 '%[yz]mm|\{%k[0-7]\}'; then
+              echo "jaifmt uses instructions beyond baseline x86-64"; exit 1
+            fi
+          fi
           set +e
           "$jaic" run main.jai
           status=$?
@@ -252,10 +266,12 @@ jobs:
             status=$?
             # jaifmt is self-contained: it needs neither the stdlib nor a checkout.
             ln -s "$RUNNER_TEMP/opt-jaic/jaifmt" "$RUNNER_TEMP/bin/jaifmt"
-            linked_fmt="$(echo 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
+            linked_fmt="$(printf 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
+            fmt_status=$?
             set -e
             mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
             test "$status" = 42
+            test "$fmt_status" = 0
             test "$linked_fmt" = "$formatted"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

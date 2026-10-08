@@ -72,10 +72,11 @@ pub struct Options {
     pub debug_info: bool,
     /// Sanitizer instrumentation (`docs/native/sanitizers.md`).
     pub sanitize: Sanitize,
-    /// LLVM CPU name for a cross target (`llvm_options.target_system_cpu`); `None`: generic.
+    /// LLVM CPU name (`llvm_options.target_system_cpu`); `None`: the oldest CPU the triple runs
+    /// on (`baseline_cpu`), `"native"`: the build machine's CPU and features.
     pub cpu: Option<String>,
-    /// LLVM feature string for a cross target (`llvm_options.target_system_features`, such as
-    /// `+simd128`); `None`: the target's default. wasm always gets `+bulk-memory` added.
+    /// LLVM feature string (`llvm_options.target_system_features`, such as `+simd128`);
+    /// `None`: the CPU's own. wasm always gets `+bulk-memory` added.
     pub features: Option<String>,
     /// What a metaprogram's `Build_Options` asked of code generation (`None`: jaic's default).
     pub codegen: Codegen,
@@ -193,6 +194,54 @@ fn host_triple(macos_version: Option<&str>) -> TargetTriple {
     }
 }
 
+/// The LLVM CPU name and feature string for a build for `triple`, from
+/// `llvm_options.target_system_cpu` / `target_system_features`.
+///
+/// Without a CPU a build targets the oldest CPU its triple runs on, never the build machine's:
+/// a program built on a runner with AVX-512 must still run on one without it (release jaifmt
+/// is built on one CI machine and run on others). `"native"` opts into the build machine's CPU
+/// and features.
+fn cpu_and_features(cpu: Option<&str>, features: Option<&str>, triple: &str) -> (String, String) {
+    let mut features = features.unwrap_or_default().to_string();
+    let cpu = match cpu.filter(|c| !c.is_empty()) {
+        Some("native") => {
+            let host = TargetMachine::get_host_cpu_features().to_string();
+            features = if features.is_empty() {
+                host
+            } else {
+                format!("{host},{features}")
+            };
+            TargetMachine::get_host_cpu_name().to_string()
+        }
+        Some(cpu) => cpu.to_string(),
+        None => baseline_cpu(triple).to_string(),
+    };
+    // wasm: `memory.copy`/`memory.fill` for memcpy and memset. Without them LLVM calls
+    // `memmove`, which Wasi_Runtime implements with that same intrinsic. Only an explicit
+    // `-bulk-memory` turns them off.
+    if triple.starts_with("wasm") && !features.contains("bulk-memory") {
+        if !features.is_empty() {
+            features.push(',');
+        }
+        features.push_str("+bulk-memory");
+    }
+    (cpu, features)
+}
+
+/// The oldest CPU every machine running `triple` has: x86-64 (SSE2) on x86-64, the M1 on arm64
+/// macOS (macOS 11, the deployment target, runs only on Apple silicon there), and LLVM's
+/// `generic` (armv8-a, the wasm MVP) elsewhere.
+fn baseline_cpu(triple: &str) -> &'static str {
+    let arm64 = triple.starts_with("arm64") || triple.starts_with("aarch64");
+    if triple.starts_with("x86_64") {
+        "x86-64"
+    } else if arm64 && triple.contains("-apple-") {
+        "apple-m1"
+    } else {
+        "generic"
+    }
+}
+
 /// The target machine for `options`, and the architecture it targets.
 fn target_machine(
     options: &Options,
@@ -200,7 +249,6 @@ fn target_machine(
     // Target registration writes process-wide tables: once, not from every codegen thread.
     static TARGETS: std::sync::Once = std::sync::Once::new();
     TARGETS.call_once(|| Target::initialize_all(&InitializationConfig::default()));
-    let host = options.target.is_none();
     let triple = match &options.target {
         Some(t) => TargetTriple::create(t),
         None => host_triple(options.codegen.macos_version.as_deref()),
@@ -209,27 +257,11 @@ fn target_machine(
     let arch = jaic::abi::Arch::from_triple(&triple_str)
         .ok_or_else(|| format!("unsupported target architecture in '{triple_str}'"))?;
     let target = Target::from_triple(&triple).map_err(|e| e.to_string())?;
-    let (cpu, features) = if host {
-        (
-            TargetMachine::get_host_cpu_name().to_string(),
-            TargetMachine::get_host_cpu_features().to_string(),
-        )
-    } else {
-        let mut features = options.features.clone().unwrap_or_default();
-        // wasm: `memory.copy`/`memory.fill` for memcpy and memset. Without them LLVM calls
-        // `memmove`, which Wasi_Runtime implements with that same intrinsic. Only an explicit
-        // `-bulk-memory` turns them off.
-        if arch.is_wasm() && !features.contains("bulk-memory") {
-            if !features.is_empty() {
-                features.push(',');
-            }
-            features.push_str("+bulk-memory");
-        }
-        (
-            options.cpu.clone().unwrap_or_else(|| "generic".into()),
-            features,
-        )
-    };
+    let (cpu, features) = cpu_and_features(
+        options.cpu.as_deref(),
+        options.features.as_deref(),
+        &triple_str,
+    );
     // A wasm module is linked statically; PIC would ask for Emscripten-style dynamic linking.
     let reloc = if arch.is_wasm() {
         RelocMode::Static
@@ -613,6 +645,13 @@ pub fn link(
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
+    }
+    // LLVM lowers float rounding (`llvm.trunc`, `floor`, `ceil`, `round`, from `#asm` and
+    // casts) to libm calls on CPUs without SSE4.1 (baseline x86-64), so libm is always linked;
+    // on macOS it is part of libSystem and `-lm` is a no-op.
+    let libm = vec![LinkArg::Lib("m".into())];
+    if flavor == LinkFlavor::Unix && !seen.contains(&libm) {
+        seen.push(libm);
     }
     order_link_groups(&mut seen);
     let (program, mut cmd) = if sanitize.any() {
@@ -1189,6 +1228,39 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn builds_target_the_baseline_cpu_not_the_build_machine() {
+        let linux = "x86_64-unknown-linux-gnu";
+        assert_eq!(
+            cpu_and_features(None, None, linux),
+            ("x86-64".into(), "".into())
+        );
+        assert_eq!(cpu_and_features(Some(""), None, linux).0, "x86-64");
+        assert_eq!(
+            cpu_and_features(None, None, "arm64-apple-macosx11.0").0,
+            "apple-m1"
+        );
+        assert_eq!(
+            cpu_and_features(None, None, "aarch64-unknown-linux-gnu").0,
+            "generic"
+        );
+        assert_eq!(
+            cpu_and_features(Some("skylake"), Some("+avx2"), linux),
+            ("skylake".into(), "+avx2".into())
+        );
+        assert_eq!(
+            cpu_and_features(None, Some("+simd128"), "wasm64-unknown-wasi"),
+            ("generic".into(), "+simd128,+bulk-memory".into())
+        );
+        let (native, features) = cpu_and_features(Some("native"), None, linux);
+        assert_eq!(native, TargetMachine::get_host_cpu_name().to_string());
+        assert_eq!(features, TargetMachine::get_host_cpu_features().to_string());
+        // A host build (no `-target`) gets the baseline too.
+        let (machine, triple, _) = target_machine(&Options::default()).unwrap();
+        let triple = triple.as_str().to_string_lossy().into_owned();
+        assert_eq!(machine.get_cpu().to_string_lossy(), baseline_cpu(&triple));
+    }
 
     #[test]
     fn sanitizer_lists_parse_into_flags_and_passes() {

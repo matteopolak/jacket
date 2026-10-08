@@ -35,6 +35,7 @@
 - A `#!` line at the start of a file (`#!/usr/bin/env jai`) is skipped by jaic and kept by jaifmt, so jai-protobuf's `build.jai` compiles.
 - On macOS and Linux `File.handle` is the C stream (`*FILE`), so `File.{ stdin }` works, as jai-format and jai-protobuf expect; it was an `s64`.
 - Passing `p.*` of a null `p` as an `Any` or `..Any` argument no longer stops the program; 0.4.1 stopped there, which broke jaison's `assert` arguments. Boxing reads nothing, so code that never reads the value runs on. `print` is what stops, with `null pointer dereference: read through a null pointer`.
+- `jaic build` targets the baseline CPU of the target (x86-64, Apple M1, generic arm64) instead of the build machine's, so built programs run on older CPUs. The 0.4.1 Linux `jaifmt` used AVX-512 and crashed with an illegal instruction on machines without it. Set `llvm_options.target_system_cpu = "native"` for the old behavior.
 
 ## [0.4.1] - 2026-10-07
 
