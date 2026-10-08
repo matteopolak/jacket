@@ -390,7 +390,7 @@ impl Compiler {
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 let (bits, signed) = self.types.int_info(tr).unwrap();
-                if untyped && !int_fits(*i, bits, signed) {
+                if untyped && !int_constant_fits(*i, bits, signed, self.bit_pattern(span)) {
                     return err(
                         span,
                         format!("constant {i} does not fit in {}", self.types.name(to)),
@@ -409,6 +409,23 @@ impl Compiler {
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 if tr == TypeId::F32 {
+                    // A literal outside float32's normal range would become infinity or lose
+                    // its precision: it needs an explicit cast.
+                    let magnitude = x.abs();
+                    if untyped
+                        && magnitude.is_finite()
+                        && magnitude != 0.0
+                        && (magnitude > f32::MAX as f64 || magnitude < f32::MIN_POSITIVE as f64)
+                    {
+                        return err(
+                            span,
+                            format!(
+                                "constant {x:e} does not fit in {} (convert with `cast({})` to round it)",
+                                self.types.name(to),
+                                self.types.name(to)
+                            ),
+                        );
+                    }
                     Value::Float(*x as f32 as f64)
                 } else {
                     Value::Float(*x)
@@ -735,6 +752,44 @@ impl Compiler {
             ty,
             val: x,
         })
+    }
+
+    /// Whether the integer constant at `span` may stand for a bit pattern: it is not a plain
+    /// decimal expression. Hex and binary literals, `~` and named constants count; a constant
+    /// without source text is given the benefit of the doubt.
+    pub(crate) fn bit_pattern(&self, span: Span) -> bool {
+        let text = self.sources.snippet(span);
+        text.is_empty() || text.bytes().any(|b| b.is_ascii_alphabetic() || b == b'~')
+    }
+
+    /// `cast(T) k` of an integer constant `k` checks the range at compile time, as a runtime
+    /// cast would at run time: `cast(u8) -1` is an error, `cast(s8) 0xff` is `-1`.
+    pub(crate) fn check_constant_cast(&self, op: &Operand, to: TypeId, span: Span) -> Result<()> {
+        let Operand::Const {
+            value: Value::Int(v),
+            ..
+        } = op
+        else {
+            return Ok(());
+        };
+        if matches!(self.types.kind(to), TypeKind::Enum(_))
+            || matches!(self.types.kind(self.types.repr(to)), TypeKind::Enum(_))
+        {
+            return Ok(());
+        }
+        let Some((bits, signed)) = self.types.int_info(to) else {
+            return Ok(());
+        };
+        if int_constant_fits(*v, bits, signed, self.bit_pattern(span)) {
+            return Ok(());
+        }
+        let name = self.types.name(to);
+        err(
+            span,
+            format!(
+                "constant {v} is out of range for {name}; write `cast,trunc({name})` to keep the low bits"
+            ),
+        )
     }
 
     /// `cast(T) x` / `xx x`.
@@ -1066,6 +1121,27 @@ impl Compiler {
             ty: TypeId::ANY,
             val: any,
         })
+    }
+}
+
+/// Whether an untyped integer constant converts to an integer type without a cast. Negative
+/// values never go to an unsigned type, and a signed type takes the signed range only, except
+/// that a `bit_pattern` constant (written in hex or binary, through `~`, or by name) may fill
+/// all the bits: `x: s8 = 0xff` is `-1`, `x: s8 = 255` is an error. `~0` also fills a `u64`.
+pub fn int_constant_fits(v: i128, bits: u8, signed: bool, bit_pattern: bool) -> bool {
+    if bits >= 128 {
+        return true;
+    }
+    if signed && bits == 64 {
+        // Every 64-bit literal fits `s64`: `9223372036854775808` is `S64_MIN`.
+        return v >= i64::MIN as i128 && v <= u64::MAX as i128;
+    }
+    let span = 1i128 << bits;
+    if signed {
+        let half = span >> 1;
+        (-half..half).contains(&v) || (bit_pattern && (0..span).contains(&v))
+    } else {
+        (0..span).contains(&v) || (bit_pattern && bits == 64 && v >= i64::MIN as i128 && v < 0)
     }
 }
 

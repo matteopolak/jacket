@@ -13,9 +13,9 @@ tour_basics :: () {
         SHIP_NAME, crew, fuel, log_entry);
 
     // Sized integers convert explicitly with `cast`; `xx` casts to whatever is expected.
-    byte := cast(u8) 300; // wraps around to 44
+    byte := cast,trunc(u8) 300; // keeps the low byte: 44
     small: s16 = xx crew;
-    print("cast(u8) 300 = %, small = %, light speed = % km/s\n", byte, small, LIGHT_SPEED / 1000);
+    print("cast,trunc(u8) 300 = %, small = %, light speed = % km/s\n", byte, small, LIGHT_SPEED / 1000);
 
     // Procedures can be declared anywhere, including inside other procedures.
     cube :: (x: int) -> int {

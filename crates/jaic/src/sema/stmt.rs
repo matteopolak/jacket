@@ -571,8 +571,12 @@ impl Compiler {
             let addr = f.b.alloca(size.max(1), align);
             match value {
                 Some(op) => {
+                    let value_span = match &decl.value {
+                        Some(v) if decl.names.len() == 1 => v.span,
+                        _ => span,
+                    };
                     let op = self
-                        .convert(f, op, ty, span)
+                        .convert(f, op, ty, value_span)
                         .map_err(|e| self.declared_type_mismatch(e, decl, decl.names.len() == 1))?;
                     let (_, v) = self.rvalue(f, op, span)?;
                     self.store_value(f, ty, addr, v, span)?;
@@ -752,6 +756,25 @@ impl Compiler {
         let first_op = self.check_expr(f, scope, first, declared)?;
         if matches!(first.kind, E::Call { .. }) {
             self.check_must_used(first.span, names)?;
+            // `a, b := f(1);` with one result: the call has too few values to split.
+            let count = match &first_op {
+                Operand::Multi(vals) => vals.len(),
+                Operand::Void => 0,
+                _ => 1,
+            };
+            if names > 1 && count < names {
+                return err(
+                    first.span,
+                    format!(
+                        "{names} names but the call returns {count} value{}",
+                        if count == 1 {
+                            ""
+                        } else {
+                            "s"
+                        }
+                    ),
+                );
+            }
         }
         Ok(match first_op {
             Operand::Multi(vals) if names > 1 => vals
@@ -953,6 +976,34 @@ impl Compiler {
         Ok(true)
     }
 
+    /// `arr[0] = 5` or `k.x = 1` where `arr` or `k` is a constant: the element or member
+    /// would be written to a temporary copy, so it is an error.
+    fn reject_constant_target(&mut self, scope: ScopeId, target: &ast::Expr) -> Result<()> {
+        let mut root = target;
+        let mut nested = false;
+        while let E::Index(base, _) | E::Member(base, _) = &root.kind {
+            root = base;
+            nested = true;
+        }
+        if !nested || !matches!(root.kind, E::Ident(_)) {
+            return Ok(());
+        }
+        if let Ok(Operand::Const {
+            value, ..
+        }) = self.check_expr_no_emit(scope, root)
+            && !matches!(value, Value::Type(_) | Value::Null)
+        {
+            return err(
+                target.span,
+                format!(
+                    "cannot assign into the constant `{}`",
+                    self.sources.snippet(root.span).trim()
+                ),
+            );
+        }
+        Ok(())
+    }
+
     fn check_assign(
         &mut self,
         f: &mut FnCtx,
@@ -962,6 +1013,9 @@ impl Compiler {
         rhs: &[ast::Expr],
         span: Span,
     ) -> Result<()> {
+        for target in lhs {
+            self.reject_constant_target(scope, target)?;
+        }
         if lhs.len() == 1
             && rhs.len() == 1
             && self.try_index_assign(f, scope, op, &lhs[0], &rhs[0], span)?
@@ -1163,6 +1217,26 @@ impl Compiler {
         Ok(())
     }
 
+    /// `using x;` on a variable needs a struct (or union) or enum, or a pointer to one.
+    fn check_using_target(&self, ty: TypeId, span: Span) -> Result<()> {
+        let target = self.types.pointee(ty).unwrap_or(ty);
+        if self
+            .types
+            .as_struct(self.types.repr_struct(target))
+            .is_some()
+            || matches!(self.types.kind(self.types.repr(target)), TypeKind::Enum(_))
+        {
+            return Ok(());
+        }
+        err(
+            span,
+            format!(
+                "`using` needs a struct, an enum or a pointer to one; this is `{}`",
+                self.types.name(ty)
+            ),
+        )
+    }
+
     fn check_using(
         &mut self,
         f: &mut FnCtx,
@@ -1177,8 +1251,7 @@ impl Compiler {
                     EntityKind::Local {
                         ty, ..
                     } => {
-                        let target = self.types.pointee(ty).unwrap_or(ty);
-                        let _ = target;
+                        self.check_using_target(ty, value.span)?;
                         self.scope_mut(scope).usings.push(UsingEntry::Place {
                             ty,
                             entity: id,
@@ -1223,6 +1296,7 @@ impl Compiler {
             }) => {
                 // `using a.b;`: bind a hidden local pointing at the place (or holding the
                 // pointer itself when `a.b` is one).
+                self.check_using_target(op.ty(), value.span)?;
                 let (ptr, ptr_value) = if self.types.pointee(op.ty()).is_some() {
                     let ty = op.ty();
                     let (_, v) = self.rvalue(f, op, value.span)?;

@@ -331,8 +331,17 @@ impl Parser<'_> {
         let start = self.bump();
         let (bytes, span) = self.string_lit("after `#char`")?;
         let value = match std::str::from_utf8(&bytes) {
-            Ok(text) => text.chars().next().map_or(0, |c| c as u32),
-            Err(_) => bytes.first().copied().unwrap_or(0) as u32,
+            Ok(text) if text.chars().count() == 1 => text.chars().next().map_or(0, |c| c as u32),
+            Err(_) if bytes.len() == 1 => bytes[0] as u32,
+            _ => {
+                return Err(crate::source::Diagnostic::error(
+                    span,
+                    format!(
+                        "`#char` needs a string of exactly one character, found {} bytes",
+                        bytes.len()
+                    ),
+                ));
+            }
         };
         Ok(mk(ExprKind::Char(value), start.to(span)))
     }

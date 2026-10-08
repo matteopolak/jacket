@@ -18,7 +18,7 @@
 //! they give the same bits whether the constant wraps first or the result does
 //! (`h + 0xffff_ffff` is `h - 1` either way). Nor are bitwise operators and `==`/`!=`, where the
 //! bit pattern is the point (`h & 0xffff_ffff`, `x == 0xFFFF_FFFF`); anything using `~`; named
-//! constants; casts (`cast(u8) 300`, `xx`), which say what they mean; enum operands.
+//! constants; casts (`cast,trunc(u8) 300`, `xx`), which say what they mean; enum operands.
 use super::op_text;
 use crate::syntax::{Cx, is_atom, walk};
 use crate::{Edit, Finding, Fix};

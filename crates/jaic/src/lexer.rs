@@ -68,6 +68,8 @@ pub enum P {
     Question,
 }
 
+const INTEGER_TOO_BIG: &str = "integer literal is too big: integer literals must fit in 64 bits";
+
 const PUNCT: &[(&str, P)] = &[
     ("<<<=", P::RotlAssign),
     (">>>=", P::RotrAssign),
@@ -475,6 +477,7 @@ impl<'a> Lexer<'a> {
                 radix
             };
             let mut value: u128 = 0;
+            let mut too_big = false;
             while self.at < self.src.len() {
                 let ch = self.src[self.at];
                 if ch == b'_' {
@@ -485,7 +488,11 @@ impl<'a> Lexer<'a> {
                     break;
                 };
                 value = value.wrapping_mul(base as u128).wrapping_add(d as u128);
+                too_big |= value > u64::MAX as u128;
                 self.at += 1;
+            }
+            if too_big {
+                return Err(self.err(start, INTEGER_TOO_BIG));
             }
             if self.at == digits_start {
                 return Err(self.err(start, "expected digits after numeric prefix"));
@@ -540,9 +547,10 @@ impl<'a> Lexer<'a> {
                 .map(Tok::Float)
                 .map_err(|_| self.err(start, "invalid float literal"))
         } else {
-            text.parse::<u128>()
-                .map(Tok::Int)
-                .map_err(|_| self.err(start, "integer literal too large"))
+            match text.parse::<u128>() {
+                Ok(v) if v <= u64::MAX as u128 => Ok(Tok::Int(v)),
+                _ => Err(self.err(start, INTEGER_TOO_BIG)),
+            }
         }
     }
 

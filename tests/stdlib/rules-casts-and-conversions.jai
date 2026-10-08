@@ -44,7 +44,7 @@ main :: () {
     assert(t == 0, "trunc of 256 is 0");
     x: u8 = xx,trunc 298;
     assert(x == 42, "xx,trunc takes the declared type");
-    p := (298).(u8);
+    p := (42).(u8);
     assert(type_of(p) == u8 && p == 42, "postfix form");
     f: float32 = 3.7;
     bits := cast,force(u32) f;

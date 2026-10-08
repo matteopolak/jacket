@@ -665,6 +665,12 @@ impl Parser<'_> {
 
     fn parse_defer(&mut self, backtick: bool) -> PResult<Stmt> {
         let start = self.bump();
+        if self.at(P::Semi) {
+            return Err(crate::source::Diagnostic::error(
+                self.span(),
+                "`defer` needs a statement to defer",
+            ));
+        }
         let body = Box::new(self.parse_stmt()?);
         Ok(stmt(
             StmtKind::Defer {

@@ -99,7 +99,7 @@ jailint src/ --fix                                 # apply the safe fixes
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-matteopolak.jai--toolchain-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain)
 [![Open VSX](https://img.shields.io/open-vsx/v/matteopolak/jai-toolchain?label=Open%20VSX)](https://open-vsx.org/extension/matteopolak/jai-toolchain)
 
-The Jai extension for VS Code (and VSCodium, Cursor and other Open VSX editors) brings highlighting, the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai-toolchain); it uses the toolchain on your `PATH`, or offers to download it.
+The Jai extension for VS Code (and VSCodium, Cursor and other Open VSX editors) brings highlighting (including the body of a `#string WGSL`, `GLSL`, `SQL`, `JSON` or other language-named here-string), the `jailsp` language server, jailint's findings and fixes, `jaifmt` formatting and *Run/Build/Check File* commands. Install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain) or [Open VSX](https://open-vsx.org/extension/matteopolak/jai-toolchain); it uses the toolchain on your `PATH`, or offers to download it.
 
 Other editors can start `jailsp` (the Language Server Protocol over stdio) and run `jaifmt --stdin` as the formatter. See [the VS Code extension](docs/tools/vscode-extension.md) and [the language server](docs/compiler/language-server.md).
 
@@ -119,11 +119,20 @@ Other editors can start `jailsp` (the Language Server Protocol over stdio) and r
 | Linux | ✅ | ✅ |
 | Windows | ✅ | ✅ |
 
-**WebAssembly modules** (wasm64): `jaic build -os wasm` writes a WASI command that runs under node 24, wasmtime or a Memory64 browser, and a metaprogram can target it with `os_target = .WASM` ([wasm target](docs/native/wasm-target.md)).
+**WebAssembly modules** (wasm64): `jaic build -os wasm` writes a WASI command that runs under node 24, wasmtime or a Memory64 browser, with threads run as cooperative green threads ([threads in WASI builds](docs/native/wasm-threads.md)), and a metaprogram can target it with `os_target = .WASM` ([wasm target](docs/native/wasm-target.md)).
 
 On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitizer and LLVM's bounds checks ([sanitizers](docs/native/sanitizers.md)); CI runs the test programs that way.
 
-**Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals). A [WebGPU](docs/stdlib/webgpu.md) module covers the whole `webgpu.h` API: the same program draws in a window on macOS, Linux and Windows (wgpu-native, shipped in the release archives) and in the playground's Render pane in browsers with WebGPU and JSPI.
+**Standard library.** An independently written `stdlib/` covering the modules real programs use (Basic, String, Hash_Table, File, Thread, Process, Compiler, Simp, GetRect, Sound_Player, Iprof and more), plus `Bindings_Generator` for C, C++ (including virtual bases) and Objective-C (including block literals).
+
+**Extensions.** Modules only jaic has live in [`stdlib/Extensions/`](docs/stdlib/extensions.md) and are imported by that path:
+
+| Module | What it is |
+| --- | --- |
+| [`Extensions/WebGPU`](docs/stdlib/webgpu.md) | The whole `webgpu.h` API: one program draws in a window on macOS, Linux and Windows (wgpu-native ships in the release archives) and in the playground's Render tab (browsers with WebGPU and JSPI) |
+| [`Extensions/Long_Double`](docs/language/long-double.md) | C's 16-byte `long double` |
+| `Extensions/Jai_Format` | The formatter `jaifmt` is built on, as a library |
+| `Extensions/Wasi_Runtime` | The runtime of `-os wasm` builds, imported automatically |
 
 **Tools.**
 - A [language server](docs/compiler/language-server.md) (`jailsp`) with diagnostics, type-checked hover and completion, go to definition (including `#import`/`#load` targets), find references and rename, signature help, semantic tokens, inlay hints, format-string checks, and hovers and documents showing what macros, `#insert`, `#run` and `#if` expanded to ([feature list](docs/compiler/language-server.md#feature-list)).
@@ -148,8 +157,8 @@ Release builds spend most of their time in LLVM's optimiser. The formatter compi
 
 ## What is missing
 
-- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Long_Double` extension](docs/language/long-double.md); C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
-- WebAssembly builds are wasm64 only, have no threads, processes or sockets, see only the directories their runtime pre-opens, and can call only the common part of libm (`sin`, `pow`, `fmod` and the like, not `sinh` or `cbrt`).
+- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Extensions/Long_Double`](docs/language/long-double.md) module; C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
+- WebAssembly builds are wasm64 only, run threads cooperatively (a busy wait that never blocks keeps the turn), have no processes or sockets, see only the directories their runtime pre-opens, and can call only the common part of libm (`sin`, `pow`, `fmod` and the like, not `sinh` or `cbrt`).
 
 Anything unsupported fails with a compile error rather than being silently accepted.
 

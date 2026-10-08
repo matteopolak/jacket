@@ -12,7 +12,7 @@ How a value changes type: implicit conversion, `cast(T)`, the contextual `xx`, p
 small := cast,no_check(u8) wide;     // u16 298 -> 42
 t := cast,trunc(u8) 256;             // 0
 x: u8 = xx,trunc 298;                // 42, target comes from the declaration
-p := (298).(u8);                     // postfix form, 42
+p := (42).(u8);                      // postfix form
 q := big.(u32, trunc);               // postfix with a modifier
 bits := cast,force(u32) f;           // float 3.7 -> 1080872141, reinterprets bits
 ```
@@ -75,7 +75,9 @@ A negative value does not fit an unsigned target (`cast(u16)` of `n: s32 = -1` f
 
 `.NONFATAL` prints `path:line: warning: cast of 300 to `u8` overflows` on stderr and goes on with the low bits; `.OFF` keeps the low bits silently. The option applies to workspaces a metaprogram creates, like the other checks {#cast.33}.
 
-`xx` to a narrower type is checked like `cast`; `trunc`, `no_check` and `force` skip the check, and so do constants (folded at compile time), enums and pointers {#cast.34}.
+`xx` to a narrower type is checked like `cast`; `trunc`, `no_check` and `force` skip the check, and so do enums and pointers {#cast.34}.
+
+A constant is checked at compile time instead (`check_constant_cast` in `sema/convert.rs`): `cast(u8) 300`, `cast(u8) -1` and `y: u8 = xx -1` are errors, and `cast,trunc(u8) 300` is `44` {#cast.35}. A hex, binary, `~` or named constant may fill a signed type's bits, so `cast(s8) 0xff` is `-1` and `cast(s32) 0xFFFF_FFFF` is accepted; `cast(s8) 255` is not.
 
 ## How to change it
 

@@ -19,7 +19,7 @@ main :: () {
     // The same bits whether the constant or the sum wraps.
     minus_one := h + 0xffff_ffff;
     // Spelled out.
-    narrow := cast(u8) 300;
+    narrow := cast,trunc(u8) 300;
     as_s32 := h + cast,no_check(s32) 0xffff_ffff;
     // Named constants and constant-only expressions.
     named := h + MASK;

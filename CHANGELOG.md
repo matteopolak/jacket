@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Heads-up
+
+- Integer constants must fit their type ([numbers](docs/language/numbers.md)). A negative constant no longer converts to an unsigned type (`x: u32 = -1;`), a decimal constant must fit a signed type's range (`x: s16 = 40000;`), and a cast of a constant checks its range at compile time (`cast(u8) 300`, `y: u8 = xx -1`); write `cast,trunc(T)` for the low bits. Hex, binary, `~` and named constants may still fill a signed type's bits (`x: s8 = 0xff` is `-1`). A literal that does not fit the other operand makes the operation `s64` (`small_u8 == -1` is now `false` for 255).
+- A float literal with 8 or more significant digits is `float64`, even when `float32` holds it exactly (`16777216.0`), and so is one outside `float32`'s normal range (`1.0e39`), which no longer converts to `float32` without a cast. Integer literals must fit in 64 bits.
+
 ### Fixed
 
 - `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
@@ -9,6 +14,8 @@
 - `make_look_at_matrix(..., x_is_forward = false)` builds a right-handed view: the camera's right is `+x` (it was `-x`).
 - `print` handles several edge cases as Jai does: a negative integer in another base is its two's complement (`formatInt(-1, base = 16)` on an `s8` is `ff`); fixed-precision floats round ties away from zero (`2.5` with no decimals is `3`); trailing zeros removed by zero removal keep their width as spaces; infinity and NaN print as `Inf`, `-Inf` and `NaN`; an enum value without a name prints as `(enum out of range: 5)`, and leftover `enum_flags` bits print in hex after the names; an array cut short ends `[1, 2...]`; an `Any` with no type prints `Any.{}`; strings inside structs escape only newlines; type names print `(anonymous enum)`, `#c_call` and `#compiler`.
 - Type info gives an anonymous enum an empty name, as for anonymous structs.
+- Two typed integer constants of different types meet in the wider one (`cast(s16) 1 + cast(s32) 2` is `s32`), as variables do.
+- Compile errors for programs jaic accepted: arithmetic on `bool`, more names than a call returns (`a, b := f(1)` with one result), the address of a number constant (`*5`), `#char` of an empty or multi-character string, `using` on a variable that is not a struct or enum, a bare `defer;`, an enum value outside its type, a repeated enum or struct member name, and assigning into a constant array (`ARR[0] = 1` changed a copy).
 
 ## [0.4.2] - 2026-10-08
 

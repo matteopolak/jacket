@@ -2450,6 +2450,240 @@
       "rules": [
         "poly.19"
       ]
+    },
+    {
+      "id": "int-constant-negative-unsigned",
+      "source": "negative/int-constant-negative-unsigned.jai",
+      "sha256": "18b573e8af7f6bfffa7753842a89b32698ed2d72a736a80fa13b28b87f5f2d25",
+      "suite": "negative",
+      "feature": "a negative constant does not fit an unsigned type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "constant -1 does not fit in u32"
+      }
+    },
+    {
+      "id": "int-constant-decimal-signed-overflow",
+      "source": "negative/int-constant-decimal-signed-overflow.jai",
+      "sha256": "3203363c5e4bc11121203b71922df63ca412d321d31015756f263e2259300d37",
+      "suite": "negative",
+      "feature": "a decimal constant must fit a signed type's range",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "constant 40000 does not fit in s16"
+      }
+    },
+    {
+      "id": "int-constant-argument-overflow",
+      "source": "negative/int-constant-argument-overflow.jai",
+      "sha256": "70fb99ffd9a0bc6c04322cf67a9296666f05238c25ca5dbc0b92ca0b6586c090",
+      "suite": "negative",
+      "feature": "a decimal constant argument must fit a signed parameter",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "constant 200 does not fit in s8"
+      }
+    },
+    {
+      "id": "constant-cast-out-of-range",
+      "source": "negative/constant-cast-out-of-range.jai",
+      "sha256": "7e47f86a47783d968dbb8d33161038df49283aef43a072c16b98e68819809866",
+      "suite": "negative",
+      "feature": "a constant cast is bounds-checked at compile time",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "constant 300 is out of range for u8"
+      }
+    },
+    {
+      "id": "constant-autocast-negative-unsigned",
+      "source": "negative/constant-autocast-negative-unsigned.jai",
+      "sha256": "3fb14f443f235c4abab6b02ef876569f244943ca530ebb38811ce1c94963b1c8",
+      "suite": "negative",
+      "feature": "xx of a negative constant to an unsigned type is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "constant -1 is out of range for u8"
+      }
+    },
+    {
+      "id": "integer-literal-too-big",
+      "source": "negative/integer-literal-too-big.jai",
+      "sha256": "64615849687346e62c740041dd174b8fb393e2708993f985533d7ee57424d3af",
+      "suite": "negative",
+      "feature": "an integer literal must fit in 64 bits",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "integer literal is too big"
+      }
+    },
+    {
+      "id": "float32-literal-out-of-range",
+      "source": "negative/float32-literal-out-of-range.jai",
+      "sha256": "a84ed18a2e00e83fa86b317c6a9e697fdbdb3bab74c5876358f482c04182d1c4",
+      "suite": "negative",
+      "feature": "a float literal outside float32's range needs a cast to float32",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "does not fit in float32"
+      }
+    },
+    {
+      "id": "bool-arithmetic",
+      "source": "negative/bool-arithmetic.jai",
+      "sha256": "5ec7c9e2b77241efd933a66c4b76d48a1d7a3e6bc693b41587354a684ef6b93b",
+      "suite": "negative",
+      "feature": "arithmetic on bool is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "operator `+` is not defined for bool"
+      }
+    },
+    {
+      "id": "decl-names-exceed-call-results",
+      "source": "negative/decl-names-exceed-call-results.jai",
+      "sha256": "950ade918fb70e6e7341b6fa2fee3a9ed00725077e34b7ac729f80a072ad0b82",
+      "suite": "negative",
+      "feature": "more names than a call returns is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "2 names but the call returns 1 value"
+      }
+    },
+    {
+      "id": "address-of-number-constant",
+      "source": "negative/address-of-number-constant.jai",
+      "sha256": "5a4ab0fbae2ccf63247a8c900e3a57414dfa1026d6c2d8282f81bd27e3f12777",
+      "suite": "negative",
+      "feature": "a number constant has no address",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot take the address of a number or bool constant"
+      }
+    },
+    {
+      "id": "char-directive-two-characters",
+      "source": "negative/char-directive-two-characters.jai",
+      "sha256": "2731e1551141516c8a6dfd1996b483e029206f4ae1c60b517be7bb6b6f1d5ad2",
+      "suite": "negative",
+      "feature": "#char takes exactly one character",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`#char` needs a string of exactly one character, found 2 bytes"
+      }
+    },
+    {
+      "id": "char-directive-empty",
+      "source": "negative/char-directive-empty.jai",
+      "sha256": "20be2f06c0321160622baa9b395c6551e3c54e85bd22d4adeff5425bc8059e58",
+      "suite": "negative",
+      "feature": "#char of an empty string is rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`#char` needs a string of exactly one character, found 0 bytes"
+      }
+    },
+    {
+      "id": "using-on-integer",
+      "source": "negative/using-on-integer.jai",
+      "sha256": "c7d9c3cff8b49851935f0ce48190238a957d9ed74c8eb0b89cc93a60c2de43c0",
+      "suite": "negative",
+      "feature": "using a variable needs a struct or enum",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`using` needs a struct, an enum or a pointer to one; this is `s64`"
+      }
+    },
+    {
+      "id": "defer-without-statement",
+      "source": "negative/defer-without-statement.jai",
+      "sha256": "602c0b9cc86749e4a7fa3febcfb31409fac7d74dcfb4f977d51ea10c9bace7e3",
+      "suite": "negative",
+      "feature": "defer needs a statement",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`defer` needs a statement to defer"
+      }
+    },
+    {
+      "id": "enum-value-out-of-range",
+      "source": "negative/enum-value-out-of-range.jai",
+      "sha256": "8096d1eb727edd98cdda4e80e0adc436a35296ff1e0647154f5696ac45f4eb68",
+      "suite": "negative",
+      "feature": "an enum value must fit the enum's integer type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "enum value 256 is out of range for the enum's type u8"
+      }
+    },
+    {
+      "id": "enum-duplicate-member",
+      "source": "negative/enum-duplicate-member.jai",
+      "sha256": "9712d50a412e2cabe60616d00d654fe8bd65dcaf82ee4145d94f824392713987",
+      "suite": "negative",
+      "feature": "an enum member name may appear once",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "enum member `A` is declared more than once"
+      }
+    },
+    {
+      "id": "struct-duplicate-member",
+      "source": "negative/struct-duplicate-member.jai",
+      "sha256": "6e41e6ea3e22d1b0d5483f9a5bacaeea9b552dd6c82a99cc1c26f4d15d55743e",
+      "suite": "negative",
+      "feature": "a struct member name may appear once",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "member `a` is declared more than once"
+      }
+    },
+    {
+      "id": "assign-into-constant-array",
+      "source": "negative/assign-into-constant-array.jai",
+      "sha256": "c01bc08c4951a91ef4276c1ac94dae8a8c97c42e80d2a26579408609150d4ef8",
+      "suite": "negative",
+      "feature": "an element of a constant array cannot be assigned",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot assign into the constant `PRIMES`"
+      }
     }
   ]
 }

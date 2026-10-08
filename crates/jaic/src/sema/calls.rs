@@ -1004,7 +1004,7 @@ impl Compiler {
                 ..
             } if self.types.is_integer(param) => {
                 let (bits, signed) = self.types.int_info(param).unwrap();
-                if !convert::int_fits(*v, bits, signed) {
+                if !convert::int_constant_fits(*v, bits, signed, self.bit_pattern(arg.span)) {
                     return err(
                         arg.span,
                         format!("constant {v} does not fit in {}", self.types.name(param)),

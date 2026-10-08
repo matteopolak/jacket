@@ -176,6 +176,7 @@ impl Compiler {
                 let op = if flags.no_check || flags.truncate || flags.force {
                     op
                 } else {
+                    self.check_constant_cast(&op, target, value.span)?;
                     self.emit_cast_check(f, op, target, span)?
                 };
                 self.explicit_cast(f, op, target, *flags, span)
@@ -994,6 +995,13 @@ impl Compiler {
                             val: v,
                         })
                     }
+                    Operand::Const {
+                        value: Value::Int(_) | Value::Float(_) | Value::Bool(_),
+                        ..
+                    } => err(
+                        span,
+                        "cannot take the address of a number or bool constant: it has no storage (assign it to a variable first)",
+                    ),
                     other => {
                         // Address of a temporary.
                         let (ty, addr) = self.address_of(f, other, span)?;
@@ -1140,9 +1148,9 @@ impl Compiler {
         }
     }
 
-    /// Give an untyped constant a concrete type from context (or its default).
-    /// The default type of a float literal: `float32`, unless the literal has more significant
-    /// figures than `float32` holds (`12342345234.0`), which makes it `float64` as in Jai.
+    /// The default type of a float literal: `float32`, unless the literal has 8 or more
+    /// significant digits (`16777216.0`) or lies outside float32's normal range (`1.0e39`),
+    /// which makes it `float64` as in Jai.
     fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
         let text = self.sources.snippet(span);
         // A `0h` bit pattern is float32 with up to 8 hex digits and float64 with more
@@ -1155,24 +1163,27 @@ impl Compiler {
                 TypeId::F32
             };
         }
-        if (v as f32) as f64 == v {
-            return TypeId::F32;
+        // Outside float32's normal range (`1.0e39`, `1.0e-40`) the literal is float64.
+        let magnitude = v.abs();
+        if magnitude != 0.0 && (magnitude > f32::MAX as f64 || magnitude < f32::MIN_POSITIVE as f64)
+        {
+            return TypeId::F64;
         }
-        let mantissa = text.split(['e', 'E']).next().unwrap_or("");
-        let digits: Vec<u8> = mantissa.bytes().filter(u8::is_ascii_digit).collect();
-        let first = digits.iter().position(|&d| d != b'0');
-        let last = digits.iter().rposition(|&d| d != b'0');
-        let significant = match (first, last) {
-            (Some(a), Some(b)) => b - a + 1,
-            _ => 0,
-        };
-        if significant > 7 {
+        // Significant digits run from the first nonzero digit to the end of the whole part, then
+        // up to the last nonzero fraction digit: `16777216.0` has 8, `0.30000000` has 1. Eight or
+        // more make the literal float64, even when float32 happens to hold the value exactly.
+        let mantissa = text.split(['e', 'E']).next().unwrap_or("").replace('_', "");
+        let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa.as_str(), ""));
+        let digits = format!("{whole}{}", fraction.trim_end_matches('0'));
+        let significant = digits.trim_start_matches('0').len();
+        if significant >= 8 {
             TypeId::F64
         } else {
             TypeId::F32
         }
     }
 
+    /// Give an untyped constant a concrete type from context (or its default).
     pub fn settle_untyped(&self, op: Operand, expected: Option<TypeId>) -> Operand {
         match op {
             Operand::Const {
@@ -1583,7 +1594,29 @@ impl Compiler {
             rhs = self.explicit_cast(f, rhs, TypeId::F32, ast::CastFlags::default(), span)?;
         }
         // Unify operand types.
-        let ty = self.binary_operand_type(&lhs, &rhs, expected, is_shift, span)?;
+        let patterns = (self.bit_pattern(a.span), self.bit_pattern(b.span));
+        let ty = self.binary_operand_type(&lhs, &rhs, expected, is_shift, patterns, span)?;
+        if self.types.repr(ty) == TypeId::BOOL
+            && matches!(
+                op,
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Rem
+            )
+        {
+            let symbol = match op {
+                BinOp::Add => "+",
+                BinOp::Sub => "-",
+                BinOp::Mul => "*",
+                BinOp::Div => "/",
+                _ => "%",
+            };
+            return err(span, format!("operator `{symbol}` is not defined for bool"));
+        }
+        // A literal that met the other operand's type takes it as a bit pattern
+        // (`mask & ~0x7` with a `u32` mask).
+        if !is_shift {
+            lhs = self.literal_as_bits(lhs, ty);
+            rhs = self.literal_as_bits(rhs, ty);
+        }
         let rhs_ty = if is_shift {
             self.shift_amount_type(&rhs, ty)
         } else {
@@ -1846,14 +1879,17 @@ impl Compiler {
     }
 
     /// The type an untyped literal takes next to a typed operand: the operand's
-    /// type, or a 64-bit integer when the literal does not fit.
-    fn literal_meets(&self, lit: &Operand, ty: TypeId) -> TypeId {
+    /// type, or a 64-bit integer when the literal does not fit (`small + -1` and
+    /// `small == -1` with a `u8` work in `s64`). A hex, binary or `~` literal
+    /// (`bit_pattern`) may still fill the operand's bits.
+    fn literal_meets(&self, lit: &Operand, ty: TypeId, bit_pattern: bool) -> TypeId {
         if let Operand::Const {
             value: Value::Int(v),
             ..
         } = lit
             && let Some((bits, signed)) = self.types.int_info(ty)
-            && !super::convert::int_fits(*v, bits, signed)
+            && !super::convert::int_constant_fits(*v, bits, signed, bit_pattern)
+            && !(bit_pattern && super::convert::int_fits(*v, bits, signed))
             && !matches!(self.types.kind(ty), TypeKind::Enum(_))
         {
             return if super::convert::int_fits(*v, 64, true) {
@@ -1863,6 +1899,29 @@ impl Compiler {
             };
         }
         ty
+    }
+
+    /// An untyped integer literal operand of integer type `ty`, wrapped to `ty`'s bits when
+    /// it only fits as a bit pattern.
+    fn literal_as_bits(&self, op: Operand, ty: TypeId) -> Operand {
+        match op {
+            Operand::Const {
+                value: Value::Int(v),
+                untyped: true,
+                ..
+            } if !matches!(self.types.kind(ty), TypeKind::Enum(_))
+                && let Some((bits, signed)) = self.types.int_info(ty)
+                && bits <= 64
+                && super::convert::int_fits(v, bits, signed) =>
+            {
+                Operand::Const {
+                    ty,
+                    value: Value::Int(wrap_int(v, bits, signed)),
+                    untyped: false,
+                }
+            }
+            op => op,
+        }
     }
 
     fn shift_amount_type(&self, rhs: &Operand, lhs_ty: TypeId) -> TypeId {
@@ -1930,6 +1989,7 @@ impl Compiler {
         rhs: &Operand,
         expected: Option<TypeId>,
         is_shift: bool,
+        patterns: (bool, bool),
         span: Span,
     ) -> Result<TypeId> {
         let lu = matches!(
@@ -1984,8 +2044,8 @@ impl Compiler {
                         .unwrap_or(TypeId::S64)
                 })
             }
-            (true, false) => Ok(self.literal_meets(lhs, rt)),
-            (false, true) => Ok(self.literal_meets(rhs, lt)),
+            (true, false) => Ok(self.literal_meets(lhs, rt, patterns.0)),
+            (false, true) => Ok(self.literal_meets(rhs, lt, patterns.1)),
             (false, false) => {
                 if lt == rt {
                     return Ok(lt);
@@ -2091,8 +2151,29 @@ impl Compiler {
         }
         let untyped = *lu && *ru;
         let is_shift = matches!(op, BinOp::Shl | BinOp::Shr | BinOp::Rotl | BinOp::Rotr);
+        let plain_int = |c: &Self, t: TypeId| {
+            c.types.int_info(t).is_some() && !matches!(c.types.kind(t), TypeKind::Enum(_))
+        };
         let ty = if *lu && !*ru && !is_shift {
             *rt
+        } else if !*lu
+            && !*ru
+            && !is_shift
+            && lt != rt
+            && plain_int(self, *lt)
+            && plain_int(self, *rt)
+        {
+            // Two typed integer constants meet in the wider type, as variables do
+            // (`cast(s16) 1 + cast(s32) 2` is `s32`).
+            if self.implicit_cost(*rt, false, *lt).is_some() {
+                *lt
+            } else if self.implicit_cost(*lt, false, *rt).is_some() {
+                *rt
+            } else if self.types.int_info(*lt).unwrap().0 >= self.types.int_info(*rt).unwrap().0 {
+                *lt
+            } else {
+                *rt
+            }
         } else {
             *lt
         };

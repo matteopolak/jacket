@@ -20,6 +20,7 @@ print("%\n", Flags.READ | Flags.EXEC);                              // READ | EX
 A member prints by name, `cast(int)` gives its value, and an `enum_flags` combination prints as its member names joined by ` | ` {#enum.5}.
 
 - A value with no matching name prints as `(enum out of range: 99)` for `cast(Color) 99` {#enum.6}. An `enum_flags` value lists its named bits and then any leftover bits in hex (`X | Z | 0xf8`); with no named bit it is the hex number alone, and zero prints `0`.
+- A member name appears once, and every value must fit the enum's integer type (`A :: 256` in an `enum u8` is an error; `enum_items` in `sema/structs.rs`).
 - `enum_flags` members are powers of two and combine with `|` and `&` {#enum.7}; `fl & .WRITE` works as an `if` condition {#enum.8}.
 - `Color.loose` (`Types::loose_enum`) converts implicitly to and from integers and `Color` (`implicit_cost` in `sema/convert.rs`) {#enum.9}.
 - `.FIRST == x` works: `check_binary` checks the right side first, so the inferred member takes its type {#enum.14}.

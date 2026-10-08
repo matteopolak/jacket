@@ -511,6 +511,27 @@ impl Compiler {
                         },
                         None => *next,
                     };
+                    if out.iter().any(|(n, _)| *n == m.name.name) {
+                        return err(
+                            m.name.span,
+                            format!("enum member `{}` is declared more than once", m.name.name),
+                        );
+                    }
+                    if let Some((bits, signed)) = self.types.int_info(ty)
+                        && !super::convert::int_constant_fits(v, bits, signed, true)
+                    {
+                        let base = if signed {
+                            "s"
+                        } else {
+                            "u"
+                        };
+                        return err(
+                            m.value.as_ref().map_or(m.name.span, |e| e.span),
+                            format!(
+                                "enum value {v} is out of range for the enum's type {base}{bits}"
+                            ),
+                        );
+                    }
                     *next = if flags {
                         if v == 0 {
                             1
@@ -732,6 +753,14 @@ impl Compiler {
                         cursor = offset + size;
                     }
                     end = end.max(offset + size);
+                    if let Some(name) = d.name
+                        && fields.iter().any(|f: &Field| f.name == Some(name))
+                    {
+                        return err(
+                            d.span,
+                            format!("member `{name}` is declared more than once"),
+                        );
+                    }
                     fields.push(Field {
                         name: d.name,
                         ty: d.ty,
