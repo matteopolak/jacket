@@ -2,10 +2,6 @@
 
 ## [Unreleased]
 
-### Fixed
-
-- Release archives ship the stdlib's C libraries (`stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, plus `rpmalloc` on macOS and Linux and FreeType on Windows) for every platform, so Simp programs run and build from an installed toolchain. Before, `jaic run` stopped with ``foreign procedure `stbi_load` is not available here`` and `jaic build` could not find `stb_image`.
-
 ## [0.4.3] - 2026-10-08
 
 Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. The language server also gains auto-import completion, and formatting works again with the renamed VS Code extension.
@@ -30,9 +26,10 @@ Typing part of a name you haven't imported offers it from the standard library, 
 - VS Code: Jai files format with the extension again. Its default formatter setting still named the old ID `matteopolak.jai`, so VS Code said the formatter "isn't available"; *Open Settings* in the missing-toolchain warning also filtered by the old ID.
 - `print`: negatives in other bases are two's complement, ties round away from zero, `Inf`/`-Inf`/`NaN`, `(enum out of range: N)` for unnamed enum values, and `[1, 2...]` for cut-short arrays.
 - `Hash_Table`, `Random` and `make_look_at_matrix` match Jai (details below).
+- Simp programs run and build from an installed toolchain: the release archives now include the stb_image, stb_image_write, stb_image_resize and stb_vorbis libraries (plus rpmalloc, and FreeType on Windows). On Windows, `jaic build` without Clang also links with Visual Studio instead of the `link` that Git for Windows puts on `PATH`.
 
 <details>
-<summary>All changes (8)</summary>
+<summary>All changes (10)</summary>
 
 - Auto-import completion in jailsp: typing part of a name the file cannot see offers it from standard-library modules, the project's modules and its other files, and accepting it also adds the `#import "Basic";` or `#load "util/strings.jai";` it needs (after the existing ones). It needs two typed characters, offers at most 50 names, sorts them after names in scope, and leaves out modules already imported and modules for other target OSes. `jai.toml` at a project root names its entry files (`build_files`) and module folders (`import_path`); without one they are inferred (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`). VS Code: `jai.completion.autoImport` (on by default) and a schema for `jai.toml`. The playground applies the added import too ([language server](docs/compiler/language-server.md#auto-import-completion)).
 - `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
@@ -42,6 +39,8 @@ Typing part of a name you haven't imported offers it from the standard library, 
 - Type info gives an anonymous enum an empty name, as for anonymous structs.
 - Two typed integer constants of different types meet in the wider one (`cast(s16) 1 + cast(s32) 2` is `s32`), as variables do.
 - Compile errors for programs jaic accepted: arithmetic on `bool`, more names than a call returns (`a, b := f(1)` with one result), the address of a number constant (`*5`), `#char` of an empty or multi-character string, `using` on a variable that is not a struct or enum, a bare `defer;`, an enum value outside its type, a repeated enum or struct member name, and assigning into a constant array (`ARR[0] = 1` changed a copy).
+- Release archives ship the stdlib's C libraries (`stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, plus `rpmalloc` on macOS and Linux and FreeType on Windows) for every platform, so Simp programs run and build from an installed toolchain. Before, `jaic run` stopped with ``foreign procedure `stbi_load` is not available here`` and `jaic build` could not find `stb_image`.
+- Windows: `jaic build` without Clang on `PATH` no longer runs the coreutils `link` that Git for Windows puts there (``link: extra operand 'build\\game.exe.o'``). It uses Microsoft's `link.exe`, finding Visual Studio and the Windows SDK libraries itself when no developer prompt is open, or a Clang installed outside `PATH`, and older Clang drivers now link the DLL C runtime as the libraries expect.
 
 </details>
 

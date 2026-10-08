@@ -6,6 +6,7 @@
 mod debuginfo;
 mod green;
 mod lower;
+mod msvc;
 mod split;
 mod wasm;
 
@@ -687,6 +688,15 @@ pub fn link(
         if flavor == LinkFlavor::Msvc {
             // Clang's MSVC driver: the dynamic CRT, as above.
             cmd.args(["-fms-runtime-lib=dll", "-llegacy_stdio_definitions"]);
+            // Older Clang drivers (the one in windows-2025's `Program Files\LLVM`) ignore that
+            // flag when they only link and still name the static CRT (`-defaultlib:libcmt`),
+            // which leaves the `__imp_` references of libraries built for the DLL runtime (the
+            // packaged `stb_image.lib`) unresolved.
+            cmd.args([
+                "-Wl,/NODEFAULTLIB:libcmt",
+                "-Wl,/DEFAULTLIB:msvcrt",
+                "-Wl,/DEFAULTLIB:oldnames",
+            ]);
         }
     }
     // Windows reserves 1 MiB for the main thread's stack (and threads created without a
@@ -867,7 +877,17 @@ pub fn archive(objects: &[PathBuf], output: &Path, target: Option<&str>) -> Resu
             .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?,
         Err(_) if LinkFlavor::for_target(target).is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
+            let arch = msvc::arch_dir(target.unwrap_or(if cfg!(target_arch = "aarch64") {
+                "aarch64"
+            } else {
+                "x86_64"
+            }));
             find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
+                // Visual Studio's lib.exe when no developer prompt put it on PATH.
+                .or_else(|| {
+                    msvc::find_tool("lib.exe", arch)
+                        .map(|tool| tool.program.to_string_lossy().into_owned())
+                })
                 .ok_or("no archiver for Windows libraries found: install LLVM or mingw-w64")?
         }
         Err(_) => "ar".to_string(),
@@ -1030,22 +1050,59 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
             }
             Ok((program, cmd))
         }
-        LinkFlavor::Msvc => {
-            // Clang's driver finds the MSVC and Windows SDK libraries without a developer
-            // prompt; `lld-link`/`link.exe` need one (the `LIB` environment variable).
-            if let Some(program) = find_program(&["clang"]) {
-                let mut cmd = Command::new(&program);
-                cmd.arg(format!("--target={msvc_triple}"));
-                return Ok((program, cmd));
-            }
-            let program = find_program(&["lld-link", "link"]).ok_or(
-                "no MSVC linker found to link for Windows\n\
-                 help: install LLVM (clang) or the Visual Studio build tools, or name a linker with JAIC_LINKER",
-            )?;
-            let cmd = Command::new(&program);
-            Ok((program, cmd))
-        }
+        LinkFlavor::Msvc => msvc_linker_command(&msvc_triple),
     }
+}
+
+/// The linker for an MSVC target. Clang's driver finds the MSVC and Windows SDK libraries
+/// without a developer prompt, so it comes first: on `PATH`, then installed elsewhere. Then
+/// `lld-link` or Microsoft's `link.exe`, from `PATH` or from the Visual Studio installation,
+/// with `LIB` filled in when no developer prompt set it. A `link` on `PATH` that is not
+/// Microsoft's (the coreutils `link` of Git for Windows and MSYS2, which stops with `extra
+/// operand`) is skipped. See `msvc.rs` and `docs/native/windows.md`.
+fn msvc_linker_command(triple: &str) -> Result<(String, Command), String> {
+    let arch = msvc::arch_dir(triple);
+    let clang = |program: String| {
+        let mut cmd = Command::new(&program);
+        cmd.arg(format!("--target={triple}"));
+        (program, cmd)
+    };
+    let with_lib = |program: &Path, lib: Option<std::ffi::OsString>| {
+        let program = program.to_string_lossy().into_owned();
+        let mut cmd = Command::new(&program);
+        if let Some(lib) = lib {
+            cmd.env("LIB", lib);
+        }
+        (program, cmd)
+    };
+    if let Some(program) = find_program(&["clang"]) {
+        return Ok(clang(program));
+    }
+    if let Some(program) = msvc::on_path("lld-link").first() {
+        return Ok(with_lib(program, msvc::lib_env(arch)));
+    }
+    let mut skipped = Vec::new();
+    for program in msvc::on_path("link") {
+        if msvc::is_microsoft_linker(&program) {
+            return Ok(with_lib(&program, msvc::lib_env(arch)));
+        }
+        skipped.push(program);
+    }
+    if let Some(program) = msvc::find_clang() {
+        return Ok(clang(program.to_string_lossy().into_owned()));
+    }
+    if let Some(tool) = msvc::find_tool("link.exe", arch) {
+        return Ok(with_lib(&tool.program, tool.lib));
+    }
+    let mut message = String::from("no MSVC linker found to link for Windows");
+    for program in skipped {
+        message += &format!(
+            "\nnote: `{}` is not Microsoft's linker but the coreutils `link` (Git for Windows, MSYS2), so it was skipped",
+            program.display()
+        );
+    }
+    message += "\nhelp: install LLVM (clang), or the Visual Studio build tools with the \"Desktop development with C++\" workload, or name a linker with JAIC_LINKER";
+    Err(message)
 }
 
 /// The CPU prefix of the MinGW-w64 tool names for `target` (`None`: the host).

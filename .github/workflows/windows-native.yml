@@ -139,6 +139,42 @@ jobs:
           cp "$RUNNER_TEMP"/mesa/*.dll target/x86_64-pc-windows-msvc/debug/
           python -u tools/stdlib_runtime.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls "$RUNNER_TEMP/mesa"
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-x64 --check --print-baseline
+      - name: A Simp game's metaprogram build without Clang on PATH
+        # tests/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
+        # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
+        # `link` in /usr/bin, jaic must skip that `link` and use Visual Studio's link.exe with
+        # the LIB it works out (0.4.2 failed with `link: extra operand`). The stb libraries come
+        # from the stdlib runtime step's tools/build_native_libs.py run.
+        if: success() || failure()
+        run: |
+          jaic="$PWD/target/x86_64-pc-windows-msvc/debug/jaic.exe"
+          game="$RUNNER_TEMP/simp-game"
+          cp -R tests/native/simp-game "$game"
+          mkdir -p "$game/build"
+          cp "$RUNNER_TEMP"/mesa/*.dll "$game/build/"
+          cd "$game"
+          PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi llvm | paste -sd:)"
+          export PATH
+          if command -v clang; then echo "clang is still on PATH"; exit 1; fi
+          which -a link
+          # First with the runner's older Clang in Program Files\LLVM (found off PATH), then
+          # with that and Visual Studio's bundled Clang moved away, so link.exe links.
+          "$jaic" run first.jai
+          vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")"
+          hidden=()
+          for dir in "/c/Program Files/LLVM" "$vs/VC/Tools/Llvm"; do
+            if [ -d "$dir" ]; then mv "$dir" "$dir.hidden"; hidden+=("$dir"); fi
+          done
+          rm -f build/game.exe
+          set +e
+          "$jaic" run first.jai
+          status=$?
+          set -e
+          for dir in "${hidden[@]}"; do mv "$dir.hidden" "$dir"; done
+          test "$status" = 0
+          ls -l build
+          # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
+          "$jaic" run src/main.jai
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         # tests/webgpu/headless.jai interpreted and built; docs/stdlib/webgpu.md#tests.
         if: success() || failure()
