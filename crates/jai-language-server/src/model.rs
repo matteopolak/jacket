@@ -109,6 +109,13 @@ pub struct CompletionItem {
     pub documentation: Option<String>,
     /// What to insert instead of the label: an LSP snippet for `CompletionKind::Snippet`.
     pub insert_text: Option<String>,
+    /// Shown after the label, dimmed (`labelDetails.description`): an auto-import's module.
+    pub label_description: Option<String>,
+    /// Sorts the item among the others instead of its label (`sortText`).
+    pub sort_text: Option<String>,
+    /// Edits elsewhere in the document made when the item is accepted (an auto-import's
+    /// `#import`).
+    pub additional_edits: Vec<TextEdit>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

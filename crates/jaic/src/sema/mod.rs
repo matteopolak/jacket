@@ -52,6 +52,7 @@ pub use modules::{FileSystem, NativeFs, VirtualFs, find_module_in, import_entry}
 pub use scope::{EntityId, ScopeId};
 use std::path::PathBuf;
 use std::rc::Rc;
+pub use suggestions::{COMMON_MODULES, COMPILER_INTERNAL_MODULES};
 pub use value::{ModuleId, ProcId, Value};
 
 pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;

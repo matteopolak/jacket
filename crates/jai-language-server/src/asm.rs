@@ -470,6 +470,7 @@ fn instruction_item(i: &AsmInstruction) -> CompletionItem {
         detail: format!("{} ({})", i.forms[0], i.feature),
         documentation: Some(instruction_doc(i)),
         insert_text: None,
+        ..CompletionItem::default()
     }
 }
 
@@ -542,6 +543,7 @@ impl Session {
                             detail: format!("declare a {} register", class.name),
                             documentation: Some(class.description.into()),
                             insert_text: Some(format!("${{1:name}}: {};", class.name)),
+                            ..CompletionItem::default()
                         });
                     }
                 }

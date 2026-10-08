@@ -26,6 +26,7 @@ It has two layers:
 | Hover on `#if` / `#ifx` / `#assert`: whether the condition held (per instance) | `textDocument/hover` | semantic |
 | Hover on a format string: each `%` with the argument it formats and its type | `textDocument/hover` | syntax + semantic types |
 | Completion: scope-aware names, members after `.`, directives after `#`, `#load`/`#import` paths | `textDocument/completion` | semantic, syntax fallback |
+| Auto-import completion: names from stdlib modules, the project's modules and files it does not load yet, with the `#import`/`#load` as an additional edit ([details](#auto-import-completion)) | `textDocument/completion` | environment |
 | `#asm` blocks: completion of instruction mnemonics (operand forms, CPU feature, description), operands (declared registers, Jai variables and constants in scope), register classes after `name:`, pins after `===`, size suffixes after `.`, declaration snippets, and feature modifiers after `#asm`; hover on a mnemonic or a declared register; operand signature help. Works in unterminated blocks | `textDocument/completion`, `textDocument/hover`, `textDocument/signatureHelp` | syntax (compiler instruction table), semantic for Jai operands |
 | Go to definition (also into modules and the stdlib) | `textDocument/definition` | semantic, syntax fallback |
 | Go to the file of a `#load` / `#import` / `#import,file` / `#import,dir`, and of a module name (`B` in `B.print`) | `textDocument/definition` | environment |
@@ -257,6 +258,45 @@ For an `#insert`, `#run` or macro call under the cursor (`code_actions` picks th
 - **Not in fix-all.** `source.fixAll.jailint` stays jailint's machine-applicable fixes. Choosing a module is a decision about the program, and only the first compile error is known at a time, so this is a quick fix only.
 - **Changing it.** The ranking (`COMMON_MODULES`, `MAX_IMPORTS`) and the help wording live in `sema/suggestions.rs`; where the line goes is `imports::insertion`.
 
+### Auto-import completion
+
+Typing a name the file cannot see yet offers it anyway, TypeScript-style: `prin` in a file without `#import "Basic";` offers `print`, and accepting it inserts the name and the `#import` (`additionalTextEdits`). `auto_import.rs` builds the items, `exports.rs` reads what files declare, `project.rs` works out the program the document belongs to.
+
+- **What is offered.** Names whose lower-cased form starts with the typed word (at least `MIN_PREFIX` = 2 characters), that are not already in the list:
+  - exports of **standard-library modules**, `Extensions/<Name>` included (`#import "Basic";`);
+  - exports of the **project's modules** (`#import "Name";`): the `modules/` folders next to the entry file and at the project root, `jai.toml`'s `import_path`, and the environment's import paths. A project module hides a stdlib module of the same name, as for the compiler;
+  - declarations of the **project's other files** that the program does not load yet (`#load "relative/path.jai";`, relative to the document); files the program already loads offer their names with no edit (the compile behind regular completion only follows open documents, so these may not be in it yet). Entry files, files that declare their own `main`, and files in module folders are never offered for `#load`.
+- **What is left out.** Modules any file of the program already imports (plainly or as `Name :: #import`), names already in the completion list, `#scope_file` names, `#scope_module` names of modules, and modules whose top-level `#assert OS == ...` excludes the target OS (`Windows` on Linux, `Metal` off Apple targets).
+- **The item.** `labelDetails.description` is the module or file, `detail` is `auto-import from Basic`, the Markdown `documentation` names the line it adds, the signature (every overload, up to four) and the `//` comment above the declaration. `sortText` is `~name` plus the source's rank, so auto-imports sort after every in-scope name, and for one name common modules (`COMMON_MODULES`: `Basic`, `String`, `Math`, ...) come first, then other stdlib modules, then `Extensions/`; project files and modules come before the stdlib.
+- **Where the line goes.** The `#import` goes after the document's last top-level `#import` (not one inside an `#if` block), the `#load` after its last top-level `#load` (else its last `#import`); with neither, above the first line of code with a blank line after it (`imports::insertion`, as for the quick fix). The `#load` goes into the document being edited, not the entry file: an LSP completion can only edit its own document, and the load is still in the program's load graph once the document is.
+- **Limits.** At most `MAX_ITEMS` (50) per request, by name and rank. Under 2 characters, or with more matches than that, the list is `isIncomplete` so the client asks again as the word grows.
+- **Indexing.** Files are scanned from tokens, not parsed, so a file that does not parse still has names: top-level declarations (the top level stays open inside `#if` blocks), their kind from the value (`(...) ->`/`{` procedure, `struct`, `enum`, `#type`, constant, variable), `#scope_*` sections, `#import`/`#load` and `#assert OS == ...`. Each file is scanned once and cached by path; open documents by a hash of their text. The stdlib index is built on the first auto-import completion of a session (per stdlib folder), a module folder's when it is first searched, and a project folder's file list on first walk (at most 4,000 `.jai` files, 8 levels, skipping hidden, `modules`, `node_modules`, `target`, `build` and `bin` folders). `workspace/didChangeWatchedFiles` drops a changed file's scan (and the module index holding it); a created or deleted file also drops the listings above it. Open, edited and closed documents do the same.
+- **Latency.** Measured on Focus (`src/editors.jai`, 205 KB, workspace folder = the Focus checkout with its 2 MB `modules/`), release build: the first two-character completion in a session builds the indexes, 75 ms (warm OS file cache) to 140 ms; after that a completion takes about 3.5 ms against 2.2 ms with auto-import off.
+- **The setting.** `{"completion": {"autoImport": false}}` in `initializationOptions`, or in the `jai` section of `workspace/didChangeConfiguration` (`settings.jai.completion.autoImport`), turns it off; it is on by default. VS Code's `jai.completion.autoImport` sends both.
+- **Changing it.** Ranking and limits are constants at the top of `auto_import.rs`; what counts as a declaration is `exports::scan`; how a project is found is `project.rs` and `Sources::program`.
+
+### Project settings (`jai.toml`)
+
+jailsp needs to know a program's entry file (what you give `jaic build`) to tell which files it loads, and where its modules are. It infers both, and a `jai.toml` at the project root states them:
+
+```toml
+# jai.toml
+build_files = ["first.jai", "src/main.jai"]   # the files `jaic build` is given (or add_build_file adds)
+import_path = ["vendor/modules"]              # more module folders, as -import_dir adds
+```
+
+- `build_files`: entry files, relative to the `jai.toml`. A document belongs to the first whose `#load` graph reaches it.
+- `import_path`: module folders, relative to the `jai.toml`, searched as `jaic -import_dir` (and `Build_Options.import_path`) does. The `modules/` folder next to the entry file and next to `jai.toml` are always searched.
+- A single string is a list of one; unknown keys and tables make the file invalid, and an invalid file counts as empty (inference applies).
+
+Precedence, first match wins:
+
+1. The nearest `jai.toml` at or above the document (an open one, sent with `didOpen` like `jailint.toml`, before the one on disk). Without `build_files`, entries are inferred in its folder.
+2. The workspace folder holding the document (`workspaceFolders`, else `rootUri`), with inferred entries: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.
+3. When no entry reaches the document: the file that `#load`s it, looked for in its folder and up to three folders above, repeated up the loads; a file nothing loads is its own entry. The files it may `#load` are then those under the entry's folder.
+
+The browser playground needs no `jai.toml`: its workspace folder is `/jai-script` and its `main.jai` is the inferred entry. `editors/vscode/schemas/jai.schema.json` (generated by `scripts/build-schemas.mjs`) validates the file in VS Code.
+
 ### `#load` and `#import` links
 
 `links.rs` finds `#load "..."` and `#import[,file|,dir] "..."` in the token stream (so links work while the text does not parse; `#import,string` has no file). `Session::link_target` resolves each with the compiler's own functions, `jaic::sema::import_entry` and `find_module_in` (which `Compiler::find_module` and `resolve_import` also call):
@@ -357,6 +397,7 @@ Tests:
 
 - `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
 - `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, lint diagnostics and quick fixes, "Add `#import`" quick fixes (one module, several, namespaced, a `#load`ed file, asked for by diagnostic), the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
+- `crates/jai-language-server/tests/auto_import.rs`: auto-import completion: stdlib prefix matches and the `#import` edit, placement after existing imports (not inside `#if`), imported modules and visible names left out, ranking, the two-character minimum and the cap, target-OS filtering, project modules and `#load`s of project files, names of already-loaded files, `jai.toml` entries and `import_path`, re-reading a changed file, the JSON fields and the setting. Unit tests in `exports.rs` (the scanner) and `project.rs` (`jai.toml`, relative paths).
 - `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
 - `crates/jai-language-server/tests/protocol.rs`: hover format negotiation (`markdown` listed or not).
 - Unit tests: `hover.rs` (escaping, fences, sections), `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).
@@ -375,6 +416,9 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
 - `JAIC_STDLIB` overrides the stdlib directory the native server reads. The default is the repository's `stdlib/`.
 - A `modules/` folder next to the root document is searched first.
 - `jailint.toml` (nearest above a document): lint levels and excluded paths.
+- `jai.toml` (nearest above a document): the project's entry files and module folders ([project settings](#project-settings-jaitoml)).
+- `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`).
+- `auto_import.rs` constants: `MAX_ITEMS` (50), `MIN_PREFIX` (2), `MAX_PROJECT_FILES` (4,000), `MAX_DEPTH` (8), `MAX_LOADED` (4,000 files per load graph), `LOADER_LEVELS` (3).
 - `semantic.rs` constants:
   - `BLOCK_BUDGET`: interpreter blocks per analysis.
   - `CACHED`: compiles kept, 3.

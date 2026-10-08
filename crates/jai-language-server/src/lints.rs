@@ -26,11 +26,11 @@ pub fn rule_url(rule: &str) -> String {
     format!("https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#{rule}")
 }
 
-/// The document is a jailint settings file rather than Jai source.
+/// A settings file rather than a Jai document: `jailint.toml`, or the project's `jai.toml`.
 pub(crate) fn is_config(uri: &DocumentUri) -> bool {
     Path::new(uri.path())
         .file_name()
-        .is_some_and(|n| n == FILE_NAME)
+        .is_some_and(|n| n == FILE_NAME || n == crate::project::CONFIG_FILE)
 }
 
 /// What a code action request asks for, from its `context`.

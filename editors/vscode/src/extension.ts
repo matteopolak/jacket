@@ -8,7 +8,8 @@ import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
 import { CONFIG_FILE, findConfig, ignoreGlobs, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
-const JAILINT_SETTINGS = "jailint.toml";
+/** Settings files jailsp reads as open documents, so unsaved edits apply at once. */
+const SETTINGS_FILES = ["jailint.toml", "jai.toml"];
 /** The extension's ID up to 0.4.1, before the Marketplace's name clash forced a new one. */
 const OLD_EXTENSION_ID = "matteopolak.jai";
 
@@ -184,8 +185,16 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     documentSelector: [{ scheme: "file", language: "jai" }],
     outputChannel: serverOutput,
     traceOutputChannel: serverOutput,
-    // jailsp takes no initialization options: the stdlib comes from `JAIC_STDLIB`, imports
-    // from `modules/` next to the file, lint levels from the nearest jailint.toml.
+    // The stdlib comes from `JAIC_STDLIB`, the project's entry files and module folders from
+    // the nearest jai.toml (else inferred), lint levels from the nearest jailint.toml. Editor
+    // settings go as initialization options and, when they change, as
+    // `workspace/didChangeConfiguration` with the whole `jai` section.
+    initializationOptions: () => serverSettings(),
+    synchronize: {
+      configurationSection: "jai",
+      // Auto-import completion indexes the project's files: tell jailsp when they change.
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jai.toml}"),
+    },
     middleware: {
       executeCommand: async (command, args, next) => expansions.handle(command, await next(command, args)),
     },
@@ -203,13 +212,19 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
   }
 }
 
-// --- jailint.toml -------------------------------------------------------------------------
-// jailsp reads lint settings from the nearest jailint.toml on disk, and also accepts one as an
-// open document, so unsaved edits apply at once. Only the text is synchronised: the document
-// selector stays Jai-only, so no other request is sent for the TOML file.
+// --- jailint.toml and jai.toml ------------------------------------------------------------
+// jailsp reads lint settings from the nearest jailint.toml and project settings from the
+// nearest jai.toml on disk, and also accepts either as an open document, so unsaved edits
+// apply at once. Only the text is synchronised: the document selector stays Jai-only, so no
+// other request is sent for the TOML files.
 
 function isSettingsFile(document: vscode.TextDocument): boolean {
-  return document.uri.scheme === "file" && path.basename(document.uri.fsPath) === JAILINT_SETTINGS;
+  return document.uri.scheme === "file" && SETTINGS_FILES.includes(path.basename(document.uri.fsPath));
+}
+
+/** The settings jailsp reads, as `initializationOptions` (the shape of the `jai` section). */
+function serverSettings(): { completion: { autoImport: boolean } } {
+  return { completion: { autoImport: vscode.workspace.getConfiguration("jai").get<boolean>("completion.autoImport", true) } };
 }
 
 function openSettingsFiles(target: LanguageClient): void {

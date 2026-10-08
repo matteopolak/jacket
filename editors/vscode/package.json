@@ -70,7 +70,8 @@
         ],
         "filenames": [
           "jaifmt.toml",
-          "jailint.toml"
+          "jailint.toml",
+          "jai.toml"
         ],
         "configuration": "./toml-language-configuration.json"
       },
@@ -131,6 +132,10 @@
       {
         "fileMatch": "jaifmt.toml",
         "url": "./schemas/jaifmt.schema.json"
+      },
+      {
+        "fileMatch": "jai.toml",
+        "url": "./schemas/jai.schema.json"
       }
     ],
     "snippets": [
@@ -259,6 +264,11 @@
           "default": "prompt",
           "scope": "machine",
           "markdownDescription": "What to do when no `jailsp` is configured or on `PATH`: download the toolchain release whose version matches this extension from github.com/matteopolak/jai, verified against pinned SHA-256 checksums."
+        },
+        "jai.completion.autoImport": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Offer names the file cannot see yet in completion, from standard-library modules, the project's modules and its other files, and add the `#import` or `#load` they need when one is accepted. Project entry files and module folders come from `jai.toml` (or are inferred)."
         },
         "jai.run.arguments": {
           "type": "array",

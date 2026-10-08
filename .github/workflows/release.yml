@@ -585,9 +585,16 @@ jobs:
       - name: Submit to winget-pkgs
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          # Paused while the first winget-pkgs submission is under review: set the repository
+          # variable WINGET_SUBMIT to "true" to open a pull request for each release again.
+          WINGET_SUBMIT: ${{ vars.WINGET_SUBMIT }}
         run: |
           if [ -z "$WINGET_TOKEN" ]; then echo "WINGET_TOKEN is not set; skipping winget"; exit 0; fi
           export GITHUB_TOKEN="$WINGET_TOKEN"
+          if [ -n "$TAG" ] && [ "$WINGET_SUBMIT" != true ]; then
+            echo "::notice::WINGET_SUBMIT is not true; not opening a winget-pkgs pull request for $TAG"
+            exit 0
+          fi
           if [ -z "$TAG" ]; then
             echo "No tag (dry run); komac only reads the manifests"
             ./komac.exe submit --dry-run --yes "$MANIFESTS"

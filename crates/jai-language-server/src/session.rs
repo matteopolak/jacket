@@ -35,6 +35,12 @@ pub struct Session {
     /// Open `jailint.toml` files: settings for the lints of documents under their directory.
     /// They are not Jai documents, so they get no analysis or diagnostics of their own.
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
+    /// Auto-import completion is on (`jai.completion.autoImport`).
+    pub(crate) auto_import: bool,
+    /// The client's workspace folders: projects without a `jai.toml` are inferred in them.
+    pub(crate) workspace_folders: Vec<PathBuf>,
+    /// What modules and project files declare, for auto-import completion.
+    pub(crate) index: RefCell<crate::auto_import::Index>,
 }
 
 impl Session {
@@ -47,6 +53,30 @@ impl Session {
             environment: None,
             semantic: RefCell::default(),
             lint_configs: BTreeMap::new(),
+            auto_import: true,
+            workspace_folders: Vec::new(),
+            index: RefCell::default(),
+        }
+    }
+
+    /// Turn auto-import completion on or off.
+    pub fn set_auto_import(&mut self, on: bool) {
+        self.auto_import = on;
+    }
+
+    /// The client's workspace folders (absolute paths).
+    pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
+        self.workspace_folders = folders;
+    }
+
+    /// A file changed on disk (`created_or_deleted` when it appeared or went away): what was
+    /// read from it is read again.
+    pub fn file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        let mut index = self.index.borrow_mut();
+        if created_or_deleted {
+            index.created_or_deleted(path);
+        } else {
+            index.changed(path);
         }
     }
 
@@ -88,6 +118,7 @@ impl Session {
             return Err(Error::Limit("open document count exceeded"));
         }
         self.admit(&uri, text.len(), 0)?;
+        self.file_changed(Path::new(uri.path()), true);
         let map = if crate::lints::is_config(&uri) {
             // Lints computed with the old settings are stale.
             self.semantic.borrow_mut().forget_lints();
@@ -157,6 +188,7 @@ impl Session {
             self.admit(uri, bytes, old_bytes)?;
             text.replace_range(start..end, &change.text);
         }
+        self.file_changed(Path::new(uri.path()), false);
         let config = self.lint_configs.contains_key(uri);
         if config {
             self.semantic.borrow_mut().forget_lints();
@@ -177,6 +209,7 @@ impl Session {
     }
 
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
+        self.file_changed(Path::new(uri.path()), true);
         if self.lint_configs.remove(uri).is_some() {
             self.semantic.borrow_mut().forget_lints();
             self.rebuild();
@@ -885,9 +918,13 @@ impl Session {
                     ..CompletionItem::default()
                 });
             }
+            let mut items: Vec<CompletionItem> = items.into_values().collect();
+            if !member {
+                incomplete |= self.add_auto_imports(uri, &doc.text, &prefix, &mut items);
+            }
             return Ok(CompletionList {
                 is_incomplete: incomplete,
-                items: items.into_values().collect(),
+                items,
             });
         }
         let analysis = match self.analyses.get(uri) {
@@ -953,10 +990,27 @@ impl Session {
                 });
             }
         }
+        let mut items: Vec<CompletionItem> = items.into_values().collect();
+        incomplete |= self.add_auto_imports(uri, &doc.text, prefix, &mut items);
         Ok(CompletionList {
             is_incomplete: incomplete,
-            items: items.into_values().collect(),
+            items,
         })
+    }
+
+    /// Append the auto-import items for `prefix` (names not among `items`); whether the client
+    /// should ask again as the word grows.
+    fn add_auto_imports(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        prefix: &str,
+        items: &mut Vec<CompletionItem>,
+    ) -> bool {
+        let visible: BTreeSet<String> = items.iter().map(|i| i.label.clone()).collect();
+        let (auto, incomplete) = self.auto_import_items(uri, text, prefix, &visible);
+        items.extend(auto);
+        incomplete
     }
 
     /// Tokens classified by the syntax layer, refined by the type checker when the session has

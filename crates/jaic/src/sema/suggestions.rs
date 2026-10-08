@@ -9,7 +9,7 @@ use crate::source::{Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span};
 use std::path::{Path, PathBuf};
 
 /// Modules searched first for an unknown name, most used first.
-const COMMON_MODULES: &[&str] = &[
+pub const COMMON_MODULES: &[&str] = &[
     "Basic",
     "String",
     "Math",
@@ -39,7 +39,7 @@ const COMMON_MODULES: &[&str] = &[
 const MAX_IMPORTS: usize = 4;
 
 /// Modules the compiler loads itself; they are never imported by name.
-const COMPILER_INTERNAL_MODULES: &[&str] = &["Preload", "Runtime_Support"];
+pub const COMPILER_INTERNAL_MODULES: &[&str] = &["Preload", "Runtime_Support"];
 
 /// Whether the module file `text` declares `name` for its importers: at its top level (or in a
 /// top-level `#if`), outside `#scope_file` and `#scope_module` sections. Only a file whose lines

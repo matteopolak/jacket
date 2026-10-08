@@ -10,7 +10,7 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
 
   ![A type mismatch reported inline](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/error.png)
 
-- **Completion** of members, procedures, modules and directives.
+- **Completion** of members, procedures, modules and directives, with auto-import: `prin` offers `print` and adds `#import "Basic";` when accepted (likewise for your own modules, and `#load` for your project's other files; `jai.completion.autoImport`). A `jai.toml` at the project root can name its build files and module folders.
 
   ![Completing the fields of a struct](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/completion.png)
 
@@ -31,7 +31,7 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
 - **Highlighting**: a TextMate grammar for keywords, directives, here-strings, numbers (`0x`, `0b`, `0h`, `_`), nested comments, declarations and `$T`/`$$x` polymorph variables, refined by the server's semantic tokens.
 - **Embedded languages**: a here-string whose terminator names a language is highlighted as that language: `#string WGSL`, `GLSL`, `HLSL`, `SQL`, `JSON`, `HTML`, `CSS`, `JS`, `TS`, `PY`, `SH`, `C`, `CPP`, `RUST`, `YAML`, `TOML`, `JAI` and more (ignoring case). A WGSL grammar is bundled; GLSL and Metal need an extension that provides their grammar. Other terminators (`END`) stay plain strings.
 - **Commands**: *Jai: Run File*, *Build File* and *Check File* (`jaic run|build|check` in a terminal), *Restart Language Server*, *Download Toolchain*.
-- Snippets, bracket and comment configuration, a file icon, and schemas for `jailint.toml`/`jaifmt.toml` (validated by TOML extensions that read `tomlValidation`, such as Even Better TOML).
+- Snippets, bracket and comment configuration, a file icon, and schemas for `jailint.toml`/`jaifmt.toml`/`jai.toml` (validated by TOML extensions that read `tomlValidation`, such as Even Better TOML).
 
 ## Getting the toolchain
 
@@ -47,6 +47,7 @@ The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next
   "jai.stdlib.path": "",            // passed as JAIC_STDLIB
   "jai.toolchain.autoDownload": "prompt",
   "jai.run.arguments": [],          // extra jaic arguments, such as "-O2"
+  "jai.completion.autoImport": true, // offer names from modules and files not imported yet
   "[jai]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": { "source.fixAll.jailint": "explicit" }

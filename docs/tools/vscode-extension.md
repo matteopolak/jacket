@@ -63,7 +63,7 @@ The playground's editor reads the same tags for the languages it supports (WGSL 
 
 The extension also maps jailsp's non-standard `formatSpecifier` token type (format-string `%`s) to a TextMate scope so themes colour it.
 
-**Language client.** `vscode-languageclient` starts `jailsp` over stdio for `file:` Jai documents (unsaved and virtual documents have no path the compiler could load). jailsp takes no `initializationOptions`: its stdlib comes from `JAIC_STDLIB` (the extension sets it from `jai.stdlib.path`; otherwise the `stdlib/` next to the executable), imports from the `modules/` folder next to the root file, and lint levels from the nearest `jailint.toml`. There is no target-OS option; `#if OS == ...` code is analysed for the host. The client's middleware handles the two server commands: `jai.showExpansion` opens the returned code beside the editor as a read-only `jai-expansion:` document (a `TextDocumentContentProvider` that asks `jai/source` again, so it follows edits), and `jai.showPolymorphs` lists instances in a quick pick.
+**Language client.** `vscode-languageclient` starts `jailsp` over stdio for `file:` Jai documents (unsaved and virtual documents have no path the compiler could load). Its stdlib comes from `JAIC_STDLIB` (the extension sets it from `jai.stdlib.path`; otherwise the `stdlib/` next to the executable), the project's entry files and module folders from the nearest `jai.toml` (else inferred, see [project settings](../compiler/language-server.md#project-settings-jaitoml)), and lint levels from the nearest `jailint.toml`. Editor settings for jailsp (`jai.completion.autoImport`) go as `initializationOptions` (`serverSettings()`), and `synchronize.configurationSection: "jai"` sends the `jai` section with `workspace/didChangeConfiguration` when it changes, so no restart is needed. A file watcher on `**/{*.jai,jai.toml}` (`synchronize.fileEvents`) sends `workspace/didChangeWatchedFiles`, which keeps jailsp's auto-import index of the project's files current. There is no target-OS option; `#if OS == ...` code is analysed for the host. The client's middleware handles the two server commands: `jai.showExpansion` opens the returned code beside the editor as a read-only `jai-expansion:` document (a `TextDocumentContentProvider` that asks `jai/source` again, so it follows edits), and `jai.showPolymorphs` lists instances in a quick pick.
 
 **Binary discovery** (`findServer`, `findCompiler`, `findFormatter`):
 
@@ -85,7 +85,7 @@ A configured path that does not exist is an error naming the setting, never a si
 
 Offline, the request fails with *could not reach github.com (ENOTFOUND)* and a Retry button; nothing is half-installed. *Jai: Download Toolchain* downloads on demand. Paths from settings and `PATH` still win over a download; the command says so when that is the case.
 
-**Linting.** jailint runs inside jailsp, so its findings are ordinary diagnostics (source `jailint`, the rule as `code`, linked to its docs) with quick fixes, and `source.fixAll.jailint` works with `editor.codeActionsOnSave`. jailsp also reads an *open* `jailint.toml`: the extension sends `didOpen`/`didChange`/`didClose` for files named `jailint.toml` by hand, so unsaved edits apply at once without adding TOML to the client's document selector (which would send it every Jai request). `jaifmt.toml` and `jailint.toml` open as TOML with a small bundled grammar; `contributes.tomlValidation` attaches `schemas/*.schema.json` for TOML extensions that support it (Even Better TOML).
+**Linting.** jailint runs inside jailsp, so its findings are ordinary diagnostics (source `jailint`, the rule as `code`, linked to its docs) with quick fixes, and `source.fixAll.jailint` works with `editor.codeActionsOnSave`. jailsp also reads an *open* `jailint.toml` (and `jai.toml`): the extension sends `didOpen`/`didChange`/`didClose` for files with those names by hand (`SETTINGS_FILES`), so unsaved edits apply at once without adding TOML to the client's document selector (which would send it every Jai request). `jaifmt.toml`, `jailint.toml` and `jai.toml` open as TOML with a small bundled grammar; `contributes.tomlValidation` attaches `schemas/*.schema.json` for TOML extensions that support it (Even Better TOML).
 
 **Formatting.** jailsp has no `textDocument/formatting`, so the extension registers a formatting provider that runs `jaifmt --stdin` with the document's folder as working directory (jaifmt finds the `jaifmt.toml` there or above). Before that it reads the nearest `jaifmt.toml` and skips files its `ignore` globs match, since `--stdin` does not apply them. On success it returns one edit covering only the changed span (common prefix and suffix kept, so the cursor and folds outside it stay put); on failure (unbalanced brackets, text that does not lex) it leaves the text alone and shows jaifmt's message in the status bar and the output channel. `editor.formatOnSave` works through VS Code's normal path; `[jai]` defaults the formatter to this extension.
 
@@ -136,6 +136,7 @@ Gotchas:
 | `jai.formatter.path` | `""` | `jaifmt` |
 | `jai.stdlib.path` | `""` | `JAIC_STDLIB` for jailsp and jaic |
 | `jai.toolchain.autoDownload` | `prompt` | `prompt`, `always` or `never` download the matching release |
+| `jai.completion.autoImport` | `true` | completion offers names from modules and project files the file does not import or load yet, adding the `#import`/`#load` ([auto-import](../compiler/language-server.md#auto-import-completion)) |
 | `jai.run.arguments` | `[]` | extra arguments for `jaic run/build/check` |
 | `jai.trace.server` | `off` | `messages`/`verbose` log LSP traffic |
 
@@ -148,7 +149,7 @@ Useful VS Code settings:
 }
 ```
 
-Files: `toolchain-checksums.json` (pinned archive checksums for one version, `{ version, sha256: { <asset>: <hex> } }`; `node scripts/pin-toolchain.mjs --version X.Y.Z --sums SHA256SUMS` after a release, or `--archives DIR`; it pins `jai-*` and `jaic-*` archives, so re-pinning an old release works), `jaifmt.toml`, `jailint.toml`.
+Files: `toolchain-checksums.json` (pinned archive checksums for one version, `{ version, sha256: { <asset>: <hex> } }`; `node scripts/pin-toolchain.mjs --version X.Y.Z --sums SHA256SUMS` after a release, or `--archives DIR`; it pins `jai-*` and `jaic-*` archives, so re-pinning an old release works), `jaifmt.toml`, `jailint.toml`, `jai.toml` (`schemas/jai.schema.json`: `build_files`, `import_path`).
 
 Test environment variables: `JAILSP`, `JAIFMT` (unit and integration tests), `VSCODE_EXECUTABLE`.
 

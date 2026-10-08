@@ -1,6 +1,7 @@
 // Writes schemas/jailint.schema.json from jailint's rule table (crates/jailint/src/rules/mod.rs),
 // so a new rule is completed and validated in jailint.toml without editing the schema by hand,
-// and schemas/jaifmt.schema.json from the keys Jai_Format's config parser accepts.
+// schemas/jaifmt.schema.json from the keys Jai_Format's config parser accepts, and
+// schemas/jai.schema.json for jai.toml (the settings jailsp's project.rs parses).
 //
 //   node scripts/build-schemas.mjs           # regenerate
 //   node scripts/build-schemas.mjs --check   # fail if a committed schema is stale
@@ -87,8 +88,26 @@ const jaifmt = {
   },
 };
 
+const paths = (text) => ({ type: "array", items: { type: "string" }, markdownDescription: text });
+const project = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  $id: "https://github.com/matteopolak/jai/editors/vscode/schemas/jai.schema.json",
+  title: "jai.toml",
+  description: `Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server.md#project-settings-jaitoml`,
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    build_files: paths(
+      "The files you give `jaic build` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.",
+    ),
+    import_path: paths(
+      "More folders to import modules from, relative to this file, as `-import_dir` adds (`Build_Options.import_path`). The `modules` folder next to the build file is always searched.",
+    ),
+  },
+};
+
 let stale = false;
-for (const [name, schema] of [["jailint", jailint], ["jaifmt", jaifmt]]) {
+for (const [name, schema] of [["jailint", jailint], ["jaifmt", jaifmt], ["jai", project]]) {
   const path = join(root, "schemas", `${name}.schema.json`);
   const text = JSON.stringify(schema, null, 2) + "\n";
   if (process.argv.includes("--check")) {

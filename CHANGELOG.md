@@ -4,7 +4,7 @@
 
 ## [0.4.3] - 2026-10-08
 
-Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. Also fixes formatting with the renamed VS Code extension.
+Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. The language server also gains auto-import completion, and formatting works again with the renamed VS Code extension.
 
 ### Heads-up
 
@@ -17,6 +17,10 @@ Closer to Jai's behaviour: `print` formats numbers, floats and enums the same wa
 - Integer constants must fit their type ([numbers](docs/language/numbers.md)). A negative constant no longer converts to an unsigned type (`x: u32 = -1;`), a decimal constant must fit a signed type's range (`x: s16 = 40000;`), and a cast of a constant checks its range at compile time (`cast(u8) 300`, `y: u8 = xx -1`); write `cast,trunc(T)` for the low bits. Hex, binary, `~` and named constants may still fill a signed type's bits (`x: s8 = 0xff` is `-1`). A literal that does not fit the other operand makes the operation `s64` (`small_u8 == -1` is now `false` for 255).
 - A float literal with 8 or more significant digits is `float64`, even when `float32` holds it exactly (`16777216.0`), and so is one outside `float32`'s normal range (`1.0e39`), which no longer converts to `float32` without a cast. Integer literals must fit in 64 bits.
 
+### Auto-import
+
+Typing part of a name you haven't imported offers it from the standard library, your own modules and your project's other files; accepting it adds the `#import` or `#load` too, in VS Code and the playground. A new `jai.toml` names the project's `build_files` and extra `import_path` folders when jailsp can't infer them. Turn it off with `jai.completion.autoImport`. See [auto-import](docs/compiler/language-server.md#auto-import-completion).
+
 ### Fixes
 
 - VS Code: Jai files format with the extension again. Its default formatter setting still named the old ID `matteopolak.jai`, so VS Code said the formatter "isn't available"; *Open Settings* in the missing-toolchain warning also filtered by the old ID.
@@ -24,8 +28,9 @@ Closer to Jai's behaviour: `print` formats numbers, floats and enums the same wa
 - `Hash_Table`, `Random` and `make_look_at_matrix` match Jai (details below).
 
 <details>
-<summary>All changes (7)</summary>
+<summary>All changes (8)</summary>
 
+- Auto-import completion in jailsp: typing part of a name the file cannot see offers it from standard-library modules, the project's modules and its other files, and accepting it also adds the `#import "Basic";` or `#load "util/strings.jai";` it needs (after the existing ones). It needs two typed characters, offers at most 50 names, sorts them after names in scope, and leaves out modules already imported and modules for other target OSes. `jai.toml` at a project root names its entry files (`build_files`) and module folders (`import_path`); without one they are inferred (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`). VS Code: `jai.completion.autoImport` (on by default) and a schema for `jai.toml`. The playground applies the added import too ([language server](docs/compiler/language-server.md#auto-import-completion)).
 - `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
 - `Random`'s float32 draws use the low 24 bits of the next value, and `random_get_within_range` returns `min + (max - min) * fraction`.
 - `make_look_at_matrix(..., x_is_forward = false)` builds a right-handed view: the camera's right is `+x` (it was `-x`).

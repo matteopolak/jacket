@@ -118,7 +118,11 @@ fn planned(text: &str, imports: &[ImportSuggestion]) -> Vec<(String, usize, Stri
 /// Where `statement` goes in `text` and the text inserted there: on the line after the last
 /// import (which ends at `after_imports`), else above the first line of code with a blank line
 /// after it.
-fn insertion(text: &str, after_imports: Option<usize>, statement: &str) -> (usize, String) {
+pub(crate) fn insertion(
+    text: &str,
+    after_imports: Option<usize>,
+    statement: &str,
+) -> (usize, String) {
     if let Some(end) = after_imports {
         return match text[end.min(text.len())..].find('\n') {
             Some(newline) => (end + newline + 1, format!("{statement}\n")),

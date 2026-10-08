@@ -24,6 +24,8 @@ async function diagnostics(document: vscode.TextDocument, predicate: (d: vscode.
   }
 }
 
+const labelOf = (item: vscode.CompletionItem) => (typeof item.label === "string" ? item.label : item.label.label);
+
 describe("Jai extension", () => {
   let api: { client(): { isRunning(): boolean } | undefined };
 
@@ -86,6 +88,17 @@ describe("Jai extension", () => {
     await open("jailint.toml");
     await vscode.commands.executeCommand("workbench.action.files.revert");
     await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+  });
+
+  it("completes a name from a module the file does not import, adding the #import", async () => {
+    const document = await open("auto-import.jai");
+    const list = await vscode.commands.executeCommand<vscode.CompletionList>("vscode.executeCompletionItemProvider", document.uri, new vscode.Position(1, 8));
+    const print = list.items.find((item) => labelOf(item) === "print" && item.additionalTextEdits?.length);
+    assert.ok(print, JSON.stringify(list.items.slice(0, 20).map(labelOf)));
+    assert.equal(typeof print.label === "object" ? print.label.description : undefined, "Basic");
+    const edit = print.additionalTextEdits![0];
+    assert.equal(edit.newText, '#import "Basic";\n\n');
+    assert.equal(edit.range.start.line, 0);
   });
 
   it("provides semantic tokens", async () => {

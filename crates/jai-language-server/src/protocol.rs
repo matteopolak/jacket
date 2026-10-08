@@ -9,6 +9,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, VecDeque};
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(untagged)]
@@ -347,6 +348,15 @@ impl JsonSession {
             }
             self.lifecycle = Lifecycle::Running;
             self.hover_kind = hover_kind(&params);
+            self.configure(&params["initializationOptions"]);
+            let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
+                Some(folders) => folders
+                    .iter()
+                    .filter_map(|f| folder_path(&f["uri"]))
+                    .collect(),
+                None => folder_path(&params["rootUri"]).into_iter().collect(),
+            };
+            self.session.set_workspace_folders(folders);
             return Ok(vec![json!({
                 "capabilities": {
                     "positionEncoding": "utf-16",
@@ -658,7 +668,8 @@ impl JsonSession {
             "initialized" => return Ok(vec![]),
             "textDocument/didOpen" => {
                 let p: OpenParams = decode(params)?;
-                let settings = p.text_document.uri.ends_with("/jailint.toml");
+                let settings = p.text_document.uri.ends_with("/jailint.toml")
+                    || p.text_document.uri.ends_with("/jai.toml");
                 if p.text_document.language_id != "jai" && !settings {
                     return Err((-32602, "Only Jai documents are supported".into()));
                 }
@@ -679,6 +690,45 @@ impl JsonSession {
                         &p.content_changes,
                     )
                     .map_err(domain)?;
+            }
+            "workspace/didChangeConfiguration" => {
+                self.configure(&params["settings"]["jai"]);
+                return Ok(vec![]);
+            }
+            "workspace/didChangeWorkspaceFolders" => {
+                let event = &params["event"];
+                let removed: Vec<PathBuf> = event["removed"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|f| folder_path(&f["uri"]))
+                    .collect();
+                let mut folders: Vec<PathBuf> = self
+                    .session
+                    .workspace_folders
+                    .iter()
+                    .filter(|f| !removed.contains(f))
+                    .cloned()
+                    .collect();
+                folders.extend(
+                    event["added"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|f| folder_path(&f["uri"])),
+                );
+                self.session.set_workspace_folders(folders);
+                return Ok(vec![]);
+            }
+            // Files changed on disk: 1 created, 2 changed, 3 deleted.
+            "workspace/didChangeWatchedFiles" => {
+                for change in params["changes"].as_array().into_iter().flatten() {
+                    if let Some(path) = folder_path(&change["uri"]) {
+                        let changed = change["type"].as_u64() == Some(2);
+                        self.session.file_changed(&path, !changed);
+                    }
+                }
+                return Ok(vec![]);
             }
             "textDocument/didClose" => {
                 let p: DocumentParams = decode(params)?;
@@ -712,6 +762,23 @@ impl JsonSession {
             })
             .collect()
     }
+}
+
+impl JsonSession {
+    /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of
+    /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false } }`.
+    fn configure(&mut self, settings: &Value) {
+        if let Some(on) = settings["completion"]["autoImport"].as_bool() {
+            self.session.set_auto_import(on);
+        }
+    }
+}
+
+/// The path of a `file://` URI value.
+fn folder_path(uri: &Value) -> Option<PathBuf> {
+    DocumentUri::parse(uri.as_str()?)
+        .ok()
+        .map(|u| PathBuf::from(u.path()))
 }
 
 fn valid_id(id: &RequestId) -> bool {
@@ -968,6 +1035,19 @@ fn completion_wire(completion: &CompletionList) -> Value {
             let mut wire = json!({ "label": item.label, "kind": kind, "detail": item.detail });
             if let Some(doc) = &item.documentation {
                 wire["documentation"] = json!({ "kind": "markdown", "value": doc });
+            }
+            if let Some(description) = &item.label_description {
+                wire["labelDetails"] = json!({ "description": description });
+            }
+            if let Some(sort) = &item.sort_text {
+                wire["sortText"] = json!(sort);
+            }
+            if !item.additional_edits.is_empty() {
+                wire["additionalTextEdits"] = item
+                    .additional_edits
+                    .iter()
+                    .map(|e| json!({ "range": e.range, "newText": e.new_text }))
+                    .collect();
             }
             if let Some(text) = &item.insert_text {
                 wire["insertText"] = json!(text);

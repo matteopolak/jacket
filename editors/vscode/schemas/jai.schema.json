@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/matteopolak/jai/editors/vscode/schemas/jai.schema.json",
+  "title": "jai.toml",
+  "description": "Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server.md#project-settings-jaitoml",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "build_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "markdownDescription": "The files you give `jaic build` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist."
+    },
+    "import_path": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "markdownDescription": "More folders to import modules from, relative to this file, as `-import_dir` adds (`Build_Options.import_path`). The `modules` folder next to the build file is always searched."
+    }
+  }
+}
