@@ -2,14 +2,30 @@
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-08
+
+Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. Also fixes formatting with the renamed VS Code extension.
+
 ### Heads-up
+
+| Before | Now |
+| --- | --- |
+| `x: u32 = -1;`, `x: s16 = 40000;`, `cast(u8) 300` on a constant | compile errors; use `cast,trunc(T)` for the low bits |
+| `16777216.0` was `float32` | 8+ significant digits (or outside `float32`'s range) makes a float literal `float64` |
+| `true + 1`, `a, b := f(1)`, `*5`, `defer;`, repeated member names | compile errors |
 
 - Integer constants must fit their type ([numbers](docs/language/numbers.md)). A negative constant no longer converts to an unsigned type (`x: u32 = -1;`), a decimal constant must fit a signed type's range (`x: s16 = 40000;`), and a cast of a constant checks its range at compile time (`cast(u8) 300`, `y: u8 = xx -1`); write `cast,trunc(T)` for the low bits. Hex, binary, `~` and named constants may still fill a signed type's bits (`x: s8 = 0xff` is `-1`). A literal that does not fit the other operand makes the operation `s64` (`small_u8 == -1` is now `false` for 255).
 - A float literal with 8 or more significant digits is `float64`, even when `float32` holds it exactly (`16777216.0`), and so is one outside `float32`'s normal range (`1.0e39`), which no longer converts to `float32` without a cast. Integer literals must fit in 64 bits.
 
-### Fixed
+### Fixes
 
 - VS Code: Jai files format with the extension again. Its default formatter setting still named the old ID `matteopolak.jai`, so VS Code said the formatter "isn't available"; *Open Settings* in the missing-toolchain warning also filtered by the old ID.
+- `print`: negatives in other bases are two's complement, ties round away from zero, `Inf`/`-Inf`/`NaN`, `(enum out of range: N)` for unnamed enum values, and `[1, 2...]` for cut-short arrays.
+- `Hash_Table`, `Random` and `make_look_at_matrix` match Jai (details below).
+
+<details>
+<summary>All changes (7)</summary>
+
 - `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
 - `Random`'s float32 draws use the low 24 bits of the next value, and `random_get_within_range` returns `min + (max - min) * fraction`.
 - `make_look_at_matrix(..., x_is_forward = false)` builds a right-handed view: the camera's right is `+x` (it was `-x`).
@@ -17,6 +33,8 @@
 - Type info gives an anonymous enum an empty name, as for anonymous structs.
 - Two typed integer constants of different types meet in the wider one (`cast(s16) 1 + cast(s32) 2` is `s32`), as variables do.
 - Compile errors for programs jaic accepted: arithmetic on `bool`, more names than a call returns (`a, b := f(1)` with one result), the address of a number constant (`*5`), `#char` of an empty or multi-character string, `using` on a variable that is not a struct or enum, a bare `defer;`, an enum value outside its type, a repeated enum or struct member name, and assigning into a constant array (`ARR[0] = 1` changed a copy).
+
+</details>
 
 ## [0.4.2] - 2026-10-08
 
