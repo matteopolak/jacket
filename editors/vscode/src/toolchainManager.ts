@@ -192,6 +192,6 @@ export class ToolchainManager {
     );
     if (choice === "Download Toolchain") await vscode.commands.executeCommand("jai.downloadToolchain");
     if (choice === "Open Releases") await vscode.env.openExternal(vscode.Uri.parse(RELEASES_URL));
-    if (choice === "Open Settings") await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:matteopolak.jai");
+    if (choice === "Open Settings") await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:matteopolak.jai-toolchain");
   }
 }

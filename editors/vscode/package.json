@@ -282,7 +282,7 @@
     },
     "configurationDefaults": {
       "[jai]": {
-        "editor.defaultFormatter": "matteopolak.jai",
+        "editor.defaultFormatter": "matteopolak.jai-toolchain",
         "editor.semanticHighlighting.enabled": true
       }
     },
