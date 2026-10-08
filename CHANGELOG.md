@@ -40,7 +40,7 @@ Typing part of a name you haven't imported offers it from the standard library, 
 - Two typed integer constants of different types meet in the wider one (`cast(s16) 1 + cast(s32) 2` is `s32`), as variables do.
 - Compile errors for programs jaic accepted: arithmetic on `bool`, more names than a call returns (`a, b := f(1)` with one result), the address of a number constant (`*5`), `#char` of an empty or multi-character string, `using` on a variable that is not a struct or enum, a bare `defer;`, an enum value outside its type, a repeated enum or struct member name, and assigning into a constant array (`ARR[0] = 1` changed a copy).
 - Release archives ship the stdlib's C libraries (`stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, plus `rpmalloc` on macOS and Linux and FreeType on Windows) for every platform, so Simp programs run and build from an installed toolchain. Before, `jaic run` stopped with ``foreign procedure `stbi_load` is not available here`` and `jaic build` could not find `stb_image`.
-- Windows: `jaic build` without Clang on `PATH` no longer runs the coreutils `link` that Git for Windows puts there (``link: extra operand 'build\\game.exe.o'``). It uses Microsoft's `link.exe`, finding Visual Studio and the Windows SDK libraries itself when no developer prompt is open, or a Clang installed outside `PATH`, and older Clang drivers now link the DLL C runtime as the libraries expect.
+- Windows: `jaic build` without Clang on `PATH` no longer runs the coreutils `link` that Git for Windows puts there (``link: extra operand 'build\\game.exe.o'``). It uses Microsoft's `link.exe`, finding Visual Studio and the Windows SDK libraries itself when no developer prompt is open, or a Clang installed outside `PATH`.
 
 </details>
 

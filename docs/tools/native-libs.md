@@ -22,8 +22,10 @@ Sound_Player programs with no setup (FreeType still comes from the system on mac
 - The tool downloads the files into `artifacts/native-libs/sources/` (verifying hashes), compiles each
   unit once with `cc -O2 -fPIC`, and writes `lib<name>.a` and `lib<name>.dylib`/`.so` (macOS dylibs get
   an `@rpath/` install name).
-- On Windows it compiles with `clang --target=<x86_64|aarch64>-pc-windows-msvc -fms-runtime-lib=dll`
-  (the dynamic CRT `jaic build` links) and writes `<name>.lib` (`llvm-lib`) and `<name>.dll`, whose
+- On Windows it compiles with `clang --target=<x86_64|aarch64>-pc-windows-msvc -fms-runtime-lib=static -fms-omit-default-lib`
+  (static-CRT code that names no runtime library, so the archive links into executables with either
+  runtime: Clang's driver links `libcmt`, `link.exe` gets `/DEFAULTLIB:msvcrt`; code built for the DLL runtime
+  references `__imp_fopen` and the like, which MSVC's `link.exe` cannot resolve against `libcmt`) and writes `<name>.lib` (`llvm-lib`) and `<name>.dll`, whose
   exports are every external symbol of the objects (`llvm-nm` into a `.def` file). `--platform
   windows-arm64` picks the CPU explicitly; `tools/stdlib_runtime.py` passes its `--platform`, since
   the Python on an arm64 runner may be an x64 build.

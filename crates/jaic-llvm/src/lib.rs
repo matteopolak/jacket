@@ -688,15 +688,6 @@ pub fn link(
         if flavor == LinkFlavor::Msvc {
             // Clang's MSVC driver: the dynamic CRT, as above.
             cmd.args(["-fms-runtime-lib=dll", "-llegacy_stdio_definitions"]);
-            // Older Clang drivers (the one in windows-2025's `Program Files\LLVM`) ignore that
-            // flag when they only link and still name the static CRT (`-defaultlib:libcmt`),
-            // which leaves the `__imp_` references of libraries built for the DLL runtime (the
-            // packaged `stb_image.lib`) unresolved.
-            cmd.args([
-                "-Wl,/NODEFAULTLIB:libcmt",
-                "-Wl,/DEFAULTLIB:msvcrt",
-                "-Wl,/DEFAULTLIB:oldnames",
-            ]);
         }
     }
     // Windows reserves 1 MiB for the main thread's stack (and threads created without a

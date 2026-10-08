@@ -120,9 +120,13 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
     flags += [f'-I{src / d}' for d in lib.get('include', [])]
     flags += [f'-D{d}' for d in lib.get('defines', [])]
     if plat.startswith('windows'):
-        # The dynamic C runtime, which `jaic build` links on Windows.
-        compiler = ['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=dll',
-                    '-D_CRT_SECURE_NO_WARNINGS']
+        # Code for the static C runtime (`/MT`: plain `fopen`, no `__imp_fopen`) that names no
+        # runtime library (`/Zl`). The archives then link into executables with either runtime:
+        # Clang's driver links `libcmt` when it only links, Visual Studio's link.exe gets
+        # `/DEFAULTLIB:msvcrt` from jaic, and MSVC's link.exe cannot resolve the `__imp_`
+        # references of `/MD` code against `libcmt`.
+        compiler = ['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=static',
+                    '-fms-omit-default-lib', '-D_CRT_SECURE_NO_WARNINGS']
         suffix = 'obj'
     else:
         compiler = ['cc', '-fPIC']
@@ -161,9 +165,10 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
             subprocess.run(['llvm-lib', '/nologo', f'/out:{static}', *map(str, objects)], check=True)
             definitions = windows_exports(objects, tmp, name)
             # The DLL's import library would take the static library's name: it goes to tmp.
-            subprocess.run(['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=dll', '-shared',
+            # The DLL carries its own copy of the static runtime (what `jaic run` loads).
+            subprocess.run(['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=static', '-shared',
                             '-o', str(out / f'{name}.dll'), *map(str, objects), f'-Wl,/DEF:{definitions}',
-                            f'-Wl,/IMPLIB:{tmp / "import.lib"}'], check=True)
+                            '-Wl,/DEFAULTLIB:libcmt', f'-Wl,/IMPLIB:{tmp / "import.lib"}'], check=True)
             return
         subprocess.run(['ar', 'rcs', str(static), *map(str, objects)], check=True)
         shared_ext = 'dylib' if plat.startswith('macos') else 'so'
