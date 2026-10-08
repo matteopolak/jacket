@@ -27,7 +27,7 @@ random_module :: () {
     R.random_seed(12345);
     for seeded assert(R.random_get() == it, "context seed 12345 draw %", it_index);
     R.random_seed(12345);
-    floats := u32.[0x3f4cc795, 0x3f4db629, 0x3db7a9b1];
+    floats := u32.[0x3f4ad250, 0x3b06eb01, 0x3e8acfa7];
     for floats {
         value := R.random_get_zero_to_one();
         assert((cast(*u32) *value).* == it, "zero_to_one draw %: %", it_index, value);
