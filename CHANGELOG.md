@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
+
 ## [0.4.2] - 2026-10-08
 
 Builds for Intel Macs and arm64 Linux, programs that run on any CPU of their architecture, and every `Build_Options` field either honoured or reported. Several real-world projects (toml-jai, jai-format, jai-protobuf, jaison, Vk-Engine) now build and pass their tests.

@@ -1,7 +1,7 @@
 // A raymarched scene drawn by one full-screen fragment shader with WebGPU:
 // a twisting torus orbiting a blobby sphere over a checkered floor, with soft shadows.
 // Click to change the palette, Space pauses, Escape quits. Natively it opens a window (see
-// docs/stdlib/webgpu.md); in the browser playground it draws into the Render pane.
+// docs/stdlib/webgpu.md); in the browser playground it draws into the Render tab.
 
 #import "Basic";
 #import "Input";

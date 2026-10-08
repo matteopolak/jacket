@@ -7,7 +7,7 @@
 // playground forwards to your browser's WebGPU; natively the same code
 // runs on wgpu-native in a window (examples/webgpu/raymarch.jai).
 //
-// It draws in the Render pane for GPU_SECONDS seconds. Click it to change
+// It draws in the Render tab for GPU_SECONDS seconds. Click it to change
 // the palette, Space pauses, Escape ends it early. Browsers without
 // WebGPU (or without JavaScript Promise Integration) skip this stop.
 

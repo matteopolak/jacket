@@ -28,7 +28,7 @@ purpose: the error messages are part of the tour.
 - [files/files.jai](files/files.jai): Walking the workspace, reading tour.md, writing and deleting a file.
 - [machine/machine.jai](machine/machine.jai): `#asm` (bswap, popcnt, lzcnt, a 128-bit mul) and the 128-bit `Long_Double`.
 - [finale/raymarch.jai](finale/raymarch.jai): A ray marcher that draws a 3D scene in text.
-- [gpu/raymarch_gpu.jai](gpu/raymarch_gpu.jai): Ray marching on your GPU with WebGPU, drawn in the Render pane (Chrome and Edge; other browsers skip it).
+- [gpu/raymarch_gpu.jai](gpu/raymarch_gpu.jai): Ray marching on your GPU with WebGPU, drawn in the Render tab (Chrome and Edge; other browsers skip it).
 
 ## Things to try
 
