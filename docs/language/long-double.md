@@ -48,7 +48,7 @@ The wide type is `TypeKind::WideFloat(WideFloat::{X87, Binary128})` (`types.rs`)
 - Out-of-range conversion to `s64` (undefined in C): x87 gives `-9223372036854775808` like the `fistp` instruction, binary128 saturates. Both match native builds on that target {#ext.11}.
 - Literals: a decimal literal is a `float64` value first, so `cast(Long_Double) 0.1` holds float64's 0.1. Build exact values with arithmetic: `cast(Long_Double) 1 / 10` folds at full precision {#ext.12}.
 - Constant folding (`wide_fold`, `sema/wide.rs`) uses the same soft-float as the interpreter, in the target's format {#ext.13}.
-- `print` converts to `float64` (`__long_double_to_float64` in `stdlib/Basic/Print.jai`, which decodes the target's bit pattern in Jai), so it shows at most float64's digits, and values outside float64's range print as `inf` or `0` {#ext.14}. Read the bytes for exact output. `Reflection.set_value_from_string` does not parse it {#ext.15}.
+- `print` converts to `float64` (`__long_double_to_float64` in `stdlib/Basic/Print.jai`, which decodes the target's bit pattern in Jai), so it shows at most float64's digits, and values outside float64's range print as `Inf` or `0` {#ext.14}. Read the bytes for exact output. `Reflection.set_value_from_string` does not parse it {#ext.15}.
 
 ### Compiler and backends
 

@@ -308,7 +308,7 @@ check_formatting :: () {
     numbers := s64.[1, 2, 3, 4, 5];
     any: Any = numbers;
     print_array(*builder, any, cast(*Type_Info_Array) type_info([5] s64), .{ stop_printing_after_this_many_elements = 2 });
-    assert(builder_to_string(*builder) == "[1, 2, ...]", "a truncated array");
+    assert(builder_to_string(*builder) == "[1, 2...]", "a truncated array");
     print_array(*builder, any, cast(*Type_Info_Array) type_info([5] s64), .{ separator = "|", begin_string = "", end_string = "", draw_separator_after_last_element = true });
     assert(builder_to_string(*builder) == "1|2|3|4|5|", "custom separators");
     view: [] s64;

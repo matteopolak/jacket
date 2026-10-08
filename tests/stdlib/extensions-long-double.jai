@@ -61,12 +61,12 @@ main :: () {
     sum += single;
     assert(sum == 3.5 && cast(s16) sum == 3 && cast(float32) sum == 3.5);
     assert(cast(u64) (sum + 100.5) == 104 && cast(s64) -sum == -3);
-    // print goes through float64: values beyond its range print as inf or 0.
+    // print goes through float64: values beyond its range print as Inf or 0.
     huge: Long_Double = 1;
     for 1..1100 huge *= 2;
     tiny_value: Long_Double = 1;
     for 1..1100 tiny_value /= 2;
-    assert(tprint("% % %", huge, -huge, tiny_value) == "inf -inf 0");
+    assert(tprint("% % %", huge, -huge, tiny_value) == "Inf -Inf 0");
 
     #if LONG_DOUBLE_IS_WIDE {
         assert(size_of(Long_Double) == 16 && align_of(Long_Double) == 16);

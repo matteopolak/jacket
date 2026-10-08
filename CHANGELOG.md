@@ -7,6 +7,8 @@
 - `Hash_Table.init` rounds an explicit size up to a power of two without raising it to the default minimum (`init(*t, 5)` allocates 8 slots).
 - `Random`'s float32 draws use the low 24 bits of the next value, and `random_get_within_range` returns `min + (max - min) * fraction`.
 - `make_look_at_matrix(..., x_is_forward = false)` builds a right-handed view: the camera's right is `+x` (it was `-x`).
+- `print` handles several edge cases as Jai does: a negative integer in another base is its two's complement (`formatInt(-1, base = 16)` on an `s8` is `ff`); fixed-precision floats round ties away from zero (`2.5` with no decimals is `3`); trailing zeros removed by zero removal keep their width as spaces; infinity and NaN print as `Inf`, `-Inf` and `NaN`; an enum value without a name prints as `(enum out of range: 5)`, and leftover `enum_flags` bits print in hex after the names; an array cut short ends `[1, 2...]`; an `Any` with no type prints `Any.{}`; strings inside structs escape only newlines; type names print `(anonymous enum)`, `#c_call` and `#compiler`.
+- Type info gives an anonymous enum an empty name, as for anonymous structs.
 
 ## [0.4.2] - 2026-10-08
 

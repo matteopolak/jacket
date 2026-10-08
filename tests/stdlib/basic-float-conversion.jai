@@ -3,12 +3,12 @@
 
 main :: () -> s64 {
     if tprint("%", formatFloat(1234567.89, mode = .SHORTEST)) != "1.23457e+06" return 1;
-    if tprint("%", formatFloat(2.5, trailing_width = 0)) != "2" return 2;
-    if tprint("%", formatFloat(0.125, trailing_width = 2, zero_removal = .NO)) != "0.12" return 3;
+    if tprint("%", formatFloat(2.5, trailing_width = 0)) != "3" return 2;
+    if tprint("%", formatFloat(0.125, trailing_width = 2, zero_removal = .NO)) != "0.13" return 3;
     if tprint("%", formatFloat(9.999, trailing_width = 2, mode = .SCIENTIFIC, zero_removal = .NO)) != "1.00e+01" return 4;
     infinity := cast,force(float64) cast(u64) 0x7ff0_0000_0000_0000;
     nan := cast,force(float64) cast(u64) 0x7ff8_0000_0000_0001;
-    if tprint("%", formatFloat(infinity)) != "inf" || tprint("%", formatFloat(-infinity)) != "-inf" || tprint("%", formatFloat(nan)) != "nan" return 5;
+    if tprint("%", formatFloat(infinity)) != "Inf" || tprint("%", formatFloat(-infinity)) != "-Inf" || tprint("%", formatFloat(nan)) != "NaN" return 5;
     if formatFloatRoundtrip(-0.0) != "-0" return 6;
     minimum := cast,force(float64) cast(u64) 1;
     if formatFloatRoundtrip(minimum) != "5e-324" return 7;

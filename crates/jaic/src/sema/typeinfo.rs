@@ -347,11 +347,16 @@ impl Compiler {
             }
             TypeKind::Enum(e) => {
                 let info = self.types.enum_info(e).clone();
+                // Like anonymous structs, an inline `enum {...}` has no name at runtime.
+                let name = match info.name.as_str() {
+                    "enum" => "",
+                    name => name,
+                };
                 self.set_field(
                     &mut agg,
                     desc,
                     "name",
-                    Value::String(info.name.as_str().as_bytes().into()),
+                    Value::String(name.as_bytes().into()),
                     span,
                 )?;
                 self.set_info_ptr(&mut agg, desc, "internal_type", info.base, span)?;

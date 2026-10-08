@@ -825,7 +825,7 @@
       "host_build_reviewed": true,
       "runtime": {
         "exit_code": 0,
-        "stdout": "hex -1101\nchecksum 1d76f36f48ab187a\n",
+        "stdout": "hex 1111111111111111111111111111111111111111111111111111111111110011\nchecksum 1d76f36f48ab187a\n",
         "stderr": ""
       }
     },

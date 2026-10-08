@@ -78,8 +78,8 @@ main :: () {
     assert(tprint("%", cast(int) Shade.MID) == "10", "cast(int) prints the value");
     assert(tprint("%", Perm.READ | Perm.EXEC) == "READ | EXEC", "flags print joined");
 
-    // enum.6: a value without a name prints as a number.
-    assert(tprint("%", cast(Shade) 99) == "99", "unnamed value prints the number");
+    // enum.6: a value without a name prints as out of range.
+    assert(tprint("%", cast(Shade) 99) == "(enum out of range: 99)", "unnamed value prints as out of range");
 
     // enum.7: enum_flags members are powers of two.
     assert(cast(u32) Perm.READ == 1 && cast(u32) Perm.WRITE == 2 && cast(u32) Perm.EXEC == 4, "powers of two");
