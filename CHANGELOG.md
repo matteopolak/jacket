@@ -2,40 +2,53 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-08
+
+Builds for Intel Macs and arm64 Linux, programs that run on any CPU of their architecture, and every `Build_Options` field either honoured or reported. Several real-world projects (toml-jai, jai-format, jai-protobuf, jaison, Vk-Engine) now build and pass their tests.
+
 ### Heads-up
 
-- `Build_Options` jaic does not act on are no longer accepted silently ([build options](docs/metaprogramming/build-options.md)). `set_build_options` warns about each one a call changes, such as `backend = .X64`, `use_natvis_compatible_types` and `llvm_options.command_line`. What it cannot do at all is an error: an `os_target` it cannot build for, `add_build_string` with a `code` scope, a user data segment, or another workspace's type table. `compiler_report(..., mode = .ERROR_CONTINUABLE)` now fails the build (it printed a warning).
-- Workspaces built with `set_build_options` now get the code generation their `Build_Options` describe. Frame pointers, inlining, tail calls, loop unrolling and vectorization, split modules, the machine-code level and the crash handler (`backtrace_on_crash`, `.ON` by default) used to be jaic's own; `set_optimization` sets them per flavor.
-- The VS Code extension's ID is now `matteopolak.jai-toolchain` on both the Marketplace and Open VSX, since the Marketplace already has an extension named `jai`. Install the new one and uninstall `matteopolak.jai`; it offers to do that for you, and stays inactive while the old one is installed. Settings (`jai.*`, `jailint.*`) carry over.
+| What | Change |
+| --- | --- |
+| VS Code extension | New ID `matteopolak.jai-toolchain` on the Marketplace and Open VSX. Install it and uninstall `matteopolak.jai` (it offers to); settings carry over. |
+| Built programs | Target the baseline CPU (x86-64, Apple M1, generic arm64) instead of the build machine's. `llvm_options.target_system_cpu = "native"` restores the old behaviour. |
+| `Build_Options` | Fields jaic can't act on warn when changed; impossible ones (an unsupported `os_target`, `add_build_string` with a `code` scope) are errors. `ERROR_CONTINUABLE` reports now fail the build. |
+| Workspaces | `set_build_options` workspaces get the code generation their options describe (frame pointers, inlining, crash handler, …); `set_optimization` sets them per flavor. |
 
-### Added
+See [build options](docs/metaprogramming/build-options.md) for the full support table.
 
-- Release archives for Intel Macs (`jai-macos-x64.tar.gz`) and arm64 Linux (`jai-linux-arm64.tar.gz`), with wgpu-native, built like the others with static LLVM and PGO (Intel macOS from conda-forge's LLVM, since LLVM publishes no Intel macOS build). `install.sh`, the Homebrew formula and the VS Code extension's toolchain download use them; for 0.4.1 and earlier, which have none, they say the release has no build for the platform.
-- CI opens real windows for WebGPU: a new test presents frames to a `Window_Creation` window's surface and checks each frame's status, the error scopes and a readback of the last frame, interpreted and built, on Linux under Xvfb (X11 surface, Mesa's lavapipe), macOS (Metal) and Windows x64 and arm64 (HWND surface, WARP). See [WebGPU tests](docs/stdlib/webgpu.md#tests).
-- `WEBGPU_SURFACE_OCCLUDED` in `Extensions/WebGPU`: wgpu-native's status for a hidden window on macOS (the first frame after `create_window` included), which the triangle example now waits out instead of reconfiguring the surface every frame.
-- Metaprograms can link a workspace themselves. With `use_custom_link_command`, jaic writes the objects and sends `READY_FOR_CUSTOM_LINK_COMMAND` with the object files, system and user libraries. It waits for `compiler_custom_link_command_is_complete`, whose exit code decides whether the build failed (Focus and forbear link this way). `POST_WRITE_EXECUTABLE` fills `executable_write_failed` and `linker_exit_code`.
-- `Build_Options` fields jaic ignored before now work:
-  - `intermediate_path` (objects and IR);
-  - `entry_point_name`;
-  - `append_executable_filename_extension`;
-  - `minimum_os_version` (macOS);
-  - `runtime_support_definitions` and `backtrace_on_crash`;
-  - `enable_frame_pointers` and `disable_redzone`;
-  - `llvm_options`: the `output_llvm_ir`/`output_bitcode` files, `machine_code_optimization_setting`, the inlining, tail call, unrolling, vectorization, merge and split switches, `preserve_debug_info`, and `.OS`/`.OZ` size pipelines.
+### New platforms
 
-  `SKIP_*` intercept flags filter `TYPECHECKED` messages, and `compiler_destroy_workspace` keeps a workspace from compiling.
+| Archive | Notes |
+| --- | --- |
+| `jai-macos-x64.tar.gz` | Intel Macs; static LLVM from conda-forge |
+| `jai-linux-arm64.tar.gz` | arm64 Linux; PGO-optimised like the others |
 
-### Fixed
+`install.sh`, the Homebrew formula and the VS Code extension's toolchain download all use them. Both include wgpu-native for WebGPU.
 
-- A pointer to a struct passes where its `#as` member's type is expected even when that member is itself a pointer (`#as handle: VkPhysicalDevice` given a `*Physical_Device`), as it already did for other member types; no_api's `module.jai` now checks for Windows.
-- `push_context, defer_pop;` and `push_context { ... }` without a context are accepted again: they push a copy of the current context (a default one in a `#c_call` procedure), so the block's changes don't leak out. 0.4.0 made the first an error, which broke Vk-Engine.
-- A by-value `it` in a `for` over an array is the element itself, so `*it` points into the array and a change through it stays, as toml-jai's `first` example and Photon expect; it was a copy.
-- A struct's `type_info` lists its constants (types, values, and procedures whose signature is already known) among `members`, in declaration order with the `CONSTANT` flag, so member indexes match the official layout (toml-jai's `custom_handlers` reads `Hash_Table.Table`'s `members[5]`).
-- Metaprograms: a call to a polymorphic procedure in a `TYPECHECKED` body resolves to the instance it made, whose body is reported too, and a static `#if` or `#if x == {` says which branch the compiler took (`EVALUATED_AS_TRUE`, `static_if_accepted_case`). MetaThreadSafe no longer flags the untaken branch of a baked instance.
-- A `#!` line at the start of a file (`#!/usr/bin/env jai`) is skipped by jaic and kept by jaifmt, so jai-protobuf's `build.jai` compiles.
-- On macOS and Linux `File.handle` is the C stream (`*FILE`), so `File.{ stdin }` works, as jai-format and jai-protobuf expect; it was an `s64`.
-- Passing `p.*` of a null `p` as an `Any` or `..Any` argument no longer stops the program; 0.4.1 stopped there, which broke jaison's `assert` arguments. Boxing reads nothing, so code that never reads the value runs on. `print` is what stops, with `null pointer dereference: read through a null pointer`.
-- `jaic build` targets the baseline CPU of the target (x86-64, Apple M1, generic arm64) instead of the build machine's, so built programs run on older CPUs. The 0.4.1 Linux `jaifmt` used AVX-512 and crashed with an illegal instruction on machines without it. Set `llvm_options.target_system_cpu = "native"` for the old behavior.
+### Fixes
+
+- The 0.4.1 Linux `jaifmt` (and any program built on a newer CPU) crashed with an illegal instruction on machines without AVX-512: `jaic build` targeted the build machine's CPU.
+- A struct pointer passes where its pointer-typed `#as` member is expected (`*Physical_Device` for `VkPhysicalDevice`).
+- A by-value `for` loop's `it` is the array element itself, so `*it` points into the array.
+- A struct's `type_info` lists its constants, so member indexes match the official layout.
+- `push_context` without a context is accepted again and pushes a copy of the current one.
+- Passing a null `p.*` as an `Any` no longer stops the program; `print` stops when it reads it (0.4.1 stopped too early and broke jaison).
+
+<details>
+<summary>Other changes (9)</summary>
+
+- Metaprograms can link a workspace themselves with `use_custom_link_command` (`READY_FOR_CUSTOM_LINK_COMMAND`, `compiler_custom_link_command_is_complete`); `POST_WRITE_EXECUTABLE` fills `executable_write_failed` and `linker_exit_code`.
+- Newly honoured `Build_Options`: `intermediate_path`, `entry_point_name`, `append_executable_filename_extension`, `minimum_os_version`, `runtime_support_definitions`, `backtrace_on_crash`, `enable_frame_pointers`, `disable_redzone`, most `llvm_options` (including real `.OS`/`.OZ` size pipelines), `SKIP_*` intercept flags and `compiler_destroy_workspace`.
+- Metaprograms: calls to polymorphic procedures resolve to their instance, and static `#if` reports the branch taken.
+- A `#!` first line is skipped by jaic and kept by jaifmt.
+- `File.handle` is the C stream (`*FILE`) on macOS and Linux, so `File.{ stdin }` works.
+- Built programs always link libm on macOS and Linux, for the float rounding calls baseline x86-64 needs.
+- CI presents WebGPU frames to real windows on Linux, macOS and Windows.
+- `WEBGPU_SURFACE_OCCLUDED` in `Extensions/WebGPU` for hidden windows on macOS; the triangle example waits it out.
+- The release smoke test feeds jaifmt input without a trailing newline, checks its exit code, and rejects AVX code in the Linux build.
+
+</details>
 
 ## [0.4.1] - 2026-10-07
 
