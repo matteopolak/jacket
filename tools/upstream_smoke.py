@@ -332,6 +332,9 @@ def run_check(check, args, plat, shots):
             kind = step.get("kind", "run")
             if "only" in step and plat not in step["only"]:
                 continue
+            if "not_in_ci" in step and os.environ.get("GITHUB_ACTIONS"):
+                print(f"    -- {step.get('name')}: skipped on CI: {step['not_in_ci']}")
+                continue
             if kind == "jaic":
                 step = {**step, "argv": ["{jaic}", *step["argv"]], "outputs": step.get("outputs", [])}
                 kind = "run"

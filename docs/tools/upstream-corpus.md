@@ -137,7 +137,7 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | [jai-format](https://github.com/OrangeLightning219/jai-format) | works | Its tests pass and the formatter builds (`jai-format-tests`, `jai-format-build`) |
 | [toml-jai](https://github.com/sjorsdonkers/toml-jai) | works | 5 examples run and pass; `file_examples` checks (see above) |
 | [jai-xml](https://github.com/smari/jai-xml) | works | `test.jai` passes its 6 cases and `continue_iter` runs; the other examples check (their `traverse.xml` is not in the repository) |
-| [jai-protobuf](https://github.com/segcore/jai-protobuf) | works | Tests and the four examples pass on a scratch copy; `protoc-jai` checks |
+| [jai-protobuf](https://github.com/segcore/jai-protobuf) | works | `protoc-jai` checks; its tests and examples are not run on CI since the generator passes a surplus `print` argument (generator.jai:427), which jaic rejects as Jai does |
 
 ### Built and run in CI
 
@@ -147,7 +147,7 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | --- | --- | --- | --- | --- | --- |
 | chess-jai | engine: UCI, perft 4, `perft_all`; UI: window and screenshot | yes | yes | yes | |
 | Jails | `initialize` over LSP stdio | yes | yes | yes | |
-| jaison, jai-xml, jai-protobuf, toml-jai, reflector, jai-format | their tests or examples, native | yes | yes | yes | |
+| jaison, jai-xml, toml-jai, reflector, jai-format | their tests or examples, native | yes | yes | yes | |
 | uniform (with stubborn) | its suite at build time | yes | yes | yes | |
 | match-jai, yield-jai, AST_Utils, jai-utils, unotest | examples and tests | yes | yes | yes | |
 | Jai-Shader-Transpiler | `build.jai` | - | yes | yes | Linux path uses an undeclared `info` upstream |
@@ -156,7 +156,7 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | wait_group | example | - | yes | - | Linux: `signal` is an ambiguous overload set in jaic (see below); no Windows backend |
 | hyperserve | GET /ping | - | yes | - | needs wait_group; not done upstream on Windows |
 | Focus | window and screenshot | - | yes | - | Linux: `LD.GL` is declared after `#scope_module`; Windows: `init_named_pipe_pair` missing from Process; x64 uses Focus's portable hash (no x64 `meow_hash`) |
-| forbear | playground window | - | yes | - | Linux needs a Wayland compositor |
+| forbear | playground window | - | yes | - | Linux needs a Wayland compositor; on the GPU-less CI macOS runner only the build is checked (the playground compiles shaders at start-up) |
 | sgpu, Vk-Engine | - | - | - | - | Slang / Jolt / ImGui builds and a Vulkan GPU |
 
 Gaps this found and did not fix (each needs a decision about Jai's behaviour or a bigger stdlib piece):
