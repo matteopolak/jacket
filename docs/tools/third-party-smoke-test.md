@@ -63,6 +63,8 @@ into its tree leaves `corpus/upstream/` alone, then runs its steps in order:
 | `serve` | starts a server on a free port (`{port}` in `argv`), fetches `get`, checks status and body |
 | `lsp` | sends `initialize` over stdio and reads frames until the reply |
 
+The `gui`, `serve` and `lsp` programs start in their own process group (a new session on POSIX, `CREATE_NEW_PROCESS_GROUP` plus `taskkill /T` on Windows), and stopping one stops the whole group. Children they start, such as the chess UI's engine, would otherwise outlive the run.
+
 A step with `needs` runs only if that program was built (some entry points do all their work at compile time),
 and one with `only` only on those platforms. A check with `only` or `skip` is a documented skip and says why;
 a check without steps is a skip on every platform.

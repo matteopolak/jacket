@@ -10,6 +10,7 @@ import json
 import os
 import platform
 import shutil
+import signal
 import socket
 import struct
 import subprocess
@@ -167,14 +168,33 @@ def capture(dest):
         return None
 
 
+# Programs under test run in their own process group, so stopping one also stops what it started
+# (the chess UI starts its engine as a child, which otherwise outlives it and spins on a closed pipe).
+GROUP = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if WINDOWS else {"start_new_session": True}
+
+
 def stop(proc):
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            proc.wait(10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+    if WINDOWS:
+        if proc.poll() is None:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
             proc.wait()
+        return
+    # Signal the group even when the leader has exited: its children may still be running. macOS
+    # answers EPERM rather than ESRCH for a group whose only member is an unreaped leader.
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        proc.wait()
+        return
+    try:
+        proc.wait(10)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    proc.wait()
 
 
 def read_pipe_text(path):
@@ -205,7 +225,7 @@ def gui_step(step, ctx):
     base = before() if before else None
     with open(log, "wb") as out:
         proc = subprocess.Popen(argv, cwd=ctx["cwd"], env=env, stdin=subprocess.DEVNULL, stdout=out,
-                                stderr=subprocess.STDOUT)
+                                stderr=subprocess.STDOUT, **GROUP)
     try:
         seconds = step.get("seconds", 8)
         deadline = time.time() + seconds
@@ -245,7 +265,7 @@ def serve_step(step, ctx):
     log = ctx["work"] / "serve.log"
     with open(log, "wb") as out:
         proc = subprocess.Popen(argv, cwd=ctx["cwd"], env={**ctx["env"], **step.get("env", {})},
-                                stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT)
+                                stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, **GROUP)
     try:
         deadline = time.time() + step.get("timeout", 30)
         body = None
@@ -278,7 +298,7 @@ def lsp_step(step, ctx):
     shutdown = json.dumps({"jsonrpc": "2.0", "id": 2, "method": "shutdown"})
     frame = lambda s: f"Content-Length: {len(s.encode())}\r\n\r\n{s}".encode()
     proc = subprocess.Popen(argv, cwd=ctx["cwd"], env=ctx["env"], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, **GROUP)
     try:
         proc.stdin.write(frame(request) + frame(shutdown))
         proc.stdin.flush()
