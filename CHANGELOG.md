@@ -56,6 +56,7 @@ Refactorings, call hierarchy and expand selection in the language server.
 - `Default_Metaprogram` reads `-os`, `-cpu`, `-exe`, `-no_dce`, `-no_color`, `-msvc_format`, `-natvis`, `-quiet` and `-version`; an unknown option is named in the error.
 
 - `jaic run`: a `#c_call` procedure returning a struct through a hidden result pointer (any struct over 16 bytes that is not a float aggregate) can now be handed to C on AArch64 (macOS, Linux). It was an error. A fixture of 58 struct return shapes now runs through foreign calls and callbacks in the interpreter and native builds. See [C ABI](docs/native/c-abi.md).
+- `Code_Node` export models `#caller_code`, `$T`/`$$x`/`$T/Restriction`, `#add_context`, `#module_parameters`, and (with the compiler's sources) `#file`, `#filepath` and `#line`; `Program_Print` prints them. They were `.PLACEHOLDER`. New jaic fields: `Code_Ident.polymorph_restriction`, the `BAKED_POLYMORPH_VARIABLE`/`INTERFACE_RESTRICTED` flags and `Code_Directive_Location.is_caller_code`. See [build options](docs/metaprogramming/build-options.md).
 
 ### Refactorings
 

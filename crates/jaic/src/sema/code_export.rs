@@ -54,6 +54,8 @@ mod node {
     pub const DEFER: i64 = 49;
     pub const USING: i64 = 50;
     pub const PUSH_CONTEXT: i64 = 39;
+    pub const DIRECTIVE_MODULE_PARAMETERS: i64 = 45;
+    pub const DIRECTIVE_ADD_CONTEXT: i64 = 46;
     pub const PLACEHOLDER: i64 = 51;
     pub const DIRECTIVE_BYTES: i64 = 23;
     pub const DIRECTIVE_THIS: i64 = 28;
@@ -1535,6 +1537,79 @@ impl Exporter<'_> {
             // The instructions have no Code_Node form (`Code_Asm` is opaque), so a metaprogram
             // sees that an `#asm` block is there, not what it holds.
             E::Asm(_) => self.node("Code_Asm", node::ASM, span),
+            // `$T` and `$$x`: an identifier that defines a polymorphic variable. `0x80` marks the
+            // baked `$$` form, `0x100` an `/interface` restriction (jaic extensions to the flags).
+            E::PolyVar {
+                name,
+                baked,
+            } => {
+                let mut rec = self.node("Code_Ident", node::IDENT, span);
+                rec.str("name", name.as_str().as_bytes()).int(
+                    "flags",
+                    0x1 | if *baked {
+                        0x80
+                    } else {
+                        0
+                    },
+                );
+                rec
+            }
+            E::PolyRestricted {
+                name,
+                restriction,
+                interface,
+            } => {
+                let restriction = self.expr(restriction);
+                let mut rec = self.node("Code_Ident", node::IDENT, span);
+                rec.str("name", name.as_str().as_bytes())
+                    .int(
+                        "flags",
+                        0x1 | if *interface {
+                            0x100
+                        } else {
+                            0
+                        },
+                    )
+                    .ptr("polymorph_restriction", restriction);
+                rec
+            }
+            E::CallerCode => {
+                let mut rec = self.node("Code_Directive_Location", node::DIRECTIVE_LOCATION, span);
+                rec.int("is_caller_code", 1);
+                rec
+            }
+            // The location directives are constants of the file they sit in: exported as the
+            // literal they evaluate to when the compiler's sources are at hand.
+            E::File | E::Filepath | E::Line if self.c.is_some() => {
+                let c = self.c.as_deref().unwrap();
+                let src = c.sources.get(span.file);
+                match &e.kind {
+                    E::Line => {
+                        let (line, _) = src.line_col(span.start);
+                        let mut rec = self.literal(span, 1);
+                        rec.int("_s64", line as i64).int("value_flags", 0x1);
+                        rec
+                    }
+                    kind => {
+                        let text = if matches!(kind, E::File) {
+                            super::expr::forward_slashes(&src.path)
+                        } else {
+                            std::path::Path::new(&src.path)
+                                .parent()
+                                .map(|p| {
+                                    format!(
+                                        "{}/",
+                                        super::expr::forward_slashes(&p.display().to_string())
+                                    )
+                                })
+                                .unwrap_or_default()
+                        };
+                        let mut rec = self.literal(span, 2);
+                        rec.str("_string", text.as_bytes());
+                        rec
+                    }
+                }
+            }
             _ => self.node("Code_Node", node::PLACEHOLDER, span),
         };
         let mut rec = rec;
@@ -1856,6 +1931,38 @@ impl Exporter<'_> {
                 rec.ptr("target_expression", target);
                 self.add(rec)
             }
+            S::AddContext(d) => {
+                let name = d.names.first().map_or(Sym::intern(""), |n| n.name);
+                let decl = self.decl(d, name, None, None, true);
+                let mut rec = self.node(
+                    "Code_Directive_Add_Context",
+                    node::DIRECTIVE_ADD_CONTEXT,
+                    span,
+                );
+                rec.ptr("expression", decl);
+                self.add(rec)
+            }
+            S::ModuleParameters {
+                params,
+                runtime_params,
+                body,
+            } => {
+                let module = self.params_header(params, span);
+                let program = self.params_header(runtime_params, span);
+                let common = match body {
+                    Some(b) => self.block(&b.stmts, 0, b.span),
+                    None => 0,
+                };
+                let mut rec = self.node(
+                    "Code_Directive_Module_Parameters",
+                    node::DIRECTIVE_MODULE_PARAMETERS,
+                    span,
+                );
+                rec.ptr("module_parameters", module)
+                    .ptr("program_parameters", program)
+                    .ptr("common_code", common);
+                self.add(rec)
+            }
             _ => {
                 let rec = self.node("Code_Node", node::PLACEHOLDER, span);
                 self.add(rec)
@@ -1865,6 +1972,26 @@ impl Exporter<'_> {
             c.export.stmts.insert(id, Rc::new(s.clone()));
         }
         Some(id)
+    }
+
+    /// A parameter list as a body-less procedure header (the form `#module_parameters` takes).
+    fn params_header(&mut self, params: &[ast::Param], span: Span) -> i64 {
+        let header = ast::ProcHeader {
+            id: ast::AstId::fresh(),
+            params: params.to_vec(),
+            returns: Vec::new(),
+            flags: ast::ProcFlags::default(),
+            foreign: None,
+            modify: None,
+            notes: Vec::new(),
+            span,
+            operator: None,
+        };
+        let lit = ast::ProcLit {
+            header: Rc::new(header),
+            body: None,
+        };
+        self.proc(&lit, &[], None, span)
     }
 
     fn case(&mut self, case: &ast::Case) -> i64 {
