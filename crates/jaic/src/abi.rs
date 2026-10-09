@@ -138,6 +138,73 @@ pub fn classify_vararg(arch: Arch, layout: &AggLayout) -> Passing {
     }
 }
 
+/// The argument registers still free while a parameter list is laid out, which decides whether
+/// an aggregate classified as `Registers` really travels in them. System V passes an aggregate
+/// that does not fit in the registers left entirely in memory (never half and half), which
+/// separate LLVM parameters would not do. (AAPCS64 does the same, but the backend does it itself
+/// for the array parameter the LLVM lowering uses there.)
+pub struct RegBudget {
+    arch: Arch,
+    ints: u32,
+    vectors: u32,
+}
+
+impl RegBudget {
+    /// A fresh budget; `hidden_in_int` is whether the hidden result pointer takes an integer
+    /// register (x86-64, and Windows on arm64 for a non-POD C++ result).
+    pub fn new(arch: Arch, hidden_in_int: bool) -> RegBudget {
+        let ints = if arch == Arch::X86_64 {
+            6
+        } else {
+            8
+        };
+        RegBudget {
+            arch,
+            ints: ints - hidden_in_int as u32,
+            vectors: 8,
+        }
+    }
+
+    /// A scalar parameter of type `ty`.
+    pub fn scalar(&mut self, ty: Ty) {
+        match ty {
+            Ty::F80 => {}
+            Ty::F128 => self.vectors = self.vectors.saturating_sub(1),
+            t if t.is_float() => self.vectors = self.vectors.saturating_sub(1),
+            _ => self.ints = self.ints.saturating_sub(1),
+        }
+    }
+
+    /// An aggregate parameter classified as `passing`; returns how it really travels.
+    pub fn aggregate(&mut self, passing: Passing) -> Passing {
+        // Only System V needs the count: Windows passes by position and has no multi-register
+        // aggregates, WebAssembly has no registers, and AArch64's arrays are the backend's job.
+        if self.arch != Arch::X86_64 {
+            return passing;
+        }
+        match passing {
+            Passing::Indirect => {
+                self.ints = self.ints.saturating_sub(1);
+                passing
+            }
+            Passing::Registers(pieces) if pieces.iter().any(|p| p.ty == PieceTy::X87) => {
+                Passing::Registers(pieces)
+            }
+            Passing::Registers(pieces) => {
+                let ints = pieces.iter().filter(|p| p.ty == PieceTy::I64).count() as u32;
+                let vectors = pieces.len() as u32 - ints;
+                if ints <= self.ints && vectors <= self.vectors {
+                    self.ints -= ints;
+                    self.vectors -= vectors;
+                    return Passing::Registers(pieces);
+                }
+                Passing::ByVal
+            }
+            Passing::ByVal => passing,
+        }
+    }
+}
+
 /// Classify an aggregate return value; `None` means returned through a hidden
 /// `sret` pointer.
 pub fn classify_ret(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
@@ -190,6 +257,15 @@ fn classify_registers(arch: Arch, layout: &AggLayout) -> Option<Vec<Piece>> {
         }
         Arch::Win64 | Arch::Wasm64 => unreachable!("handled above"),
         Arch::X86_64 => {
+            // System V: an aggregate with a member that is not naturally aligned (a packed
+            // struct, or `#no_padding`) is MEMORY, however small.
+            if layout
+                .fields
+                .iter()
+                .any(|&(off, t)| t.size() > 0 && off % t.size() != 0)
+            {
+                return None;
+            }
             let count = layout.size.div_ceil(8);
             let mut pieces = Vec::new();
             for k in 0..count {
@@ -297,6 +373,77 @@ mod tests {
             align: 8,
             fields: fields.to_vec(),
         }
+    }
+
+    #[test]
+    fn sysv_unaligned_member_forces_memory() {
+        // `char; int` packed: the int sits at offset 1.
+        let l = layout(5, &[(0, Ty::I8), (1, Ty::I32)]);
+        assert!(classify_ret(Arch::X86_64, &l).is_none());
+        assert_eq!(classify_arg(Arch::X86_64, &l), Passing::ByVal);
+        // `int; double` packed: the double is at offset 4, inside one eightbyte.
+        let l = layout(12, &[(0, Ty::I32), (4, Ty::F64)]);
+        assert!(classify_ret(Arch::X86_64, &l).is_none());
+        // Naturally aligned members of a packed struct are still register class.
+        let l = layout(12, &[(0, Ty::F64), (8, Ty::I32)]);
+        assert_eq!(classify_ret(Arch::X86_64, &l).unwrap().len(), 2);
+        // The other ABIs size-code packed structs like any other.
+        let l = layout(5, &[(0, Ty::I8), (1, Ty::I32)]);
+        assert_eq!(classify_ret(Arch::Aarch64, &l).unwrap().len(), 1);
+        assert_eq!(classify_ret(Arch::Win64Arm, &l).unwrap().len(), 1);
+        assert_eq!(classify_arg(Arch::Win64, &l), Passing::Indirect);
+    }
+
+    #[test]
+    fn sysv_aggregate_without_enough_registers_goes_to_memory() {
+        let two = layout(16, &[(0, Ty::I64), (8, Ty::I64)]);
+        let mut budget = RegBudget::new(Arch::X86_64, false);
+        for _ in 0..5 {
+            budget.scalar(Ty::I64);
+        }
+        // One integer register left: the two-eightbyte struct is MEMORY, a scalar still fits.
+        assert_eq!(
+            budget.aggregate(classify_arg(Arch::X86_64, &two)),
+            Passing::ByVal
+        );
+        let one = layout(8, &[(0, Ty::I64)]);
+        assert!(matches!(
+            budget.aggregate(classify_arg(Arch::X86_64, &one)),
+            Passing::Registers(_)
+        ));
+        // A hidden result pointer takes the first register.
+        let mut budget = RegBudget::new(Arch::X86_64, true);
+        for _ in 0..4 {
+            budget.scalar(Ty::I64);
+        }
+        assert_eq!(
+            budget.aggregate(classify_arg(Arch::X86_64, &two)),
+            Passing::ByVal
+        );
+        // AArch64 leaves it to the backend's array parameter.
+        let mut budget = RegBudget::new(Arch::Aarch64, false);
+        for _ in 0..7 {
+            budget.scalar(Ty::I64);
+        }
+        assert!(matches!(
+            budget.aggregate(classify_arg(Arch::Aarch64, &two)),
+            Passing::Registers(_)
+        ));
+    }
+
+    #[test]
+    fn aarch64_packed_floats_stay_homogeneous() {
+        let l = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+        let p = classify_ret(Arch::Aarch64, &l).unwrap();
+        assert!(p.iter().all(|p| p.ty == PieceTy::F32) && p.len() == 2);
+        // Not back to back, or not one type: integer pieces.
+        let l = layout(9, &[(0, Ty::I8), (1, Ty::F64)]);
+        assert!(
+            classify_ret(Arch::Aarch64, &l)
+                .unwrap()
+                .iter()
+                .all(|p| p.ty == PieceTy::I64)
+        );
     }
 
     #[test]

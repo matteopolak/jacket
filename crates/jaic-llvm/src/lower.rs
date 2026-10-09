@@ -97,6 +97,10 @@ enum ParamPlan {
     Scalar(Ty),
     /// A by-value C aggregate; the IR passes a pointer to it.
     Agg(AggLayout, Passing),
+    /// A by-value C aggregate of several register pieces on AArch64, passed as one array
+    /// parameter (`[2 x i64]`, `[4 x float]`) like Clang does: the backend then gives the whole
+    /// array registers or none, where separate scalars would be split between the two.
+    AggArray(AggLayout, Vec<Piece>),
     /// The IR out-pointer of a C aggregate return that LLVM returns in registers.
     Dropped,
 }
@@ -358,6 +362,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             None => RetPlan::Scalars(sig.returns.clone()),
         };
         let mut params = Vec::new();
+        let mut budget = abi::RegBudget::new(
+            self.arch,
+            matches!(ret, RetPlan::Sret)
+                && (self.arch.is_x86_64() || forced_sret && self.arch == Arch::Win64Arm),
+        );
         // Variadic arguments are not part of the LLVM function type.
         let mut fixed = None;
         for (i, &ty) in sig.params.iter().enumerate() {
@@ -376,7 +385,18 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     } else {
                         abi::classify_arg(self.arch, &layout)
                     };
+                    let passing = budget.aggregate(passing);
+                    // Win64Arm's variadic arguments straddle registers and the stack.
+                    let array = self.arch.is_aarch64()
+                        && !(sig.c_varargs && self.arch == Arch::Win64Arm)
+                        && matches!(&passing, Passing::Registers(p) if p.len() > 1);
                     match &passing {
+                        Passing::Registers(pieces) if array => {
+                            let elem = self.piece_ty(pieces[0].ty);
+                            llvm_params.push(elem.array_type(pieces.len() as u32).into());
+                            params.push(ParamPlan::AggArray(layout, pieces.clone()));
+                            continue;
+                        }
                         Passing::Registers(pieces) => {
                             for p in pieces {
                                 llvm_params.push(self.piece_ty(p.ty).into());
@@ -385,7 +405,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                         Passing::ByVal => {
                             attrs.push((
                                 llvm_params.len() as u32,
-                                ParamAttr::ByVal(layout.size, layout.align),
+                                ParamAttr::ByVal(layout.size, layout.align.max(8)),
                             ));
                             llvm_params.push(self.ptr_ty().into());
                         }
@@ -394,6 +414,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     params.push(ParamPlan::Agg(layout, passing));
                 }
                 None => {
+                    budget.scalar(ty);
                     llvm_params.push(self.ll(ty).into());
                     params.push(ParamPlan::Scalar(ty));
                 }
@@ -805,6 +826,17 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 ParamPlan::Scalar(_) => {
                     k += 1;
                     params[k - 1]
+                }
+                ParamPlan::AggArray(layout, pieces) => {
+                    let array = params[k].into_array_value();
+                    k += 1;
+                    let tmp = self.call_temp(st, layout.size, layout.align)?;
+                    for (n, p) in pieces.iter().enumerate() {
+                        let piece = self.builder.build_extract_value(array, n as u32, "")?;
+                        self.builder
+                            .build_store(self.gep_const(tmp, p.offset)?, piece)?;
+                    }
+                    tmp.into()
                 }
                 ParamPlan::Agg(layout, passing) => match passing {
                     Passing::ByVal | Passing::Indirect => {
@@ -1608,6 +1640,23 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             match lowered.params.get(i) {
                 Some(ParamPlan::Dropped) => {}
                 Some(ParamPlan::Scalar(ty)) => ll_args.push(self.coerce(arg, *ty)?.into()),
+                Some(ParamPlan::AggArray(layout, pieces)) => {
+                    let src = self.coerce(arg, Ty::Ptr)?.into_pointer_value();
+                    let tmp = self.call_temp(st, layout.size, layout.align)?;
+                    self.memcpy(tmp, src, layout.size)?;
+                    let elem = self.piece_ty(pieces[0].ty);
+                    let mut array: BasicValueEnum<'ctx> =
+                        elem.array_type(pieces.len() as u32).get_undef().into();
+                    for (n, p) in pieces.iter().enumerate() {
+                        let at = self.gep_const(tmp, p.offset)?;
+                        let piece = b.build_load(self.piece_ty(p.ty), at, "")?;
+                        array = b
+                            .build_insert_value(array.into_array_value(), piece, n as u32, "")?
+                            .into_array_value()
+                            .into();
+                    }
+                    ll_args.push(array.into());
+                }
                 Some(ParamPlan::Agg(layout, passing)) => {
                     let src = self.coerce(arg, Ty::Ptr)?.into_pointer_value();
                     match passing {
