@@ -567,6 +567,15 @@ impl Compiler {
         let align = self.align_of(ty, span)?;
         let mut fields = Vec::new();
         self.flatten_fields(ty, 0, &mut fields, span)?;
+        // Members placed over each other (`Vector2`'s `component: [2] float` over `x, y`) are one
+        // set of bytes: classifying each view as a field of its own turns a two-float
+        // aggregate into four and loses the register class C expects.
+        let mut seen = Vec::new();
+        fields.retain(|field| {
+            let new = !seen.contains(field);
+            seen.push(*field);
+            new
+        });
         Ok(ir::AggLayout {
             size,
             align,

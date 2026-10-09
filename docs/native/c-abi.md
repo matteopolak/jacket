@@ -15,7 +15,7 @@ How `jaic` passes C structs by value, variadic arguments and C++ method receiver
 | `X86_64` | System V | Linux and macOS x86-64 |
 | `Win64` | Microsoft x64 | any `windows`/`mingw` x86-64 triple |
 
-`Arch::from_triple` picks one for a build, `Arch::host()` for the interpreter.
+`Arch::from_triple` picks one for a build, `Arch::host()` for the interpreter. `agg_layout` in `sema/procs.rs` flattens the fields and drops repeats of the same offset and type, so members placed over each other (`Math`'s `Vector2`, whose `component: [2] float` overlays `x, y`) count once: the struct is two floats to C, not four, and returns in `s0`/`s1` or `xmm0` like `struct { float x, y; }` (the ImGui bindings return `ImVec2 :: Vector2` by value). `tests/native/c-structs-by-value` covers it (`Placed`).
 
 How aggregates travel:
 

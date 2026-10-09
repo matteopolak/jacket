@@ -80,7 +80,7 @@ def cases(stdlib, platform=None):
 # tests/native/c-structs-by-value: C structs by value both ways across the C ABI, against C
 # compiled by a Windows toolchain (same expectations as crates/jaic-cli/tests/native.rs).
 C_STRUCTS = {
-    "foreign_calls": "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33}\n832\n8940414\n",
+    "foreign_calls": "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33} {11, 22}\n832\n8940414\n",
     "callbacks": "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n8940414\n",
 }
 

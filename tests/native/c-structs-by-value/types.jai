@@ -56,3 +56,13 @@ narrow_tail :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, h: s64,
 apply_narrow_tail :: (f: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, h: s64,
     d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64,
     i: s8, j: s16, k: u8, l: s32, m: float, n: s16) -> s64 #c_call) -> s64 #foreign structs;
+
+// The standard library's Vector2 shape: two floats with an array placed over them. C sees one
+// two-float struct, so it travels in floating-point registers like V2.
+Placed :: struct {
+    x, y: float;
+    #place x;
+    component: [2] float = ---;
+}
+
+add_placed :: (p: Placed, q: Placed) -> Placed #foreign structs "add_v2";
