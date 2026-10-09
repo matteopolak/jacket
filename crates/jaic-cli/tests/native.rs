@@ -2384,3 +2384,92 @@ fn library_search_directory_added_by_a_metaprogram() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "4242 4242\n");
 }
+
+/// Every struct shape a C function can return (integer, float and mixed eightbytes, homogeneous
+/// float aggregates, arrays, nested structs, unions, memory-class results), returned by C to Jai
+/// and by `#c_call` Jai procedures to C, in the interpreter and in native builds. The fixture is
+/// generated; see docs/native/c-abi.md. Skipped when no C compiler is installed.
+#[test]
+fn c_struct_return_shapes() {
+    let fixture = repo_root().join("tests/native/c-struct-returns");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-struct-returns");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["returns.c", "returns.jai"] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let lib = if cfg!(target_os = "macos") {
+        "libreturns.dylib"
+    } else {
+        "libreturns.so"
+    };
+    let mut steps = vec![Command::new(if cfg!(windows) {
+        "clang"
+    } else {
+        "cc"
+    })];
+    if cfg!(windows) {
+        steps[0].args(["-c", "returns.c", "-o", "returns.o"]);
+        let mut archive = Command::new("llvm-ar");
+        archive.args(["rcs", "libreturns.lib", "returns.o"]);
+        steps.push(archive);
+    } else {
+        steps[0].args(["-shared", "-fPIC", "-o", lib, "returns.c"]);
+    }
+    if cfg!(target_os = "macos") {
+        steps[0].arg("-Wl,-install_name,@rpath/libreturns.dylib");
+    }
+    for step in &mut steps {
+        let Ok(output) = step.current_dir(&dir).output() else {
+            eprintln!("skipping: no C compiler");
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let run_interp = || {
+        let output = Command::new(JAIC)
+            .args(["run", "returns.jai"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    if !cfg!(windows) {
+        assert_eq!(run_interp(), "ok\n");
+    }
+    let output = build_and_run(&dir.join("returns.jai"), &dir, "returns").unwrap();
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+    // Windows: the interpreter loads a DLL that exports every function the fixture defines.
+    if cfg!(windows) {
+        let source = std::fs::read_to_string(dir.join("returns.c")).unwrap();
+        let mut link = Command::new("clang");
+        link.args(["-shared", "returns.c", "-o", "libreturns.dll"]);
+        for line in source.lines() {
+            let starts_definition = line.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+            if !starts_definition || line.starts_with("typedef") {
+                continue;
+            }
+            let Some(head) = line.split('(').next() else {
+                continue;
+            };
+            if let Some(name) = head.split_whitespace().last() {
+                link.arg(format!("-Wl,/EXPORT:{}", name.trim_start_matches('*')));
+            }
+        }
+        let output = link.current_dir(&dir).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(run_interp(), "ok\n");
+    }
+}

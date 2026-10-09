@@ -128,7 +128,11 @@ const SLOTS: usize = 64;
 const INT: usize = 0;
 
 const FLOAT: usize = 1;
-const SHAPES: usize = 8;
+/// AArch64 `sret`: the caller's result address arrives in `x8`, which no prototype parameter
+/// sees. These thunks are assembly stubs that park `x8` in a stack word and call a regular
+/// thunk (`a64_sret_inner`), which finds it there.
+const A64_SRET: usize = 8;
+const SHAPES: usize = 9;
 
 struct Slot {
     program: u64,
@@ -184,6 +188,7 @@ pub fn callback_addr(
         {
             Some(pieces) => (shape_of(&pieces)?, false),
             None if X86_64 => (INT, true),
+            None if cfg!(target_arch = "aarch64") && !forced_sret => (A64_SRET, true),
             None => {
                 return Err(
                     "a procedure returning a large struct cannot be called from C in the interpreter on this CPU"
@@ -336,7 +341,51 @@ macro_rules! family {
     };
 }
 
+/// The regular thunk an AArch64 `sret` stub calls: `dispatch` reads `x8` from the stub's frame.
+#[cfg(target_arch = "aarch64")]
+#[rustfmt::skip]
+extern "C" fn a64_sret_inner<const K: usize>(
+    i0: u64, i1: u64, i2: u64, i3: u64, i4: u64, i5: u64, i6: u64, i7: u64,
+    f0: f64, f1: f64, f2: f64, f3: f64, f4: f64, f5: f64, f6: f64, f7: f64,
+    s0: u64, s1: u64, s2: u64, s3: u64, s4: u64, s5: u64, s6: u64, s7: u64,
+    s8: u64, s9: u64, s10: u64, s11: u64, s12: u64, s13: u64, s14: u64, s15: u64,
+) -> u64 {
+    let ints = [i0, i1, i2, i3, i4, i5, i6, i7];
+    let floats = [f0, f1, f2, f3, f4, f5, f6, f7].map(f64::to_bits);
+    let stack = [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15];
+    dispatch(A64_SRET, K, ints, floats, stack);
+    0
+}
+
+/// The C-callable entry of AArch64 `sret` slot `K`: saves `x8` (and the frame record) in a
+/// 32-byte frame, then calls `a64_sret_inner` with the arguments untouched.
+#[cfg(target_arch = "aarch64")]
+#[unsafe(naked)]
+extern "C" fn a64_sret_stub<const K: usize>() {
+    std::arch::naked_asm!(
+        "stp x29, x30, [sp, #-32]!",
+        "str x8, [sp, #16]",
+        "mov x29, sp",
+        "bl {inner}",
+        "ldp x29, x30, [sp], #32",
+        "ret",
+        inner = sym a64_sret_inner::<K>,
+    )
+}
+
+#[cfg(target_arch = "aarch64")]
+macro_rules! stubs {
+    ($($k:literal)*) => {
+        [$(a64_sret_stub::<$k> as *const () as usize),*]
+    };
+}
+
 fn thunk_addr(shape: usize, k: usize) -> usize {
+    #[cfg(target_arch = "aarch64")]
+    if shape == A64_SRET {
+        let family: [usize; SLOTS] = stubs!(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63);
+        return family[k];
+    }
     let family: [usize; SLOTS] = match shape {
         INT => {
             family!(u64; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63)
@@ -379,6 +428,17 @@ fn dispatch(
     floats: [u64; 8],
     stack: [u64; STACK_SLOTS],
 ) -> Vec<u64> {
+    // The assembly stub of an AArch64 `sret` thunk pushed four words (frame record, `x8`, padding)
+    // ahead of the caller's stack arguments.
+    let (x8, stack) = if shape == A64_SRET {
+        let mut shifted = [0u64; STACK_SLOTS];
+        for (i, w) in shifted.iter_mut().enumerate() {
+            *w = stack.get(i + 4).copied().unwrap_or(0);
+        }
+        (Some(stack[2]), shifted)
+    } else {
+        (None, stack)
+    };
     let (gate, program, func, sig, sret) = {
         let table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
         let Some(slot) = &table[shape][k] else {
@@ -394,7 +454,7 @@ fn dispatch(
         )
     };
     enter(&*gate, program, |reenter| {
-        invoke(reenter, func, &sig, sret, ints, floats, stack)
+        invoke(reenter, func, &sig, sret, x8, ints, floats, stack)
     })
 }
 
@@ -480,6 +540,7 @@ fn invoke(
     func: FuncId,
     sig: &Sig,
     sret: bool,
+    x8: Option<u64>,
     ints: [u64; 8],
     floats: [u64; 8],
     stack: [u64; STACK_SLOTS],
@@ -495,7 +556,7 @@ fn invoke(
     } else {
         8
     };
-    let first = sret as usize;
+    let first = (sret && x8.is_none()) as usize;
     let mut incoming = Incoming {
         ints: ints[first..int_regs].to_vec(),
         floats,
@@ -570,7 +631,7 @@ fn invoke(
     reenter(func, &args)?;
     drop(buffers);
     if sret {
-        let out = ints[0];
+        let out = x8.unwrap_or(ints[0]);
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
             std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize)

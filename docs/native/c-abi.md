@@ -87,3 +87,10 @@ Tests:
 ## Dependencies
 
 `crates/jaic/src/abi.rs`, `interp/native.rs`, `crates/jaic-llvm/src/lower.rs`; the system `cc` for the native fixtures.
+
+## Struct return shapes in the interpreter
+
+Foreign calls and `#c_call` callbacks in the interpreter cover every register shape the classifier produces: one or two integer or SSE eightbytes (System V), homogeneous float aggregates of one to four members (AArch64), one to eight bytes in `rax` (Microsoft x64), and memory-class results through a hidden pointer. The callback thunks of `interp/native/callbacks.rs` are plain `extern "C"` functions with a fixed prototype, which cannot see AArch64's `x8` result pointer; those results use naked assembly stubs (`a64_sret_stub`) that save `x8` and the frame record in a 32-byte frame and call `a64_sret_inner`, whose `dispatch` shifts the stack words by that frame. The `"unsupported C aggregate return shape"` errors remain only for piece lists the classifier cannot produce.
+
+`tests/native/c-struct-returns/` has 58 shapes (integer widths, `f32`/`f64` vectors of 1 to 5 members, mixed eightbytes, arrays, nested structs, unions). Each is returned by C to Jai, passed by Jai to C, returned by a `#c_call` Jai procedure that C reads, and round-tripped; `returns.c` and `returns.jai` are generated (regenerate by editing the shape list of a script with the same layout and keeping the four checks per shape). `c_struct_return_shapes` in `crates/jaic-cli/tests/native.rs` runs it in the interpreter and as a native build, and on Windows against a DLL.
+
