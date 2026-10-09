@@ -11,7 +11,9 @@ fn fixture() -> PathBuf {
 }
 
 /// Build the fixture into `dir/name` with extra arguments; returns the executable.
-fn build(dir: &str, name: &str, args: &[&str], units: Option<&str>) -> PathBuf {
+/// `collect` sets `JAIC_DSYM`, so a macOS build writes the `.dSYM` bundle even unoptimized
+/// (by default an unoptimized build leaves the debugger to read DWARF from the objects).
+fn build(dir: &str, name: &str, args: &[&str], units: Option<&str>, collect: bool) -> PathBuf {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(dir);
     std::fs::create_dir_all(&dir).unwrap();
     let exe = dir.join(name);
@@ -26,6 +28,9 @@ fn build(dir: &str, name: &str, args: &[&str], units: Option<&str>) -> PathBuf {
         .current_dir(source.parent().unwrap());
     if let Some(units) = units {
         cmd.env("JAIC_CODEGEN_UNITS", units);
+    }
+    if collect {
+        cmd.env("JAIC_DSYM", "1");
     }
     let out = cmd.output().unwrap();
     assert!(
@@ -112,7 +117,7 @@ fn dwarf_describes_procedures_variables_and_types() {
         eprintln!("skipped: llvm-dwarfdump not found");
         return;
     };
-    let exe = build("debug-info-dwarf", "prog", &[], None);
+    let exe = build("debug-info-dwarf", "prog", &[], None, true);
     let file = debug_file(&exe);
     if let Err(text) = verify(&tool, &file) {
         panic!("llvm-dwarfdump --verify failed:\n{text}");
@@ -153,7 +158,7 @@ fn dwarf_is_valid_with_split_codegen() {
         eprintln!("skipped: llvm-dwarfdump not found");
         return;
     };
-    let exe = build("debug-info-split", "prog", &[], Some("3"));
+    let exe = build("debug-info-split", "prog", &[], Some("3"), true);
     let file = debug_file(&exe);
     if let Err(text) = verify(&tool, &file) {
         panic!("llvm-dwarfdump --verify failed:\n{text}");
@@ -164,13 +169,28 @@ fn dwarf_is_valid_with_split_codegen() {
 
 #[test]
 fn no_debug_info_flag_omits_it() {
-    let exe = build("debug-info-off", "prog", &["--no-debug-info"], None);
+    let exe = build("debug-info-off", "prog", &["--no-debug-info"], None, true);
     if cfg!(target_os = "macos") {
         assert!(!dsym(&exe).exists());
     } else if let Some(tool) = dwarfdump() {
         let (_, info) = run_dwarfdump(&tool, &["--debug-info"], &exe);
         assert!(!info.contains("DW_TAG_compile_unit"), "{info}");
     }
+}
+
+/// An unoptimized macOS build skips `dsymutil` and keeps its object file, which holds the
+/// DWARF the executable points to; an optimized one collects it into a `.dSYM`.
+#[test]
+fn macos_debug_builds_keep_objects_and_optimized_builds_write_a_dsym() {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let exe = build("debug-info-objects", "prog", &[], None, false);
+    assert!(!dsym(&exe).exists());
+    assert!(exe.with_extension("o").exists());
+    let exe = build("debug-info-optimized", "prog", &["-O2"], None, false);
+    assert!(dsym(&exe).exists());
+    assert!(!exe.with_extension("o").exists());
 }
 
 fn lldb_available() -> bool {
@@ -188,7 +208,7 @@ fn lldb_breakpoints_backtraces_and_variables() {
         eprintln!("skipped: lldb not found");
         return;
     }
-    let exe = build("debug-info-lldb", "prog", &[], None);
+    let exe = build("debug-info-lldb", "prog", &[], None, false);
     let out = Command::new("lldb")
         .arg("--batch")
         .args(["-o", "b shapes.jai:25", "-o", "b main.jai:27", "-o", "run"])

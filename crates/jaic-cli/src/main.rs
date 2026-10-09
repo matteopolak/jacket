@@ -1378,17 +1378,26 @@ impl OutputBackend for LlvmBackend {
             ),
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
         });
-        // macOS linkers leave DWARF in the objects; collect it into `output.dSYM` before they go.
-        if debug_info
+        // macOS linkers leave DWARF in the objects and record where they are. An unoptimized
+        // build keeps its objects for the debugger to read (the `dsymutil` pass would be a
+        // tenth of the build); any other collects the DWARF into `output.dSYM` first.
+        let macho = debug_info
             && linked.is_ok()
             && target.map_or(cfg!(target_os = "macos"), |t| t.contains("apple"))
-            && settings.output_type != OutputType::StaticLibrary
+            && settings.output_type != OutputType::StaticLibrary;
+        let keep_objects = macho
+            && options.opt_level == jaic_llvm::OptLevel::O0
+            && std::env::var_os("JAIC_DSYM").is_none();
+        if macho
+            && !keep_objects
             && let Err(message) = timings::time("debug info", || jaic_llvm::write_dsym(output))
         {
             eprintln!("warning: {message}");
         }
-        for object in &objects {
-            let _ = std::fs::remove_file(object);
+        if !keep_objects {
+            for object in &objects {
+                let _ = std::fs::remove_file(object);
+            }
         }
         linked
     }
