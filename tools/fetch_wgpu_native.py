@@ -51,6 +51,21 @@ def download(url: str) -> bytes:
     raise AssertionError
 
 
+def fetch_licenses(native: dict, out: Path) -> None:
+    """The release zip carries no licence files, so the two wgpu-native is under (MIT and Apache-2.0)
+    come from the repository at the pinned tag, checksum-verified, into `licenses/wgpu-native/`."""
+    target = out / 'licenses' / 'wgpu-native'
+    for name, digest in native['license'].items():
+        path = target / name
+        if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == digest:
+            continue
+        data = download(f'https://raw.githubusercontent.com/{native["repository"]}/{native["tag"]}/{name}')
+        if hashlib.sha256(data).hexdigest() != digest:
+            sys.exit(f'{name}: sha256 {hashlib.sha256(data).hexdigest()}, expected {digest}')
+        target.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
 def fetch(plat: str, out: Path, force: bool = False) -> list[Path]:
     """Put `plat`'s wgpu-native libraries in `out`; returns their paths."""
     pins = json.loads(MANIFEST.read_text())
@@ -64,6 +79,7 @@ def fetch(plat: str, out: Path, force: bool = False) -> list[Path]:
     if (not force and stamp.exists() and stamp.read_text().strip() == native['tag']
             and all(p.exists() for p in paths)):
         print(f'wgpu-native {native["tag"]} already in {out}')
+        fetch_licenses(native, out)
         return paths
     url = f'https://github.com/{native["repository"]}/releases/download/{native["tag"]}/{asset["name"]}'
     print(f'downloading {url}')
@@ -85,6 +101,7 @@ def fetch(plat: str, out: Path, force: bool = False) -> list[Path]:
             (out / name).write_bytes(zf.read(members[name]))
             print(f'  {out / name}')
     stamp.write_text(native['tag'] + '\n')
+    fetch_licenses(native, out)
     return paths
 
 

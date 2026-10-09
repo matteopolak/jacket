@@ -12,6 +12,10 @@
     "repository": "gfx-rs/wgpu-native",
     "tag": "v29.0.1.1",
     "library": "wgpu_native",
+    "license": {
+      "LICENSE.APACHE": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "LICENSE.MIT": "c7fea58d1cfe49634cd92e54fc10a9d871f4b275321a4cd8c09e449122caaeb4"
+    },
     "assets": {
       "macos-arm64": {"name": "wgpu-macos-aarch64-release.zip", "sha256": "a5797a37b1adf720bcd5dcffb291edbbd5b7b14be0a3874c28e6393a655a7a3e"},
       "macos-x64": {"name": "wgpu-macos-x86_64-release.zip", "sha256": "8e2f7378548ddd0e2cf21e7d864dda46e953f0af724855a33778b85ead206d41"},
