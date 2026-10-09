@@ -1,49 +1,23 @@
 // jaifmt as a WASI command, built to jaifmt.wasm with `jaic build -os wasm` (see
 // docs/tools/jaifmt.md). It formats the Jai source read from stdin and writes the result to
-// stdout, exiting 0. The `jaifmt.toml` text comes from `--config <text>`, else the
-// JAIFMT_CONFIG environment variable, else the defaults apply. `--name <file>` names the input
-// in messages (default main.jai). On an error it prints `jaifmt: ...` to stderr, prints nothing
-// to stdout and exits 1, like the playground driver (playground.jai).
+// stdout, exiting 0. Options are parsed by Extensions/Args (see `HELP`): a bad command line
+// exits 2. On a config or format error it prints `jaifmt: ...` to stderr, prints nothing to
+// stdout and exits 1, like the playground driver (playground.jai).
 
 main :: () -> s32 {
-    name := "main.jai";
-    config_text: string;
-    have_config := false;
-    args := get_command_line_arguments();
-    i := 1;
-    while i < args.count {
-        flag := args[i];
-        if i + 1 >= args.count return fail("% needs a value", flag);
-        if flag == {
-            case "--config";
-                config_text = args[i + 1];
-                have_config = true;
-            case "--name";
-                name = args[i + 1];
-            case;
-                return fail("unknown option %", flag);
-        }
-        i += 2;
-    }
-    if !have_config {
-        from_env := c_getenv("JAIFMT_CONFIG");
-        if from_env {
-            config_text = to_string(from_env);
-            have_config = true;
-        }
-    }
+    options, set := Args.parse(Options, HELP);
 
     config: Format_Config;
-    if have_config {
-        parsed, ok, error := parse_config(config_text);
+    if set.config {
+        parsed, ok, error := parse_config(options.config);
         if !ok return fail("%: %", FORMAT_CONFIG_FILE_NAME, error);
         config = parsed;
     }
 
     source, read_ok := read_standard_input();
-    if !read_ok return fail("%: cannot read standard input", name);
+    if !read_ok return fail("%: cannot read standard input", options.name);
     formatted, ok, error := format_source(source, config);
-    if !ok return fail("%:%", name, error);
+    if !ok return fail("%:%", options.name, error);
     write_string(formatted);
     return 0;
 }
@@ -52,10 +26,21 @@ main :: () -> s32 {
 
 #import "Basic";
 #import "Extensions/Jai_Format";
+Args :: #import "Extensions/Args";
+
+Options :: struct {
+    config: string; @value=TEXT @env=JAIFMT_CONFIG
+    name: string = "main.jai"; @value=FILE
+}
+
+HELP :: Args.Help(Options).{
+    about = "Formats the Jai source on standard input and writes it to standard output.",
+    config = "The jaifmt.toml text, not a path (default: the built-in defaults)",
+    name = "The input's name in messages",
+};
 
 libc :: #system_library "libc";
 c_read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "read";
-c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
 
 read_standard_input :: () -> string, bool {
     builder: String_Builder;

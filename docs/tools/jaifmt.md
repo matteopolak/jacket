@@ -58,6 +58,7 @@ The program lives in the top-level `jaifmt/` directory (`main.jai`, the browser 
 jaic build jaifmt/build.jai                     # target/jaifmt (native, optimised, no debug info)
 jaic build jaifmt/build.jai - wasm              # target/jaifmt.wasm (WASI, same as -os wasm)
 jaic build jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
+jaic build jaifmt/build.jai - --help            # the options, parsed by Extensions/Args
 ```
 
 - It must be `jaic build` (or `jaic run`): `jaic check` has no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
@@ -259,13 +260,13 @@ node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < 
 node --no-warnings tools/check_jaifmt_wasm.mjs jaifmt.wasm target/jaifmt   # golden cases, byte-identical to native
 ```
 
-It reads the source from stdin and writes the formatted file to stdout with exit 0. The `jaifmt.toml` text comes from `--config <text>`, else the `JAIFMT_CONFIG` environment variable, else the defaults. `--name <file>` sets the name used in messages (default `main.jai`). On any error stdout is empty, stderr has one `jaifmt: ...` line and the exit status is 1, the same contract as the engine driver.
+It reads the source from stdin and writes the formatted file to stdout with exit 0. The `jaifmt.toml` text comes from `--config <text>`, else the `JAIFMT_CONFIG` environment variable, else the defaults. `--name <file>` sets the name used in messages (default `main.jai`). Its options are parsed by [`Extensions/Args`](../specs/stdlib/README.md) like `main.jai`'s, so `--help` works and a bad command line exits 2 with the usual `error:`/`usage:` lines. On a config or format error stdout is empty, stderr has one `jaifmt: ...` line and the exit status is 1, the same contract as the engine driver.
 
 It is about 35 times faster than interpreting `jaifmt-playground.jai` in the engine, and does not need the engine loaded:
 
 | | `jaifmt-playground.jai` in the engine (release) | `jaifmt.wasm` |
 | --- | --- | --- |
-| download | `jai_wasm.wasm` (shared with the playground) | 214 KB (61 KB gzip, 48 KB brotli) |
+| download | `jai_wasm.wasm` (shared with the playground) | 369 KB (100 KB gzip, 77 KB brotli) |
 | 327-line file | 75 ms | 2.2 ms |
 | golden case | ~25 ms | 0.7 ms |
 | runtimes | any wasm32 browser | Memory64: Chrome 133, Firefox 134, node 24; not Safari yet |

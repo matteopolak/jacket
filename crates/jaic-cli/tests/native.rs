@@ -1797,7 +1797,7 @@ fn jaifmt_build_metaprogram() {
         .unwrap();
     assert!(!bad.status.success());
     assert!(
-        String::from_utf8_lossy(&bad.stderr).contains("unknown argument 'bogus'"),
+        String::from_utf8_lossy(&bad.stderr).contains("invalid value `bogus` for `<TARGET>`"),
         "{}",
         String::from_utf8_lossy(&bad.stderr)
     );
