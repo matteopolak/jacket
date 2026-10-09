@@ -283,7 +283,36 @@ fn target_machine(
             CodeModel::Default,
         )
         .ok_or("could not create a target machine")?;
+    if options.codegen.machine_level.unwrap_or(options.opt_level) == OptLevel::O0 {
+        use_fast_isel(&machine);
+    }
     Ok((machine, triple, arch))
+}
+
+/// Select instructions at -O0 with FastISel instead of GlobalISel.
+///
+/// LLVM turns GlobalISel on by default for unoptimized AArch64 code, and it is the slowest
+/// part of an unoptimized build there (about a third of codegen time, about 20% of the whole
+/// build); FastISel is the default on x86-64 and produces code of the same quality at -O0.
+/// FastISel hands any instruction it cannot select to SelectionDAG, so nothing is rejected.
+#[allow(unsafe_code)]
+fn use_fast_isel(machine: &TargetMachine) {
+    use inkwell::llvm_sys::target_machine as tm;
+    // SAFETY: `machine` owns a live target machine for the whole call.
+    unsafe {
+        tm::LLVMSetTargetMachineGlobalISel(machine.as_mut_ptr(), 0);
+        tm::LLVMSetTargetMachineFastISel(machine.as_mut_ptr(), 1);
+    }
+}
+
+/// Whether to run the LLVM IR verifier on each module before code generation. It costs about
+/// 6% of an unoptimized build, so it runs in debug builds of jaic (and so under `cargo test`)
+/// and when `JAIC_VERIFY_IR` is set to anything but `0`; a release jaic skips it.
+fn verify_ir() -> bool {
+    match std::env::var_os("JAIC_VERIFY_IR") {
+        Some(v) => v != "0",
+        None => cfg!(debug_assertions),
+    }
 }
 
 /// Lower `program` (or one shard of it) to one LLVM module and write it as an object file.
@@ -315,9 +344,11 @@ fn emit_module(
     if let Some(ir_path) = &options.emit_ir {
         module.print_to_file(ir_path).map_err(|e| e.to_string())?;
     }
-    module
-        .verify()
-        .map_err(|e| format!("invalid LLVM IR: {e}"))?;
+    if verify_ir() {
+        module
+            .verify()
+            .map_err(|e| format!("invalid LLVM IR: {e}"))?;
+    }
     apply_codegen_attributes(&context, &module, &options.codegen, &triple);
     if let Some(path) = &options.codegen.bitcode_before
         && !module.write_bitcode_to_path(path)
@@ -435,7 +466,7 @@ pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<
 }
 
 /// IR instructions per codegen unit below which splitting does not pay for itself.
-const INSTS_PER_UNIT: usize = 20_000;
+const INSTS_PER_UNIT: usize = 5_000;
 
 /// How many modules to split codegen into: `JAIC_CODEGEN_UNITS` when set, otherwise one
 /// per core for large unoptimized builds. Optimized builds stay whole so LLVM can inline

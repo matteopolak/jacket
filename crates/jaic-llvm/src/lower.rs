@@ -31,6 +31,8 @@ use jaic::ir::{
     Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val, WideArith, WideFloat,
     WideOp,
 };
+use std::cell::{OnceCell, RefCell};
+use std::collections::HashMap;
 
 /// Backend error; converted to a `String` at the crate boundary.
 pub struct Error(String);
@@ -83,9 +85,12 @@ pub fn lower_program<'ctx>(
         program,
         arch,
         shard,
-        funcs: Vec::new(),
-        globals: Vec::new(),
-        foreigns: Vec::new(),
+        funcs: cells(program.funcs.len()),
+        globals: cells(program.globals.len()),
+        foreigns: cells(program.foreigns.len()),
+        foreign_symbols: RefCell::new(HashMap::new()),
+        exports: export_names(program),
+        foreign_ids: foreign_ids(program),
         debug,
     };
     backend.run().map_err(|e| e.0)
@@ -129,6 +134,33 @@ struct Lowered<'ctx> {
     attrs: Vec<(u32, ParamAttr)>,
 }
 
+/// `n` empty slots for declarations made on first use.
+fn cells<T>(n: usize) -> Vec<OnceCell<T>> {
+    (0..n).map(|_| OnceCell::new()).collect()
+}
+
+/// Program function ids by exported symbol name (the first of a repeated name).
+fn export_names(program: &Program) -> HashMap<&str, usize> {
+    let mut names = HashMap::new();
+    for (i, func) in program.funcs.iter().enumerate() {
+        if let Some(func) = func
+            && let IrLinkage::Export(name) = &func.linkage
+        {
+            names.entry(name.as_str()).or_insert(i);
+        }
+    }
+    names
+}
+
+/// The first foreign id of each symbol.
+fn foreign_ids(program: &Program) -> HashMap<&str, usize> {
+    let mut ids = HashMap::new();
+    for (i, foreign) in program.foreigns.iter().enumerate() {
+        ids.entry(foreign.symbol.as_str()).or_insert(i);
+    }
+    ids
+}
+
 struct Backend<'ctx, 'p> {
     ctx: &'ctx Context,
     module: &'p Module<'ctx>,
@@ -136,10 +168,16 @@ struct Backend<'ctx, 'p> {
     program: &'p Program,
     arch: Arch,
     shard: Option<Shard<'p>>,
-    funcs: Vec<Option<FunctionValue<'ctx>>>,
-    globals: Vec<GlobalValue<'ctx>>,
+    /// Declaration of each program function, made on first use: a codegen unit declares the
+    /// functions it defines and the ones those refer to, not the whole program.
+    funcs: Vec<OnceCell<FunctionValue<'ctx>>>,
+    globals: Vec<OnceCell<GlobalValue<'ctx>>>,
     /// Address of each foreign function or variable.
-    foreigns: Vec<PointerValue<'ctx>>,
+    foreigns: Vec<OnceCell<PointerValue<'ctx>>>,
+    /// Foreign symbols declared so far: ids with one symbol share a declaration.
+    foreign_symbols: RefCell<HashMap<&'p str, PointerValue<'ctx>>>,
+    exports: HashMap<&'p str, usize>,
+    foreign_ids: HashMap<&'p str, usize>,
     /// Debug info builder when the program is built with debug info (`debuginfo.rs`).
     debug: Option<DebugInfo<'ctx, 'p>>,
 }
@@ -166,9 +204,25 @@ struct FnState<'ctx> {
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
     fn run(&mut self) -> R<()> {
-        self.declare_functions()?;
-        self.declare_foreigns()?;
-        self.declare_globals()?;
+        if self.shard.is_none() {
+            // One module holds everything: declare it all, functions first.
+            for i in 0..self.funcs.len() {
+                self.func(i);
+            }
+            for i in 0..self.foreigns.len() {
+                self.foreign(i);
+            }
+            for i in 0..self.globals.len() {
+                self.global(i);
+            }
+        }
+        // Intrinsics are declared by name as lowering meets them; a program symbol of the same
+        // name has to exist first, or LLVM would rename it.
+        for (&symbol, &id) in &self.foreign_ids {
+            if symbol.starts_with("llvm.") {
+                self.foreign(id);
+            }
+        }
         if self.shard.is_none_or(|s| s.index == 0) {
             self.init_globals()?;
             self.describe_globals();
@@ -180,7 +234,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             if let Some(func) = func
                 && self.owns_func(i)
             {
-                let f = self.funcs[i].expect("declared");
+                let f = self.func(i).expect("declared");
                 self.define_function(func, f)
                     .map_err(|e| Error(format!("in '{}': {}", func.name, e.0)))?;
             }
@@ -197,6 +251,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     /// `optnone` keeps the optimizer from recognizing the pieces as a wide multiply again.
     fn define_multi3(&self) -> R<()> {
         const NAME: &str = "__multi3";
+        self.declare_named(NAME);
         if self.module.get_function(NAME).is_some() {
             return Ok(());
         }
@@ -284,7 +339,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             return;
         };
         for g in &self.program.debug_globals {
-            let gv = self.globals[g.global.0 as usize];
+            let gv = self.global(g.global.0 as usize);
             let local = self.program.globals[g.global.0 as usize].export.is_none();
             debug.global(gv, &gv.get_name().to_string_lossy(), local, g);
         }
@@ -522,108 +577,121 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         }
     }
 
-    fn declare_functions(&mut self) -> R<()> {
-        for (i, func) in self.program.funcs.iter().enumerate() {
-            let Some(func) = func else {
-                self.funcs.push(None);
-                continue;
-            };
-            let lowered = self.lower_sig(&func.sig);
-            let name = match &func.linkage {
-                IrLinkage::Export(name) => name.clone(),
-                IrLinkage::Internal => format!("{}.{i}", func.name),
-            };
-            let f = self
-                .module
-                .add_function(&name, lowered.fn_ty, Some(Linkage::External));
-            if func.linkage == IrLinkage::Internal {
-                self.internal_linkage(f.as_global_value());
-            } else if self.arch.is_windows() && self.owns_func(i) {
-                // `#program_export`: in a DLL's export table (harmless in an executable).
-                f.as_global_value()
-                    .set_dll_storage_class(DLLStorageClass::Export);
-            } else if self.arch.is_wasm() && self.owns_func(i) && !self.is_wasi_library(func, &name)
-            {
-                // `#program_export`: an export of the wasm module, which is how the host calls in.
-                f.add_attribute(
-                    AttributeLoc::Function,
-                    self.ctx.create_string_attribute("wasm-export-name", &name),
-                );
-            }
-            self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
-            // Keep a frame record in every function that calls another, as clang does by default
-            // on Apple and AArch64 targets. Without one, frame-pointer stack walks (macOS libc
-            // `backtrace`, which Debug uses, and sampling profilers) stop at the first jaic frame.
-            f.add_attribute(
-                AttributeLoc::Function,
-                self.ctx
-                    .create_string_attribute("frame-pointer", "non-leaf"),
-            );
-            if self.arch.is_wasm() {
-                // Freestanding, like `-fno-builtin`: on wasm the C library is Jai code in the
-                // same module (Wasi_Runtime), so a loop LLVM turned into a `strlen` or `memcmp`
-                // call could end up calling itself.
-                f.add_attribute(
-                    AttributeLoc::Function,
-                    self.ctx.create_string_attribute("no-builtins", ""),
-                );
-            }
-            self.funcs.push(Some(f));
+    /// Declare the program's function or foreign of this name, if it has one, before code that
+    /// looks a symbol up by name adds its own: the module would otherwise rename the later one.
+    fn declare_named(&self, name: &str) {
+        if let Some(&i) = self.exports.get(name) {
+            self.func(i);
         }
-        Ok(())
+        if let Some(&id) = self.foreign_ids.get(name) {
+            self.foreign(id);
+        }
     }
 
-    fn declare_foreigns(&mut self) -> R<()> {
-        let mut by_symbol: Vec<(&str, PointerValue<'ctx>)> = Vec::new();
-        for foreign in &self.program.foreigns {
-            let Foreign {
-                symbol,
-                sig,
-                is_data,
-                ..
-            } = foreign;
-            if let Some(&(_, p)) = by_symbol.iter().find(|(s, _)| s == symbol) {
-                self.foreigns.push(p);
-                continue;
-            }
-            // A `#program_export` of the same name (a runtime written in Jai that supplies
-            // `malloc`, say) is what the linker would bind the reference to. Use it directly:
-            // a second LLVM function of that name would be renamed and stay undefined.
-            let defined = if *is_data {
-                None
-            } else {
-                self.module.get_function(symbol)
-            };
-            let ptr = if let Some(f) = defined {
-                f.as_global_value().as_pointer_value()
-            } else if *is_data {
-                let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
-                g.set_linkage(Linkage::External);
-                // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it:
-                // import libraries define no `<name>` for data. System libraries are DLLs there,
-                // except the C runtime, which MSVC builds link statically.
-                let dll = foreign
-                    .library
-                    .and_then(|l| self.program.libraries.get(l))
-                    .is_some_and(|l| l.system && !crate::is_windows_c_runtime(&l.name));
-                if self.arch.is_windows() && dll {
-                    g.set_dll_storage_class(DLLStorageClass::Import);
-                }
-                g.as_pointer_value()
-            } else {
-                let lowered = self.lower_sig(sig);
-                let f = self
-                    .module
-                    .add_function(symbol, lowered.fn_ty, Some(Linkage::External));
-                if self.arch.is_wasm() && !symbol.starts_with("llvm.") {
-                    self.wasm_import(f, symbol, foreign.library);
-                }
-                f.as_global_value().as_pointer_value()
-            };
-            by_symbol.push((symbol, ptr));
-            self.foreigns.push(ptr);
+    /// The declaration of program function `i`, made on first use (`None`: never lowered).
+    fn func(&self, i: usize) -> Option<FunctionValue<'ctx>> {
+        let func = self.program.funcs.get(i)?.as_ref()?;
+        Some(*self.funcs[i].get_or_init(|| self.declare_function(i, func)))
+    }
+
+    fn declare_function(&self, i: usize, func: &Func) -> FunctionValue<'ctx> {
+        let lowered = self.lower_sig(&func.sig);
+        let name = match &func.linkage {
+            IrLinkage::Export(name) => name.clone(),
+            IrLinkage::Internal => format!("{}.{i}", func.name),
+        };
+        let f = self
+            .module
+            .add_function(&name, lowered.fn_ty, Some(Linkage::External));
+        if func.linkage == IrLinkage::Internal {
+            self.internal_linkage(f.as_global_value());
+        } else if self.arch.is_windows() && self.owns_func(i) {
+            // `#program_export`: in a DLL's export table (harmless in an executable).
+            f.as_global_value()
+                .set_dll_storage_class(DLLStorageClass::Export);
+        } else if self.arch.is_wasm() && self.owns_func(i) && !self.is_wasi_library(func, &name) {
+            // `#program_export`: an export of the wasm module, which is how the host calls in.
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx.create_string_attribute("wasm-export-name", &name),
+            );
         }
-        Ok(())
+        self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
+        // Keep a frame record in every function that calls another, as clang does by default
+        // on Apple and AArch64 targets. Without one, frame-pointer stack walks (macOS libc
+        // `backtrace`, which Debug uses, and sampling profilers) stop at the first jaic frame.
+        f.add_attribute(
+            AttributeLoc::Function,
+            self.ctx
+                .create_string_attribute("frame-pointer", "non-leaf"),
+        );
+        if self.arch.is_wasm() {
+            // Freestanding, like `-fno-builtin`: on wasm the C library is Jai code in the
+            // same module (Wasi_Runtime), so a loop LLVM turned into a `strlen` or `memcmp`
+            // call could end up calling itself.
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx.create_string_attribute("no-builtins", ""),
+            );
+        }
+        f
+    }
+
+    /// The address of foreign function or variable `id`, declared on first use.
+    fn foreign(&self, id: usize) -> PointerValue<'ctx> {
+        *self.foreigns[id].get_or_init(|| self.declare_foreign(&self.program.foreigns[id]))
+    }
+
+    fn declare_foreign(&self, foreign: &'p Foreign) -> PointerValue<'ctx> {
+        let Foreign {
+            symbol,
+            sig,
+            is_data,
+            ..
+        } = foreign;
+        if let Some(&p) = self.foreign_symbols.borrow().get(symbol.as_str()) {
+            return p;
+        }
+        // A `#program_export` of the same name (a runtime written in Jai that supplies
+        // `malloc`, say) is what the linker would bind the reference to. Use it directly:
+        // a second LLVM function of that name would be renamed and stay undefined.
+        let defined = if *is_data {
+            None
+        } else {
+            self.exports
+                .get(symbol.as_str())
+                .and_then(|&i| self.func(i))
+        };
+        let ptr = if let Some(f) = defined {
+            f.as_global_value().as_pointer_value()
+        } else if *is_data {
+            let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
+            g.set_linkage(Linkage::External);
+            // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it:
+            // import libraries define no `<name>` for data. System libraries are DLLs there,
+            // except the C runtime, which MSVC builds link statically.
+            let dll = foreign
+                .library
+                .and_then(|l| self.program.libraries.get(l))
+                .is_some_and(|l| l.system && !crate::is_windows_c_runtime(&l.name));
+            if self.arch.is_windows() && dll {
+                g.set_dll_storage_class(DLLStorageClass::Import);
+            }
+            g.as_pointer_value()
+        } else {
+            let lowered = self.lower_sig(sig);
+            let f = self
+                .module
+                .add_function(symbol, lowered.fn_ty, Some(Linkage::External));
+            if self.arch.is_wasm() && !symbol.starts_with("llvm.") {
+                self.wasm_import(f, symbol, foreign.library);
+            }
+            f.as_global_value().as_pointer_value()
+        };
+        self.foreign_symbols
+            .borrow_mut()
+            .insert(symbol.as_str(), ptr);
+        ptr
     }
 
     /// Make an undefined function a wasm import. The module is the `#library` it was declared
@@ -667,8 +735,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         segs
     }
 
-    fn declare_globals(&mut self) -> R<()> {
-        for (i, g) in self.program.globals.iter().enumerate() {
+    /// The program global `i`, declared on first use.
+    fn global(&self, i: usize) -> GlobalValue<'ctx> {
+        *self.globals[i].get_or_init(|| {
+            let g = &self.program.globals[i];
             let fields: Vec<BasicTypeEnum> = Self::segments(g)
                 .iter()
                 .map(|s| match s {
@@ -688,12 +758,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             gv.set_alignment(g.align.max(1) as u32);
             gv.set_constant(g.read_only);
-            self.globals.push(gv);
-        }
-        Ok(())
+            gv
+        })
     }
 
-    fn init_globals(&mut self) -> R<()> {
+    fn init_globals(&self) -> R<()> {
         for (i, g) in self.program.globals.iter().enumerate() {
             let mut fields: Vec<BasicValueEnum> = Vec::new();
             for seg in Self::segments(g) {
@@ -711,10 +780,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                         let reloc = &g.relocs[r];
                         let base = match reloc.target {
                             RelocTarget::Global(id) => {
-                                self.globals[id.0 as usize].as_pointer_value()
+                                self.global(id.0 as usize).as_pointer_value()
                             }
                             RelocTarget::Func(id) => self.func_ptr(id)?,
-                            RelocTarget::Foreign(id) => self.foreigns[id.0 as usize],
+                            RelocTarget::Foreign(id) => self.foreign(id.0 as usize),
                         };
                         let ptr = if reloc.addend == 0 {
                             base
@@ -730,13 +799,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 }
             }
             let init = self.ctx.const_struct(&fields, true);
-            self.globals[i].set_initializer(&init);
+            self.global(i).set_initializer(&init);
         }
         Ok(())
     }
 
     fn func_ptr(&self, id: jaic::ir::FuncId) -> R<PointerValue<'ctx>> {
-        match self.funcs.get(id.0 as usize).copied().flatten() {
+        match self.func(id.0 as usize) {
             Some(f) => Ok(f.as_global_value().as_pointer_value()),
             None => Err(Error(format!(
                 "function '{}' is referenced but was never lowered",
@@ -989,6 +1058,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         ty: FunctionType<'ctx>,
         args: &[BasicMetadataValueEnum<'ctx>],
     ) -> R<CallSiteValue<'ctx>> {
+        self.declare_named(name);
         let f = self.module.get_function(name).unwrap_or_else(|| {
             let f = self.module.add_function(name, ty, Some(Linkage::External));
             if self.arch.is_wasm() {
@@ -1241,7 +1311,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 dst,
                 global,
             } => {
-                let p = self.globals[global.0 as usize].as_pointer_value();
+                let p = self.global(global.0 as usize).as_pointer_value();
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
@@ -1257,7 +1327,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 dst,
                 foreign,
             } => {
-                let p = self.foreigns[foreign.0 as usize];
+                let p = self.foreign(foreign.0 as usize);
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
@@ -1352,7 +1422,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                         (self.func_ptr(*id)?, &f.sig)
                     }
                     Callee::Foreign(id) => (
-                        self.foreigns[id.0 as usize],
+                        self.foreign(id.0 as usize),
                         &self.program.foreigns[id.0 as usize].sig,
                     ),
                     Callee::Indirect(target, sig) => (self.get_ptr(st, *target)?, &**sig),
