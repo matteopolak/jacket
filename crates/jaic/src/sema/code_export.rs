@@ -17,6 +17,7 @@ use crate::types::{ArrayKind, TypeKind};
 pub mod message_kind {
     pub const FILE: i64 = 1;
     pub const IMPORT: i64 = 2;
+    pub const FAILED_IMPORT: i64 = 3;
     pub const TYPECHECKED: i64 = 5;
 }
 
@@ -54,6 +55,15 @@ mod node {
     pub const USING: i64 = 50;
     pub const PUSH_CONTEXT: i64 = 39;
     pub const PLACEHOLDER: i64 = 51;
+    pub const DIRECTIVE_BYTES: i64 = 23;
+    pub const DIRECTIVE_THIS: i64 = 28;
+    pub const DIRECTIVE_LOAD: i64 = 30;
+    pub const ASM: i64 = 34;
+    pub const DIRECTIVE_BAKE: i64 = 35;
+    pub const DIRECTIVE_PLACE: i64 = 41;
+    pub const DIRECTIVE_COMPILE_TIME: i64 = 47;
+    pub const DIRECTIVE_PROCEDURE_NAME: i64 = 53;
+    pub const DIRECTIVE_OVERLAY: i64 = 58;
     pub const DIRECTIVE_INSERT: i64 = 52;
 }
 
@@ -128,6 +138,22 @@ impl Compiler {
             events.push((message_kind::FILE, id));
         }
         events
+    }
+
+    /// One `Message_Failed_Import` record per import that found no module, once.
+    pub fn export_failed_imports(&mut self, r: &mut Records) -> Vec<i64> {
+        std::mem::take(&mut self.failed_imports)
+            .into_iter()
+            .map(|(host, target)| {
+                let mut rec = Record::new("Message_Failed_Import");
+                rec.int("kind", message_kind::FAILED_IMPORT)
+                    .int("workspace", self.workspace)
+                    .int("status", 2) // NOT_FOUND
+                    .str("host_module_name", host.as_bytes())
+                    .str("target_module_name", target.as_bytes());
+                r.add(rec)
+            })
+            .collect()
     }
 
     fn file_module(&self, file: FileId) -> ModuleId {
@@ -1437,6 +1463,47 @@ impl Exporter<'_> {
                 rec.ptr("query_expression", query);
                 rec
             }
+            E::This => self.node("Code_Node", node::DIRECTIVE_THIS, span),
+            E::CompileTime => self.node("Code_Node", node::DIRECTIVE_COMPILE_TIME, span),
+            E::Bytes(e) => {
+                let e = self.expr(e);
+                let mut rec = self.node("Code_Directive_Bytes", node::DIRECTIVE_BYTES, span);
+                rec.ptr("expression", e);
+                rec
+            }
+            E::ProcedureName(arg) => {
+                let arg = self.opt_expr(arg.as_deref());
+                let mut rec = self.node(
+                    "Code_Directive_Procedure_Name",
+                    node::DIRECTIVE_PROCEDURE_NAME,
+                    span,
+                );
+                rec.ptr("argument", arg);
+                rec
+            }
+            E::Bake {
+                callee,
+                args,
+                constants,
+            } => {
+                let call = ast::Expr {
+                    kind: E::Call {
+                        callee: callee.clone(),
+                        args: args.clone(),
+                        hint: ast::CallHint::None,
+                    },
+                    span,
+                };
+                let call = self.expr(&call);
+                let mut rec = self.node("Code_Directive_Bake", node::DIRECTIVE_BAKE, span);
+                // CONSTANTS_BAKE or PARAMETER_VALUE_BAKE.
+                rec.ptr("procedure_call", call)
+                    .int("bake_type", i64::from(!*constants));
+                rec
+            }
+            // The instructions have no Code_Node form (`Code_Asm` is opaque), so a metaprogram
+            // sees that an `#asm` block is there, not what it holds.
+            E::Asm(_) => self.node("Code_Asm", node::ASM, span),
             _ => self.node("Code_Node", node::PLACEHOLDER, span),
         };
         let mut rec = rec;
@@ -1732,6 +1799,32 @@ impl Exporter<'_> {
                 self.add(rec)
             }
             S::Empty | S::Scope(_) | S::Through => return None,
+            S::Load {
+                path, ..
+            } => {
+                let mut rec = self.node("Code_Directive_Load", node::DIRECTIVE_LOAD, span);
+                rec.str("short_name", path.as_bytes());
+                if let Some(c) = self.c.as_deref()
+                    && (span.file.0 as usize) < c.sources.len()
+                {
+                    let from = std::path::Path::new(&c.sources.get(span.file).path);
+                    let full = from.parent().unwrap_or(from).join(&**path);
+                    rec.str("fully_pathed_filename", full.to_string_lossy().as_bytes());
+                }
+                self.add(rec)
+            }
+            S::Place(e) => {
+                let ident = self.expr(e);
+                let mut rec = self.node("Code_Directive_Place", node::DIRECTIVE_PLACE, span);
+                rec.ptr("ident", ident);
+                self.add(rec)
+            }
+            S::Overlay(e) => {
+                let target = self.expr(e);
+                let mut rec = self.node("Code_Directive_Overlay", node::DIRECTIVE_OVERLAY, span);
+                rec.ptr("target_expression", target);
+                self.add(rec)
+            }
             _ => {
                 let rec = self.node("Code_Node", node::PLACEHOLDER, span);
                 self.add(rec)

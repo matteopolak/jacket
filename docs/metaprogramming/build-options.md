@@ -151,10 +151,10 @@ The before column is jaic 0.4.1. "Silently ignored" means the value was accepted
 | --- | --- |
 | `FILE`, `IMPORT`, `TYPECHECKED`, `COMPLETE` | sent |
 | `PHASE` | `ALL_SOURCE_CODE_PARSED`, `TYPECHECKED_ALL_WE_CAN`, `ALL_TARGET_CODE_BUILT`, `PRE_WRITE_EXECUTABLE`, `POST_WRITE_EXECUTABLE` sent; `READY_FOR_CUSTOM_LINK_COMMAND` now sent with `use_custom_link_command`; `POST_WRITE_EXECUTABLE` now fills `executable_write_failed` and `linker_exit_code` |
-| `FAILED_IMPORT` | not sent: a failed import is a compile error (and `provide_import` is an error) |
-| `ERROR` | not sent: errors are printed and `COMPLETE` carries `COMPILATION_FAILED` |
-| `PERFORMANCE_REPORT`, `DEBUG_DUMP` | not sent; the flags that ask for performance reports warn |
-| `Code_Node` kinds | see [compiler records](compiler-records.md). Expressions the exporter does not model (`#asm`, `#bake`, `#bytes`, `#this`, `#procedure_name`, `#caller_code`, `#compile_time`, `#file`/`#filepath`/`#line`, `$T` declarations) and statements (`#load`, `#place`, `#add_context`, `#module_parameters`, `#overlay`) arrive as `.PLACEHOLDER` nodes, which `Program_Print` (and so `compiler_get_code` and edited statements in `compiler_modify_procedure`) reports as unsupported instead of printing something else |
+| `FAILED_IMPORT` | sent to an intercepting metaprogram when an import finds no module (`status = .NOT_FOUND`, `host_module_name`, `target_module_name`; `import_code` is null), right before `ERROR`. The import is still a compile error, and `provide_import` is an error. Test: `tests/corpus/negative/message-failed-import-and-error.jai` {#bo.13} |
+| `ERROR` | sent once when the workspace fails with a compile error, before `COMPLETE` (which carries `COMPILATION_FAILED`). Only for errors that stop the workspace, not for `ERROR_CONTINUABLE` reports or link failures. The message has no extra fields |
+| `PERFORMANCE_REPORT`, `DEBUG_DUMP` | not sent, on purpose: jaic has no bytecode and no per-phase report to fill them with (use `-time`), and zeroed reports would mislead. The flags that ask for performance reports warn |
+| `Code_Node` kinds | see [compiler records](compiler-records.md). `#this`, `#compile_time`, `#bytes`, `#procedure_name`, `#bake_arguments`/`#bake_constants` (as `Code_Directive_Bake` around the call), `#asm` (an opaque `Code_Asm`, without its instructions), `#load` (`short_name`, `fully_pathed_filename`), `#place` and `#overlay` are modelled, and `Program_Print` prints all of them but `#asm`. Expressions the exporter still does not model (`#caller_code`, `#file`/`#filepath`/`#line`, `$T` declarations) and statements (`#add_context`, `#module_parameters`) arrive as `.PLACEHOLDER` nodes, which `Program_Print` (and so `compiler_get_code` and edited statements in `compiler_modify_procedure`) reports as unsupported instead of printing something else |
 
 ## How to change it
 

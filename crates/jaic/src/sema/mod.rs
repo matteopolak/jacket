@@ -387,6 +387,9 @@ pub struct Compiler {
     pub warnings: Vec<Diagnostic>,
     /// Overload sets already checked for identical parameter lists.
     pub overload_sets_checked: std::collections::HashSet<Vec<EntityId>>,
+    /// Imports that found no module: (importing module, wanted module). Metaprograms that
+    /// intercept the workspace get a `FAILED_IMPORT` message for each.
+    pub failed_imports: Vec<(String, String)>,
     /// Struct declaration AST per struct (for layout).
     pub struct_asts: HashMap<crate::types::StructId, structs::StructSource>,
     pub entry_point: Option<ProcId>,
@@ -566,6 +569,7 @@ impl Compiler {
             output: Vec::new(),
             warnings: Vec::new(),
             overload_sets_checked: Default::default(),
+            failed_imports: Vec::new(),
             struct_asts: HashMap::default(),
             entry_point: None,
             exports: Vec::new(),

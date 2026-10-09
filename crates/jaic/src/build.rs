@@ -308,6 +308,8 @@ pub const EVENT_PHASE: i64 = 2;
 pub const EVENT_COMPLETE: i64 = 3;
 pub const EVENT_IMPORT: i64 = 4;
 pub const EVENT_TYPECHECKED: i64 = 5;
+pub const EVENT_FAILED_IMPORT: i64 = 6;
+pub const EVENT_ERROR: i64 = 7;
 
 const PHASE_ALL_SOURCE_CODE_PARSED: i64 = 0;
 const PHASE_TYPECHECKED_ALL_WE_CAN: i64 = 1;
@@ -834,6 +836,19 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
             let text = compiler.render(&d);
             (shared.borrow_mut().env.report)(&text);
             failed = true;
+            if intercepted {
+                // The imports that found nothing, then the error itself.
+                let mut records = Records::lend(&mut shared.borrow_mut().records);
+                for record in compiler.export_failed_imports(&mut records) {
+                    events.push(record_event(EVENT_FAILED_IMPORT, record));
+                }
+                Records::give_back(&mut shared.borrow_mut().records, records);
+                events.push(Event {
+                    kind: EVENT_ERROR,
+                    ints: Vec::new(),
+                    strings: Vec::new(),
+                });
+            }
             Stage::Done
         }
     };

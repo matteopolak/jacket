@@ -1310,6 +1310,9 @@ impl Compiler {
             }
             ast::ImportSource::Module(name) => {
                 let Some(entry) = self.find_module(name, &dir) else {
+                    let host = self.scope(from_scope).module;
+                    let host = self.modules[host.0 as usize].name.to_string();
+                    self.failed_imports.push((host, name.to_string()));
                     return Err(Box::new(self.module_not_found(name, &dir, import.span)));
                 };
                 self.load_module(name, &entry, params, import.span)

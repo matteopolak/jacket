@@ -175,6 +175,7 @@ pub const TRAP_NULL_POINTER: u64 = 7;
 
 /// `a` of a `TRAP_NULL_POINTER` failure: what the access did.
 pub const NULL_READ: u64 = 0;
+
 pub const NULL_WRITE: u64 = 1;
 pub const NULL_COPY: u64 = 2;
 pub const NULL_FILL: u64 = 3;
