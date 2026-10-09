@@ -102,9 +102,9 @@ const source = [
   "",
 ].join("\n");
 engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri, languageId: "jai", version: 1, text: source } } });
-// Too few arguments is reported without type checking (jaic also rejects the call when compiling).
-const published = engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri: "file:///jai-script/bad.jai", languageId: "jai", version: 1, text: 'main :: () { print("% %\\n", 1); }\n' } } });
-assert(published.some(m => m.params?.diagnostics?.some(d => d.code === "jai-format")), "format argument mismatch is diagnosed");
+// Too few arguments is the compiler's warning.
+const published = engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri: "file:///jai-script/bad.jai", languageId: "jai", version: 1, text: '#import "Basic";\nmain :: () { print("% %\\n", 1); }\n' } } });
+assert(published.some(m => m.params?.diagnostics?.some(d => d.message.includes("incorrect number of arguments"))), "format argument mismatch is diagnosed");
 const textDocument = { uri };
 const hints = request("textDocument/inlayHint", { textDocument, range: { start: { line: 0, character: 0 }, end: { line: 7, character: 0 } } });
 assert(hints.some(h => h.label === ": s64" && h.kind === 1), JSON.stringify(hints));

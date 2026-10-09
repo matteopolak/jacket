@@ -2033,7 +2033,8 @@ impl Compiler {
         }
         let mut k = 0;
         let mut c_vararg_values = Vec::new();
-        // The aggregate layout of each variadic argument that travels as one (a wide `Long_Double`).
+        // The aggregate layout of each variadic argument that travels as one (a struct, or a wide
+        // `Long_Double`).
         let mut c_vararg_layouts: Vec<Option<ir::AggLayout>> = Vec::new();
         for (i, slot) in c.slots.iter().enumerate() {
             if header.params[i].baked {
@@ -2047,9 +2048,14 @@ impl Compiler {
                         let op = self.arg_operand(f, &args[a], None)?;
                         let op = self.settle_untyped(op, None);
                         let op = c_vararg_promote(self, f, op, span)?;
-                        let layout = match self.wide_float(op.ty()) {
-                            Some(_) => Some(self.agg_layout(op.ty(), span)?),
-                            None => None,
+                        // A wide `Long_Double` or a struct travels by value, as its layout.
+                        let by_value = self.wide_float(op.ty()).is_some()
+                            || (matches!(self.types.kind(op.ty()), TypeKind::Struct(_))
+                                && self.size_of(op.ty(), span)? > 0);
+                        let layout = if by_value {
+                            Some(self.agg_layout(op.ty(), span)?)
+                        } else {
+                            None
                         };
                         let (_, v) = self.rvalue(f, op, span)?;
                         c_vararg_values.push(v);

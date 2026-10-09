@@ -56,7 +56,7 @@ Every call in `native.rs` goes through one C prototype with 8 integer and 8 `dou
 
 - scalars and register-sized struct pieces fill the integer and float registers in order;
 - larger structs are copied and passed by pointer (`Indirect`, arm64);
-- the return shape comes from the classification (`II`, `IF`, `FI`, `FF`, `FFF`, `FFFF`, or a 512-byte `Sret` buffer) and is copied to the IR out-pointer.
+- the return shape comes from the classification (`II`, `IF`, `FI`, `FF`, `FFF`, `FFFF`, or a hidden result pointer: a 512-byte `Sret` buffer the callee fills by value, or for a bigger result the IR out-pointer itself, passed as the first integer argument on x86-64 and through `wide::call`'s `x8` on arm64) and is copied to the IR out-pointer.
 
 The prototype ends with 16 eight-byte stack slots, filled in order with what doesn't fit in registers: arguments past the registers, aggregates that no longer fit (all or nothing; on arm64 that also closes their register class, per AAPCS64), x86-64 `byval` structs over 16 bytes, and on Apple arm64 the variadic arguments of a C variadic call (those after `Sig::c_fixed`). x86-64 has only six integer registers (five with a hidden result pointer), so there the prototype's last integer parameters double as its first stack slots (`Regs::prototype`), and the prototype is declared variadic so the caller sets `al`.
 

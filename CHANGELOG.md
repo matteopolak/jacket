@@ -93,6 +93,7 @@ The light-bulb menu offers *Extract into variable*, *Extract into procedure* (pa
 
 ### Fixes
 
+- C aggregate ABI gaps: on x86-64 System V a struct with an unaligned member (`#no_padding`, or `#align 1` members: C's `packed`) is passed and returned in memory, as Clang does; a struct that needs more registers than are left goes whole to the stack on x86-64 (`byval`) and arm64 (one `[N x T]` parameter), instead of being split between a register and the stack; a struct passed through `...` to a C variadic procedure travels by value (it went as a bare pointer); a `#cpp_return_type_is_non_pod` callback runs on arm64 in the interpreter; foreign calls in the interpreter return structs over 512 bytes. New fixtures and a [coverage matrix](docs/native/c-abi-coverage.md).
 - `type_of` of a polymorphic struct is `Type`, and printing an uninstantiated polymorphic struct prints its name (`Entity`).
 - `type_of` of a polymorphic procedure keeps its parameters and results; the parts that depend on a type variable show as `$`, as in Jai (`procedure ($, s64) -> $`).
 

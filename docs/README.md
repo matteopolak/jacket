@@ -77,6 +77,7 @@ How `crates/jaic`, the interpreter and the language server work.
 The LLVM backend, C ABI and linking.
 
 - [C ABI, callbacks and C++ methods](native/c-abi.md)
+- [C ABI coverage matrix](native/c-abi-coverage.md)
 - [jaic LLVM backend](native/llvm-backend.md)
 - [Native debug information](native/debug-info.md)
 - [Native build and linking](native/native-linking.md)

@@ -47,9 +47,9 @@ main :: () {
     // Pseudo-random bytes do not compress; the output still stays within the bound and round-trips.
     noise := NewArray(50_000, u8);
     state: u32 = 12345;
-    for 0..noise.count - 1 {
+    for *noise {
         state = state * 1664525 + 1013904223;
-        noise[it] = cast,trunc(u8) (state >> 24);
+        it.* = cast,trunc(u8) (state >> 24);
     }
     round_trip("noise", noise, false);
 
