@@ -72,6 +72,22 @@ impl Sources<'_> {
         root: &Path,
         folders: &[PathBuf],
     ) -> (Vec<PathBuf>, Vec<PathBuf>) {
+        // Cached until a file it was read from changes: every semantic request asks, and
+        // finding the folders lexes the root file (a large one is megabytes of tokens).
+        if let Some((dirs, deps)) = index.import_dirs.get(root) {
+            return (dirs.clone(), deps.clone());
+        }
+        let found = self.find_import_dirs(index, root, folders);
+        index.import_dirs.insert(root.to_path_buf(), found.clone());
+        found
+    }
+
+    fn find_import_dirs(
+        &self,
+        index: &mut Index,
+        root: &Path,
+        folders: &[PathBuf],
+    ) -> (Vec<PathBuf>, Vec<PathBuf>) {
         let config = self.config(index, root);
         let base = config.as_ref().map(|(dir, _)| dir.clone()).or_else(|| {
             folders
@@ -164,9 +180,6 @@ impl crate::Session {
             return Vec::new();
         };
         let mut index = self.index.borrow_mut();
-        if let Some((dirs, _)) = index.import_dirs.get(root) {
-            return dirs.clone();
-        }
         let sources = Sources {
             env,
             open: self
@@ -176,11 +189,9 @@ impl crate::Session {
                 .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
                 .collect(),
         };
-        let (dirs, deps) = sources.import_dirs(&mut index, root, &self.workspace_folders);
-        index
-            .import_dirs
-            .insert(root.to_path_buf(), (dirs.clone(), deps));
-        dirs
+        sources
+            .import_dirs(&mut index, root, &self.workspace_folders)
+            .0
     }
 
     /// The compiler options for the program rooted at `root`: the environment's, with the

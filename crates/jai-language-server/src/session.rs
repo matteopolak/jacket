@@ -25,10 +25,10 @@ pub(crate) struct Document {
 pub struct Session {
     pub(crate) limits: Limits,
     pub(crate) documents: BTreeMap<DocumentUri, Document>,
-    pub(crate) analyses: BTreeMap<DocumentUri, Analysis>,
+    pub(crate) analyses: BTreeMap<DocumentUri, Rc<Analysis>>,
     /// Last analysis of each document that parsed: completion keeps offering its names while
     /// the text being typed does not parse.
-    pub(crate) parsed: BTreeMap<DocumentUri, Analysis>,
+    pub(crate) parsed: BTreeMap<DocumentUri, Rc<Analysis>>,
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
     pub(crate) semantic: RefCell<semantic::Cache>,
@@ -94,6 +94,7 @@ impl Session {
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.workspace_folders = folders;
+        self.index.borrow_mut().import_dirs.clear();
     }
 
     /// A file changed on disk (`created_or_deleted` when it appeared or went away): what was
@@ -353,6 +354,10 @@ impl Session {
                 }
             }
         }
+        let analyses: BTreeMap<DocumentUri, Rc<Analysis>> = analyses
+            .into_iter()
+            .map(|(uri, analysis)| (uri, Rc::new(analysis)))
+            .collect();
         for (uri, analysis) in &analyses {
             if analysis.complete {
                 self.parsed.insert(uri.clone(), analysis.clone());

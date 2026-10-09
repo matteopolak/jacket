@@ -269,7 +269,9 @@ impl Analysis {
             );
             return result;
         }
-        let parsed = match jaic::parser::parse_file(file, text) {
+        let parsed = jaic::parser::parse_file(file, text);
+        crate::semantic::note_parse(text, parsed.as_ref().err().map(|d| d.span.start as usize));
+        let parsed = match parsed {
             Ok(parsed) => parsed,
             Err(error) => {
                 result.compiler_diagnostic(&index, text, &error, DiagnosticCode::Parser);

@@ -11,6 +11,8 @@ mod here_string;
 mod hierarchy;
 pub(crate) mod hover;
 mod imports;
+#[cfg(unix)]
+pub mod large_alloc;
 mod links;
 pub mod lints;
 mod model;

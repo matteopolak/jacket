@@ -816,7 +816,8 @@ fn completion_while_typing_reuses_the_last_good_compile() {
 }
 
 /// Compiles are hundreds of MiB for a large program: only the newest that checked and the newest
-/// of all stay alive, however many edits there are.
+/// of all stay alive, however many edits there are. Text that parses checks, and the compile of
+/// it answers everything an older compile of the same program can, so that one goes at once.
 #[test]
 fn old_compiles_are_dropped() {
     let mut s = session();
@@ -829,5 +830,5 @@ fn old_compiles_are_dropped() {
     }
     let (compiled, alive) = s.compile_counts();
     assert!(compiled >= 8, "{compiled}");
-    assert!(alive <= 2, "{alive}");
+    assert_eq!(alive, 1, "an older compile of the same program stays alive");
 }

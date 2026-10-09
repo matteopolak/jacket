@@ -342,6 +342,14 @@ impl Cache {
             let entry = self.entries.remove(at);
             self.entries.push(entry);
         } else {
+            // A compile of the same program from text that parses will check, and everything the
+            // older one can answer (completion after an unchanged prefix) it answers too, so the
+            // older one goes now instead of staying alive through the whole new compile.
+            if files.values().all(|bytes| {
+                std::str::from_utf8(bytes).is_ok_and(|text| parse_error(text).is_none())
+            }) {
+                self.entries.retain(|a| !(a.root == root && a.dirs == dirs));
+            }
             self.make_room();
             self.compiles += 1;
             let snapshot = files.clone();
@@ -435,9 +443,71 @@ fn compile(
     (compiler, errors)
 }
 
+thread_local! {
+    /// Where the texts parsed lately fail (by hash and length): hover, references, diagnostics
+    /// and lints each ask about the same open document, and a parse of a large file is a
+    /// transient tree of tens of MiB each time.
+    static PARSES: std::cell::RefCell<Vec<(u64, usize, Option<usize>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Parse results remembered (the repair of one broken document tries about three texts).
+const PARSES_KEPT: usize = 8;
+
+fn text_key(text: &str) -> (u64, usize) {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut h);
+    (h.finish(), text.len())
+}
+
+/// Remember that `text` parses (`None`) or fails at a byte offset, for `parse_error`.
+pub fn note_parse(text: &str, error: Option<usize>) {
+    let (hash, len) = text_key(text);
+    PARSES.with(|p| {
+        let mut p = p.borrow_mut();
+        p.retain(|e| (e.0, e.1) != (hash, len));
+        if p.len() >= PARSES_KEPT {
+            p.remove(0);
+        }
+        p.push((hash, len, error));
+    });
+}
+
 /// Where `text` fails to lex or parse (a byte offset), if it does.
 pub fn parse_error(text: &str) -> Option<usize> {
-    jaic::parser::parse_file(FileId(0), text)
+    let (hash, len) = text_key(text);
+    if let Some(found) = PARSES.with(|p| {
+        p.borrow()
+            .iter()
+            .find(|e| (e.0, e.1) == (hash, len))
+            .map(|e| e.2)
+    }) {
+        return found;
+    }
+    let error = jaic::parser::parse_file(FileId(0), text)
         .err()
-        .map(|d| d.span.start as usize)
+        .map(|d| d.span.start as usize);
+    note_parse(text, error);
+    error
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_results_are_remembered_by_text() {
+        let good = "main :: () { x := 1; }\n";
+        let bad = "main :: () { x := ; }\n";
+        assert_eq!(parse_error(good), None);
+        let at = parse_error(bad);
+        assert!(at.is_some());
+        // Both are answered from memory now, and more texts than are kept push the oldest out.
+        assert_eq!(parse_error(good), None);
+        assert_eq!(parse_error(bad), at);
+        for n in 0..=PARSES_KEPT {
+            assert_eq!(parse_error(&format!("f{n} :: () {{}}\n")), None);
+        }
+        assert_eq!(parse_error(bad), at);
+    }
 }

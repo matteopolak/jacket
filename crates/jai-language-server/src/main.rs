@@ -108,6 +108,12 @@ fn command_line() -> Option<std::process::ExitCode> {
     None
 }
 
+/// Large blocks go back to the operating system when freed (see `large_alloc`).
+#[cfg(unix)]
+#[global_allocator]
+static ALLOCATOR: jai_language_server::large_alloc::LargeBlocksToOs =
+    jai_language_server::large_alloc::LargeBlocksToOs;
+
 /// Modules come from disk: the `modules` folder next to the main file, then the stdlib
 /// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's).
 #[cfg(not(target_arch = "wasm32"))]

@@ -58,6 +58,9 @@ pub struct JsonSession {
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
     refresh_diagnostics: bool,
     refreshes: u64,
+    /// The result of the request just handled when it was written straight to JSON text (a
+    /// large answer built as a `Value` tree costs tens of times its size in memory).
+    raw_result: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -271,6 +274,7 @@ impl JsonSession {
             pull_diagnostics: false,
             refresh_diagnostics: false,
             refreshes: 0,
+            raw_result: None,
         }
     }
 
@@ -292,7 +296,7 @@ impl JsonSession {
         }
         let value: Value = match serde_json::from_str(input) {
             Ok(value) => value,
-            Err(_) => return self.encode(vec![failure(Value::Null, -32700, "Parse error")]),
+            Err(_) => return self.encode(vec![failure(Value::Null, -32700, "Parse error")], None),
         };
         // The client's answer to a request of ours (a diagnostics refresh): nothing to do.
         if value.get("method").is_none()
@@ -305,13 +309,18 @@ impl JsonSession {
         let id = match raw_id {
             Some(value) => match serde_json::from_value::<RequestId>(value.clone()) {
                 Ok(id) if valid_id(&id) => Some(id),
-                _ => return self.encode(vec![failure(Value::Null, -32600, "Invalid request id")]),
+                _ => {
+                    return self.encode(
+                        vec![failure(Value::Null, -32600, "Invalid request id")],
+                        None,
+                    );
+                }
             },
             None => None,
         };
         let envelope: Envelope = match serde_json::from_value::<Envelope>(value) {
             Ok(e) if e.jsonrpc == "2.0" && !e.method.is_empty() => e,
-            _ => return self.encode(vec![failure(Value::Null, -32600, "Invalid request")]),
+            _ => return self.encode(vec![failure(Value::Null, -32600, "Invalid request")], None),
         };
         let identifier = id.as_ref().map_or(Value::Null, |id| json!(id));
         let id_for_output = id.clone();
@@ -325,6 +334,7 @@ impl JsonSession {
                     .map(|e| log_error(&e.to_string()))
                     .into_iter()
                     .collect(),
+                None,
             );
         }
         if envelope.method == "exit" && id.is_none() {
@@ -339,7 +349,7 @@ impl JsonSession {
             && self.cancelled.remove(id)
         {
             self.remember(id.clone());
-            return self.encode(vec![failure(identifier, -32800, "Request cancelled")]);
+            return self.encode(vec![failure(identifier, -32800, "Request cancelled")], None);
         }
         let method = envelope.method.clone();
         // A panic in one request is that request's error; the server and its documents live on.
@@ -356,12 +366,22 @@ impl JsonSession {
             self.session.reset_caches();
             Err((-32603, format!("Internal error in `{method}`: {what}")))
         });
+        let raw = self.raw_result.take();
+        let mut tail = None;
         let output = match result {
             Ok(mut messages) => {
                 if let Some(id) = id {
                     self.remember(id);
                     let result = messages.pop().unwrap_or(Value::Null);
-                    messages.push(json!({ "jsonrpc": "2.0", "id": identifier, "result": result }));
+                    match raw {
+                        Some(raw) => {
+                            tail = Some(format!(
+                                "{{\"jsonrpc\":\"2.0\",\"id\":{identifier},\"result\":{raw}}}"
+                            ));
+                        }
+                        None => messages
+                            .push(json!({ "jsonrpc": "2.0", "id": identifier, "result": result })),
+                    }
                 }
                 messages
             }
@@ -384,14 +404,17 @@ impl JsonSession {
                 "params": { "type": 2, "message": message },
             })
         }));
-        match self.encode(output) {
+        match self.encode(output, tail) {
             // A response over the output cap is that request's error, not the end of the session.
             Err(ProtocolError::OutputLimit) => {
                 let message = "The response is larger than the output limit";
-                self.encode(vec![match id_for_output {
-                    Some(id) => failure(json!(id), -32803, message),
-                    None => log_error(message),
-                }])
+                self.encode(
+                    vec![match id_for_output {
+                        Some(id) => failure(json!(id), -32803, message),
+                        None => log_error(message),
+                    }],
+                    None,
+                )
             }
             other => other,
         }
@@ -424,12 +447,23 @@ impl JsonSession {
         self.completed.push_back(id);
     }
 
-    fn encode(&self, messages: Vec<Value>) -> Result<Vec<String>, ProtocolError> {
+    /// The messages as JSON text, then `tail` (already text: the response to a large request).
+    fn encode(
+        &self,
+        messages: Vec<Value>,
+        tail: Option<String>,
+    ) -> Result<Vec<String>, ProtocolError> {
         let mut out = vec![];
         let mut bytes = 0usize;
-        for message in messages {
-            let text = serde_json::to_string(&message)
-                .map_err(|e| ProtocolError::Serialization(e.to_string()))?;
+        let texts = messages
+            .into_iter()
+            .map(|message| {
+                serde_json::to_string(&message)
+                    .map_err(|e| ProtocolError::Serialization(e.to_string()))
+            })
+            .chain(tail.map(Ok));
+        for text in texts {
+            let text = text?;
             bytes = bytes
                 .checked_add(text.len())
                 .filter(|n| *n <= self.session.limits().output_bytes)
@@ -561,22 +595,22 @@ impl JsonSession {
                     let uri = uri(&p.text_document.uri)?;
                     let version = self.session.version(&uri).map_err(domain)?;
                     let tokens = self.session.semantic_tokens(&uri).map_err(domain)?;
-                    json!({
-                        "resultId": version.to_string(),
-                        "data": semantic_tokens_wire(&tokens),
-                    })
+                    let data = semantic_tokens_wire(&tokens);
+                    drop(tokens);
+                    let data = serde_json::to_string(&data).map_err(|e| (-32603, e.to_string()))?;
+                    self.raw_result =
+                        Some(format!("{{\"resultId\":\"{version}\",\"data\":{data}}}"));
+                    Value::Null
                 }
                 "textDocument/documentSymbol" => {
                     let p: DocumentParams = decode(params)?;
                     let uri = uri(&p.text_document.uri)?;
-                    Value::Array(
-                        self.session
-                            .document_symbols(&uri)
-                            .map_err(domain)?
-                            .iter()
-                            .map(symbol_wire)
-                            .collect(),
-                    )
+                    let symbols = self.session.document_symbols(&uri).map_err(domain)?;
+                    self.raw_result = Some(
+                        serde_json::to_string(&SymbolsWire(&symbols))
+                            .map_err(|e| (-32603, e.to_string()))?,
+                    );
+                    Value::Null
                 }
                 "textDocument/hover" => {
                     let p: PositionParams = decode(params)?;
@@ -1149,19 +1183,32 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
     value
 }
 
-fn symbol_wire(symbol: &DocumentSymbol) -> Value {
-    let kind = symbol_kind_wire(symbol.kind);
-    let mut value = json!({
-        "name": symbol.name,
-        "detail": symbol.detail,
-        "kind": kind,
-        "range": symbol.range,
-        "selectionRange": symbol.selection_range,
-    });
-    if !symbol.children.is_empty() {
-        value["children"] = Value::Array(symbol.children.iter().map(symbol_wire).collect());
+/// The symbols of a document as the protocol writes them, serialized straight to text.
+struct SymbolsWire<'a>(&'a [DocumentSymbol]);
+
+impl serde::Serialize for SymbolsWire<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.0.iter().map(SymbolWire))
     }
-    value
+}
+
+struct SymbolWire<'a>(&'a DocumentSymbol);
+
+impl serde::Serialize for SymbolWire<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let symbol = self.0;
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("name", &symbol.name)?;
+        map.serialize_entry("detail", &symbol.detail)?;
+        map.serialize_entry("kind", &symbol_kind_wire(symbol.kind))?;
+        map.serialize_entry("range", &symbol.range)?;
+        map.serialize_entry("selectionRange", &symbol.selection_range)?;
+        if !symbol.children.is_empty() {
+            map.serialize_entry("children", &SymbolsWire(&symbol.children))?;
+        }
+        map.end()
+    }
 }
 
 fn hierarchy_item_wire(item: &CallHierarchyItem) -> Value {
