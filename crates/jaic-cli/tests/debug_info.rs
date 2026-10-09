@@ -178,19 +178,32 @@ fn no_debug_info_flag_omits_it() {
     }
 }
 
-/// An unoptimized macOS build skips `dsymutil` and keeps its object file, which holds the
-/// DWARF the executable points to; an optimized one collects it into a `.dSYM`.
+/// An unoptimized macOS build skips `dsymutil` and keeps its objects in `.build/` beside the
+/// executable, which hold the DWARF the executable points to; stale objects of an earlier build
+/// are removed. An optimized one collects the DWARF into a `.dSYM` and leaves no objects.
 #[test]
 fn macos_debug_builds_keep_objects_and_optimized_builds_write_a_dsym() {
     if !cfg!(target_os = "macos") {
         return;
     }
+    let _ =
+        std::fs::remove_dir_all(Path::new(env!("CARGO_TARGET_TMPDIR")).join("debug-info-objects"));
+    let _ = std::fs::remove_dir_all(
+        Path::new(env!("CARGO_TARGET_TMPDIR")).join("debug-info-optimized"),
+    );
     let exe = build("debug-info-objects", "prog", &[], None, false);
+    let kept = exe.parent().unwrap().join(".build");
     assert!(!dsym(&exe).exists());
-    assert!(exe.with_extension("o").exists());
+    assert!(kept.join("prog.o").exists());
+    assert!(!exe.with_extension("o").exists());
+    let stale = kept.join("prog.o.9.o");
+    std::fs::write(&stale, b"").unwrap();
+    build("debug-info-objects", "prog", &[], None, false);
+    assert!(!stale.exists());
     let exe = build("debug-info-optimized", "prog", &["-O2"], None, false);
     assert!(dsym(&exe).exists());
     assert!(!exe.with_extension("o").exists());
+    assert!(!exe.parent().unwrap().join(".build").exists());
 }
 
 fn lldb_available() -> bool {

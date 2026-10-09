@@ -1150,6 +1150,8 @@ struct Prepared {
     output: PathBuf,
     /// The first object file (`emit_objects` numbers the others after it).
     object: PathBuf,
+    /// The objects stay after linking, for the debugger.
+    keep_objects: bool,
     target: Option<String>,
     options: jaic_llvm::Options,
     /// Linker arguments beyond the metaprogram's (`-mmacosx-version-min`).
@@ -1223,20 +1225,6 @@ impl LlvmBackend {
             name.push(suffix);
             intermediate.join(name)
         };
-        let object = if settings.output_type == OutputType::ObjectFile {
-            output.clone()
-        } else {
-            beside(".o")
-        };
-        // Creating the object file now finds out, with the system's reason, when that place
-        // cannot be written, rather than from LLVM or the linker after code generation.
-        if let Err(e) = std::fs::File::create(&object) {
-            return Err(format!(
-                "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
-                shown(&object),
-                jaic::io_reason(&e)
-            ));
-        }
         use jaic_llvm::OptLevel;
         let opt_level = match settings.optimization.as_str() {
             // `llvm_options.bitcode_optimization_setting` member names.
@@ -1310,13 +1298,83 @@ impl LlvmBackend {
             features: non_empty(&settings.llvm_features),
             codegen,
         };
+        // An unoptimized macOS executable or library keeps its objects, in `.build/` beside the
+        // output (or in the intermediate directory): the debugger reads the DWARF from them
+        // (`docs/native/debug-info.md`). Every other build deletes its objects after linking.
+        let keep_objects = debug_info
+            && macos
+            && opt_level == OptLevel::O0
+            && matches!(
+                settings.output_type,
+                OutputType::Executable | OutputType::DynamicLibrary
+            )
+            && std::env::var_os("JAIC_DSYM").is_none();
+        let kept_dir = if settings.intermediate_path.is_empty() {
+            intermediate.join(".build")
+        } else {
+            intermediate.clone()
+        };
+        if settings.output_type != OutputType::ObjectFile {
+            remove_stale_objects(&kept_dir, &file_name);
+        }
+        let object = if settings.output_type == OutputType::ObjectFile {
+            output.clone()
+        } else if keep_objects {
+            std::fs::create_dir_all(&kept_dir).map_err(|e| {
+                format!(
+                    "could not create the object directory `{}`: {}",
+                    shown(&kept_dir),
+                    jaic::io_reason(&e)
+                )
+            })?;
+            kept_dir.join(beside(".o").file_name().unwrap_or_default())
+        } else {
+            beside(".o")
+        };
+        // Creating the object file now finds out, with the system's reason, when that place
+        // cannot be written, rather than from LLVM or the linker after code generation.
+        if let Err(e) = std::fs::File::create(&object) {
+            return Err(format!(
+                "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
+                shown(&object),
+                jaic::io_reason(&e)
+            ));
+        }
         Ok(Prepared {
             output,
             object,
+            keep_objects,
             target,
             options,
             extra_link_args,
         })
+    }
+}
+
+/// Delete the objects an earlier build of `file_name` left in `dir` (`<name>.o`, `<name>.o.N.o`),
+/// so a build with fewer codegen units leaves none behind, and the directory if that empties it.
+#[cfg(feature = "llvm")]
+fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let prefix = file_name.to_string_lossy().into_owned();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        // `<name>.o`, then `<name>.o.N.o` for the other codegen units.
+        let stale = name.strip_prefix(&prefix).is_some_and(|rest| {
+            rest == ".o"
+                || rest
+                    .strip_prefix(".o.")
+                    .and_then(|r| r.strip_suffix(".o"))
+                    .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+        });
+        if stale {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+    if dir.file_name().is_some_and(|n| n == ".build") {
+        let _ = std::fs::remove_dir(dir);
     }
 }
 
@@ -1331,6 +1389,7 @@ impl OutputBackend for LlvmBackend {
         let Prepared {
             output,
             object,
+            keep_objects,
             target,
             options,
             extra_link_args,
@@ -1385,16 +1444,13 @@ impl OutputBackend for LlvmBackend {
             && linked.is_ok()
             && target.map_or(cfg!(target_os = "macos"), |t| t.contains("apple"))
             && settings.output_type != OutputType::StaticLibrary;
-        let keep_objects = macho
-            && options.opt_level == jaic_llvm::OptLevel::O0
-            && std::env::var_os("JAIC_DSYM").is_none();
         if macho
             && !keep_objects
             && let Err(message) = timings::time("debug info", || jaic_llvm::write_dsym(output))
         {
             eprintln!("warning: {message}");
         }
-        if !keep_objects {
+        if !(keep_objects && linked.is_ok()) {
             for object in &objects {
                 let _ = std::fs::remove_file(object);
             }

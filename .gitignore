@@ -1,4 +1,5 @@
 /target/
+.build/
 /artifacts/
 /corpus/upstream
 **/__pycache__/
