@@ -2684,6 +2684,266 @@
       "negative": {
         "check": "cannot assign into the constant `PRIMES`"
       }
+    },
+    {
+      "id": "args-unknown-note",
+      "source": "negative/args-unknown-note.jai",
+      "sha256": "85d4eca78f237fc39b10beec9ed56614d8864471c152c3b5675c7e3bea6eea0e",
+      "suite": "negative",
+      "feature": "args-unknown-note",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.paths: unknown note `@posistional`"
+      }
+    },
+    {
+      "id": "args-bad-short",
+      "source": "negative/args-bad-short.jai",
+      "sha256": "9a1b4e58e9ad679896a5940b6c53c0e190726d6b2af8c204a971bcf3ba379a1c",
+      "suite": "negative",
+      "feature": "args-bad-short",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@short=ab` needs a single letter or digit"
+      }
+    },
+    {
+      "id": "args-duplicate-short",
+      "source": "negative/args-duplicate-short.jai",
+      "sha256": "7a5faf9bf9e6768c2325e0a6777b6504e80fc587a927021f10e53e0e549f3be0",
+      "suite": "negative",
+      "feature": "args-duplicate-short",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.b: the short name `-x` is already used"
+      }
+    },
+    {
+      "id": "args-duplicate-long",
+      "source": "negative/args-duplicate-long.jai",
+      "sha256": "bf69253c513fffab2749332868b6af0dbf5c65c2a6d000cb836f922e6698d904",
+      "suite": "negative",
+      "feature": "args-duplicate-long",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.b: the long name `--zed` is already used"
+      }
+    },
+    {
+      "id": "args-reserved-short",
+      "source": "negative/args-reserved-short.jai",
+      "sha256": "e23653d28bb25f0b716553549456d6522f3a24864fe2a09a0b4bd358c4bfbbb6",
+      "suite": "negative",
+      "feature": "args-reserved-short",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: the short name `-h` is already used"
+      }
+    },
+    {
+      "id": "args-range-on-string",
+      "source": "negative/args-range-on-string.jai",
+      "sha256": "d53602e76c27ad9eed5735707b2fc7fb4e2eab4df145161674d83406216fee75",
+      "suite": "negative",
+      "feature": "args-range-on-string",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@range` needs a numeric field"
+      }
+    },
+    {
+      "id": "args-range-malformed",
+      "source": "negative/args-range-malformed.jai",
+      "sha256": "04d6c488a256031483fb058a06994c414b589c16fac2e91e958f6bc22320035c",
+      "suite": "negative",
+      "feature": "args-range-malformed",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@range(1)` needs two numbers"
+      }
+    },
+    {
+      "id": "args-unsupported-type",
+      "source": "negative/args-unsupported-type.jai",
+      "sha256": "0b3c0e755aaf0c4a93c475654f932c76229e8849d7946e91ebd14e313c4072c4",
+      "suite": "negative",
+      "feature": "args-unsupported-type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: unsupported field type: a pointer"
+      }
+    },
+    {
+      "id": "args-struct-without-subcommand",
+      "source": "negative/args-struct-without-subcommand.jai",
+      "sha256": "000f98a8814616c32795a62f14ed7b0b178c3f974577807db5b3bd7ef751e733",
+      "suite": "negative",
+      "feature": "args-struct-without-subcommand",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: the struct `Inner`: a struct field is only supported as a subcommand"
+      }
+    },
+    {
+      "id": "args-positional-array-not-last",
+      "source": "negative/args-positional-array-not-last.jai",
+      "sha256": "649d4f55491f4419c6395b38281bc8a1e5eaeb1b9904931b19fefd4c962e5d7b",
+      "suite": "negative",
+      "feature": "args-positional-array-not-last",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: only the last positional may be an array"
+      }
+    },
+    {
+      "id": "args-conflicts-unknown-field",
+      "source": "negative/args-conflicts-unknown-field.jai",
+      "sha256": "3225e998515cc5e5139b39fa0edd6f56757845244aaf2e9b1f3fc8b356686abb",
+      "suite": "negative",
+      "feature": "args-conflicts-unknown-field",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@conflicts=nothing` names a field that does not exist"
+      }
+    },
+    {
+      "id": "args-requires-unknown-field",
+      "source": "negative/args-requires-unknown-field.jai",
+      "sha256": "4e5a6c507a8b3e845068d292774f09e08ccaeb652d2eaff02279d158b6aee8b1",
+      "suite": "negative",
+      "feature": "args-requires-unknown-field",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@requires=nothing` names a field that does not exist"
+      }
+    },
+    {
+      "id": "args-count-on-string",
+      "source": "negative/args-count-on-string.jai",
+      "sha256": "e8236f428efcd01466d2db4a0e96ac4fb5027717a3e22f669ca8c60bc2eb7a4b",
+      "suite": "negative",
+      "feature": "args-count-on-string",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@count` needs an integer field"
+      }
+    },
+    {
+      "id": "args-env-on-list",
+      "source": "negative/args-env-on-list.jai",
+      "sha256": "8f9867646996f242f98b08241cce8d54e2bc5ed067d46210351b5d811eae0f56",
+      "suite": "negative",
+      "feature": "args-env-on-list",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@env` is for options with a single value"
+      }
+    },
+    {
+      "id": "args-fixed-array",
+      "source": "negative/args-fixed-array.jai",
+      "sha256": "016338243f595976d853291af77c67eceed63a72438c2e374154562c44a9e4f0",
+      "suite": "negative",
+      "feature": "args-fixed-array",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: arrays other than `[..] T` are not supported"
+      }
+    },
+    {
+      "id": "args-required-flag",
+      "source": "negative/args-required-flag.jai",
+      "sha256": "24f0f2a9763009342965fa666c4f6f546f5f037263030d5d7a80256ce676cd1f",
+      "suite": "negative",
+      "feature": "args-required-flag",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.a: `@required` does not apply to flags and counters"
+      }
+    },
+    {
+      "id": "args-subcommand-without-selector",
+      "source": "negative/args-subcommand-without-selector.jai",
+      "sha256": "06c255fa4121b05892b647df72c688a10cb823498c0d1f1c743a9aa144586b11",
+      "suite": "negative",
+      "feature": "args-subcommand-without-selector",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "subcommand structs need an enum field marked `@subcommand`"
+      }
+    },
+    {
+      "id": "args-required-positional-after-optional",
+      "source": "negative/args-required-positional-after-optional.jai",
+      "sha256": "3c964a9e99fc97718523a30bbfc72ff8bef3ec4fdfcc920aaef91fa95fb3797f",
+      "suite": "negative",
+      "feature": "args-required-positional-after-optional",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "a required positional cannot follow the optional `a`"
+      }
+    },
+    {
+      "id": "args-no-flag-name-collision",
+      "source": "negative/args-no-flag-name-collision.jai",
+      "sha256": "1c367237109de15c0d0dc8897e0d666b6de48f8a1acc1fd6bf82d03ece56eb30",
+      "suite": "negative",
+      "feature": "args-no-flag-name-collision",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the long name `--no-a` is already used"
+      }
+    },
+    {
+      "id": "args-help-field-collision",
+      "source": "negative/args-help-field-collision.jai",
+      "sha256": "770cf1c3765414cd31e6ebc08977d6bf6ce0b775177a4ce250e0bf41c05e3c61",
+      "suite": "negative",
+      "feature": "args-help-field-collision",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Cli.about: this name is reserved by `Args.Help`"
+      }
     }
   ]
 }
