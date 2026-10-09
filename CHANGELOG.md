@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-09
+
+Optimized builds compile 1.6 to 2.7 times faster (Focus `-O2` 12.7 s to 7.8 s, chess-jai 4.5 s to 1.7 s, Jails 2.2 s to 0.81 s), unoptimized builds of large programs about 1.3 times faster (240k lines: 1.50 s to 1.18 s), the compiler sends `PERFORMANCE_REPORT` and `DEBUG_DUMP` messages, and the language server completes inside range expressions.
+
+### Heads-up
+
+| Before | Now |
+| --- | --- |
+| `enable_split_modules = false` built an optimized program as one module | It is still divided into up to 8 parts at `-O1` and up; set `JAIC_CODEGEN_UNITS=1` for whole-program optimization |
+| `File_Change.time_of_last_change` was a `float32` | A `float64` |
+| `jailint`'s `index_only_loop` skipped loops that write elements from the index | They are reported (and fixed by `--fix`), so a lint run that passed may now warn |
+| The playground tour took `--stop`/`--all`/`--help` and read a menu from standard input | It runs every stop in order |
+
 - `jailsp` offers completions inside range expressions again: `for i: 0..ta`, `0 .. ta`, `lo..hi.co` and `for 0..table.co` complete names and members like anywhere else (the second `.` of `..` was taken for member access on a number). The playground shares the fix.
 - `jailint`'s `index_only_loop` also reports loops that fill elements from their index (`for i: 0..t.count-1 { t[i] = sin(cast(float) i * step); }`), rewriting them to `for *t { it.* = sin(cast(float) it_index * step); }`. `self_assignment` and `absurd_comparison` now offer quick fixes in the editor (remove the statement; replace the comparison by `true`/`false`); `--fix` does not apply them.
 - The tour's GPU stop (`examples/tour/gpu/raymarch_gpu.jai`) draws natively again, in a window of its own, instead of aborting the process with wgpu-native's `invalid surface` panic; without a display or GPU adapter it prints a skip line. `webgpu_create_surface` now returns null for a null window and `webgpu_surface_format` returns `.Undefined` for a null surface, rather than handing null to wgpu-native, which aborts. See [WebGPU](docs/stdlib/webgpu.md).
