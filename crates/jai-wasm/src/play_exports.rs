@@ -2,7 +2,10 @@
 //! pushes bytes per channel and reads the JSON result back byte by byte, so no raw pointers
 //! cross the boundary.
 //!
-//! Channels for `jai_play_push`: 0 = file path, 1 = file contents, 2 = main file path.
+//! Channels for `jai_play_push`: 0 = file path, 1 = file contents, 2 = main file path,
+//! 3 = program arguments (each argument ends with a NUL byte; none pushed passes no `argv`),
+//! 4 = standard input (the whole of it, when fixed; otherwise the page supplies it as the program
+//! reads, see `host_bridge`).
 use crate::play;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -15,6 +18,9 @@ struct PlayState {
     path: Vec<u8>,
     content: Vec<u8>,
     main: Vec<u8>,
+    args: Vec<u8>,
+    stdin: Vec<u8>,
+    fixed_stdin: bool,
     total: usize,
     output: Vec<u8>,
     error: Vec<u8>,
@@ -85,10 +91,22 @@ pub extern "C" fn jai_play_push(channel: u32, byte: u32) -> u32 {
             0 => s.path.push(byte),
             1 => s.content.push(byte),
             2 => s.main.push(byte),
+            3 => s.args.push(byte),
+            4 => {
+                s.stdin.push(byte);
+                s.fixed_stdin = true;
+            }
             _ => return s.fail("unknown input channel"),
         }
         0
     })
+}
+
+/// Whether this build takes program arguments (channel 3 of `jai_play_push`) and standard input
+/// (channel 4, or the page's `jai_stdin_read`); a page checks for the export before using them.
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_play_accepts_arguments() -> u32 {
+    1
 }
 
 /// Commit the pending path/content pair as one workspace file.
@@ -132,7 +150,22 @@ pub extern "C" fn jai_play_run() -> u32 {
             return s.fail("main path must be UTF-8");
         };
         let files = std::mem::take(&mut s.files);
-        s.output = play::run_with(&files, &main, s.limits)
+        let raw = std::mem::take(&mut s.args);
+        let mut pieces: Vec<&[u8]> = raw.split(|&b| b == 0).collect();
+        // Every argument ends with a NUL, so the last piece is the empty rest.
+        pieces.pop();
+        let Ok(args) = pieces
+            .into_iter()
+            .map(|arg| String::from_utf8(arg.to_vec()))
+            .collect::<Result<Vec<_>, _>>()
+        else {
+            return s.fail("arguments must be UTF-8");
+        };
+        let io = play::PlayIo {
+            args,
+            stdin: std::mem::take(&mut s.fixed_stdin).then(|| std::mem::take(&mut s.stdin)),
+        };
+        s.output = play::run_with_io(&files, &main, s.limits, &io)
             .to_json()
             .into_bytes();
         s.files = files;
@@ -218,5 +251,37 @@ mod tests {
         let json = String::from_utf8(bytes).unwrap();
         assert!(json.contains("\"stdout\":\"Hello, 42!\\n\""), "{json}");
         assert_eq!(jai_play_output_byte(u32::MAX), 256);
+    }
+
+    #[test]
+    fn arguments_and_fixed_input_reach_the_program() {
+        jai_play_reset();
+        push(0, "main.jai");
+        push(
+            1,
+            concat!(
+                "#import \"Basic\";\n#import \"POSIX\";\n",
+                "main :: () {\n",
+                "    args := get_command_line_arguments();\n",
+                "    for args print(\"[%]\", it);\n",
+                "    buf: [64] u8;\n",
+                "    n := read(0, buf.data, 64);\n",
+                "    print(\" %:%\", n, string.{ n, buf.data });\n",
+                "}\n",
+            ),
+        );
+        assert_eq!(jai_play_finish_file(), 0);
+        push(2, "main.jai");
+        push(3, "main\0two words\0\0");
+        push(4, "hi\n");
+        assert_eq!(jai_play_run(), 0);
+        let bytes: Vec<u8> = (0..jai_play_output_len())
+            .map(|i| jai_play_output_byte(i) as u8)
+            .collect();
+        let json = String::from_utf8(bytes).unwrap();
+        assert!(
+            json.contains("\"stdout\":\"[main][two words][] 3:hi\\n\""),
+            "{json}"
+        );
     }
 }

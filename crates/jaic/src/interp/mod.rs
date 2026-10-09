@@ -87,6 +87,12 @@ pub trait Host {
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>>;
 
+    /// The address of a foreign variable (a C global such as `stdin`) the host provides. `None` =
+    /// not provided.
+    fn foreign_data(&mut self, _symbol: &str) -> Option<u64> {
+        None
+    }
+
     /// Whether foreign symbols may be resolved through the native dynamic linker.
     fn native_linking(&self) -> bool;
 
@@ -890,6 +896,12 @@ impl Interp {
         let addr = match addr {
             Some(a) => a,
             None if foreign.is_data => {
+                if let Some(addr) = self.host.foreign_data(&foreign.symbol) {
+                    self.foreign_addrs
+                        .resize(self.foreign_addrs.len().max(id.0 as usize + 1), 0);
+                    self.foreign_addrs[id.0 as usize] = addr;
+                    return Ok(addr);
+                }
                 return self.trap(format!(
                     "foreign variable `{}` is not available",
                     foreign.symbol

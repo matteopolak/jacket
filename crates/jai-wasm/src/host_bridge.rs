@@ -46,6 +46,9 @@ mod imports {
     }
 }
 
+/// Bytes asked of the page per standard input read.
+const STDIN_CHUNK: usize = 4096;
+
 /// The playground's interpreter host: the sandbox plus the page's host functions.
 pub struct PlayHost {
     pub shared: SharedHost,
@@ -76,6 +79,44 @@ impl PlayHost {
         self.sent = (host.stdout.len(), host.stderr.len());
     }
 
+    /// Wait for the page to supply standard input: it fills a buffer of ours and answers with
+    /// the byte count (a promise that settles when the user typed a line), 0 for the end of
+    /// input. A page with no `jai_stdin_read` closes the input. Returns whether bytes came.
+    fn fill_stdin(&mut self) -> bool {
+        // Whatever the program printed first (a prompt) is on screen before it waits.
+        self.stream_output();
+        let mut buffer = vec![0u8; STDIN_CHUNK];
+        let args = [buffer.as_mut_ptr() as usize as u64, buffer.len() as u64];
+        let mut results = [0u64];
+        let outcome = host_call("jai_stdin_read", &args, &mut results);
+        let mut shared = self.shared.0.borrow_mut();
+        match outcome {
+            Some(Ok(waited)) => {
+                drop(shared);
+                if waited {
+                    self.after_wait();
+                }
+                let count = (results[0] as usize).min(buffer.len());
+                let mut shared = self.shared.0.borrow_mut();
+                if count == 0 {
+                    shared.end_stdin();
+                    return false;
+                }
+                shared.feed_stdin(&buffer[..count]);
+                true
+            }
+            Some(Err(message)) => {
+                shared.write(format!("stdin: {message}\n").as_bytes(), true);
+                shared.close_stdin();
+                false
+            }
+            None => {
+                shared.close_stdin();
+                false
+            }
+        }
+    }
+
     fn after_wait(&mut self) {
         self.waited = true;
         self.stream_output();
@@ -100,6 +141,11 @@ impl Host for PlayHost {
         args: &[u64],
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
+        while self.shared.0.borrow().stdin_wants_data(symbol, args) {
+            if !self.fill_stdin() {
+                break;
+            }
+        }
         // Asked of the page first: a page without the procedure (or without any host) answers
         // that nothing is provided, which the sandbox says too.
         let ask_page_first = symbol == "jai_host_provides";
@@ -118,6 +164,10 @@ impl Host for PlayHost {
             None if ask_page_first => self.shared.foreign(symbol, args, sig),
             None => None,
         }
+    }
+
+    fn foreign_data(&mut self, symbol: &str) -> Option<u64> {
+        self.shared.foreign_data(symbol)
     }
 
     fn native_linking(&self) -> bool {

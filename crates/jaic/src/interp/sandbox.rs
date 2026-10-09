@@ -14,6 +14,8 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
 
+mod stdin;
+
 const ENOENT: u64 = 2;
 const EBADF: u64 = 9;
 const EEXIST: u64 = 17;
@@ -230,6 +232,7 @@ pub struct SandboxHost {
     errno_cell: u64,
     /// `strerror` results by error number; they stay valid for the whole run, like libc's.
     error_texts: HashMap<u64, u64>,
+    stdin: stdin::Stdin,
 }
 
 impl SandboxHost {
@@ -646,6 +649,9 @@ impl Host for SandboxHost {
         args: &[u64],
         _sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
+        if let Some(result) = self.stdin_foreign(symbol, args) {
+            return Some(Ok(vec![result]));
+        }
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         Some(Ok(vec![match symbol {
             "write" => {
@@ -1235,6 +1241,10 @@ impl Host for SandboxHost {
         }]))
     }
 
+    fn foreign_data(&mut self, symbol: &str) -> Option<u64> {
+        self.stdin_variable(symbol)
+    }
+
     fn native_linking(&self) -> bool {
         false
     }
@@ -1287,6 +1297,10 @@ impl Host for SharedHost {
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         self.0.borrow_mut().foreign(symbol, args, sig)
+    }
+
+    fn foreign_data(&mut self, symbol: &str) -> Option<u64> {
+        self.0.borrow_mut().foreign_data(symbol)
     }
 
     fn native_linking(&self) -> bool {

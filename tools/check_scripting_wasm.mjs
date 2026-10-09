@@ -33,6 +33,32 @@ assert(missing.diagnostics.some(item => /missing/.test(item.message)), "Unknown 
 const examples = await checkSourceExamples(engine);
 console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repeated runs and diagnostics; examples: ${examples.join(", ")})`);
 
+// Arguments and standard input: fixed (`stdin` option) and, with JSPI, supplied by the page as the
+// program reads (`jai_stdin_read` waits for a line, answers 0 at the end of input).
+const echo = {
+  "main.jai": '#import "Basic"; #import "POSIX"; main :: () { args := get_command_line_arguments(); print("argc=% last=%\\n", args.count, args[args.count - 1]); buf: [64] u8; line := fgets(buf.data, 64, stdin); print("got %", to_string(buf.data)); line = fgets(buf.data, 64, stdin); print("then %\\n", line == null); }',
+};
+const fixed = engine.play(echo, "main.jai", { args: ["main", "a b"], stdin: "hello\n" });
+assert.equal(fixed.stdout, "argc=2 last=a b\ngot hello\nthen true\n", fixed.rendered);
+if (engine.jspi) {
+  const lines = ["typed\n", ""];
+  const waited = [];
+  const live = await createEngine(await readFile(path), { host: { functions: {
+    jai_stdin_read([pointer, capacity], memory) {
+      const line = new TextEncoder().encode(lines.shift() ?? "");
+      waited.push(line.length);
+      return new Promise(resolve => setTimeout(() => {
+        new Uint8Array(memory.buffer, Number(pointer), Number(capacity)).set(line);
+        resolve(line.length);
+      }, 5));
+    },
+  } } });
+  const interactive = await live.playAsync(echo, "main.jai", { args: ["main"] });
+  assert.equal(interactive.stdout, "argc=1 last=main\ngot typed\nthen true\n", interactive.rendered);
+  assert.deepEqual(waited, [6, 0]);
+}
+console.log("PASS: arguments and standard input");
+
 // The language server in the same module: metaprogram expansions, inlay hints, format strings.
 assert(engine.lsp, "the module exports the language server");
 let nextId = 0;

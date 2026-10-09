@@ -103,7 +103,7 @@ export async function createEngine(wasmBytes, { host } = {}) {
     } catch { return ""; }
   }
   function playPush(channel, text) { for (const byte of encoder.encode(text)) playCheck(api.jai_play_push(channel, byte)); }
-  function prepare(files, main, { budget } = {}) {
+  function prepare(files, main, { budget, args, stdin } = {}) {
       if (typeof main !== "string" || !files || typeof files !== "object") throw new TypeError("play needs a file map and a main path.");
       if (budget !== undefined && (!Number.isSafeInteger(budget) || budget <= 0)) throw new RangeError("budget must be a positive integer.");
       if (typeof api.jai_play_set_budget === "function") playCheck(api.jai_play_set_budget(budget === undefined ? 0 : Math.min(0xffffffff, Math.ceil(budget / 1000))));
@@ -114,6 +114,10 @@ export async function createEngine(wasmBytes, { host } = {}) {
         playPush(0, name); playPush(1, text); playCheck(api.jai_play_finish_file());
       }
       playPush(2, main);
+      // `args`: the program's argv (name first). `stdin`: its whole input; leave it out and the
+      // page's `jai_stdin_read` host function supplies input as the program reads (playAsync).
+      if (args !== undefined) for (const arg of args) { if (typeof arg !== "string" || arg.includes("\0")) throw new TypeError("Every argument must be text without NUL."); playPush(3, arg); playPush(3, "\0"); }
+      if (stdin !== undefined) playPush(4, String(stdin));
   }
   function crashed(error) {
     if (!(error instanceof WebAssembly.RuntimeError)) return error;
@@ -124,7 +128,8 @@ export async function createEngine(wasmBytes, { host } = {}) {
   return {
     // Result: { exitCode, stdout, stderr, output: [{ stream: "stdout" | "stderr", text }], rendered, diagnostics }.
     // `budget` bounds the interpreter (basic blocks, rounded up to thousands); a runaway program then
-    // fails with "execution budget exhausted" instead of hanging the worker.
+    // fails with "execution budget exhausted" instead of hanging the worker. `args` is the program's
+    // argv and `stdin` its whole input (see `prepare`).
     play(files, main, options = {}) {
       prepare(files, main, options);
       try { playCheck(api.jai_play_run()); } catch (error) { throw crashed(error); }

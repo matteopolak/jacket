@@ -208,8 +208,28 @@ pub fn run(files: &BTreeMap<String, Vec<u8>>, main: &str) -> PlayResult {
     run_with(files, main, PlayOptions::default())
 }
 
+/// What a run gets besides its files: the program's arguments and a fixed standard input.
+#[derive(Debug, Clone, Default)]
+pub struct PlayIo {
+    /// The program's `argv`, program name first; empty passes no arguments at all.
+    pub args: Vec<String>,
+    /// The whole of standard input, when it is fixed; `None` leaves it to the page
+    /// (`jai_stdin_read`), or to end at once without one.
+    pub stdin: Option<Vec<u8>>,
+}
+
 /// [`run`] with limits.
 pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
+    run_with_io(files, main, limits, &PlayIo::default())
+}
+
+/// [`run_with`] with arguments and standard input.
+pub fn run_with_io(
+    files: &BTreeMap<String, Vec<u8>>,
+    main: &str,
+    limits: PlayOptions,
+    io: &PlayIo,
+) -> PlayResult {
     let style = if limits.styled {
         jaic::render::Style {
             layout: jaic::render::Layout::Unicode,
@@ -219,10 +239,15 @@ pub fn run_with(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptio
         jaic::render::Style::PLAIN
     };
     // Scoped to this thread: concurrent runs (parallel tests) keep their own style.
-    jaic::render::with_style(style, || run_styled(files, main, limits))
+    jaic::render::with_style(style, || run_styled(files, main, limits, io))
 }
 
-fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions) -> PlayResult {
+fn run_styled(
+    files: &BTreeMap<String, Vec<u8>>,
+    main: &str,
+    limits: PlayOptions,
+    io: &PlayIo,
+) -> PlayResult {
     let mut result = PlayResult::default();
     if !files.contains_key(main) {
         result.diagnostics.push(PlayDiagnostic {
@@ -243,6 +268,9 @@ fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions
     // Metaprogram workspaces are checked (no output backend in the browser).
     let workspace_host = host.clone();
     let reports = host.clone();
+    if let Some(input) = &io.stdin {
+        host.borrow_mut().set_stdin(input);
+    }
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: fs.clone(),
@@ -276,7 +304,7 @@ fn run_styled(files: &BTreeMap<String, Vec<u8>>, main: &str, limits: PlayOptions
             if limits.compile_only {
                 Ok(None)
             } else {
-                compiler.run_program().map(Some)
+                compiler.run_program_with_args(&io.args).map(Some)
             }
         }
         Err(d) => Err(d),
@@ -343,6 +371,60 @@ mod tests {
             "{}",
             r.rendered
         );
+    }
+
+    fn with_input(source: &str, args: &[&str], stdin: &str) -> PlayResult {
+        let mut files = BTreeMap::new();
+        files.insert("main.jai".to_string(), source.as_bytes().to_vec());
+        let io = PlayIo {
+            args: args.iter().map(|a| a.to_string()).collect(),
+            stdin: Some(stdin.as_bytes().to_vec()),
+        };
+        run_with_io(&files, "main.jai", PlayOptions::default(), &io)
+    }
+
+    /// Lines come from `fgets` and `getline` on `stdin`, `getc` and `fread` read the rest, and
+    /// the end of input reads as the end.
+    #[test]
+    fn standard_input_is_read_through_the_c_stream() {
+        let r = with_input(
+            concat!(
+                "#import \"Basic\";\n#import \"POSIX\";\n",
+                "main :: () {\n",
+                "    line: [32] u8;\n",
+                "    p := fgets(line.data, 32, stdin);\n",
+                "    print(\"fgets=%|\", to_string(line.data));\n",
+                "    text: *u8; cap: u64;\n",
+                "    n := getline(*text, *cap, stdin);\n",
+                "    print(\"getline=%:%|\", n, string.{ n, text });\n",
+                "    c := getc(stdin);\n",
+                "    print(\"getc=%|\", c);\n",
+                "    rest: [8] u8;\n",
+                "    m := fread(rest.data, 1, 8, stdin);\n",
+                "    print(\"fread=%:%|\", m, string.{ xx m, rest.data });\n",
+                "    print(\"eof=%|\", feof(stdin) != 0);\n",
+                "    q := fgets(line.data, 32, stdin);\n",
+                "    print(\"after=%\\n\", q == null);\n",
+                "}\n",
+            ),
+            &[],
+            "one\ntwo words\nxyz",
+        );
+        assert_eq!(r.exit_code, Some(0), "{}\n{:?}", r.rendered, r.stderr);
+        assert_eq!(
+            r.stdout,
+            "fgets=one\n|getline=10:two words\n|getc=120|fread=2:yz|eof=true|after=true\n"
+        );
+    }
+
+    #[test]
+    fn arguments_reach_main() {
+        let r = with_input(
+            "#import \"Basic\";\nmain :: () { for get_command_line_arguments() print(\"<%>\", it); }\n",
+            &["prog", "a b", ""],
+            "",
+        );
+        assert_eq!(r.stdout, "<prog><a b><>");
     }
 
     #[test]
