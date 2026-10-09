@@ -110,6 +110,7 @@ webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descript
     };
     info.userdata1 = *state;
     webgpu_callback_context = context;
+    webgpu_callback_context.stack_trace = null; // the trace points into this frame, which a later callback outlives
     wgpuAdapterRequestDevice(adapter, *desc, info);
     webgpu_wait(instance, *state.done);
     if !state.result log_error("WebGPU: no device: %", message_text(*state.message));
