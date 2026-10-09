@@ -18,6 +18,7 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
 
   ![Completing an AVX2 instruction in an #asm block](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/asm-completion.png)
 
+- **Refactorings** in the lightbulb menu: extract the selected expression into a variable, extract statements into a procedure (parameters and results worked out; declined when it cannot be done safely), inline a variable, add the missing cases of an `if x == {` on an enum, add the missing fields of a `Type.{...}` literal, and convert between `ifx` and `if`/`else`. **Call hierarchy** (incoming and outgoing calls) and **expand selection** work too.
 - **Lints** from `jailint` with quick fixes; `source.fixAll.jailint` applies every safe fix, on demand or on save. Unsaved edits to `jailint.toml` apply at once.
 
   ![A jailint warning and its documentation link](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/lint.png)

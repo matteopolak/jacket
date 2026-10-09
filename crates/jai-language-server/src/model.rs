@@ -251,3 +251,31 @@ pub struct SymbolInformation {
     pub location: Location,
     pub container: Option<String>,
 }
+
+/// A procedure in the call hierarchy.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CallHierarchyItem {
+    pub name: String,
+    /// The procedure's header, `(a: int) -> int`.
+    pub detail: String,
+    pub kind: SymbolKind,
+    pub uri: String,
+    /// The whole declaration.
+    pub range: Range,
+    /// The name.
+    pub selection_range: Range,
+}
+
+/// A caller or a callee, with the places in the caller where the call is written.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CallHierarchyCall {
+    pub item: CallHierarchyItem,
+    pub from_ranges: Vec<Range>,
+}
+
+/// A range to select, and the larger one around it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SelectionRange {
+    pub range: Range,
+    pub parent: Option<Box<SelectionRange>>,
+}

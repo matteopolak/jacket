@@ -1,10 +1,10 @@
 //! Standard JSON parsing belongs at this portable boundary, not in source analysis.
 use crate::{
-    COMMANDS, CodeAction, CodeLens, Command, CompletionKind, CompletionList, Diagnostic,
-    DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri, Error, Expansion,
-    FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, MarkupKind, Position, Range,
-    SemanticToken, SemanticTokenKind, Session, SignatureHelp, SymbolInformation, SymbolKind,
-    TOKEN_MODIFIERS, TOKEN_TYPES, TextChange,
+    COMMANDS, CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionKind,
+    CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri,
+    Error, Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, MarkupKind,
+    Position, Range, SelectionRange, SemanticToken, SemanticTokenKind, Session, SignatureHelp,
+    SymbolInformation, SymbolKind, TOKEN_MODIFIERS, TOKEN_TYPES, TextChange,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -99,6 +99,43 @@ struct ChangeParams {
 struct PositionParams {
     text_document: DocumentIdentifier,
     position: Position,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SelectionParams {
+    text_document: DocumentIdentifier,
+    positions: Vec<Position>,
+}
+
+/// The call hierarchy item a client sends back; only where it points matters.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HierarchyItem {
+    name: String,
+    #[serde(default)]
+    detail: Option<String>,
+    uri: String,
+    range: Range,
+    selection_range: Range,
+}
+
+impl HierarchyItem {
+    fn into_item(self) -> CallHierarchyItem {
+        CallHierarchyItem {
+            name: self.name,
+            detail: self.detail.unwrap_or_default(),
+            kind: SymbolKind::Function,
+            uri: self.uri,
+            range: self.range,
+            selection_range: self.selection_range,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct HierarchyParams {
+    item: HierarchyItem,
 }
 
 #[derive(Deserialize)]
@@ -381,9 +418,17 @@ impl JsonSession {
                         "retriggerCharacters": [","],
                     },
                     "codeActionProvider": {
-                        "codeActionKinds": ["quickfix", "refactor.inline", crate::lints::FIX_ALL_KIND]
+                        "codeActionKinds": [
+                            "quickfix",
+                            "refactor.extract",
+                            "refactor.inline",
+                            "refactor.rewrite",
+                            crate::lints::FIX_ALL_KIND,
+                        ]
                     },
                     "codeLensProvider": { "resolveProvider": false },
+                    "callHierarchyProvider": true,
+                    "selectionRangeProvider": true,
                     "executeCommandProvider": { "commands": COMMANDS },
                     "semanticTokensProvider": {
                         "legend": {
@@ -599,6 +644,50 @@ impl JsonSession {
                             .map_err(domain)?
                             .iter()
                             .map(code_action_wire)
+                            .collect(),
+                    )
+                }
+                "textDocument/prepareCallHierarchy" => {
+                    let p: PositionParams = decode(params)?;
+                    let items = self
+                        .session
+                        .prepare_call_hierarchy(&uri(&p.text_document.uri)?, p.position)
+                        .map_err(domain)?;
+                    if items.is_empty() {
+                        Value::Null
+                    } else {
+                        Value::Array(items.iter().map(hierarchy_item_wire).collect())
+                    }
+                }
+                "callHierarchy/incomingCalls" => {
+                    let p: HierarchyParams = decode(params)?;
+                    let calls = self
+                        .session
+                        .incoming_calls(&p.item.into_item())
+                        .map_err(domain)?;
+                    Value::Array(
+                        calls
+                            .iter()
+                            .map(|c| hierarchy_call_wire(c, "from"))
+                            .collect(),
+                    )
+                }
+                "callHierarchy/outgoingCalls" => {
+                    let p: HierarchyParams = decode(params)?;
+                    let calls = self
+                        .session
+                        .outgoing_calls(&p.item.into_item())
+                        .map_err(domain)?;
+                    Value::Array(calls.iter().map(|c| hierarchy_call_wire(c, "to")).collect())
+                }
+                "textDocument/selectionRange" => {
+                    let p: SelectionParams = decode(params)?;
+                    Value::Array(
+                        self.session
+                            .selection_ranges(&uri(&p.text_document.uri)?, &p.positions)
+                            .map_err(domain)?
+                            .iter()
+                            .map(selection_wire)
                             .collect(),
                     )
                 }
@@ -857,6 +946,30 @@ fn symbol_wire(symbol: &DocumentSymbol) -> Value {
     });
     if !symbol.children.is_empty() {
         value["children"] = Value::Array(symbol.children.iter().map(symbol_wire).collect());
+    }
+    value
+}
+
+fn hierarchy_item_wire(item: &CallHierarchyItem) -> Value {
+    json!({
+        "name": item.name,
+        "kind": symbol_kind_wire(item.kind),
+        "detail": item.detail,
+        "uri": item.uri,
+        "range": item.range,
+        "selectionRange": item.selection_range,
+    })
+}
+
+/// `side` is `from` for an incoming call and `to` for an outgoing one.
+fn hierarchy_call_wire(call: &CallHierarchyCall, side: &str) -> Value {
+    json!({ side: hierarchy_item_wire(&call.item), "fromRanges": call.from_ranges })
+}
+
+fn selection_wire(selection: &SelectionRange) -> Value {
+    let mut value = json!({ "range": selection.range });
+    if let Some(parent) = &selection.parent {
+        value["parent"] = selection_wire(parent);
     }
     value
 }

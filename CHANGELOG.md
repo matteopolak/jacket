@@ -20,6 +20,16 @@
 - `jaifmt` parses its command line with Args. User-visible changes: `--help` is generated (new layout; the old hand-written text is gone), every flag has a `--no-` form (`--no-check`), a mistyped option prints `help: did you mean ...?` and a `usage:` line instead of the old hint, `--stdin` with paths reports ``error: `<PATHS>` cannot be used with `--stdin` ``, `--color` accepts any case and reports a bad value as a normal usage error, and a value may be given as `--config=file`. Exit codes (0, 1 for `--check`, 2 for errors) and the other options are unchanged.
 - Fix: a baked argument (`$help: Help(T)`) whose declared type names an earlier `$T`, or that is a member of a constant (`HELP.build`), was rejected.
 
+Refactorings, call hierarchy and expand selection in the language server.
+
+### Refactorings
+
+The light-bulb menu offers *Extract into variable*, *Extract into procedure* (parameters and results worked out; declined when the selection returns, breaks out, or changes a variable declared outside it), *Inline variable*, *Add missing cases* for an `if x == {` on an enum, *Add missing fields* for a `Type.{...}` literal, and *Convert ifx to if/else* and back. Every edit is already in [jaifmt](docs/tools/jaifmt.md) style. See [refactorings](docs/compiler/language-server-refactorings.md).
+
+### Call hierarchy and expand selection
+
+*Show Call Hierarchy* lists the callers and callees of a procedure, overloads and modules included, and *Expand Selection* grows from a token through expressions, statements and blocks to the file.
+
 ## [0.4.3] - 2026-10-08
 
 Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. The language server also gains auto-import completion, and formatting works again with the renamed VS Code extension.

@@ -37,6 +37,9 @@ It has two layers:
 | Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
 | Inlay hints: inferred types of `x :=`, parameter names of literal arguments (only for parameters that share their type with another, so `print`'s format string gets none), `#run` values | `textDocument/inlayHint` | semantic |
 | Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value, add the `#import` an unknown name needs, apply a lint's fix (`quickfix`) | `textDocument/codeAction` | semantic |
+| Refactorings: extract into variable or procedure, inline variable, add missing `case`s and struct fields, `ifx` and `if`/`else` ([details](language-server-refactorings.md)) | `textDocument/codeAction` (`refactor.extract`, `refactor.inline`, `refactor.rewrite`) | semantic |
+| Call hierarchy: callers and callees of a procedure | `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls` | semantic |
+| Selection ranges (expand selection): token, expressions, statements, blocks, declaration, file | `textDocument/selectionRange` | syntax |
 | Commands `jai.showExpansion`, `jai.showPolymorphs` | `workspace/executeCommand` | semantic |
 | Expansion documents (`jai-expansion:` URIs) | `jai/expansion`, `jai/source` (non-standard) | semantic |
 | Code lens: how many polymorphs each polymorphic procedure has, and their bindings | `textDocument/codeLens` | semantic |
@@ -397,6 +400,7 @@ Tests:
 
 - `crates/jai-language-server/tests/semantic.rs`: hover, completion while typing, member completion, and hover with a broken line elsewhere.
 - `crates/jai-language-server/tests/features.rs`: expansion hovers (macro, `Code` argument, `#insert`, `#run` with output, `#if` true/false/per instance), format-string hover and diagnostics, lint diagnostics and quick fixes, "Add `#import`" quick fixes (one module, several, namespaced, a `#load`ed file, asked for by diagnostic), the Markdown form of each hover kind, inlay hints, code actions and expansion documents, semantic tokens, references, type definition, signature help (recorded and while typing), workspace symbols, folding, code lenses, keyword wording, and the JSON protocol for each request.
+- `crates/jai-language-server/tests/refactor.rs`, `tests/hierarchy.rs`: refactorings, call hierarchy and selection ranges ([details](language-server-refactorings.md#tests)).
 - `crates/jai-language-server/tests/auto_import.rs`: auto-import completion: stdlib prefix matches and the `#import` edit, placement after existing imports (not inside `#if`), imported modules and visible names left out, ranking, the two-character minimum and the cap, target-OS filtering, project modules and `#load`s of project files, names of already-loaded files, `jai.toml` entries and `import_path`, re-reading a changed file, the JSON fields and the setting. Unit tests in `exports.rs` (the scanner) and `project.rs` (`jai.toml`, relative paths).
 - `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
 - `crates/jai-language-server/tests/protocol.rs`: hover format negotiation (`markdown` listed or not).

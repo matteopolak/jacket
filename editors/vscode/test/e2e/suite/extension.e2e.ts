@@ -147,6 +147,43 @@ describe("Jai extension", () => {
     assert.doesNotMatch(scopes("after"), /here-string/);
   });
 
+  it("offers refactorings", async () => {
+    const document = await open("refactor.jai");
+    const line = document.lineAt(5).text;
+    const from = line.indexOf("leaf(n)");
+    const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+      "vscode.executeCodeActionProvider",
+      document.uri,
+      new vscode.Range(5, from, 5, from + "leaf(n)".length),
+      "refactor.extract",
+    );
+    const extract = actions.find((a) => a.title === "Extract into variable");
+    assert.ok(extract?.edit, `an extract action with an edit; got ${actions.map((a) => a.title)}`);
+    assert.ok(await vscode.workspace.applyEdit(extract.edit));
+    assert.match(document.getText(), /leaf2 := leaf\(n\);\n    doubled := leaf2 \* 2;/);
+    await vscode.commands.executeCommand("workbench.action.files.revert");
+  });
+
+  it("shows the call hierarchy", async () => {
+    const document = await open("refactor.jai");
+    const items = await vscode.commands.executeCommand<vscode.CallHierarchyItem[]>("vscode.prepareCallHierarchy", document.uri, new vscode.Position(0, 1));
+    assert.equal(items?.[0]?.name, "leaf");
+    const incoming = await vscode.commands.executeCommand<vscode.CallHierarchyIncomingCall[]>("vscode.provideIncomingCalls", items[0]);
+    assert.deepEqual(incoming.map((c) => c.from.name), ["middle"]);
+    assert.equal(incoming[0].fromRanges.length, 2);
+    const middle = await vscode.commands.executeCommand<vscode.CallHierarchyItem[]>("vscode.prepareCallHierarchy", document.uri, new vscode.Position(4, 1));
+    const outgoing = await vscode.commands.executeCommand<vscode.CallHierarchyOutgoingCall[]>("vscode.provideOutgoingCalls", middle[0]);
+    assert.deepEqual(outgoing.map((c) => c.to.name), ["leaf"]);
+  });
+
+  it("expands the selection", async () => {
+    const document = await open("refactor.jai");
+    const from = document.lineAt(5).text.indexOf("leaf") + 1;
+    const [selection] = await vscode.commands.executeCommand<vscode.SelectionRange[]>("vscode.executeSelectionRangeProvider", document.uri, [new vscode.Position(5, from)]);
+    assert.equal(document.getText(selection.range), "leaf");
+    assert.equal(document.getText(selection.parent!.range), "leaf(n)");
+  });
+
   it("restarts the language server", async () => {
     await vscode.commands.executeCommand("jai.restartServer");
     assert.ok(api.client()?.isRunning());

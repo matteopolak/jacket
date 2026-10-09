@@ -8,6 +8,7 @@ pub(crate) mod features;
 pub(crate) mod format;
 pub mod framing;
 mod here_string;
+mod hierarchy;
 pub(crate) mod hover;
 mod imports;
 mod links;
@@ -16,15 +17,18 @@ mod model;
 mod position;
 mod project;
 mod protocol;
+mod refactor;
+mod selection;
 mod semantic;
 mod session;
 
 pub use document::{DocumentUri, TextChange, VirtualSources};
 pub use model::{
-    CodeAction, CodeLens, Command, CompletionItem, CompletionKind, CompletionList, Diagnostic,
-    DiagnosticCode, DiagnosticSeverity, DocumentSymbol, Expansion, FoldingRange, Hover, InlayHint,
-    InlayHintKind, Location, MarkupContent, MarkupKind, SemanticToken, SemanticTokenKind,
-    SignatureHelp, SignatureInformation, SymbolInformation, SymbolKind, TextEdit,
+    CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionItem,
+    CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentSymbol,
+    Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Location, MarkupContent, MarkupKind,
+    SelectionRange, SemanticToken, SemanticTokenKind, SignatureHelp, SignatureInformation,
+    SymbolInformation, SymbolKind, TextEdit,
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId};

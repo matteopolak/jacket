@@ -462,6 +462,13 @@ impl Session {
         let text = &doc.text;
         let mut fixes = self.import_actions(uri, start, end, context);
         fixes.extend(self.lint_actions(uri, start, end, context));
+        if context
+            .only
+            .as_ref()
+            .is_none_or(|only| only.iter().any(|k| k.starts_with("refactor")))
+        {
+            fixes.extend(self.refactor_actions(uri, start, end));
+        }
         let Some(e) = self
             .expansions(uri)
             .into_iter()
