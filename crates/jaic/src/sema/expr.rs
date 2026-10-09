@@ -2880,7 +2880,7 @@ fn is_number_literal(e: &ast::Expr) -> bool {
 
 /// Paths the program sees (`#file`, `#filepath`) use `/` on Windows too, so a metaprogram can put
 /// them in a string literal or splice them into `#load "..."` without escaping backslashes.
-fn forward_slashes(path: &str) -> String {
+pub(crate) fn forward_slashes(path: &str) -> String {
     if cfg!(windows) {
         path.replace('\\', "/")
     } else {

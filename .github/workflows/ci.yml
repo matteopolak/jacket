@@ -350,8 +350,8 @@ jobs:
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
           # As the stdlib runtime job, plus x11-apps (xwd takes the screenshots) and the xcb and
-          # fontconfig libraries Focus loads at run time.
-          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth x11-apps libxfixes-dev libasound2-dev mesa-vulkan-drivers libxcb1-dev libxcb-cursor0 libxkbcommon-dev libfontconfig1-dev
+          # fontconfig libraries Focus loads at run time, and libc++ (jai-tracy links it).
+          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth x11-apps libxfixes-dev libasound2-dev mesa-vulkan-drivers libxcb1-dev libxcb-cursor0 libxkbcommon-dev libfontconfig1-dev libc++-dev libc++abi-dev
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
       - name: Fetch the pinned projects

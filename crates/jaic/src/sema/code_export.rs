@@ -206,7 +206,7 @@ impl Compiler {
         let mut rec = Record::new("Message_File");
         rec.int("kind", message_kind::FILE)
             .int("workspace", self.workspace)
-            .str("fully_pathed_filename", path.as_bytes())
+            .str("fully_pathed_filename", super::expr::forward_slashes(&path).as_bytes())
             .ptr("enclosing_import", import)
             .int("from_a_string", path.starts_with('<') as i64)
             .int("__file", file.0 as i64);

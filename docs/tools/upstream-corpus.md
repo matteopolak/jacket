@@ -139,6 +139,33 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | [jai-xml](https://github.com/smari/jai-xml) | works | `test.jai` passes its 6 cases and `continue_iter` runs; the other examples check (their `traverse.xml` is not in the repository) |
 | [jai-protobuf](https://github.com/segcore/jai-protobuf) | works | Tests and the four examples pass on a scratch copy; `protoc-jai` checks |
 
+### Built and run in CI
+
+`tools/upstream_smoke.py` builds each project with its own entry point and runs it ([third-party smoke test](third-party-smoke-test.md#building-and-running-the-projects)). L = linux-x64 and linux-arm64, M = macos-arm64, W = windows-x64. A dash is a documented skip; the reason is in `tools/upstream-smoke.json`.
+
+| Project | What runs | L | M | W | Why not |
+| --- | --- | --- | --- | --- | --- |
+| chess-jai | engine: UCI, perft 4, `perft_all`; UI: window and screenshot | yes | yes | yes | |
+| Jails | `initialize` over LSP stdio | yes | yes | yes | |
+| jaison, jai-xml, jai-protobuf, toml-jai, reflector, jai-format | their tests or examples, native | yes | yes | yes | |
+| uniform (with stubborn) | its suite at build time | yes | yes | yes | |
+| match-jai, yield-jai, AST_Utils, jai-utils, unotest | examples and tests | yes | yes | yes | |
+| Jai-Shader-Transpiler | `build.jai` | - | yes | yes | Linux path uses an undeclared `info` upstream |
+| rexim.github.io | `rss.jai` | yes | yes | - | POSIX `time_t` |
+| jai-tracy | instrumented program | yes | yes | - | libtracy is not built on Windows |
+| wait_group | example | - | yes | - | Linux: `signal` is an ambiguous overload set in jaic (see below); no Windows backend |
+| hyperserve | GET /ping | - | yes | - | needs wait_group; not done upstream on Windows |
+| Focus | window and screenshot | - | yes | - | Linux: `LD.GL` is declared after `#scope_module`; Windows: `init_named_pipe_pair` missing from Process; x64 uses Focus's portable hash (no x64 `meow_hash`) |
+| forbear | playground window | - | yes | - | Linux needs a Wayland compositor |
+| sgpu, Vk-Engine | - | - | - | - | Slang / Jolt / ImGui builds and a Vulkan GPU |
+
+Gaps this found and did not fix (each needs a decision about Jai's behaviour or a bigger stdlib piece):
+
+- `signal` named as a value (`log("...", handle, signal)` in wait_group on Linux) is an ambiguous overload of POSIX's `signal` and Thread's `signal(*Semaphore)`.
+- Focus's own `modules/Linux_Display` exposes `GL` after `#scope_module`, and the program reads `LD.GL`.
+- `Process` lacks `init_named_pipe_pair` and overlapped pipe reading, which Focus's Windows process code uses.
+- stdlib `meow_hash` has no x64 `MeowHash`/`MeowU64From`, and `#asm { hash: vec; }` cannot be passed to a macro.
+
 ### Notes per project
 
 **Focus.** `jaic build first.jai` produces a working editor on macOS. It needs the stb libraries (`tools/build_native_libs.py`) and its own `modules/Objective_C/LightweightRenderingView/build.jai` run once. Debug builds need `~/Library/Application Support/dev.focus-editor` to exist, because upstream creates `.../debug` non-recursively.

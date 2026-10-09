@@ -595,7 +595,7 @@
           "argv": [
             "{python}",
             "-c",
-            "import subprocess, sys, pathlib\nd = 'macos' if sys.platform == 'darwin' else 'linux'\npathlib.Path(d).mkdir(exist_ok=True)\nsubprocess.run(['clang++', '-O2', '-DTRACY_ENABLE', '-std=c++11', '-Wno-deprecated-declarations', '-c', '-o', d + '/TracyClient.o', 'tracy/public/TracyClient.cpp'], check=True)\nsubprocess.run(['ar', '-rc', d + '/libtracy.a', d + '/TracyClient.o'], check=True)\nimport os\nos.makedirs('../_mods', exist_ok=True)\nos.symlink(os.getcwd(), '../_mods/tracy')\n"
+            "import subprocess, sys, pathlib\nd = 'macos' if sys.platform == 'darwin' else 'linux'\npathlib.Path(d).mkdir(exist_ok=True)\nsubprocess.run(['clang++', '-O2', '-DTRACY_ENABLE', '-std=c++11', *(['-stdlib=libc++'] if d == 'linux' else []), '-Wno-deprecated-declarations', '-c', '-o', d + '/TracyClient.o', 'tracy/public/TracyClient.cpp'], check=True)\nsubprocess.run(['ar', '-rc', d + '/libtracy.a', d + '/TracyClient.o'], check=True)\nimport os\nos.makedirs('../_mods', exist_ok=True)\nos.symlink(os.getcwd(), '../_mods/tracy')\n"
           ]
         },
         {

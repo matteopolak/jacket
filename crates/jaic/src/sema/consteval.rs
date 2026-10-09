@@ -596,7 +596,7 @@ impl Compiler {
         for (name, value) in [
             (
                 "fully_pathed_filename",
-                Value::String(path.as_bytes().into()),
+                Value::String(super::expr::forward_slashes(path).as_bytes().into()),
             ),
             ("line_number", Value::Int(line as i128)),
             ("character_number", Value::Int(col as i128)),
