@@ -304,7 +304,9 @@ def main():
         train_env = dict(env, LLVM_PROFILE_FILE=str(raw / "%4m.profraw"))
         problems += train(bins, args, train_env, native)
         profile = work / "merged.profdata"
-        run([profdata, "merge", "-o", profile, *sorted(raw.glob("*.profraw"))])
+        # A process that dies while merging into a `%4m` pool file leaves it truncated; skip such
+        # files (llvm-profdata warns about each) rather than losing the whole profile.
+        run([profdata, "merge", "--failure-mode=all", "-o", profile, *sorted(raw.glob("*.profraw"))])
         run([profdata, "show", profile], stdout=subprocess.DEVNULL)
 
     log("building with the profile")
