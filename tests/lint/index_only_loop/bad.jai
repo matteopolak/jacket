@@ -28,7 +28,7 @@ list :: (names: [] string) {
 
 // Elements filled from their index.
 fill :: (table: [] float) {
-    for i: 0..table.count-1 {
+    for i: 0..table.count - 1 {
         table[i] = sin(cast(float) i * 0.5);
     }
 }

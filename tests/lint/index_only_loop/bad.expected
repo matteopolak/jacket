@@ -40,8 +40,8 @@ help: loop over the elements: `for names`, with `it` and `it_index`
 warning[index_only_loop]: `i` counts through `table` to index it
   --> tests/lint/index_only_loop/bad.jai:31:5
    |
-31 |     for i: 0..table.count-1 {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^
+31 |     for i: 0..table.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for *table`, with `it` and `it_index`
    |

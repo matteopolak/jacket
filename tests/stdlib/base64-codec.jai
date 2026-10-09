@@ -37,7 +37,7 @@ main :: () {
 
     // Every byte value, at every length up to 300, round trips.
     data: [300] u8;
-    for i: 0..data.count - 1 data[i] = cast,trunc(u8) (i * 37 + 11);
+    for *data it.* = cast,trunc(u8) (it_index * 37 + 11);
     for length: 0..data.count {
         input := string.{ length, data.data };
         encoded := base64_encode(input);

@@ -29,10 +29,11 @@ instead.
   then prints `jaic-timing: <phase> <seconds> <calls>` on stderr. The phases are `total`, `front end`
   (parse, sema, compile-time code, including metaprogram workspaces built inside it), `workspaces`, `run`,
   `prepare output`, `codegen` (LLVM), `link` and `debug info` (dsymutil; only builds that run it, so not `-O0` on macOS, see [debug info](../native/debug-info.md)). Phases nest, so they do not add up
-  to `total`. `codegen` is wall time: large `-O0` builds and, after the optimizer, `-O1`+ builds generate
-  machine code on several threads ([codegen units](../native/llvm-backend.md#codegen-units)), which also adds a
-  copy of each thread's share of the module to peak RSS. Results recorded before that split show `-O2` builds
-  slower and smaller, so `--compare` against them flags RSS on those rows.
+  to `total`. `codegen` is wall time: large `-O0` builds generate machine code on several threads, and large `-O1`+ builds are divided by
+  call graph into up to 8 parts that are optimized and compiled on separate threads
+  ([codegen units](../native/llvm-backend.md#codegen-units)), which also adds a copy of each thread's share of
+  the module to peak RSS. Results recorded before a split show those builds slower and smaller, so `--compare`
+  against them flags RSS on those rows.
 - **Output**: the JSON holds the date, machine (CPU, cores, memory, OS), jaic commit, dirty flag, rustc and
   LLVM versions, the settings, and per-workload cold, warm, all runs, RSS and phases. The Markdown table has
   one row per workload and mode.

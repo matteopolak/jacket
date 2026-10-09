@@ -166,7 +166,7 @@ main :: () {
         make_directory_if_it_does_not_exist(SCRATCH);
         source: S.Bitmap;
         S.bitmap_alloc(*source, 3, 2, .RGBA8);
-        for 0..source.data.count - 1 source.data[it] = cast(u8) (it * 10);
+        for *source.data it.* = cast(u8) (it_index * 10);
         png := tprint("%/pixels.png", SCRATCH);
         assert(S.bitmap_save(*source, png, true), "bitmap_save png");
         for extension: string.["bmp", "tga", "jpg"] {

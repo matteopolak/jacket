@@ -3,7 +3,7 @@
 tour_arrays :: () {
     // Fixed size: the count is part of the type and the data lives inline.
     squares: [8] int;
-    for 0..squares.count - 1 squares[it] = it * it;
+    for *squares it.* = it_index * it_index;
     print("squares:        %\n", squares);
 
     // An array literal. `.[ ]` infers its element type.

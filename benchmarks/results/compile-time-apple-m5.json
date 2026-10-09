@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "date": "2026-10-06T13:47:03+00:00",
+  "date": "2026-10-09T19:42:27+00:00",
   "machine": {
     "system": "Darwin",
     "release": "27.0.0",
@@ -13,410 +13,604 @@
     "llvm": "23.1.2"
   },
   "jaic": {
-    "path": "/Volumes/CodexBuilds/targets/jai-llvm23/release/jaic",
-    "commit": "f6e3231ce802f8e73058c0c1d6e4c34df1b6931d",
+    "path": "/Users/matthew/projects/jai/target/release/jaic",
+    "commit": "2a603ba758dc61049152539b7e1b9d4f43678f5f",
     "dirty": false,
     "rustc": "rustc 1.100.0-nightly (17fd5b8a3 2026-08-28)"
   },
   "settings": {
-    "repeat": 4
+    "repeat": 7
   },
   "results": {
     "focus/check": {
-      "cold_seconds": 1.7523,
-      "warm_seconds": 1.6934,
-      "min_seconds": 1.5932,
-      "max_seconds": 1.8075,
+      "cold_seconds": 1.4349,
+      "warm_seconds": 1.2104,
+      "min_seconds": 1.1986,
+      "max_seconds": 1.4349,
       "runs_seconds": [
-        1.7523,
-        1.8075,
-        1.6934,
-        1.5932
+        1.4349,
+        1.217,
+        1.2005,
+        1.2314,
+        1.2038,
+        1.1986,
+        1.2338
       ],
-      "peak_rss_mib": 704.6,
-      "warm_rss_mib": 702.9,
+      "peak_rss_mib": 774.5,
+      "warm_rss_mib": 772.9,
       "phases_seconds": {
-        "front end": 1.6441,
+        "front end": 1.1905,
         "workspaces": 0.0,
-        "total": 1.6657,
-        "front end only": 1.6657
+        "total": 1.1907,
+        "front end only": 1.1907
       }
     },
     "focus/build-O0": {
-      "cold_seconds": 2.3788,
-      "warm_seconds": 2.261,
-      "min_seconds": 2.2452,
-      "max_seconds": 2.475,
+      "cold_seconds": 1.574,
+      "warm_seconds": 1.5772,
+      "min_seconds": 1.5413,
+      "max_seconds": 1.871,
       "runs_seconds": [
-        2.3788,
-        2.261,
-        2.2452,
-        2.475
+        1.574,
+        1.5847,
+        1.5697,
+        1.871,
+        1.6714,
+        1.5413,
+        1.565
       ],
-      "peak_rss_mib": 1137.6,
-      "warm_rss_mib": 1131.5,
+      "peak_rss_mib": 1094.0,
+      "warm_rss_mib": 1082.8,
       "phases_seconds": {
-        "codegen": 0.5157,
-        "link": 0.1006,
-        "debug info": 0.0545,
-        "front end": 2.1978,
+        "codegen": 0.2279,
+        "link": 0.1007,
+        "front end": 1.5498,
         "workspaces": 0.0,
-        "total": 2.2276,
-        "front end only": 1.5541
+        "total": 1.5499,
+        "front end only": 1.2168
       }
     },
     "focus/build-O2": {
-      "cold_seconds": 13.1658,
-      "warm_seconds": 15.1138,
-      "min_seconds": 11.8599,
-      "max_seconds": 16.0197,
+      "cold_seconds": 8.5823,
+      "warm_seconds": 7.7452,
+      "min_seconds": 7.5925,
+      "max_seconds": 8.663,
       "runs_seconds": [
-        13.1658,
-        16.0197,
-        11.8599,
-        15.1138
+        8.5823,
+        7.5947,
+        8.5934,
+        7.8067,
+        7.6837,
+        8.663,
+        7.5925
       ],
-      "peak_rss_mib": 1277.7,
-      "warm_rss_mib": 1248.4,
+      "peak_rss_mib": 1357.3,
+      "warm_rss_mib": 1337.7,
       "phases_seconds": {
-        "codegen": 8.1334,
-        "link": 0.1123,
-        "debug info": 0.0571,
-        "front end": 15.0307,
+        "codegen": 2.137,
+        "link": 0.0961,
+        "debug info": 0.0509,
+        "front end": 7.7061,
         "workspaces": 0.0,
-        "total": 15.0703,
-        "front end only": 6.7676
+        "total": 7.7063,
+        "front end only": 5.3303
       }
     },
     "jails/check": {
-      "cold_seconds": 0.2082,
-      "warm_seconds": 0.2201,
-      "min_seconds": 0.1955,
-      "max_seconds": 0.2248,
+      "cold_seconds": 0.2063,
+      "warm_seconds": 0.1818,
+      "min_seconds": 0.1799,
+      "max_seconds": 0.2063,
       "runs_seconds": [
-        0.2082,
-        0.1955,
-        0.2201,
-        0.2248
+        0.2063,
+        0.1828,
+        0.1862,
+        0.1809,
+        0.18,
+        0.1799,
+        0.1836
       ],
-      "peak_rss_mib": 130.2,
-      "warm_rss_mib": 129.5,
+      "peak_rss_mib": 161.9,
+      "warm_rss_mib": 161.6,
       "phases_seconds": {
-        "front end": 0.1891,
+        "front end": 0.1641,
         "workspaces": 0.0,
-        "total": 0.1967,
-        "front end only": 0.1967
+        "total": 0.1642,
+        "front end only": 0.1642
       }
     },
     "jails/build-O0": {
-      "cold_seconds": 0.3572,
-      "warm_seconds": 0.4263,
-      "min_seconds": 0.3572,
-      "max_seconds": 0.4466,
+      "cold_seconds": 0.2788,
+      "warm_seconds": 0.2745,
+      "min_seconds": 0.2681,
+      "max_seconds": 0.2793,
       "runs_seconds": [
-        0.3572,
-        0.4263,
-        0.3921,
-        0.4466
+        0.2788,
+        0.2706,
+        0.2681,
+        0.2771,
+        0.276,
+        0.2793,
+        0.273
       ],
-      "peak_rss_mib": 235.8,
-      "warm_rss_mib": 232.3,
+      "peak_rss_mib": 266.6,
+      "warm_rss_mib": 261.9,
       "phases_seconds": {
-        "codegen": 0.1179,
-        "link": 0.0363,
-        "debug info": 0.0333,
-        "front end": 0.3909,
+        "codegen": 0.0603,
+        "link": 0.0296,
+        "front end": 0.258,
         "workspaces": 0.0,
-        "total": 0.3998,
-        "front end only": 0.2015
+        "total": 0.2581,
+        "front end only": 0.1679
       }
     },
     "jails/build-O2": {
-      "cold_seconds": 2.6099,
-      "warm_seconds": 2.1908,
-      "min_seconds": 1.9881,
-      "max_seconds": 2.6099,
+      "cold_seconds": 0.805,
+      "warm_seconds": 0.8117,
+      "min_seconds": 0.7833,
+      "max_seconds": 0.8619,
       "runs_seconds": [
-        2.6099,
-        2.1908,
-        2.2781,
-        1.9881
+        0.805,
+        0.815,
+        0.8619,
+        0.8298,
+        0.8083,
+        0.7833,
+        0.8017
       ],
-      "peak_rss_mib": 368.0,
-      "warm_rss_mib": 362.6,
+      "peak_rss_mib": 423.6,
+      "warm_rss_mib": 417.1,
       "phases_seconds": {
-        "codegen": 1.9014,
-        "link": 0.0381,
-        "debug info": 0.0324,
-        "front end": 2.164,
+        "codegen": 0.561,
+        "link": 0.029,
+        "debug info": 0.0264,
+        "front end": 0.7928,
         "workspaces": 0.0,
-        "total": 2.1698,
-        "front end only": 0.1979
+        "total": 0.793,
+        "front end only": 0.1746
       }
     },
     "sgpu-examples/check": {
-      "cold_seconds": 0.5219,
-      "warm_seconds": 0.4892,
-      "min_seconds": 0.4725,
-      "max_seconds": 0.5219,
+      "cold_seconds": 0.5212,
+      "warm_seconds": 0.4642,
+      "min_seconds": 0.4399,
+      "max_seconds": 0.5212,
       "runs_seconds": [
-        0.5219,
-        0.4892,
-        0.4934,
-        0.4725
+        0.5212,
+        0.4877,
+        0.4872,
+        0.4752,
+        0.4531,
+        0.4519,
+        0.4399
+      ],
+      "peak_rss_mib": 220.2,
+      "warm_rss_mib": 217.3,
+      "phases_seconds": {
+        "front end": 0.0515,
+        "workspaces": 0.3986,
+        "total": 0.4451,
+        "front end only": 0.4451
+      }
+    },
+    "jaison-tests/check": {
+      "cold_seconds": 0.0326,
+      "warm_seconds": 0.0326,
+      "min_seconds": 0.0321,
+      "max_seconds": 0.0389,
+      "runs_seconds": [
+        0.0326,
+        0.0389,
+        0.0326,
+        0.0327,
+        0.0321,
+        0.0328,
+        0.0322
+      ],
+      "peak_rss_mib": 49.9,
+      "warm_rss_mib": 49.8,
+      "phases_seconds": {
+        "front end": 0.0186,
+        "workspaces": 0.0,
+        "total": 0.0187,
+        "front end only": 0.0187
+      }
+    },
+    "jaison-tests/build-O0": {
+      "cold_seconds": 0.0834,
+      "warm_seconds": 0.0877,
+      "min_seconds": 0.0834,
+      "max_seconds": 0.093,
+      "runs_seconds": [
+        0.0834,
+        0.0901,
+        0.0874,
+        0.088,
+        0.093,
+        0.0871,
+        0.0866
+      ],
+      "peak_rss_mib": 107.0,
+      "warm_rss_mib": 105.5,
+      "phases_seconds": {
+        "front end": 0.0189,
+        "workspaces": 0.0,
+        "prepare output": 0.001,
+        "codegen": 0.0237,
+        "link": 0.028,
+        "total": 0.0725,
+        "front end only": 0.0195
+      }
+    },
+    "jaison-tests/build-O2": {
+      "cold_seconds": 0.4194,
+      "warm_seconds": 0.408,
+      "min_seconds": 0.4025,
+      "max_seconds": 0.4194,
+      "runs_seconds": [
+        0.4194,
+        0.4035,
+        0.4101,
+        0.4085,
+        0.4025,
+        0.4075,
+        0.4177
+      ],
+      "peak_rss_mib": 177.0,
+      "warm_rss_mib": 174.4,
+      "phases_seconds": {
+        "front end": 0.0188,
+        "workspaces": 0.0,
+        "prepare output": 0.001,
+        "codegen": 0.318,
+        "link": 0.0281,
+        "debug info": 0.0243,
+        "total": 0.391,
+        "front end only": 0.0193
+      }
+    },
+    "open-jai-getrect/check": {
+      "cold_seconds": 0.0631,
+      "warm_seconds": 0.0573,
+      "min_seconds": 0.0515,
+      "max_seconds": 0.0631,
+      "runs_seconds": [
+        0.0631,
+        0.0573,
+        0.0577,
+        0.0573,
+        0.0515,
+        0.0577,
+        0.0566
+      ],
+      "peak_rss_mib": 85.3,
+      "warm_rss_mib": 84.8,
+      "phases_seconds": {
+        "front end": 0.0396,
+        "workspaces": 0.0,
+        "total": 0.0397,
+        "front end only": 0.0397
+      }
+    },
+    "open-jai-getrect/build-O0": {
+      "cold_seconds": 0.1701,
+      "warm_seconds": 0.1717,
+      "min_seconds": 0.1698,
+      "max_seconds": 0.1729,
+      "runs_seconds": [
+        0.1701,
+        0.1698,
+        0.1723,
+        0.1718,
+        0.1703,
+        0.1715,
+        0.1729
+      ],
+      "peak_rss_mib": 168.4,
+      "warm_rss_mib": 167.5,
+      "phases_seconds": {
+        "front end": 0.0395,
+        "workspaces": 0.0,
+        "prepare output": 0.0018,
+        "codegen": 0.0343,
+        "link": 0.0777,
+        "total": 0.1546,
+        "front end only": 0.0402
+      }
+    },
+    "open-jai-getrect/build-O2": {
+      "cold_seconds": 0.631,
+      "warm_seconds": 0.6124,
+      "min_seconds": 0.6036,
+      "max_seconds": 0.6578,
+      "runs_seconds": [
+        0.631,
+        0.6578,
+        0.6417,
+        0.6122,
+        0.6036,
+        0.6111,
+        0.6126
+      ],
+      "peak_rss_mib": 264.2,
+      "warm_rss_mib": 255.0,
+      "phases_seconds": {
+        "front end": 0.0399,
+        "workspaces": 0.0,
+        "prepare output": 0.0017,
+        "codegen": 0.4499,
+        "link": 0.078,
+        "debug info": 0.0265,
+        "total": 0.5959,
+        "front end only": 0.0404
+      }
+    },
+    "chess-jai/check": {
+      "cold_seconds": 0.4086,
+      "warm_seconds": 0.4015,
+      "min_seconds": 0.3932,
+      "max_seconds": 0.4125,
+      "runs_seconds": [
+        0.4086,
+        0.3932,
+        0.4125,
+        0.3979,
+        0.405,
+        0.3939,
+        0.4103
+      ],
+      "peak_rss_mib": 203.1,
+      "warm_rss_mib": 201.9,
+      "phases_seconds": {
+        "front end": 0.014,
+        "workspaces": 0.3693,
+        "total": 0.3836,
+        "front end only": 0.3836
+      }
+    },
+    "chess-jai/build-O0": {
+      "cold_seconds": 0.6805,
+      "warm_seconds": 0.6985,
+      "min_seconds": 0.6749,
+      "max_seconds": 0.7211,
+      "runs_seconds": [
+        0.6805,
+        0.6749,
+        0.6856,
+        0.7015,
+        0.6956,
+        0.7121,
+        0.7211
+      ],
+      "peak_rss_mib": 436.7,
+      "warm_rss_mib": 434.8,
+      "phases_seconds": {
+        "front end": 0.0146,
+        "codegen": 0.1408,
+        "link": 0.1396,
+        "workspaces": 0.6648,
+        "total": 0.6792,
+        "front end only": 0.3967
+      }
+    },
+    "chess-jai/build-O2": {
+      "cold_seconds": 2.0945,
+      "warm_seconds": 1.7397,
+      "min_seconds": 1.7149,
+      "max_seconds": 2.0945,
+      "runs_seconds": [
+        2.0945,
+        2.0133,
+        1.8085,
+        1.7474,
+        1.7149,
+        1.7319,
+        1.7191
+      ],
+      "peak_rss_mib": 389.7,
+      "warm_rss_mib": 384.2,
+      "phases_seconds": {
+        "front end": 0.0147,
+        "codegen": 1.1559,
+        "link": 0.115,
+        "debug info": 0.0514,
+        "workspaces": 1.7051,
+        "total": 1.7198,
+        "front end only": 0.3957
+      }
+    },
+    "forbear/check": {
+      "cold_seconds": 0.1242,
+      "warm_seconds": 0.1184,
+      "min_seconds": 0.1164,
+      "max_seconds": 0.1242,
+      "runs_seconds": [
+        0.1242,
+        0.1193,
+        0.1164,
+        0.1184,
+        0.1184,
+        0.1181,
+        0.122
+      ],
+      "peak_rss_mib": 134.9,
+      "warm_rss_mib": 134.1,
+      "phases_seconds": {
+        "front end": 0.1024,
+        "workspaces": 0.0,
+        "total": 0.1026,
+        "front end only": 0.1026
+      }
+    },
+    "forbear/build-O0": {
+      "cold_seconds": 0.3345,
+      "warm_seconds": 0.2715,
+      "min_seconds": 0.2607,
+      "max_seconds": 0.3345,
+      "runs_seconds": [
+        0.3345,
+        0.2607,
+        0.2637,
+        0.2716,
+        0.2758,
+        0.2839,
+        0.2714
+      ],
+      "peak_rss_mib": 195.8,
+      "warm_rss_mib": 195.4,
+      "phases_seconds": {
+        "codegen": 0.0191,
+        "front end": 0.2554,
+        "workspaces": 0.0,
+        "total": 0.2555,
+        "front end only": 0.235
+      }
+    },
+    "gen-10k/check": {
+      "cold_seconds": 0.0436,
+      "warm_seconds": 0.0446,
+      "min_seconds": 0.0393,
+      "max_seconds": 0.0447,
+      "runs_seconds": [
+        0.0436,
+        0.0447,
+        0.0445,
+        0.0446,
+        0.0393,
+        0.0447,
+        0.0435
+      ],
+      "peak_rss_mib": 66.2,
+      "warm_rss_mib": 65.8,
+      "phases_seconds": {
+        "front end": 0.0266,
+        "workspaces": 0.0,
+        "total": 0.0268,
+        "front end only": 0.0268
+      }
+    },
+    "gen-10k/build-O0": {
+      "cold_seconds": 0.104,
+      "warm_seconds": 0.1087,
+      "min_seconds": 0.104,
+      "max_seconds": 0.1124,
+      "runs_seconds": [
+        0.104,
+        0.1054,
+        0.1124,
+        0.1083,
+        0.109,
+        0.1108,
+        0.1064
+      ],
+      "peak_rss_mib": 139.8,
+      "warm_rss_mib": 138.0,
+      "phases_seconds": {
+        "front end": 0.0273,
+        "workspaces": 0.0,
+        "prepare output": 0.0019,
+        "codegen": 0.0342,
+        "link": 0.0288,
+        "total": 0.0928,
+        "front end only": 0.028
+      }
+    },
+    "gen-60k/check": {
+      "cold_seconds": 0.1188,
+      "warm_seconds": 0.1227,
+      "min_seconds": 0.1188,
+      "max_seconds": 0.127,
+      "runs_seconds": [
+        0.1188,
+        0.1247,
+        0.126,
+        0.1206,
+        0.1205,
+        0.127,
+        0.1207
       ],
       "peak_rss_mib": 203.6,
       "warm_rss_mib": 203.4,
       "phases_seconds": {
-        "front end": 0.0329,
-        "workspaces": 0.4278,
-        "total": 0.4661,
-        "front end only": 0.4661
-      }
-    },
-    "jaison-tests/check": {
-      "cold_seconds": 0.0442,
-      "warm_seconds": 0.0449,
-      "min_seconds": 0.0386,
-      "max_seconds": 0.048,
-      "runs_seconds": [
-        0.0442,
-        0.0449,
-        0.0386,
-        0.048
-      ],
-      "peak_rss_mib": 47.0,
-      "warm_rss_mib": 47.0,
-      "phases_seconds": {
-        "front end": 0.022,
+        "front end": 0.1063,
         "workspaces": 0.0,
-        "total": 0.0241,
-        "front end only": 0.0241
+        "total": 0.1065,
+        "front end only": 0.1065
       }
     },
-    "jaison-tests/build-O0": {
-      "cold_seconds": 0.1596,
-      "warm_seconds": 0.1693,
-      "min_seconds": 0.1596,
-      "max_seconds": 0.1732,
+    "gen-60k/build-O0": {
+      "cold_seconds": 0.3282,
+      "warm_seconds": 0.3295,
+      "min_seconds": 0.3157,
+      "max_seconds": 0.3395,
       "runs_seconds": [
-        0.1596,
-        0.1615,
-        0.1693,
-        0.1732
+        0.3282,
+        0.3192,
+        0.3157,
+        0.3315,
+        0.3318,
+        0.3276,
+        0.3395
       ],
-      "peak_rss_mib": 99.4,
-      "warm_rss_mib": 99.2,
+      "peak_rss_mib": 450.2,
+      "warm_rss_mib": 446.2,
       "phases_seconds": {
-        "front end": 0.0213,
+        "front end": 0.1137,
         "workspaces": 0.0,
-        "prepare output": 0.001,
-        "codegen": 0.0557,
-        "link": 0.0337,
-        "debug info": 0.0279,
-        "total": 0.1451,
-        "front end only": 0.0246
+        "prepare output": 0.0092,
+        "codegen": 0.1475,
+        "link": 0.0356,
+        "total": 0.3099,
+        "front end only": 0.1145
       }
     },
-    "jaison-tests/build-O2": {
-      "cold_seconds": 0.8339,
-      "warm_seconds": 0.8062,
-      "min_seconds": 0.77,
-      "max_seconds": 0.8339,
+    "gen-240k/check": {
+      "cold_seconds": 0.4284,
+      "warm_seconds": 0.511,
+      "min_seconds": 0.4284,
+      "max_seconds": 0.5586,
       "runs_seconds": [
-        0.8339,
-        0.8062,
-        0.77,
-        0.8187
+        0.4284,
+        0.4725,
+        0.5586,
+        0.5082,
+        0.5138,
+        0.5222,
+        0.4828
       ],
-      "peak_rss_mib": 164.2,
-      "warm_rss_mib": 163.3,
+      "peak_rss_mib": 600.8,
+      "warm_rss_mib": 599.8,
       "phases_seconds": {
-        "front end": 0.0229,
+        "front end": 0.4872,
         "workspaces": 0.0,
-        "prepare output": 0.0011,
-        "codegen": 0.6885,
-        "link": 0.0323,
-        "debug info": 0.0289,
-        "total": 0.7806,
-        "front end only": 0.0266
+        "total": 0.4874,
+        "front end only": 0.4874
       }
     },
-    "open-jai-getrect/check": {
-      "cold_seconds": 0.0821,
-      "warm_seconds": 0.0767,
-      "min_seconds": 0.0728,
-      "max_seconds": 0.1079,
+    "gen-240k/build-O0": {
+      "cold_seconds": 1.1629,
+      "warm_seconds": 1.1807,
+      "min_seconds": 1.1599,
+      "max_seconds": 1.2186,
       "runs_seconds": [
-        0.0821,
-        0.0767,
-        0.0728,
-        0.1079
+        1.1629,
+        1.1824,
+        1.1651,
+        1.179,
+        1.1599,
+        1.2186,
+        1.2157
       ],
-      "peak_rss_mib": 82.0,
-      "warm_rss_mib": 80.5,
+      "peak_rss_mib": 1351.1,
+      "warm_rss_mib": 1342.9,
       "phases_seconds": {
-        "front end": 0.0469,
+        "front end": 0.4182,
         "workspaces": 0.0,
-        "total": 0.0528,
-        "front end only": 0.0528
-      }
-    },
-    "open-jai-getrect/build-O0": {
-      "cold_seconds": 0.3484,
-      "warm_seconds": 0.292,
-      "min_seconds": 0.2763,
-      "max_seconds": 0.363,
-      "runs_seconds": [
-        0.3484,
-        0.363,
-        0.2763,
-        0.292
-      ],
-      "peak_rss_mib": 153.5,
-      "warm_rss_mib": 151.7,
-      "phases_seconds": {
-        "front end": 0.0483,
-        "workspaces": 0.0,
-        "prepare output": 0.0015,
-        "codegen": 0.0641,
-        "link": 0.1134,
-        "debug info": 0.0336,
-        "total": 0.2685,
-        "front end only": 0.0569
-      }
-    },
-    "open-jai-getrect/build-O2": {
-      "cold_seconds": 1.0822,
-      "warm_seconds": 0.9427,
-      "min_seconds": 0.9231,
-      "max_seconds": 1.1736,
-      "runs_seconds": [
-        1.0822,
-        1.1736,
-        0.9231,
-        0.9427
-      ],
-      "peak_rss_mib": 243.0,
-      "warm_rss_mib": 241.4,
-      "phases_seconds": {
-        "front end": 0.0546,
-        "workspaces": 0.0,
-        "prepare output": 0.0018,
-        "codegen": 0.7253,
-        "link": 0.1013,
-        "debug info": 0.0335,
-        "total": 0.9207,
-        "front end only": 0.0625
-      }
-    },
-    "chess-jai/check": {
-      "cold_seconds": 0.6642,
-      "warm_seconds": 0.6559,
-      "min_seconds": 0.6101,
-      "max_seconds": 0.6678,
-      "runs_seconds": [
-        0.6642,
-        0.6559,
-        0.6101,
-        0.6678
-      ],
-      "peak_rss_mib": 196.7,
-      "warm_rss_mib": 193.9,
-      "phases_seconds": {
-        "front end": 0.0149,
-        "workspaces": 0.6172,
-        "total": 0.6328,
-        "front end only": 0.6328
-      }
-    },
-    "chess-jai/build-O0": {
-      "cold_seconds": 1.9062,
-      "warm_seconds": 2.0263,
-      "min_seconds": 1.9062,
-      "max_seconds": 2.1411,
-      "runs_seconds": [
-        1.9062,
-        2.0263,
-        2.1411,
-        2.0021
-      ],
-      "peak_rss_mib": 763.8,
-      "warm_rss_mib": 763.1,
-      "phases_seconds": {
-        "front end": 0.0288,
-        "codegen": 0.7512,
-        "link": 0.1991,
-        "debug info": 0.0722,
-        "workspaces": 1.9548,
-        "total": 1.9905,
-        "front end only": 0.968
-      }
-    },
-    "chess-jai/build-O2": {
-      "cold_seconds": 4.7147,
-      "warm_seconds": 4.8957,
-      "min_seconds": 4.6107,
-      "max_seconds": 5.1462,
-      "runs_seconds": [
-        4.7147,
-        4.8957,
-        5.1462,
-        4.6107
-      ],
-      "peak_rss_mib": 835.5,
-      "warm_rss_mib": 835.5,
-      "phases_seconds": {
-        "front end": 0.0161,
-        "codegen": 4.1015,
-        "link": 0.1326,
-        "debug info": 0.0578,
-        "workspaces": 4.8558,
-        "total": 4.8737,
-        "front end only": 0.5992
-      }
-    },
-    "forbear/check": {
-      "cold_seconds": 0.1455,
-      "warm_seconds": 0.1409,
-      "min_seconds": 0.1401,
-      "max_seconds": 0.1482,
-      "runs_seconds": [
-        0.1455,
-        0.1409,
-        0.1401,
-        0.1482
-      ],
-      "peak_rss_mib": 126.3,
-      "warm_rss_mib": 126.1,
-      "phases_seconds": {
-        "front end": 0.116,
-        "workspaces": 0.0,
-        "total": 0.1212,
-        "front end only": 0.1212
-      }
-    },
-    "forbear/build-O0": {
-      "cold_seconds": 0.3454,
-      "warm_seconds": 0.3331,
-      "min_seconds": 0.3292,
-      "max_seconds": 0.3454,
-      "runs_seconds": [
-        0.3454,
-        0.3331,
-        0.3385,
-        0.3292
-      ],
-      "peak_rss_mib": 176.7,
-      "warm_rss_mib": 176.6,
-      "phases_seconds": {
-        "codegen": 0.0545,
-        "link": 0.0891,
-        "debug info": 0.0411,
-        "front end": 0.3081,
-        "workspaces": 0.0,
-        "total": 0.3129,
-        "front end only": 0.1215
+        "prepare output": 0.0368,
+        "codegen": 0.638,
+        "link": 0.0598,
+        "total": 1.1501,
+        "front end only": 0.4206
       }
     }
   },
