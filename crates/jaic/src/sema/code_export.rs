@@ -19,6 +19,7 @@ pub mod message_kind {
     pub const IMPORT: i64 = 2;
     pub const FAILED_IMPORT: i64 = 3;
     pub const TYPECHECKED: i64 = 5;
+    pub const PERFORMANCE_REPORT: i64 = 9;
 }
 
 /// Values of `Code_Node.Kind`.
@@ -337,6 +338,124 @@ impl Compiler {
             .list("others", Vec::new())
             .list("all", group(r, &all));
         Some(r.add(message))
+    }
+
+    /// The record of a `Message_Performance_Report` for the workspace: timings, instruction
+    /// counts and, when asked for, the `#run` and polymorph sections (`perf.rs` has the counts).
+    pub fn export_performance_report(
+        &mut self,
+        r: &mut Records,
+        runs: bool,
+        polymorphs: bool,
+    ) -> i64 {
+        let seconds = |d: std::time::Duration| d.as_secs_f64().to_bits() as i64;
+        let mut time = Record::new("Time_Report");
+        time.int("run_directives", seconds(self.perf.run_time))
+            // jaic has no bytecode pass that inlines calls: the native backend inlines later.
+            .int("bytecode_inlining", 0.0f64.to_bits() as i64)
+            .int("bytecode_generating", seconds(self.perf.lowering));
+        let time = r.add(time);
+
+        let mut run_report = Record::new("Run_Directive_Report");
+        if runs {
+            let stats = self.perf.runs.clone();
+            let mut records = Vec::new();
+            for run in &stats {
+                let callee = run
+                    .callee
+                    .and_then(|f| {
+                        self.procs.iter().position(
+                            |p| matches!(p.target, Some(procs::ProcTarget::Func(g)) if g == f),
+                        )
+                    })
+                    .map_or(0, |p| self.header_record(r, ProcId(p as u32)));
+                let mut record = Record::new("Record");
+                record
+                    .ptr("callee", callee)
+                    .int("num_stalls", run.stalls as i64)
+                    .int("elapsed_time", seconds(run.elapsed));
+                records.push(r.add(record));
+            }
+            run_report.int("reported", 1).refs("records", records);
+        }
+        let run_report = r.add(run_report);
+
+        let mut poly_report = Record::new("Polymorph_Report");
+        poly_report
+            .int("num_solves_invoked", self.perf.solves_invoked() as i64)
+            .int("num_solves_used", self.perf.solves_used as i64);
+        if polymorphs {
+            let order = self.perf.poly_order.clone();
+            let mut records = Vec::new();
+            for source in order {
+                let stat = self.perf.polys[&source].clone();
+                let mut distinct = Vec::new();
+                for (instance, span) in &stat.instances {
+                    let polymorphed = self.header_record(r, *instance);
+                    let mut location = Record::new("Source_Code_Location");
+                    if let Some(file) = self.sources.try_get(span.file) {
+                        let (line, column) = file.line_col(span.start);
+                        location
+                            .str("fully_pathed_filename", file.path.as_bytes())
+                            .int("line_number", line as i64)
+                            .int("character_number", column as i64);
+                    }
+                    let location = r.add(location);
+                    let mut one = Record::new("Distinct_Polymorph");
+                    one.ptr("polymorphed", polymorphed)
+                        .ptr("location", location);
+                    distinct.push(r.add(one));
+                }
+                let header = self.header_record(r, source);
+                let mut record = Record::new("Record");
+                record
+                    .ptr("source", header)
+                    .int("num_call_sites", stat.call_sites as i64)
+                    .int("num_deduplications_by_constants", stat.by_constants as i64)
+                    // Instances are shared by their constants only; no bytecode is compared.
+                    .int("num_deduplications_by_bytecode", 0)
+                    .refs("distinct_polymorphs", distinct);
+                records.push(r.add(record));
+            }
+            poly_report.int("reported", 1).refs("records", records);
+        }
+        let poly_report = r.add(poly_report);
+
+        let (calls, instructions) = self.instruction_counts();
+        let mut bytecode = Record::new("Bytecode_Report");
+        bytecode
+            .int("num_calls_inlined", 0)
+            .int("num_calls_total", calls as i64)
+            .int("num_instructions_inlined", 0)
+            .int("num_instructions_total", instructions as i64);
+        let bytecode = r.add(bytecode);
+
+        let mut message = Record::new("Message_Performance_Report");
+        message
+            .int("kind", message_kind::PERFORMANCE_REPORT)
+            .int("workspace", self.workspace)
+            .ptr("time_report", time)
+            .ptr("run_directive_report", run_report)
+            .ptr("polymorph_report", poly_report)
+            .ptr("bytecode_report", bytecode);
+        r.add(message)
+    }
+
+    /// The header record of procedure `p` (the one calls resolve to).
+    fn header_record(&mut self, r: &mut Records, p: ProcId) -> i64 {
+        let scope = self.proc(p).scope;
+        let mut out = Typechecked::default();
+        let mut exporter = Exporter {
+            c: Some(self),
+            r,
+            scope,
+            sub: Vec::new(),
+            locals: Vec::new(),
+            compound_members: Vec::new(),
+            own: false,
+            out: &mut out,
+        };
+        exporter.resolved_header(p)
     }
 
     /// Export the bodies of reported headers that are lowered by now, into `out`. Returns how

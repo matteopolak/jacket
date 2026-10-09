@@ -22,7 +22,7 @@ Bodiless `#compiler` procedures named `__jaic_*` are bound to `Hook::Meta(MetaOp
 | `__jaic_current_workspace() -> s64` | workspace whose compile-time code is running {#ws.4} |
 | `__jaic_workspace_add_file/add_string(ws, s)` | queue a source (`ProgramSource`) |
 | `__jaic_workspace_set_option(ws, key, value)` | set a build option by name |
-| `__jaic_workspace_begin_intercept(ws)` | mark intercepted |
+| `__jaic_workspace_begin_intercept(ws, flags)` | mark intercepted; `flags` are the `Intercept_Flags`, of which the Rust side reads `DO_PERFORMANCE_REPORT_*` |
 | `__jaic_workspace_next_event(ws) -> s64` | advance the workspace if needed, pop the next event kind (0 = none) |
 | `__jaic_event_int(i)`, `__jaic_event_string(i)` | fields of the current event |
 | `__jaic_command_line_count/arg(i)` | metaprogram arguments |

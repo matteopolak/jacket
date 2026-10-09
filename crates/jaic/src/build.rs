@@ -271,6 +271,8 @@ struct Workspace {
     pending: Vec<ProgramSource>,
     settings: BuildSettings,
     intercepted: bool,
+    /// The `Intercept_Flags` the intercepting metaprogram passed to `compiler_begin_intercept`.
+    intercept_flags: i64,
     stage: Stage,
     /// The workspace's compiler between steps (taken out while it runs).
     compiler: Option<Box<Compiler>>,
@@ -310,6 +312,7 @@ impl Workspace {
             pending: Vec::new(),
             settings: BuildSettings::default(),
             intercepted: false,
+            intercept_flags: 0,
             stage: Stage::Open,
             compiler: None,
             events: VecDeque::new(),
@@ -339,6 +342,16 @@ pub const EVENT_IMPORT: i64 = 4;
 pub const EVENT_TYPECHECKED: i64 = 5;
 pub const EVENT_FAILED_IMPORT: i64 = 6;
 pub const EVENT_ERROR: i64 = 7;
+
+/// The text of a `DEBUG_DUMP` message is string 0.
+pub const EVENT_DEBUG_DUMP: i64 = 8;
+
+pub const EVENT_PERFORMANCE_REPORT: i64 = 9;
+
+/// `Intercept_Flags.DO_PERFORMANCE_REPORT_POLYMORPHS` and `_RUNS` (`stdlib/Compiler/workspace.jai`).
+const INTERCEPT_REPORT_POLYMORPHS: i64 = 0x1000;
+
+const INTERCEPT_REPORT_RUNS: i64 = 0x2000;
 
 const PHASE_ALL_SOURCE_CODE_PARSED: i64 = 0;
 const PHASE_TYPECHECKED_ALL_WE_CAN: i64 = 1;
@@ -888,15 +901,30 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     *budget = compiler.interp.block_budget;
     let mut failed = false;
     let mut held = None;
+    let mut compiled = false;
     let next = match result {
-        Ok(Stage::Done) => match write_output(shared, id, &mut compiler, &mut events)? {
-            Written::Done(ok) => {
-                failed = !ok;
-                Stage::Done
+        Ok(Stage::Done) => {
+            // The procedures declared `#dump` are lowered; their listings go out before the
+            // program is written.
+            if intercepted {
+                for text in compiler.debug_dumps() {
+                    events.push(Event {
+                        kind: EVENT_DEBUG_DUMP,
+                        ints: Vec::new(),
+                        strings: vec![text.into_bytes()],
+                    });
+                }
             }
-            // The metaprogram links; `finish_custom_link` ends the workspace.
-            Written::AwaitingLink => Stage::Checked,
-        },
+            match write_output(shared, id, &mut compiler, &mut events)? {
+                Written::Done(ok) => {
+                    failed = !ok;
+                    compiled = true;
+                    Stage::Done
+                }
+                // The metaprogram links; `finish_custom_link` ends the workspace.
+                Written::AwaitingLink => Stage::Checked,
+            }
+        }
         Ok(next) => next,
         Err(d) => {
             let text = compiler.render(&d);
@@ -930,6 +958,9 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
         }
     };
     if next == Stage::Done {
+        if compiled {
+            events.extend(performance_event(shared, id, &mut compiler));
+        }
         events.push(Event {
             kind: EVENT_COMPLETE,
             ints: vec![failed as i64],
@@ -964,6 +995,29 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
         shared.borrow_mut().env.observer = Some(o);
     }
     Ok(())
+}
+
+/// The `PERFORMANCE_REPORT` message of a workspace that compiled, when its metaprogram asked for
+/// one with `DO_PERFORMANCE_REPORT_RUNS` or `_POLYMORPHS`: sent after everything else and right
+/// before `COMPLETE`.
+fn performance_event(shared: &SharedWorkspaces, id: i64, compiler: &mut Compiler) -> Option<Event> {
+    let flags = {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id).ok()?;
+        if !ws.intercepted {
+            return None;
+        }
+        ws.intercept_flags
+    };
+    let runs = flags & INTERCEPT_REPORT_RUNS != 0;
+    let polymorphs = flags & INTERCEPT_REPORT_POLYMORPHS != 0;
+    if !runs && !polymorphs {
+        return None;
+    }
+    let mut records = Records::lend(&mut shared.borrow_mut().records);
+    let record = compiler.export_performance_report(&mut records, runs, polymorphs);
+    Records::give_back(&mut shared.borrow_mut().records, records);
+    Some(record_event(EVENT_PERFORMANCE_REPORT, record))
 }
 
 /// A workspace held back by a failed import (see [`FailedLoad`]) is asked for its answer: when the
@@ -1146,6 +1200,10 @@ fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(), String> 
             true
         }
     };
+    let mut compiler = compiler;
+    let report = compiler
+        .as_mut()
+        .and_then(|compiler| performance_event(shared, id, compiler));
     {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
@@ -1158,6 +1216,7 @@ fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(), String> 
             ],
             strings: vec![link.output.into_bytes()],
         });
+        ws.events.extend(report);
         ws.events.push_back(Event {
             kind: EVENT_COMPLETE,
             ints: vec![failed as i64],
@@ -1423,11 +1482,10 @@ pub fn call(
             Ok(Rets::default())
         }
         MetaOp::BeginIntercept => {
-            shared
-                .borrow_mut()
-                .ws(arg(0) as i64)
-                .map_err(trap)?
-                .intercepted = true;
+            let mut reg = shared.borrow_mut();
+            let ws = reg.ws(arg(0) as i64).map_err(trap)?;
+            ws.intercepted = true;
+            ws.intercept_flags = arg(1) as i64;
             Ok(Rets::default())
         }
         MetaOp::NextEvent => {

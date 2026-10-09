@@ -118,7 +118,13 @@ impl Compiler {
             std::mem::take(&mut self.interp.code_export_cursor),
             std::mem::take(&mut self.interp.run_codes),
         );
+        let callee = self.program.funcs[id.0 as usize]
+            .as_ref()
+            .and_then(|func| func.first_direct_callee());
+        let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
+        let clock = self.perf.start_run();
         let mut result = self.interp.call(&self.program, id, &[ctx]);
+        elapsed += self.perf.finish_run(clock);
         // Run again from the start while nothing observable happened, when the run
         // - asked for a code with resolved names and types (`compiler_get_nodes`), or
         // - called a procedure whose body is still queued (on-demand lowering).
@@ -155,8 +161,17 @@ impl Compiler {
             self.interp.run_effects = Some(self.interp.effects);
             self.interp.code_export_cursor.clear();
             self.interp.run_codes.1 = 0;
+            stalls += 1;
+            let clock = self.perf.start_run();
             result = self.interp.call(&self.program, id, &[ctx]);
+            elapsed += self.perf.finish_run(clock);
         }
+        self.perf.runs.push(super::perf::RunStat {
+            span,
+            callee,
+            stalls,
+            elapsed,
+        });
         (
             self.interp.code_exports,
             self.interp.code_export_cursor,

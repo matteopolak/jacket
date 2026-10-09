@@ -29,6 +29,7 @@ mod lambda;
 mod lower;
 mod modify;
 mod modules;
+pub mod perf;
 pub mod procs;
 mod runtime_info;
 pub mod scope;
@@ -480,6 +481,8 @@ pub struct Compiler {
     pub asm_aes_tables: Option<ir::GlobalId>,
     /// Syntax trees and types already handed to metaprograms as records.
     pub export: code_export::ExportState,
+    /// Counts for the workspace's `PERFORMANCE_REPORT` message (`perf.rs`).
+    pub perf: perf::PerfStats,
     /// Scopes with top-level items put back to waiting because they failed while
     /// procedure bodies were mid-lowering (retried by `expand_all`).
     pub deferred_pending: Vec<ScopeId>,
@@ -628,6 +631,7 @@ impl Compiler {
             asm_pair_lock: None,
             asm_aes_tables: None,
             export: code_export::ExportState::default(),
+            perf: perf::PerfStats::default(),
             deferred_pending: Vec::new(),
             unsettled: std::collections::BTreeSet::new(),
             named_imports_done: 0,

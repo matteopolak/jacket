@@ -1066,9 +1066,13 @@ impl Compiler {
     /// Lower one procedure body to IR.
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
+        let outermost = (self.lowering_depth == 0).then(|| self.perf.start_lowering());
         self.lowering_depth += 1;
         let result = self.lower_body_inner(id);
         self.lowering_depth -= 1;
+        if let Some(mark) = outermost {
+            self.perf.finish_lowering(mark);
+        }
         self.procs[id.0 as usize].body_state = if result.is_ok() {
             BodyState::Done
         } else {
@@ -1345,8 +1349,10 @@ impl Compiler {
             .map(|(_, v, t)| super::instance_key_value(&self.types, v, *t))
             .collect();
         if let Some(&inst) = self.proc(id).instances.get(&key) {
+            self.perf.poly_request(id, true, span);
             return Ok(inst);
         }
+        self.perf.poly_request(id, false, span);
         if self.proc(id).instances.len() >= super::MAX_INSTANCES {
             return err(span, super::too_many_instances(self.proc(id).name));
         }
@@ -1376,6 +1382,7 @@ impl Compiler {
             export: None,
         });
         self.procs[id.0 as usize].instances.insert(key, inst);
+        self.perf.poly_instance(id, inst, span);
         if let Some(notes) = self.proc_decl_notes.get(&id).cloned() {
             self.proc_decl_notes.insert(inst, notes);
         }

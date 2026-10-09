@@ -60,6 +60,9 @@ Keys `set_build_options` sends (values are text):
 | 1 FILE, 4 IMPORT, 5 TYPECHECKED | `Message_File`, `Message_Import`, `Message_Typechecked` | int 0 = the message's record id, filled by `record_struct` |
 | 2 PHASE | `Message_Phase` | int 0 = phase. `PRE_WRITE_EXECUTABLE` and `READY_FOR_CUSTOM_LINK_COMMAND`: ints 1..4 = counts of object files, support objects, system and user libraries; the strings are those lists in that order, then the executable. `POST_WRITE_EXECUTABLE`: int 1 = write failed, int 2 = linker exit code, string 0 = executable |
 | 3 COMPLETE | `Message_Complete` | int 0 = `error_code`; marks the workspace finished |
+| 7 ERROR | `Message` | none |
+| 8 DEBUG_DUMP | `Message_Debug_Dump` | string 0 = `dump_text` |
+| 9 PERFORMANCE_REPORT | `Message_Performance_Report` | int 0 = the message's record id (nested records for the report sections) |
 | 0 | `Message_Complete` (no error) | no more events; treated as finished |
 
 Once every intercepted workspace has finished, later calls keep returning a `COMPLETE` for the last one, with its error code, so the usual `if m.kind == .COMPLETE break;` loop terminates {#compiler.8}.

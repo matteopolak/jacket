@@ -581,6 +581,52 @@ pub enum FuncOrigin {
     ConstInit,
 }
 
+impl Func {
+    /// A readable listing of the function: signature, stack slots and each block's instructions
+    /// and terminator, one per line (the text of a `DEBUG_DUMP` message). The operands are
+    /// printed in the form the IR types derive `Debug` with, and the layout may change with
+    /// the IR.
+    pub fn listing(&self) -> String {
+        use std::fmt::Write;
+        let mut out = String::new();
+        let name = if self.name.is_empty() {
+            self.origin.thunk_name()
+        } else {
+            &self.name
+        };
+        let _ = writeln!(
+            out,
+            "{name}: ({:?}) -> ({:?})",
+            self.sig.params, self.sig.returns
+        );
+        for (i, slot) in self.slots.iter().enumerate() {
+            let _ = writeln!(out, "  slot{i}: {} bytes, align {}", slot.size, slot.align);
+        }
+        for (i, block) in self.blocks.iter().enumerate() {
+            let _ = writeln!(out, "b{i}:");
+            for inst in &block.insts {
+                let _ = writeln!(out, "    {inst:?}");
+            }
+            let _ = writeln!(out, "    {:?}", block.term);
+        }
+        out
+    }
+
+    /// The first function this one calls directly, in block order.
+    pub fn first_direct_callee(&self) -> Option<FuncId> {
+        self.blocks
+            .iter()
+            .flat_map(|b| &b.insts)
+            .find_map(|inst| match inst {
+                Inst::Call(call) => match call.callee {
+                    Callee::Func(f) => Some(f),
+                    _ => None,
+                },
+                _ => None,
+            })
+    }
+}
+
 impl FuncOrigin {
     /// The function name for compile-time code (IR dumps, stack trace nodes).
     pub fn thunk_name(self) -> &'static str {
