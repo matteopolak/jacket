@@ -1029,3 +1029,53 @@ fn an_import_fix_follows_the_check_diagnostic_it_is_asked_for() {
     );
     assert!(all.is_empty(), "{all:?}");
 }
+
+/// Complete at the end of `typed` (the text before the cursor) inside `main`, with a
+/// `table` array and a `lo`/`hi` pair in scope.
+fn complete_in_main(typed: &str) -> Vec<String> {
+    let text = format!(
+        "#import \"Basic\";\nmain :: () {{\n    table: [8] int;\n    lo := 0;\n    hi := 3;\n    {typed}"
+    );
+    let rest = " {\n        print(\"%\", i);\n    }\n}\n";
+    let cursor = text.len();
+    let text = format!("{text}{rest}");
+    let mut s = session();
+    s.open(uri(), 1, text.clone()).unwrap();
+    let end = Position {
+        line: text[..cursor].matches('\n').count() as u32,
+        character: text[..cursor].rsplit('\n').next().unwrap().len() as u32,
+    };
+    s.completion(&uri(), end)
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|i| i.label)
+        .collect()
+}
+
+#[test]
+fn completion_works_inside_range_expressions() {
+    for typed in [
+        "for i: 0..ta",
+        "for i: 0 .. ta",
+        "for 0..ta",
+        "for i: lo..ta",
+        "x := lo..ta",
+    ] {
+        let labels = complete_in_main(typed);
+        assert!(labels.iter().any(|l| l == "table"), "{typed}: {labels:?}");
+    }
+    for typed in [
+        "for i: 0..table.co",
+        "for i: 0 .. table.co",
+        "for 0..table.co",
+        "for i: lo..table.co",
+    ] {
+        let labels = complete_in_main(typed);
+        assert!(labels.iter().any(|l| l == "count"), "{typed}: {labels:?}");
+        assert!(!labels.iter().any(|l| l == "table"), "{typed}: {labels:?}");
+    }
+    // The end of a range also offers the names after it.
+    let labels = complete_in_main("for i: lo..");
+    assert!(labels.iter().any(|l| l == "hi"), "{labels:?}");
+}

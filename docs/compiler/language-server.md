@@ -73,7 +73,7 @@ Half-typed text usually does not parse. `repair` blanks lines with spaces, so by
 
 ### Hover and completion
 
-For completion, the word being typed and any `a.b.` chain before it are cut out of the text first. The probe text therefore stays the same while a word is typed, and the cached compile is reused for every keystroke.
+For completion, the word being typed and any `a.b.` chain before it are cut out of the text first. The probe text therefore stays the same while a word is typed, and the cached compile is reused for every keystroke. A `.` right after another `.` is the range operator (`0..ta`, `lo..hi.co`), not member access: the chain stops there and the word completes as a plain name.
 
 - **Completion** asks `ide_scope_at` for the innermost recorded scope at the cursor.
   - **Plain names:** `ide_visible` walks the scope chain. It includes locals of the current procedure declared before the cursor, enclosing declarations, `using` members, imported modules' exports including re-exports, and Preload.

@@ -713,7 +713,10 @@ impl Session {
         let prefix = text[start..byte].to_owned();
         let mut chain = Vec::new();
         let mut at = start;
-        while at > 0 && bytes[at - 1] == b'.' {
+        // A `.` that is the second of `..` is a range, not member access: `0..ta`, `a..b.c`.
+        let member_dot =
+            |at: usize| at > 0 && bytes[at - 1] == b'.' && !(at > 1 && bytes[at - 2] == b'.');
+        while member_dot(at) {
             let end = at - 1;
             let mut s = end;
             while s > 0 && ident(bytes[s - 1]) {
@@ -909,7 +912,10 @@ impl Session {
                 kind: IdeKind::Constant,
                 detail: "keyword".into(),
             });
-            let member = doc.text[..byte - prefix.len()].ends_with('.');
+            let member = {
+                let before = &doc.text.as_bytes()[..byte - prefix.len()];
+                before.ends_with(b".") && !before.ends_with(b"..")
+            };
             let all = names.into_iter().map(|n| (n, false));
             let all: Vec<(IdeName, bool)> = if member {
                 all.collect()
