@@ -869,6 +869,80 @@ impl Compiler {
         vec![span]
     }
 
+    /// The enum or struct at `offset`: the type the name there denotes (`as_type`), or the type
+    /// of the value there. Its members are the enum's members, or the struct's named fields
+    /// (`using`, `#as` and overlaid ones left out) with a value that suits each field's type.
+    pub fn ide_members_at(&self, file: FileId, offset: u32, as_type: bool) -> Option<IdeMembers> {
+        let r = self.ide_ref_at(file, offset)?;
+        let t = if as_type {
+            match &r.what {
+                IdeWhat::Type(t) => *t,
+                IdeWhat::Entity(e) => match &self.entity(*e).kind {
+                    EntityKind::Const {
+                        value: Value::Type(t),
+                        ..
+                    } => *t,
+                    _ => return None,
+                },
+                _ => return None,
+            }
+        } else {
+            r.ty
+        };
+        match self.types.kind(t) {
+            TypeKind::Enum(e) => {
+                let info = self.types.enum_info(*e);
+                Some(IdeMembers {
+                    name: info.name.to_string(),
+                    is_enum: true,
+                    members: info
+                        .members
+                        .iter()
+                        .map(|(n, _)| (n.to_string(), String::new()))
+                        .collect(),
+                })
+            }
+            TypeKind::Struct(s) => {
+                let info = self.types.struct_info(*s);
+                Some(IdeMembers {
+                    name: info.name.to_string(),
+                    is_enum: false,
+                    members: info
+                        .fields
+                        .iter()
+                        .filter(|f| !f.using && !f.as_ && !f.overlay)
+                        .filter_map(|f| Some((f.name?.to_string(), self.ide_placeholder(f.ty))))
+                        .collect(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// A value of type `t` to write where one is wanted.
+    fn ide_placeholder(&self, t: TypeId) -> String {
+        match self.types.kind(t) {
+            TypeKind::Bool => "false".into(),
+            TypeKind::Int {
+                ..
+            } => "0".into(),
+            TypeKind::Float {
+                ..
+            } => "0.0".into(),
+            TypeKind::String => "\"\"".into(),
+            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => "null".into(),
+            TypeKind::Struct(_) => ".{}".into(),
+            TypeKind::Array {
+                ..
+            } => ".[]".into(),
+            TypeKind::Enum(e) => match self.types.enum_info(*e).members.first() {
+                Some((n, _)) => format!(".{n}"),
+                None => "---".into(),
+            },
+            _ => "---".into(),
+        }
+    }
+
     /// Polymorphic procedures declared in `file` with the instances checking created: (the
     /// procedure's span, each instance's bindings as `T = s64`).
     pub fn ide_polymorphs(&self, file: FileId) -> Vec<(Span, String, Vec<String>)> {
@@ -1128,4 +1202,13 @@ mod tests {
         assert!(!atom("x + 1"));
         assert!(!atom("f(1) + g(2)"));
     }
+}
+
+/// An enum or a struct, as the editor lists its members.
+#[derive(Clone, Debug)]
+pub struct IdeMembers {
+    pub name: String,
+    pub is_enum: bool,
+    /// Member names; for a struct with the value to write for the field.
+    pub members: Vec<(String, String)>,
 }

@@ -14,7 +14,7 @@ pub mod format_string;
 pub mod render;
 mod rules;
 mod suppress;
-mod syntax;
+pub mod syntax;
 
 pub use config::{Config, Level};
 pub use rules::{RULES, RuleInfo};

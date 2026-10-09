@@ -202,7 +202,7 @@ impl<'a> Cx<'a> {
 
 /// A node of the tree, with its parents when walked.
 #[derive(Clone, Copy)]
-pub(crate) enum Node<'a> {
+pub enum Node<'a> {
     Stmt(&'a Stmt),
     Expr(&'a Expr),
 }
@@ -226,14 +226,14 @@ impl<'a> Node<'a> {
 /// Visit every statement and expression under `stmts` (parents first) with the chain of
 /// its ancestors (outermost first). `visit` returns whether to look inside the node. Nested
 /// procedure bodies, struct and enum bodies are not entered.
-pub(crate) fn walk<'a>(stmts: &'a [Stmt], visit: &mut dyn FnMut(Node<'a>, &[Node<'a>]) -> bool) {
+pub fn walk<'a>(stmts: &'a [Stmt], visit: &mut dyn FnMut(Node<'a>, &[Node<'a>]) -> bool) {
     let mut stack = Vec::new();
     for s in stmts {
         walk_node(Node::Stmt(s), &mut stack, visit);
     }
 }
 
-pub(crate) fn walk_node<'a>(
+pub fn walk_node<'a>(
     node: Node<'a>,
     stack: &mut Vec<Node<'a>>,
     visit: &mut dyn FnMut(Node<'a>, &[Node<'a>]) -> bool,
@@ -249,7 +249,7 @@ pub(crate) fn walk_node<'a>(
 }
 
 /// The direct children of a node, in source order.
-pub(crate) fn children(node: Node<'_>) -> Vec<Node<'_>> {
+pub fn children(node: Node<'_>) -> Vec<Node<'_>> {
     let mut out = Vec::new();
     match node {
         Node::Stmt(s) => stmt_children(s, &mut out),
