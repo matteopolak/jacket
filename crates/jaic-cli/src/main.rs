@@ -904,7 +904,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         report: Box::new(|text| eprintln!("{text}")),
         observer: None,
     });
-    let mut compiler = Compiler::new(options, fs);
+    // `check` and `build` exit right after: tearing down the syntax trees and the program takes
+    // about a tenth of a large `check`, and nothing observes it.
+    let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.command != Command::Run);
     if let Some(host) = &sandbox {
         compiler.interp.host = Box::new(SharedHost(host.clone()));
     }
@@ -1013,6 +1015,44 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
                 ExitCode::from(1)
             }
         },
+    }
+}
+
+/// A value the process never tears down when `leak` is set: it exits right after, and freeing a
+/// large compiler piece by piece takes longer than the exit itself.
+struct LeakOnExit<T> {
+    value: Option<T>,
+    leak: bool,
+}
+
+impl<T> LeakOnExit<T> {
+    fn new(value: T, leak: bool) -> Self {
+        LeakOnExit {
+            value: Some(value),
+            leak,
+        }
+    }
+}
+
+impl<T> std::ops::Deref for LeakOnExit<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.value.as_ref().expect("present until dropped")
+    }
+}
+
+impl<T> std::ops::DerefMut for LeakOnExit<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.value.as_mut().expect("present until dropped")
+    }
+}
+
+impl<T> Drop for LeakOnExit<T> {
+    fn drop(&mut self) {
+        if self.leak {
+            std::mem::forget(self.value.take());
+        }
     }
 }
 
