@@ -249,6 +249,13 @@ def main():
         os.environ.update({k: v for k, v in SANITIZER_ENV.items() if k not in os.environ})
         if "ASAN_SYMBOLIZER_PATH" not in os.environ and symbolizer():
             os.environ["ASAN_SYMBOLIZER_PATH"] = symbolizer()
+        if sys.platform == "darwin" and "DYLD_FALLBACK_LIBRARY_PATH" not in os.environ:
+            # ASan intercepts dlopen, so a library that loads another by `@loader_path` or its own
+            # rpaths resolves from the ASan runtime instead (Homebrew's SDL2 is sdl2-compat, which
+            # loads SDL3 that way and shows a modal dialog when it can't). Search Homebrew's lib
+            # directory after dyld's defaults.
+            brew = os.environ.get("HOMEBREW_PREFIX") or ("/opt/homebrew" if os.path.isdir("/opt/homebrew") else "/usr/local")
+            os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = f"{Path.home()}/lib:/usr/local/lib:/usr/lib:{brew}/lib"
     scratch = tempfile.mkdtemp(prefix="jaic-sweep-native-") if a.native else None
     limit_bytes = int(a.memory_limit * 2**30)
     if a.jobs <= 0:

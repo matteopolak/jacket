@@ -37,6 +37,7 @@ The sweep sets these runtime options unless they are already in the environment:
 - `ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:abort_on_error=0:detect_stack_use_after_return=1:strict_string_checks=1:check_initialization_order=1`. Leaks are off because Jai programs routinely leave their memory to the OS at exit (LeakSanitizer is on by default on Linux).
 - `UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1`.
 - `ASAN_SYMBOLIZER_PATH`: `llvm-symbolizer` from the same LLVM, so reports show `file.jai:line`.
+- `DYLD_FALLBACK_LIBRARY_PATH` (macOS): dyld's defaults plus Homebrew's `lib`. ASan intercepts `dlopen`, so a library that loads another through `@loader_path` or its own rpaths resolves from the ASan runtime instead. Homebrew's SDL2 is `sdl2-compat`, which loads SDL3 that way and blocks on a modal error dialog when it can't.
 
 ## How to change it
 
