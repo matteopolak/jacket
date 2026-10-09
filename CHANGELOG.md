@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- On Windows, a `link.exe` or `lld-link.exe` named by `JAIC_LINKER` now finds the Windows SDK and C runtime libraries outside a developer prompt instead of failing with `LNK1181: cannot open input file 'user32.lib'`.
+
 ## [0.5.1] - 2026-10-09
 
 Unoptimized builds compile about twice as fast, the compile-time interpreter runs about twice as fast, and release archives carry FreeType, Dear ImGui, MojoShader and (on Windows) SDL2.

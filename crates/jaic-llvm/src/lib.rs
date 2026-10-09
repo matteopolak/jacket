@@ -1027,8 +1027,14 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
     if let Some(program) = std::env::var_os("JAIC_LINKER") {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
-        if flavor == LinkFlavor::Msvc && !is_msvc_linker(&program) {
-            cmd.arg(format!("--target={msvc_triple}"));
+        if flavor == LinkFlavor::Msvc {
+            if !is_msvc_linker(&program) {
+                cmd.arg(format!("--target={msvc_triple}"));
+            } else if let Some(lib) = msvc::lib_env(msvc::arch_dir(&msvc_triple)) {
+                // As for a `link.exe` jaic finds itself: without a developer prompt nothing
+                // else tells it where `user32.lib` and the C runtime are.
+                cmd.env("LIB", lib);
+            }
         }
         return Ok((program, cmd));
     }

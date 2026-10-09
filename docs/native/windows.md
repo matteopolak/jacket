@@ -78,7 +78,7 @@ Runtime (`stdlib/Runtime_Support.jai`):
 ## Configuration
 
 - `-os windows`, `-cpu x64|arm64`, `-target <triple>` on `jaic build`.
-- `JAIC_LINKER`: linker program to use instead of the search above. A program named `link` or `lld-link` gets `link.exe`-style arguments, anything else C-driver arguments (plus `--target` for MSVC).
+- `JAIC_LINKER`: linker program to use instead of the search above. A program named `link` or `lld-link` gets `link.exe`-style arguments, and `LIB` filled in as above when no developer prompt set it; anything else C-driver arguments (plus `--target` for MSVC).
 - `JAIC_AR`: archiver for static libraries.
 - Cross builds need MinGW-w64 (`brew install mingw-w64`, `apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64`) for x64, and llvm-mingw (above) for arm64.
 - On Windows: LLVM (for `clang`; the official `clang+llvm-*-x86_64-pc-windows-msvc` or `clang+llvm-*-aarch64-pc-windows-msvc` archive) and the Visual Studio build tools or Windows SDK for the libraries (the ARM64 build tools on Windows on Arm). LLVM is optional: with only Visual Studio installed, `jaic` finds its `link.exe` and the libraries without a developer prompt.
