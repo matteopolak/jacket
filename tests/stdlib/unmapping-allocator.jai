@@ -53,6 +53,19 @@ main :: () {
     r := cast(*u8) realloc(q, 3, 5000, a);
     for 0..2 assert(r[it] == it + 1);
 
+    // Ownership covers live blocks only, and a heap is an independent instance.
+    owned := cast(*u8) alloc(16, a);
+    assert(a.proc(.IS_THIS_YOURS, 0, 0, owned, a.data) != null);
+    assert(a.proc(.IS_THIS_YOURS, 0, 0, p, a.data) == null, "a retired block is not owned");
+    heap := create_heap(a);
+    assert(heap.data != null && heap.data != a.data);
+    inner := alloc(32, heap);
+    assert(inner != null);
+    assert(heap.proc(.IS_THIS_YOURS, 0, 0, inner, heap.data) != null);
+    assert(a.proc(.IS_THIS_YOURS, 0, 0, inner, a.data) == null, "ownership is per heap");
+    destroy_heap(heap);
+    free(owned, a);
+
     // Freeing a block twice is reported instead of crashing.
     {
         scoped := context;

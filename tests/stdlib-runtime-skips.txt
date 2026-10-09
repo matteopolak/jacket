@@ -13,6 +13,7 @@ sound-player-offline-api * wasm-interp,wasm-native,playground stb_vorbis has no 
 sound-player-device * wasm-interp,wasm-native,playground wasm has no audio output
 socket-loopback * wasm-interp,wasm-native,playground wasm has no sockets
 unmapping-allocator * wasm-interp,wasm-native,playground the module needs POSIX virtual memory calls, which wasm lacks
+pool-unmapping-blocks * wasm-interp,wasm-native,playground the unmapping allocator needs virtual memory calls, which wasm lacks
 window-fullscreen-toggle * wasm-interp,wasm-native,playground wasm has no window system
 window-input-native-events * wasm-interp,wasm-native,playground wasm has no window system
 bindings-generator-c * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries

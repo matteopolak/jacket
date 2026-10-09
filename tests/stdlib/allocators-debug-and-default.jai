@@ -9,6 +9,7 @@ Default :: #import "Default_Allocator";
 main :: () {
     check_default_allocator();
     check_overwriting_allocator();
+    check_overwriting_ownership();
     check_default_allocator_shutdown();
     print("ok\n");
 }
@@ -176,4 +177,19 @@ check_overwriting_allocator :: () {
     free(u, plain);
     deinit_overwriting_allocator(plain);
     deinit_overwriting_allocator(debug);
+}
+
+check_overwriting_ownership :: () {
+    a := get_overwriting_allocator();
+    p := alloc(24, a);
+    assert(a.proc(.IS_THIS_YOURS, 0, 0, p, a.data) != null);
+    heap := create_heap(a);
+    q := alloc(8, heap);
+    assert(q != null);
+    assert(heap.proc(.IS_THIS_YOURS, 0, 0, q, heap.data) != null);
+    assert(a.proc(.IS_THIS_YOURS, 0, 0, q, a.data) == null, "ownership is per heap");
+    destroy_heap(heap);
+    free(p, a);
+    assert(a.proc(.IS_THIS_YOURS, 0, 0, p, a.data) == null, "a retired block is not owned");
+    deinit_overwriting_allocator(a);
 }
