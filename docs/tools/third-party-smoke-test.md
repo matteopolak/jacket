@@ -39,7 +39,57 @@ jaic or stdlib bug. Results live in the [project status](upstream-corpus.md#proj
    [jaic-sweep](jaic-sweep.md) keeps them working. The biggest new projects can also become
    [compile-time benchmark](compile-time-benchmark.md) workloads.
 
+## Building and running the projects
+
+Compiling is not enough. `tools/upstream_smoke.py` builds each project with its own entry point (`first.jai`,
+`build.jai` and the arguments its README documents) and runs the result without a person at the keyboard. The
+checks are in `tools/upstream-smoke.json`; CI runs them on linux-x64, linux-arm64, macos-arm64 (the
+`upstream-smoke` job of `ci.yml`) and windows-x64 (the job of the same name in `windows-native.yml`).
+
+```sh
+python3 tools/fetch_upstreams.py --only $(python3 tools/upstream_smoke.py --jaic x --projects)
+python3 tools/upstream_smoke.py --jaic target/release/jaic            # every check for this machine
+python3 tools/upstream_smoke.py --jaic target/release/jaic --filter focus -v
+```
+
+Each check copies its project (and the `link`ed siblings) into a scratch directory, so a build that writes
+into its tree leaves `corpus/upstream/` alone, then runs its steps in order:
+
+| step `kind` | what it does |
+| --- | --- |
+| `jaic` | `jaic <argv>` in the project (`cwd` selects a subdirectory); `outputs` must exist afterwards, `contains`/`ordered`/`not_contains` check what it prints |
+| `run` (default) | runs a program, feeds `stdin`, checks the exit code (`exit`) and the output |
+| `gui` | starts a windowed program, requires it to be running after `seconds`, takes screenshots before and after it started, and requires the screen to have changed (see below), then stops it |
+| `serve` | starts a server on a free port (`{port}` in `argv`), fetches `get`, checks status and body |
+| `lsp` | sends `initialize` over stdio and reads frames until the reply |
+
+A step with `needs` runs only if that program was built (some entry points do all their work at compile time),
+and one with `only` only on those platforms. A check with `only` or `skip` is a documented skip and says why;
+a check without steps is a skip on every platform.
+
+**Screenshots.** Linux runs the checks under `xvfb-run` (the display the stdlib window tests use) and takes
+screenshots with `xwd`; macOS uses `screencapture`; Windows copies the screen with .NET. Whatever the desktop
+looks like, the program drew something if the sampled pixels differ from the screenshot taken just before it
+started (at least 0.5% of 96x54 samples, and 4 or more colors). The images are uploaded as the
+`smoke-screenshots-<platform>` artifacts. On Windows, Mesa's software `opengl32.dll` is copied next to each
+window program (`--dlls`), as the stdlib window tests do.
+
+**Deviations from the projects' own steps** (each is a step of the check):
+
+- Focus builds with `first.jai - release`, but on x64 its `src/meow_hash.jai` is edited to use the portable
+  fallback hash Focus already has for CPUs without AES: the stdlib's `meow_hash` has no x64 implementation.
+- reflector's `build.jai` also builds a Windows-only benchmark, so the check builds `reflector-tests.jai`, a
+  driver that makes the same test workspace calls (see [upstream corpus](upstream-corpus.md)).
+- jai-tracy: `generate.jai` would rewrite the pinned bindings, so libtracy is compiled from the pinned Tracy client.
+- toml-jai's `tests.jai` starts a `jai` process per example; the check builds and runs each example itself.
+
 ## How to change it
+
+- A new check: add an object to `checks` in `tools/upstream-smoke.json` (`tools/test_upstream_smoke.py`
+  validates the file). Prefer assertions the project documents (its own test summary, a protocol answer) over
+  "exits 0". Programs that block (servers, editors, games) need `serve` or `gui`, never a bare `run`.
+- Run it on every platform before trusting it: `-os linux`/`-os windows` only type-check, and most failures
+  are runtime ones. Push a `tmp/...` branch, run `ci.yml` and dispatch `windows-native.yml` there, then delete it.
 
 - Watch for projects that write into their own directory (generated bindings, copied DLLs). Run
   `python3 tools/verify_upstreams.py` after trying one. If it reports changed files, re-run

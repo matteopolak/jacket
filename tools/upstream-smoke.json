@@ -569,7 +569,10 @@
           ],
           "seconds": 10
         }
-      ]
+      ],
+      "skip": {
+        "windows-x64": "Focus's Windows process code calls the Process module's init_named_pipe_pair (overlapped named pipes), which the stdlib does not have yet"
+      }
     },
     {
       "id": "jai-tracy",
