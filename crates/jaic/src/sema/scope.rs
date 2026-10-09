@@ -75,6 +75,9 @@ pub struct Scope {
     pub names: HashMap<Sym, Vec<EntityId>>,
     pub imports: Vec<ImportEntry>,
     pub pending: Vec<Pending>,
+    /// How many leading `pending` items are `Done`: a done item never changes again, so
+    /// scans start after them (every name lookup into the scope asks).
+    pub pending_done: usize,
     pub usings: Vec<UsingEntry>,
     /// Procedure whose body this scope belongs to (locals are only visible inside it).
     pub proc_depth: u32,
@@ -216,6 +219,7 @@ impl Compiler {
             names: HashMap::default(),
             imports: Vec::new(),
             pending: Vec::new(),
+            pending_done: 0,
             usings: Vec::new(),
             proc_depth,
             proc: None,
@@ -250,7 +254,9 @@ impl Compiler {
     /// loaded (or being loaded by a caller further up)?
     pub(super) fn settled(&self, scope: ScopeId) -> bool {
         let s = self.scope(scope);
-        s.pending.iter().all(|p| p.state == PendingState::Done)
+        s.pending[s.pending_done..]
+            .iter()
+            .all(|p| p.state == PendingState::Done)
             && s.imports.iter().all(|i| i.module.is_some() || i.loading)
     }
 
@@ -445,7 +451,15 @@ impl Compiler {
 
     /// Expand pending conditional items of a scope (each at most once).
     pub fn expand_pending(&mut self, scope: ScopeId) -> Result<()> {
-        let mut i = 0;
+        let s = self.scope_mut(scope);
+        while s
+            .pending
+            .get(s.pending_done)
+            .is_some_and(|p| p.state == PendingState::Done)
+        {
+            s.pending_done += 1;
+        }
+        let mut i = s.pending_done;
         while i < self.scope(scope).pending.len() {
             // Items expand in source order: a re-entrant expansion (from inside an
             // item's own condition or lookup) must not run later items early.
