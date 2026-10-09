@@ -124,6 +124,10 @@ pub(in crate::sema) enum SOp {
     Pmaddwd,
     Pmaddubsw,
     Psadbw,
+    /// `mpsadbw`: sums of absolute differences of 4-byte groups, picked by the immediate.
+    Mpsadbw,
+    /// `pmadd52luq` (false) / `pmadd52huq`: 52-bit multiply, low or high half added to qwords.
+    Madd52(bool),
     /// `pmuludq` / `pmuldq` (signed).
     MulEven(bool),
     /// `pdpbusd` (bytes) / `pdpwssd` (words): dot products accumulated into dword lanes.
@@ -179,6 +183,8 @@ pub(in crate::sema) enum SOp {
     /// `comiss`/`ucomiss`/`comisd`/`ucomisd`.
     Comis(Ty),
     Ptest,
+    /// `pcmpistri/pcmpestri/pcmpistrm/pcmpestrm`: (explicit lengths, mask result).
+    Pcmpstr(bool, bool),
     /// `ptestm*` (false) / `ptestnm*` (true).
     Testm(Ty, bool),
     MaskToVec(Ty),
@@ -237,8 +243,8 @@ pub(super) fn elem_size(op: SOp) -> u64 {
         | MaskMov(t) => t.size(),
         Horizontal(_, _, t) => t.size(),
         Pmaddwd | DotAcc(_) => 4,
-        Pmaddubsw | ShufHalf(_) => 2,
-        Psadbw | MulEven(_) | Shufpd | Pclmul(_) | MovHalf(_) => 8,
+        Pmaddubsw | ShufHalf(_) | Mpsadbw => 2,
+        Psadbw | MulEven(_) | Shufpd | Pclmul(_) | MovHalf(_) | Madd52(_) => 8,
         Pack(from, _) => from.size() / 2,
         Cvt(c) => match c {
             Conv::IntToFloat(_, to, _) | Conv::FloatToInt(_, to, _, _) => to.size(),
@@ -264,7 +270,10 @@ pub(super) fn dst_class(op: SOp, width: u64) -> &'static str {
     match op {
         SOp::IntCmp(..) | SOp::Testm(..) | SOp::VecToMask(_) => "omr",
         SOp::FCmp(..) if width == 64 => "omr",
-        SOp::Pextr(_) | SOp::Extractps | SOp::Cvt(Conv::ScalarToGpr(..)) => "gpr",
+        SOp::Pextr(_)
+        | SOp::Extractps
+        | SOp::Cvt(Conv::ScalarToGpr(..))
+        | SOp::Pcmpstr(_, false) => "gpr",
         _ => "vec",
     }
 }
@@ -356,6 +365,9 @@ pub(super) fn lookup_simd(name: &str) -> Option<SOp> {
         "pmaddwd" => Pmaddwd,
         "pmaddubsw" => Pmaddubsw,
         "psadbw" => Psadbw,
+        "mpsadbw" => Mpsadbw,
+        "pmadd52luq" => Madd52(false),
+        "pmadd52huq" => Madd52(true),
         "pdpbusd" => DotAcc(Ty::I8),
         "pdpwssd" => DotAcc(Ty::I16),
         "phminposuw" => Phminposuw,
@@ -462,6 +474,10 @@ pub(super) fn lookup_simd(name: &str) -> Option<SOp> {
         "comiss" | "ucomiss" => Comis(Ty::F32),
         "comisd" | "ucomisd" => Comis(Ty::F64),
         "ptest" => Ptest,
+        "pcmpistri" => Pcmpstr(false, false),
+        "pcmpestri" => Pcmpstr(true, false),
+        "pcmpistrm" => Pcmpstr(false, true),
+        "pcmpestrm" => Pcmpstr(true, true),
         "pternlogd" => Ternlog(Ty::I32),
         "pternlogq" => Ternlog(Ty::I64),
         "dpps" => Dp(Ty::F32),
@@ -1040,6 +1056,222 @@ impl Compiler {
         }
     }
 
+    /// `pcmpistri`, `pcmpestri`, `pcmpistrm`, `pcmpestrm`: string comparison of two 16-byte
+    /// operands. The operands are Jai's explicit form: `ecx` (or `xmm0`), then for the explicit
+    /// length forms `eax` and `edx`, the two vectors and the control byte. The control byte is
+    /// a constant, so the aggregation is chosen here and only the per-element booleans are
+    /// computed at run time.
+    #[allow(clippy::too_many_arguments)]
+    fn asm_pcmpstr(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        ops: &[VOpd],
+        explicit: bool,
+        mask: bool,
+        span: Span,
+        name: &str,
+    ) -> Result<()> {
+        let want = if explicit {
+            6
+        } else {
+            4
+        };
+        if ops.len() != want {
+            return err(span, format!("`{name}` takes {want} operands"));
+        }
+        let Some(VOpd::Imm(ctl)) = ops.last().copied() else {
+            return err(span, format!("`{name}` needs an 8-bit control constant"));
+        };
+        if !(0..=255).contains(&ctl) {
+            return err(span, format!("`{name}` needs an 8-bit control constant"));
+        }
+        let ctl = ctl as u8;
+        let (ty, signed) = match ctl & 3 {
+            0 => (Ty::I8, false),
+            1 => (Ty::I16, false),
+            2 => (Ty::I8, true),
+            _ => (Ty::I16, true),
+        };
+        let n = (16 / ty.size()) as usize;
+        let first = if explicit {
+            3
+        } else {
+            1
+        };
+        let pa = self.vec_ptr(f, ops[first], span)?;
+        let pb = self.vec_ptr(f, ops[first + 1], span)?;
+        let a: Vec<Val> = (0..n).map(|i| load_lane(f, pa, i as u64, ty)).collect();
+        let b: Vec<Val> = (0..n).map(|i| load_lane(f, pb, i as u64, ty)).collect();
+        // Which elements are part of the string: before the first zero (implicit lengths) or
+        // below the length in `eax` / `edx` (absolute value, at most the element count).
+        let valid_of = |this: &mut Self, f: &mut FnCtx, len: Option<VOpd>, v: &[Val]| {
+            let mut out = Vec::with_capacity(n);
+            match len {
+                Some(len) => {
+                    let x = this.vec_scalar_read(f, len, Ty::I32, span)?;
+                    let neg = is_neg(f, Ty::I32, x);
+                    let zero = konst(f, Ty::I32, 0);
+                    let negated = bin(f, BinOp::Sub, Ty::I32, zero, x);
+                    let abs = select(f, Ty::I32, neg, negated, x);
+                    for i in 0..n {
+                        let k = konst(f, Ty::I32, i as u64);
+                        out.push(cmp(f, CmpOp::ULt, Ty::I32, k, abs));
+                    }
+                }
+                None => {
+                    let mut run = konst(f, Ty::I8, 1);
+                    for &e in v {
+                        let z = is_zero(f, ty, e);
+                        let nz = flag_not(f, z);
+                        run = bin(f, BinOp::And, Ty::I8, run, nz);
+                        out.push(run);
+                    }
+                }
+            }
+            Result::Ok(out)
+        };
+        let (la, lb) = if explicit {
+            (Some(ops[1]), Some(ops[2]))
+        } else {
+            (None, None)
+        };
+        let va = valid_of(self, f, la, &a)?;
+        let vb = valid_of(self, f, lb, &b)?;
+        let one = konst(f, Ty::I8, 1);
+        let zero = konst(f, Ty::I8, 0);
+        let and = |f: &mut FnCtx, x: Val, y: Val| bin(f, BinOp::And, Ty::I8, x, y);
+        let or = |f: &mut FnCtx, x: Val, y: Val| bin(f, BinOp::Or, Ty::I8, x, y);
+        let eq = |f: &mut FnCtx, x: Val, y: Val| cmp(f, CmpOp::Eq, ty, x, y);
+        // Per-element result of the aggregation (`IntRes1`).
+        let mut res: Vec<Val> = Vec::with_capacity(n);
+        for i in 0..n {
+            let r = match (ctl >> 2) & 3 {
+                // Equal any: some valid element of `a` equals this valid element of `b`.
+                0 => {
+                    let mut acc = zero;
+                    for j in 0..n {
+                        let e = eq(f, a[j], b[i]);
+                        let both = and(f, va[j], vb[i]);
+                        let t = and(f, both, e);
+                        acc = or(f, acc, t);
+                    }
+                    acc
+                }
+                // Ranges: `a` holds (low, high) pairs; this element lies in one of them.
+                1 => {
+                    let (ge, le) = if signed {
+                        (CmpOp::SGe, CmpOp::SLe)
+                    } else {
+                        (CmpOp::UGe, CmpOp::ULe)
+                    };
+                    let mut acc = zero;
+                    for p in 0..n / 2 {
+                        let (lo, hi) = (2 * p, 2 * p + 1);
+                        let c1 = cmp(f, ge, ty, b[i], a[lo]);
+                        let c2 = cmp(f, le, ty, b[i], a[hi]);
+                        let inside = and(f, c1, c2);
+                        let valid = and(f, va[lo], va[hi]);
+                        let valid = and(f, valid, vb[i]);
+                        let t = and(f, valid, inside);
+                        acc = or(f, acc, t);
+                    }
+                    acc
+                }
+                // Equal each: pairwise; two missing elements match, one missing does not.
+                2 => {
+                    let e = eq(f, a[i], b[i]);
+                    let both = and(f, va[i], vb[i]);
+                    let hit = and(f, both, e);
+                    let na = flag_not(f, va[i]);
+                    let nb = flag_not(f, vb[i]);
+                    let none = and(f, na, nb);
+                    or(f, hit, none)
+                }
+                // Equal ordered: `a` occurs in `b` starting here (a missing `a` element matches).
+                _ => {
+                    let mut acc = one;
+                    for j in 0..n - i {
+                        let e = eq(f, a[j], b[i + j]);
+                        let both = and(f, va[j], vb[i + j]);
+                        let hit = and(f, both, e);
+                        let missing = flag_not(f, va[j]);
+                        let t = or(f, hit, missing);
+                        acc = and(f, acc, t);
+                    }
+                    acc
+                }
+            };
+            res.push(r);
+        }
+        // Polarity: negative inverts, masked negative inverts only the valid elements of `b`.
+        let res: Vec<Val> = match (ctl >> 4) & 3 {
+            1 => res.iter().map(|&r| flag_not(f, r)).collect(),
+            3 => res
+                .iter()
+                .zip(&vb)
+                .map(|(&r, &v)| {
+                    let inverted = flag_not(f, r);
+                    let outside = flag_not(f, v);
+                    let inv = and(f, v, inverted);
+                    let keep = and(f, outside, r);
+                    or(f, inv, keep)
+                })
+                .collect(),
+            _ => res,
+        };
+        let mut any = zero;
+        for &r in &res {
+            any = or(f, any, r);
+        }
+        let tmp = f.b.alloca(16, 16);
+        f.b.zero(tmp, 16);
+        if mask {
+            if ctl & 0x40 != 0 {
+                // One element of all ones per set bit.
+                for (i, &r) in res.iter().enumerate() {
+                    let wide = resize(f, r, Ty::I8, ty, false);
+                    let z = konst(f, ty, 0);
+                    let ones = bin(f, BinOp::Sub, ty, z, wide);
+                    store_lane(f, tmp, i as u64, ty, ones);
+                }
+            } else {
+                let mut bits_set = konst(f, Ty::I16, 0);
+                for (i, &r) in res.iter().enumerate() {
+                    let wide = resize(f, r, Ty::I8, Ty::I16, false);
+                    let sh = konst(f, Ty::I16, i as u64);
+                    let moved = bin(f, BinOp::Shl, Ty::I16, wide, sh);
+                    bits_set = bin(f, BinOp::Or, Ty::I16, bits_set, moved);
+                }
+                store_lane(f, tmp, 0, Ty::I16, bits_set);
+            }
+            self.simd_out(f, cx, ops[0], tmp, 16, span)?;
+        } else {
+            // The index of the lowest (or highest) set element; the element count when none.
+            let mut idx = konst(f, Ty::I32, n as u64);
+            let order: Vec<usize> = if ctl & 0x40 != 0 {
+                (0..n).collect()
+            } else {
+                (0..n).rev().collect()
+            };
+            for i in order {
+                let k = konst(f, Ty::I32, i as u64);
+                idx = select(f, Ty::I32, res[i], k, idx);
+            }
+            self.vec_scalar_write(f, ops[0], Ty::I32, idx, span)?;
+        }
+        // AF and PF are cleared (PF is the lazily evaluated parity byte, odd = clear).
+        let odd = konst(f, Ty::I8, 1);
+        cx.flags = Flags {
+            cf: Some(any),
+            zf: Some(flag_not(f, vb[n - 1])),
+            sf: Some(flag_not(f, va[n - 1])),
+            of: Some(res[0]),
+            pf: Some(odd),
+        };
+        Ok(())
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(super) fn asm_simd(
         &mut self,
@@ -1362,6 +1594,56 @@ impl Compiler {
                         sum = bin(f, BinOp::Add, Ty::I64, sum, d);
                     }
                     store_lane(f, tmp, i, Ty::I64, sum);
+                }
+                self.simd_out(f, cx, dst, tmp, width, span)?;
+            }
+            SOp::Mpsadbw => {
+                let (s, k) = self.simd_args(f, ops, 2, true, span)?;
+                // Each 128-bit block takes 3 bits of the immediate: the first source starts
+                // at byte 4 * bit 2, the second at byte 4 * bits 1:0.
+                for blk in 0..width / 16 {
+                    let ctl = k >> (3 * blk);
+                    let (aoff, boff) = (((ctl >> 2) & 1) * 4, (ctl & 3) * 4);
+                    for i in 0..8 {
+                        let mut sum = konst(f, Ty::I16, 0);
+                        for m in 0..4 {
+                            let a = load_lane(f, s[0], blk * 16 + aoff + i + m, Ty::I8);
+                            let b = load_lane(f, s[1], blk * 16 + boff + m, Ty::I8);
+                            let a = resize(f, a, Ty::I8, Ty::I16, false);
+                            let b = resize(f, b, Ty::I8, Ty::I16, false);
+                            let d = bin(f, BinOp::Sub, Ty::I16, a, b);
+                            let nd = bin(f, BinOp::Sub, Ty::I16, b, a);
+                            let lt = cmp(f, CmpOp::ULt, Ty::I16, a, b);
+                            let d = select(f, Ty::I16, lt, nd, d);
+                            sum = bin(f, BinOp::Add, Ty::I16, sum, d);
+                        }
+                        store_lane(f, tmp, blk * 8 + i, Ty::I16, sum);
+                    }
+                }
+                self.simd_out(f, cx, dst, tmp, width, span)?;
+            }
+            SOp::Madd52(high) => {
+                let (s, _) = self.simd_args(f, ops, 3, false, span)?;
+                let mask = konst(f, Ty::I64, (1 << 52) - 1);
+                for i in 0..width / 8 {
+                    let acc = load_lane(f, s[0], i, Ty::I64);
+                    let a = load_lane(f, s[1], i, Ty::I64);
+                    let b = load_lane(f, s[2], i, Ty::I64);
+                    let a = bin(f, BinOp::And, Ty::I64, a, mask);
+                    let b = bin(f, BinOp::And, Ty::I64, b, mask);
+                    let (hi, lo) = wide_mul(f, Ty::I64, a, b, false);
+                    let part = if high {
+                        let up = konst(f, Ty::I64, 12);
+                        let down = konst(f, Ty::I64, 52);
+                        let h = bin(f, BinOp::Shl, Ty::I64, hi, up);
+                        let l = bin(f, BinOp::LShr, Ty::I64, lo, down);
+                        bin(f, BinOp::Or, Ty::I64, h, l)
+                    } else {
+                        lo
+                    };
+                    let part = bin(f, BinOp::And, Ty::I64, part, mask);
+                    let r = bin(f, BinOp::Add, Ty::I64, acc, part);
+                    store_lane(f, tmp, i, Ty::I64, r);
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
@@ -1976,6 +2258,9 @@ impl Compiler {
                     sf: Some(zero),
                     of: Some(zero),
                 };
+            }
+            SOp::Pcmpstr(explicit, mask) => {
+                self.asm_pcmpstr(f, cx, ops, explicit, mask, span, name)?;
             }
             SOp::Ptest => {
                 if ops.len() != 2 {

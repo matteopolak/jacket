@@ -128,10 +128,12 @@ const SLOTS: usize = 64;
 const INT: usize = 0;
 
 const FLOAT: usize = 1;
+
 /// AArch64 `sret`: the caller's result address arrives in `x8`, which no prototype parameter
 /// sees. These thunks are assembly stubs that park `x8` in a stack word and call a regular
 /// thunk (`a64_sret_inner`), which finds it there.
 const A64_SRET: usize = 8;
+
 const SHAPES: usize = 9;
 
 struct Slot {
@@ -535,6 +537,7 @@ fn piece_size(p: &Piece, size: u64) -> u64 {
     width.min(size - p.offset)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn invoke(
     reenter: &mut Reenter<'_>,
     func: FuncId,

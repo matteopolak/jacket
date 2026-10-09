@@ -1329,6 +1329,32 @@
       }
     },
     {
+      "id": "asm-float-in-integer-instruction",
+      "source": "negative/asm-float-in-integer-instruction.jai",
+      "sha256": "68f602fa0315b3e0979f58ec443d7955e48df1ce26d7bc486469cb81511e073e",
+      "suite": "negative",
+      "feature": "asm",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "a floating-point variable is a vector register in #asm"
+      }
+    },
+    {
+      "id": "asm-vector-size-on-integer-instruction",
+      "source": "negative/asm-vector-size-on-integer-instruction.jai",
+      "sha256": "d5be77adbea84bee672a6b105f93bc7d323f726252ce714fbce5b3585738582b",
+      "suite": "negative",
+      "feature": "asm",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "(`.x/.y/.z` are vector sizes)"
+      }
+    },
+    {
       "id": "align-out-of-range",
       "source": "negative/align-out-of-range.jai",
       "sha256": "1ee6c7cd211b1433e786747b4ebc8bbae0eb59f68798be830a25690d78ec8bd7",

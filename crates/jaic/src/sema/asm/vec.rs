@@ -387,6 +387,24 @@ pub(super) fn float_to_s32(f: &mut FnCtx, x: Val, mode: char) -> Val {
 
 impl Compiler {
     /// Lower `inst` if it is a vector instruction; false when `base` is not one.
+    /// `asm_vec_inst`, then the store of a float-variable destination back to its variable.
+    pub(super) fn asm_vec_inst_floats(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        inst: &AsmInst,
+        base: &str,
+    ) -> Result<bool> {
+        cx.float_vars.clear();
+        cx.float_dst = None;
+        let done = self.asm_vec_inst(f, cx, inst, base)?;
+        if let Some((reg, addr, size)) = cx.float_dst.take() {
+            f.b.copy(addr, reg, size);
+        }
+        cx.float_vars.clear();
+        Ok(done)
+    }
+
     pub(super) fn asm_vec_inst(
         &mut self,
         f: &mut FnCtx,
@@ -445,7 +463,11 @@ impl Compiler {
             } else {
                 "vec"
             };
+            let before = cx.float_vars.len();
             ops.push(self.vec_operand_class(f, cx, o, class)?);
+            if i == 0 && cx.float_vars.len() > before {
+                cx.float_dst = cx.float_vars.last().copied();
+            }
         }
         let op = match (op, ops.first()) {
             (VOp::Bin(lane @ (Lane::CmpEq | Lane::CmpGt), ty, false), Some(VOpd::Mask(_))) => {
@@ -976,7 +998,7 @@ impl Compiler {
     pub(super) fn vec_operand_class(
         &mut self,
         f: &mut FnCtx,
-        cx: &AsmCtx,
+        cx: &mut AsmCtx,
         o: &AsmOperand,
         class: &str,
     ) -> Result<VOpd> {
@@ -1004,18 +1026,26 @@ impl Compiler {
                 }
                 let op = self.check_expr(f, cx.scope, e, None)?;
                 match op {
-                    // A Jai variable: integers act as general-purpose registers, anything
-                    // else (floats, arrays, vectors) is memory at its address.
+                    // A Jai variable: integers act as general-purpose registers, floats as
+                    // vector registers (their low bytes), anything else (arrays, vectors) is
+                    // memory at its address.
                     Operand::Place {
                         ty,
                         addr,
-                    } => {
-                        if self.ir_ty(ty).is_some_and(|t| !t.is_float()) {
+                    } => match self.ir_ty(ty) {
+                        Some(t) if !t.is_float() => {
                             Ok(VOpd::Gpr(self.asm_place(ty, addr, true, e.span)?))
-                        } else {
-                            Ok(VOpd::Mem(bitcast(f, Ty::Ptr, Ty::I64, addr)))
                         }
-                    }
+                        Some(t) => {
+                            let size = t.size();
+                            let reg = f.b.alloca(64, 16);
+                            f.b.zero(reg, 64);
+                            f.b.copy(reg, addr, size);
+                            cx.float_vars.push((reg, addr, size));
+                            Ok(VOpd::Reg(reg))
+                        }
+                        None => Ok(VOpd::Mem(bitcast(f, Ty::Ptr, Ty::I64, addr))),
+                    },
                     Operand::Const {
                         value: Value::Int(v),
                         ..

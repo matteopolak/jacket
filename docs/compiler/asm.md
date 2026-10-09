@@ -20,6 +20,10 @@ The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page
   3. `asm_mask_inst` (`sema/asm/mask.rs`): the `k*` op-mask instructions.
   4. `asm_vec_inst` (`sema/asm/vec.rs`): vector instructions; `lookup_vec` falls back to `simd::lookup_simd`
      (`sema/asm/simd.rs`) for the larger SIMD set. F16C, SHA and GFNI live in `sema/asm/simd/ext.rs`.
+- **Float variables.** A `float32`/`float64` variable is a vector register, as in Jai: a vector instruction works on a
+  zero-extended 64-byte copy of it and, when the variable is the destination, stores the low 4 or 8 bytes back
+  (`vec_operand_class`, `asm_vec_inst_floats`), so it never reads or writes past the variable. `movd`/`movq` between it
+  and an integer operand copy its bits, and integer instructions reject it (`asm_place`).
 - **Registers.** Variables are read and written in place through their stack slots. Declared registers are locals
   added to the *enclosing* scope (blocks are not scopes; macros see them). They start at zero. Classes: `gpr` (8
   bytes), `vec` (64 bytes; `xmm/ymm/zmm` by width), `str` (MMX, a `vec` used at 8 bytes), `omr`/`kmask` (an 8-byte
@@ -62,7 +66,8 @@ The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page
   (16/32/64 bytes; `.q` = 8 for MMX forms), else 32 in a block with an AVX feature, 64 with AVX-512, otherwise 16.
   A leading `v` is accepted (`vpaddd`). Two operands mean `dst op= src`, three `dst = a op b`. With an AVX feature, a
   register write clears the bytes above the written size (VEX); otherwise they are kept. A Jai variable operand is
-  memory at its address (integers act as general-purpose registers for `movd`/`movq`/`movmsk*`/`pextr*`).
+  memory at its address (integers act as general-purpose registers for `movd`/`movq`/`movmsk*`/`pextr*`, floats as
+  vector registers).
   A `name:` destination declares a `vec` register, except for instructions that write a general-purpose value
   (`movmsk*`, `pextr*`, `extractps`, `cvt*2si`): there it is a `gpr` (`dst_class` in `vec.rs` and `simd.rs`).
 - **Masks.** An `omr` register is an 8-byte local. `dst: &k` (merge) / `dst: &*k` (zero) apply after the instruction
@@ -130,6 +135,10 @@ Vector (any `ps/pd/ss/sd` or `b/w/d/q` variant that exists on hardware):
   `&*k` and a broadcast matrix).
 - F16C: `vcvtph2ps dst, src` and `vcvtps2ph dst, src, imm8`; the size suffix is the single-precision width
   (`vcvtps2ph.y [m128], ymm, 0`), and the AVX-512 `.z` form takes masks.
+- String compare: `pcmpistri`, `pcmpestri`, `pcmpistrm`, `pcmpestrm` (SSE4.2; `ecx`/`xmm0` first, then `eax`, `edx`
+  for the explicit forms, as Jai's operand lists have them). The control byte must be a constant, so the aggregation
+  (equal any, ranges, equal each, equal ordered), polarity and output selection are chosen when compiling and only
+  per-element booleans are computed at run time (`asm_pcmpstr` in `simd.rs`). `mpsadbw`, `pmadd52luq/huq`.
 - `zeroupper`.
 
 EVEX decorations: `[mem]!` (embedded broadcast), `!z/!n/!d/!u` rounding on `cvtps2dq`, `&k` / `&*k` masks.
@@ -140,9 +149,15 @@ Compile error `` unsupported #asm instruction `x` ``:
 
 - **x87** (`fld`, `fadd`, ...): Jai's `#asm` has no x87 instructions or registers (the `str` class is MMX), so there
   is nothing to accept.
-- `syscall`, `int n` other than 3, `push`/`pop`, `call`/`jmp`/`jcc` (Jai `#asm` has no labels), I/O and privileged
-  instructions, `pcmpestri/pcmpistri`, `getexp/getmant/scalef/fpclass/range/reduce`, `mpsadbw`, `pmadd52*`,
-  BF16/FP16 arithmetic, the SHA-512/SM3/SM4 extensions, AMX.
+- `syscall`: the lowering has to run the same on every host, and the system call numbers and conventions differ by
+  OS and CPU (an arm64 Mac has no `syscall` to make), so it cannot be given one meaning. Use `Runtime_Support`/POSIX
+  procedures instead.
+- `push`/`pop`, `call`/`jmp`/`jcc`, `int n` other than 3: the stack pointer is not modelled and Jai `#asm` has no
+  labels, so there is no control flow to express. Real programs use Jai control flow around the block.
+- I/O and privileged instructions: they fault outside ring 0.
+- `getexp/getmant/scalef/fpclass/range/reduce` (AVX-512 floating-point special functions), BF16/FP16 arithmetic, the
+  SHA-512/SM3/SM4 extensions, AMX: rarely written by hand in Jai programs, and each needs its own exact special-case
+  rules; add them as `SOp`s when a program needs one.
 
 Known differences from hardware: `rcp*/rsqrt*` return the exact result (hardware approximates to 12 or 14 bits);
 single-precision FMA computes in double and rounds once more (exact except in rare double-rounding cases); MXCSR is

@@ -75,7 +75,7 @@ provide_directory :: (w: Workspace, m: *Message_Failed_Import) {
     provide_import(w, m, .PATH_TO_DIRECTORY, tprint("%/modules/Provided_Dir", #filepath));
 }
 
-main :: () {
+checks :: () {
     // remap_import: `Not_A_Module` does not exist, `Math` does.
     r := build(USES_REMAPPED, true, null);
     assert(r.error_code == 0 && r.failed_imports.count == 0);
@@ -96,3 +96,8 @@ main :: () {
 
     print("ok\n");
 }
+
+// Compile-time only: the Compiler module's procedures need the compiler.
+#run checks();
+
+main :: () {}

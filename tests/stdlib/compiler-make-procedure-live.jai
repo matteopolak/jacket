@@ -48,7 +48,7 @@ contains :: (names: [] string, wanted: string) -> bool {
     return false;
 }
 
-main :: () {
+checks :: () {
     plain := bodies_of(false);
     assert(!contains(plain, "spare") && !contains(plain, "other"));
 
@@ -57,3 +57,8 @@ main :: () {
     assert(!contains(live, "other"));
     print("ok\n");
 }
+
+// Compile-time only: the Compiler module's procedures need the compiler.
+#run checks();
+
+main :: () {}

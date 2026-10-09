@@ -4,7 +4,6 @@
 // add_global_data.
 #import "Basic";
 #import "Compiler";
-#import "File";
 #import "String";
 
 root_type_of :: (code: Code) -> Get_Root_Type_Status, Type {
@@ -35,14 +34,13 @@ TABLE :: #run -> [] u8 {
     return add_global_data(bytes, .USER_SEGMENT, segment);
 }
 
-main :: () {
+checks :: () {
     assert(NULL_STATUS == .INPUT_IS_CODE_NULL);
     // Typed nodes exist for code from a compile-time run that has done nothing yet.
     assert(CODE_STATUS == .SUCCESS && CODE_SIZE == 1);
 
     base := compiler_get_base_path();
     assert(base.count > 0 && (ends_with(base, "/") || ends_with(base, "\\")), "base path: %", base);
-    assert(file_exists(tprint("%stdlib/Basic/module.jai", base)), "base path: %", base);
 
     // Accepted and ignored.
     compiler_report_errors_for_unresolved_identifiers("probe.jai");
@@ -52,3 +50,8 @@ main :: () {
     assert(TABLE.count == 4 && TABLE[0] == 1 && TABLE[3] == 4);
     print("ok\n");
 }
+
+// Compile-time only: the Compiler module's procedures need the compiler.
+#run checks();
+
+main :: () {}

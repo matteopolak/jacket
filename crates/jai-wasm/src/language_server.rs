@@ -305,10 +305,13 @@ mod tests {
             escaped = escaped,
         );
         send(&mut bridge, &open);
-        // A format string with too few arguments is reported without type checking.
-        let bad = r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///jai-script/bad.jai","languageId":"jai","version":1,"text":"main :: () { print(\"% %\\n\", 1); }\n"}}}"#;
+        // A format string with too few arguments is the compiler's warning.
+        let bad = r##"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///jai-script/bad.jai","languageId":"jai","version":1,"text":"#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n"}}}"##;
         let published = send(&mut bridge, bad);
-        assert!(published.contains("jai-format"), "{published}");
+        assert!(
+            published.contains("incorrect number of arguments"),
+            "{published}"
+        );
         let hints = send(
             &mut bridge,
             concat!(

@@ -216,6 +216,8 @@ const PATTERNS: &[&str] = &[
     "pmulh{w,uw,rsw}",
     "pmul{udq,dq}",
     "{pmaddwd,pmaddubsw,psadbw,pdpbusd,pdpwssd,phminposuw}",
+    "{mpsadbw,pmadd52luq,pmadd52huq}",
+    "pcmp{i,e}str{i,m}",
     "ph{add,sub}{w,d,sw}",
     "h{add,sub}{ps,pd}",
     "addsub{ps,pd}",
@@ -537,8 +539,11 @@ fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static 
         }
         SOp::Horizontal(..) | SOp::Pmaddubsw | SOp::Palignr | SOp::Pshufb => sse("SSSE3", true),
         SOp::Pmaddwd | SOp::Psadbw | SOp::MulEven(false) | SOp::ShufHalf(_) => sse("SSE2", true),
+        SOp::Mpsadbw => sse("SSE4_1", true),
+        SOp::Madd52(_) => avx("AVX512_IFMA"),
         SOp::ByteShift(_) => sse("SSE2", true),
         SOp::MulEven(true) | SOp::Phminposuw | SOp::Ptest | SOp::Extend(..) => sse("SSE4_1", true),
+        SOp::Pcmpstr(..) => sse("SSE4_2", false),
         SOp::DotAcc(_) => avx("AVX512_VNNI"),
         SOp::Unpack(..) if name.starts_with('u') => fp(name),
         SOp::Unpack(..) => sse("SSE2", true),
@@ -800,7 +805,11 @@ fn simd_forms(op: SOp, vex: bool) -> Vec<&'static str> {
         SOp::Cvt(Conv::ScalarToGpr(..)) => vec!["dst: gpr, src: vec/mem"],
         SOp::Cvt(_) => vec![UNARY],
         SOp::Fma(..) => vec![BIN3],
-        SOp::DotAcc(_) => vec!["acc: vec, a: vec, b: vec/mem"],
+        SOp::DotAcc(_) | SOp::Madd52(_) => vec!["acc: vec, a: vec, b: vec/mem"],
+        SOp::Mpsadbw => vec![
+            "dst: vec, src: vec/mem, imm8",
+            "dst: vec, a: vec, b: vec/mem, imm8",
+        ],
         SOp::Round(_, true)
         | SOp::Shufpd
         | SOp::Palignr
@@ -854,6 +863,10 @@ fn simd_forms(op: SOp, vex: bool) -> Vec<&'static str> {
         SOp::Half(false) => vec![UNARY],
         SOp::Half(true) => vec!["dst: vec/mem, src: vec, imm"],
         SOp::Comis(_) | SOp::Ptest => vec!["a: vec, b: vec/mem"],
+        SOp::Pcmpstr(false, false) => vec!["ecx: gpr, a: vec, b: vec/mem, imm8"],
+        SOp::Pcmpstr(true, false) => vec!["ecx: gpr, eax: gpr, edx: gpr, a: vec, b: vec/mem, imm8"],
+        SOp::Pcmpstr(false, true) => vec!["xmm0: vec, a: vec, b: vec/mem, imm8"],
+        SOp::Pcmpstr(true, true) => vec!["xmm0: vec, eax: gpr, edx: gpr, a: vec, b: vec/mem, imm8"],
         SOp::MaskToVec(_) | SOp::BroadcastMask(_) => vec!["dst: vec, src: omr"],
         SOp::VecToMask(_) => vec!["dst: omr, src: vec"],
         SOp::Compress(_) => vec!["dst: vec/mem &k, src: vec"],
@@ -1304,6 +1317,11 @@ fn describe_simd(name: &str, op: SOp) -> String {
         ),
         SOp::Pmaddwd => "Multiply signed words and add adjacent products into dwords.".into(),
         SOp::Pmaddubsw => "Multiply unsigned bytes by signed bytes and add adjacent products into saturated words.".into(),
+        SOp::Mpsadbw => "Sums of absolute differences of 4-byte groups of the first source against 4 bytes of the second, chosen by the immediate, into 8 words per 128 bits.".into(),
+        SOp::Madd52(high) => format!(
+            "Multiply the low 52 bits of each qword and add the {} 52 bits of the product to the accumulator.",
+            if high { "high" } else { "low" }
+        ),
         SOp::Psadbw => "Sum of absolute byte differences over each group of 8 bytes, into a qword.".into(),
         SOp::MulEven(signed) => format!(
             "Multiply the even {} dwords into full 64-bit products.",
@@ -1434,6 +1452,12 @@ fn describe_simd(name: &str, op: SOp) -> String {
             lanes(ty).trim_end_matches('s')
         ),
         SOp::Ptest => "Set ZF if a AND b is zero and CF if b AND NOT a is zero.".into(),
+        SOp::Pcmpstr(explicit, mask) => format!(
+            "Compare two strings of bytes or words ({} lengths) as the control byte says and \
+             write {}; CF, ZF, SF and OF describe the result.",
+            if explicit { "explicit" } else { "zero-terminated" },
+            if mask { "a mask into xmm0" } else { "an index into ecx" }
+        ),
         SOp::Testm(ty, not) => format!(
             "Set a mask bit for each of the {} where a AND b is {}.",
             lanes(ty),

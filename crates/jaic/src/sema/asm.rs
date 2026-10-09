@@ -505,6 +505,11 @@ struct AsmCtx {
     /// The direction flag (`std`/`cld`), tracked statically within the block. The ABI
     /// guarantees it is clear on entry, so a block that never sets it counts upwards.
     df: bool,
+    /// Float variables named by the vector instruction being lowered, as (register copy, address,
+    /// size in bytes): they are vector registers, so the instruction works on a copy and the
+    /// destination's low bytes are stored back after it.
+    float_vars: Vec<(Val, Val, u64)>,
+    float_dst: Option<(Val, Val, u64)>,
 }
 
 /// An in-progress read-modify-write of one operand.
@@ -690,6 +695,8 @@ impl Compiler {
             },
             vex,
             df: false,
+            float_vars: Vec::new(),
+            float_dst: None,
         };
         for item in &block.items {
             match item {
@@ -870,7 +877,8 @@ impl Compiler {
             Some(_) => {
                 return err(
                     span,
-                    "floating-point variables are not supported in #asm (SIMD/x87 instructions are not lowered)",
+                    "a floating-point variable is a vector register in #asm: it is an operand of vector instructions \
+                     (`addss x, y`) and of `movd`/`movq`, not of integer instructions",
                 );
             }
             None => {
@@ -1195,7 +1203,7 @@ impl Compiler {
             }
             if !lock
                 && (self.asm_mask_inst(f, cx, inst, base)?
-                    || self.asm_vec_inst(f, cx, inst, base)?)
+                    || self.asm_vec_inst_floats(f, cx, inst, base)?)
             {
                 return Ok(());
             }
@@ -1613,7 +1621,8 @@ impl Compiler {
                 other => err(
                     s.span,
                     format!(
-                        "unsupported #asm operand size `.{other}` (vector sizes are not supported)"
+                        "unsupported #asm operand size `.{other}`: an integer instruction takes \
+                         `.b/.w/.d/.q` (`.x/.y/.z` are vector sizes)"
                     ),
                 ),
             },
