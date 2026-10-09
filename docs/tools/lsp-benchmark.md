@@ -40,8 +40,10 @@ is the model for the options and the results format.
 - **CPU and memory.** Between steps (outside the timed window) the script samples the server's user and system
   CPU seconds and RSS (`/proc` or `ps`); each metric records the CPU seconds spent during its step and the RSS
   after it. Totals per session, and `peak_rss_mib`, come from `os.wait4` after shutdown, so they include everything.
-  CPU granularity is 10 ms from `ps` on macOS. The `typing_median` metric has no CPU of its own (it shares
-  `typing_first`'s step).
+  On macOS the sample comes from `proc_pidinfo(PROC_PIDTASKINFO)` through `ctypes`, which has microsecond
+  resolution (scaled by `mach_timebase_info`); Linux reads `/proc/<pid>/stat` (10 ms ticks); anywhere else `ps`
+  (10 ms). The `typing_median` metric has no CPU of its own (it shares `typing_first`'s step, which includes
+  the first character only).
 - **Failures are data.** Every request has `--timeout` (60 s). A wait also stops when the server's RSS passes
   `--max-rss` (6144 MiB), because a runaway request can eat a 16 GiB machine. Cells show a status where there
   is no number:
@@ -70,12 +72,14 @@ is the model for the options and the results format.
 ```sh
 cargo build --release -p jai-language-server
 python3 tools/lsp_bench.py --repeat 5 --out new.json --markdown new.md       # everything, both diagnostic styles
-python3 tools/lsp_bench.py --only /jails/pull --repeat 1                     # smoke run
-python3 tools/lsp_bench.py --only /large --diagnostics pull --compare old.json
+python3 tools/lsp_bench.py --only jails --diagnostics pull --repeat 1        # smoke run
+python3 tools/lsp_bench.py --only large --diagnostics pull --compare old.json
 ```
 
-`--only` matches a substring of the whole key, which starts with the server name, so `jails` also matches
-`jailsp/...`; write `/jails/`.
+`--only` takes comma-separated terms, any of which may match. A term with a `/` is a substring of the whole
+`server/workload/mode` key (`jailsp/focus`, `/jails/pull`); the name of a server (`jailsp`) selects all its workloads;
+any other term is a substring of the workload name only, so `--only jails` runs the `jails` workload and not the
+server `jailsp`, and `--only large` runs both large files.
 
 `--compare` prints each regression and exits 1 when warm time, warm CPU time or step RSS of a metric, or total
 CPU seconds or peak RSS of a workload, grew by more than `--threshold` (20%) and also by more than
@@ -85,6 +89,10 @@ time, since the numbers are wall time.
 
 ### Reading the numbers
 
+- The hover position is the identifier 60% of the way through the procedure bodies. When it answers null, up to
+  seven other identifiers are tried (untimed) and the first that answers is used for the other hover metrics and
+  for edit-then-hover; the Markdown says how many were tried (`hover_retries` in the JSON). A workload that still
+  says `hover null` has no hoverable fact at any of them.
 - A numeric hover on a workload whose first diagnostics list `jai-check` errors may be an answer from
   incomplete facts, and `hover null` in the Markdown means the server had no fact there. Corpus projects whose
   build is a metaprogram (Jails, chess-jai, Focus) are only partly checkable by the server, which is a property of

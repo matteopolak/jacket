@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure the latency and memory of the Jai language server (jailsp) on real and generated projects.
 
-    python3 tools/lsp_bench.py [--jailsp PATH] [--repeat 5] [--only TEXT] [--diagnostics pull,push]
+    python3 tools/lsp_bench.py [--jailsp PATH] [--repeat 5] [--only TERMS] [--diagnostics pull,push]
                                [--timeout 60] [--out results.json] [--markdown results.md]
                                [--compare old.json] [--threshold 0.20]
 
@@ -249,10 +249,17 @@ def pick_positions(text: str, fraction: float = 0.6) -> dict | None:
     if not identifiers:
         return None
     number, col, word, body = identifiers[min(len(identifiers) - 1, int(len(identifiers) * fraction))]
+    alternatives = []
+    for other in (0.35, 0.5, 0.7, 0.8, 0.9, 0.2, 0.1):
+        n, c, w, _ = identifiers[min(len(identifiers) - 1, int(len(identifiers) * other))]
+        candidate = {'line': n, 'character': utf16_col(lines[n].rstrip('\r'), c), 'name': w}
+        if w != word and candidate not in alternatives:
+            alternatives.append(candidate)
     raw = lines[number].rstrip('\r')
     indent = raw[:len(raw) - len(raw.lstrip(' \t'))]
     pick = {
         'hover': {'line': number, 'character': utf16_col(raw, col), 'name': word},
+        'hover_alternatives': alternatives,
         'insert_line': number + 1,
         'indent': indent,
         'declaration': {'line': body[0], 'character': 0, 'name': body[2]},
@@ -290,6 +297,48 @@ def parse_cpu_time(text: str) -> float:
     for part in rest.split(':'):
         seconds = seconds * 60 + float(part)
     return seconds + (int(days) * 86400 if days else 0)
+
+
+def darwin_task_times():
+    """A reader of (user seconds, system seconds, RSS bytes) of a process by pid on macOS, from
+    `proc_pidinfo(PROC_PIDTASKINFO)`: microsecond resolution where `ps` has 10 ms. None elsewhere or when
+    libproc cannot be loaded."""
+    if sys.platform != 'darwin':
+        return None
+    try:
+        import ctypes
+        import ctypes.util
+
+        libproc = ctypes.CDLL(ctypes.util.find_library('proc') or '/usr/lib/libproc.dylib')
+        libc = ctypes.CDLL(ctypes.util.find_library('c') or '/usr/lib/libSystem.B.dylib')
+
+        class TaskInfo(ctypes.Structure):
+            _fields_ = [('virtual_size', ctypes.c_uint64), ('resident_size', ctypes.c_uint64),
+                        ('total_user', ctypes.c_uint64), ('total_system', ctypes.c_uint64),
+                        ('threads_user', ctypes.c_uint64), ('threads_system', ctypes.c_uint64),
+                        ('rest', ctypes.c_int32 * 12)]
+
+        class Timebase(ctypes.Structure):
+            _fields_ = [('numer', ctypes.c_uint32), ('denom', ctypes.c_uint32)]
+
+        timebase = Timebase()
+        libc.mach_timebase_info(ctypes.byref(timebase))
+        scale = timebase.numer / timebase.denom / 1e9  # mach absolute time units -> seconds
+        libproc.proc_pidinfo.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int]
+
+        def read(pid: int):
+            info = TaskInfo()
+            size = libproc.proc_pidinfo(pid, 4, 0, ctypes.byref(info), ctypes.sizeof(info))  # PROC_PIDTASKINFO
+            if size < 40:
+                return None
+            return info.total_user * scale, info.total_system * scale, info.resident_size
+
+        return read
+    except (OSError, AttributeError, ValueError):
+        return None
+
+
+TASK_TIMES = darwin_task_times()
 
 
 def median(values: list[float]) -> float:
@@ -577,6 +626,8 @@ class Client:
         pid = self.process.pid
         stat = Path(f'/proc/{pid}/stat')
         try:
+            if TASK_TIMES and (times := TASK_TIMES(pid)):
+                return {'cpu_user': times[0], 'cpu_sys': times[1], 'rss_mib': times[2] / 2**20}
             if stat.exists():
                 fields = stat.read_text().rsplit(')', 1)[1].split()
                 ticks = os.sysconf('SC_CLK_TCK')
@@ -796,8 +847,24 @@ def run_session(command: list[str], workload: dict, mode: str, timeout: float, m
             hover_params = document_params(position={'line': hover['line'], 'character': hover['character']})
 
             def hover_first() -> float:
+                nonlocal hover, hover_params
                 seconds, result = timed('textDocument/hover', hover_params)
                 info['hover_result'] = result is not None
+                # A position with no fact (a name inside generated code, a comment the masking missed) would make
+                # every hover metric measure an empty answer: look for one that answers, untimed, and use it from
+                # here on. The first hover above stays the timed one.
+                info['hover_retries'] = 0
+                for alternative in picks.get('hover_alternatives', []):
+                    if result is not None:
+                        break
+                    info['hover_retries'] += 1
+                    params = document_params(position={'line': alternative['line'],
+                                                       'character': alternative['character']})
+                    _, result = timed('textDocument/hover', params)
+                    if result is not None:
+                        hover, hover_params = alternative, params
+                        info['hover_result'] = True
+                info['hover_position'] = {k: hover[k] for k in ('line', 'character', 'name')}
                 return seconds
 
             step('hover_first', hover_first, NEEDS['hover_first'])
@@ -1012,7 +1079,8 @@ def markdown(report: dict, baseline: dict | None = None) -> str:
         info = row['info']
         if 'diagnostic_codes' in info:
             lines.append(f"- `{key}`: {info['diagnostics_count']} diagnostics {info['diagnostic_codes']}, "
-                         f"hover {'answered' if info.get('hover_result') else 'null'}")
+                         f"hover {'answered' if info.get('hover_result') else 'null'}"
+                         + (f" after {info['hover_retries']} other position(s)" if info.get('hover_retries') else ''))
     bad = [(key, n, metric) for key, row in report['results'].items() for n, metric in row['metrics'].items()
            if metric['status'] not in ('ok', 'skipped') and metric.get('message')]
     seen = set()
@@ -1042,13 +1110,34 @@ def parse_servers(specs: list[str]) -> dict[str, list[str]]:
     return servers
 
 
+def selected(only: str, server: str, workload: str, mode: str, servers) -> bool:
+    """Whether the key `server/workload/mode` is wanted by `--only`: comma-separated terms, any of which may
+    match. A term with a `/` is a substring of the whole key (`jailsp/focus`, `/jails/pull`); the name of a
+    server selects all its workloads; any other term is a substring of the workload name only, so `jails` does
+    not select the server `jailsp`."""
+    if not only:
+        return True
+    key = f'{server}/{workload}/{mode}'
+    for term in (t.strip() for t in only.split(',') if t.strip()):
+        if '/' in term:
+            if term in key:
+                return True
+        elif term in servers:
+            if term == server:
+                return True
+        elif term in workload:
+            return True
+    return False
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--server', action='append', metavar='NAME=CMD',
                     help='a language server to run (repeatable; default jailsp=target/release/jailsp); it must '
                          'speak LSP over stdio')
     ap.add_argument('--repeat', type=int, default=5, help='sessions per workload (the first is the cold one)')
-    ap.add_argument('--only', default='', help='substring of "server/workload/mode" keys to run')
+    ap.add_argument('--only', default='', help='what to run, comma-separated: a server name, a substring of the '
+                    'workload name (jails, large), or with a "/" a substring of the whole "server/workload/mode" key')
     ap.add_argument('--diagnostics', default='pull,push', help='client styles to run: pull, push or pull,push')
     ap.add_argument('--timeout', type=float, default=60, help='seconds a single request may take')
     ap.add_argument('--push-wait', type=float, default=15, help='seconds to wait for pushed diagnostics before '
@@ -1067,7 +1156,7 @@ def main() -> None:
         sys.exit('--diagnostics takes pull, push or pull,push')
     servers = parse_servers(a.server)
     todo = [(f'{server}/{name}/{mode}', server, name, mode) for server in servers for name in WORKLOADS
-            for mode in modes if a.only in f'{server}/{name}/{mode}']
+            for mode in modes if selected(a.only, server, name, mode, servers)]
     if a.list:
         for key, _, name, _ in todo:
             spec = WORKLOADS[name]
