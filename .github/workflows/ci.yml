@@ -307,6 +307,67 @@ jobs:
       - name: Stdlib coverage ratchet
         if: ${{ always() && !cancelled() }}
         run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }} --check --print-baseline
+  upstream-smoke:
+    # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
+    # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
+    # their tests, games and editors open a window on a virtual display for a few seconds and must
+    # draw something (docs/tools/third-party-smoke-test.md). Windows runs the same checks in
+    # windows-native.yml.
+    name: third-party projects (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: ubuntu-24.04
+            platform: linux-x64
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install LLVM 23 and FreeType (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          tools/install_ci_llvm_macos.sh
+          brew list freetype > /dev/null 2>&1 || brew install freetype
+      - name: Install LLVM 23, the window libraries and a virtual display (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 15
+        run: |
+          bash tools/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+          # As the stdlib runtime job, plus x11-apps (xwd takes the screenshots) and the xcb and
+          # fontconfig libraries Focus loads at run time.
+          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth x11-apps libxfixes-dev libasound2-dev mesa-vulkan-drivers libxcb1-dev libxcb-cursor0 libxkbcommon-dev libfontconfig1-dev
+      - name: Build jaic
+        run: cargo build --release --locked -p jaic-cli
+      - name: Fetch the pinned projects
+        run: python3 tools/fetch_upstreams.py --only $(python3 tools/upstream_smoke.py --jaic x --projects)
+      - name: Build and run the projects
+        run: |
+          ulimit -c 0
+          run=()
+          [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
+          "${run[@]}" python3 -u tools/upstream_smoke.py --jaic target/release/jaic --platform ${{ matrix.platform }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && !cancelled() }}
+        with:
+          name: smoke-screenshots-${{ matrix.platform }}
+          path: target/smoke-screenshots
+          if-no-files-found: ignore
   sanitizers:
     # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
     # with the interpreter's expectations; any sanitizer report fails the case

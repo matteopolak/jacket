@@ -179,22 +179,40 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--since', default='2025-10-01', help='minimum Jai source modification date (UTC)')
+    parser.add_argument('--only', nargs='+', metavar='OWNER/REPO',
+                        help='fetch just these repositories at their pinned revisions (`_modules` stands for '
+                             'the libraries linked there); the manifest is left alone')
     args = parser.parse_args()
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc)
     manifest = ROOT / 'corpus/upstreams.json'
     old = json.loads(manifest.read_text()) if manifest.exists() else {'projects': []}
     pins = {p['repository']: p for p in old['projects']}
     projects = []
+    wanted = None
+    if args.only:
+        wanted = set(args.only)
+        if '_modules' in wanted:
+            wanted |= {t.replace('--', '/', 1) for l, t in MODULE_LINKS if l.startswith('_modules/')}
+        # Submodule mount points name their targets (Jails needs jaison and jai_parser).
+        for link, target in MODULE_LINKS:
+            if link.split('/')[0].replace('--', '/', 1) in wanted:
+                wanted.add(target.split('/')[0].replace('--', '/', 1))
     for repo in REPOSITORIES + DEPENDENCIES + LIBRARIES:
+        if wanted is not None and repo not in wanted:
+            continue
         record = fetch(repo, since, pins.get(repo)); projects.append(record)
         print(f"{repo}: {record['selection']}, {len(record['files'])} text files at {record['revision']}", flush=True)
     upstream = DATA / 'corpus/upstream'
     for link, target in MODULE_LINKS:
         path = upstream / link
+        if wanted is not None and not ((upstream / target).exists() and (upstream / link.split('/')[0]).exists()):
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.is_symlink() or path.exists():
             path.unlink()
         path.symlink_to(os.path.relpath(upstream / target, path.parent))
+    if wanted is not None:
+        return
     temporary = manifest.with_suffix('.json.tmp')
     temporary.write_text(json.dumps({'format': 1, 'minimum_source_date': since.isoformat(), 'projects': projects}, indent=2) + '\n')
     temporary.replace(manifest)

@@ -1,0 +1,593 @@
+{
+  "format": 1,
+  "checks": [
+    {
+      "id": "chess-engine",
+      "project": "danieltan1517--chess-jai",
+      "steps": [
+        {
+          "name": "build.jai - ai release",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "build.jai",
+            "-",
+            "ai",
+            "release"
+          ],
+          "timeout": 900,
+          "outputs": [
+            "ceij"
+          ]
+        },
+        {
+          "name": "UCI handshake and perft 4",
+          "argv": [
+            "./ceij"
+          ],
+          "stdin": "uci\nisready\nposition startpos\ngo perft 4\nquit\n",
+          "timeout": 60,
+          "contains": [
+            "uciok",
+            "readyok",
+            "Total 197281 nodes"
+          ]
+        },
+        {
+          "name": "search to depth 6",
+          "argv": [
+            "./ceij"
+          ],
+          "stdin": "uci\nisready\nposition startpos moves e2e4\ngo depth 6\nquit\n",
+          "timeout": 120,
+          "contains": [
+            "info depth 6",
+            "bestmove "
+          ]
+        },
+        {
+          "name": "perft_all",
+          "argv": [
+            "./ceij"
+          ],
+          "stdin": "perft_all\nquit\n",
+          "timeout": 300,
+          "contains": [
+            "perft successful at the depth of: 5, 3605103 nodes",
+            "All perft tests complete!"
+          ],
+          "not_contains": [
+            "failed"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chess-ui",
+      "project": "danieltan1517--chess-jai",
+      "steps": [
+        {
+          "name": "build.jai - ui release",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "build.jai",
+            "-",
+            "ui",
+            "release"
+          ],
+          "timeout": 900,
+          "outputs": [
+            "chess"
+          ]
+        },
+        {
+          "kind": "gui",
+          "name": "window for 8 s",
+          "argv": [
+            "./chess"
+          ],
+          "seconds": 8
+        }
+      ]
+    },
+    {
+      "id": "jails",
+      "project": "SogoCZE--Jails",
+      "link": [
+        "rluba--jaison",
+        "SogoCZE--jai_parser"
+      ],
+      "steps": [
+        {
+          "name": "build.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "build.jai"
+          ],
+          "timeout": 900,
+          "outputs": [
+            "bin/jails"
+          ]
+        },
+        {
+          "name": "LSP initialize",
+          "kind": "lsp",
+          "argv": [
+            "./bin/jails"
+          ],
+          "contains": [
+            "capabilities"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jaison",
+      "project": "rluba--jaison",
+      "steps": [
+        {
+          "name": "tests.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "tests.jai",
+            "-o",
+            "tests_bin"
+          ],
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./tests_bin"
+          ],
+          "timeout": 120
+        }
+      ]
+    },
+    {
+      "id": "uniform",
+      "project": "rluba--uniform",
+      "link": [
+        "rluba--stubborn"
+      ],
+      "steps": [
+        {
+          "name": "first.jai - test",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-",
+            "test"
+          ],
+          "timeout": 600
+        }
+      ]
+    },
+    {
+      "id": "jai-xml",
+      "project": "smari--jai-xml",
+      "steps": [
+        {
+          "name": "test.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "test.jai",
+            "-o",
+            "xml_test"
+          ],
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./xml_test"
+          ],
+          "contains": [
+            "Passed: 6 (100%)",
+            "Failed: 0 (0%)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jai-protobuf",
+      "project": "segcore--jai-protobuf",
+      "steps": [
+        {
+          "name": "tests/test.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "test.jai",
+            "-o",
+            "pb_test"
+          ],
+          "cwd": "tests",
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./pb_test"
+          ],
+          "cwd": "tests",
+          "contains": [
+            "All tests passed!"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rexim-rss",
+      "project": "rexim--rexim.github.io",
+      "steps": [
+        {
+          "name": "rss.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "rss.jai",
+            "-o",
+            "rss"
+          ],
+          "timeout": 300,
+          "outputs": []
+        },
+        {
+          "argv": [
+            "./rss"
+          ],
+          "contains": [
+            "Generated event file event/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wait-group",
+      "project": "rluba--wait_group",
+      "only": [
+        "macos-arm64",
+        "macos-x64",
+        "linux-x64",
+        "linux-arm64"
+      ],
+      "only_reason": "kqueue/epoll event loop; no Windows backend upstream",
+      "steps": [
+        {
+          "name": "examples/example.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "examples/example.jai",
+            "-o",
+            "wg_example"
+          ],
+          "timeout": 300
+        },
+        {
+          "argv": [
+            "./wg_example"
+          ],
+          "timeout": 60,
+          "contains": [
+            "Finished writing all data. Closing socket.",
+            "Received EOF. Quitting."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hyperserve",
+      "project": "rluba--hyperserve",
+      "link": [
+        "_modules"
+      ],
+      "steps": [
+        {
+          "name": "examples/example.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "examples/example.jai",
+            "-I",
+            "../_modules",
+            "-o",
+            "hs_example"
+          ],
+          "timeout": 600
+        },
+        {
+          "kind": "serve",
+          "name": "GET /ping",
+          "argv": [
+            "./hs_example",
+            "-port",
+            "{port}"
+          ],
+          "get": "/ping",
+          "contains": [
+            "pong"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jai-format",
+      "project": "OrangeLightning219--jai-format",
+      "link": [
+        "OrangeLightning219--jai_parser"
+      ],
+      "steps": [
+        {
+          "name": "first.jai - test",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-",
+            "test"
+          ],
+          "timeout": 900
+        },
+        {
+          "name": "first.jai - release",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-",
+            "release"
+          ],
+          "timeout": 900,
+          "outputs": [
+            "build/jai-format"
+          ]
+        },
+        {
+          "name": "format from stdin",
+          "argv": [
+            "./build/jai-format",
+            "-from_stdin",
+            "-to_stdout",
+            "-silent"
+          ],
+          "stdin": "main::(){x:=1;if x==1{print(\"hi\");}}\n",
+          "contains": [
+            "main :: () {"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toml-jai",
+      "project": "sjorsdonkers--toml-jai",
+      "steps": [
+        {
+          "name": "examples/first.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-o",
+            "toml_first"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./toml_first"
+          ],
+          "cwd": "examples",
+          "timeout": 60
+        },
+        {
+          "name": "examples/union_and_overlay.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "union_and_overlay.jai",
+            "-o",
+            "toml_union_and_overlay"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./toml_union_and_overlay"
+          ],
+          "cwd": "examples",
+          "timeout": 60
+        },
+        {
+          "name": "examples/validation.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "validation.jai",
+            "-o",
+            "toml_validation"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./toml_validation"
+          ],
+          "cwd": "examples",
+          "timeout": 60
+        },
+        {
+          "name": "examples/custom_handlers.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "custom_handlers.jai",
+            "-o",
+            "toml_custom_handlers"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./toml_custom_handlers"
+          ],
+          "cwd": "examples",
+          "timeout": 60
+        },
+        {
+          "name": "examples/formatting_control.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "formatting_control.jai",
+            "-o",
+            "toml_formatting_control"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./toml_formatting_control"
+          ],
+          "cwd": "examples",
+          "timeout": 60
+        }
+      ]
+    },
+    {
+      "id": "reflector",
+      "project": "n00bmind--reflector",
+      "files": {
+        "n00bmind--reflector/reflector-tests.jai": "tools/upstream-drivers/reflector-tests.jai"
+      },
+      "steps": [
+        {
+          "name": "initialise the arrays Reset leaves uninitialised",
+          "argv": [
+            "{python}",
+            "-c",
+            "import pathlib\nfor f in pathlib.Path('src').glob('reflect_*.jai'):\n    f.write_text(f.read_text().replace('Reset( d, count, initialized = false );', 'Reset( d, count );').replace('Reset( d, count, false );', 'Reset( d, count );'))"
+          ]
+        },
+        {
+          "name": "reflector-tests.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "reflector-tests.jai"
+          ],
+          "timeout": 900,
+          "outputs": [
+            "bin/test"
+          ]
+        },
+        {
+          "argv": [
+            "./bin/test"
+          ],
+          "timeout": 300,
+          "contains": [
+            "ALL PASSED."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "focus",
+      "project": "focus-editor--focus",
+      "steps": [
+        {
+          "name": "build the macOS rendering view",
+          "kind": "jaic",
+          "only": [
+            "macos-arm64",
+            "macos-x64"
+          ],
+          "argv": [
+            "run",
+            "modules/Objective_C/LightweightRenderingView/build.jai"
+          ],
+          "timeout": 300
+        },
+        {
+          "name": "first.jai - release",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-",
+            "release"
+          ],
+          "timeout": 1800,
+          "outputs": [
+            "build_release/focus"
+          ]
+        },
+        {
+          "kind": "gui",
+          "name": "editor window for 10 s",
+          "argv": [
+            "./build_release/focus"
+          ],
+          "seconds": 10
+        }
+      ]
+    },
+    {
+      "id": "jai-tracy",
+      "project": "rluba--jai-tracy",
+      "link": [
+        "_modules",
+        "wolfpld--tracy"
+      ],
+      "only": [
+        "macos-arm64",
+        "macos-x64",
+        "linux-x64",
+        "linux-arm64"
+      ],
+      "only_reason": "libtracy is only built for macOS and Linux here",
+      "steps": [
+        {
+          "name": "compile libtracy from the pinned Tracy client",
+          "argv": [
+            "{python}",
+            "-c",
+            "import subprocess, sys, pathlib\nd = 'macos' if sys.platform == 'darwin' else 'linux'\npathlib.Path(d).mkdir(exist_ok=True)\nsubprocess.run(['clang++', '-O2', '-DTRACY_ENABLE', '-std=c++11', '-Wno-deprecated-declarations', '-c', '-o', d + '/TracyClient.o', 'tracy/public/TracyClient.cpp'], check=True)\nsubprocess.run(['ar', '-rc', d + '/libtracy.a', d + '/TracyClient.o'], check=True)\n"
+          ]
+        },
+        {
+          "name": "tests/test.jai -plug tracy",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "tests/test.jai",
+            "-I",
+            "../_modules",
+            "-plug",
+            "tracy",
+            "-min_size",
+            "1",
+            "-o",
+            "tracy_test"
+          ],
+          "timeout": 600
+        },
+        {
+          "argv": [
+            "./tracy_test"
+          ],
+          "timeout": 120
+        }
+      ]
+    }
+  ]
+}

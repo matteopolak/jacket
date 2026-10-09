@@ -19,6 +19,9 @@ on:
       - 'tools/test_webgpu_native.py'
       - 'tools/webgpu.json'
       - 'tools/windows-llvm/**'
+      - 'tools/upstream_smoke.py'
+      - 'tools/upstream-smoke.json'
+      - 'tools/fetch_upstreams.py'
       - '.github/workflows/windows-native.yml'
   workflow_dispatch:
 permissions:
@@ -187,6 +190,49 @@ jobs:
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
+
+  upstream-smoke:
+    # The third-party projects of ci.yml's job of the same name, built and run on Windows with the
+    # interactive desktop and Mesa's software OpenGL (docs/tools/third-party-smoke-test.md).
+    name: third-party projects (Windows x64)
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - name: Install the official LLVM release
+        run: |
+          curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-pc-windows-msvc.tar.xz"
+          llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
+          mkdir -p "$llvm"
+          tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
+          rm llvm.tar.xz
+          echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
+          echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
+          bash tools/windows-llvm/prepare.sh "$llvm"
+      - name: Build jaic with the LLVM backend
+        run: cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm
+      - name: Install Mesa's software OpenGL
+        run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
+      - name: Fetch the pinned projects
+        run: python tools/fetch_upstreams.py --only $(python tools/upstream_smoke.py --jaic x --projects)
+      - name: Build and run the projects
+        run: python -u tools/upstream_smoke.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --platform windows-x64 --dlls "$RUNNER_TEMP/mesa"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && !cancelled() }}
+        with:
+          name: smoke-screenshots-windows-x64
+          path: target/smoke-screenshots
+          if-no-files-found: ignore
 
   cross-arm64:
     name: cross-build arm64 (Linux, llvm-mingw)
