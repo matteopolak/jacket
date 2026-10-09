@@ -353,7 +353,7 @@ Directives follow `stdlib/Basic/Print.jai`, not older documentation:
 They feed three features:
 
 - **Semantic tokens:** the string token is split, and each directive is a `formatSpecifier` token.
-- **Diagnostics** (`jai-format`): an error on a directive that refers past the last argument (printing would fail), a warning on each argument no directive uses. A `..spread` argument disables the check.
+- **Format strings**: a wrong argument count in a literal `print` format is the compiler's warning (see [format string check](format-string-check.md)); the server adds no diagnostic of its own, so it appears once and only once the program type-checks that far.
 - **Hover:** anywhere on the string, the summary shown above. Types come from the recorded call whose span contains the string (the variadic `Any` arguments keep their checked types).
 
 ### Signature help

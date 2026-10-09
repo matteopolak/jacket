@@ -31,7 +31,6 @@ pub struct Spec {
 
 #[derive(Clone, Debug)]
 pub struct FormatCall {
-    pub callee: String,
     /// The format string literal, quotes included.
     pub string: Span,
     pub specs: Vec<Spec>,
@@ -39,22 +38,6 @@ pub struct FormatCall {
     pub args: Vec<Span>,
     /// A `..spread` argument: how many values are passed is not known from the text.
     pub spread: bool,
-}
-
-impl FormatCall {
-    /// Arguments the format string uses.
-    pub fn required(&self) -> usize {
-        let specs: Vec<_> = self
-            .specs
-            .iter()
-            .map(|s| jailint::format_string::Spec {
-                start: s.span.start,
-                end: s.span.end,
-                index: s.index,
-            })
-            .collect();
-        jailint::format_string::required(&specs)
-    }
 }
 
 /// Print-family calls of `text` with a literal format string.
@@ -87,7 +70,6 @@ pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
         let string = span(&tokens[args[at].tokens.start]);
         let rest = &args[at + 1..];
         out.push(FormatCall {
-            callee: name.as_str().into(),
             string,
             specs: specs(text, string),
             args: rest

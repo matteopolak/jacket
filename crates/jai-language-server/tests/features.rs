@@ -193,41 +193,6 @@ fn markdown_format_hover_is_a_list_with_the_hovered_row_bold() {
 }
 
 #[test]
-fn format_strings_are_checked_against_their_arguments() {
-    let mut s = session();
-    let few = "#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n";
-    s.open(uri(), 1, few.into()).unwrap();
-    let format: Vec<_> = s
-        .diagnostics(&uri())
-        .unwrap()
-        .iter()
-        .filter(|d| d.code == DiagnosticCode::Format)
-        .cloned()
-        .collect();
-    assert_eq!(format.len(), 1, "{format:?}");
-    assert_eq!(format[0].severity, DiagnosticSeverity::Error);
-    assert_eq!(format[0].range.start, at(few, "% %\\n", 0, 2));
-    assert!(
-        format[0].message.contains("argument 2"),
-        "{}",
-        format[0].message
-    );
-    let extra = "#import \"Basic\";\nmain :: () { print(\"%\\n\", 1, 2); print(\"x\", ..args); }\nargs: [] Any;\n";
-    let mut s = session();
-    s.open(uri(), 1, extra.into()).unwrap();
-    let format: Vec<_> = s
-        .diagnostics(&uri())
-        .unwrap()
-        .iter()
-        .filter(|d| d.code == DiagnosticCode::Format)
-        .cloned()
-        .collect();
-    assert_eq!(format.len(), 1, "{format:?}");
-    assert_eq!(format[0].severity, DiagnosticSeverity::Warning);
-    assert_eq!(format[0].range.start, at(extra, "2);", 0, 0));
-}
-
-#[test]
 fn inlay_hints_show_types_parameters_and_run_values() {
     let mut s = session();
     s.open(uri(), 1, PROGRAM.into()).unwrap();

@@ -166,6 +166,8 @@ fn a_format_argument_count_mismatch_is_a_warning() {
         .filter(|d| d.code == DiagnosticCode::Check)
         .collect();
     assert_eq!(found.len(), 1, "{found:?}");
+    // The compiler's warning is the only report: the editor adds none of its own.
+    assert_eq!(s.diagnostics(&uri()).unwrap().len(), 1);
     assert_eq!(
         found[0].severity,
         jai_language_server::DiagnosticSeverity::Warning

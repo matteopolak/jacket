@@ -27,7 +27,6 @@ pub enum DiagnosticCode {
     Source,
     Limit,
     /// A format string disagrees with the arguments of its print-family call.
-    Format,
     /// The type checker's first error in the program.
     Check,
     /// A jailint rule, by name.

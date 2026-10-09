@@ -258,7 +258,6 @@ impl Analysis {
         result.tokens = converted;
         result.format_calls = crate::format::calls(&tokens, text);
         result.links = crate::links::links(&tokens);
-        result.format_diagnostics(&index, text);
         if nesting(&tokens) > limits.recursive_tokens {
             result.diagnostic(
                 &index,
@@ -297,55 +296,6 @@ impl Analysis {
             result.complete = true;
         }
         result
-    }
-
-    /// A format string that uses more arguments than the call passes (printing fails at run
-    /// time), or arguments it never uses.
-    fn format_diagnostics(&mut self, index: &LineIndex, text: &str) {
-        for call in self.format_calls.clone() {
-            if call.spread {
-                continue;
-            }
-            let given = call.args.len();
-            for spec in &call.specs {
-                let Some(i) = spec.index else {
-                    continue;
-                };
-                if i >= given {
-                    let message = format!(
-                        "`{}` formats argument {} but {} passes {} after the format string",
-                        &text[spec.span.start..spec.span.end],
-                        i + 1,
-                        call.callee,
-                        plural(given, "argument")
-                    );
-                    self.diagnostic(
-                        index,
-                        text,
-                        spec.span,
-                        DiagnosticSeverity::Error,
-                        DiagnosticCode::Format,
-                        &message,
-                    );
-                }
-            }
-            let required = call.required();
-            for (i, arg) in call.args.iter().enumerate().skip(required) {
-                let message = format!(
-                    "argument {} is not used: the format string has {}",
-                    i + 1,
-                    plural(required, "format argument")
-                );
-                self.diagnostic(
-                    index,
-                    text,
-                    *arg,
-                    DiagnosticSeverity::Warning,
-                    DiagnosticCode::Format,
-                    &message,
-                );
-            }
-        }
     }
 
     fn compiler_diagnostic(
@@ -789,12 +739,4 @@ fn nesting(tokens: &[jaic::lexer::Token]) -> usize {
         }
     }
     deepest.max(longest)
-}
-
-fn plural(n: usize, what: &str) -> String {
-    if n == 1 {
-        format!("1 {what}")
-    } else {
-        format!("{n} {what}s")
-    }
 }

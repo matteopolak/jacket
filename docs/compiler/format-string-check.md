@@ -26,8 +26,8 @@ Both directions are warnings (`Sema::warn`) at the start of the call, worded lik
 
 ## How to change it
 
-- Keep `arguments_used` in step with `__format_to_builder`, and with `jailint::format_string` (used by the language server's hover and `jai-format` diagnostics, which work without type checking).
-- The language server shows the warning through `Analysis::check_warnings` (the compiler's `warnings`, severity Warning, code `check`). Its own syntactic `jai-format` diagnostic still shows while typing, so a mismatch can appear twice.
+- Keep `arguments_used` in step with `__format_to_builder`, and with `jailint::format_string` (used by the language server's hover, which works without type checking).
+- The language server shows the warning through `Analysis::check_warnings` (the compiler's `warnings`, severity Warning, code `check`). The server has no syntactic count check of its own.
 - Tests: `format_string_argument_count_is_checked` in `crates/jaic-cli/tests/diagnostics.rs` and the unit test in `format_check.rs`.
 
 ## Configuration
