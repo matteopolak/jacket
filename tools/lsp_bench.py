@@ -1015,10 +1015,17 @@ def machine_info() -> dict:
     return info
 
 
-def server_info(command: list[str]) -> dict:
+def server_info(name: str, command: list[str]) -> dict:
+    # The checkout and rustc describe jailsp; another server (`--server NAME=CMD`) gets only its command, and a
+    # `--version` answer that is not one plain line (some servers reply to an unknown option with LSP frames).
+    version = sh(*command, '--version')
+    if '\n' in version or version.startswith('Content-Length'):
+        version = ''
+    if name != 'jailsp':
+        return {'command': command, 'version': version, 'commit': '', 'dirty': False, 'rustc': ''}
     commit = sh('git', '-C', str(ROOT), 'rev-parse', 'HEAD')
     dirty = bool(sh('git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no'))
-    return {'command': command, 'version': sh(*command, '--version'), 'commit': commit, 'dirty': dirty,
+    return {'command': command, 'version': version, 'commit': commit, 'dirty': dirty,
             'rustc': sh('rustc', '--version')}
 
 
@@ -1046,6 +1053,9 @@ def markdown(report: dict, baseline: dict | None = None) -> str:
              f"Machine: {m.get('cpu') or m['machine']}, {m['cpus']} cores, {m.get('memory_gib')} GiB, "
              f"{m['system']} {m.get('macos') or m['release']}.  "]
     for name, s in report['servers'].items():
+        if not s['commit']:
+            lines.append(f"{name}: {s.get('version') or 'version unknown'}, command `{' '.join(s['command'])}`.  ")
+            continue
         lines.append(f"{name}: {s.get('version') or '?'}, checkout `{s['commit'][:12]}`"
                      f"{' (dirty)' if s['dirty'] else ''}, {s['rustc']}.  ")
     lines += [f"Sessions per workload: {report['settings']['repeat']} (cold = first session, warm = median of the "
@@ -1169,7 +1179,7 @@ def main() -> None:
                      'jai-language-server or pass --server NAME=COMMAND')
     baseline = json.loads(a.compare.read_text()) if a.compare else None
     report = {'format': 2, 'date': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-              'machine': machine_info(), 'servers': {n: server_info(c) for n, c in servers.items()},
+              'machine': machine_info(), 'servers': {n: server_info(n, c) for n, c in servers.items()},
               'settings': {'repeat': a.repeat, 'timeout': a.timeout, 'diagnostics': modes},
               'results': {}, 'failures': {}}
     cache: dict = {}

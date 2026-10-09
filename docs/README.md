@@ -66,7 +66,7 @@ How `crates/jaic`, the interpreter and the language server work.
 - [Low-level IR](compiler/ir.md)
 - [Compile speed](compiler/compile-speed.md): where an `-O0` build spends its time, what was done about it, current numbers
 - [Memory limit (`JAIC_MEMORY_LIMIT`)](compiler/memory-limit.md)
-- [Shared Jai language server](compiler/language-server.md): feature list, expansions, inlay hints, format strings, lints and quick fixes, `#import` links
+- [Shared Jai language server](compiler/language-server.md) (front page: [jailsp README](../crates/jai-language-server/README.md), with the comparison with Jails): feature list, expansions, inlay hints, format strings, lints and quick fixes, `#import` links
 - [Language server refactorings](compiler/language-server-refactorings.md): extract, inline, fill in cases and fields, `ifx` rewrites, call hierarchy, selection ranges
 - [Parser](compiler/parser.md)
 - [Sema: module loading and top-level expansion](compiler/sema-modules.md)
@@ -145,8 +145,8 @@ Scripts, CI and project policies.
 - [Stdlib target check](tools/stdlib-target-check.md): every stdlib module type-checked for every target, unreferenced code included
 - [Stdlib runtime tests](tools/stdlib-runtime-tests.md): every stdlib test run in the interpreter, natively and on wasm on every platform; skip list; per-module coverage ratchet
 - [Objective-C selector check](tools/objc-selector-check.md): every selector the stdlib sends matches its arguments and exists in the runtime
-- [jaifmt (Jai formatter)](tools/jaifmt.md): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`
-- [jailint (Jai linter)](tools/jailint.md): rules, `jailint.toml`, suppression, adding a rule
+- [jaifmt (Jai formatter)](tools/jaifmt.md) (front page: [jaifmt README](../jaifmt/README.md)): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`
+- [jailint (Jai linter)](tools/jailint.md) (front page: [jailint README](../crates/jailint/README.md)): rules, `jailint.toml`, suppression, adding a rule
 - [LLVM setup](tools/llvm-setup.md)
 - [Nix flake](tools/nix.md)
 - [Package managers and installers](tools/package-managers.md): Homebrew tap, winget, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup

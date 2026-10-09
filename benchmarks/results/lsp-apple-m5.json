@@ -1,0 +1,4982 @@
+{
+  "format": 2,
+  "date": "2026-10-09T22:38:00+00:00",
+  "machine": {
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "python": "3.9.6",
+    "cpus": 10,
+    "cpu": "Apple M5",
+    "macos": "27.0",
+    "memory_gib": 16.0
+  },
+  "servers": {
+    "jailsp": {
+      "command": [
+        "/Users/matthew/projects/jai/target/release/jailsp"
+      ],
+      "version": "jailsp 0.6.0",
+      "commit": "e3f2bc3b32ef5a01900f119cc3f1e3b3d1c28229",
+      "dirty": true,
+      "rustc": "rustc 1.100.0-nightly (17fd5b8a3 2026-08-28)"
+    }
+  },
+  "settings": {
+    "repeat": 3,
+    "timeout": 60,
+    "diagnostics": [
+      "pull",
+      "push"
+    ]
+  },
+  "results": {
+    "jailsp/focus/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00421,
+          "warm": 0.00491,
+          "min": 0.00421,
+          "max": 0.00521,
+          "runs": [
+            0.00421,
+            0.00461,
+            0.00521
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.00305,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.77344,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.84121,
+          "warm": 0.53729,
+          "min": 0.51369,
+          "max": 0.84121,
+          "runs": [
+            0.84121,
+            0.56089,
+            0.51369
+          ],
+          "cpu_cold": 0.454,
+          "cpu_warm": 0.4545,
+          "rss_cold": 204.7,
+          "rss_warm": 205.0,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.01002,
+          "warm": 0.00213,
+          "min": 0.00186,
+          "max": 0.01002,
+          "runs": [
+            0.01002,
+            0.0024,
+            0.00186
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 204.8,
+          "rss_warm": 205.15,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00201,
+          "warm": 0.00221,
+          "min": 0.00201,
+          "max": 0.00227,
+          "runs": [
+            0.00201,
+            0.00227,
+            0.00215
+          ],
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.01,
+          "rss_cold": 204.8,
+          "rss_warm": 205.15,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00105,
+          "warm": 0.00112,
+          "min": 0.00104,
+          "max": 0.00121,
+          "runs": [
+            0.00105,
+            0.00121,
+            0.00104
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 204.8,
+          "rss_warm": 205.2,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00384,
+          "warm": 0.00379,
+          "min": 0.00374,
+          "max": 0.00384,
+          "runs": [
+            0.00384,
+            0.00383,
+            0.00374
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 204.9,
+          "rss_warm": 205.2,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00628,
+          "warm": 0.00748,
+          "min": 0.00628,
+          "max": 0.00851,
+          "runs": [
+            0.00628,
+            0.00644,
+            0.00851
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 205.2,
+          "rss_warm": 205.5,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.0197,
+          "warm": 0.01729,
+          "min": 0.0155,
+          "max": 0.0197,
+          "runs": [
+            0.0197,
+            0.01907,
+            0.0155
+          ],
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.0085,
+          "rss_cold": 205.2,
+          "rss_warm": 205.6,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.91262,
+          "warm": 0.58411,
+          "min": 0.56086,
+          "max": 0.91262,
+          "runs": [
+            0.91262,
+            0.56086,
+            0.60736
+          ],
+          "cpu_cold": 1.334,
+          "cpu_warm": 1.321,
+          "rss_cold": 207.1,
+          "rss_warm": 207.55,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.03334,
+          "warm": 0.01998,
+          "min": 0.01713,
+          "max": 0.03334,
+          "runs": [
+            0.03334,
+            0.02282,
+            0.01713
+          ],
+          "cpu_cold": 0.187,
+          "cpu_warm": 0.179,
+          "rss_cold": 236.9,
+          "rss_warm": 236.75,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.03108,
+          "warm": 0.01448,
+          "min": 0.01392,
+          "max": 0.03108,
+          "runs": [
+            0.03108,
+            0.01392,
+            0.01504
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.98496,
+          "warm": 0.65296,
+          "min": 0.64725,
+          "max": 0.98496,
+          "runs": [
+            0.98496,
+            0.64725,
+            0.65867
+          ],
+          "cpu_cold": 0.416,
+          "cpu_warm": 0.447,
+          "rss_cold": 238.2,
+          "rss_warm": 239.25,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 242.7,
+      "warm_rss_mib": 242.30469,
+      "cpu_seconds_cold": 2.454,
+      "cpu_seconds": 2.4675,
+      "cpu_user_seconds": 2.159,
+      "cpu_sys_seconds": 0.3085,
+      "info": {
+        "document_bytes": 204886,
+        "document_lines": 5179,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 3157,
+            "character": 4,
+            "name": "editor"
+          },
+          "hover_alternatives": [
+            {
+              "line": 2660,
+              "character": 53,
+              "name": "s32"
+            },
+            {
+              "line": 3586,
+              "character": 8,
+              "name": "cursor"
+            },
+            {
+              "line": 3992,
+              "character": 18,
+              "name": "buffer"
+            },
+            {
+              "line": 4403,
+              "character": 14,
+              "name": "cursor"
+            },
+            {
+              "line": 914,
+              "character": 50,
+              "name": "pane"
+            },
+            {
+              "line": 388,
+              "character": 8,
+              "name": "search_and_update_results"
+            }
+          ],
+          "insert_line": 3158,
+          "indent": "    ",
+          "declaration": {
+            "line": 3132,
+            "character": 0,
+            "name": "redo"
+          },
+          "member": {
+            "line": 2840,
+            "character": 19,
+            "base": "new_cursor"
+          }
+        },
+        "diagnostics_count": 65,
+        "diagnostic_codes": {
+          "jai-check": 64,
+          "unused_variable": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3157,
+          "character": 4,
+          "name": "editor"
+        },
+        "member_items": 3,
+        "references_count": 1,
+        "symbols_count": 242,
+        "tokens_count": 153535,
+        "edit_hover_samples": [
+          1.02307,
+          0.87758,
+          0.91262
+        ],
+        "typing_items": 28,
+        "typing_word": "editor",
+        "typing_samples": [
+          0.03334,
+          0.2467,
+          0.02119,
+          0.02882,
+          0.0107,
+          0.03456
+        ],
+        "member_typed_items": 272
+      },
+      "server": "jailsp"
+    },
+    "jailsp/focus/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00557,
+          "warm": 0.0046,
+          "min": 0.00404,
+          "max": 0.00557,
+          "runs": [
+            0.00557,
+            0.00516,
+            0.00404
+          ],
+          "cpu_cold": 0.0031,
+          "cpu_warm": 0.003,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.72656,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.64265,
+          "warm": 0.68613,
+          "min": 0.64265,
+          "max": 0.69344,
+          "runs": [
+            0.64265,
+            0.67882,
+            0.69344
+          ],
+          "cpu_cold": 0.521,
+          "cpu_warm": 0.5625,
+          "rss_cold": 234.8,
+          "rss_warm": 234.8,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00239,
+          "warm": 0.00204,
+          "min": 0.00182,
+          "max": 0.00239,
+          "runs": [
+            0.00239,
+            0.00226,
+            0.00182
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.0015,
+          "rss_cold": 235.0,
+          "rss_warm": 234.95,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00214,
+          "warm": 0.00215,
+          "min": 0.00214,
+          "max": 0.00215,
+          "runs": [
+            0.00214,
+            0.00214,
+            0.00215
+          ],
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.01,
+          "rss_cold": 235.0,
+          "rss_warm": 235.0,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00135,
+          "warm": 0.00109,
+          "min": 0.00109,
+          "max": 0.00135,
+          "runs": [
+            0.00135,
+            0.00109,
+            0.0011
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 235.0,
+          "rss_warm": 235.0,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.0037,
+          "warm": 0.00376,
+          "min": 0.0037,
+          "max": 0.00376,
+          "runs": [
+            0.0037,
+            0.00376,
+            0.00375
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 235.0,
+          "rss_warm": 235.0,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00626,
+          "warm": 0.00624,
+          "min": 0.00619,
+          "max": 0.00629,
+          "runs": [
+            0.00626,
+            0.00629,
+            0.00619
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 235.3,
+          "rss_warm": 235.3,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.01532,
+          "warm": 0.01514,
+          "min": 0.01426,
+          "max": 0.01602,
+          "runs": [
+            0.01532,
+            0.01426,
+            0.01602
+          ],
+          "cpu_cold": 0.008,
+          "cpu_warm": 0.0085,
+          "rss_cold": 235.3,
+          "rss_warm": 235.45,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.65911,
+          "warm": 1.12144,
+          "min": 0.65911,
+          "max": 1.16687,
+          "runs": [
+            0.65911,
+            1.07601,
+            1.16687
+          ],
+          "cpu_cold": 1.475,
+          "cpu_warm": 1.495,
+          "rss_cold": 238.6,
+          "rss_warm": 237.9,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.76911,
+          "warm": 1.07441,
+          "min": 0.76911,
+          "max": 1.11629,
+          "runs": [
+            0.76911,
+            1.11629,
+            1.03254
+          ],
+          "cpu_cold": 2.166,
+          "cpu_warm": 2.187,
+          "rss_cold": 269.6,
+          "rss_warm": 268.55,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.70221,
+          "warm": 0.74635,
+          "min": 0.70221,
+          "max": 0.7557,
+          "runs": [
+            0.70221,
+            0.7557,
+            0.73699
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 2.3586,
+          "warm": 2.14782,
+          "min": 2.08108,
+          "max": 2.3586,
+          "runs": [
+            2.3586,
+            2.21457,
+            2.08108
+          ],
+          "cpu_cold": 1.0,
+          "cpu_warm": 0.964,
+          "rss_cold": 271.1,
+          "rss_warm": 269.85,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 274.2,
+      "warm_rss_mib": 273.13281,
+      "cpu_seconds_cold": 5.743,
+      "cpu_seconds": 5.761,
+      "cpu_user_seconds": 5.0655,
+      "cpu_sys_seconds": 0.6955,
+      "info": {
+        "document_bytes": 204886,
+        "document_lines": 5179,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 3157,
+            "character": 4,
+            "name": "editor"
+          },
+          "hover_alternatives": [
+            {
+              "line": 2660,
+              "character": 53,
+              "name": "s32"
+            },
+            {
+              "line": 3586,
+              "character": 8,
+              "name": "cursor"
+            },
+            {
+              "line": 3992,
+              "character": 18,
+              "name": "buffer"
+            },
+            {
+              "line": 4403,
+              "character": 14,
+              "name": "cursor"
+            },
+            {
+              "line": 914,
+              "character": 50,
+              "name": "pane"
+            },
+            {
+              "line": 388,
+              "character": 8,
+              "name": "search_and_update_results"
+            }
+          ],
+          "insert_line": 3158,
+          "indent": "    ",
+          "declaration": {
+            "line": 3132,
+            "character": 0,
+            "name": "redo"
+          },
+          "member": {
+            "line": 2840,
+            "character": 19,
+            "base": "new_cursor"
+          }
+        },
+        "diagnostics_count": 65,
+        "diagnostic_codes": {
+          "jai-check": 64,
+          "unused_variable": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3157,
+          "character": 4,
+          "name": "editor"
+        },
+        "member_items": 3,
+        "references_count": 1,
+        "symbols_count": 242,
+        "tokens_count": 153535,
+        "edit_hover_samples": [
+          0.65228,
+          0.65911,
+          0.73287
+        ],
+        "typing_items": 28,
+        "typing_word": "editor",
+        "typing_samples": [
+          0.76911,
+          0.945,
+          0.04787,
+          0.66329,
+          0.06445,
+          0.74112
+        ],
+        "member_typed_items": 272
+      },
+      "server": "jailsp"
+    },
+    "jailsp/focus-main/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00524,
+          "warm": 0.00456,
+          "min": 0.00449,
+          "max": 0.00524,
+          "runs": [
+            0.00524,
+            0.00463,
+            0.00449
+          ],
+          "cpu_cold": 0.0028,
+          "cpu_warm": 0.00315,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.76562,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.57055,
+          "warm": 0.51533,
+          "min": 0.51253,
+          "max": 0.57055,
+          "runs": [
+            0.57055,
+            0.51253,
+            0.51813
+          ],
+          "cpu_cold": 0.485,
+          "cpu_warm": 0.4415,
+          "rss_cold": 205.3,
+          "rss_warm": 205.1,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.0024,
+          "warm": 0.0024,
+          "min": 0.00233,
+          "max": 0.00246,
+          "runs": [
+            0.0024,
+            0.00246,
+            0.00233
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 205.4,
+          "rss_warm": 205.25,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00238,
+          "warm": 0.00231,
+          "min": 0.00228,
+          "max": 0.00238,
+          "runs": [
+            0.00238,
+            0.00228,
+            0.00234
+          ],
+          "cpu_cold": 0.011,
+          "cpu_warm": 0.011,
+          "rss_cold": 205.4,
+          "rss_warm": 205.25,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00107,
+          "warm": 0.00115,
+          "min": 0.00107,
+          "max": 0.00119,
+          "runs": [
+            0.00107,
+            0.00111,
+            0.00119
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 205.4,
+          "rss_warm": 205.3,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.0038,
+          "warm": 0.00318,
+          "min": 0.00245,
+          "max": 0.0039,
+          "runs": [
+            0.0038,
+            0.0039,
+            0.00245
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.0025,
+          "rss_cold": 205.5,
+          "rss_warm": 205.3,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00699,
+          "warm": 0.00641,
+          "min": 0.00627,
+          "max": 0.00699,
+          "runs": [
+            0.00699,
+            0.00655,
+            0.00627
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 205.7,
+          "rss_warm": 205.6,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.01576,
+          "warm": 0.0185,
+          "min": 0.01576,
+          "max": 0.01942,
+          "runs": [
+            0.01576,
+            0.01942,
+            0.01758
+          ],
+          "cpu_cold": 0.007,
+          "cpu_warm": 0.0095,
+          "rss_cold": 205.9,
+          "rss_warm": 205.65,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.58194,
+          "warm": 0.61387,
+          "min": 0.58194,
+          "max": 0.61697,
+          "runs": [
+            0.58194,
+            0.61697,
+            0.61077
+          ],
+          "cpu_cold": 1.261,
+          "cpu_warm": 1.34,
+          "rss_cold": 208.8,
+          "rss_warm": 207.7,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.01957,
+          "warm": 0.01689,
+          "min": 0.01426,
+          "max": 0.01957,
+          "runs": [
+            0.01957,
+            0.01426,
+            0.01951
+          ],
+          "cpu_cold": 0.186,
+          "cpu_warm": 0.186,
+          "rss_cold": 237.1,
+          "rss_warm": 237.6,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.01771,
+          "warm": 0.0144,
+          "min": 0.01364,
+          "max": 0.01771,
+          "runs": [
+            0.01771,
+            0.01364,
+            0.01515
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.67905,
+          "warm": 0.61226,
+          "min": 0.54295,
+          "max": 0.68157,
+          "runs": [
+            0.67905,
+            0.68157,
+            0.54295
+          ],
+          "cpu_cold": 0.471,
+          "cpu_warm": 0.4505,
+          "rss_cold": 239.0,
+          "rss_warm": 239.05,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 242.6,
+      "warm_rss_mib": 242.375,
+      "cpu_seconds_cold": 2.467,
+      "cpu_seconds": 2.4855,
+      "cpu_user_seconds": 2.168,
+      "cpu_sys_seconds": 0.3175,
+      "info": {
+        "document_bytes": 204886,
+        "document_lines": 5179,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 3157,
+            "character": 4,
+            "name": "editor"
+          },
+          "hover_alternatives": [
+            {
+              "line": 2660,
+              "character": 53,
+              "name": "s32"
+            },
+            {
+              "line": 3586,
+              "character": 8,
+              "name": "cursor"
+            },
+            {
+              "line": 3992,
+              "character": 18,
+              "name": "buffer"
+            },
+            {
+              "line": 4403,
+              "character": 14,
+              "name": "cursor"
+            },
+            {
+              "line": 914,
+              "character": 50,
+              "name": "pane"
+            },
+            {
+              "line": 388,
+              "character": 8,
+              "name": "search_and_update_results"
+            }
+          ],
+          "insert_line": 3158,
+          "indent": "    ",
+          "declaration": {
+            "line": 3132,
+            "character": 0,
+            "name": "redo"
+          },
+          "member": {
+            "line": 2840,
+            "character": 19,
+            "base": "new_cursor"
+          }
+        },
+        "diagnostics_count": 65,
+        "diagnostic_codes": {
+          "jai-check": 64,
+          "unused_variable": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3157,
+          "character": 4,
+          "name": "editor"
+        },
+        "member_items": 3,
+        "references_count": 1,
+        "symbols_count": 242,
+        "tokens_count": 153535,
+        "edit_hover_samples": [
+          0.58194,
+          0.54269,
+          0.63326
+        ],
+        "typing_items": 28,
+        "typing_word": "editor",
+        "typing_samples": [
+          0.01957,
+          0.1643,
+          0.02046,
+          0.01507,
+          0.01257,
+          0.01585
+        ],
+        "member_typed_items": 272
+      },
+      "server": "jailsp"
+    },
+    "jailsp/focus-main/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00421,
+          "warm": 0.00482,
+          "min": 0.00421,
+          "max": 0.00509,
+          "runs": [
+            0.00421,
+            0.00456,
+            0.00509
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.00305,
+          "rss_cold": 2.734375,
+          "rss_warm": 2.75,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 1.00938,
+          "warm": 1.48153,
+          "min": 1.00938,
+          "max": 1.62183,
+          "runs": [
+            1.00938,
+            1.62183,
+            1.34122
+          ],
+          "cpu_cold": 0.9,
+          "cpu_warm": 0.9485,
+          "rss_cold": 209.2,
+          "rss_warm": 208.85,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00263,
+          "warm": 0.00244,
+          "min": 0.00241,
+          "max": 0.00263,
+          "runs": [
+            0.00263,
+            0.00241,
+            0.00247
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 209.2,
+          "rss_warm": 208.95,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00256,
+          "warm": 0.00235,
+          "min": 0.0023,
+          "max": 0.00256,
+          "runs": [
+            0.00256,
+            0.00241,
+            0.0023
+          ],
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.011,
+          "rss_cold": 209.3,
+          "rss_warm": 208.95,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00144,
+          "warm": 0.00113,
+          "min": 0.00111,
+          "max": 0.00144,
+          "runs": [
+            0.00144,
+            0.00115,
+            0.00111
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 209.3,
+          "rss_warm": 208.95,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00556,
+          "warm": 0.00382,
+          "min": 0.00381,
+          "max": 0.00556,
+          "runs": [
+            0.00556,
+            0.00384,
+            0.00381
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 209.3,
+          "rss_warm": 208.95,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00662,
+          "warm": 0.00595,
+          "min": 0.00534,
+          "max": 0.00662,
+          "runs": [
+            0.00662,
+            0.00534,
+            0.00656
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 209.5,
+          "rss_warm": 209.25,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.02168,
+          "warm": 0.0199,
+          "min": 0.01934,
+          "max": 0.02168,
+          "runs": [
+            0.02168,
+            0.01934,
+            0.02046
+          ],
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.0105,
+          "rss_cold": 209.7,
+          "rss_warm": 209.25,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.48318,
+          "warm": 0.83379,
+          "min": 0.48318,
+          "max": 0.86716,
+          "runs": [
+            0.48318,
+            0.86716,
+            0.80041
+          ],
+          "cpu_cold": 1.373,
+          "cpu_warm": 1.4725,
+          "rss_cold": 210.1,
+          "rss_warm": 210.65,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.76136,
+          "warm": 0.8863,
+          "min": 0.76136,
+          "max": 0.90085,
+          "runs": [
+            0.76136,
+            0.87174,
+            0.90085
+          ],
+          "cpu_cold": 0.943,
+          "cpu_warm": 0.965,
+          "rss_cold": 262.7,
+          "rss_warm": 263.35,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.11812,
+          "warm": 0.11446,
+          "min": 0.1139,
+          "max": 0.11812,
+          "runs": [
+            0.11812,
+            0.11502,
+            0.1139
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 1.82818,
+          "warm": 1.67728,
+          "min": 1.61174,
+          "max": 1.82818,
+          "runs": [
+            1.82818,
+            1.74282,
+            1.61174
+          ],
+          "cpu_cold": 0.967,
+          "cpu_warm": 0.996,
+          "rss_cold": 265.0,
+          "rss_warm": 264.85,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 268.3,
+      "warm_rss_mib": 268.25,
+      "cpu_seconds_cold": 4.736,
+      "cpu_seconds": 4.9225,
+      "cpu_user_seconds": 4.281,
+      "cpu_sys_seconds": 0.6415,
+      "info": {
+        "document_bytes": 204886,
+        "document_lines": 5179,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 3157,
+            "character": 4,
+            "name": "editor"
+          },
+          "hover_alternatives": [
+            {
+              "line": 2660,
+              "character": 53,
+              "name": "s32"
+            },
+            {
+              "line": 3586,
+              "character": 8,
+              "name": "cursor"
+            },
+            {
+              "line": 3992,
+              "character": 18,
+              "name": "buffer"
+            },
+            {
+              "line": 4403,
+              "character": 14,
+              "name": "cursor"
+            },
+            {
+              "line": 914,
+              "character": 50,
+              "name": "pane"
+            },
+            {
+              "line": 388,
+              "character": 8,
+              "name": "search_and_update_results"
+            }
+          ],
+          "insert_line": 3158,
+          "indent": "    ",
+          "declaration": {
+            "line": 3132,
+            "character": 0,
+            "name": "redo"
+          },
+          "member": {
+            "line": 2840,
+            "character": 19,
+            "base": "new_cursor"
+          }
+        },
+        "diagnostics_count": 65,
+        "diagnostic_codes": {
+          "jai-check": 64,
+          "unused_variable": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3157,
+          "character": 4,
+          "name": "editor"
+        },
+        "member_items": 3,
+        "references_count": 1,
+        "symbols_count": 242,
+        "tokens_count": 153535,
+        "edit_hover_samples": [
+          0.51919,
+          0.48318,
+          0.46323
+        ],
+        "typing_items": 28,
+        "typing_word": "editor",
+        "typing_samples": [
+          0.76136,
+          0.33997,
+          0.11145,
+          0.119,
+          0.11724,
+          0.10606
+        ],
+        "member_typed_items": 272
+      },
+      "server": "jailsp"
+    },
+    "jailsp/jails/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00483,
+          "warm": 0.00504,
+          "min": 0.00473,
+          "max": 0.00536,
+          "runs": [
+            0.00483,
+            0.00536,
+            0.00473
+          ],
+          "cpu_cold": 0.0031,
+          "cpu_warm": 0.00315,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.75781,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.07931,
+          "warm": 0.08325,
+          "min": 0.07931,
+          "max": 0.08352,
+          "runs": [
+            0.07931,
+            0.08299,
+            0.08352
+          ],
+          "cpu_cold": 0.078,
+          "cpu_warm": 0.0825,
+          "rss_cold": 56.1,
+          "rss_warm": 55.9,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00142,
+          "warm": 0.00125,
+          "min": 0.00113,
+          "max": 0.00142,
+          "runs": [
+            0.00142,
+            0.00113,
+            0.00137
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.001,
+          "rss_cold": 56.2,
+          "rss_warm": 55.95,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00139,
+          "warm": 0.00136,
+          "min": 0.00133,
+          "max": 0.00139,
+          "runs": [
+            0.00139,
+            0.00138,
+            0.00133
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.006,
+          "rss_cold": 56.2,
+          "rss_warm": 55.95,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00087,
+          "warm": 0.00069,
+          "min": 0.00059,
+          "max": 0.00087,
+          "runs": [
+            0.00087,
+            0.00059,
+            0.00078
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 56.3,
+          "rss_warm": 56.05,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00085,
+          "warm": 0.00138,
+          "min": 0.00085,
+          "max": 0.00142,
+          "runs": [
+            0.00085,
+            0.00133,
+            0.00142
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.001,
+          "rss_cold": 56.5,
+          "rss_warm": 56.15,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00206,
+          "warm": 0.00218,
+          "min": 0.00206,
+          "max": 0.00228,
+          "runs": [
+            0.00206,
+            0.00228,
+            0.00209
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 56.6,
+          "rss_warm": 56.35,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.00615,
+          "warm": 0.00562,
+          "min": 0.0049,
+          "max": 0.00634,
+          "runs": [
+            0.00615,
+            0.0049,
+            0.00634
+          ],
+          "cpu_cold": 0.004,
+          "cpu_warm": 0.003,
+          "rss_cold": 56.7,
+          "rss_warm": 56.45,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.07073,
+          "warm": 0.0876,
+          "min": 0.07073,
+          "max": 0.09408,
+          "runs": [
+            0.07073,
+            0.08112,
+            0.09408
+          ],
+          "cpu_cold": 0.198,
+          "cpu_warm": 0.2235,
+          "rss_cold": 57.7,
+          "rss_warm": 57.6,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.00905,
+          "warm": 0.00961,
+          "min": 0.00905,
+          "max": 0.00995,
+          "runs": [
+            0.00905,
+            0.00927,
+            0.00995
+          ],
+          "cpu_cold": 0.137,
+          "cpu_warm": 0.1305,
+          "rss_cold": 86.3,
+          "rss_warm": 86.25,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.00697,
+          "warm": 0.00684,
+          "min": 0.00683,
+          "max": 0.00697,
+          "runs": [
+            0.00697,
+            0.00684,
+            0.00683
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.12487,
+          "warm": 0.12821,
+          "min": 0.12406,
+          "max": 0.13236,
+          "runs": [
+            0.12487,
+            0.13236,
+            0.12406
+          ],
+          "cpu_cold": 0.08,
+          "cpu_warm": 0.075,
+          "rss_cold": 86.8,
+          "rss_warm": 86.95,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 87.6,
+      "warm_rss_mib": 87.55469,
+      "cpu_seconds_cold": 0.521,
+      "cpu_seconds": 0.539,
+      "cpu_user_seconds": 0.4425,
+      "cpu_sys_seconds": 0.0965,
+      "info": {
+        "document_bytes": 57440,
+        "document_lines": 1946,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 1072,
+            "character": 14,
+            "name": "level"
+          },
+          "hover_alternatives": [
+            {
+              "line": 583,
+              "character": 27,
+              "name": "array_type"
+            },
+            {
+              "line": 865,
+              "character": 38,
+              "name": "from_file"
+            },
+            {
+              "line": 1316,
+              "character": 4,
+              "name": "search_for"
+            },
+            {
+              "line": 1485,
+              "character": 27,
+              "name": "unwrapped_node"
+            },
+            {
+              "line": 1679,
+              "character": 16,
+              "name": "cast_type"
+            },
+            {
+              "line": 347,
+              "character": 8,
+              "name": "array_add"
+            },
+            {
+              "line": 229,
+              "character": 27,
+              "name": "Program_File"
+            }
+          ],
+          "insert_line": 1073,
+          "indent": "        ",
+          "declaration": {
+            "line": 1065,
+            "character": 0,
+            "name": "get_node_type"
+          },
+          "member": {
+            "line": 999,
+            "character": 25,
+            "base": "a"
+          }
+        },
+        "diagnostics_count": 3,
+        "diagnostic_codes": {
+          "unused_variable": 1,
+          "unused_parameter": 1,
+          "defer_in_loop": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 1072,
+          "character": 14,
+          "name": "level"
+        },
+        "member_items": 5,
+        "references_count": 20,
+        "symbols_count": 73,
+        "tokens_count": 42670,
+        "edit_hover_samples": [
+          0.06372,
+          0.07073,
+          0.09555
+        ],
+        "typing_items": 1,
+        "typing_word": "level",
+        "typing_samples": [
+          0.00905,
+          0.16954,
+          0.00678,
+          0.00668,
+          0.00697
+        ],
+        "member_typed_items": 113
+      },
+      "server": "jailsp"
+    },
+    "jailsp/jails/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00504,
+          "warm": 0.00525,
+          "min": 0.00487,
+          "max": 0.00562,
+          "runs": [
+            0.00504,
+            0.00562,
+            0.00487
+          ],
+          "cpu_cold": 0.0025,
+          "cpu_warm": 0.0033,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.72656,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.15846,
+          "warm": 0.16279,
+          "min": 0.14903,
+          "max": 0.17655,
+          "runs": [
+            0.15846,
+            0.17655,
+            0.14903
+          ],
+          "cpu_cold": 0.157,
+          "cpu_warm": 0.155,
+          "rss_cold": 57.0,
+          "rss_warm": 56.85,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00134,
+          "warm": 0.00137,
+          "min": 0.00133,
+          "max": 0.00141,
+          "runs": [
+            0.00134,
+            0.00141,
+            0.00133
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 57.1,
+          "rss_warm": 56.95,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.0014,
+          "warm": 0.00139,
+          "min": 0.00138,
+          "max": 0.0014,
+          "runs": [
+            0.0014,
+            0.00139,
+            0.00138
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.006,
+          "rss_cold": 57.1,
+          "rss_warm": 56.95,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00085,
+          "warm": 0.00087,
+          "min": 0.00085,
+          "max": 0.00087,
+          "runs": [
+            0.00085,
+            0.00086,
+            0.00087
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 57.1,
+          "rss_warm": 56.95,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00132,
+          "warm": 0.00131,
+          "min": 0.00127,
+          "max": 0.00134,
+          "runs": [
+            0.00132,
+            0.00127,
+            0.00134
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 57.2,
+          "rss_warm": 57.05,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00209,
+          "warm": 0.00222,
+          "min": 0.00209,
+          "max": 0.00234,
+          "runs": [
+            0.00209,
+            0.00234,
+            0.00209
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 57.4,
+          "rss_warm": 57.15,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.0062,
+          "warm": 0.00517,
+          "min": 0.00491,
+          "max": 0.0062,
+          "runs": [
+            0.0062,
+            0.00544,
+            0.00491
+          ],
+          "cpu_cold": 0.004,
+          "cpu_warm": 0.002,
+          "rss_cold": 57.4,
+          "rss_warm": 57.2,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.10494,
+          "warm": 0.13668,
+          "min": 0.10494,
+          "max": 0.14136,
+          "runs": [
+            0.10494,
+            0.14136,
+            0.13199
+          ],
+          "cpu_cold": 0.24,
+          "cpu_warm": 0.2825,
+          "rss_cold": 57.9,
+          "rss_warm": 58.15,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.18377,
+          "warm": 0.20641,
+          "min": 0.18377,
+          "max": 0.22161,
+          "runs": [
+            0.18377,
+            0.1912,
+            0.22161
+          ],
+          "cpu_cold": 0.435,
+          "cpu_warm": 0.434,
+          "rss_cold": 118.5,
+          "rss_warm": 118.4,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.09519,
+          "warm": 0.09664,
+          "min": 0.09519,
+          "max": 0.09726,
+          "runs": [
+            0.09519,
+            0.09726,
+            0.09602
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.23947,
+          "warm": 0.37396,
+          "min": 0.23947,
+          "max": 0.39806,
+          "runs": [
+            0.23947,
+            0.34987,
+            0.39806
+          ],
+          "cpu_cold": 0.206,
+          "cpu_warm": 0.2235,
+          "rss_cold": 118.0,
+          "rss_warm": 118.05,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 120.0,
+      "warm_rss_mib": 119.84375,
+      "cpu_seconds_cold": 1.167,
+      "cpu_seconds": 1.2175,
+      "cpu_user_seconds": 0.977,
+      "cpu_sys_seconds": 0.2405,
+      "info": {
+        "document_bytes": 57440,
+        "document_lines": 1946,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 1072,
+            "character": 14,
+            "name": "level"
+          },
+          "hover_alternatives": [
+            {
+              "line": 583,
+              "character": 27,
+              "name": "array_type"
+            },
+            {
+              "line": 865,
+              "character": 38,
+              "name": "from_file"
+            },
+            {
+              "line": 1316,
+              "character": 4,
+              "name": "search_for"
+            },
+            {
+              "line": 1485,
+              "character": 27,
+              "name": "unwrapped_node"
+            },
+            {
+              "line": 1679,
+              "character": 16,
+              "name": "cast_type"
+            },
+            {
+              "line": 347,
+              "character": 8,
+              "name": "array_add"
+            },
+            {
+              "line": 229,
+              "character": 27,
+              "name": "Program_File"
+            }
+          ],
+          "insert_line": 1073,
+          "indent": "        ",
+          "declaration": {
+            "line": 1065,
+            "character": 0,
+            "name": "get_node_type"
+          },
+          "member": {
+            "line": 999,
+            "character": 25,
+            "base": "a"
+          }
+        },
+        "diagnostics_count": 3,
+        "diagnostic_codes": {
+          "unused_variable": 1,
+          "unused_parameter": 1,
+          "defer_in_loop": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 1072,
+          "character": 14,
+          "name": "level"
+        },
+        "member_items": 5,
+        "references_count": 20,
+        "symbols_count": 73,
+        "tokens_count": 42670,
+        "edit_hover_samples": [
+          0.08771,
+          0.10494,
+          0.11914
+        ],
+        "typing_items": 1,
+        "typing_word": "level",
+        "typing_samples": [
+          0.18377,
+          0.22909,
+          0.09519,
+          0.0815,
+          0.075
+        ],
+        "member_typed_items": 113
+      },
+      "server": "jailsp"
+    },
+    "jailsp/chess-jai/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00428,
+          "warm": 0.00419,
+          "min": 0.00412,
+          "max": 0.00428,
+          "runs": [
+            0.00428,
+            0.00412,
+            0.00427
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.00295,
+          "rss_cold": 2.734375,
+          "rss_warm": 2.75,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.04218,
+          "warm": 0.03446,
+          "min": 0.03025,
+          "max": 0.04218,
+          "runs": [
+            0.04218,
+            0.03025,
+            0.03867
+          ],
+          "cpu_cold": 0.041,
+          "cpu_warm": 0.035,
+          "rss_cold": 30.7,
+          "rss_warm": 30.4,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.0008,
+          "warm": 0.00077,
+          "min": 0.00077,
+          "max": 0.0008,
+          "runs": [
+            0.0008,
+            0.00077,
+            0.00077
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 30.7,
+          "rss_warm": 30.5,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00119,
+          "warm": 0.00122,
+          "min": 0.00119,
+          "max": 0.00123,
+          "runs": [
+            0.00119,
+            0.00121,
+            0.00123
+          ],
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.0055,
+          "rss_cold": 30.8,
+          "rss_warm": 30.55,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00088,
+          "warm": 0.00099,
+          "min": 0.00088,
+          "max": 0.00104,
+          "runs": [
+            0.00088,
+            0.00094,
+            0.00104
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 30.9,
+          "rss_warm": 30.65,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00092,
+          "warm": 0.00104,
+          "min": 0.00088,
+          "max": 0.0012,
+          "runs": [
+            0.00092,
+            0.0012,
+            0.00088
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 31.0,
+          "rss_warm": 30.75,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00491,
+          "warm": 0.00478,
+          "min": 0.00464,
+          "max": 0.00492,
+          "runs": [
+            0.00491,
+            0.00492,
+            0.00464
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 31.1,
+          "rss_warm": 30.95,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.01168,
+          "warm": 0.01078,
+          "min": 0.01067,
+          "max": 0.01168,
+          "runs": [
+            0.01168,
+            0.01089,
+            0.01067
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.005,
+          "rss_cold": 31.2,
+          "rss_warm": 31.0,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.02724,
+          "warm": 0.02763,
+          "min": 0.02692,
+          "max": 0.02835,
+          "runs": [
+            0.02724,
+            0.02692,
+            0.02835
+          ],
+          "cpu_cold": 0.081,
+          "cpu_warm": 0.0775,
+          "rss_cold": 31.7,
+          "rss_warm": 31.65,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.00865,
+          "warm": 0.00754,
+          "min": 0.0066,
+          "max": 0.00865,
+          "runs": [
+            0.00865,
+            0.0066,
+            0.00848
+          ],
+          "cpu_cold": 0.149,
+          "cpu_warm": 0.142,
+          "rss_cold": 60.2,
+          "rss_warm": 60.15,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.00647,
+          "warm": 0.00627,
+          "min": 0.0061,
+          "max": 0.00647,
+          "runs": [
+            0.00647,
+            0.00645,
+            0.0061
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.04125,
+          "warm": 0.0428,
+          "min": 0.03941,
+          "max": 0.04619,
+          "runs": [
+            0.04125,
+            0.03941,
+            0.04619
+          ],
+          "cpu_cold": 0.03,
+          "cpu_warm": 0.0305,
+          "rss_cold": 61.3,
+          "rss_warm": 61.35,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 62.7,
+      "warm_rss_mib": 62.60938,
+      "cpu_seconds_cold": 0.326,
+      "cpu_seconds": 0.313,
+      "cpu_user_seconds": 0.2615,
+      "cpu_sys_seconds": 0.0515,
+      "info": {
+        "document_bytes": 79994,
+        "document_lines": 2748,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 1478,
+            "character": 59,
+            "name": "u64"
+          },
+          "hover_alternatives": [
+            {
+              "line": 1075,
+              "character": 11,
+              "name": "opp_piece"
+            },
+            {
+              "line": 1335,
+              "character": 13,
+              "name": "pinned"
+            },
+            {
+              "line": 1622,
+              "character": 11,
+              "name": "between"
+            },
+            {
+              "line": 1788,
+              "character": 4,
+              "name": "att"
+            },
+            {
+              "line": 2338,
+              "character": 2,
+              "name": "init_lines"
+            },
+            {
+              "line": 511,
+              "character": 4,
+              "name": "chess"
+            },
+            {
+              "line": 363,
+              "character": 15,
+              "name": "hash"
+            }
+          ],
+          "insert_line": 1479,
+          "indent": "  ",
+          "declaration": {
+            "line": 1468,
+            "character": 0,
+            "name": "generate_quiets_for"
+          },
+          "member": {
+            "line": 952,
+            "character": 38,
+            "base": "chess"
+          }
+        },
+        "diagnostics_count": 6,
+        "diagnostic_codes": {
+          "jai-check": 2,
+          "unused_variable": 3,
+          "bitwise_precedence": 1
+        },
+        "hover_result": true,
+        "hover_retries": 1,
+        "hover_position": {
+          "line": 1075,
+          "character": 11,
+          "name": "opp_piece"
+        },
+        "member_items": 20,
+        "references_count": 1,
+        "symbols_count": 112,
+        "tokens_count": 92535,
+        "edit_hover_samples": [
+          0.02724,
+          0.02594,
+          0.0285
+        ],
+        "typing_items": 0,
+        "typing_word": "opp_piec",
+        "typing_samples": [
+          0.00865,
+          0.10915,
+          0.00637,
+          0.00644,
+          0.00647,
+          0.00648,
+          0.00641,
+          0.00669
+        ],
+        "member_typed_items": 152
+      },
+      "server": "jailsp"
+    },
+    "jailsp/chess-jai/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00549,
+          "warm": 0.00422,
+          "min": 0.00421,
+          "max": 0.00549,
+          "runs": [
+            0.00549,
+            0.00423,
+            0.00421
+          ],
+          "cpu_cold": 0.0031,
+          "cpu_warm": 0.00295,
+          "rss_cold": 2.75,
+          "rss_warm": 2.74219,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.08519,
+          "warm": 0.08891,
+          "min": 0.08519,
+          "max": 0.09002,
+          "runs": [
+            0.08519,
+            0.08781,
+            0.09002
+          ],
+          "cpu_cold": 0.085,
+          "cpu_warm": 0.088,
+          "rss_cold": 51.0,
+          "rss_warm": 50.85,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00093,
+          "warm": 0.00096,
+          "min": 0.00091,
+          "max": 0.00101,
+          "runs": [
+            0.00093,
+            0.00091,
+            0.00101
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 51.0,
+          "rss_warm": 50.9,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00126,
+          "warm": 0.0012,
+          "min": 0.0012,
+          "max": 0.00126,
+          "runs": [
+            0.00126,
+            0.0012,
+            0.0012
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.005,
+          "rss_cold": 51.0,
+          "rss_warm": 50.9,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00087,
+          "warm": 0.0009,
+          "min": 0.00087,
+          "max": 0.00092,
+          "runs": [
+            0.00087,
+            0.00087,
+            0.00092
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 51.1,
+          "rss_warm": 51.0,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00103,
+          "warm": 0.00099,
+          "min": 0.00094,
+          "max": 0.00103,
+          "runs": [
+            0.00103,
+            0.00103,
+            0.00094
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0005,
+          "rss_cold": 51.1,
+          "rss_warm": 51.05,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00457,
+          "warm": 0.00474,
+          "min": 0.00457,
+          "max": 0.00484,
+          "runs": [
+            0.00457,
+            0.00463,
+            0.00484
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 51.4,
+          "rss_warm": 51.3,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.00992,
+          "warm": 0.01174,
+          "min": 0.00992,
+          "max": 0.01177,
+          "runs": [
+            0.00992,
+            0.0117,
+            0.01177
+          ],
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.006,
+          "rss_cold": 51.4,
+          "rss_warm": 51.3,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.06321,
+          "warm": 0.06619,
+          "min": 0.06321,
+          "max": 0.06794,
+          "runs": [
+            0.06321,
+            0.06445,
+            0.06794
+          ],
+          "cpu_cold": 0.178,
+          "cpu_warm": 0.183,
+          "rss_cold": 52.2,
+          "rss_warm": 52.3,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.13054,
+          "warm": 0.10778,
+          "min": 0.09795,
+          "max": 0.13054,
+          "runs": [
+            0.13054,
+            0.11761,
+            0.09795
+          ],
+          "cpu_cold": 0.488,
+          "cpu_warm": 0.4845,
+          "rss_cold": 82.8,
+          "rss_warm": 83.2,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.0817,
+          "warm": 0.07359,
+          "min": 0.06209,
+          "max": 0.08509,
+          "runs": [
+            0.0817,
+            0.08509,
+            0.06209
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.20112,
+          "warm": 0.18556,
+          "min": 0.17577,
+          "max": 0.20112,
+          "runs": [
+            0.20112,
+            0.19535,
+            0.17577
+          ],
+          "cpu_cold": 0.116,
+          "cpu_warm": 0.115,
+          "rss_cold": 83.6,
+          "rss_warm": 83.85,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 85.2,
+      "warm_rss_mib": 85.08594,
+      "cpu_seconds_cold": 0.951,
+      "cpu_seconds": 0.967,
+      "cpu_user_seconds": 0.8005,
+      "cpu_sys_seconds": 0.1665,
+      "info": {
+        "document_bytes": 79994,
+        "document_lines": 2748,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 1478,
+            "character": 59,
+            "name": "u64"
+          },
+          "hover_alternatives": [
+            {
+              "line": 1075,
+              "character": 11,
+              "name": "opp_piece"
+            },
+            {
+              "line": 1335,
+              "character": 13,
+              "name": "pinned"
+            },
+            {
+              "line": 1622,
+              "character": 11,
+              "name": "between"
+            },
+            {
+              "line": 1788,
+              "character": 4,
+              "name": "att"
+            },
+            {
+              "line": 2338,
+              "character": 2,
+              "name": "init_lines"
+            },
+            {
+              "line": 511,
+              "character": 4,
+              "name": "chess"
+            },
+            {
+              "line": 363,
+              "character": 15,
+              "name": "hash"
+            }
+          ],
+          "insert_line": 1479,
+          "indent": "  ",
+          "declaration": {
+            "line": 1468,
+            "character": 0,
+            "name": "generate_quiets_for"
+          },
+          "member": {
+            "line": 952,
+            "character": 38,
+            "base": "chess"
+          }
+        },
+        "diagnostics_count": 6,
+        "diagnostic_codes": {
+          "jai-check": 2,
+          "unused_variable": 3,
+          "bitwise_precedence": 1
+        },
+        "hover_result": true,
+        "hover_retries": 1,
+        "hover_position": {
+          "line": 1075,
+          "character": 11,
+          "name": "opp_piece"
+        },
+        "member_items": 20,
+        "references_count": 1,
+        "symbols_count": 112,
+        "tokens_count": 92535,
+        "edit_hover_samples": [
+          0.05798,
+          0.06321,
+          0.07698
+        ],
+        "typing_items": 0,
+        "typing_word": "opp_piec",
+        "typing_samples": [
+          0.13054,
+          0.22169,
+          0.06032,
+          0.07666,
+          0.04622,
+          0.08673,
+          0.03842,
+          0.10773
+        ],
+        "member_typed_items": 152
+      },
+      "server": "jailsp"
+    },
+    "jailsp/gen-60k/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.02165,
+          "warm": 0.0036,
+          "min": 0.00333,
+          "max": 0.02165,
+          "runs": [
+            0.02165,
+            0.00333,
+            0.00388
+          ],
+          "cpu_cold": 0.0031,
+          "cpu_warm": 0.0024,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.77344,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.4756,
+          "warm": 0.36467,
+          "min": 0.35786,
+          "max": 0.4756,
+          "runs": [
+            0.4756,
+            0.35786,
+            0.37148
+          ],
+          "cpu_cold": 0.43,
+          "cpu_warm": 0.3565,
+          "rss_cold": 177.5,
+          "rss_warm": 177.2,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00155,
+          "warm": 0.00201,
+          "min": 0.00155,
+          "max": 0.00224,
+          "runs": [
+            0.00155,
+            0.00224,
+            0.00178
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.0015,
+          "rss_cold": 177.5,
+          "rss_warm": 177.2,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.0019,
+          "warm": 0.00141,
+          "min": 0.0012,
+          "max": 0.0019,
+          "runs": [
+            0.0019,
+            0.00163,
+            0.0012
+          ],
+          "cpu_cold": 0.007,
+          "cpu_warm": 0.007,
+          "rss_cold": 177.5,
+          "rss_warm": 177.25,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00194,
+          "warm": 0.00055,
+          "min": 0.00052,
+          "max": 0.00194,
+          "runs": [
+            0.00194,
+            0.00052,
+            0.00057
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 177.6,
+          "rss_warm": 177.25,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00658,
+          "warm": 0.00586,
+          "min": 0.00475,
+          "max": 0.00697,
+          "runs": [
+            0.00658,
+            0.00475,
+            0.00697
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.005,
+          "rss_cold": 177.6,
+          "rss_warm": 177.3,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00877,
+          "warm": 0.00777,
+          "min": 0.00717,
+          "max": 0.00877,
+          "runs": [
+            0.00877,
+            0.00717,
+            0.00836
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.0015,
+          "rss_cold": 177.9,
+          "rss_warm": 177.65,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.02246,
+          "warm": 0.02178,
+          "min": 0.0217,
+          "max": 0.02246,
+          "runs": [
+            0.02246,
+            0.0217,
+            0.02186
+          ],
+          "cpu_cold": 0.011,
+          "cpu_warm": 0.011,
+          "rss_cold": 178.0,
+          "rss_warm": 177.8,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.30266,
+          "warm": 0.29484,
+          "min": 0.28049,
+          "max": 0.30918,
+          "runs": [
+            0.30266,
+            0.30918,
+            0.28049
+          ],
+          "cpu_cold": 0.882,
+          "cpu_warm": 0.8545,
+          "rss_cold": 179.9,
+          "rss_warm": 179.55,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.01306,
+          "warm": 0.01332,
+          "min": 0.01283,
+          "max": 0.01381,
+          "runs": [
+            0.01306,
+            0.01381,
+            0.01283
+          ],
+          "cpu_cold": 0.113,
+          "cpu_warm": 0.1115,
+          "rss_cold": 206.6,
+          "rss_warm": 206.2,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.01306,
+          "warm": 0.01332,
+          "min": 0.01283,
+          "max": 0.01381,
+          "runs": [
+            0.01306,
+            0.01381,
+            0.01283
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.30877,
+          "warm": 0.27857,
+          "min": 0.27757,
+          "max": 0.30877,
+          "runs": [
+            0.30877,
+            0.27757,
+            0.27956
+          ],
+          "cpu_cold": 0.302,
+          "cpu_warm": 0.2725,
+          "rss_cold": 206.3,
+          "rss_warm": 206.55,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 210.5,
+      "warm_rss_mib": 210.36719,
+      "cpu_seconds_cold": 1.78,
+      "cpu_seconds": 1.649,
+      "cpu_user_seconds": 1.4905,
+      "cpu_sys_seconds": 0.1585,
+      "info": {
+        "document_bytes": 166816,
+        "document_lines": 5200,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 3159,
+            "character": 24,
+            "name": "u32"
+          },
+          "hover_alternatives": [
+            {
+              "line": 1848,
+              "character": 52,
+              "name": "int"
+            },
+            {
+              "line": 2609,
+              "character": 14,
+              "name": "v_3307"
+            },
+            {
+              "line": 3758,
+              "character": 8,
+              "name": "local_acc"
+            },
+            {
+              "line": 4386,
+              "character": 4,
+              "name": "v_3632"
+            },
+            {
+              "line": 4770,
+              "character": 55,
+              "name": "v_3682"
+            },
+            {
+              "line": 421,
+              "character": 18,
+              "name": "tprint"
+            }
+          ],
+          "insert_line": 3160,
+          "indent": "    ",
+          "declaration": {
+            "line": 3145,
+            "character": 0,
+            "name": "parse_entry_3402"
+          },
+          "member": {
+            "line": 2927,
+            "character": 20,
+            "base": "a"
+          }
+        },
+        "diagnostics_count": 585,
+        "diagnostic_codes": {
+          "unused_import": 1,
+          "unused_variable": 158,
+          "unused_parameter": 118,
+          "identical_operands": 192,
+          "manual_assign_op": 12,
+          "self_assignment": 18,
+          "redundant_cast": 77,
+          "bitwise_precedence": 8,
+          "erasing_op": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3159,
+          "character": 24,
+          "name": "u32"
+        },
+        "member_items": 1,
+        "references_count": 4,
+        "symbols_count": 356,
+        "tokens_count": 246855,
+        "edit_hover_samples": [
+          0.30266,
+          0.30914,
+          0.29357
+        ],
+        "typing_items": 2,
+        "typing_word": "u32",
+        "typing_samples": [
+          0.01306,
+          0.09287,
+          0.00993
+        ],
+        "member_typed_items": 393
+      },
+      "server": "jailsp"
+    },
+    "jailsp/gen-60k/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00371,
+          "warm": 0.00361,
+          "min": 0.00336,
+          "max": 0.00385,
+          "runs": [
+            0.00371,
+            0.00385,
+            0.00336
+          ],
+          "cpu_cold": 0.0023,
+          "cpu_warm": 0.00245,
+          "rss_cold": 2.734375,
+          "rss_warm": 2.73438,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.70545,
+          "warm": 0.63794,
+          "min": 0.63128,
+          "max": 0.70545,
+          "runs": [
+            0.70545,
+            0.6446,
+            0.63128
+          ],
+          "cpu_cold": 0.686,
+          "cpu_warm": 0.624,
+          "rss_cold": 176.4,
+          "rss_warm": 175.8,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00113,
+          "warm": 0.00131,
+          "min": 0.00113,
+          "max": 0.00148,
+          "runs": [
+            0.00113,
+            0.00148,
+            0.00114
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 176.4,
+          "rss_warm": 175.8,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00111,
+          "warm": 0.00113,
+          "min": 0.0011,
+          "max": 0.00116,
+          "runs": [
+            0.00111,
+            0.00116,
+            0.0011
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.0055,
+          "rss_cold": 176.4,
+          "rss_warm": 175.8,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00048,
+          "warm": 0.00049,
+          "min": 0.00046,
+          "max": 0.00053,
+          "runs": [
+            0.00048,
+            0.00046,
+            0.00053
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 176.5,
+          "rss_warm": 175.8,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00591,
+          "warm": 0.00413,
+          "min": 0.00405,
+          "max": 0.00591,
+          "runs": [
+            0.00591,
+            0.00422,
+            0.00405
+          ],
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.004,
+          "rss_cold": 176.5,
+          "rss_warm": 175.9,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00605,
+          "warm": 0.00545,
+          "min": 0.00541,
+          "max": 0.00605,
+          "runs": [
+            0.00605,
+            0.00548,
+            0.00541
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 176.8,
+          "rss_warm": 176.2,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.02012,
+          "warm": 0.01729,
+          "min": 0.01722,
+          "max": 0.02012,
+          "runs": [
+            0.02012,
+            0.01722,
+            0.01736
+          ],
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.009,
+          "rss_cold": 176.9,
+          "rss_warm": 176.5,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.37862,
+          "warm": 0.3321,
+          "min": 0.33197,
+          "max": 0.37862,
+          "runs": [
+            0.37862,
+            0.33223,
+            0.33197
+          ],
+          "cpu_cold": 1.107,
+          "cpu_warm": 0.974,
+          "rss_cold": 177.9,
+          "rss_warm": 177.45,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.45825,
+          "warm": 0.42357,
+          "min": 0.41956,
+          "max": 0.45825,
+          "runs": [
+            0.45825,
+            0.42758,
+            0.41956
+          ],
+          "cpu_cold": 0.687,
+          "cpu_warm": 0.6665,
+          "rss_cold": 251.8,
+          "rss_warm": 251.45,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.15647,
+          "warm": 0.163,
+          "min": 0.15647,
+          "max": 0.16414,
+          "runs": [
+            0.15647,
+            0.16186,
+            0.16414
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.93169,
+          "warm": 0.93306,
+          "min": 0.92924,
+          "max": 0.93689,
+          "runs": [
+            0.93169,
+            0.93689,
+            0.92924
+          ],
+          "cpu_cold": 0.913,
+          "cpu_warm": 0.9145,
+          "rss_cold": 243.6,
+          "rss_warm": 244.55,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 261.0,
+      "warm_rss_mib": 260.71875,
+      "cpu_seconds_cold": 3.761,
+      "cpu_seconds": 3.54,
+      "cpu_user_seconds": 3.1845,
+      "cpu_sys_seconds": 0.3555,
+      "info": {
+        "document_bytes": 166816,
+        "document_lines": 5200,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 3159,
+            "character": 24,
+            "name": "u32"
+          },
+          "hover_alternatives": [
+            {
+              "line": 1848,
+              "character": 52,
+              "name": "int"
+            },
+            {
+              "line": 2609,
+              "character": 14,
+              "name": "v_3307"
+            },
+            {
+              "line": 3758,
+              "character": 8,
+              "name": "local_acc"
+            },
+            {
+              "line": 4386,
+              "character": 4,
+              "name": "v_3632"
+            },
+            {
+              "line": 4770,
+              "character": 55,
+              "name": "v_3682"
+            },
+            {
+              "line": 421,
+              "character": 18,
+              "name": "tprint"
+            }
+          ],
+          "insert_line": 3160,
+          "indent": "    ",
+          "declaration": {
+            "line": 3145,
+            "character": 0,
+            "name": "parse_entry_3402"
+          },
+          "member": {
+            "line": 2927,
+            "character": 20,
+            "base": "a"
+          }
+        },
+        "diagnostics_count": 585,
+        "diagnostic_codes": {
+          "unused_import": 1,
+          "unused_variable": 158,
+          "unused_parameter": 118,
+          "identical_operands": 192,
+          "manual_assign_op": 12,
+          "self_assignment": 18,
+          "redundant_cast": 77,
+          "bitwise_precedence": 8,
+          "erasing_op": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3159,
+          "character": 24,
+          "name": "u32"
+        },
+        "member_items": 1,
+        "references_count": 4,
+        "symbols_count": 356,
+        "tokens_count": 246855,
+        "edit_hover_samples": [
+          0.38291,
+          0.37862,
+          0.37553
+        ],
+        "typing_items": 2,
+        "typing_word": "u32",
+        "typing_samples": [
+          0.45825,
+          0.15647,
+          0.08493
+        ],
+        "member_typed_items": 393
+      },
+      "server": "jailsp"
+    },
+    "jailsp/gen-240k/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00375,
+          "warm": 0.00333,
+          "min": 0.00317,
+          "max": 0.00375,
+          "runs": [
+            0.00375,
+            0.00317,
+            0.0035
+          ],
+          "cpu_cold": 0.0022,
+          "cpu_warm": 0.0019,
+          "rss_cold": 2.703125,
+          "rss_warm": 2.76562,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 1.89368,
+          "warm": 1.88782,
+          "min": 1.88515,
+          "max": 1.89368,
+          "runs": [
+            1.89368,
+            1.88515,
+            1.89048
+          ],
+          "cpu_cold": 1.866,
+          "cpu_warm": 1.8585,
+          "rss_cold": 586.0,
+          "rss_warm": 586.05,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00288,
+          "warm": 0.00277,
+          "min": 0.00269,
+          "max": 0.00288,
+          "runs": [
+            0.00288,
+            0.00286,
+            0.00269
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 586.0,
+          "rss_warm": 586.05,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00248,
+          "warm": 0.00252,
+          "min": 0.00239,
+          "max": 0.00265,
+          "runs": [
+            0.00248,
+            0.00239,
+            0.00265
+          ],
+          "cpu_cold": 0.012,
+          "cpu_warm": 0.013,
+          "rss_cold": 586.0,
+          "rss_warm": 586.05,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00074,
+          "warm": 0.00079,
+          "min": 0.00074,
+          "max": 0.0008,
+          "runs": [
+            0.00074,
+            0.00078,
+            0.0008
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 586.1,
+          "rss_warm": 586.15,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.01374,
+          "warm": 0.01338,
+          "min": 0.01332,
+          "max": 0.01374,
+          "runs": [
+            0.01374,
+            0.01344,
+            0.01332
+          ],
+          "cpu_cold": 0.014,
+          "cpu_warm": 0.014,
+          "rss_cold": 586.2,
+          "rss_warm": 586.2,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00564,
+          "warm": 0.00612,
+          "min": 0.00527,
+          "max": 0.00697,
+          "runs": [
+            0.00564,
+            0.00527,
+            0.00697
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 586.5,
+          "rss_warm": 586.55,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.02269,
+          "warm": 0.02174,
+          "min": 0.02174,
+          "max": 0.02269,
+          "runs": [
+            0.02269,
+            0.02174,
+            0.02174
+          ],
+          "cpu_cold": 0.012,
+          "cpu_warm": 0.011,
+          "rss_cold": 586.9,
+          "rss_warm": 586.65,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 1.75808,
+          "warm": 1.74377,
+          "min": 1.73745,
+          "max": 1.75808,
+          "runs": [
+            1.75808,
+            1.73745,
+            1.7501
+          ],
+          "cpu_cold": 5.198,
+          "cpu_warm": 5.153,
+          "rss_cold": 590.6,
+          "rss_warm": 590.25,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.02347,
+          "warm": 0.02242,
+          "min": 0.02189,
+          "max": 0.02347,
+          "runs": [
+            0.02347,
+            0.02296,
+            0.02189
+          ],
+          "cpu_cold": 0.211,
+          "cpu_warm": 0.21,
+          "rss_cold": 617.4,
+          "rss_warm": 618.6,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.01742,
+          "warm": 0.01691,
+          "min": 0.01688,
+          "max": 0.01742,
+          "runs": [
+            0.01742,
+            0.01694,
+            0.01688
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 1.75684,
+          "warm": 1.72561,
+          "min": 1.72295,
+          "max": 1.75684,
+          "runs": [
+            1.75684,
+            1.72295,
+            1.72826
+          ],
+          "cpu_cold": 1.729,
+          "cpu_warm": 1.7015,
+          "rss_cold": 620.2,
+          "rss_warm": 620.85,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 637.7,
+      "warm_rss_mib": 637.69531,
+      "cpu_seconds_cold": 9.102,
+      "cpu_seconds": 9.019,
+      "cpu_user_seconds": 8.5325,
+      "cpu_sys_seconds": 0.4865,
+      "info": {
+        "document_bytes": 211206,
+        "document_lines": 6005,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 3498,
+            "character": 11,
+            "name": "local_acc"
+          },
+          "hover_alternatives": [
+            {
+              "line": 2097,
+              "character": 39,
+              "name": "trunc"
+            },
+            {
+              "line": 2970,
+              "character": 17,
+              "name": "int"
+            },
+            {
+              "line": 4259,
+              "character": 19,
+              "name": "v_26686"
+            },
+            {
+              "line": 4871,
+              "character": 15,
+              "name": "tprint"
+            },
+            {
+              "line": 5363,
+              "character": 8,
+              "name": "v_26904"
+            },
+            {
+              "line": 1308,
+              "character": 4,
+              "name": "process_block_2070"
+            },
+            {
+              "line": 701,
+              "character": 4,
+              "name": "v_26012"
+            }
+          ],
+          "insert_line": 3499,
+          "indent": "    ",
+          "declaration": {
+            "line": 3495,
+            "character": 0,
+            "name": "compute_record_26570"
+          },
+          "member": {
+            "line": 3160,
+            "character": 39,
+            "base": "v_26505"
+          }
+        },
+        "diagnostics_count": 691,
+        "diagnostic_codes": {
+          "unused_import": 1,
+          "identical_operands": 247,
+          "self_assignment": 11,
+          "manual_assign_op": 18,
+          "unused_parameter": 135,
+          "unused_variable": 198,
+          "bitwise_precedence": 14,
+          "redundant_cast": 62,
+          "identity_op": 5
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3498,
+          "character": 11,
+          "name": "local_acc"
+        },
+        "member_items": 2,
+        "references_count": 2,
+        "symbols_count": 334,
+        "tokens_count": 309445,
+        "edit_hover_samples": [
+          1.75808,
+          1.78769,
+          1.72905
+        ],
+        "typing_items": 1,
+        "typing_word": "local_ac",
+        "typing_samples": [
+          0.02347,
+          0.09042,
+          0.01749,
+          0.01689,
+          0.0173,
+          0.01737,
+          0.016,
+          0.01746
+        ],
+        "member_typed_items": 369
+      },
+      "server": "jailsp"
+    },
+    "jailsp/gen-240k/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00347,
+          "warm": 0.00331,
+          "min": 0.00326,
+          "max": 0.00347,
+          "runs": [
+            0.00347,
+            0.00326,
+            0.00335
+          ],
+          "cpu_cold": 0.0024,
+          "cpu_warm": 0.0019,
+          "rss_cold": 2.71875,
+          "rss_warm": 2.75781,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 3.90601,
+          "warm": 3.71228,
+          "min": 3.55682,
+          "max": 3.90601,
+          "runs": [
+            3.90601,
+            3.86774,
+            3.55682
+          ],
+          "cpu_cold": 3.849,
+          "cpu_warm": 3.667,
+          "rss_cold": 586.4,
+          "rss_warm": 586.55,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.0025,
+          "warm": 0.00237,
+          "min": 0.00235,
+          "max": 0.0025,
+          "runs": [
+            0.0025,
+            0.00239,
+            0.00235
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 586.4,
+          "rss_warm": 586.55,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00266,
+          "warm": 0.00242,
+          "min": 0.00241,
+          "max": 0.00266,
+          "runs": [
+            0.00266,
+            0.00241,
+            0.00243
+          ],
+          "cpu_cold": 0.013,
+          "cpu_warm": 0.012,
+          "rss_cold": 586.4,
+          "rss_warm": 586.55,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00077,
+          "warm": 0.00072,
+          "min": 0.00069,
+          "max": 0.00077,
+          "runs": [
+            0.00077,
+            0.00069,
+            0.00075
+          ],
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 586.4,
+          "rss_warm": 586.65,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.01335,
+          "warm": 0.01272,
+          "min": 0.01269,
+          "max": 0.01335,
+          "runs": [
+            0.01335,
+            0.01275,
+            0.01269
+          ],
+          "cpu_cold": 0.013,
+          "cpu_warm": 0.013,
+          "rss_cold": 586.4,
+          "rss_warm": 586.65,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00537,
+          "warm": 0.00512,
+          "min": 0.00512,
+          "max": 0.00537,
+          "runs": [
+            0.00537,
+            0.00513,
+            0.00512
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 586.8,
+          "rss_warm": 586.95,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.0239,
+          "warm": 0.02063,
+          "min": 0.02045,
+          "max": 0.0239,
+          "runs": [
+            0.0239,
+            0.02045,
+            0.02081
+          ],
+          "cpu_cold": 0.012,
+          "cpu_warm": 0.01,
+          "rss_cold": 587.0,
+          "rss_warm": 587.2,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 1.97638,
+          "warm": 1.85175,
+          "min": 1.82026,
+          "max": 1.97638,
+          "runs": [
+            1.97638,
+            1.88323,
+            1.82026
+          ],
+          "cpu_cold": 5.842,
+          "cpu_warm": 5.4685,
+          "rss_cold": 588.8,
+          "rss_warm": 588.55,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 2.75861,
+          "warm": 2.57602,
+          "min": 2.53887,
+          "max": 2.75861,
+          "runs": [
+            2.75861,
+            2.61317,
+            2.53887
+          ],
+          "cpu_cold": 8.437,
+          "cpu_warm": 7.873,
+          "rss_cold": 926.6,
+          "rss_warm": 927.35,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.81898,
+          "warm": 0.76312,
+          "min": 0.75804,
+          "max": 0.81898,
+          "runs": [
+            0.81898,
+            0.76819,
+            0.75804
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 4.5543,
+          "warm": 4.22855,
+          "min": 4.21735,
+          "max": 4.5543,
+          "runs": [
+            4.5543,
+            4.23975,
+            4.21735
+          ],
+          "cpu_cold": 4.492,
+          "cpu_warm": 4.1845,
+          "rss_cold": 846.0,
+          "rss_warm": 847.0,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 947.7,
+      "warm_rss_mib": 947.61719,
+      "cpu_seconds_cold": 24.647,
+      "cpu_seconds": 23.0805,
+      "cpu_user_seconds": 21.6275,
+      "cpu_sys_seconds": 1.453,
+      "info": {
+        "document_bytes": 211206,
+        "document_lines": 6005,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 3498,
+            "character": 11,
+            "name": "local_acc"
+          },
+          "hover_alternatives": [
+            {
+              "line": 2097,
+              "character": 39,
+              "name": "trunc"
+            },
+            {
+              "line": 2970,
+              "character": 17,
+              "name": "int"
+            },
+            {
+              "line": 4259,
+              "character": 19,
+              "name": "v_26686"
+            },
+            {
+              "line": 4871,
+              "character": 15,
+              "name": "tprint"
+            },
+            {
+              "line": 5363,
+              "character": 8,
+              "name": "v_26904"
+            },
+            {
+              "line": 1308,
+              "character": 4,
+              "name": "process_block_2070"
+            },
+            {
+              "line": 701,
+              "character": 4,
+              "name": "v_26012"
+            }
+          ],
+          "insert_line": 3499,
+          "indent": "    ",
+          "declaration": {
+            "line": 3495,
+            "character": 0,
+            "name": "compute_record_26570"
+          },
+          "member": {
+            "line": 3160,
+            "character": 39,
+            "base": "v_26505"
+          }
+        },
+        "diagnostics_count": 691,
+        "diagnostic_codes": {
+          "unused_import": 1,
+          "identical_operands": 247,
+          "self_assignment": 11,
+          "manual_assign_op": 18,
+          "unused_parameter": 135,
+          "unused_variable": 198,
+          "bitwise_precedence": 14,
+          "redundant_cast": 62,
+          "identity_op": 5
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 3498,
+          "character": 11,
+          "name": "local_acc"
+        },
+        "member_items": 2,
+        "references_count": 2,
+        "symbols_count": 334,
+        "tokens_count": 309445,
+        "edit_hover_samples": [
+          2.00351,
+          1.97638,
+          1.95721
+        ],
+        "typing_items": 1,
+        "typing_word": "local_ac",
+        "typing_samples": [
+          2.75861,
+          0.89643,
+          0.81561,
+          0.81169,
+          0.81735,
+          0.82062,
+          0.81589,
+          0.82186
+        ],
+        "member_typed_items": 369
+      },
+      "server": "jailsp"
+    },
+    "jailsp/large-25k/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00376,
+          "warm": 0.00331,
+          "min": 0.00312,
+          "max": 0.00376,
+          "runs": [
+            0.00376,
+            0.00351,
+            0.00312
+          ],
+          "cpu_cold": 0.0021,
+          "cpu_warm": 0.0018,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.74219,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.21064,
+          "warm": 0.20565,
+          "min": 0.20327,
+          "max": 0.21064,
+          "runs": [
+            0.21064,
+            0.20327,
+            0.20803
+          ],
+          "cpu_cold": 0.203,
+          "cpu_warm": 0.2005,
+          "rss_cold": 148.0,
+          "rss_warm": 148.3,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00323,
+          "warm": 0.00316,
+          "min": 0.00298,
+          "max": 0.00335,
+          "runs": [
+            0.00323,
+            0.00335,
+            0.00298
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 148.1,
+          "rss_warm": 148.35,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00226,
+          "warm": 0.0024,
+          "min": 0.00226,
+          "max": 0.00251,
+          "runs": [
+            0.00226,
+            0.00251,
+            0.0023
+          ],
+          "cpu_cold": 0.011,
+          "cpu_warm": 0.0115,
+          "rss_cold": 148.1,
+          "rss_warm": 148.35,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00101,
+          "warm": 0.00099,
+          "min": 0.00095,
+          "max": 0.00102,
+          "runs": [
+            0.00101,
+            0.00095,
+            0.00102
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 148.1,
+          "rss_warm": 148.4,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00198,
+          "warm": 0.00218,
+          "min": 0.00198,
+          "max": 0.00223,
+          "runs": [
+            0.00198,
+            0.00223,
+            0.00213
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 148.2,
+          "rss_warm": 148.45,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.02429,
+          "warm": 0.02458,
+          "min": 0.02371,
+          "max": 0.02545,
+          "runs": [
+            0.02429,
+            0.02545,
+            0.02371
+          ],
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.006,
+          "rss_cold": 149.9,
+          "rss_warm": 150.1,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.07713,
+          "warm": 0.07759,
+          "min": 0.07713,
+          "max": 0.07792,
+          "runs": [
+            0.07713,
+            0.07792,
+            0.07726
+          ],
+          "cpu_cold": 0.039,
+          "cpu_warm": 0.039,
+          "rss_cold": 150.4,
+          "rss_warm": 151.85,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.09921,
+          "warm": 0.09777,
+          "min": 0.09638,
+          "max": 0.09921,
+          "runs": [
+            0.09921,
+            0.09638,
+            0.09916
+          ],
+          "cpu_cold": 0.294,
+          "cpu_warm": 0.2895,
+          "rss_cold": 151.0,
+          "rss_warm": 152.15,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.05052,
+          "warm": 0.05016,
+          "min": 0.04987,
+          "max": 0.05052,
+          "runs": [
+            0.05052,
+            0.05045,
+            0.04987
+          ],
+          "cpu_cold": 0.268,
+          "cpu_warm": 0.2675,
+          "rss_cold": 180.0,
+          "rss_warm": 179.85,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.03181,
+          "warm": 0.03222,
+          "min": 0.03181,
+          "max": 0.0324,
+          "runs": [
+            0.03181,
+            0.03203,
+            0.0324
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.13584,
+          "warm": 0.13818,
+          "min": 0.13584,
+          "max": 0.13942,
+          "runs": [
+            0.13584,
+            0.13693,
+            0.13942
+          ],
+          "cpu_cold": 0.133,
+          "cpu_warm": 0.134,
+          "rss_cold": 176.5,
+          "rss_warm": 176.95,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 200.2,
+      "warm_rss_mib": 199.99219,
+      "cpu_seconds_cold": 0.99,
+      "cpu_seconds": 0.982,
+      "cpu_user_seconds": 0.87,
+      "cpu_sys_seconds": 0.112,
+      "info": {
+        "document_bytes": 824499,
+        "document_lines": 25350,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 16579,
+            "character": 14,
+            "name": "v_3065"
+          },
+          "hover_alternatives": [
+            {
+              "line": 9685,
+              "character": 7,
+              "name": "walk_entry_1401"
+            },
+            {
+              "line": 13578,
+              "character": 18,
+              "name": "trunc"
+            },
+            {
+              "line": 19287,
+              "character": 4,
+              "name": "local_acc"
+            },
+            {
+              "line": 21937,
+              "character": 42,
+              "name": "v_3999"
+            },
+            {
+              "line": 23930,
+              "character": 14,
+              "name": "build_path_1236"
+            },
+            {
+              "line": 5401,
+              "character": 4,
+              "name": "v_1017"
+            },
+            {
+              "line": 2749,
+              "character": 33,
+              "name": "local_acc"
+            }
+          ],
+          "insert_line": 16580,
+          "indent": "    ",
+          "declaration": {
+            "line": 16571,
+            "character": 0,
+            "name": "mix_span_3064"
+          },
+          "member": {
+            "line": 11566,
+            "character": 21,
+            "base": "cv"
+          }
+        },
+        "diagnostics_count": 2678,
+        "diagnostic_codes": {
+          "unused_parameter": 550,
+          "self_assignment": 66,
+          "identical_operands": 952,
+          "unused_variable": 717,
+          "bitwise_precedence": 35,
+          "manual_assign_op": 60,
+          "redundant_cast": 286,
+          "identity_op": 6,
+          "erasing_op": 5,
+          "almost_swapped": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 16579,
+          "character": 14,
+          "name": "v_3065"
+        },
+        "member_items": 2,
+        "references_count": 2,
+        "symbols_count": 1656,
+        "tokens_count": 1210320,
+        "edit_hover_samples": [
+          0.10288,
+          0.09921,
+          0.09664
+        ],
+        "typing_items": 1,
+        "typing_word": "v_3065",
+        "typing_samples": [
+          0.05052,
+          0.09692,
+          0.03138,
+          0.03225,
+          0.03089,
+          0.03053
+        ],
+        "member_typed_items": 1024
+      },
+      "server": "jailsp"
+    },
+    "jailsp/large-25k/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00347,
+          "warm": 0.0037,
+          "min": 0.00327,
+          "max": 0.00413,
+          "runs": [
+            0.00347,
+            0.00413,
+            0.00327
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.00215,
+          "rss_cold": 2.71875,
+          "rss_warm": 2.73438,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.20301,
+          "warm": 0.20112,
+          "min": 0.19988,
+          "max": 0.20301,
+          "runs": [
+            0.20301,
+            0.19988,
+            0.20236
+          ],
+          "cpu_cold": 0.196,
+          "cpu_warm": 0.1945,
+          "rss_cold": 138.5,
+          "rss_warm": 138.65,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00238,
+          "warm": 0.00245,
+          "min": 0.00228,
+          "max": 0.00262,
+          "runs": [
+            0.00238,
+            0.00262,
+            0.00228
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 138.5,
+          "rss_warm": 138.75,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00227,
+          "warm": 0.00234,
+          "min": 0.00227,
+          "max": 0.00236,
+          "runs": [
+            0.00227,
+            0.00236,
+            0.00232
+          ],
+          "cpu_cold": 0.011,
+          "cpu_warm": 0.011,
+          "rss_cold": 138.5,
+          "rss_warm": 138.75,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00113,
+          "warm": 0.00108,
+          "min": 0.00105,
+          "max": 0.00113,
+          "runs": [
+            0.00113,
+            0.00112,
+            0.00105
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 138.5,
+          "rss_warm": 138.75,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00192,
+          "warm": 0.00207,
+          "min": 0.00192,
+          "max": 0.00217,
+          "runs": [
+            0.00192,
+            0.00197,
+            0.00217
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 138.6,
+          "rss_warm": 138.8,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.02942,
+          "warm": 0.0263,
+          "min": 0.02581,
+          "max": 0.02942,
+          "runs": [
+            0.02942,
+            0.02678,
+            0.02581
+          ],
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.0055,
+          "rss_cold": 140.3,
+          "rss_warm": 140.6,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.07716,
+          "warm": 0.07788,
+          "min": 0.07716,
+          "max": 0.07837,
+          "runs": [
+            0.07716,
+            0.07837,
+            0.07739
+          ],
+          "cpu_cold": 0.039,
+          "cpu_warm": 0.0395,
+          "rss_cold": 142.0,
+          "rss_warm": 141.1,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.20087,
+          "warm": 0.20471,
+          "min": 0.20069,
+          "max": 0.20874,
+          "runs": [
+            0.20087,
+            0.20874,
+            0.20069
+          ],
+          "cpu_cold": 0.591,
+          "cpu_warm": 0.5955,
+          "rss_cold": 143.1,
+          "rss_warm": 142.3,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.2214,
+          "warm": 0.22681,
+          "min": 0.2214,
+          "max": 0.22861,
+          "runs": [
+            0.2214,
+            0.22502,
+            0.22861
+          ],
+          "cpu_cold": 0.439,
+          "cpu_warm": 0.442,
+          "rss_cold": 171.2,
+          "rss_warm": 171.3,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.03212,
+          "warm": 0.03199,
+          "min": 0.03177,
+          "max": 0.03222,
+          "runs": [
+            0.03212,
+            0.03177,
+            0.03222
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.48611,
+          "warm": 0.47375,
+          "min": 0.47254,
+          "max": 0.48611,
+          "runs": [
+            0.48611,
+            0.47254,
+            0.47495
+          ],
+          "cpu_cold": 0.478,
+          "cpu_warm": 0.466,
+          "rss_cold": 170.3,
+          "rss_warm": 169.8,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 192.2,
+      "warm_rss_mib": 191.89062,
+      "cpu_seconds_cold": 1.966,
+      "cpu_seconds": 1.962,
+      "cpu_user_seconds": 1.797,
+      "cpu_sys_seconds": 0.165,
+      "info": {
+        "document_bytes": 824499,
+        "document_lines": 25350,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 16579,
+            "character": 14,
+            "name": "v_3065"
+          },
+          "hover_alternatives": [
+            {
+              "line": 9685,
+              "character": 7,
+              "name": "walk_entry_1401"
+            },
+            {
+              "line": 13578,
+              "character": 18,
+              "name": "trunc"
+            },
+            {
+              "line": 19287,
+              "character": 4,
+              "name": "local_acc"
+            },
+            {
+              "line": 21937,
+              "character": 42,
+              "name": "v_3999"
+            },
+            {
+              "line": 23930,
+              "character": 14,
+              "name": "build_path_1236"
+            },
+            {
+              "line": 5401,
+              "character": 4,
+              "name": "v_1017"
+            },
+            {
+              "line": 2749,
+              "character": 33,
+              "name": "local_acc"
+            }
+          ],
+          "insert_line": 16580,
+          "indent": "    ",
+          "declaration": {
+            "line": 16571,
+            "character": 0,
+            "name": "mix_span_3064"
+          },
+          "member": {
+            "line": 11566,
+            "character": 21,
+            "base": "cv"
+          }
+        },
+        "diagnostics_count": 2678,
+        "diagnostic_codes": {
+          "unused_parameter": 550,
+          "self_assignment": 66,
+          "identical_operands": 952,
+          "unused_variable": 717,
+          "bitwise_precedence": 35,
+          "manual_assign_op": 60,
+          "redundant_cast": 286,
+          "identity_op": 6,
+          "erasing_op": 5,
+          "almost_swapped": 1
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 16579,
+          "character": 14,
+          "name": "v_3065"
+        },
+        "member_items": 2,
+        "references_count": 2,
+        "symbols_count": 1656,
+        "tokens_count": 1210320,
+        "edit_hover_samples": [
+          0.2103,
+          0.20087,
+          0.19647
+        ],
+        "typing_items": 1,
+        "typing_word": "v_3065",
+        "typing_samples": [
+          0.2214,
+          0.09421,
+          0.03189,
+          0.03162,
+          0.03225,
+          0.03199
+        ],
+        "member_typed_items": 1024
+      },
+      "server": "jailsp"
+    },
+    "jailsp/large-100k/pull": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00421,
+          "warm": 0.00372,
+          "min": 0.00369,
+          "max": 0.00421,
+          "runs": [
+            0.00421,
+            0.00375,
+            0.00369
+          ],
+          "cpu_cold": 0.0025,
+          "cpu_warm": 0.0021,
+          "rss_cold": 2.765625,
+          "rss_warm": 2.76562,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.84836,
+          "warm": 0.84611,
+          "min": 0.84414,
+          "max": 0.84836,
+          "runs": [
+            0.84836,
+            0.84414,
+            0.84807
+          ],
+          "cpu_cold": 0.819,
+          "cpu_warm": 0.819,
+          "rss_cold": 513.1,
+          "rss_warm": 513.3,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.01056,
+          "warm": 0.01116,
+          "min": 0.01056,
+          "max": 0.01158,
+          "runs": [
+            0.01056,
+            0.01074,
+            0.01158
+          ],
+          "cpu_cold": 0.008,
+          "cpu_warm": 0.0085,
+          "rss_cold": 513.1,
+          "rss_warm": 513.4,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00833,
+          "warm": 0.00842,
+          "min": 0.00826,
+          "max": 0.00857,
+          "runs": [
+            0.00833,
+            0.00826,
+            0.00857
+          ],
+          "cpu_cold": 0.041,
+          "cpu_warm": 0.041,
+          "rss_cold": 513.1,
+          "rss_warm": 513.4,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00375,
+          "warm": 0.00376,
+          "min": 0.00373,
+          "max": 0.00379,
+          "runs": [
+            0.00375,
+            0.00373,
+            0.00379
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 513.1,
+          "rss_warm": 513.4,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00774,
+          "warm": 0.00788,
+          "min": 0.00756,
+          "max": 0.0082,
+          "runs": [
+            0.00774,
+            0.0082,
+            0.00756
+          ],
+          "cpu_cold": 0.007,
+          "cpu_warm": 0.008,
+          "rss_cold": 513.2,
+          "rss_warm": 513.45,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.16109,
+          "warm": 0.15519,
+          "min": 0.15388,
+          "max": 0.16109,
+          "runs": [
+            0.16109,
+            0.15649,
+            0.15388
+          ],
+          "cpu_cold": 0.025,
+          "cpu_warm": 0.024,
+          "rss_cold": 520.3,
+          "rss_warm": 520.55,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.34624,
+          "warm": 0.35085,
+          "min": 0.34624,
+          "max": 0.35186,
+          "runs": [
+            0.34624,
+            0.35186,
+            0.34984
+          ],
+          "cpu_cold": 0.18,
+          "cpu_warm": 0.1805,
+          "rss_cold": 522.7,
+          "rss_warm": 522.9,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.37023,
+          "warm": 0.37882,
+          "min": 0.37023,
+          "max": 0.38421,
+          "runs": [
+            0.37023,
+            0.38421,
+            0.37343
+          ],
+          "cpu_cold": 1.112,
+          "cpu_warm": 1.138,
+          "rss_cold": 522.3,
+          "rss_warm": 522.5,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.21782,
+          "warm": 0.21571,
+          "min": 0.21051,
+          "max": 0.22092,
+          "runs": [
+            0.21782,
+            0.22092,
+            0.21051
+          ],
+          "cpu_cold": 0.536,
+          "cpu_warm": 0.5345,
+          "rss_cold": 564.6,
+          "rss_warm": 564.4,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.1933,
+          "warm": 0.19422,
+          "min": 0.19208,
+          "max": 0.19636,
+          "runs": [
+            0.1933,
+            0.19636,
+            0.19208
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.21107,
+          "warm": 0.21279,
+          "min": 0.21107,
+          "max": 0.21357,
+          "runs": [
+            0.21107,
+            0.21201,
+            0.21357
+          ],
+          "cpu_cold": 0.209,
+          "cpu_warm": 0.2105,
+          "rss_cold": 565.6,
+          "rss_warm": 565.7,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 649.3,
+      "warm_rss_mib": 649.08594,
+      "cpu_seconds_cold": 3.051,
+      "cpu_seconds": 3.075,
+      "cpu_user_seconds": 2.7355,
+      "cpu_sys_seconds": 0.3395,
+      "info": {
+        "document_bytes": 3373664,
+        "document_lines": 101454,
+        "diagnostics": "pull",
+        "picks": {
+          "hover": {
+            "line": 65231,
+            "character": 22,
+            "name": "u32"
+          },
+          "hover_alternatives": [
+            {
+              "line": 38176,
+              "character": 39,
+              "name": "int"
+            },
+            {
+              "line": 55124,
+              "character": 8,
+              "name": "local_acc"
+            },
+            {
+              "line": 75834,
+              "character": 38,
+              "name": "v_13858"
+            },
+            {
+              "line": 87129,
+              "character": 4,
+              "name": "local_acc"
+            },
+            {
+              "line": 95867,
+              "character": 4,
+              "name": "walk_value_5060"
+            },
+            {
+              "line": 22013,
+              "character": 30,
+              "name": "v_4014"
+            }
+          ],
+          "insert_line": 65232,
+          "indent": "    ",
+          "declaration": {
+            "line": 65228,
+            "character": 0,
+            "name": "update_item_11887"
+          },
+          "member": {
+            "line": 47380,
+            "character": 15,
+            "base": "av"
+          }
+        },
+        "diagnostics_count": 10706,
+        "diagnostic_codes": {
+          "unused_parameter": 2410,
+          "self_assignment": 267,
+          "identical_operands": 3730,
+          "unused_variable": 2917,
+          "bitwise_precedence": 160,
+          "manual_assign_op": 282,
+          "redundant_cast": 870,
+          "identity_op": 41,
+          "erasing_op": 26,
+          "almost_swapped": 3
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 65231,
+          "character": 22,
+          "name": "u32"
+        },
+        "member_items": 36,
+        "references_count": 2,
+        "symbols_count": 6506,
+        "tokens_count": 4912920,
+        "edit_hover_samples": [
+          0.39218,
+          0.36706,
+          0.37023
+        ],
+        "typing_items": 2,
+        "typing_word": "u32",
+        "typing_samples": [
+          0.21782,
+          0.1933,
+          0.1322
+        ],
+        "member_typed_items": 0
+      },
+      "server": "jailsp"
+    },
+    "jailsp/large-100k/push": {
+      "metrics": {
+        "startup": {
+          "cold": 0.00371,
+          "warm": 0.00357,
+          "min": 0.00356,
+          "max": 0.00371,
+          "runs": [
+            0.00371,
+            0.00356,
+            0.00359
+          ],
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.00185,
+          "rss_cold": 2.71875,
+          "rss_warm": 2.75,
+          "status": "ok",
+          "message": ""
+        },
+        "first_diagnostics": {
+          "cold": 0.83966,
+          "warm": 0.81833,
+          "min": 0.81751,
+          "max": 0.83966,
+          "runs": [
+            0.83966,
+            0.81916,
+            0.81751
+          ],
+          "cpu_cold": 0.803,
+          "cpu_warm": 0.7835,
+          "rss_cold": 476.6,
+          "rss_warm": 477.4,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_first": {
+          "cold": 0.00826,
+          "warm": 0.00864,
+          "min": 0.00826,
+          "max": 0.00882,
+          "runs": [
+            0.00826,
+            0.00846,
+            0.00882
+          ],
+          "cpu_cold": 0.008,
+          "cpu_warm": 0.008,
+          "rss_cold": 476.6,
+          "rss_warm": 477.5,
+          "status": "ok",
+          "message": ""
+        },
+        "hover_warm": {
+          "cold": 0.00849,
+          "warm": 0.00829,
+          "min": 0.00821,
+          "max": 0.00849,
+          "runs": [
+            0.00849,
+            0.00821,
+            0.00838
+          ],
+          "cpu_cold": 0.041,
+          "cpu_warm": 0.0405,
+          "rss_cold": 476.6,
+          "rss_warm": 477.5,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member": {
+          "cold": 0.00346,
+          "warm": 0.00381,
+          "min": 0.00346,
+          "max": 0.00384,
+          "runs": [
+            0.00346,
+            0.00379,
+            0.00384
+          ],
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.0035,
+          "rss_cold": 476.7,
+          "rss_warm": 477.5,
+          "status": "ok",
+          "message": ""
+        },
+        "references": {
+          "cold": 0.00788,
+          "warm": 0.00789,
+          "min": 0.00764,
+          "max": 0.00813,
+          "runs": [
+            0.00788,
+            0.00764,
+            0.00813
+          ],
+          "cpu_cold": 0.008,
+          "cpu_warm": 0.008,
+          "rss_cold": 476.7,
+          "rss_warm": 477.5,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.16647,
+          "warm": 0.17478,
+          "min": 0.16647,
+          "max": 0.17659,
+          "runs": [
+            0.16647,
+            0.17298,
+            0.17659
+          ],
+          "cpu_cold": 0.024,
+          "cpu_warm": 0.024,
+          "rss_cold": 483.6,
+          "rss_warm": 484.45,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.34282,
+          "warm": 0.34183,
+          "min": 0.34165,
+          "max": 0.34282,
+          "runs": [
+            0.34282,
+            0.34165,
+            0.34201
+          ],
+          "cpu_cold": 0.176,
+          "cpu_warm": 0.1775,
+          "rss_cold": 486.7,
+          "rss_warm": 488.8,
+          "status": "ok",
+          "message": ""
+        },
+        "edit_hover": {
+          "cold": 0.85588,
+          "warm": 0.84704,
+          "min": 0.84343,
+          "max": 0.85588,
+          "runs": [
+            0.85588,
+            0.85065,
+            0.84343
+          ],
+          "cpu_cold": 2.472,
+          "cpu_warm": 2.455,
+          "rss_cold": 488.5,
+          "rss_warm": 490.5,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_first": {
+          "cold": 0.94486,
+          "warm": 0.94482,
+          "min": 0.94465,
+          "max": 0.94499,
+          "runs": [
+            0.94486,
+            0.94499,
+            0.94465
+          ],
+          "cpu_cold": 1.257,
+          "cpu_warm": 1.252,
+          "rss_cold": 530.0,
+          "rss_warm": 533.05,
+          "status": "ok",
+          "message": ""
+        },
+        "typing_median": {
+          "cold": 0.19669,
+          "warm": 0.19358,
+          "min": 0.18905,
+          "max": 0.1981,
+          "runs": [
+            0.19669,
+            0.1981,
+            0.18905
+          ],
+          "cpu_cold": null,
+          "cpu_warm": null,
+          "rss_cold": null,
+          "rss_warm": null,
+          "status": "ok",
+          "message": ""
+        },
+        "completion_member_typed": {
+          "cold": 0.95114,
+          "warm": 0.94861,
+          "min": 0.93834,
+          "max": 0.95888,
+          "runs": [
+            0.95114,
+            0.93834,
+            0.95888
+          ],
+          "cpu_cold": 0.939,
+          "cpu_warm": 0.935,
+          "rss_cold": 537.9,
+          "rss_warm": 541.0,
+          "status": "ok",
+          "message": ""
+        }
+      },
+      "peak_rss_mib": 626.4,
+      "warm_rss_mib": 624.27344,
+      "cpu_seconds_cold": 5.922,
+      "cpu_seconds": 5.8775,
+      "cpu_user_seconds": 5.397,
+      "cpu_sys_seconds": 0.4805,
+      "info": {
+        "document_bytes": 3373664,
+        "document_lines": 101454,
+        "diagnostics": "push",
+        "picks": {
+          "hover": {
+            "line": 65231,
+            "character": 22,
+            "name": "u32"
+          },
+          "hover_alternatives": [
+            {
+              "line": 38176,
+              "character": 39,
+              "name": "int"
+            },
+            {
+              "line": 55124,
+              "character": 8,
+              "name": "local_acc"
+            },
+            {
+              "line": 75834,
+              "character": 38,
+              "name": "v_13858"
+            },
+            {
+              "line": 87129,
+              "character": 4,
+              "name": "local_acc"
+            },
+            {
+              "line": 95867,
+              "character": 4,
+              "name": "walk_value_5060"
+            },
+            {
+              "line": 22013,
+              "character": 30,
+              "name": "v_4014"
+            }
+          ],
+          "insert_line": 65232,
+          "indent": "    ",
+          "declaration": {
+            "line": 65228,
+            "character": 0,
+            "name": "update_item_11887"
+          },
+          "member": {
+            "line": 47380,
+            "character": 15,
+            "base": "av"
+          }
+        },
+        "diagnostics_count": 10706,
+        "diagnostic_codes": {
+          "unused_parameter": 2410,
+          "self_assignment": 267,
+          "identical_operands": 3730,
+          "unused_variable": 2917,
+          "bitwise_precedence": 160,
+          "manual_assign_op": 282,
+          "redundant_cast": 870,
+          "identity_op": 41,
+          "erasing_op": 26,
+          "almost_swapped": 3
+        },
+        "hover_result": true,
+        "hover_retries": 0,
+        "hover_position": {
+          "line": 65231,
+          "character": 22,
+          "name": "u32"
+        },
+        "member_items": 36,
+        "references_count": 2,
+        "symbols_count": 6506,
+        "tokens_count": 4912920,
+        "edit_hover_samples": [
+          0.87762,
+          0.85588,
+          0.84942
+        ],
+        "typing_items": 2,
+        "typing_word": "u32",
+        "typing_samples": [
+          0.94486,
+          0.19669,
+          0.13353
+        ],
+        "member_typed_items": 0
+      },
+      "server": "jailsp"
+    }
+  },
+  "failures": {}
+}

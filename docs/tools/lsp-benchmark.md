@@ -116,6 +116,7 @@ time, since the numbers are wall time.
 - **More client behavior**: the script does not pull diagnostics again after a change; an editor that does adds
   that work to every edit. Add it in `edit_hover` and `typing` if that is the case to measure.
 - Update the position picker's heuristics together with `test_lsp_bench.py`.
+- Latest committed results: [`benchmarks/results/lsp-apple-m5.md`](../../benchmarks/results/lsp-apple-m5.md) and `.json` (jailsp only, both diagnostic styles, `--repeat 3`, Apple M5). The comparison with Jails is in the [jailsp README](../../crates/jai-language-server/README.md#compared-with-jails), with the commands to reproduce it; a server given with `--server` is described by its command, without jailsp's checkout and rustc.
 - Tests: `python3 -m unittest tools/test_lsp_bench.py` (framing, position picking, medians, CPU parsing,
   comparison, Markdown).
 
