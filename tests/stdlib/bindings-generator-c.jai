@@ -34,6 +34,7 @@ has :: (text: string, needle: string) -> bool {
 // Runs at compile time: libclang is the compiler's, and executables cannot call it.
 check_bindings :: () {
     dir := scratch_directory("bindgen-c");
+    hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);

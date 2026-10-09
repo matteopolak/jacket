@@ -21,9 +21,28 @@ scratch_directory :: (name: string) -> string {
     return dir;
 }
 
+// Logs from now on with `dir` shown as `<scratch>`. The directory name carries the process id, so
+// a program that prints a message naming a file inside it (`Bindings_Generator: wrote <path>`) would
+// otherwise print something different on every run, which a comparison of backends would flag.
+hide_scratch_directory_in_log :: (dir: string) {
+    hidden_directory = copy_string(dir);
+    context.logger = log_without_scratch_directory;
+}
+
 #scope_file
 #import "Basic";
 #import "File";
+#import "String";
+
+hidden_directory: string;
+
+log_without_scratch_directory :: (message: string, data: *void, info: Log_Info) {
+    if message.count == 0 return;
+    text := replace(message, hidden_directory, "<scratch>");
+    // As the default logger: a message ends its line.
+    suffix := ifx text[text.count - 1] == #char "\n" then "" else "\n";
+    write_strings(text, suffix, to_standard_error = (info.common_flags & .ERROR) != 0);
+}
 
 #if OS == .WINDOWS {
     Windows :: #import "Windows";

@@ -55,6 +55,7 @@ has :: (text: string, needle: string) -> bool {
 // The bindings generated from `header`, written to and read back from a scratch directory.
 generate :: (name: string, header: string, cpp: bool) -> string {
     dir := scratch_directory(name);
+    hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);
