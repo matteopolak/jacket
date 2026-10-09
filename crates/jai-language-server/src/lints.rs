@@ -4,8 +4,7 @@
 //! (`semantic::Cache`, keyed by the open texts), so an edit costs one compile however many
 //! features ask. A document is linted only when it parses. Its settings come from the nearest
 //! `jailint.toml` above it: an open one (the client sent it with `didOpen`, which is how the
-//! browser build gets one), else one on disk. `format_arg_count` is left out: format strings
-//! already have their own diagnostics (`jai-format`), which work without type checking.
+//! browser build gets one), else one on disk.
 //!
 //! Each machine-applicable fix is a preferred `quickfix` on its finding, carrying the finding
 //! as its diagnostic and the rule as `data.rule`. `source.fixAll.jailint` applies all of them
@@ -61,14 +60,8 @@ impl Session {
     /// Settings for the document at `path`: the nearest `jailint.toml` (open, else on disk), or
     /// the defaults; `None` when it excludes the document.
     pub(crate) fn lint_config(&self, path: &Path) -> Option<Config> {
-        let mut config = self.find_lint_config(path).unwrap_or_default();
-        if config.excluded(path) {
-            return None;
-        }
-        config
-            .levels
-            .insert("format_arg_count".into(), Level::Allow);
-        Some(config)
+        let config = self.find_lint_config(path).unwrap_or_default();
+        (!config.excluded(path)).then_some(config)
     }
 
     fn find_lint_config(&self, path: &Path) -> Option<Config> {

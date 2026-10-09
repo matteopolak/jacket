@@ -21,7 +21,6 @@ main :: () {
     leftover: u8 = xx sum(.[1, 2]);
     ready := double_value(1, "x") > 1;
     if ready == true print("ready\n"); // jailint: allow(bool_comparison)
-    print("% %\n", 1); // jailint: allow(format_arg_count)
     x: s32 = 5;
     y := cast(s32) x; // jailint: allow(all)
     a := 0.1;

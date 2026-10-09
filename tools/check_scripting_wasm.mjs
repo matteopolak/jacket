@@ -51,11 +51,13 @@ const source = [
   "main :: () {",
   "    count := 3;",
   '    #insert "twice := count * 2;";',
-  '    print("% and %\\n", count);',
+  '    print("% and %\\n", count, twice);',
   "}",
   "",
 ].join("\n");
-const published = engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri, languageId: "jai", version: 1, text: source } } });
+engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri, languageId: "jai", version: 1, text: source } } });
+// Too few arguments is reported without type checking (jaic also rejects the call when compiling).
+const published = engine.lsp({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri: "file:///jai-script/bad.jai", languageId: "jai", version: 1, text: 'main :: () { print("% %\\n", 1); }\n' } } });
 assert(published.some(m => m.params?.diagnostics?.some(d => d.code === "jai-format")), "format argument mismatch is diagnosed");
 const textDocument = { uri };
 const hints = request("textDocument/inlayHint", { textDocument, range: { start: { line: 0, character: 0 }, end: { line: 7, character: 0 } } });
@@ -66,7 +68,7 @@ assert.equal(request("jai/source", { uri: expansion.uri }), expansion.text);
 const actions = request("textDocument/codeAction", { textDocument, range: { start: { line: 4, character: 6 }, end: { line: 4, character: 6 } }, context: { diagnostics: [] } });
 assert(actions.some(a => a.title === "Inline #insert" && a.edit.changes[uri][0].newText === "twice := count * 2;"), JSON.stringify(actions));
 const hover = request("textDocument/hover", { textDocument, position: { line: 5, character: 12 } });
-assert(hover.contents.kind === "markdown" && hover.contents.value.includes("`count: s64`") && hover.contents.value.includes("missing argument 2"), JSON.stringify(hover));
+assert(hover.contents.kind === "markdown" && hover.contents.value.includes("`count: s64`") && hover.contents.value.includes("`twice: s64`"), JSON.stringify(hover));
 const runHover = request("textDocument/hover", { textDocument, position: { line: 1, character: 10 } });
 assert(runHover.contents.value.startsWith("```jai\n#run = 42: s64\n```"), JSON.stringify(runHover));
 const tokens = request("textDocument/semanticTokens/full", { textDocument }).data;

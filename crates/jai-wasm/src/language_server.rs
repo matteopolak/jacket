@@ -289,7 +289,7 @@ mod tests {
             "main :: () {\n",
             "    count := 3;\n",
             "    #insert \"twice := count * 2;\";\n",
-            "    print(\"% %\\n\", count);\n",
+            "    print(\"% %\\n\", count, twice);\n",
             "}\n",
         );
         let escaped = text
@@ -304,7 +304,10 @@ mod tests {
             ),
             escaped = escaped,
         );
-        let published = send(&mut bridge, &open);
+        send(&mut bridge, &open);
+        // A format string with too few arguments is reported without type checking.
+        let bad = r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///jai-script/bad.jai","languageId":"jai","version":1,"text":"main :: () { print(\"% %\\n\", 1); }\n"}}}"#;
+        let published = send(&mut bridge, bad);
         assert!(published.contains("jai-format"), "{published}");
         let hints = send(
             &mut bridge,
@@ -335,7 +338,7 @@ mod tests {
         // The client asked for Markdown: the argument and its type are a code span.
         assert!(hover.contains(r#""kind":"markdown""#), "{hover}");
         assert!(hover.contains("`count: s64`"), "{hover}");
-        assert!(hover.contains("missing argument 2"), "{hover}");
+        assert!(hover.contains("`twice: s64`"), "{hover}");
         // `#import "Basic"` goes to the bundled stdlib, readable through `jai/source`.
         let definition = send(
             &mut bridge,

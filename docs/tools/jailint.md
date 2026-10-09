@@ -48,7 +48,6 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
 | `float_equality` | allow | no | `==` or `!=` between two computed floats |
-| `format_arg_count` | deny | no | a format string that uses more or fewer arguments than the call passes |
 | `identical_branches` | warn | no | `if c { A } else { A }`, `ifx c then a else a` |
 | `identical_operands` | warn | no | `a == a`, `x - x`, `ok && ok` |
 | `identity_op` | warn | yes | `x + 0`, `x * 1`, `x / 1` |
@@ -72,6 +71,8 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `unused_result` | warn | no | `trim(line);`: a library call that only computes a value, as a statement |
 | `unused_variable` | warn | yes | a local variable that is never used |
 | `wrapping_constant` | warn | no | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps to the other operand's type |
+
+A rule is removed once `jaic` rejects what it found (`format_arg_count`, now a [compile error](../compiler/format-string-check.md)). A `jailint.toml` that still names a removed rule fails to load with `unknown rule`, like any other unknown name.
 
 Each rule's module (`crates/jailint/src/rules/<rule>.rs`) starts with a doc comment that explains why the rule exists and exactly when it fires. `tests/lint/<rule>/` has code it fires on (`bad.jai`, with the expected output in `bad.expected` and the fixed code in `bad.fixed.jai`) and code it must not fire on (`good.jai`). Every rule has a section below; editors link a finding to it (`#<rule>`).
 
@@ -132,10 +133,6 @@ Fires when a side-effect-free condition in an `if`/`else if` chain repeats an ea
 ### float_equality
 
 Off by default. `if total == expected` with two computed floats. Comparisons with a constant (`x == 0`), the NaN test `x != x` and comparisons inside `operator ==` are not reported. Exact comparison is often deliberate ("did this value change"), and on the stdlib it finds only such cases.
-
-### format_arg_count
-
-Deny by default. `print("% is %\n", name)` prints an error marker in place of the second value at run time, and `print("done\n", n)` drops `n` silently. A procedure counts as print-like when a `string` parameter is followed by a variadic `..Any` and its body passes both to one call, as `print`, `sprint`, `tprint`, `log`, `print_to_builder` and user wrappers do. A `greet :: (name: string, extras: ..Any)` that uses them apart is not a format. Only literal format strings are read. Calls that spread an array (`..args`) or name arguments are skipped. Directives are read as `Basic` reads them: `%`, `%N`, `%00`, and `\%` for a literal percent. It is `deny` because the mistake is always visible at run time.
 
 ### identical_branches
 
@@ -329,7 +326,7 @@ A file compiled by several roots is reported once, from the first root. Within a
 
 ### In editors
 
-`jailsp` lints each open document that parses. It uses the same cached, type-checked compile as hover and inlay hints, so an edit costs one compile however many features ask. Findings are diagnostics with the rule as `code`, `jailint` as `source` and a link to the rule's section above as `codeDescription`; `deny` rules are errors. Each fix is a `quickfix` on the finding (preferred when machine-applicable) with the rule in `data.rule`, and `source.fixAll.jailint` applies every safe fix at once, as `--fix` does. Settings come from the nearest `jailint.toml`; a client without a disk (the browser build) sends it as an open document (`didOpen` of a URI ending in `/jailint.toml`). `format_arg_count` is left to jailsp's own format-string diagnostics, which work without type checking. See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
+`jailsp` lints each open document that parses. It uses the same cached, type-checked compile as hover and inlay hints, so an edit costs one compile however many features ask. Findings are diagnostics with the rule as `code`, `jailint` as `source` and a link to the rule's section above as `codeDescription`; `deny` rules are errors. Each fix is a `quickfix` on the finding (preferred when machine-applicable) with the rule in `data.rule`, and `source.fixAll.jailint` applies every safe fix at once, as `--fix` does. Settings come from the nearest `jailint.toml`; a client without a disk (the browser build) sends it as an open document (`didOpen` of a URI ending in `/jailint.toml`). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
 
 ## Suppression
 

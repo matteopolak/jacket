@@ -14,7 +14,6 @@ mod defer_in_loop;
 mod duplicate_condition;
 mod erasing_op;
 mod float_equality;
-mod format_arg_count;
 mod identical_branches;
 mod identical_operands;
 mod identity_op;
@@ -95,12 +94,6 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Allow,
         summary: "`==` or `!=` between two computed floats",
         check: float_equality::check,
-    },
-    RuleInfo {
-        name: "format_arg_count",
-        default: Level::Deny,
-        summary: "a format string that uses more or fewer arguments than the call passes",
-        check: format_arg_count::check,
     },
     RuleInfo {
         name: "identical_branches",
@@ -293,14 +286,6 @@ pub(crate) fn place_use(node: &Expr, chain: &[Node<'_>]) -> PlaceUse {
 pub(crate) fn is_call_argument(e: &Expr, chain: &[Node<'_>]) -> bool {
     matches!(chain.last(), Some(Node::Expr(Expr { kind: E::Call { args, .. }, .. }))
         if args.iter().any(|a| a.value.span == e.span))
-}
-
-pub(crate) fn plural(n: usize, word: &str) -> String {
-    if n == 1 {
-        format!("1 {word}")
-    } else {
-        format!("{n} {word}s")
-    }
 }
 
 /// Evaluating `e` has no side effects and gives the same value twice in a row: names, member

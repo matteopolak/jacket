@@ -98,16 +98,6 @@
           "default": "allow",
           "markdownDescription": "`==` or `!=` between two computed floats (default `allow`). [Docs](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#float_equality)"
         },
-        "format_arg_count": {
-          "type": "string",
-          "enum": [
-            "allow",
-            "warn",
-            "deny"
-          ],
-          "default": "deny",
-          "markdownDescription": "a format string that uses more or fewer arguments than the call passes (default `deny`). [Docs](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#format_arg_count)"
-        },
         "identical_branches": {
           "type": "string",
           "enum": [

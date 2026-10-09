@@ -3,7 +3,8 @@
 //! continues after it, `%00` prints nothing, and `%%` is two arguments in a row. A literal
 //! percent sign is written `\%`.
 //!
-//! Shared by the `format_arg_count` rule and the language server's format-string features.
+//! Used by the language server's format-string features (hover and diagnostics that work
+//! without type checking); `jaic` makes the same count check at compile time.
 
 /// The largest argument index a directive reports. A string can ask for argument
 /// 77777777777777777777777777, which no call passes; clamping keeps `index + 1` and the counts

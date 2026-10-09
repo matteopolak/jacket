@@ -181,8 +181,7 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
     out
 }
 
-/// The `%` directives of the string literal at `string` of `text` (read as jailint's
-/// `format_arg_count` reads them).
+/// The `%` directives of the string literal at `string` of `text` (read as `Basic` reads them).
 pub fn specs(text: &str, string: Span) -> Vec<Spec> {
     jailint::format_string::specs(text, string.start, string.end)
         .into_iter()

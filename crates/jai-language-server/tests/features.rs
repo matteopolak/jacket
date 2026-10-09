@@ -87,7 +87,7 @@ main :: () {
     a := identity(3);
     b := identity("x");
     print("% and %2 of %1\n", total, s);
-    print("% %\n", inserted);
+    print("% %\n", inserted, s);
 }
 "#;
 
@@ -184,19 +184,19 @@ fn markdown_format_hover_is_a_list_with_the_hovered_row_bold() {
          - **`%2`** → `s: s64`\n\
          - `%1` → `total: s64`"
     );
-    // Prose is escaped; an argument that is not passed is not code.
     assert_eq!(
         markdown(&s, at(PROGRAM, "% %\\n", 0, 0)),
         "```jai\n\"% %\\n\"\n```\n\n\
          - **`%`** → `inserted: s64`\n\
-         - `%` → missing argument 2"
+         - `%` → `s: s64`"
     );
 }
 
 #[test]
 fn format_strings_are_checked_against_their_arguments() {
     let mut s = session();
-    s.open(uri(), 1, PROGRAM.into()).unwrap();
+    let few = "#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n";
+    s.open(uri(), 1, few.into()).unwrap();
     let format: Vec<_> = s
         .diagnostics(&uri())
         .unwrap()
@@ -206,7 +206,7 @@ fn format_strings_are_checked_against_their_arguments() {
         .collect();
     assert_eq!(format.len(), 1, "{format:?}");
     assert_eq!(format[0].severity, DiagnosticSeverity::Error);
-    assert_eq!(format[0].range.start, at(PROGRAM, "% %\\n", 0, 2));
+    assert_eq!(format[0].range.start, at(few, "% %\\n", 0, 2));
     assert!(
         format[0].message.contains("argument 2"),
         "{}",
