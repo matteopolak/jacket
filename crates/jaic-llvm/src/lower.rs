@@ -154,6 +154,10 @@ struct FnState<'ctx> {
     dbg: Option<FnDebug<'ctx>>,
     /// (file, line) of the last `Inst::Loc`: where a failed check reports itself.
     loc: (u32, u32),
+    /// Check pointers before loads, stores and copies (`Func::null_checks`).
+    null_checks: bool,
+    /// Vals known to hold a real address: a slot, global or function, or an offset into one.
+    nonnull: Vec<bool>,
 }
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
@@ -745,6 +749,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             reg_ret: None,
             dbg: None,
             loc: (func.source_file, 0),
+            null_checks: func.null_checks && self.program.check_failed.is_some(),
+            nonnull: vec![false; func.vals.len()],
         };
         if let Some(debug) = &self.debug {
             let local = func.linkage == IrLinkage::Internal;
@@ -1032,6 +1038,29 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     /// Branch to a failure block when `cond` holds: it reports `reason` (with `a`, `b`) and
     /// traps.
+    /// Stop with a null pointer error when `addr` lies in the never-mapped first page. Addresses
+    /// of slots and globals, and offsets into them, need no check.
+    fn null_check(&self, st: &FnState<'ctx>, addr: Val, kind: u64) -> R<()> {
+        if !st.null_checks || st.nonnull.get(addr.0 as usize).copied().unwrap_or(false) {
+            return Ok(());
+        }
+        let i64t = self.ctx.i64_type();
+        let value = self.get_int(st, addr)?;
+        let low = self.builder.build_int_compare(
+            IntPredicate::ULT,
+            value,
+            i64t.const_int(4096, false),
+            "",
+        )?;
+        self.trap_if(
+            st,
+            low,
+            jaic::ir::TRAP_NULL_POINTER,
+            i64t.const_int(kind, false),
+            value,
+        )
+    }
+
     fn trap_if(
         &self,
         st: &FnState<'ctx>,
@@ -1173,6 +1202,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 slot,
             } => {
                 let p = st.slots[slot.0 as usize];
+                st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
             Inst::GlobalAddr {
@@ -1180,6 +1210,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 global,
             } => {
                 let p = self.globals[global.0 as usize].as_pointer_value();
+                st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
             Inst::FuncAddr {
@@ -1187,6 +1218,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 func,
             } => {
                 let p = self.func_ptr(*func)?;
+                st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
             Inst::ForeignAddr {
@@ -1194,6 +1226,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 foreign,
             } => {
                 let p = self.foreigns[foreign.0 as usize];
+                st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
             Inst::Load {
@@ -1201,6 +1234,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 ty,
                 addr,
             } => {
+                self.null_check(st, *addr, jaic::ir::NULL_READ)?;
                 let p = self.get_ptr(st, *addr)?;
                 let load = b.build_load(self.ll(*ty), p, "")?;
                 if let Some(i) = load.as_instruction_value() {
@@ -1213,6 +1247,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 addr,
                 value,
             } => {
+                self.null_check(st, *addr, jaic::ir::NULL_WRITE)?;
                 let p = self.get_ptr(st, *addr)?;
                 let v = self.coerce(self.get(st, *value)?, *ty)?;
                 let store = b.build_store(p, v)?;
@@ -1223,6 +1258,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 base,
                 offset,
             } => {
+                let base_val = *base;
                 let base = self.get_ptr(st, *base)?;
                 let off = self.get_int(st, *offset)?;
                 let off = if off.get_type().get_bit_width() < 64 {
@@ -1231,6 +1267,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     off
                 };
                 let p = self.gep(base, off)?;
+                if st.nonnull[base_val.0 as usize] {
+                    st.nonnull[dst.0 as usize] = true;
+                }
                 self.set(st, *dst, p.into());
             }
             Inst::Copy {
@@ -1238,6 +1277,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 src,
                 size,
             } => {
+                if *size > 0 {
+                    self.null_check(st, *dst, jaic::ir::NULL_COPY)?;
+                    self.null_check(st, *src, jaic::ir::NULL_COPY)?;
+                }
                 let (d, s) = (self.get_ptr(st, *dst)?, self.get_ptr(st, *src)?);
                 b.build_memcpy(d, 1, s, 1, self.ctx.i64_type().const_int(*size, false))?;
             }
@@ -1245,6 +1288,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 dst,
                 size,
             } => {
+                if *size > 0 {
+                    self.null_check(st, *dst, jaic::ir::NULL_FILL)?;
+                }
                 let d = self.get_ptr(st, *dst)?;
                 b.build_memset(
                     d,

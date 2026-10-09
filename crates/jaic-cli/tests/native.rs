@@ -1317,37 +1317,49 @@ fn failed_checks_say_what_and_where() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-checks");
     std::fs::create_dir_all(&dir).unwrap();
     // (name, body of main, the report's line, its message)
-    let cases: [(&str, &str, u32, &str); 4] = [
+    let cases: [(&str, &str, u32, &str); 6] = [
         (
             "bounds",
             "a: [3] int;\n    i := 5 + a[0];\n    print(\"%\\n\", a[i]);",
-            6,
+            7,
             "array bounds check failed: index 5 is outside an array of 3 elements",
         ),
         (
             "cast",
             "w := 300 + get_command_line_arguments().count;\n    c := cast(u8) w;\n    print(\"%\\n\", c);",
-            5,
+            6,
             "cast of 301 to `u8` overflows",
         ),
         (
             "switch",
             "c := cast(Color) (6 + get_command_line_arguments().count);\n    if #complete c == {\n        case .RED; print(\"red\\n\");\n        case .GREEN; print(\"green\\n\");\n    }",
-            5,
+            6,
             "no case of the `#complete` switch matches its value, 7",
         ),
         (
             "divide",
             "z := get_command_line_arguments().count - 1;\n    print(\"%\\n\", 7 / z);",
-            5,
+            6,
             "integer division by zero",
+        ),
+        (
+            "null_read",
+            "p: *int;\n    v := p.*;\n    print(\"%\\n\", v);",
+            6,
+            "null pointer dereference: read through a null pointer",
+        ),
+        (
+            "null_member",
+            "p: *Pair;\n    v := p.b;\n    print(\"%\\n\", v);",
+            6,
+            "null pointer dereference: read at address 0x8, just past null (a member of a null struct pointer?)",
         ),
     ];
     for (name, body, line, message) in cases {
         let source = dir.join(format!("{name}.jai"));
         std::fs::write(
             &source,
-            format!("#import \"Basic\";\nColor :: enum {{ RED; GREEN; }}\nmain :: () {{\n    {body}\n}}\n"),
+            format!("#import \"Basic\";\nColor :: enum {{ RED; GREEN; }}\nPair :: struct {{ a: int; b: int; }}\nmain :: () {{\n    {body}\n}}\n"),
         )
         .unwrap();
         let output = build_and_run(&source, &dir, name).unwrap();

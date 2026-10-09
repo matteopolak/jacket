@@ -120,6 +120,8 @@ pub struct Options {
     pub temporary_storage_size: i64,
     /// Emit array bounds checks (`Build_Options.array_bounds_check != .OFF`).
     pub array_bounds_check: bool,
+    /// `Build_Options.null_pointer_check`: native code checks pointers before loads and stores.
+    pub null_pointer_check: bool,
     /// `Build_Options.arithmetic_overflow_check`: 0 = off, 1 = nonfatal, 2 = fatal.
     pub arithmetic_overflow_check: u8,
     /// `Build_Options.cast_bounds_check`: integer casts whose value does not fit the target.
@@ -217,6 +219,7 @@ impl Options {
             runtime_support: true,
             temporary_storage_size: 32768,
             array_bounds_check: true,
+            null_pointer_check: true,
             arithmetic_overflow_check: 0,
             cast_bounds_check: 2,
             stack_trace: true,

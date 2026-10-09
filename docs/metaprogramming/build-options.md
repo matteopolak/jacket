@@ -93,7 +93,7 @@ The before column is jaic 0.4.1. "Silently ignored" means the value was accepted
 | `use_custom_link_command` | silently ignored (jaic linked itself, `READY_FOR_CUSTOM_LINK_COMMAND` never came) | honoured (see above); an error for the top-level program |
 | `temporary_storage_size`, `stack_trace`, `dead_code_elimination`, `cast_bounds_check`, `arithmetic_overflow_check` | honoured | honoured |
 | `array_bounds_check` | honoured; `.ALWAYS` silently `.ON` | `.ALWAYS` warns (`#no_abc` still turns checks off) |
-| `null_pointer_check` | silently ignored | not forwarded, documented: jaic inserts no null checks in native code, so `.OFF` is what it does; a null dereference faults (and the crash handler reports it) |
+| `null_pointer_check` | silently ignored | honoured: `.ON` (the default) makes native code check the pointer of every load, store and copy that is not a local or global; `.OFF` leaves them unchecked. Gated like `array_bounds_check`, per workspace; `#no_abc` on a procedure also skips it |
 | `emit_debug_info` | honoured (`.NONE` off; `CODEVIEW`/`DWARF` pick nothing, the target's format is used) | same |
 | `write_added_strings` | silently ignored | not forwarded, documented: jaic never writes added strings to disk, which is what `false` asks |
 | `runtime_support_definitions` | silently ignored | honoured (module parameters) |

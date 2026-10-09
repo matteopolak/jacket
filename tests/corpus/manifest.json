@@ -2983,6 +2983,24 @@
       "negative": {
         "check": "a note ends at the first whitespace"
       }
+    },
+    {
+      "id": "null-deref-plain-load",
+      "source": "positive/null-deref-plain-load.jai",
+      "sha256": "efa20bd43ceba95c34cf1a8dbcd0d8181e3135aea7d5365b7c5f264aac6ba0c1",
+      "suite": "core",
+      "feature": "a plain load through a null pointer stops with a null pointer dereference on every backend",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "error": "null pointer dereference: read through a null pointer",
+        "stdout": "7\n"
+      },
+      "rules": [
+        "ptr.19"
+      ]
     }
   ]
 }

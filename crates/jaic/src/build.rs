@@ -59,6 +59,8 @@ pub struct BuildSettings {
     pub additional_linker_arguments: Vec<String>,
     pub temporary_storage_size: Option<i64>,
     pub array_bounds_check: Option<bool>,
+    /// `Build_Options.null_pointer_check`.
+    pub null_pointer_check: Option<bool>,
     /// 0 = OFF, 1 = NONFATAL, 2 = FATAL (`Options::arithmetic_overflow_check`).
     pub arithmetic_overflow_check: Option<u8>,
     /// The same for `Options::cast_bounds_check`.
@@ -127,6 +129,7 @@ impl Default for BuildSettings {
             additional_linker_arguments: Vec::new(),
             temporary_storage_size: None,
             array_bounds_check: None,
+            null_pointer_check: None,
             arithmetic_overflow_check: None,
             cast_bounds_check: None,
             stack_trace: None,
@@ -509,6 +512,7 @@ impl Workspaces {
             "additional_linker_argument" => s.additional_linker_arguments.push(value.into()),
             "temporary_storage_size" => s.temporary_storage_size = value.parse().ok(),
             "array_bounds_check" => s.array_bounds_check = Some(value != "OFF"),
+            "null_pointer_check" => s.null_pointer_check = Some(value != "OFF"),
             "arithmetic_overflow_check" => s.arithmetic_overflow_check = Some(check_level(value)),
             "cast_bounds_check" => s.cast_bounds_check = Some(check_level(value)),
             "stack_trace" => s.stack_trace = Some(value == "true"),
@@ -633,6 +637,9 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     }
     if let Some(check) = settings.array_bounds_check {
         options.array_bounds_check = check;
+    }
+    if let Some(check) = settings.null_pointer_check {
+        options.null_pointer_check = check;
     }
     if let Some(check) = settings.arithmetic_overflow_check {
         options.arithmetic_overflow_check = check;

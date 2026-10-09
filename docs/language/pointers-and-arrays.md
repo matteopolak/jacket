@@ -49,6 +49,10 @@ A place reached through a pointer and boxed into an `Any` is not read where it i
 
 Taking the address back reads nothing and is not checked: `*(p.*)` is `p`, and `*p.x` is `p` plus the member's offset, even for a null `p` (the `offsetof` idiom) {#ptr.20}. Converting `p.*` of a fixed array to a view does not check either; indexing the view does.
 
+### Null pointer checks in built executables
+
+The interpreter reports a load or store at an address below 4096 as `null pointer dereference: read through a null pointer` (or `read at address 0x8, just past null` for a member of a null struct pointer). Built executables report the same text: the LLVM backend (`null_check` in `jaic-llvm/src/lower.rs`) compares the address of every `Load`, `Store`, `Copy` and `Zero` with 4096 and calls `runtime_support_check_failed` with `ir::TRAP_NULL_POINTER` (7; `a` is `ir::NULL_READ`..`NULL_FILL`, `b` the address), then traps. Addresses that come from `SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr` and offsets of them are known to be valid and skip the check. It runs at every optimization level, like bounds checks; `Build_Options.null_pointer_check = .OFF` (the shipping presets) or `#no_abc` on a procedure drops it (`ir::Func::null_checks`, set in `sema/procs.rs`). `memcpy`/`memset` called by name are not checked in native code.
+
 ## How to change it
 
 Index lowering is in `sema/expr.rs` around `BoundsCheck`. The opt-out is `FnCtx::no_abc` (`sema/lower.rs`), set in `procs.rs` and `stmt.rs`; any new construct that indexes memory must consult it. `remove` and `for` lowering are in `stmt.rs`.

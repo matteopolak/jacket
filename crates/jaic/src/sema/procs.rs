@@ -1079,6 +1079,10 @@ impl Compiler {
         f.proc = Some(id);
         f.no_abc = header.flags.no_abc || !self.options.array_bounds_check;
         f.no_aoc = header.flags.no_aoc;
+        if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc {
+            f.b.func.null_checks = true;
+            self.note_check_handler(span);
+        }
         if let Some(name) = &self.proc(id).export {
             f.b.func.linkage = ir::Linkage::Export(name.clone());
         }

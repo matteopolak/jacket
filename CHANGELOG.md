@@ -29,6 +29,10 @@ The light-bulb menu offers *Extract into variable*, *Extract into procedure* (pa
 ### Call hierarchy and expand selection
 
 *Show Call Hierarchy* lists the callers and callees of a procedure, overloads and modules included, and *Expand Selection* grows from a token through expressions, statements and blocks to the file.
+### Null pointer checks
+
+- Built executables now stop with `null pointer dereference: read through a null pointer` (and the write, copy and `just past null` variants), at the line, instead of crashing at `-O0` or doing undefined things at `-O2`. It is on by default at every optimization level, like array bounds checks, and `Build_Options.null_pointer_check = .OFF` (what the shipping presets set) or `#no_abc` removes it. Docs: [pointers and arrays](docs/language/pointers-and-arrays.md#null-pointer-checks-in-built-executables).
+
 ### Warnings
 
 - A procedure with results whose body can reach its end without returning gets the warning `not all control paths return a value`. `jaic check`, `run` and `build` print compile warnings before any error. See [diagnostics](docs/compiler/diagnostics.md#compile-warnings-compilerwarnings).

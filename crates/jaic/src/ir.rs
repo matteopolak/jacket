@@ -169,6 +169,16 @@ pub const TRAP_SWITCH_UNMATCHED: u64 = 5;
 /// Check failure reason: an integer division or remainder by zero.
 pub const TRAP_DIVIDE_BY_ZERO: u64 = 6;
 
+/// Check failure reason: a load, store or copy through a null pointer, or just past it, as in
+/// a member of a null struct pointer (a: `NULL_READ`..`NULL_FILL`, b: the address).
+pub const TRAP_NULL_POINTER: u64 = 7;
+
+/// `a` of a `TRAP_NULL_POINTER` failure: what the access did.
+pub const NULL_READ: u64 = 0;
+pub const NULL_WRITE: u64 = 1;
+pub const NULL_COPY: u64 = 2;
+pub const NULL_FILL: u64 = 3;
+
 /// `b` of a `TRAP_CAST_OVERFLOW` failure: the target's size in bytes (low byte), whether the
 /// target is signed (bit 8) and whether the value is (bit 9).
 pub fn cast_check_code(target_bytes: u64, target_signed: bool, value_signed: bool) -> u64 {
@@ -217,6 +227,21 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
             format!("cast of {value} to `{}` overflows", cast_check_target(b))
         }
         TRAP_DIVIDE_BY_ZERO => "integer division by zero".into(),
+        TRAP_NULL_POINTER => {
+            let kind = match a {
+                NULL_WRITE => "write",
+                NULL_COPY => "memory copy",
+                NULL_FILL => "memory fill",
+                _ => "read",
+            };
+            if b == 0 {
+                format!("null pointer dereference: {kind} through a null pointer")
+            } else {
+                format!(
+                    "null pointer dereference: {kind} at address {b:#x}, just past null (a member of a null struct pointer?)"
+                )
+            }
+        }
         TRAP_SWITCH_UNMATCHED => {
             format!(
                 "no case of the `#complete` switch matches its value, {}",
@@ -522,6 +547,9 @@ pub struct Func {
     pub source_file: u32,
     /// Present for procedures that take a context: what a stack trace node says about it.
     pub trace: Option<TraceInfo>,
+    /// Native code checks every load, store and copy through a pointer that may be null
+    /// (`Build_Options.null_pointer_check`, off for `#no_abc` procedures).
+    pub null_checks: bool,
     /// Native debug information (named variables, lexical scopes), recorded only when the
     /// program is built with debug info. Boxed so the interpreter's hot data stays small.
     pub debug: Option<Box<FuncDebug>>,
@@ -853,6 +881,7 @@ impl Builder {
             vals,
             source_file: 0,
             trace: None,
+            null_checks: false,
             debug: None,
         };
         Self {

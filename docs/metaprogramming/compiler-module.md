@@ -49,7 +49,7 @@ Keys `set_build_options` sends (values are text):
 | `arithmetic_overflow_check`, `cast_bounds_check` | `OFF`, `NONFATAL`, `FATAL` | always |
 | `dead_code_elimination` | `NONE`, `ALL`, `MODULES_ONLY` | changed |
 
-`compiler_destroy_workspace` sends `destroy` (empty value). Only changed or non-empty values are forwarded for settings the Rust side defaults itself (output name, import paths, optimization, dead code elimination), so empty Jai defaults never clobber them. That is why the default `import_path` is empty {#compiler.7}. `write_added_strings` and `null_pointer_check` are not forwarded; [build options](build-options.md) says why.
+`compiler_destroy_workspace` sends `destroy` (empty value). Only changed or non-empty values are forwarded for settings the Rust side defaults itself (output name, import paths, optimization, dead code elimination), so empty Jai defaults never clobber them. That is why the default `import_path` is empty {#compiler.7}. `write_added_strings` is not forwarded; [build options](build-options.md) says why.
 
 ### Messages
 
