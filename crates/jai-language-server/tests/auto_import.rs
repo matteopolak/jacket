@@ -292,7 +292,7 @@ fn user_module_and_project_files() {
 #[test]
 fn names_of_files_the_program_already_loads_need_no_edit() {
     // `main.jai` is the inferred entry; it loads `a.jai` and `b.jai`. Editing `b.jai` alone, the
-    // names of `a.jai` are offered without an edit; a file nothing loads gets a `#load`
+    // program is checked from the entry, so the names of `a.jai` are offered without an edit; a file nothing loads gets a `#load`
     // relative to `b.jai`.
     let dir = project(
         "loaded",
@@ -312,7 +312,6 @@ fn names_of_files_the_program_already_loads_need_no_edit() {
     let list = complete_at(&mut s, &dir.join("src/b.jai"), text, "from_");
     let a = list.items.iter().find(|i| i.label == "from_a").unwrap();
     assert!(a.additional_edits.is_empty());
-    assert_eq!(a.label_description.as_deref(), Some("a.jai"));
     let c = &auto(&list, "from_c")[0];
     assert_eq!(
         c.additional_edits[0].new_text,

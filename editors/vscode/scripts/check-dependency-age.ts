@@ -5,7 +5,7 @@
 // Fails closed: an entry that is not a plain registry package with an integrity hash, or whose
 // publish time the registry does not report, is an error.
 //
-//   node scripts/check-dependency-age.mjs [--days 14]
+//   node scripts/check-dependency-age.ts [--days 14]
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,7 +18,7 @@ const REGISTRY = "https://registry.npmjs.org/";
 
 const wanted = new Map(); // name -> Set of versions
 const errors = [];
-function want(name, version) {
+function want(name: string, version: string) {
   if (!wanted.has(name)) wanted.set(name, new Set());
   wanted.get(name).add(version);
 }
@@ -53,7 +53,7 @@ else errors.push(`package.json: packageManager should be pnpm@<exact version>, n
 
 const names = [...wanted.keys()].toSorted();
 let checked = 0;
-async function check(name) {
+async function check(name: string) {
   const response = await fetch(REGISTRY + name.replace("/", "%2F"), {
     headers: { accept: "application/json" },
   });

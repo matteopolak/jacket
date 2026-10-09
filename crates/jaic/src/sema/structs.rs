@@ -553,6 +553,9 @@ impl Compiler {
                         v + 1
                     };
                     out.push((m.name.name, v));
+                    if let TypeKind::Enum(e) = *self.types.kind(ty) {
+                        self.ide_note_enum_member(e, m.name.name, m.name.span);
+                    }
                     self.add_const(scope, m.name.name, m.name.span, Value::Int(v), ty);
                     // Keep the enum's partially built member list visible to later members.
                     let TypeKind::Enum(e) = *self.types.kind(ty) else {
@@ -2085,7 +2088,10 @@ impl Compiler {
         for arg in args {
             let (path, mty) = match arg.name {
                 Some(n) => match self.find_member(ty, n.name, n.span)? {
-                    Some(m) => m,
+                    Some(m) => {
+                        self.ide_note_member_use(n.span, ty, n.name);
+                        m
+                    }
                     None => {
                         return Err(Box::new(self.no_member(ty, n.name, n.span)));
                     }

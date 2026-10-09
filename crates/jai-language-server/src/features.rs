@@ -683,8 +683,8 @@ impl Session {
             .collect())
     }
 
-    /// The name at `position`, when it can be renamed: the check recorded what it names, and
-    /// that is not a struct member (member references are not tracked).
+    /// The name at `position`, when it can be renamed: the check recorded what it names (a
+    /// struct field or enum member only when its declaration is in the project's files).
     pub fn prepare_rename(
         &self,
         uri: &DocumentUri,
@@ -698,6 +698,14 @@ impl Session {
             return Ok(None);
         }
         let range = doc.index.range(&doc.text, token.span)?;
+        let byte = doc.index.byte(&doc.text, position)?;
+        let outside = self
+            .checked(uri, |a, f| a.compiler.ide_member_declared(f, byte as u32))
+            .flatten()
+            == Some(false);
+        if outside {
+            return Ok(None);
+        }
         let found = self.references(uri, position, true)?;
         Ok(found
             .iter()

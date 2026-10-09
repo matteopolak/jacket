@@ -1,7 +1,7 @@
 // Captures the README screenshots from a real VS Code window (macOS only):
 //
 //   JAILSP=... JAIFMT=... VSCODE_EXECUTABLE=".../Visual Studio Code.app/Contents/MacOS/Code" \
-//     node esbuild.mjs && node esbuild.mjs --tests && node out/test/screenshots/run.js
+//     pnpm run screenshots
 //
 // VS Code runs with a throwaway profile (--user-data-dir, --extensions-dir in a temp folder), so
 // the user's own settings and extensions are untouched. Shots land in images/.
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   const profile = mkdtempSync(path.join(tmpdir(), "jai-vsc-"));
   await runTests({
     extensionDevelopmentPath: root,
-    extensionTestsPath: path.join(__dirname, "suite", "index.js"),
+    extensionTestsPath: path.join(__dirname, "suite", "index.cjs"),
     vscodeExecutablePath: process.env.VSCODE_EXECUTABLE || undefined,
     launchArgs: [
       workspace,

@@ -860,11 +860,23 @@ impl Compiler {
                 return Ok(());
             }
             if !progress {
+                // Only the first is reported; an editor wants the others too.
+                if let Some(ide) = self.ide.as_mut() {
+                    ide.errors.extend(failed.iter().map(|(_, e)| (**e).clone()));
+                }
                 return Err(failed.into_iter().next().unwrap().1);
             }
             self.body_queue
                 .extend(failed.into_iter().rev().map(|(id, _)| id));
         }
+    }
+
+    /// The errors of the bodies that failed their last lenient attempt.
+    pub(super) fn lenient_failures_list(&self) -> Vec<Diagnostic> {
+        self.lenient_failures
+            .values()
+            .map(|(_, e)| (**e).clone())
+            .collect()
     }
 
     /// Lower the queued bodies that can be lowered now, for compile-time code running in the

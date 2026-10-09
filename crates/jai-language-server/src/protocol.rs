@@ -53,6 +53,11 @@ pub struct JsonSession {
     completed: VecDeque<RequestId>,
     /// Markdown when the client listed it in `textDocument.hover.contentFormat`.
     hover_kind: MarkupKind,
+    /// The client pulls diagnostics (`textDocument/diagnostic`): none are pushed to it.
+    pull_diagnostics: bool,
+    /// It can also be told to pull again (`workspace/diagnostic/refresh`).
+    refresh_diagnostics: bool,
+    refreshes: u64,
 }
 
 #[derive(Deserialize)]
@@ -195,6 +200,27 @@ struct RenameParams {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiagnosticParams {
+    text_document: DocumentIdentifier,
+    #[serde(default)]
+    previous_result_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceDiagnosticParams {
+    #[serde(default)]
+    previous_result_ids: Vec<PreviousResult>,
+}
+
+#[derive(Deserialize)]
+struct PreviousResult {
+    uri: String,
+    value: String,
+}
+
+#[derive(Deserialize)]
 struct WorkspaceSymbolParams {
     query: String,
 }
@@ -242,6 +268,9 @@ impl JsonSession {
             cancelled: BTreeSet::new(),
             completed: VecDeque::new(),
             hover_kind: MarkupKind::PlainText,
+            pull_diagnostics: false,
+            refresh_diagnostics: false,
+            refreshes: 0,
         }
     }
 
@@ -265,6 +294,13 @@ impl JsonSession {
             Ok(value) => value,
             Err(_) => return self.encode(vec![failure(Value::Null, -32700, "Parse error")]),
         };
+        // The client's answer to a request of ours (a diagnostics refresh): nothing to do.
+        if value.get("method").is_none()
+            && value.get("id").is_some()
+            && (value.get("result").is_some() || value.get("error").is_some())
+        {
+            return Ok(vec![]);
+        }
         let raw_id = value.get("id");
         let id = match raw_id {
             Some(value) => match serde_json::from_value::<RequestId>(value.clone()) {
@@ -385,6 +421,14 @@ impl JsonSession {
             }
             self.lifecycle = Lifecycle::Running;
             self.hover_kind = hover_kind(&params);
+            self.pull_diagnostics = params
+                .pointer("/capabilities/textDocument/diagnostic")
+                .is_some_and(Value::is_object);
+            self.refresh_diagnostics = self.pull_diagnostics
+                && params
+                    .pointer("/capabilities/workspace/diagnostics/refreshSupport")
+                    .and_then(Value::as_bool)
+                    == Some(true);
             self.configure(&params["initializationOptions"]);
             let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
                 Some(folders) => folders
@@ -394,61 +438,69 @@ impl JsonSession {
                 None => folder_path(&params["rootUri"]).into_iter().collect(),
             };
             self.session.set_workspace_folders(folders);
-            return Ok(vec![json!({
-                "capabilities": {
-                    "positionEncoding": "utf-16",
-                    "textDocumentSync": { "openClose": true, "change": 2 },
-                    "hoverProvider": true,
-                    "completionProvider": {
-                        "resolveProvider": false,
-                        "triggerCharacters": [".", "#", "\"", "/"],
+            let mut capabilities = json!({
+                "positionEncoding": "utf-16",
+                "textDocumentSync": { "openClose": true, "change": 2 },
+                "hoverProvider": true,
+                "completionProvider": {
+                    "resolveProvider": false,
+                    "triggerCharacters": [".", "#", "\"", "/"],
+                },
+                "definitionProvider": true,
+                "typeDefinitionProvider": true,
+                "referencesProvider": true,
+                "renameProvider": { "prepareProvider": true },
+                "documentHighlightProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "foldingRangeProvider": true,
+                "documentLinkProvider": { "resolveProvider": false },
+                "inlayHintProvider": true,
+                "signatureHelpProvider": {
+                    "triggerCharacters": ["(", ","],
+                    "retriggerCharacters": [","],
+                },
+                "codeActionProvider": {
+                    "codeActionKinds": [
+                        "quickfix",
+                        "refactor.extract",
+                        "refactor.inline",
+                        "refactor.rewrite",
+                        crate::lints::FIX_ALL_KIND,
+                    ]
+                },
+                "codeLensProvider": { "resolveProvider": false },
+                "callHierarchyProvider": true,
+                "selectionRangeProvider": true,
+                "executeCommandProvider": { "commands": COMMANDS },
+                "semanticTokensProvider": {
+                    "legend": {
+                        "tokenTypes": TOKEN_TYPES,
+                        "tokenModifiers": TOKEN_MODIFIERS,
                     },
-                    "definitionProvider": true,
-                    "typeDefinitionProvider": true,
-                    "referencesProvider": true,
-                    "renameProvider": { "prepareProvider": true },
-                    "documentHighlightProvider": true,
-                    "documentSymbolProvider": true,
-                    "workspaceSymbolProvider": true,
-                    "foldingRangeProvider": true,
-                    "documentLinkProvider": { "resolveProvider": false },
-                    "inlayHintProvider": true,
-                    "signatureHelpProvider": {
-                        "triggerCharacters": ["(", ","],
-                        "retriggerCharacters": [","],
-                    },
-                    "codeActionProvider": {
-                        "codeActionKinds": [
-                            "quickfix",
-                            "refactor.extract",
-                            "refactor.inline",
-                            "refactor.rewrite",
-                            crate::lints::FIX_ALL_KIND,
-                        ]
-                    },
-                    "codeLensProvider": { "resolveProvider": false },
-                    "callHierarchyProvider": true,
-                    "selectionRangeProvider": true,
-                    "executeCommandProvider": { "commands": COMMANDS },
-                    "semanticTokensProvider": {
-                        "legend": {
-                            "tokenTypes": TOKEN_TYPES,
-                            "tokenModifiers": TOKEN_MODIFIERS,
-                        },
-                        "full": true,
-                    },
-                    "experimental": {
-                        "jai": {
-                            "analysis": "compiler-source-syntax",
-                            "compileTimeExecution": false,
-                            "typeInference": false,
-                            "filesystemReads": false,
-                            "moduleSearch": false,
-                            // `jai/expansion` and `jai-expansion:` documents.
-                            "expansions": true,
-                        },
+                    "full": true,
+                },
+                "experimental": {
+                    "jai": {
+                        "analysis": "compiler-source-syntax",
+                        "compileTimeExecution": false,
+                        "typeInference": false,
+                        "filesystemReads": false,
+                        "moduleSearch": false,
+                        // `jai/expansion` and `jai-expansion:` documents.
+                        "expansions": true,
                     },
                 },
+            });
+            if self.pull_diagnostics {
+                capabilities["diagnosticProvider"] = json!({
+                    "identifier": "jai",
+                    "interFileDependencies": true,
+                    "workspaceDiagnostics": true,
+                });
+            }
+            return Ok(vec![json!({
+                "capabilities": capabilities,
                 "serverInfo": {
                     "name": "jai-language-server",
                     "version": env!("CARGO_PKG_VERSION"),
@@ -734,6 +786,29 @@ impl JsonSession {
                         .as_ref()
                         .map_or(Value::Null, expansion_wire)
                 }
+                "textDocument/diagnostic" if self.pull_diagnostics => {
+                    let p: DiagnosticParams = decode(params)?;
+                    let target = uri(&p.text_document.uri)?;
+                    let (version, diagnostics) = self.pulled(&target);
+                    document_report(None, version, &diagnostics, p.previous_result_id.as_deref())
+                }
+                "workspace/diagnostic" if self.pull_diagnostics => {
+                    let p: WorkspaceDiagnosticParams = decode(params)?;
+                    let items: Vec<Value> = self
+                        .session
+                        .publications()
+                        .into_iter()
+                        .map(|(target, version, diagnostics)| {
+                            let previous = p
+                                .previous_result_ids
+                                .iter()
+                                .find(|r| r.uri == target)
+                                .map(|r| r.value.as_str());
+                            document_report(Some(&target), Some(version), &diagnostics, previous)
+                        })
+                        .collect();
+                    json!({ "items": items })
+                }
                 // Non-standard: the text of a definition's file the client has not opened
                 // (a module or stdlib file), so a browser editor can show it read-only; or of
                 // a `jai-expansion:` document.
@@ -753,6 +828,7 @@ impl JsonSession {
             };
             return Ok(vec![result]);
         }
+        let settings_touched: bool;
         match method {
             "initialized" => return Ok(vec![]),
             "textDocument/didOpen" => {
@@ -762,6 +838,7 @@ impl JsonSession {
                 if p.text_document.language_id != "jai" && !settings {
                     return Err((-32602, "Only Jai documents are supported".into()));
                 }
+                settings_touched = settings;
                 self.session
                     .open(
                         uri(&p.text_document.uri)?,
@@ -772,6 +849,7 @@ impl JsonSession {
             }
             "textDocument/didChange" => {
                 let p: ChangeParams = decode(params)?;
+                settings_touched = crate::lints::is_config(&uri(&p.text_document.uri)?);
                 self.session
                     .change(
                         &uri(&p.text_document.uri)?,
@@ -782,7 +860,7 @@ impl JsonSession {
             }
             "workspace/didChangeConfiguration" => {
                 self.configure(&params["settings"]["jai"]);
-                return Ok(vec![]);
+                return Ok(self.refresh());
             }
             "workspace/didChangeWorkspaceFolders" => {
                 let event = &params["event"];
@@ -817,12 +895,19 @@ impl JsonSession {
                         self.session.file_changed(&path, !changed);
                     }
                 }
-                return Ok(vec![]);
+                return Ok(self.refresh());
             }
             "textDocument/didClose" => {
                 let p: DocumentParams = decode(params)?;
                 let closed = uri(&p.text_document.uri)?;
                 self.session.close(&closed).map_err(domain)?;
+                if self.pull_diagnostics {
+                    return Ok(if crate::lints::is_config(&closed) {
+                        self.refresh()
+                    } else {
+                        Vec::new()
+                    });
+                }
                 let mut publications = self.publications();
                 publications.push(json!({
                     "jsonrpc": "2.0",
@@ -834,10 +919,39 @@ impl JsonSession {
             // Unknown notifications are ignored as required by JSON-RPC/LSP.
             _ => return Ok(vec![]),
         }
-        Ok(self.publications())
+        let mut messages = self.publications();
+        if settings_touched {
+            messages.extend(self.refresh());
+        }
+        Ok(messages)
+    }
+
+    /// The version and diagnostics of `target` for a pull (none for a document that is not open).
+    fn pulled(&self, target: &DocumentUri) -> (Option<i32>, Vec<Diagnostic>) {
+        (
+            self.session.version(target).ok(),
+            self.session.diagnostics(target).unwrap_or_default(),
+        )
+    }
+
+    /// A request for the client to pull again, when it supports being asked: settings files
+    /// changed the diagnostics of documents that did not.
+    fn refresh(&mut self) -> Vec<Value> {
+        if !self.refresh_diagnostics {
+            return Vec::new();
+        }
+        self.refreshes += 1;
+        vec![json!({
+            "jsonrpc": "2.0",
+            "id": format!("jai-diagnostic-refresh-{}", self.refreshes),
+            "method": "workspace/diagnostic/refresh",
+        })]
     }
 
     fn publications(&self) -> Vec<Value> {
+        if self.pull_diagnostics {
+            return Vec::new();
+        }
         self.session
             .publications()
             .into_iter()
@@ -908,6 +1022,33 @@ fn log_error(message: &str) -> Value {
 }
 
 // Domain enums have no protocol discriminants. Only this JSON boundary maps LSP values.
+/// A document's diagnostics for a pull: the report is `unchanged` when the client's last
+/// result id still describes them. `uri` is set for the items of a workspace report.
+fn document_report(
+    uri: Option<&str>,
+    version: Option<i32>,
+    diagnostics: &[Diagnostic],
+    previous: Option<&str>,
+) -> Value {
+    let items: Vec<Value> = diagnostics.iter().map(diagnostic_wire).collect();
+    let result_id = {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        Value::Array(items.clone()).to_string().hash(&mut hasher);
+        format!("{:016x}", hasher.finish())
+    };
+    let mut report = if previous == Some(result_id.as_str()) {
+        json!({ "kind": "unchanged", "resultId": result_id })
+    } else {
+        json!({ "kind": "full", "resultId": result_id, "items": items })
+    };
+    if let Some(uri) = uri {
+        report["uri"] = json!(uri);
+        report["version"] = json!(version);
+    }
+    report
+}
+
 fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
     let severity = match diagnostic.severity {
         DiagnosticSeverity::Error => 1,

@@ -232,22 +232,32 @@ impl Session {
             .collect()
     }
 
-    /// The type checker's error, when the program `uri` belongs to fails to compile and the
+    /// The type checker's errors, when the program `uri` belongs to fails to compile and the
     /// error (or one of its notes) is in `uri`. Only a document that parses is checked; its
     /// syntax error is already reported.
-    pub(crate) fn check_diagnostics(&self, uri: &DocumentUri) -> Option<Diagnostic> {
-        let doc = self.document(uri).ok()?;
+    pub(crate) fn check_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
+        let Ok(doc) = self.document(uri) else {
+            return Vec::new();
+        };
         if semantic::parse_error(&doc.text).is_some() {
-            return None;
+            return Vec::new();
         }
-        let (start, end, message) =
-            self.with_semantic(uri, &doc.text, |analysis, path| analysis.check_error(path))?;
-        Some(Diagnostic {
-            range: self.range_of(uri, Span::new(start, end))?,
-            severity: DiagnosticSeverity::Error,
-            code: DiagnosticCode::Check,
-            message,
-        })
+        let errors = self
+            .with_semantic(uri, &doc.text, |analysis, path| {
+                Some(analysis.check_errors(path))
+            })
+            .unwrap_or_default();
+        errors
+            .into_iter()
+            .filter_map(|(start, end, message)| {
+                Some(Diagnostic {
+                    range: self.range_of(uri, Span::new(start, end))?,
+                    severity: DiagnosticSeverity::Error,
+                    code: DiagnosticCode::Check,
+                    message,
+                })
+            })
+            .collect()
     }
 
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
@@ -357,7 +367,13 @@ impl Session {
                 (PathBuf::from(u.path()), Rc::from(text.as_bytes()))
             })
             .collect();
-        let root = PathBuf::from(self.root(uri).path());
+        let open_root = self.root(uri);
+        // No open document loads this one: compile from the project's entry file, so the
+        // files of the program that are not open are checked too.
+        let root = match self.project_root(uri) {
+            Some(entry) if open_root == *uri && environment.fs.is_file(&entry) => entry,
+            _ => PathBuf::from(open_root.path()),
+        };
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache.analyze(environment, &root, files);
         query(analysis, Path::new(uri.path()))

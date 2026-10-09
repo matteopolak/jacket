@@ -6,7 +6,7 @@
 
 ## How it works
 
-A push to a branch cancels that branch's older `ci.yml` run still in progress (`concurrency`, keyed by workflow and ref), so only the newest commit is checked; tags and other branches are separate groups. `fuzz.yml` does the same for push replays only: nightly and dispatched fuzzing runs are never cancelled.
+A push to a branch cancels that branch's older `ci.yml` run still in progress (`concurrency`, keyed by workflow and ref), so only the newest commit is checked; tags and other branches are separate groups. On `main` every push gets its own group, so the light jobs (`compiler` on macOS arm64 and Linux, which also runs the format and lint checks, the wasm interpreter and the VS Code extension) finish for every commit. The heavy jobs (`stdlib runtime tests`, `third-party projects`, the sanitizers and the `macos-15-intel` compiler leg) carry their own job-level `concurrency` keyed by job, ref and platform, so a newer push to `main` cancels them and only the newest commit runs them to the end. To change which jobs are heavy, add or remove that job's `concurrency` block. Anyone can drop an unneeded run with `gh run cancel <id>`. `fuzz.yml` does the same for push replays only: nightly and dispatched fuzzing runs are never cancelled.
 
 `ci.yml` has six jobs:
 

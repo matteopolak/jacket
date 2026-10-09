@@ -1,5 +1,5 @@
 **
-!dist/extension.js
+!dist/extension.cjs
 !syntaxes/*.json
 !snippets/*.json
 !schemas/*.json

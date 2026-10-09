@@ -3,36 +3,38 @@
 // that changes after packaging is rejected instead of trusted. The release workflow runs it on
 // the archives it just built; run it by hand after a release to update the committed pins.
 //
-//   node scripts/pin-toolchain.mjs --version 0.4.0 --sums path/to/SHA256SUMS
-//   node scripts/pin-toolchain.mjs --version 0.4.0 --archives dist/   # hash jai-* archives
+//   node scripts/pin-toolchain.ts --version 0.4.0 --sums path/to/SHA256SUMS
+//   node scripts/pin-toolchain.ts --version 0.4.0 --archives dist/   # hash jai-* archives
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const arg = (name) => {
+const arg = (name: string) => {
   const index = process.argv.indexOf(name);
   return index > 0 ? process.argv[index + 1] : undefined;
 };
 const version = arg("--version")?.replace(/^v/, "");
 if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
-  console.error("usage: pin-toolchain.mjs --version X.Y.Z (--sums SHA256SUMS | --archives DIR)");
+  console.error("usage: pin-toolchain.ts --version X.Y.Z (--sums SHA256SUMS | --archives DIR)");
   process.exit(2);
 }
 
-const sha256 = {};
+const sha256: Record<string, string> = {};
 // jai-<platform> since 0.4.1; jaic-<platform> for 0.4.0 and earlier (re-pinning an old release).
-const isArchive = (name) => /^jaic?-(?!vscode-)[a-z0-9-]+\.(?:tar\.gz|zip)$/.test(name);
-if (arg("--sums")) {
-  for (const line of readFileSync(arg("--sums"), "utf8").split(/\r?\n/)) {
+const isArchive = (name: string) => /^jaic?-(?!vscode-)[a-z0-9-]+\.(?:tar\.gz|zip)$/.test(name);
+const sums = arg("--sums");
+const archives = arg("--archives");
+if (sums) {
+  for (const line of readFileSync(sums, "utf8").split(/\r?\n/)) {
     const match = /^([0-9a-f]{64})\s+\*?(\S+)$/i.exec(line.trim());
-    if (match && isArchive(match[2])) sha256[match[2]] = match[1].toLowerCase();
+    if (match?.[1] && match[2] && isArchive(match[2])) sha256[match[2]] = match[1].toLowerCase();
   }
-} else if (arg("--archives")) {
-  for (const name of readdirSync(arg("--archives")).toSorted()) {
+} else if (archives) {
+  for (const name of readdirSync(archives).toSorted()) {
     if (!isArchive(name)) continue;
-    sha256[name] = createHash("sha256").update(readFileSync(join(arg("--archives"), name))).digest("hex");
+    sha256[name] = createHash("sha256").update(readFileSync(join(archives, name))).digest("hex");
   }
 } else {
   console.error("pass --sums or --archives");

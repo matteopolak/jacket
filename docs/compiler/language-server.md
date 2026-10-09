@@ -16,8 +16,9 @@ It has two layers:
 | Feature | LSP method | Layer |
 |---|---|---|
 | Diagnostics: lexer and parser errors, `#load` targets, format strings | `textDocument/publishDiagnostics` | syntax |
-| Diagnostics: the type checker's first error, also in code nothing calls (`jai-check` as `code`, see [dead-code elimination](../language/dead-code-elimination.md)) | `textDocument/publishDiagnostics` | semantic |
+| Diagnostics: the type checker's errors, one per declaration and procedure body, also in code nothing calls (`jai-check` as `code`, see [dead-code elimination](../language/dead-code-elimination.md) and [Several errors](#several-type-checker-errors)) | `textDocument/publishDiagnostics` | semantic |
 | Diagnostics: jailint lints (rule as `code`, `jailint` as `source`) | `textDocument/publishDiagnostics` | semantic |
+| Pull diagnostics for clients that advertise `textDocument.diagnostic` (they then get no pushed ones), with `unchanged` reports, workspace reports of the open documents, and `workspace/diagnostic/refresh` when settings change | `textDocument/diagnostic`, `workspace/diagnostic` | all |
 | Hover: types of locals, members, procedures (every overload), structs, enums, constants | `textDocument/hover` | semantic |
 | Hover: memory layout of types (size, alignment, padding), fields (offset, size, alignment) and aggregate-typed variables | `textDocument/hover` | semantic |
 | Hover on a macro call: the macro's body with the arguments substituted | `textDocument/hover` | semantic |
@@ -32,8 +33,8 @@ It has two layers:
 | Go to the file of a `#load` / `#import` / `#import,file` / `#import,dir`, and of a module name (`B` in `B.print`) | `textDocument/definition` | environment |
 | Document links on `#load` / `#import` strings | `textDocument/documentLink` | environment |
 | Go to type definition | `textDocument/typeDefinition` | semantic |
-| Find references, document highlights | `textDocument/references`, `textDocument/documentHighlight` | semantic |
-| Rename (locals, globals, procedures with their overload declarations, types, modules, constants) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
+| Find references, document highlights (also of struct fields and enum members) | `textDocument/references`, `textDocument/documentHighlight` | semantic |
+| Rename (locals, globals, procedures with their overload declarations, types, modules, constants, struct fields, enum members) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
 | Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
 | Inlay hints: inferred types of `x :=`, parameter names of literal arguments (only for parameters that share their type with another, so `print`'s format string gets none), `#run` values | `textDocument/inlayHint` | semantic |
 | Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value, add the `#import` an unknown name needs, apply a lint's fix (`quickfix`) | `textDocument/codeAction` | semantic |
@@ -48,7 +49,7 @@ It has two layers:
 | Folding ranges: blocks and runs of `#import`/`#load` | `textDocument/foldingRange` | syntax |
 | Stdlib and module sources for read-only viewing | `jai/source` (non-standard) | environment |
 
-Not supported: renaming struct members, formatting (see [jaifmt](../tools/jaifmt.md)), pull diagnostics, more than one type-checker error per compile, references to struct members.
+Not supported: formatting (see [jaifmt](../tools/jaifmt.md): the formatter is a Jai module, so the server cannot call it without compiling and running it; format with `jaifmt --stdin` as an external formatter), a type-checker error in a polymorphic procedure nobody instantiates, several errors from one procedure body, unopened project files in workspace diagnostics, bare-name uses of `using`'d fields (`name` for `p.name` under `using p`) in references and renames.
 
 ## How it works
 
@@ -63,7 +64,7 @@ Positions use UTF-16, including supplementary characters and CRLF. Edits apply t
 `semantic.rs` compiles on demand, only when a request needs it, and caches by source text:
 
 1. **Overlay.** Open documents are laid over the environment's file system (`OverlayFs`). Natively that is the disk plus the repository stdlib; in the browser it is the bundled stdlib `VirtualFs`.
-2. **Root.** The check starts from the document that `#load`s the requested one and is loaded by none (`Session::root`).
+2. **Root.** The check starts from the open document that `#load`s the requested one and is loaded by none (`Session::root`); when no open document does, from the project's entry file (`jai.toml`'s `build_files`, an inferred entry, or the file that loads it; `Session::project_root`, shared with auto-import), so the files of the program that are not open are checked and found by references and rename.
 3. **Recording.** `Compiler::ide` is set to `IdeFacts` for files under the root's directory. While checking, sema records what each identifier and member names, with its type, and the source extent of block and procedure scopes. It also records expansions and calls. See [Editor facts](#editor-facts-in-jaic).
 4. **All bodies.** `ide_check_all` then lowers every non-polymorphic procedure body in those files, not only what `main` reaches, so helpers nobody calls yet still have facts.
 5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. The host is shared with `IdeFacts::output`, which is how a `#run` hover shows what it printed. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging. The compile also gets a workspace registry (`build::Workspaces`) on the same host, so a metaprogram's `#run` can create workspaces. Their compile-time code draws from the same budget (`build::step` hands the caller's remaining blocks to the workspace's interpreter and takes back what is left), so a metaprogram cannot multiply it by creating workspaces.
@@ -191,10 +192,19 @@ To support new syntax (an operand decoration, say), extend `parse_stmt`/`slot`; 
 ### Definition, references and type definition
 
 - **Definition** (`ide_definition`) uses the reference at the cursor: an entity's declaration, every procedure of an overload set (aliases under their own name), or a struct. Spans are narrowed to the declared name; a procedure's span starts at its literal, so the name is found earlier on its line (`name :: (`). Targets can be modules or stdlib files the client never opened.
-- **References** (`ide_references`) map every recorded reference to a target (a local or global entity, a procedure, a type or a module) and return those sharing the cursor's. A procedure's declaration resolves to the same `ProcId` its calls name, and a struct declaration to the same `TypeId` its uses name. Only files under the root's directory are recorded, so references inside the stdlib are not listed. Struct members are not tracked (a member reference does not record its owner type). Document highlights are the references within the document.
-- **Rename** edits every reference that spells the old name (in open documents the text is checked; recorded files that are not open are edited by range). `prepareRename` refuses names the check did not record or that are members, and the new name must be an identifier that is not a keyword. A backticked caller name inside a macro body (`` `total ``) is a reference to the caller's local and is renamed with it.
+- **References** (`ide_references`) map every recorded reference to a target (a local or global entity, a procedure, a type or a module) and return those sharing the cursor's. A procedure's declaration resolves to the same `ProcId` its calls name, and a struct declaration to the same `TypeId` its uses name. Only files under the root's directory are recorded, so references inside the stdlib are not listed. Struct fields and enum members are tracked separately (below). Document highlights are the references within the document.
+- **Rename** edits every reference that spells the old name (in open documents the text is checked; recorded files that are not open are edited by range). `prepareRename` refuses names the check did not record and members whose declaration is outside the project's files (a stdlib struct's field), and the new name must be an identifier that is not a keyword. A backticked caller name inside a macro body (`` `total ``) is a reference to the caller's local and is renamed with it.
+- **Struct fields and enum members** (`IdeFacts::member_uses`) are pairs of (the name where it is used, the name where it is declared). The declaration is found when sema checks the use: `a.b` through pointers and `using` members (by value or by pointer), `T.{ b = 1 }`, `Enum.B` and `.B` (including `case .B` and `==`), and for a field the layout of the struct records its declaration (every top-level struct is laid out by `ide_check_all`, so a field nobody uses still has one). Keying by the declaration's span means a polymorphic struct's instances share their fields, and same-named fields of other structs are never conflated. `ide_references` answers from these pairs first (`ide_member_references`); `ide_member_declared` tells rename whether the declaration is in the recorded files.
 - **Module names.** A name that evaluates to a module (`B` in `B :: #import "Basic"; B.print`) goes to the start of the module's entry file (`modules[m].files[0]`). `Module.name` records what the member resolved to (procedures, a type, a nested module) rather than a plain member, so definition and references follow names reached through a module, through `using`, and through re-exports (`module_lookup`, `exported_using_imports`). Modules are never merged: each `#import` is its own module and its names are reached through it.
 - **Type definition** (`ide_type_definition`) takes the reference's type, strips pointers and arrays, and returns the struct or enum declaration.
+
+### Several type-checker errors
+
+`compile_program` stops at its first error, as `jaic build` does (real Jai also reports one error per compile for errors inside procedure bodies, and the CLI matches it; only the stalled `Undeclared identifier` errors of top-level declarations are reported together there, which the CLI does not do yet). For the editor, `Compiler::ide_check_all` goes on: each top-level declaration, each struct layout and each non-polymorphic procedure body is checked on its own and its error kept, and bodies that failed in the compile's own drain (`IdeFacts::errors`, `lenient_failures`) are added. Errors are deduplicated by (span, message) and listed first-error first. A declaration that failed is not checked again on behalf of its users, so a body using a broken struct reports the struct's error once, at the struct. `Analysis::check_errors` picks those in a file (or, for an error elsewhere, a note in it).
+
+### Pull diagnostics
+
+When `initialize` lists `textDocument.diagnostic`, the server advertises `diagnosticProvider` (`interFileDependencies`, `workspaceDiagnostics`) and stops pushing `publishDiagnostics`, since a client showing both would list every diagnostic twice. `textDocument/diagnostic` returns a `full` report with a `resultId` (a hash of the items) or `unchanged` when `previousResultId` still matches; `workspace/diagnostic` does the same for each open document. When the client also has `workspace.diagnostics.refreshSupport`, a changed settings file (`jailint.toml`, `jai.toml`), `workspace/didChangeConfiguration` or watched-file change sends `workspace/diagnostic/refresh`. The client's answers to server requests are ignored. Clients that do not pull are unchanged.
 
 ### Editor facts in jaic
 
@@ -298,7 +308,7 @@ Precedence, first match wins:
 2. The workspace folder holding the document (`workspaceFolders`, else `rootUri`), with inferred entries: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.
 3. When no entry reaches the document: the file that `#load`s it, looked for in its folder and up to three folders above, repeated up the loads; a file nothing loads is its own entry. The files it may `#load` are then those under the entry's folder.
 
-The browser playground needs no `jai.toml`: its workspace folder is `/jai-script` and its `main.jai` is the inferred entry. `editors/vscode/schemas/jai.schema.json` (generated by `scripts/build-schemas.mjs`) validates the file in VS Code.
+The browser playground needs no `jai.toml`: its workspace folder is `/jai-script` and its `main.jai` is the inferred entry. `editors/vscode/schemas/jai.schema.json` (generated by `scripts/build-schemas.ts`) validates the file in VS Code.
 
 ### `#load` and `#import` links
 
@@ -359,7 +369,7 @@ The legend is append-only so older clients keep their mapping:
 
 The syntax layer classifies declarations from the parse rows. With an environment, `ide_classes` refines every recorded identifier: a use of a type is `type`, of a procedure `function`, of an `#expand` procedure `function` + `macro`, of a constant or enum member `readonly`, of a module `namespace`, of a struct field `property`. `$T` and `$$T` and every use of that name inside the procedure are `typeParameter` (from tokens, so it works without checking). Directives (`#run`) stay `macro` as before; notes (`@note`) are `decorator`.
 
-A here-string whose terminator names a language (`#string WGSL`, `#string,cr sql`; the list is `LANGUAGE_TAGS` in `here_string.rs`, compared ignoring case) gets no token at all: an editor highlights its body as that language ([VS Code](../tools/vscode-extension.md#embedded-languages)), and one `string` token over it would paint over that. Other here-strings (`#string END`) are `string` as before. `LANGUAGE_TAGS` must list the same tags as `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.mjs`; that script fails when they differ.
+A here-string whose terminator names a language (`#string WGSL`, `#string,cr sql`; the list is `LANGUAGE_TAGS` in `here_string.rs`, compared ignoring case) gets no token at all: an editor highlights its body as that language ([VS Code](../tools/vscode-extension.md#embedded-languages)), and one `string` token over it would paint over that. Other here-strings (`#string END`) are `string` as before. `LANGUAGE_TAGS` must list the same tags as `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.ts`; that script fails when they differ.
 
 ### Syntax-only extras
 

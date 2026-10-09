@@ -584,7 +584,7 @@ fn rename_edits_every_reference() {
         [at(PROGRAM, "scale ::", 0, 0), at(PROGRAM, "scale(5", 0, 0)]
     );
     assert!(edits[0].1.iter().all(|e| e.new_text == "resize"));
-    // Locals rename too; enum members (members are not tracked) cannot.
+    // Locals and enum members rename too.
     let local = s
         .rename(&uri(), at(PROGRAM, "total := 1", 0, 1), "sum")
         .unwrap()
@@ -596,7 +596,7 @@ fn rename_edits_every_reference() {
     assert!(
         s.prepare_rename(&uri(), at(PROGRAM, "Kind.TWO", 0, 6))
             .unwrap()
-            .is_none()
+            .is_some()
     );
 }
 

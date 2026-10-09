@@ -1,10 +1,9 @@
-# The 14-day rule of scripts/check-dependency-age.mjs (docs/tools/dependency-policy.md), applied
+# The 14-day rule of scripts/check-dependency-age.ts (docs/tools/dependency-policy.md), applied
 # when resolving too: pnpm does not pick a version published less than 20160 minutes ago.
 minimumReleaseAge: 20160
-# No install scripts run, as with --ignore-scripts in CI: esbuild's only checks its platform
-# binary, and keytar and vsce-sign are for storing credentials and signing, which packaging and
+# No install scripts run, as with --ignore-scripts in CI: rolldown needs none, and keytar and
+# vsce-sign are for storing credentials and signing, which packaging and
 # publishing with a token do not use.
 allowBuilds:
   '@vscode/vsce-sign': false
-  esbuild: false
   keytar: false

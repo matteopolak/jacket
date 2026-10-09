@@ -2,7 +2,7 @@
 // here-string (an unbalanced begin/end rule), or has an `invalid` token. This catches rules that
 // swallow the rest of a file, which the hand-written assertions in test/grammar cannot.
 //
-//   node scripts/tokenize-corpus.mjs [files or directories...]
+//   node scripts/tokenize-corpus.ts [files or directories...]
 // Default: the repository's examples/ and stdlib/.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -20,14 +20,14 @@ const wasm = readFileSync(require.resolve("vscode-oniguruma/release/onig.wasm"))
 await oniguruma.loadWASM(wasm);
 const registry = new vsctm.Registry({
   onigLib: Promise.resolve({
-    createOnigScanner: (patterns) => new oniguruma.OnigScanner(patterns),
-    createOnigString: (text) => new oniguruma.OnigString(text),
+    createOnigScanner: (patterns: string[]) => new oniguruma.OnigScanner(patterns),
+    createOnigString: (text: string) => new oniguruma.OnigString(text),
   }),
   // The extension's own grammars (the bundled WGSL one highlights `#string WGSL` bodies); the
   // ones VS Code ships are not here, so those here-strings stay plain strings.
-  loadGrammar: async (scopeName) => {
+  loadGrammar: async (scopeName: string) => {
     const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const entry = manifest.contributes.grammars.find((g) => g.scopeName === scopeName);
+    const entry = manifest.contributes.grammars.find((g: { scopeName: string }) => g.scopeName === scopeName);
     if (!entry) return null;
     const path = join(root, entry.path);
     return vsctm.parseRawGrammar(readFileSync(path, "utf8"), path);
@@ -35,7 +35,7 @@ const registry = new vsctm.Registry({
 });
 const grammar = await registry.loadGrammar("source.jai");
 
-function* jaiFiles(path) {
+function* jaiFiles(path: string): Generator<string> {
   if (statSync(path).isDirectory()) {
     for (const entry of readdirSync(path).toSorted()) {
       if (entry.startsWith(".")) continue;
@@ -63,7 +63,7 @@ for (const top of roots) {
       lines += 1;
       const result = grammar.tokenizeLine(line, stack, 1000);
       for (const token of result.tokens) {
-        if (token.scopes.some((s) => s.startsWith("invalid"))) {
+        if (token.scopes.some((s: string) => s.startsWith("invalid"))) {
           failures.push(`${name}:${index + 1}:${token.startIndex + 1}: invalid token \`${line.slice(token.startIndex, token.endIndex)}\``);
         }
       }

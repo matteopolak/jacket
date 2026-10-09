@@ -62,8 +62,9 @@ pub struct Analysis {
     key: u64,
     /// The program compiled without errors.
     complete: bool,
-    /// Why it did not: the compiler's first error.
-    error: Option<Box<jaic::source::Diagnostic>>,
+    /// Why it did not: the compiler's first error, then the independent errors the editor
+    /// check of the other declarations and bodies found.
+    errors: Vec<jaic::source::Diagnostic>,
     /// Lints found so far, by file.
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
     /// The imports that would declare the error's unknown name (worked out on first use: it
@@ -87,22 +88,42 @@ impl Analysis {
         Some(found)
     }
 
-    /// The compile error as (start, end, message) in `path`: at its own span when that is in
-    /// the file, else at the first of its notes that is (a module procedure the file called).
-    pub fn check_error(&self, path: &Path) -> Option<(usize, usize, String)> {
-        let error = self.error.as_ref()?;
-        let file = self.file(path)?;
-        if error.span.file == file {
-            let span = error.span;
-            return Some((
-                span.start as usize,
-                span.end as usize,
-                error.message.clone(),
-            ));
+    /// The compile errors as (start, end, message) in `path`: each at its own span when that
+    /// is in the file, else at the first of its notes that is (a module procedure the file
+    /// called).
+    pub fn check_errors(&self, path: &Path) -> Vec<(usize, usize, String)> {
+        let Some(file) = self.file(path) else {
+            return Vec::new();
+        };
+        let mut out: Vec<(usize, usize, String)> = Vec::new();
+        for error in &self.errors {
+            let found = if error.span.file == file {
+                let span = error.span;
+                Some((
+                    span.start as usize,
+                    span.end as usize,
+                    error.message.clone(),
+                ))
+            } else {
+                error
+                    .notes
+                    .iter()
+                    .find(|(span, _)| span.file == file)
+                    .map(|(span, note)| {
+                        (
+                            span.start as usize,
+                            span.end as usize,
+                            format!("{}\n{note}", error.message),
+                        )
+                    })
+            };
+            if let Some(found) = found
+                && !out.iter().any(|o| o.0 == found.0 && o.1 == found.1)
+            {
+                out.push(found);
+            }
         }
-        let (span, note) = error.notes.iter().find(|(span, _)| span.file == file)?;
-        let message = format!("{}\n{note}", error.message);
-        Some((span.start as usize, span.end as usize, message))
+        out
     }
 
     /// The `#import`s that would declare the unknown name the compile error in `path` reports,
@@ -112,7 +133,7 @@ impl Analysis {
         path: &Path,
     ) -> Option<(usize, usize, Vec<ImportSuggestion>)> {
         let file = self.file(path)?;
-        let error = self.error.as_ref()?;
+        let error = self.errors.first()?;
         if error.span.file != file {
             return None;
         }
@@ -237,12 +258,12 @@ impl Cache {
             if self.entries.len() >= CACHED {
                 self.entries.remove(0);
             }
-            let (compiler, error) = compile(env, root, files);
+            let (compiler, errors) = compile(env, root, files);
             self.entries.push(Analysis {
                 compiler,
                 key,
-                complete: error.is_none(),
-                error,
+                complete: errors.is_empty(),
+                errors,
                 lints: BTreeMap::new(),
                 imports: None,
             });
@@ -251,12 +272,13 @@ impl Cache {
     }
 }
 
-/// The compiled program, and its first error if it has one.
+/// The compiled program, and its errors: the first the compile stopped at, then the independent
+/// ones among the declarations and bodies it did not get to.
 fn compile(
     env: &Environment,
     root: &Path,
     files: BTreeMap<PathBuf, Rc<[u8]>>,
-) -> (Compiler, Option<Box<jaic::source::Diagnostic>>) {
+) -> (Compiler, Vec<jaic::source::Diagnostic>) {
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),
         files,
@@ -294,9 +316,21 @@ fn compile(
     // What jailint needs (expression types, casts, uses) on top of the editor facts.
     facts.lint = true;
     compiler.ide = Some(Box::new(facts));
-    let error = compiler.compile_program(root).err();
-    compiler.ide_check_all();
-    (compiler, error)
+    let mut errors: Vec<jaic::source::Diagnostic> = compiler
+        .compile_program(root)
+        .err()
+        .into_iter()
+        .map(|e| *e)
+        .collect();
+    for e in compiler.ide_check_all() {
+        if !errors
+            .iter()
+            .any(|o| o.span == e.span && o.message == e.message)
+        {
+            errors.push(e);
+        }
+    }
+    (compiler, errors)
 }
 
 /// Where `text` fails to lex or parse (a byte offset), if it does.

@@ -103,6 +103,8 @@ enum Source {
 
 /// What the document's program is made of.
 struct Program {
+    /// The entry file the program is compiled from.
+    root: PathBuf,
     /// Every file the entry loads (the document included).
     closure: BTreeSet<PathBuf>,
     /// The folder whose other files may be loaded.
@@ -444,6 +446,7 @@ impl Sources<'_> {
         let mut seen = BTreeSet::new();
         module_dirs.retain(|d| seen.insert(d.clone()) && self.is_dir(d));
         Program {
+            root,
             closure,
             dir,
             entries,
@@ -480,6 +483,24 @@ impl Session {
     /// Auto-import items for `prefix` at the cursor of `uri` (whose text is `text`), leaving out
     /// `visible` names; and whether the list is incomplete (more matches, or too short a prefix
     /// yet, so the client asks again as the word grows).
+    /// The entry file of the project program `uri` belongs to (`jai.toml`'s `build_files`, an
+    /// inferred entry, or the file that loads it), read from disk and the open documents.
+    pub(crate) fn project_root(&self, uri: &DocumentUri) -> Option<PathBuf> {
+        let env = self.environment.as_ref()?;
+        let sources = Sources {
+            env,
+            open: self
+                .documents
+                .iter()
+                .chain(&self.lint_configs)
+                .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
+                .collect(),
+        };
+        let mut index = self.index.borrow_mut();
+        let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
+        Some(program.root)
+    }
+
     pub(crate) fn auto_import_items(
         &self,
         uri: &DocumentUri,

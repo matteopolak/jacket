@@ -38,7 +38,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let Some(diagnostic) = self.check_diagnostics(uri) else {
+        let Some(diagnostic) = self.check_diagnostics(uri).into_iter().next() else {
             return Vec::new();
         };
         let Some((at, to, imports)) = self.with_semantic(uri, &doc.text, |analysis, path| {

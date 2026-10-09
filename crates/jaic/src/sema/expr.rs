@@ -145,7 +145,15 @@ impl Compiler {
                 if self.ide.is_some() {
                     self.ide_note_receiver(member.span, &base_op);
                 }
-                self.member_access(f, scope, base_op, member.name, member.span)
+                let note = self.ide.is_some().then(|| match &base_op {
+                    Operand::Type(t) => *t,
+                    other => other.ty(),
+                });
+                let result = self.member_access(f, scope, base_op, member.name, member.span);
+                if let (Some(ty), Ok(_)) = (note, &result) {
+                    self.ide_note_member_use(member.span, ty, member.name);
+                }
+                result
             }
             E::InferredMember(name) => self.check_inferred_member(f, scope, name, expected),
             E::Index(base, index) => self.check_index(f, scope, base, index, span),
@@ -791,7 +799,12 @@ impl Compiler {
         // Allow pointer-to-enum targets? No: enums only, but look through distinct.
         match self.types.kind(t).clone() {
             TypeKind::Enum(_) | TypeKind::Struct(_) => {
-                self.member_access(f, ScopeId(0), Operand::Type(t), name.name, name.span)
+                let result =
+                    self.member_access(f, ScopeId(0), Operand::Type(t), name.name, name.span);
+                if result.is_ok() {
+                    self.ide_note_member_use(name.span, t, name.name);
+                }
+                result
             }
             _ => err(
                 name.span,

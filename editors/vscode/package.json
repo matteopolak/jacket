@@ -19,6 +19,7 @@
   "bugs": {
     "url": "https://github.com/matteopolak/jai/issues"
   },
+  "type": "module",
   "packageManager": "pnpm@12.6.0",
   "engines": {
     "vscode": "^1.91.0"
@@ -40,7 +41,7 @@
     "linter",
     "formatter"
   ],
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "activationEvents": [
     "workspaceContains:**/*.jai",
     "workspaceContains:**/jailint.toml"
@@ -322,18 +323,19 @@
     ]
   },
   "scripts": {
-    "build": "node scripts/build-grammar.mjs && node scripts/build-schemas.mjs && node esbuild.mjs",
-    "watch": "node esbuild.mjs --watch",
+    "build": "node scripts/build-grammar.ts && node scripts/build-schemas.ts && rolldown -c",
+    "watch": "rolldown -c --watch",
     "typecheck": "tsc --noEmit -p .",
-    "lint": "oxlint --deny-warnings && tsc --noEmit -p . && node scripts/build-grammar.mjs --check && node scripts/build-schemas.mjs --check && node scripts/build-icon.mjs --check",
+    "lint": "oxlint --deny-warnings && tsc --noEmit -p . && node scripts/build-grammar.ts --check && node scripts/build-schemas.ts --check && node scripts/build-icon.ts --check",
+    "build:tests": "rolldown -c --environment TESTS",
     "test": "pnpm run test:unit && pnpm run test:grammar",
-    "test:unit": "node esbuild.mjs --tests && node --test \"out/test/unit/*.test.js\"",
-    "test:grammar": "vscode-tmgrammar-test -g test/grammar/stubs/sql.tmLanguage.json -g test/grammar/stubs/json.tmLanguage.json 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.mjs",
-    "test:e2e": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/e2e/run.js",
-    "package": "pnpm run build --production && node scripts/copy-license.mjs && vsce package --no-dependencies",
-    "check-ages": "node scripts/check-dependency-age.mjs",
-    "icons": "node scripts/build-icon.mjs",
-    "screenshots": "node esbuild.mjs && node esbuild.mjs --tests && node out/test/screenshots/run.js"
+    "test:unit": "pnpm run build:tests && node --test \"out/test/unit/*.test.cjs\"",
+    "test:grammar": "vscode-tmgrammar-test -g test/grammar/stubs/sql.tmLanguage.json -g test/grammar/stubs/json.tmLanguage.json 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.ts",
+    "test:e2e": "rolldown -c && pnpm run build:tests && node out/test/e2e/run.cjs",
+    "package": "pnpm run build --environment PRODUCTION && node scripts/copy-license.ts && vsce package --no-dependencies",
+    "check-ages": "node scripts/check-dependency-age.ts",
+    "icons": "node scripts/build-icon.ts",
+    "screenshots": "rolldown -c && pnpm run build:tests && node out/test/screenshots/run.cjs"
   },
   "dependencies": {
     "vscode-languageclient": "10.1.1"
@@ -345,7 +347,7 @@
     "@types/vscode": "1.91.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
-    "esbuild": "0.28.2",
+    "rolldown": "1.2.10",
     "mocha": "12.0.2",
     "ovsx": "1.2.0",
     "oxlint": "1.85.0",

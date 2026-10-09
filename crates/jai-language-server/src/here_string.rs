@@ -3,7 +3,7 @@
 //! painting it as one string. See `docs/tools/vscode-extension.md` (*Embedded languages*).
 
 /// Terminators that name a language, matched case-insensitively. Keep in step with
-/// `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.mjs`, which fails when the two
+/// `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.ts`, which fails when the two
 /// lists differ.
 pub(crate) const LANGUAGE_TAGS: &[&str] = &[
     "WGSL",

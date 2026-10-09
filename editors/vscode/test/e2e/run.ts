@@ -2,7 +2,7 @@
 //
 //   JAILSP=/path/to/jailsp [JAIFMT=/path/to/jaifmt] [VSCODE_EXECUTABLE=...] npm run test:e2e
 //
-// Without JAIFMT a stand-in formatter (fake-jaifmt.js) checks the extension's side of
+// Without JAIFMT a stand-in formatter (fake-jaifmt.cjs) checks the extension's side of
 // formatting: the process, its working directory and applying the edit. VS Code is downloaded
 // into .vscode-test/ unless VSCODE_EXECUTABLE points at an installed one.
 import { runTests } from "@vscode/test-electron";
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   cpSync(path.join(root, "test", "e2e", "fixture"), workspace, { recursive: true });
   let jaifmt = process.env.JAIFMT;
   if (!jaifmt) {
-    const fake = path.join(__dirname, "fake-jaifmt.js");
+    const fake = path.join(__dirname, "fake-jaifmt.cjs");
     if (process.platform === "win32") {
       jaifmt = path.join(workspace, "fake-jaifmt.cmd");
       writeFileSync(jaifmt, `@node "${fake}" %*\r\n`);
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 
   await runTests({
     extensionDevelopmentPath: root,
-    extensionTestsPath: path.join(__dirname, "suite", "index.js"),
+    extensionTestsPath: path.join(__dirname, "suite", "index.cjs"),
     vscodeExecutablePath: process.env.VSCODE_EXECUTABLE || undefined,
     // A short user data folder: its IPC socket path must fit in 103 bytes on macOS.
     launchArgs: [workspace, "--user-data-dir", mkdtempSync(path.join(tmpdir(), "jai-vsc-")), "--disable-extensions", "--skip-welcome", "--skip-release-notes", "--disable-workspace-trust"],

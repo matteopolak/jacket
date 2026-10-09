@@ -43,6 +43,14 @@ pub struct IdeFacts {
     /// The struct each field name of the recorded files was laid out in, by the name's span
     /// (`None` when several structs share it: the instances of a polymorphic struct).
     pub fields: HashMap<Span, Option<IdeFieldSite>>,
+    /// Every use of a struct field or enum member of the recorded files, as (the member's
+    /// name, the name where it is declared). Declarations map to themselves.
+    pub member_uses: HashSet<(Span, Span)>,
+    /// Errors of procedure bodies that failed while the program compiled, beyond the one the
+    /// compile stopped at.
+    pub errors: Vec<Diagnostic>,
+    /// Where each enum member's name is declared.
+    pub(super) enum_decls: HashMap<(crate::types::EnumId, Sym), Span>,
 }
 
 /// Where a declared field lives: `field` of `declaring`, at `offset` in `owner` (a struct
@@ -325,10 +333,15 @@ impl Compiler {
     }
 
     /// After compiling for an editor: check every procedure body and top-level declaration of
-    /// the recorded files, not just what the program reaches. Failures are ignored.
-    pub fn ide_check_all(&mut self) {
-        if self.ide.is_none() {
-            return;
+    /// the recorded files, not just what the program reaches. Returns what failed: one error
+    /// per declaration and per procedure body (a body that fails does not stop the others, and
+    /// a declaration another one depends on reports its own error once, at its own span).
+    pub fn ide_check_all(&mut self) -> Vec<Diagnostic> {
+        let mut errors: Vec<Diagnostic> = Vec::new();
+        if let Some(ide) = self.ide.as_mut() {
+            errors.append(&mut ide.errors);
+        } else {
+            return errors;
         }
         for i in 0..self.entities.len() {
             let id = EntityId(i as u32);
@@ -336,8 +349,28 @@ impl Compiler {
             if matches!(e.kind, EntityKind::Decl { .. })
                 && matches!(e.state, EntityState::Unresolved)
                 && self.ide_wants(e.span.file)
+                && let Err(e) = self.resolve_entity(id)
             {
-                let _ = self.resolve_entity(id);
+                errors.push(*e);
+            }
+        }
+        // A struct with a member of an unknown type fails when it is laid out.
+        let mut i = 0;
+        while i < self.entities.len() {
+            let id = EntityId(i as u32);
+            i += 1;
+            let e = self.entity(id);
+            let span = e.span;
+            if let EntityState::Done(Resolved::Const {
+                value: Value::Type(t),
+                ..
+            }) = &e.state
+                && let TypeKind::Struct(s) = *self.types.kind(*t)
+                && self.types.struct_info(s).poly_args.is_empty()
+                && self.ide_wants(span.file)
+                && let Err(e) = self.layout_struct(s, span)
+            {
+                errors.push(*e);
             }
         }
         let mut i = 0;
@@ -354,9 +387,19 @@ impl Compiler {
             {
                 continue;
             }
-            let _ = self.proc_func(id, span);
+            if let Err(e) = self.proc_func(id, span) {
+                errors.push(*e);
+            }
         }
-        let _ = self.drain_bodies_lenient();
+        errors.extend(self.drain_bodies_lenient().map(|e| *e));
+        let mut failed: Vec<_> = self
+            .lenient_failures_list()
+            .into_iter()
+            .filter(|e| self.ide_wants(e.span.file))
+            .collect();
+        failed.sort_by_key(|e| (e.span.file.0, e.span.start));
+        errors.extend(failed);
+        errors
     }
 
     /// The innermost recorded scope at `offset` of `file` (else the file's own scope).
@@ -668,6 +711,108 @@ impl Compiler {
         }
     }
 
+    /// The name of `name` within declaration `span` (a field's span can cover its type and
+    /// initializer).
+    fn ide_name_span(&self, span: Span, name: Sym) -> Span {
+        let text = self.sources.snippet(span);
+        let word = name.as_str();
+        let boundary = |c: Option<char>| !c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+        let mut from = 0;
+        while let Some(at) = text[from..].find(word) {
+            let start = from + at;
+            let end = start + word.len();
+            if boundary(text[..start].chars().next_back()) && boundary(text[end..].chars().next()) {
+                return Span {
+                    file: span.file,
+                    start: span.start + start as u32,
+                    end: span.start + end as u32,
+                };
+            }
+            from = start + 1;
+        }
+        span
+    }
+
+    /// The declaration of the field or enum member `name` of `ty`'s struct or enum, through
+    /// pointers and `using` members.
+    fn ide_member_decl(&self, ty: TypeId, name: Sym) -> Option<Span> {
+        let mut ty = ty;
+        while let Some(p) = self.types.pointee(ty) {
+            ty = p;
+        }
+        let ty = self.types.repr_struct(ty);
+        match self.types.kind(ty) {
+            TypeKind::Struct(s) => {
+                let (s, field) = self.ide_find_field_decl(*s, name, &mut Vec::new())?;
+                let span = self.types.struct_info(s).fields[field].span;
+                (span.end > span.start).then(|| self.ide_name_span(span, name))
+            }
+            TypeKind::Enum(e) => {
+                let e =
+                    self.types
+                        .enum_info(*e)
+                        .loose_of
+                        .map_or(*e, |t| match self.types.kind(t) {
+                            TypeKind::Enum(strict) => *strict,
+                            _ => *e,
+                        });
+                self.ide.as_ref()?.enum_decls.get(&(e, name)).copied()
+            }
+            _ => None,
+        }
+    }
+
+    fn ide_find_field_decl(
+        &self,
+        s: StructId,
+        name: Sym,
+        searched: &mut Vec<StructId>,
+    ) -> Option<(StructId, usize)> {
+        if searched.contains(&s) {
+            return None;
+        }
+        searched.push(s);
+        let fields = &self.types.struct_info(s).fields;
+        if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
+            return Some((s, at));
+        }
+        fields.iter().filter(|f| f.using).find_map(|f| {
+            let mut ty = f.ty;
+            while let Some(p) = self.types.pointee(ty) {
+                ty = p;
+            }
+            let TypeKind::Struct(inner) = *self.types.kind(self.types.repr_struct(ty)) else {
+                return None;
+            };
+            self.ide_find_field_decl(inner, name, searched)
+        })
+    }
+
+    /// `name` at `span` named a member of `ty` (a field through `a.name`, `T.{ name = v }`, an
+    /// enum member through `Enum.NAME` or `.NAME`).
+    pub(super) fn ide_note_member_use(&mut self, span: Span, ty: TypeId, name: Sym) {
+        if self.ide.is_none() || !self.ide_wants(span.file) {
+            return;
+        }
+        let Some(decl) = self.ide_member_decl(ty, name) else {
+            return;
+        };
+        if let Some(ide) = self.ide.as_mut() {
+            ide.member_uses.insert((span, decl));
+        }
+    }
+
+    /// An enum member's declaration.
+    pub(super) fn ide_note_enum_member(&mut self, e: crate::types::EnumId, name: Sym, span: Span) {
+        if self.ide.is_none() || !self.ide_wants(span.file) {
+            return;
+        }
+        if let Some(ide) = self.ide.as_mut() {
+            ide.enum_decls.insert((e, name), span);
+            ide.member_uses.insert((span, span));
+        }
+    }
+
     /// `Poly(args)` with `Poly` at `span` gave the struct `t`.
     fn ide_note_instance(&mut self, span: Span, t: TypeId) {
         if let Some(ide) = self.ide.as_mut() {
@@ -711,9 +856,19 @@ impl Compiler {
             .into_iter()
             .filter(|(span, _)| span.end > span.start && self.ide_wants(span.file))
             .collect();
+        let names: Vec<Span> = sites
+            .iter()
+            .filter_map(|(span, site)| {
+                let name = self.types.struct_info(site.declaring).fields[site.field].name?;
+                Some(self.ide_name_span(*span, name))
+            })
+            .collect();
         let Some(ide) = self.ide.as_mut() else {
             return;
         };
+        for name in names {
+            ide.member_uses.insert((name, name));
+        }
         for (span, site) in sites {
             let site = (!instance).then_some(site);
             ide.fields

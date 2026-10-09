@@ -1,8 +1,8 @@
 // Writes syntaxes/jai.tmLanguage.json. The grammar is written here, in JavaScript, so the
 // identifier and keyword patterns are spelled once and shared by the rules that need them.
 //
-//   node scripts/build-grammar.mjs           # regenerate
-//   node scripts/build-grammar.mjs --check   # fail if the committed JSON is stale
+//   node scripts/build-grammar.ts           # regenerate
+//   node scripts/build-grammar.ts --check   # fail if the committed JSON is stale
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,9 +17,9 @@ const ID = `[${ID_START}][${ID_CHAR}]*`;
 // Not inside a longer identifier: `\b` does not know about non-ASCII letters or `$`.
 const B = `(?<![${ID_CHAR}$])`;
 const E = `(?![${ID_CHAR}])`;
-const words = (list) => `${B}(?:${list.join("|")})${E}`;
+const words = (list: string[]) => `${B}(?:${list.join("|")})${E}`;
 // A list of names before a declaration operator: `a, b :=`.
-const namesThen = (op) => `(?=(?:\\s*,\\s*${ID})*\\s*${op})`;
+const namesThen = (op: string) => `(?=(?:\\s*,\\s*${ID})*\\s*${op})`;
 
 const CONTROL = ["if", "ifx", "then", "else", "case", "for", "while", "break", "continue", "return", "remove", "defer", "push_context"];
 const BUILTIN_TYPES = [
@@ -99,7 +99,7 @@ const EMBEDDED_LANGUAGES = [
 // its end pattern; the inner rule takes the header and then *continues while* a line does not
 // start with the tag, so an embedded construct left open (an unclosed `/*`) cannot run past the
 // terminator. The rest of the header line is not part of the body, as in the lexer.
-function embeddedHereString({ tags, name, scopes }) {
+function embeddedHereString({ tags, name, scopes }: { tags: string[]; name: string; scopes: string[] }) {
   const flags = `(?:\\s*,\\s*(?:\\\\.|${ID}))*`;
   return {
     name: `meta.here-string.${name}.jai`,
@@ -117,14 +117,14 @@ function embeddedHereString({ tags, name, scopes }) {
         },
         while: `^(?![ \\t]*\\3(?![${ID_CHAR}]))`,
         contentName: `meta.embedded.block.${name}`,
-        patterns: scopes.map((scope) => ({ include: scope })),
+        patterns: scopes.map((scope: string) => ({ include: scope })),
       },
     ],
   };
 }
 
 // `<lead> *[..] Type`: the type named after a declaration's colon or a procedure's arrow.
-function typeAfter(lead, leadScope) {
+function typeAfter(lead: string, leadScope: string) {
   return {
     match: `${lead}\\s*((?:\\*\\s*|\\[[^\\]\\n]*\\]\\s*)*)(?:(\\$)(${ID})|(${ID}))?`,
     captures: {
@@ -426,7 +426,7 @@ const grammar = {
 const manifestPath = join(root, "package.json");
 const manifestText = readFileSync(manifestPath, "utf8");
 const manifest = JSON.parse(manifestText);
-manifest.contributes.grammars.find((g) => g.scopeName === "source.jai").embeddedLanguages = Object.fromEntries(
+manifest.contributes.grammars.find((g: { scopeName: string }) => g.scopeName === "source.jai").embeddedLanguages = Object.fromEntries(
   EMBEDDED_LANGUAGES.map(({ name, language }) => [`meta.embedded.block.${name}`, language]),
 );
 const manifestOut = JSON.stringify(manifest, null, 2) + "\n";
@@ -438,11 +438,11 @@ if (process.argv.includes("--check")) {
     current = readFileSync(output, "utf8");
   } catch {}
   if (current !== text) {
-    console.error("syntaxes/jai.tmLanguage.json is stale: run `node scripts/build-grammar.mjs`");
+    console.error("syntaxes/jai.tmLanguage.json is stale: run `node scripts/build-grammar.ts`");
     process.exit(1);
   }
   if (manifestText !== manifestOut) {
-    console.error("package.json's embeddedLanguages are stale: run `node scripts/build-grammar.mjs`");
+    console.error("package.json's embeddedLanguages are stale: run `node scripts/build-grammar.ts`");
     process.exit(1);
   }
 } else {

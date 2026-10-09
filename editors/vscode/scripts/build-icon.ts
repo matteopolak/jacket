@@ -5,8 +5,8 @@
 //   images/jai-file-dark.svg           file icon for .jai files on dark themes
 //   images/jai-file-light.svg          ... and on light themes
 //
-//   node scripts/build-icon.mjs           # regenerate (PNG rendered with resvg)
-//   node scripts/build-icon.mjs --check   # fail if the committed SVGs are stale
+//   node scripts/build-icon.ts           # regenerate (PNG rendered with resvg)
+//   node scripts/build-icon.ts --check   # fail if the committed SVGs are stale
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,12 +22,12 @@ const RED = { l: 0.63259, c: 0.24086, h: 31.631 };
 const ICON = { l: 0.62 * RED.l + 0.38 * 1, c: 0.62 * RED.c, h: RED.h };
 
 // Linear-light sRGB channel to an 8-bit gamma-encoded one.
-function encode(x) {
+function encode(x: number) {
   const v = Math.min(1, Math.max(0, x));
   return Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055));
 }
 
-export function oklchToHex({ l, c, h }) {
+export function oklchToHex({ l, c, h }: { l: number; c: number; h: number }) {
   const a = c * Math.cos((h * Math.PI) / 180);
   const b = c * Math.sin((h * Math.PI) / 180);
   const lCube = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3;
@@ -41,7 +41,7 @@ export function oklchToHex({ l, c, h }) {
   return "#" + linear.map((x) => encode(x).toString(16).padStart(2, "0")).join("");
 }
 
-const svg = (fill) =>
+const svg = (fill: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">` +
   `<path fill="${fill}" fill-rule="evenodd" d="${GLYPH}"/></svg>\n`;
 
@@ -61,7 +61,7 @@ if (process.argv.includes("--check")) {
     }
   });
   if (stale.length) {
-    console.error(`stale: ${stale.map(([p]) => p).join(", ")}; run \`node scripts/build-icon.mjs\``);
+    console.error(`stale: ${stale.map(([p]) => p).join(", ")}; run \`node scripts/build-icon.ts\``);
     process.exit(1);
   }
 } else {

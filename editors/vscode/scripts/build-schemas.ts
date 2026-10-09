@@ -3,8 +3,8 @@
 // schemas/jaifmt.schema.json from the keys Jai_Format's config parser accepts, and
 // schemas/jai.schema.json for jai.toml (the settings jailsp's project.rs parses).
 //
-//   node scripts/build-schemas.mjs           # regenerate
-//   node scripts/build-schemas.mjs --check   # fail if a committed schema is stale
+//   node scripts/build-schemas.ts           # regenerate
+//   node scripts/build-schemas.ts --check   # fail if a committed schema is stale
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,11 +13,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = join(root, "..", "..");
 const DOCS = "https://github.com/matteopolak/jai/blob/main/docs/tools";
 
-export function parseRules(source) {
-  const rules = [];
+export function parseRules(source: string) {
+  const rules: { name: string; level: string; summary: string }[] = [];
   const entry = /RuleInfo\s*\{\s*name:\s*"([a-z_]+)",\s*default:\s*Level::(\w+),\s*summary:\s*"((?:[^"\\]|\\.)*)"/g;
   for (const match of source.matchAll(entry)) {
-    rules.push({ name: match[1], level: match[2].toLowerCase(), summary: match[3].replace(/\\(.)/g, "$1") });
+    rules.push({ name: match[1]!, level: match[2]!.toLowerCase(), summary: match[3]!.replace(/\\(.)/g, "$1") });
   }
   return rules;
 }
@@ -25,7 +25,7 @@ export function parseRules(source) {
 const rules = parseRules(readFileSync(join(repository, "crates/jailint/src/rules/mod.rs"), "utf8"));
 if (rules.length < 10) throw new Error(`found only ${rules.length} rules in crates/jailint/src/rules/mod.rs`);
 
-const level = (rule) => ({
+const level = (rule: { name: string; level: string; summary: string }) => ({
   type: "string",
   enum: ["allow", "warn", "deny"],
   default: rule.level,
@@ -54,7 +54,7 @@ const jailint = {
   },
 };
 
-const count = (minimum, maximum, fallback, text) => ({
+const count = (minimum: number, maximum: number, fallback: number | undefined, text: string) => ({
   type: "integer",
   minimum,
   maximum,
@@ -88,7 +88,7 @@ const jaifmt = {
   },
 };
 
-const paths = (text) => ({ type: "array", items: { type: "string" }, markdownDescription: text });
+const paths = (text: string) => ({ type: "array", items: { type: "string" }, markdownDescription: text });
 const project = {
   $schema: "http://json-schema.org/draft-07/schema#",
   $id: "https://github.com/matteopolak/jai/editors/vscode/schemas/jai.schema.json",
@@ -116,7 +116,7 @@ for (const [name, schema] of [["jailint", jailint], ["jaifmt", jaifmt], ["jai", 
       current = readFileSync(path, "utf8");
     } catch {}
     if (current !== text) {
-      console.error(`schemas/${name}.schema.json is stale: run \`node scripts/build-schemas.mjs\``);
+      console.error(`schemas/${name}.schema.json is stale: run \`node scripts/build-schemas.ts\``);
       stale = true;
     }
   } else {

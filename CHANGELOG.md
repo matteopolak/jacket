@@ -15,6 +15,8 @@
 | `a: int @tag;` (a note before the semicolon), `@note("with spaces")`, clashing `using` members, identical overloads | compile errors (a note ends at the next whitespace and goes after the `;`) |
 | Built executables and a null pointer load or store | stop with `null pointer dereference` (on by default); `Build_Options.null_pointer_check = .OFF` removes the check |
 | `Bindings_Generator` C++ output | later base classes that repeat a member name no longer get `using` |
+| `jailsp` pushed `publishDiagnostics` to every client | A client that advertises `textDocument.diagnostic` pulls instead and is no longer pushed to |
+| `jailsp` compiled a document from itself when no open file loaded it | It compiles from the project's entry file (`jai.toml` or an inferred `main.jai`), so names of unopened files are visible |
 
 - `print`, `sprint`, `tprint`, `log`, `assert` messages and user wrappers that forward a `string` and `..Any` to one of them are checked at compile time when the format is a literal. `%N`, `%00` and `\%` are read as `print` reads them; spread (`..args`) calls are skipped. See [format string check](docs/compiler/format-string-check.md).
 
@@ -31,6 +33,13 @@
 - Fix: a baked argument (`$help: Help(T)`) whose declared type names an earlier `$T`, or that is a member of a constant (`HELP.build`), was rejected.
 
 Refactorings, call hierarchy and expand selection in the language server.
+
+### References and rename of members, more errors, pull diagnostics
+
+- Find references, highlights and rename work on struct fields (declarations, `a.b` through pointers and `using`, `T.{ b = 1 }`) and enum members (`Enum.B`, `.B`, `case .B`), told apart by the struct that declares them. A member whose declaration is outside the project (stdlib) can be found but not renamed.
+- The type checker's errors are shown for every independent declaration, struct and procedure body, not just the first (`jaic` itself still stops at the first, as real Jai does for bodies).
+- `textDocument/diagnostic` and `workspace/diagnostic` for clients that support pull diagnostics.
+- A document is checked from its project's entry file when no open file loads it, so references and rename reach unopened project files.
 
 ### Refactorings
 
@@ -75,6 +84,7 @@ CI now builds open-source Jai projects with their own entry points and runs them
 
 - `jailint` given only a file that a nearby program `#load`s (in its directory or up to two above) now compiles that program and reports the listed file, instead of linting the file as a standalone program with bogus errors. See [jailint](docs/tools/jailint.md).
 - A tracked pre-commit hook checks the staged files with `jaifmt --check`, `jailint -D warnings`, `rustfmt --check` and `tools/rust_item_spacing.py --check`. Enable it with `git config core.hooksPath .githooks`; see [pre-commit hook](docs/tools/pre-commit-hook.md). `jaifmt` and `jailint` needed no command-line change for it.
+- VS Code extension build tooling: Rolldown (`rolldown.config.ts`) replaces esbuild, the lint config is `oxlint.config.ts`, and `scripts/*.mjs` became TypeScript run with `node scripts/x.ts`, type-checked by `tsc`. The bundle is `dist/extension.cjs` (`package.json` is now `"type": "module"`) and is about 1% smaller. See [VS Code extension](docs/tools/vscode-extension.md).
 
 ## [0.4.3] - 2026-10-08
 
