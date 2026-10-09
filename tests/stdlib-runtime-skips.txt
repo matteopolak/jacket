@@ -76,3 +76,9 @@ getrect-simp-gl-frame windows-*-mingw native links FreeType and stb_image, which
 simp-window-program windows-arm64* * no OpenGL 3.3 driver (mesa-dist-win has no arm64 build)
 simp-gl-render-readback windows-arm64* * no OpenGL 3.3 driver (mesa-dist-win has no arm64 build)
 getrect-simp-gl-frame windows-arm64* * no OpenGL 3.3 driver (mesa-dist-win has no arm64 build)
+
+# Native libraries that tools/build_native_libs.py builds (see docs/tools/native-libs.md).
+rpmalloc-allocator * wasm-interp,wasm-native,playground rpmalloc is a C library with no wasm build
+rpmalloc-allocator windows-* * rpmalloc is built for macOS and Linux only (tools/native-libs.json)
+stb-image-codecs * wasm-interp,wasm-native,playground stb_image and its writers have no wasm build
+stb-image-codecs windows-*-mingw native links stb_image, which is not built for MinGW

@@ -78,6 +78,16 @@ The light-bulb menu offers *Extract into variable*, *Extract into procedure* (pa
 - `type_of` of a polymorphic struct is `Type`, and printing an uninstantiated polymorphic struct prints its name (`Entity`).
 - `type_of` of a polymorphic procedure keeps its parameters and results; the parts that depend on a type variable show as `$`, as in Jai (`procedure ($, s64) -> $`).
 
+### Standard library stubs finished
+
+- `Pool(USE_UNMAPPING_ALLOCATOR=true)` is accepted: a pool without a block allocator takes its blocks from one shared guard-page allocator, so stale pointers into a released pool fault.
+- `Unmapping_Allocator` and `Overwriting_Allocator` answer `IS_THIS_YOURS` (live allocations only) and `CREATE_HEAP`/`DESTROY_HEAP` (independent instances) instead of asserting.
+- `Simp` font effects `SMALLCAPS`, `LINING_FIGURES` and `LEFT_JUSTIFIED` work (capital forms, equal-width figures, ink starting at x) instead of asserting.
+- `Debug` and `Runtime_Support_Crash_Handler` build for wasm: no stack capture (`backtrace` returns 0), no handler, `is_valid_pointer` only rejects null.
+- `Icon` (`-icon FILE`) lays out `<name>.app` with the icon on macOS and writes `<name>.desktop` on Linux; `Icon.write_desktop_entry` and `desktop_entry_text` are public.
+- Fix: `rpmalloc` crashed when a thread that never used it allocated (its ownership records need per-thread state); the thread is now initialised on first allocation.
+- New runtime tests: rpmalloc as an allocator, stb_image/stb_image_write/stb_image_resize codecs, executable format detection, pool block recycling over the guard allocator. Four Debug runs moved off the wasm skip list.
+
 ### Third-party projects
 
 CI now builds open-source Jai projects with their own entry points and runs them on Linux, macOS and Windows (CLIs and libraries answer a request or pass their tests; Focus, chess-jai and forbear open a window and must draw something). See [third-party smoke test](docs/tools/third-party-smoke-test.md). What it found:

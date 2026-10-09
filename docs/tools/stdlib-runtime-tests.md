@@ -70,6 +70,26 @@ are left out of a platform's count unless `--all-platforms` is given.
 current section (`--print-baseline`) so a raised baseline can be pasted in. Native runs are not
 recorded: native code has no coverage hook, and the interpreter runs the same stdlib code.
 
+**Modules with no coverage entry.** The report counts procedures with a Jai body, so a module
+that only declares `#foreign` procedures, types or constants has nothing to count and no entry.
+Those modules, and what exercises or blocks them:
+
+| Module | Status |
+|---|---|
+| `stb_image`, `stb_image_write`, `stb_image_resize` | run by `stb-image-codecs` (PNG/BMP/TGA/JPEG/HDR encode and decode, header queries, resizing, corrupt input); also by the Simp tests. No wasm build, no MinGW build |
+| `stb_vorbis` | run by the Sound_Player tests |
+| `freetype`, `freetype255`, `freetype-2.12.1` | run by the Simp and GetRect tests (system FreeType on macOS and Linux, built on Windows) |
+| `rpmalloc` | run by `rpmalloc-allocator` (macOS and Linux; the library is not built for Windows or wasm) |
+| `executable_formats`, `generate_c_header`, `Project_Generator` | pure Jai, run by `format-detection-helpers` |
+| `Windows`, `Windows_Registry`, `Windows_Resources`, `Windows_Utf8`, `d3d11`, `d3d12`, `d3d_compiler`, `dxc_compiler`, `dxgi`, `debug_info` | Windows-only; the File, Process and Window tests reach the parts the stdlib itself uses on the Windows jobs, the Direct3D and DXC bindings need a GPU driver and the SDK's runtime DLLs that the CI images lack |
+| `X11`, `Linux`, `Vulkan` | used by the window, input and clipboard tests on Linux; Vulkan needs a driver and loader the runners lack |
+| `Metal`, `Objective_C`, `macos` | used by the window tests on macOS; Metal rendering needs a GPU that virtualised runners do not expose |
+| `SDL`, `Gamepad`, `Keymap`, `ImGui`, `Thekla_Atlas`, `Thekla_Baker`, `nvtt`, `nvidia_aftermath`, `telemetry3`, `MojoShader` | bindings to SDKs or libraries that tools/native-libs.json does not build and the runners do not install |
+| `lz4`, `meshoptimizer`, `pl_mpeg`, `meow_hash` | would need a pinned source in tools/native-libs.json (a download with a checked hash) to build and link; a round trip test is straightforward once they are added |
+| `Curl`, `Mail` | libcurl is a system library whose development files and version vary between the runners, so a `file://` test is not reliable there |
+| `Android`, `Toolchains`, `Codex`, `Preload`, `Simple_Package`, `Window_Type`, `GetRect_Common`, `Default_Metaprogram`, `Minimal_Metaprogram` | target-specific, data-only, or metaprograms that other tests drive through the compiler |
+| `Runtime_Support_Crash_Handler` | installed by the program entry point; a crash is not something a passing test can provoke |
+
 ## Running it locally
 
 Build `jaic` first (`cargo build -p jaic-cli`). The harness defaults to the host platform and the

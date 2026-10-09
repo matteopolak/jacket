@@ -23,6 +23,8 @@ Debug 18
 Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
+Extensions/Args 6
+Extensions/Jai_Format 6
 File 33
 File_Async 9
 File_Utilities 15
@@ -35,12 +37,10 @@ GetRect_LeftHanded 259
 Hash 9
 Hash_Table 19
 Ico_File 4
-Icon 4
+Icon 6
 Input 21
 IntroSort 2
 Iprof 20
-Extensions/Args 6
-Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -51,11 +51,12 @@ PCG 11
 POSIX 6
 POSIX_old 6
 Performance_Report 1
-Pool 6
+Pool 7
 Print_Color 4
 Print_Vars 7
 Process 17
 Program_Print 3
+Project_Generator 1
 Protocol_For_Memory_Visualization 1
 RadixSort 13
 Random 16
@@ -83,7 +84,10 @@ Wav_File 3
 Window_Creation 6
 X11 3
 Zip_File_Directory 2
+executable_formats 7
+generate_c_header 1
 md5 1
+rpmalloc 1
 xxHash 17
 
 [linux-x64]
@@ -107,6 +111,8 @@ Debug 18
 Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
+Extensions/Args 6
+Extensions/Jai_Format 6
 File 33
 File_Async 9
 File_Utilities 15
@@ -119,12 +125,10 @@ GetRect_LeftHanded 259
 Hash 9
 Hash_Table 19
 Ico_File 4
-Icon 4
+Icon 6
 Input 21
 IntroSort 2
 Iprof 20
-Extensions/Args 6
-Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -135,11 +139,12 @@ PCG 11
 POSIX 6
 POSIX_old 6
 Performance_Report 1
-Pool 6
+Pool 7
 Print_Color 4
 Print_Vars 7
 Process 17
 Program_Print 3
+Project_Generator 1
 Protocol_For_Memory_Visualization 1
 RadixSort 13
 Random 16
@@ -167,7 +172,10 @@ Wav_File 3
 Window_Creation 6
 X11 3
 Zip_File_Directory 2
+executable_formats 7
+generate_c_header 1
 md5 1
+rpmalloc 1
 xxHash 17
 
 [macos-arm64]
@@ -175,8 +183,8 @@ Adpcm 3
 Atomics 11
 Autorun 3
 Base64 8
-Basic 284
-Bindings_Generator 175
+Basic 285
+Bindings_Generator 188
 Bit_Array 14
 Bit_Operations 8
 Bucket_Array 7
@@ -185,13 +193,15 @@ Check 4
 Clipboard 20
 Code_Visit 4
 Command_Line 3
-Compiler 39
+Compiler 40
 Crc 2
 Debug 18
 Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
-File 33
+Extensions/Args 6
+Extensions/Jai_Format 6
+File 34
 File_Async 9
 File_Utilities 15
 File_Watcher 7
@@ -203,29 +213,28 @@ GetRect_LeftHanded 260
 Hash 9
 Hash_Table 19
 Ico_File 4
-Icon 4
+Icon 6
 Input 21
 IntroSort 2
 Iprof 20
-Extensions/Args 6
-Extensions/Jai_Format 6
 Jai_Lexer 37
 MacOS_Bundler 8
 Machine_X64 14
 Math 279
 Memory 1
 Metaprogram_Plugins 3
-Objective_C 6
+Objective_C 8
 Overwriting_Allocator 4
 PCG 11
 POSIX 3
 POSIX_old 3
 Performance_Report 1
-Pool 6
+Pool 7
 Print_Color 4
 Print_Vars 7
 Process 17
 Program_Print 3
+Project_Generator 1
 Protocol_For_Memory_Visualization 1
 RadixSort 13
 Random 16
@@ -234,7 +243,7 @@ Relative_Pointers 8
 Remap_Context 3
 Runtime_Support 13
 Shared_Memory_Channel 12
-Simp 113
+Simp 115
 Sloppy_Math 6
 Soa 3
 Socket 30
@@ -252,8 +261,11 @@ Unmapping_Allocator 4
 Wav_File 3
 Window_Creation 7
 Zip_File_Directory 2
+executable_formats 7
+generate_c_header 1
 macos 1
 md5 1
+rpmalloc 1
 xxHash 17
 
 [macos-x64]
@@ -277,6 +289,8 @@ Debug 18
 Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
+Extensions/Args 6
+Extensions/Jai_Format 6
 File 33
 File_Async 9
 File_Utilities 15
@@ -289,12 +303,10 @@ GetRect_LeftHanded 260
 Hash 9
 Hash_Table 19
 Ico_File 4
-Icon 4
+Icon 6
 Input 21
 IntroSort 2
 Iprof 20
-Extensions/Args 6
-Extensions/Jai_Format 6
 Jai_Lexer 37
 MacOS_Bundler 8
 Machine_X64 14
@@ -307,11 +319,12 @@ PCG 11
 POSIX 3
 POSIX_old 3
 Performance_Report 1
-Pool 6
+Pool 7
 Print_Color 4
 Print_Vars 7
 Process 17
 Program_Print 3
+Project_Generator 1
 Protocol_For_Memory_Visualization 1
 RadixSort 13
 Random 16
@@ -338,6 +351,8 @@ Unmapping_Allocator 4
 Wav_File 3
 Window_Creation 7
 Zip_File_Directory 2
+executable_formats 7
+generate_c_header 1
 macos 1
 md5 1
 xxHash 17
@@ -363,6 +378,8 @@ Debug 18
 Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
+Extensions/Args 6
+Extensions/Jai_Format 6
 File 37
 File_Async 9
 File_Utilities 15
@@ -375,12 +392,10 @@ GetRect_LeftHanded 255
 Hash 9
 Hash_Table 19
 Ico_File 4
-Icon 4
+Icon 6
 Input 22
 IntroSort 2
 Iprof 20
-Extensions/Args 6
-Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -389,11 +404,12 @@ Metaprogram_Plugins 3
 Overwriting_Allocator 4
 PCG 11
 Performance_Report 1
-Pool 6
+Pool 7
 Print_Color 4
 Print_Vars 7
 Process 16
 Program_Print 3
+Project_Generator 1
 Protocol_For_Memory_Visualization 1
 RadixSort 13
 Random 16
@@ -423,6 +439,8 @@ Windows 2
 Windows_Resources 3
 Windows_Utf8 2
 Zip_File_Directory 2
+executable_formats 7
+generate_c_header 1
 md5 1
 xxHash 17
 
@@ -447,6 +465,8 @@ Debug 18
 Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
+Extensions/Args 6
+Extensions/Jai_Format 6
 File 37
 File_Async 9
 File_Utilities 15
@@ -459,12 +479,10 @@ GetRect_LeftHanded 259
 Hash 9
 Hash_Table 19
 Ico_File 4
-Icon 4
+Icon 6
 Input 22
 IntroSort 2
 Iprof 20
-Extensions/Args 6
-Extensions/Jai_Format 6
 Jai_Lexer 37
 Machine_X64 14
 Math 279
@@ -473,11 +491,12 @@ Metaprogram_Plugins 3
 Overwriting_Allocator 4
 PCG 11
 Performance_Report 1
-Pool 6
+Pool 7
 Print_Color 4
 Print_Vars 7
 Process 16
 Program_Print 3
+Project_Generator 1
 Protocol_For_Memory_Visualization 1
 RadixSort 13
 Random 16
@@ -507,5 +526,7 @@ Windows 2
 Windows_Resources 3
 Windows_Utf8 2
 Zip_File_Directory 2
+executable_formats 7
+generate_c_header 1
 md5 1
 xxHash 17
