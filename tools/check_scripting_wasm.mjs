@@ -67,17 +67,12 @@ assert.equal(exited.stdout, "before\n");
 assert.deepEqual(exited.diagnostics, []);
 console.log("PASS: exit");
 
-// The tour's command line: `--stop`, `--help`, and the menu reading choices from standard input.
+// The tour runs every stop with no arguments and no input.
 const tour = await workspaceFiles(fileURLToPath(new URL("../examples/tour", import.meta.url)));
-const tourStop = engine.play(tour, "main.jai", { args: ["main", "--stop", "enums"], budget: 200000000 });
-assert.equal(tourStop.exitCode, 0, tourStop.rendered);
-assert(tourStop.stdout.includes(" 3. Enums and flags") && !tourStop.stdout.includes(" 1. Basics"), tourStop.stdout);
-const tourHelp = engine.play(tour, "main.jai", { args: ["main", "--help"], budget: 200000000 });
-assert(tourHelp.stdout.includes("--stop <STOP>") && tourHelp.stdout.includes("Run every stop"), tourHelp.stdout);
-const tourMenu = engine.play(tour, "main.jai", { args: ["main"], stdin: "arrays\n\nq\n", budget: 200000000 });
-assert.equal(tourMenu.exitCode, 0, tourMenu.rendered);
-assert(tourMenu.stdout.includes(" 4. Arrays\n") && tourMenu.stdout.includes("That's the tour."), tourMenu.stdout);
-console.log("PASS: tour command line");
+const tourRun = engine.play(tour, "main.jai", { args: ["main"], budget: 200000000 });
+assert.equal(tourRun.exitCode, 0, tourRun.rendered);
+assert(tourRun.stdout.includes(" 1. Basics") && tourRun.stdout.includes("That's the tour."), tourRun.stdout);
+console.log("PASS: tour");
 
 // The language server in the same module: metaprogram expansions, inlay hints, format strings.
 assert(engine.lsp, "the module exports the language server");

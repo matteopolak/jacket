@@ -44,7 +44,7 @@
         "A view of 2 numbers, read past its end with #no_abc: sum 100",
         "3 workers counted the primes in 8 slices of 1000: 168 135 127 120 119 114 117 107",
         "The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)",
-        "tour.md's headings: \"A tour of Jai\" \"Running it\" \"Map\" \"Things to try\"",
+        "tour.md's headings: \"A tour of Jai\" \"Map\" \"Things to try\"",
         "entry 3: 3 squared is 9",
         "After file_delete, file_exists says false.",
         "bswap reverses the bytes: 0xefcdab8967452301",

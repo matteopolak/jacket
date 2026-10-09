@@ -5,15 +5,20 @@
 // pixel, every frame: a twisting torus orbiting a blobby sphere. The Jai
 // side is the standard WebGPU C API (#import "Extensions/WebGPU"), which the
 // playground forwards to your browser's WebGPU; natively the same code
-// runs on wgpu-native in a window (examples/webgpu/raymarch.jai).
+// runs on wgpu-native and draws into a window of its own.
 //
-// It draws in the Render tab for GPU_SECONDS seconds. Click it to change
-// the palette, Space pauses, Escape ends it early. Browsers without
-// WebGPU (or without JavaScript Promise Integration) skip this stop.
+// It draws in the Render tab (or the window) for GPU_SECONDS seconds. Click
+// it to change the palette, Space pauses, Escape ends it early. Browsers
+// without WebGPU (or without JavaScript Promise Integration), and machines
+// without a display or a GPU adapter, skip this stop.
 
 #import "Input";
 #import "Window_Type";
 #import "Extensions/WebGPU";
+
+#if OS != .WASM {
+    #import "Window_Creation";
+}
 
 GPU_SECONDS :: 20.0;
 
@@ -23,19 +28,37 @@ tour_gpu :: () {
         print("Chrome or Edge (137 or newer) can show it.\n");
         return;
     }
-    instance := wgpuCreateInstance(null);
     window: Window_Type; // in the browser: the page's canvas
+    #if OS != .WASM {
+        window = create_window(960, 600, "Jai tour: ray marching on the GPU");
+        if !window {
+            print("No window could be opened (no display?), so this stop is skipped.\n");
+            return;
+        }
+    }
+    instance := wgpuCreateInstance(null);
     surface := webgpu_create_surface(instance, window);
+    if !surface {
+        print("No WebGPU surface for the window, so this stop is skipped.\n");
+        return;
+    }
     options: WGPURequestAdapterOptions;
     options.compatibleSurface = surface;
     adapter := webgpu_request_adapter(instance, *options);
-    if !adapter return;
+    if !adapter {
+        print("No GPU adapter here, so this stop is skipped.\n");
+        return;
+    }
     device := webgpu_request_device(instance, adapter);
     if !device return;
     queue := wgpuDeviceGetQueue(device);
 
     // The shader does its own gamma, so: not an sRGB format.
     format := webgpu_surface_format(surface, adapter);
+    if format == .Undefined {
+        print("The surface lists no texture formats, so this stop is skipped.\n");
+        return;
+    }
     width, height := webgpu_window_size(window);
     gpu_configure(surface, device, format, width, height);
 
@@ -89,6 +112,7 @@ tour_gpu :: () {
         }
         quit := false;
         for events_this_frame {
+            if it.type == .QUIT quit = true; // the window was closed
             if it.type != .KEYBOARD || !it.key_pressed continue;
             if it.key_code == .ESCAPE quit = true;
             if it.key_code == .SPACEBAR paused = !paused;
@@ -105,6 +129,20 @@ tour_gpu :: () {
 
         frame: WGPUSurfaceTexture;
         wgpuSurfaceGetCurrentTexture(surface, *frame);
+        #if OS != .WASM {
+            if frame.status != .SuccessOptimal && frame.status != .SuccessSuboptimal {
+                // No frame this time: the window is hidden (macOS says so with
+                // WEBGPU_SURFACE_OCCLUDED until it shows again) or its size changed (configure
+                // it again). Nap a little and try the next frame.
+                if frame.texture wgpuTextureRelease(frame.texture);
+                if frame.status != WEBGPU_SURFACE_OCCLUDED {
+                    width, height = webgpu_window_size(window);
+                    gpu_configure(surface, device, format, width, height);
+                }
+                sleep_milliseconds(10);
+                continue;
+            }
+        }
         view := wgpuTextureCreateView(frame.texture, null);
         color: WGPURenderPassColorAttachment;
         color.view = view;
@@ -126,13 +164,18 @@ tour_gpu :: () {
         wgpuCommandBufferRelease(commands);
         wgpuCommandEncoderRelease(encoder);
 
-        // Waits for the browser's next frame: the scene animates in real time.
+        // Waits for the browser's next frame (natively, the display's): the scene animates in
+        // real time.
         webgpu_present(surface);
         wgpuTextureViewRelease(view);
         wgpuTextureRelease(frame.texture);
         frames += 1;
     }
-    print("Drew % frames at %x% pixels.\n", frames, width, height);
+    if frames == 0 {
+        print("The window never showed (it was hidden all along), so nothing was drawn.\n");
+    } else {
+        print("Drew % frames at %x% pixels.\n", frames, width, height);
+    }
 }
 
 Gpu_Uniforms :: struct {

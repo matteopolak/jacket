@@ -12,6 +12,7 @@
 // adapter.
 
 #import "Basic";
+#import "Window_Type";
 #import "Extensions/WebGPU";
 
 SIZE :: 64; // the render target is SIZE x SIZE
@@ -60,6 +61,7 @@ main :: () {
     compute_squares(instance, device, queue);
     upload_texture(instance, device, queue);
     error_scopes(instance, device);
+    no_window(instance, adapter);
 
     wgpuQueueRelease(queue);
     wgpuDeviceRelease(device);
@@ -70,6 +72,18 @@ main :: () {
         exit(1);
     }
     print("webgpu headless: ok\n");
+}
+
+// Without a window there is no surface: webgpu_create_surface says so with null (its error is
+// logged), and webgpu_surface_format answers .Undefined for it. wgpu-native aborts the whole
+// process when given a null surface, so this must not reach it.
+no_window :: (instance: WGPUInstance, adapter: WGPUAdapter) {
+    #if OS == .WASM return;
+    window: Window_Type;
+    surface := webgpu_create_surface(instance, window);
+    check(surface == null, "a surface for no window");
+    format := webgpu_surface_format(surface, adapter);
+    check(format == .Undefined, "a format for no surface: %", format);
 }
 
 // A triangle over the middle of a cleared target: the middle is the triangle's color, the

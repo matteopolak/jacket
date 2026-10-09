@@ -163,8 +163,15 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
 // --- Surfaces and frames ------------------------------------------------------------------------
 
 // A surface that draws into `window` (a Window_Creation window). In the browser the window is
-// the page's canvas and `window` is ignored.
+// the page's canvas and `window` is ignored. Natively null (and an error logged) without a window:
+// wgpu-native aborts the process on most calls given a null surface, so check before using it.
 webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSurface {
+    #if OS != .WASM {
+        if !window {
+            log_error("WebGPU: no window to make a surface for (create one with Window_Creation's create_window)");
+            return null;
+        }
+    }
     desc: WGPUSurfaceDescriptor;
     #if OS == .MACOS {
         source: WGPUSurfaceSourceMetalLayer;
@@ -192,8 +199,9 @@ webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSu
 // the browser's canvas has only plain formats. A shader that writes already-encoded colors (or
 // applies gamma itself) wants `srgb = false`; one that writes linear colors wants `srgb = true`,
 // and must then encode them itself where the surface has no sRGB format (check with
-// webgpu_format_is_srgb). .Undefined when the surface reports no formats.
+// webgpu_format_is_srgb). .Undefined when the surface reports no formats, or is null.
 webgpu_surface_format :: (surface: WGPUSurface, adapter: WGPUAdapter, srgb := false) -> WGPUTextureFormat {
+    if !surface || !adapter return .Undefined;
     caps: WGPUSurfaceCapabilities;
     if wgpuSurfaceGetCapabilities(surface, adapter, *caps) != .Success || caps.formatCount == 0 return .Undefined;
     defer wgpuSurfaceCapabilitiesFreeMembers(caps);
