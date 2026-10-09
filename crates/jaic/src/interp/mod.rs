@@ -190,6 +190,9 @@ pub enum TrapKind {
     BareAssertion,
     /// A foreign procedure neither the host nor a loaded library provides.
     Unavailable,
+    /// Not a failure: the program called `exit` where the sandbox ends it itself instead of
+    /// the process. Carries the exit code.
+    Exit(i32),
     /// Not a failure: unwinds a thread of the sandbox's scheduler that blocks or yields, its
     /// frames saved so it can resume later (`threads_inline.rs`). Never reported.
     Suspended,
@@ -947,9 +950,11 @@ impl Interp {
             }
         }
         if let Some(result) = self.host.foreign(&symbol, args, sig) {
+            let exits = matches!(&*symbol, "exit" | "_exit");
             return result.map_err(|m| Trap {
                 message: m,
                 loc: self.loc,
+                kind: exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
                 ..Trap::default()
             });
         }

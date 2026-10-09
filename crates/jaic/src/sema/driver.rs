@@ -718,6 +718,12 @@ impl Compiler {
         let result = self.interp.call(&self.program, main, &[argc, argv]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
+            // `exit` in a sandbox host (the browser playground) ends the program as returning
+            // from `main` does.
+            Err(crate::interp::Trap {
+                kind: Some(crate::interp::TrapKind::Exit(code)),
+                ..
+            }) => Ok(code),
             Err(trap) => Err(Box::new(self.runtime_error(&trap))),
         }
     }

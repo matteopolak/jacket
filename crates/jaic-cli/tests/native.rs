@@ -284,6 +284,43 @@ fn stdlib_tests_run_natively() {
     }
 }
 
+/// `read_stdin_line()` reads piped standard input in a compiled program, and an
+/// exhausted pipe ends the loop.
+#[test]
+fn stdin_lines_are_read_natively() {
+    use std::io::Write;
+    use std::process::Stdio;
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stdin-lines");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/native/stdin-lines/main.jai");
+    let exe = exe_path(&dir, "stdin-lines");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&exe)
+        .current_dir(source.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(build.status.success(), "{}", String::from_utf8_lossy(&build.stderr));
+    let mut child = Command::new(&exe)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"one\r\n\ntwo words\nlast")
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "[one][][two words][last]\n"
+    );
+}
+
 /// `#asm` lowers to portable IR, so the instruction tests (expectations recorded on x86 hardware, or
 /// hand-computed for AVX-512) must also pass in compiled code on any host, arm64 included.
 #[test]

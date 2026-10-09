@@ -324,7 +324,7 @@ fn help_for(kind: TrapKind) -> Option<String> {
             "check the pointer against null before using it, or make sure it is set"
         }
         TrapKind::StackOverflow => "check that the recursion has a base case it reaches",
-        TrapKind::BareAssertion | TrapKind::Unavailable | TrapKind::Suspended => return None,
+        TrapKind::BareAssertion | TrapKind::Unavailable | TrapKind::Suspended | TrapKind::Exit(_) => return None,
     };
     Some(fixed.to_string())
 }

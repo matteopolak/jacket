@@ -51,6 +51,10 @@ Standard input lives in `SandboxHost` (`crates/jaic/src/interp/sandbox/stdin.rs`
 
 The browser host (`PlayHost`) waits for the page. Before each such read it asks `SandboxHost::stdin_wants_data(symbol, args)` (is the call a stdin read the buffer cannot satisfy: no byte for `read` or `getc`, no newline for `fgets` or `getline`, fewer than `size * count` bytes for `fread`?). While so, it flushes the program's pending output to `host.output` (so a prompt shows first), then calls the page function `jai_stdin_read(buffer, capacity)` with a 4096-byte buffer in the module's memory. The function returns a promise that settles when the user supplied input (the module is suspended through JSPI meanwhile) with the byte count written, and 0 for the end of input (Ctrl+D): the next read that finds nothing sees the end, and later reads ask again, as on a terminal. `jai_play_accepts_arguments()` returns 1 in builds with all of this, so a page can tell older bundles. A page without `jai_stdin_read`, or a browser without JSPI, closes the input: reads see the end at once. To cancel a run that waits, terminate the worker.
 
+### Exit
+
+`exit(n)` (and `_exit`) in the sandbox raises a `TrapKind::Exit(n)` trap from the host-foreign path in `Interp::call_foreign`; `run_program_with_args` turns it into `Ok(n)`, so the run ends with `exitCode = n`, the output so far is kept and no diagnostic is reported, as when `main` returns. Natively, `exit` is the C one and ends the process. Checked by `exit_ends_the_program_with_its_code` (jai-wasm) and `tools/check_scripting_wasm.mjs`.
+
 ### Embedding
 
 `play` is synchronous and returns when the program ends; nothing streams while it runs, because the module takes no host imports. Run it in a Web Worker so the page stays responsive, and terminate the worker to cancel.

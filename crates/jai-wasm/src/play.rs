@@ -698,6 +698,41 @@ mod tests {
         assert!(r.to_json().contains("\"code\":\"unknown-identifier\""));
     }
 
+    /// `read_stdin_line()` drops each newline (and a carriage return), returns a last
+    /// line that has none, and reports the end of input.
+    #[test]
+    fn lines_are_read_with_file_read_line() {
+        let r = with_input(
+            concat!(
+                "#import \"Basic\";\n#import \"File\";\n",
+                "main :: () {\n",
+                "    while true {\n",
+                "        line, ok := read_stdin_line();\n",
+                "        if !ok break;\n",
+                "        print(\"[%]\", line);\n",
+                "    }\n",
+                "    print(\"\\n\");\n",
+                "}\n",
+            ),
+            &[],
+            "one\r\n\ntwo words\nlast",
+        );
+        assert_eq!(r.exit_code, Some(0), "{}\n{:?}", r.rendered, r.stderr);
+        assert_eq!(r.stdout, "[one][][two words][last]\n");
+    }
+
+    /// `exit` ends the program with its code, as returning from `main` does: output so far is
+    /// kept and nothing is reported as a runtime error.
+    #[test]
+    fn exit_ends_the_program_with_its_code() {
+        let r = single(
+            "#import \"Basic\";\nmain :: () {\n    print(\"before\\n\");\n    exit(7);\n    print(\"after\\n\");\n}\n",
+        );
+        assert_eq!(r.stdout, "before\n");
+        assert_eq!(r.exit_code, Some(7), "{}", r.rendered);
+        assert!(r.diagnostics.is_empty(), "{:?}", r.diagnostics);
+    }
+
     #[test]
     fn a_foreign_procedure_the_sandbox_lacks_has_a_code() {
         let r = single(
