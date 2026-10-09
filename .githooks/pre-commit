@@ -65,7 +65,10 @@ add_fix() { fixes="$fixes
 find_jaifmt() {
     bin=$(exe "$root/target/jaifmt") || bin=""
     if [ -z "$JAI_HOOK_NO_BUILD" ]; then
-        jaic=$(exe "$root/target/release/jaic") || jaic=$(exe "$root/target/debug/jaic") || jaic=""
+        # The newer of the release and debug builds: a stale one may not compile the current jaifmt.
+        jaic=$(exe "$root/target/release/jaic") || jaic=""
+        debug=$(exe "$root/target/debug/jaic") || debug=""
+        if [ -n "$debug" ] && { [ -z "$jaic" ] || [ "$debug" -nt "$jaic" ]; }; then jaic=$debug; fi
         if [ -n "$jaic" ] && { [ -z "$bin" ] || stale "$bin" jaifmt stdlib/Extensions/Jai_Format stdlib/Extensions/Args; }; then
             say "rebuilding jaifmt"
             "$jaic" build jaifmt/main.jai -O2 -o "$root/target/jaifmt" >/dev/null 2>&1 &&
