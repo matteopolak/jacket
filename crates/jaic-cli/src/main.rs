@@ -1300,10 +1300,13 @@ impl LlvmBackend {
         };
         // An unoptimized macOS executable or library keeps its objects, in `.build/` beside the
         // output (or in the intermediate directory): the debugger reads the DWARF from them
-        // (`docs/native/debug-info.md`). Every other build deletes its objects after linking.
+        // (`docs/native/debug-info.md`). Every other build deletes its objects after linking. A
+        // sanitized build still writes the dSYM: the sanitizer's symbolizer does not read the debug
+        // map on every macOS, and its reports need file and line.
         let keep_objects = debug_info
             && macos
             && opt_level == OptLevel::O0
+            && self.sanitize.is_empty()
             && matches!(
                 settings.output_type,
                 OutputType::Executable | OutputType::DynamicLibrary
