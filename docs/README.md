@@ -136,6 +136,7 @@ Scripts, CI and project policies.
 - [Dependency policy](tools/dependency-policy.md)
 - [Justfile](tools/justfile.md): `just build|fmt|lint|test|check|hooks`, the recipes CI also runs
 - [Pre-commit hook](tools/pre-commit-hook.md): `.githooks/pre-commit`, jaifmt, jailint, rustfmt and item spacing on the staged files
+- [Benchmark generator](tools/benchmark-generator.md): `benchgen.py` corpus-shaped programs of any size, `jaistats.py` corpus statistics
 - [Differential testing](tools/differential-testing.md): interpreter, native, `-O2` and wasm must agree; `jaigen` random programs; `jaic-reduce`
 - [GitHub Action](tools/github-action.md): `setup-jai`, installing the released toolchain in CI
 - [Fuzzing](tools/fuzzing.md)

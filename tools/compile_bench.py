@@ -84,6 +84,26 @@ WORKLOADS: dict[str, tuple[str, dict[str, list[str]], list[str]]] = {
 }
 
 
+# Generated workloads (tools/benchgen.py): name -> (lines, seed). Program text depends only on these.
+GENERATED: dict[str, tuple[int, int]] = {'gen-10k': (10_000, 1), 'gen-60k': (60_000, 1), 'gen-240k': (240_000, 1)}
+GENERATED_MODES: dict[str, list[str]] = {
+    'check': ['check', 'main.jai'],
+    'build-O0': ['build', 'main.jai', '-O0', '-o', '{tmp}/gen-out'],
+}
+
+
+def write_generated(name: str, tmp: str) -> Path:
+    """Write the generated program for a GENERATED workload into `tmp` and return its directory."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import benchgen
+    lines, seed = GENERATED[name]
+    directory = Path(tmp) / name
+    directory.mkdir(exist_ok=True)
+    for file, text in benchgen.generate(lines, seed).items():
+        (directory / file).write_text(text)
+    return directory
+
+
 def default_jaic() -> Path:
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target'))
     return target / 'release' / 'jaic'
@@ -255,14 +275,17 @@ def main() -> None:
     todo = [(f'{name}/{mode}', UPSTREAM / project, args, setup)
             for name, (project, variants, setup) in WORKLOADS.items()
             for mode, args in variants.items() if mode in modes and a.only in f'{name}/{mode}']
+    todo += [(f'{name}/{mode}', None, args, []) for name in GENERATED
+             for mode, args in GENERATED_MODES.items() if mode in modes and a.only in f'{name}/{mode}']
     if a.list:
         for key, cwd, args, _ in todo:
-            print(f'{key:32} {cwd.relative_to(UPSTREAM)}: jaic {" ".join(args)}')
+            where = cwd.relative_to(UPSTREAM) if cwd else f'generated, (lines, seed) = {GENERATED[key.split("/")[0]]}'
+            print(f'{key:32} {where}: jaic {" ".join(args)}')
         return
     jaic = a.jaic.resolve()
     if not jaic.exists():
         sys.exit(f'{jaic} not found; build it with cargo build --release -p jaic-cli or pass --jaic')
-    if not UPSTREAM.is_dir():
+    if not UPSTREAM.is_dir() and any(cwd is not None for _, cwd, _, _ in todo):
         sys.exit(f'{UPSTREAM} is missing; run python3 tools/fetch_upstreams.py')
     baseline = json.loads(a.compare.read_text()) if a.compare else None
     report = {'format': 1, 'date': datetime.now(timezone.utc).isoformat(timespec='seconds'),
@@ -270,6 +293,8 @@ def main() -> None:
               'results': {}, 'failures': {}}
     with tempfile.TemporaryDirectory(prefix='compile-bench-') as tmp:
         for key, cwd, args, setup in todo:
+            if cwd is None:
+                cwd = write_generated(key.split('/')[0], tmp)
             if not cwd.is_dir():
                 report['failures'][key] = f'{cwd} is missing'
                 continue
