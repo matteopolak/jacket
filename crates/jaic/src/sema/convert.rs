@@ -238,6 +238,10 @@ impl Compiler {
             return Ok(Operand::int(s[0] as i128, TypeId::U8));
         }
         match op {
+            Operand::PolyStruct(ps) if to == TypeId::TYPE || to == TypeId::ANY => {
+                let t = self.poly_struct_type(ps);
+                return self.convert(f, Operand::Type(t), to, span);
+            }
             Operand::Type(t) if to == TypeId::TYPE => return Ok(Operand::Type(t)),
             Operand::Type(t) if to == TypeId::ANY => {
                 return self.box_any(f, Operand::Type(t), span);

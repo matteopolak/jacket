@@ -530,7 +530,7 @@ impl Compiler {
                     let settled = self.settle_untyped(op.clone(), None);
                     match settled {
                         Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
-                        Operand::Type(_) => TypeId::TYPE,
+                        Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
                         Operand::Void => {
                             let value = decl.value.as_ref().map_or(span, |v| v.span);
                             let text = self.sources.snippet(value).trim();
@@ -1708,7 +1708,12 @@ impl Compiler {
             }
             None => (scope, self.check_condition(f, scope, cond)?),
         };
-        f.b.branch(c, body_block, exit);
+        // `while true` only ends through `break`, which the missing-return warning relies on.
+        if matches!(cond.kind, ast::ExprKind::Bool(true)) {
+            f.b.jump(body_block);
+        } else {
+            f.b.branch(c, body_block, exit);
+        }
         f.b.switch_to(body_block);
         f.loops.push(LoopFrame {
             label,

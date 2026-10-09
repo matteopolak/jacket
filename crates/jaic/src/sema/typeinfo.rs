@@ -21,6 +21,7 @@ mod tag {
     pub const ANY: i128 = 10;
     pub const ENUM: i128 = 11;
     pub const TYPE: i128 = 13;
+    pub const POLYMORPHIC_VARIABLE: i128 = 12;
     pub const CODE: i128 = 14;
     pub const VARIANT: i128 = 18;
 }
@@ -39,7 +40,10 @@ impl Compiler {
             TypeKind::String => "Type_Info_String",
             TypeKind::Pointer(_) | TypeKind::Null => "Type_Info_Pointer",
             TypeKind::Proc(_) => "Type_Info_Procedure",
-            TypeKind::Struct(_) => "Type_Info_Struct",
+            TypeKind::Struct(_)
+            | TypeKind::PolyStruct {
+                ..
+            } => "Type_Info_Struct",
             TypeKind::Array {
                 ..
             } => "Type_Info_Array",
@@ -277,6 +281,10 @@ impl Compiler {
             TypeKind::Code => tag::CODE,
             TypeKind::Distinct(_) => tag::VARIANT,
             TypeKind::CompileTimeOnly => tag::OVERLOAD_SET,
+            TypeKind::PolyParam => tag::POLYMORPHIC_VARIABLE,
+            TypeKind::PolyStruct {
+                ..
+            } => tag::STRUCT,
         };
         self.set_field(&mut agg, desc, "type", Value::Int(tag), span)?;
         let runtime_size = match &kind {
@@ -385,6 +393,18 @@ impl Compiler {
                 )?;
                 let flags = i128::from(info.type_flags());
                 self.set_field(&mut agg, desc, "enum_type_flags", Value::Int(flags), span)?;
+            }
+            TypeKind::PolyStruct {
+                name, ..
+            } => {
+                self.set_field(
+                    &mut agg,
+                    desc,
+                    "name",
+                    Value::String(name.as_str().as_bytes().into()),
+                    span,
+                )?;
+                self.set_field(&mut agg, desc, "nontextual_flags", Value::Int(0x100), span)?;
             }
             TypeKind::Distinct(d) => {
                 let info = self.types.distincts[d.0 as usize].clone();

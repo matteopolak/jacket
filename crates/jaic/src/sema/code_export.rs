@@ -569,6 +569,10 @@ impl Compiler {
                 ..
             } => ("Type_Info_Array", 8),
             TypeKind::CompileTimeOnly => ("Type_Info", 9),
+            TypeKind::PolyParam => ("Type_Info", 12),
+            TypeKind::PolyStruct {
+                ..
+            } => ("Type_Info_Struct", 7),
             TypeKind::Any => ("Type_Info", 10),
             TypeKind::Enum(_) => ("Type_Info_Enum", 11),
             TypeKind::Type => ("Type_Info", 13),

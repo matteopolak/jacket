@@ -955,7 +955,10 @@ impl Compiler {
         );
         match op {
             Operand::Void => return err(arg.span, "the argument has no value"),
-            Operand::Type(_) if param == TypeId::TYPE => return Ok(convert::EXACT),
+            Operand::Type(_) | Operand::PolyStruct(_) if param == TypeId::TYPE => {
+                return Ok(convert::EXACT);
+            }
+            Operand::PolyStruct(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
             Operand::Type(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
             Operand::Procs(procs) => {
                 if let TypeKind::Proc(_) = self.types.kind(param) {
@@ -2529,7 +2532,7 @@ impl Compiler {
                     },
                 };
                 let ty = match op {
-                    Operand::Type(_) => TypeId::TYPE,
+                    Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
                     Operand::Const {
                         ty,
                         value,
@@ -2680,36 +2683,76 @@ impl Compiler {
     }
 
     /// The type of a polymorphic procedure for compile-time inspection (`type_of(poly)`):
-    /// parameters and results that mention a type variable are shown as `void`.
+    /// a parameter or result that depends on a type variable is shown as `$` (inside a
+    /// pointer, `*$`); the rest keeps its type. Baked parameters keep their position.
     fn poly_proc_type(&mut self, proc: ProcId) -> TypeId {
         let header = self.proc(proc).lit.header.clone();
         let scope = self.proc(proc).scope;
-        let eval = |c: &mut Self, t: &Option<ast::Expr>| match t {
-            Some(t) if !procs::has_poly(t) => c.eval_type(scope, t).unwrap_or(TypeId::VOID),
-            _ => TypeId::VOID,
-        };
-        let params: Vec<TypeId> = header
-            .params
-            .iter()
-            .filter(|p| !p.baked)
-            .map(|p| eval(self, &p.ty))
-            .collect();
+        let mut params = Vec::new();
+        let mut variadic = false;
+        for p in &header.params {
+            let mut ty = match (&p.ty, &p.default) {
+                (Some(t), _) => self.poly_shape_type(scope, t),
+                (None, Some(d)) => self
+                    .check_expr_no_emit(scope, d)
+                    .map(|op| match op {
+                        Operand::Const {
+                            ty,
+                            value,
+                            untyped: true,
+                        } => self.default_untyped(ty, &value),
+                        other => other.ty(),
+                    })
+                    .unwrap_or(TypeId::POLY_PARAM),
+                (None, None) => TypeId::POLY_PARAM,
+            };
+            if p.variadic {
+                variadic = true;
+                ty = self.types.array(ty, ArrayKind::View);
+            }
+            params.push(ty);
+        }
         let returns: Vec<TypeId> = header
             .returns
             .iter()
-            .map(|r| eval(self, &r.ty))
+            .filter_map(|r| match &r.ty {
+                Some(t) => Some(self.poly_shape_type(scope, t)),
+                None => r.default.as_ref().map(|_| TypeId::POLY_PARAM),
+            })
             .filter(|&t| t != TypeId::VOID)
             .collect();
         self.types
             .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
                 params,
                 returns,
-                variadic: false,
+                variadic,
                 c_varargs: false,
-                c_call: false,
+                c_call: header.flags.c_call,
                 no_context: false,
                 non_pod_return: false,
             })))
+    }
+
+    /// A type expression of a polymorphic header as far as it is known: the parts that depend
+    /// on a type variable become `$`.
+    fn poly_shape_type(&mut self, scope: ScopeId, ty: &ast::Expr) -> TypeId {
+        if !procs::has_poly(ty) {
+            return self.eval_type(scope, ty).unwrap_or(TypeId::POLY_PARAM);
+        }
+        match &ty.kind {
+            E::Unary(ast::UnOp::Star, inner) => {
+                let inner = self.poly_shape_type(scope, inner);
+                self.types.pointer(inner)
+            }
+            E::ArrayType {
+                size: ast::ArraySize::Fixed(_),
+                elem,
+            } => {
+                let elem = self.poly_shape_type(scope, elem);
+                self.types.array(elem, ArrayKind::Fixed(0))
+            }
+            _ => TypeId::POLY_PARAM,
+        }
     }
 
     /// The instance of `proc` (or `proc` itself) callable with arguments of the given types.
@@ -3148,7 +3191,11 @@ impl Compiler {
         let mut procs = Vec::new();
         for sc in scopes {
             let r = self.lookup(sc, name);
-            for id in r.unwrap_or_default() {
+            let ids = r.unwrap_or_default();
+            if ids.len() > 1 {
+                self.check_identical_overloads(&ids)?;
+            }
+            for id in ids {
                 let found = match self.resolve_entity(id)? {
                     scope::Resolved::Proc(p)
                     | scope::Resolved::Const {

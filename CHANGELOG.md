@@ -29,6 +29,18 @@ The light-bulb menu offers *Extract into variable*, *Extract into procedure* (pa
 ### Call hierarchy and expand selection
 
 *Show Call Hierarchy* lists the callers and callees of a procedure, overloads and modules included, and *Expand Selection* grows from a token through expressions, statements and blocks to the file.
+### Warnings
+
+- A procedure with results whose body can reach its end without returning gets the warning `not all control paths return a value`. `jaic check`, `run` and `build` print compile warnings before any error. See [diagnostics](docs/compiler/diagnostics.md#compile-warnings-compilerwarnings).
+
+### Errors for invalid programs
+
+- Two `using` members of a struct that bring in the same field name are an error, and so are two procedures in one scope with identical parameter types. Both were accepted before; Jai rejects them. The `using` check covers field names only. Bindings_Generator no longer marks both bases of a C++ diamond `using`.
+
+### Fixes
+
+- `type_of` of a polymorphic struct is `Type`, and printing an uninstantiated polymorphic struct prints its name (`Entity`).
+- `type_of` of a polymorphic procedure keeps its parameters and results; the parts that depend on a type variable show as `$`, as in Jai (`procedure ($, s64) -> $`).
 
 ## [0.4.3] - 2026-10-08
 

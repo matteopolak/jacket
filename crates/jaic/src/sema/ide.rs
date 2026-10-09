@@ -486,7 +486,10 @@ impl Compiler {
     fn ide_type_layout(&mut self, t: TypeId) -> Option<IdeLayout> {
         if matches!(
             self.types.kind(t),
-            TypeKind::Void | TypeKind::CompileTimeOnly
+            TypeKind::Void
+                | TypeKind::CompileTimeOnly
+                | TypeKind::PolyParam
+                | TypeKind::PolyStruct { .. }
         ) || !self.ide_laid_out(t)
         {
             return None;

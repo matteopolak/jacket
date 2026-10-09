@@ -64,6 +64,15 @@ pub enum TypeKind {
     Null,
     /// Overload sets, modules and other compile-time-only entities.
     CompileTimeOnly,
+    /// A polymorphic parameter or result inside the type of a polymorphic procedure
+    /// (`type_of(proc)`); it prints as `$`.
+    PolyParam,
+    /// A polymorphic struct before it is given arguments (`type_of(Table)` is `Type`, and
+    /// the template itself is a `Type` value naming it).
+    PolyStruct {
+        id: crate::sema::value::PolyStructId,
+        name: Sym,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -182,6 +191,7 @@ builtin! {
     COMPILE_TIME = 17 => TypeKind::CompileTimeOnly,
     VOID_PTR = 18 => TypeKind::Pointer(TypeId(0)),
     U8_PTR = 19 => TypeKind::Pointer(TypeId(6)),
+    POLY_PARAM = 20 => TypeKind::PolyParam,
 }
 
 impl Default for Types {
@@ -367,7 +377,12 @@ impl Types {
     pub fn size_of(&self, ty: TypeId) -> u64 {
         let p = self.pointer_size;
         match self.kind(ty) {
-            TypeKind::Void | TypeKind::CompileTimeOnly => 0,
+            TypeKind::Void
+            | TypeKind::CompileTimeOnly
+            | TypeKind::PolyParam
+            | TypeKind::PolyStruct {
+                ..
+            } => 0,
             TypeKind::Bool => 1,
             TypeKind::Int {
                 bits, ..
@@ -403,7 +418,12 @@ impl Types {
 
     pub fn align_of(&self, ty: TypeId) -> u64 {
         match self.kind(ty) {
-            TypeKind::Void | TypeKind::CompileTimeOnly => 1,
+            TypeKind::Void
+            | TypeKind::CompileTimeOnly
+            | TypeKind::PolyParam
+            | TypeKind::PolyStruct {
+                ..
+            } => 1,
             TypeKind::Bool => 1,
             TypeKind::Int {
                 bits, ..
@@ -455,6 +475,10 @@ impl Types {
             TypeKind::Code => "Code".into(),
             TypeKind::Null => "null".into(),
             TypeKind::CompileTimeOnly => "(compile-time entity)".into(),
+            TypeKind::PolyParam => "$".into(),
+            TypeKind::PolyStruct {
+                name, ..
+            } => name.to_string(),
             TypeKind::Pointer(t) => format!("*{}", self.name(*t)),
             TypeKind::Array {
                 elem,

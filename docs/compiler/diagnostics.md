@@ -78,6 +78,12 @@ help: convert with `cast(s64)`, which drops the fraction
 
 Colour is separate from the layout: errors red, warnings yellow, notes cyan, helps green, the gutter blue, primary carets in the severity's colour and secondary labels blue. Long lines are cut around their labels and tabs are expanded outside the plain layout. `jailsp` and the browser playground always use plain text.
 
+### Compile warnings (`Compiler::warnings`)
+
+Sema records a warning with `Compiler::warn` (once per span and message, since polymorphic instances check the same source again); `jaic check`, `run` and `build` print them before any error, and the playground adds them to its diagnostics. `jailsp` does not show them yet. Warnings never change the exit status.
+
+The one warning today is ``not all control paths return a value``, at the procedure's header. `lower_proc_body` (`sema/procs.rs`) notes where the body ends while a result is still owed (and the results are not all named), and after lowering asks `ir::Func::block_reachable` whether that block can be reached. Because it asks the IR, a `#if`'s dead branch, a `#complete` switch, an `if` whose branches all return and a `while true` without `break` (lowered as a plain jump, not a branch) need no special cases. Jai itself warns on `while true {}` and after `assert(false)`/`exit(1)` too; jaic stays quiet for the loop and, as it has no no-return calls, warns for the others. A procedure with all results named returns them at the end, so it never warns.
+
 ### Runtime failures (`sema/trap_report.rs`)
 
 When interpreted code fails a check (array bounds, a narrowing cast whose value does not fit, a `#complete` switch that matches no case, null pointer, stack overflow, division by zero, a procedure that falls off its end without returning a value, `#asm` faults, an assertion), the interpreter returns a `Trap` with the message, the statement, and the procedures it unwound through (`Trap::frames`, filled in `Interp::exec`, capped at 64). `Compiler::trap_diagnostic` turns it into a diagnostic:

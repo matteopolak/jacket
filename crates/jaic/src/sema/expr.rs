@@ -664,6 +664,9 @@ impl Compiler {
                     }
                 }
             }
+            if ids.len() > 1 {
+                self.check_identical_overloads(ids)?;
+            }
             return Ok(Operand::Procs(procs));
         }
         self.entity_operand(f, scope, ids[0], span)
@@ -1353,6 +1356,9 @@ impl Compiler {
         } else {
             self.check_expr(f, scope, a, lhs_expected)?
         };
+        if let Operand::PolyStruct(ps) = lhs {
+            lhs = Operand::Type(self.poly_struct_type(ps));
+        }
         // Inferred enum members on the right take the left operand's type.
         let pointer_lhs = self.types.is_pointer(self.types.repr(lhs.ty()));
         let pointer_offset = matches!(op, BinOp::Add | BinOp::Sub) && pointer_lhs;
@@ -1386,6 +1392,9 @@ impl Compiler {
                 }),
             )?,
         };
+        if let Operand::PolyStruct(ps) = rhs {
+            rhs = Operand::Type(self.poly_struct_type(ps));
+        }
         // `s[0] == "-"`, `c - "0"`: a one-byte string constant next to an integer compares
         // and offsets as that byte.
         if is_cmp || matches!(op, BinOp::Add | BinOp::Sub) {

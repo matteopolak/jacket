@@ -1160,6 +1160,40 @@ impl Builder {
     }
 }
 
+impl Func {
+    /// Can control reach `target` from the entry block?
+    pub fn block_reachable(&self, target: BlockId) -> bool {
+        let mut seen = vec![false; self.blocks.len()];
+        let mut work = vec![BlockId(0)];
+        while let Some(b) = work.pop() {
+            if std::mem::replace(&mut seen[b.0 as usize], true) {
+                continue;
+            }
+            if b == target {
+                return true;
+            }
+            match &self.blocks[b.0 as usize].term {
+                Term::Jump(to) => work.push(*to),
+                Term::Branch {
+                    then_block,
+                    else_block,
+                    ..
+                } => work.extend([*then_block, *else_block]),
+                Term::Switch {
+                    cases,
+                    default,
+                    ..
+                } => {
+                    work.extend(cases.iter().map(|&(_, to)| to));
+                    work.push(*default);
+                }
+                Term::Ret(_) | Term::Unreachable => {}
+            }
+        }
+        false
+    }
+}
+
 impl fmt::Display for Func {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(

@@ -21,6 +21,8 @@ sum(1, 2, 3)             // 6
 
 The calls give the commented results: defaults and named arguments {#proc.1}, multiple return values {#proc.2} and a variadic `..int` {#proc.3}.
 
+Two non-polymorphic procedures declared in one scope with the same name and the same parameter types (names, results and defaults do not count) are an error, as in Jai, also when nothing calls them: `check_identical_overloads` (`sema/procs.rs`) runs on every overload set of the program's own files when compilation finishes, and on a set when a call first uses it. Polymorphic overloads are told apart by calls and are not compared.
+
 Overloads are procedures sharing a name; the call picks by argument types {#proc.4}. A constant alias to a procedure joins the overload set {#proc.5}, which is how modules re-export one name for several implementations:
 
 ```jai

@@ -2944,6 +2944,32 @@
       "negative": {
         "check": "Cli.about: this name is reserved by `Args.Help`"
       }
+    },
+    {
+      "id": "using-members-clash",
+      "source": "negative/using-members-clash.jai",
+      "sha256": "85912f567731e6495bc3acad8d6b7f85fc55d8b4d3b5099afc53f8ee6394f27f",
+      "suite": "negative",
+      "feature": "two using members cannot bring in the same name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the name `x` is brought in twice"
+      }
+    },
+    {
+      "id": "identical-overloads",
+      "source": "negative/identical-overloads.jai",
+      "sha256": "030b063d4ffb07edaa02d1d8456aea04bcf0a5af17a1f422fa229b6252cb372c",
+      "suite": "negative",
+      "feature": "overloads with identical parameter types are rejected",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "identical parameter types"
+      }
     }
   ]
 }

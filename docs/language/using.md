@@ -41,6 +41,8 @@ Elsewhere:
 - `using name := value;` at file scope works for variables, not only constants (`sema/modules.rs`) {#using.13}.
 - `using g;` of a global `g: *S` at file scope does not make `S` contain itself: a name looked up from `S`'s own body while `S` is laid out matches only `S`'s constants, its union tag and the fields above it, which layout has already gone through (`type_has_member`, from `field_types`), without laying `S` out again {#using.17}. A field further down is not a member yet: layout is one pass in order, since a field type or `#if` may use the types of the fields above it.
 
+- Two `using` members of one struct that bring in the same field name are an error (``the name `x` is brought in twice``), also through nested `using`s and `using` pointers; `using,only(..)`/`using,except(..)` leave names out, and a direct member may still repeat a promoted name. `check_using_clashes` (`sema/structs.rs`) runs at the end of layout and compares field names only: constants and procedures in the members' bodies, `using` in procedures and parameters, and renaming (`Map`/computed) filters are not checked. The Bindings_Generator drops `using` from a later C++ base that shares a virtual base with an earlier one (`collect_exposed_names` in `print.jai`).
+
 ## How to change it
 
 Member lookup order is in `find_member`: direct members come before promoted ones, so a direct member shadows a promoted one {#using.15}. Default overrides resolve through `override_target`/`override_path` and apply when `default_initializer` builds the default value.

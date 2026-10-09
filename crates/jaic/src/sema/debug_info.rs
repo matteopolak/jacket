@@ -273,7 +273,12 @@ impl Compiler {
             TypeKind::Distinct(d) => {
                 DebugTypeKind::Typedef(self.types.distincts[d.0 as usize].base.0)
             }
-            TypeKind::Void | TypeKind::CompileTimeOnly => DebugTypeKind::Void,
+            TypeKind::Void
+            | TypeKind::CompileTimeOnly
+            | TypeKind::PolyParam
+            | TypeKind::PolyStruct {
+                ..
+            } => DebugTypeKind::Void,
         };
         let sized = !matches!(kind, DebugTypeKind::Void);
         DebugType {

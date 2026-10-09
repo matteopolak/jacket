@@ -213,12 +213,35 @@ impl Compiler {
         Ok(true)
     }
 
+    /// Overload sets of the program's own files are checked even when nothing calls them.
+    fn check_declared_overloads(&mut self) -> Result<()> {
+        let Some(m) = self.main_module else {
+            return Ok(());
+        };
+        let mut sets: Vec<Vec<EntityId>> = Vec::new();
+        for scope in &self.scopes {
+            if scope.module != m {
+                continue;
+            }
+            for ids in scope.names.values() {
+                if ids.len() > 1 {
+                    sets.push(ids.clone());
+                }
+            }
+        }
+        for ids in sets {
+            self.check_identical_overloads(&ids)?;
+        }
+        Ok(())
+    }
+
     fn finish_program_inner(&mut self) -> Result<()> {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
         self.placeholders_final = true;
         self.settle()?;
         let lowered = self.lower_reachable_inner(false)?;
         self.check_declared_structs()?;
+        self.check_declared_overloads()?;
         if lowered {
             self.fill_runtime_info();
         }

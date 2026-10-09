@@ -934,6 +934,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         // What compile-time code of a wasm target printed (it runs in the sandbox).
         flush_sandbox(&shared_sandbox);
     }
+    for warning in &compiler.warnings {
+        eprintln!("{}", compiler.render(warning));
+    }
     if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
         return ExitCode::from(1);

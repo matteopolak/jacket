@@ -92,6 +92,8 @@ struct FieldDecl {
     init: Option<ast::Expr>,
     scope: ScopeId,
     align: Option<u64>,
+    /// `using,only(...)` / `using,except(...)` on a `using` member.
+    filter: Option<ast::UsingFilter>,
 }
 
 enum FieldItem {
@@ -175,6 +177,15 @@ impl Compiler {
             },
         );
         ty
+    }
+
+    /// The `Type` value standing for a polymorphic struct that has no arguments yet.
+    pub fn poly_struct_type(&mut self, ps: PolyStructId) -> TypeId {
+        let name = self.poly_structs[ps.0 as usize].name;
+        self.types.intern(TypeKind::PolyStruct {
+            id: ps,
+            name,
+        })
     }
 
     pub fn new_poly_struct(
@@ -684,6 +695,7 @@ impl Compiler {
                     init,
                     scope: src.scope,
                     align: None,
+                    filter: None,
                 }));
             }
         } else {
@@ -701,6 +713,8 @@ impl Compiler {
         let mut align = 1u64;
         let mut overlay = None;
         let mut aliases = Vec::new();
+        // The filters of `using,only(..)`/`using,except(..)` members, by field index.
+        let mut filters: Vec<(usize, ast::UsingFilter)> = Vec::new();
         for item in items {
             match item {
                 FieldItem::Alias(alias) => aliases.push(alias),
@@ -761,6 +775,11 @@ impl Compiler {
                             format!("member `{name}` is declared more than once"),
                         );
                     }
+                    if d.using
+                        && let Some(filter) = d.filter.clone()
+                    {
+                        filters.push((fields.len(), filter));
+                    }
                     fields.push(Field {
                         name: d.name,
                         ty: d.ty,
@@ -791,8 +810,12 @@ impl Compiler {
                 format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
             );
         }
+        self.check_using_clashes(&fields, &filters)?;
         let info = self.types.struct_info_mut(s);
         info.fields = fields;
+        if !filters.is_empty() {
+            self.using_filters.insert(s, filters);
+        }
         if !aliases.is_empty() {
             self.member_aliases.insert(s, aliases);
         }
@@ -804,6 +827,103 @@ impl Compiler {
             self.ide_note_layout(s);
         }
         Ok(())
+    }
+
+    /// Two `using` members that bring in the same name are an error, as in Jai. A field of the
+    /// struct itself may repeat a promoted name (it shadows it, {#using.15}). Only field names
+    /// are compared; the constants and procedures declared in the members' bodies are not.
+    fn check_using_clashes(
+        &mut self,
+        fields: &[Field],
+        filters: &[(usize, ast::UsingFilter)],
+    ) -> Result<()> {
+        if !fields.iter().any(|f| f.using) {
+            return Ok(());
+        }
+        // Where each name came from: the `using` member that brought it in. A field of the
+        // struct itself may share the name: the direct member shadows the promoted ones.
+        let mut seen: HashMap<Sym, (Span, Option<Sym>)> = HashMap::default();
+        for (i, f) in fields.iter().enumerate() {
+            if !f.using {
+                continue;
+            }
+            let filter = filters.iter().find(|(at, _)| *at == i).map(|(_, x)| x);
+            let mut names = Vec::new();
+            if !self.exposed_names(f.ty, filter, &mut Vec::new(), &mut names) {
+                continue;
+            }
+            for name in names {
+                match seen.get(&name) {
+                    Some(&(first, via)) if first != f.span => {
+                        let how = match via {
+                            Some(m) => format!("through `using {m}`"),
+                            None => "through an earlier `using` member".to_string(),
+                        };
+                        let member = f.name.map_or("this `using` member".to_string(), |n| {
+                            format!("`using {n}`")
+                        });
+                        return Err(Box::new(
+                            Diagnostic::error(
+                                f.span,
+                                format!("the name `{name}` is brought in twice"),
+                            )
+                            .with_label(format!("{member} also brings in `{name}`"))
+                            .with_note(first, format!("`{name}` is already in this struct, {how}"))
+                            .with_help("a `using,only(...)` or `using,except(...)` can leave one of them out"),
+                        ));
+                    }
+                    Some(_) => {}
+                    None => {
+                        seen.insert(name, (f.span, f.name));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The field names a `using` member of type `ty` brings in (through nested `using`s too).
+    /// False when they cannot be told: a filter that renames, or a type not laid out yet.
+    fn exposed_names(
+        &self,
+        ty: TypeId,
+        filter: Option<&ast::UsingFilter>,
+        searched: &mut Vec<StructId>,
+        out: &mut Vec<Sym>,
+    ) -> bool {
+        let ty = self.types.repr_struct(ty);
+        let ty = self.types.pointee(ty).unwrap_or(ty);
+        let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) else {
+            return true;
+        };
+        let info = self.types.struct_info(s);
+        if searched.contains(&s) || info.layout != LayoutState::Done {
+            return !searched.is_empty();
+        }
+        searched.push(s);
+        let own_filters = self.using_filters.get(&s);
+        let mut names = Vec::new();
+        for (i, f) in info.fields.iter().enumerate() {
+            names.extend(f.name);
+            if f.using {
+                let inner = own_filters.and_then(|l| l.iter().find(|(at, _)| *at == i));
+                if !self.exposed_names(f.ty, inner.map(|(_, x)| x), searched, &mut names) {
+                    return false;
+                }
+            }
+        }
+        match filter {
+            None | Some(ast::UsingFilter::None) => {}
+            Some(ast::UsingFilter::Only(keep)) => {
+                names.retain(|n| keep.iter().any(|k| k.name == *n));
+            }
+            Some(ast::UsingFilter::Except(drop)) => {
+                names.retain(|n| drop.iter().all(|k| k.name != *n));
+            }
+            Some(_) => return false,
+        }
+        out.extend(names);
+        true
     }
 
     /// An `#align N` value. Generated bindings use odd values (`#align 9`), so only the range is
@@ -886,6 +1006,7 @@ impl Compiler {
                             init: None,
                             scope,
                             align: None,
+                            filter: None,
                         }));
                     }
                     _ => return err(e.span, "unexpected expression in struct body"),
@@ -918,6 +1039,7 @@ impl Compiler {
                         init: None,
                         scope,
                         align: None,
+                        filter: Some(filter.clone()),
                     }));
                 }
                 _ => {}
@@ -969,6 +1091,7 @@ impl Compiler {
                 init: decl.value.clone(),
                 scope,
                 align,
+                filter: decl.using_filter.clone(),
             }));
         }
         Ok(())

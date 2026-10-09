@@ -1128,3 +1128,38 @@ fn format_string_argument_count_is_checked() {
     );
     assert_eq!(fine.status.code(), Some(0), "{}", stderr(&fine));
 }
+
+#[test]
+fn a_body_that_can_fall_off_its_end_gets_a_warning() {
+    let dir = scratch("missing-return-warning");
+    let source = "\
+E :: enum { A; B; }
+open :: (x: int) -> int {
+    if x > 0 return 1;
+}
+all_enum :: (e: E) -> int {
+    if #complete e == { case .A; return 1; case .B; return 2; }
+}
+with_default :: (x: int) -> int {
+    if x == { case 1; return 1; case; return 2; }
+}
+forever :: () -> int {
+    while true { if open(1) == 2 return 1; }
+}
+named :: () -> (r: int) { }
+chosen :: () -> int {
+    #if true { return 1; } else { }
+}
+main :: () {
+    open(1); all_enum(.A); with_default(1); forever(); named(); chosen();
+}
+";
+    let output = jaic_on(&dir, "t.jai", source, "check", &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stderr(&output);
+    assert_in_order(
+        &text,
+        &["t.jai:2:", "warning: not all control paths return a value"],
+    );
+    assert_eq!(text.matches("not all control paths").count(), 1, "{text}");
+}

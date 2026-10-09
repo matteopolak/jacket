@@ -241,7 +241,12 @@ impl Compiler {
                 self.ir_ty(base)
             }
             TypeKind::Distinct(d) => self.ir_ty(self.types.distincts[d.0 as usize].base),
-            TypeKind::Void | TypeKind::CompileTimeOnly => None,
+            TypeKind::Void
+            | TypeKind::CompileTimeOnly
+            | TypeKind::PolyParam
+            | TypeKind::PolyStruct {
+                ..
+            } => None,
             TypeKind::String
             | TypeKind::WideFloat(_)
             | TypeKind::Any
@@ -340,10 +345,11 @@ impl Compiler {
             Operand::Multi(values) => Ok(values[0]),
             Operand::Void => err(span, "expression has no value"),
             Operand::Module(_) => err(span, "a module is not a value"),
-            Operand::PolyStruct(_) => err(
-                span,
-                "a polymorphic struct must be given parameters before use",
-            ),
+            Operand::PolyStruct(ps) => {
+                let t = self.poly_struct_type(ps);
+                let val = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
+                Ok((TypeId::TYPE, val))
+            }
             Operand::Builtin(_) => err(span, "builtin procedure is not a value"),
             Operand::Library(_) => err(span, "a library is not a value"),
         }
