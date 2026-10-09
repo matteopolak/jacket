@@ -285,6 +285,20 @@ main :: () {
         assert(S.get_cursor_pos_for_width(font, "abc", ab + 1) == 2, "cursor after ab: %", S.get_cursor_pos_for_width(font, "abc", ab + 1));
         assert(S.get_cursor_pos_for_width(font, "éa", S.get_text_width(font, "é") + 1) == 2, "a two-byte character is one cursor step");
 
+        // Font effects: small caps measure as the capitals, lining figures share one cell width,
+        // and left-justified quads start the ink at the requested x.
+        assert(S.prepare_text(font, "abc é", .SMALLCAPS) == S.get_text_width(font, "ABC É"));
+        one := S.prepare_text(font, "1111", .LINING_FIGURES);
+        zeros := S.prepare_text(font, "0000", .LINING_FIGURES);
+        assert(one == zeros && one > 0, "figures differ in width: % %", one, zeros);
+        assert(S.prepare_text(font, "1", .LINING_FIGURES) * 4 == one);
+        S.prepare_text(font, "Wi");
+        S.generate_quads_for_prepared_text(font, 50, 20);
+
+        S.generate_quads_for_prepared_text(font, 50, 20, .LEFT_JUSTIFIED);
+        justified_x := font.current_quads[0].p0.x;
+        assert(justified_x == 50, "ink starts at %", justified_x);
+
         assert(S.is_latin(#char "A") && S.is_latin(0xe9) && !S.is_latin(0x65e5));
         assert(S.set_unknown_character(font, #char "?"), "the font has no '?'");
         assert(!S.set_unknown_character(font, 0x10fff0), "a private-use codepoint resolved");
