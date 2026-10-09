@@ -13,6 +13,7 @@
 use super::{read_bytes, write_bytes};
 #[cfg(target_arch = "x86_64")]
 use crate::abi::{self, Arch, Passing};
+use crate::interp::Rets;
 #[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};
 use std::ffi::c_void;
@@ -435,7 +436,7 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
 
 /// `super::call_with` for the Microsoft x64 convention.
 #[cfg(target_arch = "x86_64")]
-pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
+pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
@@ -495,7 +496,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let result = match (ret_layout, ret_pieces) {
         (Some(_), None) => {
             unsafe { call_slots::<u64>(addr, &padded, first_float) };
-            Vec::new()
+            Rets::default()
         }
         (Some(layout), Some(pieces)) => {
             let value = unsafe { call_slots::<u64>(addr, &padded, first_float) };
@@ -503,29 +504,29 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
                 // SAFETY: the out-pointer addresses `layout.size` writable bytes.
                 unsafe { write_bytes(out_ptr, value, layout.size) };
             }
-            Vec::new()
+            Rets::default()
         }
         (None, _) => match sig.returns.first().copied() {
             Some(t) if t.is_float() => {
                 let bits = unsafe { call_slots::<f64>(addr, &padded, first_float) }.to_bits();
-                vec![if t == Ty::F32 {
+                Rets::one(if t == Ty::F32 {
                     bits & 0xffff_ffff
                 } else {
                     bits
-                }]
+                })
             }
             Some(t) => {
                 let r = unsafe { call_slots::<u64>(addr, &padded, first_float) };
-                vec![match t {
+                Rets::one(match t {
                     Ty::I8 => r & 0xff,
                     Ty::I16 => r & 0xffff,
                     Ty::I32 => r & 0xffff_ffff,
                     _ => r,
-                }]
+                })
             }
             None => {
                 unsafe { call_slots::<u64>(addr, &padded, first_float) };
-                Vec::new()
+                Rets::default()
             }
         },
     };

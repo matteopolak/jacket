@@ -13,6 +13,7 @@
     allow(dead_code, unused_imports)
 )]
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
+use crate::interp::Rets;
 use crate::ir::{Sig, Ty};
 
 mod callbacks;
@@ -477,7 +478,7 @@ unsafe fn call_as<R>(addr: u64, regs: &Regs) -> R {
 /// back (see `callback_addr`) run through the interpreter's `Gate`; the caller marks the call
 /// with `calling_out` so that those on this thread run as its own.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
+pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     #[cfg(target_os = "macos")]
     if let Some(result) = main_thread::forward(addr, args, sig) {
         return result;
@@ -624,7 +625,7 @@ pub mod main_thread {
     unsafe impl<T> Send for Carry<T> {
     }
 
-    pub(super) fn forward(addr: u64, args: &[u64], sig: &Sig) -> Option<Result<Vec<u64>, String>> {
+    pub(super) fn forward(addr: u64, args: &[u64], sig: &Sig) -> Option<Result<Rets, String>> {
         let route = ROUTE.get()?;
         if !ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
             || DISABLED.load(std::sync::atomic::Ordering::SeqCst)
@@ -657,7 +658,7 @@ pub mod main_thread {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
+fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
     // The register model below is System V / AAPCS64 (Windows on arm64 included); the
     // Microsoft x64 convention has its own (`windows.rs`).
@@ -820,13 +821,13 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     if result_in_x0 {
         // SAFETY: as below; the callee writes the result through the pointer in x0.
         unsafe { call_as::<u64>(addr, &regs) };
-        return Ok(Vec::new());
+        return Ok(Rets::default());
     }
     if oversize {
         let result = if X86_64 {
             // SAFETY: as below; the callee fills the buffer `rdi` addresses.
             unsafe { call_as::<u64>(addr, &regs) };
-            Ok(Vec::new())
+            Ok(Rets::default())
         } else {
             // SAFETY: as below; the callee fills the buffer `x8` addresses.
             unsafe { wide::call(addr, &regs, sig, Some((layout.size, None)), out_ptr) }
@@ -894,7 +895,7 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
         }
     }
     drop(copies);
-    Ok(Vec::new())
+    Ok(Rets::default())
 }
 
 /// A copy of the `size`-byte aggregate at `a`, kept in `copies` until the call returns, for
@@ -911,21 +912,21 @@ fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
 }
 
 /// A call whose result is a scalar (or nothing).
-fn scalar_call(addr: u64, regs: &Regs, ret: Option<Ty>) -> Vec<u64> {
+fn scalar_call(addr: u64, regs: &Regs, ret: Option<Ty>) -> Rets {
     // SAFETY: the address comes from the dynamic linker for a declared foreign procedure.
     match ret {
         Some(t) if t.is_float() => {
             let bits = unsafe { call_as::<f64>(addr, regs) }.to_bits();
-            vec![if t == Ty::F32 {
+            Rets::one(if t == Ty::F32 {
                 bits & 0xffff_ffff
             } else {
                 bits
-            }]
+            })
         }
-        Some(t) => vec![mask_int(t, unsafe { call_as::<u64>(addr, regs) })],
+        Some(t) => Rets::one(mask_int(t, unsafe { call_as::<u64>(addr, regs) })),
         None => {
             unsafe { call_as::<u64>(addr, regs) };
-            Vec::new()
+            Rets::default()
         }
     }
 }
@@ -941,6 +942,6 @@ fn mask_int(t: Ty, r: u64) -> u64 {
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-pub fn call(_addr: u64, _args: &[u64], _sig: &Sig) -> Result<Vec<u64>, String> {
+pub fn call(_addr: u64, _args: &[u64], _sig: &Sig) -> Result<Rets, String> {
     Err("native foreign calls are not available on this platform".into())
 }

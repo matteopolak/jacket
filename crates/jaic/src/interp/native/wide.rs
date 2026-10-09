@@ -13,6 +13,7 @@ use super::Regs;
 #[cfg(target_arch = "aarch64")]
 use super::write_bytes;
 use crate::abi::{Piece, PieceTy};
+use crate::interp::Rets;
 use crate::ir::Sig;
 #[cfg(target_arch = "aarch64")]
 use crate::ir::Ty;
@@ -28,7 +29,7 @@ pub(super) unsafe fn call(
     sig: &Sig,
     ret: Option<(u64, Option<&[Piece]>)>,
     out_ptr: u64,
-) -> Result<Vec<u64>, String> {
+) -> Result<Rets, String> {
     #[cfg(target_arch = "x86_64")]
     {
         let _ = sig;
@@ -45,7 +46,7 @@ pub(super) unsafe fn call(
         unsafe {
             std::ptr::copy_nonoverlapping(value.as_ptr(), out_ptr as *mut u8, size.min(16) as usize)
         };
-        Ok(Vec::new())
+        Ok(Rets::default())
     }
     #[cfg(target_arch = "aarch64")]
     {
@@ -57,12 +58,12 @@ pub(super) unsafe fn call(
         let (x, q) = unsafe { vector::call(addr, regs, sret) };
         match ret {
             None => Ok(match sig.returns.first() {
-                None => Vec::new(),
-                Some(Ty::F32) => vec![q[0] as u64 & 0xffff_ffff],
-                Some(t) if t.is_float() => vec![q[0] as u64],
-                Some(t) => vec![super::mask_int(*t, x[0])],
+                None => Rets::default(),
+                Some(Ty::F32) => Rets::one(q[0] as u64 & 0xffff_ffff),
+                Some(t) if t.is_float() => Rets::one(q[0] as u64),
+                Some(t) => Rets::one(super::mask_int(*t, x[0])),
             }),
-            Some((_, None)) => Ok(Vec::new()),
+            Some((_, None)) => Ok(Rets::default()),
             Some((size, Some(pieces))) => {
                 let (mut ni, mut nq) = (0, 0);
                 for p in pieces {
@@ -93,7 +94,7 @@ pub(super) unsafe fn call(
                         }
                     }
                 }
-                Ok(Vec::new())
+                Ok(Rets::default())
             }
         }
     }

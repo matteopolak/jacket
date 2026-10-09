@@ -6,7 +6,7 @@
 
 ## How it works
 
-`Interp::call` is the entry from the compiler; `exec` sets up a frame and `run_code` (`interp/code.rs`) runs the body. Procedure values are tagged addresses (`FUNC_TAG`), except `#c_call` procedures under native linking, which are native thunks (see [callbacks from C](#callbacks-from-c)). Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with ``foreign procedure `...` is not available here`` when called.
+`Interp::call` is the entry from the compiler; `exec` pushes a frame (`enter`) and `run_entered` runs the body with `run_code` (`interp/code.rs`). Interpreted code calling a procedure by name skips `exec`: the `Call` op goes to `call_by_name`, which reads the arguments straight from the caller's registers into the callee's. Procedure values are tagged addresses (`FUNC_TAG`), except `#c_call` procedures under native linking, which are native thunks (see [callbacks from C](#callbacks-from-c)). Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with ``foreign procedure `...` is not available here`` when called.
 
 `#compiler` procedures of the `Compiler` module are hooks (`Hook`, `run_hook`) handled by `MetaOp` in `build.rs`. `codes` mirrors the compiler's `Code` values so `compiler_get_nodes` can export them, and `made_codes` lists codes created by `compiler_get_code`; see [compiler records](../metaprogramming/compiler-records.md).
 
@@ -20,17 +20,22 @@ The IR is shaped for LLVM: every local lives in a stack slot, so a statement is 
 | `PtrAdd p, base, IConst` feeding a `Load`/`Store` later in the same block | `Load`/`Store` of `base` + `off` |
 | `IConst` that fits 32 bits as an operand | `AddImm`, `MulImm`, `BinImm`, `CmpImm`, `StoreImm`, `StoreFrameImm` |
 | 64-bit `Add`/`Sub`/`Mul`, `PtrAdd` | `Add`/`Sub`/`Mul`, which need no masking |
-| `Cmp` read only by the block's `Branch` | a `CmpBranch` terminator; a branch on a constant becomes a jump |
-| two `Loc`s in a row | the second (a `Loc` is still an op) |
+| `Cmp` read only by the block's `Branch` | `BranchCmp`/`BranchCmpImm`, which compare and jump; a branch on a constant becomes a jump |
+| a block's other ending | `Jump`, `Branch`, `Ret0`/`Ret1`/`RetN` or `Term` (switch, unreachable), with the next block in layout order falling through |
 | `Load`/`Store` of a known type | `Load8/32/64`, `Store8/32/64` (and the `Frame` forms), with no switch on the type at run time |
+| a copy, a sign or zero extension | `Mov`, `Ext` |
 | `Div` (and by a constant) | `Div`, `DivImm` |
-| `Call` of a named procedure | `Call`, which skips `step` |
+| `Call` of a named procedure | `Call`, whose arguments and result registers are listed in `Code::pool` |
 | a bounds check | `BoundsCheck` |
 | other `Intrinsic`, oversized `Copy`/`Zero` | `Ir`, which runs the original instruction through `step` |
 
+The ops of a procedure are one flat array run with a program counter (`run_ops`); block endings are ops, and a branch's target is an op index. There is no per-op source location: `Loc` instructions are lowered away (`lower_locs`) and only calls and `Ir` ops carry a location, which a failing op looks up with `Code::loc_at`. The loop is instantiated twice (`run_ops::<WATCH>`); the `WATCH` form also calls `enter_block` at each block start, for the block budget, thread preemption and `JAIC_PROFILE`, and is picked only when one of those is on.
+
+**Registers.** A procedure's virtual registers live on the interpreter's own stack, after its slots and trace node (`Frame::regs`), so a call allocates nothing: `enter` bumps the stack pointer, the caller copies the arguments in, and the callee leaves its results at the start of its registers. `promote.rs` then turns scalar slots that nothing takes the address of into registers and forwards stores and copies inside a block (a window of 64 ops), so a local variable costs no memory traffic. Values it cannot prove local stay in memory.
+
 Definitions whose results nobody reads any more (the folded constants and slot addresses) are dropped. Folding moves a register read later than the IR has it, so it is only done for values with one definition (SSA, which the IR builder produces): constants and frame addresses anywhere, other values only within the block that defined them, where no definition can run again in between.
 
-Registers are accessed unchecked: `build` asserts every register an op names is below `func.vals.len()`, and `run` sizes the register file to exactly that. The `Frame` records a fingerprint of the IR it was made from (blocks pointer and counts) and is rebuilt when a procedure body is replaced.
+Registers are accessed unchecked: `build` computes the register count (`Code::regs`) from the ops, and `enter` reserves exactly that many words. The `Frame` records a fingerprint of the IR it was made from (blocks pointer and counts) and is rebuilt when a procedure body is replaced.
 
 `JAIC_PROFILE` keeps counting IR instructions, so instruction counts stay comparable across interpreter changes; a second line counts the ops that actually ran, by kind.
 
@@ -88,9 +93,11 @@ Not covered: variadic callbacks, and on arm64 callbacks returning a struct throu
 
 - The memory probe (`probe.rs`) is a field of `Interp`: a page table plus a cache of OS-described regions, both flushed when the global epoch changes (`invalidate()` on foreign calls that may unmap memory). Dispatch-side loads and stores do not probe; compiler-side reads of program pointers (`read`, `read_pair`, `write`) do.
 - `Trap` is boxed so `Res<T>` stays small.
-- `run` takes value registers from `val_pool` instead of allocating per call; `Call` and `Intrinsic` gather up to 8 operands on the Rust stack (`gather`).
+- Registers live on the interpreter stack (see above); `Intrinsic` gathers up to 8 operands on the Rust stack (`gather`) and returns `Rets`, so neither allocates.
+- Frames are `Box<Frame>` in `Interp::frames` (replaced ones move to `retired`, so a `&Frame` held by a running call stays valid), and `FrameExit` is the small record `leave_frame` restores a call's state from.
+- Foreign calls: `foreign_effects` resolves each foreign procedure once to flags (`KEEPS_MEMORY`, `OBSERVABLE`) instead of searching symbol lists per call, the symbol and signature are borrowed from the program, and `native::call` returns `Rets`. Arguments are copied only when one is a procedure value C needs a thunk for. Add a C function that never releases memory to `KEEPS_MEMORY_SYMBOLS` so it no longer flushes the probe cache.
 - Hooks, `Stack_Trace_Procedure_Info` addresses and foreign symbols are `Vec`s indexed by id, and results come back as `Rets` (up to four inline), so a call does no hashing or allocation.
-- `frame` lays out a procedure's slots once, each at a multiple of its alignment (at least 8), and records the largest alignment; `exec` rounds the frame's absolute start up to it. Rounding offsets alone isn't enough because the stack itself is only 8-aligned, and an `#align 64` local would land on an arbitrary 16-byte boundary.
+- `frame` lays out a procedure's slots once, each at a multiple of its alignment (at least 8), and records the largest alignment; `enter` rounds the frame's absolute start up to it. Rounding offsets alone isn't enough because the stack itself is only 8-aligned, and an `#align 64` local would land on an arbitrary 16-byte boundary.
 
 **The program's own path under `jaic run`.** A program asking where its executable is (`get_path_of_running_executable`, through `_NSGetExecutablePath`, `readlink("/proc/self/exe")` or `GetModuleFileNameW(null)`) would get `jaic`'s path, so data it finds relative to itself (`../assets`) would be looked for next to the compiler. `jaic run` sets `Interp::run_executable` to the executable `jaic build` would write for the same file (`<main file's directory>/<stem>`, `.exe` on Windows), and `interp/executable_path.rs` answers those three calls with it at run time. Compile-time code still gets the compiler's path, and the wasm sandbox is unaffected. Test: `crates/jaic-cli/tests/run_executable.rs`.
 
@@ -109,8 +116,8 @@ Not covered: variadic callbacks, and on arm64 callbacks returning a struct throu
 ## Configuration
 
 - `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000 frames) in `interp/mod.rs`.
-- `JAIC_PROFILE=1` makes `exec` count calls, blocks and instructions per procedure (`interp/profile.rs`), and the CLI prints the totals. See [benchmarks](../tools/benchmarks.md).
-- `JAIC_COVERAGE=FILE` makes `exec` note each procedure the first time it runs (`path:line name`, from the procedure's trace or debug info) and appends the set to FILE when the CLI finishes or the program calls `exit` (an `atexit` hook). The check is one `Option` test per call when unset. The [stdlib runtime tests](../tools/stdlib-runtime-tests.md) turn these records into per-module coverage.
+- `JAIC_PROFILE=1` makes calls count, blocks and instructions per procedure (`interp/profile.rs`), and the CLI prints the totals. See [benchmarks](../tools/benchmarks.md).
+- `JAIC_COVERAGE=FILE` makes calls note each procedure the first time it runs (`path:line name`, from the procedure's trace or debug info) and appends the set to FILE when the CLI finishes or the program calls `exit` (an `atexit` hook). The check is one `Option` test per call when unset. The [stdlib runtime tests](../tools/stdlib-runtime-tests.md) turn these records into per-module coverage.
 
 ## Dependencies
 

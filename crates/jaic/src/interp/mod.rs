@@ -323,7 +323,7 @@ type Call = (FuncId, Option<(u32, u32, u32)>);
 
 /// C functions whose calls leave nothing observable outside the interpreter's memory, so a
 /// compile-time run that made only these can be repeated (see `Interp::effects`).
-const UNOBSERVABLE_FOREIGNS: &[&str] = &[
+const UNOBSERVABLE_SYMBOLS: &[&str] = &[
     "malloc",
     "calloc",
     "realloc",
@@ -340,7 +340,7 @@ const UNOBSERVABLE_FOREIGNS: &[&str] = &[
 ];
 
 /// Foreign procedures that never release memory, so the pages `probe` found accessible stay so.
-const KEEPS_MEMORY: &[&str] = &[
+const KEEPS_MEMORY_SYMBOLS: &[&str] = &[
     "malloc",
     "calloc",
     "posix_memalign",
@@ -349,19 +349,71 @@ const KEEPS_MEMORY: &[&str] = &[
     "memmove",
     "memset",
     "memcmp",
+    "memchr",
     "strlen",
     "strcmp",
     "strncmp",
+    "strchr",
+    "strrchr",
+    "strstr",
+    "strcpy",
+    "strncpy",
+    "getenv",
+    "read",
+    "write",
+    "clock_gettime",
+    "gettimeofday",
+    "mach_absolute_time",
+    "abs",
+    "labs",
+    "sqrt",
+    "sqrtf",
+    "sin",
+    "sinf",
+    "cos",
+    "cosf",
+    "tan",
+    "tanf",
+    "atan2",
+    "atan2f",
+    "pow",
+    "powf",
+    "floor",
+    "ceil",
+    "fmod",
+    "log",
+    "exp",
 ];
+
+/// What a foreign call does to the interpreter's view of the world (`Interp::foreign_effects`).
+/// Set once the symbol has been looked at.
+const CLASSIFIED: u8 = 1;
+
+/// The call never releases memory.
+const KEEPS_MEMORY: u8 = 2;
+
+/// The call can have effects outside the interpreter's memory.
+const OBSERVABLE: u8 = 4;
 
 struct Frame {
     offsets: Vec<u64>,
+    /// Bytes of slots, a multiple of 16.
     size: u64,
     /// Largest slot alignment: the frame's absolute start address is a multiple of it, so
     /// `#align 64` locals land aligned (offsets alone only align relative to the frame).
     align: u64,
+    /// Bytes after the slots for the stack trace node, when the procedure keeps one.
+    node_size: u64,
     /// The body in the interpreter's form (`code.rs`).
     code: code::Code,
+}
+
+impl Frame {
+    /// A frame's registers sit after its slots and trace node, on the same stack.
+    #[inline(always)]
+    fn regs(&self, stack_base: u64) -> *mut u64 {
+        (stack_base + self.size + self.node_size) as *mut u64
+    }
 }
 
 struct GlobalMem {
@@ -407,9 +459,16 @@ pub struct Interp {
     globals: Vec<Option<GlobalMem>>,
     /// start address -> (end, global) for address lookups.
     ranges: BTreeMap<u64, (u64, GlobalId)>,
-    frames: Vec<Option<Rc<Frame>>>,
+    /// Each procedure's frame layout and code, built on its first call. Frames are boxed and
+    /// never freed while the interpreter lives (one replaced moves to `retired`), so a
+    /// running procedure's frame stays where it is.
+    frames: Vec<Option<Box<Frame>>>,
+    #[allow(clippy::vec_box)] // The boxes are what keeps the frames in place.
+    retired: Vec<Box<Frame>>,
     /// Resolved foreign symbols by `ForeignId` (0 = not resolved yet).
     foreign_addrs: Vec<u64>,
+    /// What each foreign procedure's calls do (`foreign_effects`); 0 until looked at.
+    foreign_flags: Vec<u8>,
     libraries: HashMap<usize, Option<native::Library>>,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
     pub hooks: Vec<Option<Hook>>,
@@ -488,16 +547,13 @@ pub struct Interp {
     /// `Interp::call`s (and C callbacks) running: the sandbox scheduler switches threads only
     /// in the outermost one, where every Rust frame of a thread is resumable.
     call_nesting: u32,
-    /// While a thread suspends (`TrapKind::Suspended`): the block and op where the innermost
-    /// `run_code` stopped, and the value registers `run` hands over, for `exec` to save.
-    suspend_at: Option<(usize, usize)>,
-    suspend_vals: Option<Vec<u64>>,
+    /// While a thread suspends (`TrapKind::Suspended`): the op where the innermost `run_code`
+    /// stopped, for `exec` to save.
+    suspend_at: Option<usize>,
     /// The frames of the suspending thread saved so far, innermost first.
     captured: Vec<threads_inline::SuspFrame>,
     /// Basic blocks left to run before execution traps (editors bound compile-time code).
     pub block_budget: Option<u64>,
-    /// Reused value-register vectors (see `run`).
-    val_pool: Vec<Vec<u64>>,
     /// The pages of program memory the compiler found accessible (see `probe`).
     probe: Box<probe::Probe>,
     /// Blocks and instructions run in the current frame (`JAIC_PROFILE`, see `profile`).
@@ -527,11 +583,22 @@ struct FrameExit {
     /// `sp` before the frame.
     base: u64,
     saved_loc: Option<(u32, u32, u32)>,
-    saved_trace_loc: Option<Option<(u32, u32, u32)>>,
+    /// `trace_loc` before the frame, when the program keeps stack traces.
+    saved_trace_loc: Option<Option<Option<(u32, u32, u32)>>>,
     /// The `context.stack_trace` slot and its previous top (`trace_enter`).
     pushed: Option<(u64, u64)>,
     /// The caller's profile counts.
     outer: (u64, u64),
+}
+
+/// A frame `Interp::enter` pushed.
+struct Entered {
+    /// `sp` before the frame.
+    base: u64,
+    /// Address of the frame's slots.
+    stack_base: u64,
+    /// Address of its registers.
+    regs: *mut u64,
 }
 
 /// Whether `result` is a thread of the sandbox's scheduler switching out (`threads_inline.rs`).
@@ -566,6 +633,7 @@ impl Interp {
             globals: Vec::new(),
             ranges: BTreeMap::new(),
             frames: Vec::new(),
+            retired: Vec::new(),
             foreign_addrs: Vec::new(),
             libraries: HashMap::default(),
             hooks: Vec::new(),
@@ -575,6 +643,7 @@ impl Interp {
             loc: None,
             trace_loc: None,
             compile_time: true,
+            foreign_flags: Vec::new(),
             run_executable: None,
             run_arguments: Vec::new(),
             run_command_line: None,
@@ -601,10 +670,8 @@ impl Interp {
             multi: false,
             call_nesting: 0,
             suspend_at: None,
-            suspend_vals: None,
             captured: Vec::new(),
             block_budget: None,
-            val_pool: Vec::new(),
             probe: Box::default(),
             frame_blocks: 0,
             frame_insts: 0,
@@ -883,14 +950,24 @@ impl Interp {
         Ok(())
     }
 
-    fn frame(&mut self, program: &Program, id: FuncId) -> Rc<Frame> {
+    /// The frame of procedure `id`, made on its first call (and again when its body was
+    /// replaced). The reference stays valid for as long as the interpreter lives: frames are
+    /// boxed and a replaced one is kept in `retired`, since it may still be running.
+    #[inline(always)]
+    fn frame<'f>(&mut self, program: &Program, id: FuncId, func: &ir::Func) -> &'f Frame {
         let i = id.0 as usize;
-        let func = program.funcs[i].as_ref().unwrap();
         if let Some(Some(f)) = self.frames.get(i)
             && f.code.source == code::fingerprint(func)
         {
-            return f.clone();
+            // SAFETY: see above.
+            return unsafe { &*(&**f as *const Frame) };
         }
+        self.make_frame(program, id, func)
+    }
+
+    #[inline(never)]
+    fn make_frame<'f>(&mut self, program: &Program, id: FuncId, func: &ir::Func) -> &'f Frame {
+        let i = id.0 as usize;
         let mut offsets = Vec::with_capacity(func.slots.len());
         let mut size = 0u64;
         let mut frame_align = 16u64;
@@ -911,17 +988,26 @@ impl Interp {
                     .is_none_or(|g| g.as_ref().is_none_or(|g| g.sig.conv == ir::Conv::C))
         };
         let code = code::build(func, &offsets, &late_value);
-        let frame = Rc::new(Frame {
+        let node_size = match &program.stack_trace {
+            Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),
+            _ => 0,
+        };
+        let frame = Box::new(Frame {
             offsets,
             size: size.next_multiple_of(16),
             align: frame_align,
+            node_size,
             code,
         });
         if self.frames.len() <= i {
             self.frames.resize_with(i + 1, || None);
         }
-        self.frames[i] = Some(frame.clone());
-        frame
+        let ptr: *const Frame = &*frame;
+        if let Some(old) = self.frames[i].replace(frame) {
+            self.retired.push(old);
+        }
+        // SAFETY: see `frame`.
+        unsafe { &*ptr }
     }
 
     // -----------------------------------------------------------------------
@@ -984,39 +1070,67 @@ impl Interp {
         Ok(addr)
     }
 
+    /// The `KEEPS_MEMORY` and `OBSERVABLE` flags of foreign procedure `id`, from its symbol the
+    /// first time.
+    #[inline]
+    fn foreign_effects(&mut self, program: &Program, id: ForeignId) -> u8 {
+        match self.foreign_flags.get(id.0 as usize) {
+            Some(&flags) if flags != 0 => flags,
+            _ => self.classify_foreign(program, id),
+        }
+    }
+
+    #[cold]
+    fn classify_foreign(&mut self, program: &Program, id: ForeignId) -> u8 {
+        let symbol = program.foreigns[id.0 as usize].symbol.as_str();
+        let mut flags = CLASSIFIED;
+        if KEEPS_MEMORY_SYMBOLS.contains(&symbol) {
+            flags |= KEEPS_MEMORY;
+        }
+        if !UNOBSERVABLE_SYMBOLS.contains(&symbol) {
+            flags |= OBSERVABLE;
+        }
+        if self.foreign_flags.len() <= id.0 as usize {
+            self.foreign_flags.resize(id.0 as usize + 1, 0);
+        }
+        self.foreign_flags[id.0 as usize] = flags;
+        flags
+    }
+
     fn call_foreign(
         &mut self,
         program: &Program,
         id: ForeignId,
         args: &[u64],
         sig: &ir::Sig,
-    ) -> Res<Vec<u64>> {
-        let symbol = program.foreigns[id.0 as usize].symbol.clone();
+    ) -> Res<Rets> {
+        let symbol = program.foreigns[id.0 as usize].symbol.as_str();
+        let effects = self.foreign_effects(program, id);
         // Foreign code may release memory the compiler has found readable.
-        if !KEEPS_MEMORY.contains(&symbol.as_str()) {
+        if effects & KEEPS_MEMORY == 0 {
             probe::invalidate();
         }
-        if !UNOBSERVABLE_FOREIGNS.contains(&symbol.as_str()) {
+        if effects & OBSERVABLE != 0 {
             self.effects += 1;
         }
         if !self.compile_time
-            && let Some(result) = self.executable_path_foreign(&symbol, args)
+            && let Some(result) = self.executable_path_foreign(symbol, args)
         {
-            return result;
+            return result.map(Rets::from);
         }
         if self.host.cooperative_threads() {
-            if let Some(result) = self.inline_thread_foreign(program, &symbol, args) {
-                return result;
+            if let Some(result) = self.inline_thread_foreign(program, symbol, args) {
+                return result.map(Rets::from);
             }
         } else {
             #[cfg(not(target_arch = "wasm32"))]
-            if let Some(result) = self.thread_foreign(program, &symbol, args) {
-                return result;
+            if let Some(result) = self.thread_foreign(program, symbol, args) {
+                return result.map(Rets::from);
             }
         }
-        if let Some(result) = self.host.foreign(&symbol, args, sig) {
-            let exits = matches!(&*symbol, "exit" | "_exit");
-            return result.map_err(|m| {
+        if let Some(result) = self.host.foreign(symbol, args, sig) {
+            let exits = matches!(symbol, "exit" | "_exit");
+            return result.map(Rets::from).map_err(|m| {
                 Trap::new(m).at(self.loc).of_kind(
                     exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
                 )
@@ -1033,20 +1147,20 @@ impl Interp {
             return Err(trap);
         }
         #[cfg(target_os = "macos")]
-        native::main_thread::note_symbol(&symbol);
+        native::main_thread::note_symbol(symbol);
         // The child of a fork has only the forking thread: it must not wait for the others.
-        let forks = matches!(&*symbol, "fork" | "vfork");
+        let forks = matches!(symbol, "fork" | "vfork");
         #[cfg(target_os = "macos")]
         let result = if forks {
             native::main_thread::direct(|| {
-                self.call_native(program, addr, args, sig, Some(&symbol), false)
+                self.call_native(program, addr, args, sig, Some(symbol), false)
             })?
         } else {
-            self.call_native(program, addr, args, sig, Some(&symbol), true)?
+            self.call_native(program, addr, args, sig, Some(symbol), true)?
         };
         #[cfg(not(target_os = "macos"))]
-        let result = self.call_native(program, addr, args, sig, Some(&symbol), !forks)?;
-        if &*symbol == "fork" && result.first() == Some(&0) {
+        let result = self.call_native(program, addr, args, sig, Some(symbol), !forks)?;
+        if symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
             native::main_thread::disable();
@@ -1064,28 +1178,34 @@ impl Interp {
         sig: &ir::Sig,
         symbol: Option<&str>,
         release: bool,
-    ) -> Res<Vec<u64>> {
-        // Native code (through a procedure pointer too) may release memory, unless it is one of
-        // the C library procedures known not to.
-        if !symbol.is_some_and(|symbol| KEEPS_MEMORY.contains(&symbol)) {
+    ) -> Res<Rets> {
+        // Native code reached through a procedure pointer may release memory; a named foreign
+        // procedure was classified by `call_foreign`.
+        if symbol.is_none() {
             probe::invalidate();
         }
         // A `#c_call` procedure handed to C is a native thunk already (`proc_value`), unless C
         // cannot call it: that stayed tagged, and asking for its thunk again says why.
-        let mut argv = args.to_vec();
-        for v in &mut argv {
-            if *v & TAG_MASK != FUNC_TAG {
-                continue;
+        let mut thunked: Vec<u64>;
+        let argv = if args.iter().any(|v| v & TAG_MASK == FUNC_TAG) {
+            thunked = args.to_vec();
+            for v in &mut thunked {
+                if *v & TAG_MASK != FUNC_TAG {
+                    continue;
+                }
+                let id = FuncId((*v & !TAG_MASK) as u32);
+                let Some(sig) = program.func_sig(id).filter(|s| s.conv == ir::Conv::C) else {
+                    continue;
+                };
+                let sig = sig.clone();
+                *v = self
+                    .thunk(program, id, &sig)
+                    .map_err(|m| Trap::new(m).at(self.loc))?;
             }
-            let id = FuncId((*v & !TAG_MASK) as u32);
-            let Some(sig) = program.func_sig(id).filter(|s| s.conv == ir::Conv::C) else {
-                continue;
-            };
-            let sig = sig.clone();
-            *v = self
-                .thunk(program, id, &sig)
-                .map_err(|m| Trap::new(m).at(self.loc))?;
-        }
+            thunked.as_slice()
+        } else {
+            args
+        };
         #[cfg(not(target_arch = "wasm32"))]
         self.hand_thunks_to_c();
         let mine = self.take_exec_state();
@@ -1095,7 +1215,7 @@ impl Interp {
         let crash_report = symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program));
         #[cfg(target_arch = "wasm32")]
         let _ = symbol;
-        let result = self.call_unlocked(addr, &argv, sig, release);
+        let result = self.call_unlocked(addr, argv, sig, release);
         #[cfg(not(target_arch = "wasm32"))]
         drop(crash_report);
         self.put_exec_state(mine);
@@ -1111,7 +1231,7 @@ impl Interp {
         argv: &[u64],
         sig: &ir::Sig,
         release: bool,
-    ) -> Result<Vec<u64>, String> {
+    ) -> Result<Rets, String> {
         let Some(shared) = self.shared.clone().filter(|_| release) else {
             return native::call(addr, argv, sig);
         };
@@ -1128,7 +1248,7 @@ impl Interp {
         argv: &[u64],
         sig: &ir::Sig,
         _release: bool,
-    ) -> Result<Vec<u64>, String> {
+    ) -> Result<Rets, String> {
         native::call(addr, argv, sig)
     }
 
@@ -1282,21 +1402,105 @@ impl Interp {
         result
     }
 
+    /// The body of procedure `id`, or a trap when it has none (yet).
+    #[inline(always)]
+    fn body<'p>(&mut self, program: &'p Program, id: FuncId) -> Res<&'p ir::Func> {
+        match program.funcs.get(id.0 as usize) {
+            Some(Some(func)) => Ok(func),
+            _ => self.no_body(program, id),
+        }
+    }
+
+    #[cold]
+    fn no_body<T>(&mut self, program: &Program, id: FuncId) -> Res<T> {
+        self.missing_func = Some(id);
+        let name = program
+            .func_names
+            .get(id.0 as usize)
+            .cloned()
+            .unwrap_or_default();
+        self.trap(format!(
+            "procedure `{name}` has no body available at this point"
+        ))
+    }
+
+    /// Call procedure `id` with `args`. This is the way in from outside the dispatch loop;
+    /// calls by name in interpreted code use `call_by_name`.
     fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
         if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
             return self.run_hook(hook, args);
         }
-        let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
-            self.missing_func = Some(id);
-            let name = program
-                .func_names
-                .get(id.0 as usize)
-                .cloned()
-                .unwrap_or_default();
-            return self.trap(format!(
-                "procedure `{name}` has no body available at this point"
-            ));
-        };
+        let func = self.body(program, id)?;
+        let frame = self.frame(program, id, func);
+        let entered = self.enter(program, id, func, frame)?;
+        let n = args.len().min(func.sig.params.len());
+        // SAFETY: `enter` checked the frame's registers fit on the stack, and a procedure
+        // has at least a register for each parameter.
+        unsafe { std::ptr::copy_nonoverlapping(args.as_ptr(), entered.regs, n) };
+        let rets = self.run_entered(program, id, func, frame, &entered)?;
+        // SAFETY: the callee left `rets` results at the start of its registers.
+        let results = unsafe { std::slice::from_raw_parts(entered.regs, rets as usize) };
+        Ok(Rets::collect(results.iter().copied()))
+    }
+
+    /// Call a procedure by name from interpreted code: arguments from the registers
+    /// `pool[..nargs]` of `regs`, results into the registers `pool[nargs..nargs + nrets]`.
+    #[inline(always)]
+    pub(super) fn call_by_name(
+        &mut self,
+        program: &Program,
+        regs: *mut u64,
+        pool: &[u32],
+        callee: u32,
+        nargs: usize,
+        nrets: usize,
+    ) -> Res<()> {
+        let id = FuncId(callee);
+        let (args, rets) = pool.split_at(nargs);
+        // SAFETY (register accesses): `code::build` checked every register named in `pool`.
+        if self.hooks.get(callee as usize).is_some_and(Option::is_some) {
+            let mut small = [0u64; 8];
+            let argv: Vec<u64>;
+            let argv = if nargs <= small.len() {
+                for (slot, &a) in small.iter_mut().zip(args) {
+                    *slot = unsafe { *regs.add(a as usize) };
+                }
+                &small[..nargs]
+            } else {
+                argv = args
+                    .iter()
+                    .map(|&a| unsafe { *regs.add(a as usize) })
+                    .collect();
+                &argv
+            };
+            let out = self.exec(program, id, argv)?;
+            for (&r, &v) in rets[..nrets].iter().zip(out.iter()) {
+                unsafe { *regs.add(r as usize) = v };
+            }
+            return Ok(());
+        }
+        let func = self.body(program, id)?;
+        let frame = self.frame(program, id, func);
+        let entered = self.enter(program, id, func, frame)?;
+        for (i, &a) in args.iter().enumerate().take(func.sig.params.len()) {
+            unsafe { *entered.regs.add(i) = *regs.add(a as usize) };
+        }
+        let n = self.run_entered(program, id, func, frame, &entered)? as usize;
+        for (i, &r) in rets[..nrets].iter().enumerate().take(n) {
+            unsafe { *regs.add(r as usize) = *entered.regs.add(i) };
+        }
+        Ok(())
+    }
+
+    /// Push a frame for `id` on the stack: its slots, trace node and registers.
+    #[inline(always)]
+    fn enter(
+        &mut self,
+        program: &Program,
+        id: FuncId,
+        func: &ir::Func,
+        frame: &Frame,
+    ) -> Res<Entered> {
         if self.depth >= MAX_DEPTH {
             return self.trap_of(
                 TrapKind::StackOverflow,
@@ -1306,61 +1510,88 @@ impl Interp {
         if let Some(covered) = self.covered.as_mut() {
             record_coverage(covered, program, id, func);
         }
-        let frame = self.frame(program, id);
         let base = self.sp;
         let stack_start = self.stack.as_mut_ptr() as u64;
-        let start = (stack_start + base).next_multiple_of(frame.align) - stack_start;
-        let node_size = match &program.stack_trace {
-            Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),
-            _ => 0,
-        };
-        let traced = node_size != 0;
-        if start + frame.size + node_size > (self.stack.len() * 8) as u64 {
+        let align = frame.align - 1;
+        let start = ((stack_start + base + align) & !align) - stack_start;
+        let end = start + frame.size + frame.node_size + frame.code.regs as u64 * 8;
+        if end > (self.stack.len() * 8) as u64 {
             return self.trap_of(TrapKind::StackOverflow, "interpreter stack overflow");
         }
-        self.sp = start + frame.size + node_size;
+        self.sp = end;
+        let stack_base = stack_start + start;
+        // Registers are not cleared: the IR defines a value before it reads it. Debug builds
+        // fill them with a recognizable pattern to catch code that does not.
+        #[cfg(debug_assertions)]
+        // SAFETY: the registers were checked to fit on the stack above.
+        unsafe {
+            std::slice::from_raw_parts_mut(frame.regs(stack_base), frame.code.regs)
+                .fill(0xdead_beef_dead_beef)
+        };
+        Ok(Entered {
+            base,
+            stack_base,
+            regs: frame.regs(stack_base),
+        })
+    }
+
+    /// Run the procedure in the frame `enter` pushed, whose arguments are in place. Its
+    /// results are at the start of its registers; returns how many.
+    #[inline(always)]
+    fn run_entered(
+        &mut self,
+        program: &Program,
+        id: FuncId,
+        func: &ir::Func,
+        frame: &Frame,
+        entered: &Entered,
+    ) -> Res<u32> {
         self.depth += 1;
         self.calls.push((id, self.loc));
-        let stack_base = stack_start + start;
         let saved_loc = self.loc;
-        let saved_trace_loc = self.trace_loc;
-        let pushed = if traced {
-            self.trace_enter(program, id, func, args, stack_base + frame.size)
-        } else {
-            None
-        };
-        if traced {
-            self.trace_loc = None;
-        } else if self.trace_loc.is_none() {
-            self.trace_loc = Some(self.loc);
+        let (mut saved_trace_loc, mut pushed) = (None, None);
+        if program.stack_trace.is_some() {
+            saved_trace_loc = Some(self.trace_loc);
+            if frame.node_size != 0 {
+                // SAFETY: the callee's first registers are its parameters, which the caller
+                // set (`context` is the first).
+                let args =
+                    unsafe { std::slice::from_raw_parts(entered.regs, func.sig.params.len()) };
+                pushed = self.trace_enter(program, id, func, args, entered.stack_base + frame.size);
+                self.trace_loc = None;
+            } else if self.trace_loc.is_none() {
+                self.trace_loc = Some(self.loc);
+            }
         }
-        let outer = (self.frame_blocks, self.frame_insts);
-        (self.frame_blocks, self.frame_insts) = (0, 0);
-        let result = self.run(program, func, &frame, stack_base, args);
+        let outer = if self.profile.is_some() {
+            let outer = (self.frame_blocks, self.frame_insts);
+            (self.frame_blocks, self.frame_insts) = (0, 0);
+            outer
+        } else {
+            (0, 0)
+        };
+        let result = self.run_code(program, func, frame, entered.stack_base, entered.regs, None);
         let exit = FrameExit {
             id,
-            base,
+            base: entered.base,
             saved_loc,
             saved_trace_loc,
             pushed,
             outer,
         };
         if suspended(&result) {
-            // The thread is switching out: the frame stays on its value stack, to be resumed.
+            // The thread is switching out: the frame stays on its stack, to be resumed.
             (self.frame_blocks, self.frame_insts) = outer;
-            self.capture_frame(exit, frame, stack_base);
+            self.capture_frame(exit, frame, entered.stack_base);
             return result;
         }
         self.leave_frame(func, exit, result)
     }
 
-    /// What `exec` restores when a frame returns (also for a frame `resume_frames` resumed).
-    fn leave_frame(
-        &mut self,
-        func: &ir::Func,
-        exit: FrameExit,
-        mut result: Res<Rets>,
-    ) -> Res<Rets> {
+    /// What `run_entered` restores when a frame returns (also for a frame `resume_frames`
+    /// resumed).
+    #[inline(always)]
+    fn leave_frame(&mut self, func: &ir::Func, exit: FrameExit, mut result: Res<u32>) -> Res<u32> {
         if let Err(trap) = &mut result {
             trap.push_frame(func, self.loc);
         }
@@ -1371,13 +1602,15 @@ impl Interp {
                 self.frame_blocks,
                 self.frame_insts,
             );
+            (self.frame_blocks, self.frame_insts) = exit.outer;
         }
-        (self.frame_blocks, self.frame_insts) = exit.outer;
         if let Some((slot, previous)) = exit.pushed {
             unsafe { std::ptr::write_unaligned(slot as *mut u64, previous) };
         }
         self.loc = exit.saved_loc;
-        self.trace_loc = exit.saved_trace_loc;
+        if let Some(trace_loc) = exit.saved_trace_loc {
+            self.trace_loc = trace_loc;
+        }
         self.depth -= 1;
         self.calls.pop();
         self.sp = exit.base;
@@ -1537,29 +1770,6 @@ impl Interp {
         Ok(Rets::default())
     }
 
-    fn run(
-        &mut self,
-        program: &Program,
-        func: &ir::Func,
-        frame: &Frame,
-        stack_base: u64,
-        args: &[u64],
-    ) -> Res<Rets> {
-        // Value registers come from a pool: a fresh Vec per call is a malloc/free pair.
-        let mut vals = self.val_pool.pop().unwrap_or_default();
-        vals.clear();
-        vals.resize(func.vals.len(), 0);
-        vals[..args.len().min(func.sig.params.len())]
-            .copy_from_slice(&args[..args.len().min(func.sig.params.len())]);
-        let result = self.run_code(program, func, frame, stack_base, &mut vals, None);
-        if suspended(&result) {
-            self.suspend_vals = Some(vals);
-        } else {
-            self.val_pool.push(vals);
-        }
-        result
-    }
-
     fn step(
         &mut self,
         program: &Program,
@@ -1694,8 +1904,8 @@ impl Interp {
                 let out = match callee {
                     Callee::Func(f) => self.exec(program, *f, argv)?,
                     Callee::Foreign(f) => {
-                        let sig = program.foreigns[f.0 as usize].sig.clone();
-                        self.call_foreign(program, *f, argv, &sig)?.into()
+                        let sig = &program.foreigns[f.0 as usize].sig;
+                        self.call_foreign(program, *f, argv, sig)?
                     }
                     Callee::Indirect(target, sig) => {
                         let addr = vals[target.0 as usize];
@@ -1703,23 +1913,19 @@ impl Interp {
                             FUNC_TAG => {
                                 self.exec(program, FuncId((addr & !TAG_MASK) as u32), argv)?
                             }
-                            FOREIGN_TAG => self
-                                .call_foreign(
-                                    program,
-                                    ForeignId((addr & !TAG_MASK) as u32),
-                                    argv,
-                                    sig,
-                                )?
-                                .into(),
+                            FOREIGN_TAG => self.call_foreign(
+                                program,
+                                ForeignId((addr & !TAG_MASK) as u32),
+                                argv,
+                                sig,
+                            )?,
                             _ if addr < 4096 => {
                                 return self.null_trap("call through a null procedure pointer");
                             }
                             _ => match self.thunk_funcs.get(&addr) {
                                 // A thunk this interpreter made: no need to go through C.
                                 Some(&f) => self.exec(program, f, argv)?,
-                                None => self
-                                    .call_native(program, addr, argv, sig, None, true)?
-                                    .into(),
+                                None => self.call_native(program, addr, argv, sig, None, true)?,
                             },
                         }
                     }
@@ -1739,8 +1945,8 @@ impl Interp {
                 if *op == ir::Intrinsic::CheckFailed {
                     return self.check_failed(program, argv);
                 }
-                let out = self.intrinsic(*op, argv, results.first().map(|_| ()).is_some())?;
-                for (r, v) in results.iter().zip(out) {
+                let out = self.intrinsic(*op, argv)?;
+                for (r, &v) in results.iter().zip(out.iter()) {
                     vals[r.0 as usize] = v;
                 }
             }
@@ -1813,7 +2019,7 @@ impl Interp {
         Ok(())
     }
 
-    fn intrinsic(&mut self, op: ir::Intrinsic, a: &[u64], _has_result: bool) -> Res<Vec<u64>> {
+    fn intrinsic(&mut self, op: ir::Intrinsic, a: &[u64]) -> Res<Rets> {
         use ir::Intrinsic as I;
         let f64_of = |x: u64| f64::from_bits(x);
         Ok(match op {
@@ -1824,7 +2030,7 @@ impl Interp {
                     }
                     unsafe { std::ptr::copy(a[1] as *const u8, a[0] as *mut u8, a[2] as usize) };
                 }
-                vec![]
+                Rets::default()
             }
             I::Memset => {
                 if a[2] > 0 {
@@ -1833,7 +2039,7 @@ impl Interp {
                     }
                     unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, a[2] as usize) };
                 }
-                vec![]
+                Rets::default()
             }
             I::Memcmp => {
                 let n = a[2] as usize;
@@ -1845,7 +2051,7 @@ impl Interp {
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,
                 };
-                vec![r as u16 as u64]
+                Rets::one(r as u16 as u64)
             }
             I::CompareAndSwap => {
                 // (ptr, old, new, width) -> (success, previous)
@@ -1863,7 +2069,7 @@ impl Interp {
                 {
                     self.inline_poll();
                 }
-                vec![success as u64, current]
+                Rets::collect([success as u64, current].into_iter())
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
@@ -1874,7 +2080,7 @@ impl Interp {
                 if index < 0 || index >= count {
                     return self.check_trap(ir::TRAP_BOUNDS, a[0], a[1]);
                 }
-                vec![]
+                Rets::default()
             }
             // Needs the program for its location: `step` handles it.
             I::CheckFailed => unreachable!("CheckFailed is handled by `step`"),
@@ -1882,26 +2088,26 @@ impl Interp {
                 let bytes = self.fetch(a[0], a[1] as usize)?;
                 self.effects += 1;
                 self.host.write(&bytes, a.get(2).is_some_and(|&v| v != 0));
-                vec![]
+                Rets::default()
             }
-            I::Sqrt => vec![f64_of(a[0]).sqrt().to_bits()],
-            I::Sin => vec![f64_of(a[0]).sin().to_bits()],
-            I::Cos => vec![f64_of(a[0]).cos().to_bits()],
-            I::Floor => vec![f64_of(a[0]).floor().to_bits()],
-            I::Ceil => vec![f64_of(a[0]).ceil().to_bits()],
-            I::Round => vec![f64_of(a[0]).round().to_bits()],
-            I::Trunc => vec![f64_of(a[0]).trunc().to_bits()],
-            I::Fabs => vec![f64_of(a[0]).abs().to_bits()],
-            I::Fma => vec![f64_of(a[0]).mul_add(f64_of(a[1]), f64_of(a[2])).to_bits()],
-            I::ReturnAddress => vec![0],
-            I::CycleCounter => vec![cycle_counter()],
+            I::Sqrt => Rets::one(f64_of(a[0]).sqrt().to_bits()),
+            I::Sin => Rets::one(f64_of(a[0]).sin().to_bits()),
+            I::Cos => Rets::one(f64_of(a[0]).cos().to_bits()),
+            I::Floor => Rets::one(f64_of(a[0]).floor().to_bits()),
+            I::Ceil => Rets::one(f64_of(a[0]).ceil().to_bits()),
+            I::Round => Rets::one(f64_of(a[0]).round().to_bits()),
+            I::Trunc => Rets::one(f64_of(a[0]).trunc().to_bits()),
+            I::Fabs => Rets::one(f64_of(a[0]).abs().to_bits()),
+            I::Fma => Rets::one(f64_of(a[0]).mul_add(f64_of(a[1]), f64_of(a[2])).to_bits()),
+            I::ReturnAddress => Rets::one(0),
+            I::CycleCounter => Rets::one(cycle_counter()),
             I::Pause => {
                 if self.multi && self.host.cooperative_threads() {
                     self.inline_poll();
                 }
-                vec![]
+                Rets::default()
             }
-            I::Popcount => vec![a[0].count_ones() as u64],
+            I::Popcount => Rets::one(a[0].count_ones() as u64),
             I::Ctlz => {
                 let bits = a[1] as u32;
                 let lead = if a[0] == 0 {
@@ -1909,11 +2115,11 @@ impl Interp {
                 } else {
                     a[0].leading_zeros()
                 };
-                vec![(lead - (64 - bits)) as u64]
+                Rets::one((lead - (64 - bits)) as u64)
             }
-            I::Cttz => vec![(a[0].trailing_zeros()).min(a[1] as u32) as u64],
-            I::Bswap => vec![a[0].swap_bytes() >> (64 - a[1] as u32)],
-            I::IsCompileTime => vec![self.compile_time as u64],
+            I::Cttz => Rets::one((a[0].trailing_zeros()).min(a[1] as u32) as u64),
+            I::Bswap => Rets::one(a[0].swap_bytes() >> (64 - a[1] as u32)),
+            I::IsCompileTime => Rets::one(self.compile_time as u64),
             I::SAddOverflow | I::SSubOverflow | I::SMulOverflow => {
                 let bits = (a[2] as u32 * 8).min(64);
                 let wide = |v: u64| ((v as i128) << (128 - bits)) >> (128 - bits);
@@ -1924,7 +2130,7 @@ impl Interp {
                     _ => x * y,
                 };
                 let limit = 1i128 << (bits - 1);
-                vec![(r < -limit || r >= limit) as u64]
+                Rets::one((r < -limit || r >= limit) as u64)
             }
             I::UAddOverflow | I::USubOverflow | I::UMulOverflow => {
                 let bits = (a[2] as u32 * 8).min(64);
@@ -1939,9 +2145,9 @@ impl Interp {
                     I::USubOverflow => x - y,
                     _ => x * y,
                 };
-                vec![(r < 0 || r > keep as i128) as u64]
+                Rets::one((r < 0 || r > keep as i128) as u64)
             }
-            I::Wide(op, fmt) => self.wide(op, fmt, a)?,
+            I::Wide(op, fmt) => self.wide(op, fmt, a)?.into(),
         })
     }
 

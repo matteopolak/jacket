@@ -20,6 +20,16 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
+        if !matches!(
+            symbol,
+            "_NSGetExecutablePath"
+                | "readlink"
+                | "GetModuleFileNameW"
+                | "GetCommandLineW"
+                | "CommandLineToArgvW"
+        ) {
+            return None;
+        }
         let path = self.run_executable.clone()?;
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let result = match symbol {

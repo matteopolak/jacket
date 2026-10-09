@@ -52,14 +52,35 @@ Gains by change:
 
 sgpu examples got about 5% slower (noise-level but repeatable): it is dominated by native foreign calls, which pay the epoch bump after each non-whitelisted call.
 
-Next gains: per-call setup in `exec`/`run`/`leave_frame` (about 43 ns per call in `fib`, half of `interp-strings`), promoting stack slots to registers, a bulk record builder on the Rust side for `write_item`, and a no-allocation `Intrinsic` result.
+### Second pass: calls, registers and foreign calls
+
+Same method, release builds, median of 7 runs, on the first pass's result (`After` above) versus now:
+
+| Workload | Before | After |
+|---|---|---|
+| `interp-calls` | 0.048 s | 0.035 s |
+| `interp-loops` | 0.168 s | 0.094 s |
+| `interp-strings` | 1.058 s | 0.509 s |
+| `interp-fib` (`fib(37)`-style recursion, new) | 0.331 s | 0.167 s |
+| `interp-loops-long` (new) | 1.132 s | 0.553 s |
+| `interp-foreign` (60M `labs` calls, new) | 7.86 s | 2.55 s |
+
+What changed (details in [interpreter](interpreter.md#the-interpreters-code-form)):
+
+- **Calls**: registers live on the interpreter's stack and a call is `enter` plus a copy of the arguments, with no pool, clone or allocation; `FrameExit` is a small struct. A named call runs from the `Call` op without `exec`.
+- **Dispatch**: one flat op array with a program counter; block endings are ops and the next block falls through. Source locations left the op stream.
+- **Fewer ops**: scalar slots become registers, with store and copy forwarding (`code/promote.rs`).
+- **Foreign calls**: per-procedure flags replace two string scans, and results and signatures no longer allocate or clone. `executable_path_foreign` checks the symbol before cloning the path. A wider set of libc functions is known not to release memory, so they no longer flush the probe cache (the suspected cause of the sgpu slowdown; the corpus projects were not rerun in this pass).
+- **Intrinsics** return `Rets` instead of a `Vec`.
+
+Left: `trace_enter` is about 16% of `interp-fib` (stack traces are on under `jaic run`; its layout lookups could be cached per frame), compare and arithmetic ops still dispatch through a second table on the operator, and calls still recurse on the Rust stack where an explicit activation stack would save the `run_ops` prologue.
 
 ## How to change it
 
 - Measure with `jaic build x.jai -o out --timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for synthetic scaling use a generated file of repeated procedures and structs.
 - To compare ISel strategies externally, `llc -O0 -global-isel=0` on `--emit-ir` output.
 - A new per-function or per-module step in `lower.rs` should not iterate over the whole program in every shard: use the lazy accessors. Any lookup of a symbol by name must call `declare_named` first.
-- Profile with samply as described in [benchmarks](../tools/benchmarks.md); `Interp::run_code` is the main self-time item left for metaprogram-heavy code, then the per-call setup in `exec`, then `build::call` and `write_item`, which read and write compiler records through the probe field by field.
+- Profile with samply as described in [benchmarks](../tools/benchmarks.md); `Interp::run_code` is the main self-time item left for metaprogram-heavy code, then `trace_enter`, then `build::call` and `write_item`, which read and write compiler records through the probe field by field.
 
 ## Configuration
 

@@ -12,7 +12,10 @@
 |---|---|
 | `compile-time` | polymorphic structs, a `#run` table, `#insert` of 200 generated procedures |
 | `interp-calls` | recursive calls (`fib(27)`) |
+| `interp-fib` | recursive calls, `fib(32)`, long enough that start-up is noise |
 | `interp-loops` | integer loops, arrays, a sieve |
+| `interp-loops-long` | the loops of `interp-loops` with ten times the rounds |
+| `interp-foreign` | 60 million calls of a C function (`labs`) |
 | `interp-strings` | `tprint` with floats, `String_Builder`, `Hash_Table`, `split` |
 | `focus-check` | `jaic check first.jai` in Focus: compiler messages and `Compiler` records |
 | `jaison-tests` | jaison's test suite run in the interpreter (U128 math, the memory debugger) |

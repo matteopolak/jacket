@@ -83,13 +83,14 @@ enum Resume {
 /// An interpreted frame of a suspended thread.
 pub(super) struct SuspFrame {
     exit: FrameExit,
-    frame: Rc<Frame>,
+    /// The frame's layout and code (`Interp::frame`), which outlive the interpreter's use of
+    /// them. Its registers are on the thread's own stack, with its slots.
+    frame: *const Frame,
     stack_base: u64,
-    vals: Vec<u64>,
-    /// The block and op it stopped at: the innermost frame runs that op again (the blocking
-    /// call), or starts the block there (a preemption); the others take the results of the
-    /// call at that op and go on after it.
-    at: (usize, usize),
+    /// The op it stopped at: the innermost frame runs that op again (the blocking call), or
+    /// starts the block there (a preemption); the others take the results of the call at
+    /// that op and go on after it.
+    at: usize,
 }
 
 struct ThreadRec {
@@ -732,20 +733,15 @@ impl Interp {
     }
 
     /// `exec` of a suspending thread: save the frame it is unwinding.
-    pub(super) fn capture_frame(&mut self, exit: FrameExit, frame: Rc<Frame>, stack_base: u64) {
+    pub(super) fn capture_frame(&mut self, exit: FrameExit, frame: &Frame, stack_base: u64) {
         let at = self
             .suspend_at
             .take()
             .expect("a suspending frame records where");
-        let vals = self
-            .suspend_vals
-            .take()
-            .expect("a suspending frame hands over its values");
         self.captured.push(SuspFrame {
             exit,
             frame,
             stack_base,
-            vals,
             at,
         });
     }
@@ -759,27 +755,19 @@ impl Interp {
             let func = program.funcs[f.exit.id.0 as usize]
                 .as_ref()
                 .expect("a suspended frame's procedure has a body");
-            let (block, mut op) = f.at;
+            // SAFETY: frames are never freed while the interpreter lives (`Interp::frame`).
+            let frame = unsafe { &*f.frame };
+            let regs = frame.regs(f.stack_base);
+            let mut op = f.at;
             if let Some(rets) = rets.take() {
-                let (ir_block, inst) = f.frame.code.ir_op(op).expect("a frame suspends in a call");
-                let Inst::Call(call) = &func.blocks[ir_block as usize].insts[inst as usize] else {
-                    unreachable!("a frame suspends in a call");
-                };
-                for (r, &v) in call.results.iter().zip(rets.iter()) {
-                    f.vals[r.0 as usize] = v;
+                for (r, &v) in frame.code.call_results(func, op).iter().zip(rets.iter()) {
+                    // SAFETY: a register of the frame, which `enter` made room for.
+                    unsafe { *regs.add(*r as usize) = v };
                 }
                 op += 1;
             }
             (self.frame_blocks, self.frame_insts) = (0, 0);
-            let frame = f.frame.clone();
-            let result = self.run_code(
-                program,
-                func,
-                &frame,
-                f.stack_base,
-                &mut f.vals,
-                Some((block, op)),
-            );
+            let result = self.run_code(program, func, frame, f.stack_base, regs, Some(op));
             if suspended(&result) {
                 f.at = self
                     .suspend_at
@@ -787,15 +775,17 @@ impl Interp {
                     .expect("a suspending frame records where");
                 self.captured.push(f);
                 self.captured.extend(frames);
-                return result;
+                return result.map(|_| Rets::default());
             }
-            self.val_pool.push(std::mem::take(&mut f.vals));
             match self.leave_frame(func, f.exit, result) {
-                Ok(r) => rets = Some(r),
+                Ok(n) => {
+                    // SAFETY: the frame's callee left `n` results at the start of its registers.
+                    let results = unsafe { std::slice::from_raw_parts(regs, n as usize) };
+                    rets = Some(Rets::collect(results.iter().copied()));
+                }
                 Err(mut trap) => {
-                    for mut f in frames {
+                    for f in frames {
                         let func = program.funcs[f.exit.id.0 as usize].as_ref().unwrap();
-                        self.val_pool.push(std::mem::take(&mut f.vals));
                         trap = self.leave_frame(func, f.exit, Err(trap)).unwrap_err();
                     }
                     return Err(trap);
