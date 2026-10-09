@@ -14,6 +14,23 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// The LLVM IR a build wrote to `path`, with the IR of the other codegen units appended. A build
+/// with several units (`JAIC_CODEGEN_UNITS`) writes unit `n` to `x.n.ll` next to `x.ll`, so a
+/// test that looks for a definition, or for the absence of one, reads all of them.
+fn read_ir_parts(path: &Path) -> String {
+    let mut text = std::fs::read_to_string(path).unwrap();
+    let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+    let extension = path.extension().unwrap().to_string_lossy().into_owned();
+    for unit in 1.. {
+        let part = path.with_file_name(format!("{stem}.{unit}.{extension}"));
+        match std::fs::read_to_string(&part) {
+            Ok(more) => text.push_str(&more),
+            Err(_) => break,
+        }
+    }
+    text
+}
+
 struct Case {
     id: String,
     source: PathBuf,
@@ -169,7 +186,9 @@ fn unreferenced_code_is_not_compiled() {
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
-    let ir = std::fs::read_to_string(&ir).unwrap();
+    // Every part, when `JAIC_CODEGEN_UNITS` divides the program: nothing unreferenced is compiled
+    // into any of them.
+    let ir = read_ir_parts(&ir);
     assert!(ir.contains("used_helper_qz"));
     assert!(
         !ir.contains("unused_entry_qz"),
@@ -218,7 +237,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
-    let ir = std::fs::read_to_string(&ir).unwrap();
+    let ir = read_ir_parts(&ir);
     let body = ir
         .split("\ndefine ")
         .skip(1)
@@ -2412,23 +2431,9 @@ END
 #[cfg(unix)]
 #[test]
 fn custom_link_command() {
-    let build = |name: &str, link: &str, options: &str| {
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-custom-link-{name}"));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let source = CUSTOM_LINK
-            .replace("@LINK@", link)
-            .replace("@OPTIONS@", options);
-        std::fs::write(dir.join("meta.jai"), source).unwrap();
-        let output = Command::new(JAIC)
-            .args(["build", "meta.jai"])
-            .current_dir(&dir)
-            .output()
-            .unwrap();
-        (dir, output)
-    };
+    let units = Some("1");
     let linked = "result := run_command(..args); compiler_custom_link_command_is_complete(w, result.exit_code);";
-    let (dir, output) = build("linked", linked, "");
+    let (dir, output) = build_custom_link("linked", linked, "", units);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
     assert_eq!(
@@ -2442,7 +2447,7 @@ fn custom_link_command() {
     let ran = Command::new(dir.join("out/linked")).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&ran.stdout), "started at start\n");
 
-    let (_, output) = build("unlinked", "", "");
+    let (_, output) = build_custom_link("unlinked", "", "", units);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !output.status.success()
@@ -2451,10 +2456,11 @@ fn custom_link_command() {
         "{stderr}"
     );
 
-    let (_, output) = build(
+    let (_, output) = build_custom_link(
         "failed",
         "compiler_custom_link_command_is_complete(w, 3);",
         "",
+        units,
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -2465,6 +2471,60 @@ fn custom_link_command() {
         String::from_utf8_lossy(&output.stdout)
             .ends_with("written: failed true, linker exit code 3\n")
     );
+}
+
+/// Builds `CUSTOM_LINK` as `meta.jai` in its own directory. `units` pins `JAIC_CODEGEN_UNITS`
+/// for the build, so a test about the objects of one module does not depend on the environment.
+#[cfg(unix)]
+fn build_custom_link(
+    name: &str,
+    link: &str,
+    options: &str,
+    units: Option<&str>,
+) -> (PathBuf, std::process::Output) {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-custom-link-{name}"));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = CUSTOM_LINK
+        .replace("@LINK@", link)
+        .replace("@OPTIONS@", options);
+    std::fs::write(dir.join("meta.jai"), source).unwrap();
+    let mut command = Command::new(JAIC);
+    command.args(["build", "meta.jai"]).current_dir(&dir);
+    if let Some(units) = units {
+        command.env("JAIC_CODEGEN_UNITS", units);
+    }
+    let output = command.output().unwrap();
+    (dir, output)
+}
+
+/// A program divided into several codegen units (`JAIC_CODEGEN_UNITS=3`) hands the metaprogram
+/// every object, which it links into a program that runs; the IR it asked for is written once per
+/// unit, each file defining its own part.
+// rules: bo.6 bo.7 bo.8
+#[cfg(unix)]
+#[test]
+fn custom_link_command_with_several_codegen_units() {
+    let linked = "result := run_command(..args); compiler_custom_link_command_is_complete(w, result.exit_code);";
+    let (dir, output) = build_custom_link("split", linked, "", Some("3"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "objects 3\nwritten: failed false, linker exit code 0\n"
+    );
+    for object in ["obj/linked.o", "obj/linked.o.1.o", "obj/linked.o.2.o"] {
+        assert!(dir.join(object).exists(), "{object} is missing");
+    }
+    for ir in ["obj/linked.ll", "obj/linked.1.ll", "obj/linked.2.ll"] {
+        let text = std::fs::read_to_string(dir.join(ir)).unwrap_or_else(|e| panic!("{ir}: {e}"));
+        assert!(
+            text.contains("\"frame-pointer\"=\"all\""),
+            "{ir} has no function with the frame-pointer attribute"
+        );
+    }
+    let ran = Command::new(dir.join("out/linked")).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&ran.stdout), "started at start\n");
 }
 
 /// `backtrace_on_crash` decides whether the program installs the crash handler, and

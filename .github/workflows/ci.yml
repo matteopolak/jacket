@@ -132,6 +132,13 @@ jobs:
         run: |
           ulimit -c 0
           cargo test --workspace --no-fail-fast --locked -- --skip lex_entire_reference_without_executing_it --skip every_stdlib_module_checks_for_every_target --skip selectors_take_the_arguments_they_are_sent_with --skip selectors_exist_in_the_objective_c_runtime
+      - name: Native tests with every program divided into parts
+        id: split-native
+        continue-on-error: true
+        # JAIC_CODEGEN_UNITS=4 divides each native build into four codegen units (call-graph parts
+        # when optimized), so a code generation bug that only shows across parts fails here
+        # (docs/native/llvm-backend.md). Tests about a single module pin one unit themselves.
+        run: JAIC_CODEGEN_UNITS=4 cargo test -p jaic-cli --locked --test native --test optimized_split --test debug_info --test embedded_data
       - name: Stdlib type-checks and Objective-C selectors
         id: stdlib-targets
         continue-on-error: true
@@ -179,7 +186,7 @@ jobs:
           node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.rule-coverage.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.rule-coverage.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

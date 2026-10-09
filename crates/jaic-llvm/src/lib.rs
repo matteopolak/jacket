@@ -346,8 +346,11 @@ fn emit_module(
         )
     });
     lower::lower_program(&context, &module, program, arch, shard, debug)?;
+    let unit = shard.map_or(0, |s| s.index);
     if let Some(ir_path) = &options.emit_ir {
-        module.print_to_file(ir_path).map_err(|e| e.to_string())?;
+        module
+            .print_to_file(unit_path(ir_path, unit))
+            .map_err(|e| e.to_string())?;
     }
     if verify_ir() {
         module
@@ -356,7 +359,7 @@ fn emit_module(
     }
     apply_codegen_attributes(&context, &module, &options.codegen, &triple);
     if let Some(path) = &options.codegen.bitcode_before
-        && !module.write_bitcode_to_path(path)
+        && !module.write_bitcode_to_path(unit_path(path, unit))
     {
         return Err(format!("could not write `{}`", path.display()));
     }
@@ -396,10 +399,12 @@ fn emit_module(
             .map_err(|e| e.to_string())?;
     }
     if let Some(path) = &options.codegen.ir_after {
-        module.print_to_file(path).map_err(|e| e.to_string())?;
+        module
+            .print_to_file(unit_path(path, unit))
+            .map_err(|e| e.to_string())?;
     }
     if let Some(path) = &options.codegen.bitcode_after
-        && !module.write_bitcode_to_path(path)
+        && !module.write_bitcode_to_path(unit_path(path, unit))
     {
         return Err(format!("could not write `{}`", path.display()));
     }
@@ -421,6 +426,23 @@ fn emit_module(
         std::mem::forget(machine);
     }
     Ok(vec![path.to_path_buf()])
+}
+
+/// Where codegen unit `unit` writes its copy of an IR or bitcode output: the path itself for the
+/// first unit, `x.1.ll`, `x.2.ll`... for the others. Units are normally one when IR is asked for;
+/// `JAIC_CODEGEN_UNITS` can force several, and each then keeps its own file instead of the units
+/// overwriting one another.
+fn unit_path(path: &Path, unit: u32) -> PathBuf {
+    if unit == 0 {
+        return path.to_path_buf();
+    }
+    let mut name = path.file_stem().unwrap_or_default().to_os_string();
+    name.push(format!(".{unit}"));
+    if let Some(extension) = path.extension() {
+        name.push(".");
+        name.push(extension);
+    }
+    path.with_file_name(name)
 }
 
 /// Whether the caller reads the LLVM IR text (`--emit-ir`, `output_llvm_ir`, bitcode), which is
@@ -1380,6 +1402,18 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn other_units_write_their_own_ir_files() {
+        let path = Path::new("out/prog.ll");
+        assert_eq!(unit_path(path, 0), path);
+        assert_eq!(unit_path(path, 2), Path::new("out/prog.2.ll"));
+        assert_eq!(unit_path(Path::new("prog"), 1), Path::new("prog.1"));
+        assert_eq!(
+            unit_path(Path::new("a.unoptimized.bc"), 3),
+            Path::new("a.unoptimized.3.bc")
+        );
+    }
 
     #[test]
     fn builds_target_the_baseline_cpu_not_the_build_machine() {
