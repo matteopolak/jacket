@@ -1,0 +1,201 @@
+#!/bin/sh
+# Pre-commit hook: format and lint the staged files only. See docs/tools/pre-commit-hook.md.
+#
+#   Jai   jaifmt --check, jailint -D warnings
+#   Rust  rustfmt --check (pinned nightly, rustfmt.toml), tools/rust_item_spacing.py --check
+#
+# Enable with `git config core.hooksPath .githooks`. Skip once with `git commit --no-verify`.
+# Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing" skips those checks,
+# JAI_HOOK_NO_BUILD=1 never rebuilds a stale tool, JAI_HOOK_VERBOSE=1 prints what runs.
+
+root=$(git rev-parse --show-toplevel) || exit 0
+cd "$root" || exit 0
+
+skipped() {
+    case " ${JAI_HOOK_SKIP:-} " in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+say() { [ -n "${JAI_HOOK_VERBOSE:-}" ] && echo "pre-commit: $*" >&2; return 0; }
+warn() { echo "pre-commit: warning: $*" >&2; }
+
+# The staged files that still exist after the commit (added, copied, modified, renamed).
+staged=$(git -c core.quotepath=off diff --cached --name-only --diff-filter=ACMR)
+[ -n "$staged" ] || exit 0
+
+jai_list=$(printf '%s\n' "$staged" | grep '\.jai$')
+# rustfmt is checked for the workspace only (CI runs `cargo fmt --all`).
+rs_list=$(printf '%s\n' "$staged" | grep '^crates/.*\.rs$')
+[ -n "$jai_list" ] || [ -n "$rs_list" ] || exit 0
+
+# Check what will be committed, not what is in the working tree: export the staged blobs.
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/jai-pre-commit.XXXXXX") || exit 0
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+printf '%s\n' "$jai_list" "$rs_list" | grep . | tr '\n' '\0' |
+    git checkout-index --prefix="$tmp/" -z --stdin || {
+    warn "could not export the staged files; skipping the checks"
+    exit 0
+}
+for cfg in jaifmt.toml rustfmt.toml rust-toolchain.toml; do
+    git cat-file -e ":$cfg" 2>/dev/null && git show ":$cfg" >"$tmp/$cfg"
+done
+
+# Run `$@` with the lines of standard input appended as arguments.
+with_list() {
+    while IFS= read -r f; do
+        [ -n "$f" ] && set -- "$@" "$f"
+    done
+    "$@"
+}
+
+exe() { # the first existing path among $1 and $1.exe
+    for p in "$1" "$1.exe"; do [ -f "$p" ] && { echo "$p"; return 0; }; done
+    return 1
+}
+
+stale() { # does any file under the directories $2.. have a newer mtime than $1?
+    bin=$1
+    shift
+    [ -n "$(find "$@" -type f \( -name '*.rs' -o -name '*.jai' -o -name '*.toml' \) -newer "$bin" 2>/dev/null | head -n 1)" ]
+}
+
+failed=0
+fixes=""
+add_fix() { fixes="$fixes
+  $1"; }
+
+# --- jaifmt ---------------------------------------------------------------------------------
+find_jaifmt() {
+    bin=$(exe "$root/target/jaifmt") || bin=""
+    if [ -z "$JAI_HOOK_NO_BUILD" ]; then
+        jaic=$(exe "$root/target/release/jaic") || jaic=$(exe "$root/target/debug/jaic") || jaic=""
+        if [ -n "$jaic" ] && { [ -z "$bin" ] || stale "$bin" jaifmt stdlib/Extensions/Jai_Format stdlib/Extensions/Args; }; then
+            say "rebuilding jaifmt"
+            "$jaic" build jaifmt/main.jai -O2 -o "$root/target/jaifmt" >/dev/null 2>&1 &&
+                bin=$(exe "$root/target/jaifmt") || warn "could not rebuild jaifmt; using the existing one"
+        fi
+    fi
+    [ -n "$bin" ] || bin=$(command -v jaifmt) || bin=""
+    echo "$bin"
+}
+
+# --- jailint --------------------------------------------------------------------------------
+find_jailint() {
+    bin=""
+    for p in "$root/target/release/jailint" "$root/target/debug/jailint"; do
+        b=$(exe "$p") || continue
+        if ! stale "$b" crates/jailint crates/jaic crates/jaic-cli stdlib/Preload.jai Cargo.lock; then
+            bin=$b
+            break
+        fi
+    done
+    if [ -z "$bin" ] && [ -z "$JAI_HOOK_NO_BUILD" ] && command -v cargo >/dev/null 2>&1; then
+        say "rebuilding jailint"
+        if cargo build --quiet -p jailint >/dev/null 2>&1; then
+            bin=$(exe "$root/target/debug/jailint") || bin=""
+        else
+            warn "could not rebuild jailint"
+        fi
+    fi
+    [ -n "$bin" ] || bin=$(exe "$root/target/release/jailint") || bin=$(exe "$root/target/debug/jailint") || bin=$(command -v jailint) || bin=""
+    echo "$bin"
+}
+
+if [ -n "$jai_list" ]; then
+    if skipped jaifmt; then
+        :
+    else
+        jaifmt=$(find_jaifmt)
+        if [ -z "$jaifmt" ]; then
+            warn "jaifmt not found (build target/jaifmt, see docs/tools/pre-commit-hook.md); skipping the Jai format check"
+        else
+            say "jaifmt --check"
+            if ! (cd "$tmp" && with_list "$jaifmt" --check) <<EOF
+$jai_list
+EOF
+            then
+                failed=1
+                add_fix "jaifmt <files>"
+            fi
+        fi
+    fi
+    if skipped jailint; then
+        :
+    else
+        jailint=$(find_jailint)
+        if [ -z "$jailint" ]; then
+            warn "jailint not found (cargo build -p jailint, see docs/tools/pre-commit-hook.md); skipping the Jai lint check"
+        else
+            # Linting needs the whole program around a file, so it reads the working tree.
+            partial=""
+            while IFS= read -r f; do
+                git diff --quiet -- "$f" || partial="$partial $f"
+            done <<EOF
+$jai_list
+EOF
+            [ -z "$partial" ] || warn "partially staged, linted as in the working tree:$partial"
+            say "jailint -D warnings"
+            if ! with_list "$jailint" -D warnings <<EOF
+$jai_list
+EOF
+            then
+                failed=1
+                add_fix "jailint --fix <files>   (then fix the rest by hand)"
+            fi
+        fi
+    fi
+fi
+
+# --- Rust -----------------------------------------------------------------------------------
+if [ -n "$rs_list" ]; then
+    if skipped rustfmt; then
+        :
+    elif ! command -v rustfmt >/dev/null 2>&1; then
+        warn "rustfmt not found; skipping the Rust format check"
+    else
+        # Stdin mode: no module following, and the staged text is what is read.
+        rs_bad=0
+        while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            # In stdin mode rustfmt reports a diff but still exits 0, so read the output too.
+            out=$(git show ":$f" | rustfmt --check --edition 2024 2>&1)
+            status=$?
+            if [ "$status" != 0 ] || [ -n "$out" ]; then
+                echo "rustfmt: $f would change" >&2
+                esc=$(printf '%s' "$f" | sed 's/[&|\\]/\\&/g')
+                printf '%s\n' "$out" | sed "s|<stdin>|$esc|" >&2
+                rs_bad=1
+            fi
+        done <<EOF
+$rs_list
+EOF
+        if [ "$rs_bad" = 1 ]; then
+            failed=1
+            add_fix "cargo fmt --all"
+        fi
+    fi
+    if skipped spacing; then
+        :
+    elif [ ! -f "$root/tools/rust_item_spacing.py" ] || ! command -v python3 >/dev/null 2>&1; then
+        warn "python3 or tools/rust_item_spacing.py not found; skipping the Rust item spacing check"
+    else
+        if ! out=$(cd "$tmp" && with_list python3 "$root/tools/rust_item_spacing.py" --check <<EOF
+$rs_list
+EOF
+        ); then
+            printf '%s\n' "$out" | sed "s|$tmp/||" >&2
+            failed=1
+            add_fix "python3 tools/rust_item_spacing.py <files>"
+        fi
+    fi
+fi
+
+if [ "$failed" = 1 ]; then
+    {
+        echo
+        echo "pre-commit: checks failed. Fix, re-stage (git add) and commit again:$fixes"
+        echo "pre-commit: or skip the hook once with: git commit --no-verify"
+    } >&2
+    exit 1
+fi
+exit 0

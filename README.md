@@ -171,7 +171,7 @@ Anything unsupported fails with a compile error rather than being silently accep
 
 ## Contributing
 
-Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md).
+Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md). Maintainers can enable the [pre-commit hook](docs/tools/pre-commit-hook.md) with `git config core.hooksPath .githooks`.
 
 ## License
 

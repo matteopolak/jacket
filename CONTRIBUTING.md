@@ -9,3 +9,5 @@ Issues are welcome: [open one](https://github.com/matteopolak/jai/issues/new/cho
 - **Anything else.** Questions, docs that are wrong or unclear, projects that fail to build. Use a blank issue.
 
 Do not paste or paraphrase code from an official Jai distribution (its modules, `how_to` programs or examples) in issues. This is a clean-room implementation. Describing what Jai does with your own program is fine.
+
+Maintainers: `git config core.hooksPath .githooks` enables a [pre-commit hook](docs/tools/pre-commit-hook.md) that checks the staged Jai and Rust files.

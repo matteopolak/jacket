@@ -65,6 +65,11 @@ CI now builds open-source Jai projects with their own entry points and runs them
 - `using Module.global;` at file scope brings in the members of another module's global variable (Simp's `using GL.gl_procs;`).
 - On Windows, `#file`, `#filepath` and `get_absolute_path` use `/`, so paths can go into string literals and `#load` (uniform's tests), and `File.handle` is a `HANDLE`, as `File.{ GetStdHandle(...) }` in jai-format expects.
 
+### Tooling
+
+- `jailint` given only a file that a nearby program `#load`s (in its directory or up to two above) now compiles that program and reports the listed file, instead of linting the file as a standalone program with bogus errors. See [jailint](docs/tools/jailint.md).
+- A tracked pre-commit hook checks the staged files with `jaifmt --check`, `jailint -D warnings`, `rustfmt --check` and `tools/rust_item_spacing.py --check`. Enable it with `git config core.hooksPath .githooks`; see [pre-commit hook](docs/tools/pre-commit-hook.md). `jaifmt` and `jailint` needed no command-line change for it.
+
 ## [0.4.3] - 2026-10-08
 
 Closer to Jai's behaviour: `print` formats numbers, floats and enums the same way, constants must fit their types, and a set of invalid programs jaic used to accept are now compile errors. The language server also gains auto-import completion, and formatting works again with the renamed VS Code extension.
