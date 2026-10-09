@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- A program whose `#import` takes a parameter nothing defines (Focus's `src/main.jai` opened without its build metaprogram) no longer sends the compiler into an exponential loop: every compile-time run re-expanded all pending `#insert`s, so `jailsp` never answered and grew past 4 GiB; the same file now reports its errors in about 0.3 s (`jaic check`) and Focus's first diagnostics arrive in about 0.3 s.
 - `tools/lsp_bench.py` benchmarks language servers over stdio (`jailsp` by default, others with `--server NAME=CMD`): first diagnostics, hover, edit-then-hover, completion while typing, references, symbols and semantic tokens on Focus, Jails, chess-jai, generated 60k and 240k line programs and single files of 25k and 100k lines, with wall time, CPU time and RSS per step, timeouts and size limits recorded as results, and `--compare`. See [language server benchmark](docs/tools/lsp-benchmark.md).
 
 - `jailsp` go-to-definition now reaches struct fields (also of anonymous structs and of `for` variables) and enum members, and goes to the one overload a call resolved to instead of the whole set. It completes `.` with the enum's members where the type is inferred (`d: Color = .`, `f(.`, `x == .`, `case .`), shows signature help for calls through procedure-typed variables and members, and lists the project's unopened files in workspace symbols.

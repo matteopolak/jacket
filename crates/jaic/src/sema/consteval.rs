@@ -109,7 +109,12 @@ impl Compiler {
             self.drain_bodies_lenient()
         };
         let ctx = self.compile_time_context(span)?;
-        self.enable_stack_traces(span);
+        // The trace layout needs the Context type. When it could not be laid out yet (its
+        // declarations wait on an import that fails), asking again would expand every pending
+        // item once more, re-entrantly and for each thunk below it: exponential in their depth.
+        if self.context_type.is_some() {
+            self.enable_stack_traces(span);
+        }
         self.interp.compile_time = true;
         let outer = self.interp.run_effects.replace(self.interp.effects);
         // Typed exports belong to this run (a nested one keeps the outer run's aside).
