@@ -314,6 +314,7 @@ impl JsonSession {
             _ => return self.encode(vec![failure(Value::Null, -32600, "Invalid request")]),
         };
         let identifier = id.as_ref().map_or(Value::Null, |id| json!(id));
+        let id_for_output = id.clone();
         if envelope.method == "$/cancelRequest" && id.is_none() {
             let result = serde_json::from_value::<CancelParams>(envelope.params)
                 .map_err(|_| Error::InvalidEdit("invalid cancellation parameters"))
@@ -383,7 +384,17 @@ impl JsonSession {
                 "params": { "type": 2, "message": message },
             })
         }));
-        self.encode(output)
+        match self.encode(output) {
+            // A response over the output cap is that request's error, not the end of the session.
+            Err(ProtocolError::OutputLimit) => {
+                let message = "The response is larger than the output limit";
+                self.encode(vec![match id_for_output {
+                    Some(id) => failure(json!(id), -32803, message),
+                    None => log_error(message),
+                }])
+            }
+            other => other,
+        }
     }
 
     pub fn cancel_request(&mut self, id: RequestId) -> Result<(), Error> {
@@ -865,24 +876,42 @@ impl JsonSession {
                     return Err((-32602, "Only Jai documents are supported".into()));
                 }
                 settings_touched = settings;
+                let size = p.text_document.text.len();
+                let name = p.text_document.uri.clone();
                 self.session
                     .open(
                         uri(&p.text_document.uri)?,
                         p.text_document.version,
                         p.text_document.text,
                     )
-                    .map_err(domain)?;
+                    .map_err(|error| {
+                        // Never drop a document without telling the user.
+                        if let Error::Limit(what) = &error {
+                            self.session.notify(format!(
+                                "jailsp did not open {name} ({:.1} MiB): {what}. Its diagnostics, hover and completion are off.",
+                                size as f64 / (1024.0 * 1024.0)
+                            ));
+                        }
+                        domain(error)
+                    })?;
             }
             "textDocument/didChange" => {
                 let p: ChangeParams = decode(params)?;
                 settings_touched = crate::lints::is_config(&uri(&p.text_document.uri)?);
+                let name = p.text_document.uri.clone();
                 self.session
                     .change(
                         &uri(&p.text_document.uri)?,
                         p.text_document.version,
                         &p.content_changes,
                     )
-                    .map_err(domain)?;
+                    .map_err(|error| {
+                        if let Error::Limit(what) = &error {
+                            self.session
+                                .notify(format!("jailsp did not apply an edit to {name}: {what}."));
+                        }
+                        domain(error)
+                    })?;
             }
             "workspace/didChangeConfiguration" => {
                 self.configure(&params["settings"]["jai"]);
@@ -1037,6 +1066,25 @@ fn failure(id: Value, code: i32, message: &str) -> Value {
         "id": id,
         "error": { "code": code, "message": message },
     })
+}
+
+/// The `window/showMessage` that tells the user a message of `length` bytes was over the
+/// `limit` and was ignored.
+pub fn message_too_large(length: usize, limit: usize) -> String {
+    let mib = |n: usize| n as f64 / (1024.0 * 1024.0);
+    json!({
+        "jsonrpc": "2.0",
+        "method": "window/showMessage",
+        "params": {
+            "type": 1,
+            "message": format!(
+                "jailsp ignored a {:.1} MiB message: the limit is {:.0} MiB. A document that large is not analysed.",
+                mib(length),
+                mib(limit)
+            ),
+        },
+    })
+    .to_string()
 }
 
 fn log_error(message: &str) -> Value {

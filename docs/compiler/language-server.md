@@ -61,7 +61,7 @@ Positions use UTF-16, including supplementary characters and CRLF. Edits apply t
 
 ### Semantic analysis
 
-`semantic.rs` compiles on demand, only when a request needs it, and caches by source text:
+`semantic.rs` compiles on demand, only when a request needs it, and caches by source text (see [Compile cache and memory](#compile-cache-and-memory)):
 
 1. **Overlay.** Open documents are laid over the environment's file system (`OverlayFs`). Natively that is the disk plus the repository stdlib; in the browser it is the bundled stdlib `VirtualFs`.
 2. **Root.** The check starts from the open document that `#load`s the requested one and is loaded by none (`Session::root`); when no open document does, from the project's entry file (`jai.toml`'s `build_files`, an inferred entry, or the file that loads it; `Session::project_root`, shared with auto-import), so the files of the program that are not open are checked and found by references and rename.
@@ -70,6 +70,14 @@ Positions use UTF-16, including supplementary characters and CRLF. Edits apply t
 5. **Isolation.** Compile-time code runs in a `SandboxHost`, so `#run` output never reaches the protocol's stdout. The host is shared with `IdeFacts::output`, which is how a `#run` hover shows what it printed. It also has an interpreter block budget (`Interp::block_budget`), so an edit that makes `#run` loop forever traps instead of hanging. The compile also gets a workspace registry (`build::Workspaces`) on the same host, so a metaprogram's `#run` can create workspaces. Their compile-time code draws from the same budget (`build::step` hands the caller's remaining blocks to the workspace's interpreter and takes back what is left), so a metaprogram cannot multiply it by creating workspaces.
 
 Half-typed text usually does not parse. `repair` blanks lines with spaces, so byte offsets stay put, until the text parses: first the cursor's line (for completion and signature help), then the line the parser reports. If the error is reported on an empty line or a lone `}`, it blanks the last non-empty line before it instead, because that is where a missing `;` belongs. Every semantic feature goes through `Session::checked` (repair, compile or reuse the cache, look up the file), so hover, inlay hints and tokens of one version share one compile.
+
+### Compile cache and memory
+
+A compile of a large program is hundreds of MiB (gen-240k: about 650 MiB), so `semantic::Cache` keeps few of them:
+
+- `CACHED` is 2, counting the one being built. Room is made before a compile starts, never after, so at most two compilers are alive. The ones kept are the newest that *checked* (`Analysis::usable`: the text parsed and scopes were recorded) and, if it is a different one, the newest of all. A half-typed edit does not parse, so without that rule a few failed compiles would push out the last good one.
+- Completion does not compile while a word or a `a.b.` chain is typed. `Session::with_compiled_before` asks the cache for a usable compile of the same root and module folders whose other open files are byte-for-byte what they are now and whose text of this file starts with what the cursor's expression starts after (`Cache::compiled_before`). Everything before the expression is then what the compile saw, so its scopes and types answer. Names declared by edits after that compile appear once the next diagnostics or hover compile has run (every edit's diagnostics do that); an edit before the cursor fails the prefix test and compiles as before. `Session::compile_counts` reports (compiles so far, compiles alive) for tests and the benchmark.
+- What does *not* help, measured on gen-240k (1.6 s per compile): `ide_check_all` is 0.6% of a compile, lex and parse of all 240k lines 12% (the standard library is 11 ms of that), and the rest is checking and lowering bodies. An AST cache keyed by path and hash would save the 11 ms plus the parse of unchanged project files (about 10%), but the parser stamps every span with the compile's `FileId`, which differs between compiles, so a cached tree cannot be reused without re-stamping it; and dropping the lowered IR after a compile freed only 5% of the resident set. The next real win is an incremental checker (re-check only the declarations that depend on the edited file), which is not started.
 
 ### Hover and completion
 
@@ -302,7 +310,7 @@ import_path = ["vendor/modules"]              # more module folders, as -import_
 ```
 
 - `build_files`: entry files, relative to the `jai.toml`. A document belongs to the first whose `#load` graph reaches it.
-- `import_path`: module folders, relative to the `jai.toml`, searched as `jaic -import_dir` (and `Build_Options.import_path`) does. The `modules/` folder next to the entry file and next to `jai.toml` are always searched.
+- `import_path`: module folders, relative to the `jai.toml`, searched as `jaic -import_dir` (and `Build_Options.import_path`) does, also when compiling. The `modules/` folders from the root file's up to the `jai.toml`'s are always searched ([module search](#module-search)).
 - A single string is a list of one; unknown keys and tables make the file invalid, and an invalid file counts as empty (inference applies) and is reported with `window/showMessage` like `jailint.toml`.
 
 Precedence, first match wins:
@@ -310,6 +318,16 @@ Precedence, first match wins:
 1. The nearest `jai.toml` at or above the document (an open one, sent with `didOpen` like `jailint.toml`, before the one on disk). Without `build_files`, entries are inferred in its folder.
 2. The workspace folder holding the document (`workspaceFolders`, else `rootUri`), with inferred entries: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.
 3. When no entry reaches the document: the file that `#load`s it, looked for in its folder and up to three folders above, repeated up the loads; a file nothing loads is its own entry. The files it may `#load` are then those under the entry's folder.
+
+### Module search
+
+Jai looks for `#import "Name"` in the importing file's `modules/` folder, then in the import paths: the compiler's own module folder (here the standard library) and what the build options add (`-import_dir`, `Build_Options.import_path`, which a build metaprogram sets). An editor does not run the metaprogram, so `modules.rs` works out the folders it would add, with or without a `jai.toml`. Every folder found is searched before the standard library, in this order:
+
+1. `modules/` next to the root file, then next to each folder above it, up to the project base: the folder of the nearest `jai.toml`, else the workspace folder holding the file. Folders above the base are never searched.
+2. `import_path` of the nearest `jai.toml`, relative to it.
+3. Paths the project's entry files write. Each entry (`build_files`, else the inferred `build.jai`, `first.jai`, `main.jai`, `src/main.jai`, plus the root itself) is read as tokens, and the string literals of every statement that mentions `import_path` are taken: `array_add(*import_path, "modules");`, `options.import_path = .["a", "b"];`. A relative path counts from the entry's folder and from the project base. Computed paths (a `%` format, a variable) are not followed, and nothing is run.
+
+Only folders that exist are kept. The result is cached per root and recomputed when one of the files it was read from changes or a file is created or deleted; the folders are part of the compile cache key, so a new `import_path` recompiles. They apply to compiling, definition, document links and `#import` path completion and the auto-import index (`Session::options_for`). The environment's own `import_paths` stay as they are; by convention its last entry is the standard library, and the discovered folders go in front of it.
 
 The browser playground needs no `jai.toml`: its workspace folder is `/jai-script` and its `main.jai` is the inferred entry. `editors/vscode/schemas/jai.schema.json` (generated by `scripts/build-schemas.ts`) validates the file in VS Code.
 
@@ -434,20 +452,24 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
 ```
 
 - `JAIC_STDLIB` overrides the stdlib directory the native server reads. The default is the repository's `stdlib/`.
-- A `modules/` folder next to the root document is searched first.
+- A `modules/` folder next to the root document is searched first, then the ones above it up to the workspace folder, then `jai.toml`'s and the metaprogram's `import_path` ([module search](#module-search)).
 - `jailint.toml` (nearest above a document): lint levels and excluded paths.
 - `jai.toml` (nearest above a document): the project's entry files and module folders ([project settings](#project-settings-jaitoml)).
 - `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`).
 - `auto_import.rs` constants: `MAX_ITEMS` (50), `MIN_PREFIX` (2), `MAX_PROJECT_FILES` (4,000), `MAX_DEPTH` (8), `MAX_LOADED` (4,000 files per load graph), `LOADER_LEVELS` (3).
 - `semantic.rs` constants:
   - `BLOCK_BUDGET`: interpreter blocks per analysis.
-  - `CACHED`: compiles kept, 3.
+  - `CACHED`: compiles alive at once, 2 ([compile cache](#compile-cache-and-memory)).
 - `ide_meta.rs` constants: `MAX_EXPANSIONS` (4,096), `MAX_CALLS` (16,384), `MAX_VARIANTS` (4 per site), `MAX_TEXT` (64 KiB per expansion).
 - `features.rs`: `HINT_CHARS` (40), the longest inlay hint label.
 - Hover format comes from the client: `textDocument.hover.contentFormat` in `initialize` (Markdown when it lists `markdown`, else plain text).
-- Default `Limits`:
-  - 32 documents, 256 KiB per document, 4 MiB total.
-  - 1,024 completion items and workspace symbols, 8,192 tokens.
+- Default `Limits` are safety caps, far above real files (generated bindings of several MiB are routine):
+  - 512 open documents, 32 MiB per document, 256 MiB in all; 64 MiB per message and 128 MiB per response.
+  - 64 million tokens and 4 million declaration rows per document (`Limits::rows`: symbols, rename and highlights read them).
+  - 1,024 completion items and workspace-symbol results per query (`Limits::symbols`), 4,096 edits per `didChange`.
+  - `Limits::browser()` is what the playground uses: 4 MiB per document, 32 MiB in all, 16 MiB per message.
+  - Nothing here stops the server. A document over a cap is not opened, and the client gets a `window/showMessage` naming it (the later requests for it answer "document is not open"). A message over the frame cap is skipped unread (`FrameDecoder::take_oversized`), the stream stays in step and a `showMessage` says so; a response over the output cap becomes that request's error.
+  - Per-request work on large files is linear in the document: semantic tokens, document symbols, folding, inlay hints and lints take well under a second on a 3.3 MB, 100,000-line file ([benchmark](../tools/lsp-benchmark.md)); keep it that way (no per-token scans of the rows or of the token list).
 - Documents must use absolute `file:///...` URIs. The browser uses `file:///jai-script/<name>`. Expansion documents use `jai-expansion:///<path>?<line>:<character>`.
 - Benchmark: `python3 tools/lsp_bench.py` measures latency, CPU time and memory per request on real and large files ([language server benchmark](../tools/lsp-benchmark.md)).
 

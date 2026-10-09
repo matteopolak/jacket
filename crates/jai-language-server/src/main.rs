@@ -11,7 +11,7 @@ fn main() -> std::process::ExitCode {
         let stdout = std::io::stdout();
         let mut input = stdin.lock();
         let mut output = stdout.lock();
-        let mut chunk = [0u8; 4096];
+        let mut chunk = vec![0u8; 64 * 1024];
         loop {
             let count = input.read(&mut chunk)?;
             if count == 0 {
@@ -26,6 +26,12 @@ fn main() -> std::process::ExitCode {
                 if let Some(status) = session.exit_status() {
                     return Ok(status);
                 }
+            }
+            // A message over the size limit was skipped unread: say so rather than go quiet.
+            for length in decoder.take_oversized() {
+                let notice = jai_language_server::message_too_large(length, limits.message_bytes);
+                output.write_all(&jai_language_server::framing::encode(&notice))?;
+                output.flush()?;
             }
         }
     }

@@ -14,6 +14,7 @@ mod imports;
 mod links;
 pub mod lints;
 mod model;
+mod modules;
 mod position;
 mod project;
 mod protocol;
@@ -31,10 +32,16 @@ pub use model::{
     SymbolInformation, SymbolKind, TextEdit,
 };
 pub use position::{Position, Range};
-pub use protocol::{JsonSession, ProtocolError, RequestId};
+pub use protocol::{JsonSession, ProtocolError, RequestId, message_too_large};
 pub use semantic::Environment;
 pub use session::Session;
 
+const MIB: usize = 1024 * 1024;
+
+/// Safety caps, not working limits: a document or message past one is refused and the user is
+/// told, and the server itself never stops for it. The defaults are far above any source file
+/// (generated bindings of several MiB are routine); `Limits::browser` is for the playground, which
+/// shares one wasm heap with the page.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
     pub documents: usize,
@@ -44,7 +51,10 @@ pub struct Limits {
     pub output_bytes: usize,
     pub tokens: usize,
     pub recursive_tokens: usize,
+    /// Most results of one completion or workspace-symbol query.
     pub symbols: usize,
+    /// Declarations recorded per document for navigation (symbols, rename, highlights).
+    pub rows: usize,
     pub edits: usize,
     pub cancelled_requests: usize,
 }
@@ -52,16 +62,33 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            documents: 32,
-            document_bytes: 256 * 1024,
-            workspace_bytes: 4 * 1024 * 1024,
-            message_bytes: 1024 * 1024,
-            output_bytes: 2 * 1024 * 1024,
-            tokens: 8192,
+            documents: 512,
+            document_bytes: 32 * MIB,
+            workspace_bytes: 256 * MIB,
+            message_bytes: 64 * MIB,
+            output_bytes: 128 * MIB,
+            tokens: 64_000_000,
             recursive_tokens: 96,
             symbols: 1024,
-            edits: 128,
+            rows: 4_000_000,
+            edits: 4096,
             cancelled_requests: 128,
+        }
+    }
+}
+
+impl Limits {
+    /// Smaller caps for the browser build.
+    pub fn browser() -> Self {
+        Self {
+            documents: 64,
+            document_bytes: 4 * MIB,
+            workspace_bytes: 32 * MIB,
+            message_bytes: 16 * MIB,
+            output_bytes: 32 * MIB,
+            tokens: 4_000_000,
+            rows: 500_000,
+            ..Self::default()
         }
     }
 }

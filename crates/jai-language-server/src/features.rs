@@ -906,9 +906,8 @@ impl Session {
             LinkSource::Import(source) => {
                 let root = PathBuf::from(self.root(uri).path());
                 let import_paths = self
-                    .environment
-                    .as_ref()
-                    .map(|e| (e.options)(&root).import_paths)
+                    .options_for(&root)
+                    .map(|o| o.import_paths)
                     .unwrap_or_default();
                 let dir = Path::new(uri.path()).parent()?;
                 jaic::sema::import_entry(&files, &import_paths, source, dir)?

@@ -59,6 +59,8 @@ pub(crate) struct Module {
 
 #[derive(Default)]
 pub(crate) struct Index {
+    /// Module folders found for a program root (`modules.rs`), with the files they were read from.
+    pub(crate) import_dirs: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>,
     stdlib: Option<(PathBuf, Rc<Vec<Module>>)>,
     module_dirs: BTreeMap<PathBuf, Rc<Vec<Module>>>,
     /// Scans of files read from the environment.
@@ -92,6 +94,11 @@ impl Index {
         self.reported.remove(path);
     }
 
+    /// A message for the client, sent once.
+    pub(crate) fn notify(&mut self, message: String) {
+        self.pending.push(message);
+    }
+
     /// Messages for the client, once.
     pub(crate) fn take_messages(&mut self) -> Vec<String> {
         std::mem::take(&mut self.pending)
@@ -100,6 +107,8 @@ impl Index {
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
         self.files.remove(path);
+        self.import_dirs
+            .retain(|_, (_, deps)| !deps.iter().any(|d| d == path));
         self.module_dirs.retain(|dir, _| !path.starts_with(dir));
         if self
             .stdlib
@@ -113,6 +122,8 @@ impl Index {
     /// `path` was created or deleted: listings of the folders above it are stale too.
     pub(crate) fn created_or_deleted(&mut self, path: &Path) {
         self.changed(path);
+        // A folder of modules may have appeared or gone.
+        self.import_dirs.clear();
         self.walked.retain(|dir, _| !path.starts_with(dir));
     }
 }
@@ -145,9 +156,9 @@ struct Program {
 }
 
 /// Files as the server sees them: open documents over the environment's file system.
-struct Sources<'a> {
-    env: &'a Environment,
-    open: BTreeMap<PathBuf, &'a str>,
+pub(crate) struct Sources<'a> {
+    pub(crate) env: &'a Environment,
+    pub(crate) open: BTreeMap<PathBuf, &'a str>,
 }
 
 fn hash(text: &str) -> u64 {
@@ -158,7 +169,7 @@ fn hash(text: &str) -> u64 {
 }
 
 impl Sources<'_> {
-    fn read(&self, path: &Path) -> Option<String> {
+    pub(crate) fn read(&self, path: &Path) -> Option<String> {
         match self.open.get(path) {
             Some(text) => Some((*text).to_string()),
             None => self
@@ -173,7 +184,7 @@ impl Sources<'_> {
         self.open.contains_key(path) || self.env.fs.is_file(path)
     }
 
-    fn is_dir(&self, path: &Path) -> bool {
+    pub(crate) fn is_dir(&self, path: &Path) -> bool {
         self.open.keys().any(|p| p.starts_with(path) && p != path) || self.env.fs.is_dir(path)
     }
 
@@ -353,7 +364,11 @@ impl Sources<'_> {
 
     /// The nearest `jai.toml` at or above `file`: its folder and settings (the defaults when it
     /// does not parse).
-    fn config(&self, index: &mut Index, file: &Path) -> Option<(PathBuf, ProjectConfig)> {
+    pub(crate) fn config(
+        &self,
+        index: &mut Index,
+        file: &Path,
+    ) -> Option<(PathBuf, ProjectConfig)> {
         let mut dir = file.parent();
         while let Some(d) = dir {
             let path = d.join(CONFIG_FILE);
@@ -454,7 +469,9 @@ impl Sources<'_> {
             Some(base) if entries.contains(&root) => base.clone(),
             _ => root_dir.clone(),
         };
-        let options = (self.env.options)(&root);
+        let mut options = (self.env.options)(&root);
+        let found = self.import_dirs(index, &root, folders).0;
+        crate::modules::splice(&mut options.import_paths, &found);
         let stdlib = options
             .preload
             .as_deref()

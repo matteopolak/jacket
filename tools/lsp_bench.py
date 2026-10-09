@@ -53,8 +53,8 @@ def data_root() -> Path:
 UPSTREAM = data_root() / 'corpus' / 'upstream'
 
 # jailsp's default `Limits` (crates/jai-language-server/src/lib.rs): used to label oversize documents.
-DOCUMENT_BYTES = 256 * 1024
-MESSAGE_BYTES = 1024 * 1024
+DOCUMENT_BYTES = 32 * 1024 * 1024
+MESSAGE_BYTES = 64 * 1024 * 1024
 
 # name -> (label shown in tables, true when the metric is reported in ms)
 METRICS = {
@@ -81,12 +81,11 @@ WORKLOADS: dict[str, dict] = {
     'focus-main': {'project': 'focus-editor--focus', 'document': 'src/editors.jai', 'also': ['src/main.jai']},
     'jails': {'project': 'SogoCZE--Jails', 'document': 'server/program.jai', 'also': ['server/main.jai']},
     'chess-jai': {'project': 'danieltan1517--chess-jai', 'document': 'movegen.jai', 'also': ['build.jai']},
-    # Generated (tools/benchgen.py): (lines, seed, files). Parts stay under the 256 KiB document limit;
-    # main.jai loads them and is open too. The part in the middle is the document.
+    # Generated (tools/benchgen.py): (lines, seed, files). main.jai loads the parts and is open too. The part in
+    # the middle is the document.
     'gen-60k': {'generated': (60_000, 1, 12)},
     'gen-240k': {'generated': (240_000, 1, 48)},
-    # Single files (benchgen with files=1): about 0.8 MB and 3.3 MB, over the document limit and with a JSON
-    # `didOpen` over the message limit today.
+    # Single files (benchgen with files=1): about 0.8 MB and 3.3 MB, the large-document cases.
     'large-25k': {'generated': (25_000, 1, 1)},
     'large-100k': {'generated': (100_000, 1, 1)},
 }

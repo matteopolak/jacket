@@ -53,11 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .unwrap_or(body_span);
             // Code `#insert`ed into the block resolves its names there and may use any of
             // them; what it uses is not written in the block.
-            if cx.tokens.iter().any(|t| {
-                matches!(&t.tok, jaic::lexer::Tok::Directive(d) if d.as_str() == "insert")
-                    && block.start <= t.span.start
-                    && t.span.end <= block.end
-            }) {
+            if cx.has_insert(block.start, block.end) {
                 return true;
             }
             let single = d.names.len() == 1;

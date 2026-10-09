@@ -7,9 +7,8 @@ over stdio, on real projects from the [upstream corpus](upstream-corpus.md) and 
 workload it starts a fresh server, opens a document the way an editor does, and times a fixed script of
 requests: first diagnostics, hover, hover after an edit, completion while typing, references, symbols and
 semantic tokens. It writes JSON and Markdown and can compare against an earlier run. It exists to show where
-the time goes before the server is made incremental (today every semantic request recompiles the whole program
-when the text changed, see [semantic analysis](../compiler/language-server.md#semantic-analysis)) and before
-its document limits are lifted. `tools/compile_bench.py` ([compile-time benchmark](compile-time-benchmark.md))
+the time goes while the server is made incremental (see [semantic analysis](../compiler/language-server.md#semantic-analysis)).
+`tools/compile_bench.py` ([compile-time benchmark](compile-time-benchmark.md))
 is the model for the options and the results format.
 
 ## How it works
@@ -48,7 +47,7 @@ is the model for the options and the results format.
   is no number:
   - `timeout`, `memory`: no answer in time, or the RSS cap; the session ends and its later metrics are `skipped`;
   - `limit`: the server refused the document or died because of a size limit (`didOpen` over `Limits`:
-    256 KiB per document, 1 MiB per message; "document is not open in this session" answers also count);
+    32 MiB per document, 64 MiB per message; "document is not open in this session" answers also count);
   - `crash`, `error`: the server exited, or answered with an error;
   - `none`: a push-mode server published nothing within `--push-wait` (15 s) for the document;
   - `unsupported`: the server did not advertise the capability in `initialize`, or answered "method not found".
@@ -58,10 +57,9 @@ is the model for the options and the results format.
     `src/main.jai` open instead, so the program is checked from there and not from the build metaprogram.
   - `jails`: `server/program.jai` with `server/main.jai` open; `chess-jai`: `movegen.jai` with `build.jai` open.
   - `gen-60k`, `gen-240k`: [`tools/benchgen.py`](benchmark-generator.md) programs (seed 1) split into 12 and 48
-    files so each stays under the document limit; the middle `part_N.jai` is measured, `main.jai` is open.
+    files; the middle `part_N.jai` is measured, `main.jai` is open.
   - `large-25k`, `large-100k`: one-file programs (`benchgen` with `files=1`) of about 0.8 MB and 3.3 MB, the single
-    large documents. Both exceed the 256 KiB limit, the 100k one also the 1 MiB message limit, so today they are
-    `limit` rows. When the limits are lifted they become real measurements without changes to the script.
+    large documents (the old caps of 256 KiB per document and 1 MiB per message made them `limit` rows).
   The corpus is only read; generated programs are written to a temporary directory.
 - **Output.** The JSON (format 2) holds the date, machine, per-server version and commit, settings, and per
   `server/workload/mode` key: each metric's cold, warm, all runs, CPU, RSS and status, `info` (document size,
@@ -91,9 +89,9 @@ time, since the numbers are wall time.
   incomplete facts, and `hover null` in the Markdown means the server had no fact there. Corpus projects whose
   build is a metaprogram (Jails, chess-jai, Focus) are only partly checkable by the server, which is a property of
   the project and server, not of this script.
-- `jai-limit` diagnostics mean the syntax layer exceeded its token budget (`Limits::tokens`, 8,192): symbols
-  and syntax navigation are then empty for that version, which is why `document_symbols` is nearly free on large
-  files.
+- `jai-limit` diagnostics mean the syntax layer hit one of its safety caps (`Limits::tokens`, `Limits::rows`,
+  the nesting budget): symbols and syntax navigation are then empty or partial for that version. The caps are far
+  above the benchmark's files, so a `jai-limit` here is a regression.
 
 ## How to change it
 

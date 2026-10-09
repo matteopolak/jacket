@@ -20,7 +20,7 @@ struct Bridge {
 impl Default for Bridge {
     fn default() -> Self {
         Self {
-            session: JsonSession::with_environment(Limits::default(), lsp_environment()),
+            session: JsonSession::with_environment(Limits::browser(), lsp_environment()),
             input: Vec::new(),
             output: Vec::new(),
             diagnostic: Vec::new(),

@@ -28,11 +28,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             continue;
         }
         // Code `#insert`ed into the body may use any parameter.
-        if cx.tokens.iter().any(|t| {
-            matches!(&t.tok, jaic::lexer::Tok::Directive(d) if d.as_str() == "insert")
-                && p.body.span.start <= t.span.start
-                && t.span.end <= p.body.span.end
-        }) {
+        if cx.has_insert(p.body.span.start, p.body.span.end) {
             continue;
         }
         for param in &h.params {

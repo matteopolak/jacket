@@ -780,3 +780,54 @@ assign :: () {
     let kinds = labels(&s, after(text, "d: Color = .", 0, 0));
     assert!(kinds.iter().all(|k| k.1 == CompletionKind::EnumMember));
 }
+
+const MEMBERS: &str =
+    "Point :: struct { x: int; y: int; }\nmain :: () {\n    p: Point;\n    p.x = 1;\n}\n";
+
+/// Typing `p.` breaks the parse; completion is answered from the last compile that checked
+/// instead of compiling the broken text, and edits above the cursor compile again.
+#[test]
+fn completion_while_typing_reuses_the_last_good_compile() {
+    let mut s = session();
+    s.open(uri(), 1, MEMBERS.into()).unwrap();
+    s.diagnostics(&uri()).unwrap();
+    let (compiled, _) = s.compile_counts();
+    let typing = MEMBERS.replace("    p.x = 1;\n", "    p.\n");
+    replace_text(&mut s, 2, &typing);
+    let items = labels(&s, after(&typing, "    p.", 0, 0));
+    let names: Vec<&str> = items.iter().map(|(l, ..)| l.as_str()).collect();
+    assert_eq!(names, ["x", "y"], "{names:?}");
+    assert_eq!(s.compile_counts().0, compiled, "no compile for completion");
+    // More letters of the word: still the same compile.
+    let typing = MEMBERS.replace("    p.x = 1;\n", "    p.y\n");
+    replace_text(&mut s, 3, &typing);
+    let items = labels(&s, after(&typing, "    p.y", 0, 0));
+    assert_eq!(items.len(), 1);
+    assert_eq!(s.compile_counts().0, compiled);
+    // An edit before the cursor changes what the old compile knew: compile again, and still answer.
+    let edited = typing.replace(
+        "Point :: struct { x: int; y: int; }",
+        "Point :: struct { x: int; y: int; z: int; }",
+    );
+    replace_text(&mut s, 4, &edited);
+    let items = labels(&s, after(&edited, "    p.", 0, 0));
+    assert_eq!(items.len(), 3, "{items:?}");
+    assert!(s.compile_counts().0 > compiled);
+}
+
+/// Compiles are hundreds of MiB for a large program: only the newest that checked and the newest
+/// of all stay alive, however many edits there are.
+#[test]
+fn old_compiles_are_dropped() {
+    let mut s = session();
+    s.open(uri(), 1, MEMBERS.into()).unwrap();
+    for version in 2..10 {
+        let text = MEMBERS.replace("p.x = 1", &format!("p.x = {version}"));
+        replace_text(&mut s, version, &text);
+        s.diagnostics(&uri()).unwrap();
+        s.hover(&uri(), after(&text, "p.x", 0, 0)).unwrap();
+    }
+    let (compiled, alive) = s.compile_counts();
+    assert!(compiled >= 8, "{compiled}");
+    assert!(alive <= 2, "{alive}");
+}

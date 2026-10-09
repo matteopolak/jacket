@@ -34,6 +34,10 @@ pub struct FrameDecoder {
     buffer: Vec<u8>,
     expected: Option<usize>,
     body_limit: usize,
+    /// Bytes of an oversized message still to be thrown away as they arrive.
+    discarding: usize,
+    /// The declared lengths of the messages thrown away since `take_oversized` was last called.
+    oversized: Vec<usize>,
 }
 
 const HEADER_LIMIT: usize = 8192;
@@ -44,10 +48,27 @@ impl FrameDecoder {
             buffer: vec![],
             expected: None,
             body_limit,
+            discarding: 0,
+            oversized: vec![],
         }
     }
 
+    /// The lengths of the messages that were over the limit and thrown away unread (their bytes
+    /// are skipped as they arrive, so the stream stays in step), each reported once.
+    pub fn take_oversized(&mut self) -> Vec<usize> {
+        std::mem::take(&mut self.oversized)
+    }
+
+    fn discard(&mut self) {
+        let skipped = self.discarding.min(self.buffer.len());
+        self.buffer.drain(..skipped);
+        self.discarding -= skipped;
+    }
+
     pub fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, FrameError> {
+        let skipped = self.discarding.min(bytes.len());
+        self.discarding -= skipped;
+        let bytes = &bytes[skipped..];
         let limit = self
             .body_limit
             .checked_add(HEADER_LIMIT)
@@ -92,9 +113,6 @@ impl FrameDecoder {
                         let number = value
                             .parse::<usize>()
                             .map_err(|_| FrameError::InvalidLength)?;
-                        if number > self.body_limit {
-                            return Err(FrameError::BodyLimit);
-                        }
                         length = Some(number);
                     } else if name.eq_ignore_ascii_case("Content-Type") {
                         for option in value.split(';').skip(1) {
@@ -108,8 +126,15 @@ impl FrameDecoder {
                         }
                     }
                 }
-                self.expected = Some(length.ok_or(FrameError::InvalidLength)?);
+                let length = length.ok_or(FrameError::InvalidLength)?;
                 self.buffer.drain(..at + 4);
+                if length > self.body_limit {
+                    self.oversized.push(length);
+                    self.discarding = length;
+                    self.discard();
+                    continue;
+                }
+                self.expected = Some(length);
             }
             let length = self.expected.expect("parsed Content-Length");
             if self.buffer.len() < length {

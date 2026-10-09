@@ -144,6 +144,17 @@ impl<'a> Cx<'a> {
             .is_some_and(|f| f.constant && !f.conflicting)
     }
 
+    /// An `#insert` directive is written within `start..end`. The tokens are in source order, so
+    /// only those in the range are looked at (a scan of the whole file per procedure or variable
+    /// made large files quadratic).
+    pub fn has_insert(&self, start: u32, end: u32) -> bool {
+        let first = self.tokens.partition_point(|t| t.span.start < start);
+        self.tokens[first..]
+            .iter()
+            .take_while(|t| t.span.end <= end)
+            .any(|t| matches!(&t.tok, Tok::Directive(d) if d.as_str() == "insert"))
+    }
+
     /// Token indices of identifiers spelled `name` within `start..end`, not counting member
     /// names (`x.name`).
     pub fn name_tokens(&self, name: Sym, start: u32, end: u32) -> impl Iterator<Item = usize> {

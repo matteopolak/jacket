@@ -12,7 +12,7 @@ use jaic::intern::Sym;
 use jaic::sema::ide::{IdeKind, IdeLayout, IdeName};
 use jaic::sema::ide_meta::IdeClass;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -43,6 +43,9 @@ pub struct Session {
     pub(crate) index: RefCell<crate::auto_import::Index>,
 }
 
+/// The open files, the root file and the module folders of a compile.
+type CompileInputs = (BTreeMap<PathBuf, Rc<[u8]>>, PathBuf, Vec<PathBuf>);
+
 impl Session {
     pub fn new(limits: Limits) -> Self {
         Self {
@@ -69,6 +72,18 @@ impl Session {
     /// does not parse), each to be sent once.
     pub fn take_messages(&self) -> Vec<String> {
         self.index.borrow_mut().take_messages()
+    }
+
+    /// How many programs the type checker has compiled for this session, and how many of them
+    /// are kept (for tests and the benchmark: an edit that needs no compile leaves the first
+    /// number alone, and the second stays bounded).
+    pub fn compile_counts(&self) -> (usize, usize) {
+        self.semantic.borrow().counts()
+    }
+
+    /// Queue a message for the user (`window/showMessage`), sent once.
+    pub fn notify(&self, message: String) {
+        self.index.borrow_mut().notify(message);
     }
 
     /// Drop everything cached (compiles, scans) after a failure: it is rebuilt on demand.
@@ -366,13 +381,9 @@ impl Session {
             .clone()
     }
 
-    /// Run `query` on the type-checked program containing `uri`, its text replaced by `text`.
-    pub(crate) fn with_semantic<T>(
-        &self,
-        uri: &DocumentUri,
-        text: &str,
-        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
-    ) -> Option<T> {
+    /// What a compile of the program containing `uri` needs, with `uri`'s text replaced by
+    /// `text`: the open files, the program's root file and the module folders searched.
+    fn compile_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
         let environment = self.environment.as_ref()?;
         let files: BTreeMap<PathBuf, Rc<[u8]>> = self
             .documents
@@ -393,9 +404,47 @@ impl Session {
             Some(entry) if open_root == *uri && environment.fs.is_file(&entry) => entry,
             _ => PathBuf::from(open_root.path()),
         };
+        let dirs = self.import_dirs(&root);
+        Some((files, root, dirs))
+    }
+
+    /// Run `query` on the type-checked program containing `uri`, its text replaced by `text`.
+    pub(crate) fn with_semantic<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<T> {
+        let environment = self.environment.as_ref()?;
+        let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.analyze(environment, &root, files);
+        let analysis = cache.analyze(environment, &root, &dirs, files);
         query(analysis, Path::new(uri.path()))
+    }
+
+    /// Like `with_semantic`, but on a compile that already exists and knows the first `at` bytes
+    /// of `uri` as they are in `text` (the other open files unchanged), so it never compiles.
+    /// `None` when no compile fits.
+    pub(crate) fn with_compiled_before<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        at: usize,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<T> {
+        let environment = self.environment.as_ref()?;
+        let (files, root, dirs) = self.compile_inputs(uri, text)?;
+        let mut cache = self.semantic.borrow_mut();
+        let path = Path::new(uri.path());
+        let analysis = cache.compiled_before(
+            environment,
+            &root,
+            &dirs,
+            files,
+            path,
+            &text.as_bytes()[..at],
+        )?;
+        query(analysis, path)
     }
 
     pub(crate) fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
@@ -411,9 +460,17 @@ impl Session {
     pub fn document_symbols(&self, uri: &DocumentUri) -> Result<Vec<DocumentSymbol>, Error> {
         let doc = self.document(uri)?;
         let rows = &self.analyses[uri].rows;
+        // Children by parent, so the tree is built in one pass over the rows.
+        let mut children: Vec<Vec<usize>> = vec![Vec::new(); rows.len()];
+        for (id, row) in rows.iter().enumerate() {
+            if let Some(parent) = row.parent {
+                children[parent].push(id);
+            }
+        }
         fn tree(
             id: usize,
             rows: &[SymbolRow],
+            children: &[Vec<usize>],
             doc: &Document,
             session: &Session,
             uri: &DocumentUri,
@@ -425,18 +482,16 @@ impl Session {
                 kind: row.kind,
                 range: doc.index.range(&doc.text, row.location)?,
                 selection_range: doc.index.range(&doc.text, row.selection)?,
-                children: rows
+                children: children[id]
                     .iter()
-                    .enumerate()
-                    .filter(|(_, row)| row.parent == Some(id))
-                    .map(|(child, _)| tree(child, rows, doc, session, uri))
+                    .map(|&child| tree(child, rows, children, doc, session, uri))
                     .collect::<Result<_, _>>()?,
             })
         }
         rows.iter()
             .enumerate()
             .filter(|(_, row)| row.parent.is_none())
-            .map(|(id, _)| tree(id, rows, doc, self, uri))
+            .map(|(id, _)| tree(id, rows, &children, doc, self, uri))
             .collect()
     }
 
@@ -749,6 +804,12 @@ impl Session {
             at = s;
         }
         chain.reverse();
+        // The program as last compiled knows everything before the expression being typed.
+        if let Some(names) =
+            self.with_compiled_before(uri, text, at, |a, path| a.complete(path, at, &chain))
+        {
+            return Some((prefix, names));
+        }
         let probe = repair(&format!("{}{}", &text[..at], &text[byte..]), Some(at))?;
         let names = self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &chain))?;
         Some((prefix, names))
@@ -821,10 +882,7 @@ impl Session {
         let roots: Vec<PathBuf> = if load {
             vec![here.join(folder)]
         } else {
-            let options = self
-                .environment
-                .as_ref()
-                .map(|e| (e.options)(Path::new(uri.path())));
+            let options = self.options_for(&PathBuf::from(self.root(uri).path()));
             let mut roots: Vec<PathBuf> = options
                 .map(|o| o.import_paths)
                 .unwrap_or_default()
@@ -1176,7 +1234,7 @@ impl Session {
             BTreeMap::new()
         };
         // `$T` / `$$T`: the name is a type parameter throughout its procedure.
-        let mut poly: Vec<(&str, Span)> = Vec::new();
+        let mut poly: HashMap<&str, Vec<Span>> = HashMap::new();
         for pair in analysis.tokens.windows(2) {
             let (sigil, name) = (pair[0], pair[1]);
             if matches!(sigil.spelling(text), "$" | "$$")
@@ -1190,18 +1248,26 @@ impl Session {
                     })
                     .min_by_key(|r| r.location.end - r.location.start)
             {
-                poly.push((name.spelling(text), row.location));
+                poly.entry(name.spelling(text))
+                    .or_default()
+                    .push(row.location);
             }
         }
-        let specs: Vec<Span> = analysis
+        let mut specs: Vec<Span> = analysis
             .format_calls
             .iter()
             .flat_map(|c| c.specs.iter().map(|s| s.span))
             .collect();
+        specs.sort_by_key(|s| s.start);
+        // The first row declared at each token (a row per token would be a scan per token).
+        let mut declared: HashMap<Span, usize> = HashMap::with_capacity(analysis.rows.len());
+        for (at, row) in analysis.rows.iter().enumerate() {
+            declared.entry(row.selection).or_insert(at);
+        }
         // (span, kind, declaration, readonly, expand)
         let mut pieces: Vec<(Span, SemanticTokenKind, bool, bool, bool)> = Vec::new();
         for (i, token) in analysis.tokens.iter().enumerate() {
-            let row = analysis.rows.iter().find(|row| row.selection == token.span);
+            let row = declared.get(&token.span).map(|&at| &analysis.rows[at]);
             let declaration = row.is_some();
             let readonly = row.is_some_and(|row| row.readonly);
             let piece = |kind| (token.span, kind, declaration, readonly, false);
@@ -1210,9 +1276,11 @@ impl Session {
                 TokenKind::String if crate::here_string::names_language(token.spelling(text)) => {}
                 TokenKind::String => {
                     let mut at = token.span.start;
-                    for spec in specs
+                    let first = specs.partition_point(|s| s.start < token.span.start);
+                    for spec in specs[first..]
                         .iter()
-                        .filter(|s| token.span.start <= s.start && s.end <= token.span.end)
+                        .take_while(|s| s.start < token.span.end)
+                        .filter(|s| s.end <= token.span.end)
                     {
                         if spec.start > at {
                             pieces.push((
@@ -1253,8 +1321,10 @@ impl Session {
                 }
                 TokenKind::Ident => {
                     let spelling = token.spelling(text);
-                    if poly.iter().any(|(name, scope)| {
-                        *name == spelling && contains(*scope, token.span.start)
+                    if poly.get(spelling).is_some_and(|scopes| {
+                        scopes
+                            .iter()
+                            .any(|scope| contains(*scope, token.span.start))
                     }) {
                         let sigil = i > 0
                             && matches!(analysis.tokens[i - 1].spelling(text), "$" | "$$")

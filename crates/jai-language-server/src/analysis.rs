@@ -9,7 +9,7 @@ use jaic::lexer::{P, Tok};
 use jaic::source::{Diagnostic as CompilerDiagnostic, FileId, Severity};
 
 /// Byte range into the document text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Span {
     pub start: usize,
     pub end: usize,
@@ -283,7 +283,7 @@ impl Analysis {
         let whole = Span::new(0, text.len());
         let mut private = false;
         result.top_level(&parsed.stmts, whole, &mut private, uri, &index, &context);
-        if result.rows.len() >= limits.symbols {
+        if result.rows.len() >= limits.rows {
             result.diagnostic(
                 &index,
                 text,
@@ -354,7 +354,7 @@ impl Analysis {
         readonly: bool,
         context: &Context,
     ) -> Option<usize> {
-        if self.rows.len() >= context.limits.symbols
+        if self.rows.len() >= context.limits.rows
             || selection.end > context.text.len()
             || location.end > context.text.len()
         {

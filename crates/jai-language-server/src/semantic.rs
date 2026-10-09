@@ -22,8 +22,11 @@ pub struct Environment {
 /// Basic blocks compile-time code may run per analysis (an edit can make a `#run` loop forever).
 const BLOCK_BUDGET: u64 = 20_000_000;
 
-/// Compilers kept for reuse: the text as typed and the completion probe.
-const CACHED: usize = 3;
+/// Compilers kept for reuse: the newest one that checked (what completion falls back to while
+/// the text does not parse) and the newest of all. A compile is hundreds of MiB for a large
+/// program, so room is made before the next one starts: at most `CACHED` are alive at once,
+/// the one being built included.
+const CACHED: usize = 2;
 
 /// Open documents over the environment's file system.
 struct OverlayFs {
@@ -60,6 +63,14 @@ impl FileSystem for OverlayFs {
 pub struct Analysis {
     pub compiler: Compiler,
     key: u64,
+    /// The program's root file, the module folders searched and the text of every open file it
+    /// was compiled from (shared with the compiler's file system, so no copy).
+    root: PathBuf,
+    dirs: Vec<PathBuf>,
+    files: BTreeMap<PathBuf, Rc<[u8]>>,
+    /// The compile got far enough to record scopes and names (the text parsed), so its facts
+    /// can answer for an edit that left the code before the cursor alone.
+    usable: bool,
     /// The program compiled without errors.
     complete: bool,
     /// Why it did not: the compiler's first error, then the independent errors the editor
@@ -241,17 +252,25 @@ impl Analysis {
 #[derive(Default)]
 pub struct Cache {
     entries: Vec<Analysis>,
+    /// Programs compiled so far.
+    compiles: usize,
 }
 
-fn hash(root: &Path, files: &BTreeMap<PathBuf, Rc<[u8]>>) -> u64 {
+fn hash(root: &Path, dirs: &[PathBuf], files: &BTreeMap<PathBuf, Rc<[u8]>>) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     root.hash(&mut h);
+    dirs.hash(&mut h);
     files.hash(&mut h);
     h.finish()
 }
 
 impl Cache {
+    /// Programs compiled so far, and compiles alive now.
+    pub fn counts(&self) -> (usize, usize) {
+        (self.compiles, self.entries.len())
+    }
+
     /// Drop the lints found so far (their settings changed); the compiles stay.
     pub fn forget_lints(&mut self) {
         for entry in &mut self.entries {
@@ -259,29 +278,86 @@ impl Cache {
         }
     }
 
+    /// Drop compiles until one fewer than `CACHED` is left: the newest that checked stays, else
+    /// the newest.
+    fn make_room(&mut self) {
+        while self.entries.len() >= CACHED {
+            let keep = self
+                .entries
+                .iter()
+                .rposition(|a| a.usable)
+                .unwrap_or(self.entries.len() - 1);
+            let victim = (0..self.entries.len()).find(|&i| i != keep).unwrap_or(0);
+            self.entries.remove(victim);
+        }
+    }
+
+    /// A compile of `root` that already knows the code before `prefix.len()` of `path`: the
+    /// other open files are as they were compiled and `path` starts with `prefix` (what is
+    /// typed after that point is not in its facts, and does not need to be). Completion uses it
+    /// instead of compiling again for every keystroke; the names declared by edits since that
+    /// compile show up once the next one has run.
+    pub fn compiled_before(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: BTreeMap<PathBuf, Rc<[u8]>>,
+        path: &Path,
+        prefix: &[u8],
+    ) -> Option<&mut Analysis> {
+        let canonical: BTreeMap<PathBuf, Rc<[u8]>> = files
+            .into_iter()
+            .map(|(p, t)| (env.fs.canonical(&p), t))
+            .collect();
+        let path = env.fs.canonical(path);
+        let at = self.entries.iter().rposition(|a| {
+            a.usable
+                && a.root == root
+                && a.dirs == dirs
+                && a.files.len() == canonical.len()
+                && a.files.iter().all(|(p, bytes)| match canonical.get(p) {
+                    Some(new) if *p == path => bytes.starts_with(prefix) && new.starts_with(prefix),
+                    Some(new) => bytes == new,
+                    None => false,
+                })
+        })?;
+        Some(&mut self.entries[at])
+    }
+
     /// The analysis of `root` with `files` open (compiled now unless cached).
     pub fn analyze(
         &mut self,
         env: &Environment,
         root: &Path,
+        dirs: &[PathBuf],
         files: BTreeMap<PathBuf, Rc<[u8]>>,
     ) -> &mut Analysis {
         let files: BTreeMap<PathBuf, Rc<[u8]>> = files
             .into_iter()
             .map(|(p, t)| (env.fs.canonical(&p), t))
             .collect();
-        let key = hash(root, &files);
+        let key = hash(root, dirs, &files);
         if let Some(at) = self.entries.iter().position(|a| a.key == key) {
             let entry = self.entries.remove(at);
             self.entries.push(entry);
         } else {
-            if self.entries.len() >= CACHED {
-                self.entries.remove(0);
-            }
-            let (compiler, errors) = compile(env, root, files);
+            self.make_room();
+            self.compiles += 1;
+            let snapshot = files.clone();
+            let (compiler, errors) = compile(env, root, dirs, files);
+            let usable = errors.is_empty()
+                || compiler
+                    .ide
+                    .as_ref()
+                    .is_some_and(|ide| !ide.scopes.is_empty());
             self.entries.push(Analysis {
                 compiler,
                 key,
+                root: root.to_path_buf(),
+                dirs: dirs.to_vec(),
+                files: snapshot,
+                usable,
                 complete: errors.is_empty(),
                 errors,
                 lints: BTreeMap::new(),
@@ -297,6 +373,7 @@ impl Cache {
 fn compile(
     env: &Environment,
     root: &Path,
+    dirs: &[PathBuf],
     files: BTreeMap<PathBuf, Rc<[u8]>>,
 ) -> (Compiler, Vec<jaic::source::Diagnostic>) {
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
@@ -304,7 +381,12 @@ fn compile(
         files,
     });
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
-    let mut compiler = Compiler::new((env.options)(root), fs.clone());
+    let options = || {
+        let mut options = (env.options)(root);
+        crate::modules::splice(&mut options.import_paths, dirs);
+        options
+    };
+    let mut compiler = Compiler::new(options(), fs.clone());
     // Compile-time output goes nowhere: stdout may be the protocol channel.
     let host = Rc::new(RefCell::new(SandboxHost::with_files(
         fs,
@@ -319,7 +401,7 @@ fn compile(
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: compiler.fs.clone(),
-        options: (env.options)(root),
+        options: options(),
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
