@@ -60,7 +60,7 @@ The IR has no wide scalar register: like a small struct, a `Long_Double` lives i
 
 ### Limits
 
-- Passing a wide `Long_Double` to a C variadic procedure (`printf("%Lf", x)`) is a compile error; cast to `float64` and use `%f`/`%g` {#ext.17}. Variadic `long double` is not implemented in either backend.
+- A wide `Long_Double` can be passed to a C variadic procedure (`printf("%Lf", x)`) {#ext.17}: the call site gives the extra argument a layout in `Sig.c_abi.params` after the declared ones, so both backends pass it exactly as they pass a fixed `long double` (x87 memory slot on x86-64, a q register on arm64 Linux). A memory-class result's out-pointer is now the last *declared* IR parameter (`Sig::out_index`), before the variadic arguments.
 - `jaic run`: a C library cannot call a Jai `#c_call` procedure that passes a wide `Long_Double` (the callback thunks have no x87/q-register path); native builds can. Foreign calls *to* C work in the interpreter on x86-64 and arm64 hosts.
 - The interpreter's foreign calls need the host to match the target (an arm64 Linux host for binary128, an x86-64 host for x87); `jaic run -target x86_64-...` on an arm64 Mac still computes in soft-float, but cannot call x86-64 C code.
 

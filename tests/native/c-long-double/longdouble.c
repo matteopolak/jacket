@@ -2,6 +2,8 @@
 // On x86-64 System V it is x87 extended (passed in memory, returned in st0); on arm64 Linux
 // binary128 (q registers); on Apple arm64 and MSVC plain double.
 
+#include <stdarg.h>
+
 #include "longdouble.h"
 
 long double ld_third(void) { return 1.0L / 3; }
@@ -39,4 +41,28 @@ long double ld_apply(long double (*f)(long double, long double), long double a, 
 
 struct LdBox box_apply(struct LdBox (*f)(struct LdBox, int), struct LdBox b) {
     return f(b, 3);
+}
+
+// Variadic long doubles (not declared in longdouble.h: the bindings generator test reads that).
+long double ld_vsum(int n, ...) {
+    va_list ap;
+    va_start(ap, n);
+    long double sum = 0;
+    for (int k = 0; k < n; k++) sum += va_arg(ap, long double);
+    va_end(ap);
+    return sum;
+}
+
+long double ld_vmix(int n, ...) {
+    va_list ap;
+    va_start(ap, n);
+    long double sum = 0;
+    for (int k = 0; k < n; k++) {
+        long double x = va_arg(ap, long double);
+        int i = va_arg(ap, int);
+        double d = va_arg(ap, double);
+        sum += x * i + d;
+    }
+    va_end(ap);
+    return sum;
 }

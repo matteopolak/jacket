@@ -684,11 +684,11 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let general_only = arch == Arch::Win64Arm && sig.c_varargs;
     // MSVC on arm64 passes a non-POD C++ result's address in x0 (Clang's `inreg sret`), not x8.
     let result_in_x0 = arch == Arch::Win64Arm && forced_sret && ret_layout.is_some();
-    if result_in_x0 && let Some(&out) = args.get(sig.params.len().wrapping_sub(1)) {
+    if result_in_x0 && let Some(&out) = args.get(sig.out_index()) {
         regs.int(out)?;
     }
     for (i, &a) in args.iter().enumerate() {
-        if ret_layout.is_some() && i + 1 == sig.params.len() {
+        if ret_layout.is_some() && i == sig.out_index() {
             out_ptr = a;
             continue;
         }

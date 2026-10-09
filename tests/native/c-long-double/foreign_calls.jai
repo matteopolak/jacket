@@ -17,4 +17,10 @@ main :: () {
     pair := pair_swap(.{ 1, third });
     print("box % tagged % % pair % %\n", box.v, tagged.tag, tagged.v == third * 2, pair.a == third, pair.b);
     print("spill %\n", ld_spill(1, 2, 3, 4, 5, 6, 7, 8, 9, third, 3, 0.25));
+    quarter: Long_Double = 0.25;
+    // Variadic arguments: more of them than registers, then mixed with integers and doubles.
+    sum := ld_vsum(10, third, quarter, third, quarter, third, quarter, third, quarter, third, quarter);
+    print("vsum % %\n", sum == third * 5 + quarter * 5, ld_to_double(sum) > 2.8);
+    mixed := ld_vmix(2, third, 3, 0.5, quarter, 4, 1.5);
+    print("vmix % %\n", mixed == third * 3 + 0.5 + quarter * 4 + 1.5, ld_to_double(mixed));
 }

@@ -27,3 +27,6 @@ ld_spill :: (d0: float64, d1: float64, d2: float64, d3: float64, d4: float64, d5
 
 ld_apply :: (f: (Long_Double, Long_Double) -> Long_Double #c_call, a: Long_Double, b: Long_Double) -> Long_Double #foreign longdouble;
 box_apply :: (f: (LdBox, s32) -> LdBox #c_call, b: LdBox) -> LdBox #foreign longdouble;
+
+ld_vsum :: (n: s32, args: ..Any) -> Long_Double #foreign longdouble;
+ld_vmix :: (n: s32, args: ..Any) -> Long_Double #foreign longdouble;

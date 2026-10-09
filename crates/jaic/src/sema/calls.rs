@@ -2033,6 +2033,8 @@ impl Compiler {
         }
         let mut k = 0;
         let mut c_vararg_values = Vec::new();
+        // The aggregate layout of each variadic argument that travels as one (a wide `Long_Double`).
+        let mut c_vararg_layouts: Vec<Option<ir::AggLayout>> = Vec::new();
         for (i, slot) in c.slots.iter().enumerate() {
             if header.params[i].baked {
                 continue;
@@ -2045,8 +2047,13 @@ impl Compiler {
                         let op = self.arg_operand(f, &args[a], None)?;
                         let op = self.settle_untyped(op, None);
                         let op = c_vararg_promote(self, f, op, span)?;
+                        let layout = match self.wide_float(op.ty()) {
+                            Some(_) => Some(self.agg_layout(op.ty(), span)?),
+                            None => None,
+                        };
                         let (_, v) = self.rvalue(f, op, span)?;
                         c_vararg_values.push(v);
+                        c_vararg_layouts.push(layout);
                     }
                 }
                 continue;
@@ -2054,8 +2061,7 @@ impl Compiler {
             let v = self.param_value(f, &sig, &param, slot, &args, span)?;
             values.push(v);
         }
-        values.extend(c_vararg_values.iter().copied());
-        // Out-pointers for memory-class results.
+        // Out-pointers for memory-class results, before any variadic argument.
         let mut outs = Vec::new();
         for &rt in &sig.returns {
             if self.is_memory_type(rt) {
@@ -2068,8 +2074,16 @@ impl Compiler {
                 outs.push(None);
             }
         }
+        values.extend(c_vararg_values.iter().copied());
         let target = self.proc_func(proc, span)?;
         let mut ir_sig = self.ir_sig(sig.ty, span)?;
+        if c_vararg_layouts.iter().any(Option::is_some) {
+            // The variadic arguments follow the fixed ones in `c_abi.params`, as in the signature.
+            let fixed = ir_sig.params.len();
+            let abi = ir_sig.c_abi.get_or_insert_with(Default::default);
+            abi.params.resize(fixed, None);
+            abi.params.extend(c_vararg_layouts.iter().cloned());
+        }
         let callee = match target {
             ProcTarget::Func(id) => ir::Callee::Func(id),
             ProcTarget::Foreign(id) => {
@@ -3565,13 +3579,6 @@ fn c_vararg_promote(c: &mut Compiler, f: &mut FnCtx, op: Operand, span: Span) ->
     }
     if ty == TypeId::BOOL {
         return c.explicit_cast(f, op, TypeId::S32, ast::CastFlags::default(), span);
-    }
-    if c.wide_float(ty).is_some() {
-        return err(
-            span,
-            "a Long_Double wider than float64 cannot be passed to a C variadic procedure; \
-             cast it to float64 (and format it with %f or %g rather than %Lf)",
-        );
     }
     Ok(op)
 }

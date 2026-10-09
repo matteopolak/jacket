@@ -991,8 +991,8 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
 /// members through `#foreign` in the interpreter and natively. On Apple arm64 hosts that can run
 /// x86-64 code (Rosetta), the fixture is also built for x86_64-apple-darwin, where long double is
 /// the 80-bit x87 format, and the interpreter's soft-float arithmetic is compared bit for bit with
-/// the hardware's. Skipped when no C compiler is installed; not run on Windows.
-// rules: ext.2 ext.16
+/// the hardware's. Variadic `long double` arguments (`ld_vsum`, `ld_vmix`) ride the same checks. Skipped when no C compiler is installed; not run on Windows.
+// rules: ext.2 ext.16 ext.17
 #[test]
 fn c_long_double() {
     if cfg!(windows) {
@@ -1034,7 +1034,7 @@ fn c_long_double() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let calls = "third 0.333333 wide true\nadd true mix 10.5\nto_double true\nbox 6 tagged 6 true pair true 1\nspill 46.25\n";
+    let calls = "third 0.333333 wide true\nadd true mix 10.5\nto_double true\nbox 6 tagged 6 true pair true 1\nspill 46.25\nvsum true true\nvmix true 4\n";
     let callbacks = "apply 7.5 true\nbox_apply 4.5\n";
     let jaic = |args: &[&str]| {
         let output = Command::new(JAIC)

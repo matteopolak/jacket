@@ -111,28 +111,34 @@ fn long_double_extension_on_wide_targets() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains(message), "{name}: {stderr}");
     }
-    // A wide long double through C varargs is rejected rather than passed wrongly.
+    // A wide long double through C varargs is passed like a fixed one (tests/native/c-long-double
+    // runs it); here only that it compiles for each wide target.
     let source = dir.join("varargs.jai");
     std::fs::write(
         &source,
         "#import \"Extensions/Long_Double\";\n\
          libc :: #system_library \"libc\";\n\
          printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc;\n\
-         main :: () { x: Long_Double = 2.5; printf(\"%Lf\\n\", x); }\n",
+         main :: () { x: Long_Double = 2.5; printf(\"%Lf\\n\", x, x); }\n",
     )
     .unwrap();
-    let output = Command::new(JAIC)
-        .arg("run")
-        .arg(&source)
-        .args(["-target", "x86_64-linux-gnu"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("cannot be passed to a C variadic procedure"),
-        "{stderr}"
-    );
+    for target in [
+        "x86_64-linux-gnu",
+        "aarch64-linux-gnu",
+        "wasm32-unknown-unknown",
+    ] {
+        let output = Command::new(JAIC)
+            .arg("check")
+            .arg(&source)
+            .args(["-target", target])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{target}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
     // On a wide target, narrowing to float64 needs a cast and `%` / bit operations are not
     // defined.
     for (name, body, message) in [

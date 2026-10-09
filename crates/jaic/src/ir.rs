@@ -358,6 +358,19 @@ pub struct Sig {
     pub c_abi: Option<Box<CAbi>>,
 }
 
+impl Sig {
+    /// The index of the out-pointer of a memory-class result: the last declared parameter, so
+    /// before any variadic argument a call site appended.
+    pub fn out_index(&self) -> usize {
+        let end = if self.c_varargs {
+            self.c_fixed as usize
+        } else {
+            self.params.len()
+        };
+        end.wrapping_sub(1)
+    }
+}
+
 /// C ABI facts for aggregates passed by value to/from foreign code. Index i
 /// describes IR parameter i: `Some(layout)` means the IR passes a pointer to
 /// an aggregate that the C ABI passes by value.

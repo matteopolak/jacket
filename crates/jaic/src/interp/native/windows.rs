@@ -442,7 +442,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let ret_pieces = ret_layout
         .filter(|_| !forced_sret)
         .and_then(|l| abi::classify_ret(Arch::Win64, l));
-    let out_index = ret_layout.map(|_| sig.params.len().wrapping_sub(1));
+    let out_index = ret_layout.map(|_| sig.out_index());
     let out_ptr = out_index.and_then(|i| args.get(i).copied()).unwrap_or(0);
     let mut slots: Vec<u64> = Vec::new();
     let mut first_float = false;

@@ -364,7 +364,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             if sig.c_varargs && i == sig.c_fixed as usize {
                 fixed = Some(llvm_params.len());
             }
-            if ret_agg.is_some() && i + 1 == sig.params.len() {
+            if ret_agg.is_some() && i == sig.out_index() {
                 params.push(ParamPlan::Dropped);
                 continue;
             }
@@ -1595,7 +1595,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let mut out_ptr = None;
         let mut ll_args: Vec<BasicMetadataValueEnum<'ctx>> = Vec::new();
         if matches!(lowered.ret, RetPlan::Registers(..) | RetPlan::Sret) {
-            let last = args.get(sig.params.len().wrapping_sub(1)).copied();
+            let last = args.get(sig.out_index()).copied();
             out_ptr = Some(
                 self.coerce(last.ok_or("missing aggregate out-pointer")?, Ty::Ptr)?
                     .into_pointer_value(),
