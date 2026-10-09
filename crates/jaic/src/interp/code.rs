@@ -24,7 +24,10 @@
 mod promote;
 
 use super::{Frame, Interp, Res, Trap, TrapKind, bin_total, cmp_shifted, divides, mask, shift_of};
-use crate::ir::{self, BinOp, CmpOp, ConvOp, ForeignId, GlobalId, Inst, Term, Ty, UnOp, Val};
+use crate::ir::{
+    self, BinOp, CmpOp, ConvOp, ForeignId, GlobalId, Inst, Term, Ty, UnOp, Val, inst_vals,
+    term_uses,
+};
 
 /// The location of an op that has none (`Op::Call::at`, `Op::Ir::loc`).
 pub(super) const NO_LOC: u32 = u32::MAX;
@@ -717,125 +720,6 @@ fn specialize(op: Op) -> Op {
             _ => op,
         },
         _ => op,
-    }
-}
-
-/// Calls `def` for each value `inst` defines and `use_` for each it reads.
-fn inst_vals(inst: &Inst, def: &mut impl FnMut(Val), use_: &mut impl FnMut(Val)) {
-    match inst {
-        Inst::IConst {
-            dst, ..
-        }
-        | Inst::FConst {
-            dst, ..
-        }
-        | Inst::SlotAddr {
-            dst, ..
-        }
-        | Inst::GlobalAddr {
-            dst, ..
-        }
-        | Inst::FuncAddr {
-            dst, ..
-        }
-        | Inst::ForeignAddr {
-            dst, ..
-        } => def(*dst),
-        Inst::Bin {
-            dst,
-            a,
-            b,
-            ..
-        }
-        | Inst::Cmp {
-            dst,
-            a,
-            b,
-            ..
-        } => {
-            use_(*a);
-            use_(*b);
-            def(*dst);
-        }
-        Inst::Un {
-            dst,
-            a,
-            ..
-        } => {
-            use_(*a);
-            def(*dst);
-        }
-        Inst::Conv {
-            dst,
-            src,
-            ..
-        } => {
-            use_(*src);
-            def(*dst);
-        }
-        Inst::Load {
-            dst,
-            addr,
-            ..
-        } => {
-            use_(*addr);
-            def(*dst);
-        }
-        Inst::Store {
-            addr,
-            value,
-            ..
-        } => {
-            use_(*addr);
-            use_(*value);
-        }
-        Inst::PtrAdd {
-            dst,
-            base,
-            offset,
-        } => {
-            use_(*base);
-            use_(*offset);
-            def(*dst);
-        }
-        Inst::Copy {
-            dst,
-            src,
-            ..
-        } => {
-            use_(*dst);
-            use_(*src);
-        }
-        Inst::Zero {
-            dst, ..
-        } => use_(*dst),
-        Inst::Call(call) => {
-            if let ir::Callee::Indirect(target, _) = &call.callee {
-                use_(*target);
-            }
-            call.args.iter().copied().for_each(&mut *use_);
-            call.results.iter().copied().for_each(def);
-        }
-        Inst::Intrinsic(call) => {
-            call.args.iter().copied().for_each(&mut *use_);
-            call.results.iter().copied().for_each(def);
-        }
-        Inst::Loc {
-            ..
-        } => {}
-    }
-}
-
-fn term_uses(term: &Term, use_: &mut impl FnMut(Val)) {
-    match term {
-        Term::Branch {
-            cond, ..
-        } => use_(*cond),
-        Term::Switch {
-            value, ..
-        } => use_(*value),
-        Term::Ret(values) => values.iter().copied().for_each(use_),
-        Term::Jump(_) | Term::Unreachable => {}
     }
 }
 

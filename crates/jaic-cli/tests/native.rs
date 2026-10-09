@@ -1589,6 +1589,76 @@ END
     );
 }
 
+/// A pointer that passed a null check stays checked within a block only while nothing can have
+/// changed it: storing to its variable, or writing it through an address, brings the check back.
+/// Everything the lowering skips here still runs (`NullFacts` in `crates/jaic-llvm/src/lower.rs`).
+#[test]
+fn null_checks_skipped_after_a_check_still_catch_changes() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-null-elision");
+    std::fs::create_dir_all(&dir).unwrap();
+    // (name, body of main, the failing line (0: runs to the end), stdout)
+    let cases: [(&str, &str, u32, &str); 6] = [
+        (
+            "fields",
+            "x := Pair.{a = 1, b = 2};\n    p := *x;\n    v := p.a + p.b + p.a + p.b;\n    print(\"%\\n\", v);",
+            0,
+            "6\n",
+        ),
+        (
+            "store_nulls_the_variable",
+            "x := Pair.{a = 1, b = 2};\n    p := *x;\n    v := p.a;\n    p = null;\n    w := p.b;\n    print(\"%\\n\", v + w);",
+            8,
+            "",
+        ),
+        (
+            "copy_keeps_the_old_pointer",
+            "x := Pair.{a = 1, b = 2};\n    p := *x;\n    q := p;\n    v := p.a;\n    p = null;\n    w := q.b;\n    z := p.a;\n    print(\"%\\n\", v + w + z);",
+            10,
+            "",
+        ),
+        (
+            "written_through_its_address",
+            "x := Pair.{a = 1, b = 2};\n    p := *x;\n    v := p.a;\n    pp := *p;\n    pp.* = null;\n    w := p.b;\n    print(\"%\\n\", v + w);",
+            9,
+            "",
+        ),
+        (
+            "nulled_in_a_loop",
+            "x := Pair.{a = 1, b = 2};\n    p := *x;\n    sum := 0;\n    for 0..2 {\n        sum += p.a;\n        if it == 1 p = null;\n    }\n    print(\"%\\n\", sum);",
+            8,
+            "",
+        ),
+        (
+            "offset_from_a_nulled_pointer",
+            "x := Pair.{a = 1, b = 2};\n    p := *x;\n    v := p.a;\n    p = null;\n    w := p.a + p.b;\n    print(\"%\\n\", v + w);",
+            8,
+            "",
+        ),
+    ];
+    for (name, body, line, stdout) in cases {
+        let source = dir.join(format!("{name}.jai"));
+        std::fs::write(
+            &source,
+            format!("#import \"Basic\";\nPair :: struct {{ a: int; b: int; }}\nmain :: () {{\n    {body}\n}}\n"),
+        )
+        .unwrap();
+        let output = build_and_run(&source, &dir, name).unwrap();
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(String::from_utf8_lossy(&output.stdout), stdout, "{name}");
+        if line == 0 {
+            assert!(output.status.success(), "{name}: failed\n{err}");
+        } else {
+            assert!(!output.status.success(), "{name}: ran to the end\n{err}");
+            assert!(
+                err.contains(&format!(
+                    "{name}.jai:{line}: error: null pointer dereference"
+                )),
+                "{name}: stderr was {err:?}"
+            );
+        }
+    }
+}
+
 /// Window programs using Simp's automatic GL context creation type-check for every desktop
 /// OS (the GLX/WGL paths cannot run here, but they must keep compiling).
 #[test]

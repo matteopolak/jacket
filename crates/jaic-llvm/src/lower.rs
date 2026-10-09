@@ -29,7 +29,7 @@ use jaic::abi::{self, Arch, Passing, Piece, PieceTy};
 use jaic::ir::{
     AggLayout, BinOp, BlockId, Callee, CmpOp, Conv, ConvOp, Foreign, Func, Global, Inst, Intrinsic,
     Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val, WideArith, WideFloat,
-    WideOp,
+    WideOp, inst_vals, term_uses,
 };
 use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
@@ -91,6 +91,8 @@ pub fn lower_program<'ctx>(
         foreign_symbols: RefCell::new(HashMap::new()),
         exports: export_names(program),
         foreign_ids: foreign_ids(program),
+        null_fail: OnceCell::new(),
+        check_files: RefCell::new(HashMap::new()),
         debug,
     };
     backend.run().map_err(|e| e.0)
@@ -178,6 +180,10 @@ struct Backend<'ctx, 'p> {
     foreign_symbols: RefCell<HashMap<&'p str, PointerValue<'ctx>>>,
     exports: HashMap<&'p str, usize>,
     foreign_ids: HashMap<&'p str, usize>,
+    /// `jaic.null_fail`, once a null check needs it.
+    null_fail: OnceCell<FunctionValue<'ctx>>,
+    /// The global holding each source file's name for failed checks (`check_file`).
+    check_files: RefCell<HashMap<u32, PointerValue<'ctx>>>,
     /// Debug info builder when the program is built with debug info (`debuginfo.rs`).
     debug: Option<DebugInfo<'ctx, 'p>>,
 }
@@ -200,6 +206,138 @@ struct FnState<'ctx> {
     null_checks: bool,
     /// Vals known to hold a real address: a slot, global or function, or an offset into one.
     nonnull: Vec<bool>,
+    /// Pointers already checked in this block (`NullFacts`).
+    facts: NullFacts,
+    /// The `i1` a comparison produced, for the `Val` holding it widened to a byte: a branch on
+    /// that byte tests the `i1` itself, which keeps the compare and the branch adjacent for
+    /// instruction selection.
+    flags: Vec<Option<IntValue<'ctx>>>,
+}
+
+/// What lowering has learned about pointers within the IR block it is in, so that a null check
+/// that cannot fail is not emitted. A check is remembered until the block ends: a pointer that
+/// passed one is not in the first page, nor is a small constant offset from it, nor what a local
+/// variable still holds after the pointer was loaded from it and checked. Variables whose address
+/// is used for anything but a direct load or store (`escaped`) are never tracked, since any write
+/// might change them.
+#[derive(Default)]
+struct NullFacts {
+    /// Number of the block being lowered; facts of earlier blocks have expired.
+    epoch: u32,
+    /// Per `Val`: the epoch in which it is known to be non-null (0: unknown).
+    checked: Vec<u32>,
+    /// Per `Val`: 1 + the slot it is the address of (0: not a slot address).
+    slot_addr: Vec<u32>,
+    /// Per `Val`: 1 + the slot it was loaded from, and that slot's version at the time.
+    loaded_from: Vec<(u32, u32)>,
+    /// Per `Val`: the value of an integer constant.
+    constant: Vec<Option<u64>>,
+    /// Per `Val`: 1 + the pointer it is a small constant offset from (0: neither).
+    derived: Vec<u32>,
+    /// Per slot: the epoch in which what it holds is known to be non-null (0: unknown).
+    slot_checked: Vec<u32>,
+    /// Per slot: counts the stores to it, so a pointer loaded before a store is not mistaken
+    /// for what the slot holds after it.
+    slot_version: Vec<u32>,
+    /// Per slot: the address is used other than as the address of a load or store.
+    escaped: Vec<bool>,
+}
+
+impl NullFacts {
+    fn new(func: &Func) -> Self {
+        let mut facts = NullFacts {
+            epoch: 0,
+            checked: vec![0; func.vals.len()],
+            slot_addr: vec![0; func.vals.len()],
+            loaded_from: vec![(0, 0); func.vals.len()],
+            constant: vec![None; func.vals.len()],
+            derived: vec![0; func.vals.len()],
+            slot_checked: vec![0; func.slots.len()],
+            slot_version: vec![0; func.slots.len()],
+            escaped: vec![false; func.slots.len()],
+        };
+        for block in &func.blocks {
+            for inst in &block.insts {
+                match inst {
+                    Inst::SlotAddr {
+                        dst,
+                        slot,
+                    } => facts.slot_addr[dst.0 as usize] = slot.0 + 1,
+                    Inst::IConst {
+                        dst,
+                        value,
+                        ..
+                    } => facts.constant[dst.0 as usize] = Some(*value),
+                    _ => {}
+                }
+            }
+        }
+        for block in &func.blocks {
+            let mut escape = |v: Val| {
+                if let Some(slot) = facts.slot_addr[v.0 as usize].checked_sub(1) {
+                    facts.escaped[slot as usize] = true;
+                }
+            };
+            for inst in &block.insts {
+                match inst {
+                    Inst::Load {
+                        ..
+                    } => {}
+                    Inst::Store {
+                        value, ..
+                    } => escape(*value),
+                    _ => inst_vals(inst, &mut |_| {}, &mut escape),
+                }
+            }
+            term_uses(&block.term, &mut escape);
+        }
+        facts
+    }
+
+    /// Start a new block: nothing learned so far holds.
+    fn enter_block(&mut self) {
+        self.epoch += 1;
+    }
+
+    fn mark(&mut self, v: Val) {
+        if let Some(c) = self.checked.get_mut(v.0 as usize) {
+            *c = self.epoch;
+        }
+    }
+
+    /// The slot a direct load or store of `addr` reads or writes, if it is tracked.
+    fn tracked_slot(&self, addr: Val) -> Option<usize> {
+        let slot = self.slot_addr.get(addr.0 as usize)?.checked_sub(1)? as usize;
+        (!self.escaped[slot]).then_some(slot)
+    }
+}
+
+impl FnState<'_> {
+    /// Whether `v` is known to be a real address at this point: a slot, global or function, a
+    /// pointer that passed a check in this block, a small offset from one, or a pointer loaded
+    /// from a variable that has not changed since another load of it passed a check.
+    fn known_nonnull(&self, v: Val) -> bool {
+        let facts = &self.facts;
+        let mut v = v.0 as usize;
+        loop {
+            if self.nonnull.get(v).copied().unwrap_or(false)
+                || facts.checked.get(v) == Some(&facts.epoch)
+            {
+                return true;
+            }
+            let (slot, version) = facts.loaded_from.get(v).copied().unwrap_or((0, 0));
+            if let Some(slot) = slot.checked_sub(1) {
+                let slot = slot as usize;
+                if facts.slot_version[slot] == version && facts.slot_checked[slot] == facts.epoch {
+                    return true;
+                }
+            }
+            match facts.derived.get(v).and_then(|d| d.checked_sub(1)) {
+                Some(base) => v = base as usize,
+                None => return false,
+            }
+        }
+    }
 }
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
@@ -841,7 +979,12 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             loc: (func.source_file, 0),
             null_checks: func.null_checks && self.program.check_failed.is_some(),
             nonnull: vec![false; func.vals.len()],
+            facts: NullFacts::default(),
+            flags: vec![None; func.vals.len()],
         };
+        if st.null_checks {
+            st.facts = NullFacts::new(func);
+        }
         if let Some(debug) = &self.debug {
             let local = func.linkage == IrLinkage::Internal;
             st.dbg = Some(debug.begin_function(func, function, local, &self.builder, &st.allocas));
@@ -858,6 +1001,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             let block = &func.blocks[b];
             self.builder
                 .position_at_end(st.blocks[b].expect("reachable block"));
+            st.facts.enter_block();
             if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
                 dbg.enter_block(debug, func, &self.builder, b);
             }
@@ -1077,6 +1221,113 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             .ok_or_else(|| format!("{what} is not a constant").into())
     }
 
+    /// The private global holding the path of source file `file`, as failed checks print it.
+    fn check_file(&self, file: u32) -> PointerValue<'ctx> {
+        if let Some(&p) = self.check_files.borrow().get(&file) {
+            return p;
+        }
+        let name = format!("__jaic_check_file.{file}");
+        let pointer = match self.module.get_global(&name) {
+            Some(g) => g.as_pointer_value(),
+            None => {
+                let path = self
+                    .program
+                    .file_paths
+                    .get(file as usize)
+                    .map(|p| jaic::display_path(std::path::Path::new(p)))
+                    .unwrap_or_default();
+                let text = self.ctx.const_string(path.as_bytes(), true);
+                let g = self.module.add_global(text.get_type(), None, &name);
+                g.set_initializer(&text);
+                g.set_constant(true);
+                g.set_linkage(Linkage::Private);
+                g.as_pointer_value()
+            }
+        };
+        self.check_files.borrow_mut().insert(file, pointer);
+        pointer
+    }
+
+    /// The module's `jaic.null_fail(desc, address, file)`: reports a null pointer access through
+    /// Runtime_Support and traps. `desc` is the access kind in its low byte and the source line
+    /// above it. One call per check, where the check itself would need the handler's six
+    /// arguments (a null check is the most common instruction sequence in an unoptimized build).
+    fn null_fail_fn(&self) -> R<FunctionValue<'ctx>> {
+        if let Some(&f) = self.null_fail.get() {
+            return Ok(f);
+        }
+        let handler = self
+            .program
+            .check_failed
+            .ok_or("null checks need Runtime_Support's check handler")?;
+        let sig = self
+            .program
+            .func(handler)
+            .map(|f| &f.sig)
+            .ok_or("Runtime_Support's `runtime_support_check_failed` has no body")?;
+        if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
+            return Err("Runtime_Support's `runtime_support_check_failed` must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
+        }
+        let lowered = self.lower_sig(sig);
+        if !lowered
+            .params
+            .iter()
+            .all(|p| matches!(p, ParamPlan::Scalar(_)))
+        {
+            return Err("Runtime_Support's check handler takes only scalars".into());
+        }
+        let i64t = self.ctx.i64_type();
+        let ty = self
+            .ctx
+            .void_type()
+            .fn_type(&[i64t.into(), i64t.into(), self.ptr_ty().into()], false);
+        let f = self
+            .module
+            .add_function("jaic.null_fail", ty, Some(Linkage::Internal));
+        for attr in ["noreturn", "noinline", "cold", "nounwind"] {
+            let kind = Attribute::get_named_enum_kind_id(attr);
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx.create_enum_attribute(kind, 0),
+            );
+        }
+        let b = self.ctx.create_builder();
+        b.position_at_end(self.ctx.append_basic_block(f, "entry"));
+        let param = |i: u32| -> R<BasicValueEnum<'ctx>> {
+            f.get_nth_param(i)
+                .ok_or_else(|| "jaic.null_fail parameter".into())
+        };
+        let desc = param(0)?.into_int_value();
+        let address = param(1)?;
+        let kind = b.build_and(desc, i64t.const_int(0xff, false), "")?;
+        let line = b.build_right_shift(desc, i64t.const_int(8, false), false, "")?;
+        let ints = [
+            i64t.const_int(jaic::ir::TRAP_NULL_POINTER, false),
+            kind,
+            address.into_int_value(),
+            self.ctx.i8_type().const_int(1, false),
+            line,
+        ];
+        let mut args: Vec<BasicMetadataValueEnum<'ctx>> = Vec::new();
+        for (v, &want) in ints.iter().zip(&sig.params) {
+            let want = self.ll(want).into_int_type();
+            let v = if v.get_type().get_bit_width() > want.get_bit_width() {
+                b.build_int_truncate(*v, want, "")?
+            } else {
+                b.build_int_z_extend_or_bit_cast(*v, want, "")?
+            };
+            args.push(v.into());
+        }
+        args.push(param(2)?.into());
+        let target = self.func_ptr(handler)?;
+        b.build_indirect_call(lowered.fn_ty, target, &args, "")?;
+        let trap = self.intrinsic_fn("llvm.trap", &[])?;
+        b.build_call(trap, &[], "")?;
+        b.build_unreachable()?;
+        let _ = self.null_fail.set(f);
+        Ok(f)
+    }
+
     /// Report a failed check through Runtime_Support (`Program::check_failed`) with the
     /// current source location; nothing when the program has no reporting procedure.
     fn report_check(
@@ -1097,24 +1348,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             return Err("Runtime_Support's `runtime_support_check_failed` must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
         }
         let (file, line) = st.loc;
-        let name = format!("__jaic_check_file.{file}");
-        let filename = match self.module.get_global(&name) {
-            Some(g) => g.as_pointer_value(),
-            None => {
-                let path = self
-                    .program
-                    .file_paths
-                    .get(file as usize)
-                    .map(|p| jaic::display_path(std::path::Path::new(p)))
-                    .unwrap_or_default();
-                let text = self.ctx.const_string(path.as_bytes(), true);
-                let g = self.module.add_global(text.get_type(), None, &name);
-                g.set_initializer(&text);
-                g.set_constant(true);
-                g.set_linkage(Linkage::Private);
-                g.as_pointer_value()
-            }
-        };
+        let filename = self.check_file(file);
         let i64t = self.ctx.i64_type();
         let ints = [
             i64t.const_int(reason, false),
@@ -1138,13 +1372,20 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         Ok(())
     }
 
-    /// Branch to a failure block when `cond` holds: it reports `reason` (with `a`, `b`) and
-    /// traps.
     /// Stop with a null pointer error when `addr` lies in the never-mapped first page. Addresses
     /// of slots and globals, and offsets into them, need no check.
-    fn null_check(&self, st: &FnState<'ctx>, addr: Val, kind: u64) -> R<()> {
-        if !st.null_checks || st.nonnull.get(addr.0 as usize).copied().unwrap_or(false) {
+    fn null_check(&self, st: &mut FnState<'ctx>, addr: Val, kind: u64) -> R<()> {
+        if !st.null_checks || st.known_nonnull(addr) {
             return Ok(());
+        }
+        // Past this point `addr` is a real address; so is what the slot it came from holds,
+        // until the next store to that slot.
+        st.facts.mark(addr);
+        let (from, version) = st.facts.loaded_from[addr.0 as usize];
+        if let Some(slot) = from.checked_sub(1)
+            && st.facts.slot_version[slot as usize] == version
+        {
+            st.facts.slot_checked[slot as usize] = st.facts.epoch;
         }
         let i64t = self.ctx.i64_type();
         let value = self.get_int(st, addr)?;
@@ -1154,15 +1395,26 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             i64t.const_int(4096, false),
             "",
         )?;
-        self.trap_if(
-            st,
-            low,
-            jaic::ir::TRAP_NULL_POINTER,
-            i64t.const_int(kind, false),
-            value,
-        )
+        let fail = self.null_fail_fn()?;
+        let fail_block = self.ctx.append_basic_block(st.function, "trap");
+        let cont = self.ctx.append_basic_block(st.function, "cont");
+        self.builder
+            .build_conditional_branch(low, fail_block, cont)?;
+        self.builder.position_at_end(fail_block);
+        let (file, line) = st.loc;
+        let desc = i64t.const_int(kind | (u64::from(line) << 8), false);
+        self.builder.build_call(
+            fail,
+            &[desc.into(), value.into(), self.check_file(file).into()],
+            "",
+        )?;
+        self.builder.build_unreachable()?;
+        self.builder.position_at_end(cont);
+        Ok(())
     }
 
+    /// Branch to a failure block when `cond` holds: it reports `reason` (with `a`, `b`) and
+    /// traps.
     fn trap_if(
         &self,
         st: &FnState<'ctx>,
@@ -1222,6 +1474,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 b: rhs,
             } => {
                 let v = self.bin(st, *op, *ty, *a, *rhs)?;
+                // `!flag` on a comparison's result: negate the `i1`.
+                if *op == BinOp::Xor
+                    && *ty == Ty::I8
+                    && let Some(flag) = st.flags[a.0 as usize]
+                    && self.get_int(st, *rhs)?.get_zero_extended_constant() == Some(1)
+                {
+                    st.flags[dst.0 as usize] = Some(b.build_not(flag, "")?);
+                }
                 self.set(st, *dst, v);
             }
             Inst::Un {
@@ -1286,6 +1546,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     };
                     b.build_int_compare(pred, self.as_int(x)?, self.as_int(y)?, "")?
                 };
+                st.flags[dst.0 as usize] = Some(r);
                 let r = b.build_int_z_extend(r, self.ctx.i8_type(), "")?;
                 self.set(st, *dst, r.into());
             }
@@ -1342,6 +1603,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 if let Some(i) = load.as_instruction_value() {
                     let _ = i.set_alignment(ty.size() as u32);
                 }
+                if st.null_checks
+                    && *ty == Ty::Ptr
+                    && let Some(slot) = st.facts.tracked_slot(*addr)
+                {
+                    let facts = &mut st.facts;
+                    facts.loaded_from[dst.0 as usize] = (slot as u32 + 1, facts.slot_version[slot]);
+                }
                 self.set(st, *dst, load);
             }
             Inst::Store {
@@ -1354,6 +1622,18 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let v = self.coerce(self.get(st, *value)?, *ty)?;
                 let store = b.build_store(p, v)?;
                 let _ = store.set_alignment(ty.size() as u32);
+                if st.null_checks
+                    && let Some(slot) = st.facts.tracked_slot(*addr)
+                {
+                    let known = *ty == Ty::Ptr && st.known_nonnull(*value);
+                    let facts = &mut st.facts;
+                    facts.slot_version[slot] += 1;
+                    facts.slot_checked[slot] = if known {
+                        facts.epoch
+                    } else {
+                        0
+                    };
+                }
             }
             Inst::PtrAdd {
                 dst,
@@ -1371,6 +1651,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let p = self.gep(base, off)?;
                 if st.nonnull[base_val.0 as usize] {
                     st.nonnull[dst.0 as usize] = true;
+                } else if st.null_checks
+                    && st.facts.constant[offset.0 as usize].is_some_and(|c| c < 4096)
+                {
+                    // A real address plus a field offset is not in the first page either.
+                    st.facts.derived[dst.0 as usize] = base_val.0 + 1;
                 }
                 self.set(st, *dst, p.into());
             }
@@ -1623,8 +1908,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 then_block,
                 else_block,
             } => {
-                let c = self.get_int(st, *cond)?;
-                let c = b.build_int_compare(IntPredicate::NE, c, c.get_type().const_zero(), "")?;
+                let c = match st.flags[cond.0 as usize] {
+                    Some(flag) => flag,
+                    None => {
+                        let c = self.get_int(st, *cond)?;
+                        b.build_int_compare(IntPredicate::NE, c, c.get_type().const_zero(), "")?
+                    }
+                };
                 b.build_conditional_branch(c, block(then_block)?, block(else_block)?)?;
             }
             Term::Switch {

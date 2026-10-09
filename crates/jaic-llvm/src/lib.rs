@@ -324,12 +324,16 @@ fn emit_module(
     path: &Path,
     shard: Option<Shard>,
     split_after_opt: bool,
+    leak: bool,
 ) -> Result<Vec<PathBuf>, String> {
     if options.sanitize.any() {
         check_sanitizer_target(options.target.as_deref())?;
     }
     let (machine, triple, arch) = target_machine(options)?;
     let context = Context::create();
+    if !wants_ir_text(options) {
+        discard_value_names(&context);
+    }
     let module = context.create_module("jai");
     module.set_triple(&triple);
     module.set_data_layout(&machine.get_target_data().get_data_layout());
@@ -408,7 +412,37 @@ fn emit_module(
     machine
         .write_to_file(&module, FileType::Object, path)
         .map_err(|e| e.to_string())?;
+    if leak {
+        // The process links and exits next: tearing down a large module takes about as long as
+        // writing its object (`docs/compiler/compile-speed.md`).
+        std::mem::forget(module);
+        std::mem::forget(context);
+        std::mem::forget(machine);
+    }
     Ok(vec![path.to_path_buf()])
+}
+
+/// Whether the caller reads the LLVM IR text (`--emit-ir`, `output_llvm_ir`, bitcode), which is
+/// easier to follow with the value and block names lowering gives.
+fn wants_ir_text(options: &Options) -> bool {
+    let c = &options.codegen;
+    options.emit_ir.is_some()
+        || c.ir_after.is_some()
+        || c.bitcode_after.is_some()
+        || c.bitcode_before.is_some()
+}
+
+/// Do not keep names on instructions, arguments and blocks: nothing reads them, and at `-O0`
+/// uniquing and storing them was a visible share of lowering.
+#[allow(unsafe_code)]
+fn discard_value_names(context: &Context) {
+    // SAFETY: `context` is live; the setting only affects values created afterwards.
+    unsafe {
+        inkwell::llvm_sys::core::LLVMContextSetDiscardValueNames(
+            inkwell::context::AsContextRef::as_ctx_ref(&context),
+            1,
+        )
+    };
 }
 
 /// The function attributes `Build_Options` asks for, on every function with a body.
@@ -462,7 +496,7 @@ fn apply_codegen_attributes(
 pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
     let instrumented = green::instrument(program);
     let program = instrumented.as_ref().unwrap_or(program);
-    emit_module(program, options, path, None, false).map(drop)
+    emit_module(program, options, path, None, false, false).map(drop)
 }
 
 /// IR instructions per codegen unit below which splitting does not pay for itself.
@@ -516,7 +550,7 @@ pub fn emit_objects(
             && options.emit_ir.is_none()
             && options.codegen.split_modules != Some(false)
             && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
-        return emit_module(program, options, path, None, split);
+        return emit_module(program, options, path, None, split, true);
     }
     // Largest functions first, each to the lightest unit. Unit 0 also holds the globals.
     let mut order: Vec<usize> = (0..program.funcs.len()).collect();
@@ -555,7 +589,7 @@ pub fn emit_objects(
                         owner,
                         index: u as u32,
                     };
-                    emit_module(program, options, p, Some(shard), false).map(drop)
+                    emit_module(program, options, p, Some(shard), false, true).map(drop)
                 })
             })
             .collect();
