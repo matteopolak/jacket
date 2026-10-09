@@ -19,13 +19,10 @@ skipped() {
 say() { [ -n "${JAI_HOOK_VERBOSE:-}" ] && echo "pre-commit: $*" >&2; return 0; }
 warn() { echo "pre-commit: warning: $*" >&2; }
 
-# The staged files that still exist after the commit (added, copied, modified, renamed).
-staged=$(git -c core.quotepath=off diff --cached --name-only --diff-filter=ACMR)
-[ -n "$staged" ] || exit 0
-
-jai_list=$(printf '%s\n' "$staged" | grep '\.jai$')
-# rustfmt is checked for the workspace only (CI runs `cargo fmt --all`).
-rs_list=$(printf '%s\n' "$staged" | grep '^crates/.*\.rs$')
+# The staged files that still exist after the commit, per language (rustfmt is checked for the
+# workspace only, as CI runs `cargo fmt --all`). The same script backs `just fmt|lint --staged`.
+jai_list=$(sh "$root/tools/staged-files.sh" jai)
+rs_list=$(sh "$root/tools/staged-files.sh" rust)
 [ -n "$jai_list" ] || [ -n "$rs_list" ] || exit 0
 
 # Check what will be committed, not what is in the working tree: export the staged blobs.

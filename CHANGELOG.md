@@ -20,6 +20,11 @@
 
 - `print`, `sprint`, `tprint`, `log`, `assert` messages and user wrappers that forward a `string` and `..Any` to one of them are checked at compile time when the format is a literal; a wrong argument count is a warning at the call, which the language server shows too. `%N`, `%00` and `\%` are read as `print` reads them; spread (`..args`) calls are skipped. See [format string check](docs/compiler/format-string-check.md).
 
+### Dev commands
+
+- A `Justfile` organizes the dev commands: `just build`, `fmt`, `lint`, `test`, `check`, `hooks`, `wasm`, `vscode` and `fetch-upstreams`, with options such as `just fmt --check --lang jai` and `just lint --staged`. CI's format and lint steps run the same recipes. See [Justfile](docs/tools/justfile.md).
+- `tools/staged-files.sh` lists the staged Jai or Rust files; the pre-commit hook and `--staged` share it.
+
 ### Playground and tour
 
 - The language tour takes a command line (`run --stop enums`, `run --all`, `run --help`); with no arguments it shows a numbered menu and reads your choice from standard input (a number or a name, Enter for everything, `q` to quit). At the end of input with nothing run yet it runs all stops, as before.

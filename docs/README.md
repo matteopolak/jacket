@@ -132,6 +132,7 @@ Scripts, CI and project policies.
 - [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`
 - [Continuous integration](tools/continuous-integration.md)
 - [Dependency policy](tools/dependency-policy.md)
+- [Justfile](tools/justfile.md): `just build|fmt|lint|test|check|hooks`, the recipes CI also runs
 - [Pre-commit hook](tools/pre-commit-hook.md): `.githooks/pre-commit`, jaifmt, jailint, rustfmt and item spacing on the staged files
 - [Differential testing](tools/differential-testing.md): interpreter, native, `-O2` and wasm must agree; `jaigen` random programs; `jaic-reduce`
 - [GitHub Action](tools/github-action.md): `setup-jai`, installing the released toolchain in CI

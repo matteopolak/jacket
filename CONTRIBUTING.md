@@ -10,4 +10,4 @@ Issues are welcome: [open one](https://github.com/matteopolak/jai/issues/new/cho
 
 Do not paste or paraphrase code from an official Jai distribution (its modules, `how_to` programs or examples) in issues. This is a clean-room implementation. Describing what Jai does with your own program is fine.
 
-Maintainers: `git config core.hooksPath .githooks` enables a [pre-commit hook](docs/tools/pre-commit-hook.md) that checks the staged Jai and Rust files.
+Maintainers: the dev commands are [`just` recipes](docs/tools/justfile.md): `just fmt`, `just lint`, `just test`, and `just check` (what CI's format and lint steps run). `just hooks` enables a [pre-commit hook](docs/tools/pre-commit-hook.md) that checks the staged Jai and Rust files.

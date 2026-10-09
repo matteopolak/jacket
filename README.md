@@ -74,6 +74,8 @@ cd jai
 cargo build -p jaic-cli -p jai-language-server -p jailint --release --locked
 ```
 
+With [just](https://github.com/casey/just) (1.58 or newer), `just build --release` does the same and also builds `target/jaifmt`; `just --list` shows the other dev commands ([Justfile](docs/tools/justfile.md)).
+
 ## Usage
 
 ```jai
@@ -171,7 +173,7 @@ Anything unsupported fails with a compile error rather than being silently accep
 
 ## Contributing
 
-Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md). Maintainers can enable the [pre-commit hook](docs/tools/pre-commit-hook.md) with `git config core.hooksPath .githooks`.
+Pull requests are not accepted; they are closed without review. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose). See [CONTRIBUTING.md](CONTRIBUTING.md). Maintainers can enable the [pre-commit hook](docs/tools/pre-commit-hook.md) with `just hooks`.
 
 ## License
 

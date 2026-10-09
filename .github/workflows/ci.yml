@@ -83,6 +83,10 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      # The format and lint steps below run the Justfile's recipes (docs/tools/justfile.md).
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: '1.58.0'
       # node 24: Memory64 without a flag, for the wasm64 modules `jaic build -os wasm` writes.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -115,11 +119,11 @@ jobs:
       - name: Format check
         id: format
         continue-on-error: true
-        run: python3 tools/check_rust_format.py
+        run: just fmt --check --lang rust
       - name: Lint
         id: lint
         continue-on-error: true
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: just lint --lang rust
       - name: Rust and native execution tests
         id: correctness
         continue-on-error: true
@@ -148,17 +152,12 @@ jobs:
       - name: Jai format check
         id: jai-format
         continue-on-error: true  # recorded, then enforced by the last step like the other checks
-        run: |
-          cargo build --locked -p jaic-cli
-          target/debug/jaic build jaifmt/main.jai -O2 -o target/jaifmt
-          target/jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples
+        run: just fmt --check --lang jai
       # The repository's Jai code must be lint-free (settings: jailint.toml).
       - name: Jai lint
         id: jai-lint
         continue-on-error: true
-        run: |
-          cargo build --locked -p jailint
-          target/debug/jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks
+        run: just lint --lang jai
       - name: Backend agreement
         id: backends
         continue-on-error: true

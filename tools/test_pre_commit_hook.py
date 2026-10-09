@@ -36,7 +36,8 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / ".githooks").mkdir()
         shutil.copy(REPO / ".githooks/pre-commit", self.repo / ".githooks/pre-commit")
         (self.repo / "tools").mkdir()
-        shutil.copy(REPO / "tools/rust_item_spacing.py", self.repo / "tools/rust_item_spacing.py")
+        for script in ("rust_item_spacing.py", "staged-files.sh"):
+            shutil.copy(REPO / "tools" / script, self.repo / "tools" / script)
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
