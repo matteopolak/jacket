@@ -219,6 +219,12 @@ impl Analysis {
             .collect()
     }
 
+    /// The members of the enum an inferred `.NAME` at `offset` is expected to be.
+    pub fn complete_inferred(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
+        let file = self.file(path)?;
+        Some(self.compiler.ide_inferred_members(file, offset as u32))
+    }
+
     /// Completion candidates at `offset`, members of `chain` when it is not empty.
     pub fn complete(&mut self, path: &Path, offset: usize, chain: &[&str]) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;

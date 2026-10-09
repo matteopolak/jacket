@@ -67,9 +67,36 @@ pub(crate) struct Index {
     open: BTreeMap<PathBuf, (u64, Rc<FileScan>)>,
     /// The `.jai` files on disk under each walked folder.
     walked: BTreeMap<PathBuf, Rc<Vec<PathBuf>>>,
+    /// Settings files that did not parse, with the problem last reported for each.
+    reported: BTreeMap<PathBuf, String>,
+    /// Messages for the client not sent yet.
+    pending: Vec<String>,
 }
 
 impl Index {
+    /// The settings file `path` does not parse: tell the client once per distinct problem.
+    pub(crate) fn bad_config(&mut self, path: &Path, problem: &str) {
+        if self.reported.get(path).is_some_and(|p| p == problem) {
+            return;
+        }
+        self.reported
+            .insert(path.to_path_buf(), problem.to_string());
+        self.pending.push(format!(
+            "{}: {problem}. The defaults are used until it is fixed.",
+            path.display()
+        ));
+    }
+
+    /// The settings file `path` parses (again): a later problem is news.
+    pub(crate) fn good_config(&mut self, path: &Path) {
+        self.reported.remove(path);
+    }
+
+    /// Messages for the client, once.
+    pub(crate) fn take_messages(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending)
+    }
+
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
         self.files.remove(path);
@@ -326,16 +353,23 @@ impl Sources<'_> {
 
     /// The nearest `jai.toml` at or above `file`: its folder and settings (the defaults when it
     /// does not parse).
-    fn config(&self, file: &Path) -> Option<(PathBuf, ProjectConfig)> {
+    fn config(&self, index: &mut Index, file: &Path) -> Option<(PathBuf, ProjectConfig)> {
         let mut dir = file.parent();
         while let Some(d) = dir {
             let path = d.join(CONFIG_FILE);
             if self.is_file(&path) {
                 let text = self.read(&path).unwrap_or_default();
-                return Some((
-                    d.to_path_buf(),
-                    ProjectConfig::parse(&text).unwrap_or_default(),
-                ));
+                let config = match ProjectConfig::parse(&text) {
+                    Ok(config) => {
+                        index.good_config(&path);
+                        config
+                    }
+                    Err(problem) => {
+                        index.bad_config(&path, &problem);
+                        ProjectConfig::default()
+                    }
+                };
+                return Some((d.to_path_buf(), config));
             }
             dir = d.parent();
         }
@@ -343,7 +377,7 @@ impl Sources<'_> {
     }
 
     fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
-        let config = self.config(file);
+        let config = self.config(index, file);
         let base = config.as_ref().map(|(dir, _)| dir.clone()).or_else(|| {
             folders
                 .iter()
@@ -499,6 +533,99 @@ impl Session {
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
         Some(program.root)
+    }
+
+    /// Top-level declarations of the project's `.jai` files that are not open, whose name
+    /// contains `query` (lower case), at most `room` of them. The files come from the
+    /// workspace folders and the folders of the open documents' programs, are scanned from
+    /// tokens (`exports.rs`, cached with the auto-import index), and nothing is compiled.
+    pub(crate) fn project_symbols(
+        &self,
+        query: &str,
+        room: usize,
+    ) -> Vec<crate::model::SymbolInformation> {
+        let Some(env) = self.environment.as_ref().filter(|_| room > 0) else {
+            return Vec::new();
+        };
+        let sources = Sources {
+            env,
+            open: self
+                .documents
+                .iter()
+                .chain(&self.lint_configs)
+                .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
+                .collect(),
+        };
+        let mut index = self.index.borrow_mut();
+        let mut folders: BTreeSet<PathBuf> = self.workspace_folders.iter().cloned().collect();
+        for uri in self.documents.keys() {
+            folders.insert(
+                sources
+                    .program(&mut index, Path::new(uri.path()), &self.workspace_folders)
+                    .dir,
+            );
+        }
+        let mut files: BTreeSet<PathBuf> = BTreeSet::new();
+        for folder in &folders {
+            files.extend(sources.project_files(&mut index, folder));
+        }
+        let mut out = Vec::new();
+        for file in files {
+            if self
+                .documents
+                .contains_key(&match DocumentUri::parse(&format!(
+                    "file://{}",
+                    file.to_string_lossy()
+                )) {
+                    Ok(uri) => uri,
+                    Err(_) => continue,
+                })
+            {
+                continue;
+            }
+            let scan = sources.scan(&mut index, &file);
+            let hits: Vec<_> = scan
+                .symbols
+                .iter()
+                .filter(|s| s.name.to_lowercase().contains(query))
+                .collect();
+            if hits.is_empty() {
+                continue;
+            }
+            let Some(text) = sources.read(&file) else {
+                continue;
+            };
+            let lines = crate::position::LineIndex::new(&text);
+            let uri = format!("file://{}", file.to_string_lossy());
+            for symbol in hits {
+                if out.len() >= room {
+                    return out;
+                }
+                let Ok(range) = lines.range(
+                    &text,
+                    Span::new(symbol.offset, symbol.offset + symbol.name.len()),
+                ) else {
+                    continue;
+                };
+                out.push(crate::model::SymbolInformation {
+                    name: symbol.name.clone(),
+                    kind: match symbol.kind {
+                        CompletionKind::Function => crate::model::SymbolKind::Function,
+                        CompletionKind::Struct => crate::model::SymbolKind::Struct,
+                        CompletionKind::Enum => crate::model::SymbolKind::Enum,
+                        CompletionKind::TypeAlias => crate::model::SymbolKind::TypeAlias,
+                        CompletionKind::Constant => crate::model::SymbolKind::Constant,
+                        _ => crate::model::SymbolKind::Variable,
+                    },
+                    location: crate::model::Location {
+                        uri: uri.clone(),
+                        range,
+                    },
+                    container: None,
+                });
+            }
+        }
+        out
     }
 
     pub(crate) fn auto_import_items(

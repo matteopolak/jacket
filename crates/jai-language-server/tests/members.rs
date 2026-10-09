@@ -206,3 +206,93 @@ fn members_of_modules_cannot_be_renamed() {
             .is_none()
     );
 }
+
+const GOTO: &str = r#"Color :: enum { RED; GREEN; }
+
+Inner :: struct {
+    name: string;
+    color: Color;
+}
+
+Stuff :: struct {
+    stuff_a: int;
+    struct {
+        anon_b: int;
+        anon_c: int;
+    }
+}
+
+main :: () {
+    stuff: Stuff;
+    stuff.stuff_a = 1;
+    stuff.anon_c = 2;
+    items: [2] Inner;
+    for m: items {
+        print_name(m.name);
+    }
+    for * p: items {
+        p.name = "x";
+    }
+    c := Color.RED;
+}
+
+print_name :: (s: string) {}
+"#;
+
+fn definition(s: &Session, text: &str, marker: &str, offset: usize) -> Vec<Position> {
+    s.definition(&uri(), at(text, marker, 0, offset))
+        .unwrap()
+        .iter()
+        .map(|l| l.range.start)
+        .collect()
+}
+
+#[test]
+fn definition_of_struct_members() {
+    let mut s = session();
+    s.open(uri(), 1, GOTO.into()).unwrap();
+    assert_eq!(
+        definition(&s, GOTO, "stuff_a = 1", 0),
+        [at(GOTO, "stuff_a: int", 0, 0)]
+    );
+    // A member of the anonymous struct inside `Stuff`.
+    assert_eq!(
+        definition(&s, GOTO, "anon_c = 2", 0),
+        [at(GOTO, "anon_c: int", 0, 0)]
+    );
+    // Through a `for` variable, by value and by pointer.
+    assert_eq!(
+        definition(&s, GOTO, "name);", 0),
+        [at(GOTO, "name: string", 0, 0)]
+    );
+    assert_eq!(
+        definition(&s, GOTO, "name = \"x\"", 0),
+        [at(GOTO, "name: string", 0, 0)]
+    );
+    // References and rename work from those uses too.
+    let refs = s
+        .references(&uri(), at(GOTO, "name);", 0, 0), true)
+        .unwrap();
+    assert_eq!(refs.len(), 3, "{refs:?}");
+    let refs = s
+        .references(&uri(), at(GOTO, "anon_c = 2", 0, 0), true)
+        .unwrap();
+    assert_eq!(refs.len(), 2, "{refs:?}");
+    s.prepare_rename(&uri(), at(GOTO, "anon_c = 2", 0, 0))
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn definition_of_enum_members() {
+    let mut s = session();
+    s.open(uri(), 1, GOTO.into()).unwrap();
+    assert_eq!(
+        definition(&s, GOTO, "Color.RED", 6),
+        [at(GOTO, "RED; GREEN", 0, 0)]
+    );
+    let refs = s
+        .references(&uri(), at(GOTO, "Color.RED", 0, 6), true)
+        .unwrap();
+    assert_eq!(refs.len(), 2, "{refs:?}");
+}

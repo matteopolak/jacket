@@ -1079,3 +1079,39 @@ fn completion_works_inside_range_expressions() {
     let labels = complete_in_main("for i: lo..");
     assert!(labels.iter().any(|l| l == "hi"), "{labels:?}");
 }
+
+#[test]
+fn signature_help_for_procedure_typed_variables_and_members() {
+    let program = "\
+My_Func_Type :: #type (a: int, b: string) -> int;
+Holder :: struct { callback: (x: float, y: float) -> float; }
+twice :: (n: int, label: string) -> int { return n; }
+run :: () {
+    f: My_Func_Type = twice;
+    s: Holder;
+    CALL
+}
+";
+    for (call, label, params, active) in [
+        ("f(1, ", "f: (s64, string) -> s64", vec!["s64", "string"], 1),
+        (
+            "s.callback(1.0, ",
+            "callback: (float32, float32) -> float32",
+            vec!["float32", "float32"],
+            1,
+        ),
+        ("f(", "f: (s64, string) -> s64", vec!["s64", "string"], 0),
+    ] {
+        let text = program.replace("CALL", call);
+        let mut s = session();
+        s.open(uri(), 1, text.clone()).unwrap();
+        let help = s
+            .signature_help(&uri(), at(&text, call, 0, call.len()))
+            .unwrap()
+            .unwrap_or_else(|| panic!("no signature help for {call}"));
+        assert_eq!(help.signatures.len(), 1);
+        assert_eq!(help.signatures[0].label, label);
+        assert_eq!(help.signatures[0].parameters, params);
+        assert_eq!(help.active_parameter, active, "{call}");
+    }
+}

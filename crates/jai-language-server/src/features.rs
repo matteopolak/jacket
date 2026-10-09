@@ -844,6 +844,15 @@ impl Session {
                     let file = a.file(path)?;
                     let scope = a.compiler.ide_scope_at(file, callee_start as u32)?;
                     let procs = a.compiler.ide_callee(scope, &names);
+                    if procs.is_empty() {
+                        // A variable or member of procedure type.
+                        return Some(
+                            a.compiler
+                                .ide_callee_value(scope, &names)
+                                .into_iter()
+                                .collect::<Vec<_>>(),
+                        );
+                    }
                     Some(
                         procs
                             .into_iter()
@@ -950,7 +959,8 @@ impl Session {
     // Syntax-only features
     // ---------------------------------------------------------------------------------------
 
-    /// Declarations of every open document whose name contains `query` (case-insensitive).
+    /// Declarations of every open document, then of the project's other files, whose name
+    /// contains `query` (case-insensitive), at most `Limits::symbols` of them.
     pub fn workspace_symbols(&self, query: &str) -> Vec<SymbolInformation> {
         let query = query.to_lowercase();
         let mut out = Vec::new();
@@ -984,6 +994,9 @@ impl Session {
                 });
             }
         }
+        // The project's files that are not open: their top-level names, from tokens.
+        let room = self.limits.symbols.saturating_sub(out.len());
+        out.extend(self.project_symbols(&query, room));
         out
     }
 

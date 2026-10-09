@@ -706,3 +706,77 @@ fn asm_items_are_not_offered_outside_asm_blocks() {
     assert!(found.iter().any(|i| i.label == "print"));
     assert!(found.iter().all(|i| i.kind != CompletionKind::Instruction));
 }
+
+#[test]
+fn definition_of_an_overloaded_call_picks_the_resolved_overload() {
+    let text = "\
+area :: (r: float) -> float { return r * r; }
+area :: (w: int, h: int) -> int { return w * h; }
+main :: () {
+    a := area(2.0);
+    b := area(2, 3);
+    c := area(\"x\");
+}
+";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let line = |marker: &str| -> Vec<u32> {
+        s.definition(&uri(), after(text, marker, 0, marker.len() - 2))
+            .unwrap()
+            .iter()
+            .map(|l| l.range.start.line)
+            .collect()
+    };
+    assert_eq!(line("area(2.0"), [0]);
+    assert_eq!(line("area(2, 3"), [1]);
+    // No overload fits: the whole set.
+    let mut both = line("area(\"x");
+    both.sort();
+    assert_eq!(both, [0, 1]);
+}
+
+#[test]
+fn inferred_enum_members_are_completed_from_the_expected_type() {
+    // One scenario per procedure: a broken line is blanked, and an error in a body hides
+    // the rest of that body.
+    let text = "\
+Color :: enum { RED; GREEN; BLUE; }
+Shape :: enum { ROUND; SQUARE; }
+paint :: (shade: Color, shape: Shape) {}
+declared :: () {
+    d: Color = .;
+}
+argument :: () {
+    paint(.);
+}
+second :: () {
+    paint(.RED, .SQ);
+}
+compare :: (c: Color) {
+    if c == . {
+    }
+}
+cases :: (c: Color) {
+    if c == {
+        case .;
+    }
+}
+assign :: () {
+    d: Color;
+    d = .G;
+}
+";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let names = |at| -> Vec<String> { labels(&s, at).into_iter().map(|l| l.0).collect() };
+    let colors = ["BLUE", "GREEN", "RED"];
+    assert_eq!(names(after(text, "d: Color = .", 0, 0)), colors);
+    assert_eq!(names(after(text, "paint(.", 0, 0)), colors);
+    // The second parameter is a different enum.
+    assert_eq!(names(after(text, ".RED, .SQ", 0, 0)), ["SQUARE"]);
+    assert_eq!(names(after(text, "c == .", 0, 0)), colors);
+    assert_eq!(names(after(text, "case .", 0, 0)), colors);
+    assert_eq!(names(after(text, "d = .G", 0, 0)), ["GREEN"]);
+    let kinds = labels(&s, after(text, "d: Color = .", 0, 0));
+    assert!(kinds.iter().all(|k| k.1 == CompletionKind::EnumMember));
+}

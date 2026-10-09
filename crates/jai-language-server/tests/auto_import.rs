@@ -447,3 +447,62 @@ fn json_protocol_and_settings() {
             .all(|i| i.get("additionalTextEdits").is_none())
     );
 }
+
+#[test]
+fn workspace_symbols_include_project_files_that_are_not_open() {
+    let main = "#load \"util/shapes.jai\";\nmain :: () {}\n";
+    let shapes = "Circle :: struct { radius: float; }\ncircle_area :: (c: Circle) -> float { return c.radius; }\n#scope_file\ncircle_secret := 3;\n";
+    let dir = project(
+        "symbols",
+        &[
+            ("main.jai", main),
+            ("util/shapes.jai", shapes),
+            ("util/notes.jai", "Circle_Note :: 1;\n"),
+        ],
+    );
+    let mut s = session();
+    s.set_workspace_folders(vec![dir.clone()]);
+    s.open(uri_of(&dir.join("main.jai")), 1, main.into())
+        .unwrap();
+    let names = |s: &Session, query: &str| -> Vec<(String, String, u32)> {
+        let mut found: Vec<_> = s
+            .workspace_symbols(query)
+            .into_iter()
+            .map(|x| {
+                (
+                    x.name,
+                    x.location.uri.rsplit('/').next().unwrap().to_string(),
+                    x.location.range.start.line,
+                )
+            })
+            .collect();
+        found.sort();
+        found
+    };
+    assert_eq!(
+        names(&s, "CIRCLE"),
+        [
+            ("Circle".into(), "shapes.jai".into(), 0),
+            ("Circle_Note".into(), "notes.jai".into(), 0),
+            ("circle_area".into(), "shapes.jai".into(), 1),
+            ("circle_secret".into(), "shapes.jai".into(), 3),
+        ]
+    );
+    // Open documents are not listed twice, and the limit holds.
+    s.open(uri_of(&dir.join("util/shapes.jai")), 1, shapes.into())
+        .unwrap();
+    assert_eq!(names(&s, "circle").len(), 4);
+    let mut small = Session::with_environment(
+        Limits {
+            symbols: 2,
+            ..Limits::default()
+        },
+        environment(jaic::sema::TargetOs::Linux),
+    );
+    small.set_workspace_folders(vec![dir.clone()]);
+    small
+        .open(uri_of(&dir.join("main.jai")), 1, main.into())
+        .unwrap();
+    assert_eq!(small.workspace_symbols("circle").len(), 2);
+    let _ = std::fs::remove_dir_all(&dir);
+}

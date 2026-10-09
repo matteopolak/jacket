@@ -42,8 +42,19 @@ pub struct Directive {
     pub nested: bool,
 }
 
+/// A top-level name and where it is declared, whatever its visibility (workspace symbols).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Symbol {
+    pub name: String,
+    pub kind: CompletionKind,
+    /// Byte offset of the name.
+    pub offset: usize,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FileScan {
+    /// Every top-level declaration, `#scope_file` ones included.
+    pub symbols: Vec<Symbol>,
     /// Top-level declarations outside `#scope_file`.
     pub decls: Vec<Decl>,
     pub imports: Vec<Directive>,
@@ -148,6 +159,13 @@ fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
                     } else {
                         if name.as_str() == "main" {
                             out.declares_main = true;
+                        }
+                        if let Some(kind) = kind_of(tokens, i + 2, constant) {
+                            out.symbols.push(Symbol {
+                                name: name.as_str().into(),
+                                kind,
+                                offset: token.span.start as usize,
+                            });
                         }
                         if let Some(visibility) = visibility
                             && let Some(kind) = kind_of(tokens, i + 2, constant)

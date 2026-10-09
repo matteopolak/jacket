@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- `jailsp` go-to-definition now reaches struct fields (also of anonymous structs and of `for` variables) and enum members, and goes to the one overload a call resolved to instead of the whole set. It completes `.` with the enum's members where the type is inferred (`d: Color = .`, `f(.`, `x == .`, `case .`), shows signature help for calls through procedure-typed variables and members, and lists the project's unopened files in workspace symbols.
+- `jailsp` completion items carry a `textEdit` over the whole word (the part after the cursor too), a `jai.toml` or `jailint.toml` that does not parse is reported with `window/showMessage` (once per problem; the defaults still apply), and a panic in one request is an `InternalError` response rather than the end of the server.
+
 ## [0.6.0] - 2026-10-09
 
 Optimized builds compile 1.6 to 2.7 times faster (Focus `-O2` 12.7 s to 7.8 s, chess-jai 4.5 s to 1.7 s, Jails 2.2 s to 0.81 s), unoptimized builds of large programs about 1.3 times faster (240k lines: 1.50 s to 1.18 s), the compiler sends `PERFORMANCE_REPORT` and `DEBUG_DUMP` messages, and the language server completes inside range expressions.

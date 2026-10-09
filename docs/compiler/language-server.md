@@ -26,16 +26,16 @@ It has two layers:
 | Hover on `#run`: its value and type, and what it printed | `textDocument/hover` | semantic |
 | Hover on `#if` / `#ifx` / `#assert`: whether the condition held (per instance) | `textDocument/hover` | semantic |
 | Hover on a format string: each `%` with the argument it formats and its type | `textDocument/hover` | syntax + semantic types |
-| Completion: scope-aware names, members after `.`, directives after `#`, `#load`/`#import` paths | `textDocument/completion` | semantic, syntax fallback |
+| Completion: scope-aware names, members after `.`, the enum's members for an inferred `.` (`d: Color = .`, `f(.`, `x == .`, `case .`), directives after `#`, `#load`/`#import` paths | `textDocument/completion` | semantic, syntax fallback |
 | Auto-import completion: names from stdlib modules, the project's modules and files it does not load yet, with the `#import`/`#load` as an additional edit ([details](#auto-import-completion)) | `textDocument/completion` | environment |
 | `#asm` blocks: completion of instruction mnemonics (operand forms, CPU feature, description), operands (declared registers, Jai variables and constants in scope), register classes after `name:`, pins after `===`, size suffixes after `.`, declaration snippets, and feature modifiers after `#asm`; hover on a mnemonic or a declared register; operand signature help. Works in unterminated blocks | `textDocument/completion`, `textDocument/hover`, `textDocument/signatureHelp` | syntax (compiler instruction table), semantic for Jai operands |
-| Go to definition (also into modules and the stdlib) | `textDocument/definition` | semantic, syntax fallback |
+| Go to definition (also into modules and the stdlib, to the declaration of a struct field or enum member, and to the one overload a call resolved to) | `textDocument/definition` | semantic, syntax fallback |
 | Go to the file of a `#load` / `#import` / `#import,file` / `#import,dir`, and of a module name (`B` in `B.print`) | `textDocument/definition` | environment |
 | Document links on `#load` / `#import` strings | `textDocument/documentLink` | environment |
 | Go to type definition | `textDocument/typeDefinition` | semantic |
 | Find references, document highlights (also of struct fields and enum members) | `textDocument/references`, `textDocument/documentHighlight` | semantic |
 | Rename (locals, globals, procedures with their overload declarations, types, modules, constants, struct fields, enum members) | `textDocument/prepareRename`, `textDocument/rename` | semantic |
-| Signature help, with the overload the call resolved to active | `textDocument/signatureHelp` | semantic |
+| Signature help, with the overload the call resolved to active; also for a call through a procedure-typed variable or member (`f(`, `s.callback(`) | `textDocument/signatureHelp` | semantic |
 | Inlay hints: inferred types of `x :=`, parameter names of literal arguments (only for parameters that share their type with another, so `print`'s format string gets none), `#run` values | `textDocument/inlayHint` | semantic |
 | Code actions: show an expansion, inline an `#insert`, replace a `#run` with its value, add the `#import` an unknown name needs, apply a lint's fix (`quickfix`) | `textDocument/codeAction` | semantic |
 | Refactorings: extract into variable or procedure, inline variable, add missing `case`s and struct fields, `ifx` and `if`/`else` ([details](language-server-refactorings.md)) | `textDocument/codeAction` (`refactor.extract`, `refactor.inline`, `refactor.rewrite`) | semantic |
@@ -45,7 +45,7 @@ It has two layers:
 | Expansion documents (`jai-expansion:` URIs) | `jai/expansion`, `jai/source` (non-standard) | semantic |
 | Code lens: how many polymorphs each polymorphic procedure has, and their bindings | `textDocument/codeLens` | semantic |
 | Semantic tokens: types, procedures, macros, `$T`, constants, enum members, modules, directives, notes, `%` | `textDocument/semanticTokens/full` | syntax, refined by semantic |
-| Document symbols (outline), workspace symbols | `textDocument/documentSymbol`, `workspace/symbol` | syntax |
+| Document symbols (outline), workspace symbols (open documents and the project's other files) | `textDocument/documentSymbol`, `workspace/symbol` | syntax |
 | Folding ranges: blocks and runs of `#import`/`#load` | `textDocument/foldingRange` | syntax |
 | Stdlib and module sources for read-only viewing | `jai/source` (non-standard) | environment |
 
@@ -79,8 +79,10 @@ For completion, the word being typed and any `a.b.` chain before it are cut out 
   - **Plain names:** `ide_visible` walks the scope chain. It includes locals of the current procedure declared before the cursor, enclosing declarations, `using` members, imported modules' exports including re-exports, and Preload.
   - **After `a.b.`:** `ide_receiver` resolves the chain and `ide_members` lists the struct fields (through `using`), enum members, struct constants, or array/string/`Any` fields.
   - Results are filtered by the typed prefix (case-insensitive), and keywords are appended.
+  - **After an inferred `.`** (`d: Color = .`, `f(.`, `x == .`, `case .`; the character before the `.` is not an identifier, `)`, `]`, `}` or a quote): the members of the enum the expected type names. `Session::inferred_completion` compiles a probe where the word is a placeholder name and the cursor's line is closed with the first ending (`;`, `)`, `);`, ` {}`, ...) that makes the file parse, so the probe, and the cached compile, stay the same while the word is typed. The type comes from the checker, so it follows parameter types, declared types and the other side of `==`. An error earlier in the same procedure body hides the member, as for every semantic feature.
   - **After `#`:** the directives in `analysis.rs` `DIRECTIVES` (labels include the `#`, details are one-line descriptions), without compiling.
   - **Inside `#load "..."`:** files (`.jai`) and folders (`name/`) relative to the document, in the folder typed so far. **Inside `#import "..."`:** modules (folders and `.jai` files) on the import path and in the document's `modules/` folder. Entries come from the environment's `FileSystem::list_dir` plus the open documents (`path_completion`).
+  - **The edit.** Every item carries a `textEdit` (`CompletionItem::replace`) whose range is the whole word around the cursor, the identifier characters after it included, so confirming in the middle of a word replaces it; the range is in UTF-16 like every position. A directive's range includes its `#`, a path's starts after the last `/` and ends before the closing quote. `newText` is the label (or `insert_text`, a snippet for `#asm` declarations). `#asm` completion keeps `insertText`, because its slots (operands, suffixes after `.`) are not words the range logic knows. LSP has no capability for `textEdit`; every client takes it.
   - Trigger characters: `.`, `#`, `"` and `/`.
 - **Hover** (`Session::hover`) tries, in order:
   1. a print-family **format string** under the cursor (`format_hover`);
@@ -191,11 +193,12 @@ To support new syntax (an operand decoration, say), extend `parse_stmt`/`slot`; 
 
 ### Definition, references and type definition
 
-- **Definition** (`ide_definition`) uses the reference at the cursor: an entity's declaration, every procedure of an overload set (aliases under their own name), or a struct. Spans are narrowed to the declared name; a procedure's span starts at its literal, so the name is found earlier on its line (`name :: (`). Targets can be modules or stdlib files the client never opened.
+- **Definition** (`ide_definition`) uses the reference at the cursor: an entity's declaration, a procedure, or a struct. A struct field or enum member (`s.field`, a member of an anonymous `struct { ... }`, `it.name` of a `for` variable, `Color.RED`, `.RED`) goes to its declaration through `IdeFacts::member_uses`, below. A procedure name that is the callee of a call goes to the overload the call resolved to (`ide_resolved_overload`); an overload set that was not called, a call nothing accepted, or one where several overloads fitted equally well (`IdeCall::ambiguous`) lists every procedure of the set (aliases under their own name). Spans are narrowed to the declared name; a procedure's span starts at its literal, so the name is found earlier on its line (`name :: (`). Targets can be modules or stdlib files the client never opened.
 - **References** (`ide_references`) map every recorded reference to a target (a local or global entity, a procedure, a type or a module) and return those sharing the cursor's. A procedure's declaration resolves to the same `ProcId` its calls name, and a struct declaration to the same `TypeId` its uses name. Only files under the root's directory are recorded, so references inside the stdlib are not listed. Struct fields and enum members are tracked separately (below). Document highlights are the references within the document.
 - **Rename** edits every reference that spells the old name (in open documents the text is checked; recorded files that are not open are edited by range). `prepareRename` refuses names the check did not record and members whose declaration is outside the project's files (a stdlib struct's field), and the new name must be an identifier that is not a keyword. A backticked caller name inside a macro body (`` `total ``) is a reference to the caller's local and is renamed with it.
 - **Struct fields and enum members** (`IdeFacts::member_uses`) are pairs of (the name where it is used, the name where it is declared). The declaration is found when sema checks the use: `a.b` through pointers and `using` members (by value or by pointer), `T.{ b = 1 }`, `Enum.B` and `.B` (including `case .B` and `==`), and for a field the layout of the struct records its declaration (every top-level struct is laid out by `ide_check_all`, so a field nobody uses still has one). Keying by the declaration's span means a polymorphic struct's instances share their fields, and same-named fields of other structs are never conflated. `ide_references` answers from these pairs first (`ide_member_references`); `ide_member_declared` tells rename whether the declaration is in the recorded files.
 - **Module names.** A name that evaluates to a module (`B` in `B :: #import "Basic"; B.print`) goes to the start of the module's entry file (`modules[m].files[0]`). `Module.name` records what the member resolved to (procedures, a type, a nested module) rather than a plain member, so definition and references follow names reached through a module, through `using`, and through re-exports (`module_lookup`, `exported_using_imports`). Modules are never merged: each `#import` is its own module and its names are reached through it.
+- **Inferred members** (`.NAME` with no type before it). `check_inferred_member` records the type its context expected (`IdeFacts::inferred_expected`, by the name's span) before looking the name up, and a call nothing accepts records the parameter types of its candidates for its inferred arguments (`ide_note_unmatched_inferred`, so `paint(.` completes while the second argument is still missing). Completion reads them with `ide_inferred_members` (enum members only).
 - **Type definition** (`ide_type_definition`) takes the reference's type, strips pointers and arrays, and returns the struct or enum declaration.
 
 ### Several type-checker errors
@@ -256,7 +259,7 @@ For an `#insert`, `#run` or macro call under the cursor (`code_actions` picks th
 
 - **Compile.** `semantic.rs` always compiles with `IdeFacts::lint` set, so the facts jailint needs (expression types, casts, which names and imports were used) are recorded alongside the editor facts. `Analysis::lints` lints a file once per compile and caches the result. Diagnostics and code actions on the same text therefore reuse one compile and one lint pass, and so do hover and inlay hints.
 - **When.** Only documents that parse are linted, from their real text, never a repaired one, so a half-typed line clears the lints until it parses again. Without an `Environment` (no type checker), no lints are published.
-- **Settings.** The nearest `jailint.toml` above the document gives levels and excludes. An open one wins over one on disk: a client that sends `textDocument/didOpen` for a URI ending in `/jailint.toml` (any `languageId`), then `didChange`/`didClose` as it is edited, configures the documents under that directory. This is how the browser build, which has no disk, gets a workspace's settings. Settings files get no diagnostics of their own, and one that does not parse yet means the defaults. Changing one drops the cached lints (`Cache::forget_lints`), not the compiles. `deny` becomes an error, `warn` a warning.
+- **Settings.** The nearest `jailint.toml` above the document gives levels and excludes. An open one wins over one on disk: a client that sends `textDocument/didOpen` for a URI ending in `/jailint.toml` (any `languageId`), then `didChange`/`didClose` as it is edited, configures the documents under that directory. This is how the browser build, which has no disk, gets a workspace's settings. Settings files get no diagnostics of their own. One that does not parse means the defaults, and the client gets a `window/showMessage` (warning) naming the file and the problem, once per distinct problem (`Index::bad_config`; fixing the file makes the next problem news again). `jai.toml` is treated the same way. Changing one drops the cached lints (`Cache::forget_lints`), not the compiles. `deny` becomes an error, `warn` a warning.
 - **Diagnostics.** The code is the rule name (`unused_variable`), the source is `jailint`, and `codeDescription.href` links to the rule's section of [the jailint docs](../tools/jailint.md#rules) (`lints::rule_url`). The message is the finding followed by its help line.
 - **Quick fixes.** `code_actions` adds a `quickfix` for each lint with a fix that touches the requested range, or that the request's `context.diagnostics` names (matched by `source: "jailint"`, rule `code` and range). Each carries its lint as `diagnostics`, the rule as `data.rule`, and `isPreferred: true` when the fix is machine-applicable. Titles are the fix's description in sentence case (`Remove the unused variable`); identify the rule by `data.rule` or the diagnostic's `code`, not the title. Lint fixes come after the expansion actions.
 - **Fix all.** A `source.fixAll.jailint` action applies every machine-applicable fix in the document that does not overlap an earlier one (`jailint::fix::choose`, the same choice as `jailint --fix`) as one edit, titled `Fix N lint problems`. `context.only` filters every action by kind (`source.fixAll` or `source` select it, `quickfix` leaves it out). `codeActionKinds` advertises `quickfix`, `refactor.inline` and `source.fixAll.jailint`.
@@ -300,7 +303,7 @@ import_path = ["vendor/modules"]              # more module folders, as -import_
 
 - `build_files`: entry files, relative to the `jai.toml`. A document belongs to the first whose `#load` graph reaches it.
 - `import_path`: module folders, relative to the `jai.toml`, searched as `jaic -import_dir` (and `Build_Options.import_path`) does. The `modules/` folder next to the entry file and next to `jai.toml` are always searched.
-- A single string is a list of one; unknown keys and tables make the file invalid, and an invalid file counts as empty (inference applies).
+- A single string is a list of one; unknown keys and tables make the file invalid, and an invalid file counts as empty (inference applies) and is reported with `window/showMessage` like `jailint.toml`.
 
 Precedence, first match wins:
 
@@ -358,7 +361,7 @@ They feed three features:
 
 ### Signature help
 
-`open_call` scans back from the cursor to the unmatched `(` and reads the callee (`name` or `Module.name`), the argument index, and a `name =` being typed. If the check recorded a call starting at that callee, its overload set is shown with the chosen overload active. Otherwise (the usual case while typing, when the line does not parse) the cursor's line is blanked and `ide_callee` looks the callee up in the scope at the cursor. A named argument selects its parameter; past the last parameter the last (variadic) one stays active. Triggers: `(` and `,`.
+`open_call` scans back from the cursor to the unmatched `(` and reads the callee (`name` or `Module.name`), the argument index, and a `name =` being typed. If the check recorded a call starting at that callee, its overload set is shown with the chosen overload active. Otherwise (the usual case while typing, when the line does not parse) the cursor's line is blanked and `ide_callee` looks the callee up in the scope at the cursor. A named argument selects its parameter; past the last parameter the last (variadic) one stays active. A callee that is no procedure but a variable, constant or member of procedure type (`f: My_Func_Type; f(`, `s.callback(`) is resolved with `ide_callee_value`: one signature labelled `name: (s64, string) -> s64`. A procedure type records no parameter names, so the parameters are shown by type and named arguments select nothing. Triggers: `(` and `,`.
 
 ### Semantic tokens
 
@@ -373,7 +376,7 @@ A here-string whose terminator names a language (`#string WGSL`, `#string,cr sql
 
 ### Syntax-only extras
 
-- **Workspace symbols** search the declaration rows of every open document (top-level and nested), case-insensitive substring.
+- **Workspace symbols** search the declaration rows of every open document (top-level and nested), then the top-level declarations of the project's other `.jai` files (`Session::project_symbols`), case-insensitive substring. Those files are the ones the auto-import walk lists under the workspace folders and the open documents' programs ([indexing](#auto-import-completion)); they are scanned from tokens and never compiled, so `#scope_file` names are included and nothing is nested or has a container. At most `Limits::symbols` come back in all, open documents first.
 - **Folding ranges** pair `{}`, `()` and `[]` across lines (ending on the line before the closer) and fold runs of `#import`/`#load` lines as `imports`.
 - **Code lenses** come from `ide_polymorphs`: each polymorphic procedure in the file with its instances' bindings (`T = s64`). Instances exist only for calls the check reached.
 
@@ -383,6 +386,8 @@ A here-string whose terminator names a language (`#string WGSL`, `#string,cr sql
 
 - `jai/source` (`{uri}` → text or `null`): the text of a definition target the client has not opened (a browser editor can show stdlib files read-only), from the open documents or the environment's file system, or of a `jai-expansion:` URI;
 - `jai/expansion` (`{textDocument, position}` → expansion or `null`).
+
+**A panic does not end the session.** `handle_json` runs each request and notification under `catch_unwind`. A panic becomes an `InternalError` (-32603) response (a `window/logMessage` for a notification) and a line on stderr, and `Session::reset_caches` drops the compile cache and the auto-import index, which are rebuilt on demand. Open documents are untouched. Debug builds (`debug_assertions`) have a request `jai/debugPanic` that panics, which the tests use. Builds that abort on panic (`panic = "abort"`, wasm) cannot recover.
 
 `initialize` advertises each provider, the token legend, the commands, and `experimental.jai.expansions: true`.
 
@@ -414,6 +419,7 @@ Tests:
 - `crates/jai-language-server/tests/auto_import.rs`: auto-import completion: stdlib prefix matches and the `#import` edit, placement after existing imports (not inside `#if`), imported modules and visible names left out, ranking, the two-character minimum and the cap, target-OS filtering, project modules and `#load`s of project files, names of already-loaded files, `jai.toml` entries and `import_path`, re-reading a changed file, the JSON fields and the setting. Unit tests in `exports.rs` (the scanner) and `project.rs` (`jai.toml`, relative paths).
 - `crates/jai-language-server/tests/links.rs`: definition and document links for `#import` (stdlib, `modules/`, `Name.jai` before `Name/module.jai`, missing module), `#import,file`, `#import,dir` and `#load`; module names; names through a module, `using` re-exports and plain imports.
 - `crates/jai-language-server/tests/protocol.rs`: hover format negotiation (`markdown` listed or not).
+- `crates/jai-language-server/tests/resilience.rs`: a panicking request, and settings files that do not parse.
 - Unit tests: `hover.rs` (escaping, fences, sections), `links.rs` (directive scanning), `format.rs` (directive semantics), `features.rs` (call scanning, inlining, declarations), `jaic/src/sema/ide_meta.rs` (substitution, dedent).
 - `crates/jai-wasm/src/language_server.rs`: hover, completion, inlay hints, expansions, format strings and `#import` links into the bundled stdlib through the wasm bridge with the bundled stdlib.
 - `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>`: the same against the real WebAssembly module.

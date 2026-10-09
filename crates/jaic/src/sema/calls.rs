@@ -408,6 +408,9 @@ impl Compiler {
             }
         }
         if best.is_empty() {
+            if self.ide.is_some() {
+                self.ide_note_unmatched_inferred(procs, &args, span);
+            }
             let name = procs
                 .first()
                 .map(|&p| self.proc(p).name.to_string())
@@ -437,10 +440,15 @@ impl Compiler {
                 )
             });
         }
+        // Several equally good candidates: the editor keeps the whole overload set.
+        let ambiguous = best.len() > 1 && {
+            let key = |c: &Candidate| (self.proc(c.proc).bindings.is_some(), c.specificity);
+            key(&best[0]) == key(&best[1])
+        };
         let chosen = best.swap_remove(0);
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
         if self.ide.is_some() {
-            self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args);
+            self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args, ambiguous);
         }
         self.emit_call(f, scope, chosen, args, span)
     }

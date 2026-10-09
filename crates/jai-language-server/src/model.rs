@@ -108,6 +108,9 @@ pub struct CompletionItem {
     pub documentation: Option<String>,
     /// What to insert instead of the label: an LSP snippet for `CompletionKind::Snippet`.
     pub insert_text: Option<String>,
+    /// The range accepting the item replaces (`textEdit`): the whole word being completed,
+    /// the part after the cursor included. Without it the client picks the range itself.
+    pub replace: Option<Range>,
     /// Shown after the label, dimmed (`labelDetails.description`): an auto-import's module.
     pub label_description: Option<String>,
     /// Sorts the item among the others instead of its label (`sortText`).

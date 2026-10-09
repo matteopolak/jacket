@@ -65,6 +65,18 @@ impl Session {
     }
 
     /// The client's workspace folders (absolute paths).
+    /// Messages for the user the server has found since the last call (a settings file that
+    /// does not parse), each to be sent once.
+    pub fn take_messages(&self) -> Vec<String> {
+        self.index.borrow_mut().take_messages()
+    }
+
+    /// Drop everything cached (compiles, scans) after a failure: it is rebuilt on demand.
+    pub fn reset_caches(&self) {
+        *self.semantic.borrow_mut() = Default::default();
+        *self.index.borrow_mut() = Default::default();
+    }
+
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.workspace_folders = folders;
     }
@@ -722,8 +734,15 @@ impl Session {
             while s > 0 && ident(bytes[s - 1]) {
                 s -= 1;
             }
+            if s == end
+                && chain.is_empty()
+                && !(end > 0 && matches!(bytes[end - 1], b')' | b']' | b'}' | b'"' | b'\''))
+            {
+                // `.Member` with an inferred type: the enum its context expects.
+                return self.inferred_completion(uri, text, byte, end, prefix);
+            }
             if s == end || bytes[s].is_ascii_digit() {
-                // `.Member` with an inferred type, `f().x`, a number: nothing to offer.
+                // `f().x`, a number: nothing to offer.
                 return Some((prefix, Vec::new()));
             }
             chain.push(&text[s..end]);
@@ -733,6 +752,45 @@ impl Session {
         let probe = repair(&format!("{}{}", &text[..at], &text[byte..]), Some(at))?;
         let names = self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &chain))?;
         Some((prefix, names))
+    }
+
+    /// Members for `.NAME` typed with `dot` the offset of the `.`: the probe holds a
+    /// placeholder name in place of the word (so the compiler records the type its context
+    /// expects), and the line is closed with whichever of a few endings makes the file parse.
+    fn inferred_completion(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+        dot: usize,
+        prefix: String,
+    ) -> Option<(String, Vec<IdeName>)> {
+        const PLACEHOLDER: &str = "__jailsp_member";
+        const ENDINGS: [&str; 10] = ["", ";", ")", ");", "))", ")));", "]", "];", " {}", ") {}"];
+        let ident = |c: char| c.is_alphanumeric() || c == '_';
+        let tail = byte
+            + text[byte..]
+                .find(|c: char| !ident(c))
+                .unwrap_or(text.len() - byte);
+        let line_end = text[tail..].find('\n').map_or(text.len(), |i| tail + i);
+        for ending in ENDINGS {
+            let candidate = format!(
+                "{}{PLACEHOLDER}{}{ending}{}",
+                &text[..=dot],
+                &text[tail..line_end],
+                &text[line_end..]
+            );
+            let Some(probe) = repair(&candidate, None) else {
+                continue;
+            };
+            if !probe.contains(PLACEHOLDER) {
+                continue;
+            }
+            let names =
+                self.with_semantic(uri, &probe, |a, path| a.complete_inferred(path, dot + 1));
+            return Some((prefix, names.unwrap_or_default()));
+        }
+        Some((prefix, Vec::new()))
     }
 
     /// Inside the string of `#load "..."` (files and folders relative to the document) or
@@ -878,6 +936,66 @@ impl Session {
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
         }
+        let mut list = self.completion_items(uri, byte)?;
+        // Accepting an item replaces the whole word around the cursor, the letters after it
+        // included, so confirming in the middle of a word does not leave its tail behind.
+        let text = &doc.text;
+        let word = |c: char| c.is_alphanumeric() || c == '_';
+        let mut start = text[..byte]
+            .char_indices()
+            .rfind(|&(_, c)| !word(c))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let mut end = byte
+            + text[byte..]
+                .find(|c: char| !word(c))
+                .unwrap_or(text.len() - byte);
+        if start > 0
+            && text.as_bytes()[start - 1] == b'#'
+            && list.items.iter().any(|i| i.label.starts_with('#'))
+        {
+            // A directive's label includes its `#`.
+            start -= 1;
+        }
+        if let Some(quote) = self.string_path_start(text, byte) {
+            // Inside `#load "..."` / `#import "..."`: the entry after the last `/`.
+            start = quote;
+            end = byte
+                + text[byte..]
+                    .find(|c: char| c == '"' || c == '/' || c.is_whitespace())
+                    .unwrap_or(text.len() - byte);
+        }
+        if let Ok(range) = doc.index.range(text, Span::new(start, end)) {
+            for item in &mut list.items {
+                if item.replace.is_none() {
+                    item.replace = Some(range);
+                }
+            }
+        }
+        Ok(list)
+    }
+
+    /// Where the partial path being typed in an open `#load` / `#import` string starts.
+    fn string_path_start(&self, text: &str, byte: usize) -> Option<usize> {
+        let line_start = text[..byte].rfind('\n').map_or(0, |n| n + 1);
+        let line = &text[line_start..byte];
+        let quote = line.rfind('"')?;
+        if !line[..quote].matches('"').count().is_multiple_of(2) {
+            return None;
+        }
+        let directive = line[..quote]
+            .trim_end()
+            .rsplit(|c: char| c.is_whitespace() || c == '(')
+            .next()?;
+        if !(directive.starts_with("#load") || directive.starts_with("#import")) {
+            return None;
+        }
+        let typed = &line[quote + 1..];
+        Some(line_start + quote + 1 + typed.rfind('/').map_or(0, |s| s + 1))
+    }
+
+    fn completion_items(&self, uri: &DocumentUri, byte: usize) -> Result<CompletionList, Error> {
+        let doc = self.document(uri)?;
+        let position = doc.index.position(&doc.text, byte)?;
         // `#` and the start of a directive: offer directives (labels include the `#`).
         // Past the whole separator: it may be multi-byte (a no-break space).
         let word_start = doc.text[..byte]

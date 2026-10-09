@@ -51,6 +51,9 @@ pub struct IdeFacts {
     pub errors: Vec<Diagnostic>,
     /// Where each enum member's name is declared.
     pub(super) enum_decls: HashMap<(crate::types::EnumId, Sym), Span>,
+    /// The types an inferred member (`.NAME`) of the recorded files was expected to have, by
+    /// the name's span. Recorded whether or not the name exists, for completion.
+    pub(super) inferred_expected: HashMap<Span, Vec<TypeId>>,
 }
 
 /// Where a declared field lives: `field` of `declaring`, at `offset` in `owner` (a struct
@@ -802,6 +805,86 @@ impl Compiler {
         }
     }
 
+    /// The enum members an inferred `.NAME` at `offset` can stand for, from the type its
+    /// context expected (a variable's declared type, a parameter, the other side of `==`).
+    pub fn ide_inferred_members(&mut self, file: FileId, offset: u32) -> Vec<IdeName> {
+        let Some(types) = self.ide.as_ref().and_then(|ide| {
+            ide.inferred_expected
+                .iter()
+                .find(|(s, _)| s.file == file && s.start == offset)
+                .map(|(_, t)| t.clone())
+        }) else {
+            return Vec::new();
+        };
+        let mut out: Vec<IdeName> = Vec::new();
+        for t in types {
+            let t = self.types.repr_struct(t);
+            if matches!(self.types.kind(t), TypeKind::Enum(_)) {
+                for n in self.ide_members(IdeReceiver::Type(t)) {
+                    if !out.iter().any(|o| o.name == n.name) {
+                        out.push(n);
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// A call nothing accepts (typically one being typed, with arguments missing): record the
+    /// types its candidates take where an argument is an inferred `.NAME`, so completion can
+    /// still list the enum's members.
+    pub(super) fn ide_note_unmatched_inferred(
+        &mut self,
+        procs: &[ProcId],
+        args: &[super::calls::CallArg],
+        span: Span,
+    ) {
+        if !self.ide_wants(span.file) {
+            return;
+        }
+        for (i, a) in args.iter().enumerate() {
+            let Some(ast::Expr {
+                kind: ast::ExprKind::InferredMember(name),
+                ..
+            }) = &a.expr
+            else {
+                continue;
+            };
+            for &p in procs {
+                if self.proc(p).is_poly {
+                    continue;
+                }
+                let header = self.proc(p).lit.header.clone();
+                let at = match a.name {
+                    Some(n) => header
+                        .params
+                        .iter()
+                        .position(|q| q.name.map(|x| x.name) == Some(n)),
+                    None => Some(i),
+                };
+                let Some(at) = at.filter(|&k| k < header.params.len() && !header.params[k].baked)
+                else {
+                    continue;
+                };
+                // Index among the runtime parameters.
+                let k = header.params[..at].iter().filter(|q| !q.baked).count();
+                let Ok(sig) = self.signature(p, span) else {
+                    continue;
+                };
+                let Some(param) = sig.params.get(k) else {
+                    continue;
+                };
+                let ty = param.ty;
+                if let Some(ide) = self.ide.as_mut() {
+                    let seen = ide.inferred_expected.entry(name.span).or_default();
+                    if !seen.contains(&ty) {
+                        seen.push(ty);
+                    }
+                }
+            }
+        }
+    }
+
     /// An enum member's declaration.
     pub(super) fn ide_note_enum_member(&mut self, e: crate::types::EnumId, name: Sym, span: Span) {
         if self.ide.is_none() || !self.ide_wants(span.file) {
@@ -899,6 +982,17 @@ impl Compiler {
     /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
     /// starts the declaration (`name :: ...`).
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        // A struct field or enum member: the declaration its use was matched to.
+        if let Some(ide) = self.ide.as_ref()
+            && let Some((_, decl)) = ide
+                .member_uses
+                .iter()
+                .filter(|(u, _)| u.file == file && u.start <= offset && offset <= u.end)
+                .min_by_key(|(u, _)| u.end - u.start)
+            && decl.end > decl.start
+        {
+            return vec![*decl];
+        }
         let Some(r) = self.ide.as_ref().and_then(|ide| {
             ide.refs
                 .iter()
@@ -925,10 +1019,14 @@ impl Compiler {
         let spans: Vec<(Span, String)> = match &r.what {
             IdeWhat::Entity(e) => vec![(self.entity(*e).span, name)],
             // Each under its own name: an overload set can include aliases.
-            IdeWhat::Procs(ps) => ps
-                .iter()
-                .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
-                .collect(),
+            // A call that resolved to one overload goes to that one.
+            IdeWhat::Procs(ps) => match self.ide_resolved_overload(r.span, ps) {
+                Some(p) => vec![(self.proc(p).span, self.proc(p).name.to_string())],
+                None => ps
+                    .iter()
+                    .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
+                    .collect(),
+            },
             IdeWhat::Type(t) => match self.types.kind(*t) {
                 TypeKind::Struct(s) => vec![(self.types.struct_info(*s).span, name)],
                 _ => Vec::new(),

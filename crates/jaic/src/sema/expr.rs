@@ -796,6 +796,15 @@ impl Compiler {
                 format!("cannot infer the type of `.{}` here", name.name),
             );
         };
+        if self.ide.is_some()
+            && self.ide_wants_pub(name.span.file)
+            && let Some(ide) = self.ide.as_mut()
+        {
+            let seen = ide.inferred_expected.entry(name.span).or_default();
+            if !seen.contains(&t) {
+                seen.push(t);
+            }
+        }
         // Allow pointer-to-enum targets? No: enums only, but look through distinct.
         match self.types.kind(t).clone() {
             TypeKind::Enum(_) | TypeKind::Struct(_) => {

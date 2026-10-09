@@ -58,6 +58,8 @@ pub struct IdeCall {
     pub candidates: Vec<ProcId>,
     /// The procedure called (an instance when the chosen one is polymorphic).
     pub chosen: ProcId,
+    /// Several candidates fitted equally well and `chosen` is only the first of them.
+    pub ambiguous: bool,
     pub args: Vec<IdeArg>,
 }
 
@@ -451,6 +453,7 @@ impl Compiler {
         chosen: ProcId,
         slots: &[Slot],
         args: &[CallArg],
+        ambiguous: bool,
     ) {
         if !self.ide_wants_file(span.file) {
             return;
@@ -487,6 +490,7 @@ impl Compiler {
             span,
             candidates: candidates.to_vec(),
             chosen,
+            ambiguous,
             args: out,
         });
     }
@@ -527,6 +531,38 @@ impl Compiler {
             })
             .unwrap_or_default();
         calls.into_iter().map(|c| self.ide_call_info(&c)).collect()
+    }
+
+    /// The overload the call whose callee name is at `name` resolved to, out of the set `ps`
+    /// that name stands for. `None` when no call was recorded there, or when several
+    /// candidates fitted equally well.
+    pub(super) fn ide_resolved_overload(&self, name: Span, ps: &[ProcId]) -> Option<ProcId> {
+        if ps.len() < 2 {
+            return None;
+        }
+        let ide = self.ide.as_ref()?;
+        let call = ide
+            .calls
+            .iter()
+            .filter(|c| {
+                c.span.file == name.file
+                    && c.span.start <= name.start
+                    && name.end <= c.span.end
+                    && c.candidates == ps
+                    && !self
+                        .sources
+                        .snippet(Span {
+                            end: name.end,
+                            ..c.span
+                        })
+                        .contains('(')
+            })
+            .min_by_key(|c| c.span.end - c.span.start)?;
+        if call.ambiguous {
+            return None;
+        }
+        let chosen = self.proc(call.chosen).span;
+        ps.iter().copied().find(|&p| self.proc(p).span == chosen)
     }
 
     /// A procedure's header, for signature help.
@@ -603,6 +639,44 @@ impl Compiler {
             args,
             format_param,
         }
+    }
+
+    /// The signature of the procedure-typed variable, constant or member `chain` (`f`,
+    /// `s.callback`) names from `scope`. A procedure type carries no parameter names, so the
+    /// parameters are shown by type.
+    pub fn ide_callee_value(&mut self, scope: ScopeId, chain: &[Sym]) -> Option<IdeSignature> {
+        let Some(super::ide::IdeReceiver::Value(mut ty)) = self.ide_receiver(scope, chain) else {
+            return None;
+        };
+        while let Some(inner) = self.types.pointee(ty) {
+            ty = inner;
+        }
+        let TypeKind::Proc(proc) = self.types.kind(ty).clone() else {
+            return None;
+        };
+        let mut params: Vec<String> = proc.params.iter().map(|&t| self.types.name(t)).collect();
+        if proc.variadic
+            && let Some(last) = proc.params.last()
+            && let TypeKind::Array {
+                elem, ..
+            } = self.types.kind(*last)
+        {
+            let elem = *elem;
+            if let Some(slot) = params.last_mut() {
+                *slot = format!("..{}", self.types.name(elem));
+            }
+        }
+        let returns: Vec<String> = proc.returns.iter().map(|&t| self.types.name(t)).collect();
+        let mut label = format!("{}: ({})", chain.last()?, params.join(", "));
+        if !returns.is_empty() {
+            label.push_str(&format!(" -> {}", returns.join(", ")));
+        }
+        Some(IdeSignature {
+            label,
+            param_names: vec![String::new(); params.len()],
+            params,
+            span: Span::NONE,
+        })
     }
 
     /// Procedures `chain` (`name` or `Module.name`) names from `scope`, for signature help
@@ -839,7 +913,7 @@ impl Compiler {
     }
 
     /// Every recorded reference to what the identifier at `offset` names (declarations
-    /// included), as (span, is the declaration). Struct members are not tracked.
+    /// included), as (span, is the declaration). Struct fields and enum members answer from `member_uses`.
     pub fn ide_references(&self, file: FileId, offset: u32) -> Vec<(Span, bool)> {
         if let Some(members) = self.ide_member_references(file, offset) {
             return members;

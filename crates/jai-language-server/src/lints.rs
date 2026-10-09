@@ -68,18 +68,31 @@ impl Session {
         let mut dir = path.parent();
         while let Some(d) = dir {
             let file = d.join(FILE_NAME);
-            if let Some(open) = self
+            let parsed = if let Some(open) = self
                 .lint_configs
                 .iter()
                 .find(|(uri, _)| Path::new(uri.path()) == file)
             {
-                // A settings file being edited may not parse yet: use the defaults meanwhile.
-                return Some(Config::parse(&open.1.text, d).unwrap_or_default());
-            }
-            if file.is_file() {
-                return Some(Config::load(&file).unwrap_or_default());
-            }
-            dir = d.parent();
+                Config::parse(&open.1.text, d)
+            } else if file.is_file() {
+                Config::load(&file)
+            } else {
+                dir = d.parent();
+                continue;
+            };
+            // A settings file being edited may not parse yet: the defaults meanwhile, and the
+            // client hears of it once.
+            let mut index = self.index.borrow_mut();
+            return Some(match parsed {
+                Ok(config) => {
+                    index.good_config(&file);
+                    config
+                }
+                Err(problem) => {
+                    index.bad_config(&file, &problem);
+                    Config::default()
+                }
+            });
         }
         None
     }
