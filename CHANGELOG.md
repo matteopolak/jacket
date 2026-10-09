@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `tools/lsp_bench.py` benchmarks language servers over stdio (`jailsp` by default, others with `--server NAME=CMD`): first diagnostics, hover, edit-then-hover, completion while typing, references, symbols and semantic tokens on Focus, Jails, chess-jai, generated 60k and 240k line programs and single files of 25k and 100k lines, with wall time, CPU time and RSS per step, timeouts and size limits recorded as results, and `--compare`. See [language server benchmark](docs/tools/lsp-benchmark.md).
+
 - `jailsp` go-to-definition now reaches struct fields (also of anonymous structs and of `for` variables) and enum members, and goes to the one overload a call resolved to instead of the whole set. It completes `.` with the enum's members where the type is inferred (`d: Color = .`, `f(.`, `x == .`, `case .`), shows signature help for calls through procedure-typed variables and members, and lists the project's unopened files in workspace symbols.
 - `jailsp` completion items carry a `textEdit` over the whole word (the part after the cursor too), a `jai.toml` or `jailint.toml` that does not parse is reported with `window/showMessage` (once per problem; the defaults still apply), and a panic in one request is an `InternalError` response rather than the end of the server.
 

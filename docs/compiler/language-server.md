@@ -449,6 +449,7 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
   - 32 documents, 256 KiB per document, 4 MiB total.
   - 1,024 completion items and workspace symbols, 8,192 tokens.
 - Documents must use absolute `file:///...` URIs. The browser uses `file:///jai-script/<name>`. Expansion documents use `jai-expansion:///<path>?<line>:<character>`.
+- Benchmark: `python3 tools/lsp_bench.py` measures latency, CPU time and memory per request on real and large files ([language server benchmark](../tools/lsp-benchmark.md)).
 
 ## Dependencies
 
