@@ -16,7 +16,7 @@ $ jaic build uaf.jai -sanitize address && ./uaf
 
 Compile side (`Sanitize` in `crates/jaic-llvm/src/lib.rs`, applied in `emit_module`):
 
-- `address`: every function *defined* in the module gets the `sanitize_address` attribute (ASan instruments only functions carrying it, as Clang does per definition), then the `asan` module pass runs after the optimization pipeline. It instruments loads and stores, gives every `Slot` alloca and every global a redzone, and registers globals with the runtime. Codegen units each get their own ASan constructor, which is fine.
+- `address`: every function *defined* in the module gets the `sanitize_address` attribute (ASan instruments only functions carrying it, as Clang does per definition), then the `asan` module pass runs after the optimization pipeline. It instruments loads and stores, gives every `Slot` alloca and every global a redzone, and registers globals with the runtime. A sanitized build is always one codegen unit, at every optimisation level: on Intel macOS (Xcode 16's linker) only the first of several sanitized objects reached the executable's debug map, so ASan printed `main.8+0xc18` instead of `errors.jai:9` for every function in the other units. At `-O0` it also writes a `.dSYM` instead of keeping its objects (`docs/native/debug-info.md`).
 - `undefined`: the `bounds-checking<rt-abort>` function pass (Clang's `-fsanitize=local-bounds`): an access outside an object whose size LLVM can see (an alloca, a global, a `malloc` result) calls `__ubsan_handle_local_out_of_bounds_abort`. At `-O0` every value lives in a stack slot and the pass cannot trace a pointer to its object, so `sroa` runs first.
 - Both: the bounds checks run before `asan`, so ASan does not instrument the checks themselves.
 

@@ -470,7 +470,8 @@ const INSTS_PER_UNIT: usize = 5_000;
 
 /// How many modules to split codegen into: `JAIC_CODEGEN_UNITS` when set, otherwise one
 /// per core for large unoptimized builds. Optimized builds stay whole so LLVM can inline
-/// across the program.
+/// across the program. Sanitized builds stay whole too: on Intel macOS the linker records only
+/// the first sanitized unit in the debug map, and the reports lose the other units' lines.
 fn codegen_units(program: &Program, options: &Options) -> usize {
     if let Some(n) = std::env::var("JAIC_CODEGEN_UNITS")
         .ok()
@@ -479,6 +480,7 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
         return n.max(1);
     }
     if options.opt_level != OptLevel::O0
+        || options.sanitize.any()
         || options.emit_ir.is_some()
         || options.codegen.split_modules == Some(false)
         || options.codegen.ir_after.is_some()
