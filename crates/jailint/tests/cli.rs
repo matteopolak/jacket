@@ -127,3 +127,46 @@ fn a_file_a_module_loads_is_checked_as_part_of_the_module() {
     assert!(text.contains("unused variable `unused`"), "{text}");
     assert_eq!(output.status.code(), Some(1), "{text}");
 }
+
+#[test]
+fn a_file_a_nearby_program_loads_is_checked_as_part_of_that_program() {
+    let dir = scratch("loader-root");
+    let part = dir.join("tour");
+    std::fs::create_dir_all(part.join("basics")).unwrap();
+    // `basics.jai` has no entry point of its own: the program that loads it has to be the root.
+    std::fs::write(
+        part.join("main.jai"),
+        "#load \"basics/basics.jai\";\nmain :: () { run_basics(); }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        part.join("basics/basics.jai"),
+        "run_basics :: () { unused := helper(1); }\nhelper :: (x: int) -> int { return x; }\n",
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        (
+            String::from_utf8_lossy(&output.stdout).into_owned(),
+            String::from_utf8_lossy(&output.stderr).into_owned(),
+            output.status.code(),
+        )
+    };
+    let (out, err, code) = run(&["-D", "warnings", "-v", "tour/basics/basics.jai"]);
+    assert!(err.contains("main.jai"), "root should be main.jai: {err}");
+    assert!(!err.contains("did not compile completely"), "{err}");
+    assert!(out.contains("unused variable `unused`"), "{out}");
+    assert_eq!(code, Some(1), "{out}{err}");
+    // Only the listed file is reported, not the loader's other findings.
+    std::fs::write(
+        part.join("main.jai"),
+        "#load \"basics/basics.jai\";\nmain :: () { run_basics(); stray := 2; }\n",
+    )
+    .unwrap();
+    let (out, _, _) = run(&["-D", "warnings", "tour/basics/basics.jai"]);
+    assert!(!out.contains("stray"), "{out}");
+}

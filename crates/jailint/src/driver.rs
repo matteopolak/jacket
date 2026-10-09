@@ -5,6 +5,9 @@
 //! - Files another listed file `#load`s are compiled as part of it, not on their own.
 //! - A file a module's `module.jai` `#load`s is compiled as part of that module even when only
 //!   the file is listed: as a program of its own, its exported procedures would look unused.
+//! - A file a nearby program `#load`s (in its directory or up to two above) is compiled as part
+//!   of that program too, so listing only `basics.jai` of a program that loads it lints it in
+//!   context; only the listed files are reported.
 //! - `module.jai` (and a `.jai` file directly in an import directory, such as the stdlib) is
 //!   a module: it is compiled by importing it from an empty program, and every procedure in
 //!   it is checked, called or not.
@@ -161,6 +164,51 @@ fn enclosing_module(file: &Path, import_dirs: &[PathBuf]) -> Option<Root> {
     None
 }
 
+/// How far above a file `enclosing_program` looks for a program that loads it.
+const LOADER_SEARCH_LEVELS: usize = 3;
+
+/// For a file that is neither a module nor loaded by a listed file: the program that `#load`s it,
+/// searching the `.jai` files in its directory and the directories above (a few levels). Of the
+/// files that load it, the one no other loader loads is the root; ties go to the first path.
+fn enclosing_program(
+    file: &Path,
+    cache: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) -> Option<Root> {
+    let mut loaders: Vec<PathBuf> = Vec::new();
+    for dir in file.parent()?.ancestors().take(LOADER_SEARCH_LEVELS) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        let mut candidates: Vec<PathBuf> = entries
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e == "jai") && p.is_file())
+            .map(|p| canonical(&p))
+            .filter(|p| p != file)
+            .collect();
+        candidates.sort();
+        for c in candidates {
+            let loaded = cache.entry(c.clone()).or_insert_with(|| {
+                let mut set = BTreeSet::new();
+                loads(&c, &mut set);
+                set
+            });
+            if loaded.contains(file) {
+                loaders.push(c);
+            }
+        }
+    }
+    let root = loaders
+        .iter()
+        .find(|l| {
+            !loaders
+                .iter()
+                .any(|o| o != *l && cache.get(o).is_some_and(|set| set.contains(*l)))
+        })
+        .or(loaders.first())?;
+    Some(Root::Program(root.clone()))
+}
+
 /// Roots to compile and the files to report on.
 fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
     let mut listed = BTreeSet::new();
@@ -173,12 +221,14 @@ fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
     }
     let mut import_dirs = options.import_dirs.clone();
     import_dirs.push(options.stdlib.clone());
+    let mut loader_cache = BTreeMap::new();
     let mut roots: Vec<Root> = listed
         .iter()
         .filter(|f| !loaded_by_listed.contains(*f))
         .map(|f| {
             module_of(f, &import_dirs)
                 .or_else(|| enclosing_module(f, &import_dirs))
+                .or_else(|| enclosing_program(f, &mut loader_cache))
                 .unwrap_or_else(|| Root::Program(f.clone()))
         })
         .collect();
