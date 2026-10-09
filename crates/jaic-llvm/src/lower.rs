@@ -57,11 +57,27 @@ impl From<&str> for Error {
 
 type R<T> = Result<T, Error>;
 
+/// How the program is divided among modules when codegen is split (`partition.rs`).
+pub struct Plan {
+    /// The module that defines each function.
+    pub func_owner: Vec<u32>,
+    /// The module that defines each global.
+    pub global_owner: Vec<u32>,
+    /// Whether a function is referred to from a module other than its owner (or from outside
+    /// the program): only those need a name the linker can see.
+    pub func_shared: Vec<bool>,
+    pub global_shared: Vec<bool>,
+    /// Per module, the functions of other modules it holds a copy of for the optimizer to
+    /// inline (`available_externally`: never emitted).
+    pub imports: Vec<Vec<u32>>,
+    /// The same for read-only globals, which the optimizer may fold loads from.
+    pub global_imports: Vec<Vec<u32>>,
+}
+
 /// Which part of the program a module holds when codegen is split across modules.
 #[derive(Clone, Copy)]
 pub struct Shard<'p> {
-    /// The module index of each function; only the shard's own functions get bodies.
-    pub owner: &'p [u32],
+    pub plan: &'p Plan,
     pub index: u32,
 }
 
@@ -85,6 +101,20 @@ pub fn lower_program<'ctx>(
         program,
         arch,
         shard,
+        imported: shard.map_or_else(Vec::new, |s| {
+            let mut flags = vec![false; program.funcs.len()];
+            for &i in &s.plan.imports[s.index as usize] {
+                flags[i as usize] = true;
+            }
+            flags
+        }),
+        imported_globals: shard.map_or_else(Vec::new, |s| {
+            let mut flags = vec![false; program.globals.len()];
+            for &i in &s.plan.global_imports[s.index as usize] {
+                flags[i as usize] = true;
+            }
+            flags
+        }),
         funcs: cells(program.funcs.len()),
         globals: cells(program.globals.len()),
         foreigns: cells(program.foreigns.len()),
@@ -170,6 +200,9 @@ struct Backend<'ctx, 'p> {
     program: &'p Program,
     arch: Arch,
     shard: Option<Shard<'p>>,
+    /// Functions of other modules this one holds a copy of (empty without a shard).
+    imported: Vec<bool>,
+    imported_globals: Vec<bool>,
     /// Declaration of each program function, made on first use: a codegen unit declares the
     /// functions it defines and the ones those refer to, not the whole program.
     funcs: Vec<OnceCell<FunctionValue<'ctx>>>,
@@ -361,12 +394,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.foreign(id);
             }
         }
-        if self.shard.is_none_or(|s| s.index == 0) {
-            self.init_globals()?;
-            self.describe_globals();
-            if self.arch.is_wasm() {
-                self.define_multi3()?;
-            }
+        self.init_globals()?;
+        self.describe_globals();
+        if self.arch.is_wasm() && self.shard.is_none_or(|s| s.index == 0) {
+            self.define_multi3()?;
         }
         for (i, func) in self.program.funcs.iter().enumerate() {
             if let Some(func) = func
@@ -377,6 +408,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .map_err(|e| Error(format!("in '{}': {}", func.name, e.0)))?;
             }
         }
+        for (i, &import) in self.imported.iter().enumerate() {
+            if import && let Some(func) = &self.program.funcs[i] {
+                let f = self.func(i).expect("declared");
+                self.define_function(func, f)
+                    .map_err(|e| Error(format!("in '{}': {}", func.name, e.0)))?;
+            }
+        }
+        self.init_replicated()?;
         if let Some(debug) = &self.debug {
             debug.finalize();
         }
@@ -477,6 +516,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             return;
         };
         for g in &self.program.debug_globals {
+            if !self.owns_global(g.global.0 as usize) {
+                continue;
+            }
             let gv = self.global(g.global.0 as usize);
             let local = self.program.globals[g.global.0 as usize].export.is_none();
             debug.global(gv, &gv.get_name().to_string_lossy(), local, g);
@@ -688,7 +730,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     // ----- module-level declarations ---------------------------------------
 
     fn owns_func(&self, i: usize) -> bool {
-        self.shard.is_none_or(|s| s.owner[i] == s.index)
+        self.shard.is_none_or(|s| s.plan.func_owner[i] == s.index)
+    }
+
+    fn owns_global(&self, i: usize) -> bool {
+        self.shard.is_none_or(|s| s.plan.global_owner[i] == s.index)
     }
 
     /// Whether a `#program_export` is one of Wasi_Runtime's C library definitions (`malloc`,
@@ -705,9 +751,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .is_some_and(|dir| dir == "Wasi_Runtime")
     }
 
-    /// Linkage of an internal symbol: hidden and external when other modules refer to it.
-    fn internal_linkage(&self, gv: GlobalValue<'ctx>) {
-        if self.shard.is_some() {
+    /// Linkage of an internal symbol: hidden and external when other modules refer to it
+    /// (`shared`) or when it is only declared here, internal when this module alone uses it.
+    fn internal_linkage(&self, gv: GlobalValue<'ctx>, owned: bool, shared: bool) {
+        if self.shard.is_some() && (shared || !owned) {
             gv.set_linkage(Linkage::External);
             gv.set_visibility(GlobalVisibility::Hidden);
         } else {
@@ -742,7 +789,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             .module
             .add_function(&name, lowered.fn_ty, Some(Linkage::External));
         if func.linkage == IrLinkage::Internal {
-            self.internal_linkage(f.as_global_value());
+            let shared = self.shard.is_some_and(|s| s.plan.func_shared[i]);
+            self.internal_linkage(f.as_global_value(), self.owns_func(i), shared);
         } else if self.arch.is_windows() && self.owns_func(i) {
             // `#program_export`: in a DLL's export table (harmless in an executable).
             f.as_global_value()
@@ -753,6 +801,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 AttributeLoc::Function,
                 self.ctx.create_string_attribute("wasm-export-name", &name),
             );
+        }
+        if self.imported.get(i).copied().unwrap_or(false) {
+            f.as_global_value()
+                .set_linkage(Linkage::AvailableExternally);
         }
         self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
         // Keep a frame record in every function that calls another, as clang does by default
@@ -891,8 +943,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .unwrap_or_else(|| format!("{}.{i}", g.name));
             let gv = self.module.add_global(ty, None, &name);
             gv.set_linkage(Linkage::External);
-            if g.export.is_none() {
-                self.internal_linkage(gv);
+            if self.replicated(g) {
+                gv.set_linkage(Linkage::Internal);
+            } else if g.export.is_none() {
+                let shared = self.shard.is_some_and(|s| s.plan.global_shared[i]);
+                self.internal_linkage(gv, self.owns_global(i), shared);
+            }
+            if self.imported_globals.get(i).copied().unwrap_or(false) {
+                gv.set_linkage(Linkage::AvailableExternally);
             }
             gv.set_alignment(g.align.max(1) as u32);
             gv.set_constant(g.read_only);
@@ -902,44 +960,73 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     fn init_globals(&self) -> R<()> {
         for (i, g) in self.program.globals.iter().enumerate() {
-            let mut fields: Vec<BasicValueEnum> = Vec::new();
-            for seg in Self::segments(g) {
-                match seg {
-                    Segment::Bytes(a, b) => {
-                        let bytes: Vec<IntValue> = (a..b)
-                            .map(|k| {
-                                let byte = g.init.get(k as usize).copied().unwrap_or(0);
-                                self.ctx.i8_type().const_int(byte as u64, false)
-                            })
-                            .collect();
-                        fields.push(self.ctx.i8_type().const_array(&bytes).into());
-                    }
-                    Segment::Reloc(r) => {
-                        let reloc = &g.relocs[r];
-                        let base = match reloc.target {
-                            RelocTarget::Global(id) => {
-                                self.global(id.0 as usize).as_pointer_value()
-                            }
-                            RelocTarget::Func(id) => self.func_ptr(id)?,
-                            RelocTarget::Foreign(id) => self.foreign(id.0 as usize),
-                        };
-                        let ptr = if reloc.addend == 0 {
-                            base
-                        } else {
-                            let i64t = self.ctx.i64_type();
-                            let sum = base
-                                .const_to_int(i64t)
-                                .const_add(i64t.const_int(reloc.addend as u64, true));
-                            sum.const_to_pointer(self.ptr_ty())
-                        };
-                        fields.push(ptr.into());
-                    }
-                }
+            if self.replicated(g) || !self.owns_global(i) && !self.imported_globals[i] {
+                continue;
             }
-            let init = self.ctx.const_struct(&fields, true);
-            self.global(i).set_initializer(&init);
+            self.global(i).set_initializer(&self.initializer(g)?);
         }
         Ok(())
+    }
+
+    /// Whether every module that refers to the global gets a private copy of it
+    /// (`partition::replicated`).
+    fn replicated(&self, g: &Global) -> bool {
+        self.shard.is_some() && crate::partition::replicated(g)
+    }
+
+    /// Give the private copies this module declared their contents.
+    fn init_replicated(&self) -> R<()> {
+        for (i, g) in self.program.globals.iter().enumerate() {
+            if self.replicated(g) && self.globals[i].get().is_some() {
+                self.global(i).set_initializer(&self.initializer(g)?);
+            }
+        }
+        Ok(())
+    }
+
+    fn initializer(&self, g: &Global) -> R<inkwell::values::StructValue<'ctx>> {
+        let mut fields: Vec<BasicValueEnum> = Vec::new();
+        for seg in Self::segments(g) {
+            match seg {
+                Segment::Bytes(a, b) => {
+                    // `init` may be shorter than the global: the rest is zero. Bytes go in as
+                    // one ConstantDataArray (or an all-zero aggregate) instead of one
+                    // ConstantInt per byte.
+                    let end = (b as usize).min(g.init.len());
+                    let start = (a as usize).min(end);
+                    let data = &g.init[start..end];
+                    let ty = self.ctx.i8_type().array_type((b - a) as u32);
+                    if data.iter().all(|&x| x == 0) {
+                        fields.push(ty.const_zero().into());
+                    } else if data.len() as u64 == b - a {
+                        fields.push(self.ctx.const_string(data, false).into());
+                    } else {
+                        let mut padded = data.to_vec();
+                        padded.resize((b - a) as usize, 0);
+                        fields.push(self.ctx.const_string(&padded, false).into());
+                    }
+                }
+                Segment::Reloc(r) => {
+                    let reloc = &g.relocs[r];
+                    let base = match reloc.target {
+                        RelocTarget::Global(id) => self.global(id.0 as usize).as_pointer_value(),
+                        RelocTarget::Func(id) => self.func_ptr(id)?,
+                        RelocTarget::Foreign(id) => self.foreign(id.0 as usize),
+                    };
+                    let ptr = if reloc.addend == 0 {
+                        base
+                    } else {
+                        let i64t = self.ctx.i64_type();
+                        let sum = base
+                            .const_to_int(i64t)
+                            .const_add(i64t.const_int(reloc.addend as u64, true));
+                        sum.const_to_pointer(self.ptr_ty())
+                    };
+                    fields.push(ptr.into());
+                }
+            }
+        }
+        Ok(self.ctx.const_struct(&fields, true))
     }
 
     fn func_ptr(&self, id: jaic::ir::FuncId) -> R<PointerValue<'ctx>> {

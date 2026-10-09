@@ -7,6 +7,7 @@ mod debuginfo;
 mod green;
 mod lower;
 mod msvc;
+mod partition;
 mod split;
 mod wasm;
 
@@ -502,9 +503,16 @@ pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<
 /// IR instructions per codegen unit below which splitting does not pay for itself.
 const INSTS_PER_UNIT: usize = 5_000;
 
+/// The same for optimized builds, whose modules also run the optimizer.
+const OPT_INSTS_PER_UNIT: usize = 20_000;
+
+/// Most modules an optimized build is divided into before the optimizer.
+const MAX_OPT_UNITS: usize = 8;
+
 /// How many modules to split codegen into: `JAIC_CODEGEN_UNITS` when set, otherwise one
-/// per core for large unoptimized builds. Optimized builds stay whole so LLVM can inline
-/// across the program. Sanitized builds stay whole too: on Intel macOS the linker records only
+/// per 5,000 IR instructions (at most one per core) for unoptimized builds and one per 20,000
+/// for optimized ones, which are divided by who calls whom and keep copies of small callees for
+/// inlining (`partition.rs`). Sanitized builds stay whole: on Intel macOS the linker records only
 /// the first sanitized unit in the debug map, and the reports lose the other units' lines.
 fn codegen_units(program: &Program, options: &Options) -> usize {
     if let Some(n) = std::env::var("JAIC_CODEGEN_UNITS")
@@ -513,10 +521,8 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
     {
         return n.max(1);
     }
-    if options.opt_level != OptLevel::O0
-        || options.sanitize.any()
+    if options.sanitize.any()
         || options.emit_ir.is_some()
-        || options.codegen.split_modules == Some(false)
         || options.codegen.ir_after.is_some()
         || options.codegen.bitcode_after.is_some()
         || options.codegen.bitcode_before.is_some()
@@ -525,12 +531,25 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
     }
     let insts: usize = program.funcs.iter().flatten().map(func_weight).sum();
     let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
-    (insts / INSTS_PER_UNIT).clamp(1, cores)
+    if options.opt_level == OptLevel::O0 {
+        if options.codegen.split_modules == Some(false) {
+            return 1;
+        }
+        return (insts / INSTS_PER_UNIT).clamp(1, cores);
+    }
+    // Optimized builds split before the optimizer only when it is worth the code it loses
+    // (`partition.rs`); wasm modules stay whole.
+    let wasm = options
+        .target
+        .as_deref()
+        .is_some_and(|t| t.starts_with("wasm"));
+    if wasm {
+        return 1;
+    }
+    (insts / OPT_INSTS_PER_UNIT).clamp(1, cores.min(MAX_OPT_UNITS))
 }
 
-fn func_weight(func: &jaic::ir::Func) -> usize {
-    func.blocks.iter().map(|b| b.insts.len() + 1).sum()
-}
+use partition::func_weight;
 
 /// Translate `program` to native object files, splitting codegen across threads when it
 /// is large. Returns the objects written: `path` itself, then `path.1.o`, `path.2.o`...
@@ -544,30 +563,19 @@ pub fn emit_objects(
     let program = instrumented.as_ref().unwrap_or(program);
     let units = codegen_units(program, options);
     if units == 1 {
-        // Optimized builds keep one module through the optimizer and split only machine
-        // code generation, unless `JAIC_CODEGEN_UNITS` asked for exactly one unit.
+        // A program too small to divide before the optimizer is optimized whole and only
+        // machine code generation is split, unless `JAIC_CODEGEN_UNITS` asked for exactly one
+        // unit. The objects then differ from one module's only in how many there are.
         let split = options.opt_level != OptLevel::O0
             && options.emit_ir.is_none()
-            && options.codegen.split_modules != Some(false)
             && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
         return emit_module(program, options, path, None, split, true);
     }
-    // Largest functions first, each to the lightest unit. Unit 0 also holds the globals.
-    let mut order: Vec<usize> = (0..program.funcs.len()).collect();
-    let weight = |i: usize| program.funcs[i].as_ref().map_or(0, func_weight);
-    order.sort_by_key(|&i| std::cmp::Reverse(weight(i)));
-    let mut load = vec![0usize; units];
-    load[0] = program
-        .globals
-        .iter()
-        .map(|g| g.init.len() / 64 + g.relocs.len())
-        .sum();
-    let mut owner = vec![0u32; program.funcs.len()];
-    for i in order {
-        let unit = (0..units).min_by_key(|&u| load[u]).unwrap_or(0);
-        owner[i] = unit as u32;
-        load[unit] += weight(i);
-    }
+    let plan = if options.opt_level == OptLevel::O0 {
+        partition::flat(program, units)
+    } else {
+        partition::plan(program, units)
+    };
     let paths: Vec<PathBuf> = (0..units)
         .map(|u| {
             if u == 0 {
@@ -583,10 +591,10 @@ pub fn emit_objects(
             .iter()
             .enumerate()
             .map(|(u, p)| {
-                let owner = &owner;
+                let plan = &plan;
                 scope.spawn(move || {
                     let shard = Shard {
-                        owner,
+                        plan,
                         index: u as u32,
                     };
                     emit_module(program, options, p, Some(shard), false, true).map(drop)

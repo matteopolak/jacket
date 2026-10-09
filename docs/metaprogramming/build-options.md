@@ -63,7 +63,7 @@ The build fails with an error in two cases {#bo.7}:
   - `noinline`, except on `inline` procedures.
   - `"disable-tail-calls"`.
 - `enable_loop_unrolling`, `enable_loop_vectorization` (with interleaving), `enable_slp_vectorization` and `merge_functions` are the pass builder's switches.
-- `enable_split_modules = false` keeps one codegen unit.
+- `enable_split_modules = false` keeps one codegen unit of an unoptimized build. Optimized builds ignore it: a large program is divided by call graph before the optimizer and each part is optimized on its own thread, small ones are optimized whole and split afterwards (see [LLVM backend](../native/llvm-backend.md)). `JAIC_CODEGEN_UNITS=1` in the environment asks for whole-program optimization.
 - `machine_code_optimization_setting` sets the target machine's level apart from the IR's.
 - `bitcode_optimization_setting` `.OS` and `.OZ` run `default<Os>` and `default<Oz>`.
 - `preserve_debug_info = false` turns debug information off.
