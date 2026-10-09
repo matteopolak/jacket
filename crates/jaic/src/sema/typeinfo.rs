@@ -1060,7 +1060,7 @@ impl Compiler {
             global.relocs = agg.relocs;
             self.interp
                 .refresh_global(&self.program, g)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         }
         Ok(())
     }

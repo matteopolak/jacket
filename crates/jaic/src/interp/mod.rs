@@ -158,8 +158,61 @@ impl Host for NativeHost {
 }
 
 /// A runtime failure inside interpreted code.
+///
+/// Boxed, so a `Res<T>` is a word or two wider than `T` instead of carrying a hundred bytes of
+/// failure on every load, store and arithmetic op that merely might fail.
 #[derive(Debug, Clone, Default)]
-pub struct Trap {
+pub struct Trap(Box<TrapDetails>);
+
+impl std::ops::Deref for Trap {
+    type Target = TrapDetails;
+
+    fn deref(&self) -> &TrapDetails {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Trap {
+    fn deref_mut(&mut self) -> &mut TrapDetails {
+        &mut self.0
+    }
+}
+
+impl Trap {
+    /// A failure with `message` and nothing else known yet.
+    pub fn new(message: impl Into<String>) -> Self {
+        Trap(Box::new(TrapDetails {
+            message: message.into(),
+            ..TrapDetails::default()
+        }))
+    }
+
+    /// The message, consuming the trap.
+    pub fn into_message(self) -> String {
+        self.0.message
+    }
+
+    /// The failure at `loc`.
+    pub fn at(mut self, loc: Option<(u32, u32, u32)>) -> Self {
+        self.loc = loc;
+        self
+    }
+
+    /// The failure as a `kind`.
+    pub fn of_kind(mut self, kind: Option<TrapKind>) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    /// The failure with its message replaced by `wrap(old message)`.
+    pub fn map_message(mut self, wrap: impl FnOnce(&str) -> String) -> Self {
+        self.message = wrap(&self.message);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TrapDetails {
     pub message: String,
     /// (file, line, column) of the last executed statement.
     pub loc: Option<(u32, u32, u32)>,
@@ -565,20 +618,11 @@ impl Interp {
 
     #[cold]
     fn trap<T>(&self, message: impl Into<String>) -> Res<T> {
-        Err(Trap {
-            message: message.into(),
-            loc: self.loc,
-            ..Trap::default()
-        })
+        Err(Trap::new(message).at(self.loc))
     }
 
     fn trap_of<T>(&self, kind: TrapKind, message: impl Into<String>) -> Res<T> {
-        Err(Trap {
-            message: message.into(),
-            loc: self.loc,
-            kind: Some(kind),
-            ..Trap::default()
-        })
+        Err(Trap::new(message).at(self.loc).of_kind(Some(kind)))
     }
 
     /// A failed runtime check (`ir::TRAP_*`), worded by `ir::check_message`.
@@ -967,11 +1011,10 @@ impl Interp {
         }
         if let Some(result) = self.host.foreign(&symbol, args, sig) {
             let exits = matches!(&*symbol, "exit" | "_exit");
-            return result.map_err(|m| Trap {
-                message: m,
-                loc: self.loc,
-                kind: exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
-                ..Trap::default()
+            return result.map_err(|m| {
+                Trap::new(m).at(self.loc).of_kind(
+                    exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
+                )
             });
         }
         let addr = self.foreign_addr(program, id)?;
@@ -1034,11 +1077,9 @@ impl Interp {
                 continue;
             };
             let sig = sig.clone();
-            *v = self.thunk(program, id, &sig).map_err(|m| Trap {
-                message: m,
-                loc: self.loc,
-                ..Trap::default()
-            })?;
+            *v = self
+                .thunk(program, id, &sig)
+                .map_err(|m| Trap::new(m).at(self.loc))?;
         }
         #[cfg(not(target_arch = "wasm32"))]
         self.hand_thunks_to_c();
@@ -1053,11 +1094,7 @@ impl Interp {
         #[cfg(not(target_arch = "wasm32"))]
         drop(crash_report);
         self.put_exec_state(mine);
-        result.map_err(|m| Trap {
-            message: m,
-            loc,
-            ..Trap::default()
-        })
+        result.map_err(|m| Trap::new(m).at(loc))
     }
 
     /// `native::call`, during which other threads may take the baton (unless `release` is
@@ -1845,8 +1882,7 @@ impl Interp {
                 if n > 0 && (a[0] < 4096 || a[1] < 4096) {
                     return self.null_trap("memcmp through a null pointer");
                 }
-                let (x, y) = (self.read(a[0], n), self.read(a[1], n));
-                let r: i16 = match x.cmp(&y) {
+                let r: i16 = match probe::compare(a[0], a[1], n) {
                     std::cmp::Ordering::Less => -1,
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,

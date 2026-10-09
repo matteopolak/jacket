@@ -7,46 +7,51 @@
 //! be anything. Before such an access touches a page, the kernel is asked whether it can, which
 //! reports an unmapped or protected address as an error rather than a signal:
 //!
-//! - Unix: one byte of the page goes through a per-thread pipe. `write(pipe, addr)` fails with
-//!   `EFAULT` when `addr` cannot be read, and `read(pipe, addr)` when it cannot be written.
-//! - Windows: `VirtualQuery` says whether the page is committed and allows the access.
+//! - macOS: `mach_vm_region` describes the whole mapping the address lies in and what it allows.
+//! - Other Unix: one byte of the page goes through a per-thread pipe. `write(pipe, addr)` fails
+//!   with `EFAULT` when `addr` cannot be read, and `read(pipe, addr)` when it cannot be written.
+//! - Windows: `VirtualQuery` says whether the pages are committed and allow the access.
 //! - wasm32: program memory is the linear memory, so the address only has to lie inside it.
 //!
-//! Asking costs system calls, and a metaprogram's messages are read a field at a time, so the
-//! pages found accessible are remembered until memory may have been released: every foreign
-//! call (`free`, `munmap`, or C code that frees) and every interpreter block freed calls
-//! `invalidate`.
+//! Asking costs system calls, and a metaprogram's messages are read a field at a time, so what
+//! was found accessible is remembered, as pages and as the larger ranges the system described,
+//! until memory may have been released: every foreign call (`free`, `munmap`, or C code that
+//! frees) and every interpreter block freed calls `invalidate`.
 #![allow(unsafe_code)]
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The granularity accesses are checked at: the smallest page size of the hosts.
 const PAGE: u64 = 4096;
 
-/// Pages remembered per thread and kind of access.
-const REMEMBERED: usize = 64;
+/// Pages remembered per thread and kind of access: a direct-mapped table, so a lookup is one
+/// index and one comparison.
+const REMEMBERED: usize = 256;
+
+/// Ranges the system described, remembered per thread and kind of access, oldest replaced first.
+const REGIONS: usize = 8;
 
 /// Bumped whenever memory may have been unmapped; remembered pages are good only while it
 /// keeps the value they were checked under.
 static EPOCH: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Default)]
-struct Checked {
-    epoch: u64,
-    readable: Vec<u64>,
-    writable: Vec<u64>,
-}
+/// A page found accessible: `(page + 1, epoch)`. An empty entry is `(0, 0)`, which no page
+/// matches (pages below 4 KiB are refused, so `page + 1` is at least 2).
+type Entry = Cell<(u64, u64)>;
+
+/// A range found accessible: `(start, end, epoch)`. An empty one has `end == 0`.
+type Region = Cell<(u64, u64, u64)>;
 
 thread_local! {
-    static CHECKED: RefCell<Checked> = RefCell::new(Checked::default());
-}
+    /// The ranges found accessible for reads and for writes, and where the next one goes.
+    static MAPPED: ([[Region; REGIONS]; 2], Cell<usize>) =
+        const { ([const { [const { Cell::new((0, 0, 0)) }; REGIONS] }; 2], Cell::new(0)) };
 
-thread_local! {
-    /// The page `accessible` answered for last, as (epoch, page + 1) for reads and for writes:
-    /// the usual access is one more field of the record just read, so it needs no lookup.
-    /// `const`, so reading it costs no lazy-initialization check.
-    static LAST: [Cell<(u64, u64)>; 2] = const { [Cell::new((0, 0)), Cell::new((0, 0))] };
+    /// Pages found accessible, for reads and for writes. `const`, so a lookup costs no
+    /// lazy-initialization check.
+    static KNOWN: [[Entry; REMEMBERED]; 2] =
+        const { [const { [const { Cell::new((0, 0)) }; REMEMBERED] }; 2] };
 }
 
 /// Forget every page found accessible: memory may have been released.
@@ -65,6 +70,21 @@ pub fn read(addr: u64, out: &mut [u8]) -> bool {
         unsafe { std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), out.len()) };
     }
     true
+}
+
+/// Compare `len` bytes of program memory at `a` and at `b`, in place. A range that cannot be
+/// read orders before one that can, and equal to another that cannot.
+pub fn compare(a: u64, b: u64, len: usize) -> std::cmp::Ordering {
+    let view = |addr: u64| {
+        // SAFETY: every page of the range was found readable.
+        accessible(addr, len, false)
+            .then(|| unsafe { std::slice::from_raw_parts(addr as *const u8, len) })
+    };
+    // An empty range may start anywhere, `from_raw_parts` wants a non-null pointer.
+    if len == 0 {
+        return std::cmp::Ordering::Equal;
+    }
+    view(a).cmp(&view(b))
 }
 
 /// Copy `bytes` into program memory at `addr`. False when any of it cannot be written.
@@ -94,47 +114,46 @@ fn accessible(addr: u64, len: usize, write: bool) -> bool {
         return false;
     }
     let epoch = EPOCH.load(Ordering::Relaxed);
-    let first = addr / PAGE;
-    let single = (end - 1) / PAGE == first;
-    if single && LAST.with(|last| last[usize::from(write)].get()) == (epoch, first + 1) {
-        return true;
-    }
-    let ok = CHECKED.with(|checked| {
-        let mut checked = checked.borrow_mut();
-        if checked.epoch != epoch {
-            *checked = Checked {
-                epoch,
-                ..Checked::default()
-            };
-        }
-        let known = if write {
-            &mut checked.writable
-        } else {
-            &mut checked.readable
-        };
+    KNOWN.with(|known| {
+        let known = &known[usize::from(write)];
         let mut page = addr / PAGE;
         while page * PAGE < end {
-            if !known.contains(&page) {
-                // A byte of the page inside the range stands for the page.
-                if !sys::accessible((page * PAGE).max(addr), write) {
-                    return false;
-                }
-                if known.len() == REMEMBERED {
-                    known.remove(0);
-                }
-                known.push(page);
+            let slot = &known[page as usize % REMEMBERED];
+            if slot.get() != (page + 1, epoch)
+                && !mapped(page, (page * PAGE).max(addr), write, epoch)
+            {
+                return false;
             }
+            slot.set((page + 1, epoch));
             page += 1;
         }
         true
-    });
-    if ok && single {
-        LAST.with(|last| last[usize::from(write)].set((epoch, first + 1)));
-    }
-    ok
+    })
 }
 
-#[cfg(unix)]
+/// Is `page` inside a range found accessible, or can the system say so? `at`, a byte of the
+/// page inside the range being checked, stands for the page.
+#[cold]
+fn mapped(page: u64, at: u64, write: bool, epoch: u64) -> bool {
+    MAPPED.with(|(regions, next)| {
+        let regions = &regions[usize::from(write)];
+        let (start, end) = (page * PAGE, page * PAGE + PAGE);
+        if regions.iter().any(|r| {
+            let (s, e, ep) = r.get();
+            ep == epoch && s <= start && end <= e
+        }) {
+            return true;
+        }
+        let Some((s, e)) = sys::region(at, write) else {
+            return false;
+        };
+        regions[next.get() % REGIONS].set((s, e, epoch));
+        next.set(next.get() + 1);
+        true
+    })
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
 mod sys {
     use std::cell::Cell;
     use std::ffi::{c_int, c_void};
@@ -207,12 +226,63 @@ mod sys {
         false
     }
 
-    /// Can the byte at `at` be read (and, if asked, written)?
-    pub fn accessible(at: u64, write: bool) -> bool {
+    /// The page of `at`, if its byte can be read (and, if asked, written).
+    pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
         let mut byte = 0u8;
         let local = (&raw mut byte) as u64;
         // A write check stores back the byte just read, so only the access is tested.
-        copy_byte(at, local) && (!write || copy_byte(local, at))
+        if !(copy_byte(at, local) && (!write || copy_byte(local, at))) {
+            return None;
+        }
+        let page = at & !(super::PAGE - 1);
+        Some((page, page + super::PAGE))
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod sys {
+    use std::ffi::c_int;
+
+    /// The mapping `at` lies in, if it allows reading (and, if asked, writing).
+    pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
+        unsafe extern "C" {
+            static mach_task_self_: u32;
+
+            fn mach_vm_region(
+                task: u32,
+                address: *mut u64,
+                size: *mut u64,
+                flavor: c_int,
+                info: *mut c_int,
+                count: *mut u32,
+                object: *mut u32,
+            ) -> c_int;
+        }
+        const VM_REGION_BASIC_INFO_64: c_int = 9;
+        const READ: c_int = 1;
+        const WRITE: c_int = 2;
+        let (mut start, mut size) = (at, 0u64);
+        // `vm_region_basic_info_64`: nine words, the first being the current protection.
+        let mut info = [0 as c_int; 9];
+        let (mut count, mut object) = (info.len() as u32, 0u32);
+        // SAFETY: the buffers are as big as the flavor says; the address is only described.
+        let status = unsafe {
+            mach_vm_region(
+                mach_task_self_,
+                &mut start,
+                &mut size,
+                VM_REGION_BASIC_INFO_64,
+                info.as_mut_ptr(),
+                &mut count,
+                &mut object,
+            )
+        };
+        // The call describes the next mapping at or after `at`: one that starts later means
+        // `at` is in a gap.
+        if status != 0 || start > at || info[0] & READ == 0 || (write && info[0] & WRITE == 0) {
+            return None;
+        }
+        Some((start, start + size))
     }
 }
 
@@ -248,26 +318,29 @@ mod sys {
     /// Protections that allow writing: read-write, write-copy and their executable forms.
     const WRITABLE: u32 = 0x04 | 0x08 | 0x40 | 0x80;
 
-    /// Is the byte at `at` committed, readable and (if asked) writable?
-    pub fn accessible(at: u64, write: bool) -> bool {
+    /// The pages around `at` that are committed, readable and (if asked) writable like it is.
+    pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
         // SAFETY: an all-zero struct of plain fields is valid; VirtualQuery fills it.
         let mut info: MemoryBasicInformation = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of::<MemoryBasicInformation>();
         // SAFETY: VirtualQuery accepts any address and writes at most `size` bytes.
         if unsafe { VirtualQuery(at as *const c_void, &mut info, size) } != size {
-            return false;
+            return None;
         }
-        info.state == MEM_COMMIT
+        let allowed = info.state == MEM_COMMIT
             && info.protect & (PAGE_NOACCESS | PAGE_GUARD) == 0
-            && (!write || info.protect & WRITABLE != 0)
+            && (!write || info.protect & WRITABLE != 0);
+        let start = info.base as u64;
+        allowed.then_some((start, start + info.region_size as u64))
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 mod sys {
-    /// Is the byte inside the linear memory?
-    pub fn accessible(at: u64, _write: bool) -> bool {
-        at < core::arch::wasm32::memory_size(0) as u64 * 65536
+    /// The linear memory, if `at` is inside it.
+    pub fn region(at: u64, _write: bool) -> Option<(u64, u64)> {
+        let end = core::arch::wasm32::memory_size(0) as u64 * 65536;
+        (at < end).then_some((0, end))
     }
 }
 

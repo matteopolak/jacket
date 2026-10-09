@@ -734,11 +734,10 @@ impl Compiler {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
             // `exit` in a sandbox host (the browser playground) ends the program as returning
             // from `main` does.
-            Err(crate::interp::Trap {
-                kind: Some(crate::interp::TrapKind::Exit(code)),
-                ..
-            }) => Ok(code),
-            Err(trap) => Err(Box::new(self.runtime_error(&trap))),
+            Err(trap) => match trap.kind {
+                Some(crate::interp::TrapKind::Exit(code)) => Ok(code),
+                _ => Err(Box::new(self.runtime_error(&trap))),
+            },
         }
     }
 

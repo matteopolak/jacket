@@ -1259,10 +1259,7 @@ pub fn call(
     ) {
         interp.effects += 1;
     }
-    let trap = |message: String| Trap {
-        message,
-        ..Trap::default()
-    };
+    let trap = Trap::new;
     // Every pointer here comes from the program: reading or writing through one it made up is
     // an error, not a crash.
     let load = |interp: &Interp, p: u64| interp.read_u64(p).ok_or_else(|| unreadable(p));
@@ -1747,10 +1744,7 @@ fn field_name(interp: &Interp, p: u64) -> String {
 
 /// The error for a program pointer the compiler could not read.
 fn unreadable(p: u64) -> Trap {
-    Trap {
-        message: format!("invalid memory access: {p:#x} cannot be read"),
-        ..Trap::default()
-    }
+    Trap::new(format!("invalid memory access: {p:#x} cannot be read"))
 }
 
 /// Store `bytes` at program address `p`, or the error for one that cannot be written.
@@ -1758,10 +1752,9 @@ fn store(interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
     if interp.write(p, bytes) {
         Ok(())
     } else {
-        Err(Trap {
-            message: format!("invalid memory access: {p:#x} cannot be written"),
-            ..Trap::default()
-        })
+        Err(Trap::new(format!(
+            "invalid memory access: {p:#x} cannot be written"
+        )))
     }
 }
 

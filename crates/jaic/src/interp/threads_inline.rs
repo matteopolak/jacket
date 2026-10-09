@@ -227,12 +227,9 @@ impl Interp {
     }
 
     fn suspend<T>(&self) -> Res<T> {
-        Err(Trap {
-            message: "thread suspended".into(),
-            loc: self.loc,
-            kind: Some(TrapKind::Suspended),
-            ..Trap::default()
-        })
+        Err(Trap::new("thread suspended")
+            .at(self.loc)
+            .of_kind(Some(TrapKind::Suspended)))
     }
 
     fn take_resume(&mut self) -> Option<Resume> {
@@ -650,10 +647,7 @@ impl Interp {
                         .loc
                         .map(|(_, line, col)| format!(" (line {line}, column {col})"))
                         .unwrap_or_default();
-                    return Err(Trap {
-                        message: format!("runtime error in a thread: {}{at}", trap.message),
-                        ..trap
-                    });
+                    return Err(trap.map_message(|m| format!("runtime error in a thread: {m}{at}")));
                 }
             }
             let Some(next) = self.inline_pick() else {

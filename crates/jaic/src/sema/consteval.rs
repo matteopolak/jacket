@@ -82,7 +82,7 @@ impl Compiler {
             let addr = self
                 .interp
                 .global_addr(&self.program, g)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
             results.push(match self.read_value(addr, ty, span)? {
                 Value::Type(t) => Operand::Type(t),
                 value => Operand::Const {
@@ -296,7 +296,7 @@ impl Compiler {
         let addr = self
             .interp
             .global_addr(&self.program, g)
-            .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+            .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         self.ct_context = Some(addr);
         Ok(addr)
     }

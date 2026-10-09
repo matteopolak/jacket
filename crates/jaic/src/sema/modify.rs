@@ -258,7 +258,7 @@ impl Compiler {
             let addr = self
                 .interp
                 .global_addr(&self.program, message)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
             let text = match self.read_value(addr, TypeId::STRING, span)? {
                 Value::String(s) if !s.is_empty() => format!(": {}", String::from_utf8_lossy(&s)),
                 _ => String::new(),
@@ -273,7 +273,7 @@ impl Compiler {
             let addr = self
                 .interp
                 .global_addr(&self.program, global)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.message)))?;
+                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
             out.push((name, self.read_value(addr, ty, span)?, ty));
         }
         Ok(out)
