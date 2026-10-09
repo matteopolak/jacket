@@ -12,11 +12,6 @@ pairs :: (xs: [] int) {
     for i: 0..xs.count - 2 print("%\n", xs[i] + xs[i + 1]);
 }
 
-// Elements filled from their index.
-fill :: (xs: [] int) {
-    for i: 0..xs.count - 1 xs[i] = i * i;
-}
-
 // A grid, by row and column.
 clear :: (grid: [][3] int) {
     for r: 0..grid.count - 1 for c : 0..grid[r].count - 1 grid[r][c] = 0;
@@ -35,7 +30,6 @@ grow :: (xs: *[..] int) {
 main :: () {
     a := float.[1, 2];
     xs: [3] int;
-    fill(xs);
     pairs(xs);
     tail(xs);
     grid: [2][3] int;

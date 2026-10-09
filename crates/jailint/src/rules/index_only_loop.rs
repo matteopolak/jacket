@@ -10,10 +10,10 @@
 //! change `xs` itself (its address is taken, it is assigned, the body has `remove`), since
 //! `for xs` re-reads the count each iteration while the range was fixed at the start. Also
 //! quiet for loops that walk a grid (`for c: 0..xs[i].count - 1` inside), index other arrays
-//! with the variable or compute with it inside an index (`ys[i]`, `xs[i + 1]`), or fill
-//! elements from the index (`xs[i] = i * i`): there the index is the point. Writes
-//! to elements (`xs[i] = v`, `xs[i].f = v`, `*xs[i]`, passing `xs` to a call) make the
-//! suggestion `for *xs`. Constant arrays (`xs :: T.[...]`) are reported too, except where the
+//! with the variable or compute with it inside an index (`ys[i]`, `xs[i + 1]`). Filling
+//! elements from the index (`xs[i] = sin(i * step)`) is reported: `for *xs` with `it_index`
+//! in the value. Writes to elements (`xs[i] = v`, `xs[i].f = v`, `*xs[i]`, passing `xs` to a
+//! call) make the suggestion `for *xs`. Constant arrays (`xs :: T.[...]`) are reported too, except where the
 //! suggestion would be `for *xs`.
 use super::{PlaceUse, is_call_argument, place_use};
 use crate::syntax::{Cx, Node, is_path, root_ident, squash, walk_node};
@@ -66,8 +66,6 @@ struct Uses {
     others: Vec<jaic::source::Span>,
     /// Elements are (or may be) written: iterate by pointer.
     by_pointer: bool,
-    /// An element is assigned through the index (`xs[i] = ...`).
-    writes: bool,
     /// An `it`/`it_index` already in the body would be captured by the new loop.
     captures_it: bool,
     captures_it_index: bool,
@@ -125,7 +123,6 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         elements: Vec::new(),
         others: Vec::new(),
         by_pointer: false,
-        writes: false,
         captures_it: false,
         captures_it_index: false,
     };
@@ -196,7 +193,6 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                                 return false;
                             }
                             uses.by_pointer |= written;
-                            uses.writes |= written;
                             if inside(&rebinds_it) {
                                 uses.captures_it = true;
                             }
@@ -243,13 +239,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
             }
         }
     });
-    // `for i: 0..xs.count-1 xs[i] = i * i;` fills the array from the index: the counting
-    // loop says that as well as `for *xs it.* = it_index * it_index;` would.
-    if bail
-        || uses.elements.is_empty()
-        || (uses.writes && !uses.others.is_empty())
-        || (constant && uses.by_pointer)
-    {
+    if bail || uses.elements.is_empty() || (constant && uses.by_pointer) {
         return None;
     }
     let arr_src = cx.src(arr.span).trim();

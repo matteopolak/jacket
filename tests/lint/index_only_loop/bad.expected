@@ -1,53 +1,66 @@
 warning[index_only_loop]: `i` is only used to index `xs`
-  --> tests/lint/index_only_loop/bad.jai:10:5
+  --> tests/lint/index_only_loop/bad.jai:11:5
    |
-10 |     for i: 0..xs.count - 1 {
+11 |     for i: 0..xs.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for xs` and `it`
    |
-10 ~     for xs {
-11 ~         total += it;
+11 ~     for xs {
+12 ~         total += it;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` is only used to index `points`
-  --> tests/lint/index_only_loop/bad.jai:17:5
+  --> tests/lint/index_only_loop/bad.jai:18:5
    |
-17 |     for i: 0..points.count - 1 points[i].x += 1;
+18 |     for i: 0..points.count - 1 points[i].x += 1;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over pointers to the elements: `for *points` and `it`
    |
-17 ~     for *points it.x += 1;
+18 ~     for *points it.x += 1;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `names` to index it
-  --> tests/lint/index_only_loop/bad.jai:21:5
+  --> tests/lint/index_only_loop/bad.jai:22:5
    |
-21 |     for i: 0..names.count - 1 {
+22 |     for i: 0..names.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for names`, with `it` and `it_index`
    |
-21 ~     for names {
-22 ~         if it_index > 0 print(", ");
-23 ~         print("%", it);
+22 ~     for names {
+23 ~         if it_index > 0 print(", ");
+24 ~         print("%", it);
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` counts through `table` to index it
+  --> tests/lint/index_only_loop/bad.jai:31:5
+   |
+31 |     for i: 0..table.count-1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for *table`, with `it` and `it_index`
+   |
+31 ~     for *table {
+32 ~         it.* = sin(cast(float) it_index * 0.5);
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `stops` to index it
-  --> tests/lint/index_only_loop/bad.jai:53:5
+  --> tests/lint/index_only_loop/bad.jai:63:5
    |
-53 |     for i: 0..stops.count - 1 {
+63 |     for i: 0..stops.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for stops`, with `it` and `it_index`
    |
-53 ~     for stops {
-54 ~         print("% %\n", it_index + 1, it.title);
-55 ~         it.run();
+63 ~     for stops {
+64 ~         print("% %\n", it_index + 1, it.title);
+65 ~         it.run();
    |
    = note: `index_only_loop` is `warn` by default
 

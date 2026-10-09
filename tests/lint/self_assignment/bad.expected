@@ -4,7 +4,10 @@ warning[self_assignment]: `width` is assigned to itself
 11 |     width = width;
    |     ^^^^^^^^^^^^^
    |
-   = help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+   |
+11 ~ 
+   |
    = note: `self_assignment` is `warn` by default
 
 warning[self_assignment]: `s.height` is assigned to itself
@@ -13,6 +16,9 @@ warning[self_assignment]: `s.height` is assigned to itself
 12 |     s.height = s.height;
    |     ^^^^^^^^^^^^^^^^^^^
    |
-   = help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+   |
+12 ~ 
+   |
    = note: `self_assignment` is `warn` by default
 

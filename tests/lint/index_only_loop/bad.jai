@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Math";
 
 Point :: struct {
     x: int;
@@ -25,6 +26,13 @@ list :: (names: [] string) {
     print("\n");
 }
 
+// Elements filled from their index.
+fill :: (table: [] float) {
+    for i: 0..table.count-1 {
+        table[i] = sin(cast(float) i * 0.5);
+    }
+}
+
 main :: () {
     xs := int.[1, 2, 3];
     points: [2] Point;
@@ -32,6 +40,8 @@ main :: () {
     list(.["a", "b"]);
     print("% %\n", sum(xs), points[0].x);
     tour();
+    t: [4] float;
+    fill(t);
 }
 
 Stop :: struct {

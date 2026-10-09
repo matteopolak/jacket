@@ -40,7 +40,7 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 
 | Rule | Default | Fix | Finds |
 | --- | --- | --- | --- |
-| `absurd_comparison` | warn | no | `u >= 0`, `u < 0` with an unsigned `u`: always true or always false |
+| `absurd_comparison` | warn | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or always false |
 | `almost_swapped` | warn | no | `a = b; b = a;`, a swap that sets both to `b` |
 | `bitwise_precedence` | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | warn | yes | `x == true`, `x != false`, `false == x` |
@@ -60,17 +60,19 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `min_max` | warn | no | `min(0, max(100, x))`: a clamp with swapped bounds, always one value |
 | `needless_bool` | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
 | `no_effect` | warn | no | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
-| `range_past_count` | warn | no | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
+| `range_past_count` | warn | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
 | `redundant_cast` | warn | yes | a cast to the type the value already has |
 | `remove_in_for` | warn | no | `array_*_remove_*` on the array a `for` is walking |
-| `reversed_range` | warn | no | `for i: 10..0`: a range that never runs |
-| `self_assignment` | warn | no | `x = x;` |
+| `reversed_range` | warn | editor | `for i: 10..0`: a range that never runs |
+| `self_assignment` | warn | editor | `x = x;` |
 | `shadowed_it` | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
 | `unused_import` | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
 | `unused_result` | warn | no | `trim(line);`: a library call that only computes a value, as a statement |
 | `unused_variable` | warn | yes | a local variable that is never used |
-| `wrapping_constant` | warn | no | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps to the other operand's type |
+| `wrapping_constant` | warn | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps to the other operand's type |
+
+`yes` means `--fix` applies the fix; `editor` means the fix changes or may change behaviour, so it is only offered as a quick fix in the editor (`jailsp` code actions); `no` means no mechanical fix exists.
 
 A rule is removed once `jaic` rejects what it found (`format_arg_count`, now a [compile error](../compiler/format-string-check.md)). A `jailint.toml` that still names a removed rule fails to load with `unknown rule`, like any other unknown name.
 
@@ -80,7 +82,7 @@ Each rule's module (`crates/jailint/src/rules/<rule>.rs`) starts with a doc comm
 
 ### absurd_comparison
 
-An unsigned value is never below zero, so `if i < 0 return;` guards nothing and `while i >= 0 { ...; i -= 1; }` counting down an unsigned `i` never stops: `i` wraps to its largest value. Fires when an integer literal is compared with a non-constant integer whose type holds nothing on the other side of it (`u >= 0`, `0 > u`, `u > -1`, `s8 < -128`). Only the bottom of a type is checked: the width of aliases such as `c_ulong` differs between platforms, so a comparison with the top may matter on another one.
+The editor offers to replace the comparison by its constant answer (`--fix` does not apply it). An unsigned value is never below zero, so `if i < 0 return;` guards nothing and `while i >= 0 { ...; i -= 1; }` counting down an unsigned `i` never stops: `i` wraps to its largest value. Fires when an integer literal is compared with a non-constant integer whose type holds nothing on the other side of it (`u >= 0`, `0 > u`, `u > -1`, `s8 < -128`). Only the bottom of a type is checked: the width of aliases such as `c_ulong` differs between platforms, so a comparison with the top may matter on another one.
 
 ### almost_swapped
 
@@ -148,13 +150,12 @@ Off by default. `if total == expected` with two computed floats. Comparisons wit
 
 ### index_only_loop
 
-`for i: 0..xs.count - 1` whose `i` only indexes `xs` becomes `for xs` with `it`. When elements are written (`xs[i].x += 1`) it becomes `for *xs` with `it`. Other uses of the index become `it_index`. It stays quiet when:
+`for i: 0..xs.count - 1` whose `i` only indexes `xs` becomes `for xs` with `it`. When elements are written (`xs[i].x += 1`) it becomes `for *xs` with `it`. Other uses of the index become `it_index`, also when elements are filled from it: `for i: 0..t.count-1 { t[i] = sin(cast(float) i * step); }` becomes `for *t { it.* = sin(cast(float) it_index * step); }`. It stays quiet when:
 
 - the loop could change `xs` itself (assignment, `array_add`, taking its address, `remove`);
 - it walks a grid (`for c: 0..xs[i].count - 1` inside);
 - the index is used with other arrays or computed with inside an index (`ys[i]`, `xs[i + 1]`);
 - `xs` is a constant (`xs :: T.[...]`) and the suggestion would be `for *xs`, since a constant has no elements to point at.;
-- elements are filled from the index (`xs[i] = i * i`).
 
 ### infinite_loop
 
@@ -228,7 +229,7 @@ A range counts up, so `for i: 10..0` runs zero times; counting down is `for < i:
 
 ### self_assignment
 
-`x = x;` does nothing. After `using info;`, `width = width;` assigns the field to itself rather than the local of the same name. Fires on `=` between the same side-effect-free expression.
+`x = x;` does nothing. The editor offers to remove the statement (`--fix` does not: the slip may be on the other side). After `using info;`, `width = width;` assigns the field to itself rather than the local of the same name. Fires on `=` between the same side-effect-free expression.
 
 ### shadowed_it
 

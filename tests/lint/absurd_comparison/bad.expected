@@ -4,7 +4,10 @@ warning[absurd_comparison]: `i >= 0` is always `true`
  5 |     while i >= 0 {
    |           ^^^^^^
    |
-   = help: `u32` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+help: `u32` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+   |
+ 5 ~     while true {
+   |
    = note: `absurd_comparison` is `warn` by default
 
 warning[absurd_comparison]: `index < 0` is always `false`
@@ -13,7 +16,10 @@ warning[absurd_comparison]: `index < 0` is always `false`
 13 |     if index < 0 return false;
    |        ^^^^^^^^^
    |
-   = help: `u64` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+help: `u64` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+   |
+13 ~     if false return false;
+   |
    = note: `absurd_comparison` is `warn` by default
 
 warning[absurd_comparison]: `index < 0` is always `false`
@@ -22,7 +28,10 @@ warning[absurd_comparison]: `index < 0` is always `false`
 14 |     if 0 > index return false;
    |        ^^^^^^^^^
    |
-   = help: `u64` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+help: `u64` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+   |
+14 ~     if false return false;
+   |
    = note: `absurd_comparison` is `warn` by default
 
 warning[absurd_comparison]: `small < -128` is always `false`
@@ -31,6 +40,9 @@ warning[absurd_comparison]: `small < -128` is always `false`
 15 |     if small < -128 return false;
    |        ^^^^^^^^^^^^
    |
-   = help: `s8` holds nothing below -128; compare with a signed value, or drop the check
+help: `s8` holds nothing below -128; compare with a signed value, or drop the check
+   |
+15 ~     if false return false;
+   |
    = note: `absurd_comparison` is `warn` by default
 

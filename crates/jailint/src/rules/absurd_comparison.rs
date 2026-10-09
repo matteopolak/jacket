@@ -10,7 +10,7 @@
 //! the same at the bottom of a signed type (`s8 < -128`). Only the low end is checked: the
 //! width of aliases like `c_ulong` differs between platforms, so a comparison with the top of
 //! a type may matter on another one.
-use super::{finding, int_literal, op_text};
+use super::{int_literal, op_text, replacing};
 use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{BinOp, ExprKind as E};
@@ -66,12 +66,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("`{ty_name}` is unsigned and holds nothing below 0")
             };
-            out.push(finding(
+            // Writing the answer down is offered, not applied by `--fix`: the check is
+            // usually a bug to understand (a wrapping countdown), not text to simplify.
+            out.push(replacing(
                 e.span,
                 format!("`{shown} {} {literal}` is always `{always}`", op_text(op)),
-                Some(format!(
-                    "{why}; compare with a signed value, or drop the check"
-                )),
+                format!("{why}; compare with a signed value, or drop the check"),
+                (e.span.start as usize, e.span.end as usize),
+                always.to_string(),
+                false,
             ));
             true
         });
