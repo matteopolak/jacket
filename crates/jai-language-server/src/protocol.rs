@@ -58,6 +58,10 @@ pub struct JsonSession {
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
     refresh_diagnostics: bool,
     refreshes: u64,
+    /// Diagnostics are pushed by `flush_publications`, not with the answer to each edit.
+    defer_publications: bool,
+    /// An edit since the last flush has diagnostics to publish.
+    publications_pending: bool,
     /// The result of the request just handled when it was written straight to JSON text (a
     /// large answer built as a `Value` tree costs tens of times its size in memory).
     raw_result: Option<String>,
@@ -272,6 +276,8 @@ impl JsonSession {
             completed: VecDeque::new(),
             hover_kind: MarkupKind::PlainText,
             pull_diagnostics: false,
+            defer_publications: false,
+            publications_pending: false,
             refresh_diagnostics: false,
             refreshes: 0,
             raw_result: None,
@@ -288,6 +294,29 @@ impl JsonSession {
         } else {
             None
         }
+    }
+
+    /// Hold back `publishDiagnostics` after `didOpen`, `didChange` and the like until
+    /// `flush_publications`, so a transport can answer requests that are already waiting and
+    /// publish once typing pauses (see `DIAGNOSTICS_DEBOUNCE` in `main.rs`). Off by default:
+    /// `handle_json` then returns the publications with each notification's answer.
+    pub fn defer_publications(&mut self, on: bool) {
+        self.defer_publications = on;
+    }
+
+    /// An edit is waiting for `flush_publications`.
+    pub fn publications_pending(&self) -> bool {
+        self.publications_pending
+    }
+
+    /// The diagnostics of every open document as they are now (one compile at most), for the
+    /// edits since the last flush. Empty for a client that pulls.
+    pub fn flush_publications(&mut self) -> Result<Vec<String>, ProtocolError> {
+        if !std::mem::take(&mut self.publications_pending) {
+            return Ok(Vec::new());
+        }
+        let messages = self.publications_now();
+        self.encode(messages, None)
     }
 
     pub fn handle_json(&mut self, input: &str) -> Result<Vec<String>, ProtocolError> {
@@ -1037,10 +1066,18 @@ impl JsonSession {
         })]
     }
 
-    fn publications(&self) -> Vec<Value> {
+    fn publications(&mut self) -> Vec<Value> {
         if self.pull_diagnostics {
             return Vec::new();
         }
+        if self.defer_publications {
+            self.publications_pending = true;
+            return Vec::new();
+        }
+        self.publications_now()
+    }
+
+    fn publications_now(&self) -> Vec<Value> {
         self.session
             .publications()
             .into_iter()

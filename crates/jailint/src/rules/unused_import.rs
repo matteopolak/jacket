@@ -65,7 +65,8 @@ pub(crate) fn prepare(
                 .any(|t| matches!(t.tok, Tok::Ident(n) if n == name.name) && t.span != name.span)
                 || {
                     // Another file of the module (or one it `#load`s under an `#if`) may use it.
-                    let names = names.get_or_insert_with(|| module_identifiers(compiler, module));
+                    let names = names
+                        .get_or_insert_with(|| module_identifiers(compiler, module, file, tokens));
                     names.get(&name.name).is_some_and(|&n| n > 1)
                 };
             let declared = [file_scope, module_scope].iter().any(|&sc| {
@@ -94,7 +95,7 @@ pub(crate) fn prepare(
         {
             continue;
         }
-        let names = names.get_or_insert_with(|| module_identifiers(compiler, module));
+        let names = names.get_or_insert_with(|| module_identifiers(compiler, module, file, tokens));
         let mut found = false;
         for &n in names.keys() {
             match compiler.module_lookup(m, n) {
@@ -152,8 +153,14 @@ fn exports_entry_points(compiler: &Compiler, m: ModuleId) -> bool {
 }
 
 /// How often each identifier is written in the files of `module`, including files they
-/// `#load` that the compiler left out (an `#if` for another platform).
-fn module_identifiers(compiler: &Compiler, module: ModuleId) -> HashMap<Sym, usize> {
+/// `#load` that the compiler left out (an `#if` for another platform). `file`'s own tokens
+/// are `tokens`, so that file is not lexed again.
+fn module_identifiers(
+    compiler: &Compiler,
+    module: ModuleId,
+    file: FileId,
+    tokens: &[Token],
+) -> HashMap<Sym, usize> {
     let mut out = HashMap::default();
     let mut seen: HashSet<PathBuf> = HashSet::default();
     let mut queue: Vec<(PathBuf, String)> = Vec::new();
@@ -161,32 +168,48 @@ fn module_identifiers(compiler: &Compiler, module: ModuleId) -> HashMap<Sym, usi
         let src = compiler.sources.get(f.id);
         let path = PathBuf::from(&src.path);
         seen.insert(std::fs::canonicalize(&path).unwrap_or(path.clone()));
-        queue.push((path, src.text.to_string()));
+        if f.id == file {
+            count(tokens, &path, &mut out, &mut seen, &mut queue);
+        } else {
+            queue.push((path, src.text.to_string()));
+        }
     }
     while let Some((path, text)) = queue.pop() {
         let Ok(tokens) = jaic::lexer::lex(FileId(0), &text) else {
             continue;
         };
-        let dir = path.parent().map(PathBuf::from).unwrap_or_default();
-        for (i, t) in tokens.iter().enumerate() {
-            match &t.tok {
-                Tok::Ident(n) => *out.entry(*n).or_insert(0) += 1,
-                Tok::Directive(d) if d.as_str() == "load" => {
-                    if let Some(Tok::Str(s)) = tokens.get(i + 1).map(|t| &t.tok) {
-                        let target = dir.join(String::from_utf8_lossy(s).as_ref());
-                        let key = std::fs::canonicalize(&target).unwrap_or(target.clone());
-                        if seen.insert(key)
-                            && let Ok(text) = std::fs::read_to_string(&target)
-                        {
-                            queue.push((target, text));
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        count(&tokens, &path, &mut out, &mut seen, &mut queue);
     }
     out
+}
+
+/// Add the identifiers of a file (at `path`, with `tokens`) to `out`, and queue the files it
+/// `#load`s that are not `seen` yet.
+fn count(
+    tokens: &[Token],
+    path: &std::path::Path,
+    out: &mut HashMap<Sym, usize>,
+    seen: &mut HashSet<PathBuf>,
+    queue: &mut Vec<(PathBuf, String)>,
+) {
+    let dir = path.parent().map(PathBuf::from).unwrap_or_default();
+    for (i, t) in tokens.iter().enumerate() {
+        match &t.tok {
+            Tok::Ident(n) => *out.entry(*n).or_insert(0) += 1,
+            Tok::Directive(d) if d.as_str() == "load" => {
+                if let Some(Tok::Str(s)) = tokens.get(i + 1).map(|t| &t.tok) {
+                    let target = dir.join(String::from_utf8_lossy(s).as_ref());
+                    let key = std::fs::canonicalize(&target).unwrap_or(target.clone());
+                    if seen.insert(key)
+                        && let Ok(text) = std::fs::read_to_string(&target)
+                    {
+                        queue.push((target, text));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {

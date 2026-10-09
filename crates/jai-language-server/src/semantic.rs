@@ -453,7 +453,7 @@ thread_local! {
 /// Parse results remembered (the repair of one broken document tries about three texts).
 const PARSES_KEPT: usize = 8;
 
-fn text_key(text: &str) -> (u64, usize) {
+pub(crate) fn text_key(text: &str) -> (u64, usize) {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     text.hash(&mut h);

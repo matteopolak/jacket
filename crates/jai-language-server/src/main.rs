@@ -1,4 +1,10 @@
 //! Native transport only. The library and wasm caller never touch stdio.
+/// How long input must be quiet before the diagnostics of the edits so far are computed and
+/// published. A compile of a large program takes up to seconds and cannot be interrupted, so
+/// starting one on every `didChange` made the completion queued behind it wait for it.
+#[cfg(not(target_arch = "wasm32"))]
+const DIAGNOSTICS_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(200);
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> std::process::ExitCode {
     use std::io::{Read, Write};
@@ -7,23 +13,65 @@ fn main() -> std::process::ExitCode {
         let mut session =
             jai_language_server::JsonSession::with_environment(limits, native_environment());
         let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
-        let stdin = std::io::stdin();
+        session.defer_publications(true);
         let stdout = std::io::stdout();
-        let mut input = stdin.lock();
         let mut output = stdout.lock();
-        let mut chunk = vec![0u8; 64 * 1024];
+        // A thread reads stdin so the loop below can wait for more input with a timeout.
+        let (chunks, input) = std::sync::mpsc::channel::<std::io::Result<Vec<u8>>>();
+        std::thread::spawn(move || {
+            let mut stdin = std::io::stdin().lock();
+            let mut chunk = vec![0u8; 64 * 1024];
+            loop {
+                let sent = match stdin.read(&mut chunk) {
+                    Ok(count) => {
+                        let done = count == 0;
+                        (chunks.send(Ok(chunk[..count].to_vec())).is_err(), done)
+                    }
+                    Err(error) => (chunks.send(Err(error)).is_err(), true),
+                };
+                if sent.0 || sent.1 {
+                    return;
+                }
+            }
+        });
         loop {
-            let count = input.read(&mut chunk)?;
-            if count == 0 {
+            // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
+            // requests that are queued (completion, hover) are answered first and a burst of
+            // keystrokes costs one compile.
+            let received = if session.publications_pending() {
+                match input.recv_timeout(DIAGNOSTICS_DEBOUNCE) {
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        for response in session.flush_publications()? {
+                            output.write_all(&jai_language_server::framing::encode(&response))?;
+                        }
+                        output.flush()?;
+                        continue;
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
+                    Ok(received) => received,
+                }
+            } else {
+                input.recv().unwrap_or(Ok(Vec::new()))
+            };
+            let chunk = received?;
+            if chunk.is_empty() {
                 decoder.finish()?;
+                for response in session.flush_publications()? {
+                    output.write_all(&jai_language_server::framing::encode(&response))?;
+                }
+                output.flush()?;
                 return Ok(session.exit_status().unwrap_or(1));
             }
-            for message in decoder.push(&chunk[..count])? {
+            for message in decoder.push(&chunk)? {
                 for response in session.handle_json(&message)? {
                     output.write_all(&jai_language_server::framing::encode(&response))?;
                 }
                 output.flush()?;
                 if let Some(status) = session.exit_status() {
+                    for response in session.flush_publications()? {
+                        output.write_all(&jai_language_server::framing::encode(&response))?;
+                    }
+                    output.flush()?;
                     return Ok(status);
                 }
             }

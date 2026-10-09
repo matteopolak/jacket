@@ -275,3 +275,48 @@ fn malformed_json_invalid_identifiers_and_message_limits_fail_explicitly() {
     });
     assert!(tiny.handle_json("{\"x\":1}").is_err());
 }
+
+#[test]
+fn deferred_publications_wait_for_the_flush_and_use_the_latest_text() {
+    let mut session = JsonSession::new(Limits::default());
+    session.defer_publications(true);
+    initialize(&mut session);
+    let uri = "file:///workspace/main.jai";
+    let open = |version: i32, text: &str| {
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": version },
+                "contentChanges": [{ "text": text }],
+            },
+        })
+    };
+    assert!(
+        send(
+            &mut session,
+            json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": { "textDocument": {
+                    "uri": uri, "languageId": "jai", "version": 1, "text": "a :: 1;",
+                } },
+            })
+        )
+        .is_empty()
+    );
+    assert!(send(&mut session, open(2, "a :: 2;")).is_empty());
+    assert!(send(&mut session, open(3, "a :: 3;")).is_empty());
+    assert!(session.publications_pending());
+    let flushed: Vec<Value> = session
+        .flush_publications()
+        .unwrap()
+        .iter()
+        .map(|m| serde_json::from_str(m).unwrap())
+        .collect();
+    assert_eq!(flushed.len(), 1);
+    assert_eq!(flushed[0]["method"], "textDocument/publishDiagnostics");
+    assert_eq!(flushed[0]["params"]["version"], 3);
+    assert!(!session.publications_pending());
+    assert!(session.flush_publications().unwrap().is_empty());
+}

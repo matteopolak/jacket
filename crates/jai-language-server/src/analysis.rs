@@ -189,6 +189,9 @@ pub(crate) struct Analysis {
     /// `#load` / `#import` strings.
     pub links: Vec<crate::links::Link>,
     pub complete: bool,
+    /// Hash and length of the text this was built from, so a session can keep it while a
+    /// document is unchanged (`Session::rebuild`).
+    pub key: (u64, usize),
 }
 
 fn span_of(span: jaic::source::Span) -> Span {
@@ -212,6 +215,7 @@ impl Analysis {
             format_calls: vec![],
             links: vec![],
             complete: false,
+            key: crate::semantic::text_key(text),
         };
         let file = FileId(0);
         let tokens = match jaic::lexer::lex(file, text) {
@@ -221,26 +225,25 @@ impl Analysis {
                 return result;
             }
         };
-        let mut converted: Vec<Token> = tokens
-            .iter()
-            .filter_map(|token| {
-                let span = span_of(token.span);
-                let kind = match &token.tok {
-                    Tok::Ident(name) if KEYWORDS.contains(&name.as_str()) => TokenKind::Keyword,
-                    Tok::Ident(_) => TokenKind::Ident,
-                    Tok::Directive(_) | Tok::Note(_) => TokenKind::Directive,
-                    Tok::Int(_) | Tok::Float(_) => TokenKind::Number,
-                    Tok::Str(_) => TokenKind::String,
-                    Tok::Punct(P::Dot) => TokenKind::Dot,
-                    Tok::Punct(_) => TokenKind::Punctuation,
-                    Tok::Eof => return None,
-                };
-                Some(Token {
-                    span,
-                    kind,
-                })
+        // One entry per token but the end marker: sized once, not grown by doubling.
+        let mut converted: Vec<Token> = Vec::with_capacity(tokens.len());
+        converted.extend(tokens.iter().filter_map(|token| {
+            let span = span_of(token.span);
+            let kind = match &token.tok {
+                Tok::Ident(name) if KEYWORDS.contains(&name.as_str()) => TokenKind::Keyword,
+                Tok::Ident(_) => TokenKind::Ident,
+                Tok::Directive(_) | Tok::Note(_) => TokenKind::Directive,
+                Tok::Int(_) | Tok::Float(_) => TokenKind::Number,
+                Tok::Str(_) => TokenKind::String,
+                Tok::Punct(P::Dot) => TokenKind::Dot,
+                Tok::Punct(_) => TokenKind::Punctuation,
+                Tok::Eof => return None,
+            };
+            Some(Token {
+                span,
+                kind,
             })
-            .collect();
+        }));
         if converted.len() > limits.tokens {
             let at = converted[limits.tokens].span;
             result.diagnostic(
@@ -269,7 +272,9 @@ impl Analysis {
             );
             return result;
         }
-        let parsed = jaic::parser::parse_file(file, text);
+        let expected_rows = (tokens.len() / 16).min(limits.rows);
+        let (parsed, tokens) = jaic::parser::parse_tokens(file, text, tokens);
+        drop(tokens);
         crate::semantic::note_parse(text, parsed.as_ref().err().map(|d| d.span.start as usize));
         let parsed = match parsed {
             Ok(parsed) => parsed,
@@ -282,6 +287,7 @@ impl Analysis {
             text,
             limits,
         };
+        result.rows.reserve(expected_rows);
         let whole = Span::new(0, text.len());
         let mut private = false;
         result.top_level(&parsed.stmts, whole, &mut private, uri, &index, &context);

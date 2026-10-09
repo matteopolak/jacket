@@ -47,6 +47,21 @@ pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
     })
 }
 
+/// Parses `text` from its tokens (`lexer::lex` of the same text and `file`), handing the
+/// tokens back so a caller that also needs them does not lex twice.
+pub fn parse_tokens(
+    file: FileId,
+    text: &str,
+    tokens: Vec<Token>,
+) -> (Result<File, Diagnostic>, Vec<Token>) {
+    let mut parser = Parser::new(text, tokens);
+    let parsed = parser.parse_file_stmts().map(|stmts| File {
+        file,
+        stmts,
+    });
+    (parsed, parser.toks)
+}
+
 pub(crate) struct Parser<'a> {
     src: &'a str,
     toks: Vec<Token>,

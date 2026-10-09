@@ -186,7 +186,10 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         text,
         src: text.as_bytes(),
         at: 0,
-        out: Vec::new(),
+        // Jai source averages four to five bytes per token. Reserving once (virtual memory the
+        // pages of which are untouched until used) avoids the vector doubling to a 12 MiB
+        // block for a 25k-line file and copying at every step.
+        out: Vec::with_capacity(text.len() / 4 + 16),
         newline: true,
     };
     lx.run()?;

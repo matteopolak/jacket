@@ -74,10 +74,12 @@ pub fn lint_files(
     for &file in files {
         let path = compiler.sources.get(file).path.clone();
         let text = compiler.sources.get(file).text.clone();
-        let Ok(ast) = jaic::parser::parse_file(file, &text) else {
+        // Lex once; the parser hands the tokens back for the rules and suppressions.
+        let Ok(tokens) = jaic::lexer::lex(file, &text) else {
             continue;
         };
-        let Ok(tokens) = jaic::lexer::lex(file, &text) else {
+        let (ast, tokens) = jaic::parser::parse_tokens(file, &text, tokens);
+        let Ok(ast) = ast else {
             continue;
         };
         let wanted: Vec<&RuleInfo> = RULES

@@ -331,15 +331,19 @@ impl Session {
     }
 
     fn rebuild(&mut self) {
-        let mut analyses = BTreeMap::new();
+        // Opening, closing or editing one document leaves the others as they were: an
+        // analysis of the same text is kept. One with `#load`s is built again, because the
+        // warnings about files that are not open depend on which documents are.
+        let mut analyses: BTreeMap<DocumentUri, Rc<Analysis>> = BTreeMap::new();
         for (uri, document) in &self.documents {
-            analyses.insert(
-                uri.clone(),
-                Analysis::build(&document.text, uri, self.limits),
-            );
-        }
-        for (uri, analysis) in &mut analyses {
-            let document = &self.documents[uri];
+            let kept = self.analyses.get(uri).filter(|a| {
+                a.loads.is_empty() && a.key == crate::semantic::text_key(&document.text)
+            });
+            if let Some(kept) = kept {
+                analyses.insert(uri.clone(), kept.clone());
+                continue;
+            }
+            let mut analysis = Analysis::build(&document.text, uri, self.limits);
             for (target, span) in analysis.loads.clone() {
                 if !self.documents.contains_key(&target) {
                     analysis.diagnostic(
@@ -353,11 +357,8 @@ impl Session {
                     );
                 }
             }
+            analyses.insert(uri.clone(), Rc::new(analysis));
         }
-        let analyses: BTreeMap<DocumentUri, Rc<Analysis>> = analyses
-            .into_iter()
-            .map(|(uri, analysis)| (uri, Rc::new(analysis)))
-            .collect();
         for (uri, analysis) in &analyses {
             if analysis.complete {
                 self.parsed.insert(uri.clone(), analysis.clone());
