@@ -534,17 +534,20 @@ const MAX_OPT_UNITS: usize = 8;
 /// How many modules to split codegen into: `JAIC_CODEGEN_UNITS` when set, otherwise one
 /// per 5,000 IR instructions (at most one per core) for unoptimized builds and one per 20,000
 /// for optimized ones, which are divided by who calls whom and keep copies of small callees for
-/// inlining (`partition.rs`). Sanitized builds stay whole: on Intel macOS the linker records only
-/// the first sanitized unit in the debug map, and the reports lose the other units' lines.
+/// inlining (`partition.rs`). Sanitized builds stay whole, even under `JAIC_CODEGEN_UNITS`: on
+/// Intel macOS the linker records only the first sanitized unit in the debug map, and the reports
+/// lose the other units' lines.
 fn codegen_units(program: &Program, options: &Options) -> usize {
+    if options.sanitize.any() {
+        return 1;
+    }
     if let Some(n) = std::env::var("JAIC_CODEGEN_UNITS")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
     {
         return n.max(1);
     }
-    if options.sanitize.any()
-        || options.emit_ir.is_some()
+    if options.emit_ir.is_some()
         || options.codegen.ir_after.is_some()
         || options.codegen.bitcode_after.is_some()
         || options.codegen.bitcode_before.is_some()

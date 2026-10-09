@@ -89,27 +89,27 @@ Jails describes itself as experimental and unstable, and its readme lists go to 
 
 `tools/lsp_bench.py` starts each server fresh for each session over stdio and times a fixed script of requests on real and generated projects ([method](../../docs/tools/lsp-benchmark.md)). Milliseconds are the median of the warm sessions (two, from `--repeat 3`); CPU is the server's total user plus system seconds for a session; RSS is the peak resident set. Both servers were driven as push-diagnostics clients.
 
-Apple M5, 10 cores, 16 GiB, macOS 27.0, 9 October 2026. Both servers are release builds; jailsp is checkout `e3f2bc3b` (`jailsp 0.6.0`).
+Apple M5, 10 cores, 16 GiB, macOS 27.0, 9 October 2026. Both servers are release builds; jailsp is checkout `e15e3678` (`jailsp 0.6.0`), which includes the debounced push diagnostics.
 
 | Workload | Server | First diagnostics | Hover | Edit, then hover | Typing completion (first / median) | CPU s | Peak RSS MiB |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| chess-jai (78 KiB) | jailsp | 89 | 1.0 | 66 | 108 / 74 | 0.97 | 85 |
-| | Jails | none | n/a | n/a | 4.5 / 2.9 | 0.04 | 68 |
-| Focus (`editors.jai`, 200 KiB) | jailsp | 686 | 2.0 | 1,121 | 1,074 / 746 | 5.76 | 274 |
-| | Jails | none | n/a | n/a | 61 / 45 | 0.54 | 518 |
-| gen-60k (12 files) | jailsp | 638 | 1.3 | 332 | 424 / 163 | 3.54 | 261 |
-| | Jails | none | n/a | n/a | 18 / 16 | 0.10 | 206 |
-| gen-240k (48 files) | jailsp | 3,712 | 2.4 | 1,852 | 2,576 / 763 | 23.08 | 948 |
-| | Jails | none | n/a | n/a | 68 / 50 | 0.41 | 639 |
-| large-100k (one 3.3 MB file) | jailsp | 818 | 8.6 | 847 | 945 / 194 | 5.88 | 626 |
-| | Jails | none | n/a | n/a | 146 / 80 | 0.58 | 308 |
+| chess-jai (78 KiB) | jailsp | 241 | 0.6 | 18 | 4.9 / 3.4 | 0.26 | 82 |
+| | Jails | none | n/a | n/a | 9.1 / 4.5 | 0.05 | 69 |
+| Focus (`editors.jai`, 200 KiB) | jailsp | 522 | 1.2 | 280 | 10 / 7.4 | 1.92 | 273 |
+| | Jails | none | n/a | n/a | 60 / 44 | 0.50 | 515 |
+| gen-60k (12 files) | jailsp | 504 | 1.1 | 222 | 13 / 13 | 1.58 | 217 |
+| | Jails | none | n/a | n/a | 27 / 20 | 0.12 | 206 |
+| gen-240k (48 files) | jailsp | 2,046 | 2.4 | 1,565 | 20 / 16 | 10.10 | 646 |
+| | Jails | none | n/a | n/a | 61 / 48 | 0.41 | 638 |
+| large-100k (one 3.3 MB file) | jailsp | 1,102 | 8.9 | 400 | 239 / 228 | 3.79 | 617 |
+| | Jails | none | n/a | n/a | 151 / 88 | 0.62 | 322 |
 
 How to read it:
 
-- **First diagnostics:** `none` means Jails pushed nothing within 3 s. Its diagnostics come from a Jai compiler child process, which this machine did not have configured, so no comparison is possible. jailsp's figure includes a full type check of the program.
+- **First diagnostics:** `none` means Jails pushed nothing within 3 s. Its diagnostics come from a Jai compiler child process, which this machine did not have configured, so no comparison is possible. jailsp's figure includes a full type check of the program, and with push diagnostics it also includes the short quiet period jailsp waits for before publishing.
 - **Hover and edit-then-hover:** `n/a` means Jails does not advertise hover. jailsp's edit-then-hover includes re-checking the edited program.
-- **Typing completion:** the two servers do different work. Jails completes from its own syntax tree and is much faster here; jailsp completes from the last compile that type-checked, which is what lets it offer members by type and auto-imports. The Jails rows use a build with a one-line change (below).
-- **Memory and CPU:** Jails' peak RSS is lower on four of the five workloads and higher on Focus; its CPU time is lower on all of them, with the caveat that it type-checks nothing.
+- **Typing completion:** the two servers do different work. Jails completes from its own syntax tree; jailsp completes from the last compile that type-checked, which is what lets it offer members by type and auto-imports. In this run jailsp's median is lower than Jails' on four of the five workloads (chess-jai, Focus, gen-60k, gen-240k) and higher on large-100k (228 against 88 ms); its first keystroke after an edit is lower on the same four and higher on large-100k (239 against 151 ms). The Jails rows use a build with a one-line change (below).
+- **Memory and CPU:** Jails' peak RSS is lower on four of the five workloads (by 13 MiB or less except on large-100k, 322 against 617 MiB) and higher on Focus (515 against 273 MiB); its CPU time is lower on all of them, with the caveat that it type-checks nothing.
 - Jails as built from the pinned revision exited with a runtime crash during the typing step in six of the eight workloads in this run (`jails`, `focus-main`, `gen-60k`, `gen-240k`, `large-25k`, `large-100k`; see below). The numbers above are from the patched build. The as-built results are in the reproduction files.
 
 **The crash and the patch.** `reset_file` in Jails' `server/program.jai` calls `table_reset` on the file's declaration table before releasing the memory pool that table's entries were allocated from. After the next parse the table points into memory the pool has given back, and our `Pool` frees released blocks, so the memory is reused. With a debug build the crash is an assertion or a null dereference inside `table_add` while re-parsing after an edit. Replacing the `table_reset(*declarations);` line with a reset of the table's fields (so it allocates anew) removes the crash in a replay of the recorded session; no other change was made. We believe this is a lifetime issue in Jails' code rather than in jaic, but we did not check it against another implementation, so it is possible that the behaviour depends on the allocator in use.

@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "date": "2026-10-09T22:38:00+00:00",
+  "date": "2026-10-09T23:19:00+00:00",
   "machine": {
     "system": "Darwin",
     "release": "27.0.0",
@@ -17,7 +17,7 @@
         "/Users/matthew/projects/jai/target/release/jailsp"
       ],
       "version": "jailsp 0.6.0",
-      "commit": "e3f2bc3b32ef5a01900f119cc3f1e3b3d1c28229",
+      "commit": "e15e3678c981224bd670930ee6ec44a3bab090ef",
       "dirty": true,
       "rustc": "rustc 1.100.0-nightly (17fd5b8a3 2026-08-28)"
     }
@@ -34,184 +34,184 @@
     "jailsp/focus/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00421,
-          "warm": 0.00491,
-          "min": 0.00421,
-          "max": 0.00521,
+          "cold": 0.00273,
+          "warm": 0.00301,
+          "min": 0.00273,
+          "max": 0.00308,
           "runs": [
-            0.00421,
-            0.00461,
-            0.00521
+            0.00273,
+            0.00295,
+            0.00308
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.00305,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.77344,
+          "cpu_cold": 0.0017,
+          "cpu_warm": 0.0019,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.84121,
-          "warm": 0.53729,
-          "min": 0.51369,
-          "max": 0.84121,
+          "cold": 0.2966,
+          "warm": 0.29264,
+          "min": 0.28876,
+          "max": 0.2966,
           "runs": [
-            0.84121,
-            0.56089,
-            0.51369
+            0.2966,
+            0.29652,
+            0.28876
           ],
-          "cpu_cold": 0.454,
-          "cpu_warm": 0.4545,
-          "rss_cold": 204.7,
-          "rss_warm": 205.0,
+          "cpu_cold": 0.293,
+          "cpu_warm": 0.2895,
+          "rss_cold": 204.5,
+          "rss_warm": 204.7,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.01002,
-          "warm": 0.00213,
-          "min": 0.00186,
-          "max": 0.01002,
+          "cold": 0.00127,
+          "warm": 0.00129,
+          "min": 0.00122,
+          "max": 0.00136,
           "runs": [
-            0.01002,
-            0.0024,
-            0.00186
+            0.00127,
+            0.00122,
+            0.00136
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.002,
-          "rss_cold": 204.8,
-          "rss_warm": 205.15,
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 204.7,
+          "rss_warm": 204.85,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00201,
-          "warm": 0.00221,
-          "min": 0.00201,
-          "max": 0.00227,
+          "cold": 0.00112,
+          "warm": 0.00118,
+          "min": 0.00112,
+          "max": 0.00119,
           "runs": [
-            0.00201,
-            0.00227,
-            0.00215
+            0.00112,
+            0.00119,
+            0.00118
           ],
-          "cpu_cold": 0.01,
-          "cpu_warm": 0.01,
-          "rss_cold": 204.8,
-          "rss_warm": 205.15,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.005,
+          "rss_cold": 204.7,
+          "rss_warm": 204.85,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00105,
-          "warm": 0.00112,
-          "min": 0.00104,
-          "max": 0.00121,
+          "cold": 0.00059,
+          "warm": 0.00059,
+          "min": 0.00059,
+          "max": 0.00059,
           "runs": [
-            0.00105,
-            0.00121,
-            0.00104
+            0.00059,
+            0.00059,
+            0.00059
           ],
-          "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 204.8,
-          "rss_warm": 205.2,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 204.7,
+          "rss_warm": 204.9,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00384,
-          "warm": 0.00379,
-          "min": 0.00374,
-          "max": 0.00384,
+          "cold": 0.00208,
+          "warm": 0.00178,
+          "min": 0.00173,
+          "max": 0.00208,
           "runs": [
-            0.00384,
-            0.00383,
-            0.00374
+            0.00208,
+            0.00183,
+            0.00173
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.003,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.0015,
+          "rss_cold": 204.7,
+          "rss_warm": 204.9,
+          "status": "ok",
+          "message": ""
+        },
+        "document_symbols": {
+          "cold": 0.00317,
+          "warm": 0.00408,
+          "min": 0.00317,
+          "max": 0.00484,
+          "runs": [
+            0.00317,
+            0.00331,
+            0.00484
+          ],
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 204.9,
+          "rss_warm": 205.15,
+          "status": "ok",
+          "message": ""
+        },
+        "semantic_tokens": {
+          "cold": 0.01019,
+          "warm": 0.01041,
+          "min": 0.01002,
+          "max": 0.01081,
+          "runs": [
+            0.01019,
+            0.01081,
+            0.01002
+          ],
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.005,
           "rss_cold": 204.9,
           "rss_warm": 205.2,
           "status": "ok",
           "message": ""
         },
-        "document_symbols": {
-          "cold": 0.00628,
-          "warm": 0.00748,
-          "min": 0.00628,
-          "max": 0.00851,
-          "runs": [
-            0.00628,
-            0.00644,
-            0.00851
-          ],
-          "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 205.2,
-          "rss_warm": 205.5,
-          "status": "ok",
-          "message": ""
-        },
-        "semantic_tokens": {
-          "cold": 0.0197,
-          "warm": 0.01729,
-          "min": 0.0155,
-          "max": 0.0197,
-          "runs": [
-            0.0197,
-            0.01907,
-            0.0155
-          ],
-          "cpu_cold": 0.01,
-          "cpu_warm": 0.0085,
-          "rss_cold": 205.2,
-          "rss_warm": 205.6,
-          "status": "ok",
-          "message": ""
-        },
         "edit_hover": {
-          "cold": 0.91262,
-          "warm": 0.58411,
-          "min": 0.56086,
-          "max": 0.91262,
+          "cold": 0.27992,
+          "warm": 0.27427,
+          "min": 0.27195,
+          "max": 0.27992,
           "runs": [
-            0.91262,
-            0.56086,
-            0.60736
+            0.27992,
+            0.27195,
+            0.27659
           ],
-          "cpu_cold": 1.334,
-          "cpu_warm": 1.321,
-          "rss_cold": 207.1,
-          "rss_warm": 207.55,
+          "cpu_cold": 0.828,
+          "cpu_warm": 0.823,
+          "rss_cold": 205.8,
+          "rss_warm": 205.9,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.03334,
-          "warm": 0.01998,
-          "min": 0.01713,
-          "max": 0.03334,
+          "cold": 0.01026,
+          "warm": 0.00979,
+          "min": 0.00965,
+          "max": 0.01026,
           "runs": [
-            0.03334,
-            0.02282,
-            0.01713
+            0.01026,
+            0.00965,
+            0.00994
           ],
-          "cpu_cold": 0.187,
-          "cpu_warm": 0.179,
-          "rss_cold": 236.9,
-          "rss_warm": 236.75,
+          "cpu_cold": 0.121,
+          "cpu_warm": 0.1175,
+          "rss_cold": 236.3,
+          "rss_warm": 236.55,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.03108,
-          "warm": 0.01448,
-          "min": 0.01392,
-          "max": 0.03108,
+          "cold": 0.00696,
+          "warm": 0.00705,
+          "min": 0.00696,
+          "max": 0.00712,
           "runs": [
-            0.03108,
-            0.01392,
-            0.01504
+            0.00696,
+            0.00697,
+            0.00712
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -221,29 +221,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.98496,
-          "warm": 0.65296,
-          "min": 0.64725,
-          "max": 0.98496,
+          "cold": 0.28168,
+          "warm": 0.28045,
+          "min": 0.27922,
+          "max": 0.28168,
           "runs": [
-            0.98496,
-            0.64725,
-            0.65867
+            0.28168,
+            0.27922,
+            0.28167
           ],
-          "cpu_cold": 0.416,
-          "cpu_warm": 0.447,
-          "rss_cold": 238.2,
-          "rss_warm": 239.25,
+          "cpu_cold": 0.278,
+          "cpu_warm": 0.2775,
+          "rss_cold": 237.8,
+          "rss_warm": 237.8,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 242.7,
-      "warm_rss_mib": 242.30469,
-      "cpu_seconds_cold": 2.454,
-      "cpu_seconds": 2.4675,
-      "cpu_user_seconds": 2.159,
-      "cpu_sys_seconds": 0.3085,
+      "peak_rss_mib": 241.0,
+      "warm_rss_mib": 240.96875,
+      "cpu_seconds_cold": 1.564,
+      "cpu_seconds": 1.5515,
+      "cpu_user_seconds": 1.3375,
+      "cpu_sys_seconds": 0.214,
       "info": {
         "document_bytes": 204886,
         "document_lines": 5179,
@@ -316,19 +316,19 @@
         "symbols_count": 242,
         "tokens_count": 153535,
         "edit_hover_samples": [
-          1.02307,
-          0.87758,
-          0.91262
+          0.27992,
+          0.28897,
+          0.2703
         ],
         "typing_items": 28,
         "typing_word": "editor",
         "typing_samples": [
-          0.03334,
-          0.2467,
-          0.02119,
-          0.02882,
-          0.0107,
-          0.03456
+          0.01026,
+          0.09175,
+          0.0072,
+          0.00664,
+          0.00671,
+          0.00656
         ],
         "member_typed_items": 272
       },
@@ -337,184 +337,184 @@
     "jailsp/focus/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00557,
-          "warm": 0.0046,
-          "min": 0.00404,
-          "max": 0.00557,
+          "cold": 0.00299,
+          "warm": 0.0031,
+          "min": 0.00265,
+          "max": 0.00355,
           "runs": [
-            0.00557,
-            0.00516,
-            0.00404
+            0.00299,
+            0.00265,
+            0.00355
           ],
-          "cpu_cold": 0.0031,
-          "cpu_warm": 0.003,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.72656,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.0021,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.64265,
-          "warm": 0.68613,
-          "min": 0.64265,
-          "max": 0.69344,
+          "cold": 0.52144,
+          "warm": 0.52235,
+          "min": 0.51664,
+          "max": 0.52806,
           "runs": [
-            0.64265,
-            0.67882,
-            0.69344
+            0.52144,
+            0.51664,
+            0.52806
           ],
-          "cpu_cold": 0.521,
-          "cpu_warm": 0.5625,
-          "rss_cold": 234.8,
-          "rss_warm": 234.8,
+          "cpu_cold": 0.312,
+          "cpu_warm": 0.314,
+          "rss_cold": 234.5,
+          "rss_warm": 234.6,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00239,
-          "warm": 0.00204,
-          "min": 0.00182,
-          "max": 0.00239,
+          "cold": 0.0013,
+          "warm": 0.0012,
+          "min": 0.00118,
+          "max": 0.0013,
           "runs": [
-            0.00239,
-            0.00226,
-            0.00182
+            0.0013,
+            0.00122,
+            0.00118
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.0015,
-          "rss_cold": 235.0,
-          "rss_warm": 234.95,
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 234.6,
+          "rss_warm": 234.7,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00214,
-          "warm": 0.00215,
-          "min": 0.00214,
-          "max": 0.00215,
+          "cold": 0.00119,
+          "warm": 0.00117,
+          "min": 0.00116,
+          "max": 0.00119,
           "runs": [
-            0.00214,
-            0.00214,
-            0.00215
+            0.00119,
+            0.00116,
+            0.00118
           ],
-          "cpu_cold": 0.01,
-          "cpu_warm": 0.01,
-          "rss_cold": 235.0,
-          "rss_warm": 235.0,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.005,
+          "rss_cold": 234.6,
+          "rss_warm": 234.7,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00135,
-          "warm": 0.00109,
-          "min": 0.00109,
-          "max": 0.00135,
+          "cold": 0.00062,
+          "warm": 0.00057,
+          "min": 0.00056,
+          "max": 0.00062,
           "runs": [
-            0.00135,
-            0.00109,
-            0.0011
+            0.00062,
+            0.00056,
+            0.00058
           ],
-          "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 235.0,
-          "rss_warm": 235.0,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 234.6,
+          "rss_warm": 234.75,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.0037,
-          "warm": 0.00376,
-          "min": 0.0037,
-          "max": 0.00376,
+          "cold": 0.00195,
+          "warm": 0.00188,
+          "min": 0.00179,
+          "max": 0.00197,
           "runs": [
-            0.0037,
-            0.00376,
-            0.00375
+            0.00195,
+            0.00179,
+            0.00197
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.003,
-          "rss_cold": 235.0,
-          "rss_warm": 235.0,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 234.6,
+          "rss_warm": 234.75,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00626,
-          "warm": 0.00624,
-          "min": 0.00619,
-          "max": 0.00629,
+          "cold": 0.00312,
+          "warm": 0.00315,
+          "min": 0.00312,
+          "max": 0.00316,
           "runs": [
-            0.00626,
-            0.00629,
-            0.00619
+            0.00312,
+            0.00316,
+            0.00314
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 235.3,
-          "rss_warm": 235.3,
+          "rss_cold": 234.9,
+          "rss_warm": 235.0,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.01532,
-          "warm": 0.01514,
-          "min": 0.01426,
-          "max": 0.01602,
+          "cold": 0.01,
+          "warm": 0.01047,
+          "min": 0.01,
+          "max": 0.01063,
           "runs": [
-            0.01532,
-            0.01426,
-            0.01602
+            0.01,
+            0.01063,
+            0.01031
           ],
-          "cpu_cold": 0.008,
-          "cpu_warm": 0.0085,
-          "rss_cold": 235.3,
-          "rss_warm": 235.45,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.0055,
+          "rss_cold": 235.0,
+          "rss_warm": 235.05,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.65911,
-          "warm": 1.12144,
-          "min": 0.65911,
-          "max": 1.16687,
+          "cold": 0.2798,
+          "warm": 0.28001,
+          "min": 0.27915,
+          "max": 0.28086,
           "runs": [
-            0.65911,
-            1.07601,
-            1.16687
+            0.2798,
+            0.28086,
+            0.27915
           ],
-          "cpu_cold": 1.475,
-          "cpu_warm": 1.495,
-          "rss_cold": 238.6,
-          "rss_warm": 237.9,
+          "cpu_cold": 0.834,
+          "cpu_warm": 0.8395,
+          "rss_cold": 235.6,
+          "rss_warm": 235.65,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.76911,
-          "warm": 1.07441,
-          "min": 0.76911,
-          "max": 1.11629,
+          "cold": 0.0096,
+          "warm": 0.01,
+          "min": 0.0096,
+          "max": 0.01002,
           "runs": [
-            0.76911,
-            1.11629,
-            1.03254
+            0.0096,
+            0.01002,
+            0.00998
           ],
-          "cpu_cold": 2.166,
-          "cpu_warm": 2.187,
-          "rss_cold": 269.6,
-          "rss_warm": 268.55,
+          "cpu_cold": 0.114,
+          "cpu_warm": 0.118,
+          "rss_cold": 266.5,
+          "rss_warm": 266.3,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.70221,
-          "warm": 0.74635,
-          "min": 0.70221,
-          "max": 0.7557,
+          "cold": 0.00695,
+          "warm": 0.0074,
+          "min": 0.00695,
+          "max": 0.00761,
           "runs": [
-            0.70221,
-            0.7557,
-            0.73699
+            0.00695,
+            0.00719,
+            0.00761
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -524,29 +524,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 2.3586,
-          "warm": 2.14782,
-          "min": 2.08108,
-          "max": 2.3586,
+          "cold": 0.28081,
+          "warm": 0.28941,
+          "min": 0.28081,
+          "max": 0.29368,
           "runs": [
-            2.3586,
-            2.21457,
-            2.08108
+            0.28081,
+            0.28514,
+            0.29368
           ],
-          "cpu_cold": 1.0,
-          "cpu_warm": 0.964,
-          "rss_cold": 271.1,
-          "rss_warm": 269.85,
+          "cpu_cold": 0.277,
+          "cpu_warm": 0.2845,
+          "rss_cold": 269.0,
+          "rss_warm": 268.9,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 274.2,
-      "warm_rss_mib": 273.13281,
-      "cpu_seconds_cold": 5.743,
-      "cpu_seconds": 5.761,
-      "cpu_user_seconds": 5.0655,
-      "cpu_sys_seconds": 0.6955,
+      "peak_rss_mib": 272.6,
+      "warm_rss_mib": 272.45312,
+      "cpu_seconds_cold": 1.897,
+      "cpu_seconds": 1.9215,
+      "cpu_user_seconds": 1.6605,
+      "cpu_sys_seconds": 0.261,
       "info": {
         "document_bytes": 204886,
         "document_lines": 5179,
@@ -619,19 +619,19 @@
         "symbols_count": 242,
         "tokens_count": 153535,
         "edit_hover_samples": [
-          0.65228,
-          0.65911,
-          0.73287
+          0.28809,
+          0.27636,
+          0.2798
         ],
         "typing_items": 28,
         "typing_word": "editor",
         "typing_samples": [
-          0.76911,
-          0.945,
-          0.04787,
-          0.66329,
-          0.06445,
-          0.74112
+          0.0096,
+          0.07916,
+          0.00658,
+          0.00683,
+          0.00699,
+          0.00691
         ],
         "member_typed_items": 272
       },
@@ -640,184 +640,184 @@
     "jailsp/focus-main/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00524,
-          "warm": 0.00456,
-          "min": 0.00449,
-          "max": 0.00524,
+          "cold": 0.00287,
+          "warm": 0.00311,
+          "min": 0.00287,
+          "max": 0.00314,
           "runs": [
-            0.00524,
-            0.00463,
-            0.00449
+            0.00287,
+            0.00308,
+            0.00314
           ],
-          "cpu_cold": 0.0028,
-          "cpu_warm": 0.00315,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.76562,
+          "cpu_cold": 0.0018,
+          "cpu_warm": 0.00215,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.77344,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.57055,
-          "warm": 0.51533,
-          "min": 0.51253,
-          "max": 0.57055,
+          "cold": 0.30566,
+          "warm": 0.29825,
+          "min": 0.29627,
+          "max": 0.30566,
           "runs": [
-            0.57055,
-            0.51253,
-            0.51813
+            0.30566,
+            0.30023,
+            0.29627
           ],
-          "cpu_cold": 0.485,
-          "cpu_warm": 0.4415,
-          "rss_cold": 205.3,
-          "rss_warm": 205.1,
+          "cpu_cold": 0.302,
+          "cpu_warm": 0.2955,
+          "rss_cold": 204.9,
+          "rss_warm": 204.95,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.0024,
-          "warm": 0.0024,
-          "min": 0.00233,
-          "max": 0.00246,
+          "cold": 0.00193,
+          "warm": 0.00136,
+          "min": 0.00133,
+          "max": 0.00193,
           "runs": [
-            0.0024,
-            0.00246,
-            0.00233
+            0.00193,
+            0.00139,
+            0.00133
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.003,
-          "rss_cold": 205.4,
-          "rss_warm": 205.25,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.001,
+          "rss_cold": 205.1,
+          "rss_warm": 205.1,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00238,
-          "warm": 0.00231,
-          "min": 0.00228,
-          "max": 0.00238,
+          "cold": 0.00128,
+          "warm": 0.0013,
+          "min": 0.00121,
+          "max": 0.00139,
           "runs": [
-            0.00238,
-            0.00228,
-            0.00234
+            0.00128,
+            0.00139,
+            0.00121
           ],
-          "cpu_cold": 0.011,
-          "cpu_warm": 0.011,
-          "rss_cold": 205.4,
-          "rss_warm": 205.25,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.0055,
+          "rss_cold": 205.1,
+          "rss_warm": 205.1,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00107,
-          "warm": 0.00115,
-          "min": 0.00107,
-          "max": 0.00119,
+          "cold": 0.00087,
+          "warm": 0.0007,
+          "min": 0.00066,
+          "max": 0.00087,
           "runs": [
-            0.00107,
-            0.00111,
-            0.00119
+            0.00087,
+            0.00066,
+            0.00074
           ],
-          "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 205.4,
-          "rss_warm": 205.3,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 205.1,
+          "rss_warm": 205.15,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.0038,
-          "warm": 0.00318,
-          "min": 0.00245,
-          "max": 0.0039,
+          "cold": 0.00185,
+          "warm": 0.00203,
+          "min": 0.00185,
+          "max": 0.00211,
           "runs": [
-            0.0038,
-            0.0039,
-            0.00245
+            0.00185,
+            0.00211,
+            0.00195
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.0025,
-          "rss_cold": 205.5,
-          "rss_warm": 205.3,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 205.1,
+          "rss_warm": 205.15,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00699,
-          "warm": 0.00641,
-          "min": 0.00627,
-          "max": 0.00699,
+          "cold": 0.00349,
+          "warm": 0.00331,
+          "min": 0.00328,
+          "max": 0.00349,
           "runs": [
-            0.00699,
-            0.00655,
-            0.00627
+            0.00349,
+            0.00333,
+            0.00328
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 205.7,
-          "rss_warm": 205.6,
+          "rss_cold": 205.4,
+          "rss_warm": 205.5,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.01576,
-          "warm": 0.0185,
-          "min": 0.01576,
-          "max": 0.01942,
+          "cold": 0.01057,
+          "warm": 0.01026,
+          "min": 0.0099,
+          "max": 0.01062,
           "runs": [
-            0.01576,
-            0.01942,
-            0.01758
+            0.01057,
+            0.0099,
+            0.01062
           ],
-          "cpu_cold": 0.007,
-          "cpu_warm": 0.0095,
-          "rss_cold": 205.9,
-          "rss_warm": 205.65,
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.0055,
+          "rss_cold": 205.5,
+          "rss_warm": 205.55,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.58194,
-          "warm": 0.61387,
-          "min": 0.58194,
-          "max": 0.61697,
+          "cold": 0.28211,
+          "warm": 0.28185,
+          "min": 0.27879,
+          "max": 0.28491,
           "runs": [
-            0.58194,
-            0.61697,
-            0.61077
+            0.28211,
+            0.27879,
+            0.28491
           ],
-          "cpu_cold": 1.261,
-          "cpu_warm": 1.34,
-          "rss_cold": 208.8,
-          "rss_warm": 207.7,
+          "cpu_cold": 0.841,
+          "cpu_warm": 0.842,
+          "rss_cold": 206.3,
+          "rss_warm": 206.35,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.01957,
-          "warm": 0.01689,
-          "min": 0.01426,
-          "max": 0.01957,
+          "cold": 0.01208,
+          "warm": 0.01138,
+          "min": 0.01137,
+          "max": 0.01208,
           "runs": [
-            0.01957,
-            0.01426,
-            0.01951
+            0.01208,
+            0.01139,
+            0.01137
           ],
-          "cpu_cold": 0.186,
-          "cpu_warm": 0.186,
-          "rss_cold": 237.1,
-          "rss_warm": 237.6,
+          "cpu_cold": 0.128,
+          "cpu_warm": 0.1215,
+          "rss_cold": 237.2,
+          "rss_warm": 237.1,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.01771,
-          "warm": 0.0144,
-          "min": 0.01364,
-          "max": 0.01771,
+          "cold": 0.00849,
+          "warm": 0.00793,
+          "min": 0.00773,
+          "max": 0.00849,
           "runs": [
-            0.01771,
-            0.01364,
-            0.01515
+            0.00849,
+            0.00813,
+            0.00773
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -827,29 +827,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.67905,
-          "warm": 0.61226,
-          "min": 0.54295,
-          "max": 0.68157,
+          "cold": 0.28788,
+          "warm": 0.28836,
+          "min": 0.28451,
+          "max": 0.29221,
           "runs": [
-            0.67905,
-            0.68157,
-            0.54295
+            0.28788,
+            0.29221,
+            0.28451
           ],
-          "cpu_cold": 0.471,
-          "cpu_warm": 0.4505,
-          "rss_cold": 239.0,
-          "rss_warm": 239.05,
+          "cpu_cold": 0.284,
+          "cpu_warm": 0.2845,
+          "rss_cold": 238.3,
+          "rss_warm": 238.15,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 242.6,
-      "warm_rss_mib": 242.375,
-      "cpu_seconds_cold": 2.467,
-      "cpu_seconds": 2.4855,
-      "cpu_user_seconds": 2.168,
-      "cpu_sys_seconds": 0.3175,
+      "peak_rss_mib": 241.4,
+      "warm_rss_mib": 241.3125,
+      "cpu_seconds_cold": 1.6,
+      "cpu_seconds": 1.588,
+      "cpu_user_seconds": 1.371,
+      "cpu_sys_seconds": 0.217,
       "info": {
         "document_bytes": 204886,
         "document_lines": 5179,
@@ -922,19 +922,19 @@
         "symbols_count": 242,
         "tokens_count": 153535,
         "edit_hover_samples": [
-          0.58194,
-          0.54269,
-          0.63326
+          0.2886,
+          0.28211,
+          0.28118
         ],
         "typing_items": 28,
         "typing_word": "editor",
         "typing_samples": [
-          0.01957,
-          0.1643,
-          0.02046,
-          0.01507,
-          0.01257,
-          0.01585
+          0.01208,
+          0.08575,
+          0.00832,
+          0.00854,
+          0.00844,
+          0.0078
         ],
         "member_typed_items": 272
       },
@@ -943,184 +943,184 @@
     "jailsp/focus-main/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00421,
-          "warm": 0.00482,
-          "min": 0.00421,
-          "max": 0.00509,
+          "cold": 0.00282,
+          "warm": 0.00326,
+          "min": 0.00282,
+          "max": 0.00342,
           "runs": [
-            0.00421,
-            0.00456,
-            0.00509
+            0.00282,
+            0.00342,
+            0.0031
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.00305,
-          "rss_cold": 2.734375,
-          "rss_warm": 2.75,
+          "cpu_cold": 0.0018,
+          "cpu_warm": 0.0023,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 1.00938,
-          "warm": 1.48153,
-          "min": 1.00938,
-          "max": 1.62183,
+          "cold": 0.51939,
+          "warm": 0.52522,
+          "min": 0.51939,
+          "max": 0.53024,
           "runs": [
-            1.00938,
-            1.62183,
-            1.34122
+            0.51939,
+            0.5202,
+            0.53024
           ],
-          "cpu_cold": 0.9,
-          "cpu_warm": 0.9485,
-          "rss_cold": 209.2,
-          "rss_warm": 208.85,
+          "cpu_cold": 0.311,
+          "cpu_warm": 0.3165,
+          "rss_cold": 207.7,
+          "rss_warm": 207.65,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00263,
-          "warm": 0.00244,
-          "min": 0.00241,
-          "max": 0.00263,
+          "cold": 0.00161,
+          "warm": 0.00138,
+          "min": 0.00138,
+          "max": 0.00161,
           "runs": [
-            0.00263,
-            0.00241,
-            0.00247
+            0.00161,
+            0.00139,
+            0.00138
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.003,
-          "rss_cold": 209.2,
-          "rss_warm": 208.95,
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 207.9,
+          "rss_warm": 207.85,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00256,
-          "warm": 0.00235,
-          "min": 0.0023,
-          "max": 0.00256,
+          "cold": 0.0012,
+          "warm": 0.00133,
+          "min": 0.0012,
+          "max": 0.00136,
           "runs": [
-            0.00256,
-            0.00241,
-            0.0023
+            0.0012,
+            0.00136,
+            0.0013
           ],
-          "cpu_cold": 0.01,
-          "cpu_warm": 0.011,
-          "rss_cold": 209.3,
-          "rss_warm": 208.95,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.007,
+          "rss_cold": 207.9,
+          "rss_warm": 207.85,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00144,
-          "warm": 0.00113,
-          "min": 0.00111,
-          "max": 0.00144,
+          "cold": 0.0007,
+          "warm": 0.00073,
+          "min": 0.0007,
+          "max": 0.00076,
           "runs": [
-            0.00144,
-            0.00115,
-            0.00111
+            0.0007,
+            0.00076,
+            0.0007
           ],
-          "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 209.3,
-          "rss_warm": 208.95,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 207.9,
+          "rss_warm": 207.9,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00556,
-          "warm": 0.00382,
-          "min": 0.00381,
-          "max": 0.00556,
+          "cold": 0.00181,
+          "warm": 0.00207,
+          "min": 0.00181,
+          "max": 0.00216,
           "runs": [
-            0.00556,
-            0.00384,
-            0.00381
+            0.00181,
+            0.00199,
+            0.00216
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.003,
-          "rss_cold": 209.3,
-          "rss_warm": 208.95,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 207.9,
+          "rss_warm": 207.9,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00662,
-          "warm": 0.00595,
-          "min": 0.00534,
-          "max": 0.00662,
+          "cold": 0.00343,
+          "warm": 0.00373,
+          "min": 0.00343,
+          "max": 0.00391,
           "runs": [
-            0.00662,
-            0.00534,
-            0.00656
+            0.00343,
+            0.00355,
+            0.00391
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 209.5,
-          "rss_warm": 209.25,
+          "rss_cold": 208.2,
+          "rss_warm": 208.15,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.02168,
-          "warm": 0.0199,
-          "min": 0.01934,
-          "max": 0.02168,
+          "cold": 0.01038,
+          "warm": 0.01112,
+          "min": 0.01038,
+          "max": 0.01113,
           "runs": [
-            0.02168,
-            0.01934,
-            0.02046
+            0.01038,
+            0.01112,
+            0.01113
           ],
-          "cpu_cold": 0.01,
-          "cpu_warm": 0.0105,
-          "rss_cold": 209.7,
-          "rss_warm": 209.25,
+          "cpu_cold": 0.006,
+          "cpu_warm": 0.006,
+          "rss_cold": 208.2,
+          "rss_warm": 208.15,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.48318,
-          "warm": 0.83379,
-          "min": 0.48318,
-          "max": 0.86716,
+          "cold": 0.28661,
+          "warm": 0.28281,
+          "min": 0.28091,
+          "max": 0.28661,
           "runs": [
-            0.48318,
-            0.86716,
-            0.80041
+            0.28661,
+            0.28471,
+            0.28091
           ],
-          "cpu_cold": 1.373,
-          "cpu_warm": 1.4725,
-          "rss_cold": 210.1,
-          "rss_warm": 210.65,
+          "cpu_cold": 0.852,
+          "cpu_warm": 0.8475,
+          "rss_cold": 208.7,
+          "rss_warm": 208.7,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.76136,
-          "warm": 0.8863,
-          "min": 0.76136,
-          "max": 0.90085,
+          "cold": 0.01164,
+          "warm": 0.01193,
+          "min": 0.01164,
+          "max": 0.01201,
           "runs": [
-            0.76136,
-            0.87174,
-            0.90085
+            0.01164,
+            0.01185,
+            0.01201
           ],
-          "cpu_cold": 0.943,
-          "cpu_warm": 0.965,
-          "rss_cold": 262.7,
-          "rss_warm": 263.35,
+          "cpu_cold": 0.124,
+          "cpu_warm": 0.1255,
+          "rss_cold": 237.5,
+          "rss_warm": 237.75,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.11812,
-          "warm": 0.11446,
-          "min": 0.1139,
-          "max": 0.11812,
+          "cold": 0.00824,
+          "warm": 0.00819,
+          "min": 0.00774,
+          "max": 0.00864,
           "runs": [
-            0.11812,
-            0.11502,
-            0.1139
+            0.00824,
+            0.00774,
+            0.00864
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -1130,29 +1130,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 1.82818,
-          "warm": 1.67728,
-          "min": 1.61174,
-          "max": 1.82818,
+          "cold": 0.28671,
+          "warm": 0.29132,
+          "min": 0.28671,
+          "max": 0.29197,
           "runs": [
-            1.82818,
-            1.74282,
-            1.61174
+            0.28671,
+            0.29197,
+            0.29067
           ],
-          "cpu_cold": 0.967,
-          "cpu_warm": 0.996,
-          "rss_cold": 265.0,
-          "rss_warm": 264.85,
+          "cpu_cold": 0.283,
+          "cpu_warm": 0.2875,
+          "rss_cold": 239.1,
+          "rss_warm": 240.4,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 268.3,
-      "warm_rss_mib": 268.25,
-      "cpu_seconds_cold": 4.736,
-      "cpu_seconds": 4.9225,
-      "cpu_user_seconds": 4.281,
-      "cpu_sys_seconds": 0.6415,
+      "peak_rss_mib": 244.8,
+      "warm_rss_mib": 243.63281,
+      "cpu_seconds_cold": 1.927,
+      "cpu_seconds": 1.937,
+      "cpu_user_seconds": 1.677,
+      "cpu_sys_seconds": 0.26,
       "info": {
         "document_bytes": 204886,
         "document_lines": 5179,
@@ -1225,19 +1225,19 @@
         "symbols_count": 242,
         "tokens_count": 153535,
         "edit_hover_samples": [
-          0.51919,
-          0.48318,
-          0.46323
+          0.29182,
+          0.28661,
+          0.28519
         ],
         "typing_items": 28,
         "typing_word": "editor",
         "typing_samples": [
-          0.76136,
-          0.33997,
-          0.11145,
-          0.119,
-          0.11724,
-          0.10606
+          0.01164,
+          0.08314,
+          0.00813,
+          0.00771,
+          0.00835,
+          0.0076
         ],
         "member_typed_items": 272
       },
@@ -1246,184 +1246,184 @@
     "jailsp/jails/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00483,
-          "warm": 0.00504,
-          "min": 0.00473,
-          "max": 0.00536,
+          "cold": 0.00296,
+          "warm": 0.00319,
+          "min": 0.00296,
+          "max": 0.00329,
           "runs": [
-            0.00483,
-            0.00536,
-            0.00473
+            0.00296,
+            0.00329,
+            0.0031
           ],
-          "cpu_cold": 0.0031,
-          "cpu_warm": 0.00315,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.75781,
+          "cpu_cold": 0.0019,
+          "cpu_warm": 0.0021,
+          "rss_cold": 2.8125,
+          "rss_warm": 2.79688,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.07931,
-          "warm": 0.08325,
-          "min": 0.07931,
-          "max": 0.08352,
+          "cold": 0.0587,
+          "warm": 0.05547,
+          "min": 0.05544,
+          "max": 0.0587,
           "runs": [
-            0.07931,
-            0.08299,
-            0.08352
+            0.0587,
+            0.05544,
+            0.05549
           ],
-          "cpu_cold": 0.078,
-          "cpu_warm": 0.0825,
+          "cpu_cold": 0.057,
+          "cpu_warm": 0.055,
           "rss_cold": 56.1,
-          "rss_warm": 55.9,
+          "rss_warm": 55.95,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00142,
-          "warm": 0.00125,
-          "min": 0.00113,
-          "max": 0.00142,
+          "cold": 0.0008,
+          "warm": 0.00079,
+          "min": 0.00076,
+          "max": 0.00082,
           "runs": [
-            0.00142,
-            0.00113,
-            0.00137
+            0.0008,
+            0.00082,
+            0.00076
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.001,
-          "rss_cold": 56.2,
-          "rss_warm": 55.95,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 56.1,
+          "rss_warm": 56.05,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00139,
-          "warm": 0.00136,
-          "min": 0.00133,
-          "max": 0.00139,
+          "cold": 0.0007,
+          "warm": 0.00072,
+          "min": 0.00067,
+          "max": 0.00077,
           "runs": [
-            0.00139,
-            0.00138,
-            0.00133
+            0.0007,
+            0.00077,
+            0.00067
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.006,
-          "rss_cold": 56.2,
-          "rss_warm": 55.95,
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.0035,
+          "rss_cold": 56.1,
+          "rss_warm": 56.05,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00087,
-          "warm": 0.00069,
-          "min": 0.00059,
-          "max": 0.00087,
+          "cold": 0.00043,
+          "warm": 0.00045,
+          "min": 0.00043,
+          "max": 0.00046,
           "runs": [
-            0.00087,
-            0.00059,
-            0.00078
+            0.00043,
+            0.00046,
+            0.00043
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 56.3,
+          "rss_cold": 56.1,
           "rss_warm": 56.05,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00085,
-          "warm": 0.00138,
-          "min": 0.00085,
-          "max": 0.00142,
+          "cold": 0.00066,
+          "warm": 0.00072,
+          "min": 0.00066,
+          "max": 0.00075,
           "runs": [
-            0.00085,
-            0.00133,
-            0.00142
+            0.00066,
+            0.00075,
+            0.00068
           ],
           "cpu_cold": 0.0,
-          "cpu_warm": 0.001,
-          "rss_cold": 56.5,
+          "cpu_warm": 0.0,
+          "rss_cold": 56.2,
           "rss_warm": 56.15,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00206,
-          "warm": 0.00218,
-          "min": 0.00206,
-          "max": 0.00228,
+          "cold": 0.00111,
+          "warm": 0.00117,
+          "min": 0.00111,
+          "max": 0.00121,
           "runs": [
-            0.00206,
-            0.00228,
-            0.00209
+            0.00111,
+            0.00121,
+            0.00112
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 56.6,
-          "rss_warm": 56.35,
+          "rss_cold": 56.3,
+          "rss_warm": 56.3,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.00615,
-          "warm": 0.00562,
-          "min": 0.0049,
-          "max": 0.00634,
+          "cold": 0.00341,
+          "warm": 0.00382,
+          "min": 0.00341,
+          "max": 0.00398,
           "runs": [
-            0.00615,
-            0.0049,
-            0.00634
+            0.00341,
+            0.00398,
+            0.00366
           ],
-          "cpu_cold": 0.004,
-          "cpu_warm": 0.003,
-          "rss_cold": 56.7,
-          "rss_warm": 56.45,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.002,
+          "rss_cold": 56.4,
+          "rss_warm": 56.3,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.07073,
-          "warm": 0.0876,
-          "min": 0.07073,
-          "max": 0.09408,
+          "cold": 0.04919,
+          "warm": 0.05119,
+          "min": 0.04919,
+          "max": 0.05131,
           "runs": [
-            0.07073,
-            0.08112,
-            0.09408
+            0.04919,
+            0.05131,
+            0.05107
           ],
-          "cpu_cold": 0.198,
-          "cpu_warm": 0.2235,
-          "rss_cold": 57.7,
-          "rss_warm": 57.6,
+          "cpu_cold": 0.144,
+          "cpu_warm": 0.1515,
+          "rss_cold": 57.2,
+          "rss_warm": 57.25,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.00905,
-          "warm": 0.00961,
-          "min": 0.00905,
-          "max": 0.00995,
+          "cold": 0.0056,
+          "warm": 0.00499,
+          "min": 0.00493,
+          "max": 0.0056,
           "runs": [
-            0.00905,
-            0.00927,
-            0.00995
+            0.0056,
+            0.00493,
+            0.00504
           ],
-          "cpu_cold": 0.137,
-          "cpu_warm": 0.1305,
+          "cpu_cold": 0.094,
+          "cpu_warm": 0.086,
           "rss_cold": 86.3,
-          "rss_warm": 86.25,
+          "rss_warm": 86.4,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.00697,
-          "warm": 0.00684,
-          "min": 0.00683,
-          "max": 0.00697,
+          "cold": 0.00388,
+          "warm": 0.00401,
+          "min": 0.00379,
+          "max": 0.00423,
           "runs": [
-            0.00697,
-            0.00684,
-            0.00683
+            0.00388,
+            0.00379,
+            0.00423
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -1433,29 +1433,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.12487,
-          "warm": 0.12821,
-          "min": 0.12406,
-          "max": 0.13236,
+          "cold": 0.054,
+          "warm": 0.05505,
+          "min": 0.054,
+          "max": 0.05566,
           "runs": [
-            0.12487,
-            0.13236,
-            0.12406
+            0.054,
+            0.05566,
+            0.05444
           ],
-          "cpu_cold": 0.08,
-          "cpu_warm": 0.075,
-          "rss_cold": 86.8,
-          "rss_warm": 86.95,
+          "cpu_cold": 0.054,
+          "cpu_warm": 0.0545,
+          "rss_cold": 86.6,
+          "rss_warm": 86.85,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 87.6,
-      "warm_rss_mib": 87.55469,
-      "cpu_seconds_cold": 0.521,
-      "cpu_seconds": 0.539,
-      "cpu_user_seconds": 0.4425,
-      "cpu_sys_seconds": 0.0965,
+      "peak_rss_mib": 87.5,
+      "warm_rss_mib": 87.4375,
+      "cpu_seconds_cold": 0.366,
+      "cpu_seconds": 0.3645,
+      "cpu_user_seconds": 0.2965,
+      "cpu_sys_seconds": 0.068,
       "info": {
         "document_bytes": 57440,
         "document_lines": 1946,
@@ -1534,18 +1534,18 @@
         "symbols_count": 73,
         "tokens_count": 42670,
         "edit_hover_samples": [
-          0.06372,
-          0.07073,
-          0.09555
+          0.0499,
+          0.04719,
+          0.04919
         ],
         "typing_items": 1,
         "typing_word": "level",
         "typing_samples": [
-          0.00905,
-          0.16954,
-          0.00678,
-          0.00668,
-          0.00697
+          0.0056,
+          0.07903,
+          0.00388,
+          0.00375,
+          0.00376
         ],
         "member_typed_items": 113
       },
@@ -1554,184 +1554,184 @@
     "jailsp/jails/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00504,
-          "warm": 0.00525,
-          "min": 0.00487,
-          "max": 0.00562,
+          "cold": 0.00315,
+          "warm": 0.003,
+          "min": 0.00296,
+          "max": 0.00315,
           "runs": [
-            0.00504,
-            0.00562,
-            0.00487
+            0.00315,
+            0.00296,
+            0.00304
           ],
-          "cpu_cold": 0.0025,
-          "cpu_warm": 0.0033,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.72656,
+          "cpu_cold": 0.0019,
+          "cpu_warm": 0.0019,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.15846,
-          "warm": 0.16279,
-          "min": 0.14903,
-          "max": 0.17655,
+          "cold": 0.25947,
+          "warm": 0.26184,
+          "min": 0.25947,
+          "max": 0.26406,
           "runs": [
-            0.15846,
-            0.17655,
-            0.14903
+            0.25947,
+            0.26406,
+            0.25963
           ],
-          "cpu_cold": 0.157,
-          "cpu_warm": 0.155,
-          "rss_cold": 57.0,
-          "rss_warm": 56.85,
+          "cpu_cold": 0.054,
+          "cpu_warm": 0.0585,
+          "rss_cold": 56.0,
+          "rss_warm": 56.15,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00134,
-          "warm": 0.00137,
-          "min": 0.00133,
-          "max": 0.00141,
+          "cold": 0.00076,
+          "warm": 0.00087,
+          "min": 0.00076,
+          "max": 0.00087,
           "runs": [
-            0.00134,
-            0.00141,
-            0.00133
+            0.00076,
+            0.00087,
+            0.00086
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.002,
-          "rss_cold": 57.1,
-          "rss_warm": 56.95,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 56.0,
+          "rss_warm": 56.15,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.0014,
-          "warm": 0.00139,
-          "min": 0.00138,
-          "max": 0.0014,
+          "cold": 0.00069,
+          "warm": 0.00069,
+          "min": 0.00066,
+          "max": 0.00072,
           "runs": [
-            0.0014,
-            0.00139,
-            0.00138
+            0.00069,
+            0.00072,
+            0.00066
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.006,
-          "rss_cold": 57.1,
-          "rss_warm": 56.95,
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.0035,
+          "rss_cold": 56.1,
+          "rss_warm": 56.15,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00085,
-          "warm": 0.00087,
-          "min": 0.00085,
-          "max": 0.00087,
+          "cold": 0.00044,
+          "warm": 0.00061,
+          "min": 0.00044,
+          "max": 0.00078,
           "runs": [
-            0.00085,
-            0.00086,
-            0.00087
+            0.00044,
+            0.00078,
+            0.00044
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 57.1,
-          "rss_warm": 56.95,
+          "rss_cold": 56.1,
+          "rss_warm": 56.2,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00132,
-          "warm": 0.00131,
-          "min": 0.00127,
-          "max": 0.00134,
+          "cold": 0.00062,
+          "warm": 0.00065,
+          "min": 0.00062,
+          "max": 0.00067,
           "runs": [
-            0.00132,
-            0.00127,
-            0.00134
+            0.00062,
+            0.00067,
+            0.00064
           ],
-          "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 57.2,
-          "rss_warm": 57.05,
+          "cpu_cold": 0.0,
+          "cpu_warm": 0.0,
+          "rss_cold": 56.2,
+          "rss_warm": 56.25,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00209,
-          "warm": 0.00222,
-          "min": 0.00209,
-          "max": 0.00234,
+          "cold": 0.00108,
+          "warm": 0.00102,
+          "min": 0.00101,
+          "max": 0.00108,
           "runs": [
-            0.00209,
-            0.00234,
-            0.00209
+            0.00108,
+            0.00101,
+            0.00103
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 57.4,
-          "rss_warm": 57.15,
+          "rss_cold": 56.3,
+          "rss_warm": 56.35,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.0062,
-          "warm": 0.00517,
-          "min": 0.00491,
-          "max": 0.0062,
+          "cold": 0.0033,
+          "warm": 0.00335,
+          "min": 0.00322,
+          "max": 0.00349,
           "runs": [
-            0.0062,
-            0.00544,
-            0.00491
+            0.0033,
+            0.00322,
+            0.00349
           ],
-          "cpu_cold": 0.004,
+          "cpu_cold": 0.002,
           "cpu_warm": 0.002,
-          "rss_cold": 57.4,
-          "rss_warm": 57.2,
+          "rss_cold": 56.3,
+          "rss_warm": 56.35,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.10494,
-          "warm": 0.13668,
-          "min": 0.10494,
-          "max": 0.14136,
+          "cold": 0.0482,
+          "warm": 0.04938,
+          "min": 0.0482,
+          "max": 0.04945,
           "runs": [
-            0.10494,
-            0.14136,
-            0.13199
+            0.0482,
+            0.04931,
+            0.04945
           ],
-          "cpu_cold": 0.24,
-          "cpu_warm": 0.2825,
-          "rss_cold": 57.9,
-          "rss_warm": 58.15,
+          "cpu_cold": 0.145,
+          "cpu_warm": 0.146,
+          "rss_cold": 57.2,
+          "rss_warm": 57.2,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.18377,
-          "warm": 0.20641,
-          "min": 0.18377,
-          "max": 0.22161,
+          "cold": 0.00497,
+          "warm": 0.00525,
+          "min": 0.00493,
+          "max": 0.00557,
           "runs": [
-            0.18377,
-            0.1912,
-            0.22161
+            0.00497,
+            0.00557,
+            0.00493
           ],
-          "cpu_cold": 0.435,
-          "cpu_warm": 0.434,
-          "rss_cold": 118.5,
-          "rss_warm": 118.4,
+          "cpu_cold": 0.083,
+          "cpu_warm": 0.088,
+          "rss_cold": 86.3,
+          "rss_warm": 86.4,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.09519,
-          "warm": 0.09664,
-          "min": 0.09519,
-          "max": 0.09726,
+          "cold": 0.0037,
+          "warm": 0.00403,
+          "min": 0.0037,
+          "max": 0.0042,
           "runs": [
-            0.09519,
-            0.09726,
-            0.09602
+            0.0037,
+            0.00387,
+            0.0042
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -1741,29 +1741,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.23947,
-          "warm": 0.37396,
-          "min": 0.23947,
-          "max": 0.39806,
+          "cold": 0.05403,
+          "warm": 0.05132,
+          "min": 0.05066,
+          "max": 0.05403,
           "runs": [
-            0.23947,
-            0.34987,
-            0.39806
+            0.05403,
+            0.05066,
+            0.05197
           ],
-          "cpu_cold": 0.206,
-          "cpu_warm": 0.2235,
-          "rss_cold": 118.0,
-          "rss_warm": 118.05,
+          "cpu_cold": 0.053,
+          "cpu_warm": 0.0505,
+          "rss_cold": 86.7,
+          "rss_warm": 86.65,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 120.0,
-      "warm_rss_mib": 119.84375,
-      "cpu_seconds_cold": 1.167,
-      "cpu_seconds": 1.2175,
-      "cpu_user_seconds": 0.977,
-      "cpu_sys_seconds": 0.2405,
+      "peak_rss_mib": 87.3,
+      "warm_rss_mib": 87.26562,
+      "cpu_seconds_cold": 0.409,
+      "cpu_seconds": 0.4165,
+      "cpu_user_seconds": 0.3395,
+      "cpu_sys_seconds": 0.077,
       "info": {
         "document_bytes": 57440,
         "document_lines": 1946,
@@ -1842,18 +1842,18 @@
         "symbols_count": 73,
         "tokens_count": 42670,
         "edit_hover_samples": [
-          0.08771,
-          0.10494,
-          0.11914
+          0.0482,
+          0.04813,
+          0.05057
         ],
         "typing_items": 1,
         "typing_word": "level",
         "typing_samples": [
-          0.18377,
-          0.22909,
-          0.09519,
-          0.0815,
-          0.075
+          0.00497,
+          0.06907,
+          0.00365,
+          0.0037,
+          0.0035
         ],
         "member_typed_items": 113
       },
@@ -1862,184 +1862,184 @@
     "jailsp/chess-jai/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00428,
-          "warm": 0.00419,
-          "min": 0.00412,
-          "max": 0.00428,
+          "cold": 0.00343,
+          "warm": 0.00291,
+          "min": 0.0029,
+          "max": 0.00343,
           "runs": [
-            0.00428,
-            0.00412,
-            0.00427
+            0.00343,
+            0.0029,
+            0.00292
           ],
-          "cpu_cold": 0.003,
-          "cpu_warm": 0.00295,
-          "rss_cold": 2.734375,
-          "rss_warm": 2.75,
+          "cpu_cold": 0.0022,
+          "cpu_warm": 0.0019,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.04218,
-          "warm": 0.03446,
-          "min": 0.03025,
-          "max": 0.04218,
+          "cold": 0.02559,
+          "warm": 0.02509,
+          "min": 0.0246,
+          "max": 0.02559,
           "runs": [
-            0.04218,
-            0.03025,
-            0.03867
+            0.02559,
+            0.0246,
+            0.02559
           ],
-          "cpu_cold": 0.041,
-          "cpu_warm": 0.035,
-          "rss_cold": 30.7,
+          "cpu_cold": 0.026,
+          "cpu_warm": 0.0245,
+          "rss_cold": 30.3,
           "rss_warm": 30.4,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.0008,
-          "warm": 0.00077,
-          "min": 0.00077,
-          "max": 0.0008,
+          "cold": 0.00059,
+          "warm": 0.00048,
+          "min": 0.00045,
+          "max": 0.00059,
           "runs": [
-            0.0008,
-            0.00077,
-            0.00077
+            0.00059,
+            0.0005,
+            0.00045
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.002,
-          "rss_cold": 30.7,
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 30.4,
           "rss_warm": 30.5,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00119,
-          "warm": 0.00122,
-          "min": 0.00119,
-          "max": 0.00123,
+          "cold": 0.00062,
+          "warm": 0.00061,
+          "min": 0.0006,
+          "max": 0.00062,
           "runs": [
-            0.00119,
-            0.00121,
-            0.00123
+            0.00062,
+            0.0006,
+            0.00062
           ],
-          "cpu_cold": 0.005,
-          "cpu_warm": 0.0055,
-          "rss_cold": 30.8,
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 30.4,
           "rss_warm": 30.55,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00088,
-          "warm": 0.00099,
-          "min": 0.00088,
-          "max": 0.00104,
+          "cold": 0.00047,
+          "warm": 0.00049,
+          "min": 0.00042,
+          "max": 0.00055,
           "runs": [
-            0.00088,
-            0.00094,
-            0.00104
+            0.00047,
+            0.00055,
+            0.00042
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 30.9,
+          "rss_cold": 30.5,
           "rss_warm": 30.65,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00092,
-          "warm": 0.00104,
-          "min": 0.00088,
-          "max": 0.0012,
+          "cold": 0.00047,
+          "warm": 0.00042,
+          "min": 0.00041,
+          "max": 0.00047,
           "runs": [
-            0.00092,
-            0.0012,
-            0.00088
+            0.00047,
+            0.00041,
+            0.00043
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 31.0,
-          "rss_warm": 30.75,
+          "rss_cold": 30.5,
+          "rss_warm": 30.65,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00491,
-          "warm": 0.00478,
-          "min": 0.00464,
-          "max": 0.00492,
+          "cold": 0.00229,
+          "warm": 0.00232,
+          "min": 0.00227,
+          "max": 0.00237,
           "runs": [
-            0.00491,
-            0.00492,
-            0.00464
+            0.00229,
+            0.00227,
+            0.00237
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 31.1,
+          "rss_cold": 30.8,
           "rss_warm": 30.95,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.01168,
-          "warm": 0.01078,
-          "min": 0.01067,
-          "max": 0.01168,
+          "cold": 0.0066,
+          "warm": 0.00628,
+          "min": 0.00608,
+          "max": 0.0066,
           "runs": [
-            0.01168,
-            0.01089,
-            0.01067
+            0.0066,
+            0.00648,
+            0.00608
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.005,
-          "rss_cold": 31.2,
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 30.8,
           "rss_warm": 31.0,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.02724,
-          "warm": 0.02763,
-          "min": 0.02692,
-          "max": 0.02835,
+          "cold": 0.01764,
+          "warm": 0.01797,
+          "min": 0.01764,
+          "max": 0.01815,
           "runs": [
-            0.02724,
-            0.02692,
-            0.02835
+            0.01764,
+            0.01779,
+            0.01815
           ],
-          "cpu_cold": 0.081,
-          "cpu_warm": 0.0775,
-          "rss_cold": 31.7,
-          "rss_warm": 31.65,
+          "cpu_cold": 0.052,
+          "cpu_warm": 0.0525,
+          "rss_cold": 31.2,
+          "rss_warm": 31.4,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.00865,
-          "warm": 0.00754,
-          "min": 0.0066,
-          "max": 0.00865,
+          "cold": 0.00504,
+          "warm": 0.00514,
+          "min": 0.00499,
+          "max": 0.00529,
           "runs": [
-            0.00865,
-            0.0066,
-            0.00848
+            0.00504,
+            0.00499,
+            0.00529
           ],
-          "cpu_cold": 0.149,
-          "cpu_warm": 0.142,
-          "rss_cold": 60.2,
-          "rss_warm": 60.15,
+          "cpu_cold": 0.09,
+          "cpu_warm": 0.0935,
+          "rss_cold": 60.0,
+          "rss_warm": 60.3,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.00647,
-          "warm": 0.00627,
-          "min": 0.0061,
-          "max": 0.00647,
+          "cold": 0.00334,
+          "warm": 0.00338,
+          "min": 0.00327,
+          "max": 0.0035,
           "runs": [
-            0.00647,
-            0.00645,
-            0.0061
+            0.00334,
+            0.00327,
+            0.0035
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -2049,29 +2049,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.04125,
-          "warm": 0.0428,
-          "min": 0.03941,
-          "max": 0.04619,
+          "cold": 0.0209,
+          "warm": 0.02105,
+          "min": 0.02072,
+          "max": 0.02138,
           "runs": [
-            0.04125,
-            0.03941,
-            0.04619
+            0.0209,
+            0.02138,
+            0.02072
           ],
-          "cpu_cold": 0.03,
-          "cpu_warm": 0.0305,
-          "rss_cold": 61.3,
-          "rss_warm": 61.35,
+          "cpu_cold": 0.021,
+          "cpu_warm": 0.0205,
+          "rss_cold": 61.0,
+          "rss_warm": 61.1,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 62.7,
-      "warm_rss_mib": 62.60938,
-      "cpu_seconds_cold": 0.326,
-      "cpu_seconds": 0.313,
-      "cpu_user_seconds": 0.2615,
-      "cpu_sys_seconds": 0.0515,
+      "peak_rss_mib": 62.5,
+      "warm_rss_mib": 62.33594,
+      "cpu_seconds_cold": 0.205,
+      "cpu_seconds": 0.209,
+      "cpu_user_seconds": 0.172,
+      "cpu_sys_seconds": 0.037,
       "info": {
         "document_bytes": 79994,
         "document_lines": 2748,
@@ -2150,21 +2150,21 @@
         "symbols_count": 112,
         "tokens_count": 92535,
         "edit_hover_samples": [
-          0.02724,
-          0.02594,
-          0.0285
+          0.0184,
+          0.01764,
+          0.01712
         ],
         "typing_items": 0,
         "typing_word": "opp_piec",
         "typing_samples": [
-          0.00865,
-          0.10915,
-          0.00637,
-          0.00644,
-          0.00647,
-          0.00648,
-          0.00641,
-          0.00669
+          0.00504,
+          0.06777,
+          0.00353,
+          0.00322,
+          0.00321,
+          0.0033,
+          0.00314,
+          0.00337
         ],
         "member_typed_items": 152
       },
@@ -2173,184 +2173,184 @@
     "jailsp/chess-jai/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00549,
-          "warm": 0.00422,
-          "min": 0.00421,
-          "max": 0.00549,
+          "cold": 0.00287,
+          "warm": 0.00321,
+          "min": 0.00287,
+          "max": 0.0033,
           "runs": [
-            0.00549,
-            0.00423,
-            0.00421
+            0.00287,
+            0.0033,
+            0.00311
           ],
-          "cpu_cold": 0.0031,
-          "cpu_warm": 0.00295,
-          "rss_cold": 2.75,
-          "rss_warm": 2.74219,
+          "cpu_cold": 0.0019,
+          "cpu_warm": 0.00205,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78906,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.08519,
-          "warm": 0.08891,
-          "min": 0.08519,
-          "max": 0.09002,
+          "cold": 0.24151,
+          "warm": 0.24111,
+          "min": 0.2405,
+          "max": 0.24171,
           "runs": [
-            0.08519,
-            0.08781,
-            0.09002
+            0.24151,
+            0.2405,
+            0.24171
           ],
-          "cpu_cold": 0.085,
-          "cpu_warm": 0.088,
-          "rss_cold": 51.0,
-          "rss_warm": 50.85,
+          "cpu_cold": 0.04,
+          "cpu_warm": 0.04,
+          "rss_cold": 50.4,
+          "rss_warm": 50.4,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00093,
-          "warm": 0.00096,
-          "min": 0.00091,
-          "max": 0.00101,
+          "cold": 0.00049,
+          "warm": 0.00047,
+          "min": 0.00047,
+          "max": 0.00049,
           "runs": [
-            0.00093,
-            0.00091,
-            0.00101
+            0.00049,
+            0.00047,
+            0.00047
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.002,
-          "rss_cold": 51.0,
-          "rss_warm": 50.9,
+          "cpu_cold": 0.001,
+          "cpu_warm": 0.001,
+          "rss_cold": 50.5,
+          "rss_warm": 50.5,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00126,
-          "warm": 0.0012,
-          "min": 0.0012,
-          "max": 0.00126,
+          "cold": 0.00057,
+          "warm": 0.00063,
+          "min": 0.00057,
+          "max": 0.00067,
           "runs": [
-            0.00126,
-            0.0012,
-            0.0012
+            0.00057,
+            0.00067,
+            0.00059
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.005,
-          "rss_cold": 51.0,
-          "rss_warm": 50.9,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.003,
+          "rss_cold": 50.5,
+          "rss_warm": 50.5,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00087,
-          "warm": 0.0009,
-          "min": 0.00087,
-          "max": 0.00092,
+          "cold": 0.00042,
+          "warm": 0.00054,
+          "min": 0.0004,
+          "max": 0.00068,
           "runs": [
-            0.00087,
-            0.00087,
-            0.00092
+            0.00042,
+            0.00068,
+            0.0004
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 51.1,
-          "rss_warm": 51.0,
+          "rss_cold": 50.7,
+          "rss_warm": 50.6,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00103,
-          "warm": 0.00099,
-          "min": 0.00094,
-          "max": 0.00103,
+          "cold": 0.00042,
+          "warm": 0.00046,
+          "min": 0.00042,
+          "max": 0.00048,
           "runs": [
-            0.00103,
-            0.00103,
-            0.00094
+            0.00042,
+            0.00045,
+            0.00048
           ],
           "cpu_cold": 0.0,
-          "cpu_warm": 0.0005,
-          "rss_cold": 51.1,
-          "rss_warm": 51.05,
+          "cpu_warm": 0.0,
+          "rss_cold": 50.7,
+          "rss_warm": 50.6,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00457,
-          "warm": 0.00474,
-          "min": 0.00457,
-          "max": 0.00484,
+          "cold": 0.0024,
+          "warm": 0.00248,
+          "min": 0.00223,
+          "max": 0.00272,
           "runs": [
-            0.00457,
-            0.00463,
-            0.00484
+            0.0024,
+            0.00272,
+            0.00223
           ],
           "cpu_cold": 0.001,
-          "cpu_warm": 0.001,
-          "rss_cold": 51.4,
-          "rss_warm": 51.3,
+          "cpu_warm": 0.0,
+          "rss_cold": 50.9,
+          "rss_warm": 50.95,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.00992,
-          "warm": 0.01174,
-          "min": 0.00992,
-          "max": 0.01177,
+          "cold": 0.00591,
+          "warm": 0.00633,
+          "min": 0.00591,
+          "max": 0.00642,
           "runs": [
-            0.00992,
-            0.0117,
-            0.01177
+            0.00591,
+            0.00624,
+            0.00642
           ],
-          "cpu_cold": 0.005,
-          "cpu_warm": 0.006,
-          "rss_cold": 51.4,
-          "rss_warm": 51.3,
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.003,
+          "rss_cold": 50.9,
+          "rss_warm": 51.0,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.06321,
-          "warm": 0.06619,
-          "min": 0.06321,
-          "max": 0.06794,
+          "cold": 0.01717,
+          "warm": 0.01795,
+          "min": 0.01717,
+          "max": 0.0183,
           "runs": [
-            0.06321,
-            0.06445,
-            0.06794
+            0.01717,
+            0.0183,
+            0.01759
           ],
-          "cpu_cold": 0.178,
-          "cpu_warm": 0.183,
-          "rss_cold": 52.2,
-          "rss_warm": 52.3,
+          "cpu_cold": 0.051,
+          "cpu_warm": 0.052,
+          "rss_cold": 51.1,
+          "rss_warm": 51.2,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.13054,
-          "warm": 0.10778,
-          "min": 0.09795,
-          "max": 0.13054,
+          "cold": 0.00442,
+          "warm": 0.00486,
+          "min": 0.00442,
+          "max": 0.00504,
           "runs": [
-            0.13054,
-            0.11761,
-            0.09795
+            0.00442,
+            0.00469,
+            0.00504
           ],
-          "cpu_cold": 0.488,
-          "cpu_warm": 0.4845,
-          "rss_cold": 82.8,
-          "rss_warm": 83.2,
+          "cpu_cold": 0.088,
+          "cpu_warm": 0.093,
+          "rss_cold": 79.8,
+          "rss_warm": 80.1,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.0817,
-          "warm": 0.07359,
-          "min": 0.06209,
-          "max": 0.08509,
+          "cold": 0.00334,
+          "warm": 0.00342,
+          "min": 0.00334,
+          "max": 0.00347,
           "runs": [
-            0.0817,
-            0.08509,
-            0.06209
+            0.00334,
+            0.00347,
+            0.00338
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -2360,29 +2360,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.20112,
-          "warm": 0.18556,
-          "min": 0.17577,
-          "max": 0.20112,
+          "cold": 0.0205,
+          "warm": 0.02055,
+          "min": 0.02031,
+          "max": 0.0208,
           "runs": [
-            0.20112,
-            0.19535,
-            0.17577
+            0.0205,
+            0.0208,
+            0.02031
           ],
-          "cpu_cold": 0.116,
-          "cpu_warm": 0.115,
-          "rss_cold": 83.6,
-          "rss_warm": 83.85,
+          "cpu_cold": 0.02,
+          "cpu_warm": 0.0195,
+          "rss_cold": 80.7,
+          "rss_warm": 80.7,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 85.2,
-      "warm_rss_mib": 85.08594,
-      "cpu_seconds_cold": 0.951,
-      "cpu_seconds": 0.967,
-      "cpu_user_seconds": 0.8005,
-      "cpu_sys_seconds": 0.1665,
+      "peak_rss_mib": 82.0,
+      "warm_rss_mib": 81.91406,
+      "cpu_seconds_cold": 0.258,
+      "cpu_seconds": 0.2625,
+      "cpu_user_seconds": 0.215,
+      "cpu_sys_seconds": 0.0475,
       "info": {
         "document_bytes": 79994,
         "document_lines": 2748,
@@ -2461,21 +2461,21 @@
         "symbols_count": 112,
         "tokens_count": 92535,
         "edit_hover_samples": [
-          0.05798,
-          0.06321,
-          0.07698
+          0.0177,
+          0.01688,
+          0.01717
         ],
         "typing_items": 0,
         "typing_word": "opp_piec",
         "typing_samples": [
-          0.13054,
-          0.22169,
-          0.06032,
-          0.07666,
-          0.04622,
-          0.08673,
-          0.03842,
-          0.10773
+          0.00442,
+          0.06557,
+          0.00344,
+          0.00338,
+          0.00327,
+          0.00329,
+          0.00307,
+          0.00321
         ],
         "member_typed_items": 152
       },
@@ -2484,184 +2484,184 @@
     "jailsp/gen-60k/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.02165,
-          "warm": 0.0036,
-          "min": 0.00333,
-          "max": 0.02165,
+          "cold": 0.00322,
+          "warm": 0.00312,
+          "min": 0.00301,
+          "max": 0.00323,
           "runs": [
-            0.02165,
-            0.00333,
-            0.00388
+            0.00322,
+            0.00301,
+            0.00323
           ],
-          "cpu_cold": 0.0031,
-          "cpu_warm": 0.0024,
-          "rss_cold": 2.765625,
+          "cpu_cold": 0.0018,
+          "cpu_warm": 0.002,
+          "rss_cold": 2.78125,
           "rss_warm": 2.77344,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.4756,
-          "warm": 0.36467,
-          "min": 0.35786,
-          "max": 0.4756,
+          "cold": 0.26791,
+          "warm": 0.26548,
+          "min": 0.26472,
+          "max": 0.26791,
           "runs": [
-            0.4756,
-            0.35786,
-            0.37148
+            0.26791,
+            0.26624,
+            0.26472
           ],
-          "cpu_cold": 0.43,
-          "cpu_warm": 0.3565,
-          "rss_cold": 177.5,
-          "rss_warm": 177.2,
+          "cpu_cold": 0.265,
+          "cpu_warm": 0.262,
+          "rss_cold": 175.4,
+          "rss_warm": 175.35,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00155,
-          "warm": 0.00201,
-          "min": 0.00155,
-          "max": 0.00224,
+          "cold": 0.00133,
+          "warm": 0.00131,
+          "min": 0.00127,
+          "max": 0.00134,
           "runs": [
-            0.00155,
-            0.00224,
-            0.00178
+            0.00133,
+            0.00127,
+            0.00134
           ],
           "cpu_cold": 0.001,
-          "cpu_warm": 0.0015,
-          "rss_cold": 177.5,
-          "rss_warm": 177.2,
+          "cpu_warm": 0.001,
+          "rss_cold": 175.5,
+          "rss_warm": 175.4,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.0019,
-          "warm": 0.00141,
-          "min": 0.0012,
-          "max": 0.0019,
+          "cold": 0.0011,
+          "warm": 0.00106,
+          "min": 0.00105,
+          "max": 0.0011,
           "runs": [
-            0.0019,
-            0.00163,
-            0.0012
+            0.0011,
+            0.00105,
+            0.00106
           ],
-          "cpu_cold": 0.007,
-          "cpu_warm": 0.007,
-          "rss_cold": 177.5,
-          "rss_warm": 177.25,
+          "cpu_cold": 0.004,
+          "cpu_warm": 0.004,
+          "rss_cold": 175.5,
+          "rss_warm": 175.4,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00194,
-          "warm": 0.00055,
-          "min": 0.00052,
-          "max": 0.00194,
+          "cold": 0.0005,
+          "warm": 0.00052,
+          "min": 0.0005,
+          "max": 0.00054,
           "runs": [
-            0.00194,
-            0.00052,
-            0.00057
+            0.0005,
+            0.00054,
+            0.0005
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 177.6,
-          "rss_warm": 177.25,
+          "rss_cold": 175.5,
+          "rss_warm": 175.45,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00658,
-          "warm": 0.00586,
-          "min": 0.00475,
-          "max": 0.00697,
+          "cold": 0.00391,
+          "warm": 0.00382,
+          "min": 0.00369,
+          "max": 0.00396,
           "runs": [
-            0.00658,
-            0.00475,
-            0.00697
+            0.00391,
+            0.00396,
+            0.00369
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.005,
-          "rss_cold": 177.6,
-          "rss_warm": 177.3,
+          "cpu_cold": 0.004,
+          "cpu_warm": 0.003,
+          "rss_cold": 175.5,
+          "rss_warm": 175.45,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00877,
-          "warm": 0.00777,
-          "min": 0.00717,
-          "max": 0.00877,
+          "cold": 0.00486,
+          "warm": 0.00457,
+          "min": 0.00453,
+          "max": 0.00486,
           "runs": [
-            0.00877,
-            0.00717,
-            0.00836
+            0.00486,
+            0.0046,
+            0.00453
           ],
           "cpu_cold": 0.001,
-          "cpu_warm": 0.0015,
-          "rss_cold": 177.9,
-          "rss_warm": 177.65,
+          "cpu_warm": 0.001,
+          "rss_cold": 175.8,
+          "rss_warm": 175.8,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.02246,
-          "warm": 0.02178,
-          "min": 0.0217,
-          "max": 0.02246,
+          "cold": 0.01721,
+          "warm": 0.01541,
+          "min": 0.01524,
+          "max": 0.01721,
           "runs": [
-            0.02246,
-            0.0217,
-            0.02186
+            0.01721,
+            0.01559,
+            0.01524
           ],
-          "cpu_cold": 0.011,
-          "cpu_warm": 0.011,
-          "rss_cold": 178.0,
-          "rss_warm": 177.8,
+          "cpu_cold": 0.009,
+          "cpu_warm": 0.008,
+          "rss_cold": 176.0,
+          "rss_warm": 175.95,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.30266,
-          "warm": 0.29484,
-          "min": 0.28049,
-          "max": 0.30918,
+          "cold": 0.22882,
+          "warm": 0.22258,
+          "min": 0.22241,
+          "max": 0.22882,
           "runs": [
-            0.30266,
-            0.30918,
-            0.28049
+            0.22882,
+            0.22241,
+            0.22276
           ],
-          "cpu_cold": 0.882,
-          "cpu_warm": 0.8545,
-          "rss_cold": 179.9,
-          "rss_warm": 179.55,
+          "cpu_cold": 0.674,
+          "cpu_warm": 0.6545,
+          "rss_cold": 177.0,
+          "rss_warm": 177.0,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.01306,
-          "warm": 0.01332,
-          "min": 0.01283,
-          "max": 0.01381,
+          "cold": 0.01287,
+          "warm": 0.01224,
+          "min": 0.01204,
+          "max": 0.01287,
           "runs": [
-            0.01306,
-            0.01381,
-            0.01283
+            0.01287,
+            0.01204,
+            0.01243
           ],
-          "cpu_cold": 0.113,
-          "cpu_warm": 0.1115,
-          "rss_cold": 206.6,
-          "rss_warm": 206.2,
+          "cpu_cold": 0.092,
+          "cpu_warm": 0.0935,
+          "rss_cold": 203.8,
+          "rss_warm": 204.45,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.01306,
-          "warm": 0.01332,
-          "min": 0.01283,
-          "max": 0.01381,
+          "cold": 0.01287,
+          "warm": 0.01224,
+          "min": 0.01204,
+          "max": 0.01287,
           "runs": [
-            0.01306,
-            0.01381,
-            0.01283
+            0.01287,
+            0.01204,
+            0.01243
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -2671,29 +2671,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.30877,
-          "warm": 0.27857,
-          "min": 0.27757,
-          "max": 0.30877,
+          "cold": 0.22436,
+          "warm": 0.22476,
+          "min": 0.22324,
+          "max": 0.22627,
           "runs": [
-            0.30877,
-            0.27757,
-            0.27956
+            0.22436,
+            0.22627,
+            0.22324
           ],
-          "cpu_cold": 0.302,
-          "cpu_warm": 0.2725,
-          "rss_cold": 206.3,
-          "rss_warm": 206.55,
+          "cpu_cold": 0.221,
+          "cpu_warm": 0.222,
+          "rss_cold": 203.9,
+          "rss_warm": 204.15,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 210.5,
-      "warm_rss_mib": 210.36719,
-      "cpu_seconds_cold": 1.78,
-      "cpu_seconds": 1.649,
-      "cpu_user_seconds": 1.4905,
-      "cpu_sys_seconds": 0.1585,
+      "peak_rss_mib": 208.7,
+      "warm_rss_mib": 208.21875,
+      "cpu_seconds_cold": 1.292,
+      "cpu_seconds": 1.2715,
+      "cpu_user_seconds": 1.14,
+      "cpu_sys_seconds": 0.1315,
       "info": {
         "document_bytes": 166816,
         "document_lines": 5200,
@@ -2773,16 +2773,16 @@
         "symbols_count": 356,
         "tokens_count": 246855,
         "edit_hover_samples": [
-          0.30266,
-          0.30914,
-          0.29357
+          0.22882,
+          0.23272,
+          0.22241
         ],
         "typing_items": 2,
         "typing_word": "u32",
         "typing_samples": [
-          0.01306,
-          0.09287,
-          0.00993
+          0.01287,
+          0.07335,
+          0.00802
         ],
         "member_typed_items": 393
       },
@@ -2791,184 +2791,184 @@
     "jailsp/gen-60k/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00371,
-          "warm": 0.00361,
-          "min": 0.00336,
-          "max": 0.00385,
+          "cold": 0.00311,
+          "warm": 0.0031,
+          "min": 0.00304,
+          "max": 0.00317,
           "runs": [
-            0.00371,
-            0.00385,
-            0.00336
+            0.00311,
+            0.00317,
+            0.00304
           ],
-          "cpu_cold": 0.0023,
-          "cpu_warm": 0.00245,
-          "rss_cold": 2.734375,
-          "rss_warm": 2.73438,
+          "cpu_cold": 0.0019,
+          "cpu_warm": 0.00195,
+          "rss_cold": 2.796875,
+          "rss_warm": 2.78906,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.70545,
-          "warm": 0.63794,
-          "min": 0.63128,
-          "max": 0.70545,
+          "cold": 0.50425,
+          "warm": 0.50396,
+          "min": 0.5004,
+          "max": 0.50751,
           "runs": [
-            0.70545,
-            0.6446,
-            0.63128
+            0.50425,
+            0.50751,
+            0.5004
           ],
-          "cpu_cold": 0.686,
-          "cpu_warm": 0.624,
-          "rss_cold": 176.4,
-          "rss_warm": 175.8,
+          "cpu_cold": 0.295,
+          "cpu_warm": 0.294,
+          "rss_cold": 175.1,
+          "rss_warm": 175.05,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00113,
-          "warm": 0.00131,
-          "min": 0.00113,
-          "max": 0.00148,
+          "cold": 0.00138,
+          "warm": 0.00102,
+          "min": 0.00101,
+          "max": 0.00138,
           "runs": [
-            0.00113,
-            0.00148,
-            0.00114
+            0.00138,
+            0.00101,
+            0.00103
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 176.4,
-          "rss_warm": 175.8,
+          "rss_cold": 175.1,
+          "rss_warm": 175.05,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00111,
-          "warm": 0.00113,
-          "min": 0.0011,
-          "max": 0.00116,
+          "cold": 0.00109,
+          "warm": 0.00106,
+          "min": 0.00106,
+          "max": 0.00109,
           "runs": [
-            0.00111,
-            0.00116,
-            0.0011
+            0.00109,
+            0.00106,
+            0.00106
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.0055,
-          "rss_cold": 176.4,
-          "rss_warm": 175.8,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.004,
+          "rss_cold": 175.1,
+          "rss_warm": 175.05,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00048,
+          "cold": 0.00045,
           "warm": 0.00049,
-          "min": 0.00046,
-          "max": 0.00053,
+          "min": 0.00045,
+          "max": 0.00049,
           "runs": [
+            0.00045,
             0.00048,
-            0.00046,
-            0.00053
+            0.00049
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 176.5,
-          "rss_warm": 175.8,
+          "rss_cold": 175.1,
+          "rss_warm": 175.15,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00591,
-          "warm": 0.00413,
-          "min": 0.00405,
-          "max": 0.00591,
+          "cold": 0.00363,
+          "warm": 0.00378,
+          "min": 0.00363,
+          "max": 0.0039,
           "runs": [
-            0.00591,
-            0.00422,
-            0.00405
+            0.00363,
+            0.0039,
+            0.00367
           ],
-          "cpu_cold": 0.005,
-          "cpu_warm": 0.004,
-          "rss_cold": 176.5,
-          "rss_warm": 175.9,
+          "cpu_cold": 0.003,
+          "cpu_warm": 0.0035,
+          "rss_cold": 175.2,
+          "rss_warm": 175.15,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00605,
-          "warm": 0.00545,
-          "min": 0.00541,
-          "max": 0.00605,
+          "cold": 0.00459,
+          "warm": 0.00581,
+          "min": 0.00459,
+          "max": 0.0062,
           "runs": [
-            0.00605,
-            0.00548,
-            0.00541
+            0.00459,
+            0.00542,
+            0.0062
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 176.8,
-          "rss_warm": 176.2,
+          "rss_cold": 175.5,
+          "rss_warm": 175.45,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.02012,
-          "warm": 0.01729,
-          "min": 0.01722,
-          "max": 0.02012,
+          "cold": 0.01741,
+          "warm": 0.01642,
+          "min": 0.01637,
+          "max": 0.01741,
           "runs": [
-            0.02012,
-            0.01722,
-            0.01736
+            0.01741,
+            0.01637,
+            0.01646
           ],
-          "cpu_cold": 0.01,
-          "cpu_warm": 0.009,
-          "rss_cold": 176.9,
-          "rss_warm": 176.5,
+          "cpu_cold": 0.009,
+          "cpu_warm": 0.0085,
+          "rss_cold": 175.8,
+          "rss_warm": 175.65,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.37862,
-          "warm": 0.3321,
-          "min": 0.33197,
-          "max": 0.37862,
+          "cold": 0.22415,
+          "warm": 0.22196,
+          "min": 0.2196,
+          "max": 0.22431,
           "runs": [
-            0.37862,
-            0.33223,
-            0.33197
+            0.22415,
+            0.22431,
+            0.2196
           ],
-          "cpu_cold": 1.107,
-          "cpu_warm": 0.974,
-          "rss_cold": 177.9,
-          "rss_warm": 177.45,
+          "cpu_cold": 0.656,
+          "cpu_warm": 0.656,
+          "rss_cold": 176.8,
+          "rss_warm": 176.75,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.45825,
-          "warm": 0.42357,
-          "min": 0.41956,
-          "max": 0.45825,
+          "cold": 0.01206,
+          "warm": 0.01255,
+          "min": 0.01206,
+          "max": 0.01266,
           "runs": [
-            0.45825,
-            0.42758,
-            0.41956
+            0.01206,
+            0.01243,
+            0.01266
           ],
-          "cpu_cold": 0.687,
-          "cpu_warm": 0.6665,
-          "rss_cold": 251.8,
-          "rss_warm": 251.45,
+          "cpu_cold": 0.09,
+          "cpu_warm": 0.092,
+          "rss_cold": 203.6,
+          "rss_warm": 203.85,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.15647,
-          "warm": 0.163,
-          "min": 0.15647,
-          "max": 0.16414,
+          "cold": 0.01206,
+          "warm": 0.01255,
+          "min": 0.01206,
+          "max": 0.01266,
           "runs": [
-            0.15647,
-            0.16186,
-            0.16414
+            0.01206,
+            0.01243,
+            0.01266
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -2978,29 +2978,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.93169,
-          "warm": 0.93306,
-          "min": 0.92924,
-          "max": 0.93689,
+          "cold": 0.22845,
+          "warm": 0.22658,
+          "min": 0.22608,
+          "max": 0.22845,
           "runs": [
-            0.93169,
-            0.93689,
-            0.92924
+            0.22845,
+            0.22608,
+            0.22707
           ],
-          "cpu_cold": 0.913,
-          "cpu_warm": 0.9145,
-          "rss_cold": 243.6,
-          "rss_warm": 244.55,
+          "cpu_cold": 0.225,
+          "cpu_warm": 0.2225,
+          "rss_cold": 204.0,
+          "rss_warm": 203.85,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 261.0,
-      "warm_rss_mib": 260.71875,
-      "cpu_seconds_cold": 3.761,
-      "cpu_seconds": 3.54,
-      "cpu_user_seconds": 3.1845,
-      "cpu_sys_seconds": 0.3555,
+      "peak_rss_mib": 216.9,
+      "warm_rss_mib": 216.72656,
+      "cpu_seconds_cold": 1.577,
+      "cpu_seconds": 1.585,
+      "cpu_user_seconds": 1.4235,
+      "cpu_sys_seconds": 0.1615,
       "info": {
         "document_bytes": 166816,
         "document_lines": 5200,
@@ -3080,16 +3080,16 @@
         "symbols_count": 356,
         "tokens_count": 246855,
         "edit_hover_samples": [
-          0.38291,
-          0.37862,
-          0.37553
+          0.22415,
+          0.22601,
+          0.21524
         ],
         "typing_items": 2,
         "typing_word": "u32",
         "typing_samples": [
-          0.45825,
-          0.15647,
-          0.08493
+          0.01206,
+          0.07115,
+          0.00845
         ],
         "member_typed_items": 393
       },
@@ -3098,184 +3098,184 @@
     "jailsp/gen-240k/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00375,
-          "warm": 0.00333,
-          "min": 0.00317,
-          "max": 0.00375,
+          "cold": 0.00397,
+          "warm": 0.00318,
+          "min": 0.003,
+          "max": 0.00397,
           "runs": [
-            0.00375,
-            0.00317,
-            0.0035
+            0.00397,
+            0.00336,
+            0.003
           ],
           "cpu_cold": 0.0022,
-          "cpu_warm": 0.0019,
-          "rss_cold": 2.703125,
-          "rss_warm": 2.76562,
+          "cpu_warm": 0.00185,
+          "rss_cold": 2.828125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 1.89368,
-          "warm": 1.88782,
-          "min": 1.88515,
-          "max": 1.89368,
+          "cold": 1.80047,
+          "warm": 1.70566,
+          "min": 1.70557,
+          "max": 1.80047,
           "runs": [
-            1.89368,
-            1.88515,
-            1.89048
+            1.80047,
+            1.70575,
+            1.70557
           ],
-          "cpu_cold": 1.866,
-          "cpu_warm": 1.8585,
-          "rss_cold": 586.0,
-          "rss_warm": 586.05,
+          "cpu_cold": 1.782,
+          "cpu_warm": 1.6945,
+          "rss_cold": 583.8,
+          "rss_warm": 583.95,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00288,
-          "warm": 0.00277,
+          "cold": 0.00269,
+          "warm": 0.00289,
           "min": 0.00269,
-          "max": 0.00288,
+          "max": 0.00307,
           "runs": [
-            0.00288,
-            0.00286,
-            0.00269
+            0.00269,
+            0.00271,
+            0.00307
           ],
           "cpu_cold": 0.003,
           "cpu_warm": 0.003,
-          "rss_cold": 586.0,
-          "rss_warm": 586.05,
+          "rss_cold": 583.8,
+          "rss_warm": 583.95,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
           "cold": 0.00248,
-          "warm": 0.00252,
-          "min": 0.00239,
-          "max": 0.00265,
+          "warm": 0.00238,
+          "min": 0.00234,
+          "max": 0.00248,
           "runs": [
             0.00248,
-            0.00239,
-            0.00265
+            0.00242,
+            0.00234
           ],
           "cpu_cold": 0.012,
-          "cpu_warm": 0.013,
-          "rss_cold": 586.0,
-          "rss_warm": 586.05,
+          "cpu_warm": 0.011,
+          "rss_cold": 583.8,
+          "rss_warm": 583.95,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00074,
-          "warm": 0.00079,
-          "min": 0.00074,
-          "max": 0.0008,
+          "cold": 0.00077,
+          "warm": 0.00081,
+          "min": 0.00075,
+          "max": 0.00086,
           "runs": [
-            0.00074,
-            0.00078,
-            0.0008
+            0.00077,
+            0.00075,
+            0.00086
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 586.1,
-          "rss_warm": 586.15,
+          "rss_cold": 583.8,
+          "rss_warm": 583.95,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.01374,
-          "warm": 0.01338,
-          "min": 0.01332,
-          "max": 0.01374,
+          "cold": 0.01333,
+          "warm": 0.01255,
+          "min": 0.01243,
+          "max": 0.01333,
           "runs": [
-            0.01374,
-            0.01344,
-            0.01332
+            0.01333,
+            0.01268,
+            0.01243
           ],
           "cpu_cold": 0.014,
-          "cpu_warm": 0.014,
-          "rss_cold": 586.2,
-          "rss_warm": 586.2,
+          "cpu_warm": 0.012,
+          "rss_cold": 583.9,
+          "rss_warm": 584.05,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00564,
-          "warm": 0.00612,
-          "min": 0.00527,
-          "max": 0.00697,
+          "cold": 0.00506,
+          "warm": 0.00552,
+          "min": 0.00472,
+          "max": 0.00631,
           "runs": [
-            0.00564,
-            0.00527,
-            0.00697
+            0.00506,
+            0.00472,
+            0.00631
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 586.5,
-          "rss_warm": 586.55,
+          "rss_cold": 584.2,
+          "rss_warm": 584.45,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.02269,
-          "warm": 0.02174,
-          "min": 0.02174,
-          "max": 0.02269,
+          "cold": 0.02108,
+          "warm": 0.01979,
+          "min": 0.01952,
+          "max": 0.02108,
           "runs": [
-            0.02269,
-            0.02174,
-            0.02174
+            0.02108,
+            0.01952,
+            0.02006
           ],
-          "cpu_cold": 0.012,
-          "cpu_warm": 0.011,
-          "rss_cold": 586.9,
-          "rss_warm": 586.65,
+          "cpu_cold": 0.01,
+          "cpu_warm": 0.01,
+          "rss_cold": 584.5,
+          "rss_warm": 584.55,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 1.75808,
-          "warm": 1.74377,
-          "min": 1.73745,
-          "max": 1.75808,
+          "cold": 1.62838,
+          "warm": 1.56699,
+          "min": 1.56295,
+          "max": 1.62838,
           "runs": [
-            1.75808,
-            1.73745,
-            1.7501
+            1.62838,
+            1.56295,
+            1.57104
           ],
-          "cpu_cold": 5.198,
-          "cpu_warm": 5.153,
-          "rss_cold": 590.6,
-          "rss_warm": 590.25,
+          "cpu_cold": 4.822,
+          "cpu_warm": 4.667,
+          "rss_cold": 588.3,
+          "rss_warm": 588.15,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.02347,
-          "warm": 0.02242,
-          "min": 0.02189,
-          "max": 0.02347,
+          "cold": 0.02189,
+          "warm": 0.0208,
+          "min": 0.02023,
+          "max": 0.02189,
           "runs": [
-            0.02347,
-            0.02296,
-            0.02189
+            0.02189,
+            0.02023,
+            0.02138
           ],
-          "cpu_cold": 0.211,
-          "cpu_warm": 0.21,
-          "rss_cold": 617.4,
-          "rss_warm": 618.6,
+          "cpu_cold": 0.202,
+          "cpu_warm": 0.195,
+          "rss_cold": 615.3,
+          "rss_warm": 616.2,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.01742,
-          "warm": 0.01691,
-          "min": 0.01688,
-          "max": 0.01742,
+          "cold": 0.01664,
+          "warm": 0.0159,
+          "min": 0.01572,
+          "max": 0.01664,
           "runs": [
-            0.01742,
-            0.01694,
-            0.01688
+            0.01664,
+            0.01572,
+            0.01608
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -3285,29 +3285,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 1.75684,
-          "warm": 1.72561,
-          "min": 1.72295,
-          "max": 1.75684,
+          "cold": 1.56692,
+          "warm": 1.55464,
+          "min": 1.54799,
+          "max": 1.56692,
           "runs": [
-            1.75684,
-            1.72295,
-            1.72826
+            1.56692,
+            1.54799,
+            1.56129
           ],
-          "cpu_cold": 1.729,
-          "cpu_warm": 1.7015,
-          "rss_cold": 620.2,
-          "rss_warm": 620.85,
+          "cpu_cold": 1.556,
+          "cpu_warm": 1.5455,
+          "rss_cold": 618.0,
+          "rss_warm": 617.75,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 637.7,
-      "warm_rss_mib": 637.69531,
-      "cpu_seconds_cold": 9.102,
-      "cpu_seconds": 9.019,
-      "cpu_user_seconds": 8.5325,
-      "cpu_sys_seconds": 0.4865,
+      "peak_rss_mib": 635.0,
+      "warm_rss_mib": 634.75,
+      "cpu_seconds_cold": 8.459,
+      "cpu_seconds": 8.1925,
+      "cpu_user_seconds": 7.7485,
+      "cpu_sys_seconds": 0.444,
       "info": {
         "document_bytes": 211206,
         "document_lines": 6005,
@@ -3392,21 +3392,21 @@
         "symbols_count": 334,
         "tokens_count": 309445,
         "edit_hover_samples": [
-          1.75808,
-          1.78769,
-          1.72905
+          1.67022,
+          1.62838,
+          1.56646
         ],
         "typing_items": 1,
         "typing_word": "local_ac",
         "typing_samples": [
-          0.02347,
-          0.09042,
-          0.01749,
-          0.01689,
-          0.0173,
-          0.01737,
-          0.016,
-          0.01746
+          0.02189,
+          0.08482,
+          0.01654,
+          0.01674,
+          0.01645,
+          0.01685,
+          0.01633,
+          0.01596
         ],
         "member_typed_items": 369
       },
@@ -3415,184 +3415,184 @@
     "jailsp/gen-240k/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00347,
-          "warm": 0.00331,
-          "min": 0.00326,
-          "max": 0.00347,
+          "cold": 0.0031,
+          "warm": 0.00327,
+          "min": 0.0031,
+          "max": 0.00334,
           "runs": [
-            0.00347,
-            0.00326,
-            0.00335
+            0.0031,
+            0.00334,
+            0.00319
           ],
-          "cpu_cold": 0.0024,
+          "cpu_cold": 0.0019,
           "cpu_warm": 0.0019,
-          "rss_cold": 2.71875,
-          "rss_warm": 2.75781,
+          "rss_cold": 2.796875,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 3.90601,
-          "warm": 3.71228,
-          "min": 3.55682,
-          "max": 3.90601,
+          "cold": 2.02809,
+          "warm": 2.04557,
+          "min": 2.02809,
+          "max": 2.04966,
           "runs": [
-            3.90601,
-            3.86774,
-            3.55682
+            2.02809,
+            2.04148,
+            2.04966
           ],
-          "cpu_cold": 3.849,
-          "cpu_warm": 3.667,
-          "rss_cold": 586.4,
-          "rss_warm": 586.55,
+          "cpu_cold": 1.815,
+          "cpu_warm": 1.829,
+          "rss_cold": 583.7,
+          "rss_warm": 583.7,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.0025,
-          "warm": 0.00237,
-          "min": 0.00235,
-          "max": 0.0025,
+          "cold": 0.00248,
+          "warm": 0.00251,
+          "min": 0.00248,
+          "max": 0.00251,
           "runs": [
-            0.0025,
-            0.00239,
-            0.00235
+            0.00248,
+            0.00251,
+            0.0025
           ],
           "cpu_cold": 0.003,
           "cpu_warm": 0.003,
-          "rss_cold": 586.4,
-          "rss_warm": 586.55,
+          "rss_cold": 583.7,
+          "rss_warm": 583.8,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00266,
-          "warm": 0.00242,
-          "min": 0.00241,
-          "max": 0.00266,
+          "cold": 0.00246,
+          "warm": 0.00239,
+          "min": 0.00238,
+          "max": 0.00246,
           "runs": [
-            0.00266,
-            0.00241,
-            0.00243
+            0.00246,
+            0.00238,
+            0.0024
           ],
-          "cpu_cold": 0.013,
-          "cpu_warm": 0.012,
-          "rss_cold": 586.4,
-          "rss_warm": 586.55,
+          "cpu_cold": 0.012,
+          "cpu_warm": 0.011,
+          "rss_cold": 583.7,
+          "rss_warm": 583.8,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00077,
-          "warm": 0.00072,
-          "min": 0.00069,
-          "max": 0.00077,
+          "cold": 0.00078,
+          "warm": 0.00074,
+          "min": 0.00072,
+          "max": 0.00078,
           "runs": [
-            0.00077,
-            0.00069,
-            0.00075
+            0.00078,
+            0.00072,
+            0.00076
           ],
           "cpu_cold": 0.0,
           "cpu_warm": 0.0,
-          "rss_cold": 586.4,
-          "rss_warm": 586.65,
+          "rss_cold": 583.8,
+          "rss_warm": 583.8,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.01335,
-          "warm": 0.01272,
-          "min": 0.01269,
-          "max": 0.01335,
+          "cold": 0.01219,
+          "warm": 0.01227,
+          "min": 0.01219,
+          "max": 0.01234,
           "runs": [
-            0.01335,
-            0.01275,
-            0.01269
+            0.01219,
+            0.0122,
+            0.01234
           ],
-          "cpu_cold": 0.013,
-          "cpu_warm": 0.013,
-          "rss_cold": 586.4,
-          "rss_warm": 586.65,
+          "cpu_cold": 0.012,
+          "cpu_warm": 0.0125,
+          "rss_cold": 583.8,
+          "rss_warm": 583.9,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.00537,
-          "warm": 0.00512,
-          "min": 0.00512,
-          "max": 0.00537,
+          "cold": 0.0046,
+          "warm": 0.00568,
+          "min": 0.0046,
+          "max": 0.00643,
           "runs": [
-            0.00537,
-            0.00513,
-            0.00512
+            0.0046,
+            0.00643,
+            0.00493
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 586.8,
-          "rss_warm": 586.95,
+          "rss_cold": 584.1,
+          "rss_warm": 584.25,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.0239,
-          "warm": 0.02063,
-          "min": 0.02045,
-          "max": 0.0239,
+          "cold": 0.01937,
+          "warm": 0.02016,
+          "min": 0.01937,
+          "max": 0.02017,
           "runs": [
-            0.0239,
-            0.02045,
-            0.02081
+            0.01937,
+            0.02016,
+            0.02017
           ],
-          "cpu_cold": 0.012,
+          "cpu_cold": 0.01,
           "cpu_warm": 0.01,
-          "rss_cold": 587.0,
-          "rss_warm": 587.2,
+          "rss_cold": 584.5,
+          "rss_warm": 584.3,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 1.97638,
-          "warm": 1.85175,
-          "min": 1.82026,
-          "max": 1.97638,
+          "cold": 1.56847,
+          "warm": 1.56526,
+          "min": 1.56305,
+          "max": 1.56847,
           "runs": [
-            1.97638,
-            1.88323,
-            1.82026
+            1.56847,
+            1.56305,
+            1.56747
           ],
-          "cpu_cold": 5.842,
-          "cpu_warm": 5.4685,
-          "rss_cold": 588.8,
-          "rss_warm": 588.55,
+          "cpu_cold": 4.665,
+          "cpu_warm": 4.694,
+          "rss_cold": 588.1,
+          "rss_warm": 587.95,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 2.75861,
-          "warm": 2.57602,
-          "min": 2.53887,
-          "max": 2.75861,
+          "cold": 0.02129,
+          "warm": 0.0205,
+          "min": 0.02033,
+          "max": 0.02129,
           "runs": [
-            2.75861,
-            2.61317,
-            2.53887
+            0.02129,
+            0.02067,
+            0.02033
           ],
-          "cpu_cold": 8.437,
-          "cpu_warm": 7.873,
-          "rss_cold": 926.6,
-          "rss_warm": 927.35,
+          "cpu_cold": 0.198,
+          "cpu_warm": 0.1945,
+          "rss_cold": 615.5,
+          "rss_warm": 616.3,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.81898,
-          "warm": 0.76312,
-          "min": 0.75804,
-          "max": 0.81898,
+          "cold": 0.01635,
+          "warm": 0.01598,
+          "min": 0.01592,
+          "max": 0.01635,
           "runs": [
-            0.81898,
-            0.76819,
-            0.75804
+            0.01635,
+            0.01604,
+            0.01592
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -3602,29 +3602,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 4.5543,
-          "warm": 4.22855,
-          "min": 4.21735,
-          "max": 4.5543,
+          "cold": 1.55257,
+          "warm": 1.55298,
+          "min": 1.55073,
+          "max": 1.55523,
           "runs": [
-            4.5543,
-            4.23975,
-            4.21735
+            1.55257,
+            1.55073,
+            1.55523
           ],
-          "cpu_cold": 4.492,
-          "cpu_warm": 4.1845,
-          "rss_cold": 846.0,
-          "rss_warm": 847.0,
+          "cpu_cold": 1.543,
+          "cpu_warm": 1.5435,
+          "rss_cold": 617.9,
+          "rss_warm": 617.8,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 947.7,
-      "warm_rss_mib": 947.61719,
-      "cpu_seconds_cold": 24.647,
-      "cpu_seconds": 23.0805,
-      "cpu_user_seconds": 21.6275,
-      "cpu_sys_seconds": 1.453,
+      "peak_rss_mib": 646.2,
+      "warm_rss_mib": 646.00781,
+      "cpu_seconds_cold": 10.05,
+      "cpu_seconds": 10.1035,
+      "cpu_user_seconds": 9.517,
+      "cpu_sys_seconds": 0.5865,
       "info": {
         "document_bytes": 211206,
         "document_lines": 6005,
@@ -3709,21 +3709,21 @@
         "symbols_count": 334,
         "tokens_count": 309445,
         "edit_hover_samples": [
-          2.00351,
-          1.97638,
-          1.95721
+          1.56847,
+          1.5776,
+          1.54668
         ],
         "typing_items": 1,
         "typing_word": "local_ac",
         "typing_samples": [
-          2.75861,
-          0.89643,
-          0.81561,
-          0.81169,
-          0.81735,
-          0.82062,
-          0.81589,
-          0.82186
+          0.02129,
+          0.08246,
+          0.01637,
+          0.01604,
+          0.01618,
+          0.01653,
+          0.01571,
+          0.01634
         ],
         "member_typed_items": 369
       },
@@ -3732,184 +3732,184 @@
     "jailsp/large-25k/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00376,
-          "warm": 0.00331,
-          "min": 0.00312,
-          "max": 0.00376,
+          "cold": 0.00314,
+          "warm": 0.00328,
+          "min": 0.00314,
+          "max": 0.00337,
           "runs": [
-            0.00376,
-            0.00351,
-            0.00312
+            0.00314,
+            0.00318,
+            0.00337
           ],
-          "cpu_cold": 0.0021,
-          "cpu_warm": 0.0018,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.74219,
+          "cpu_cold": 0.0018,
+          "cpu_warm": 0.00185,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.21064,
-          "warm": 0.20565,
-          "min": 0.20327,
-          "max": 0.21064,
+          "cold": 0.20013,
+          "warm": 0.20456,
+          "min": 0.20013,
+          "max": 0.20823,
           "runs": [
-            0.21064,
-            0.20327,
-            0.20803
+            0.20013,
+            0.20088,
+            0.20823
           ],
-          "cpu_cold": 0.203,
+          "cpu_cold": 0.197,
           "cpu_warm": 0.2005,
-          "rss_cold": 148.0,
-          "rss_warm": 148.3,
+          "rss_cold": 139.8,
+          "rss_warm": 139.8,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00323,
-          "warm": 0.00316,
-          "min": 0.00298,
-          "max": 0.00335,
+          "cold": 0.003,
+          "warm": 0.00288,
+          "min": 0.00279,
+          "max": 0.003,
           "runs": [
-            0.00323,
-            0.00335,
+            0.003,
+            0.00279,
             0.00298
           ],
           "cpu_cold": 0.002,
           "cpu_warm": 0.002,
-          "rss_cold": 148.1,
-          "rss_warm": 148.35,
+          "rss_cold": 139.8,
+          "rss_warm": 139.9,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00226,
-          "warm": 0.0024,
-          "min": 0.00226,
-          "max": 0.00251,
+          "cold": 0.00225,
+          "warm": 0.00221,
+          "min": 0.0021,
+          "max": 0.00233,
           "runs": [
-            0.00226,
-            0.00251,
-            0.0023
+            0.00225,
+            0.00233,
+            0.0021
           ],
           "cpu_cold": 0.011,
-          "cpu_warm": 0.0115,
-          "rss_cold": 148.1,
-          "rss_warm": 148.35,
+          "cpu_warm": 0.0105,
+          "rss_cold": 139.8,
+          "rss_warm": 139.9,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00101,
-          "warm": 0.00099,
-          "min": 0.00095,
-          "max": 0.00102,
+          "cold": 0.00106,
+          "warm": 0.00105,
+          "min": 0.00103,
+          "max": 0.00107,
           "runs": [
-            0.00101,
-            0.00095,
-            0.00102
+            0.00106,
+            0.00107,
+            0.00103
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 148.1,
-          "rss_warm": 148.4,
+          "rss_cold": 139.9,
+          "rss_warm": 139.9,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00198,
-          "warm": 0.00218,
-          "min": 0.00198,
-          "max": 0.00223,
+          "cold": 0.00213,
+          "warm": 0.00207,
+          "min": 0.002,
+          "max": 0.00214,
           "runs": [
-            0.00198,
-            0.00223,
-            0.00213
+            0.00213,
+            0.00214,
+            0.002
           ],
           "cpu_cold": 0.002,
           "cpu_warm": 0.002,
-          "rss_cold": 148.2,
-          "rss_warm": 148.45,
+          "rss_cold": 139.9,
+          "rss_warm": 139.9,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.02429,
-          "warm": 0.02458,
-          "min": 0.02371,
-          "max": 0.02545,
+          "cold": 0.02573,
+          "warm": 0.02599,
+          "min": 0.0251,
+          "max": 0.02688,
           "runs": [
-            0.02429,
-            0.02545,
-            0.02371
+            0.02573,
+            0.02688,
+            0.0251
           ],
-          "cpu_cold": 0.006,
-          "cpu_warm": 0.006,
-          "rss_cold": 149.9,
-          "rss_warm": 150.1,
+          "cpu_cold": 0.005,
+          "cpu_warm": 0.005,
+          "rss_cold": 141.9,
+          "rss_warm": 142.0,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.07713,
-          "warm": 0.07759,
-          "min": 0.07713,
-          "max": 0.07792,
+          "cold": 0.07781,
+          "warm": 0.07564,
+          "min": 0.07526,
+          "max": 0.07781,
           "runs": [
-            0.07713,
-            0.07792,
-            0.07726
+            0.07781,
+            0.07601,
+            0.07526
           ],
           "cpu_cold": 0.039,
-          "cpu_warm": 0.039,
-          "rss_cold": 150.4,
-          "rss_warm": 151.85,
+          "cpu_warm": 0.0385,
+          "rss_cold": 142.3,
+          "rss_warm": 142.4,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.09921,
-          "warm": 0.09777,
-          "min": 0.09638,
-          "max": 0.09921,
+          "cold": 0.09731,
+          "warm": 0.09724,
+          "min": 0.09622,
+          "max": 0.09825,
           "runs": [
-            0.09921,
-            0.09638,
-            0.09916
+            0.09731,
+            0.09825,
+            0.09622
           ],
           "cpu_cold": 0.294,
-          "cpu_warm": 0.2895,
-          "rss_cold": 151.0,
-          "rss_warm": 152.15,
+          "cpu_warm": 0.2905,
+          "rss_cold": 142.8,
+          "rss_warm": 142.8,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.05052,
-          "warm": 0.05016,
-          "min": 0.04987,
-          "max": 0.05052,
+          "cold": 0.05252,
+          "warm": 0.05184,
+          "min": 0.05174,
+          "max": 0.05252,
           "runs": [
-            0.05052,
-            0.05045,
-            0.04987
+            0.05252,
+            0.05174,
+            0.05194
           ],
-          "cpu_cold": 0.268,
-          "cpu_warm": 0.2675,
-          "rss_cold": 180.0,
-          "rss_warm": 179.85,
+          "cpu_cold": 0.276,
+          "cpu_warm": 0.273,
+          "rss_cold": 171.6,
+          "rss_warm": 171.8,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.03181,
-          "warm": 0.03222,
-          "min": 0.03181,
-          "max": 0.0324,
+          "cold": 0.03224,
+          "warm": 0.03287,
+          "min": 0.03224,
+          "max": 0.03316,
           "runs": [
-            0.03181,
-            0.03203,
-            0.0324
+            0.03224,
+            0.03257,
+            0.03316
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -3919,29 +3919,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.13584,
-          "warm": 0.13818,
-          "min": 0.13584,
-          "max": 0.13942,
+          "cold": 0.13209,
+          "warm": 0.13743,
+          "min": 0.13209,
+          "max": 0.13781,
           "runs": [
-            0.13584,
-            0.13693,
-            0.13942
+            0.13209,
+            0.13781,
+            0.13704
           ],
-          "cpu_cold": 0.133,
-          "cpu_warm": 0.134,
-          "rss_cold": 176.5,
-          "rss_warm": 176.95,
+          "cpu_cold": 0.13,
+          "cpu_warm": 0.135,
+          "rss_cold": 167.8,
+          "rss_warm": 167.8,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 200.2,
-      "warm_rss_mib": 199.99219,
-      "cpu_seconds_cold": 0.99,
-      "cpu_seconds": 0.982,
-      "cpu_user_seconds": 0.87,
-      "cpu_sys_seconds": 0.112,
+      "peak_rss_mib": 192.0,
+      "warm_rss_mib": 191.96094,
+      "cpu_seconds_cold": 0.988,
+      "cpu_seconds": 0.9905,
+      "cpu_user_seconds": 0.864,
+      "cpu_sys_seconds": 0.1265,
       "info": {
         "document_bytes": 824499,
         "document_lines": 25350,
@@ -4027,19 +4027,19 @@
         "symbols_count": 1656,
         "tokens_count": 1210320,
         "edit_hover_samples": [
-          0.10288,
-          0.09921,
-          0.09664
+          0.10381,
+          0.09731,
+          0.09665
         ],
         "typing_items": 1,
         "typing_word": "v_3065",
         "typing_samples": [
-          0.05052,
-          0.09692,
-          0.03138,
-          0.03225,
-          0.03089,
-          0.03053
+          0.05252,
+          0.09806,
+          0.03235,
+          0.0321,
+          0.03193,
+          0.03212
         ],
         "member_typed_items": 1024
       },
@@ -4048,184 +4048,184 @@
     "jailsp/large-25k/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00347,
-          "warm": 0.0037,
-          "min": 0.00327,
-          "max": 0.00413,
+          "cold": 0.00343,
+          "warm": 0.00344,
+          "min": 0.00331,
+          "max": 0.00358,
           "runs": [
-            0.00347,
-            0.00413,
-            0.00327
+            0.00343,
+            0.00358,
+            0.00331
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.00215,
-          "rss_cold": 2.71875,
-          "rss_warm": 2.73438,
+          "cpu_cold": 0.0019,
+          "cpu_warm": 0.00195,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.20301,
-          "warm": 0.20112,
-          "min": 0.19988,
-          "max": 0.20301,
+          "cold": 0.42835,
+          "warm": 0.45763,
+          "min": 0.42629,
+          "max": 0.48897,
           "runs": [
-            0.20301,
-            0.19988,
-            0.20236
+            0.42835,
+            0.42629,
+            0.48897
           ],
-          "cpu_cold": 0.196,
-          "cpu_warm": 0.1945,
+          "cpu_cold": 0.217,
+          "cpu_warm": 0.2195,
           "rss_cold": 138.5,
-          "rss_warm": 138.65,
+          "rss_warm": 138.45,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00238,
-          "warm": 0.00245,
-          "min": 0.00228,
-          "max": 0.00262,
+          "cold": 0.00248,
+          "warm": 0.00229,
+          "min": 0.00216,
+          "max": 0.00248,
           "runs": [
-            0.00238,
-            0.00262,
-            0.00228
+            0.00248,
+            0.00216,
+            0.00242
           ],
           "cpu_cold": 0.002,
           "cpu_warm": 0.002,
           "rss_cold": 138.5,
-          "rss_warm": 138.75,
+          "rss_warm": 138.5,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00227,
-          "warm": 0.00234,
-          "min": 0.00227,
-          "max": 0.00236,
+          "cold": 0.00218,
+          "warm": 0.00221,
+          "min": 0.00217,
+          "max": 0.00225,
           "runs": [
-            0.00227,
-            0.00236,
-            0.00232
+            0.00218,
+            0.00217,
+            0.00225
           ],
           "cpu_cold": 0.011,
           "cpu_warm": 0.011,
           "rss_cold": 138.5,
-          "rss_warm": 138.75,
+          "rss_warm": 138.5,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00113,
-          "warm": 0.00108,
-          "min": 0.00105,
-          "max": 0.00113,
+          "cold": 0.00093,
+          "warm": 0.00103,
+          "min": 0.00093,
+          "max": 0.00109,
           "runs": [
-            0.00113,
-            0.00112,
-            0.00105
+            0.00093,
+            0.00098,
+            0.00109
           ],
           "cpu_cold": 0.001,
           "cpu_warm": 0.001,
-          "rss_cold": 138.5,
-          "rss_warm": 138.75,
+          "rss_cold": 138.6,
+          "rss_warm": 138.55,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00192,
-          "warm": 0.00207,
-          "min": 0.00192,
-          "max": 0.00217,
+          "cold": 0.00194,
+          "warm": 0.002,
+          "min": 0.00194,
+          "max": 0.00202,
           "runs": [
-            0.00192,
-            0.00197,
-            0.00217
+            0.00194,
+            0.00199,
+            0.00202
           ],
           "cpu_cold": 0.002,
           "cpu_warm": 0.002,
           "rss_cold": 138.6,
-          "rss_warm": 138.8,
+          "rss_warm": 138.55,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.02942,
-          "warm": 0.0263,
-          "min": 0.02581,
-          "max": 0.02942,
+          "cold": 0.02611,
+          "warm": 0.02632,
+          "min": 0.02578,
+          "max": 0.02687,
           "runs": [
-            0.02942,
-            0.02678,
-            0.02581
+            0.02611,
+            0.02578,
+            0.02687
           ],
           "cpu_cold": 0.005,
           "cpu_warm": 0.0055,
-          "rss_cold": 140.3,
-          "rss_warm": 140.6,
+          "rss_cold": 140.7,
+          "rss_warm": 140.3,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.07716,
-          "warm": 0.07788,
-          "min": 0.07716,
-          "max": 0.07837,
+          "cold": 0.07567,
+          "warm": 0.07759,
+          "min": 0.07546,
+          "max": 0.07973,
           "runs": [
-            0.07716,
-            0.07837,
-            0.07739
+            0.07567,
+            0.07546,
+            0.07973
           ],
           "cpu_cold": 0.039,
-          "cpu_warm": 0.0395,
-          "rss_cold": 142.0,
-          "rss_warm": 141.1,
+          "cpu_warm": 0.04,
+          "rss_cold": 141.2,
+          "rss_warm": 140.75,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.20087,
-          "warm": 0.20471,
-          "min": 0.20069,
-          "max": 0.20874,
+          "cold": 0.10074,
+          "warm": 0.11051,
+          "min": 0.10074,
+          "max": 0.11444,
           "runs": [
-            0.20087,
-            0.20874,
-            0.20069
+            0.10074,
+            0.10658,
+            0.11444
           ],
-          "cpu_cold": 0.591,
-          "cpu_warm": 0.5955,
-          "rss_cold": 143.1,
-          "rss_warm": 142.3,
+          "cpu_cold": 0.295,
+          "cpu_warm": 0.329,
+          "rss_cold": 141.7,
+          "rss_warm": 141.4,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.2214,
-          "warm": 0.22681,
-          "min": 0.2214,
-          "max": 0.22861,
+          "cold": 0.05259,
+          "warm": 0.05642,
+          "min": 0.05259,
+          "max": 0.05877,
           "runs": [
-            0.2214,
-            0.22502,
-            0.22861
+            0.05259,
+            0.05407,
+            0.05877
           ],
-          "cpu_cold": 0.439,
-          "cpu_warm": 0.442,
-          "rss_cold": 171.2,
-          "rss_warm": 171.3,
+          "cpu_cold": 0.271,
+          "cpu_warm": 0.281,
+          "rss_cold": 170.5,
+          "rss_warm": 170.1,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.03212,
-          "warm": 0.03199,
-          "min": 0.03177,
-          "max": 0.03222,
+          "cold": 0.03252,
+          "warm": 0.03335,
+          "min": 0.03252,
+          "max": 0.03338,
           "runs": [
-            0.03212,
-            0.03177,
-            0.03222
+            0.03252,
+            0.03332,
+            0.03338
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -4235,29 +4235,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.48611,
-          "warm": 0.47375,
-          "min": 0.47254,
-          "max": 0.48611,
+          "cold": 0.13691,
+          "warm": 0.13796,
+          "min": 0.13384,
+          "max": 0.14207,
           "runs": [
-            0.48611,
-            0.47254,
-            0.47495
+            0.13691,
+            0.13384,
+            0.14207
           ],
-          "cpu_cold": 0.478,
-          "cpu_warm": 0.466,
-          "rss_cold": 170.3,
-          "rss_warm": 169.8,
+          "cpu_cold": 0.135,
+          "cpu_warm": 0.135,
+          "rss_cold": 166.9,
+          "rss_warm": 167.0,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 192.2,
-      "warm_rss_mib": 191.89062,
-      "cpu_seconds_cold": 1.966,
-      "cpu_seconds": 1.962,
-      "cpu_user_seconds": 1.797,
-      "cpu_sys_seconds": 0.165,
+      "peak_rss_mib": 190.3,
+      "warm_rss_mib": 190.29688,
+      "cpu_seconds_cold": 1.186,
+      "cpu_seconds": 1.238,
+      "cpu_user_seconds": 1.0845,
+      "cpu_sys_seconds": 0.1535,
       "info": {
         "document_bytes": 824499,
         "document_lines": 25350,
@@ -4343,19 +4343,19 @@
         "symbols_count": 1656,
         "tokens_count": 1210320,
         "edit_hover_samples": [
-          0.2103,
-          0.20087,
-          0.19647
+          0.10287,
+          0.09498,
+          0.10074
         ],
         "typing_items": 1,
         "typing_word": "v_3065",
         "typing_samples": [
-          0.2214,
-          0.09421,
-          0.03189,
-          0.03162,
-          0.03225,
-          0.03199
+          0.05259,
+          0.09249,
+          0.03174,
+          0.03186,
+          0.03298,
+          0.03207
         ],
         "member_typed_items": 1024
       },
@@ -4364,184 +4364,184 @@
     "jailsp/large-100k/pull": {
       "metrics": {
         "startup": {
-          "cold": 0.00421,
-          "warm": 0.00372,
-          "min": 0.00369,
-          "max": 0.00421,
+          "cold": 0.00355,
+          "warm": 0.00455,
+          "min": 0.00355,
+          "max": 0.00512,
           "runs": [
-            0.00421,
-            0.00375,
-            0.00369
+            0.00355,
+            0.00398,
+            0.00512
           ],
-          "cpu_cold": 0.0025,
-          "cpu_warm": 0.0021,
-          "rss_cold": 2.765625,
-          "rss_warm": 2.76562,
+          "cpu_cold": 0.002,
+          "cpu_warm": 0.00265,
+          "rss_cold": 2.78125,
+          "rss_warm": 2.78906,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.84836,
-          "warm": 0.84611,
-          "min": 0.84414,
-          "max": 0.84836,
+          "cold": 0.8806,
+          "warm": 1.1088,
+          "min": 0.8806,
+          "max": 1.12547,
           "runs": [
-            0.84836,
-            0.84414,
-            0.84807
+            0.8806,
+            1.09213,
+            1.12547
           ],
-          "cpu_cold": 0.819,
-          "cpu_warm": 0.819,
-          "rss_cold": 513.1,
-          "rss_warm": 513.3,
+          "cpu_cold": 0.852,
+          "cpu_warm": 1.0655,
+          "rss_cold": 482.5,
+          "rss_warm": 482.75,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.01056,
-          "warm": 0.01116,
-          "min": 0.01056,
-          "max": 0.01158,
+          "cold": 0.01108,
+          "warm": 0.01527,
+          "min": 0.01108,
+          "max": 0.01688,
           "runs": [
-            0.01056,
-            0.01074,
-            0.01158
+            0.01108,
+            0.01366,
+            0.01688
           ],
-          "cpu_cold": 0.008,
-          "cpu_warm": 0.0085,
-          "rss_cold": 513.1,
-          "rss_warm": 513.4,
+          "cpu_cold": 0.009,
+          "cpu_warm": 0.012,
+          "rss_cold": 482.6,
+          "rss_warm": 482.75,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00833,
-          "warm": 0.00842,
-          "min": 0.00826,
-          "max": 0.00857,
+          "cold": 0.00823,
+          "warm": 0.00949,
+          "min": 0.00823,
+          "max": 0.0097,
           "runs": [
-            0.00833,
-            0.00826,
-            0.00857
+            0.00823,
+            0.00928,
+            0.0097
           ],
-          "cpu_cold": 0.041,
-          "cpu_warm": 0.041,
-          "rss_cold": 513.1,
-          "rss_warm": 513.4,
+          "cpu_cold": 0.04,
+          "cpu_warm": 0.0475,
+          "rss_cold": 482.6,
+          "rss_warm": 482.75,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00375,
-          "warm": 0.00376,
-          "min": 0.00373,
-          "max": 0.00379,
+          "cold": 0.00382,
+          "warm": 0.00418,
+          "min": 0.00376,
+          "max": 0.00461,
           "runs": [
-            0.00375,
-            0.00373,
-            0.00379
+            0.00382,
+            0.00461,
+            0.00376
           ],
           "cpu_cold": 0.003,
-          "cpu_warm": 0.003,
-          "rss_cold": 513.1,
-          "rss_warm": 513.4,
+          "cpu_warm": 0.004,
+          "rss_cold": 482.7,
+          "rss_warm": 482.8,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00774,
-          "warm": 0.00788,
-          "min": 0.00756,
-          "max": 0.0082,
+          "cold": 0.00739,
+          "warm": 0.0093,
+          "min": 0.00739,
+          "max": 0.00994,
           "runs": [
-            0.00774,
-            0.0082,
-            0.00756
+            0.00739,
+            0.00994,
+            0.00867
           ],
           "cpu_cold": 0.007,
-          "cpu_warm": 0.008,
-          "rss_cold": 513.2,
-          "rss_warm": 513.45,
+          "cpu_warm": 0.0095,
+          "rss_cold": 482.7,
+          "rss_warm": 482.8,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.16109,
-          "warm": 0.15519,
-          "min": 0.15388,
-          "max": 0.16109,
+          "cold": 0.17414,
+          "warm": 0.19446,
+          "min": 0.17414,
+          "max": 0.19617,
           "runs": [
-            0.16109,
-            0.15649,
-            0.15388
+            0.17414,
+            0.19275,
+            0.19617
           ],
           "cpu_cold": 0.025,
-          "cpu_warm": 0.024,
-          "rss_cold": 520.3,
-          "rss_warm": 520.55,
+          "cpu_warm": 0.029,
+          "rss_cold": 491.2,
+          "rss_warm": 490.25,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.34624,
-          "warm": 0.35085,
-          "min": 0.34624,
-          "max": 0.35186,
+          "cold": 0.36489,
+          "warm": 0.43658,
+          "min": 0.36489,
+          "max": 0.44673,
           "runs": [
-            0.34624,
-            0.35186,
-            0.34984
+            0.36489,
+            0.42642,
+            0.44673
           ],
-          "cpu_cold": 0.18,
-          "cpu_warm": 0.1805,
-          "rss_cold": 522.7,
-          "rss_warm": 522.9,
+          "cpu_cold": 0.189,
+          "cpu_warm": 0.226,
+          "rss_cold": 492.9,
+          "rss_warm": 494.25,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.37023,
-          "warm": 0.37882,
-          "min": 0.37023,
-          "max": 0.38421,
+          "cold": 0.38526,
+          "warm": 0.49673,
+          "min": 0.38526,
+          "max": 0.49825,
           "runs": [
-            0.37023,
-            0.38421,
-            0.37343
+            0.38526,
+            0.4952,
+            0.49825
           ],
-          "cpu_cold": 1.112,
-          "cpu_warm": 1.138,
-          "rss_cold": 522.3,
-          "rss_warm": 522.5,
+          "cpu_cold": 1.13,
+          "cpu_warm": 1.448,
+          "rss_cold": 492.5,
+          "rss_warm": 494.45,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.21782,
-          "warm": 0.21571,
-          "min": 0.21051,
-          "max": 0.22092,
+          "cold": 0.2425,
+          "warm": 0.27184,
+          "min": 0.2425,
+          "max": 0.27836,
           "runs": [
-            0.21782,
-            0.22092,
-            0.21051
+            0.2425,
+            0.26532,
+            0.27836
           ],
-          "cpu_cold": 0.536,
-          "cpu_warm": 0.5345,
-          "rss_cold": 564.6,
-          "rss_warm": 564.4,
+          "cpu_cold": 0.629,
+          "cpu_warm": 0.6715,
+          "rss_cold": 535.1,
+          "rss_warm": 534.95,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.1933,
-          "warm": 0.19422,
-          "min": 0.19208,
-          "max": 0.19636,
+          "cold": 0.23283,
+          "warm": 0.24551,
+          "min": 0.23283,
+          "max": 0.24598,
           "runs": [
-            0.1933,
-            0.19636,
-            0.19208
+            0.23283,
+            0.24598,
+            0.24504
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -4551,29 +4551,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.21107,
-          "warm": 0.21279,
-          "min": 0.21107,
-          "max": 0.21357,
+          "cold": 0.26588,
+          "warm": 0.26454,
+          "min": 0.25165,
+          "max": 0.27743,
           "runs": [
-            0.21107,
-            0.21201,
-            0.21357
+            0.26588,
+            0.25165,
+            0.27743
           ],
-          "cpu_cold": 0.209,
-          "cpu_warm": 0.2105,
-          "rss_cold": 565.6,
-          "rss_warm": 565.7,
+          "cpu_cold": 0.261,
+          "cpu_warm": 0.2605,
+          "rss_cold": 536.3,
+          "rss_warm": 537.35,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 649.3,
-      "warm_rss_mib": 649.08594,
-      "cpu_seconds_cold": 3.051,
-      "cpu_seconds": 3.075,
-      "cpu_user_seconds": 2.7355,
-      "cpu_sys_seconds": 0.3395,
+      "peak_rss_mib": 622.8,
+      "warm_rss_mib": 620.89062,
+      "cpu_seconds_cold": 3.294,
+      "cpu_seconds": 3.938,
+      "cpu_user_seconds": 3.4995,
+      "cpu_sys_seconds": 0.4385,
       "info": {
         "document_bytes": 3373664,
         "document_lines": 101454,
@@ -4654,16 +4654,16 @@
         "symbols_count": 6506,
         "tokens_count": 4912920,
         "edit_hover_samples": [
-          0.39218,
-          0.36706,
-          0.37023
+          0.3942,
+          0.36959,
+          0.38526
         ],
         "typing_items": 2,
         "typing_word": "u32",
         "typing_samples": [
-          0.21782,
-          0.1933,
-          0.1322
+          0.2425,
+          0.23283,
+          0.16128
         ],
         "member_typed_items": 0
       },
@@ -4672,184 +4672,184 @@
     "jailsp/large-100k/push": {
       "metrics": {
         "startup": {
-          "cold": 0.00371,
-          "warm": 0.00357,
-          "min": 0.00356,
-          "max": 0.00371,
+          "cold": 0.00438,
+          "warm": 0.00391,
+          "min": 0.00377,
+          "max": 0.00438,
           "runs": [
-            0.00371,
-            0.00356,
-            0.00359
+            0.00438,
+            0.00406,
+            0.00377
           ],
-          "cpu_cold": 0.002,
-          "cpu_warm": 0.00185,
-          "rss_cold": 2.71875,
-          "rss_warm": 2.75,
+          "cpu_cold": 0.0025,
+          "cpu_warm": 0.00195,
+          "rss_cold": 2.796875,
+          "rss_warm": 2.78125,
           "status": "ok",
           "message": ""
         },
         "first_diagnostics": {
-          "cold": 0.83966,
-          "warm": 0.81833,
-          "min": 0.81751,
-          "max": 0.83966,
+          "cold": 1.30703,
+          "warm": 1.10157,
+          "min": 1.06057,
+          "max": 1.30703,
           "runs": [
-            0.83966,
-            0.81916,
-            0.81751
+            1.30703,
+            1.14257,
+            1.06057
           ],
-          "cpu_cold": 0.803,
-          "cpu_warm": 0.7835,
-          "rss_cold": 476.6,
-          "rss_warm": 477.4,
+          "cpu_cold": 1.056,
+          "cpu_warm": 0.861,
+          "rss_cold": 477.4,
+          "rss_warm": 477.05,
           "status": "ok",
           "message": ""
         },
         "hover_first": {
-          "cold": 0.00826,
-          "warm": 0.00864,
-          "min": 0.00826,
-          "max": 0.00882,
+          "cold": 0.01237,
+          "warm": 0.0099,
+          "min": 0.0099,
+          "max": 0.01237,
           "runs": [
-            0.00826,
-            0.00846,
-            0.00882
+            0.01237,
+            0.0099,
+            0.0099
           ],
-          "cpu_cold": 0.008,
-          "cpu_warm": 0.008,
-          "rss_cold": 476.6,
-          "rss_warm": 477.5,
+          "cpu_cold": 0.012,
+          "cpu_warm": 0.01,
+          "rss_cold": 477.4,
+          "rss_warm": 477.1,
           "status": "ok",
           "message": ""
         },
         "hover_warm": {
-          "cold": 0.00849,
-          "warm": 0.00829,
-          "min": 0.00821,
-          "max": 0.00849,
+          "cold": 0.01085,
+          "warm": 0.00889,
+          "min": 0.00883,
+          "max": 0.01085,
           "runs": [
-            0.00849,
-            0.00821,
-            0.00838
+            0.01085,
+            0.00896,
+            0.00883
           ],
-          "cpu_cold": 0.041,
-          "cpu_warm": 0.0405,
-          "rss_cold": 476.6,
-          "rss_warm": 477.5,
+          "cpu_cold": 0.057,
+          "cpu_warm": 0.043,
+          "rss_cold": 477.4,
+          "rss_warm": 477.1,
           "status": "ok",
           "message": ""
         },
         "completion_member": {
-          "cold": 0.00346,
-          "warm": 0.00381,
-          "min": 0.00346,
-          "max": 0.00384,
+          "cold": 0.00369,
+          "warm": 0.00394,
+          "min": 0.00369,
+          "max": 0.00417,
           "runs": [
-            0.00346,
-            0.00379,
-            0.00384
+            0.00369,
+            0.00417,
+            0.00371
           ],
           "cpu_cold": 0.003,
           "cpu_warm": 0.0035,
-          "rss_cold": 476.7,
-          "rss_warm": 477.5,
+          "rss_cold": 477.5,
+          "rss_warm": 477.1,
           "status": "ok",
           "message": ""
         },
         "references": {
-          "cold": 0.00788,
-          "warm": 0.00789,
-          "min": 0.00764,
-          "max": 0.00813,
+          "cold": 0.00845,
+          "warm": 0.00837,
+          "min": 0.00795,
+          "max": 0.00878,
           "runs": [
-            0.00788,
-            0.00764,
-            0.00813
+            0.00845,
+            0.00878,
+            0.00795
           ],
           "cpu_cold": 0.008,
           "cpu_warm": 0.008,
-          "rss_cold": 476.7,
-          "rss_warm": 477.5,
+          "rss_cold": 477.5,
+          "rss_warm": 477.1,
           "status": "ok",
           "message": ""
         },
         "document_symbols": {
-          "cold": 0.16647,
-          "warm": 0.17478,
-          "min": 0.16647,
-          "max": 0.17659,
+          "cold": 0.20797,
+          "warm": 0.18804,
+          "min": 0.18778,
+          "max": 0.20797,
           "runs": [
-            0.16647,
-            0.17298,
-            0.17659
+            0.20797,
+            0.18831,
+            0.18778
           ],
-          "cpu_cold": 0.024,
-          "cpu_warm": 0.024,
-          "rss_cold": 483.6,
-          "rss_warm": 484.45,
+          "cpu_cold": 0.03,
+          "cpu_warm": 0.0255,
+          "rss_cold": 486.1,
+          "rss_warm": 483.8,
           "status": "ok",
           "message": ""
         },
         "semantic_tokens": {
-          "cold": 0.34282,
-          "warm": 0.34183,
-          "min": 0.34165,
-          "max": 0.34282,
+          "cold": 0.44039,
+          "warm": 0.35988,
+          "min": 0.33592,
+          "max": 0.44039,
           "runs": [
-            0.34282,
-            0.34165,
-            0.34201
+            0.44039,
+            0.38383,
+            0.33592
           ],
-          "cpu_cold": 0.176,
-          "cpu_warm": 0.1775,
-          "rss_cold": 486.7,
-          "rss_warm": 488.8,
+          "cpu_cold": 0.227,
+          "cpu_warm": 0.1875,
+          "rss_cold": 487.7,
+          "rss_warm": 489.5,
           "status": "ok",
           "message": ""
         },
         "edit_hover": {
-          "cold": 0.85588,
-          "warm": 0.84704,
-          "min": 0.84343,
-          "max": 0.85588,
+          "cold": 0.48923,
+          "warm": 0.39964,
+          "min": 0.39216,
+          "max": 0.48923,
           "runs": [
-            0.85588,
-            0.85065,
-            0.84343
+            0.48923,
+            0.40712,
+            0.39216
           ],
-          "cpu_cold": 2.472,
-          "cpu_warm": 2.455,
-          "rss_cold": 488.5,
-          "rss_warm": 490.5,
+          "cpu_cold": 1.438,
+          "cpu_warm": 1.1815,
+          "rss_cold": 487.4,
+          "rss_warm": 489.3,
           "status": "ok",
           "message": ""
         },
         "typing_first": {
-          "cold": 0.94486,
-          "warm": 0.94482,
-          "min": 0.94465,
-          "max": 0.94499,
+          "cold": 0.28237,
+          "warm": 0.23933,
+          "min": 0.22598,
+          "max": 0.28237,
           "runs": [
-            0.94486,
-            0.94499,
-            0.94465
+            0.28237,
+            0.22598,
+            0.25267
           ],
-          "cpu_cold": 1.257,
-          "cpu_warm": 1.252,
-          "rss_cold": 530.0,
-          "rss_warm": 533.05,
+          "cpu_cold": 0.653,
+          "cpu_warm": 0.6,
+          "rss_cold": 530.3,
+          "rss_warm": 531.3,
           "status": "ok",
           "message": ""
         },
         "typing_median": {
-          "cold": 0.19669,
-          "warm": 0.19358,
-          "min": 0.18905,
-          "max": 0.1981,
+          "cold": 0.23016,
+          "warm": 0.22753,
+          "min": 0.20238,
+          "max": 0.25267,
           "runs": [
-            0.19669,
-            0.1981,
-            0.18905
+            0.23016,
+            0.20238,
+            0.25267
           ],
           "cpu_cold": null,
           "cpu_warm": null,
@@ -4859,29 +4859,29 @@
           "message": ""
         },
         "completion_member_typed": {
-          "cold": 0.95114,
-          "warm": 0.94861,
-          "min": 0.93834,
-          "max": 0.95888,
+          "cold": 0.23069,
+          "warm": 0.2345,
+          "min": 0.22439,
+          "max": 0.24462,
           "runs": [
-            0.95114,
-            0.93834,
-            0.95888
+            0.23069,
+            0.22439,
+            0.24462
           ],
-          "cpu_cold": 0.939,
-          "cpu_warm": 0.935,
-          "rss_cold": 537.9,
-          "rss_warm": 541.0,
+          "cpu_cold": 0.229,
+          "cpu_warm": 0.2305,
+          "rss_cold": 530.9,
+          "rss_warm": 533.3,
           "status": "ok",
           "message": ""
         }
       },
-      "peak_rss_mib": 626.4,
-      "warm_rss_mib": 624.27344,
-      "cpu_seconds_cold": 5.922,
-      "cpu_seconds": 5.8775,
-      "cpu_user_seconds": 5.397,
-      "cpu_sys_seconds": 0.4805,
+      "peak_rss_mib": 617.0,
+      "warm_rss_mib": 616.83594,
+      "cpu_seconds_cold": 4.414,
+      "cpu_seconds": 3.7935,
+      "cpu_user_seconds": 3.3615,
+      "cpu_sys_seconds": 0.432,
       "info": {
         "document_bytes": 3373664,
         "document_lines": 101454,
@@ -4962,16 +4962,16 @@
         "symbols_count": 6506,
         "tokens_count": 4912920,
         "edit_hover_samples": [
-          0.87762,
-          0.85588,
-          0.84942
+          0.49911,
+          0.47431,
+          0.48923
         ],
         "typing_items": 2,
         "typing_word": "u32",
         "typing_samples": [
-          0.94486,
-          0.19669,
-          0.13353
+          0.28237,
+          0.23016,
+          0.15101
         ],
         "member_typed_items": 0
       },
