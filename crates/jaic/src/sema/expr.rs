@@ -327,7 +327,7 @@ impl Compiler {
             E::CallerLocation => self.location_operand(f, span),
             // `#file` is the full path of the file, as loaded.
             E::File => {
-                let path = self.sources.get(span.file).path.clone();
+                let path = forward_slashes(&self.sources.get(span.file).path);
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(path.as_bytes().into()),
@@ -338,7 +338,7 @@ impl Compiler {
                 let path = self.sources.get(span.file).path.clone();
                 let dir = std::path::Path::new(&path)
                     .parent()
-                    .map(|p| format!("{}/", p.display()))
+                    .map(|p| format!("{}/", forward_slashes(&p.display().to_string())))
                     .unwrap_or_default();
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
@@ -2875,5 +2875,15 @@ fn is_number_literal(e: &ast::Expr) -> bool {
         E::Unary(ast::UnOp::Neg | ast::UnOp::Plus | ast::UnOp::BitNot, x) => is_number_literal(x),
         E::Binary(_, a, b) => is_number_literal(a) && is_number_literal(b),
         _ => false,
+    }
+}
+
+/// Paths the program sees (`#file`, `#filepath`) use `/` on Windows too, so a metaprogram can put
+/// them in a string literal or splice them into `#load "..."` without escaping backslashes.
+fn forward_slashes(path: &str) -> String {
+    if cfg!(windows) {
+        path.replace('\\', "/")
+    } else {
+        path.to_string()
     }
 }

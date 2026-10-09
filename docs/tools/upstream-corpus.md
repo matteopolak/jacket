@@ -209,7 +209,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **jai-protobuf.** The cases run on a scratch copy, since the tests and examples write generated code next to their `.proto` files: `jai-protobuf-tests` (`All tests passed!`), the four examples (`jai-protobuf-01-compiletime`, `-02a-pregenerate`, `-02b-use-generated`, `-03-imports`, `-04-memory-allocation`) and `jai-protobuf-protoc-check`. Two jaic gaps stopped them: `build.jai` starts with `#!/usr/bin/env jai`, which the lexer now skips at the start of a file, and the library builds a `File` from the C `stdin`. The well-known-types example is not a case: it reads `google/protobuf/*.proto` from `/usr/include`.
 
-**jai-format.** `jai-format-tests` (`first.jai - test`) and `jai-format-build` link jai_parser. It builds `File.{ stdin }` from the C `stdin`, so on macOS and Linux jaic's `File.handle` is now a `*FILE`, as that code expects (it was an `s64` descriptor); Windows keeps its `HANDLE`.
+**jai-format.** `jai-format-tests` (`first.jai - test`) and `jai-format-build` link jai_parser. It builds `File.{ stdin }` from the C `stdin`, so on macOS and Linux jaic's `File.handle` is now a `*FILE`, as that code expects (it was an `s64` descriptor); on Windows it is a `HANDLE`, which the formatter fills from `GetStdHandle` (it was an `s64`, so the build stopped with `expected s64, found *void`).
 
 Excluded: jaithon, which is its own language in `.jai` files.
 

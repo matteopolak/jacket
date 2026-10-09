@@ -1710,6 +1710,20 @@ impl Compiler {
                         });
                     }
                 }
+                // `using module.global_var;`
+                if let E::Member(base, member) = &value.kind
+                    && let Operand::Module(m) = self.eval_const(scope, base, None)?
+                    && let Found::Entities(ids) = self.module_lookup(m, member.name)?
+                    && let Some(&id) = ids.first()
+                    && let Resolved::Global {
+                        ty, ..
+                    } = self.resolve_entity(id)?
+                {
+                    return Ok(UsingEntry::Place {
+                        ty,
+                        entity: id,
+                    });
+                }
                 err(
                     value.span,
                     format!("cannot use `using` on {}", self.describe(&other)),

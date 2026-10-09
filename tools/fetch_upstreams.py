@@ -205,7 +205,7 @@ def main() -> None:
     upstream = DATA / 'corpus/upstream'
     for link, target in MODULE_LINKS:
         path = upstream / link
-        if wanted is not None and not ((upstream / target).exists() and (upstream / link.split('/')[0]).exists()):
+        if wanted is not None and not ((upstream / target).exists() and (link.startswith('_modules/') or (upstream / link.split('/')[0]).exists())):
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.is_symlink() or path.exists():

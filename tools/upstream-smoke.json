@@ -224,26 +224,34 @@
       "project": "rexim--rexim.github.io",
       "steps": [
         {
-          "name": "rss.jai",
-          "kind": "jaic",
+          "name": "make event/, where rss.jai writes its file",
           "argv": [
-            "build",
-            "rss.jai",
-            "-o",
-            "rss"
-          ],
-          "timeout": 300,
-          "outputs": []
+            "{python}",
+            "-c",
+            "import os; os.makedirs('event', exist_ok=True)"
+          ]
         },
         {
+          "name": "rss.jai (runs at compile time)",
+          "kind": "jaic",
           "argv": [
-            "./rss"
+            "run",
+            "rss.jai"
           ],
+          "timeout": 300,
           "contains": [
-            "Generated event file event/"
+            "Generated event file event/",
+            "<item>"
           ]
         }
-      ]
+      ],
+      "only": [
+        "macos-arm64",
+        "macos-x64",
+        "linux-x64",
+        "linux-arm64"
+      ],
+      "only_reason": "rss.jai uses POSIX time_t, which Windows has no counterpart of"
     },
     {
       "id": "wait-group",
@@ -277,7 +285,11 @@
             "Received EOF. Quitting."
           ]
         }
-      ]
+      ],
+      "skip": {
+        "linux-x64": "jaic rejects `log(..., signal)` in module.jai: `signal` names both POSIX's and Thread's, an ambiguous overload set (unverified whether Jai accepts it)",
+        "linux-arm64": "same: `signal` is an ambiguous overload set on Linux"
+      }
     },
     {
       "id": "hyperserve",
@@ -312,7 +324,12 @@
             "pong"
           ]
         }
-      ]
+      ],
+      "only": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "only_reason": "hyperserve imports wait_group (kqueue/epoll; its Linux code needs the ambiguous `signal` fixed) and has no Windows support upstream"
     },
     {
       "id": "jai-format",
@@ -504,6 +521,19 @@
       "id": "focus",
       "project": "focus-editor--focus",
       "steps": [
+        {
+          "name": "use Focus's portable hash instead of the AES one (stdlib meow_hash has no x64 implementation)",
+          "only": [
+            "linux-x64",
+            "macos-x64",
+            "windows-x64"
+          ],
+          "argv": [
+            "{python}",
+            "-c",
+            "import pathlib; f = pathlib.Path('src/meow_hash.jai'); f.write_text(f.read_text().replace('#if CPU == .X64 {', '#if false {', 1))"
+          ]
+        },
         {
           "name": "build the macOS rendering view",
           "kind": "jaic",
