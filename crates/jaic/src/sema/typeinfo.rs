@@ -807,6 +807,11 @@ impl Compiler {
             let span = self.entity(id).span;
             (span.file, span.start)
         });
+        // The Context's constants are hooks (`#add_context _hook :: proc;`) that code detects by
+        // name, so their signatures are resolved even when nothing has used them yet.
+        let is_context = self
+            .context_type
+            .is_some_and(|t| self.types.as_struct(t) == Some(s));
         let mut out = Vec::new();
         for id in ids {
             let (name, span) = (self.entity(id).name, self.entity(id).span);
@@ -819,7 +824,9 @@ impl Compiler {
                 // Only once its signature is known: resolving it here can lay out the types it
                 // names early. Vk-Engine's entity methods take a `*World`, whose `#insert` reads
                 // a list the metaprogram has not finished, so it failed.
-                Ok(Resolved::Proc(p)) if !self.proc(p).is_poly && self.proc(p).sig.is_some() => {
+                Ok(Resolved::Proc(p))
+                    if !self.proc(p).is_poly && (is_context || self.proc(p).sig.is_some()) =>
+                {
                     self.proc_type(p, span).map(|ty| (ty, Some(Value::Proc(p))))
                 }
                 Ok(_) => continue,

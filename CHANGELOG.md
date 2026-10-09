@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `#add_context name :: proc;` appears in `type_info(type_of(context)).members` with the `CONSTANT` flag even when nothing had used the procedure yet, so a `#run` that detects a context hook by name sees it. Focus built from source now installs its macOS app delegate, becomes a foreground app and receives keyboard input.
+
 ## [0.6.1] - 2026-10-09
 
 The language server handles real projects and large files: Focus answers in about 0.3 s (it never finished before), files up to 32 MiB open instead of being dropped, memory on large files falls by a factor of 2 to 5, and push-diagnostics editors complete in milliseconds while typing. Go-to-definition reaches members and the resolved overload, `.` completes enum members, and `tools/lsp_bench.py` measures all of it.
