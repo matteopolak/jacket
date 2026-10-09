@@ -190,7 +190,9 @@ pub fn callback_addr(
         {
             Some(pieces) => (shape_of(&pieces)?, false),
             None if X86_64 => (INT, true),
-            None if cfg!(target_arch = "aarch64") && !forced_sret => (A64_SRET, true),
+            // MSVC on arm64 passes a non-POD result's address in x0, like the first argument.
+            None if arch == Arch::Win64Arm && forced_sret => (INT, true),
+            None if cfg!(target_arch = "aarch64") => (A64_SRET, true),
             None => {
                 return Err(
                     "a procedure returning a large struct cannot be called from C in the interpreter on this CPU"

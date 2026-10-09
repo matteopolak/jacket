@@ -405,7 +405,8 @@ struct FFF(f64, f64, f64);
 #[allow(clippy::upper_case_acronyms)]
 struct FFFF(f64, f64, f64, f64);
 
-/// Large aggregates come back through a hidden pointer the callee fills.
+/// Results up to this many words come back through a hidden pointer the callee fills, by value
+/// (`Sret`); bigger ones get their pointer passed explicitly.
 const SRET_WORDS: usize = 64;
 
 #[repr(C)]
@@ -675,7 +676,13 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let ret_pieces = ret_layout
         .filter(|_| !forced_sret)
         .and_then(|l| abi::classify_ret(arch, l));
-    let mut regs = Regs::new(ret_layout.is_some() && ret_pieces.is_none());
+    let sret = ret_layout.is_some() && ret_pieces.is_none();
+    // A result too big for `Sret`: the pointer is passed explicitly (the first integer argument
+    // on x86-64, `x8` through the assembly call of `wide.rs` on AArch64).
+    let oversize = sret
+        && !(arch == Arch::Win64Arm && forced_sret)
+        && ret_layout.is_some_and(|l| l.size as usize > SRET_WORDS * 8);
+    let mut regs = Regs::new(sret && !(oversize && X86_64));
     // Copies of large aggregates passed by address; alive until the call returns.
     let mut copies: Vec<Vec<u64>> = Vec::new();
     let mut out_ptr = 0;
@@ -684,7 +691,9 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
     let general_only = arch == Arch::Win64Arm && sig.c_varargs;
     // MSVC on arm64 passes a non-POD C++ result's address in x0 (Clang's `inreg sret`), not x8.
     let result_in_x0 = arch == Arch::Win64Arm && forced_sret && ret_layout.is_some();
-    if result_in_x0 && let Some(&out) = args.get(sig.out_index()) {
+    if (result_in_x0 || oversize && X86_64)
+        && let Some(&out) = args.get(sig.out_index())
+    {
         regs.int(out)?;
     }
     for (i, &a) in args.iter().enumerate() {
@@ -692,11 +701,24 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
             out_ptr = a;
             continue;
         }
+        let layout = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref);
         if VARARGS_ON_STACK && sig.c_varargs && i >= sig.c_fixed as usize {
-            regs.stack(a)?;
+            // Apple's arm64 puts every variadic argument on the stack: an aggregate as its own
+            // words, or as the address of a copy when it is over 16 bytes and not a float aggregate.
+            match layout {
+                None => regs.stack(a)?,
+                Some(l) if matches!(abi::classify_arg(arch, l), Passing::Indirect) => {
+                    regs.stack(indirect_copy(a, l.size, &mut copies))?
+                }
+                Some(l) => {
+                    for k in 0..l.size.div_ceil(8) {
+                        // SAFETY: `a` points at the aggregate, `l.size` bytes long.
+                        regs.stack(unsafe { read_bytes(a + k * 8, l.size - k * 8) })?;
+                    }
+                }
+            }
             continue;
         }
-        let layout = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref);
         if general_only {
             match layout.map(|l| (l, abi::classify_vararg(arch, l))) {
                 None => regs.int(a)?,
@@ -800,15 +822,21 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Vec<u64>, String> {
         unsafe { call_as::<u64>(addr, &regs) };
         return Ok(Vec::new());
     }
+    if oversize {
+        let result = if X86_64 {
+            // SAFETY: as below; the callee fills the buffer `rdi` addresses.
+            unsafe { call_as::<u64>(addr, &regs) };
+            Ok(Vec::new())
+        } else {
+            // SAFETY: as below; the callee fills the buffer `x8` addresses.
+            unsafe { wide::call(addr, &regs, sig, Some((layout.size, None)), out_ptr) }
+        };
+        drop(copies);
+        return result;
+    }
     // SAFETY (all calls below): the callee's declared C signature matches these registers.
     match ret_pieces {
         None => {
-            if layout.size as usize > SRET_WORDS * 8 {
-                return Err(format!(
-                    "the interpreter cannot return a {}-byte struct from a foreign procedure",
-                    layout.size
-                ));
-            }
             let r: Sret = unsafe { call_as(addr, &regs) };
             unsafe {
                 std::ptr::copy_nonoverlapping(
