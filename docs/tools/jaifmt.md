@@ -11,7 +11,27 @@ target/jaifmt --check stdlib tests         # CI: list files that would change, e
 target/jaifmt --stdin < in.jai > out.jai   # editor integration
 ```
 
-Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`), `--color auto|always|never` (`auto` decides like jaic and jailint: off when `NO_COLOR` is set, on when `FORCE_COLOR` or `CLICOLOR_FORCE` is set to something other than empty or `0`, otherwise on for a terminal whose `TERM` is not `dumb`; on Windows only for a console that understands ANSI codes, such as Windows Terminal or ConEmu), `--help`/`-h`. Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change; paths inside the current directory are shown relative to it, as in its error messages.
+Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`), `--color auto|always|never` (`auto` decides like jaic and jailint: off when `NO_COLOR` is set, on when `FORCE_COLOR` or `CLICOLOR_FORCE` is set to something other than empty or `0`, otherwise on for a terminal whose `TERM` is not `dumb`; on Windows only for a console that understands ANSI codes, such as Windows Terminal or ConEmu), `--help`/`-h`. The command line is parsed by [`Extensions/Args`](../specs/stdlib/README.md), so every flag also has a `--no-` form (`--no-check`), values can be written `--config=file` or `--config file`, `--` ends the options, a mistyped option gets a suggestion, and `--help` is generated from the declarations at the top of `jaifmt/main.jai`. Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (bad usage, unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change; paths inside the current directory are shown relative to it, as in its error messages.
+
+```
+$ jaifmt --help
+Formats Jai source files in place. Directories are searched recursively for *.jai files.
+
+Exit status: 0 success, 1 files would change (--check), 2 errors.
+
+Usage: jaifmt [OPTIONS] [PATHS]...
+
+Arguments:
+  [PATHS]...           Files or directories to format
+
+Options:
+      --[no-]check     Do not write; list the files that would change and exit with 1
+      --[no-]stdin     Format standard input to standard output
+      --config <FILE>  Use this config instead of the nearest jaifmt.toml
+  -v, --[no-]verbose   Report every file, a summary, and lines over max_width
+      --color <COLOR>  Colour errors: auto (on a terminal, unless NO_COLOR is set), always, never [default: auto] [possible values: auto, always, never]
+  -h, --help           Print help
+```
 
 Errors use the compilers' layout, a lowercase message and a `help:` line saying what to do; paths are relative to the current directory:
 
@@ -20,7 +40,10 @@ src/bad.jai:1:20: error: unbalanced `}`
 help: the file was left unchanged; jaifmt formats only code whose brackets balance
 error: `missing.jai` does not exist
 error: unknown option `--chek`
-help: `jaifmt --help` lists the options
+help: did you mean `--check`?
+usage: jaifmt [OPTIONS] [PATHS]...
+For more information, run `jaifmt --help`.
+error: `<PATHS>` cannot be used with `--stdin`
 ```
 
 A bad `jaifmt.toml` is reported as ``in `path`, line N: ...`` with the fix.

@@ -1189,7 +1189,9 @@ impl Compiler {
                         // evaluated as a constant expression.
                         let folded = match &arg.expr {
                             Some(expr) => match self.eval_const(arg.scope, expr, None) {
-                                Ok(Operand::Const { value, .. }) => Some(value),
+                                Ok(Operand::Const {
+                                    value, ..
+                                }) => Some(value),
                                 _ => None,
                             },
                             None => None,
@@ -1200,7 +1202,9 @@ impl Compiler {
                             None => {
                                 return err(
                                     arg.span,
-                                    format!("argument for `${name}` must be a compile-time constant"),
+                                    format!(
+                                        "argument for `${name}` must be a compile-time constant"
+                                    ),
                                 );
                             }
                         }

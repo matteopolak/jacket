@@ -85,6 +85,7 @@ main :: () {
 check_error_layout :: () {
     Args.set_color_mode(.NEVER);
     _, error := Args.try_parse(Cli, HELP, string.["jaifmt", "--chek"]);
+    Args.report(error); // to stderr; the fields below are what it prints
     expect(error.kind == .UNKNOWN_OPTION, "error layout setup");
     expect(error.message == "unknown option `--chek`" && error.suggestion == "--check" && error.usage == "jaifmt [OPTIONS] [PATHS]..." && error.command == "jaifmt", "error fields feed the report");
 }

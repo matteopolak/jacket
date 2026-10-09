@@ -14,8 +14,14 @@ Help :: struct(T: Type) {
     };
 }
 
-Inner :: struct { x: int; }
-Outer :: struct { inner: Inner; y: int; }
+Inner :: struct {
+    x: int;
+}
+
+Outer :: struct {
+    inner: Inner;
+    y: int;
+}
 
 describe :: ($T: Type, $help: Help(T)) -> string {
     return help.about;

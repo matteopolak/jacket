@@ -3,7 +3,7 @@
 //
 //     jaic run stdlib/Extensions/Args/tests/data/bless.jai > stdlib/Extensions/Args/tests/data/golden.jai
 //
-// (Not named like a test and not under tests/*.jai, so the stdlib runtime harness skips it.)
+// then run jaifmt on the file (the CI format check covers it). (Not named like a test and not under tests/*.jai, so the stdlib runtime harness skips it.)
 
 #import "Basic";
 #import "String";

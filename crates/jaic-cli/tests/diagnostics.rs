@@ -680,7 +680,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
         ),
         (
             "Extensions",
-            "help: `Extensions` is the folder of jaic's extension modules, not a module: import one of them by its path: `Extensions/Jai_Format`, `Extensions/Long_Double`",
+            "help: `Extensions` is the folder of jaic's extension modules, not a module: import one of them by its path: `Extensions/Args`, `Extensions/Jai_Format`, `Extensions/Long_Double`",
         ),
     ];
     for (i, (name, help)) in cases.iter().enumerate() {

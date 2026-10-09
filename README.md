@@ -137,6 +137,7 @@ On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitiz
 | --- | --- |
 | [`Extensions/WebGPU`](docs/stdlib/webgpu.md) | The whole `webgpu.h` API: one program draws in a window on macOS, Linux and Windows (wgpu-native ships in the release archives) and in the playground's Render tab (browsers with WebGPU and JSPI) |
 | [`Extensions/Long_Double`](docs/language/long-double.md) | C's 16-byte `long double` |
+| [`Extensions/Args`](docs/stdlib/args.md) | A clap-style command-line parser generated at compile time: option notes, subcommands, help, completions |
 | `Extensions/Jai_Format` | The formatter `jaifmt` is built on, as a library |
 | `Extensions/Wasi_Runtime` | The runtime of `-os wasm` builds, imported automatically |
 

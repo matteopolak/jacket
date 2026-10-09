@@ -530,4 +530,3 @@ Register-ArgumentCompleter -Native -CommandName 'tool' -ScriptBlock {
     $completions | Where-Object { $_.CompletionText -like "$wordToComplete*" }
 }
 END_OF_TEXT;
-

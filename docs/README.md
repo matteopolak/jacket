@@ -95,6 +95,7 @@ The LLVM backend, C ABI and linking.
 - [Bindings_Generator](specs/stdlib/README.md)
 - [Stdlib extensions: jaic-only modules in `stdlib/Extensions/`](specs/stdlib/README.md)
 - [Command_Line](specs/stdlib/README.md)
+- [Args: a compile-time-generated command-line parser (jaic extension)](specs/stdlib/README.md)
 - [Compiler API, reflection and metaprogram support](specs/stdlib/README.md)
 - [Files, processes and OS services](specs/stdlib/README.md)
 - [GetRect](specs/stdlib/README.md)

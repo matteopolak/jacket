@@ -12,29 +12,26 @@
 
 #import "Extensions/Jai_Format";
 
-USAGE :: #string END
-usage: jaifmt [options] <file or directory>...
-
-Formats Jai source files in place. Directories are searched recursively for *.jai files.
-
-options:
-  --check          do not write; list the files that would change and exit with 1
-  --stdin          format standard input to standard output
-  --config <file>  use this config instead of the nearest jaifmt.toml
-  --verbose, -v    report every file, a summary, and lines over max_width
-  --color <when>   colour errors: auto (on a terminal, unless NO_COLOR is set), always, never
-  --help, -h       show this text
-
-exit status: 0 success, 1 files would change (--check), 2 errors
-END
+Args :: #import "Extensions/Args";
 
 Options :: struct {
+    paths: [..] string; @positional @conflicts=stdin
     check: bool;
     stdin: bool;
-    verbose: bool;
-    config_path: string;
-    paths: [..] string;
+    config: string; @value=FILE
+    verbose: bool; @short=v
+    color: Args.Color_Mode = .AUTO;
 }
+
+HELP :: Args.Help(Options).{
+    about = "Formats Jai source files in place. Directories are searched recursively for *.jai files.\n\nExit status: 0 success, 1 files would change (--check), 2 errors.",
+    paths = "Files or directories to format",
+    check = "Do not write; list the files that would change and exit with 1",
+    stdin = "Format standard input to standard output",
+    config = "Use this config instead of the nearest jaifmt.toml",
+    verbose = "Report every file, a summary, and lines over max_width",
+    color = "Colour errors: auto (on a terminal, unless NO_COLOR is set), always, never",
+};
 
 Totals :: struct {
     checked: int;
@@ -45,43 +42,11 @@ Totals :: struct {
 }
 
 main :: () {
-    args := get_command_line_arguments();
-    options: Options;
-    i := 1;
-    while i < args.count {
-        arg := args[i];
-        i += 1;
-        if arg == {
-            case "--check"; options.check = true;
-            case "--stdin"; options.stdin = true;
-            case "--verbose"; options.verbose = true;
-            case "-v"; options.verbose = true;
-            case "--help"; #through;
-            case "-h";
-                print("%", USAGE);
-                exit(0);
-            case "--config";
-                if i >= args.count fatal_usage("`--config` needs a file", "for example `--config path/to/jaifmt.toml`");
-                options.config_path = args[i];
-                i += 1;
-            case "--color";
-                if i >= args.count fatal_usage("`--color` needs a value", "use auto, always or never");
-                set_color(args[i]);
-                i += 1;
-            case;
-                if begins_with(arg, "--color=") {
-                    set_color(slice(arg, 8, arg.count - 8));
-                } else if begins_with(arg, "-") {
-                    fatal_usage(tprint("unknown option `%`", arg), "`jaifmt --help` lists the options");
-                } else {
-                    array_add(*options.paths, arg);
-                }
-        }
-    }
+    options := Args.parse(Options, HELP);
 
     explicit_config: *Format_Config;
-    if options.config_path.count {
-        config, ok, message := load_config(absolute_path(options.config_path));
+    if options.config.count {
+        config, ok, message := load_config(absolute_path(options.config));
         if !ok {
             report_error(message);
             exit(2);
@@ -90,7 +55,6 @@ main :: () {
     }
 
     if options.stdin {
-        if options.paths.count fatal_usage("`--stdin` takes no paths", "drop the paths, or drop `--stdin` to format the files in place");
         exit(cast(s32) format_stdin(explicit_config));
     }
     if !options.paths.count fatal_usage("no files to format", "pass files or directories, as in `jaifmt src`, or use `jaifmt --stdin < file.jai`");
@@ -169,61 +133,12 @@ report_format_error :: (path: string, error: string) {
 ERROR_COLOR :: "\e[1;31m";
 HELP_COLOR :: "\e[1;36m";
 
-color_choice := 0; // 0 auto, 1 always, 2 never
-
-set_color :: (when: string) {
-    if when == {
-        case "auto"; color_choice = 0;
-        case "always"; color_choice = 1;
-        case "never"; color_choice = 2;
-        case; fatal_usage(tprint("unknown `--color` value `%`", when), "use auto, always or never");
-    }
-}
-
 color_on :: (code: string) -> string {
-    return ifx use_color() then code else "";
+    return ifx Args.color_enabled(.ERROR) then code else "";
 }
 
 color_off :: () -> string {
-    return ifx use_color() then "\e[0m" else "";
-}
-
-// `--color auto` decides as jaic and jailint do (`jaic::render::detect_with`): NO_COLOR turns
-// colour off, a FORCE_COLOR or CLICOLOR_FORCE that is not empty or "0" on, and otherwise it is
-// on for a terminal that is not "dumb" (on Windows, a console known to understand ANSI codes).
-use_color :: () -> bool {
-    if color_choice == 1 return true;
-    if color_choice == 2 return false;
-    if environment_set("NO_COLOR") return false;
-    if forced("FORCE_COLOR") || forced("CLICOLOR_FORCE") return true;
-    if environment_value("TERM") == "dumb" return false;
-    #if OS == .WINDOWS {
-        ansi := environment_set("WT_SESSION") || environment_set("ANSICON") || environment_value("ConEmuANSI") == "ON" || environment_set("TERM");
-        mode: u32;
-        return ansi && Windows.GetConsoleMode(Windows.GetStdHandle(Windows.STD_ERROR_HANDLE), *mode) != 0;
-    } else {
-        return POSIX.isatty(2) != 0;
-    }
-}
-
-forced :: (name: string) -> bool {
-    value := environment_value(name);
-    return value.count > 0 && value != "0";
-}
-
-environment_set :: (name: string) -> bool {
-    return environment_variable(name) != null;
-}
-
-// The variable's value, empty when it is not set.
-environment_value :: (name: string) -> string {
-    value := environment_variable(name);
-    return ifx value then to_string(value) else "";
-}
-
-environment_variable :: (name: string) -> *u8 {
-    #if OS == .WINDOWS return Windows.getenv(temp_c_string(name));
-    else return POSIX.getenv(temp_c_string(name));
+    return ifx Args.color_enabled(.ERROR) then "\e[0m" else "";
 }
 
 print_error :: (format: string, args: ..Any) {

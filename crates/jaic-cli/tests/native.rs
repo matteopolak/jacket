@@ -1560,10 +1560,25 @@ fn jaifmt_builds_and_formats() {
     );
     let unknown = fmt(&["--chek", "src"]);
     assert_eq!(unknown.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8_lossy(&unknown.stderr),
+        "error: unknown option `--chek`\nhelp: did you mean `--check`?\nusage: jaifmt [OPTIONS] [PATHS]...\nFor more information, run `jaifmt --help`.\n"
+    );
+    // --help is generated from the option declarations and goes to stdout (exit 0).
+    let help = fmt(&["--help"]);
+    assert_eq!(help.status.code(), Some(0));
+    let help = String::from_utf8_lossy(&help.stdout);
     assert!(
-        String::from_utf8_lossy(&unknown.stderr).starts_with(
-            "error: unknown option `--chek`\nhelp: `jaifmt --help` lists the options\n"
-        )
+        help.contains("Usage: jaifmt [OPTIONS] [PATHS]..."),
+        "{help}"
+    );
+    assert!(help.contains("--config <FILE>"), "{help}");
+    // --stdin and paths exclude each other.
+    let both = fmt(&["--stdin", "src"]);
+    assert_eq!(both.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&both.stderr)
+            .starts_with("error: `<PATHS>` cannot be used with `--stdin`\n")
     );
     assert_eq!(read("src/a.jai"), "main :: () {\n  x := 1;\n}\n");
     assert_eq!(read("src/skipped/b.jai"), messy);

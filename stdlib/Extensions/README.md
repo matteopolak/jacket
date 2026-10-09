@@ -6,6 +6,7 @@ their path, so the import says the code is jaic-only:
 | Import | What it is for |
 | --- | --- |
 | `#import "Extensions/Long_Double";` | C's `long double` in the target's format, for C functions that take or return one |
+| `#import "Extensions/Args";` | A typed command-line parser generated at compile time (clap-style: notes, subcommands, help, completions) |
 | `#import "Extensions/Jai_Format";` | The Jai source formatter behind `jaifmt` (text in, text out) |
 | `#import "Extensions/WebGPU";` | The standard WebGPU C API (`webgpu.h`): wgpu-native natively, the page's WebGPU in the browser |
 | `#import "Extensions/Wasi_Runtime";` | The C library and `_start` a wasm64 program needs as a WASI command (added by `jaic build -os wasm`) |
