@@ -242,17 +242,24 @@ impl Session {
         if semantic::parse_error(&doc.text).is_some() {
             return Vec::new();
         }
-        let errors = self
+        let (errors, warnings) = self
             .with_semantic(uri, &doc.text, |analysis, path| {
-                Some(analysis.check_errors(path))
+                Some((analysis.check_errors(path), analysis.check_warnings(path)))
             })
             .unwrap_or_default();
-        errors
-            .into_iter()
-            .filter_map(|(start, end, message)| {
+        let tagged = |found: Vec<(usize, usize, String)>, severity| {
+            found
+                .into_iter()
+                .map(move |(start, end, message)| (start, end, message, severity))
+                .collect::<Vec<_>>()
+        };
+        let mut all = tagged(errors, DiagnosticSeverity::Error);
+        all.extend(tagged(warnings, DiagnosticSeverity::Warning));
+        all.into_iter()
+            .filter_map(|(start, end, message, severity)| {
                 Some(Diagnostic {
                     range: self.range_of(uri, Span::new(start, end))?,
-                    severity: DiagnosticSeverity::Error,
+                    severity,
                     code: DiagnosticCode::Check,
                     message,
                 })

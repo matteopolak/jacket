@@ -2,14 +2,14 @@
 
 ## What it is
 
-A compile-time check that a literal `print`-style format string uses as many arguments as the call passes. `print("% is %\n", name)` and `print("done\n", n)` are both compile errors.
+A compile-time check that a literal `print`-style format string uses as many arguments as the call passes. `print("% is %\n", name)` and `print("done\n", n)` both draw a compile warning (as in Jai), and the build goes on.
 
 ```
-error: the format string uses 2 arguments but `print` is given 1 argument
-  --> main.jai:4:11
+warning: incorrect number of arguments supplied to `print`: the format string requires 2 arguments, but 1 argument is given
+  --> main.jai:4:5
    |
  4 |     print("% is %\n", name);
-   |           ^^^^^^^^^^
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
    = help: pass a value for every `%`, or write `\%` for a percent sign
 ```
 
@@ -22,12 +22,12 @@ error: the format string uses 2 arguments but `print` is given 1 argument
 
 The check is skipped when the format argument is not a string literal, when the call spreads an array (`..args`) or names a variadic argument, or when the callee has no body. Directives are counted the way `__format_to_builder` in `stdlib/Basic/Print.jai` reads them (`arguments_used`): `%` and `%0` take the next argument, `%N` takes argument N and a following `%` continues after it, `%00` takes none, `%%` is two arguments in a row, and `\%` (byte 31 once lexed) is a plain percent sign. The arguments needed are one past the highest index used.
 
-Both directions are errors: too few arguments point at the format string, too many point at the extra arguments.
+Both directions are warnings (`Sema::warn`) at the start of the call, worded like Jai's: too few and too many differ only in the help line. jaic has no `-D warnings`, so a warning never fails a build.
 
 ## How to change it
 
 - Keep `arguments_used` in step with `__format_to_builder`, and with `jailint::format_string` (used by the language server's hover and `jai-format` diagnostics, which work without type checking).
-- The error stops compilation like any other, so the language server loses semantic information (hover types) for a file until the count is fixed. Its `jai-format` diagnostic still shows while typing.
+- The language server shows the warning through `Analysis::check_warnings` (the compiler's `warnings`, severity Warning, code `check`). Its own syntactic `jai-format` diagnostic still shows while typing, so a mismatch can appear twice.
 - Tests: `format_string_argument_count_is_checked` in `crates/jaic-cli/tests/diagnostics.rs` and the unit test in `format_check.rs`.
 
 ## Configuration

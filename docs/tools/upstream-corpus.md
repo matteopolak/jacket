@@ -137,7 +137,7 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | [jai-format](https://github.com/OrangeLightning219/jai-format) | works | Its tests pass and the formatter builds (`jai-format-tests`, `jai-format-build`) |
 | [toml-jai](https://github.com/sjorsdonkers/toml-jai) | works | 5 examples run and pass; `file_examples` checks (see above) |
 | [jai-xml](https://github.com/smari/jai-xml) | works | `test.jai` passes its 6 cases and `continue_iter` runs; the other examples check (their `traverse.xml` is not in the repository) |
-| [jai-protobuf](https://github.com/segcore/jai-protobuf) | works | `protoc-jai` checks; its tests and examples are not run on CI since the generator passes a surplus `print` argument (generator.jai:427), which jaic rejects as Jai does |
+| [jai-protobuf](https://github.com/segcore/jai-protobuf) | works | `protoc-jai` checks; tests and examples run. The generator passes a surplus `print` argument (generator.jai:427), which is a warning |
 
 ### Built and run in CI
 

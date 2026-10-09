@@ -92,11 +92,25 @@ impl Analysis {
     /// is in the file, else at the first of its notes that is (a module procedure the file
     /// called).
     pub fn check_errors(&self, path: &Path) -> Vec<(usize, usize, String)> {
+        self.located(path, &self.errors)
+    }
+
+    /// The compiler's warnings (a print format with the wrong argument count, a body that can
+    /// fall off its end), placed like the errors.
+    pub fn check_warnings(&self, path: &Path) -> Vec<(usize, usize, String)> {
+        self.located(path, &self.compiler.warnings)
+    }
+
+    fn located(
+        &self,
+        path: &Path,
+        diagnostics: &[jaic::source::Diagnostic],
+    ) -> Vec<(usize, usize, String)> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
         let mut out: Vec<(usize, usize, String)> = Vec::new();
-        for error in &self.errors {
+        for error in diagnostics {
             let found = if error.span.file == file {
                 let span = error.span;
                 Some((

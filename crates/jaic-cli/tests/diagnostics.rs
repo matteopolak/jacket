@@ -1092,7 +1092,8 @@ fn rich_layouts_on_request() {
     assert!(!stderr(&output).contains('\x1b'));
 }
 
-/// A literal format string must use as many arguments as the call passes; `\%` is a plain
+/// A literal format string should use as many arguments as the call passes (a warning, as in
+/// Jai: compilation goes on); `\%` is a plain
 /// percent sign, `%N` selects an argument, and a format that is not a literal is not checked.
 #[test]
 fn format_string_argument_count_is_checked() {
@@ -1103,21 +1104,21 @@ fn format_string_argument_count_is_checked() {
     };
 
     let few = check("few.jai", "    print(\"% is %\\n\", n);");
-    assert_eq!(few.status.code(), Some(1), "{}", stderr(&few));
+    assert_eq!(few.status.code(), Some(0), "{}", stderr(&few));
     assert_in_order(
         &stderr(&few),
         &[
-            "few.jai:4:11: error: the format string uses 2 arguments but `print` is given 1 argument",
+            "few.jai:4:5: warning: incorrect number of arguments supplied to `print`: the format string requires 2 arguments, but 1 argument is given",
             "help: pass a value for every `%`",
         ],
     );
 
     let many = check("many.jai", "    s := tprint(\"done\\n\", n, 2);");
-    assert_eq!(many.status.code(), Some(1), "{}", stderr(&many));
+    assert_eq!(many.status.code(), Some(0), "{}", stderr(&many));
     assert_in_order(
         &stderr(&many),
         &[
-            "many.jai:4:27: error: `tprint` is given 2 arguments but the format string uses 0 arguments",
+            "many.jai:4:10: warning: incorrect number of arguments supplied to `tprint`: the format string requires 0 arguments, but 2 arguments are given",
             "help: add a `%` for each argument",
         ],
     );

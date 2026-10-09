@@ -151,3 +151,29 @@ fn a_clean_program_has_no_check_errors() {
     s.open(uri(), 1, text.into()).unwrap();
     assert!(checks(&s).is_empty());
 }
+
+/// A print whose format string and arguments disagree is a compiler warning: it shows as a
+/// warning at the call, and no error.
+#[test]
+fn a_format_argument_count_mismatch_is_a_warning() {
+    let mut s = session();
+    let text = "#import \"Basic\";\nmain :: () {\n    print(\"done\\n\", 1);\n}\n";
+    s.open(uri(), 1, text.into()).unwrap();
+    let found: Vec<_> = s
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .filter(|d| d.code == DiagnosticCode::Check)
+        .collect();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(
+        found[0].severity,
+        jai_language_server::DiagnosticSeverity::Warning
+    );
+    assert_eq!(found[0].range.start.line, 2);
+    assert!(
+        found[0]
+            .message
+            .contains("incorrect number of arguments supplied to `print`")
+    );
+}

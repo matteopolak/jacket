@@ -60,10 +60,7 @@
             "failed"
           ]
         }
-      ],
-      "skip": {
-        "*": "search.jai passes a surplus argument to `print` (line 1283), which jaic now rejects like Jai does; upstream bug, the UI app still builds and runs"
-      }
+      ]
     },
     {
       "id": "chess-ui",
@@ -220,10 +217,7 @@
             "All tests passed!"
           ]
         }
-      ],
-      "skip": {
-        "*": "generator.jai passes an argument to a `print_to_builder` format string with no placeholder (line 427), which jaic now rejects like Jai does; upstream bug"
-      }
+      ]
     },
     {
       "id": "rexim-rss",

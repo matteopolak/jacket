@@ -1,5 +1,5 @@
 //! Compile-time check of print-style calls: a literal format string whose `%` directives use
-//! a different number of arguments than the call passes is an error.
+//! a different number of arguments than the call passes is a warning.
 use super::calls::{CallArg, Slot};
 use super::*;
 use crate::ast::ExprKind as E;
@@ -79,7 +79,8 @@ fn forwards_format(text: &str, format: Sym, values: Sym) -> bool {
 impl Compiler {
     /// Check a call to `chosen` with literal format string and argument count.
     pub(super) fn check_format_call(
-        &self,
+        &mut self,
+        call: Span,
         chosen: ProcId,
         slots: &[Slot],
         args: &[CallArg],
@@ -134,36 +135,29 @@ impl Compiler {
                 }
             )
         };
-        if given.len() < need {
-            return Err(Box::new(
-                Diagnostic::error(
-                    format_arg.span,
-                    format!(
-                        "the format string uses {} but `{name}` is given {}",
-                        plural(need),
-                        plural(given.len())
-                    ),
-                )
+        if given.len() == need {
+            return Ok(());
+        }
+        let message = format!(
+            "incorrect number of arguments supplied to `{name}`: the format string requires {}, but {} {} given",
+            plural(need),
+            plural(given.len()),
+            if given.len() == 1 {
+                "is"
+            } else {
+                "are"
+            }
+        );
+        let warning = if given.len() < need {
+            Diagnostic::warning(call, message)
                 .with_label("no argument for the last `%`")
-                .with_help("pass a value for every `%`, or write `\\%` for a percent sign"),
-            ));
-        }
-        if given.len() > need {
-            let first = args[given[need]].span;
-            let last = args[*given.last().unwrap()].span;
-            return Err(Box::new(
-                Diagnostic::error(
-                    first.to(last),
-                    format!(
-                        "`{name}` is given {} but the format string uses {}",
-                        plural(given.len()),
-                        plural(need)
-                    ),
-                )
-                .with_label("not printed")
-                .with_help("add a `%` for each argument, or remove the extra ones"),
-            ));
-        }
+                .with_help("pass a value for every `%`, or write `\\%` for a percent sign")
+        } else {
+            Diagnostic::warning(call, message)
+                .with_label("the extra arguments are not printed")
+                .with_help("add a `%` for each argument, or remove the extra ones")
+        };
+        self.warn(warning);
         Ok(())
     }
 }
