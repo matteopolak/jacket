@@ -585,7 +585,300 @@
           "argv": [
             "./tracy_test"
           ],
-          "timeout": 120
+          "timeout": 120,
+          "contains": [
+            "Bye world"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forbear",
+      "project": "gabrielmfern--forbear",
+      "only": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "only_reason": "Linux opens a Wayland window and needs a compositor; there are no Windows bindings upstream",
+      "steps": [
+        {
+          "name": "build.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "build.jai"
+          ],
+          "timeout": 1200,
+          "outputs": [
+            "apps/playground"
+          ]
+        },
+        {
+          "kind": "gui",
+          "name": "playground window for 8 s",
+          "argv": [
+            "./apps/playground"
+          ],
+          "seconds": 8
+        }
+      ]
+    },
+    {
+      "id": "sgpu",
+      "project": "roeyb1--sgpu",
+      "skip": {
+        "*": "needs Slang (a CMake build of about an hour: tools/build_slang.py) and a Vulkan driver the runners lack; builds and runs locally on macOS with MoltenVK (docs/tools/upstream-corpus.md)"
+      },
+      "steps": []
+    },
+    {
+      "id": "vk-engine",
+      "project": "ostef--Vk-Engine",
+      "skip": {
+        "*": "needs ImGui, VMA and Jolt built with CMake and a Vulkan GPU; checked by the upstream sweep cases vk-engine-*-check"
+      },
+      "steps": []
+    },
+    {
+      "id": "match-jai",
+      "project": "sjorsdonkers--match-jai",
+      "steps": [
+        {
+          "name": "first.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-o",
+            "smoke_first"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run first.jai",
+          "argv": [
+            "./smoke_first"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_first",
+          "timeout": 60
+        }
+      ]
+    },
+    {
+      "id": "yield-jai",
+      "project": "sjorsdonkers--yield-jai",
+      "steps": [
+        {
+          "name": "constant.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "constant.jai",
+            "-o",
+            "smoke_constant"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run constant.jai",
+          "argv": [
+            "./smoke_constant"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_constant",
+          "timeout": 60
+        },
+        {
+          "name": "defer.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "defer.jai",
+            "-o",
+            "smoke_defer"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run defer.jai",
+          "argv": [
+            "./smoke_defer"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_defer",
+          "timeout": 60
+        },
+        {
+          "name": "first.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "first.jai",
+            "-o",
+            "smoke_first"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run first.jai",
+          "argv": [
+            "./smoke_first"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_first",
+          "timeout": 60
+        },
+        {
+          "name": "if.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "if.jai",
+            "-o",
+            "smoke_if"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run if.jai",
+          "argv": [
+            "./smoke_if"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_if",
+          "timeout": 60
+        },
+        {
+          "name": "if_case.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "if_case.jai",
+            "-o",
+            "smoke_if_case"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run if_case.jai",
+          "argv": [
+            "./smoke_if_case"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_if_case",
+          "timeout": 60
+        },
+        {
+          "name": "while.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "while.jai",
+            "-o",
+            "smoke_while"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run while.jai",
+          "argv": [
+            "./smoke_while"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_while",
+          "timeout": 60
+        }
+      ]
+    },
+    {
+      "id": "ast-utils",
+      "project": "GufNZ--JaiModules-AST_Utils",
+      "steps": [
+        {
+          "name": "astTests.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "astTests.jai",
+            "-o",
+            "smoke_astTests"
+          ],
+          "cwd": "examples",
+          "timeout": 600
+        },
+        {
+          "name": "run astTests.jai",
+          "argv": [
+            "./smoke_astTests"
+          ],
+          "cwd": "examples",
+          "needs": "smoke_astTests",
+          "timeout": 60
+        }
+      ]
+    },
+    {
+      "id": "jai-utils",
+      "project": "Stuart-Mouse--jai-utils",
+      "steps": [
+        {
+          "name": "closure.jai (compile-time tests)",
+          "kind": "jaic",
+          "argv": [
+            "run",
+            "closure.jai"
+          ],
+          "timeout": 300
+        }
+      ]
+    },
+    {
+      "id": "unotest",
+      "project": "n00bmind--unotest",
+      "steps": [
+        {
+          "name": "unotest.jai (compile-time tests)",
+          "kind": "jaic",
+          "argv": [
+            "run",
+            "unotest.jai"
+          ],
+          "timeout": 300
+        }
+      ]
+    },
+    {
+      "id": "shader-transpiler",
+      "project": "PixelRifts--Jai-Shader-Transpiler",
+      "steps": [
+        {
+          "name": "build.jai",
+          "kind": "jaic",
+          "argv": [
+            "build",
+            "build.jai",
+            "-o",
+            "smoke_build"
+          ],
+          "cwd": "",
+          "timeout": 600
+        },
+        {
+          "name": "run build.jai",
+          "argv": [
+            "./smoke_build"
+          ],
+          "cwd": "",
+          "needs": "smoke_build",
+          "timeout": 60
         }
       ]
     }

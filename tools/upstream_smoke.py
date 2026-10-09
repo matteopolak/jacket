@@ -306,8 +306,9 @@ STEPS = {"run": run_step, "gui": gui_step, "serve": serve_step, "lsp": lsp_step}
 
 
 def skip_reason(check, plat):
-    if plat in check.get("skip", {}):
-        return check["skip"][plat]
+    skips = check.get("skip", {})
+    if plat in skips or "*" in skips:
+        return skips.get(plat) or skips["*"]
     if "only" in check and plat not in check["only"]:
         return check.get("only_reason", "not supported on this platform")
     return None
@@ -334,6 +335,10 @@ def run_check(check, args, plat, shots):
             if kind == "jaic":
                 step = {**step, "argv": ["{jaic}", *step["argv"]], "outputs": step.get("outputs", [])}
                 kind = "run"
+            if "needs" in step and not any(Path(ctx["cwd"], step.get("cwd", ""), n).exists()
+                                           for n in (step["needs"], step["needs"] + ".exe")):
+                print(f"    -- {step.get('name') or step['argv'][0]}: no executable was built (it ran at compile time)")
+                continue
             label = step.get("name") or " ".join(step["argv"][:4])
             started = time.time()
             text = STEPS[kind](step, {**ctx, "cwd": ctx["cwd"] / step.get("cwd", "")})
