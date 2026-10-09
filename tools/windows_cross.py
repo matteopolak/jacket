@@ -134,15 +134,21 @@ def build_one(args, source, output):
 COMPILE_TIME_ONLY = "compile-time only: no executable to run"
 
 
+CROSS_DLLS = []
+
+
 def use_cross_libs(args):
     """Cross-build the third-party C libraries the stdlib tests link (stb_*, FreeType, lz4...)
     with the MinGW toolchain, and point `jaic build` at them (JAIC_CROSS_LIBS). They are static
-    archives, so the executables need no DLL beside them."""
+    archives, so the executables need no DLL beside them, except SDL2, which comes as the
+    official release's import library and DLL (copied beside the executables, see `build`)."""
     platform = skip_platform(args)
     subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py"), "--platform", platform], check=True)
     import build_native_libs
 
     os.environ["JAIC_CROSS_LIBS"] = str(build_native_libs.output_dir(platform))
+    # SDL2 is linked through its import library, so its DLL goes beside the executables.
+    CROSS_DLLS.extend(build_native_libs.output_dir(platform).glob("SDL2.dll"))
 
 
 def build(args):
@@ -181,6 +187,8 @@ def build(args):
                 failures.append(f"{case_id}: {error}")
                 continue
             expected[case_id] = {"exit_code": 0, "stdout": stdout}
+    for dll in CROSS_DLLS:
+        shutil.copy2(dll, out / dll.name)
     (out / "expected.json").write_text(json.dumps(expected, indent=2))
     print(f"built {len(expected)} programs into {out}; {len(skipped)} compile-time only or optional ones do not build")
     for line in skipped:

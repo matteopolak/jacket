@@ -8,16 +8,20 @@
         "stb_image.h": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
         "stb_image_write.h": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
         "deprecated/stb_image_resize.h": "6a0e75adbabb48df9031c2e39ccd97437bb226fe31e7d4a01c7bf70a18d32ec6",
-        "stb_vorbis.c": "4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636"
-      }
+        "stb_vorbis.c": "4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636",
+        "LICENSE": "bebfe904b14301657e4e5d655c811d51fd31b97c455b9cc2d8600d6bac6cff63"
+      },
+      "license": ["LICENSE"]
     },
     "rpmalloc": {
       "repository": "mjansson/rpmalloc",
       "revision": "e4393ff85585d91400bcbad2e7266c011075b673",
       "files": {
         "rpmalloc/rpmalloc.c": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
-        "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1"
-      }
+        "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1",
+        "LICENSE": "992dc09524f6c215f1ae0ff7d26e8ce548b7212df65a09919dbafc98e2323b41"
+      },
+      "license": ["LICENSE"]
     },
     "lz4": {
       "repository": "lz4/lz4",
@@ -26,7 +30,8 @@
         "url": "https://github.com/lz4/lz4/releases/download/v1.10.0/lz4-1.10.0.tar.gz",
         "sha256": "537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b",
         "root": "lz4-1.10.0"
-      }
+      },
+      "license": ["lib/LICENSE"]
     },
     "meshoptimizer": {
       "repository": "zeux/meshoptimizer",
@@ -35,14 +40,16 @@
         "url": "https://github.com/zeux/meshoptimizer/archive/9e1f07b159d3cb777f1c67ed31fc11fd117986f4.tar.gz",
         "sha256": "e753b45fbc410031bd69cb278180ae31fa0d5430d0c3e662e3a3b100467ce0b3",
         "root": "meshoptimizer-9e1f07b159d3cb777f1c67ed31fc11fd117986f4"
-      }
+      },
+      "license": ["LICENSE.md"]
     },
     "pl_mpeg": {
       "repository": "phoboslab/pl_mpeg",
       "revision": "c871f2be022ece7ef4f64230b4fb8e1fb9eb6023",
       "files": {
         "pl_mpeg.h": "3a8cb30c83c2a1147719c30fe0c8b93da2987aa43140077c575b39aaa75fc2c9"
-      }
+      },
+      "license": [{"file": "pl_mpeg.h", "head": 5, "as": "LICENSE-from-header.txt"}]
     },
     "freetype": {
       "repository": "freetype/freetype",
@@ -51,10 +58,57 @@
         "url": "https://github.com/freetype/freetype/archive/0a0221a1347e2f1e07c395263540026e9a0aa7c7.tar.gz",
         "sha256": "11cd478953fc1d382f20a233b8e2aed6c31b47cbf0568c4bdb3334bcc1550698",
         "root": "freetype-0a0221a1347e2f1e07c395263540026e9a0aa7c7"
-      }
+      },
+      "license": ["LICENSE.TXT", "docs/FTL.TXT"]
+    },
+    "imgui": {
+      "repository": "ocornut/imgui",
+      "revision": "5319d1cffafd5045c4742892c38c9e5cfa23d195",
+      "archive": {
+        "url": "https://github.com/ocornut/imgui/archive/5319d1cffafd5045c4742892c38c9e5cfa23d195.tar.gz",
+        "sha256": "b649193495892e199ab6e8a04d281832c96f50afceade461f966ef9bcf20bde2",
+        "root": "imgui-5319d1cffafd5045c4742892c38c9e5cfa23d195"
+      },
+      "license": ["LICENSE.txt"]
+    },
+    "mojoshader": {
+      "repository": "icculus/mojoshader",
+      "revision": "cf2661bcb55d9a8732e86f79922592d7efdf5383",
+      "archive": {
+        "url": "https://github.com/icculus/mojoshader/archive/cf2661bcb55d9a8732e86f79922592d7efdf5383.tar.gz",
+        "sha256": "a8ae7c9a7ec09e855b46b80f6dcddd65a94bb09188a53a1500fbd0381423c729",
+        "root": "mojoshader-cf2661bcb55d9a8732e86f79922592d7efdf5383"
+      },
+      "license": ["LICENSE.txt"]
+    },
+    "sdl2": {
+      "repository": "libsdl-org/SDL",
+      "revision": "release-2.32.10-VC",
+      "archive": {
+        "url": "https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-VC.zip",
+        "sha256": "af347939395a58b365846aaea27391e69f9ec9d4dd650d6ac40802159b418a6e",
+        "root": "SDL2-2.32.10"
+      },
+      "license": ["LICENSE.txt"]
+    },
+    "sdl2-mingw": {
+      "repository": "libsdl-org/SDL",
+      "revision": "release-2.32.10-mingw",
+      "archive": {
+        "url": "https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-mingw.zip",
+        "sha256": "f15cff5fca62ec9381a016ef1d42a95c638cd72d2f226ba5781c76fe43dbd1ac",
+        "root": "SDL2-2.32.10"
+      },
+      "license": ["LICENSE.txt"]
     }
   },
   "libraries": {
+    "SDL2": {
+      "prebuilt": {
+        "windows-x64": {"source": "sdl2", "files": {"lib/x64/SDL2.lib": "SDL2.lib", "lib/x64/SDL2.dll": "SDL2.dll"}},
+        "windows-x64-mingw": {"source": "sdl2-mingw", "files": {"x86_64-w64-mingw32/lib/libSDL2.dll.a": "libSDL2.a", "x86_64-w64-mingw32/bin/SDL2.dll": "SDL2.dll"}}
+      }
+    },
     "stb_image": {"source": "stb", "code": "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"\n"},
     "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
     "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
@@ -76,11 +130,36 @@
         "src/vfetchoptimizer.cpp"
       ]
     },
+    "imgui": {
+      "source": "imgui",
+      "except": ["windows-x64-mingw", "windows-arm64-mingw"],
+      "cxx_exports": true,
+      "include": ["."],
+      "support": "// Windows: the system libraries imgui.cpp calls (IME, clipboard, shell), named for the linker so an executable that links the archive needs no extra flags.\n#if defined(_MSC_VER)\n#pragma comment(lib, \"user32\")\n#pragma comment(lib, \"imm32\")\n#pragma comment(lib, \"shell32\")\n#pragma comment(lib, \"gdi32\")\n#endif\n",
+      "units": ["imgui.cpp", "imgui_draw.cpp", "imgui_tables.cpp", "imgui_widgets.cpp", "imgui_demo.cpp"]
+    },
+    "mojoshader": {
+      "source": "mojoshader",
+      "cflags": ["-Wno-int-conversion", "-Wno-incompatible-pointer-types", "-Wno-implicit-function-declaration"],
+      "include": ["profiles", "spirv"],
+      "defines": [
+        "MOJOSHADER_NO_VERSION_INCLUDE", "MOJOSHADER_EFFECT_SUPPORT", "MOJOSHADER_CHANGESET=\"git-cf2661bc\"",
+        "SUPPORT_PROFILE_HLSL=0", "SUPPORT_PROFILE_METAL=0", "SUPPORT_PROFILE_SPIRV=0", "SUPPORT_PROFILE_GLSPIRV=0"
+      ],
+      "lemon": {"program": "misc/lemon.c", "template": "misc/lempar.c", "grammar": "mojoshader_parser_hlsl.lemon"},
+      "units": [
+        "mojoshader.c", "mojoshader_common.c", "mojoshader_opengl.c", "mojoshader_effects.c",
+        "mojoshader_compiler.c", "mojoshader_preprocessor.c", "mojoshader_lexer.c", "mojoshader_assembler.c",
+        "profiles/mojoshader_profile_arb1.c", "profiles/mojoshader_profile_bytecode.c",
+        "profiles/mojoshader_profile_common.c", "profiles/mojoshader_profile_d3d.c",
+        "profiles/mojoshader_profile_glsl.c", "profiles/mojoshader_profile_hlsl.c",
+        "profiles/mojoshader_profile_metal.c", "profiles/mojoshader_profile_spirv.c"
+      ]
+    },
     "pl_mpeg": {"source": "pl_mpeg", "code": "#include <stdio.h>\n#include <stdlib.h>\n#define PL_MPEG_IMPLEMENTATION\n#include \"pl_mpeg.h\"\n"},
     "rpmalloc": {"source": "rpmalloc", "platforms": ["macos", "linux"], "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"},
     "freetype": {
       "source": "freetype",
-      "platforms": ["windows"],
       "include": ["include"],
       "defines": ["FT2_BUILD_LIBRARY"],
       "units": [

@@ -2,23 +2,52 @@
 
 ## What it is
 
-The stdlib binds some C libraries that no system ships: `stb_image`, `stb_image_write`,
-`stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, and `rpmalloc` (built with first-class heaps; macOS and Linux only), plus FreeType on
-Windows (macOS and Linux use the system's, from Homebrew or the distribution). `tools/build_native_libs.py` builds them from pinned, hash-checked
+The stdlib binds some third-party libraries that no system ships: `stb_image`, `stb_image_write`,
+`stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, FreeType, Dear ImGui, MojoShader,
+`rpmalloc` (built with first-class heaps; macOS and Linux only) and, on Windows, SDL2.
+`tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
 output. Without it, programs that use those modules type-check but can't call into them or link.
 Release archives ship the libraries for their platform in `artifacts/native-libs/<platform>/`, built by
 `release.yml` from the same pinned sources, so an installed toolchain runs and builds Simp, GetRect and
-Sound_Player programs with no setup (FreeType still comes from the system on macOS and Linux).
+Sound_Player programs, and the modules for every library below, with no setup. Each source's licence
+files go to `licenses/<source>/` beside the libraries (the pinned manifest names them in `license`).
+
+## What ships where
+
+Every row is built by `build_native_libs.py` into `artifacts/native-libs/<platform>/` and into the release
+archive of the same name. "static" is `lib<name>.a` / `<name>.lib` (what `jaic build` links, so executables
+carry the library), "shared" the `.dylib` / `.so` / `.dll` that `jaic run` loads.
+
+| Library | macOS arm64/x64 | Linux x64/arm64 | Windows x64/arm64 (MSVC) | MinGW cross (`windows-*-mingw`) |
+|---|---|---|---|---|
+| `stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg` | built | built | built | built (static) |
+| FreeType (`freetype`) | built (was the system's) | built (was the system's) | built | built (static) |
+| MojoShader (`mojoshader`) | built | built | built | built (static) |
+| Dear ImGui (`imgui`, C++) | built | built | built | not built (see below) |
+| `rpmalloc` | built | built | not built | not built |
+| SDL2 (`SDL2`) | system copy | system copy | official prebuilt release, x64 only | official prebuilt release, x64 only |
+| wgpu-native | downloaded (`tools/fetch_wgpu_native.py`), static and shared | same | same | not shipped |
+
+Not shipped, from the system or not available: SDL2 on macOS, Linux and Windows arm64 (arm64
+MinGW included), `nvtt` and `thekla_baker` (proprietary binaries nobody redistributes), libcurl, Vulkan, GL / OpenGL / EGL, Metal and the other
+Apple frameworks, X11, ALSA, and the Windows system libraries. Those are the operating system's, or the
+user's to install; `jaic` finds them the usual way.
 
 ## How it works
 
 - `tools/native-libs.json` pins each source: a GitHub repository and revision with a sha256 per
-  file, or (FreeType) a source `archive` URL with its sha256 and top-level directory. Each library
-  has a one-line C translation unit (`code`: `#define STB_IMAGE_IMPLEMENTATION` + `#include`) or a
-  list of `units` with `include` directories and `defines`; `platforms` limits it to some OSes
-  (`["windows"]`).
+  file, or an `archive` URL (`.tar.gz` or `.zip`) with its sha256 and top-level directory, and the
+  `license` files to copy out of it (a path, or `{"file", "head", "as"}` when the licence is only
+  the head of a file, as in `pl_mpeg.h`). Each library has a one-line C translation unit (`code`:
+  `#define STB_IMAGE_IMPLEMENTATION` + `#include`) or a list of `units` with `include` directories,
+  `defines` and extra compiler `cflags`, and optionally a `support` unit of glue code and a `lemon`
+  parser generation step; `platforms` limits it to some OSes (`["windows"]`), `except` names
+  platform directories it is not built for, and `prebuilt` installs files of an official binary
+  release per platform instead of compiling (SDL2). A run that builds every library then checks that
+  each file `shipped_files` expects is in the output, so a library or licence cannot go missing from a
+  package unnoticed.
 - The tool downloads the files into `artifacts/native-libs/sources/` (verifying hashes), compiles each
   unit once with `cc -O2 -fPIC`, and writes `lib<name>.a` and `lib<name>.dylib`/`.so` (macOS dylibs get
   an `@rpath/` install name).
@@ -43,15 +72,79 @@ Sound_Player programs with no setup (FreeType still comes from the system on mac
   links them from the directories in `JAIC_CROSS_LIBS` (`library_args` in `jaic-llvm`); it never uses
   the host's native-libs directory for a cross build, whose archives are for the host.
   `tools/windows_cross.py build --stdlib` builds and sets it, as `windows-native.yml`'s cross jobs run it.
+- FreeType, Dear ImGui and MojoShader come from pinned source archives (FreeType from its repository
+  revision, ImGui from the 1.89.6 tag the bindings were written for, MojoShader from the last revision
+  before upstream removed its HLSL compiler, which `MOJOSHADER_compile` and the assembler still need).
+  FreeType is the same source on every platform, with its own copies of zlib for gzip fonts and
+  no PNG, bzip2 or HarfBuzz support. The shipped FreeType wins over the system's: `Library::open` tries
+  the native-libs directory before the system's search (and Homebrew's directory), and `library_args`
+  links `lib<name>.a` from it before falling back to `-lfreetype`, so an executable built on macOS or
+  Linux no longer depends on Homebrew's or the distribution's FreeType being installed.
 - lz4 comes from its official release archive and meshoptimizer and pl_mpeg from pinned GitHub
   revisions (`pl_mpeg.h` is one file with an implementation define). meshoptimizer is C++: its
   units compile with `-fno-exceptions -fno-rtti -fno-threadsafe-statics`, and the manifest's
   `support` unit supplies `operator new`/`delete` over `malloc`, so neither the archive nor the
   shared library needs a C++ runtime library.
 
+### C++ libraries (meshoptimizer, Dear ImGui)
+
+Both are compiled with `-fno-exceptions -fno-rtti -fno-threadsafe-statics -std=c++11`, so neither the
+static archive nor the shared library needs libstdc++ or libc++, on any platform. meshoptimizer's
+`support` unit supplies `operator new` and `delete` over `malloc`; ImGui allocates with its own
+allocator and needs none. The script checks this on macOS and Linux (`check_no_cxx_runtime`) and stops
+the build if an object still needs an `operator new`, `__cxa_*`, `std::` or guard-variable symbol, so a
+future upstream change cannot silently add a runtime dependency. If one ever must, link `-lc++` or
+`-lstdc++` from the module (`#system_library "c++"`) rather than from `jaic`.
+
+The ImGui bindings (`stdlib/ImGui/unix.jai`, `windows.jai`) call C++ symbols directly by their
+decorated names: Itanium names (`_ZN5ImGui8NewFrameEv`) on macOS and Linux and MSVC names
+(`?NewFrame@ImGui@@YAXXZ`) on Windows. There is no C wrapper (cimgui-style), so the library is plain
+upstream Dear ImGui (`imgui.cpp`, `imgui_draw.cpp`, `imgui_tables.cpp`, `imgui_widgets.cpp`,
+`imgui_demo.cpp`, default `imconfig.h`, 16-bit `ImWchar` and indices, the layout `CreateContext` checks
+with `DebugCheckVersionAndDataLayout`), and every name the bindings use was checked against the built
+library. Consequences:
+
+- Windows (MSVC) builds it with Clang for the MSVC ABI, and the DLL's `.def` file exports the decorated
+  names too (`cxx_exports` in the manifest; C libraries keep only plain names). A `support` unit names
+  `user32`, `imm32`, `shell32` and `gdi32` with `#pragma comment(lib, ...)`, so a program that links
+  `imgui.lib` needs no extra flags.
+- MinGW cross builds (`windows-*-mingw`) do not build it (`except` in the manifest): GCC and Clang for
+  MinGW emit Itanium names, which `windows.jai` does not name. A MinGW program that imports ImGui
+  type-checks and fails to link. Fixing that means giving `windows.jai` an Itanium variant for MinGW (or a
+  C wrapper) first.
+- `jaic` links nothing else for it: the archive is self-contained on every platform it is built for.
+
+### MojoShader
+
+`mojoshader` is C, built with the OpenGL, D3D-bytecode, GLSL and ARB1 profiles and effect support. The
+HLSL compiler needs a parser that Lemon generates from `mojoshader_parser_hlsl.lemon`; the manifest's
+`lemon` entry makes the script compile `misc/lemon.c` for the build machine (also when cross-building),
+run it in a scratch directory and add that directory to the include path. The Direct3D 11, SDL GPU,
+Metal and SPIR-V profiles are off (`SUPPORT_PROFILE_*=0`), as the bindings do not use them. `cflags` turn
+off the C diagnostics that newer compilers promote to errors in this code. At this revision
+`MOJOSHADER_compile` stops at an intermediate form that the library prints to standard output and
+returns no assembly; the bindings and upstream both behave that way.
+
+### SDL2
+
+SDL2 is not built from source here. It has 100+ source files spread over platform backends (Cocoa and
+Objective-C on macOS, X11, Wayland, KMS, ALSA, PulseAudio and more on Linux, each optional and found by
+`configure`), and a static archive would also need those backends' frameworks and libraries named at
+link time, which `jaic` has no way to learn from a plain `libSDL2.a`. So:
+
+- **Windows x64 (MSVC and MinGW)**: the official `SDL2-devel-2.32.10` release (pinned URL and sha256 in
+  the manifest, kept apart for the VC and MinGW archives) is unpacked and its files are copied:
+  `SDL2.lib` (import library) and `SDL2.dll` for MSVC, `libSDL2.a` (the release's `libSDL2.dll.a` import
+  library under the name `jaic` looks up) and `SDL2.dll` for MinGW. The release's static MinGW `libSDL2.a`
+  is not used because it needs a dozen Windows system libraries named at link time. Programs that use
+  SDL2 therefore need `SDL2.dll` next to the executable (or on `PATH`); `jaic run` loads it from the
+  native-libs directory. `stdlib_runtime.py` and `windows_cross.py` copy it beside the test executables.
+- **Windows arm64**: the official release has no arm64 binaries, so SDL2 is not shipped there.
+- **macOS and Linux**: the system's SDL2 (`brew install sdl2`, `libsdl2-dev`), as before. CI installs it.
+
 ```bash
 python3 tools/build_native_libs.py              # all libraries
-python3 tools/build_native_libs.py stb_image    # just one
+python3 tools/build_native_libs.py stb_image    # just one (an explicit list skips the completeness check)
 python tools/build_native_libs.py --platform windows-arm64   # Windows: needs clang, llvm-lib, llvm-nm
 python3 tools/build_native_libs.py --out jai-linux-x64/artifacts/native-libs/linux-x64   # into a package
 ```
@@ -94,9 +187,13 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 
 ## How to change it
 
-- New library: add its sources under `sources` (compute sha256 with `shasum -a 256`) and an entry under
-  `libraries` whose `code` is a C unit that compiles the implementation. The name must match the Jai
-  `#system_library` name (without `lib`).
+- New library: add its sources under `sources` (compute sha256 with `shasum -a 256`, and list the
+  licence files) and an entry under `libraries` whose `code` is a C unit that compiles the
+  implementation, or whose `units` are its source files. The name must match the Jai `#system_library`
+  name (without `lib`). Add a runtime test that calls it (`tests/stdlib/<name>-....jai`) and, if it has
+  no wasm build or is missing on a platform, lines in `tests/stdlib-runtime-skips.txt`. A C++ library
+  must build without the C++ runtime (see above) or its bindings need a link requirement documented
+  here.
 - Libraries a project builds itself (focus-editor's `LightweightRenderingView` via its `build.jai`) are
   not listed here; `tools/fetch_upstreams.py` fetches C-family sources (`NATIVE_SOURCE_SUFFIXES`) for
   that, never prebuilt binaries.
@@ -109,10 +206,11 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 
 ## Dependencies
 
-`cc` and `ar` on macOS and Linux; `clang`, `llvm-lib` and `llvm-nm` (the official LLVM release) and the
+`cc`, `c++` and `ar` on macOS and Linux (`cc` also compiles Lemon when MojoShader builds); `clang`, `llvm-lib` and `llvm-nm` (the official LLVM release) and the
 MSVC libraries on Windows; network access to `raw.githubusercontent.com` and `github.com` on first
 build. Release archives include these libraries (`release.yml`'s Package step; the smoke test runs
-`tests/native-libs/simp-image.jai` from the unpacked archive with `jaic run` and as a built executable). Archives
+`tests/native-libs/simp-image.jai` and the FreeType, ImGui and MojoShader runtime tests (plus SDL2's on Windows
+x64) from the unpacked archive with `jaic run` and as built executables). Archives
 up to 0.4.2 did not, so Simp programs stopped with ``foreign procedure `stbi_load` is not available here``
 under `jaic run` and with a missing `stb_image` library when linking.
 
@@ -123,4 +221,7 @@ release zip pinned in `tools/webgpu.json` (sha256 per platform), checks that its
 revision the bindings were generated from, and puts the static and shared library (`libwgpu_native.a` +
 `.dylib`/`.so`, or `wgpu_native.lib` + `.dll`) into the same `artifacts/native-libs/<os>-<arch>/`. Release
 archives ship it next to the libraries above, in `artifacts/native-libs/<platform>/` beside `stdlib/`, which is
-the default search directory. See [WebGPU](../specs/stdlib/README.md).
+the default search directory. See [WebGPU](../specs/stdlib/README.md). The release zip has no licence files, so
+the script also downloads wgpu-native's `LICENSE.MIT` and `LICENSE.APACHE` from the pinned tag (sha256 in
+`tools/webgpu.json`) into `licenses/wgpu-native/`. The static library contains Rust dependencies under their
+own licences, which the zip does not list; upstream's repository is the place to find them.

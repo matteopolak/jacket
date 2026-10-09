@@ -176,10 +176,12 @@ jobs:
           # The static library is what `jaic build` links, the shared one what `jaic run` loads.
           python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
           # The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
-          # stb_vorbis; rpmalloc on macOS and Linux, FreeType on Windows), built from the pinned,
-          # checksum-verified sources in tools/native-libs.json, static and shared like
-          # wgpu-native. Simp, GetRect and Sound_Player need them. macOS: for the oldest macOS
-          # the jaic binary runs on, not the runner's.
+          # stb_vorbis, lz4, meshoptimizer, pl_mpeg, FreeType, Dear ImGui and MojoShader; rpmalloc
+          # on macOS and Linux; SDL2 on Windows x64), built from the pinned, checksum-verified
+          # sources in tools/native-libs.json, static and shared like wgpu-native, each with its
+          # licence under licenses/. Simp, GetRect, Sound_Player and the other modules need them.
+          # The script stops when a file it should have left is missing. macOS: for the oldest
+          # macOS the jaic binary runs on, not the runner's.
           if [ "$RUNNER_OS" = "macOS" ]; then
             export MACOSX_DEPLOYMENT_TARGET="${{ matrix.name == 'macos-x64' && '10.12' || '11.0' }}"
           fi
@@ -262,6 +264,23 @@ jobs:
             "$jaic" build simp-image.jai -o simp-image
             ./simp-image$exe
           fi
+          # The other shipped libraries, with the stdlib's own runtime tests: FreeType (a BDF font
+          # in memory), Dear ImGui (frames with no window), MojoShader (bytecode to GLSL), and on
+          # Windows x64 SDL2 (its import library and DLL from the official release).
+          libs=(freetype-bdf-glyph imgui-headless-frames mojoshader-translate)
+          if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(sdl2-geometry-timer); fi
+          for lib_test in "${libs[@]}"; do
+            cp "$GITHUB_WORKSPACE/tests/stdlib/$lib_test.jai" .
+            "$jaic" run "$lib_test.jai"
+            if [ -n "${{ matrix.llvm }}" ]; then
+              "$jaic" build "$lib_test.jai" -o "$lib_test"
+              # Executables load SDL2.dll from their own directory.
+              if [ -f "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}/SDL2.dll" ]; then
+                cp "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}/SDL2.dll" .
+              fi
+              "./$lib_test$exe"
+            fi
+          done
           # Windows without Clang on PATH, where Git's coreutils `link` is in /usr/bin: jaic
           # skips it and links with Visual Studio's link.exe (0.4.2: `link: extra operand`).
           if [ "$RUNNER_OS" = "Windows" ]; then

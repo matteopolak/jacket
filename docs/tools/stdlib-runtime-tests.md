@@ -47,7 +47,7 @@ Linux with `tools/windows_cross.py` and run the executables on a Windows runner;
 programs are the same tests minus the skip-list lines for `windows-<cpu>-mingw` (cross builds run
 compile-time code on Linux, so a `#run` that takes Windows-only paths cannot work there).
 In `native` mode the harness first builds the third-party libraries for the platform
-([native libraries](native-libs.md); FreeType too on Windows) and points `JAIC_NATIVE_LIBS` at
+([native libraries](native-libs.md)) and points `JAIC_NATIVE_LIBS` at
 them. The MinGW cross builds link static archives that `tools/windows_cross.py build --stdlib`
 cross-builds first (`build_native_libs.py --platform windows-<cpu>-mingw`, with the MinGW-w64 or
 llvm-mingw compilers) and hands to `jaic build` as `JAIC_CROSS_LIBS`, so the executables need no
@@ -80,13 +80,16 @@ Those modules, and what exercises or blocks them:
 |---|---|
 | `stb_image`, `stb_image_write`, `stb_image_resize` | run by `stb-image-codecs` (PNG/BMP/TGA/JPEG/HDR encode and decode, header queries, resizing, corrupt input); also by the Simp tests. No wasm build |
 | `stb_vorbis` | run by the Sound_Player tests |
-| `freetype`, `freetype255`, `freetype-2.12.1` | run by the Simp and GetRect tests (system FreeType on macOS and Linux, built on Windows) |
+| `freetype`, `freetype255`, `freetype-2.12.1` | run by `freetype-bdf-glyph` (a BDF bitmap font held in the test: library version, opening it from memory, glyph lookup, a rendered glyph checked row by row, refusing junk) and by the Simp and GetRect tests; built from the pinned source on every platform, and found before any system copy. No wasm build |
 | `rpmalloc` | run by `rpmalloc-allocator` (macOS and Linux; the library is not built for Windows or wasm) |
 | `executable_formats`, `generate_c_header`, `Project_Generator` | pure Jai, run by `format-detection-helpers` |
 | `Windows`, `Windows_Registry`, `Windows_Resources`, `Windows_Utf8`, `d3d11`, `d3d12`, `d3d_compiler`, `dxc_compiler`, `dxgi`, `debug_info` | Windows-only; the File, Process and Window tests reach the parts the stdlib itself uses on the Windows jobs, the Direct3D and DXC bindings need a GPU driver and the SDK's runtime DLLs that the CI images lack |
 | `X11`, `Linux`, `Vulkan` | used by the window, input and clipboard tests on Linux; Vulkan needs a driver and loader the runners lack |
 | `Metal`, `Objective_C`, `macos` | used by the window tests on macOS; Metal rendering needs a GPU that virtualised runners do not expose |
-| `SDL`, `Gamepad`, `Keymap`, `ImGui`, `Thekla_Atlas`, `Thekla_Baker`, `nvtt`, `nvidia_aftermath`, `telemetry3`, `MojoShader` | bindings to SDKs or libraries that tools/native-libs.json does not build and the runners do not install |
+| `SDL` | run by `sdl2-geometry-timer` (version, platform name, rectangle and line geometry, hints, the timer subsystem and clocks; no window). macOS and Linux use the installed SDL2 (CI installs Homebrew's `sdl2` and `libsdl2-dev`); Windows x64 uses the official release's import library and DLL from tools/native-libs.json. Skipped on Windows arm64 (no official binaries) and in wasm |
+| `ImGui` | run by `imgui-headless-frames` (a context with no window: the font atlas, frames with a window, a button, a checkbox and a slider, injected mouse clicks, draw data, themes); built from the pinned 1.89.6 source. Skipped for MinGW (the Windows bindings name MSVC-decorated symbols) and wasm |
+| `MojoShader` | run by `mojoshader-translate` (hand-written ps_2_0 bytecode to GLSL, GLSL 1.20 and ARB, assembler round trip, the HLSL compiler front end, errors); built from the pinned source with Lemon. No wasm build |
+| `Gamepad`, `Keymap`, `Thekla_Atlas`, `Thekla_Baker`, `nvtt`, `nvidia_aftermath`, `telemetry3` | bindings to SDKs or libraries that tools/native-libs.json does not build and the runners do not install |
 | `lz4` | run by `lz4-roundtrip` (default, fast and HC modes, the compress bound, too-small destinations, truncated and corrupt input, partial decompression); built from the official 1.10.0 release archive |
 | `meshoptimizer` | run by `meshoptimizer-indices` (index a shuffled grid, vertex cache, overdraw and fetch optimization, strips, the index and vertex codecs: triangle sets, index ranges and cache statistics are checked); C++ built without a C++ runtime library |
 | `pl_mpeg` | run by `pl-mpeg-decode`, which decodes `tests/stdlib/pl-mpeg-clip.mpg`, a 0.4 s clip of a red 32x32 picture and a 440 Hz tone that was made for the test with ffmpeg's synthetic `color` and `sine` sources (no third-party content, so no license to carry) |
@@ -117,13 +120,14 @@ python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --uncovered
   Mesa (`libgl1-mesa-dri`), X11, EGL and FreeType development packages, `libxfixes-dev` (the input
   test reads the cursor), `xclip` (clipboard) and `libasound2-dev` with a `~/.asoundrc` that makes
   the default PCM `type null`, so Sound_Player plays without a sound card.
-- **macOS**: Simp and GetRect link the system FreeType (`freetype255`), found in Homebrew's library
-  directory (`/opt/homebrew/lib`, or `/usr/local/lib` on Intel). The arm64 runner image has it; on
-  the Intel one CI runs `brew install freetype`.
+- **macOS**: Simp and GetRect use the FreeType that `tools/build_native_libs.py` builds, which `jaic`
+  finds before Homebrew's (`/opt/homebrew/lib`); CI still installs Homebrew's `freetype` for projects that
+  link it themselves. `sdl2-geometry-timer` needs Homebrew's `sdl2`, which CI installs.
 - **Windows**: run from a Developer PowerShell (MSVC and the Windows SDK on `PATH`) with
   `--modes interp,native`; the wasm modes are not run there.
-- **Native libraries** (stb_image, FreeType, stb_vorbis...): on macOS and Linux the harness builds
-  them with `tools/build_native_libs.py` when `JAIC_NATIVE_LIBS` is unset.
+- **Native libraries** (stb_image, FreeType, ImGui, MojoShader, stb_vorbis...): the harness builds
+  them with `tools/build_native_libs.py` when `JAIC_NATIVE_LIBS` is unset (it needs a C and a C++
+  compiler; on Windows, Clang). On Linux the SDL2 test needs `libsdl2-dev`.
 - `wasm-native` needs `node` and `wasm-ld`.
 
 ## How to change it

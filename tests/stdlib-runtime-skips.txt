@@ -75,3 +75,9 @@ pl-mpeg-decode * wasm-interp,wasm-native,playground pl_mpeg is a C library with 
 rpmalloc-allocator * wasm-interp,wasm-native,playground rpmalloc is a C library with no wasm build
 rpmalloc-allocator windows-* * rpmalloc is built for macOS and Linux only (tools/native-libs.json)
 stb-image-codecs * wasm-interp,wasm-native,playground stb_image and its writers have no wasm build
+freetype-bdf-glyph * wasm-interp,wasm-native,playground FreeType is a C library with no wasm build
+imgui-headless-frames * wasm-interp,wasm-native,playground Dear ImGui is a C++ library with no wasm build
+imgui-headless-frames windows-*-mingw * the Windows bindings name MSVC-decorated symbols, which a MinGW (Itanium ABI) build of ImGui does not define
+mojoshader-translate * wasm-interp,wasm-native,playground MojoShader is a C library with no wasm build
+sdl2-geometry-timer * wasm-interp,wasm-native,playground SDL2 has no wasm build here
+sdl2-geometry-timer windows-arm64,windows-arm64-mingw * the official SDL2 Windows release has no arm64 binaries (tools/native-libs.json)

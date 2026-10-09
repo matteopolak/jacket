@@ -265,13 +265,15 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
-      - name: Install LLVM 23, LLD and FreeType (macOS)
+      - name: Install LLVM 23, LLD and SDL2 (macOS)
         if: runner.os == 'macOS'
         run: |
           tools/install_ci_llvm_macos.sh --lld
-          # Simp and GetRect load FreeType from Homebrew's library directory; the arm64 image
-          # already has it, the Intel one does not.
+          # The stdlib's FreeType is built by tools/build_native_libs.py and found first;
+          # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
+          # tests/stdlib/sdl2-geometry-timer.jai uses Homebrew's.
           brew list freetype > /dev/null 2>&1 || brew install freetype
+          brew list sdl2 > /dev/null 2>&1 || brew install sdl2
       - name: Install LLVM 23, the window libraries and a virtual display (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 15
@@ -284,7 +286,7 @@ jobs:
           # input test see the cursor, xclip backs the clipboard test, and ALSA is Sound_Player's
           # output, played into a null PCM since the runners have no sound card.
           # Mesa's lavapipe (mesa-vulkan-drivers) is the Vulkan adapter of the WebGPU test.
-          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth xclip libxfixes-dev libasound2-dev mesa-vulkan-drivers
+          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libsdl2-dev libgl1-mesa-dri xvfb xauth xclip libxfixes-dev libasound2-dev mesa-vulkan-drivers
           printf 'pcm.!default {\n    type null\n}\n' > ~/.asoundrc
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
@@ -408,6 +410,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           tools/install_ci_llvm_macos.sh
+          # tests/stdlib/sdl2-geometry-timer.jai links the installed SDL2.
+          brew list sdl2 > /dev/null 2>&1 || brew install sdl2
       - name: Install LLVM 23 and its sanitizer runtimes (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 15
@@ -417,7 +421,7 @@ jobs:
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Install the libraries Simp and GetRect link (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libxfixes-dev libasound2-dev
+        run: sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libsdl2-dev libxfixes-dev libasound2-dev
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       # Runners have no display or GPU, so programs that open windows are built but not run

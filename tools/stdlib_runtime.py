@@ -170,6 +170,11 @@ def run_mode(args, test, path, mode, scratch):
             # Windows loads a DLL from the executable's directory before the system's.
             for dll in args.dlls.glob("*.dll"):
                 shutil.copy2(dll, exe.parent / dll.name)
+        if sys.platform == "win32" and not wasm and os.environ.get("JAIC_NATIVE_LIBS"):
+            # SDL2 ships as an import library plus its DLL (tools/native-libs.json), which the
+            # executable needs beside it; the other native libraries are linked statically.
+            for dll in Path(os.environ["JAIC_NATIVE_LIBS"]).glob("SDL2.dll"):
+                shutil.copy2(dll, exe.parent / dll.name)
         command = ["node", "--no-warnings", str(ROOT / "tools/wasi_run.mjs"), str(built[0])] if wasm else [str(built[0])]
         code, out = run_command(command, path.parent, args.timeout, env)
         return code == 0, out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
