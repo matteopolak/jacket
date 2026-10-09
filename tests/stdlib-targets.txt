@@ -46,7 +46,6 @@ POSIX windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .AND
 POSIX_old wasm: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
 POSIX_old windows-arm64: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
 POSIX_old windows-x64: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
-Runtime_Support_Crash_Handler wasm: Runtime_Support_Crash_Handler.jai: #assert failed: Runtime crash handling requires a native host adapter for this target
 Simp wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
 Sound_Player wasm: stb_vorbis/module.jai: #assert failed: this `#assert(false)` was compiled
 Thekla_Atlas wasm: Thekla_Atlas/unix.jai: #assert failed: this `#assert(false)` was compiled
