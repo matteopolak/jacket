@@ -773,6 +773,11 @@ impl Interp {
         probe::read(addr, &mut out).then_some(out)
     }
 
+    /// Fill `out` from program memory at `addr`; false when it cannot all be read.
+    pub fn read_into(&self, addr: u64, out: &mut [u8]) -> bool {
+        probe::read(addr, out)
+    }
+
     /// The `u64` at `addr` in program memory, or `None` when it cannot be read.
     pub fn read_u64(&self, addr: u64) -> Option<u64> {
         let mut out = [0; 8];
@@ -1279,7 +1284,7 @@ impl Interp {
 
     fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
         if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
-            return self.run_hook(hook, args).map(Rets::from);
+            return self.run_hook(hook, args);
         }
         let Some(func) = program.funcs.get(id.0 as usize).and_then(Option::as_ref) else {
             self.missing_func = Some(id);
@@ -1462,7 +1467,7 @@ impl Interp {
         addr
     }
 
-    fn run_hook(&mut self, hook: Hook, args: &[u64]) -> Res<Vec<u64>> {
+    fn run_hook(&mut self, hook: Hook, args: &[u64]) -> Res<Rets> {
         match hook {
             Hook::WriteString => {
                 let s = args[0];
@@ -1529,7 +1534,7 @@ impl Interp {
                 );
             }
         }
-        Ok(Vec::new())
+        Ok(Rets::default())
     }
 
     fn run(
@@ -2213,11 +2218,25 @@ impl Rets {
 }
 
 impl From<Vec<u64>> for Rets {
-    fn from(spill: Vec<u64>) -> Self {
+    fn from(values: Vec<u64>) -> Self {
+        if values.len() <= 4 {
+            return Rets::collect(values.into_iter());
+        }
         Rets {
-            len: usize::MAX,
+            len: values.len(),
             inline: [0; 4],
-            spill,
+            spill: values,
+        }
+    }
+}
+
+impl Rets {
+    /// A single result.
+    pub fn one(value: u64) -> Self {
+        Rets {
+            len: 1,
+            inline: [value, 0, 0, 0],
+            spill: Vec::new(),
         }
     }
 }

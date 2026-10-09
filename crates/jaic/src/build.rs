@@ -10,7 +10,8 @@
 //! (`__jaic_*`, see [`MetaOp`]) with a scalar/string ABI; the public
 //! `Compiler` module API (Build_Options, Message structs...) is written in Jai
 //! on top of them in `stdlib/Compiler/module.jai`.
-use crate::interp::{Host, Interp, Trap};
+use crate::fxhash::HashMap;
+use crate::interp::{Host, Interp, Rets, Trap};
 use crate::ir;
 use crate::records::{Field, Item, Records};
 use crate::sema::{
@@ -360,7 +361,7 @@ pub struct Workspaces {
     /// Record strings handed to Jai code without copying (the record may later drop its own).
     kept: Vec<Rc<[u8]>>,
     /// Record tags by `__jaic_rec_tag_id`.
-    tags: Vec<&'static str>,
+    tags: HashMap<&'static str, usize>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
 }
@@ -482,7 +483,7 @@ impl Workspaces {
             event: Event::default(),
             strings: Vec::new(),
             kept: Vec::new(),
-            tags: Vec::new(),
+            tags: HashMap::default(),
             records: Records::default(),
         }))
     }
@@ -1222,7 +1223,7 @@ pub fn call(
     has_context: bool,
     args: &[u64],
     interp: &mut Interp,
-) -> Result<Vec<u64>, Trap> {
+) -> Result<Rets, Trap> {
     let args = if has_context {
         &args[1..]
     } else {
@@ -1290,7 +1291,7 @@ pub fn call(
                 return Err(trap("compiler_set_type_info_flags: not a type".into()));
             };
             interp.pending_type_flags.push((global, arg(1) as u32));
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::StructLocation => {
             // (info, out path, out line, out column); unknown structs leave them zero.
@@ -1303,7 +1304,7 @@ pub fn call(
                 store(interp, arg(2), &line.to_le_bytes())?;
                 store(interp, arg(3), &col.to_le_bytes())?;
             }
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::BasePath => {
             // The install root: the directory above the stdlib, which is the last module
@@ -1327,18 +1328,18 @@ pub fn call(
                 })
                 .unwrap_or_default();
             return_string(interp, base.as_bytes(), 0)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::AddLibraryDir => {
             let dir = text(interp, 0)?;
             crate::interp::add_library_dir(PathBuf::from(dir));
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::RemapImport => {
             let id = arg(0) as i64;
             let rule = (text(interp, 1)?, text(interp, 2)?, text(interp, 3)?);
             shared.borrow_mut().ws(id).map_err(trap)?.remaps.push(rule);
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::ProvideImport => {
             let id = arg(0) as i64;
@@ -1360,7 +1361,7 @@ pub fn call(
                 .map_err(trap)?
                 .provided
                 .push(offer);
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::MakeLive => {
             let id = arg(0) as i64;
@@ -1370,16 +1371,16 @@ pub fn call(
                 .map_err(trap)?
                 .live
                 .push(arg(1) as i64);
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::WorkspaceCreate => {
             let name = text(interp, 0)?;
             let mut reg = shared.borrow_mut();
             let ws = Workspace::new(name);
             reg.list.push(ws);
-            Ok(vec![reg.list.len() as u64 - 1])
+            Ok(Rets::one(reg.list.len() as u64 - 1))
         }
-        MetaOp::CurrentWorkspace => Ok(vec![shared.borrow().current_id() as u64]),
+        MetaOp::CurrentWorkspace => Ok(Rets::one(shared.borrow().current_id() as u64)),
         MetaOp::AddFile | MetaOp::AddString => {
             let id = arg(0) as i64;
             let value = text(interp, 1)?;
@@ -1411,7 +1412,7 @@ pub fn call(
             } else {
                 ProgramSource::String(value)
             });
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::SetOption => {
             let (key, value) = (text(interp, 1)?, text(interp, 2)?);
@@ -1419,7 +1420,7 @@ pub fn call(
                 .borrow_mut()
                 .set_option(arg(0) as i64, &key, &value)
                 .map_err(trap)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::BeginIntercept => {
             shared
@@ -1427,13 +1428,13 @@ pub fn call(
                 .ws(arg(0) as i64)
                 .map_err(trap)?
                 .intercepted = true;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::NextEvent => {
             let id = arg(0) as i64;
             if id == shared.borrow().current_id() || id == TOP_LEVEL_WORKSPACE {
                 // A workspace cannot wait on its own compilation.
-                return Ok(vec![0]);
+                return Ok(Rets::one(0));
             }
             loop {
                 let mut reg = shared.borrow_mut();
@@ -1441,10 +1442,10 @@ pub fn call(
                 if let Some(event) = ws.events.pop_front() {
                     let kind = event.kind;
                     reg.event = event;
-                    return Ok(vec![kind as u64]);
+                    return Ok(Rets::one(kind as u64));
                 }
                 if ws.stage == Stage::Done {
-                    return Ok(vec![0]);
+                    return Ok(Rets::one(0));
                 }
                 drop(reg);
                 let mut budget = interp.block_budget;
@@ -1455,9 +1456,9 @@ pub fn call(
         }
         MetaOp::EventInt => {
             let reg = shared.borrow();
-            Ok(vec![
+            Ok(Rets::one(
                 reg.event.ints.get(arg(0) as usize).copied().unwrap_or(0) as u64,
-            ])
+            ))
         }
         MetaOp::EventString => {
             let bytes = shared
@@ -1468,9 +1469,9 @@ pub fn call(
                 .cloned()
                 .unwrap_or_default();
             return_string(interp, &bytes, 1)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
-        MetaOp::CommandLineCount => Ok(vec![shared.borrow().env.command_line.len() as u64]),
+        MetaOp::CommandLineCount => Ok(Rets::one(shared.borrow().env.command_line.len() as u64)),
         MetaOp::CommandLineArg => {
             let value = shared
                 .borrow()
@@ -1480,7 +1481,7 @@ pub fn call(
                 .cloned()
                 .unwrap_or_default();
             return_string(interp, value.as_bytes(), 1)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::Report => {
             let (message, file) = (text(interp, 0)?, text(interp, 1)?);
@@ -1509,11 +1510,11 @@ pub fn call(
                 let current = reg.current_id();
                 reg.ws(current).map_err(trap)?.failed = true;
             }
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::CompilerVersion => {
             return_string(interp, COMPILER_VERSION.as_bytes(), 0)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::CustomLinkComplete => {
             let (id, exit_code) = (arg(0) as i64, arg(1) as i64);
@@ -1521,7 +1522,7 @@ pub fn call(
             match reg.ws(id).map_err(trap)?.link.as_mut() {
                 Some(link) => {
                     link.exit_code = Some(exit_code);
-                    Ok(Vec::new())
+                    Ok(Rets::default())
                 }
                 None => Err(trap(format!(
                     "compiler_custom_link_command_is_complete: workspace {id} is not waiting \
@@ -1545,13 +1546,13 @@ pub fn call(
             };
             let ws = reg.ws(id).map_err(trap)?;
             ws.pending.push(ProgramSource::ModuleString(value, module));
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::CodeIsNull => {
             let null = interp.codes.get(arg(0) as usize).is_some_and(|(body, _)| {
                 matches!(&**body, crate::ast::CodeBody::Expr(e) if matches!(e.kind, crate::ast::ExprKind::Null))
             });
-            Ok(vec![null as u64])
+            Ok(Rets::one(null as u64))
         }
         MetaOp::CodeNodes => {
             let code = arg(0) as usize;
@@ -1569,7 +1570,7 @@ pub fn call(
                 result
                     .ptr("root", *root)
                     .refs("expressions", nodes.iter().copied());
-                return Ok(vec![reg.records.add(result) as u64]);
+                return Ok(Rets::one(reg.records.add(result) as u64));
             }
             // Names and types need the compiler: while nothing observable happened in this
             // compile-time run, ask it to export the code and run again (`call_thunk`).
@@ -1581,7 +1582,7 @@ pub fn call(
                 crate::sema::code_export::export_code(&mut reg.records, &body, &text);
             let mut result = crate::records::Record::new("Code_Nodes");
             result.ptr("root", root).refs("expressions", nodes);
-            Ok(vec![reg.records.add(result) as u64])
+            Ok(Rets::one(reg.records.add(result) as u64))
         }
         MetaOp::ParseCode => {
             let (source, scope_from) = (text(interp, 0)?, arg(1) as usize);
@@ -1599,7 +1600,7 @@ pub fn call(
                 && interp.codes.get(id).is_some_and(|c| *c.1 == *source)
             {
                 *replayed += 1;
-                return Ok(vec![id as u64]);
+                return Ok(Rets::one(id as u64));
             }
             let body = parse_code_text(crate::source::FileId(u32::MAX), &source)
                 .map_err(|e| trap(format!("compiler_get_code: {e}")))?;
@@ -1610,7 +1611,7 @@ pub fn call(
             made.truncate(*replayed);
             made.push(id);
             *replayed = made.len();
-            Ok(vec![id as u64])
+            Ok(Rets::one(id as u64))
         }
         MetaOp::ModifyProcedure => {
             let (id, body, data, sources, count) =
@@ -1635,17 +1636,17 @@ pub fn call(
                 .collect::<Result<_, Trap>>()?;
             let mut reg = shared.borrow_mut();
             reg.ws(id).map_err(trap)?.modifications.push((body, stmts));
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::Clang => {
             let (name, bytes) = (text(interp, 0)?, string(interp, 3)?);
             crate::clang::call(&name, arg(1) as i64, arg(2) as i64, &bytes)
-                .map(|v| vec![v as u64])
+                .map(|v| Rets::one(v as u64))
                 .map_err(trap)
         }
         MetaOp::ClangText => {
             return_string(interp, &crate::clang::last_text(), 0)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::RecTag => {
             // Tags are static: hand out the text itself.
@@ -1655,58 +1656,48 @@ pub fn call(
                 .get(arg(0) as i64)
                 .map_or("", |r| r.tag);
             store_pair(interp, arg(1), tag.len() as u64, tag.as_ptr() as u64)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
         MetaOp::RecTagId => {
             // A small number per distinct tag, so Jai can cache tag -> struct type in an array.
             let mut reg = shared.borrow_mut();
             let Some(tag) = reg.records.get(arg(0) as i64).map(|r| r.tag) else {
-                return Ok(vec![u64::MAX]);
+                return Ok(Rets::one(u64::MAX));
             };
-            let id = match reg.tags.iter().position(|t| *t == tag) {
-                Some(i) => i,
-                None => {
-                    reg.tags.push(tag);
-                    reg.tags.len() - 1
-                }
-            };
-            Ok(vec![id as u64])
+            let next = reg.tags.len();
+            let id = *reg.tags.entry(tag).or_insert(next);
+            Ok(Rets::one(id as u64))
         }
         MetaOp::RecFill => {
             let mut reg = shared.borrow_mut();
-            Ok(vec![rec_fill(&mut reg, interp, args)?])
+            Ok(Rets::one(rec_fill(&mut reg, interp, args)?))
         }
         MetaOp::RecFillList => {
             let mut reg = shared.borrow_mut();
-            Ok(vec![rec_fill_list(&mut reg, interp, args)?])
+            Ok(Rets::one(rec_fill_list(&mut reg, interp, args)?))
         }
-        MetaOp::RecField => Ok(vec![
-            shared
-                .borrow()
-                .records
-                .kind(arg(0) as i64, &field_name(interp, arg(1))) as u64,
-        ]),
+        MetaOp::RecField => Ok(Rets::one(field_name(interp, arg(1), |name| {
+            shared.borrow().records.kind(arg(0) as i64, name) as u64
+        }))),
         MetaOp::RecCount => {
             let reg = shared.borrow();
-            Ok(vec![match reg
-                .records
-                .field(arg(0) as i64, &field_name(interp, arg(1)))
-            {
-                Some(Field::List(items)) => items.len() as u64,
-                _ => 0,
-            }])
+            Ok(Rets::one(field_name(interp, arg(1), |name| {
+                match reg.records.field(arg(0) as i64, name) {
+                    Some(Field::List(items)) => items.len() as u64,
+                    _ => 0,
+                }
+            })))
         }
         MetaOp::RecInt | MetaOp::RecRef | MetaOp::RecItemInt | MetaOp::RecItemRef => {
             let index =
                 matches!(op, MetaOp::RecItemInt | MetaOp::RecItemRef).then(|| arg(2) as usize);
             let reg = shared.borrow();
-            Ok(vec![match reg
-                .records
-                .item(arg(0) as i64, &field_name(interp, arg(1)), index)
-            {
-                Some(Item::Int(v) | Item::Ref(v)) => *v as u64,
-                _ => 0,
-            }])
+            Ok(Rets::one(field_name(interp, arg(1), |name| {
+                match reg.records.item(arg(0) as i64, name, index) {
+                    Some(Item::Int(v) | Item::Ref(v)) => *v as u64,
+                    _ => 0,
+                }
+            })))
         }
         MetaOp::RecString | MetaOp::RecItemString => {
             let (index, out) = if op == MetaOp::RecItemString {
@@ -1715,31 +1706,39 @@ pub fn call(
                 (None, 2)
             };
             let mut reg = shared.borrow_mut();
-            let (count, data) =
-                match reg
-                    .records
-                    .item(arg(0) as i64, &field_name(interp, arg(1)), index)
-                {
-                    Some(Item::Str(s)) => {
-                        let s = s.clone();
-                        reg.keep_rc(&s)
-                    }
-                    _ => (0, 0),
-                };
+            let found = field_name(interp, arg(1), |name| {
+                match reg.records.item(arg(0) as i64, name, index) {
+                    Some(Item::Str(s)) => Some(s.clone()),
+                    _ => None,
+                }
+            });
+            let (count, data) = found.map_or((0, 0), |s| reg.keep_rc(&s));
             store_pair(interp, arg(out), count, data)?;
-            Ok(Vec::new())
+            Ok(Rets::default())
         }
     }
 }
 
-/// The Jai `string` at `p` as a field name. Field names are ASCII identifiers, so anything else
-/// (a null string, or one that cannot be read) names no field.
-fn field_name(interp: &Interp, p: u64) -> String {
-    let Some((count, data)) = interp.read_pair(p) else {
-        return String::new();
+/// Run `f` on the Jai `string` at `p` as a field name. Field names are ASCII identifiers, so
+/// anything else (a null string, or one that cannot be read) names no field: `f` gets "".
+fn field_name<R>(interp: &Interp, p: u64, f: impl FnOnce(&str) -> R) -> R {
+    // Names are short: they are read onto the stack, not into an allocation.
+    let mut stack = [0u8; 48];
+    let heap;
+    let bytes = match interp.read_pair(p) {
+        Some((count, data)) if count as usize <= stack.len() => {
+            let out = &mut stack[..count as usize];
+            interp.read_into(data, out).then_some(&*out)
+        }
+        Some((count, data)) => {
+            heap = interp.read(data, count as usize);
+            heap.as_deref()
+        }
+        None => None,
     };
-    let bytes = interp.read(data, count as usize).unwrap_or_default();
-    String::from_utf8(bytes).unwrap_or_default()
+    f(bytes
+        .and_then(|bytes| std::str::from_utf8(bytes).ok())
+        .unwrap_or(""))
 }
 
 /// The error for a program pointer the compiler could not read.
@@ -1841,7 +1840,7 @@ fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> Result<u
         let entry = plan + k as u64 * ENTRY;
         let read = |at: u64| interp.read_u64(at).ok_or_else(|| unreadable(at));
         let (offset, kind, size) = (read(entry)?, read(entry + 8)?, read(entry + 16)? as usize);
-        let filled = match record.field(&field_name(interp, entry + 24)) {
+        let filled = match field_name(interp, entry + 24, |name| record.field(name)) {
             None => true,
             Some(Field::Item(item)) => {
                 write_item(interp, &mut keep, &built, kind, size, item, memory + offset)?
@@ -1867,7 +1866,8 @@ fn rec_fill_list(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> Res
         data: arg(6),
         count: arg(7) as i64,
     };
-    let Some(Field::List(items)) = reg.records.field(id, &field_name(interp, arg(1))) else {
+    let Some(Field::List(items)) = field_name(interp, arg(1), |name| reg.records.field(id, name))
+    else {
         return Ok(count);
     };
     let mut left = 0;
