@@ -41,6 +41,7 @@ Kinds :: struct {
     single: float;
     name: string;
     color: Color;
+    fallback: Color = .NEVER;
     ids: [..] int; @short=i
     tags: [..] string;
     shades: [..] Color;
@@ -52,7 +53,7 @@ Kinds :: struct {
 
 KINDS_HELP :: Args.Help(Kinds).{
     flag = "A flag", on_by_default = "A flag that starts on", small = "A u8", wide = "An s64", signed = "An s16",
-    ratio = "A float64", single = "A float", name = "A string", color = "An enum", ids = "Repeat for many ids",
+    ratio = "A float64", single = "A float", name = "A string", color = "An enum", fallback = "An enum with a non-zero default", ids = "Repeat for many ids",
     tags = "Repeat for many tags", shades = "Repeat for many colours", tolerance = "Bounded float", level = "Bounded int",
     output_dir = "Where to write",
 };

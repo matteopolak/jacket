@@ -318,6 +318,7 @@ default_text :: (value: $V) -> string {
     } else #if V == string {
         return value;
     } else #if type_info(V).type == .ENUM {
+        if cast(s64) value == 0 return "";
         return kebab(tprint("%", value));
     } else #if type_info(V).type == .INTEGER || type_info(V).type == .FLOAT {
         if value == 0 return "";

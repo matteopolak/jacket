@@ -30,7 +30,7 @@ HELP :: Args.Help(Options).{
     stdin = "Format standard input to standard output",
     config = "Use this config instead of the nearest jaifmt.toml",
     verbose = "Report every file, a summary, and lines over max_width",
-    color = "Colour errors: auto (on a terminal, unless NO_COLOR is set), always, never",
+    color = "Colour errors; auto means on a terminal, unless NO_COLOR is set",
 };
 
 Totals :: struct {

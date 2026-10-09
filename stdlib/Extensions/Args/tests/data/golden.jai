@@ -11,7 +11,7 @@ Arguments:
 Options:
   -c, --[no-]check     Do not write; list the files that would change
   -j, --jobs <JOBS>    Parallel jobs [default: 4] [range: 1..64] [env: JAIFMT_JOBS]
-      --color <COLOR>  When to colour the output [default: auto] [possible values: auto, always, never]
+      --color <COLOR>  When to colour the output [possible values: auto, always, never]
       --config <FILE>  Use this config file
   -v, --verbose        Say more (repeat for more)
   -h, --help           Print help
@@ -29,7 +29,7 @@ Format Jai source files.
 <ESC>[1;4mOptions:<ESC>[0m
   <ESC>[1m-c<ESC>[0m, <ESC>[1m--[no-]check<ESC>[0m     Do not write; list the files that would change
   <ESC>[1m-j<ESC>[0m, <ESC>[1m--jobs<ESC>[0m <ESC>[36m<JOBS><ESC>[0m    Parallel jobs [default: 4] [range: 1..64] [env: JAIFMT_JOBS]
-      <ESC>[1m--color<ESC>[0m <ESC>[36m<COLOR><ESC>[0m  When to colour the output [default: auto] [possible values: auto, always, never]
+      <ESC>[1m--color<ESC>[0m <ESC>[36m<COLOR><ESC>[0m  When to colour the output [possible values: auto, always, never]
       <ESC>[1m--config<ESC>[0m <ESC>[36m<FILE><ESC>[0m  Use this config file
   <ESC>[1m-v<ESC>[0m, <ESC>[1m--verbose<ESC>[0m        Say more (repeat for more)
   <ESC>[1m-h<ESC>[0m, <ESC>[1m--help<ESC>[0m           Print help
@@ -48,7 +48,8 @@ Options:
       --ratio <RATIO>            A float64 [default: 0.5]
       --single <SINGLE>          A float
       --name <NAME>              A string
-      --color <COLOR>            An enum [default: auto] [possible values: auto, always, never]
+      --color <COLOR>            An enum [possible values: auto, always, never]
+      --fallback <FALLBACK>      An enum with a non-zero default [default: never] [possible values: auto, always, never]
   -i, --ids <IDS>                Repeat for many ids
       --tags <TAGS>              Repeat for many tags
       --shades <SHADES>          Repeat for many colours [possible values: auto, always, never]

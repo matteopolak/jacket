@@ -29,7 +29,7 @@ Options:
       --[no-]stdin     Format standard input to standard output
       --config <FILE>  Use this config instead of the nearest jaifmt.toml
   -v, --[no-]verbose   Report every file, a summary, and lines over max_width
-      --color <COLOR>  Colour errors: auto (on a terminal, unless NO_COLOR is set), always, never [default: auto] [possible values: auto, always, never]
+      --color <COLOR>  Colour errors; auto means on a terminal, unless NO_COLOR is set [possible values: auto, always, never]
   -h, --help           Print help
 ```
 
