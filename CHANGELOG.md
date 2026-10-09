@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Unoptimized builds compile 1.7 to 2.4 times faster on Apple silicon (a 240k-line program: 4.1 s to 1.7 s; `jaifmt`: 0.19 s to 0.12 s): `-O0` code is selected with FastISel instead of GlobalISel on AArch64, each codegen unit declares only the symbols it uses, units are 5,000 IR instructions instead of 20,000, and a release `jaic` no longer runs the LLVM verifier (`JAIC_VERIFY_IR=1` brings it back). See [compile speed](docs/compiler/compile-speed.md).
+- On macOS an unoptimized `jaic build` no longer runs `dsymutil`: it keeps `<output>.o` (and `.1.o`, ...) next to the program, and lldb reads the debug info from them. `-O1` and up still write `<output>.dSYM`; `JAIC_DSYM=1` writes it for `-O0` too.
+- Metaprograms that read many compiler messages run a little faster (the memory probe remembers the last page it checked).
+
 ## [0.5.0] - 2026-10-09
 
 Jai's own command-line parser arrives as `Extensions/Args` (a typed, compile-time clap-style parser that `jaifmt` now uses), the language server gains refactorings, call hierarchy, member rename and pull diagnostics, and built executables stop on a null pointer dereference instead of crashing. `print` format strings are checked at compile time, and more invalid programs (notes, `using` clashes, identical overloads, procedures that fall off their end) are now reported.

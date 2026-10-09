@@ -1271,8 +1271,8 @@ pub fn call(
         if p == 0 {
             return Ok(Vec::new());
         }
-        let count = load(interp, p)? as usize;
-        let data = load(interp, p + 8)?;
+        let (count, data) = interp.read_pair(p).ok_or_else(|| unreadable(p))?;
+        let count = count as usize;
         if count == 0 || data == 0 {
             Ok(Vec::new())
         } else {
@@ -1738,7 +1738,7 @@ pub fn call(
 /// The Jai `string` at `p` as a field name. Field names are ASCII identifiers, so anything else
 /// (a null string, or one that cannot be read) names no field.
 fn field_name(interp: &Interp, p: u64) -> String {
-    let (Some(count), Some(data)) = (interp.read_u64(p), interp.read_u64(p + 8)) else {
+    let Some((count, data)) = interp.read_pair(p) else {
         return String::new();
     };
     let bytes = interp.read(data, count as usize).unwrap_or_default();

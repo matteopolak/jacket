@@ -735,6 +735,20 @@ impl Interp {
         probe::read(addr, &mut out).then(|| u64::from_le_bytes(out))
     }
 
+    /// The two `u64`s at `addr` (a Jai `string` or view: count, then data), or `None` when
+    /// they cannot be read.
+    pub fn read_pair(&self, addr: u64) -> Option<(u64, u64)> {
+        let mut out = [0; 16];
+        if !probe::read(addr, &mut out) {
+            return None;
+        }
+        let (a, b) = out.split_at(8);
+        Some((
+            u64::from_le_bytes(a.try_into().ok()?),
+            u64::from_le_bytes(b.try_into().ok()?),
+        ))
+    }
+
     /// Store `bytes` at `addr` in program memory; false when it cannot be written.
     #[must_use]
     pub fn write(&mut self, addr: u64, bytes: &[u8]) -> bool {

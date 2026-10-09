@@ -11,7 +11,9 @@
 1. Creates a target machine for the host or `Options::target` (for example `x86_64-pc-windows-gnu` for `-os windows`). The triple picks the `jaic::abi::Arch`.
    The CPU is the oldest one the triple runs on (`baseline_cpu`: `x86-64`, `apple-m1` for arm64 macOS, else `generic`), never the build machine's: release archives (jaifmt) are built on one CI runner and run on others, and 0.4.1's jaifmt, built for a runner with AVX-512, died with SIGILL on runners without it. `Build_Options.llvm_options.target_system_cpu` / `target_system_features` override it; `target_system_cpu = "native"` targets the build machine's CPU and features (`cpu_and_features`). The jaifmt native test and the release smoke test fail if an x86-64 Linux jaifmt uses `ymm`/`zmm` registers or AVX-512 masks.
 2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in global initialisers, then defines function bodies.
-3. Verifies the module, optionally runs the `default<On>` pipeline, and writes the object.
+3. Verifies the module (debug builds of jaic, and any build with `JAIC_VERIFY_IR=1`; a release jaic skips the verifier, which costs about 3% of an `-O0` build), optionally runs the `default<On>` pipeline, and writes the object.
+
+At `-O0` the target machine selects instructions with FastISel (`use_fast_isel` in `lib.rs`: `LLVMSetTargetMachineGlobalISel(false)`, `LLVMSetTargetMachineFastISel(true)`). LLVM turns GlobalISel on by default for unoptimised AArch64 code, and it was a third of codegen time there (`isWorthFoldingIntoExtendedReg` alone 11%); FastISel is the x86-64 default already, falls back to SelectionDAG per instruction, and made `-O0` codegen about 3x faster on a large program on Apple silicon. It is a per-machine setting, not a process option.
 
 jaic sets no process-wide LLVM options (`LLVMParseCommandLineOptions`). Under LLVM 22 it passed `-unroll-add-parallel-reductions=false`: that release's runtime unroller, on by default for Apple CPUs, gave each unrolled copy of a reduction its own accumulator and, for a `sub` recurrence (`a -= b` in a loop of unknown length), combined them wrongly, so `-O2` printed different results from `-O0` and the interpreter ([llvm/llvm-project#201065](https://github.com/llvm/llvm-project/issues/201065), fixed in LLVM 23.1.0). The flag went with the move to LLVM 23. Corpus case `unrolled-sub-reduction` and the native test `optimized_sub_recurrence_matches_the_interpreter` still guard it. If an LLVM bug needs an option again, set it once before the first target machine is created (in `target_machine`, next to target registration), document the upstream issue, and remove it when jaic moves past the fixed release.
 
@@ -19,10 +21,10 @@ jaic sets no process-wide LLVM options (`LLVMParseCommandLineOptions`). Under LL
 
 `jaic build` calls `emit_objects`, which splits a large unoptimised program into codegen units, one LLVM context and module per thread. LLVM code generation is a large share of an `-O0` build, so this pays off on big programs like Focus.
 
-- Units: `JAIC_CODEGEN_UNITS` if set, else one per 20,000 IR instructions (`INSTS_PER_UNIT`), capped at the core count. `-O1` and up, and `--emit-ir`, always use one unit so LLVM can inline across the whole program.
+- Units: `JAIC_CODEGEN_UNITS` if set, else one per 5,000 IR instructions (`INSTS_PER_UNIT`, tuned on a 60k-line synthetic program, `jaifmt` and a hello world on 10 cores: more units kept winning down to roughly this size), capped at the core count. `-O1` and up, and `--emit-ir`, always use one unit so LLVM can inline across the whole program.
 - Functions go largest first to the least loaded unit. Unit 0 also defines the globals.
-- Each module defines its own functions and declares the rest (`lower::Shard`). Internal functions and globals become hidden external symbols (still named `name.index`), so the objects link together but a shared library exports nothing extra.
-- Objects are `path`, `path.1.o`, `path.2.o`, .... The CLI links or archives them all, then deletes them. `-o x.o` stays a single module.
+- Each module defines its own functions and declares only what it uses (`lower::Shard`): functions, globals and foreign symbols are declared on first reference (`Backend::func`, `global`, `foreign`), so a unit does not pay for the whole program's declarations. A lookup by name (`libc_call`, `__multi3`, `llvm.*` foreigns) first calls `declare_named`/declares the program's own symbol of that name, or LLVM would rename the later one (`write.1`) and the link would fail. Unit 0 defines the globals and so declares them all. Internal functions and globals become hidden external symbols (still named `name.index`), so the objects link together but a shared library exports nothing extra.
+- Objects are `path`, `path.1.o`, `path.2.o`, .... The CLI links or archives them all, then deletes them (an unoptimised macOS build with debug info keeps them, see [debug info](debug-info.md)). `-o x.o` stays a single module.
 
 #### Splitting after the optimizer (`split.rs`)
 
@@ -74,6 +76,7 @@ Definitions with C signatures (`#c_call` callbacks that C calls with structs) do
 
 ## Configuration
 
+- `JAIC_VERIFY_IR=1` runs the LLVM verifier in a release jaic (`0` turns it off in a debug one).
 - `JAIC_CODEGEN_UNITS=N` forces the unit count; `1` turns splitting off. (before and after the optimizer).
 - `JAIC_SPLIT_UNITS=N` forces the post-optimizer unit count of an optimized build (for tests); `1` turns that split off.
 - `INSTS_PER_UNIT` and `MAX_UNITS` in `split.rs`.

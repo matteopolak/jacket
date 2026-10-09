@@ -24,7 +24,7 @@ instead.
 - **Phases**: the script passes `--timings` (placed before any `-` so the metaprogram does not get it). jaic
   then prints `jaic-timing: <phase> <seconds> <calls>` on stderr. The phases are `total`, `front end`
   (parse, sema, compile-time code, including metaprogram workspaces built inside it), `workspaces`, `run`,
-  `prepare output`, `codegen` (LLVM), `link` and `debug info` (dsymutil). Phases nest, so they do not add up
+  `prepare output`, `codegen` (LLVM), `link` and `debug info` (dsymutil; only builds that run it, so not `-O0` on macOS, see [debug info](../native/debug-info.md)). Phases nest, so they do not add up
   to `total`. `codegen` is wall time: large `-O0` builds and, after the optimizer, `-O1`+ builds generate
   machine code on several threads ([codegen units](../native/llvm-backend.md#codegen-units)), which also adds a
   copy of each thread's share of the module to peak RSS. Results recorded before that split show `-O2` builds

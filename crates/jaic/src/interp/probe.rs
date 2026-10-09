@@ -18,7 +18,7 @@
 //! `invalidate`.
 #![allow(unsafe_code)]
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The granularity accesses are checked at: the smallest page size of the hosts.
@@ -40,6 +40,13 @@ struct Checked {
 
 thread_local! {
     static CHECKED: RefCell<Checked> = RefCell::new(Checked::default());
+}
+
+thread_local! {
+    /// The page `accessible` answered for last, as (epoch, page + 1) for reads and for writes:
+    /// the usual access is one more field of the record just read, so it needs no lookup.
+    /// `const`, so reading it costs no lazy-initialization check.
+    static LAST: [Cell<(u64, u64)>; 2] = const { [Cell::new((0, 0)), Cell::new((0, 0))] };
 }
 
 /// Forget every page found accessible: memory may have been released.
@@ -86,9 +93,14 @@ fn accessible(addr: u64, len: usize, write: bool) -> bool {
     if addr < 4096 || end > usize::MAX as u64 {
         return false;
     }
-    CHECKED.with(|checked| {
+    let epoch = EPOCH.load(Ordering::Relaxed);
+    let first = addr / PAGE;
+    let single = (end - 1) / PAGE == first;
+    if single && LAST.with(|last| last[usize::from(write)].get()) == (epoch, first + 1) {
+        return true;
+    }
+    let ok = CHECKED.with(|checked| {
         let mut checked = checked.borrow_mut();
-        let epoch = EPOCH.load(Ordering::Relaxed);
         if checked.epoch != epoch {
             *checked = Checked {
                 epoch,
@@ -115,7 +127,11 @@ fn accessible(addr: u64, len: usize, write: bool) -> bool {
             page += 1;
         }
         true
-    })
+    });
+    if ok && single {
+        LAST.with(|last| last[usize::from(write)].set((epoch, first + 1)));
+    }
+    ok
 }
 
 #[cfg(unix)]

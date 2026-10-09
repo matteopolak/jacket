@@ -64,6 +64,7 @@ How `crates/jaic`, the interpreter and the language server work.
 - [Threads under `jaic run`](compiler/interpreter-threads.md)
 - [jaic interpreter](compiler/interpreter.md)
 - [Low-level IR](compiler/ir.md)
+- [Compile speed](compiler/compile-speed.md): where an `-O0` build spends its time, what was done about it, current numbers
 - [Memory limit (`JAIC_MEMORY_LIMIT`)](compiler/memory-limit.md)
 - [Shared Jai language server](compiler/language-server.md): feature list, expansions, inlay hints, format strings, lints and quick fixes, `#import` links
 - [Language server refactorings](compiler/language-server-refactorings.md): extract, inline, fill in cases and fields, `ifx` rewrites, call hierarchy, selection ranges
