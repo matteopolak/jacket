@@ -189,6 +189,20 @@ impl Compiler {
             self.proc_func(p, self.proc(p).span)?;
             i += 1;
         }
+        if let Some(workspaces) = self.interp.workspaces.clone() {
+            for header in crate::build::take_live_requests(&workspaces, self.workspace) {
+                self.make_procedure_live(header);
+            }
+        }
+        let mut i = 0;
+        while i < self.live_procs.len() {
+            let p = self.live_procs[i];
+            i += 1;
+            if self.proc(p).is_poly || self.proc(p).is_macro {
+                continue;
+            }
+            self.proc_func(p, self.proc(p).span)?;
+        }
         if lenient {
             // A metaprogram looks for procedures by their notes (`@glsl`, `@thread`) whether
             // or not the program calls them: lower those whose headers it was shown. Only the

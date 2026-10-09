@@ -13,7 +13,10 @@
 use crate::interp::{Host, Interp, Trap};
 use crate::ir;
 use crate::records::{Field, Item, Records};
-use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource, TargetCpu, TargetOs};
+use crate::sema::{
+    Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport, ProvidedKind,
+    TargetCpu, TargetOs,
+};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -276,6 +279,27 @@ struct Workspace {
     modifications: Vec<(i64, Vec<crate::sema::ModifiedStmt>)>,
     /// Set from `READY_FOR_CUSTOM_LINK_COMMAND` until the metaprogram's link is reported.
     link: Option<PendingLink>,
+    /// `remap_import` rules: (importing module, imported name, replacement).
+    remaps: Vec<(String, String, String)>,
+    /// `provide_import` offers.
+    provided: Vec<ProvidedImport>,
+    /// Header records `compiler_make_procedure_live` named, not applied yet.
+    live: Vec<i64>,
+    /// A failed load held back so an intercepting metaprogram can `provide_import` what was
+    /// missing; see [`resume_failed_load`].
+    failed_load: Option<FailedLoad>,
+}
+
+/// A workspace whose sources did not load because an import found no module, while a
+/// metaprogram was listening for `FAILED_IMPORT`.
+struct FailedLoad {
+    /// The diagnostic, reported if nothing is provided.
+    text: String,
+    /// The sources to load again once something was provided.
+    sources: Vec<ProgramSource>,
+    compiler: Box<Compiler>,
+    /// How many offers there were when the imports failed.
+    offers: usize,
 }
 
 impl Workspace {
@@ -291,6 +315,10 @@ impl Workspace {
             failed: false,
             modifications: Vec::new(),
             link: None,
+            remaps: Vec::new(),
+            provided: Vec::new(),
+            live: Vec::new(),
+            failed_load: None,
         }
     }
 }
@@ -363,6 +391,11 @@ pub enum MetaOp {
     ModifyProcedure,
     SetTypeInfoFlags,
     StructLocation,
+    BasePath,
+    AddLibraryDir,
+    RemapImport,
+    ProvideImport,
+    MakeLive,
     RecTag,
     RecField,
     RecInt,
@@ -403,6 +436,11 @@ impl MetaOp {
             "__jaic_modify_procedure" => Self::ModifyProcedure,
             "__jaic_set_type_info_flags" => Self::SetTypeInfoFlags,
             "__jaic_struct_location" => Self::StructLocation,
+            "__jaic_base_path" => Self::BasePath,
+            "__jaic_add_library_dir" => Self::AddLibraryDir,
+            "__jaic_workspace_remap_import" => Self::RemapImport,
+            "__jaic_workspace_provide_import" => Self::ProvideImport,
+            "__jaic_make_procedure_live" => Self::MakeLive,
             "__jaic_rec_tag" => Self::RecTag,
             "__jaic_rec_field" => Self::RecField,
             "__jaic_rec_int" => Self::RecInt,
@@ -594,6 +632,28 @@ pub fn dead_code_setting(shared: &SharedWorkspaces, id: i64) -> Option<DeadCode>
     reg.list.get(id as usize)?.settings.dead_code_elimination
 }
 
+/// The `remap_import` and `provide_import` rules of workspace `id`, for the compiler that is
+/// resolving its imports.
+pub fn import_rules(
+    shared: &SharedWorkspaces,
+    id: i64,
+) -> (Vec<(String, String, String)>, Vec<ProvidedImport>) {
+    let reg = shared.borrow();
+    match reg.list.get(id as usize) {
+        Some(ws) => (ws.remaps.clone(), ws.provided.clone()),
+        None => (Vec::new(), Vec::new()),
+    }
+}
+
+/// Header records `compiler_make_procedure_live` named for workspace `id` since last asked.
+pub fn take_live_requests(shared: &SharedWorkspaces, id: i64) -> Vec<i64> {
+    let mut reg = shared.borrow_mut();
+    match reg.list.get_mut(id as usize) {
+        Some(ws) => std::mem::take(&mut ws.live),
+        None => Vec::new(),
+    }
+}
+
 /// Sources added to workspace `id` by its own compile-time code, for the
 /// compiler that is building it (`Compiler::pull_workspace_sources`).
 pub fn take_own_sources(shared: &SharedWorkspaces, id: i64) -> Vec<ProgramSource> {
@@ -710,6 +770,9 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     if shared.borrow_mut().ws(id)?.link.is_some() {
         return finish_custom_link(shared, id);
     }
+    if shared.borrow_mut().ws(id)?.failed_load.is_some() && resume_failed_load(shared, id)? {
+        return Ok(());
+    }
     let (stage, mut compiler, pending, modifications) = {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
@@ -741,6 +804,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     }
     .and_then(|()| compiler.relower_modified());
     let mut pending = pending;
+    let original_sources = pending.clone();
     if stage == Stage::Open {
         let reg = shared.borrow();
         let settings = &reg.list[id as usize].settings;
@@ -822,6 +886,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     shared.borrow_mut().current.pop();
     *budget = compiler.interp.block_budget;
     let mut failed = false;
+    let mut held = None;
     let next = match result {
         Ok(Stage::Done) => match write_output(shared, id, &mut compiler, &mut events)? {
             Written::Done(ok) => {
@@ -834,22 +899,33 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
         Ok(next) => next,
         Err(d) => {
             let text = compiler.render(&d);
-            (shared.borrow_mut().env.report)(&text);
-            failed = true;
+            let mut imports = Vec::new();
             if intercepted {
                 // The imports that found nothing, then the error itself.
                 let mut records = Records::lend(&mut shared.borrow_mut().records);
-                for record in compiler.export_failed_imports(&mut records) {
+                imports = compiler.export_failed_imports(&mut records);
+                Records::give_back(&mut shared.borrow_mut().records, records);
+                for &record in &imports {
                     events.push(record_event(EVENT_FAILED_IMPORT, record));
                 }
-                Records::give_back(&mut shared.borrow_mut().records, records);
-                events.push(Event {
-                    kind: EVENT_ERROR,
-                    ints: Vec::new(),
-                    strings: Vec::new(),
-                });
             }
-            Stage::Done
+            if !imports.is_empty() && stage == Stage::Open {
+                // The metaprogram may `provide_import` what was missing: the error waits for
+                // its answer (`resume_failed_load`).
+                held = Some(text);
+                Stage::Open
+            } else {
+                (shared.borrow_mut().env.report)(&text);
+                failed = true;
+                if intercepted {
+                    events.push(Event {
+                        kind: EVENT_ERROR,
+                        ints: Vec::new(),
+                        strings: Vec::new(),
+                    });
+                }
+                Stage::Done
+            }
         }
     };
     if next == Stage::Done {
@@ -866,6 +942,16 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
         ws.events.extend(file_events);
         ws.failed |= failed;
         ws.stage = next;
+        if let Some(text) = held {
+            let offers = ws.provided.len();
+            ws.failed_load = Some(FailedLoad {
+                text,
+                sources: original_sources,
+                compiler,
+                offers,
+            });
+            return Ok(());
+        }
         if next != Stage::Done {
             ws.compiler = Some(compiler);
             return Ok(());
@@ -877,6 +963,51 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
         shared.borrow_mut().env.observer = Some(o);
     }
     Ok(())
+}
+
+/// A workspace held back by a failed import (see [`FailedLoad`]) is asked for its answer: when the
+/// metaprogram has offered anything since, the load is tried again from scratch (true if it
+/// was not and the workspace is finished instead); otherwise the error is reported and
+/// followed by `ERROR` and `COMPLETE`.
+fn resume_failed_load(shared: &SharedWorkspaces, id: i64) -> Result<bool, String> {
+    let held = {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        match ws.failed_load.take() {
+            Some(held) if ws.provided.len() > held.offers => {
+                ws.pending = held.sources;
+                ws.compiler = None;
+                return Ok(false);
+            }
+            other => other,
+        }
+    };
+    let Some(held) = held else {
+        return Ok(false);
+    };
+    (shared.borrow_mut().env.report)(&held.text);
+    {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        ws.events.push_back(Event {
+            kind: EVENT_ERROR,
+            ints: Vec::new(),
+            strings: Vec::new(),
+        });
+        ws.events.push_back(Event {
+            kind: EVENT_COMPLETE,
+            ints: vec![1],
+            strings: Vec::new(),
+        });
+        ws.failed = true;
+        ws.stage = Stage::Done;
+    }
+    let observer = shared.borrow_mut().env.observer.take();
+    if let Some(mut o) = observer {
+        o.finished(held.compiler, true);
+        shared.borrow_mut().env.observer = Some(o);
+    }
+    Ok(true)
 }
 
 /// What [`write_output`] did.
@@ -1109,6 +1240,8 @@ pub fn call(
             | MetaOp::CommandLineArg
             | MetaOp::CompilerVersion
             | MetaOp::StructLocation
+            | MetaOp::BasePath
+            | MetaOp::CodeIsNull
             | MetaOp::CodeNodes
             | MetaOp::ParseCode
             | MetaOp::RecTag
@@ -1173,6 +1306,73 @@ pub fn call(
                 store(interp, arg(2), &line.to_le_bytes())?;
                 store(interp, arg(3), &col.to_le_bytes())?;
             }
+            Ok(Vec::new())
+        }
+        MetaOp::BasePath => {
+            // The install root: the directory above the stdlib, which is the last module
+            // directory on the import path.
+            let base = shared
+                .borrow()
+                .env
+                .options
+                .import_paths
+                .last()
+                .and_then(|stdlib| stdlib.parent())
+                .map(|p| {
+                    let mut text = crate::canonicalize(p)
+                        .unwrap_or_else(|_| p.to_path_buf())
+                        .display()
+                        .to_string();
+                    if !text.ends_with('/') && !text.ends_with('\\') {
+                        text.push('/');
+                    }
+                    text
+                })
+                .unwrap_or_default();
+            return_string(interp, base.as_bytes(), 0)?;
+            Ok(Vec::new())
+        }
+        MetaOp::AddLibraryDir => {
+            let dir = text(interp, 0)?;
+            crate::interp::add_library_dir(PathBuf::from(dir));
+            Ok(Vec::new())
+        }
+        MetaOp::RemapImport => {
+            let id = arg(0) as i64;
+            let rule = (text(interp, 1)?, text(interp, 2)?, text(interp, 3)?);
+            shared.borrow_mut().ws(id).map_err(trap)?.remaps.push(rule);
+            Ok(Vec::new())
+        }
+        MetaOp::ProvideImport => {
+            let id = arg(0) as i64;
+            let kind = match arg(3) {
+                0 => ProvidedKind::ShortName,
+                1 => ProvidedKind::PathToFile,
+                2 => ProvidedKind::PathToDirectory,
+                _ => ProvidedKind::FullText,
+            };
+            let offer = ProvidedImport {
+                host: text(interp, 1)?,
+                target: text(interp, 2)?,
+                kind,
+                value: text(interp, 4)?,
+            };
+            shared
+                .borrow_mut()
+                .ws(id)
+                .map_err(trap)?
+                .provided
+                .push(offer);
+            Ok(Vec::new())
+        }
+        MetaOp::MakeLive => {
+            let id = arg(0) as i64;
+            shared
+                .borrow_mut()
+                .ws(id)
+                .map_err(trap)?
+                .live
+                .push(arg(1) as i64);
             Ok(Vec::new())
         }
         MetaOp::WorkspaceCreate => {

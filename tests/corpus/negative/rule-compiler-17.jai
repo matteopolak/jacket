@@ -1,7 +1,7 @@
 // rules: compiler.17
-// An API jaic does not implement yet reports a fatal error once it is actually called.
+// An API call jaic cannot carry out reports a fatal error once it is actually made.
 #import "Compiler";
 
-#run compiler_get_base_path();
+#run add_build_string("X :: 1;", get_current_workspace(), #code 1 + 1);
 
 main :: () {}

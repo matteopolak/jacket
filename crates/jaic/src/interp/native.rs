@@ -37,8 +37,32 @@ pub fn set_library_dirs(dirs: Vec<std::path::PathBuf>) {
     let _ = LIBRARY_DIRS.set(dirs);
 }
 
-pub fn library_dirs() -> &'static [std::path::PathBuf] {
-    LIBRARY_DIRS.get().map_or(&[], Vec::as_slice)
+/// Directories a metaprogram added with `compiler_add_library_search_directory`; searched
+/// before the driver's.
+static EXTRA_LIBRARY_DIRS: std::sync::Mutex<Vec<std::path::PathBuf>> =
+    std::sync::Mutex::new(Vec::new());
+
+pub fn add_library_dir(dir: std::path::PathBuf) {
+    let mut dirs = EXTRA_LIBRARY_DIRS.lock().unwrap_or_else(|e| e.into_inner());
+    if !dirs.contains(&dir) {
+        dirs.push(dir);
+    }
+}
+
+/// The directories added by [`add_library_dir`], in the order they were added.
+pub fn extra_library_dirs() -> Vec<std::path::PathBuf> {
+    EXTRA_LIBRARY_DIRS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+/// Every directory libraries are looked up in by name: those a metaprogram added, then the
+/// driver's.
+pub fn library_dirs() -> Vec<std::path::PathBuf> {
+    let mut dirs = extra_library_dirs();
+    dirs.extend(LIBRARY_DIRS.get().into_iter().flatten().cloned());
+    dirs
 }
 
 /// Homebrew's library directory on this Mac: `/opt/homebrew/lib` on Apple silicon,

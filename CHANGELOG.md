@@ -52,6 +52,9 @@ Refactorings, call hierarchy and expand selection in the language server.
 - `offset_of(T, "member")` / `offset_of(T.member)` and `is_value_type(T)` are implemented (they were "not supported"). See [structs](docs/language/structs.md).
 - `#overlay` outside a struct body now says so (it said "not supported"); inside struct bodies it already worked and is now tested in `#if`, `#insert`, union and nested forms.
 
+- The `Compiler` module procedures that stopped with "not supported yet" now work or say why they do nothing: `remap_import`, `provide_import` (a `FAILED_IMPORT` answered with a module name, file, directory or source text makes the workspace load again), `compiler_make_procedure_live`, `get_root_type`, `compiler_get_base_path`, `compiler_add_library_search_directory`, `add_data_segment` (a handle that reports `actual_segment_will_be_created = false`; `add_global_data` accepts it). `compiler_report_errors_for_unresolved_identifiers`, `compiler_report_errors_for_untyped_declarations_with_these_notes` and `compiler_set_memory_breakpoint` are accepted and ignored. See [the Compiler module](docs/metaprogramming/compiler-module.md).
+- `Default_Metaprogram` reads `-os`, `-cpu`, `-exe`, `-no_dce`, `-no_color`, `-msvc_format`, `-natvis`, `-quiet` and `-version`; an unknown option is named in the error.
+
 ### Refactorings
 
 The light-bulb menu offers *Extract into variable*, *Extract into procedure* (parameters and results worked out; declined when the selection returns, breaks out, or changes a variable declared outside it), *Inline variable*, *Add missing cases* for an `if x == {` on an enum, *Add missing fields* for a `Type.{...}` literal, and *Convert ifx to if/else* and back. Every edit is already in [jaifmt](docs/tools/jaifmt.md) style. See [refactorings](docs/compiler/language-server-refactorings.md).

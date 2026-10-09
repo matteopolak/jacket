@@ -142,8 +142,9 @@ The before column is jaic 0.4.1. "Silently ignored" means the value was accepted
 | `compiler_report` | `ERROR_CONTINUABLE` silently a warning | `ERROR_CONTINUABLE` prints an error and fails the build; `INFO` prints `info:` |
 | `compiler_set_workspace_status` | `.OK` silently ignored | `.OK` on a failed workspace is an error |
 | `get_runtime_info`, `get_type_table` | another workspace's `w` silently gave the running program's | an error for another workspace |
-| `add_global_data` | segment silently ignored | data goes with the program's other constant data whatever the segment; a user segment is an error |
-| `get_root_type`, `compiler_make_procedure_live`, `compiler_report_errors_for_*`, `compiler_set_memory_breakpoint`, `compiler_add_library_search_directory`, `compiler_get_base_path`, `remap_import`, `provide_import`, `add_data_segment` | error when called | error when called |
+| `add_global_data` | segment silently ignored | data goes with the program's other constant data whatever the segment (a `.USER_SEGMENT` needs the segment `add_data_segment` returned) |
+| `get_root_type`, `compiler_make_procedure_live`, `compiler_get_base_path`, `compiler_add_library_search_directory`, `remap_import`, `provide_import`, `add_data_segment` | error when called | implemented, see [the Compiler module](compiler-module.md) |
+| `compiler_report_errors_for_*`, `compiler_set_memory_breakpoint` | error when called | accepted and ignored, for the reasons in [the Compiler module](compiler-module.md) |
 
 ### Messages and nodes
 
@@ -151,7 +152,7 @@ The before column is jaic 0.4.1. "Silently ignored" means the value was accepted
 | --- | --- |
 | `FILE`, `IMPORT`, `TYPECHECKED`, `COMPLETE` | sent |
 | `PHASE` | `ALL_SOURCE_CODE_PARSED`, `TYPECHECKED_ALL_WE_CAN`, `ALL_TARGET_CODE_BUILT`, `PRE_WRITE_EXECUTABLE`, `POST_WRITE_EXECUTABLE` sent; `READY_FOR_CUSTOM_LINK_COMMAND` now sent with `use_custom_link_command`; `POST_WRITE_EXECUTABLE` now fills `executable_write_failed` and `linker_exit_code` |
-| `FAILED_IMPORT` | sent to an intercepting metaprogram when an import finds no module (`status = .NOT_FOUND`, `host_module_name`, `target_module_name`; `import_code` is null), right before `ERROR`. The import is still a compile error, and `provide_import` is an error. Test: `tests/corpus/negative/message-failed-import-and-error.jai` {#bo.13} |
+| `FAILED_IMPORT` | sent to an intercepting metaprogram when an import finds no module (`status = .NOT_FOUND`, `host_module_name`, `target_module_name`; `import_code` is null), right before `ERROR`. The import is still a compile error unless the metaprogram answers with `provide_import`, which reloads the workspace's sources. Test: `tests/corpus/negative/message-failed-import-and-error.jai` {#bo.13} |
 | `ERROR` | sent once when the workspace fails with a compile error, before `COMPLETE` (which carries `COMPILATION_FAILED`). Only for errors that stop the workspace, not for `ERROR_CONTINUABLE` reports or link failures. The message has no extra fields |
 | `PERFORMANCE_REPORT`, `DEBUG_DUMP` | not sent, on purpose: jaic has no bytecode and no per-phase report to fill them with (use `-time`), and zeroed reports would mislead. The flags that ask for performance reports warn |
 | `Code_Node` kinds | see [compiler records](compiler-records.md). `#this`, `#compile_time`, `#bytes`, `#procedure_name`, `#bake_arguments`/`#bake_constants` (as `Code_Directive_Bake` around the call), `#asm` (an opaque `Code_Asm`, without its instructions), `#load` (`short_name`, `fully_pathed_filename`), `#place` and `#overlay` are modelled, and `Program_Print` prints all of them but `#asm`. Expressions the exporter still does not model (`#caller_code`, `#file`/`#filepath`/`#line`, `$T` declarations) and statements (`#add_context`, `#module_parameters`) arrive as `.PLACEHOLDER` nodes, which `Program_Print` (and so `compiler_get_code` and edited statements in `compiler_modify_procedure`) reports as unsupported instead of printing something else |

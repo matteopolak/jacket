@@ -2345,3 +2345,42 @@ fn backtrace_on_crash_and_minimum_os_version() {
         }
     }
 }
+
+/// `compiler_add_library_search_directory` makes a `#library` in an unlisted directory load, for
+/// compile-time calls and in `jaic run`. Unix only: the fixture is a shared library built with `cc`.
+// rules: compiler.28
+#[cfg(unix)]
+#[test]
+fn library_search_directory_added_by_a_metaprogram() {
+    let fixture = repo_root().join("tests/native/library-search-dir");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-library-search-dir");
+    std::fs::create_dir_all(dir.join("lib")).unwrap();
+    for name in ["probe.c", "probe.jai"] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let lib = if cfg!(target_os = "macos") {
+        "lib/libsearchprobe.dylib"
+    } else {
+        "lib/libsearchprobe.so"
+    };
+    let Ok(built) = Command::new("cc")
+        .args(["-shared", "-fPIC", "-o", lib, "probe.c"])
+        .current_dir(&dir)
+        .output()
+    else {
+        eprintln!("skipping: no C compiler");
+        return;
+    };
+    assert!(built.status.success());
+    let output = Command::new(JAIC)
+        .args(["run", "probe.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "4242 4242\n");
+}

@@ -1243,7 +1243,12 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
         // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
         // Windows file names ignore case, but a MinGW toolchain on Linux or macOS has
         // `libgdi32.a`, not `libGdi32.a`, and its names are all lowercase.
-        return Ok(vec![LinkArg::Lib(name.to_ascii_lowercase())]);
+        let mut args: Vec<LinkArg> = jaic::interp::extra_library_dirs()
+            .iter()
+            .map(|d| LinkArg::SearchDir(d.display().to_string()))
+            .collect();
+        args.push(LinkArg::Lib(name.to_ascii_lowercase()));
+        return Ok(args);
     }
     // Apple frameworks (`AppKit`, `Metal`...) link with `-framework`; their directories exist on
     // disk even though the binaries live in the shared cache.
@@ -1264,7 +1269,11 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
             }
         }
     }
-    let mut args = Vec::new();
+    // Directories a metaprogram added (`compiler_add_library_search_directory`).
+    let mut args: Vec<LinkArg> = jaic::interp::extra_library_dirs()
+        .iter()
+        .map(|d| LinkArg::SearchDir(d.display().to_string()))
+        .collect();
     let homebrew = jaic::interp::homebrew_lib_dir();
     if cfg!(target_os = "macos") && !cross && Path::new(homebrew).exists() {
         args.push(LinkArg::SearchDir(homebrew.to_string()));

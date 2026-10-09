@@ -799,7 +799,7 @@ fn unsupported_compiler_requests_are_errors() {
         (
             "segment",
             "add_global_data(.[1, 2], .USER_SEGMENT);",
-            "add_global_data: jaic has no user data segments",
+            "add_global_data: USER_SEGMENT needs the segment add_data_segment returned",
         ),
         (
             "table",
@@ -833,4 +833,71 @@ fn unsupported_compiler_requests_are_errors() {
             "{name}: {stderr}"
         );
     }
+}
+
+/// `Default_Metaprogram` reads the Jai command-line options that map onto `Build_Options`
+/// (`-os`, `-cpu`, `-exe`, `-no_dce`, `-no_color`, ...) and names an option it does not know.
+#[test]
+fn default_metaprogram_options() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-default-metaprogram");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("meta.jai"), "#import \"Default_Metaprogram\";\n").unwrap();
+    std::fs::write(
+        dir.join("hello.jai"),
+        "#import \"Basic\";\nmain :: () { print(\"hi\\n\"); }\n",
+    )
+    .unwrap();
+    let run = |options: &[&str]| {
+        Command::new(JAIC)
+            .args(["check", "meta.jai", "-"])
+            .args(options)
+            .arg("hello.jai")
+            .current_dir(&dir)
+            .output()
+            .unwrap()
+    };
+    let ok = run(&[
+        "-quiet",
+        "-no_color",
+        "-no_dce",
+        "-msvc_format",
+        "-natvis",
+        "-os",
+        "linux",
+        "-cpu",
+        "x64",
+        "-exe",
+        "hello_x",
+        "-no_output",
+    ]);
+    assert!(
+        ok.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ok.stderr)
+    );
+    for (options, message) in [
+        (&["-bogus"][..], "Unknown option '-bogus'"),
+        (&["-os", "plan9"][..], "Unknown -os value 'plan9'"),
+        (&["-cpu", "mips"][..], "Unknown -cpu value 'mips'"),
+    ] {
+        let output = run(options);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !output.status.success() && stderr.contains(message),
+            "{options:?}: {stderr}"
+        );
+    }
+    let missing = Command::new(JAIC)
+        .args(["check", "meta.jai", "-", "-os"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(!missing.status.success());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("The option -os needs a value"));
+    let version = Command::new(JAIC)
+        .args(["check", "meta.jai", "-", "-version"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&version.stdout).contains("beta"));
 }

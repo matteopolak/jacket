@@ -1309,13 +1309,25 @@ impl Compiler {
                 Ok(self.runtime_support.unwrap())
             }
             ast::ImportSource::Module(name) => {
-                let Some(entry) = self.find_module(name, &dir) else {
-                    let host = self.scope(from_scope).module;
-                    let host = self.modules[host.0 as usize].name.to_string();
+                let host = self.scope(from_scope).module;
+                let host = self.modules[host.0 as usize].name.to_string();
+                // `remap_import`: the latest rule for this importer (or any importer) wins.
+                let (remaps, provided) = self.import_rules();
+                let wanted: String = remaps
+                    .iter()
+                    .rev()
+                    .find(|(h, n, _)| n == &**name && (h.is_empty() || *h == host))
+                    .map_or_else(|| name.to_string(), |(_, _, r)| r.clone());
+                let Some(entry) = self.find_module(&wanted, &dir) else {
+                    if let Some(id) =
+                        self.provided_module(&provided, &host, name, &dir, &params, import.span)?
+                    {
+                        return Ok(id);
+                    }
                     self.failed_imports.push((host, name.to_string()));
-                    return Err(Box::new(self.module_not_found(name, &dir, import.span)));
+                    return Err(Box::new(self.module_not_found(&wanted, &dir, import.span)));
                 };
-                self.load_module(name, &entry, params, import.span)
+                self.load_module(&wanted, &entry, params, import.span)
             }
             ast::ImportSource::File(path) | ast::ImportSource::Dir(path) => {
                 let entry =
@@ -1329,6 +1341,61 @@ impl Compiler {
                 self.load_string(&label, source, id)?;
                 Ok(id)
             }
+        }
+    }
+
+    /// The module a metaprogram supplied with `provide_import` for `host` importing `name`.
+    fn provided_module(
+        &mut self,
+        provided: &[ProvidedImport],
+        host: &str,
+        name: &str,
+        dir: &Path,
+        params: &[(Sym, Value, TypeId)],
+        span: Span,
+    ) -> Result<Option<ModuleId>> {
+        let Some(provided) = provided
+            .iter()
+            .rev()
+            .find(|p| p.target == name && (p.host.is_empty() || p.host == host))
+            .cloned()
+        else {
+            return Ok(None);
+        };
+        let entry = match provided.kind {
+            ProvidedKind::ShortName => self.find_module(&provided.value, dir),
+            ProvidedKind::PathToFile => Some(self.fs.canonical(Path::new(&provided.value))),
+            ProvidedKind::PathToDirectory => Some(
+                self.fs
+                    .canonical(&Path::new(&provided.value).join("module.jai")),
+            ),
+            ProvidedKind::FullText => {
+                if let Some(&id) = self.provided_texts.get(&provided.value) {
+                    return Ok(Some(id));
+                }
+                let id = self.new_module(name, None, params.to_vec());
+                let label = format!("<provided import {name}>");
+                self.load_string(&label, &provided.value, id)?;
+                self.provided_texts.insert(provided.value.clone(), id);
+                return Ok(Some(id));
+            }
+        };
+        match entry {
+            Some(entry) if self.fs.is_file(&entry) => Ok(Some(self.load_module(
+                name,
+                &entry,
+                params.to_vec(),
+                span,
+            )?)),
+            _ => Ok(None),
+        }
+    }
+
+    /// The `remap_import` and `provide_import` rules of this compiler's workspace.
+    fn import_rules(&self) -> (Vec<(String, String, String)>, Vec<ProvidedImport>) {
+        match &self.interp.workspaces {
+            Some(w) => crate::build::import_rules(w, self.workspace),
+            None => (Vec::new(), Vec::new()),
         }
     }
 

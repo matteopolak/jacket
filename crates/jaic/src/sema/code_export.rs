@@ -412,6 +412,34 @@ impl Compiler {
     /// the statements `stmts` (statement records exported from this
     /// workspace, or `#code` roots from `compiler_get_nodes`, parsed again
     /// here). A body already lowered is lowered again.
+    /// `compiler_make_procedure_live`: keep the procedure behind header record `header` in the
+    /// program though nothing calls it. False when the record is not a procedure header this
+    /// compiler exported.
+    pub fn make_procedure_live(&mut self, header: i64) -> bool {
+        let found = self
+            .export
+            .resolved_headers
+            .iter()
+            .find(|&(_, &record)| record == header)
+            .map(|(&(p, _), _)| p)
+            .or_else(|| {
+                self.export
+                    .pending_bodies
+                    .iter()
+                    .find(|&&(_, record, _)| record == header)
+                    .map(|&(p, _, _)| p)
+            });
+        match found {
+            Some(p) => {
+                if !self.live_procs.contains(&p) {
+                    self.live_procs.push(p);
+                }
+                true
+            }
+            None => false,
+        }
+    }
+
     pub fn modify_procedure(
         &mut self,
         r: &Records,

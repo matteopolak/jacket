@@ -310,6 +310,26 @@ fn too_many_instances(name: Sym) -> String {
     )
 }
 
+/// A module a metaprogram supplied for an import that found none (`provide_import`).
+#[derive(Clone, Debug)]
+pub struct ProvidedImport {
+    /// The importing module and the wanted name, as in the `FAILED_IMPORT` message.
+    pub host: String,
+    pub target: String,
+    pub kind: ProvidedKind,
+    pub value: String,
+}
+
+/// `Provided_Import_Type`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProvidedKind {
+    /// Another module's name.
+    ShortName,
+    PathToFile,
+    PathToDirectory,
+    FullText,
+}
+
 pub struct Compiler {
     pub options: Options,
     pub fs: Rc<dyn FileSystem>,
@@ -390,6 +410,11 @@ pub struct Compiler {
     /// Imports that found no module: (importing module, wanted module). Metaprograms that
     /// intercept the workspace get a `FAILED_IMPORT` message for each.
     pub failed_imports: Vec<(String, String)>,
+    /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
+    /// calls them.
+    pub live_procs: Vec<ProcId>,
+    /// Modules made from `provide_import` texts, by text.
+    pub provided_texts: HashMap<String, ModuleId>,
     /// Struct declaration AST per struct (for layout).
     pub struct_asts: HashMap<crate::types::StructId, structs::StructSource>,
     pub entry_point: Option<ProcId>,
@@ -570,6 +595,8 @@ impl Compiler {
             warnings: Vec::new(),
             overload_sets_checked: Default::default(),
             failed_imports: Vec::new(),
+            live_procs: Vec::new(),
+            provided_texts: HashMap::default(),
             struct_asts: HashMap::default(),
             entry_point: None,
             exports: Vec::new(),

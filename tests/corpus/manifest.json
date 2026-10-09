@@ -2028,14 +2028,14 @@
     {
       "id": "rule-compiler-17",
       "source": "negative/rule-compiler-17.jai",
-      "sha256": "9830617b3cf0ea8df794e1eef1a8b0a2c498f0d35c9fc1aafa6749973cdd38a7",
+      "sha256": "557609c32ed9f0d6b39cd438e6b02d27987fddad75a4016a32cc97b532a3dba0",
       "suite": "negative",
-      "feature": "calling an unsupported Compiler API is a fatal error",
+      "feature": "an API call jaic cannot carry out is a fatal error",
       "kind": "negative",
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "compiler_get_base_path is not supported by jaic yet"
+        "check": "add_build_string: jaic cannot add a string in the scope of a Code value"
       }
     },
     {

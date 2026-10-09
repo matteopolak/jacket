@@ -3,7 +3,11 @@
 // rules: struct.20 struct.21
 #import "Basic";
 
-Inner :: struct { x: u8; y: s32; }
+Inner :: struct {
+    x: u8;
+    y: s32;
+}
+
 Outer :: struct {
     tag: u8;
     big: s64;
@@ -12,16 +16,48 @@ Outer :: struct {
     using base: Inner;
     packed: [3] u8;
 }
-Un :: union { a: u8; b: s64; }
-Packed :: struct #no_padding { a: u8; b: s32; }
 
-Strs :: struct { n: int; s: string; }
-Ptrs :: struct { p: *int; }
-Dyn :: struct { arr: [..] int; }
-View :: struct { v: [] u8; }
-Arr :: struct { a: [4] Strs; }
-Nested :: struct { i: Inner; f: [2] float; }
-En :: enum u8 { A; B; }
+Un :: union {
+    a: u8;
+    b: s64;
+}
+
+Packed :: struct #no_padding {
+    a: u8;
+    b: s32;
+}
+
+Strs :: struct {
+    n: int;
+    s: string;
+}
+
+Ptrs :: struct {
+    p: *int;
+}
+
+Dyn :: struct {
+    arr: [..] int;
+}
+
+View :: struct {
+    v: [] u8;
+}
+
+Arr :: struct {
+    a: [4] Strs;
+}
+
+Nested :: struct {
+    i: Inner;
+    f: [2] float;
+}
+
+En :: enum u8 {
+    A;
+    B;
+}
+
 Dist :: #type,distinct s32;
 
 main :: () {
