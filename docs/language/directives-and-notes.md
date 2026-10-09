@@ -14,6 +14,8 @@ Source markers that change how a declaration or statement is treated: directive 
 
 `#program_export` (optionally with a symbol name string) on a procedure keeps it as a root even if nothing calls it (`export_entities` in `sema/modules.rs`) {#note.4} and sets its native symbol name to the string or the procedure name (`sema/procs.rs`) {#note.5}. It matters for `jaic build`.
 
+A note is `@` and every character up to the next whitespace, like Jai: `@short=j`, `@range(1,64)` and `@Name(arg)` are one note each, with the text after the `@`; a `;` or `{` that touches the note belongs to it (`a: int @tag;` loses its `;`, which is why Jai puts member notes after the semicolon: `a: int; @tag`). `@help("two words")` is an error ("a note ends at the first whitespace, so it cannot be quoted"): the note would stop at the space and the leftover `"` would open a string. A note that starts with a quote, `@"?If set, print more."`, is still read as one string note: the Argparse-style programs in the corpus use it, and the sandboxed official binary (an older build) lexes it as the note `"?If`, so this is the one place jaic does not follow it. The lexer rule is in `lexer.rs` (`Tok::Note`); `stdlib/Extensions/Jai_Format` and `Jai_Lexer` have their own scanners.
+
 Notes (`@Name`) are stored, never interpreted {#note.11}:
 
 | Where | Exposed as |

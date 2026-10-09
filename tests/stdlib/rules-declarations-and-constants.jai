@@ -28,7 +28,7 @@ Rec :: struct {
     read :: (r: Rec) -> int {
         return r.v * LIM;
     }
-    v: s32 = 9 @Hidden;
+    v: s32 = 9; @Hidden
     w: s32 = 5;
 }
 

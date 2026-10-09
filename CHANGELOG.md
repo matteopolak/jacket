@@ -35,6 +35,8 @@ The light-bulb menu offers *Extract into variable*, *Extract into procedure* (pa
 
 ### Errors for invalid programs
 
+- Notes are lexed like Jai: `@` and everything up to the next whitespace. `@help("two words")` is now an error that says so (`@"two words"` stays one note), and `a: int @tag;` no longer parses (the note takes the `;`); write member notes after the semicolon, `a: int; @tag`.
+
 - Two `using` members of a struct that bring in the same field name are an error, and so are two procedures in one scope with identical parameter types. Both were accepted before; Jai rejects them. The `using` check covers field names only. Bindings_Generator no longer marks both bases of a C++ diamond `using`.
 
 ### Fixes

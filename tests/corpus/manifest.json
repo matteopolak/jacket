@@ -2970,6 +2970,19 @@
       "negative": {
         "check": "identical parameter types"
       }
+    },
+    {
+      "id": "note-call-style-with-spaces",
+      "source": "negative/note-call-style-with-spaces.jai",
+      "sha256": "59a472450d8c7a0dd79d290dff5c49a31c21b1fd38ddea85d78bb87f962d666a",
+      "suite": "negative",
+      "feature": "a note with a space inside parentheses is cut at the space",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "a note ends at the first whitespace"
+      }
     }
   ]
 }

@@ -8,7 +8,7 @@ Base :: struct {
 
 Derived :: struct {
     using #as base: Base;
-    b: float @tagged;
+    b: float; @tagged
 }
 
 Same :: struct {

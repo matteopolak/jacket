@@ -329,37 +329,35 @@ impl<'a> Lexer<'a> {
                 }
             } else if c == b'@' {
                 self.at += 1;
-                let note: Rc<str> = if self.peek(0) == b'"' {
+                // A note is every character up to the next whitespace, whatever it is
+                // (`@range(1,64)`, `@short=j`; also a `;` or `{` that follows it directly).
+                let from = self.at;
+                // The corpus's working programs write help text as `@"?If set ..."` (Argparse
+                // style), so a note that starts with a quote is read as a string.
+                if self.peek(0) == b'"' {
                     self.at += 1;
                     let s = self.string_body(start)?;
-                    String::from_utf8_lossy(&s).into()
-                } else {
-                    // Notes may contain any non-space characters, e.g. @Bindings(name) or @foo.bar
-                    let s = self.at;
-                    let mut depth = 0i32;
-                    while self.at < self.src.len() {
-                        let ch = self.src[self.at];
-                        if ch == b'(' {
-                            depth += 1;
-                        } else if ch == b')' {
-                            if depth == 0 {
-                                break;
-                            }
-                            depth -= 1;
-                        } else if depth == 0
-                            && !(is_ident_char(ch)
-                                || ch == b'.'
-                                || ch == b'-'
-                                || ch == b'/'
-                                || ch == b':'
-                                || ch == b'=')
-                        {
-                            break;
-                        }
-                        self.at += 1;
-                    }
-                    String::from_utf8_lossy(&self.src[s..self.at]).into()
-                };
+                    let note: Rc<str> = String::from_utf8_lossy(&s).into();
+                    self.push(Tok::Note(note), start);
+                    continue;
+                }
+                while self.at < self.src.len() && !self.src[self.at].is_ascii_whitespace() {
+                    self.at += 1;
+                }
+                let text = &self.src[from..self.at];
+                // `@help("two words")`: the note stops at the space, and the leftover quote
+                // would start a string.
+                if text.iter().filter(|&&c| c == b'"').count() % 2 == 1 {
+                    return Err(self
+                        .err(
+                            start,
+                            "a note ends at the first whitespace, so it cannot be quoted",
+                        )
+                        .with_help(
+                            "write the note without spaces, such as `@help_text` or `@range(1,64)`",
+                        ));
+                }
+                let note: Rc<str> = String::from_utf8_lossy(text).into();
                 self.push(Tok::Note(note), start);
             } else {
                 let rest = &self.src[self.at..];
@@ -759,6 +757,15 @@ mod tests {
         assert_eq!(t[0], Tok::Ident(Sym::intern("to_pt")));
         assert_eq!(t[6], Tok::Ident(Sym::intern("to")));
         assert_eq!(t[7], Tok::Punct(P::Comma));
+    }
+
+    #[test]
+    fn a_note_runs_to_the_next_whitespace() {
+        let t = kinds("@short=j @range(1,64) @tag; x");
+        assert!(matches!(&t[0], Tok::Note(n) if &**n == "short=j"));
+        assert!(matches!(&t[1], Tok::Note(n) if &**n == "range(1,64)"));
+        assert!(matches!(&t[2], Tok::Note(n) if &**n == "tag;"));
+        assert_eq!(t[3], Tok::Ident(Sym::intern("x")));
     }
 
     #[test]

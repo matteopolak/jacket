@@ -4,7 +4,7 @@
 #import "Basic";
 
 Tagged :: struct @thing @"two words" {
-    a: int @member_note;
+    a: int; @member_note
     b: float;
 }
 

@@ -22,7 +22,7 @@ STALLED :: #run,stallable stalled_value();
 
 // note.11: unrecognised notes do not change behaviour.
 Noted :: struct @Whatever @"free text" {
-    a: int @Unknown;
+    a: int; @Unknown
     b: int;
 }
 

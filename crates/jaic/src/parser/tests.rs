@@ -989,7 +989,7 @@ fn mixed_declarations_assign_to_places() {
 #[test]
 fn declaration_flags_and_notes() {
     let stmts =
-        parse("x: int #align 16 @Note;\nF :: () {} @Public @Other\nG :: () {}\n#no_reset y := 1;");
+        parse("x: int #align 16; @Note\nF :: () {} @Public @Other\nG :: () {}\n#no_reset y := 1;");
     assert!(decl(&stmts[0]).align.is_some());
     assert_eq!(decl(&stmts[0]).notes.len(), 1);
     assert_eq!(decl(&stmts[1]).notes.len(), 2);
