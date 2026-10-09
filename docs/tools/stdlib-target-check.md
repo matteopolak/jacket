@@ -16,7 +16,7 @@ Without it, a module's code for other platforms (`#if OS == .MACOS`) and the pro
 The listed failures are intentional:
 
 - modules for other platforms or CPUs, which stop with `#assert` (`Windows` on linux, `Objective_C` off Apple platforms, `Wasi_Runtime` off wasm, `nvtt` off x64);
-- procedures that stop the build on a target they do not support (`Debug`'s `is_valid_pointer` off Windows);
+- procedures that stop the build on a target they do not support (modules that need a native library or window system);
 - bindings to native libraries with no wasm build (`SDL`, `ImGui`, `Curl`, `meshoptimizer`).
 
 Checking stops at the first error, so a listed module is only checked up to its `#assert`. Every other module and target is checked completely.

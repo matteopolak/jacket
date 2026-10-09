@@ -1,6 +1,6 @@
 // Debug's assertion handlers report and return false (meaning "do not break"); trace_assert also
 // lists the call stack, which backtrace exposes as one string per frame.
-// Debug does not build for WASM (no native stacks): tests/stdlib-runtime-skips.txt lists those runs.
+// On WASM there is no native stack, so the capture is empty.
 Debug :: #import "Debug"(USE_GRAPHICS = false);
 
 main :: () -> s64 {
@@ -11,6 +11,6 @@ main :: () -> s64 {
     frames := Debug.backtrace();
     count := frames.count;
     Debug.free_backtrace(frames);
-    if count == 0 return 4;
+    if count == 0 && OS != .WASM return 4;
     return 0;
 }

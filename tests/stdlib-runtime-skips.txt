@@ -20,8 +20,6 @@ bindings-generator-c * wasm-interp,wasm-native,playground Bindings_Generator loa
 bindings-generator-cpp * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 bindings-generator-declaration-api * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 bindings-generator-parity * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
-debug-assert-handlers * wasm-interp,wasm-native,playground Debug does not build for wasm, which has no native stack to capture
-debug-backtrace-and-pointers * wasm-interp,wasm-native,playground Debug does not build for wasm, which has no native stack or memory map
 getrect-right-handed-api * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-right-handed-surface * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-text-display-compiles * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
