@@ -349,6 +349,22 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
     Err(error.unwrap_or_else(|| "could not find a libclang (set JAI_LIBCLANG to its path)".into()))
 }
 
+/// The compiler's own headers (`stdarg.h`, ...) shipped beside a libclang at `lib/clang/<version>/include`.
+/// A libclang that cannot place its resource directory (a Homebrew or conda LLVM loaded from another
+/// prefix) would otherwise stop on the first `#include <stdarg.h>`.
+fn builtin_include_dir(libclang: &str) -> Option<String> {
+    let lib = std::fs::canonicalize(libclang).ok()?;
+    let clang = lib.parent()?.join("clang");
+    let mut found: Vec<_> = std::fs::read_dir(clang)
+        .ok()?
+        .flatten()
+        .map(|e| e.path().join("include"))
+        .filter(|p| p.join("stdarg.h").exists())
+        .collect();
+    found.sort();
+    Some(found.pop()?.to_string_lossy().into_owned())
+}
+
 /// The entry points of the libclang at `path` (`None` when it does not exist or will not load).
 fn load_api(path: &str) -> Result<Option<Api>, String> {
     {
@@ -656,7 +672,14 @@ pub fn call(op: &str, a: i64, b: i64, text: &[u8]) -> Result<i64, String> {
                 s.dispose();
                 unsafe {
                     s.index = (api.create_index)(0, 0);
-                    let mut argv: Vec<*const c_char> = s.args.iter().map(|c| c.as_ptr()).collect();
+                    let mut args = s.args.clone();
+                    if let Some(dir) = builtin_include_dir(&s.path)
+                        && !args.iter().any(|a| a.to_bytes() == b"-resource-dir")
+                    {
+                        args.push(CString::new("-isystem").unwrap());
+                        args.push(CString::new(dir).unwrap());
+                    }
+                    let mut argv: Vec<*const c_char> = args.iter().map(|c| c.as_ptr()).collect();
                     argv.push(s.file_name.as_ptr());
                     let mut contents = s.file_contents.clone();
                     contents.push(0);

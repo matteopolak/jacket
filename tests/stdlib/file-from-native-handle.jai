@@ -13,9 +13,9 @@ main :: () {
     #if OS == .WINDOWS {
         handle := GetStdHandle(STD_INPUT_HANDLE);
         input := File.{ handle };
-    } else {
+    } else #if OS != .WASM {
         input := File.{ stdin };
     }
-    assert(is_valid(input), "the standard input handle is not valid");
+    #if OS != .WASM assert(is_valid(input), "the standard input handle is not valid");
     print("ok\n");
 }
