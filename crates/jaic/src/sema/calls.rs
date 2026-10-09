@@ -1184,11 +1184,26 @@ impl Compiler {
                         value, ..
                     } => value,
                     Operand::Procs(p) if p.len() == 1 => Value::Proc(p[0]),
-                    _ => {
-                        return err(
-                            arg.span,
-                            format!("argument for `${name}` must be a compile-time constant"),
-                        );
+                    other => {
+                        // A member of a constant (`help.build`) is only known to be one when
+                        // evaluated as a constant expression.
+                        let folded = match &arg.expr {
+                            Some(expr) => match self.eval_const(arg.scope, expr, None) {
+                                Ok(Operand::Const { value, .. }) => Some(value),
+                                _ => None,
+                            },
+                            None => None,
+                        };
+                        let _ = other;
+                        match folded {
+                            Some(value) => value,
+                            None => {
+                                return err(
+                                    arg.span,
+                                    format!("argument for `${name}` must be a compile-time constant"),
+                                );
+                            }
+                        }
                     }
                 };
                 // The declared type may itself be polymorphic (`$T: Type`), or mention
@@ -1196,7 +1211,11 @@ impl Compiler {
                 let ty = match &param.ty {
                     Some(t) if !procs::has_poly(t) => match self.eval_type(def_scope, t) {
                         Ok(ty) => ty,
-                        Err(_) => self.type_of_value(&value),
+                        // The declared type names an earlier binding (`$help: Help(T)`).
+                        Err(_) => match self.type_of_value(&value) {
+                            TypeId::VOID => op_ty,
+                            t => t,
+                        },
                     },
                     // Aggregate constants carry no type of their own.
                     _ => match self.type_of_value(&value) {
