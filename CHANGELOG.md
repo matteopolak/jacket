@@ -18,6 +18,12 @@
 
 - `print`, `sprint`, `tprint`, `log`, `assert` messages and user wrappers that forward a `string` and `..Any` to one of them are checked at compile time when the format is a literal. `%N`, `%00` and `\%` are read as `print` reads them; spread (`..args`) calls are skipped. See [format string check](docs/compiler/format-string-check.md).
 
+### Playground and tour
+
+- The language tour takes a command line (`run --stop enums`, `run --all`, `run --help`); with no arguments it shows a numbered menu and reads your choice from standard input (a number or a name, Enter for everything, `q` to quit). At the end of input with nothing run yet it runs all stops, as before.
+- New `File.file_read_line(file)` and `File.read_stdin_line()` read a line from a file or from standard input (the newline and a carriage return before it are dropped). They work natively, on Windows and in the browser playground.
+- Fix: `exit(n)` in a playground program trapped in the wasm-hosted interpreter; it now ends the program with exit code `n`, the way returning from `main` does.
+
 ### Args
 
 - New extension module [`Extensions/Args`](docs/stdlib/args.md): a typed command-line parser generated at compile time, in the spirit of Rust's clap derive. Declare a struct, annotate fields with notes (`@positional`, `@short=c`, `@long=`, `@env=`, `@range(a,b)`, `@value=`, `@count`, `@required`, `@conflicts=`, `@requires=`, `@hidden`, `@global`, `@subcommand`), and `Args.parse(Cli, HELP)` returns the filled struct plus an `Is_Set` record. It supports bundled shorts, `--no-<flag>`, `--`, `@env` fallbacks, enums, repeatable options, nested subcommands, generated help, "did you mean" suggestions, colour that follows `NO_COLOR`/`FORCE_COLOR`, and shell completions for bash, zsh, fish and PowerShell. Bad declarations are compile errors that name the field.

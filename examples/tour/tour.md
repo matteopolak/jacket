@@ -2,16 +2,26 @@
 
 This workspace is a small program that walks through the
 language, one topic per file. main.jai loads every file and
-runs each stop in order, printing a heading before each one.
-The compiler, the interpreter and the standard library all
-run in your browser, as WebAssembly.
+runs the stops. The compiler, the interpreter and the standard
+library all run in your browser, as WebAssembly.
 
 Edit any file and the program runs again. Break things on
 purpose: the error messages are part of the tour.
 
+## Running it
+
+The terminal below the editor takes `run` followed by arguments
+for the program, which reads them with `Extensions/Args`:
+
+- `run` shows a menu. Type a stop's number or name (`enums`),
+  press Enter to run everything, or `q` to quit.
+- `run --stop enums` runs one stop (`-s enums` for short).
+- `run --all` runs every stop, in order.
+- `run --help` lists the options.
+
 ## Map
 
-- [main.jai](main.jai): The itinerary: a table of procedures, run in a loop.
+- [main.jai](main.jai): The itinerary: a table of procedures, `Extensions/Args` for the command line, a menu that reads standard input.
 - [basics/basics.jai](basics/basics.jai): Variables, constants, procedures, multiple return values, named and default arguments, overloading.
 - [types/structs.jai](types/structs.jai): Structs, `using`, `#as`, operator overloading, unions.
 - [types/enums.jai](types/enums.jai): Enums, `enum_flags`, `#complete` switches.
@@ -46,5 +56,7 @@ purpose: the error messages are part of the tour.
   or add a third sphere to `scene`.
 - In gpu/raymarch_gpu.jai, edit the WGSL shader: its
   `palette` function colors the scene.
+- In main.jai, add a flag to `Cli` and a line to `HELP`, then
+  look at `run --help`.
 - Add a file of your own, `#load` it from main.jai and add
   a stop to the table in `main`.

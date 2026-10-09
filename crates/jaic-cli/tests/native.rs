@@ -302,7 +302,11 @@ fn stdin_lines_are_read_natively() {
         .current_dir(source.parent().unwrap())
         .output()
         .unwrap();
-    assert!(build.status.success(), "{}", String::from_utf8_lossy(&build.stderr));
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
     let mut child = Command::new(&exe)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
