@@ -369,6 +369,7 @@ impl Compiler {
             ("is_constant", BuiltinProc::IsConstant),
             ("align_of", BuiltinProc::AlignOf),
             ("offset_of", BuiltinProc::OffsetOf),
+            ("is_value_type", BuiltinProc::IsValueType),
         ];
         for &(name, p) in procs {
             let id = self.add_entity(

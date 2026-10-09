@@ -1290,6 +1290,45 @@
       }
     },
     {
+      "id": "offset-of-missing-member",
+      "source": "negative/offset-of-missing-member.jai",
+      "sha256": "b83d81df79db636f89d97145f3912a813a8eb5a364f07075300a634b1da86ce2",
+      "suite": "negative",
+      "feature": "offset_of",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "has no member `nope` at a fixed offset"
+      }
+    },
+    {
+      "id": "offset-of-non-constant-name",
+      "source": "negative/offset-of-non-constant-name.jai",
+      "sha256": "318fed2c7c6473f2ce699611353232e41096a20cd3f55377cf65729b65e90655",
+      "suite": "negative",
+      "feature": "offset_of",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "must be a constant string"
+      }
+    },
+    {
+      "id": "overlay-outside-struct",
+      "source": "negative/overlay-outside-struct.jai",
+      "sha256": "1ee6746c114f4585334dcc4266ea59fbfe2aea55a8f412cc024d723ab911b515",
+      "suite": "negative",
+      "feature": "#overlay outside a struct",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is only allowed in a struct body"
+      }
+    },
+    {
       "id": "align-out-of-range",
       "source": "negative/align-out-of-range.jai",
       "sha256": "1ee6c7cd211b1433e786747b4ebc8bbae0eb59f68798be830a25690d78ec8bd7",

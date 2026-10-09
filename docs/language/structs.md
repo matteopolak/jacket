@@ -42,7 +42,9 @@ c.packed = 0x04030201;   // c.r == 1, c.a == 4, c.v[3] == 4, size_of(Rgba) == 4
 
 The members share storage as the comment shows {#struct.12}.
 
-`offset_of` is not supported; use `type_info(T).members[i].offset_in_bytes`.
+`#overlay(a)` is a statement of a struct body only. It works inside `#if`, in `#insert`ed members, in unions and in nested anonymous structs; several `#overlay(a)` members may share one target, and the struct's size is the end of the farthest member {#struct.22}. Anywhere else (a procedure body) it is the error ``#overlay` is only allowed in a struct body`` (`S::Overlay` in `sema/stmt.rs`).
+
+`offset_of(T, "member")` (or `offset_of(T.member)`) is the member's byte offset as a constant `s64`; a dotted path (`"inner.y"`) and members reached through a `using` member work, and a member behind a `using` pointer or a missing one is a compile error {#struct.20}. `is_value_type(T)` is `true` when copying the bytes of a `T` copies all of it: numbers, `bool`, enums, distinct types, fixed arrays and structs or unions made only of those; pointers, `string`, array views, resizable arrays, procedures, `Any`, `Type` and `Code` anywhere inside make it `false` {#struct.21}. Both are implemented in `check_builtin` (`sema/calls.rs`); the older official build has neither name, so jaic's argument forms (`(T, "name")` and `T.name`) are its own.
 
 ### Parameterized structs
 

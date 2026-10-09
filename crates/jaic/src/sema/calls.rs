@@ -2599,9 +2599,104 @@ impl Compiler {
                     val: f.b.func_addr(proc.0),
                 })
             }
-            BuiltinProc::OffsetOf => err(span, "offset_of is not supported yet"),
-            BuiltinProc::IsValueType => err(span, "unsupported builtin"),
+            BuiltinProc::OffsetOf => {
+                // `offset_of(T, "member")` or `offset_of(T.member)`; the member may be a dotted
+                // path (`"inner.x"`) and may come from a `using` member.
+                let (ty, path) = match args.get(1) {
+                    Some(second) => {
+                        let ty = self.eval_type_in(f, scope, &arg.value)?;
+                        let name = match self.check_expr_no_emit(scope, &second.value)? {
+                            Operand::Const {
+                                value: Value::String(s),
+                                ..
+                            } => String::from_utf8_lossy(&s).into_owned(),
+                            _ => {
+                                return err(
+                                    second.value.span,
+                                    "the member name of `offset_of` must be a constant string",
+                                );
+                            }
+                        };
+                        (ty, name)
+                    }
+                    None => {
+                        let E::Member(base, field) = &arg.value.kind else {
+                            return err(
+                                arg.value.span,
+                                "`offset_of` takes `(Type, \"member\")` or `Type.member`",
+                            );
+                        };
+                        let ty = self.eval_type_in(f, scope, base)?;
+                        (ty, field.name.as_str().to_string())
+                    }
+                };
+                let mut offset = 0u64;
+                let mut cur = ty;
+                for part in path.split('.') {
+                    match self.member_offset(cur, part, span)? {
+                        Some((o, t)) => {
+                            offset += o;
+                            cur = t;
+                        }
+                        None => {
+                            let tn = self.types.name(cur);
+                            return err(
+                                span,
+                                format!("`{tn}` has no member `{part}` at a fixed offset"),
+                            );
+                        }
+                    }
+                }
+                Ok(Operand::Const {
+                    ty: TypeId::S64,
+                    value: Value::Int(offset as i128),
+                    untyped: true,
+                })
+            }
+            BuiltinProc::IsValueType => {
+                let ty = self.eval_type_in(f, scope, &arg.value)?;
+                let v = self.is_value_type(ty, span)?;
+                Ok(Operand::bool(v))
+            }
         }
+    }
+
+    /// Whether copying a value of `ty` byte for byte copies all of it: no pointers, strings,
+    /// array views, resizable arrays, procedures, `Any`, `Type` or `Code` inside.
+    fn is_value_type(&mut self, ty: TypeId, span: Span) -> Result<bool> {
+        let ty = self.types.repr(ty);
+        Ok(match self.types.kind(ty).clone() {
+            TypeKind::Void
+            | TypeKind::Bool
+            | TypeKind::Int {
+                ..
+            }
+            | TypeKind::Float {
+                ..
+            }
+            | TypeKind::WideFloat(_) => true,
+            TypeKind::Array {
+                elem,
+                kind: ArrayKind::Fixed(_),
+            } => self.is_value_type(elem, span)?,
+            TypeKind::Struct(s) => {
+                self.layout_struct(s, span)?;
+                let fields: Vec<TypeId> = self
+                    .types
+                    .struct_info(s)
+                    .fields
+                    .iter()
+                    .map(|f| f.ty)
+                    .collect();
+                for t in fields {
+                    if !self.is_value_type(t, span)? {
+                        return Ok(false);
+                    }
+                }
+                true
+            }
+            _ => false,
+        })
     }
 
     /// Check an expression only for its type; any IR it emits is discarded.

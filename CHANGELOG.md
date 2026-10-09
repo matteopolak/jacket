@@ -47,6 +47,11 @@ Refactorings, call hierarchy and expand selection in the language server.
 - `textDocument/diagnostic` and `workspace/diagnostic` for clients that support pull diagnostics.
 - A document is checked from its project's entry file when no open file loads it, so references and rename reach unopened project files.
 
+### Compiler gaps closed
+
+- `offset_of(T, "member")` / `offset_of(T.member)` and `is_value_type(T)` are implemented (they were "not supported"). See [structs](docs/language/structs.md).
+- `#overlay` outside a struct body now says so (it said "not supported"); inside struct bodies it already worked and is now tested in `#if`, `#insert`, union and nested forms.
+
 ### Refactorings
 
 The light-bulb menu offers *Extract into variable*, *Extract into procedure* (parameters and results worked out; declined when the selection returns, breaks out, or changes a variable declared outside it), *Inline variable*, *Add missing cases* for an `if x == {` on an enum, *Add missing fields* for a `Type.{...}` literal, and *Convert ifx to if/else* and back. Every edit is already in [jaifmt](docs/tools/jaifmt.md) style. See [refactorings](docs/compiler/language-server-refactorings.md).

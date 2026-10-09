@@ -50,7 +50,7 @@
 - Keep it browser-safe: no processes, sockets, windows or native `#foreign` libraries (see how `tests/stdlib` programs skip those parts under `OS == .WASM`, [playground](playground.md)). Keep runtime small: auto-run recompiles and reruns on every edit.
 - Keep lines short (the editor is narrow on phones) and run jaifmt: `jaic run jaifmt/main.jai -- --check "$PWD/examples/tour"`. The portfolio's `JAI_WASM_DIR=<bundle> pnpm test:jai` also checks the tour is formatted under the playground's default `jaifmt.toml`.
 - When output changes, update `stdout_contains` in `tests/examples.json`. The example tests give the tour no arguments and no input, so it runs every stop (end of input on the menu means run all); `tools/check_scripting_wasm.mjs` also runs `--stop`, `--help` and the menu.
-- Gotchas: there is no `offset_of` (use `type_info(T).members`), and `builder_to_string`, `NewArray` and the `String` helpers take no allocator argument (wrap them in `push_allocator(temp)`).
+- Gotchas: `builder_to_string`, `NewArray` and the `String` helpers take no allocator argument (wrap them in `push_allocator(temp)`).
 
 ## Configuration
 

@@ -232,7 +232,7 @@ impl Compiler {
                 Some(case) => self.check_block_stmts(f, scope, &case.body),
                 None => Ok(()),
             },
-            S::Overlay(_) => err(span, "#overlay is not supported"),
+            S::Overlay(_) => err(span, "`#overlay` is only allowed in a struct body"),
             S::PushContextDefer {
                 ..
             } => err(
