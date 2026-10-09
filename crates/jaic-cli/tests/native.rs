@@ -693,31 +693,54 @@ fn c_thread_callbacks_block_on_jai_threads() {
         expected
     );
     // Only a thunk C may hold delays the report by the scheduler's grace period: the thunk
-    // `Thread` starts its threads through is run by the scheduler, not C. Both runs compile the
-    // same program, so how long that takes cancels out of the difference between them.
+    // `Thread` starts its threads through is run by the scheduler, not C. The program says when
+    // it starts (on stderr), so the compile time, long and noisy on a loaded host, is not part
+    // of the wait that is measured.
     let grace = jaic::interp::DEADLOCK_GRACE;
     let report = |args: &[&str]| {
-        let started = std::time::Instant::now();
-        let output = Command::new(JAIC)
+        use std::io::{BufRead, BufReader, Read};
+        let mut child = Command::new(JAIC)
             .args(args)
             .current_dir(&dir)
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
             .unwrap();
-        let took = started.elapsed();
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(!output.status.success(), "{args:?} did not fail");
+        let mut stdout = child.stdout.take().unwrap();
+        let out = std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            stdout.read_to_end(&mut bytes).ok();
+            bytes
+        });
+        let mut stderr = BufReader::new(child.stderr.take().unwrap());
+        let mut started = None;
+        let mut text = String::new();
+        let mut line = String::new();
+        while stderr.read_line(&mut line).unwrap() > 0 {
+            if line.trim_end() == "started" && started.is_none() {
+                started = Some(std::time::Instant::now());
+            } else {
+                text.push_str(&line);
+            }
+            line.clear();
+        }
+        let status = child.wait().unwrap();
+        let took = started
+            .unwrap_or_else(|| panic!("{args:?} never started: {text}"))
+            .elapsed();
+        assert!(!status.success(), "{args:?} did not fail");
         assert!(
-            stderr.contains("deadlock: every thread is blocked"),
-            "{args:?}: {stderr}"
+            text.contains("deadlock: every thread is blocked"),
+            "{args:?}: {text}"
         );
-        assert!(output.stdout.is_empty(), "{args:?}");
+        assert!(out.join().unwrap().is_empty(), "{args:?}");
         took
     };
     let jai_only = report(&["run", "deadlock.jai"]);
     let callback = report(&["run", "deadlock.jai", "--", "callback"]);
     assert!(callback >= grace, "the callback case took {callback:?}");
     assert!(
-        jai_only + grace / 2 <= callback,
+        jai_only < grace,
         "the Jai-only case took {jai_only:?}, the callback case {callback:?}"
     );
 }

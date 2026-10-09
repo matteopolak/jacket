@@ -60,15 +60,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: macos-15
-            architecture: arm64
-          - runner: macos-15-intel
-            architecture: x86_64
-          - runner: ubuntu-24.04
-            architecture: x86_64
-          - runner: ubuntu-24.04-arm
-            architecture: aarch64
+        # macos-15-intel only on pushes to main (its runners queue for a long time); see docs/tools/continuous-integration.md
+        include: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"},{"runner":"macos-15-intel","architecture":"x86_64"}]' || '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
@@ -246,15 +239,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: macos-15
-            platform: macos-arm64
-          - runner: macos-15-intel
-            platform: macos-x64
-          - runner: ubuntu-24.04
-            platform: linux-x64
-          - runner: ubuntu-24.04-arm
-            platform: linux-arm64
+        # macos-15-intel only on pushes to main, as in `test`
+        include: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},{"runner":"macos-15-intel","platform":"macos-x64"}]' || '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     env:

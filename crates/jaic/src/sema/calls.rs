@@ -438,6 +438,7 @@ impl Compiler {
             });
         }
         let chosen = best.swap_remove(0);
+        self.check_format_call(chosen.proc, &chosen.slots, &args)?;
         if self.ide.is_some() {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args);
         }

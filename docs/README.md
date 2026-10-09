@@ -59,6 +59,7 @@ How `crates/jaic`, the interpreter and the language server work.
 
 - [Compiler architecture](compiler/architecture.md)
 - [Diagnostics](compiler/diagnostics.md): error message style guide, rendering, runtime failures, exit statuses
+- [Format string check](compiler/format-string-check.md): `print` format strings against their argument count
 - [jaic `#asm` blocks](compiler/asm.md)
 - [Threads under `jaic run`](compiler/interpreter-threads.md)
 - [jaic interpreter](compiler/interpreter.md)
@@ -130,6 +131,7 @@ Scripts, CI and project policies.
 - [Continuous integration](tools/continuous-integration.md)
 - [Dependency policy](tools/dependency-policy.md)
 - [Differential testing](tools/differential-testing.md): interpreter, native, `-O2` and wasm must agree; `jaigen` random programs; `jaic-reduce`
+- [GitHub Action](tools/github-action.md): `setup-jai`, installing the released toolchain in CI
 - [Fuzzing](tools/fuzzing.md)
 - [jaic regression sweep](tools/jaic-sweep.md)
 - [Stdlib target check](tools/stdlib-target-check.md): every stdlib module type-checked for every target, unreferenced code included

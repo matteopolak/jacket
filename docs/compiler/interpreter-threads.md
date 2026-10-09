@@ -179,6 +179,6 @@ under `-os wasm`);
 (`tests/native/c-callback-threads`: a C thread's callback waiting on a Jai mutex, condition
 variable, join and sleep, nested callbacks on the main thread, a C thread and a Jai thread, a Jai
 thread running while another waits in C, and both kinds of deadlock), checked against the native
-build. On Windows
+build. The deadlock cases are timed from the `started` line the program writes to stderr, so compile time never counts toward the grace period. On Windows
 the Win32 side is exercised by `interpreted_threads` and `windows_runtime_program` in
 `crates/jaic-cli/tests/native.rs`, which the Windows workflow runs on x64 and arm64.

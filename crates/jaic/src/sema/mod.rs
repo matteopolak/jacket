@@ -22,6 +22,7 @@ mod debug_info;
 mod decls;
 mod driver;
 mod expr;
+mod format_check;
 pub mod ide;
 pub mod ide_meta;
 mod lambda;

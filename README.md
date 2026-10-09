@@ -60,6 +60,12 @@ nix profile install github:matteopolak/jai
 
 Prebuilt archives for every platform are also on the [releases page](https://github.com/matteopolak/jai/releases) ([changelog](CHANGELOG.md)): unpack one anywhere and put `jaic` on your `PATH`, directly or through a symlink. See [package managers](docs/tools/package-managers.md) for details.
 
+**GitHub Actions**, with [setup-jai](https://github.com/matteopolak/setup-jai):
+
+```yaml
+- uses: matteopolak/setup-jai@v1
+```
+
 To build from source you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([setup guide](docs/tools/llvm-setup.md)):
 
 ```sh

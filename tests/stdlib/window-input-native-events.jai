@@ -114,21 +114,30 @@ main :: () {
     cursor_window = first;
     for custom: bool.[false, true] {
         set_custom_cursor_handling(custom);
-        show_hand(first);
-        move_pointer(first);
-        if custom {
-            // Nothing may restore the arrow: give the pump time to do it wrongly.
-            pump(windows, seen, (seen: [] Seen) -> bool {
-                return false;
-            }, 20);
-        } else {
-            // Input restores the arrow when the pump sees the motion, and the window system
-            // may show it a moment later: wait for it, up to a few seconds.
-            pump(windows, seen, (seen: [] Seen) -> bool {
-                return !hand_shown(cursor_window);
-            }, 600);
+        // The window system also resets the cursor by itself now and then (AppKit when the
+        // application finishes activating, for one), which the test cannot tell from Input
+        // restoring the arrow. Input would do so on every motion, so a program that owns the
+        // cursor must keep its hand cursor in at least one of a few attempts.
+        shown := false;
+        for attempt: 1..(ifx custom then 5 else 1) {
+            show_hand(first);
+            move_pointer(first);
+            if custom {
+                // Nothing may restore the arrow: give the pump time to do it wrongly.
+                pump(windows, seen, (seen: [] Seen) -> bool {
+                    return false;
+                }, 20);
+            } else {
+                // Input restores the arrow when the pump sees the motion, and the window system
+                // may show it a moment later: wait for it, up to a few seconds.
+                pump(windows, seen, (seen: [] Seen) -> bool {
+                    return !hand_shown(cursor_window);
+                }, 600);
+            }
+            shown = hand_shown(first);
+            if shown == custom break;
         }
-        assert(hand_shown(first) == custom, "custom cursor handling %: hand cursor shown %", custom, hand_shown(first));
+        assert(shown == custom, "custom cursor handling %: hand cursor shown %", custom, shown);
     }
     set_custom_cursor_handling(false);
 

@@ -28,6 +28,8 @@ wait_for_main :: (thread: *Thread) -> s64 {
 }
 
 main :: () {
+    // The test times the report from here, so how long the compile took does not count.
+    write_string("started\n", true);
     init(*mutex);
     init(*done);
     lock(*mutex);
