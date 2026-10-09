@@ -498,6 +498,8 @@ pub struct Interp {
     pub block_budget: Option<u64>,
     /// Reused value-register vectors (see `run`).
     val_pool: Vec<Vec<u64>>,
+    /// The pages of program memory the compiler found accessible (see `probe`).
+    probe: Box<probe::Probe>,
     /// Blocks and instructions run in the current frame (`JAIC_PROFILE`, see `profile`).
     frame_blocks: u64,
     frame_insts: u64,
@@ -603,6 +605,7 @@ impl Interp {
             captured: Vec::new(),
             block_budget: None,
             val_pool: Vec::new(),
+            probe: Box::default(),
             frame_blocks: 0,
             frame_insts: 0,
             profile: profile::enabled().then(Default::default),
@@ -770,25 +773,27 @@ impl Interp {
     /// `len` bytes of program memory at `addr`, or `None` when they cannot all be read.
     pub fn read(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
         let mut out = vec![0; len];
-        probe::read(addr, &mut out).then_some(out)
+        self.probe.read(addr, &mut out).then_some(out)
     }
 
     /// Fill `out` from program memory at `addr`; false when it cannot all be read.
     pub fn read_into(&self, addr: u64, out: &mut [u8]) -> bool {
-        probe::read(addr, out)
+        self.probe.read(addr, out)
     }
 
     /// The `u64` at `addr` in program memory, or `None` when it cannot be read.
     pub fn read_u64(&self, addr: u64) -> Option<u64> {
         let mut out = [0; 8];
-        probe::read(addr, &mut out).then(|| u64::from_le_bytes(out))
+        self.probe
+            .read(addr, &mut out)
+            .then(|| u64::from_le_bytes(out))
     }
 
     /// The two `u64`s at `addr` (a Jai `string` or view: count, then data), or `None` when
     /// they cannot be read.
     pub fn read_pair(&self, addr: u64) -> Option<(u64, u64)> {
         let mut out = [0; 16];
-        if !probe::read(addr, &mut out) {
+        if !self.probe.read(addr, &mut out) {
             return None;
         }
         let (a, b) = out.split_at(8);
@@ -801,7 +806,7 @@ impl Interp {
     /// Store `bytes` at `addr` in program memory; false when it cannot be written.
     #[must_use]
     pub fn write(&mut self, addr: u64, bytes: &[u8]) -> bool {
-        probe::write(addr, bytes)
+        self.probe.write(addr, bytes)
     }
 
     /// `read` for a pointer an intrinsic or emulated library call was given: a trap when the
@@ -845,41 +850,36 @@ impl Interp {
         ))
     }
 
-    #[inline]
+    /// Load a `ty` from program memory, as interpreted code does: only an address in the
+    /// never-mapped first page, or a procedure's tagged address, is refused.
+    #[inline(always)]
     fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
+        if !plain_address(addr) {
+            return self.load_unusual(ty, addr);
+        }
+        // SAFETY: the address is the program's own, as for native code.
+        Ok(unsafe { code::load_raw(ty, addr) })
+    }
+
+    #[cold]
+    fn load_unusual(&self, ty: Ty, addr: u64) -> Res<u64> {
         if addr < 4096 {
             return self.null_trap(null_access("read", addr));
         }
         if addr & TAG_MASK == FUNC_TAG || addr & TAG_MASK == FOREIGN_TAG {
             return self.trap("read through a procedure address");
         }
-        let p = addr as *const u8;
-        Ok(unsafe {
-            match ty {
-                Ty::I8 => *p as u64,
-                Ty::I16 => std::ptr::read_unaligned(p as *const u16) as u64,
-                Ty::I32 | Ty::F32 => std::ptr::read_unaligned(p as *const u32) as u64,
-                Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::read_unaligned(p as *const u64),
-                Ty::F80 | Ty::F128 => unreachable!("wide floats are never loaded into registers"),
-            }
-        })
+        // SAFETY: the address is the program's own, as for native code.
+        Ok(unsafe { code::load_raw(ty, addr) })
     }
 
-    #[inline]
+    #[inline(always)]
     fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
         if addr < 4096 {
             return self.null_trap(null_access("write", addr));
         }
-        let p = addr as *mut u8;
-        unsafe {
-            match ty {
-                Ty::I8 => *p = v as u8,
-                Ty::I16 => std::ptr::write_unaligned(p as *mut u16, v as u16),
-                Ty::I32 | Ty::F32 => std::ptr::write_unaligned(p as *mut u32, v as u32),
-                Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::write_unaligned(p as *mut u64, v),
-                Ty::F80 | Ty::F128 => unreachable!("wide floats are never stored from registers"),
-            }
-        }
+        // SAFETY: the address is the program's own, as for native code.
+        unsafe { code::store_raw(ty, addr, v) };
         Ok(())
     }
 
@@ -1755,11 +1755,16 @@ impl Interp {
     }
 
     fn bin(&self, op: BinOp, ty: Ty, x: u64, y: u64) -> Res<u64> {
-        let bits = ty.size() as u32 * 8;
+        if divides(op) {
+            self.divide(op, ty, x, y)
+        } else {
+            Ok(bin_total(op, ty, x, y))
+        }
+    }
+
+    /// `SDiv`, `SRem`, `UDiv` or `URem`: the binary operations that can fail.
+    pub(super) fn divide(&self, op: BinOp, ty: Ty, x: u64, y: u64) -> Res<u64> {
         Ok(match op {
-            BinOp::Add => mask(ty, x.wrapping_add(y)),
-            BinOp::Sub => mask(ty, x.wrapping_sub(y)),
-            BinOp::Mul => mask(ty, x.wrapping_mul(y)),
             BinOp::SDiv | BinOp::SRem => {
                 let (a, b) = (sext(ty, x), sext(ty, y));
                 if b == 0 {
@@ -1772,7 +1777,7 @@ impl Interp {
                 };
                 mask(ty, r as u64)
             }
-            BinOp::UDiv | BinOp::URem => {
+            _ => {
                 if y == 0 {
                     return self.check_trap(ir::TRAP_DIVIDE_BY_ZERO, 0, 0);
                 }
@@ -1780,58 +1785,6 @@ impl Interp {
                     x / y
                 } else {
                     x % y
-                }
-            }
-            BinOp::And => x & y,
-            BinOp::Or => x | y,
-            BinOp::Xor => x ^ y,
-            BinOp::Shl => {
-                if y >= bits as u64 {
-                    0
-                } else {
-                    mask(ty, x << y)
-                }
-            }
-            BinOp::LShr => {
-                if y >= bits as u64 {
-                    0
-                } else {
-                    x >> y
-                }
-            }
-            BinOp::AShr => mask(ty, (sext(ty, x) >> y.min(63)) as u64),
-            BinOp::Rotl | BinOp::Rotr => {
-                let s = (y % bits as u64) as u32;
-                let s = if op == BinOp::Rotr {
-                    (bits - s) % bits
-                } else {
-                    s
-                };
-                if s == 0 {
-                    x
-                } else {
-                    mask(ty, (x << s) | (x >> (bits - s)))
-                }
-            }
-            BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
-                if ty == Ty::F32 {
-                    let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
-                    (match op {
-                        BinOp::FAdd => a + b,
-                        BinOp::FSub => a - b,
-                        BinOp::FMul => a * b,
-                        _ => a / b,
-                    })
-                    .to_bits() as u64
-                } else {
-                    let (a, b) = (f64::from_bits(x), f64::from_bits(y));
-                    (match op {
-                        BinOp::FAdd => a + b,
-                        BinOp::FSub => a - b,
-                        BinOp::FMul => a * b,
-                        _ => a / b,
-                    })
-                    .to_bits()
                 }
             }
         })
@@ -1887,7 +1840,7 @@ impl Interp {
                 if n > 0 && (a[0] < 4096 || a[1] < 4096) {
                     return self.null_trap("memcmp through a null pointer");
                 }
-                let r: i16 = match probe::compare(a[0], a[1], n) {
+                let r: i16 = match self.probe.compare(a[0], a[1], n) {
                     std::cmp::Ordering::Less => -1,
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,
@@ -2072,6 +2025,86 @@ fn cycle_counter() -> u64 {
     }
 }
 
+/// Is `addr` neither in the first page nor a tagged procedure address? One comparison covers
+/// both: the tags are the highest addresses used, and subtracting the first page wraps the
+/// null page around to the top. An address that fails it is looked at again, closely.
+#[inline(always)]
+fn plain_address(addr: u64) -> bool {
+    addr.wrapping_sub(4096) < FUNC_TAG - 4096
+}
+
+/// Is `op` one of the binary operations that can fail (`Interp::divide`)?
+#[inline]
+pub(super) fn divides(op: BinOp) -> bool {
+    matches!(op, BinOp::SDiv | BinOp::SRem | BinOp::UDiv | BinOp::URem)
+}
+
+/// A binary operation other than a division, which cannot fail.
+#[inline(always)]
+pub(super) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
+    let bits = ty.size() as u32 * 8;
+    match op {
+        BinOp::Add => mask(ty, x.wrapping_add(y)),
+        BinOp::Sub => mask(ty, x.wrapping_sub(y)),
+        BinOp::Mul => mask(ty, x.wrapping_mul(y)),
+        BinOp::SDiv | BinOp::SRem | BinOp::UDiv | BinOp::URem => {
+            unreachable!("divisions go through `Interp::divide`")
+        }
+        BinOp::And => x & y,
+        BinOp::Or => x | y,
+        BinOp::Xor => x ^ y,
+        BinOp::Shl => {
+            if y >= bits as u64 {
+                0
+            } else {
+                mask(ty, x << y)
+            }
+        }
+        BinOp::LShr => {
+            if y >= bits as u64 {
+                0
+            } else {
+                x >> y
+            }
+        }
+        BinOp::AShr => mask(ty, (sext(ty, x) >> y.min(63)) as u64),
+        BinOp::Rotl | BinOp::Rotr => {
+            let s = (y % bits as u64) as u32;
+            let s = if op == BinOp::Rotr {
+                (bits - s) % bits
+            } else {
+                s
+            };
+            if s == 0 {
+                x
+            } else {
+                mask(ty, (x << s) | (x >> (bits - s)))
+            }
+        }
+        BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
+            if ty == Ty::F32 {
+                let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
+                (match op {
+                    BinOp::FAdd => a + b,
+                    BinOp::FSub => a - b,
+                    BinOp::FMul => a * b,
+                    _ => a / b,
+                })
+                .to_bits() as u64
+            } else {
+                let (a, b) = (f64::from_bits(x), f64::from_bits(y));
+                (match op {
+                    BinOp::FAdd => a + b,
+                    BinOp::FSub => a - b,
+                    BinOp::FMul => a * b,
+                    _ => a / b,
+                })
+                .to_bits()
+            }
+        }
+    }
+}
+
 #[inline]
 fn mask(ty: Ty, v: u64) -> u64 {
     match ty {
@@ -2092,12 +2125,31 @@ fn sext(ty: Ty, v: u64) -> i64 {
     }
 }
 
+/// How far to shift a value of type `ty` left to put its top bit in bit 63: comparing the
+/// shifted values compares the low bits only, signed or not, so `cmp` needs no masking.
+#[inline]
+pub(super) fn shift_of(ty: Ty) -> u8 {
+    match ty {
+        Ty::I8 => 56,
+        Ty::I16 => 48,
+        Ty::I32 | Ty::F32 => 32,
+        _ => 0,
+    }
+}
+
 #[inline]
 fn cmp(op: CmpOp, ty: Ty, x: u64, y: u64) -> bool {
-    let (ux, uy) = (mask(ty, x), mask(ty, y));
-    let (sx, sy) = (sext(ty, x), sext(ty, y));
+    cmp_shifted(op, shift_of(ty), x, y)
+}
+
+/// Compare the low `64 - shift` bits of `x` and `y`. A `shift` of 32 on a float comparison
+/// means `f32`.
+#[inline(always)]
+pub(super) fn cmp_shifted(op: CmpOp, shift: u8, x: u64, y: u64) -> bool {
+    let (ux, uy) = (x << shift, y << shift);
+    let (sx, sy) = (ux as i64, uy as i64);
     let float = |x: u64| {
-        if ty == Ty::F32 {
+        if shift == 32 {
             f32::from_bits(x as u32) as f64
         } else {
             f64::from_bits(x)
@@ -2254,7 +2306,7 @@ impl std::ops::Deref for Rets {
 }
 
 /// Reads an instruction's operands. Most fit in `small` on the Rust stack; longer lists use `heap`.
-fn gather<'a>(
+pub(super) fn gather<'a>(
     vals: &[u64],
     args: &[ir::Val],
     small: &'a mut [u64; 8],

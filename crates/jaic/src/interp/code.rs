@@ -21,7 +21,9 @@
 //! That is only done for values defined exactly once (parameters count as a definition)
 //! whose definition cannot run again in between: constants anywhere, and other values
 //! within one block.
-use super::{Frame, Interp, Res, Rets, TrapKind, cmp, mask};
+use super::{
+    Frame, Interp, Res, Rets, TrapKind, bin_total, cmp_shifted, divides, gather, mask, shift_of,
+};
 use crate::ir::{self, BinOp, CmpOp, ConvOp, ForeignId, GlobalId, Inst, Term, Ty, UnOp, Val};
 
 #[derive(Clone, Copy, Debug)]
@@ -82,16 +84,32 @@ pub(super) enum Op {
         dst: u32,
         a: u32,
     },
+    /// Division and remainder, which can fail.
+    Div {
+        op: BinOp,
+        ty: Ty,
+        dst: u32,
+        a: u32,
+        b: u32,
+    },
+    DivImm {
+        op: BinOp,
+        ty: Ty,
+        dst: u32,
+        a: u32,
+        imm: i32,
+    },
+    /// `shift`: see `shift_of`.
     Cmp {
         op: CmpOp,
-        ty: Ty,
+        shift: u8,
         dst: u32,
         a: u32,
         b: u32,
     },
     CmpImm {
         op: CmpOp,
-        ty: Ty,
+        shift: u8,
         dst: u32,
         a: u32,
         imm: i32,
@@ -135,6 +153,62 @@ pub(super) enum Op {
         off: u32,
         value: u32,
     },
+    // The loads and stores of the common widths, which the code above is turned into when
+    // `build` is done (`specialize`): no second dispatch on the type.
+    Load8 {
+        dst: u32,
+        base: u32,
+        off: i32,
+    },
+    Load32 {
+        dst: u32,
+        base: u32,
+        off: i32,
+    },
+    Load64 {
+        dst: u32,
+        base: u32,
+        off: i32,
+    },
+    LoadFrame8 {
+        dst: u32,
+        off: u32,
+    },
+    LoadFrame32 {
+        dst: u32,
+        off: u32,
+    },
+    LoadFrame64 {
+        dst: u32,
+        off: u32,
+    },
+    Store8 {
+        base: u32,
+        off: i32,
+        value: u32,
+    },
+    Store32 {
+        base: u32,
+        off: i32,
+        value: u32,
+    },
+    Store64 {
+        base: u32,
+        off: i32,
+        value: u32,
+    },
+    StoreFrame8 {
+        off: u32,
+        value: u32,
+    },
+    StoreFrame32 {
+        off: u32,
+        value: u32,
+    },
+    StoreFrame64 {
+        off: u32,
+        value: u32,
+    },
     /// Stores of a constant (`imm` sign-extended; the store keeps the low bytes).
     StoreImm {
         ty: Ty,
@@ -161,7 +235,19 @@ pub(super) enum Op {
         line: u32,
         col: u32,
     },
-    /// Run IR instruction `inst` of block `block` (calls, intrinsics, oversized operands).
+    /// Call of a procedure by name: IR instruction `inst` of block `block`, which is an
+    /// `Inst::Call` with a `Callee::Func`.
+    Call {
+        block: u32,
+        inst: u32,
+    },
+    /// `Intrinsic::BoundsCheck` of `index` against `count`.
+    BoundsCheck {
+        index: u32,
+        count: u32,
+    },
+    /// Run IR instruction `inst` of block `block` (other calls and intrinsics, oversized
+    /// operands).
     Ir {
         block: u32,
         inst: u32,
@@ -188,7 +274,7 @@ pub(super) enum End {
     },
     CmpBranch {
         op: CmpOp,
-        ty: Ty,
+        shift: u8,
         a: u32,
         b: Rhs,
         then_block: u32,
@@ -216,13 +302,17 @@ pub(super) struct Code {
 }
 
 impl Code {
-    /// The IR block and instruction an `Op::Ir` at `op` runs.
+    /// The IR block and instruction an `Op::Call` or `Op::Ir` at `op` runs.
     pub(super) fn ir_op(&self, op: usize) -> Option<(u32, u32)> {
         match self.ops.get(op)? {
-            &Op::Ir {
+            &(Op::Ir {
                 block,
                 inst,
-            } => Some((block, inst)),
+            }
+            | Op::Call {
+                block,
+                inst,
+            }) => Some((block, inst)),
             _ => None,
         }
     }
@@ -365,13 +455,109 @@ pub(super) fn build(
     for block in &mut blocks {
         let (start, end) = (block.start as usize, block.end as usize);
         block.start = ops.len() as u32;
-        ops.extend((start..end).filter(|&i| !dropped[i]).map(|i| b.ops[i]));
+        ops.extend(
+            (start..end)
+                .filter(|&i| !dropped[i])
+                .map(|i| specialize(b.ops[i])),
+        );
         block.end = ops.len() as u32;
     }
     Code {
         ops,
         blocks,
         source: fingerprint(func),
+    }
+}
+
+/// The op for the loads and stores of the widths most code uses (bytes, 32 and 64 bits) that
+/// needs no dispatch on the type; any other op as is.
+fn specialize(op: Op) -> Op {
+    match op {
+        Op::Load {
+            ty,
+            dst,
+            base,
+            off,
+        } => match ty.size() {
+            1 => Op::Load8 {
+                dst,
+                base,
+                off,
+            },
+            4 => Op::Load32 {
+                dst,
+                base,
+                off,
+            },
+            8 => Op::Load64 {
+                dst,
+                base,
+                off,
+            },
+            _ => op,
+        },
+        Op::LoadFrame {
+            ty,
+            dst,
+            off,
+        } => match ty.size() {
+            1 => Op::LoadFrame8 {
+                dst,
+                off,
+            },
+            4 => Op::LoadFrame32 {
+                dst,
+                off,
+            },
+            8 => Op::LoadFrame64 {
+                dst,
+                off,
+            },
+            _ => op,
+        },
+        Op::Store {
+            ty,
+            base,
+            off,
+            value,
+        } => match ty.size() {
+            1 => Op::Store8 {
+                base,
+                off,
+                value,
+            },
+            4 => Op::Store32 {
+                base,
+                off,
+                value,
+            },
+            8 => Op::Store64 {
+                base,
+                off,
+                value,
+            },
+            _ => op,
+        },
+        Op::StoreFrame {
+            ty,
+            off,
+            value,
+        } => match ty.size() {
+            1 => Op::StoreFrame8 {
+                off,
+                value,
+            },
+            4 => Op::StoreFrame32 {
+                off,
+                value,
+            },
+            8 => Op::StoreFrame64 {
+                off,
+                value,
+            },
+            _ => op,
+        },
+        _ => op,
     }
 }
 
@@ -646,7 +832,7 @@ impl Builder<'_> {
                     self.fold(b);
                     let op = Op::CmpImm {
                         op,
-                        ty,
+                        shift: shift_of(ty),
                         dst: self.v(dst),
                         a: self.v(a),
                         imm,
@@ -655,7 +841,7 @@ impl Builder<'_> {
                 }
                 let op = Op::Cmp {
                     op,
-                    ty,
+                    shift: shift_of(ty),
                     dst: self.v(dst),
                     a: self.v(a),
                     b: self.v(b),
@@ -820,7 +1006,24 @@ impl Builder<'_> {
                 inst_vals(inst, &mut |_| {}, &mut |v| {
                     self.v(v);
                 });
-                self.push(slow, None);
+                let op = match inst {
+                    Inst::Call(call) if matches!(call.callee, ir::Callee::Func(_)) => Op::Call {
+                        block: bi as u32,
+                        inst: ii as u32,
+                    },
+                    Inst::Intrinsic(call)
+                        if call.op == ir::Intrinsic::BoundsCheck
+                            && call.args.len() == 2
+                            && call.results.is_empty() =>
+                    {
+                        Op::BoundsCheck {
+                            index: call.args[0].0,
+                            count: call.args[1].0,
+                        }
+                    }
+                    _ => slow,
+                };
+                self.push(op, None);
             }
         }
     }
@@ -858,6 +1061,13 @@ impl Builder<'_> {
                     a,
                     imm,
                 },
+                _ if divides(op) => Op::DivImm {
+                    op,
+                    ty,
+                    dst: d,
+                    a,
+                    imm,
+                },
                 _ => Op::BinImm {
                     op,
                     ty,
@@ -881,6 +1091,13 @@ impl Builder<'_> {
                 b,
             },
             BinOp::Mul if wide => Op::Mul {
+                dst: d,
+                a,
+                b,
+            },
+            _ if divides(op) => Op::Div {
+                op,
+                ty,
                 dst: d,
                 a,
                 b,
@@ -976,34 +1193,34 @@ impl Builder<'_> {
                     let fused = match self.ops[at] {
                         Op::Cmp {
                             op,
-                            ty,
+                            shift,
                             a,
                             b,
                             ..
                         } if self.defs[a as usize] == 1 && self.defs[b as usize] == 1 => {
                             self.uses[a as usize] += 1;
                             self.uses[b as usize] += 1;
-                            Some((op, ty, a, Rhs::Val(b)))
+                            Some((op, shift, a, Rhs::Val(b)))
                         }
                         Op::CmpImm {
                             op,
-                            ty,
+                            shift,
                             a,
                             imm,
                             ..
                         } if self.defs[a as usize] == 1 => {
                             self.uses[a as usize] += 1;
-                            Some((op, ty, a, Rhs::Imm(mask(ty, imm as i64 as u64))))
+                            Some((op, shift, a, Rhs::Imm(imm as i64 as u64)))
                         }
                         _ => None,
                     };
-                    if let Some((op, ty, a, b)) = fused {
+                    if let Some((op, shift, a, b)) = fused {
                         // The comparison's own operand uses stay counted (it is dropped
                         // below only if nothing else reads its result).
                         self.uses[cond as usize] = 0;
                         return End::CmpBranch {
                             op,
-                            ty,
+                            shift,
                             a,
                             b,
                             then_block: then_block.0,
@@ -1069,6 +1286,12 @@ fn op_dst(op: &Op) -> Option<u32> {
         | Op::BinImm {
             dst, ..
         }
+        | Op::Div {
+            dst, ..
+        }
+        | Op::DivImm {
+            dst, ..
+        }
         | Op::Un {
             dst, ..
         }
@@ -1116,6 +1339,54 @@ fn op_srcs(op: &Op) -> [Option<u32>; 2] {
 }
 
 impl Interp {
+    /// Does anything need to look at each basic block as it is entered?
+    #[inline(always)]
+    fn watches_blocks(&self) -> bool {
+        self.block_budget.is_some() || self.multi || self.profile.is_some()
+    }
+
+    /// What entering a block costs when `watches_blocks`: the execution budget, a chance for
+    /// other threads to run, and the profile counts.
+    #[inline(never)]
+    fn enter_block(
+        &mut self,
+        program: &ir::Program,
+        func: &ir::Func,
+        code: &Code,
+        block: usize,
+    ) -> Res<()> {
+        let b = &code.blocks[block];
+        if let Some(left) = self.block_budget.as_mut() {
+            if *left == 0 {
+                match self.host.refill_budget() {
+                    Some(more) => *left = more,
+                    None => return self.trap("execution budget exhausted"),
+                }
+            }
+            *left -= 1;
+        }
+        if self.multi {
+            if self.host.cooperative_threads() {
+                if let Err(trap) = self.inline_preempt(program) {
+                    if trap.kind == Some(TrapKind::Suspended) {
+                        self.suspend_at = Some((block, b.start as usize));
+                    }
+                    return Err(trap);
+                }
+            } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                self.preempt()?;
+            }
+        }
+        if let Some(counts) = self.profile.as_mut() {
+            let ir_block = &func.blocks[block];
+            self.frame_blocks += 1;
+            self.frame_insts += ir_block.insts.len() as u64;
+            counts.block(ir_block, &code.ops[b.start as usize..b.end as usize]);
+        }
+        Ok(())
+    }
+
     /// Runs `frame.code` (made from `func`) in a frame at `stack_base`. `vals` has one
     /// register per IR value, which `build` checked every operand against. `start`: the block
     /// and op to continue at (a resumed thread, see `threads_inline.rs`) instead of the entry.
@@ -1136,42 +1407,19 @@ impl Interp {
         // below `func.vals.len()`, and `vals` has exactly that many.
         let get = |i: u32| unsafe { *regs.add(i as usize) };
         let set = |i: u32, v: u64| unsafe { *regs.add(i as usize) = v };
+        // Whether each block entered needs `enter_block`; may change whenever a call runs.
+        let mut watched = self.watches_blocks();
         let (mut block, mut resume_op) = match start {
             Some((block, op)) => (block, Some(op)),
             None => (0, None),
         };
         loop {
             let b = &code.blocks[block];
-            let ir_block = &func.blocks[block];
             let from = match resume_op.take() {
                 Some(op) => op,
                 None => {
-                    if let Some(left) = self.block_budget.as_mut() {
-                        if *left == 0 {
-                            match self.host.refill_budget() {
-                                Some(more) => *left = more,
-                                None => return self.trap("execution budget exhausted"),
-                            }
-                        }
-                        *left -= 1;
-                    }
-                    if self.multi {
-                        if self.host.cooperative_threads() {
-                            if let Err(trap) = self.inline_preempt(program) {
-                                if trap.kind == Some(TrapKind::Suspended) {
-                                    self.suspend_at = Some((block, b.start as usize));
-                                }
-                                return Err(trap);
-                            }
-                        } else {
-                            #[cfg(not(target_arch = "wasm32"))]
-                            self.preempt()?;
-                        }
-                    }
-                    self.frame_blocks += 1;
-                    self.frame_insts += ir_block.insts.len() as u64;
-                    if let Some(counts) = self.profile.as_mut() {
-                        counts.block(ir_block, &code.ops[b.start as usize..b.end as usize]);
+                    if watched {
+                        self.enter_block(program, func, code, block)?;
                     }
                     b.start as usize
                 }
@@ -1217,14 +1465,31 @@ impl Interp {
                         dst,
                         a,
                         b,
-                    } => set(dst, self.bin(op, ty, get(a), get(b))?),
+                    } => set(dst, bin_total(op, ty, get(a), get(b))),
+                    Op::Div {
+                        op,
+                        ty,
+                        dst,
+                        a,
+                        b,
+                    } => set(dst, self.divide(op, ty, get(a), get(b))?),
+                    Op::DivImm {
+                        op,
+                        ty,
+                        dst,
+                        a,
+                        imm,
+                    } => set(
+                        dst,
+                        self.divide(op, ty, get(a), mask(ty, imm as i64 as u64))?,
+                    ),
                     Op::BinImm {
                         op,
                         ty,
                         dst,
                         a,
                         imm,
-                    } => set(dst, self.bin(op, ty, get(a), mask(ty, imm as i64 as u64))?),
+                    } => set(dst, bin_total(op, ty, get(a), mask(ty, imm as i64 as u64))),
                     Op::Un {
                         op,
                         ty,
@@ -1249,18 +1514,21 @@ impl Interp {
                     }
                     Op::Cmp {
                         op,
-                        ty,
+                        shift,
                         dst,
                         a,
                         b,
-                    } => set(dst, cmp(op, ty, get(a), get(b)) as u64),
+                    } => set(dst, cmp_shifted(op, shift, get(a), get(b)) as u64),
                     Op::CmpImm {
                         op,
-                        ty,
+                        shift,
                         dst,
                         a,
                         imm,
-                    } => set(dst, cmp(op, ty, get(a), mask(ty, imm as i64 as u64)) as u64),
+                    } => set(
+                        dst,
+                        cmp_shifted(op, shift, get(a), imm as i64 as u64) as u64,
+                    ),
                     Op::Conv {
                         op,
                         from,
@@ -1316,6 +1584,81 @@ impl Interp {
                         off,
                         imm,
                     } => unsafe { store_raw(ty, stack_base + off as u64, imm as i64 as u64) },
+                    Op::Load8 {
+                        dst,
+                        base,
+                        off,
+                    } => set(
+                        dst,
+                        self.load(Ty::I8, get(base).wrapping_add(off as i64 as u64))?,
+                    ),
+                    Op::Load32 {
+                        dst,
+                        base,
+                        off,
+                    } => set(
+                        dst,
+                        self.load(Ty::I32, get(base).wrapping_add(off as i64 as u64))?,
+                    ),
+                    Op::Load64 {
+                        dst,
+                        base,
+                        off,
+                    } => set(
+                        dst,
+                        self.load(Ty::I64, get(base).wrapping_add(off as i64 as u64))?,
+                    ),
+                    Op::LoadFrame8 {
+                        dst,
+                        off,
+                    } => set(dst, unsafe { load_raw(Ty::I8, stack_base + off as u64) }),
+                    Op::LoadFrame32 {
+                        dst,
+                        off,
+                    } => set(dst, unsafe { load_raw(Ty::I32, stack_base + off as u64) }),
+                    Op::LoadFrame64 {
+                        dst,
+                        off,
+                    } => set(dst, unsafe { load_raw(Ty::I64, stack_base + off as u64) }),
+                    Op::Store8 {
+                        base,
+                        off,
+                        value,
+                    } => self.store(
+                        Ty::I8,
+                        get(base).wrapping_add(off as i64 as u64),
+                        get(value),
+                    )?,
+                    Op::Store32 {
+                        base,
+                        off,
+                        value,
+                    } => self.store(
+                        Ty::I32,
+                        get(base).wrapping_add(off as i64 as u64),
+                        get(value),
+                    )?,
+                    Op::Store64 {
+                        base,
+                        off,
+                        value,
+                    } => self.store(
+                        Ty::I64,
+                        get(base).wrapping_add(off as i64 as u64),
+                        get(value),
+                    )?,
+                    Op::StoreFrame8 {
+                        off,
+                        value,
+                    } => unsafe { store_raw(Ty::I8, stack_base + off as u64, get(value)) },
+                    Op::StoreFrame32 {
+                        off,
+                        value,
+                    } => unsafe { store_raw(Ty::I32, stack_base + off as u64, get(value)) },
+                    Op::StoreFrame64 {
+                        off,
+                        value,
+                    } => unsafe { store_raw(Ty::I64, stack_base + off as u64, get(value)) },
                     Op::Copy {
                         dst,
                         src,
@@ -1342,6 +1685,45 @@ impl Interp {
                         line,
                         col,
                     } => self.loc = Some((file, line, col)),
+                    Op::Call {
+                        block: ir_block,
+                        inst,
+                    } => {
+                        let Inst::Call(call) = &func.blocks[ir_block as usize].insts[inst as usize]
+                        else {
+                            unreachable!("`build` made a call op from a call");
+                        };
+                        let ir::Callee::Func(callee) = call.callee else {
+                            unreachable!("`build` made it for a procedure called by name");
+                        };
+                        // SAFETY: the same registers, borrowed for this one call only.
+                        let vals = unsafe { std::slice::from_raw_parts_mut(regs, func.vals.len()) };
+                        let (mut small, mut heap) = ([0u64; 8], Vec::new());
+                        let args = gather(vals, &call.args, &mut small, &mut heap);
+                        match self.exec(program, callee, args) {
+                            Ok(rets) => {
+                                for (r, &v) in call.results.iter().zip(rets.iter()) {
+                                    vals[r.0 as usize] = v;
+                                }
+                            }
+                            Err(trap) => {
+                                if trap.kind == Some(TrapKind::Suspended) {
+                                    self.suspend_at = Some((block, from + at));
+                                }
+                                return Err(trap);
+                            }
+                        }
+                        watched = self.watches_blocks();
+                    }
+                    Op::BoundsCheck {
+                        index,
+                        count,
+                    } => {
+                        let (index, count) = (get(index), get(count));
+                        if (index as i64) < 0 || (index as i64) >= count as i64 {
+                            return self.check_trap(ir::TRAP_BOUNDS, index, count);
+                        }
+                    }
                     Op::Ir {
                         block: ir_block,
                         inst,
@@ -1355,6 +1737,7 @@ impl Interp {
                             }
                             return Err(trap);
                         }
+                        watched = self.watches_blocks();
                     }
                 }
             }
@@ -1373,7 +1756,7 @@ impl Interp {
                 }
                 End::CmpBranch {
                     op,
-                    ty,
+                    shift,
                     a,
                     b,
                     then_block,
@@ -1383,13 +1766,13 @@ impl Interp {
                         Rhs::Val(b) => get(b),
                         Rhs::Imm(y) => y,
                     };
-                    if cmp(op, ty, get(a), y) {
+                    if cmp_shifted(op, shift, get(a), y) {
                         then_block as usize
                     } else {
                         else_block as usize
                     }
                 }
-                End::Ir => match &ir_block.term {
+                End::Ir => match &func.blocks[block].term {
                     Term::Switch {
                         value,
                         ty,
@@ -1418,8 +1801,9 @@ impl Interp {
     }
 }
 
-/// Reads frame memory, which is always mapped.
-unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
+/// Reads `ty` at `addr`, which is the caller's to have checked.
+#[inline(always)]
+pub(super) unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
     let p = addr as *const u8;
     unsafe {
         match ty {
@@ -1432,7 +1816,9 @@ unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
     }
 }
 
-unsafe fn store_raw(ty: Ty, addr: u64, v: u64) {
+/// Writes `ty` at `addr`, which is the caller's to have checked.
+#[inline(always)]
+pub(super) unsafe fn store_raw(ty: Ty, addr: u64, v: u64) {
     let p = addr as *mut u8;
     unsafe {
         match ty {

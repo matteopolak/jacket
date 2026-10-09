@@ -43,84 +43,110 @@ type Entry = Cell<(u64, u64)>;
 /// A range found accessible: `(start, end, epoch)`. An empty one has `end == 0`.
 type Region = Cell<(u64, u64, u64)>;
 
-thread_local! {
-    /// The ranges found accessible for reads and for writes, and where the next one goes.
-    static MAPPED: ([[Region; REGIONS]; 2], Cell<usize>) =
-        const { ([const { [const { Cell::new((0, 0, 0)) }; REGIONS] }; 2], Cell::new(0)) };
-
-    /// Pages found accessible, for reads and for writes. `const`, so a lookup costs no
-    /// lazy-initialization check.
-    static KNOWN: [[Entry; REMEMBERED]; 2] =
-        const { [const { [const { Cell::new((0, 0)) }; REMEMBERED] }; 2] };
-}
-
 /// Forget every page found accessible: memory may have been released.
 pub fn invalidate() {
     EPOCH.fetch_add(1, Ordering::Relaxed);
 }
 
-/// Copy `out.len()` bytes of program memory at `addr` into `out`. False when any of them cannot
-/// be read.
-pub fn read(addr: u64, out: &mut [u8]) -> bool {
-    if !accessible(addr, out.len(), false) {
-        return false;
-    }
-    if !out.is_empty() {
-        // SAFETY: every page of the range was found readable.
-        unsafe { std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), out.len()) };
-    }
-    true
+/// What one interpreter has found accessible. Interpreters on different threads each have
+/// their own, and all forget at `invalidate`.
+pub struct Probe {
+    /// Pages found accessible, for reads and for writes.
+    known: [[Entry; REMEMBERED]; 2],
+    /// The ranges found accessible for reads and for writes.
+    regions: [[Region; REGIONS]; 2],
+    /// Which range is replaced next.
+    next: Cell<usize>,
 }
 
-/// Compare `len` bytes of program memory at `a` and at `b`, in place. A range that cannot be
-/// read orders before one that can, and equal to another that cannot.
-pub fn compare(a: u64, b: u64, len: usize) -> std::cmp::Ordering {
-    let view = |addr: u64| {
-        // SAFETY: every page of the range was found readable.
-        accessible(addr, len, false)
-            .then(|| unsafe { std::slice::from_raw_parts(addr as *const u8, len) })
-    };
-    // An empty range may start anywhere, `from_raw_parts` wants a non-null pointer.
-    if len == 0 {
-        return std::cmp::Ordering::Equal;
+impl Default for Probe {
+    fn default() -> Self {
+        Probe {
+            known: std::array::from_fn(|_| std::array::from_fn(|_| Cell::new((0, 0)))),
+            regions: std::array::from_fn(|_| std::array::from_fn(|_| Cell::new((0, 0, 0)))),
+            next: Cell::new(0),
+        }
     }
-    view(a).cmp(&view(b))
 }
 
-/// Copy `bytes` into program memory at `addr`. False when any of it cannot be written.
-pub fn write(addr: u64, bytes: &[u8]) -> bool {
-    if !accessible(addr, bytes.len(), true) {
-        return false;
+impl Probe {
+    /// Copy `out.len()` bytes of program memory at `addr` into `out`. False when any of them
+    /// cannot be read.
+    pub fn read(&self, addr: u64, out: &mut [u8]) -> bool {
+        if !self.accessible(addr, out.len(), false) {
+            return false;
+        }
+        if !out.is_empty() {
+            // SAFETY: every page of the range was found readable.
+            unsafe {
+                std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), out.len())
+            };
+        }
+        true
     }
-    if !bytes.is_empty() {
-        // SAFETY: every page of the range was found writable.
-        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
-    }
-    true
-}
 
-/// Can every page of `addr..addr + len` be read (or written)? Asks the kernel about the pages
-/// not known already.
-fn accessible(addr: u64, len: usize, write: bool) -> bool {
-    if len == 0 {
-        return true;
+    /// Compare `len` bytes of program memory at `a` and at `b`, in place. A range that cannot
+    /// be read orders before one that can, and equal to another that cannot.
+    pub fn compare(&self, a: u64, b: u64, len: usize) -> std::cmp::Ordering {
+        let view = |addr: u64| {
+            // SAFETY: every page of the range was found readable.
+            self.accessible(addr, len, false)
+                .then(|| unsafe { std::slice::from_raw_parts(addr as *const u8, len) })
+        };
+        // An empty range may start anywhere, `from_raw_parts` wants a non-null pointer.
+        if len == 0 {
+            return std::cmp::Ordering::Equal;
+        }
+        view(a).cmp(&view(b))
     }
-    // Addresses below 4 KiB are never mapped (and are how null dereferences show), and a range
-    // may not wrap.
-    let Some(end) = addr.checked_add(len as u64) else {
-        return false;
-    };
-    if addr < 4096 || end > usize::MAX as u64 {
-        return false;
+
+    /// Copy `bytes` into program memory at `addr`. False when any of it cannot be written.
+    pub fn write(&self, addr: u64, bytes: &[u8]) -> bool {
+        if !self.accessible(addr, bytes.len(), true) {
+            return false;
+        }
+        if !bytes.is_empty() {
+            // SAFETY: every page of the range was found writable.
+            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
+        }
+        true
     }
-    let epoch = EPOCH.load(Ordering::Relaxed);
-    KNOWN.with(|known| {
-        let known = &known[usize::from(write)];
+
+    /// Can every page of `addr..addr + len` be read (or written)? Asks the system about the
+    /// pages not known already.
+    #[inline(always)]
+    fn accessible(&self, addr: u64, len: usize, write: bool) -> bool {
+        // The usual access is one more field of a record just read: inside one known page.
+        // Addresses below 4 KiB are never mapped (and are how null dereferences show).
+        if addr >= PAGE && len != 0 && (len as u64) <= PAGE - addr % PAGE {
+            let page = addr / PAGE;
+            let known = &self.known[usize::from(write)][page as usize % REMEMBERED];
+            if known.get() == (page + 1, EPOCH.load(Ordering::Relaxed)) {
+                return true;
+            }
+        }
+        self.check(addr, len, write)
+    }
+
+    #[inline(never)]
+    fn check(&self, addr: u64, len: usize, write: bool) -> bool {
+        if len == 0 {
+            return true;
+        }
+        // A range may not wrap.
+        let Some(end) = addr.checked_add(len as u64) else {
+            return false;
+        };
+        if addr < PAGE || end > usize::MAX as u64 {
+            return false;
+        }
+        let epoch = EPOCH.load(Ordering::Relaxed);
+        let known = &self.known[usize::from(write)];
         let mut page = addr / PAGE;
         while page * PAGE < end {
             let slot = &known[page as usize % REMEMBERED];
             if slot.get() != (page + 1, epoch)
-                && !mapped(page, (page * PAGE).max(addr), write, epoch)
+                && !self.mapped(page, (page * PAGE).max(addr), write, epoch)
             {
                 return false;
             }
@@ -128,15 +154,13 @@ fn accessible(addr: u64, len: usize, write: bool) -> bool {
             page += 1;
         }
         true
-    })
-}
+    }
 
-/// Is `page` inside a range found accessible, or can the system say so? `at`, a byte of the
-/// page inside the range being checked, stands for the page.
-#[cold]
-fn mapped(page: u64, at: u64, write: bool, epoch: u64) -> bool {
-    MAPPED.with(|(regions, next)| {
-        let regions = &regions[usize::from(write)];
+    /// Is `page` inside a range found accessible, or can the system say so? `at`, a byte of
+    /// the page inside the range being checked, stands for the page.
+    #[cold]
+    fn mapped(&self, page: u64, at: u64, write: bool, epoch: u64) -> bool {
+        let regions = &self.regions[usize::from(write)];
         let (start, end) = (page * PAGE, page * PAGE + PAGE);
         if regions.iter().any(|r| {
             let (s, e, ep) = r.get();
@@ -147,10 +171,10 @@ fn mapped(page: u64, at: u64, write: bool, epoch: u64) -> bool {
         let Some((s, e)) = sys::region(at, write) else {
             return false;
         };
-        regions[next.get() % REGIONS].set((s, e, epoch));
-        next.set(next.get() + 1);
+        regions[self.next.get() % REGIONS].set((s, e, epoch));
+        self.next.set(self.next.get() + 1);
         true
-    })
+    }
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
@@ -348,6 +372,18 @@ mod sys {
 mod tests {
     use super::*;
 
+    fn read(addr: u64, out: &mut [u8]) -> bool {
+        PROBE.with(|p| p.read(addr, out))
+    }
+
+    fn write(addr: u64, bytes: &[u8]) -> bool {
+        PROBE.with(|p| p.write(addr, bytes))
+    }
+
+    thread_local! {
+        static PROBE: Probe = Probe::default();
+    }
+
     #[test]
     fn copies_readable_memory_and_refuses_the_rest() {
         let data: Vec<u8> = (0..2000u32).map(|i| i as u8).collect();
@@ -390,5 +426,54 @@ mod tests {
         // Still mapped (the allocator keeps it), so still readable: checked afresh.
         assert!(read(addr, &mut [0u8; 8]));
         drop(block);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_protected_page_in_the_middle_of_a_known_mapping_is_found() {
+        use std::ffi::{c_int, c_void};
+        unsafe extern "C" {
+            fn mmap(
+                addr: *mut c_void,
+                len: usize,
+                prot: c_int,
+                flags: c_int,
+                fd: c_int,
+                off: i64,
+            ) -> *mut c_void;
+            fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
+            fn munmap(addr: *mut c_void, len: usize) -> c_int;
+        }
+        #[cfg(target_os = "linux")]
+        const MAP_ANON: c_int = 0x20;
+        #[cfg(not(target_os = "linux"))]
+        const MAP_ANON: c_int = 0x1000;
+        // Three of the largest pages any host has, so the middle one is a page of its own.
+        const SIZE: usize = 64 << 10;
+        // SAFETY: an anonymous private mapping, unmapped below.
+        let base = unsafe { mmap(std::ptr::null_mut(), 3 * SIZE, 3, 2 | MAP_ANON, -1, 0) };
+        assert_ne!(base as usize, usize::MAX);
+        let start = base as u64;
+        let mut byte = [0u8; 8];
+        // The whole mapping is known readable and writable first.
+        assert!(read(start, &mut byte) && write(start + 2 * SIZE as u64, &byte));
+        // SAFETY: the middle third of the mapping.
+        assert_eq!(
+            unsafe { mprotect(base.wrapping_byte_add(SIZE), SIZE, 0) },
+            0
+        );
+        invalidate();
+        assert!(read(start, &mut byte));
+        assert!(!read(start + SIZE as u64 + 8, &mut byte));
+        assert!(!write(start + SIZE as u64, &byte));
+        assert!(
+            !read(start + SIZE as u64 - 4, &mut byte),
+            "a range that runs into it"
+        );
+        assert!(read(start + 2 * SIZE as u64, &mut byte));
+        // SAFETY: the mapping made above.
+        unsafe { munmap(base, 3 * SIZE) };
+        invalidate();
+        assert!(!read(start, &mut byte));
     }
 }

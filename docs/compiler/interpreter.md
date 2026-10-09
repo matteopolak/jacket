@@ -21,8 +21,12 @@ The IR is shaped for LLVM: every local lives in a stack slot, so a statement is 
 | `IConst` that fits 32 bits as an operand | `AddImm`, `MulImm`, `BinImm`, `CmpImm`, `StoreImm`, `StoreFrameImm` |
 | 64-bit `Add`/`Sub`/`Mul`, `PtrAdd` | `Add`/`Sub`/`Mul`, which need no masking |
 | `Cmp` read only by the block's `Branch` | a `CmpBranch` terminator; a branch on a constant becomes a jump |
-| two `Loc`s in a row | the second |
-| `Call`, `Intrinsic`, oversized `Copy`/`Zero` | `Ir`, which runs the original instruction through `step` |
+| two `Loc`s in a row | the second (a `Loc` is still an op) |
+| `Load`/`Store` of a known type | `Load8/32/64`, `Store8/32/64` (and the `Frame` forms), with no switch on the type at run time |
+| `Div` (and by a constant) | `Div`, `DivImm` |
+| `Call` of a named procedure | `Call`, which skips `step` |
+| a bounds check | `BoundsCheck` |
+| other `Intrinsic`, oversized `Copy`/`Zero` | `Ir`, which runs the original instruction through `step` |
 
 Definitions whose results nobody reads any more (the folded constants and slot addresses) are dropped. Folding moves a register read later than the IR has it, so it is only done for values with one definition (SSA, which the IR builder produces): constants and frame addresses anywhere, other values only within the block that defined them, where no definition can run again in between.
 
@@ -82,6 +86,8 @@ Not covered: variadic callbacks, and on arm64 callbacks returning a struct throu
 
 ### Performance notes
 
+- The memory probe (`probe.rs`) is a field of `Interp`: a page table plus a cache of OS-described regions, both flushed when the global epoch changes (`invalidate()` on foreign calls that may unmap memory). Dispatch-side loads and stores do not probe; compiler-side reads of program pointers (`read`, `read_pair`, `write`) do.
+- `Trap` is boxed so `Res<T>` stays small.
 - `run` takes value registers from `val_pool` instead of allocating per call; `Call` and `Intrinsic` gather up to 8 operands on the Rust stack (`gather`).
 - Hooks, `Stack_Trace_Procedure_Info` addresses and foreign symbols are `Vec`s indexed by id, and results come back as `Rets` (up to four inline), so a call does no hashing or allocation.
 - `frame` lays out a procedure's slots once, each at a multiple of its alignment (at least 8), and records the largest alignment; `exec` rounds the frame's absolute start up to it. Rounding offsets alone isn't enough because the stack itself is only 8-aligned, and an `#align 64` local would land on an arbitrary 16-byte boundary.

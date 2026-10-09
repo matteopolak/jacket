@@ -23,16 +23,43 @@ Lines per second for the synthetic programs went from about 85k and 59k to about
 - **Verifier off in release jaic** (`verify_ir`): about 3%.
 - **5,000 instructions per unit** (`INSTS_PER_UNIT`): helps small projects most (`jaifmt` and hello world go from a few units to all cores); neutral on large ones, which hit the core cap.
 - **No `dsymutil` at `-O0` on macOS**: 0.02 to 0.04 s per build, 10 to 15% of a small one. See [debug info](../native/debug-info.md).
-- **Memory probe** (`interp/probe.rs`): a one-entry cache of the last page checked per access kind, and `Interp::read_pair`. Within noise on Jails (about 1 to 3%).
 
-Not worth it: the memory probe change alone (small), and units below 5,000 instructions (hello world already uses all cores).
+Not worth it: units below 5,000 instructions (hello world already uses all cores).
+
+## Compile-time interpreter
+
+`#run`, metaprograms, `jaic run` and the playground all execute in `interp/`. Method: release `jaic` (`--release`, same machine, idle), median of 7 warm runs per workload, before versus after. Workloads are `check` on corpus projects that run metaprograms (Focus, Jails, sgpu examples, Jai-Shader-Transpiler, yield-jai), `run` on jaison's tests, and `run` on CPU-bound programs (`benchmarks/interp-loops.jai`, `interp-strings.jai`, `interp-calls.jai`, and a mixed one).
+
+| Workload | Before | After |
+|---|---|---|
+| Focus `check first.jai` | 2.10 s | 1.66 s |
+| Jails `check build.jai` | 0.292 s | 0.230 s |
+| sgpu examples `check` | 0.447 s | 0.470 s |
+| Jai-Shader-Transpiler `check` | 0.103 s | 0.098 s |
+| yield-jai `check` | 0.090 s | 0.075 s |
+| jaison `run tests.jai` | 0.423 s | 0.383 s |
+| `interp-loops` | 0.197 s | 0.170 s |
+| `interp-strings` | 1.201 s | 1.062 s |
+| `interp-calls` | 0.053 s | 0.047 s |
+| mixed CPU-bound program | 0.590 s | 0.499 s |
+
+Gains by change:
+
+- **Region cache in the memory probe** (`interp/probe.rs`): the probe used to ask the OS about a page per check. It now keeps a page table and a small cache of the mappings the system described, flushed by a global epoch that `invalidate()` bumps on any foreign call that can unmap memory (and on `ZeroedBlock` drop). The largest single item on Focus (about 15%).
+- **Boxed `Trap`**: `Res<u64>` shrank from a large enum to 16 bytes, which speeds every `?` in the dispatch loop.
+- **Specialized ops** (`interp/code.rs`): `Load8/32/64`, `Store8/32/64` and their frame forms, `Div`, `DivImm`, `Call` and `BoundsCheck` replace a second switch on the type and the generic `step` path. Loop and call-heavy programs gain 10 to 15%.
+- **Compiler primitives** (`build.rs`): `call` returns results inline (`Rets`) and `field_name` reads the name without allocating; the tag lookup is a map. Metaprogram-heavy checks gain a few percent.
+
+sgpu examples got about 5% slower (noise-level but repeatable): it is dominated by native foreign calls, which pay the epoch bump after each non-whitelisted call.
+
+Next gains: per-call setup in `exec`/`run`/`leave_frame` (about 43 ns per call in `fib`, half of `interp-strings`), promoting stack slots to registers, a bulk record builder on the Rust side for `write_item`, and a no-allocation `Intrinsic` result.
 
 ## How to change it
 
 - Measure with `jaic build x.jai -o out --timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for synthetic scaling use a generated file of repeated procedures and structs.
 - To compare ISel strategies externally, `llc -O0 -global-isel=0` on `--emit-ir` output.
 - A new per-function or per-module step in `lower.rs` should not iterate over the whole program in every shard: use the lazy accessors. Any lookup of a symbol by name must call `declare_named` first.
-- Profile with samply as described in [benchmarks](../tools/benchmarks.md); `Interp::run_code` is the main self-time item left for metaprogram-heavy code (about a quarter of Jails `check`), then `build::call` and `write_item`, which read and write compiler records through the probe field by field.
+- Profile with samply as described in [benchmarks](../tools/benchmarks.md); `Interp::run_code` is the main self-time item left for metaprogram-heavy code, then the per-call setup in `exec`, then `build::call` and `write_item`, which read and write compiler records through the probe field by field.
 
 ## Configuration
 
