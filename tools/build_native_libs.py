@@ -4,6 +4,8 @@
 Output: artifacts/native-libs/<os>-<arch>/, which `jaic` searches for `#system_library` /
 `#library` names (see docs/tools/native-libs.md): lib<name>.a and lib<name>.<dylib|so> on macOS
 and Linux, <name>.lib and <name>.dll on Windows (built with Clang for the MSVC toolchain).
+`--platform windows-<cpu>-mingw` cross-builds lib<name>.a for `jaic build -os windows` (MinGW-w64
+or llvm-mingw on the build host; the directory goes in JAIC_CROSS_LIBS).
 """
 from __future__ import annotations
 
@@ -25,6 +27,8 @@ MANIFEST = ROOT / 'tools' / 'native-libs.json'
 
 # The Clang target of each Windows platform directory.
 WINDOWS_TRIPLES = {'windows-x64': 'x86_64-pc-windows-msvc', 'windows-arm64': 'aarch64-pc-windows-msvc'}
+# The tool prefix of each MinGW cross platform (`windows-<cpu>-mingw`, built on Linux or macOS).
+MINGW_PREFIXES = {'windows-x64-mingw': 'x86_64-w64-mingw32', 'windows-arm64-mingw': 'aarch64-w64-mingw32'}
 
 
 def shared_root() -> Path:
@@ -41,7 +45,7 @@ def output_dir(plat: str | None = None) -> Path:
 
 
 def static_name(name: str, plat: str) -> str:
-    return f'{name}.lib' if plat.startswith('windows') else f'lib{name}.a'
+    return f'{name}.lib' if plat.startswith('windows') and plat not in MINGW_PREFIXES else f'lib{name}.a'
 
 
 def wanted(lib: dict, plat: str) -> bool:
@@ -91,7 +95,8 @@ def fetch(source: dict, cache: Path) -> Path:
             packed = Path(tmp) / 'source.tar.gz'
             packed.write_bytes(data)
             with tarfile.open(packed) as tar:
-                tar.extractall(tmp, filter='data')
+                # Python before 3.12 (macOS's own) has no extraction filters.
+                tar.extractall(tmp, **({'filter': 'data'} if hasattr(tarfile, 'data_filter') else {}))
             top = Path(tmp) / archive['root']
             for entry in top.iterdir():
                 shutil.move(str(entry), base / entry.name)
@@ -116,10 +121,22 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
         units = [unit]
     else:
         units = [src / rel for rel in lib['units']]
+    if 'support' in lib:
+        # Glue the library's own sources lack (see tools/native-libs.json), as one more unit.
+        support = tmp / f'jai_{name}_support.{lib.get("support_suffix", "cpp")}'
+        support.write_text(lib['support'])
+        units.append(support)
     flags = ['-O2', '-w', '-I', str(src)]
+    cxx_flags = ['-std=c++11', '-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics']
     flags += [f'-I{src / d}' for d in lib.get('include', [])]
     flags += [f'-D{d}' for d in lib.get('defines', [])]
-    if plat.startswith('windows'):
+    if plat in MINGW_PREFIXES:
+        # Static archives for a MinGW-w64 link (`-l<name>`), built by the cross toolchain; the
+        # executable runs on Windows with no DLL beside it.
+        compiler = [f'{MINGW_PREFIXES[plat]}-gcc', '-D_CRT_SECURE_NO_WARNINGS']
+        cxx = [f'{MINGW_PREFIXES[plat]}-g++', '-D_CRT_SECURE_NO_WARNINGS']
+        suffix = 'o'
+    elif plat.startswith('windows'):
         # Code for the static C runtime (`/MT`: plain `fopen`, no `__imp_fopen`) that names no
         # runtime library (`/Zl`). The archives then link into executables with either runtime:
         # Clang's driver links `libcmt` when it only links, Visual Studio's link.exe gets
@@ -127,14 +144,18 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
         # references of `/MD` code against `libcmt`.
         compiler = ['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=static',
                     '-fms-omit-default-lib', '-D_CRT_SECURE_NO_WARNINGS']
+        cxx = compiler  # Clang's driver compiles `.cpp` as C++
         suffix = 'obj'
     else:
         compiler = ['cc', '-fPIC']
+        cxx = ['c++', '-fPIC']
         suffix = 'o'
     objects = []
     for unit in units:
         obj = tmp / f'{unit.stem}.{suffix}'
-        subprocess.run([*compiler, *flags, '-c', str(unit), '-o', str(obj)], check=True)
+        # C++ units (meshoptimizer) need no exceptions or RTTI, so no C++ runtime library links in.
+        command = [*cxx, *cxx_flags] if unit.suffix == '.cpp' else compiler
+        subprocess.run([*command, *flags, '-c', str(unit), '-o', str(obj)], check=True)
         objects.append(obj)
     return objects
 
@@ -161,6 +182,9 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
         objects = compile_units(name, lib, src, tmp, plat)
         static = out / static_name(name, plat)
         static.unlink(missing_ok=True)
+        if plat in MINGW_PREFIXES:
+            subprocess.run([f'{MINGW_PREFIXES[plat]}-ar', 'rcs', str(static), *map(str, objects)], check=True)
+            return
         if plat.startswith('windows'):
             subprocess.run(['llvm-lib', '/nologo', f'/out:{static}', *map(str, objects)], check=True)
             definitions = windows_exports(objects, tmp, name)
@@ -191,10 +215,11 @@ def main() -> None:
                              'artifacts/native-libs/<platform>); release.yml builds into the package')
     args = parser.parse_args()
     plat = args.platform or host_dir()
-    if plat.split('-')[0] != host_dir().split('-')[0]:
-        sys.exit(f'{plat}: libraries are built on the platform they are for')
-    if plat.startswith('windows') and plat not in WINDOWS_TRIPLES:
-        sys.exit(f'{plat}: not one of {", ".join(WINDOWS_TRIPLES)}')
+    if plat not in MINGW_PREFIXES and plat.split('-')[0] != host_dir().split('-')[0]:
+        sys.exit(f'{plat}: libraries are built on the platform they are for '
+                 f'(or cross-built for MinGW: {", ".join(MINGW_PREFIXES)})')
+    if plat.startswith('windows') and plat not in WINDOWS_TRIPLES and plat not in MINGW_PREFIXES:
+        sys.exit(f'{plat}: not one of {", ".join([*WINDOWS_TRIPLES, *MINGW_PREFIXES])}')
     manifest = json.loads(MANIFEST.read_text())
     names = args.names or sorted(n for n, lib in manifest['libraries'].items() if wanted(lib, plat))
     out = (args.out or output_dir(plat)).resolve()

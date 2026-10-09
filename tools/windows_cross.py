@@ -134,9 +134,22 @@ def build_one(args, source, output):
 COMPILE_TIME_ONLY = "compile-time only: no executable to run"
 
 
+def use_cross_libs(args):
+    """Cross-build the third-party C libraries the stdlib tests link (stb_*, FreeType, lz4...)
+    with the MinGW toolchain, and point `jaic build` at them (JAIC_CROSS_LIBS). They are static
+    archives, so the executables need no DLL beside them."""
+    platform = skip_platform(args)
+    subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py"), "--platform", platform], check=True)
+    import build_native_libs
+
+    os.environ["JAIC_CROSS_LIBS"] = str(build_native_libs.output_dir(platform))
+
+
 def build(args):
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if args.stdlib and not args.host:
+        use_cross_libs(args)
     expected, failures, skipped = {}, [], []
     all_cases = list(cases(args.stdlib, skip_platform(args)))
     # Builds are independent; run several at once (each is mostly single-threaded).

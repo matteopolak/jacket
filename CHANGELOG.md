@@ -20,6 +20,11 @@
 
 - `print`, `sprint`, `tprint`, `log`, `assert` messages and user wrappers that forward a `string` and `..Any` to one of them are checked at compile time when the format is a literal; a wrong argument count is a warning at the call, which the language server shows too. `%N`, `%00` and `\%` are read as `print` reads them; spread (`..args`) calls are skipped. See [format string check](docs/compiler/format-string-check.md).
 
+### Native libraries
+
+- `tools/build_native_libs.py` also builds lz4 (official 1.10.0 release archive), meshoptimizer and pl_mpeg on every platform, with runtime tests (`lz4-roundtrip`, `meshoptimizer-indices`, `pl-mpeg-decode`).
+- MinGW cross builds (`windows-x64-mingw`, `windows-arm64-mingw`) get stb_image, stb_image_write, stb_image_resize, stb_vorbis, FreeType and the libraries above as static archives (`build_native_libs.py --platform windows-<cpu>-mingw`; `jaic build -os windows` finds them through the new `JAIC_CROSS_LIBS` path list), so the stdlib tests that link them run in the MinGW CI jobs instead of being skipped.
+
 ### Dev commands
 
 - A `Justfile` organizes the dev commands: `just build`, `fmt`, `lint`, `test`, `check`, `hooks`, `wasm`, `vscode` and `fetch-upstreams`, with options such as `just fmt --check --lang jai` and `just lint --staged`. CI's format and lint steps run the same recipes. See [Justfile](docs/tools/justfile.md).

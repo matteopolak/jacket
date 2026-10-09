@@ -19,6 +19,31 @@
         "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1"
       }
     },
+    "lz4": {
+      "repository": "lz4/lz4",
+      "revision": "v1.10.0",
+      "archive": {
+        "url": "https://github.com/lz4/lz4/releases/download/v1.10.0/lz4-1.10.0.tar.gz",
+        "sha256": "537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b",
+        "root": "lz4-1.10.0"
+      }
+    },
+    "meshoptimizer": {
+      "repository": "zeux/meshoptimizer",
+      "revision": "9e1f07b159d3cb777f1c67ed31fc11fd117986f4",
+      "archive": {
+        "url": "https://github.com/zeux/meshoptimizer/archive/9e1f07b159d3cb777f1c67ed31fc11fd117986f4.tar.gz",
+        "sha256": "e753b45fbc410031bd69cb278180ae31fa0d5430d0c3e662e3a3b100467ce0b3",
+        "root": "meshoptimizer-9e1f07b159d3cb777f1c67ed31fc11fd117986f4"
+      }
+    },
+    "pl_mpeg": {
+      "repository": "phoboslab/pl_mpeg",
+      "revision": "c871f2be022ece7ef4f64230b4fb8e1fb9eb6023",
+      "files": {
+        "pl_mpeg.h": "3a8cb30c83c2a1147719c30fe0c8b93da2987aa43140077c575b39aaa75fc2c9"
+      }
+    },
     "freetype": {
       "repository": "freetype/freetype",
       "revision": "0a0221a1347e2f1e07c395263540026e9a0aa7c7",
@@ -34,6 +59,24 @@
     "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
     "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
     "stb_vorbis": {"source": "stb", "code": "#include \"stb_vorbis.c\"\n"},
+    "lz4": {
+      "source": "lz4",
+      "include": ["lib"],
+      "units": ["lib/lz4.c", "lib/lz4hc.c", "lib/lz4frame.c", "lib/xxhash.c"]
+    },
+    "meshoptimizer": {
+      "source": "meshoptimizer",
+      "support": "// The default allocator names ::operator new and delete: serve them from the C heap, so no C++ runtime library is needed.\n#include <stdlib.h>\nvoid* operator new(size_t size) { return malloc(size); }\nvoid operator delete(void* pointer) noexcept { free(pointer); }\n",
+      "units": [
+        "src/allocator.cpp", "src/clusterizer.cpp", "src/indexanalyzer.cpp", "src/indexcodec.cpp",
+        "src/indexgenerator.cpp", "src/meshletcodec.cpp", "src/meshletutils.cpp", "src/opacitymap.cpp",
+        "src/overdrawoptimizer.cpp", "src/partition.cpp", "src/quantization.cpp", "src/rasterizer.cpp",
+        "src/remesher.cpp", "src/simplifier.cpp", "src/spatialorder.cpp", "src/stripifier.cpp",
+        "src/tangentspace.cpp", "src/vcacheoptimizer.cpp", "src/vertexcodec.cpp", "src/vertexfilter.cpp",
+        "src/vfetchoptimizer.cpp"
+      ]
+    },
+    "pl_mpeg": {"source": "pl_mpeg", "code": "#include <stdio.h>\n#include <stdlib.h>\n#define PL_MPEG_IMPLEMENTATION\n#include \"pl_mpeg.h\"\n"},
     "rpmalloc": {"source": "rpmalloc", "platforms": ["macos", "linux"], "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"},
     "freetype": {
       "source": "freetype",

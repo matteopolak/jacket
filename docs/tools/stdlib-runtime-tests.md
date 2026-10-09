@@ -48,8 +48,10 @@ programs are the same tests minus the skip-list lines for `windows-<cpu>-mingw` 
 compile-time code on Linux, so a `#run` that takes Windows-only paths cannot work there).
 In `native` mode the harness first builds the third-party libraries for the platform
 ([native libraries](native-libs.md); FreeType too on Windows) and points `JAIC_NATIVE_LIBS` at
-them; the MinGW cross builds link none, so tests that need them are skipped for
-`windows-*-mingw`. The window tests need OpenGL 3.3, which the Windows runners lack: the x64 jobs
+them. The MinGW cross builds link static archives that `tools/windows_cross.py build --stdlib`
+cross-builds first (`build_native_libs.py --platform windows-<cpu>-mingw`, with the MinGW-w64 or
+llvm-mingw compilers) and hands to `jaic build` as `JAIC_CROSS_LIBS`, so the executables need no
+DLL. The window tests need OpenGL 3.3, which the Windows runners lack: the x64 jobs
 unpack Mesa's llvmpipe (`tools/install_ci_mesa_windows.sh`, a pinned and checksum-verified
 mesa-dist-win release) and put its `opengl32.dll` next to `jaic.exe`, next to each native test
 program (`--dlls DIR` copies DIR's DLLs beside every executable before running it) and into the
@@ -76,7 +78,7 @@ Those modules, and what exercises or blocks them:
 
 | Module | Status |
 |---|---|
-| `stb_image`, `stb_image_write`, `stb_image_resize` | run by `stb-image-codecs` (PNG/BMP/TGA/JPEG/HDR encode and decode, header queries, resizing, corrupt input); also by the Simp tests. No wasm build, no MinGW build |
+| `stb_image`, `stb_image_write`, `stb_image_resize` | run by `stb-image-codecs` (PNG/BMP/TGA/JPEG/HDR encode and decode, header queries, resizing, corrupt input); also by the Simp tests. No wasm build |
 | `stb_vorbis` | run by the Sound_Player tests |
 | `freetype`, `freetype255`, `freetype-2.12.1` | run by the Simp and GetRect tests (system FreeType on macOS and Linux, built on Windows) |
 | `rpmalloc` | run by `rpmalloc-allocator` (macOS and Linux; the library is not built for Windows or wasm) |
@@ -85,7 +87,10 @@ Those modules, and what exercises or blocks them:
 | `X11`, `Linux`, `Vulkan` | used by the window, input and clipboard tests on Linux; Vulkan needs a driver and loader the runners lack |
 | `Metal`, `Objective_C`, `macos` | used by the window tests on macOS; Metal rendering needs a GPU that virtualised runners do not expose |
 | `SDL`, `Gamepad`, `Keymap`, `ImGui`, `Thekla_Atlas`, `Thekla_Baker`, `nvtt`, `nvidia_aftermath`, `telemetry3`, `MojoShader` | bindings to SDKs or libraries that tools/native-libs.json does not build and the runners do not install |
-| `lz4`, `meshoptimizer`, `pl_mpeg`, `meow_hash` | would need a pinned source in tools/native-libs.json (a download with a checked hash) to build and link; a round trip test is straightforward once they are added |
+| `lz4` | run by `lz4-roundtrip` (default, fast and HC modes, the compress bound, too-small destinations, truncated and corrupt input, partial decompression); built from the official 1.10.0 release archive |
+| `meshoptimizer` | run by `meshoptimizer-indices` (index a shuffled grid, vertex cache, overdraw and fetch optimization, strips, the index and vertex codecs: triangle sets, index ranges and cache statistics are checked); C++ built without a C++ runtime library |
+| `pl_mpeg` | run by `pl-mpeg-decode`, which decodes `tests/stdlib/pl-mpeg-clip.mpg`, a 0.4 s clip of a red 32x32 picture and a 440 Hz tone that was made for the test with ffmpeg's synthetic `color` and `sine` sources (no third-party content, so no license to carry) |
+| `meow_hash` | would need a pinned source in tools/native-libs.json (a download with a checked hash) to build and link |
 | `Curl`, `Mail` | libcurl is a system library whose development files and version vary between the runners, so a `file://` test is not reliable there |
 | `Android`, `Toolchains`, `Codex`, `Preload`, `Simple_Package`, `Window_Type`, `GetRect_Common`, `Default_Metaprogram`, `Minimal_Metaprogram` | target-specific, data-only, or metaprograms that other tests drive through the compiler |
 | `Runtime_Support_Crash_Handler` | installed by the program entry point; a crash is not something a passing test can provoke |

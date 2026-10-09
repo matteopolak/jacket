@@ -1239,6 +1239,20 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
             }
         }
     }
+    // A MinGW cross build links third-party libraries cross-built for it
+    // (`tools/build_native_libs.py --platform windows-<cpu>-mingw`) from the directories in
+    // `JAIC_CROSS_LIBS`, not from the host's native-libs directory, whose archives are for the host.
+    if flavor == LinkFlavor::MinGw && cross {
+        let bare = name.strip_prefix("lib").unwrap_or(name);
+        if let Some(dirs) = std::env::var_os("JAIC_CROSS_LIBS") {
+            for dir in std::env::split_paths(&dirs) {
+                let archive = dir.join(format!("lib{bare}.a"));
+                if archive.exists() {
+                    return Ok(vec![LinkArg::File(archive.display().to_string())]);
+                }
+            }
+        }
+    }
     if flavor.is_windows() {
         // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
         // Windows file names ignore case, but a MinGW toolchain on Linux or macOS has

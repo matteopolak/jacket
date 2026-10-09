@@ -3,7 +3,7 @@
 ## What it is
 
 The stdlib binds some C libraries that no system ships: `stb_image`, `stb_image_write`,
-`stb_image_resize`, `stb_vorbis`, and `rpmalloc` (built with first-class heaps; macOS and Linux only), plus FreeType on
+`stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, and `rpmalloc` (built with first-class heaps; macOS and Linux only), plus FreeType on
 Windows (macOS and Linux use the system's, from Homebrew or the distribution). `tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
@@ -36,6 +36,18 @@ Sound_Player programs with no setup (FreeType still comes from the system on mac
   - Linker (`jaic-llvm` `library_args`): `<dir>/lib<name>.a` (Windows MSVC: `<dir>/<name>.lib`) is
     linked by path, so executables are self-contained. Cross builds (`-os windows` from macOS or
     Linux) ignore the directory.
+
+- MinGW cross builds (`--platform windows-x64-mingw` or `windows-arm64-mingw`, on Linux or macOS):
+  the same sources compiled with `<x86_64|aarch64>-w64-mingw32-gcc`/`-g++` into `lib<name>.a`
+  (static only, no DLL) under `artifacts/native-libs/windows-<cpu>-mingw/`. `jaic build -os windows`
+  links them from the directories in `JAIC_CROSS_LIBS` (`library_args` in `jaic-llvm`); it never uses
+  the host's native-libs directory for a cross build, whose archives are for the host.
+  `tools/windows_cross.py build --stdlib` builds and sets it, as `windows-native.yml`'s cross jobs run it.
+- lz4 comes from its official release archive and meshoptimizer and pl_mpeg from pinned GitHub
+  revisions (`pl_mpeg.h` is one file with an implementation define). meshoptimizer is C++: its
+  units compile with `-fno-exceptions -fno-rtti -fno-threadsafe-statics`, and the manifest's
+  `support` unit supplies `operator new`/`delete` over `malloc`, so neither the archive nor the
+  shared library needs a C++ runtime library.
 
 ```bash
 python3 tools/build_native_libs.py              # all libraries

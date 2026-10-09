@@ -54,11 +54,14 @@ jobs:
         run: |
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          sudo apt-get install -y gcc-mingw-w64-x86-64
+          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
           x86_64-w64-mingw32-gcc --version
+          x86_64-w64-mingw32-g++ --version
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Cross-build the Windows test programs
+        # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
+        # MinGW-w64 as static archives (tools/build_native_libs.py --platform windows-x64-mingw).
         run: python3 tools/windows_cross.py build --stdlib --jaic target/debug/jaic --out cross-exes
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -259,6 +262,7 @@ jobs:
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Cross-build the Windows test programs for arm64
+        # The third-party C libraries are cross-built with llvm-mingw first (--platform windows-arm64-mingw).
         run: python3 tools/windows_cross.py build --stdlib --cpu arm64 --jaic target/debug/jaic --out cross-arm64-exes
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
