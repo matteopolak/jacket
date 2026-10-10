@@ -176,13 +176,23 @@ const grammar = {
     comments: {
       patterns: [
         { include: "#block-comment" },
+        // A run of whole-line comments is one rule, so the doc-comment injection grammar
+        // (syntaxes/jai-doc-comments.tmLanguage.json) can keep state across its lines: a fenced
+        // code block spans several `//` lines. It adds no styling of its own.
         {
-          name: "comment.line.double-slash.jai",
-          begin: "//",
-          beginCaptures: { 0: { name: "punctuation.definition.comment.jai" } },
-          end: "$",
+          name: "meta.comment-run.jai",
+          begin: "^(?=[ \\t]*//)",
+          end: "^(?![ \\t]*//)",
+          patterns: [{ include: "#line-comment" }],
         },
+        { include: "#line-comment" },
       ],
+    },
+    "line-comment": {
+      name: "comment.line.double-slash.jai",
+      begin: "//",
+      beginCaptures: { 0: { name: "punctuation.definition.comment.jai" } },
+      end: "$",
     },
     // Block comments nest: `/* a /* b */ still a comment */`.
     "block-comment": {

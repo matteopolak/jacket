@@ -23,6 +23,8 @@ const registry = new vsctm.Registry({
     createOnigScanner: (patterns: string[]) => new oniguruma.OnigScanner(patterns),
     createOnigString: (text: string) => new oniguruma.OnigString(text),
   }),
+  // The doc-comment grammar injects into every comment.
+  getInjections: (scopeName: string) => (scopeName === "source.jai" ? ["documentation.injection.jai"] : undefined),
   // The extension's own grammars (the bundled WGSL one highlights `#string WGSL` bodies); the
   // ones VS Code ships are not here, so those here-strings stay plain strings.
   loadGrammar: async (scopeName: string) => {

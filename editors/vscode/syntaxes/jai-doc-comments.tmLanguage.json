@@ -1,0 +1,216 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Jai doc comments",
+  "scopeName": "documentation.injection.jai",
+  "injectTo": [
+    "source.jai"
+  ],
+  "injectionSelector": "L:meta.comment-run.jai - markup.fenced_code.block.jai, L:comment.line.double-slash.jai - markup.fenced_code.block.jai, L:comment.block.jai - markup.fenced_code.block.jai",
+  "patterns": [
+    {
+      "include": "#line-fence"
+    },
+    {
+      "include": "#block-fence"
+    },
+    {
+      "include": "#line-heading"
+    },
+    {
+      "include": "#line-bullet"
+    },
+    {
+      "include": "#block-heading"
+    },
+    {
+      "include": "#block-bullet"
+    },
+    {
+      "include": "#inline"
+    }
+  ],
+  "repository": {
+    "line-fence": {
+      "name": "markup.fenced_code.block.jai",
+      "begin": "^(\\s*)(//)[/!]?[ ]?(`{3,}|~{3,})[ ]*(?:(jai)|)[ ]*$",
+      "beginCaptures": {
+        "0": {
+          "name": "comment.line.double-slash.jai"
+        },
+        "2": {
+          "name": "punctuation.definition.comment.jai"
+        },
+        "3": {
+          "name": "punctuation.definition.markdown.jai"
+        },
+        "4": {
+          "name": "fenced_code.block.language.jai"
+        }
+      },
+      "end": "^(?![ \\t]*//)|^(\\s*)(//)[/!]?[ ]?\\3[`~]*[ ]*$",
+      "endCaptures": {
+        "0": {
+          "name": "comment.line.double-slash.jai"
+        },
+        "2": {
+          "name": "punctuation.definition.comment.jai"
+        }
+      },
+      "patterns": [
+        {
+          "begin": "^(\\s*)(//)[/!]?[ ]?",
+          "beginCaptures": {
+            "2": {
+              "name": "comment.line.double-slash.jai punctuation.definition.comment.jai"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "source.jai"
+            }
+          ]
+        }
+      ]
+    },
+    "block-fence": {
+      "name": "markup.fenced_code.block.jai",
+      "begin": "^(\\s*(?:\\*(?!/)[ ]?)?)(`{3,}|~{3,})[ ]*(?:(jai)|)[ ]*$",
+      "beginCaptures": {
+        "2": {
+          "name": "punctuation.definition.markdown.jai"
+        },
+        "3": {
+          "name": "fenced_code.block.language.jai"
+        }
+      },
+      "end": "^(\\s*(?:\\*(?!/)[ ]?)?)\\2[`~]*[ ]*$|(?=\\*/)",
+      "patterns": [
+        {
+          "match": "^\\s*\\*(?!/)",
+          "name": "comment.block.jai punctuation.definition.comment.jai"
+        },
+        {
+          "include": "source.jai"
+        }
+      ]
+    },
+    "line-heading": {
+      "name": "comment.line.double-slash.jai",
+      "begin": "^(\\s*)(//[/!]?)(\\s{0,3})(#{1,6})(?=[ ])",
+      "beginCaptures": {
+        "2": {
+          "name": "punctuation.definition.comment.jai"
+        },
+        "4": {
+          "name": "punctuation.definition.heading.jai markup.heading.jai"
+        }
+      },
+      "contentName": "markup.heading.jai",
+      "end": "$"
+    },
+    "line-bullet": {
+      "name": "comment.line.double-slash.jai",
+      "begin": "^(\\s*)(//[/!]?)(\\s{0,8})([-*+]|\\d+[.)])(?=[ ])",
+      "beginCaptures": {
+        "2": {
+          "name": "punctuation.definition.comment.jai"
+        },
+        "4": {
+          "name": "punctuation.definition.list.begin.markdown.jai markup.list.unnumbered.jai"
+        }
+      },
+      "end": "$"
+    },
+    "block-heading": {
+      "match": "^(\\s*\\*?[ ]?)((#{1,6})[ ].*)$",
+      "captures": {
+        "2": {
+          "name": "markup.heading.jai"
+        },
+        "3": {
+          "name": "punctuation.definition.heading.jai"
+        }
+      }
+    },
+    "block-bullet": {
+      "match": "^(\\s*\\*?[ ]?)([-*+]|\\d+[.)])(?=[ ])",
+      "captures": {
+        "2": {
+          "name": "punctuation.definition.list.begin.markdown.jai markup.list.unnumbered.jai"
+        }
+      }
+    },
+    "inline": {
+      "patterns": [
+        {
+          "name": "markup.inline.raw.string.jai",
+          "match": "(?<!`)(`+)(?!`)(.+?)(?<!`)(\\1)(?!`)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.raw.jai"
+            },
+            "3": {
+              "name": "punctuation.definition.raw.jai"
+            }
+          }
+        },
+        {
+          "name": "markup.bold.jai",
+          "match": "(?<![\\w\\\\])(\\*\\*)(?=\\S)(.+?)(?<=\\S)(\\*\\*)(?!\\w)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.bold.jai"
+            },
+            "3": {
+              "name": "punctuation.definition.bold.jai"
+            }
+          }
+        },
+        {
+          "name": "markup.italic.jai",
+          "match": "(?<![\\w*\\\\])(\\*)(?![\\s*])([^*]+?)(?<![\\s\\\\])(\\*)(?![\\w*])",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.italic.jai"
+            },
+            "3": {
+              "name": "punctuation.definition.italic.jai"
+            }
+          }
+        },
+        {
+          "name": "markup.italic.jai",
+          "match": "(?<![\\w\\\\])(_)(?![\\s_])([^_]+?)(?<![\\s\\\\])(_)(?!\\w)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.italic.jai"
+            },
+            "3": {
+              "name": "punctuation.definition.italic.jai"
+            }
+          }
+        },
+        {
+          "match": "(?<![\\w\\]\\)])(\\[)([^\\[\\]]+)(\\])(\\()([^)\\s]*)(\\))",
+          "captures": {
+            "2": {
+              "name": "markup.underline.link.jai"
+            },
+            "5": {
+              "name": "markup.underline.link.jai"
+            }
+          }
+        },
+        {
+          "match": "(?<![\\w\\]\\)])(\\[)(`?[A-Za-z_][\\w.]*(?:\\(\\))?`?)(\\])(?![\\[(])",
+          "captures": {
+            "2": {
+              "name": "markup.underline.link.jai"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

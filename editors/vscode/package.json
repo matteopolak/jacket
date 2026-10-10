@@ -116,6 +116,13 @@
         }
       },
       {
+        "scopeName": "documentation.injection.jai",
+        "path": "./syntaxes/jai-doc-comments.tmLanguage.json",
+        "injectTo": [
+          "source.jai"
+        ]
+      },
+      {
         "language": "toml",
         "scopeName": "source.toml.jai-settings",
         "path": "./syntaxes/toml.tmLanguage.json"

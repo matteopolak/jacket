@@ -78,16 +78,29 @@
           "include": "#block-comment"
         },
         {
-          "name": "comment.line.double-slash.jai",
-          "begin": "//",
-          "beginCaptures": {
-            "0": {
-              "name": "punctuation.definition.comment.jai"
+          "name": "meta.comment-run.jai",
+          "begin": "^(?=[ \\t]*//)",
+          "end": "^(?![ \\t]*//)",
+          "patterns": [
+            {
+              "include": "#line-comment"
             }
-          },
-          "end": "$"
+          ]
+        },
+        {
+          "include": "#line-comment"
         }
       ]
+    },
+    "line-comment": {
+      "name": "comment.line.double-slash.jai",
+      "begin": "//",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.comment.jai"
+        }
+      },
+      "end": "$"
     },
     "block-comment": {
       "name": "comment.block.jai",
