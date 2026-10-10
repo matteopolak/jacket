@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-09
+
+Programs built from source behave as they should: Focus takes keyboard input and its open-file dialog no longer aborts, a GetRect subwindow's close button closes it, and type info reports `#no_padding`, all-uninitialized structs and notes on struct constants.
+
 - `#add_context name :: proc;` appears in `type_info(type_of(context)).members` with the `CONSTANT` flag even when nothing had used the procedure yet, so a `#run` that detects a context hook by name sees it. Focus built from source now installs its macOS app delegate, becomes a foreground app and receives keyboard input.
 - `array_view(array, index, count)` with a `count` past the end returns the elements that exist instead of failing an assertion, so Focus's open-file dialog no longer aborts when the list is shorter than the window.
 - A GetRect subwindow's close button closes it: the title bar no longer takes the click to start a drag first.

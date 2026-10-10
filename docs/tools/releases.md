@@ -28,8 +28,8 @@ To cut a release:
 3. Commit, then tag and push:
 
 ```sh
-git tag -s v0.6.1 -m 'Jai Toolchain 0.6.1'
-git push origin v0.6.1
+git tag -s v0.6.2 -m 'Jai Toolchain 0.6.2'
+git push origin v0.6.2
 ```
 
 To test the build without publishing, run the workflow by hand (Actions → release → Run workflow) with an empty tag. The archives are kept as workflow artifacts. To publish an existing tag after a fix to the workflow, run it with that tag. To rewrite a published release's notes after editing its `CHANGELOG.md` section, extract the section with the same `awk` as the `publish` job and run `gh release edit vX.Y.Z --title 'Jai Toolchain X.Y.Z' --notes-file notes.md`; the assets and tag stay as they are.
