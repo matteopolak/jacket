@@ -159,6 +159,22 @@ fn suppressions_silence_every_rule() {
 }
 
 #[test]
+fn generated_files_are_skipped_by_unused_rules() {
+    let file = repo().join("tests/lint/unused_import/generated.jai");
+    let levels: Vec<(&str, Level)> = [
+        "unused_import",
+        "unused_parameter",
+        "unused_variable",
+        "unused_result",
+    ]
+    .into_iter()
+    .map(|r| (r, Level::Warn))
+    .collect();
+    let (lints, text) = lint(&file, &levels);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
+}
+
+#[test]
 fn fixed_cases_are_clean() {
     // Applying the fixes must leave code the rule no longer fires on (and that compiles).
     let dir = repo().join("tests/lint");

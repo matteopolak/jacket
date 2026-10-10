@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Pool";
 
 main :: () {
     names := string.["a", "b"];
@@ -24,5 +25,29 @@ main :: () {
         defer i += 1;
         if names[i] == "a" continue;
         print("%\n", names[i]);
+    }
+    // A deliberate per-iteration epilogue, not cleanup.
+    level := 0;
+    while true {
+        defer level += 1;
+        if level > 2 break;
+    }
+    local := 0;
+    for 0..1 {
+        defer local += 2;
+        local += 1;
+    }
+    // Resetting a reusable pool every iteration.
+    pool: Pool;
+    for 1..2 {
+        defer reset(*pool);
+        print("%\n", it);
+    }
+    // Acquired into the outer variable inside the loop.
+    scratch: *void;
+    for names {
+        scratch = alloc(8);
+        defer free(scratch);
+        print("%\n", it);
     }
 }

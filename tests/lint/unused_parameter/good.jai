@@ -27,7 +27,25 @@ size_of_value :: (value: $T) -> s64 {
 // A stub.
 later :: (count: int) {}
 
+// Platform variants behind `#if` share one signature.
+#if OS == .WINDOWS {
+    kill_timer :: (window: int) {
+        print("windows\n");
+    }
+} else {
+    kill_timer :: (window: int) {
+        print("elsewhere\n");
+    }
+}
+
+// A variant whose twin lives in another file, which the build may not load.
+backend_step :: (count: int, scale: int) -> int {
+    return count;
+}
+
 main :: () {
+    kill_timer(1);
+    print("%\n", backend_step(1, 2));
     handler := on_event;
     handler(1, null);
     draw(1, 2);

@@ -73,6 +73,9 @@ const PURE: &[&str] = &[
 ];
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
+    if cx.generated() {
+        return;
+    }
     for p in &cx.procs {
         if !p.clean {
             continue;

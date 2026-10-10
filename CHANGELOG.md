@@ -12,6 +12,7 @@
 
 - `jailint`'s `index_only_loop` now reports loops over strings (`for i: 0..str.count-1 { cur := str[i]; }` becomes `for str`, or `for *str` when bytes are written), and its fix no longer leaves a stray `)` behind when the bound is parenthesized.
 - `jailint`'s `manual_index_counter` now reports hand-kept counters in loops over strings.
+- `jailint` false positives found by linting 39 public Jai projects: `defer_in_loop` fires only on deferred calls that release a value (`free`, `array_free`, `destroy*`, `close*`, ...), not on `defer level += 1` or `defer reset(*pool)`; `unused_parameter` skips procedures whose name is defined more than once nearby (platform variants, backends in sibling files, overloads); `self_assignment` compares what both sides resolve to, so `presentMode = presentMode;` under `using` is not reported; the `unused_*` rules skip generated files.
 
 ## [0.8.0] - 2026-10-10
 

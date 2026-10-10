@@ -16,6 +16,9 @@ use crate::{Edit, Finding, Fix};
 use jaic::ast::{DeclKind, Expr, ExprKind as E, StmtKind as S};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
+    if cx.generated() {
+        return;
+    }
     for p in &cx.procs {
         if !p.clean || p.is_macro {
             continue;

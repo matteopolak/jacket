@@ -213,6 +213,10 @@ fn count(
 }
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
+    // Generators import what their output might need.
+    if cx.generated() {
+        return;
+    }
     // A compile that stopped early (a failed `#assert`, an error) left code unchecked.
     let all_checked = cx.complete && cx.procs.iter().all(|p| p.clean || p.is_macro);
     for u in &cx.imports {
