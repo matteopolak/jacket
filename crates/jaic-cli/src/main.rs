@@ -904,6 +904,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         report: Box::new(|text| eprintln!("{text}")),
         observer: None,
     });
+    workspaces.borrow_mut().main_file = path.display().to_string();
     // `check` and `build` exit right after: tearing down the syntax trees and the program takes
     // about a tenth of a large `check`, and nothing observes it.
     let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.command != Command::Run);

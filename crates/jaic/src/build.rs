@@ -377,6 +377,9 @@ pub struct Workspaces {
     tags: HashMap<&'static str, usize>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
+    /// The absolute path of the program's first source file, when it comes from a file: the
+    /// top-level workspace's default output name and directory derive from it.
+    pub main_file: String,
 }
 
 pub type SharedWorkspaces = Rc<RefCell<Workspaces>>;
@@ -406,6 +409,7 @@ pub enum MetaOp {
     SetTypeInfoFlags,
     StructLocation,
     BasePath,
+    MainFile,
     AddLibraryDir,
     RemapImport,
     ProvideImport,
@@ -451,6 +455,7 @@ impl MetaOp {
             "__jaic_set_type_info_flags" => Self::SetTypeInfoFlags,
             "__jaic_struct_location" => Self::StructLocation,
             "__jaic_base_path" => Self::BasePath,
+            "__jaic_main_file" => Self::MainFile,
             "__jaic_add_library_dir" => Self::AddLibraryDir,
             "__jaic_workspace_remap_import" => Self::RemapImport,
             "__jaic_workspace_provide_import" => Self::ProvideImport,
@@ -498,6 +503,7 @@ impl Workspaces {
             kept: Vec::new(),
             tags: HashMap::default(),
             records: Records::default(),
+            main_file: String::new(),
         }))
     }
 
@@ -1313,6 +1319,7 @@ pub fn call(
             | MetaOp::CompilerVersion
             | MetaOp::StructLocation
             | MetaOp::BasePath
+            | MetaOp::MainFile
             | MetaOp::CodeIsNull
             | MetaOp::CodeNodes
             | MetaOp::ParseCode
@@ -1399,6 +1406,11 @@ pub fn call(
                 })
                 .unwrap_or_default();
             return_string(interp, base.as_bytes(), 0)?;
+            Ok(Rets::default())
+        }
+        MetaOp::MainFile => {
+            let file = shared.borrow().main_file.clone();
+            return_string(interp, file.as_bytes(), 0)?;
             Ok(Rets::default())
         }
         MetaOp::AddLibraryDir => {

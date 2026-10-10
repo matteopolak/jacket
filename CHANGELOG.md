@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- `get_build_options()` of the program's own workspace reports the output name (the main file's name), `output_path` (its directory, with a trailing `/`) and `intermediate_path` (`.build` beside it) before a metaprogram sets anything, so metaprograms that build paths from them (`tprint("%/%", options.output_path, options.output_executable_name)`) get real paths instead of empty strings.
 - Modules: an import argument that names no parameter of the module, or gives a bool parameter a number (or any parameter a literal of another kind), is an error instead of being ignored; a plain `#import "M"` after `#import "M"(FLAG = true)` is its own instance with the default parameters instead of silently sharing the configured one.
 - Type info: a struct declared in a procedure, a block or another struct has `status_flags.LOCAL`.
 - Type info: every procedure constant in a struct body (also polymorphic and `#expand` ones) appears in `type_info(T).members` with the `CONSTANT` flag even when nothing has used it yet, and a constant member's `offset_in_bytes` is `-1` instead of `0`.

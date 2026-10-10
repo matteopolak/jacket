@@ -92,6 +92,8 @@ Every `set_build_options` call forwards these, so a workspace built from the def
 
 `minimum_os_version` (`major.minor`) is the deployment version in a macOS target's triple, and the link adds `-mmacosx-version-min` {#bo.11}.
 
+`get_build_options()` of the program's own workspace already reports where the output goes: `output_executable_name` is the main file's stem, `output_path` its absolute directory with a trailing `/`, and `intermediate_path` is `<output_path>.build` (`derive_main_outputs` in `stdlib/Compiler/options.jai`, from the `__jaic_main_file` primitive that the command line fills in) {#bo.16}. Metaprograms build paths from these (`tprint("%/%", options.output_path, options.output_executable_name)`). `forward_options` does not send the derived `intermediate_path` back, so a round trip through `set_build_options` leaves intermediates where they were. A workspace made with `compiler_create_workspace` starts with empty names and paths.
+
 ## Support matrix
 
 The before column is jaic 0.4.1. "Silently ignored" means the value was accepted or forwarded but changed nothing, with no message.
