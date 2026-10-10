@@ -894,7 +894,19 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
             events.push(phase(PHASE_TYPECHECKED_ALL_WE_CAN));
             Ok(Stage::Checked)
         }
-        Ok(_) if lowering => compiler.finish_program().map(|()| Stage::Done),
+        Ok(_) if lowering => {
+            let finished = compiler.finish_program().map(|()| Stage::Done);
+            // Checking what nothing reaches lowered more bodies: they are reported too, as the
+            // last TYPECHECKED message.
+            if finished.is_ok() && intercepted {
+                let mut records = Records::lend(&mut shared.borrow_mut().records);
+                if let Some(message) = compiler.export_typechecked(&mut records) {
+                    events.push(record_event(EVENT_TYPECHECKED, message));
+                }
+                Records::give_back(&mut shared.borrow_mut().records, records);
+            }
+            finished
+        }
         other => other,
     };
     shared.borrow_mut().current.pop();

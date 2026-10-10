@@ -256,7 +256,8 @@ impl Compiler {
             else {
                 continue;
             };
-            let (decl, index, home) = (decl.clone(), *index, entity.home);
+            let (decl, index, home, file_private) =
+                (decl.clone(), *index, entity.home, entity.file_private);
             let scope = self.scope(entity.scope);
             if !matches!(scope.kind, ScopeKind::Module | ScopeKind::File)
                 || index >= decl.names.len()
@@ -267,7 +268,7 @@ impl Compiler {
             if self.is_system_module(module) {
                 continue;
             }
-            decls.push((id, decl, index, home));
+            decls.push((id, decl, index, home, file_private));
         }
         let mut out = Typechecked::default();
         // Bodies lowered since their header was reported.
@@ -275,7 +276,7 @@ impl Compiler {
         if decls.is_empty() && exported == 0 {
             return None;
         }
-        for (id, decl, index, home) in decls {
+        for (id, decl, index, home, file_private) in decls {
             let Ok(resolved) = self.resolve_entity(id) else {
                 continue;
             };
@@ -298,7 +299,7 @@ impl Compiler {
                     own: false,
                     out: &mut out,
                 };
-                let rec = ex.global_decl(&decl, index, &resolved);
+                let rec = ex.global_decl(&decl, index, &resolved, file_private);
                 (rec, ex.sub)
             };
             out.declarations.push((rec, sub));
@@ -2052,7 +2053,7 @@ impl Exporter<'_> {
             }
             S::AddContext(d) => {
                 let name = d.names.first().map_or(Sym::intern(""), |n| n.name);
-                let decl = self.decl(d, name, None, None, true);
+                let decl = self.decl(d, name, None, None, true, 0);
                 let mut rec = self.node(
                     "Code_Directive_Add_Context",
                     node::DIRECTIVE_ADD_CONTEXT,
@@ -2162,7 +2163,7 @@ impl Exporter<'_> {
             .c
             .as_deref()
             .and_then(|c| c.local_decl_types.get(&(d.id, 0)).copied());
-        let rec = self.decl(d, name, ty, None, true);
+        let rec = self.decl(d, name, ty, None, true, 0);
         // `x := value`: the value has the declared type (its own typing may not see locals).
         if d.ty.is_none()
             && let Some(Field::Item(Item::Ref(ty))) = self.r.field(rec, "type").cloned()
@@ -2204,7 +2205,7 @@ impl Exporter<'_> {
             Some(self.add(rec))
         };
         // Before the names are in scope: the values may mention variables they shadow.
-        let properties = self.decl(d, Sym::intern(""), None, values, false);
+        let properties = self.decl(d, Sym::intern(""), None, values, false, 0);
         let mut arguments = Vec::new();
         let mut declared = Vec::new();
         for (i, n) in d.names.iter().enumerate() {
@@ -2265,6 +2266,7 @@ impl Exporter<'_> {
         ty: Option<TypeId>,
         expression: Option<i64>,
         statement: bool,
+        extra_flags: i64,
     ) -> i64 {
         let type_inst = d.ty.as_ref().map_or(0, |t| self.type_inst(t));
         let expression = match expression {
@@ -2279,7 +2281,7 @@ impl Exporter<'_> {
         };
         let notes: Vec<&ast::Note> = d.notes.iter().collect();
         let notes = self.notes(&notes);
-        let mut flags = 0;
+        let mut flags = extra_flags;
         if d.kind == ast::DeclKind::Const {
             flags |= 0x1;
         }
@@ -2312,7 +2314,13 @@ impl Exporter<'_> {
     }
 
     /// A top-level declaration with its resolved type.
-    fn global_decl(&mut self, d: &ast::Decl, index: usize, resolved: &Resolved) -> i64 {
+    fn global_decl(
+        &mut self,
+        d: &ast::Decl,
+        index: usize,
+        resolved: &Resolved,
+        file_private: bool,
+    ) -> i64 {
         let name = d.names[index].name;
         let span = d.span;
         let (ty, expression) = match resolved {
@@ -2326,7 +2334,15 @@ impl Exporter<'_> {
                 let sig = c.signature(p, span).ok();
                 let lit = c.proc(p).lit.clone();
                 let header = self.proc(&lit, &d.notes, Some((p, sig.clone())), span);
-                (sig.map(|s| s.ty), Some(header))
+                let ty = match sig {
+                    Some(s) => Some(s.ty),
+                    // A polymorphic procedure's type shows `$` where a type variable decides.
+                    None if self.c.as_deref().is_some_and(|c| c.proc(p).is_poly) => {
+                        self.c.as_deref_mut().map(|c| c.poly_proc_type(p))
+                    }
+                    None => None,
+                };
+                (ty, Some(header))
             }
             Resolved::Const {
                 value: Value::Type(t),
@@ -2354,7 +2370,14 @@ impl Exporter<'_> {
             } => (Some(*ty), None),
             _ => (None, None),
         };
-        self.decl(d, name, ty, expression, false)
+        // IS_GLOBAL, and SCOPE_FILE below a `#scope_file`.
+        let scope = 0x100000
+            | if file_private {
+                0x80000
+            } else {
+                0
+            };
+        self.decl(d, name, ty, expression, false, scope)
     }
 
     /// An enum literal; `external_type` is its type when the declaration resolved to one.
@@ -2487,7 +2510,7 @@ impl Exporter<'_> {
                 span: param.span,
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
-            let arg = self.decl(&decl, name, ty, None, false);
+            let arg = self.decl(&decl, name, ty, None, false, 0);
             if param.variadic {
                 self.mark_varargs(arg, param.span);
             }
@@ -2529,7 +2552,7 @@ impl Exporter<'_> {
                 span: ret.span,
             };
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
-            returns.push(self.decl(&decl, name, ty, None, false));
+            returns.push(self.decl(&decl, name, ty, None, false, 0));
         }
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
         for n in decl_notes {
