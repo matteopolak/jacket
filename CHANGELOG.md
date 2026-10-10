@@ -13,6 +13,8 @@
 
 ### Fixed
 
+- The language server no longer panics resolving a completion's documentation after the file was edited (the offset recorded for the item could lie past the end of the new text or inside a character).
+- Parallel `jaic build`s into one output directory on macOS no longer fail with `cannot write ... .build/....o: no such file or directory`: one build tidying away the empty `.build/` directory raced another creating it. `.build/` now stays once created.
 - Hover rendered a `[text](name)` doc link with a stray `)` after the resolved link.
 - A `// jailint: allow(rule)` line inside a doc comment now covers the comment lines below it, not just the declaration.
 - `jailint`'s `index_only_loop` now reports loops over strings (`for i: 0..str.count-1 { cur := str[i]; }` becomes `for str`, or `for *str` when bytes are written), and its fix no longer leaves a stray `)` behind when the bound is parenthesized.

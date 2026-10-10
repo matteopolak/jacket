@@ -13,14 +13,15 @@ Recipes are thin. Each takes a few options (`just fmt --check --lang jai a.jai`,
 | `build` | `cargo build` of `jaic-cli`, `jai-language-server`, `jailint`, then `target/jaifmt` compiled by `jaic` | `--release`, `-j/--jobs` |
 | `fmt` | `jaifmt` on Jai, `cargo fmt` plus `tools/rust_item_spacing.py` on Rust | `--check`, `--lang jai\|rust\|all`, `--staged`, `-j`, paths |
 | `lint` | `jailint -D warnings` on Jai, `cargo clippy --workspace --all-targets -- -D warnings` on Rust | `--fix`, `--lang`, `--staged`, `-j`, paths |
-| `check` | `fmt --check` then `lint`, everything CI's format and lint steps run | `-j` |
+| `check` | `fmt --check`, `lint`, then `editor`: everything CI's format, lint and VS Code generated-file checks run | `-j` |
+| `editor` | `node scripts/build-grammar.ts --check` and `build-schemas.ts --check` in `editors/vscode`, so a new `jailint` rule or `Jai_Format` key cannot land with a stale grammar or schema; skipped (with a note) when node 24 is not installed | |
 | `test` | `cargo test` (CI's skips) and the `tools/` unittests | `--suite cargo\|tools\|all`, `--crate NAME`, `-j`, test-name filter |
 | `hooks` | `git config core.hooksPath .githooks` ([pre-commit hook](pre-commit-hook.md)) | |
 | `fetch-upstreams` | `tools/fetch_upstreams.py` ([upstream corpus](upstream-corpus.md)) | arguments pass through |
 | `wasm` | `tools/build_scripting_wasm.py --release` into `artifacts/wasm` | arguments pass through |
 | `vscode` | `pnpm run <script>` in `editors/vscode` (default `lint`) | script name |
 
-`fmt`, `lint`, `build` and `test` run `tools/dev.py`, which finds or builds the tools: `jaifmt` is rebuilt when `jaic` or its sources are newer, `jailint` through `cargo build -p jailint`. With no paths the whole tree is processed (the directories CI uses). Paths narrow it to files or directories. `--staged` takes the staged files from `tools/staged-files.sh`, the script the pre-commit hook also uses; clippy cannot work on single files, so for Rust it only decides whether the workspace is linted.
+`fmt`, `lint`, `build`, `editor` and `test` run `tools/dev.py`, which finds or builds the tools: `jaifmt` is rebuilt when `jaic` or its sources are newer, `jailint` through `cargo build -p jailint`. With no paths the whole tree is processed (the directories CI uses). Paths narrow it to files or directories. `--staged` takes the staged files from `tools/staged-files.sh`, the script the pre-commit hook also uses; clippy cannot work on single files, so for Rust it only decides whether the workspace is linted.
 
 `dev.py` runs on Python 3.9 (macOS `/usr/bin/python3`). `fmt --check` over all Rust runs `tools/check_rust_format.py` (which needs 3.11 for `tomllib`) when it can, and plain `cargo fmt --check` plus item spacing otherwise.
 

@@ -4,6 +4,7 @@
     python3 tools/dev.py build [--release] [-j N]
     python3 tools/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev.py lint [--fix] [--lang jai|rust|all] [--staged] [-j N] [paths...]
+    python3 tools/dev.py editor
     python3 tools/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
 
 The recipes in the Justfile are thin wrappers; this file holds the logic so that CI and a local
@@ -14,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -41,9 +43,9 @@ def target_directory() -> Path:
 TARGET = target_directory()
 
 
-def run(cmd: list[str]) -> int:
+def run(cmd: list[str], cwd: Path = ROOT) -> int:
     print("+ " + " ".join(cmd), file=sys.stderr, flush=True)
-    return subprocess.run(cmd, cwd=ROOT).returncode
+    return subprocess.run(cmd, cwd=cwd).returncode
 
 
 def cargo_build(args: list[str], jobs: str) -> int:
@@ -146,6 +148,27 @@ def cmd_lint(args) -> int:
     return int(failed)
 
 
+def cmd_editor(args) -> int:
+    """Check that the VS Code extension's generated grammar and schemas are current (needs node)."""
+    node = shutil.which("node")
+    if node is None:
+        print("node not found: skipping the VS Code grammar and schema checks (CI runs them)")
+        return 0
+    version = subprocess.run([node, "--version"], capture_output=True, text=True).stdout.strip()
+    try:
+        major = int(version.lstrip("v").split(".")[0])
+    except ValueError:
+        major = 0
+    if major < 24:
+        # The scripts are TypeScript run by node itself, which needs type stripping.
+        print(f"node {version} cannot run the .ts scripts (needs 24): skipping the VS Code checks")
+        return 0
+    failed = False
+    for script in ("build-grammar.ts", "build-schemas.ts"):
+        failed |= bool(run([node, f"scripts/{script}", "--check"], cwd=ROOT / "editors" / "vscode"))
+    return int(failed)
+
+
 def cmd_test(args) -> int:
     failed = False
     narrowed = bool(args.crate or args.filter)
@@ -168,7 +191,8 @@ def cmd_test(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, fn in (("build", cmd_build), ("fmt", cmd_fmt), ("lint", cmd_lint), ("test", cmd_test)):
+    for name, fn in (("build", cmd_build), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
+                     ("test", cmd_test)):
         p = sub.add_parser(name)
         p.set_defaults(fn=fn)
         p.add_argument("-j", "--jobs", default="3")

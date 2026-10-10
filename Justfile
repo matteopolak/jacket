@@ -39,12 +39,18 @@ fmt check="false" staged="false" lang="all" jobs=default_jobs *paths:
 lint fix="false" staged="false" lang="all" jobs=default_jobs *paths:
     {{ py }} tools/dev.py lint -j {{ jobs }} --lang {{ lang }} {{ if fix == "true" { "--fix" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
 
-# What CI's format and lint steps run: fmt --check, then lint, over everything.
+# Check that the VS Code extension's generated grammar and schemas are current (skipped without node 24).
+[group('check')]
+editor:
+    {{ py }} tools/dev.py editor
+
+# What CI's format and lint steps run: fmt --check, then lint, over everything, plus the editor checks.
 [group('check')]
 [arg("jobs", long, short="j")]
 check jobs=default_jobs:
     {{ just_executable() }} fmt --check --jobs {{ jobs }}
     {{ just_executable() }} lint --jobs {{ jobs }}
+    {{ just_executable() }} editor
 
 # Run the cargo tests (a crate and a test-name filter narrow them) and the tools/ unittests.
 [group('test')]

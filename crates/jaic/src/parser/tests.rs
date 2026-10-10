@@ -1402,9 +1402,18 @@ fn nested_assert_is_parsed_once() {
     // parsed again, so every nested `#assert(` doubled the work (15 KB took minutes).
     let n = 40;
     let nested = format!("{}x{}", "#assert(".repeat(n), ")".repeat(n));
-    parse(&format!("#assert {nested};"));
-    parse(&format!("#assert({nested}, \"message\");"));
-    assert!(!error(&format!("#assert {};", "#assert(".repeat(n))).is_empty());
+    // Forty levels of debug frames come close to the 2 MiB of a test thread (a macOS CI run
+    // died of it), so the nested parses get a thread of their own.
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(move || {
+            parse(&format!("#assert {nested};"));
+            parse(&format!("#assert({nested}, \"message\");"));
+            assert!(!error(&format!("#assert {};", "#assert(".repeat(n))).is_empty());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
     // Both forms still parse.
     parse("#assert(size_of(int) == 8, \"words\");");
     parse("#assert(f(a, b));");

@@ -1364,6 +1364,13 @@ impl LlvmBackend {
         let object = if settings.output_type == OutputType::ObjectFile {
             output.clone()
         } else if keep_objects {
+            kept_dir.join(beside(".o").file_name().unwrap_or_default())
+        } else {
+            beside(".o")
+        };
+        // Creating the object file now finds out, with the system's reason, when that place
+        // cannot be written, rather than from LLVM or the linker after code generation.
+        if keep_objects {
             std::fs::create_dir_all(&kept_dir).map_err(|e| {
                 format!(
                     "could not create the object directory `{}`: {}",
@@ -1371,19 +1378,14 @@ impl LlvmBackend {
                     jaic::io_reason(&e)
                 )
             })?;
-            kept_dir.join(beside(".o").file_name().unwrap_or_default())
-        } else {
-            beside(".o")
-        };
-        // Creating the object file now finds out, with the system's reason, when that place
-        // cannot be written, rather than from LLVM or the linker after code generation.
-        if let Err(e) = std::fs::File::create(&object) {
-            return Err(format!(
+        }
+        std::fs::File::create(&object).map_err(|e| {
+            format!(
                 "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
                 shown(&object),
                 jaic::io_reason(&e)
-            ));
-        }
+            )
+        })?;
         Ok(Prepared {
             output,
             object,
@@ -1396,7 +1398,8 @@ impl LlvmBackend {
 }
 
 /// Delete the objects an earlier build of `file_name` left in `dir` (`<name>.o`, `<name>.o.N.o`),
-/// so a build with fewer codegen units leaves none behind, and the directory if that empties it.
+/// so a build with fewer codegen units leaves none behind. The directory itself stays: concurrent
+/// builds into the same output directory share it, and removing it would race their writes.
 #[cfg(feature = "llvm")]
 fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -1416,9 +1419,6 @@ fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
         if stale {
             let _ = std::fs::remove_file(entry.path());
         }
-    }
-    if dir.file_name().is_some_and(|n| n == ".build") {
-        let _ = std::fs::remove_dir(dir);
     }
 }
 

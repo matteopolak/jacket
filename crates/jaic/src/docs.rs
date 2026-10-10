@@ -28,6 +28,13 @@ fn decoration(body: &str) -> bool {
     body.len() >= 4 && body.chars().all(|c| "/=*~#_-+".contains(c))
 }
 
+/// Whether `at` can be sliced at in `text`. Offsets come from a compile of the text as it was
+/// (completion data, an index built before an edit), so one can lie past the end or inside a
+/// character once the text has changed; every entry point answers nothing for such an offset.
+fn valid(text: &str, at: usize) -> bool {
+    text.is_char_boundary(at)
+}
+
 /// The start of the line holding `at`.
 fn line_start(text: &str, at: usize) -> usize {
     text[..at].rfind('\n').map_or(0, |n| n + 1)
@@ -171,6 +178,9 @@ fn trailing_comment(text: &str, from: usize) -> Option<(usize, String)> {
 
 /// The docs above the declaration whose line holds `at`.
 pub fn above(text: &str, at: usize) -> Option<String> {
+    if !valid(text, at) {
+        return None;
+    }
     let lines = comment_above(text, line_start(text, at));
     let doc = lines.join("\n");
     (!doc.trim().is_empty()).then_some(doc)
@@ -179,6 +189,9 @@ pub fn above(text: &str, at: usize) -> Option<String> {
 /// The `// ...` after a field, member or parameter declared at `at` (its name), if what
 /// comes before it on the line is a whole declaration rather than the start of a body.
 pub fn trailing(text: &str, at: usize) -> Option<String> {
+    if !valid(text, at) {
+        return None;
+    }
     let (comment_at, body) = trailing_comment(text, at)?;
     let code = text[at..comment_at].trim_end();
     if code.contains('{') {
@@ -194,6 +207,9 @@ pub fn trailing(text: &str, at: usize) -> Option<String> {
 /// The docs of the declaration named at `at`: the comment lines above it, else its trailing
 /// comment; for a parameter, its own comments, else its item in the procedure's docs.
 pub fn declaration(text: &str, at: usize) -> Option<String> {
+    if !valid(text, at) {
+        return None;
+    }
     if let Some(open) = enclosing_header(text, at) {
         let name = word_at(text, at)?;
         return parameter(text, open, name);
@@ -214,6 +230,9 @@ fn word_at(text: &str, at: usize) -> Option<&str> {
 /// nearest unclosed `(` before `at`, without a `{`, `}` or `;` in between, that follows `::`
 /// (or `#type`, `inline`).
 pub fn enclosing_header(text: &str, at: usize) -> Option<usize> {
+    if !valid(text, at) {
+        return None;
+    }
     const LOOKBACK_LINES: usize = 80;
     let mut depth = 0i32;
     let mut end = at;
@@ -270,6 +289,9 @@ fn parameter(text: &str, open: usize, name: &str) -> Option<String> {
 /// comments (above it, or after it on its line) and from the list in the docs above the
 /// header, as (name, docs). Own comments win.
 pub fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
+    if !valid(text, open) {
+        return Vec::new();
+    }
     let mut found = header_parameters(text, open);
     if let Some(doc) = above(text, open) {
         for (name, doc) in list_parameters(&doc) {
@@ -284,6 +306,9 @@ pub fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
 /// Where the parameter list of the procedure declared at `at` (its name, or its literal)
 /// opens: the first `(` from there.
 pub fn header_open(text: &str, at: usize) -> Option<usize> {
+    if !valid(text, at) {
+        return None;
+    }
     let end = text.get(at..)?.find('\n').map_or(text.len(), |n| at + n);
     text[at..end].find('(').map(|n| at + n)
 }
@@ -760,6 +785,9 @@ pub fn sites(text: &str) -> Vec<Site> {
 
 /// The site whose label holds `byte`.
 pub fn site_at(text: &str, byte: usize) -> Option<Site> {
+    if !valid(text, byte) {
+        return None;
+    }
     // Only a comment can hold a link: skip the scan for other lines.
     let start = line_start(text, byte);
     let end = text[byte..].find('\n').map_or(text.len(), |n| byte + n);
@@ -905,6 +933,9 @@ pub fn declaration_line(line: &str) -> bool {
 /// A declaration's first line as a signature to show: from `at` to the `{` or the end of the
 /// line, bounded.
 pub fn signature_line(text: &str, at: usize) -> String {
+    if !valid(text, at) {
+        return String::new();
+    }
     let start = line_start(text, at);
     let end = text[at..].find('\n').map_or(text.len(), |n| at + n);
     let line = text[start..end].trim();
@@ -1071,6 +1102,24 @@ g :: (
         // Above a statement, then above an enum member.
         assert!(!found[found.len() - 2].2);
         assert!(found[found.len() - 1].2);
+    }
+
+    #[test]
+    fn stale_offsets_answer_nothing() {
+        // Completion data and indexes carry offsets from before an edit: past the end of the text
+        // now, or inside a multibyte character.
+        let text = "// docs\nf :: (a: int) {}\n\u{e9}";
+        let inside = text.len() - 1;
+        for at in [text.len() + 100, inside] {
+            assert_eq!(declaration(text, at), None);
+            assert_eq!(above(text, at), None);
+            assert_eq!(trailing(text, at), None);
+            assert_eq!(enclosing_header(text, at), None);
+            assert_eq!(header_open(text, at), None);
+            assert!(parameters(text, at).is_empty());
+            assert!(site_at(text, at).is_none());
+            assert!(signature_line(text, at).is_empty());
+        }
     }
 
     #[test]
