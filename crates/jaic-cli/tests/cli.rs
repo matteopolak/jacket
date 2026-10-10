@@ -809,8 +809,13 @@ fn unsupported_compiler_requests_are_errors() {
         ),
         (
             "table",
-            "get_type_table(w);",
+            "get_runtime_info(w);",
             "get_runtime_info: jaic has the type table of the running program only",
+        ),
+        (
+            "table-new",
+            "get_type_table(w);",
+            "get_type_table: that workspace has nothing compiled yet",
         ),
         (
             "link",

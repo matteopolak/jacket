@@ -115,6 +115,9 @@ impl Compiler {
         if self.context_type.is_some() {
             self.enable_stack_traces(span);
         }
+        if !nested && self.reaches_type_table(id) {
+            self.refresh_type_table();
+        }
         self.interp.compile_time = true;
         let outer = self.interp.run_effects.replace(self.interp.effects);
         // Typed exports belong to this run (a nested one keeps the outer run's aside).

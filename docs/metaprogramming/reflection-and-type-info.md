@@ -21,7 +21,7 @@ The struct line {#reflect.5} and the pointer tag {#reflect.6} show the commented
 
 Struct descriptors carry `members` (name, `offset_in_bytes`, `type`) {#reflect.7}, `textual_flags`, `polymorph_source_struct` and, for polymorphic instances, `specified_parameters` (`poly_struct_info`) {#reflect.8}. Tagged unions are flattened: the tag, then each variant at its offset, with `UNION | UNION_IS_TAGGED` and `tagged_union_bindings` {#reflect.9}.
 
-`get_runtime_info()` returns the `__runtime_info` global, whose `type_table: [] *Type_Info` lists every descriptor {#reflect.10}; it is filled once every global and descriptor exists {#reflect.11}. See [compile-time values](compile-time-data-and-state.md#runtime-info).
+`get_runtime_info()` returns the `__runtime_info` global, whose `type_table: [] *Type_Info` lists every descriptor {#reflect.10}; it is filled once every global and descriptor exists {#reflect.11}. At compile time `get_type_table()` is a snapshot of every declared type instead (see [the Compiler module](compiler-module.md)). See [compile-time values](compile-time-data-and-state.md#runtime-info).
 
 Metaprograms see a target workspace's types through exported records, not these globals; see [compiler records](compiler-records.md).
 

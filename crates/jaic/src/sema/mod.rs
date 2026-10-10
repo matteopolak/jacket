@@ -398,6 +398,13 @@ pub struct Compiler {
     /// Type_Info globals whose descriptor could not be built yet (`type_info_global`).
     failed_type_infos: HashMap<TypeId, ir::GlobalId>,
     /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
+    /// Descriptors only a compile-time `get_type_table()` made (kept out of the runtime table
+    /// until real code asks for them), the table's state when it was last built, and the
+    /// `__jaic_type_table` primitive once the program references it.
+    snapshot_infos: HashSet<TypeId>,
+    in_snapshot: bool,
+    snapshot_key: (usize, usize, usize),
+    type_table_func: Option<ir::FuncId>,
     pub type_info_flags: HashMap<TypeId, u32>,
     /// String literal globals, deduplicated.
     pub strings: HashMap<Rc<[u8]>, ir::GlobalId>,
@@ -592,6 +599,10 @@ impl Compiler {
             type_infos: HashMap::default(),
             failed_type_infos: HashMap::default(),
             type_info_flags: HashMap::default(),
+            snapshot_infos: HashSet::default(),
+            in_snapshot: false,
+            snapshot_key: (usize::MAX, 0, 0),
+            type_table_func: None,
             strings: HashMap::default(),
             packs: HashMap::default(),
             output: Vec::new(),

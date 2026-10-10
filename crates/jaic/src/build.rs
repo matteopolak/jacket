@@ -363,6 +363,8 @@ const PHASE_READY_FOR_CUSTOM_LINK_COMMAND: i64 = 5;
 /// The workspace registry of one top-level compilation.
 pub struct Workspaces {
     env: BuildEnv,
+    /// Some compile-time code can ask for a type table (`get_type_table`).
+    type_table_used: bool,
     /// Index = workspace id; 0 and 1 are unused (`jai` reserves workspace 1, so the top-level
     /// program is workspace 2 and the first created workspace is 3).
     list: Vec<Workspace>,
@@ -410,6 +412,7 @@ pub enum MetaOp {
     StructLocation,
     BasePath,
     MainFile,
+    TypeTable,
     AddLibraryDir,
     RemapImport,
     ProvideImport,
@@ -456,6 +459,7 @@ impl MetaOp {
             "__jaic_struct_location" => Self::StructLocation,
             "__jaic_base_path" => Self::BasePath,
             "__jaic_main_file" => Self::MainFile,
+            "__jaic_type_table" => Self::TypeTable,
             "__jaic_add_library_dir" => Self::AddLibraryDir,
             "__jaic_workspace_remap_import" => Self::RemapImport,
             "__jaic_workspace_provide_import" => Self::ProvideImport,
@@ -486,12 +490,20 @@ pub const COMPILER_VERSION: &str = "the, jaic";
 
 impl Workspaces {
     /// A registry whose workspace 1 is the top-level program.
+    /// Compile-time code that can call `get_type_table` exists (see `type_table_used`).
+    pub fn note_type_table_used(shared: &SharedWorkspaces) {
+        if let Ok(mut reg) = shared.try_borrow_mut() {
+            reg.type_table_used = true;
+        }
+    }
+
     pub fn new(env: BuildEnv) -> SharedWorkspaces {
         let mut top = Workspace::new("Target Program".into());
         // The embedder compiles the top-level program itself.
         top.stage = Stage::Checked;
         Rc::new(RefCell::new(Workspaces {
             env,
+            type_table_used: false,
             list: vec![
                 Workspace::new(String::new()),
                 Workspace::new(String::new()),
@@ -988,6 +1000,9 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     file_events.extend(events);
     {
         let mut reg = shared.borrow_mut();
+        // A metaprogram that asks for type tables may ask after `COMPLETE`: a finished
+        // workspace keeps its compiler then, unless an observer takes it.
+        let keep = reg.type_table_used && reg.env.observer.is_none();
         let ws = reg.ws(id)?;
         ws.events.extend(file_events);
         ws.failed |= failed;
@@ -1002,7 +1017,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
             });
             return Ok(());
         }
-        if next != Stage::Done {
+        if next != Stage::Done || keep {
             ws.compiler = Some(compiler);
             return Ok(());
         }
@@ -1320,6 +1335,7 @@ pub fn call(
             | MetaOp::StructLocation
             | MetaOp::BasePath
             | MetaOp::MainFile
+            | MetaOp::TypeTable
             | MetaOp::CodeIsNull
             | MetaOp::CodeNodes
             | MetaOp::ParseCode
@@ -1369,6 +1385,31 @@ pub fn call(
                 return Err(trap("compiler_set_type_info_flags: not a type".into()));
             };
             interp.pending_type_flags.push((global, arg(1) as u32));
+            Ok(Rets::default())
+        }
+        MetaOp::TypeTable => {
+            // (workspace, out table): the descriptors of every type of the workspace's program
+            // so far. The running workspace's table was made when its compile-time run began;
+            // another workspace's compiler is between steps, so it makes one now.
+            let id = arg(0) as i64;
+            let current = shared.borrow().current_id();
+            let (table, count) = if id < 0 || id == current {
+                interp.ct_type_table
+            } else {
+                let taken = shared.borrow_mut().ws(id).map_err(trap)?.compiler.take();
+                let Some(mut compiler) = taken else {
+                    return Err(trap(
+                        "get_type_table: that workspace has nothing compiled yet".into(),
+                    ));
+                };
+                shared.borrow_mut().current.push(id);
+                compiler.refresh_type_table();
+                shared.borrow_mut().current.pop();
+                let found = compiler.interp.ct_type_table;
+                shared.borrow_mut().ws(id).map_err(trap)?.compiler = Some(compiler);
+                found
+            };
+            store_pair(interp, arg(1), count, table)?;
             Ok(Rets::default())
         }
         MetaOp::StructLocation => {

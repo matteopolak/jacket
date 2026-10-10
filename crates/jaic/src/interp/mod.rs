@@ -494,6 +494,10 @@ pub struct Interp {
     /// `run_arguments` as a Windows command line, made on the first query and kept for the
     /// rest of the process, as the OS keeps its own.
     run_command_line: Option<u64>,
+    /// The table `get_type_table()` gives compile-time code: address and count of descriptor
+    /// pointers, in a vector kept in `ct_type_tables` (earlier ones stay for runs still using them).
+    pub ct_type_table: (u64, u64),
+    pub ct_type_tables: Vec<Vec<u64>>,
     /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
     pub pending_type_flags: Vec<(GlobalId, u32)>,
     /// Declaration of each struct whose descriptor exists: file path, line, column
@@ -647,6 +651,8 @@ impl Interp {
             run_executable: None,
             run_arguments: Vec::new(),
             run_command_line: None,
+            ct_type_table: (0, 0),
+            ct_type_tables: Vec::new(),
             pending_type_flags: Vec::new(),
             struct_locations: std::collections::HashMap::new(),
             workspaces: None,

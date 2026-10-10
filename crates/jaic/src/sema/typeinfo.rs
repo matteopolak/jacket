@@ -59,6 +59,9 @@ impl Compiler {
 
     pub fn type_info_global(&mut self, ty: TypeId, span: Span) -> Result<ir::GlobalId> {
         if let Some(&g) = self.type_infos.get(&ty) {
+            if !self.in_snapshot {
+                self.snapshot_infos.remove(&ty);
+            }
             return Ok(g);
         }
         let desc = self.type_info_struct_type(ty, span)?;

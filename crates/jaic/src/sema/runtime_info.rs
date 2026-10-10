@@ -9,6 +9,8 @@
 //! u64; segment_info: [] Global_Data_Segment_Info; }`,
 //! `Global_Data_Segment_Info { segment_tag: u16; data: [] u8; }`.
 use super::*;
+use crate::types::{LayoutState, TypeKind};
+use scope::{EntityKind, Resolved, ScopeKind};
 
 const SEGMENT_DATA: u16 = 1;
 const SEGMENT_RDATA: u16 = 2;
@@ -83,8 +85,12 @@ impl Compiler {
             .map(|(i, g)| (ir::GlobalId(i as u32), g.size, g.read_only))
             .collect();
 
-        let mut types: Vec<(TypeId, ir::GlobalId)> =
-            self.type_infos.iter().map(|(&t, &g)| (t, g)).collect();
+        let mut types: Vec<(TypeId, ir::GlobalId)> = self
+            .type_infos
+            .iter()
+            .filter(|(t, _)| !self.snapshot_infos.contains(t))
+            .map(|(&t, &g)| (t, g))
+            .collect();
         types.sort_by_key(|&(t, _)| t);
         let table_relocs = (0..types.len())
             .map(|i| reloc(i as u64 * 8, types[i].1))
@@ -130,5 +136,146 @@ impl Compiler {
         let g = &mut self.program.globals[info.0 as usize];
         g.init = bytes;
         g.relocs = vec![reloc(8, table), reloc(16, gdi)];
+    }
+
+    /// Whether the compile-time function `root` can reach the `get_type_table` primitive
+    /// through direct calls (bodies not lowered yet count as not reaching).
+    pub(super) fn reaches_type_table(&self, root: ir::FuncId) -> bool {
+        let Some(target) = self.type_table_func else {
+            return false;
+        };
+        let mut seen = HashSet::default();
+        let mut work = vec![root];
+        while let Some(f) = work.pop() {
+            if f == target {
+                return true;
+            }
+            if !seen.insert(f) {
+                continue;
+            }
+            let Some(Some(func)) = self.program.funcs.get(f.0 as usize) else {
+                continue;
+            };
+            for inst in func.blocks.iter().flat_map(|b| &b.insts) {
+                if let ir::Inst::Call(call) = inst
+                    && let ir::Callee::Func(callee) = call.callee
+                {
+                    work.push(callee);
+                }
+            }
+        }
+        false
+    }
+
+    /// Build the table `get_type_table()` returns to compile-time code: a descriptor for every
+    /// type declared or used so far, used or not. Declared structs and enums are resolved
+    /// here (a declaration that cannot be yet is left out and tried again at the next
+    /// snapshot), and the result is the descriptor addresses in memory the interpreter keeps
+    /// for as long as it lives. Cheap when nothing changed since the last call.
+    pub fn refresh_type_table(&mut self) {
+        let key = (
+            self.entities.len(),
+            self.types.count(),
+            self.type_infos.len(),
+        );
+        if key == self.snapshot_key {
+            return;
+        }
+        let span = Span::NONE;
+        self.resolve_declared_types();
+        let before: HashSet<TypeId> = self.type_infos.keys().copied().collect();
+        self.in_snapshot = true;
+        let mut index = 0;
+        while index < self.types.count() {
+            let ty = TypeId(index as u32);
+            index += 1;
+            if !self.describable_now(ty) {
+                continue;
+            }
+            // A descriptor that cannot be built yet is left out.
+            let _ = self.type_info_global(ty, span);
+        }
+        self.in_snapshot = false;
+        for &ty in self.type_infos.keys() {
+            if !before.contains(&ty) {
+                self.snapshot_infos.insert(ty);
+            }
+        }
+        let mut entries: Vec<(TypeId, ir::GlobalId)> =
+            self.type_infos.iter().map(|(&t, &g)| (t, g)).collect();
+        entries.sort_by_key(|&(t, _)| t);
+        let mut table = Vec::with_capacity(entries.len());
+        for (_, g) in entries {
+            if let Ok(addr) = self.interp.global_addr(&self.program, g) {
+                table.push(addr);
+            }
+        }
+        self.interp.ct_type_tables.push(table);
+        let table = self.interp.ct_type_tables.last().unwrap();
+        self.interp.ct_type_table = (table.as_ptr() as u64, table.len() as u64);
+        self.snapshot_key = (
+            self.entities.len(),
+            self.types.count(),
+            self.type_infos.len(),
+        );
+    }
+
+    /// Resolve the plain structs and enums declared at file, module and root level, so their
+    /// types exist even when nothing named them yet.
+    fn resolve_declared_types(&mut self) {
+        let mut index = 0;
+        while index < self.entities.len() {
+            let id = EntityId(index as u32);
+            index += 1;
+            let e = self.entity(id);
+            if !matches!(
+                self.scope(e.scope).kind,
+                ScopeKind::Module | ScopeKind::File | ScopeKind::Root
+            ) {
+                continue;
+            }
+            let EntityKind::Decl {
+                decl, ..
+            } = &e.kind
+            else {
+                continue;
+            };
+            let plain = decl.kind == ast::DeclKind::Const
+                && match decl.value.as_ref().map(|v| &v.kind) {
+                    Some(ast::ExprKind::Struct(lit)) => lit.params.is_empty(),
+                    Some(ast::ExprKind::Enum(_)) => true,
+                    _ => false,
+                };
+            if !plain {
+                continue;
+            }
+            let span = e.span;
+            if let Ok(Resolved::Const {
+                value: Value::Type(t),
+                ..
+            }) = self.resolve_entity(id)
+                && let TypeKind::Struct(s) = self.types.kind(t).clone()
+            {
+                let _ = self.layout_struct(s, span);
+            }
+        }
+    }
+
+    /// A type the table can describe without resolving anything further: not a template or
+    /// compile-time-only entity, and a struct only once it is laid out.
+    fn describable_now(&self, ty: TypeId) -> bool {
+        match self.types.kind(ty) {
+            TypeKind::Struct(s) => self.types.struct_info(*s).layout == LayoutState::Done,
+            TypeKind::Null
+            | TypeKind::CompileTimeOnly
+            | TypeKind::PolyParam
+            | TypeKind::PolyStruct {
+                ..
+            }
+            | TypeKind::Type
+            | TypeKind::Any
+            | TypeKind::Code => false,
+            _ => true,
+        }
     }
 }
