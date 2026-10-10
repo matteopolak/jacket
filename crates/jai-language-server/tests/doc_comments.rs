@@ -377,3 +377,140 @@ fn resolved_links_are_semantic_tokens() {
         jai_language_server::SemanticTokenKind::EnumMember
     );
 }
+
+const STRUCT_MEMBERS: &str = r#"#import "Basic";
+
+Outer :: struct {
+    SIDES :: 4;
+    Inner :: struct {
+        DEPTH :: 2;
+    }
+    area :: (o: Outer) -> int { return o.count * SIDES; }
+    count: int;
+}
+
+// Counts [Outer.SIDES] with [Outer.area()], inside [Outer.Inner], see [`Outer.Inner.DEPTH`],
+// [Outer.count] and [Outer.missing] and [Outer.Inner.nothing].
+walk :: () {}
+
+main :: () {
+    walk();
+    o: Outer;
+    print("%\n", Outer.area(o));
+}
+"#;
+
+fn open_with(text: &str) -> Session {
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    s
+}
+
+#[test]
+fn struct_constants_procedures_and_types_resolve_in_links() {
+    let s = open_with(STRUCT_MEMBERS);
+    let line_of_definition = |at: Position| {
+        let found = s.definition(&uri(), at).unwrap();
+        assert_eq!(found.len(), 1, "{found:?}");
+        found[0].range.start.line as usize + 1
+    };
+    assert_eq!(
+        line_of_definition(after(STRUCT_MEMBERS, "[Outer.SIDES", 0, 3)),
+        line_of(STRUCT_MEMBERS, "SIDES ::")
+    );
+    assert_eq!(
+        line_of_definition(after(STRUCT_MEMBERS, "[Outer.area", 0, 2)),
+        line_of(STRUCT_MEMBERS, "area ::")
+    );
+    assert_eq!(
+        line_of_definition(after(STRUCT_MEMBERS, "[Outer.Inner]", 0, 4)),
+        line_of(STRUCT_MEMBERS, "Inner ::")
+    );
+    // A constant of a type nested in the struct, written in code quotes.
+    assert_eq!(
+        line_of_definition(after(STRUCT_MEMBERS, "Outer.Inner.DEPTH", 0, 2)),
+        line_of(STRUCT_MEMBERS, "DEPTH ::")
+    );
+    // Fields still work next to them.
+    assert_eq!(
+        line_of_definition(after(STRUCT_MEMBERS, "[Outer.count", 0, 2)),
+        line_of(STRUCT_MEMBERS, "count: int")
+    );
+    // What is not declared in the struct is not found.
+    assert!(
+        s.definition(&uri(), after(STRUCT_MEMBERS, "[Outer.missing", 0, 2))
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        s.definition(&uri(), after(STRUCT_MEMBERS, "Inner.nothing", 0, 2))
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn struct_constant_links_are_document_links_hovers_and_tokens() {
+    let s = open_with(STRUCT_MEMBERS);
+    let links = s.document_links(&uri()).unwrap();
+    let walk_line = line_of(STRUCT_MEMBERS, "Counts");
+    let targets: Vec<&str> = links
+        .iter()
+        .filter(|(r, _)| r.start.line as usize + 1 == walk_line)
+        .map(|(_, t)| t.as_str())
+        .collect();
+    for marker in ["SIDES ::", "area ::", "Inner ::", "DEPTH ::"] {
+        let want = format!(
+            "file:///lsp-doc-test/main.jai#L{}",
+            line_of(STRUCT_MEMBERS, marker)
+        );
+        assert!(targets.contains(&want.as_str()), "{marker}: {targets:?}");
+    }
+    let hover = markdown_hover(&s, after(STRUCT_MEMBERS, "[Outer.SIDES", 0, 3));
+    assert!(hover.contains("SIDES :: 4"), "{hover}");
+    let tokens = s.semantic_tokens(&uri()).unwrap();
+    let line = (walk_line - 1) as u32;
+    let kinds: Vec<_> = tokens
+        .iter()
+        .filter(|t| t.position.line == line)
+        .map(|t| t.kind)
+        .collect();
+    use jai_language_server::SemanticTokenKind as K;
+    assert_eq!(
+        kinds,
+        [K::Variable, K::Function, K::Type, K::Variable],
+        "{kinds:?}"
+    );
+}
+
+#[test]
+fn module_qualified_struct_constants_resolve() {
+    let dir = std::env::temp_dir().join(format!("jai-doc-links-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let module = dir.join("shapes.jai");
+    std::fs::write(
+        &module,
+        "Square :: struct {\n    SIDES :: 4;\n    side: int;\n}\nmake :: () -> Square { return .{}; }\n",
+    )
+    .unwrap();
+    let text = format!(
+        "Shapes :: #import,file \"{}\";\n\n// Uses [Shapes.Square.SIDES] and [Shapes.Square.side] and [Shapes.Square.nothing].\nf :: () {{ s := Shapes.make(); }}\n",
+        module.display()
+    );
+    let s = open_with(&text);
+    let found = s
+        .definition(&uri(), after(&text, "[Shapes.Square.SIDES", 0, 2))
+        .unwrap();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].range.start.line, 1);
+    let field = s
+        .definition(&uri(), after(&text, "[Shapes.Square.side", 0, 2))
+        .unwrap();
+    assert_eq!(field[0].range.start.line, 2);
+    assert!(
+        s.definition(&uri(), after(&text, "Square.nothing", 0, 2))
+            .unwrap()
+            .is_empty()
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

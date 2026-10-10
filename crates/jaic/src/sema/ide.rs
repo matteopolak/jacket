@@ -1143,7 +1143,11 @@ impl Compiler {
             match self.ide_receiver(scope, first) {
                 Some(IdeReceiver::Module(m)) => self.module_lookup(m, *last).ok(),
                 Some(IdeReceiver::Type(t) | IdeReceiver::Value(t)) => {
-                    return self.ide_member_decl(t, *last).into_iter().collect();
+                    let member = self.ide_member_decl(t, *last);
+                    if member.is_some() {
+                        return member.into_iter().collect();
+                    }
+                    return self.ide_struct_scope_decls(t, *last);
                 }
                 None => None,
             }
@@ -1156,6 +1160,39 @@ impl Compiler {
             .map(|id| (self.entity(id).span, last.to_string()))
             .collect();
         self.ide_narrow_decls(spans)
+    }
+
+    /// What `name` is inside the struct `t`: constants, procedures and types declared in its
+    /// body (`Type :: struct { CONST :: 3; }` is `Type.CONST`).
+    fn ide_struct_scope_decls(&self, t: TypeId, name: Sym) -> Vec<Span> {
+        let t = self.ide_deref(t);
+        let spans = self
+            .struct_scope_entities(t, name)
+            .into_iter()
+            .map(|id| (self.entity(id).span, name.to_string()))
+            .collect();
+        self.ide_narrow_decls(spans)
+    }
+
+    /// The entities named `name` in the scopes of the struct `t` (a polymorphic struct has one
+    /// per instance; they all declare the same names).
+    fn struct_scope_entities(&self, t: TypeId, name: Sym) -> Vec<EntityId> {
+        let mut out: Vec<EntityId> = Vec::new();
+        for i in 0..self.scopes.len() {
+            let s = ScopeId(i as u32);
+            if self.scope(s).kind != ScopeKind::Struct(t) {
+                continue;
+            }
+            if let Some(ids) = self.scope(s).names.get(&name) {
+                out.extend(ids.iter().copied().filter(|&id| {
+                    matches!(
+                        &self.entity(id).kind,
+                        EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Const
+                    )
+                }));
+            }
+        }
+        out
     }
 
     fn ide_proc_header(&self, p: ProcId) -> String {
@@ -1495,9 +1532,16 @@ impl Compiler {
             recv = match recv {
                 IdeReceiver::Value(t) => IdeReceiver::Value(self.ide_field_type(t, *name)?),
                 IdeReceiver::Type(t) => {
+                    // A type declared in the struct (`Outer.Inner`) is the receiver; else
                     // `Enum.MEMBER.` or a struct constant: the value has the type itself.
-                    let _ = name;
-                    IdeReceiver::Value(t)
+                    let nested = self
+                        .struct_scope_entities(self.ide_deref(t), *name)
+                        .first()
+                        .and_then(|&id| self.ide_entity_receiver(id));
+                    match nested {
+                        Some(r @ IdeReceiver::Type(_)) => r,
+                        _ => IdeReceiver::Value(t),
+                    }
                 }
                 IdeReceiver::Module(m) => match self.module_lookup(m, *name).ok()? {
                     Found::Entities(ids) => self.ide_entity_receiver(*ids.first()?)?,
