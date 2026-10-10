@@ -2,6 +2,8 @@
 mod analysis;
 mod asm;
 mod auto_import;
+mod doc_view;
+mod docs;
 mod document;
 mod exports;
 pub(crate) mod features;
@@ -27,11 +29,11 @@ mod session;
 
 pub use document::{DocumentUri, TextChange, VirtualSources};
 pub use model::{
-    CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionItem,
-    CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentSymbol,
-    Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Location, MarkupContent, MarkupKind,
-    SelectionRange, SemanticToken, SemanticTokenKind, SignatureHelp, SignatureInformation,
-    SymbolInformation, SymbolKind, TextEdit,
+    CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionData,
+    CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
+    DocumentSymbol, Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Location,
+    MarkupContent, MarkupKind, SelectionRange, SemanticToken, SemanticTokenKind, SignatureHelp,
+    SignatureInformation, SymbolInformation, SymbolKind, TextEdit,
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId, message_too_large};

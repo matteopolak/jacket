@@ -27,6 +27,7 @@ From a checkout: `cargo build -p jai-language-server --release --locked` (the bi
 Everything below is in the [feature list](../../docs/compiler/language-server.md#feature-list) with the LSP method behind it.
 
 - **Diagnostics:** syntax errors, the type checker's errors (several per file, also in code nothing calls), and [jailint](../jailint/README.md)'s lints with quick fixes. Pull diagnostics when the client supports them, push otherwise.
+- **Doc comments:** the comment above a declaration shows as Markdown in hover, completion and signature help (with per-parameter docs), and `[name]` links in it resolve.
 - **Hover:** types, every overload, struct layout (size, alignment, padding, field offsets), the expansion of a macro call or `#insert`, the value of a `#run`, whether an `#if` held, and the arguments of a format string.
 - **Completion:** scope-aware names, members, inferred enum members (`d: Color = .`), directives, `#load`/`#import` paths, `#asm` instructions and registers, and auto-import of names from stdlib modules, project modules and files not loaded yet (with the `#import` added for you).
 - **Navigation:** go to definition (into modules and the stdlib too), type definition, references, document highlights, document and workspace symbols, call hierarchy, document links, folding and selection ranges.

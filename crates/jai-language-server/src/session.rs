@@ -2,9 +2,9 @@ use crate::analysis::{DIRECTIVES, KEYWORDS, Span, Token, TokenKind};
 use crate::hover::{Block, HoverText, Inline};
 use crate::semantic::{self, Environment};
 use crate::{
-    CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    DocumentSymbol, DocumentUri, Error, Hover, Limits, Location, MarkupContent, MarkupKind,
-    Position, SemanticToken, SemanticTokenKind, SymbolKind, TextChange, VirtualSources,
+    CompletionData, CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode,
+    DiagnosticSeverity, DocumentSymbol, DocumentUri, Error, Hover, Limits, Location, MarkupContent,
+    MarkupKind, Position, SemanticToken, SemanticTokenKind, SymbolKind, TextChange, VirtualSources,
     analysis::{Analysis, SymbolRow},
     position::LineIndex,
 };
@@ -45,6 +45,10 @@ pub struct Session {
 
 /// The open files, the root file and the module folders of a compile.
 type CompileInputs = (BTreeMap<PathBuf, Rc<[u8]>>, PathBuf, Vec<PathBuf>);
+
+/// What completion asks the type checker: the word being typed, the names it could be, and the
+/// path of each file they are declared in (by file number).
+type Completions = (String, Vec<IdeName>, BTreeMap<u32, String>);
 
 impl Session {
     pub fn new(limits: Limits) -> Self {
@@ -615,6 +619,9 @@ impl Session {
         if let Some(location) = self.link_definition(uri, byte) {
             return Ok(vec![location]);
         }
+        if let Some(locations) = self.doc_link_definition(uri, byte) {
+            return Ok(locations);
+        }
         if let Some(probe) = repair(&doc.text, None) {
             let found = self
                 .with_semantic(uri, &probe, |a, path| Some(a.definition(path, byte)))
@@ -718,31 +725,44 @@ impl Session {
         if let Some((start, end, text)) = self.asm_hover(&doc.text, byte) {
             return found(start, end, text);
         }
+        if let Some((start, end, text)) = self.doc_link_hover(uri, byte, kind) {
+            return found(start, end, text);
+        }
         let Some((_, token)) = self.word(uri, position)? else {
             return match self.expansion_hover(uri, byte) {
                 Some((start, end, text)) => found(start, end, text),
                 None => Ok(None),
             };
         };
-        if let Some((start, end, value, layout)) = self.semantic_hover(uri, &doc.text, byte) {
-            let mut text = HoverText::code(value);
-            if let Some(layout) = layout {
-                text.blocks
-                    .push(Block::Para(vec![Inline::Text(layout_line(layout))]));
-            }
+        if let Some(facts) = self.semantic_hover(uri, &doc.text, byte) {
+            let (start, end) = (facts.start, facts.end);
+            let text = self.hover_with_docs(
+                uri,
+                facts.text,
+                facts.layout.map(layout_line),
+                &facts.decls,
+                kind,
+            );
             let text = self.with_macro_expansion(uri, start, text);
             return found(start, end, text);
         }
         let rows = self.bindings(uri, position)?;
         let text = if rows.len() == 1 {
-            HoverText::new(vec![
-                Block::Code(self.source_detail(rows[0].0, rows[0].1).into()),
-                Block::Note(vec![Inline::Text(
-                    "Source syntax declaration. \
-                     Type evaluation and compile-time execution are disabled during editing."
-                        .into(),
-                )]),
-            ])
+            let mut blocks = vec![Block::Code(self.source_detail(rows[0].0, rows[0].1).into())];
+            let at = rows[0].1.selection.start;
+            if let Some(raw) = crate::docs::declaration(&self.documents[rows[0].0].text, at)
+                && let Some(doc) = self
+                    .render_docs(uri, rows[0].0.path(), at, &[raw], kind)
+                    .pop()
+            {
+                blocks.push(Block::Doc(doc));
+            }
+            blocks.push(Block::Note(vec![Inline::Text(
+                "Source syntax declaration. \
+                 Type evaluation and compile-time execution are disabled during editing."
+                    .into(),
+            )]));
+            HoverText::new(blocks)
         } else if token.kind == TokenKind::Keyword {
             HoverText::new(vec![Block::Para(vec![
                 Inline::Text("keyword ".into()),
@@ -761,12 +781,13 @@ impl Session {
         uri: &DocumentUri,
         text: &str,
         byte: usize,
-    ) -> Option<(usize, usize, String, Option<IdeLayout>)> {
+    ) -> Option<semantic::HoverFacts> {
         let probe = repair(text, None)?;
-        let (start, end, value, layout) =
-            self.with_semantic(uri, &probe, |a, path| a.hover(path, byte))?;
-        (end <= text.len() && text.is_char_boundary(start) && text.is_char_boundary(end))
-            .then_some((start, end, value, layout))
+        let facts = self.with_semantic(uri, &probe, |a, path| a.hover(path, byte))?;
+        (facts.end <= text.len()
+            && text.is_char_boundary(facts.start)
+            && text.is_char_boundary(facts.end))
+        .then_some(facts)
     }
 
     /// Completion from the type checker. The word being typed (and `a.b.` before it) is cut
@@ -776,7 +797,7 @@ impl Session {
         uri: &DocumentUri,
         text: &str,
         byte: usize,
-    ) -> Option<(String, Vec<IdeName>)> {
+    ) -> Option<Completions> {
         let bytes = text.as_bytes();
         let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80;
         let mut start = byte;
@@ -804,21 +825,24 @@ impl Session {
             }
             if s == end || bytes[s].is_ascii_digit() {
                 // `f().x`, a number: nothing to offer.
-                return Some((prefix, Vec::new()));
+                return Some((prefix, Vec::new(), BTreeMap::new()));
             }
             chain.push(&text[s..end]);
             at = s;
         }
         chain.reverse();
         // The program as last compiled knows everything before the expression being typed.
-        if let Some(names) =
-            self.with_compiled_before(uri, text, at, |a, path| a.complete(path, at, &chain))
-        {
-            return Some((prefix, names));
+        let ask = |a: &mut semantic::Analysis, path: &Path| {
+            let names = a.complete(path, at, &chain)?;
+            let files = a.decl_files(&names);
+            Some((names, files))
+        };
+        if let Some((names, files)) = self.with_compiled_before(uri, text, at, ask) {
+            return Some((prefix, names, files));
         }
         let probe = repair(&format!("{}{}", &text[..at], &text[byte..]), Some(at))?;
-        let names = self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &chain))?;
-        Some((prefix, names))
+        let (names, files) = self.with_semantic(uri, &probe, ask)?;
+        Some((prefix, names, files))
     }
 
     /// Members for `.NAME` typed with `dot` the offset of the `.`: the probe holds a
@@ -831,7 +855,7 @@ impl Session {
         byte: usize,
         dot: usize,
         prefix: String,
-    ) -> Option<(String, Vec<IdeName>)> {
+    ) -> Option<Completions> {
         const PLACEHOLDER: &str = "__jailsp_member";
         const ENDINGS: [&str; 10] = ["", ";", ")", ");", "))", ")));", "]", "];", " {}", ") {}"];
         let ident = |c: char| c.is_alphanumeric() || c == '_';
@@ -853,11 +877,15 @@ impl Session {
             if !probe.contains(PLACEHOLDER) {
                 continue;
             }
-            let names =
-                self.with_semantic(uri, &probe, |a, path| a.complete_inferred(path, dot + 1));
-            return Some((prefix, names.unwrap_or_default()));
+            let found = self.with_semantic(uri, &probe, |a, path| {
+                let names = a.complete_inferred(path, dot + 1)?;
+                let files = a.decl_files(&names);
+                Some((names, files))
+            });
+            let (names, files) = found.unwrap_or_default();
+            return Some((prefix, names, files));
         }
-        Some((prefix, Vec::new()))
+        Some((prefix, Vec::new(), BTreeMap::new()))
     }
 
     /// Inside the string of `#load "..."` (files and folders relative to the document) or
@@ -1085,7 +1113,7 @@ impl Session {
         if let Some(list) = self.path_completion(uri, &doc.text, byte) {
             return Ok(list);
         }
-        if let Some((prefix, names)) = self.semantic_completion(uri, &doc.text, byte) {
+        if let Some((prefix, names, files)) = self.semantic_completion(uri, &doc.text, byte) {
             let lower = prefix.to_lowercase();
             let mut items = BTreeMap::new();
             let mut incomplete = false;
@@ -1093,6 +1121,7 @@ impl Session {
                 name: (*k).into(),
                 kind: IdeKind::Constant,
                 detail: "keyword".into(),
+                decl: jaic::source::Span::NONE,
             });
             let member = {
                 let before = &doc.text.as_bytes()[..byte - prefix.len()];
@@ -1122,14 +1151,29 @@ impl Session {
                     IdeKind::Field => CompletionKind::Field,
                     IdeKind::EnumMember => CompletionKind::EnumMember,
                 };
+                let data = files.get(&name.decl.file.0).map(|path| CompletionData {
+                    document: uri.as_str().to_owned(),
+                    path: path.clone(),
+                    offset: name.decl.start as usize,
+                });
                 items.entry(name.name.clone()).or_insert(CompletionItem {
                     label: name.name,
                     kind,
                     detail: name.detail,
+                    data,
                     ..CompletionItem::default()
                 });
             }
             let mut items: Vec<CompletionItem> = items.into_values().collect();
+            // A short list carries its documentation; a long one waits for the client to
+            // ask about the item it highlights.
+            if items.len() <= crate::doc_view::EAGER_DOCS {
+                for item in &mut items {
+                    if let Some(data) = &item.data {
+                        item.documentation = self.completion_documentation(data);
+                    }
+                }
+            }
             if !member {
                 incomplete |= self.add_auto_imports(uri, &doc.text, &prefix, &mut items);
             }
@@ -1377,6 +1421,18 @@ impl Session {
                     };
                     pieces.push((token.span, kind, declaration, readonly || constant, expand));
                 }
+            }
+        }
+        // Links in doc comments, colored like what they name (a comment has no token of its own).
+        if self.environment.is_some() {
+            let links = self.doc_link_tokens(uri);
+            if !links.is_empty() {
+                pieces.extend(
+                    links
+                        .into_iter()
+                        .map(|(span, kind, readonly)| (span, kind, false, readonly, false)),
+                );
+                pieces.sort_by_key(|p| p.0.start);
             }
         }
         let mut output = vec![];

@@ -1,0 +1,379 @@
+//! Doc comments: hover, completion, signature help and intra-doc links, against the
+//! repository's stdlib.
+use jai_language_server::{
+    CompletionKind, DocumentUri, Environment, Limits, MarkupKind, Position, Session,
+};
+use std::path::PathBuf;
+
+fn session() -> Session {
+    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    Session::with_environment(
+        Limits::default(),
+        Environment {
+            fs: std::rc::Rc::new(jaic::sema::NativeFs),
+            options: Box::new(move |_| {
+                let mut options = jaic::sema::Options::host();
+                options.import_paths = vec![stdlib.clone()];
+                options.preload = Some(stdlib.join("prelude/module.jai"));
+                options
+            }),
+        },
+    )
+}
+
+fn uri() -> DocumentUri {
+    DocumentUri::parse("file:///lsp-doc-test/main.jai").unwrap()
+}
+
+/// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
+fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
+    let byte = text.match_indices(marker).nth(n).unwrap().0 + marker.len() - back;
+    let prefix = &text[..byte];
+    Position {
+        line: prefix.matches('\n').count() as u32,
+        character: prefix.rsplit('\n').next().unwrap().len() as u32,
+    }
+}
+
+fn markdown_hover(session: &Session, at: Position) -> String {
+    session
+        .hover_as(&uri(), at, MarkupKind::Markdown)
+        .unwrap()
+        .expect("hover")
+        .contents
+        .value
+}
+
+fn plain_hover(session: &Session, at: Position) -> String {
+    session
+        .hover(&uri(), at)
+        .unwrap()
+        .expect("hover")
+        .contents
+        .value
+}
+
+/// The 1-based line of the first line containing `marker`.
+fn line_of(text: &str, marker: &str) -> usize {
+    text.lines().position(|l| l.contains(marker)).unwrap() + 1
+}
+
+const PROGRAM: &str = r#"#import "Basic";
+
+// A point on the screen.
+//
+// ```
+// p: Point;
+// ```
+Point :: struct {
+    x: int; // Horizontal position.
+    // Vertical position, like [Point.x].
+    y: int;
+}
+
+// The ways to move.
+Mode :: enum {
+    // Do nothing.
+    IDLE;
+    RUNNING; // Keep going.
+}
+
+/// Scales a [Point] by a factor, starting from [`Mode.IDLE`].
+///
+/// - p: the point to scale
+/// - `factor` — how much to scale by
+/// - not_a_parameter: ignored
+scale :: (
+    p: Point,
+    factor: int,
+    // Printed when set.
+    verbose := false,
+) -> Point {
+    return .{ p.x * factor, p.y * factor };
+}
+
+// Adds integers.
+add :: (a: int, b: int) -> int { return a + b; }
+
+// Adds floats.
+add :: (a: float, b: float) -> float { return a + b; }
+
+/* Block docs
+ * for the runner.
+ */
+run :: () {
+    point: Point;
+    scaled := scale(point, 2);
+    sum := add(1, 2);
+    mode := Mode.IDLE;
+    print("%\n", scaled.x + sum);
+    nothing(1);
+}
+
+nothing :: (value: int) {}
+"#;
+
+fn open() -> Session {
+    let mut s = session();
+    s.open(uri(), 1, PROGRAM.into()).unwrap();
+    s
+}
+
+#[test]
+fn hover_shows_the_docs_of_procedures_structs_fields_and_members() {
+    let s = open();
+    let proc = markdown_hover(&s, after(PROGRAM, "scale(point", 0, 7));
+    assert!(proc.starts_with("```jai\nscale :: ("), "{proc}");
+    assert!(proc.contains("Scales a "), "{proc}");
+    let strukt = markdown_hover(&s, after(PROGRAM, "point: Point", 0, 3));
+    assert!(strukt.contains("A point on the screen."), "{strukt}");
+    let field = markdown_hover(&s, after(PROGRAM, "scaled.x", 0, 0));
+    assert!(field.contains("Horizontal position."), "{field}");
+    let above = markdown_hover(&s, after(PROGRAM, "p.y *", 0, 2));
+    assert!(above.contains("Vertical position"), "{above}");
+    let member = markdown_hover(&s, after(PROGRAM, "Mode.IDLE;", 0, 2));
+    assert!(member.contains("Do nothing."), "{member}");
+    let trailing = markdown_hover(&s, after(PROGRAM, "RUNNING", 0, 2));
+    assert!(trailing.contains("Keep going."), "{trailing}");
+    let block = markdown_hover(&s, after(PROGRAM, "run :: ", 0, 5));
+    assert!(block.contains("Block docs\nfor the runner."), "{block}");
+}
+
+#[test]
+fn plain_text_clients_get_the_comment_as_written() {
+    let s = open();
+    let hover = plain_hover(&s, after(PROGRAM, "point: Point", 0, 3));
+    assert!(hover.contains("A point on the screen."), "{hover}");
+    assert!(hover.contains("```\np: Point;\n```"), "{hover}");
+}
+
+#[test]
+fn untagged_fences_are_jai() {
+    let s = open();
+    let hover = markdown_hover(&s, after(PROGRAM, "point: Point", 0, 3));
+    assert!(hover.contains("```jai\np: Point;\n```"), "{hover}");
+}
+
+#[test]
+fn each_overload_shows_its_own_docs() {
+    let s = open();
+    let hover = markdown_hover(&s, after(PROGRAM, "add(1", 0, 3));
+    let ints = hover.find("Adds integers.").expect(&hover);
+    let floats = hover.find("Adds floats.").expect(&hover);
+    assert!(hover.find("add :: (a: int").unwrap() < ints, "{hover}");
+    assert!(ints < hover.find("add :: (a: float").unwrap(), "{hover}");
+    assert!(hover.find("add :: (a: float").unwrap() < floats, "{hover}");
+}
+
+#[test]
+fn parameters_have_docs_from_the_list_or_their_own_comments() {
+    let s = open();
+    let factor = markdown_hover(&s, after(PROGRAM, "p.x * factor", 0, 2));
+    assert!(factor.contains("how much to scale by"), "{factor}");
+    let declared = markdown_hover(&s, after(PROGRAM, "    p: Point", 0, 8));
+    assert!(declared.contains("the point to scale"), "{declared}");
+    let own = markdown_hover(&s, after(PROGRAM, "verbose := false", 0, 10));
+    assert!(own.contains("Printed when set."), "{own}");
+}
+
+#[test]
+fn signature_help_documents_the_active_parameter() {
+    let s = open();
+    let help = s
+        .signature_help_as(
+            &uri(),
+            after(PROGRAM, "scale(point, ", 0, 0),
+            MarkupKind::Markdown,
+        )
+        .unwrap()
+        .expect("signature help");
+    assert_eq!(help.active_parameter, 1);
+    let signature = &help.signatures[help.active_signature];
+    assert!(
+        signature
+            .documentation
+            .as_deref()
+            .unwrap()
+            .contains("Scales a ")
+    );
+    assert_eq!(
+        signature.parameter_docs[0].as_deref(),
+        Some("the point to scale")
+    );
+    assert_eq!(
+        signature.parameter_docs[help.active_parameter].as_deref(),
+        Some("how much to scale by")
+    );
+    assert_eq!(
+        signature.parameter_docs[2].as_deref(),
+        Some("Printed when set.")
+    );
+}
+
+#[test]
+fn completion_items_carry_documentation() {
+    let s = open();
+    let list = s
+        .completion(&uri(), after(PROGRAM, "    nothing", 0, 0))
+        .unwrap();
+    let item = list
+        .items
+        .iter()
+        .find(|i| i.label == "nothing")
+        .expect("nothing");
+    assert_eq!(item.documentation, None);
+    let scaled = s
+        .completion(&uri(), after(PROGRAM, "scaled := sc", 0, 0))
+        .unwrap();
+    let item = scaled
+        .items
+        .iter()
+        .find(|i| i.label == "scale")
+        .expect("scale");
+    assert_eq!(item.kind, CompletionKind::Function);
+    assert!(item.documentation.as_deref().unwrap().contains("Scales a "));
+    let member = s.completion(&uri(), after(PROGRAM, "Mode.", 1, 0)).unwrap();
+    let idle = member
+        .items
+        .iter()
+        .find(|i| i.label == "IDLE")
+        .expect("IDLE");
+    assert!(
+        idle.documentation
+            .as_deref()
+            .unwrap()
+            .contains("Do nothing.")
+    );
+}
+
+#[test]
+fn long_completion_lists_resolve_documentation_on_demand() {
+    let s = open();
+    let list = s
+        .completion(&uri(), after(PROGRAM, "    nothing", 0, 7))
+        .unwrap();
+    assert!(list.items.len() > 24);
+    let item = list
+        .items
+        .iter()
+        .find(|i| i.label == "scale")
+        .expect("scale");
+    assert_eq!(item.documentation, None);
+    let docs = s
+        .completion_documentation(item.data.as_ref().expect("data"))
+        .expect("docs");
+    assert!(docs.contains("Scales a "), "{docs}");
+}
+
+#[test]
+fn stdlib_declarations_show_their_docs() {
+    let s = open();
+    let hover = markdown_hover(&s, after(PROGRAM, "print(\"%", 0, 5));
+    assert!(
+        hover.contains("Writes the formatted text to standard output"),
+        "{hover}"
+    );
+    assert!(
+        hover.contains("```jai\nprint(\"% + % = %\\n\", 1, 2, 1 + 2);\n```"),
+        "{hover}"
+    );
+    let help = s
+        .signature_help_as(
+            &uri(),
+            after(PROGRAM, "print(\"%\\n\", ", 0, 0),
+            MarkupKind::Markdown,
+        )
+        .unwrap()
+        .expect("signature help");
+    let signature = &help.signatures[help.active_signature];
+    assert_eq!(
+        signature.parameter_docs[help.active_parameter].as_deref(),
+        Some("the values to print, in order")
+    );
+}
+
+#[test]
+fn links_in_docs_become_markdown_links() {
+    let s = open();
+    let hover = markdown_hover(&s, after(PROGRAM, "scale(point", 0, 7));
+    let point = line_of(PROGRAM, "Point :: struct");
+    assert!(
+        hover.contains(&format!("[Point](file:///lsp-doc-test/main.jai#L{point})")),
+        "{hover}"
+    );
+    let idle = line_of(PROGRAM, "IDLE;");
+    assert!(
+        hover.contains(&format!(
+            "[`Mode.IDLE`](file:///lsp-doc-test/main.jai#L{idle})"
+        )),
+        "{hover}"
+    );
+    let field = markdown_hover(&s, after(PROGRAM, "p.y *", 0, 2));
+    let x = line_of(PROGRAM, "x: int;");
+    assert!(field.contains(&format!("#L{x})")), "{field}");
+}
+
+#[test]
+fn unresolved_links_stay_text() {
+    let mut s = session();
+    let text = "// See [missing] and [Basic.nothing_here].\nf :: () {}\nmain :: () { f(); }\n";
+    s.open(uri(), 1, text.into()).unwrap();
+    let hover = markdown_hover(&s, after(text, "f(", 0, 2));
+    assert!(
+        hover.contains("See [missing] and [Basic.nothing_here]."),
+        "{hover}"
+    );
+}
+
+#[test]
+fn definition_hover_and_document_links_work_inside_comments() {
+    let s = open();
+    let in_comment = after(PROGRAM, "[Point] by", 0, 6);
+    let definition = s.definition(&uri(), in_comment).unwrap();
+    assert_eq!(definition.len(), 1);
+    assert_eq!(
+        definition[0].range.start.line as usize + 1,
+        line_of(PROGRAM, "Point :: struct")
+    );
+    let hover = markdown_hover(&s, in_comment);
+    assert!(hover.contains("Point :: struct"), "{hover}");
+    assert!(hover.contains("A point on the screen."), "{hover}");
+    let qualified = s
+        .definition(&uri(), after(PROGRAM, "[`Mode.IDLE`", 0, 3))
+        .unwrap();
+    assert_eq!(
+        qualified[0].range.start.line as usize + 1,
+        line_of(PROGRAM, "IDLE;")
+    );
+    let links = s.document_links(&uri()).unwrap();
+    let targets: Vec<&str> = links.iter().map(|(_, t)| t.as_str()).collect();
+    let point = format!(
+        "file:///lsp-doc-test/main.jai#L{}",
+        line_of(PROGRAM, "Point :: struct")
+    );
+    assert!(targets.contains(&point.as_str()), "{targets:?}");
+    assert_eq!(targets.iter().filter(|t| **t == point).count(), 1);
+    assert!(
+        links
+            .iter()
+            .any(|(r, t)| t == &point && r.start.line as usize + 1 == line_of(PROGRAM, "Scales"))
+    );
+}
+
+#[test]
+fn resolved_links_are_semantic_tokens() {
+    let s = open();
+    let tokens = s.semantic_tokens(&uri()).unwrap();
+    let line = (line_of(PROGRAM, "Scales a") - 1) as u32;
+    let on_line: Vec<_> = tokens.iter().filter(|t| t.position.line == line).collect();
+    assert_eq!(on_line.len(), 2, "{on_line:?}");
+    assert_eq!(
+        on_line[0].kind,
+        jai_language_server::SemanticTokenKind::Type
+    );
+    assert_eq!(on_line[0].length, "Point".len() as u32);
+    assert_eq!(
+        on_line[1].kind,
+        jai_language_server::SemanticTokenKind::EnumMember
+    );
+}

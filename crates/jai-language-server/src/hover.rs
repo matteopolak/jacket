@@ -31,6 +31,8 @@ pub(crate) enum Block {
     /// Prose set apart from the code above it (a blank line before it in plain text).
     Note(Vec<Inline>),
     FormatRows(Vec<FormatRow>),
+    /// A declaration's doc comment, already written for the client's format.
+    Doc(String),
     /// Starts a new section, such as `expands to` or `prints`.
     Section(String),
 }
@@ -45,10 +47,6 @@ impl HoverText {
         Self {
             blocks,
         }
-    }
-
-    pub(crate) fn code(text: impl Into<String>) -> Self {
-        Self::new(vec![Block::Code(text.into())])
     }
 
     /// The sections after the first divider (what a macro produced, say), if any.
@@ -93,6 +91,7 @@ impl HoverText {
                         ));
                     }
                 }
+                Block::Doc(text) => lines.push(format!("\n{text}")),
                 Block::Section(label) => lines.push(format!("─── {label} ───")),
             }
         }
@@ -120,6 +119,7 @@ impl HoverText {
                         .collect::<Vec<_>>()
                         .join("\n"),
                 ),
+                Block::Doc(text) => parts.push(text.clone()),
                 Block::Section(label) => parts.push(format!("---\n\n*{}*", escape(label))),
             }
         }

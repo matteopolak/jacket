@@ -53,6 +53,8 @@ pub struct JsonSession {
     completed: VecDeque<RequestId>,
     /// Markdown when the client listed it in `textDocument.hover.contentFormat`.
     hover_kind: MarkupKind,
+    /// Markdown when the client listed it in the signature help `documentationFormat`.
+    signature_kind: MarkupKind,
     /// The client pulls diagnostics (`textDocument/diagnostic`): none are pushed to it.
     pull_diagnostics: bool,
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
@@ -275,6 +277,7 @@ impl JsonSession {
             cancelled: BTreeSet::new(),
             completed: VecDeque::new(),
             hover_kind: MarkupKind::PlainText,
+            signature_kind: MarkupKind::PlainText,
             pull_diagnostics: false,
             defer_publications: false,
             publications_pending: false,
@@ -521,6 +524,7 @@ impl JsonSession {
             }
             self.lifecycle = Lifecycle::Running;
             self.hover_kind = hover_kind(&params);
+            self.signature_kind = signature_kind(&params);
             self.pull_diagnostics = params
                 .pointer("/capabilities/textDocument/diagnostic")
                 .is_some_and(Value::is_object);
@@ -543,7 +547,7 @@ impl JsonSession {
                 "textDocumentSync": { "openClose": true, "change": 2 },
                 "hoverProvider": true,
                 "completionProvider": {
-                    "resolveProvider": false,
+                    "resolveProvider": true,
                     "triggerCharacters": [".", "#", "\"", "/"],
                 },
                 "definitionProvider": true,
@@ -648,6 +652,22 @@ impl JsonSession {
                         .map_err(domain)?
                         .as_ref()
                         .map_or(Value::Null, hover_wire)
+                }
+                "completionItem/resolve" => {
+                    // The documentation of an item whose list left it out.
+                    let mut item = params;
+                    let data = item.get("data").and_then(|d| {
+                        Some(crate::CompletionData {
+                            document: d.get("document")?.as_str()?.to_owned(),
+                            path: d.get("path")?.as_str()?.to_owned(),
+                            offset: d.get("offset")?.as_u64()? as usize,
+                        })
+                    });
+                    if let Some(doc) = data.and_then(|d| self.session.completion_documentation(&d))
+                    {
+                        item["documentation"] = json!({ "kind": "markdown", "value": doc });
+                    }
+                    item
                 }
                 "textDocument/completion" => {
                     let p: PositionParams = decode(params)?;
@@ -773,10 +793,16 @@ impl JsonSession {
                 "textDocument/signatureHelp" => {
                     let p: PositionParams = decode(params)?;
                     self.session
-                        .signature_help(&uri(&p.text_document.uri)?, p.position)
+                        .signature_help_as(
+                            &uri(&p.text_document.uri)?,
+                            p.position,
+                            self.signature_kind,
+                        )
                         .map_err(domain)?
                         .as_ref()
-                        .map_or(Value::Null, signature_wire)
+                        .map_or(Value::Null, |help| {
+                            signature_wire(help, self.signature_kind)
+                        })
                 }
                 "textDocument/codeAction" => {
                     let p: CodeActionParams = decode(params)?;
@@ -1333,14 +1359,36 @@ fn inlay_wire(hint: &InlayHint) -> Value {
     value
 }
 
-fn signature_wire(help: &SignatureHelp) -> Value {
+/// Documentation as the client asked for it: a `MarkupContent`, or a plain string.
+fn documentation_wire(kind: MarkupKind, text: &str) -> Value {
+    match kind {
+        MarkupKind::Markdown => json!({ "kind": "markdown", "value": text }),
+        MarkupKind::PlainText => json!(text),
+    }
+}
+
+fn signature_wire(help: &SignatureHelp, kind: MarkupKind) -> Value {
     let signatures: Vec<Value> = help
         .signatures
         .iter()
         .map(|s| {
-            let parameters: Vec<Value> =
-                s.parameters.iter().map(|p| json!({ "label": p })).collect();
-            json!({ "label": s.label, "parameters": parameters })
+            let parameters: Vec<Value> = s
+                .parameters
+                .iter()
+                .enumerate()
+                .map(|(i, p)| {
+                    let mut wire = json!({ "label": p });
+                    if let Some(Some(doc)) = s.parameter_docs.get(i) {
+                        wire["documentation"] = documentation_wire(kind, doc);
+                    }
+                    wire
+                })
+                .collect();
+            let mut wire = json!({ "label": s.label, "parameters": parameters });
+            if let Some(doc) = &s.documentation {
+                wire["documentation"] = documentation_wire(kind, doc);
+            }
+            wire
         })
         .collect();
     json!({
@@ -1400,6 +1448,19 @@ fn expansion_wire(expansion: &Expansion) -> Value {
     })
 }
 
+/// The documentation format a client asked for signature help.
+fn signature_kind(params: &Value) -> MarkupKind {
+    let formats = params
+        .pointer(
+            "/capabilities/textDocument/signatureHelp/signatureInformation/documentationFormat",
+        )
+        .and_then(Value::as_array);
+    match formats {
+        Some(formats) if formats.iter().any(|f| f == "markdown") => MarkupKind::Markdown,
+        _ => MarkupKind::PlainText,
+    }
+}
+
 /// The hover format a client asked for in its `initialize` capabilities.
 fn hover_kind(params: &Value) -> MarkupKind {
     let formats = params
@@ -1446,6 +1507,13 @@ fn completion_wire(completion: &CompletionList) -> Value {
             let mut wire = json!({ "label": item.label, "kind": kind, "detail": item.detail });
             if let Some(doc) = &item.documentation {
                 wire["documentation"] = json!({ "kind": "markdown", "value": doc });
+            }
+            if let Some(data) = &item.data {
+                wire["data"] = json!({
+                    "document": data.document,
+                    "path": data.path,
+                    "offset": data.offset,
+                });
             }
             if let Some(description) = &item.label_description {
                 wire["labelDetails"] = json!({ "description": description });

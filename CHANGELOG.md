@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Doc comments: the comment above a declaration (or after a field, enum member or parameter) is shown as Markdown in hover, completion and signature help, with its own docs for each overload and each parameter (`- name: text` items, or comments on the parameter). `[print]`, `[Basic.print]`, `[Type.field]` and `[text](print)` links resolve: go to definition, hover and document links work inside the comment, and rendered docs link to the declaration.
+- VS Code highlights Markdown in comments (bold, italic, code, headings, lists, links) and Jai in fenced code blocks, and colours resolved links like the declaration they name.
+- Docs for `print`, `sprint`, `tprint`, `alloc`, `free` and `array_add` in the standard library.
+
 ### Fixed
 
 - `jailint`'s `index_only_loop` now reports loops over strings (`for i: 0..str.count-1 { cur := str[i]; }` becomes `for str`, or `for *str` when bytes are written), and its fix no longer leaves a stray `)` behind when the bound is parenthesized.

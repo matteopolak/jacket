@@ -20,6 +20,7 @@ It has two layers:
 | Diagnostics: jailint lints (rule as `code`, `jailint` as `source`) | `textDocument/publishDiagnostics` | semantic |
 | Pull diagnostics for clients that advertise `textDocument.diagnostic` (they then get no pushed ones), with `unchanged` reports, workspace reports of the open documents, and `workspace/diagnostic/refresh` when settings change | `textDocument/diagnostic`, `workspace/diagnostic` | all |
 | Hover: types of locals, members, procedures (every overload), structs, enums, constants | `textDocument/hover` | semantic |
+| Doc comments: the `//` or `/* */` comment above a declaration (or a trailing one on a field, member or parameter) shown as Markdown under the signature in hover, completion and signature help (per-parameter docs), with rustdoc-style `[name]` links that resolve, work with go to definition, hover and `textDocument/documentLink` inside the comment, and are coloured by semantic tokens ([details](doc-comments.md)) | `textDocument/hover`, `textDocument/completion`, `completionItem/resolve`, `textDocument/signatureHelp`, `textDocument/documentLink` | semantic |
 | Hover: memory layout of types (size, alignment, padding), fields (offset, size, alignment) and aggregate-typed variables | `textDocument/hover` | semantic |
 | Hover on a macro call: the macro's body with the arguments substituted | `textDocument/hover` | semantic |
 | Hover on `#insert`: the inserted code | `textDocument/hover` | semantic |

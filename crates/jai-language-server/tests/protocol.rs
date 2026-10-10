@@ -320,3 +320,60 @@ fn deferred_publications_wait_for_the_flush_and_use_the_latest_text() {
     assert!(!session.publications_pending());
     assert!(session.flush_publications().unwrap().is_empty());
 }
+
+#[test]
+fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
+    let mut session = JsonSession::new(Limits::default());
+    let init = send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "capabilities": { "textDocument": {
+                "hover": { "contentFormat": ["markdown"] },
+            } } },
+        }),
+    );
+    assert_eq!(
+        init[0]["result"]["capabilities"]["completionProvider"]["resolveProvider"],
+        true
+    );
+    let text = "// Gives the answer.\n//\n// ```\n// x := answer();\n// ```\nanswer :: () -> int {return 42;}\nmain :: () -> int {return answer();}";
+    send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": { "textDocument": {
+                "uri": "file:///workspace/main.jai",
+                "languageId": "jai",
+                "version": 1,
+                "text": text,
+            } },
+        }),
+    );
+    let out = send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": "file:///workspace/main.jai" },
+                "position": { "line": 6, "character": 27 },
+            },
+        }),
+    );
+    let value = out[0]["result"]["contents"]["value"].as_str().unwrap();
+    assert!(
+        value.contains("Gives the answer.\n\n```jai\nx := answer();\n```"),
+        "{value}"
+    );
+    let item = json!({ "label": "answer", "data": { "document": "file:///workspace/main.jai", "path": "/nowhere.jai", "offset": 0 } });
+    let resolved = send(
+        &mut session,
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "completionItem/resolve", "params": item }),
+    );
+    assert_eq!(resolved[0]["result"]["label"], "answer");
+}

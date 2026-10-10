@@ -685,6 +685,7 @@ impl Session {
                     IdeKind::Variable
                 },
                 detail: self.source_detail(uri, row).into(),
+                decl: jaic::source::Span::NONE,
             })
             .collect()
     }
@@ -759,6 +760,8 @@ impl Session {
                     .split_once(' ')
                     .map(|(_, ops)| ops.split(", ").map(String::from).collect())
                     .unwrap_or_default(),
+                documentation: None,
+                parameter_docs: Vec::new(),
             })
             .collect();
         let active = signatures

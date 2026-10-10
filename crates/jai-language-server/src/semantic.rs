@@ -19,6 +19,18 @@ pub struct Environment {
     pub options: Box<dyn Fn(&Path) -> Options>,
 }
 
+/// A declaration in a compiled file: (path, text of the file, start, end of its name).
+pub type Decl = (String, Rc<str>, usize, usize);
+
+/// What the type checker says about a hover.
+pub struct HoverFacts {
+    pub start: usize,
+    pub end: usize,
+    pub text: String,
+    pub layout: Option<IdeLayout>,
+    pub decls: Vec<Decl>,
+}
+
 /// Basic blocks compile-time code may run per analysis (an edit can make a `#run` loop forever).
 const BLOCK_BUDGET: u64 = 20_000_000;
 
@@ -197,20 +209,56 @@ impl Analysis {
         ))
     }
 
-    /// Hover at `offset` as (start, end, description, memory layout).
-    pub fn hover(
-        &mut self,
-        path: &Path,
-        offset: usize,
-    ) -> Option<(usize, usize, String, Option<IdeLayout>)> {
+    /// Hover at `offset`: what it covers, its description and memory layout, and where what
+    /// it describes is declared (one per line of the description for overloads).
+    pub fn hover(&mut self, path: &Path, offset: usize) -> Option<HoverFacts> {
         let file = self.file(path)?;
         let hover = self.compiler.ide_hover(file, offset as u32)?;
-        Some((
-            hover.span.start as usize,
-            hover.span.end as usize,
-            hover.text,
-            hover.layout,
-        ))
+        let decls = self
+            .compiler
+            .ide_hover_decls(file, offset as u32)
+            .into_iter()
+            .filter_map(|span| self.location(span))
+            .collect();
+        Some(HoverFacts {
+            start: hover.span.start as usize,
+            end: hover.span.end as usize,
+            text: hover.text,
+            layout: hover.layout,
+            decls,
+        })
+    }
+
+    /// The declarations `names` (`print`, `Basic.print`, `Type.field`) name as seen from
+    /// `offset` of the file at `path`: where doc comment links lead. Falls back to the file's
+    /// own scope when the file has no recorded scopes.
+    pub fn resolve_names(&mut self, path: &Path, offset: usize, names: &[String]) -> Vec<Decl> {
+        let Some(file) = self.file(path) else {
+            return Vec::new();
+        };
+        let Some(scope) = self.compiler.ide_scope_at(file, offset as u32) else {
+            return Vec::new();
+        };
+        let names: Vec<Sym> = names.iter().map(|n| Sym::intern(n)).collect();
+        self.compiler
+            .ide_resolve_path(scope, &names)
+            .into_iter()
+            .filter_map(|span| self.location(span))
+            .collect()
+    }
+
+    /// The path of each file `names` are declared in, by file number.
+    pub fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
+        let mut out = BTreeMap::new();
+        for name in names {
+            let file = name.decl.file;
+            if let std::collections::btree_map::Entry::Vacant(slot) = out.entry(file.0)
+                && let Some(source) = self.compiler.sources.try_get(file)
+            {
+                slot.insert(source.path.clone());
+            }
+        }
+        out
     }
 
     /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte

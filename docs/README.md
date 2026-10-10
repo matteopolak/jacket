@@ -67,6 +67,7 @@ How `crates/jaic`, the interpreter and the language server work.
 - [Compile speed](compiler/compile-speed.md): where an `-O0` build spends its time, what was done about it, current numbers
 - [Memory limit (`JAIC_MEMORY_LIMIT`)](compiler/memory-limit.md)
 - [Shared Jai language server](compiler/language-server.md) (front page: [jailsp README](../crates/jai-language-server/README.md), with the comparison with Jails): feature list, expansions, inlay hints, format strings, lints and quick fixes, `#import` links
+- [Doc comments](compiler/doc-comments.md): the Markdown comment convention (parameters, intra-doc links) and how the server and the VS Code grammar use it
 - [Language server refactorings](compiler/language-server-refactorings.md): extract, inline, fill in cases and fields, `ifx` rewrites, call hierarchy, selection ranges
 - [Parser](compiler/parser.md)
 - [Sema: module loading and top-level expansion](compiler/sema-modules.md)

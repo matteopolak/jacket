@@ -2,6 +2,7 @@
 //! (`jaic::sema::ide_meta`) and on the syntax layer: expansion hovers and documents, inlay
 //! hints, code actions, format strings, references, signature help, folding, code lenses and
 //! workspace symbols.
+use crate::MarkupKind;
 use crate::analysis::{Span, TokenKind};
 use crate::hover::{Block, FormatRow, HoverText, Inline};
 use crate::links::{Link, LinkSource};
@@ -85,7 +86,7 @@ impl Session {
     }
 
     /// A location in any compiled file (an open document's own index when it is open).
-    fn location_in(
+    pub(crate) fn location_in(
         &self,
         path: &str,
         text: &Rc<str>,
@@ -815,6 +816,16 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Option<SignatureHelp>, Error> {
+        self.signature_help_as(uri, position, MarkupKind::PlainText)
+    }
+
+    /// Signature help with documentation written as `kind`.
+    pub fn signature_help_as(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+        kind: MarkupKind,
+    ) -> Result<Option<SignatureHelp>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
         let byte = doc.index.byte(text, position)?;
@@ -876,13 +887,19 @@ impl Session {
             active_arg.min(last)
         };
         let active_parameter = signatures.get(active).map_or(0, parameter);
+        let documented = self.signature_docs(uri, &signatures, kind);
         Ok(Some(SignatureHelp {
             signatures: signatures
                 .into_iter()
-                .map(|s| SignatureInformation {
-                    label: s.label,
-                    parameters: s.params,
-                })
+                .zip(documented)
+                .map(
+                    |(s, (documentation, parameter_docs))| SignatureInformation {
+                        label: s.label,
+                        parameters: s.params,
+                        documentation,
+                        parameter_docs,
+                    },
+                )
                 .collect(),
             active_signature: active,
             active_parameter,
@@ -927,7 +944,7 @@ impl Session {
     pub fn document_links(&self, uri: &DocumentUri) -> Result<Vec<(Range, String)>, Error> {
         self.document(uri)?;
         let links = self.analyses[uri].links.clone();
-        Ok(links
+        let mut out: Vec<(Range, String)> = links
             .iter()
             .filter_map(|link| {
                 let target = self.link_target(uri, link)?;
@@ -936,7 +953,9 @@ impl Session {
                     target.as_str().to_string(),
                 ))
             })
-            .collect())
+            .collect();
+        out.extend(self.doc_comment_links(uri));
+        Ok(out)
     }
 
     /// Definition of a `#load` / `#import` directive or its string: the start of the file.

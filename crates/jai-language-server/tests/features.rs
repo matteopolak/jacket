@@ -166,10 +166,14 @@ fn markdown_hovers_fence_code_and_break_sections() {
         markdown(&s, at(PROGRAM, "scale(5", 0, 1)),
         "```jai\nscale :: (value: int, factor: int) -> int\n```"
     );
-    // An overload set: one declaration per line of a single block.
+    // An overload set: one declaration per overload, the documented ones followed by
+    // their docs.
     let overloads = markdown(&s, at(PROGRAM, "print(\"% and", 0, 1));
     assert!(overloads.starts_with("```jai\nprint :: ("), "{overloads}");
-    assert!(overloads.ends_with("\n```"), "{overloads}");
+    assert!(
+        overloads.contains("Writes the formatted text to standard output"),
+        "{overloads}"
+    );
     assert_eq!(overloads.matches("\nprint :: (").count(), 2, "{overloads}");
 }
 

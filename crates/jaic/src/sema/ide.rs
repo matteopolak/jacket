@@ -148,6 +148,8 @@ pub struct IdeName {
     pub name: String,
     pub kind: IdeKind,
     pub detail: String,
+    /// Where the name is declared (`Span::NONE` for builtins): doc comments are read from there.
+    pub decl: Span,
 }
 
 /// What `a.b.` refers to, for member completion.
@@ -496,6 +498,51 @@ impl Compiler {
             text,
             layout,
         })
+    }
+
+    /// The declarations `ide_hover` describes, for reading their doc comments: one per
+    /// overload, in the order of the hover's lines.
+    pub fn ide_hover_decls(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        let Some((r, _)) = self.ide_hover_ref(file, offset) else {
+            let Some(site) = self.ide.as_ref().and_then(|ide| {
+                ide.fields
+                    .iter()
+                    .find(|(s, _)| s.file == file && s.start <= offset && offset <= s.end)
+                    .and_then(|(_, site)| *site)
+            }) else {
+                return Vec::new();
+            };
+            let f = &self.types.struct_info(site.declaring).fields[site.field];
+            let named = f.name.map(|n| (f.span, n.to_string()));
+            return self.ide_narrow_decls(named.into_iter().collect());
+        };
+        let procs: Vec<ProcId> = match &r.what {
+            IdeWhat::Procs(ps) => ps.clone(),
+            IdeWhat::Entity(e) => match self.entity(*e).kind {
+                EntityKind::Decl {
+                    ..
+                }
+                | EntityKind::Import(_) => match self.resolve_entity(*e).ok() {
+                    Some(Resolved::Proc(p))
+                    | Some(Resolved::Const {
+                        value: value::Value::Proc(p),
+                        ..
+                    }) => vec![p],
+                    Some(Resolved::ProcSet(ps)) => ps,
+                    _ => Vec::new(),
+                },
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
+        };
+        if procs.is_empty() {
+            return self.ide_definition(file, offset);
+        }
+        let spans = procs
+            .iter()
+            .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
+            .collect();
+        self.ide_narrow_decls(spans)
     }
 
     /// The name of a field where its struct declares it. A field laid out in several structs
@@ -1033,6 +1080,11 @@ impl Compiler {
             },
             IdeWhat::Member(_) | IdeWhat::Module(_) => Vec::new(),
         };
+        self.ide_narrow_decls(spans)
+    }
+
+    /// The name inside each declaration span (see `ide_definition`); spans in no file drop out.
+    pub fn ide_narrow_decls(&self, spans: Vec<(Span, String)>) -> Vec<Span> {
         spans
             .into_iter()
             // Builtins such as `OS` are declared nowhere: `Span::NONE` has no file. The slicing
@@ -1077,6 +1129,33 @@ impl Compiler {
                 }
             })
             .collect()
+    }
+
+    /// The declarations `names` (`print`, `Basic.print`, `Type.field`, `Enum.MEMBER`) name
+    /// from `scope`, as the name spans `ide_definition` gives. Doc comment links use it.
+    pub fn ide_resolve_path(&mut self, scope: ScopeId, names: &[Sym]) -> Vec<Span> {
+        let Some((last, first)) = names.split_last() else {
+            return Vec::new();
+        };
+        let found = if first.is_empty() {
+            self.lookup_full(scope, *last).ok()
+        } else {
+            match self.ide_receiver(scope, first) {
+                Some(IdeReceiver::Module(m)) => self.module_lookup(m, *last).ok(),
+                Some(IdeReceiver::Type(t) | IdeReceiver::Value(t)) => {
+                    return self.ide_member_decl(t, *last).into_iter().collect();
+                }
+                None => None,
+            }
+        };
+        let Some(Found::Entities(ids)) = found else {
+            return Vec::new();
+        };
+        let spans = ids
+            .into_iter()
+            .map(|id| (self.entity(id).span, last.to_string()))
+            .collect();
+        self.ide_narrow_decls(spans)
     }
 
     fn ide_proc_header(&self, p: ProcId) -> String {
@@ -1275,6 +1354,7 @@ impl Compiler {
             name: name.to_string(),
             kind,
             detail,
+            decl: e.span,
         })
     }
 
@@ -1530,11 +1610,20 @@ impl Compiler {
             IdeReceiver::Type(t) => {
                 if let TypeKind::Enum(e) = self.types.kind(t) {
                     let info = self.types.enum_info(*e);
+                    let strict = info.loose_of.map_or(*e, |t| match self.types.kind(t) {
+                        TypeKind::Enum(strict) => *strict,
+                        _ => *e,
+                    });
                     for (n, v) in &info.members {
                         out.push(IdeName {
                             name: n.to_string(),
                             kind: IdeKind::EnumMember,
                             detail: format!("{} = {v}", info.name),
+                            decl: self
+                                .ide
+                                .as_ref()
+                                .and_then(|ide| ide.enum_decls.get(&(strict, *n)).copied())
+                                .unwrap_or(Span::NONE),
                         });
                     }
                 }
@@ -1573,6 +1662,7 @@ impl Compiler {
                                     name: n.to_string(),
                                     kind: IdeKind::Field,
                                     detail: self.types.name(f.ty),
+                                    decl: f.span,
                                 });
                             }
                             if f.using {
@@ -1615,6 +1705,7 @@ fn field(name: &str, detail: &str) -> IdeName {
         name: name.into(),
         kind: IdeKind::Field,
         detail: detail.into(),
+        decl: Span::NONE,
     }
 }
 

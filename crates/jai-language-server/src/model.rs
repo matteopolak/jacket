@@ -118,6 +118,19 @@ pub struct CompletionItem {
     /// Edits elsewhere in the document made when the item is accepted (an auto-import's
     /// `#import`).
     pub additional_edits: Vec<TextEdit>,
+    /// Where the item is declared, so its documentation can be read when the client asks
+    /// (`completionItem/resolve`) instead of for every item of a long list.
+    pub data: Option<CompletionData>,
+}
+
+/// The declaration a completion item stands for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CompletionData {
+    /// The document the completion was asked in (its scope resolves the docs' links).
+    pub document: String,
+    /// The file declaring the item, and the offset of the declaration's name in it.
+    pub path: String,
+    pub offset: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -223,6 +236,10 @@ pub struct SignatureInformation {
     pub label: String,
     /// Each parameter's text, a substring of `label`.
     pub parameters: Vec<String>,
+    /// The procedure's doc comment.
+    pub documentation: Option<String>,
+    /// What each parameter's doc comment says (parallel to `parameters`).
+    pub parameter_docs: Vec<Option<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

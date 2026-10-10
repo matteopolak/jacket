@@ -69,7 +69,7 @@ pub struct FileScan {
 const SIGNATURE_BYTES: usize = 200;
 
 /// The most comment lines kept as a declaration's documentation.
-const DOC_LINES: usize = 12;
+const DOC_LINES: usize = 40;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Frame {
@@ -335,21 +335,11 @@ fn signature(text: &str, tokens: &[Token], i: usize) -> String {
     out
 }
 
-/// The run of `//` comment lines directly above the line holding `at`.
+/// The doc comment of the declaration at `at`, as shown next to a completion item.
 fn doc_above(text: &str, at: usize) -> String {
-    let line_start = text[..at].rfind('\n').map_or(0, |n| n + 1);
-    let mut lines = Vec::new();
-    for line in text[..line_start].lines().rev() {
-        let Some(comment) = line.trim().strip_prefix("//") else {
-            break;
-        };
-        lines.push(comment.strip_prefix(' ').unwrap_or(comment).trim_end());
-        if lines.len() >= DOC_LINES {
-            break;
-        }
-    }
-    lines.reverse();
-    lines.join("\n")
+    crate::docs::above(text, at)
+        .map(|doc| doc.lines().take(DOC_LINES).collect::<Vec<_>>().join("\n"))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
