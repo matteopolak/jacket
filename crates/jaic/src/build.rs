@@ -1479,12 +1479,14 @@ pub fn call(
                 kind,
                 value: text(interp, 4)?,
             };
-            shared
-                .borrow_mut()
-                .ws(id)
-                .map_err(trap)?
-                .provided
-                .push(offer);
+            // An answer already given adds nothing: the load would fail the same way again, and a
+            // metaprogram that answers every FAILED_IMPORT with it (a file the host cannot
+            // see, say) would loop forever, each retry counting as a new offer.
+            let mut reg = shared.borrow_mut();
+            let provided = &mut reg.ws(id).map_err(trap)?.provided;
+            if !provided.contains(&offer) {
+                provided.push(offer);
+            }
             Ok(Rets::default())
         }
         MetaOp::MakeLive => {

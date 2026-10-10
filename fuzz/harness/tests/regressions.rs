@@ -77,3 +77,30 @@ fn lsp_edits() {
 fn jaifmt() {
     replay("jaifmt", jai_fuzz_harness::jaifmt);
 }
+
+/// A metaprogram that answers every `FAILED_IMPORT` with a file the sandbox does not have must
+/// end with the import error, not retry until the interpreter budget is gone (a nightly `check`
+/// timeout: the replay above only shows it does not crash, not how long it takes).
+#[test]
+fn unanswerable_provide_import_ends() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../regressions/check/provide-import-missing-file.jai");
+    let source = std::fs::read(path).expect("read regression input");
+    let files = std::collections::BTreeMap::from([("main.jai".to_string(), source)]);
+    let options = jai_wasm::play::PlayOptions {
+        budget: Some(jai_fuzz_harness::BLOCK_BUDGET),
+        compile_only: true,
+        styled: false,
+    };
+    let result = std::thread::Builder::new()
+        .stack_size(REPLAY_STACK)
+        .spawn(move || jai_wasm::play::run_with(&files, "main.jai", options))
+        .expect("spawn replay thread")
+        .join()
+        .expect("compile");
+    let messages: Vec<_> = result.diagnostics.iter().map(|d| &d.message).collect();
+    assert!(
+        messages.iter().all(|m| !m.contains("budget exhausted")),
+        "{messages:?}"
+    );
+}

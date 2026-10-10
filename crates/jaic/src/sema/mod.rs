@@ -313,7 +313,7 @@ fn too_many_instances(name: Sym) -> String {
 }
 
 /// A module a metaprogram supplied for an import that found none (`provide_import`).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProvidedImport {
     /// The importing module and the wanted name, as in the `FAILED_IMPORT` message.
     pub host: String,
