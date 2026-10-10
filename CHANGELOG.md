@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Highlights
+
+- Every case of an `if x == {` switch is type-checked even when `x` is a constant, so the language server shows hover, go to definition and highlighting in all of them.
+
+### Breaking changes
+
+| Was | Now |
+| --- | --- |
+| A switch on a compile-time constant checked only the matching case, and skipped `#complete` | Every case is checked and `#complete` applies; use `#if` to skip code |
+
 ## [0.7.1] - 2026-10-10
 
 Faster debug builds: programs built without optimization run up to 1.7x faster, and they compile a little faster too.

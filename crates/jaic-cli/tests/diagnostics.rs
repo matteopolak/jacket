@@ -1195,3 +1195,17 @@ main :: () {
     }
     assert_eq!(text.matches("not all control paths").count(), 2, "{text}");
 }
+
+#[test]
+fn a_switch_on_a_constant_checks_every_case() {
+    let dir = scratch("const-switch");
+    let source = "#import \"Basic\";\nMode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A; print(\"a\\n\");\n        case .B; x: int = \"not an int\"; print(\"%\\n\", x);\n    }\n}\n";
+    let output = jaic_on(&dir, "const_switch.jai", source, "check", &[]);
+    assert!(!output.status.success(), "{}", stderr(&output));
+    assert_in_order(&stderr(&output), &["const_switch.jai:7:27", "int"]);
+    // The cases that do not match count for `#complete` too.
+    let source = "Mode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A;\n    }\n}\n";
+    let output = jaic_on(&dir, "const_complete.jai", source, "check", &[]);
+    assert!(!output.status.success(), "{}", stderr(&output));
+    assert_in_order(&stderr(&output), &["has no case for .B"]);
+}

@@ -1507,8 +1507,10 @@ impl Compiler {
                 }
             }
             if let Some(start) = matched.or(default) {
+                let mut taken = Vec::new();
                 let mut i = start;
                 loop {
+                    taken.push(i);
                     let inner = self.new_block_scope(scope);
                     self.ide_scope_span(inner, cases[i].span);
                     let depth = f.defers.len();
@@ -1522,10 +1524,28 @@ impl Compiler {
                     }
                     i += 1;
                 }
-                return Ok(());
+                return self.check_untaken_cases(
+                    f,
+                    scope,
+                    v.ty(),
+                    cases,
+                    &taken,
+                    complete,
+                    value,
+                    span,
+                );
             }
             if cases.iter().all(|c| !c.values.is_empty()) {
-                return Ok(());
+                return self.check_untaken_cases(
+                    f,
+                    scope,
+                    v.ty(),
+                    cases,
+                    &[],
+                    complete,
+                    value,
+                    span,
+                );
             }
         }
         let v = self.settle_untyped(v, None);
@@ -1583,6 +1603,61 @@ impl Compiler {
             f.b.jump(next);
         }
         f.b.switch_to(done);
+        Ok(())
+    }
+
+    /// A switch on a constant runs one case, but every case is still type-checked (only `#if`
+    /// skips code), as is `#complete`. The bodies not taken are checked into a block nothing
+    /// jumps to.
+    #[allow(clippy::too_many_arguments)]
+    fn check_untaken_cases(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        vty: TypeId,
+        cases: &[ast::Case],
+        taken: &[usize],
+        complete: bool,
+        value: &ast::Expr,
+        span: Span,
+    ) -> Result<()> {
+        let mut covered = Vec::new();
+        for case in cases {
+            for cv in &case.values {
+                let c = self.check_expr(f, scope, cv, Some(vty))?;
+                let c = self.convert(f, c, vty, cv.span)?;
+                if let Some(Value::Int(n)) = c.const_value() {
+                    covered.push(n);
+                }
+            }
+        }
+        if complete {
+            self.check_switch_complete(vty, &covered, value.span)?;
+        }
+        let here = f.b.current;
+        let dead = f.b.new_block();
+        f.b.switch_to(dead);
+        for (i, case) in cases.iter().enumerate() {
+            if taken.contains(&i) {
+                continue;
+            }
+            let inner = self.new_block_scope(scope);
+            self.ide_scope_span(inner, case.span);
+            let depth = f.defers.len();
+            self.check_block_stmts(f, inner, &case.body)?;
+            if !f.b.is_terminated() {
+                self.emit_defers(f, depth, span)?;
+            }
+            f.defers.truncate(depth);
+            if f.b.is_terminated() {
+                let next = f.b.new_block();
+                f.b.switch_to(next);
+            }
+        }
+        if !f.b.is_terminated() {
+            f.b.terminate(ir::Term::Unreachable);
+        }
+        f.b.switch_to(here);
         Ok(())
     }
 

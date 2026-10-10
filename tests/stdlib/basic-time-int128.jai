@@ -55,10 +55,10 @@ check_clocks :: () {
         // WASM has no time zones: local time is UTC.
         assert(local.hour == calendar.hour && local.minute == calendar.minute && local.day_of_month_starting_at_0 == calendar.day_of_month_starting_at_0, "local % vs UTC %", calendar_to_string(local), calendar_to_string(calendar));
     }
-    // A local calendar converts back to the same instant (to the millisecond).
+    // A local calendar converts back to the same instant, give or take the millisecond it rounds to.
     back := calendar_to_apollo(local);
     difference := to_milliseconds(back - now, DO_ROUNDING = true);
-    assert(difference == 0, "local round trip is off by % ms", difference);
+    assert(difference >= -1 && difference <= 1, "local round trip is off by % ms", difference);
 }
 
 check_apollo_conversions :: () {

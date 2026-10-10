@@ -233,11 +233,13 @@ main :: () {
     }
     assert(q == 4, "#complete on an int");
 
-    // flow.18: a constant switch value is not checked.
+    // flow.18: a constant switch value still needs every member.
     CONST_HUE :: Hue.RED;
     const_hit := false;
     if #complete CONST_HUE == {
         case .RED; const_hit = true;
+        case .GREEN;
+        case .BLUE;
     }
     assert(const_hit, "constant #complete switch");
 

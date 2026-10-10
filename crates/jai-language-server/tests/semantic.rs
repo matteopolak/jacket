@@ -832,3 +832,28 @@ fn old_compiles_are_dropped() {
     assert!(compiled >= 8, "{compiled}");
     assert_eq!(alive, 1, "an older compile of the same program stays alive");
 }
+
+#[test]
+fn hover_covers_the_cases_a_constant_switch_does_not_take() {
+    const SWITCH: &str = r#"#import "Basic";
+Mode :: enum { A; B; }
+M :: Mode.A;
+main :: () {
+    if #complete M == {
+        case .A; first := 1; print("%\n", first);
+        case .B; second := 2.5; print("%\n", second);
+    }
+}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, SWITCH.into()).unwrap();
+    assert_eq!(hover(&s, after(SWITCH, "first := ", 0, 7)), "first: s64");
+    assert_eq!(
+        hover(&s, after(SWITCH, "second := ", 0, 8)),
+        "second: float32"
+    );
+    assert_eq!(
+        hover(&s, after(SWITCH, "\"%\\n\", second", 0, 1)),
+        "second: float32"
+    );
+}
