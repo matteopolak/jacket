@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Warnings for statements written after a `return`, `break` or `continue` in the same block, and `not all control paths return a value` now follows the shape of the code instead of folding conditions: `if true return 1;`, `while true {}` and `for` loops that return warn, while `while cond { return x; }` does not. The standard modules that relied on the old behavior end such loops with a `return`.
 - Smaller `jaic` release binaries: only the x86-64, AArch64 and WebAssembly LLVM backends are linked in (the 0.6.2 macOS arm64 binary was 136 MiB with all twenty), and release binaries are stripped of local symbols, so `RUST_BACKTRACE` frames in them have no function names.
 - `get_type_table()` in compile-time code (a `#run`, or a metaprogram's message loop, also for another workspace and after `COMPLETE`) lists a descriptor of every type declared so far, unused structs and enums included, instead of an empty table; the compiled program's own table is unchanged.
 - `get_build_options()` of the program's own workspace reports the output name (the main file's name), `output_path` (its directory, with a trailing `/`) and `intermediate_path` (`.build` beside it) before a metaprogram sets anything, so metaprograms that build paths from them (`tprint("%/%", options.output_path, options.output_executable_name)`) get real paths instead of empty strings.

@@ -1256,18 +1256,20 @@ impl Compiler {
         let body_scope = self.new_block_scope(scope);
         self.ide_scope_span(body_scope, body.span);
         self.check_block_stmts(&mut f, body_scope, &body.stmts)?;
-        // Where the body can fall off its end although it has to produce a value.
-        let open_end = (!f.b.is_terminated()
-            && !f.return_types.is_empty()
-            && !f.named_results.iter().all(Option::is_some))
-        .then_some(f.b.current);
+        // The body is read for what Jai warns about: a result still owed at its end, and
+        // statements written after one that leaves the block.
+        // Named results are returned at the end (a feature newer than the warning), so a body
+        // that names them all is never short of a `return`.
+        let owes_result = !f.return_types.is_empty()
+            && !f.named_results.iter().all(Option::is_some)
+            && !f.macro_returned
+            && !self.stmts_return(&f, &body.stmts);
+        self.warn_unreachable(&f, &body.stmts);
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
         let func = f.b.finish();
-        if let Some(end) = open_end
-            && func.block_reachable(end)
-        {
+        if owes_result {
             self.warn(
                 Diagnostic::warning(header.span, "not all control paths return a value")
                     .with_label("this procedure can reach its end without returning")

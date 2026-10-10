@@ -1131,6 +1131,33 @@ fn format_string_argument_count_is_checked() {
 }
 
 #[test]
+fn statements_after_a_return_get_a_warning() {
+    let dir = scratch("after-return-warning");
+    let source = "\
+f :: (x: int) -> int {
+    if x > 0 { return 1; x += 1; }
+    for 1..3 { continue; x += 1; }
+    return 2;
+    Constant :: 5;
+}
+main :: () {
+    f(1);
+}
+";
+    let output = jaic_on(&dir, "t.jai", source, "check", &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stderr(&output);
+    assert_in_order(
+        &text,
+        &[
+            "t.jai:2:26: warning: statements in block after `return` are never reached",
+            "t.jai:3:26: warning: statements in block after `continue` are never reached",
+        ],
+    );
+    assert_eq!(text.matches("never reached").count(), 2, "{text}");
+}
+
+#[test]
 fn a_body_that_can_fall_off_its_end_gets_a_warning() {
     let dir = scratch("missing-return-warning");
     let source = "\
@@ -1158,9 +1185,13 @@ main :: () {
     let output = jaic_on(&dir, "t.jai", source, "check", &[]);
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
-    assert_in_order(
-        &text,
-        &["t.jai:2:", "warning: not all control paths return a value"],
-    );
-    assert_eq!(text.matches("not all control paths").count(), 1, "{text}");
+    // `open` and `forever` (a loop whose body does not always return) warn; the switches, the
+    // chosen `#if` branch and `named` (it returns its results at the end) do not.
+    for at in ["t.jai:2:", "t.jai:11:"] {
+        assert_in_order(
+            &text,
+            &[at, "warning: not all control paths return a value"],
+        );
+    }
+    assert_eq!(text.matches("not all control paths").count(), 2, "{text}");
 }

@@ -165,6 +165,11 @@ pub struct FnCtx {
     pub no_aoc: bool,
     /// Debug scope index of each sema scope seen so far (`debug_info.rs`).
     pub debug_scopes: crate::fxhash::HashMap<ScopeId, u32>,
+    /// The branch each `#if` statement of the body took, by statement span (`flow.rs`).
+    /// A macro expanded in the body returned from it (a backtick `return`): the shape of the
+    /// body no longer says whether every path returns.
+    pub macro_returned: bool,
+    pub static_taken: crate::fxhash::HashMap<Span, bool>,
 }
 
 #[derive(Clone)]
@@ -213,6 +218,8 @@ impl FnCtx {
             no_abc: false,
             no_aoc: false,
             debug_scopes: Default::default(),
+            macro_returned: false,
+            static_taken: Default::default(),
         }
     }
 }

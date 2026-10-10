@@ -279,7 +279,10 @@ impl Compiler {
             S::Return {
                 values,
                 backtick,
-            } => self.check_return(f, scope, values, *backtick, span),
+            } => {
+                f.macro_returned |= *backtick;
+                self.check_return(f, scope, values, *backtick, span)
+            }
             S::Defer {
                 body,
                 backtick,
@@ -324,6 +327,7 @@ impl Compiler {
                 else_branch,
             } => {
                 let taken = self.body_static_condition(f, scope, cond)?;
+                f.static_taken.insert(span, taken);
                 self.check_block_stmts(
                     f,
                     scope,
