@@ -31,7 +31,8 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   (`crates/jaic/src/stack_trace.rs`), an IR pass. Each traced function gets a node slot; a new
   entry block links it (depth and hash from the previous top, or 1 and a seed for the first node) and
   makes it the top; every `Ret` restores the previous top; after each `Loc` whose statement makes a
-  call, the line is stored into the node, so callees see their call line. A
+  call (looking through the blocks the statement continues into), the line is stored into the node,
+  so callees see their call line. A
   `Stack_Trace_Procedure_Info` global per function holds name, declaration site and address. The pass
   clears `Func.trace`, so the interpreter does not push a second node. Test: `stack_traces` in
   `crates/jaic-cli/tests/native.rs`.
@@ -50,8 +51,14 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   Their sizes are fixed: `trace_layout` checks them and turns traces off on a mismatch, since
   `trace_enter` and the pass write a `u64` hash and `u32` depth and line.
 - Hash values differ from Jai's; they only mix the caller hash, procedure id and call line.
-- There is no sentinel node from `push_context`, and leaf procedures also get nodes (the official
-  compiler omits them), so call depths can differ in those cases.
+- There is no sentinel node from `push_context`, so call depths can differ in that case.
+- Compiled code gives no node to a procedure that contains no call and never uses its context
+  pointer (`makes_no_calls`): nothing can read the trace from inside it, and Jai
+  omits leaf procedures as well. The interpreter still pushes a node for every traced procedure.
+- The pass's own loads and stores through the context and the previous node are listed in
+  `Func::trusted`, so the backend does not null-check them; keep new bookkeeping accesses
+  in that list.
+- Cost: with nodes `fib(40)` runs about twice as long as without (1.0 s and 0.5 s at `-O0`).
 
 ## Configuration
 

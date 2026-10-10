@@ -18,11 +18,33 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
         let Some(info) = program.funcs[i].as_ref().and_then(|f| f.trace.clone()) else {
             continue;
         };
+        if program.funcs[i].as_ref().is_some_and(makes_no_calls) {
+            // Nothing can read the stack from a procedure that calls nothing, and the
+            // Jai leaves such procedures out as well.
+            program.funcs[i].as_mut().unwrap().trace = None;
+            continue;
+        }
         let info_global = info_global(program, FuncId(i as u32), &info, &layout.info);
         let func = program.funcs[i].as_mut().unwrap();
         func.trace = None;
         instrument_func(func, FuncId(i as u32), &info, info_global, layout);
     }
+}
+
+/// A procedure that neither calls anything nor touches its context pointer: no callee, handler
+/// or allocator can look at the stack trace from inside it, and it cannot read
+/// `context.stack_trace` itself (runtime check failures report their own location).
+fn makes_no_calls(func: &Func) -> bool {
+    let mut uses_context = false;
+    let mut call = false;
+    for block in &func.blocks {
+        for inst in &block.insts {
+            call |= matches!(inst, Inst::Call(_));
+            inst_vals(inst, &mut |_| {}, &mut |v| uses_context |= v == Val(0));
+        }
+        term_uses(&block.term, &mut |v| uses_context |= v == Val(0));
+    }
+    !call && !uses_context
 }
 
 fn info_global(
@@ -241,13 +263,16 @@ fn instrument_func(
     // Nested: depth + 1; the hash mixes the caller's hash, this procedure and the call line.
     let mut nested = Vec::new();
     let depth_addr = e.offset(&mut nested, previous, n.call_depth);
+    e.func.trusted.push(depth_addr);
     let depth = e.load(&mut nested, Ty::I32, depth_addr);
     let one = e.iconst(&mut nested, Ty::I32, 1);
     let depth = e.bin(&mut nested, BinOp::Add, Ty::I32, depth, one);
     e.store_at(&mut nested, Ty::I32, node, n.call_depth, depth);
     let hash_addr = e.offset(&mut nested, previous, n.hash);
+    e.func.trusted.push(hash_addr);
     let hash = e.load(&mut nested, Ty::I64, hash_addr);
     let caller_line_addr = e.offset(&mut nested, previous, n.line_number);
+    e.func.trusted.push(caller_line_addr);
     let caller_line = e.load(&mut nested, Ty::I32, caller_line_addr);
     let caller_line64 = e.val(Ty::I64);
     nested.push(Inst::Conv {
@@ -277,16 +302,20 @@ fn instrument_func(
     };
 
     // The original code (its entry now lives at `body_id`): record call lines, pop on return.
+    let reaches_call = reaches_call_from_entry(&e.func.blocks);
     let originals = (1..original_blocks).chain(std::iter::once(body_id.0 as usize));
     for b in originals.collect::<Vec<_>>() {
         let old = std::mem::take(&mut e.func.blocks[b].insts);
+        let term_calls = successors(&e.func.blocks[b].term)
+            .iter()
+            .any(|s| reaches_call[s.0 as usize]);
         let mut insts = Vec::with_capacity(old.len() + 4);
         for (k, inst) in old.iter().enumerate() {
             insts.push(inst.clone());
             if let Inst::Loc {
                 line, ..
             } = inst
-                && calls_before_next_loc(&old[k + 1..])
+                && calls_before_next_loc(&old[k + 1..], term_calls)
             {
                 let value = e.iconst(&mut insts, Ty::I32, *line as u64);
                 insts.push(Inst::Store {
@@ -308,7 +337,7 @@ fn instrument_func(
 }
 
 /// A statement's line matters only if it makes a call (the callee reads it from our node).
-fn calls_before_next_loc(rest: &[Inst]) -> bool {
+fn calls_before_next_loc(rest: &[Inst], successors_call: bool) -> bool {
     for inst in rest {
         match inst {
             Inst::Call(_) => return true,
@@ -318,8 +347,66 @@ fn calls_before_next_loc(rest: &[Inst]) -> bool {
             _ => {}
         }
     }
-    // The statement continues into another block: assume it calls.
-    true
+    // The statement continues into the next blocks (checks, branches).
+    successors_call
+}
+
+fn successors(term: &Term) -> Vec<BlockId> {
+    match term {
+        Term::Jump(b) => vec![*b],
+        Term::Branch {
+            then_block,
+            else_block,
+            ..
+        } => vec![*then_block, *else_block],
+        Term::Switch {
+            cases,
+            default,
+            ..
+        } => cases
+            .iter()
+            .map(|c| c.1)
+            .chain(std::iter::once(*default))
+            .collect(),
+        Term::Ret(_) | Term::Unreachable => Vec::new(),
+    }
+}
+
+/// Per block: does a call happen from its start before any `Loc` on some path? (A statement's
+/// line only matters if one is.)
+fn reaches_call_from_entry(blocks: &[Block]) -> Vec<bool> {
+    // 1: calls first, 2: a `Loc` first, 0: neither (the answer is the successors').
+    let first: Vec<u8> = blocks
+        .iter()
+        .map(|b| {
+            for inst in &b.insts {
+                match inst {
+                    Inst::Call(_) => return 1,
+                    Inst::Loc {
+                        ..
+                    } => return 2,
+                    _ => {}
+                }
+            }
+            0
+        })
+        .collect();
+    let mut result: Vec<bool> = first.iter().map(|&f| f == 1).collect();
+    loop {
+        let mut changed = false;
+        for (b, block) in blocks.iter().enumerate() {
+            if first[b] == 0
+                && !result[b]
+                && successors(&block.term).iter().any(|s| result[s.0 as usize])
+            {
+                result[b] = true;
+                changed = true;
+            }
+        }
+        if !changed {
+            return result;
+        }
+    }
 }
 
 fn retarget(term: &mut Term, from: BlockId, to: BlockId) {

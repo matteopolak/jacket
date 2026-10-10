@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 528" width="820" role="img" aria-label="jaifmt">
+<rect width="820" height="528" rx="10" fill="#0d1117" stroke="#30363d"/>
+<path d="M10 0H810a10 10 0 0 1 10 10V38H0V10A10 10 0 0 1 10 0z" fill="#161b22"/>
+<circle cx="22" cy="19" r="6" fill="#ff5f57"/><circle cx="42" cy="19" r="6" fill="#febc2e"/><circle cx="62" cy="19" r="6" fill="#28c840"/>
+<text x="410.0" y="24" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#8b949e">jaifmt</text>
+<text x="20" y="68" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3"> cat fmt_in.jai</tspan></text>
+<text x="20" y="88" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">#import "Basic";</tspan></text>
+<text x="20" y="108" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">main::(){</tspan></text>
+<text x="20" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">  items:=int.[3,1,2];total:=0;</tspan></text>
+<text x="20" y="148" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">  for items{ total+=it; }</tspan></text>
+<text x="20" y="168" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">  if total&gt;5 {print("big: %\n",total);} else {print("small\n");}</tspan></text>
+<text x="20" y="188" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">}</tspan></text>
+<text x="20" y="208" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"></text>
+<text x="20" y="228" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3"> jaifmt --stdin &lt; fmt_in.jai</tspan></text>
+<text x="20" y="248" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">#import "Basic";</tspan></text>
+<text x="20" y="268" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"></text>
+<text x="20" y="288" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">main :: () {</tspan></text>
+<text x="20" y="308" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    items := int.[3, 1, 2];</tspan></text>
+<text x="20" y="328" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    total := 0;</tspan></text>
+<text x="20" y="348" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    for items {</tspan></text>
+<text x="20" y="368" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">        total += it;</tspan></text>
+<text x="20" y="388" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    }</tspan></text>
+<text x="20" y="408" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    if total &gt; 5 {</tspan></text>
+<text x="20" y="428" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">        print("big: %\n", total);</tspan></text>
+<text x="20" y="448" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    } else {</tspan></text>
+<text x="20" y="468" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">        print("small\n");</tspan></text>
+<text x="20" y="488" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">    }</tspan></text>
+<text x="20" y="508" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">}</tspan></text>
+</svg>

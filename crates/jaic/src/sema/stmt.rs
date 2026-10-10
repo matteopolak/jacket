@@ -1017,6 +1017,25 @@ impl Compiler {
         Ok(())
     }
 
+    /// A name, or fields of a name that is not a pointer: evaluating it twice has no effect and
+    /// finds the same address.
+    fn is_plain_variable_target(&mut self, scope: ScopeId, target: &ast::Expr) -> bool {
+        let mut root = target;
+        while let E::Member(base, _) = &root.kind {
+            root = base;
+        }
+        if !matches!(root.kind, E::Ident(_)) {
+            return false;
+        }
+        if std::ptr::eq(root, target) {
+            return true;
+        }
+        match self.check_expr_no_emit(scope, root) {
+            Ok(op) => !self.types.is_pointer(op.ty()),
+            Err(_) => false,
+        }
+    }
+
     fn check_assign(
         &mut self,
         f: &mut FnCtx,
@@ -1058,6 +1077,19 @@ impl Compiler {
             else {
                 return err(lhs[0].span, "cannot assign to this expression");
             };
+            if self.is_plain_variable_target(scope, &lhs[0]) {
+                // A variable (or a field of one) has the same address every time it is named,
+                // so `x += y` is `x = x + y` without a hidden pointer to it.
+                let value = ast::Expr {
+                    kind: E::Binary(bin, Box::new(lhs[0].clone()), Box::new(rhs[0].clone())),
+                    span,
+                };
+                let result = self.check_expr(f, scope, &value, Some(ty))?;
+                let result = self.convert(f, result, ty, span)?;
+                let (_, v) = self.rvalue(f, result, span)?;
+                self.store_value(f, ty, addr, v, span)?;
+                return Ok(());
+            }
             let inner = self.new_block_scope(scope);
             let ptr_ty = self.types.pointer(ty);
             let slot = self.spill(f, ptr_ty, addr, span)?;
@@ -1111,9 +1143,12 @@ impl Compiler {
             };
             let value = self.check_expr(f, scope, &rhs[0], Some(ty))?;
             let value = self.convert(f, value, ty, rhs[0].span)?;
+            // A call's result is a temporary of its own and cannot overlap the target.
+            let fresh =
+                matches!(rhs[0].kind, E::Call { .. }) && matches!(value, Operand::Value { .. });
             let (_, v) = self.rvalue(f, value, span)?;
             // Copy through a temporary when the source may overlap the target.
-            if self.is_memory_type(ty) {
+            if self.is_memory_type(ty) && !fresh {
                 let size = self.size_of(ty, span)?;
                 let align = self.align_of(ty, span)?;
                 let tmp = f.b.alloca(size.max(1), align);
@@ -2772,19 +2807,23 @@ impl Compiler {
             };
             match f.return_outs[i] {
                 Some(out) => self.store_value(f, ty, out, v, span)?,
+                None if f.defers.is_empty() => scalars.push((v, None)),
                 None => {
                     // Keep the value safe from defers that modify locals.
                     let t = self.ir_ty(ty).unwrap();
                     let slot = f.b.alloca(t.size(), t.size());
                     f.b.store(t, slot, v);
-                    scalars.push((t, slot));
+                    scalars.push((v, Some((t, slot))));
                 }
             }
         }
         self.emit_defers(f, 0, span)?;
         let mut rets = Vec::new();
-        for (t, slot) in scalars {
-            rets.push(f.b.load(t, slot));
+        for (v, saved) in scalars {
+            rets.push(match saved {
+                Some((t, slot)) => f.b.load(t, slot),
+                None => v,
+            });
         }
         f.b.ret(rets);
         Ok(())

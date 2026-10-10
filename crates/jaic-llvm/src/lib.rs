@@ -356,7 +356,15 @@ fn emit_module(
             options.opt_level != OptLevel::O0,
         )
     });
-    lower::lower_program(&context, &module, program, arch, shard, debug)?;
+    lower::lower_program(
+        &context,
+        &module,
+        program,
+        arch,
+        shard,
+        debug,
+        options.opt_level == OptLevel::O0,
+    )?;
     let unit = shard.map_or(0, |s| s.index);
     if let Some(ir_path) = &options.emit_ir {
         module
@@ -389,6 +397,12 @@ fn emit_module(
     }
     let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
     passes.extend(options.sanitize.passes(options.opt_level));
+    let env_passes = std::env::var("JAIC_O0_PASSES").ok();
+    if options.opt_level == OptLevel::O0
+        && let Some(p) = &env_passes
+    {
+        passes.push(p);
+    }
     if !passes.is_empty() {
         let pass_options = PassBuilderOptions::create();
         let c = &options.codegen;

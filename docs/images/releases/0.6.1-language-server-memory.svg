@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 342" width="820" role="img" aria-label="The language server uses far less memory">
+<rect width="820" height="342" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+<text x="24" y="34" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#1f2328">The language server uses far less memory</text>
+<text x="24" y="54" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#59636e">Peak memory while editing a large file</text>
+<rect x="546" y="22" width="12" height="12" rx="2" fill="#afb8c1"/><text x="564" y="32" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#59636e">0.6.0</text>
+<rect x="676" y="22" width="12" height="12" rx="2" fill="#1f6feb"/><text x="694" y="32" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#1f2328">0.6.1</text>
+<text x="24" y="105" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#1f2328">25,000-line file</text>
+<rect x="190" y="86" width="162.0" height="15" rx="3" fill="#afb8c1"/>
+<text x="360.0" y="98" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e">1,030 MiB</text>
+<rect x="190" y="106" width="33.2" height="15" rx="3" fill="#1f6feb"/>
+<text x="231.2" y="118" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328">211 MiB</text>
+<text x="24" y="161" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#1f2328">100,000-line file</text>
+<rect x="190" y="142" width="510.0" height="15" rx="3" fill="#afb8c1"/>
+<text x="708.0" y="154" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e">3,243 MiB</text>
+<rect x="190" y="162" width="108.7" height="15" rx="3" fill="#1f6feb"/>
+<text x="306.7" y="174" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328">691 MiB</text>
+<text x="24" y="217" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#1f2328">240,000-line project</text>
+<rect x="190" y="198" width="222.1" height="15" rx="3" fill="#afb8c1"/>
+<text x="420.1" y="210" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e">1,412 MiB</text>
+<rect x="190" y="218" width="100.5" height="15" rx="3" fill="#1f6feb"/>
+<text x="298.5" y="230" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328">639 MiB</text>
+<text x="24" y="273" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#1f2328">Focus (real project)</text>
+<rect x="190" y="254" width="89.3" height="15" rx="3" fill="#afb8c1"/>
+<text x="287.3" y="266" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e">568 MiB</text>
+<rect x="190" y="274" width="38.2" height="15" rx="3" fill="#1f6feb"/>
+<text x="236.2" y="286" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328">243 MiB</text>
+</svg>

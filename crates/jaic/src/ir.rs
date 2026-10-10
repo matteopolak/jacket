@@ -564,6 +564,10 @@ pub struct Func {
     /// Native code checks every load, store and copy through a pointer that may be null
     /// (`Build_Options.null_pointer_check`, off for `#no_abc` procedures).
     pub null_checks: bool,
+    /// Values known to hold a real (never null) address: the context pointer, and the addresses
+    /// of the stack trace bookkeeping. Native code does not null-check loads and stores through
+    /// them.
+    pub trusted: Vec<Val>,
     /// Native debug information (named variables, lexical scopes), recorded only when the
     /// program is built with debug info. Boxed so the interpreter's hot data stays small.
     pub debug: Option<Box<FuncDebug>>,
@@ -942,6 +946,7 @@ impl Builder {
             source_file: 0,
             trace: None,
             null_checks: false,
+            trusted: Vec::new(),
             debug: None,
         };
         Self {

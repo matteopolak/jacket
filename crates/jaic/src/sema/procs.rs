@@ -1161,6 +1161,7 @@ impl Compiler {
         let mut next = 0usize;
         if sig.has_context {
             f.context = Some(f.b.param(0));
+            f.b.func.trusted.push(f.b.param(0));
             next = 1;
         }
         for param in &sig.params {

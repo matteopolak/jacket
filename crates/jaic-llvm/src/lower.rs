@@ -91,6 +91,7 @@ pub fn lower_program<'ctx>(
     arch: Arch,
     shard: Option<Shard>,
     debug: Option<(DebugFormat, bool)>,
+    unoptimized: bool,
 ) -> Result<(), String> {
     let debug = debug
         .map(|(format, optimized)| DebugInfo::new(context, module, program, format, optimized));
@@ -124,6 +125,7 @@ pub fn lower_program<'ctx>(
         null_fail: OnceCell::new(),
         check_files: RefCell::new(HashMap::new()),
         debug,
+        inline_small_copies: unoptimized && !arch.is_wasm(),
     };
     backend.run().map_err(|e| e.0)
 }
@@ -219,7 +221,14 @@ struct Backend<'ctx, 'p> {
     check_files: RefCell<HashMap<u32, PointerValue<'ctx>>>,
     /// Debug info builder when the program is built with debug info (`debuginfo.rs`).
     debug: Option<DebugInfo<'ctx, 'p>>,
+    /// Unoptimized code: write copies and zero fills of up to `INLINE_COPY_MAX` bytes as
+    /// loads and stores. FastISel turns a `memcpy` whose pointers are not known to be aligned
+    /// into a library call (and every `memset` into one), which costs more than the copy.
+    inline_small_copies: bool,
 }
+
+/// The largest copy or fill that unoptimized code writes inline.
+const INLINE_COPY_MAX: u64 = 64;
 
 /// Per-function lowering state.
 struct FnState<'ctx> {
@@ -1069,6 +1078,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             facts: NullFacts::default(),
             flags: vec![None; func.vals.len()],
         };
+        for v in &func.trusted {
+            st.nonnull[v.0 as usize] = true;
+        }
         if st.null_checks {
             st.facts = NullFacts::new(func);
         }
@@ -1182,7 +1194,19 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     }
 
     fn get(&self, st: &FnState<'ctx>, v: Val) -> R<BasicValueEnum<'ctx>> {
-        st.vals[v.0 as usize].ok_or_else(|| Error(format!("use of undefined value %{}", v.0)))
+        if let Some(value) = st.vals[v.0 as usize] {
+            return Ok(value);
+        }
+        // A comparison's byte is widened where it is used, if it is: a branch on it uses the
+        // `i1` and leaves the compare with one user, which is what lets instruction selection
+        // fuse the compare into the branch.
+        match st.flags[v.0 as usize] {
+            Some(flag) => Ok(self
+                .builder
+                .build_int_z_extend(flag, self.ctx.i8_type(), "")?
+                .into()),
+            None => Err(Error(format!("use of undefined value %{}", v.0))),
+        }
     }
 
     fn set(&self, st: &mut FnState<'ctx>, v: Val, value: BasicValueEnum<'ctx>) {
@@ -1634,8 +1658,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     b.build_int_compare(pred, self.as_int(x)?, self.as_int(y)?, "")?
                 };
                 st.flags[dst.0 as usize] = Some(r);
-                let r = b.build_int_z_extend(r, self.ctx.i8_type(), "")?;
-                self.set(st, *dst, r.into());
             }
             Inst::Conv {
                 dst,
@@ -1756,7 +1778,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     self.null_check(st, *src, jaic::ir::NULL_COPY)?;
                 }
                 let (d, s) = (self.get_ptr(st, *dst)?, self.get_ptr(st, *src)?);
-                b.build_memcpy(d, 1, s, 1, self.ctx.i64_type().const_int(*size, false))?;
+                if self.inline_small_copies && *size <= INLINE_COPY_MAX {
+                    self.inline_copy(d, Some(s), *size)?;
+                } else {
+                    b.build_memcpy(d, 1, s, 1, self.ctx.i64_type().const_int(*size, false))?;
+                }
             }
             Inst::Zero {
                 dst,
@@ -1766,12 +1792,16 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     self.null_check(st, *dst, jaic::ir::NULL_FILL)?;
                 }
                 let d = self.get_ptr(st, *dst)?;
-                b.build_memset(
-                    d,
-                    1,
-                    self.ctx.i8_type().const_zero(),
-                    self.ctx.i64_type().const_int(*size, false),
-                )?;
+                if self.inline_small_copies && *size <= INLINE_COPY_MAX {
+                    self.inline_copy(d, None, *size)?;
+                } else {
+                    b.build_memset(
+                        d,
+                        1,
+                        self.ctx.i8_type().const_zero(),
+                        self.ctx.i64_type().const_int(*size, false),
+                    )?;
+                }
             }
             Inst::Call(call) => {
                 let jaic::ir::CallInst {
@@ -1835,6 +1865,45 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         Ok(())
     }
 
+    /// `size` bytes from `src` to `dst` (zeros when there is no source) as the widest unaligned
+    /// loads and stores that fit.
+    fn inline_copy(
+        &self,
+        dst: PointerValue<'ctx>,
+        src: Option<PointerValue<'ctx>>,
+        size: u64,
+    ) -> R<()> {
+        let b = &self.builder;
+        let mut at = 0;
+        while at < size {
+            let width = [8u64, 4, 2, 1]
+                .into_iter()
+                .find(|w| *w <= size - at)
+                .expect("a width fits");
+            let ty = match width {
+                8 => self.ctx.i64_type(),
+                4 => self.ctx.i32_type(),
+                2 => self.ctx.i16_type(),
+                _ => self.ctx.i8_type(),
+            };
+            let to = self.gep_const(dst, at)?;
+            let value = match src {
+                Some(src) => {
+                    let load = b.build_load(ty, self.gep_const(src, at)?, "")?;
+                    if let Some(i) = load.as_instruction_value() {
+                        let _ = i.set_alignment(1);
+                    }
+                    load
+                }
+                None => ty.const_zero().into(),
+            };
+            let store = b.build_store(to, value)?;
+            let _ = store.set_alignment(1);
+            at += width;
+        }
+        Ok(())
+    }
+
     fn bin(
         &self,
         st: &FnState<'ctx>,
@@ -1869,9 +1938,12 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             BinOp::Or => b.build_or(x, y, "")?,
             BinOp::Xor => b.build_xor(x, y, "")?,
             BinOp::UDiv | BinOp::URem => {
-                let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
-                let none = self.ctx.i64_type().const_zero();
-                self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
+                // A constant divisor needs no check (the common `x % 2`).
+                if y.get_zero_extended_constant().is_none_or(|c| c == 0) {
+                    let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
+                    let none = self.ctx.i64_type().const_zero();
+                    self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
+                }
                 if op == BinOp::UDiv {
                     b.build_int_unsigned_div(x, y, "")?
                 } else {
@@ -1879,36 +1951,64 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 }
             }
             BinOp::SDiv | BinOp::SRem => {
-                let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
-                let none = self.ctx.i64_type().const_zero();
-                self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
-                // x / -1 overflows for INT_MIN (undefined in LLVM); the IR wraps.
-                let minus_one =
-                    b.build_int_compare(IntPredicate::EQ, y, it.const_all_ones(), "")?;
-                let safe_y = b.build_select(minus_one, konst(1), y, "")?.into_int_value();
-                if op == BinOp::SDiv {
-                    let q = b.build_int_signed_div(x, safe_y, "")?;
-                    let neg = b.build_int_neg(x, "")?;
-                    b.build_select(minus_one, neg, q, "")?.into_int_value()
+                let constant = y.get_sign_extended_constant();
+                if constant.is_none_or(|c| c == 0) {
+                    let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
+                    let none = self.ctx.i64_type().const_zero();
+                    self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
+                }
+                if constant.is_some_and(|c| c != 0 && c != -1) {
+                    // Neither a zero divisor nor the overflowing `INT_MIN / -1`.
+                    if op == BinOp::SDiv {
+                        b.build_int_signed_div(x, y, "")?
+                    } else {
+                        b.build_int_signed_rem(x, y, "")?
+                    }
                 } else {
-                    let r = b.build_int_signed_rem(x, safe_y, "")?;
-                    b.build_select(minus_one, konst(0), r, "")?.into_int_value()
+                    // x / -1 overflows for INT_MIN (undefined in LLVM); the IR wraps.
+                    let minus_one =
+                        b.build_int_compare(IntPredicate::EQ, y, it.const_all_ones(), "")?;
+                    let safe_y = b.build_select(minus_one, konst(1), y, "")?.into_int_value();
+                    if op == BinOp::SDiv {
+                        let q = b.build_int_signed_div(x, safe_y, "")?;
+                        let neg = b.build_int_neg(x, "")?;
+                        b.build_select(minus_one, neg, q, "")?.into_int_value()
+                    } else {
+                        let r = b.build_int_signed_rem(x, safe_y, "")?;
+                        b.build_select(minus_one, konst(0), r, "")?.into_int_value()
+                    }
                 }
             }
             BinOp::Shl | BinOp::LShr => {
-                let out = b.build_int_compare(IntPredicate::UGE, y, konst(bits as u64), "")?;
-                let r = if op == BinOp::Shl {
-                    b.build_left_shift(x, y, "")?
-                } else {
-                    b.build_right_shift(x, y, false, "")?
+                let shift = |x, y| {
+                    if op == BinOp::Shl {
+                        b.build_left_shift(x, y, "")
+                    } else {
+                        b.build_right_shift(x, y, false, "")
+                    }
                 };
-                b.build_select(out, konst(0), r, "")?.into_int_value()
+                match y.get_zero_extended_constant() {
+                    Some(c) if c < bits as u64 => shift(x, y)?,
+                    Some(_) => konst(0),
+                    None => {
+                        let out =
+                            b.build_int_compare(IntPredicate::UGE, y, konst(bits as u64), "")?;
+                        let r = shift(x, y)?;
+                        b.build_select(out, konst(0), r, "")?.into_int_value()
+                    }
+                }
             }
             BinOp::AShr => {
-                let out = b.build_int_compare(IntPredicate::UGE, y, konst(bits as u64), "")?;
-                let y = b
-                    .build_select(out, konst(bits as u64 - 1), y, "")?
-                    .into_int_value();
+                let y = match y.get_zero_extended_constant() {
+                    Some(c) if c < bits as u64 => y,
+                    Some(_) => konst(bits as u64 - 1),
+                    None => {
+                        let out =
+                            b.build_int_compare(IntPredicate::UGE, y, konst(bits as u64), "")?;
+                        b.build_select(out, konst(bits as u64 - 1), y, "")?
+                            .into_int_value()
+                    }
+                };
                 b.build_right_shift(x, y, true, "")?
             }
             BinOp::Rotl | BinOp::Rotr => {

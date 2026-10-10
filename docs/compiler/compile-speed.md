@@ -144,6 +144,40 @@ Code generation starts after every procedure is lowered to IR because nothing in
 
 A sketch that keeps the risk contained: (1) a "frozen" flag on `Func`, set when sema has finished the procedure and a `PROCEDURE_BODY_READY` message has been delivered and acknowledged (no metaprogram can change it any more); (2) the front end hands frozen procedures to a worker pool that builds LLVM IR for them into per-thread modules (`Backend::define_function` needs only `&Program` plus lazily declared symbols, which the partitioning in `partition.rs` already isolates); (3) at completion, the remaining procedures, globals and type tables are lowered, and the partition plan (which needs the full reference graph) is computed once. Step (3) is why the pieces cannot be finished early at `-O2`: ownership and `internal` versus `external` linkage depend on all references. For `-O0` they do not, so an `-O0` build could stream into shards chosen by a running size count. The costs are a second copy of the IR living while sema still grows the interner (memory), a lock around `Program` growth, and interactions with `#run` (which also reads `Program`). It was not attempted: the possible gain at the default `-O0` is small next to the 1.2 s of front end, and the risk is spread across sema, metaprogram messages and the interpreter.
 
+### Runtime of unoptimized code
+
+The default build also had to run fast enough to be usable, and call-heavy code was slow: `fib(40)` took 1.6 s against 0.67 s at `-O2`. Most of that was the work generated around the program, not the program. Best of five wall times (interleaved, on a busy machine) and instructions retired, release `jaic` before and after, `-O0` with debug info:
+
+| Program | Before | After | Instructions before / after |
+| --- | --- | --- | --- |
+| `fib(40)` recursion | 1.60 s | 1.01 s | 36.2 G / 19.4 G |
+| Collatz below 3M | 1.16 s | 0.74 s | 20.4 G / 8.2 G |
+| Sieve of 50M | 0.49 s | 0.41 s | 8.0 G / 6.6 G |
+| Struct returned by value, 200M iterations | 2.86 s | 1.63 s | 72.3 G / 23.4 G |
+| matmul 400 cubed (`float64`) | 0.20 s | 0.21 s | 4.7 G / 4.0 G |
+| n-body | 0.14 s | 0.13 s | 2.2 G / 2.0 G |
+
+Compile time of `-O0` debug builds got a little shorter, because the changes emit fewer instructions (warm medians, `tools/compile_bench.py --repeat 5`, same machine, interleaved):
+
+| Workload | Before | After |
+| --- | --- | --- |
+| Focus `build` | 1.55 s | 1.52 s |
+| chess-jai `build` | 0.68 s | 0.62 s (codegen 0.13 s to 0.10 s) |
+| jaison tests `build` | 0.09 s | 0.08 s |
+| generated 60k lines `build` | 0.32 s | 0.27 s (codegen 0.15 s to 0.10 s, RSS 446 to 384 MiB) |
+
+What changed, by size of the effect:
+
+- **Stack trace nodes** (`stack_trace.rs`, [stack traces](stack-traces.md)): the biggest cost of a call. The pass now leaves out procedures that call nothing and never use their context (they cannot read the trace; Jai leaves leaves out too), does not null-check its own loads and stores (`Func::trusted`: the context pointer and the previous node's fields), and stores a statement's line only if a call can follow before the next statement (it used to assume one whenever a statement spanned blocks, which every `x % 2` and bounds check does). `fib` went from 1.60 s to 1.09 s on this alone, and the struct loop from 2.9 s to 2.4 s since `step` is a leaf. Without nodes at all `fib` runs in 0.51 s; what is left is the push and pop.
+- **Small copies and fills as loads and stores** (`Backend::inline_copy`, `-O0` only): FastISel turns a `memcpy` into a library call unless both pointers are known to be 8-aligned (the IR does not say), and every `memset` into one. Copies and zero fills of up to 64 bytes are now written as unaligned 8, 4, 2 and 1 byte loads and stores. A by-value struct call did three or four of these per call.
+- **Constants** (`Backend::bin`): a constant divisor needs no zero check or `-1` guard, and a constant shift amount needs no range select (`x % 2`, `x << 3`). Collatz is mostly this plus the line stores.
+- **`x += y` on a variable** is `x = x + y` (`check_assign`); it used to store the variable's address in a hidden slot and load it back twice. Fields of a non-pointer variable work the same way.
+- **Calls into assignments**: `v = f(v)` no longer copies the result through a second temporary; a `return` without `defer`s no longer parks the value in a slot first.
+- **Context pointer** is known to be non-null (`Func::trusted`), so `context.x` has no null check.
+- **A comparison's byte is widened where it is used** (`Backend::get`). A compare feeding a branch has one user, which lets FastISel fuse them into a conditional branch instead of `cset` and `tbnz`.
+
+Variables stay in stack slots. Promoting them (`mem2reg` at `-O0`) was measured and rejected: with FastISel's fast register allocator it made Collatz 2.5 times slower (values spill at every block boundary), and it would take variables out of memory, which a debugger can no longer show or change. Only compiler temporaries could be promoted safely, and few are left in hot loops.
+
 ## How to change it
 
 - Measure with `jaic build x.jai -o out --timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` ([benchmark generator](../tools/benchmark-generator.md); `gen-10k`/`gen-60k`/`gen-240k` in `compile_bench.py`).

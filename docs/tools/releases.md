@@ -23,7 +23,22 @@ A packaged `jaic` (and `jailint`, `jailsp`) finds its standard library through `
 
 To cut a release:
 
-1. Add a `## [x.y.z] - YYYY-MM-DD` section at the top of `CHANGELOG.md`. Write it by hand, for users: what changed, not a commit list. The section is the release page, so keep the shape of the earlier ones: a one- to three-sentence summary, short grouped sections with one-line bullets, tables where they help, and the minor items in a `<details><summary>Other changes (N)</summary>` block (leave a blank line after `<summary>` and before `</details>` so the markdown inside renders). Use `###` headings or lower inside it; a `## [` line would end the extracted notes. Screenshots go in an HTML table at `width="400"`, linked by `https://raw.githubusercontent.com/matteopolak/jai/main/...` URLs (release pages cannot use relative paths).
+1. Add a `## [x.y.z] - YYYY-MM-DD` section at the top of `CHANGELOG.md`. It is the release page, so keep it short and written for users, not a commit list:
+   - One or two plain sentences on what the release is about.
+   - Optionally one image under them (below).
+   - `### Highlights`: 2 to 6 one-line bullets for what users notice, with at most one number each.
+   - `### Breaking changes` (only if any): a small "Was | Now" table or short bullets, saying what to do.
+   - `### Fixes`: one-line bullets, about 15 words at most. Merge related ones and drop trivia.
+   - Leave out internal tooling, implementation details and rule or flag lists. When a feature needs explaining, link to its doc with an absolute `https://github.com/matteopolak/jai/blob/main/docs/...` URL (release pages cannot use relative paths) instead of explaining it in the notes.
+   - Use `###` headings or lower; a `## [` line would end the extracted notes.
+
+   Images are SVGs committed under `docs/images/releases/`, named `<version>-<topic>.svg`: a before/after bar chart for a measured win, or a terminal-style picture of real tool output. Draw your own background so they read on light and dark themes, use no external resources, and keep them small (a few KB). Reference them with an absolute `raw.githubusercontent.com` URL and alt text, since release pages and the archived copy of `CHANGELOG.md` cannot use relative paths:
+
+   ```md
+   ![jaifmt turns messy code into formatted code](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.2.0-jaifmt.svg)
+   ```
+
+   Commit the image before tagging, so the URL resolves when the release is published. Use about one image per few releases, where it shows something words cannot.
 2. Bump `version` in the root `Cargo.toml`.
 3. Commit, then tag and push:
 

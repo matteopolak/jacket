@@ -31,7 +31,7 @@ The producer outputs exactly:
 
 Schema v2 bundles have no UI (`index.html`, `worker.mjs`, editor files) and no `entrypoint` field, so a v1 consumer that requires `index.html` rejects them.
 
-`.github/workflows/browser-release.yml` builds one reviewed full SHA on manual dispatch, runs the helper tests and the Wasm/LSP crate tests, packages the bundle and uploads the two producer assets as a workflow artifact. It has read-only permissions and publishes nothing. The portfolio's `jai-web.yml` checks out a compiler commit, runs the same packager, verifies the bundle, publishes immutable `jai-web-<sha>` releases in `matteopolak/portfolio` and pins their hashes in `jai-web-release.json`.
+`.github/workflows/browser-release.yml` builds one reviewed full SHA on manual dispatch, runs the helper tests and the Wasm/LSP crate tests, packages the bundle and uploads the two producer assets as a workflow artifact. It has read-only permissions and publishes nothing. The portfolio's `jai-web.yml` checks out a compiler commit, runs the same packager, verifies the bundle, publishes immutable `jai-web-<sha>` releases in `matteopolak/portfolio` and pins their hashes in `releases/jai-web-release.json`.
 
 ## How to change it
 

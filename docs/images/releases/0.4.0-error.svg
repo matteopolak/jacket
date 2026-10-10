@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 248" width="820" role="img" aria-label="jaic check e2.jai">
+<rect width="820" height="248" rx="10" fill="#0d1117" stroke="#30363d"/>
+<path d="M10 0H810a10 10 0 0 1 10 10V38H0V10A10 10 0 0 1 10 0z" fill="#161b22"/>
+<circle cx="22" cy="19" r="6" fill="#ff5f57"/><circle cx="42" cy="19" r="6" fill="#febc2e"/><circle cx="62" cy="19" r="6" fill="#28c840"/>
+<text x="410.0" y="24" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#8b949e">jaic check e2.jai</text>
+<text x="20" y="68" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3"> jaic check e2.jai</tspan></text>
+<text x="20" y="88" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"></text>
+<text x="20" y="108" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">e2.jai:5:18: </tspan><tspan fill="#ff7b72" font-weight="700">error</tspan><tspan fill="#e6edf3" font-weight="700">: type mismatch: expected `s16`, found `s64`</tspan></text>
+<text x="20" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">        small: s16 = big;</tspan></text>
+<text x="20" y="148" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">                     </tspan><tspan fill="#ff7b72" font-weight="700">^^^</tspan></text>
+<text x="20" y="168" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">e2.jai:5:12: </tspan><tspan fill="#56d4dd" font-weight="700">note</tspan><tspan fill="#e6edf3" font-weight="700">: expected because of this type</tspan></text>
+<text x="20" y="188" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">        small: s16 = big;</tspan></text>
+<text x="20" y="208" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#e6edf3">               </tspan><tspan fill="#56d4dd" font-weight="700">^^^</tspan></text>
+<text x="20" y="228" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#7ee787" font-weight="700">help</tspan><tspan fill="#e6edf3" font-weight="700">: convert with `cast(s16)` if every value fits</tspan></text>
+</svg>

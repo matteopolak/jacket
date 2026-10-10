@@ -36,6 +36,8 @@ Calling conventions:
 
 ## Configuration
 
+`Func::trusted` lists values that are never null (the context pointer, and the addresses the [stack trace](stack-traces.md) pass computes); native code does not null-check accesses through them.
+
 `Options::stack_trace` and `Options::array_bounds_check` decide at lowering time whether stack-trace bookkeeping and bounds checks are emitted.
 
 ## Dependencies
