@@ -376,6 +376,8 @@ check_array_views :: () {
     assert(middle.count == 3 && middle[0] == 2 && middle[2] == 4);
     empty := array_view(numbers, 10);
     assert(empty.count == 0);
+    clipped := array_view(numbers, 7, 20);
+    assert(clipped.count == 3 && clipped[0] == 7);
     assert(peek(middle) == 4 && peek_pointer(middle) == *numbers[4]);
     m := middle;
     assert(pop(*m) == 4 && m.count == 2);
