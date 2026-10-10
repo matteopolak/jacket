@@ -2,7 +2,15 @@
 
 ## [Unreleased]
 
-- Default (`-O0`) builds run call-heavy code up to 1.7x faster and compile a little faster: cheaper stack trace bookkeeping (none for procedures that call nothing), struct copies inline, and shorter code for constant division, shifts and `x += y`.
+## [0.7.1] - 2026-10-10
+
+Faster debug builds: programs built without optimization run up to 1.7x faster, and they compile a little faster too.
+
+### Highlights
+
+- Call-heavy code built at `-O0` runs about 1.6x faster (e.g. a recursive `fib(40)` takes 1.0 s instead of 1.6 s), and code that returns structs by value about 1.7x faster.
+- Stack traces cost less: procedures that call nothing no longer record a frame.
+- Small struct copies, and division or shifts by a constant, compile to shorter code.
 
 ## [0.7.0] - 2026-10-09
 
