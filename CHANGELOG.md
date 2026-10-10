@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Type info: every procedure constant in a struct body (also polymorphic and `#expand` ones) appears in `type_info(T).members` with the `CONSTANT` flag even when nothing has used it yet, and a constant member's `offset_in_bytes` is `-1` instead of `0`.
+
 ## [0.6.2] - 2026-10-09
 
 Programs built from source behave as they should: Focus takes keyboard input and its open-file dialog no longer aborts, a GetRect subwindow's close button closes it, and type info reports `#no_padding`, all-uninitialized structs and notes on struct constants.

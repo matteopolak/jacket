@@ -811,9 +811,9 @@ impl Compiler {
     }
 
     /// The constants a struct body declares (`Entry :: struct {..}`, `K :: 3;`, procedures),
-    /// in declaration order, with their types and values. Overload sets and polymorphic
-    /// procedures have no single value and are not listed. They are listed in
-    /// `Type_Info_Struct.members` with the `CONSTANT` flag. A constant that fails to resolve
+    /// in declaration order, with their types and values. Polymorphic procedures are listed
+    /// without a value, overload set aliases not at all. All appear in
+    /// `Type_Info_Struct.members` with the `CONSTANT` flag, used or not. A constant that fails to resolve
     /// is left out: type info never reports errors for code nothing uses.
     fn struct_constants(&mut self, s: crate::types::StructId) -> Vec<StructConstant> {
         let Some(scope) = self.struct_asts.get(&s).map(|src| src.scope) else {
@@ -836,11 +836,6 @@ impl Compiler {
             let span = self.entity(id).span;
             (span.file, span.start)
         });
-        // The Context's constants are hooks (`#add_context _hook :: proc;`) that code detects by
-        // name, so their signatures are resolved even when nothing has used them yet.
-        let is_context = self
-            .context_type
-            .is_some_and(|t| self.types.as_struct(t) == Some(s));
         let mut out = Vec::new();
         for id in ids {
             let (name, span) = (self.entity(id).name, self.entity(id).span);
@@ -861,13 +856,25 @@ impl Compiler {
                 }) => Ok((ty, Some(value))),
                 // A procedure's value is its address (Objective_C reads methods from there).
                 // Only once its signature is known: resolving it here can lay out the types it
-                // names early. Vk-Engine's entity methods take a `*World`, whose `#insert` reads
-                // a list the metaprogram has not finished, so it failed.
-                Ok(Resolved::Proc(p))
-                    if !self.proc(p).is_poly && (is_context || self.proc(p).sig.is_some()) =>
-                {
+                // names early (or run a metaprogram's `#insert` before it is ready). A procedure
+                // nothing has used yet is listed with the shape of its header instead, so code
+                // that looks a hook up by name still finds it.
+                Ok(Resolved::Proc(p)) if self.proc(p).is_poly => {
+                    let ty = if self.proc(p).sig.is_none() {
+                        self.header_shape_type(p)
+                    } else {
+                        self.poly_proc_type(p)
+                    };
+                    Ok((ty, None))
+                }
+                Ok(Resolved::Proc(p)) if self.proc(p).sig.is_none() => {
+                    Ok((self.header_shape_type(p), Some(Value::Proc(p))))
+                }
+                Ok(Resolved::Proc(p)) => {
                     self.proc_type(p, span).map(|ty| (ty, Some(Value::Proc(p))))
                 }
+                // A module alias (`M :: #import "Math";`) is a `Type`-typed constant.
+                Ok(Resolved::Module(_)) => Ok((TypeId::TYPE, None)),
                 Ok(_) => continue,
                 Err(e) => Err(e),
             };
@@ -936,6 +943,8 @@ impl Compiler {
         )?;
         self.set_info_ptr(&mut m, member_ty, "type", ty, span)?;
         self.set_field(&mut m, member_ty, "flags", Value::Int(0x1), span)?;
+        // A constant has no storage in the struct's instances.
+        self.set_field(&mut m, member_ty, "offset_in_bytes", Value::Int(-1), span)?;
         let notes_data = self.string_view(notes, span)?;
         self.set_view(&mut m, member_ty, "notes", notes.len(), notes_data, 8, span)?;
         self.set_field(

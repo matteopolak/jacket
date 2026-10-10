@@ -2808,7 +2808,7 @@ impl Compiler {
     /// The type of a polymorphic procedure for compile-time inspection (`type_of(poly)`):
     /// a parameter or result that depends on a type variable is shown as `$` (inside a
     /// pointer, `*$`); the rest keeps its type. Baked parameters keep their position.
-    fn poly_proc_type(&mut self, proc: ProcId) -> TypeId {
+    pub(super) fn poly_proc_type(&mut self, proc: ProcId) -> TypeId {
         let header = self.proc(proc).lit.header.clone();
         let scope = self.proc(proc).scope;
         let mut params = Vec::new();
@@ -2844,6 +2844,37 @@ impl Compiler {
             })
             .filter(|&t| t != TypeId::VOID)
             .collect();
+        self.types
+            .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
+                params,
+                returns,
+                variadic,
+                c_varargs: false,
+                c_call: header.flags.c_call,
+                no_context: false,
+                non_pod_return: false,
+            })))
+    }
+
+    /// The type of a procedure whose signature has not been resolved, from the header's shape
+    /// alone (every parameter and result is `$`): evaluating the real types here could lay out
+    /// or run code too early. Type info lists such a procedure by name with this type.
+    pub(super) fn header_shape_type(&mut self, proc: ProcId) -> TypeId {
+        let header = self.proc(proc).lit.header.clone();
+        let mut variadic = false;
+        let params = header
+            .params
+            .iter()
+            .map(|p| {
+                if p.variadic {
+                    variadic = true;
+                    self.types.array(TypeId::POLY_PARAM, ArrayKind::View)
+                } else {
+                    TypeId::POLY_PARAM
+                }
+            })
+            .collect();
+        let returns = header.returns.iter().map(|_| TypeId::POLY_PARAM).collect();
         self.types
             .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
                 params,
