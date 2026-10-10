@@ -638,6 +638,42 @@ fn closing_bracket(line: &str, open: usize) -> Option<usize> {
     None
 }
 
+/// The code in the Jai code blocks (fences untagged or tagged `jai`) of `//` comments in
+/// `text`: a byte range per line, after the comment marker.
+pub fn fenced_code(text: &str) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    // Inside a fence: whether it holds Jai.
+    let mut open: Option<bool> = None;
+    let mut at = 0;
+    for line in text.split_inclusive('\n') {
+        let start = at;
+        at += line.len();
+        let line = line.trim_end_matches(['\n', '\r']);
+        let code = line.trim_start();
+        let Some(body) = code.strip_prefix("//") else {
+            open = None;
+            continue;
+        };
+        let body = body.trim_start_matches(['/', '!']);
+        let body_at = start + line.len() - body.len();
+        if fence(body) {
+            let t = body.trim_start();
+            let run = t.chars().take_while(|&c| c == '`' || c == '~').count();
+            let info = t[run..].trim();
+            open = match open {
+                None => Some(info.is_empty() || info == "jai"),
+                Some(_) if info.is_empty() => None,
+                Some(jai) => Some(jai),
+            };
+            continue;
+        }
+        if open == Some(true) && !body.trim().is_empty() {
+            out.push((body_at, start + line.len()));
+        }
+    }
+    out
+}
+
 /// Whether `body` opens or closes a fenced code block.
 fn fence(body: &str) -> bool {
     let t = body.trim_start();
@@ -1038,6 +1074,16 @@ g :: (
             [vec!["Thing", "x"]]
         );
         assert_eq!(names("![img](x) [a b]"), Vec::<Vec<String>>::new());
+    }
+
+    #[test]
+    fn fenced_code_is_the_jai_blocks_of_comments() {
+        let text = "// Use it:\n//\n// ```\n// x := f(1);\n// ```\n// ```c\n// int x;\n// ```\n/// ```jai\n/// y := 2;\n/// ```\nf :: (a: int) {}\n";
+        let code: Vec<&str> = fenced_code(text)
+            .into_iter()
+            .map(|(s, e)| &text[s..e])
+            .collect();
+        assert_eq!(code, [" x := f(1);", " y := 2;"]);
     }
 
     #[test]

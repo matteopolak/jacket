@@ -44,3 +44,10 @@ main :: () {
 // jailint: allow(broken_doc_link)
 // [Point.nothing] is silenced by the marker above it.
 quiet :: () {}
+
+Ring :: struct(Item: Type, CAPACITY: int) {
+    items: [CAPACITY] Item;
+}
+
+// Fields and parameters of a polymorphic struct: [Ring.items], [Ring.CAPACITY].
+ring_docs :: () {}

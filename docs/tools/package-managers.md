@@ -14,6 +14,19 @@ Ways to install a released Jai toolchain (`jaic`, `jailsp`, `jailint`, `jaifmt` 
 
 The package is named `jai` (formula `jai`, winget `matteopolak.jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives are named after it too: `jai-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jai-<platform>/`, since 0.4.1. Releases up to 0.4.0 shipped `jaic-<platform>` and keep those names, so everything that downloads an archive picks the name from the version (see [archive names](#archive-names)). Releases after 0.4.1 have Intel macOS (`macos-x64`) and arm64 Linux (`linux-arm64`) archives too; 0.4.1 and earlier do not, so for those versions Homebrew refuses the two platforms with `depends_on arch:` and the installer script says the release has no build for them (build from source, use Nix, or install a later version).
 
+### Other ways to install
+
+- **Archives:** every release on the [releases page](https://github.com/matteopolak/jai/releases) has one per platform. Unpack it anywhere and put `jaic` on your `PATH`, directly or through a symlink.
+- **GitHub Actions:** [setup-jai](https://github.com/matteopolak/setup-jai) (`- uses: matteopolak/setup-jai@v1`).
+- **From source:** you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([LLVM setup](llvm-setup.md)):
+
+  ```sh
+  git clone https://github.com/matteopolak/jai.git && cd jai
+  cargo build -p jaic-cli -p jai-language-server -p jailint --release --locked
+  ```
+
+  With [just](https://github.com/casey/just) 1.58 or newer, `just build --release` does the same and also builds `target/jaifmt` ([Justfile](justfile.md)).
+
 ## How it works
 
 ### Archive names

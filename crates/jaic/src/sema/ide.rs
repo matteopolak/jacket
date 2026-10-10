@@ -1149,7 +1149,7 @@ impl Compiler {
                     }
                     return self.ide_struct_scope_decls(t, *last);
                 }
-                None => None,
+                None => return self.ide_poly_struct_member(scope, first, *last),
             }
         };
         let Some(Found::Entities(ids)) = found else {
@@ -1160,6 +1160,35 @@ impl Compiler {
             .map(|id| (self.entity(id).span, last.to_string()))
             .collect();
         self.ide_narrow_decls(spans)
+    }
+
+    /// `[Ring.items]` where `Ring` is a polymorphic struct: a parameter or a declaration of its
+    /// body, found in its source, so it resolves whether or not the program instantiates it.
+    fn ide_poly_struct_member(&mut self, scope: ScopeId, path: &[Sym], name: Sym) -> Vec<Span> {
+        let [only] = path else {
+            return Vec::new();
+        };
+        let Ok(Found::Entities(ids)) = self.lookup_full(scope, *only) else {
+            return Vec::new();
+        };
+        let Some(&id) = ids.first() else {
+            return Vec::new();
+        };
+        let Ok(Resolved::PolyStruct(p)) = self.resolve_entity(id) else {
+            return Vec::new();
+        };
+        let lit = self.poly_structs[p.0 as usize].lit.clone();
+        let params = lit.params.iter().filter_map(|p| p.name.as_ref());
+        let fields = lit.body.iter().flat_map(|stmt| match &stmt.kind {
+            ast::StmtKind::Decl(decl) => decl.names.as_slice(),
+            _ => &[],
+        });
+        params
+            .chain(fields)
+            .filter(|ident| ident.name == name)
+            .map(|ident| ident.span)
+            .take(1)
+            .collect()
     }
 
     /// What `name` is inside the struct `t`: constants, procedures and types declared in its

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Doc comment links reach the fields and parameters of polymorphic structs (`[Ring.items]`, `[Ring.CAPACITY]`), even when the program never instantiates the struct.
+- The tour's basics and polymorphism stops show off doc comments: hover a procedure for its Markdown docs, and follow the links in them.
+- Jai code in doc comment fences is highlighted by the language server, so editors without a fence grammar colour it too.
+
+### Fixed
+
+- Completion shows a declaration's whole doc comment after edits above it, instead of cutting it short.
+- Signature help shows docs, with working links, while the call is still unclosed.
+
 ## [0.9.0] - 2026-10-10
 
 Doc comments are now real documentation: the editor renders them as Markdown and follows the links in them. `jailint` gets two new rules and fewer false positives.

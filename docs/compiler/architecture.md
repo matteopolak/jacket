@@ -2,7 +2,7 @@
 
 ## What it is
 
-An independent Jai compiler in Rust, aiming at source compatibility with real Jai programs. It is not a complete Jai implementation; the [README](../../README.md#compatibility) tracks what works.
+An independent Jai compiler in Rust, aiming at source compatibility with real Jai programs. It is not a complete Jai implementation; [features](../features.md) tracks what works.
 
 | Crate | Role |
 | --- | --- |

@@ -832,8 +832,11 @@ impl Session {
         }
         chain.reverse();
         // The program as last compiled knows everything before the expression being typed.
+        // Declarations below the cursor are where the compiled text had them; their docs are
+        // read from the document as it is now.
         let ask = |a: &mut semantic::Analysis, path: &Path| {
-            let names = a.complete(path, at, &chain)?;
+            let mut names = a.complete(path, at, &chain)?;
+            a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))
         };
@@ -878,7 +881,8 @@ impl Session {
                 continue;
             }
             let found = self.with_semantic(uri, &probe, |a, path| {
-                let names = a.complete_inferred(path, dot + 1)?;
+                let mut names = a.complete_inferred(path, dot + 1)?;
+                a.shift_to(path, text, &mut names);
                 let files = a.decl_files(&names);
                 Some((names, files))
             });
@@ -1422,6 +1426,16 @@ impl Session {
                     pieces.push((token.span, kind, declaration, readonly || constant, expand));
                 }
             }
+        }
+        // Code in the Jai code blocks of comments.
+        let fences = Self::fence_tokens(text);
+        if !fences.is_empty() {
+            pieces.extend(
+                fences
+                    .into_iter()
+                    .map(|(span, kind)| (span, kind, false, false, false)),
+            );
+            pieces.sort_by_key(|p| p.0.start);
         }
         // Links in doc comments, colored like what they name (a comment has no token of its own).
         if self.environment.is_some() {

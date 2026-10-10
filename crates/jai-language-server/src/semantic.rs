@@ -248,6 +248,44 @@ impl Analysis {
     }
 
     /// The path of each file `names` are declared in, by file number.
+    /// Moves the declarations of `names` in the file at `path` from the text this analysis
+    /// compiled to where they are in `text`, the document as it is now: past the edited
+    /// stretch (the longest common prefix and suffix of the two) by the change in length.
+    pub fn shift_to(&self, path: &Path, text: &str, names: &mut [IdeName]) {
+        let Some(file) = self.file(path) else {
+            return;
+        };
+        let Some(source) = self.compiler.sources.try_get(file) else {
+            return;
+        };
+        let (old, new) = (source.text.as_bytes(), text.as_bytes());
+        if old == new {
+            return;
+        }
+        let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+        let room = old.len().min(new.len()) - prefix;
+        let suffix = old
+            .iter()
+            .rev()
+            .zip(new.iter().rev())
+            .take(room)
+            .take_while(|(a, b)| a == b)
+            .count();
+        let tail = (old.len() - suffix) as u32;
+        let delta = new.len() as i64 - old.len() as i64;
+        let moved = |at: u32| {
+            if at >= tail {
+                (at as i64 + delta) as u32
+            } else {
+                at
+            }
+        };
+        for name in names.iter_mut().filter(|n| n.decl.file == file) {
+            name.decl.start = moved(name.decl.start);
+            name.decl.end = moved(name.decl.end);
+        }
+    }
+
     pub fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
         let mut out = BTreeMap::new();
         for name in names {

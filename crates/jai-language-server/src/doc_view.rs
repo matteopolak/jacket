@@ -2,11 +2,11 @@
 //! declaration's docs, and the intra-doc links inside the comments (go to definition, hover,
 //! `textDocument/documentLink`, semantic tokens). The text-level work is in `docs`; this
 //! resolves link names through the type checker and renders for the client's format.
-use crate::analysis::Span;
+use crate::analysis::{KEYWORDS, Span};
 use crate::docs::{self, Site};
 use crate::hover::{Block, HoverText};
 use crate::model::{CompletionData, Location};
-use crate::semantic::Decl;
+use crate::semantic::{self, Decl};
 use crate::session::{Session, repair};
 use crate::{DocumentUri, MarkupKind, Range, SemanticTokenKind};
 use jaic::sema::ide_meta::IdeSignature;
@@ -90,10 +90,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return HashMap::new();
         };
-        let Some(probe) = repair(&doc.text, None) else {
-            return HashMap::new();
-        };
-        self.with_semantic(uri, &probe, |a, _| {
+        let resolve = |a: &mut semantic::Analysis, _: &Path| {
             Some(
                 names
                     .iter()
@@ -106,7 +103,13 @@ impl Session {
                     })
                     .collect(),
             )
-        })
+        };
+        // While a call or block is still open the document does not repair; the last compile
+        // still knows the declarations the links name.
+        match repair(&doc.text, None) {
+            Some(probe) => self.with_semantic(uri, &probe, resolve),
+            None => self.with_compiled_before(uri, &doc.text, 0, resolve),
+        }
         .unwrap_or_default()
     }
 
@@ -284,14 +287,60 @@ impl Session {
             .collect()
     }
 
+    /// Semantic tokens for the code in Jai code blocks of comments, lexed as code: names a call
+    /// follows are functions, capitalized names types (nothing is resolved).
+    pub(crate) fn fence_tokens(text: &str) -> Vec<(Span, SemanticTokenKind)> {
+        use jaic::lexer::{P, Tok};
+        let mut out = Vec::new();
+        for (start, end) in docs::fenced_code(text) {
+            let Ok(tokens) = jaic::lexer::lex(jaic::source::FileId(0), &text[start..end]) else {
+                continue;
+            };
+            for (i, token) in tokens.iter().enumerate() {
+                let kind = match &token.tok {
+                    Tok::Ident(name) if KEYWORDS.contains(&name.as_str()) => {
+                        SemanticTokenKind::Keyword
+                    }
+                    Tok::Ident(_)
+                        if tokens
+                            .get(i + 1)
+                            .is_some_and(|t| t.tok == Tok::Punct(P::LParen)) =>
+                    {
+                        SemanticTokenKind::Function
+                    }
+                    Tok::Ident(name)
+                        if name.as_str().starts_with(|c: char| c.is_ascii_uppercase()) =>
+                    {
+                        SemanticTokenKind::Type
+                    }
+                    Tok::Ident(_) => SemanticTokenKind::Variable,
+                    Tok::Directive(_) => SemanticTokenKind::Macro,
+                    Tok::Note(_) => SemanticTokenKind::Decorator,
+                    Tok::Int(_) | Tok::Float(_) => SemanticTokenKind::Number,
+                    Tok::Str(_) => SemanticTokenKind::String,
+                    Tok::Punct(_) => SemanticTokenKind::Operator,
+                    Tok::Eof => continue,
+                };
+                let span = Span::new(
+                    start + token.span.start as usize,
+                    start + token.span.end as usize,
+                );
+                out.push((span, kind));
+            }
+        }
+        out
+    }
+
     // ---------------------------------------------------------------------------------------
     // Signature help and completion
     // ---------------------------------------------------------------------------------------
 
-    /// The docs of each signature and of each of its parameters.
+    /// The docs of each signature and of each of its parameters, for the call being typed at
+    /// `byte` (its line blanked when the call is still open).
     pub(crate) fn signature_docs(
         &self,
         uri: &DocumentUri,
+        byte: usize,
         signatures: &[IdeSignature],
         kind: MarkupKind,
     ) -> Vec<(Option<String>, Vec<Option<String>>)> {
@@ -304,7 +353,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return none();
         };
-        let Some(probe) = repair(&doc.text, None) else {
+        let Some(probe) = repair(&doc.text, Some(byte)) else {
             return none();
         };
         // (file, offset of the declaration, the procedure's docs, each parameter's docs)

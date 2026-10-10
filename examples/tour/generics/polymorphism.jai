@@ -11,12 +11,16 @@ swap_values :: (a: *$T, b: *T) {
     a.*, b.* = b.*, a.*;
 }
 
+// A fixed-size queue that forgets its oldest item when full; add with [push].
+//
 // Structs take parameters too: here a type and a compile-time size.
 Ring :: struct(Item: Type, CAPACITY: int) {
     items: [CAPACITY] Item;
-    start, count: int;
+    start: int; // Where the oldest item is in [Ring.items].
+    count: int; // How many slots are in use, at most `CAPACITY`.
 }
 
+// Adds `item` to the end of `ring`, dropping the oldest item when it is full.
 push :: (ring: *Ring, item: ring.Item) {
     slot := (ring.start + ring.count) % ring.CAPACITY;
     ring.items[slot] = item;

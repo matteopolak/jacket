@@ -1,7 +1,12 @@
 // Declarations, constants and procedures: the bread and butter.
 
 // `::` makes a constant. It lives at compile time and takes no storage.
+//
+// Comments directly above a declaration are its **documentation**, written in
+// Markdown: hover a name to read it, and `[links]` like [SHIP_NAME] jump to what
+// they name.
 LIGHT_SPEED :: 299_792_458; // metres per second; `_` separates digits
+// The ship every example in this tour flies on.
 SHIP_NAME :: "Heart of Gold";
 
 tour_basics :: () {
@@ -49,10 +54,23 @@ tour_basics :: () {
     }, 1));
 }
 
+// Whole-number division that keeps what is left over.
+//
+// - a: the number to divide
+// - b: what to divide it by; must not be `0`
+//
+// Returns the `quotient` and the `remainder`, so `a == quotient * b + remainder`.
 divide :: (a: int, b: int) -> quotient: int, remainder: int {
     return a / b, a % b;
 }
 
+// Greets `who` with *one* "Hey" per `times`, then `ending`:
+//
+// ```
+// hail("Ford", times = 2, ending = "?") // "Hey Hey Ford?"
+// ```
+//
+// The string lives in temporary storage; see [tour_memory].
 hail :: (who: string, times := 1, ending := "!") -> string {
     // Everything allocated below comes from temporary storage (see memory/memory.jai).
     push_allocator(temp);
@@ -62,6 +80,8 @@ hail :: (who: string, times := 1, ending := "!") -> string {
     return builder_to_string(*builder);
 }
 
+// Prints `value` and its type. Overloaded for `int`, `float` and `string`;
+// the compiler picks one by the argument's type.
 describe :: (value: int) {
     print("  % is an int\n", value);
 }
@@ -74,6 +94,7 @@ describe :: (value: string) {
     print("  \"%\" is a string of % bytes\n", value, value.count);
 }
 
+// Calls `f` on `x`, then on the result: `f(f(x))`.
 apply_twice :: (f: (int) -> int, x: int) -> int {
     return f(f(x));
 }

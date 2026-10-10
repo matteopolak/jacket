@@ -887,7 +887,7 @@ impl Session {
             active_arg.min(last)
         };
         let active_parameter = signatures.get(active).map_or(0, parameter);
-        let documented = self.signature_docs(uri, &signatures, kind);
+        let documented = self.signature_docs(uri, byte, &signatures, kind);
         Ok(Some(SignatureHelp {
             signatures: signatures
                 .into_iter()

@@ -9,10 +9,15 @@ run in your browser, as WebAssembly.
 Edit any file and the program runs again. Break things on
 purpose: the error messages are part of the tour.
 
+Hover any name to see its type and documentation. Comments
+directly above a declaration are its docs, in Markdown, and
+`[name]` links in them jump to what they name (try `divide`
+and `hail` in basics.jai).
+
 ## Map
 
 - [main.jai](main.jai): The itinerary: a table of procedures, run in a loop.
-- [basics/basics.jai](basics/basics.jai): Variables, constants, procedures, multiple return values, named and default arguments, overloading.
+- [basics/basics.jai](basics/basics.jai): Variables, constants, procedures, multiple return values, named and default arguments, overloading, doc comments.
 - [types/structs.jai](types/structs.jai): Structs, `using`, `#as`, operator overloading, unions.
 - [types/enums.jai](types/enums.jai): Enums, `enum_flags`, `#complete` switches.
 - [data/arrays.jai](data/arrays.jai): Fixed arrays, views, `[..]` arrays, `for` loops, `remove`.
