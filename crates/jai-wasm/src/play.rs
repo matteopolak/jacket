@@ -293,6 +293,7 @@ fn run_styled(
     compiler.interp.block_budget = limits.budget;
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
+    workspaces.borrow_mut().main_file = entry.display().to_string();
     let outcome = match compiler.compile_program(&entry) {
         Ok(()) => {
             if let Err(message) =
