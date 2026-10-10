@@ -214,8 +214,8 @@ is_alnum_byte :: (c: u8) -> bool {
 }
 
 is_name_text :: (text: string) -> bool {
-    for 0..text.count - 1 {
-        c := text[it];
+    for text {
+        c := it;
         if !is_alnum_byte(c) && c != #char "-" && c != #char "_" return false;
     }
     return true;
@@ -386,8 +386,8 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
 quote :: (text: string) -> string {
     builder: String_Builder;
     append(*builder, "\"");
-    for 0..text.count - 1 {
-        c := text[it];
+    for text {
+        c := it;
         if c == #char "\"" append(*builder, "\\\"");
         else if c == #char "\\" append(*builder, "\\\\");
         else if c == #char "\n" append(*builder, "\\n");

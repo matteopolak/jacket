@@ -33,7 +33,40 @@ fill :: (table: [] float) {
     }
 }
 
+// A string iterates its bytes as `u8`, as indexing reads them.
+shout :: (str: string) {
+    for i: 0..str.count - 1 {
+        cur := str[i];
+        print("%\n", cur);
+    }
+}
+
+// A parenthesized bound (the fix takes the parentheses along).
+bytes :: (str: string) -> int {
+    total := 0;
+    for i: 0..(str.count - 1) total += str[i];
+    return total;
+}
+
+// Writes go through `for *str`.
+shift :: (str: string) {
+    for i: 0..str.count - 1 str[i] += 1;
+}
+
+Named :: struct {
+    name: string;
+}
+
+dump :: (n: Named) {
+    for k: 0..n.name.count - 1 print("%: %\n", k, n.name[k]);
+}
+
 main :: () {
+    s := copy_string("abc");
+    shout(s);
+    print("%\n", bytes(s));
+    shift(s);
+    dump(.{ s });
     xs := int.[1, 2, 3];
     points: [2] Point;
     bump(points);

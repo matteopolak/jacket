@@ -351,7 +351,7 @@ be32 :: (p: *u8) -> u32 {
 // Pad a message into 64-byte blocks of big-endian words.
 pad_message :: (text: string) -> [..] u32 {
     bytes: [..] u8;
-    for 0..text.count - 1 array_add(*bytes, text[it]);
+    for text array_add(*bytes, it);
     array_add(*bytes, 0x80);
     while bytes.count % 64 != 56 array_add(*bytes, 0);
     bit_count := cast(u64) text.count * 8;

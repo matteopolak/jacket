@@ -58,6 +58,6 @@ tour_files :: () {
 
 count_lines :: (text: string) -> int {
     lines := 0;
-    for 0..text.count - 1 if text[it] == #char "\n" lines += 1;
+    for text if it == #char "\n" lines += 1;
     return lines;
 }

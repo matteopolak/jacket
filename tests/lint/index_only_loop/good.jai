@@ -27,7 +27,17 @@ grow :: (xs: *[..] int) {
     for i: 0..xs.count - 1 array_add(xs, xs.*[i]);
 }
 
+// A string compared with its neighbour, walked from the middle, or in step with another.
+runs :: (str: string, other: string) -> int {
+    n := 0;
+    for i: 0..str.count - 2 if str[i] == str[i + 1] n += 1;
+    for i: 1..str.count - 1 n += str[i];
+    for i: 0..str.count - 1 if str[i] != other[i] n += 1;
+    return n;
+}
+
 main :: () {
+    print("%\n", runs("aab", "abb"));
     a := float.[1, 2];
     xs: [3] int;
     pairs(xs);

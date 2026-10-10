@@ -12,7 +12,7 @@
 //! thing to get wrong (a `continue` that skips the increment, a second increment).
 //!
 //! Fires when, in one block, `n := 0` (an `s64` starting at zero) comes before a forward
-//! `for` over an array, nothing mentions `n` in between or after the loop, and the loop body
+//! `for` over an array or string, nothing mentions `n` in between or after the loop, and the loop body
 //! ends with `n += 1` (with no `continue` that could skip it) or starts with `defer n += 1;`.
 //! Every other mention of `n` in the body must read it.
 use super::{PlaceUse, place_use};
@@ -76,10 +76,12 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         let ForOver::Collection(c) = &f.over else {
             continue;
         };
-        if !cx
-            .ty(c)
-            .is_some_and(|t| matches!(cx.compiler.types.kind(t), TypeKind::Array { .. }))
-        {
+        if !cx.ty(c).is_some_and(|t| {
+            matches!(
+                cx.compiler.types.kind(t),
+                TypeKind::Array { .. } | TypeKind::String
+            )
+        }) {
             continue;
         }
         let S::Block(body) = &f.body.kind else {

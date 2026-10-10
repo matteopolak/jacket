@@ -120,7 +120,7 @@ main :: () {
         assert(copy_file(path("src/sub/c.bin"), path("empty-copy.bin")));
         assert(file_exists(path("empty-copy.bin")) && contents(path("empty-copy.bin")) == "");
         big := alloc_string(3 * 65536 + 17);
-        for i: 0..big.count - 1 big[i] = cast,trunc(u8) (i * 13 + i / 65536);
+        for *big it.* = cast,trunc(u8) (it_index * 13 + it_index / 65536);
         assert(write_entire_file(path("big.bin"), big));
         assert(copy_file(path("big.bin"), path("big-copy.bin")));
         assert(contents(path("big-copy.bin")) == big, "large copy");

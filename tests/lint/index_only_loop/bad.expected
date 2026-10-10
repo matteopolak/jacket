@@ -50,17 +50,66 @@ help: loop over the elements: `for *table`, with `it` and `it_index`
    |
    = note: `index_only_loop` is `warn` by default
 
-warning[index_only_loop]: `i` counts through `stops` to index it
-  --> tests/lint/index_only_loop/bad.jai:63:5
+warning[index_only_loop]: `i` is only used to index `str`
+  --> tests/lint/index_only_loop/bad.jai:38:5
    |
-63 |     for i: 0..stops.count - 1 {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+38 |     for i: 0..str.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
-help: loop over the elements: `for stops`, with `it` and `it_index`
+help: loop over the elements: `for str` and `it`
    |
-63 ~     for stops {
-64 ~         print("% %\n", it_index + 1, it.title);
-65 ~         it.run();
+38 ~     for str {
+39 ~         cur := it;
    |
    = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` is only used to index `str`
+  --> tests/lint/index_only_loop/bad.jai:47:5
+   |
+47 |     for i: 0..(str.count - 1) total += str[i];
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for str` and `it`
+   |
+47 ~     for str total += it;
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` is only used to index `str`
+  --> tests/lint/index_only_loop/bad.jai:53:5
+   |
+53 |     for i: 0..str.count - 1 str[i] += 1;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over pointers to the elements: `for *str` and `it`
+   |
+53 ~     for *str it.* += 1;
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `k` counts through `n.name` to index it
+  --> tests/lint/index_only_loop/bad.jai:61:5
+   |
+61 |     for k: 0..n.name.count - 1 print("%: %\n", k, n.name[k]);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for n.name`, with `it` and `it_index`
+   |
+61 ~     for n.name print("%: %\n", it_index, it);
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` counts through `stops` to index it
+   --> tests/lint/index_only_loop/bad.jai:96:5
+    |
+ 96 |     for i: 0..stops.count - 1 {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: loop over the elements: `for stops`, with `it` and `it_index`
+    |
+ 96 ~     for stops {
+ 97 ~         print("% %\n", it_index + 1, it.title);
+ 98 ~         it.run();
+    |
+    = note: `index_only_loop` is `warn` by default
 

@@ -102,8 +102,8 @@ is_ignored :: (config: Format_Config, path: string) -> bool {
     for glob: config.ignore {
         if glob_match(glob, relative) return true;
         // Directory prefixes: `tests/corpus` ignores `tests/corpus/a.jai`.
-        for i: 0..relative.count - 1 {
-            if relative[i] == #char "/" && glob_match(glob, slice(relative, 0, i)) return true;
+        for *relative {
+            if it.* == #char "/" && glob_match(glob, slice(relative, 0, it_index)) return true;
         }
     }
     return false;
@@ -144,10 +144,10 @@ glob_match :: (pattern: string, text: string) -> bool {
 
 strip_comment :: (line: string) -> string {
     in_string := false;
-    for i: 0..line.count - 1 {
-        c := line[i];
+    for *line {
+        c := it.*;
         if c == #char "\"" in_string = !in_string;
-        if c == #char "#" && !in_string return slice(line, 0, i);
+        if c == #char "#" && !in_string return slice(line, 0, it_index);
     }
     return line;
 }
@@ -155,8 +155,8 @@ strip_comment :: (line: string) -> string {
 parse_count :: (text: string, result: *int, low: int, high: int) -> bool {
     if !text.count return false;
     value := 0;
-    for i: 0..text.count - 1 {
-        c := text[i];
+    for text {
+        c := it;
         if c < #char "0" || c > #char "9" return false;
         value = value * 10 + (c - #char "0");
         if value > high return false;

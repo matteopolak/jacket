@@ -331,9 +331,9 @@ default_text :: (value: $V) -> string {
 // FIRST_SECOND -> first-second, the spelling of enum values and of long option names.
 kebab :: (name: string) -> string {
     result := copy_string(name,, temp);
-    for 0..result.count - 1 {
-        if result[it] == #char "_" result[it] = #char "-";
-        else if result[it] >= #char "A" && result[it] <= #char "Z" result[it] += 32;
+    for *result {
+        if it.* == #char "_" it.* = #char "-";
+        else if it.* >= #char "A" && it.* <= #char "Z" it.* += 32;
     }
     return result;
 }

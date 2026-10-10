@@ -157,7 +157,7 @@ upper :: (input: string, data: *void) -> string {
     calls := cast(*s64) data;
     calls.* += 1;
     result := copy_string(input);
-    for 0..result.count - 1 if result[it] >= #char "a" && result[it] <= #char "z" result[it] -= 32;
+    for *result if it.* >= #char "a" && it.* <= #char "z" it.* -= 32;
     return result;
 }
 

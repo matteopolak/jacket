@@ -51,7 +51,7 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `identical_branches` | warn | no | `if c { A } else { A }`, `ifx c then a else a` |
 | `identical_operands` | warn | no | `a == a`, `x - x`, `ok && ok` |
 | `identity_op` | warn | yes | `x + 0`, `x * 1`, `x / 1` |
-| `index_only_loop` | warn | yes | `for i: 0..xs.count-1` where `i` only indexes `xs` |
+| `index_only_loop` | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
 | `infinite_loop` | warn | no | a `while` whose condition nothing in the loop changes |
 | `integer_division_in_float` | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
 | `lossy_xx` | allow | yes | `xx` that narrows a number to a smaller type |
@@ -150,7 +150,7 @@ Off by default. `if total == expected` with two computed floats. Comparisons wit
 
 ### index_only_loop
 
-`for i: 0..xs.count - 1` whose `i` only indexes `xs` becomes `for xs` with `it`. When elements are written (`xs[i].x += 1`) it becomes `for *xs` with `it`. Other uses of the index become `it_index`, also when elements are filled from it: `for i: 0..t.count-1 { t[i] = sin(cast(float) i * step); }` becomes `for *t { it.* = sin(cast(float) it_index * step); }`. It stays quiet when:
+`for i: 0..xs.count - 1` whose `i` only indexes `xs` (an array, or a string, whose bytes `for` visits as `u8`) becomes `for xs` with `it`. When elements are written (`xs[i].x += 1`) it becomes `for *xs` with `it`. Other uses of the index become `it_index`, also when elements are filled from it: `for i: 0..t.count-1 { t[i] = sin(cast(float) i * step); }` becomes `for *t { it.* = sin(cast(float) it_index * step); }`. It stays quiet when:
 
 - the loop could change `xs` itself (assignment, `array_add`, taking its address, `remove`);
 - it walks a grid (`for c: 0..xs[i].count - 1` inside);
@@ -190,7 +190,7 @@ for names {
 }
 ```
 
-It fires when `n := 0` comes right before a forward `for` over an array, the body ends with `n += 1` (and has no `continue`) or starts with `defer n += 1;`, and `n` is not used after the loop. The fix removes the counter and uses `it_index`.
+It fires when `n := 0` comes right before a forward `for` over an array or string, the body ends with `n += 1` (and has no `continue`) or starts with `defer n += 1;`, and `n` is not used after the loop. The fix removes the counter and uses `it_index`.
 
 ### min_max
 

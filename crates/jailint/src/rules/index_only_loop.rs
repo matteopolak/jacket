@@ -1,11 +1,11 @@
 //! `index_only_loop`: `for i: 0..xs.count-1 { ... xs[i] ... }`.
 //!
-//! Counting through an array's indices to read its elements says more than the loop means
+//! Counting through an array's (or string's) indices to read its elements says more than the loop means
 //! and leaves room for off-by-one mistakes in the bound. `for xs` visits the same elements as
 //! `it` (and `for *xs` gives a pointer to each, for writing). When the index is needed too,
 //! `it_index` holds it.
 //!
-//! Fires when the range starts at `0` and ends at `xs.count - 1` for an array `xs` (by name or
+//! Fires when the range starts at `0` and ends at `xs.count - 1` for an array or string `xs` (by name or
 //! member path), and the loop variable is used to index `xs`. Kept quiet when the loop could
 //! change `xs` itself (its address is taken, it is assigned, the body has `remove`), since
 //! `for xs` re-reads the count each iteration while the range was fixed at the start. Also
@@ -93,9 +93,14 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         return None;
     }
     let (arr, lo, hi) = counted_array(f)?;
-    // Arrays only: a string or a struct with `for_expansion` iterates differently.
+    // Arrays and strings (which iterate their bytes as `u8`, like `str[i]` reads them); a
+    // struct with `for_expansion` iterates differently, and a pointer to an array is not
+    // iterable at all.
     let arr_ty = cx.ty(arr)?;
-    if !matches!(cx.compiler.types.kind(arr_ty), TypeKind::Array { .. }) {
+    if !matches!(
+        cx.compiler.types.kind(arr_ty),
+        TypeKind::Array { .. } | TypeKind::String
+    ) {
         return None;
     }
     // A constant array (`xs :: int.[1, 2]`) iterates like any other, but has no elements to
@@ -243,6 +248,8 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         return None;
     }
     let arr_src = cx.src(arr.span).trim();
+    // The bound may be parenthesized: the header edit takes the parentheses along.
+    let (_, hi_end) = cx.whole(hi.span);
     let header_start = f.it.map_or(lo.span.start, |i| i.span.start) as usize;
     let header = format!(
         "{}{arr_src}",
@@ -277,7 +284,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     let fix = fixable.then(|| {
         let mut edits = vec![Edit {
             start: header_start,
-            end: hi.span.end as usize,
+            end: hi_end,
             text: header.clone(),
         }];
         for (span, how) in &uses.elements {
@@ -306,7 +313,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     });
     Some(Finding {
         start: stmt.span.start as usize,
-        end: hi.span.end as usize,
+        end: hi_end,
         message,
         label: None,
         help: Some(help),

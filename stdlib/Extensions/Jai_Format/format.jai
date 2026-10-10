@@ -363,8 +363,8 @@ is_blank :: inline (c: u8) -> bool {
 count_long_lines :: (text: string, max_width: int) -> int {
     count := 0;
     width := 0;
-    for i: 0..text.count - 1 {
-        c := text[i];
+    for text {
+        c := it;
         if c == #char "\n" {
             if width > max_width count += 1;
             width = 0;
@@ -765,9 +765,9 @@ case_keeps_statement :: (f: *Formatter, first: int) -> bool {
 put :: (f: *Formatter, text: string) {
     append(*f.out, text);
     start := 0;
-    for < i: 0..text.count - 1 {
-        if text[i] == #char "\n" {
-            start = i + 1;
+    for < text {
+        if it == #char "\n" {
+            start = it_index + 1;
             f.column = 0;
             break;
         }

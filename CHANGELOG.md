@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `jailint`'s `index_only_loop` now reports loops over strings (`for i: 0..str.count-1 { cur := str[i]; }` becomes `for str`, or `for *str` when bytes are written), and its fix no longer leaves a stray `)` behind when the bound is parenthesized.
+- `jailint`'s `manual_index_counter` now reports hand-kept counters in loops over strings.
+
 ## [0.8.0] - 2026-10-10
 
 Switches on constants are now checked like any other switch, so mistakes in them are caught and the editor understands every case.

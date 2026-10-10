@@ -15,9 +15,9 @@ completion_script :: (root: *Command_Spec, shell: Shell) -> string {
 // A name that is safe in a shell function name: `my-tool` -> `my_tool`.
 identifier :: (name: string) -> string {
     result := copy_string(name,, temp);
-    for 0..result.count - 1 {
-        c := result[it];
-        if !is_alnum_byte(c) result[it] = #char "_";
+    for *result {
+        c := it.*;
+        if !is_alnum_byte(c) it.* = #char "_";
     }
     return result;
 }

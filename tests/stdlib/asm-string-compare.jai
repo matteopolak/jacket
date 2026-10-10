@@ -4742,8 +4742,8 @@ main :: () {
 
     text := builder_to_string(*sb);
     h: u64 = 0xcbf2_9ce4_8422_2325;
-    for 0..text.count - 1 {
-        h ^= text[it];
+    for text {
+        h ^= it;
         h *= 0x100_0000_01b3;
     }
     if text.count != 8733 || h != 0xc53cdae5dcfc2c91 {

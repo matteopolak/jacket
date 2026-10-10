@@ -13,7 +13,15 @@ number :: (lines: [] string) {
     }
 }
 
+// A string's bytes are counted by `it_index` too.
+letters :: (word: string) {
+    for word {
+        print("% %\n", it_index, it);
+    }
+}
+
 main :: () {
+    letters("abc");
     show(.["a", "b"]);
     number(.["x", "", "y"]);
 }
