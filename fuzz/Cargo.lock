@@ -69,7 +69,7 @@ dependencies = [
 
 [[package]]
 name = "jai-language-server"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "jaic",
  "jailint",
@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "jai-wasm"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "jai-language-server",
  "jaic",
@@ -87,11 +87,11 @@ dependencies = [
 
 [[package]]
 name = "jaic"
-version = "0.7.1"
+version = "0.8.0"
 
 [[package]]
 name = "jailint"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "jaic",
 ]

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-10
+
+Switches on constants are now checked like any other switch, so mistakes in them are caught and the editor understands every case.
+
 ### Highlights
 
 - Every case of an `if x == {` switch is type-checked even when `x` is a constant, so the language server shows hover, go to definition and highlighting in all of them.
