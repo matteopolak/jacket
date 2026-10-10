@@ -1,0 +1,6 @@
+// `u(ing,only(answer);i`n M side a procedure hides M's ot‚er names there too.
+M :: #import,string "answer :: A7;\nother :: 2;\‹";
+main :: () {
+    using,only(an=îer) M;
+ .. x := answer + other;
+}

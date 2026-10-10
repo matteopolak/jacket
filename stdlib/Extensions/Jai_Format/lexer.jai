@@ -219,9 +219,11 @@ lex :: (src: string) -> Lex_Result {
                     if d == #char "(" {
                         depth += 1;
                     } else if d == #char ")" {
-                        if depth == 0 break;
-                        depth -= 1;
-                    } else if depth == 0 && !(is_ident_char(d) || d == #char "." || d == #char "-" || d == #char "/" || d == #char ":" || d == #char "=") {
+                        if depth > 0 depth -= 1;
+                    } else if depth == 0 && (d == #char " " || d == #char "\t" || d == #char "\n" || d == #char "\r" || d == 0x0c) {
+                        // The compiler's lexer ends a note at whitespace and nowhere else
+                        // (`@a!=b` and `@x;` are one note each), so the formatter must too:
+                        // splitting earlier would space out what the compiler reads as one.
                         break;
                     }
                     at += 1;

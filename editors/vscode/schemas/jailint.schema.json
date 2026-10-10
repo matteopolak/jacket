@@ -58,6 +58,16 @@
           "default": "warn",
           "markdownDescription": "comparing a bool with `true` or `false` (default `warn`). [Docs](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#bool_comparison)"
         },
+        "broken_doc_link": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a link in a doc comment (`[name]`) that names no declaration (default `warn`). [Docs](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#broken_doc_link)"
+        },
         "defer_in_loop": {
           "type": "string",
           "enum": [
@@ -227,6 +237,16 @@
           ],
           "default": "warn",
           "markdownDescription": "`for i: 0..xs.count` indexing `xs[i]`, one past the end (default `warn`). [Docs](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#range_past_count)"
+        },
+        "redundant_alias": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a local that only exists to be copied into another local or returned (default `warn`). [Docs](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#redundant_alias)"
         },
         "redundant_cast": {
           "type": "string",
