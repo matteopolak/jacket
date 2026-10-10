@@ -20,7 +20,7 @@ G.greet("bob");   // "HELLO bob" twice, then "helper trace=true ..."
 - Different first-list values create different instances {#modparam.2}; equal values share one {#modparam.3}.
 - Program parameters are shared: a plain `#import "Program_Param"` and `#import "Program_Param"()(VERBOSE = true)` see the same types and both observe `VERBOSE == true` {#modparam.4}. Setting a different value after the module has already used it is an error (`program_instance`) {#modparam.5}.
 - Inside the module, including its `#load`ed files, parameters are ordinary constants {#modparam.10}. A trailing block, `#module_parameters(...) { ... }`, declares names the defaults may use {#modparam.12}.
-- An unknown argument name is silently ignored {#modparam.11}.
+- An argument name the module does not declare is an error (``argument `X` is not a parameter of this module``), and so is a literal of the wrong kind for a bool, string, integer or float parameter (a number for a `bool` flag) {#modparam.11}. A plain `#import "M"` after `#import "M"(FLAG = true)` is a second instance with the defaults, not the configured one; it joins an existing instance only when that instance's first-list arguments are all program parameters {#modparam.13}.
 
 Argument types:
 

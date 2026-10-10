@@ -3079,6 +3079,70 @@
       "negative": {
         "check": "messages: failed import, error, complete"
       }
+    },
+    {
+      "id": "redeclared-global",
+      "source": "negative/redeclared-global.jai",
+      "sha256": "f92a111ce58fe5d7428ca96d256a31d04fa129fcf736c8df7668939bbe688516",
+      "suite": "negative",
+      "feature": "a name is declared once per scope",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`Limit` is already declared in this scope"
+      },
+      "rules": [
+        "decl.24"
+      ]
+    },
+    {
+      "id": "redeclared-parameter",
+      "source": "negative/redeclared-parameter.jai",
+      "sha256": "5192797a38686e1f77f1323a5f680ec02b31c8cbd749e90a1038c4da1494ac77",
+      "suite": "negative",
+      "feature": "parameter names are unique",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`value` is already declared in this scope"
+      },
+      "rules": [
+        "decl.24"
+      ]
+    },
+    {
+      "id": "module-argument-unknown",
+      "source": "negative/module-argument-unknown.jai",
+      "sha256": "1652bf70b6e66c72f968e22b972cf9b9b95859340e9400720f901b5bcd6ab683",
+      "suite": "negative",
+      "feature": "an import argument names a declared parameter",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "is not a parameter of this module"
+      },
+      "rules": [
+        "modparam.11"
+      ]
+    },
+    {
+      "id": "module-argument-type",
+      "source": "negative/module-argument-type.jai",
+      "sha256": "862cf26e7f44ab48ca9b33a6978c85b7edfefb9f38a06673101be758c07efdf5",
+      "suite": "negative",
+      "feature": "an import argument has the parameter's kind",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "expects bool, but the import gives integer"
+      },
+      "rules": [
+        "modparam.11"
+      ]
     }
   ]
 }

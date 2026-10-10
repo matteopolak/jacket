@@ -18,7 +18,6 @@ Two_Again :: #import "Rules_Params"(LOUD = true, COUNT = 2);
 Traced :: #import "Rules_Params"()(TRACE = true);
 Fancy :: #import "Rules_Params"(STYLE = .FANCY, TAG = Color.GREEN);
 Paired :: #import "Rules_Params"(TAG = Pair.{ 3, 4 });
-Ignored :: #import "Rules_Params"(NO_SUCH_PARAMETER = 5);
 Wide :: #import "Rules_Params"(WIDTH = 2);
 Narrow :: #import "Rules_Params"(WIDTH = cast(u8) 9);
 
@@ -62,8 +61,7 @@ main :: () {
     // modparam.10: parameters are constants in the module's #load-ed files too.
     assert(Wide.width() == 2 && Narrow.width() == 9, "parameter read from a loaded file");
 
-    // modparam.11: an unknown argument name is ignored.
-    assert(Ignored.greeting("x") == "hello x;", "unknown argument ignored");
+    // modparam.11: an unknown argument name is an error (tests/corpus/negative/module-argument-unknown.jai).
 
     // modparam.12: names declared in the trailing block may be used by defaults.
     assert(One.width() == 40 && One.WIDTH == 40, "default from the trailing block");

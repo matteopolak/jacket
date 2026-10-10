@@ -221,7 +221,7 @@ impl Compiler {
         id
     }
 
-    fn is_system_module(&mut self, m: ModuleId) -> bool {
+    pub(super) fn is_system_module(&mut self, m: ModuleId) -> bool {
         if Some(m) == self.preload || Some(m) == self.runtime_support {
             return true;
         }

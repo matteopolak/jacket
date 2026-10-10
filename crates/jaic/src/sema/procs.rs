@@ -233,6 +233,20 @@ impl Compiler {
                 format!("signature of `{}` depends on itself", self.proc(id).name),
             );
         }
+        let mut seen: Vec<Sym> = Vec::new();
+        for param in &self.proc(id).lit.header.params {
+            if let Some(name) = param.name
+                && name.name.as_str() != "_"
+            {
+                if seen.contains(&name.name) {
+                    return err(
+                        name.span,
+                        format!("`{}` is already declared in this scope", name.name),
+                    );
+                }
+                seen.push(name.name);
+            }
+        }
         self.procs[id.0 as usize].sig_resolving = true;
         let result = self.build_signature(id);
         self.procs[id.0 as usize].sig_resolving = false;

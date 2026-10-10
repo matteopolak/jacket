@@ -181,6 +181,17 @@ pub struct Entity {
 }
 
 /// A procedure-valued declaration can join an overload set.
+/// A constant that can join an overload set: a procedure, or an alias of one (`print :: f;`).
+fn may_overload(decl: &ast::Decl) -> bool {
+    decl_is_proc(decl)
+        || decl.kind == ast::DeclKind::Const
+            && decl.ty.is_none()
+            && matches!(
+                decl.value.as_ref().map(|v| &v.kind),
+                Some(ast::ExprKind::Ident(_) | ast::ExprKind::Member(..))
+            )
+}
+
 fn decl_is_proc(decl: &ast::Decl) -> bool {
     decl.kind == ast::DeclKind::Const
         && matches!(
@@ -305,6 +316,57 @@ impl Compiler {
             self.ide_note_entity(id);
         }
         id
+    }
+
+    /// A declaration may not reuse a name declared in the same scope, except for procedures,
+    /// which form an overload set (identical signatures are caught when the set is used).
+    pub(super) fn check_redeclared(
+        &self,
+        scope: ScopeId,
+        name: Sym,
+        span: Span,
+        decl: Option<&Rc<ast::Decl>>,
+    ) -> Result<()> {
+        if name.as_str() == "_" {
+            return Ok(());
+        }
+        let Some(ids) = self.scope(scope).names.get(&name) else {
+            return Ok(());
+        };
+        // A `#placeholder` is defined by code the metaprogram adds, possibly more than once.
+        if ids
+            .iter()
+            .any(|&id| matches!(self.entity(id).kind, EntityKind::Placeholder))
+        {
+            return Ok(());
+        }
+        for &id in ids {
+            match (&self.entity(id).kind, decl) {
+                (
+                    EntityKind::Decl {
+                        decl: old, ..
+                    },
+                    Some(new),
+                ) if Rc::ptr_eq(old, new) || (may_overload(old) && may_overload(new)) => continue,
+                (
+                    EntityKind::Decl {
+                        ..
+                    }
+                    | EntityKind::Import(_),
+                    _,
+                ) => {}
+                _ => continue,
+            }
+            return Err(Box::new(
+                Diagnostic::error(span, format!("`{name}` is already declared in this scope"))
+                    .with_label("declared again here")
+                    .with_note(
+                        self.entity(id).span,
+                        format!("`{name}` is first declared here"),
+                    ),
+            ));
+        }
+        Ok(())
     }
 
     /// Declare a constant whose value is already known.

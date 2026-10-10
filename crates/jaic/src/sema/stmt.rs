@@ -27,7 +27,7 @@ impl Compiler {
                 && !decl.backtick
                 && f.hoisted_consts.insert((scope, decl.id))
             {
-                self.declare_local_consts(scope, scope, decl);
+                self.declare_local_consts(scope, scope, decl)?;
             }
         }
         for (i, stmt) in stmts.iter().enumerate() {
@@ -122,8 +122,16 @@ impl Compiler {
     }
 
     /// Declare the names of a local constant declaration in `target` (and `scope`).
-    fn declare_local_consts(&mut self, target: ScopeId, scope: ScopeId, decl: &Rc<ast::Decl>) {
+    fn declare_local_consts(
+        &mut self,
+        target: ScopeId,
+        scope: ScopeId,
+        decl: &Rc<ast::Decl>,
+    ) -> Result<()> {
         for (index, name) in decl.names.iter().enumerate() {
+            if !decl.backtick {
+                self.check_redeclared(target, name.name, name.span, Some(decl))?;
+            }
             for s in [target, scope] {
                 self.add_entity(
                     s,
@@ -140,6 +148,7 @@ impl Compiler {
                 }
             }
         }
+        Ok(())
     }
 
     /// A `#if` condition inside a body: `#exists(`name)` (possibly negated) looks in the
@@ -480,7 +489,7 @@ impl Compiler {
         };
         if decl.kind == ast::DeclKind::Const {
             if !f.hoisted_consts.contains(&(scope, decl.id)) {
-                self.declare_local_consts(target, scope, decl);
+                self.declare_local_consts(target, scope, decl)?;
             }
             return Ok(());
         }
@@ -2428,7 +2437,7 @@ impl Compiler {
                         && !decl.backtick
                         && f.hoisted_consts.insert((inner, decl.id))
                     {
-                        self.declare_local_consts(code_scope, code_scope, decl);
+                        let _ = self.declare_local_consts(code_scope, code_scope, decl);
                     }
                 }
             }

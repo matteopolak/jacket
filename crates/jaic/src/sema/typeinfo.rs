@@ -1,7 +1,7 @@
 //! Runtime type information: one read-only `Type_Info_*` descriptor global
 //! per type, laid out with Preload's reflection structs. A `Type` value at
 //! runtime is the address of its descriptor.
-use super::scope::{EntityKind, Resolved};
+use super::scope::{EntityKind, Resolved, ScopeKind};
 use super::value::Aggregate;
 use super::*;
 use crate::types::{ArrayKind, TypeKind};
@@ -628,6 +628,24 @@ impl Compiler {
                 });
                 if all_uninit {
                     self.set_field(&mut agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
+                }
+                // A struct declared inside a procedure, a block or another struct is LOCAL.
+                let local = self.struct_asts.get(&s).is_some_and(|src| {
+                    let mut at = self.scope(src.scope).parent;
+                    while let Some(p) = at
+                        && self.scope(p).kind == ScopeKind::StructParams
+                    {
+                        at = self.scope(p).parent;
+                    }
+                    at.is_some_and(|p| {
+                        !matches!(
+                            self.scope(p).kind,
+                            ScopeKind::Module | ScopeKind::File | ScopeKind::Root
+                        )
+                    })
+                });
+                if local {
+                    self.set_field(&mut agg, desc, "status_flags", Value::Int(0x4), span)?;
                 }
                 // Notes written on the struct itself: `S :: struct @thing { ... }`.
                 let struct_notes: Vec<Rc<[u8]>> = self
