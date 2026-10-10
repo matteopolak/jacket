@@ -61,7 +61,28 @@ dump :: (n: Named) {
     for n.name print("%: %\n", it_index, it);
 }
 
+// The inner loop is rewritten to bind `it`, so the outer one cannot use `it` as well.
+find :: (str: string, to_find: string) -> int {
+    for i: 0..str.count - 1 {
+        for to_find {
+            if str[i] == it return i;
+        }
+    }
+    return -1;
+}
+
+// An inner `for` that already binds `it`.
+cross :: (xs: [] int, ys: [] int) {
+    for i: 0..xs.count - 1 {
+        for ys {
+            print("%\n", xs[i] * it);
+        }
+    }
+}
+
 main :: () {
+    print("%\n", find("hello", "lo"));
+    cross(.[1, 2], .[3, 4]);
     s := copy_string("abc");
     shout(s);
     print("%\n", bytes(s));

@@ -100,6 +100,7 @@ main :: () {
     b3 := a3;
     a3.a = 9;
     assert(b3.a == 1 && b3.b == 2 && b3.c == 3);
+    // jailint: allow(redundant_alias)
     a13: Odd13 = .{ 123456789012, 77, 5 };
     b13 := a13;
     assert(b13.a == 123456789012 && b13.b == 77 && b13.c == 5);

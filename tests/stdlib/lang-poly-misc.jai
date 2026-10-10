@@ -11,6 +11,7 @@ pair :: () -> int, int {
 
 // A body may shadow its parameters.
 shadow :: (dest: int, value: int) -> int {
+    // jailint: allow(redundant_alias)
     dest := value + 1;
     return dest;
 }

@@ -140,6 +140,9 @@ fn parse_args() -> Result<Option<Args>, String> {
     Ok(Some(args))
 }
 
+/// Passes `--fix` makes at most: lint, apply what can go together, lint again.
+const MAX_FIX_PASSES: usize = 5;
+
 fn run() -> Result<ExitCode, String> {
     let Some(args) = parse_args()? else {
         return Ok(ExitCode::SUCCESS);
@@ -249,21 +252,33 @@ fn run() -> Result<ExitCode, String> {
         }
     }
     if args.fix {
-        let mut by_file: std::collections::BTreeMap<&str, Vec<&Lint>> = Default::default();
-        for l in &outcome.lints {
-            by_file.entry(&l.path).or_default().push(l);
-        }
+        // Fixes that wrap or overlap another are left for the next pass, which lints the
+        // fixed text again (a few passes at most; most runs need one).
         let mut total = 0;
-        for (path, lints) in by_file {
-            let Some(text) = outcome.texts.get(path) else {
-                continue;
-            };
-            let (fixed, n) = jailint::fix::apply(text, &lints);
-            if n > 0 {
-                std::fs::write(path, fixed).map_err(|e| format!("cannot write {path}: {e}"))?;
-                total += n;
-                eprintln!("jailint: fixed {n} in {}", shown(path));
+        let mut later: Option<jailint::driver::Outcome> = None;
+        for pass in 0..MAX_FIX_PASSES {
+            let current = later.as_ref().unwrap_or(&outcome);
+            let mut by_file: std::collections::BTreeMap<&str, Vec<&Lint>> = Default::default();
+            for l in &current.lints {
+                by_file.entry(&l.path).or_default().push(l);
             }
+            let mut pending = 0;
+            for (path, lints) in by_file {
+                let Some(text) = current.texts.get(path) else {
+                    continue;
+                };
+                pending += jailint::fix::pending(&lints);
+                let (fixed, n) = jailint::fix::apply(text, &lints);
+                if n > 0 {
+                    std::fs::write(path, fixed).map_err(|e| format!("cannot write {path}: {e}"))?;
+                    total += n;
+                    eprintln!("jailint: fixed {n} in {}", shown(path));
+                }
+            }
+            if pending == 0 || pass + 1 == MAX_FIX_PASSES {
+                break;
+            }
+            later = Some(jailint::driver::run(&options));
         }
         if total > 0 {
             eprintln!("jailint: applied {total} fixes; run again to see what remains");

@@ -4,15 +4,21 @@
 
 ### Added
 
+- `jailint` rule `redundant_alias` (warn, with a fix): a local that only exists to be copied into another local (`a := f(); b := a;`) or returned right after it is declared (`x := f(); return x;`). It fires only on adjacent statements and when the fix cannot change behaviour or types.
 - Doc comments: the comment above a declaration (or after a field, enum member or parameter) is shown as Markdown in hover, completion and signature help, with its own docs for each overload and each parameter (`- name: text` items, or comments on the parameter). `[print]`, `[Basic.print]`, `[Type.field]` and `[text](print)` links resolve: go to definition, hover and document links work inside the comment, and rendered docs link to the declaration.
 - VS Code highlights Markdown in comments (bold, italic, code, headings, lists, links) and Jai in fenced code blocks, and colours resolved links like the declaration they name.
+- `jailint` rule `broken_doc_link` (warn): a `[name]`, `[Type.field]` or `[text](name)` link in a declaration's doc comment that names nothing, with a "did you mean" quick fix for a close misspelling. Ordinary bracketed prose (`[0]`, `[TODO]`, `[x][y]`, reference definitions, footnotes) is not reported.
+- Doc comment links reach constants, procedures and types declared inside a struct (`[Point.LIMIT]`, `[Outer.Inner]`, `[Basic.Type.CONST]`) in hover, go to definition, document links and highlighting.
 - Docs for `print`, `sprint`, `tprint`, `alloc`, `free` and `array_add` in the standard library.
 
 ### Fixed
 
+- Hover rendered a `[text](name)` doc link with a stray `)` after the resolved link.
+- A `// jailint: allow(rule)` line inside a doc comment now covers the comment lines below it, not just the declaration.
 - `jailint`'s `index_only_loop` now reports loops over strings (`for i: 0..str.count-1 { cur := str[i]; }` becomes `for str`, or `for *str` when bytes are written), and its fix no longer leaves a stray `)` behind when the bound is parenthesized.
+- `jailint --fix` no longer changes behaviour on nested index loops: `for i: 0..ms.count-1 { for j: ... { ms[i] - ms[j] } }` was rewritten to `for ms { for ms { it - it } }`. `index_only_loop` stays quiet for pairwise walks of one array, and leaves an outer loop whose element is used inside a nested loop that binds `it` without a fix (suggesting a named iterator). `--fix` applies a fix that encloses another fix's edits on a later pass, linting again (at most 5 passes).
 - `jailint`'s `manual_index_counter` now reports hand-kept counters in loops over strings.
-- `jailint` false positives found by linting 39 public Jai projects: `defer_in_loop` fires only on deferred calls that release a value (`free`, `array_free`, `destroy*`, `close*`, ...), not on `defer level += 1` or `defer reset(*pool)`; `unused_parameter` skips procedures whose name is defined more than once nearby (platform variants, backends in sibling files, overloads); `self_assignment` compares what both sides resolve to, so `presentMode = presentMode;` under `using` is not reported; the `unused_*` rules skip generated files.
+- `jailint` false positives found by linting 39 public Jai projects: `defer_in_loop` fires only on deferred calls that release a value (`free`, `array_free`, `destroy*`, `close*`, ...), not on `defer level += 1` or `defer reset(*pool)`; `unused_parameter` skips procedures that have a variant, another definition of the same name with the same parameter names in the same order (an `#if` branch the build did not select, a platform file the program does not load in the same directory, the directory above or its subdirectories, found by parsing them), as well as overloads, so an unrelated procedure with a common name no longer hides a real unused parameter; `self_assignment` compares what both sides resolve to, so `presentMode = presentMode;` under `using` is not reported; the `unused_*` rules skip generated files.
 
 ## [0.8.0] - 2026-10-10
 

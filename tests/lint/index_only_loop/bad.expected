@@ -99,17 +99,48 @@ help: loop over the elements: `for n.name`, with `it` and `it_index`
    |
    = note: `index_only_loop` is `warn` by default
 
+warning[index_only_loop]: `i` counts through `str` to index it
+  --> tests/lint/index_only_loop/bad.jai:66:5
+   |
+66 |     for i: 0..str.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a nested loop binds `it`; name the iterator instead: `for elem: str` and `elem`
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `j` is only used to index `to_find`
+  --> tests/lint/index_only_loop/bad.jai:67:9
+   |
+67 |         for j: 0..to_find.count - 1 {
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for to_find` and `it`
+   |
+67 ~         for to_find {
+68 ~             if str[i] == it return i;
+   |
+   = note: `index_only_loop` is `warn` by default
+
+warning[index_only_loop]: `i` is only used to index `xs`
+  --> tests/lint/index_only_loop/bad.jai:76:5
+   |
+76 |     for i: 0..xs.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a nested loop binds `it`; name the iterator instead: `for elem: xs` and `elem`
+   = note: `index_only_loop` is `warn` by default
+
 warning[index_only_loop]: `i` counts through `stops` to index it
-   --> tests/lint/index_only_loop/bad.jai:96:5
+   --> tests/lint/index_only_loop/bad.jai:117:5
     |
- 96 |     for i: 0..stops.count - 1 {
+117 |     for i: 0..stops.count - 1 {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 help: loop over the elements: `for stops`, with `it` and `it_index`
     |
- 96 ~     for stops {
- 97 ~         print("% %\n", it_index + 1, it.title);
- 98 ~         it.run();
+117 ~     for stops {
+118 ~         print("% %\n", it_index + 1, it.title);
+119 ~         it.run();
     |
     = note: `index_only_loop` is `warn` by default
 

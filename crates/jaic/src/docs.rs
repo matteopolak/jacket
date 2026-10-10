@@ -10,7 +10,7 @@
 //! rewriting that turns resolved links into real ones.
 
 /// The most lines a doc comment shows.
-pub(crate) const MAX_LINES: usize = 200;
+pub const MAX_LINES: usize = 200;
 
 /// The text of a `//` comment line, one leading space (and a `///` or `//!` marker) removed.
 fn line_body(line: &str) -> Option<&str> {
@@ -170,7 +170,7 @@ fn trailing_comment(text: &str, from: usize) -> Option<(usize, String)> {
 }
 
 /// The docs above the declaration whose line holds `at`.
-pub(crate) fn above(text: &str, at: usize) -> Option<String> {
+pub fn above(text: &str, at: usize) -> Option<String> {
     let lines = comment_above(text, line_start(text, at));
     let doc = lines.join("\n");
     (!doc.trim().is_empty()).then_some(doc)
@@ -178,7 +178,7 @@ pub(crate) fn above(text: &str, at: usize) -> Option<String> {
 
 /// The `// ...` after a field, member or parameter declared at `at` (its name), if what
 /// comes before it on the line is a whole declaration rather than the start of a body.
-pub(crate) fn trailing(text: &str, at: usize) -> Option<String> {
+pub fn trailing(text: &str, at: usize) -> Option<String> {
     let (comment_at, body) = trailing_comment(text, at)?;
     let code = text[at..comment_at].trim_end();
     if code.contains('{') {
@@ -193,7 +193,7 @@ pub(crate) fn trailing(text: &str, at: usize) -> Option<String> {
 
 /// The docs of the declaration named at `at`: the comment lines above it, else its trailing
 /// comment; for a parameter, its own comments, else its item in the procedure's docs.
-pub(crate) fn declaration(text: &str, at: usize) -> Option<String> {
+pub fn declaration(text: &str, at: usize) -> Option<String> {
     if let Some(open) = enclosing_header(text, at) {
         let name = word_at(text, at)?;
         return parameter(text, open, name);
@@ -213,7 +213,7 @@ fn word_at(text: &str, at: usize) -> Option<&str> {
 /// The `(` of the procedure header the parameter named at `at` is in, if it is in one: the
 /// nearest unclosed `(` before `at`, without a `{`, `}` or `;` in between, that follows `::`
 /// (or `#type`, `inline`).
-pub(crate) fn enclosing_header(text: &str, at: usize) -> Option<usize> {
+pub fn enclosing_header(text: &str, at: usize) -> Option<usize> {
     const LOOKBACK_LINES: usize = 80;
     let mut depth = 0i32;
     let mut end = at;
@@ -269,7 +269,7 @@ fn parameter(text: &str, open: usize, name: &str) -> Option<String> {
 /// Every parameter of the procedure whose header opens at `open` that has docs, from its own
 /// comments (above it, or after it on its line) and from the list in the docs above the
 /// header, as (name, docs). Own comments win.
-pub(crate) fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
+pub fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
     let mut found = header_parameters(text, open);
     if let Some(doc) = above(text, open) {
         for (name, doc) in list_parameters(&doc) {
@@ -283,7 +283,7 @@ pub(crate) fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
 
 /// Where the parameter list of the procedure declared at `at` (its name, or its literal)
 /// opens: the first `(` from there.
-pub(crate) fn header_open(text: &str, at: usize) -> Option<usize> {
+pub fn header_open(text: &str, at: usize) -> Option<usize> {
     let end = text.get(at..)?.find('\n').map_or(text.len(), |n| at + n);
     text[at..end].find('(').map(|n| at + n)
 }
@@ -415,7 +415,7 @@ fn header_parameters(text: &str, open: usize) -> Vec<(String, String)> {
 
 /// Items of a Markdown list in `doc` that document a parameter: `- name: text`,
 /// ``- `name`: text`` or `- name — text`. Following indented lines continue the item.
-pub(crate) fn list_parameters(doc: &str) -> Vec<(String, String)> {
+pub fn list_parameters(doc: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     let mut fenced = false;
     let mut open = false;
@@ -479,30 +479,42 @@ fn list_item(line: &str) -> Option<(String, String)> {
 
 /// A `[name]`, `` [`name`] `` or `[text](name)` in a line of documentation.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Link {
+pub struct Link {
     /// The whole link, brackets (and target) included, as byte offsets into the line.
-    pub(crate) whole: (usize, usize),
+    pub whole: (usize, usize),
     /// The text between the brackets.
-    pub(crate) label: (usize, usize),
+    pub label: (usize, usize),
+    /// The dotted name the link spells (`Basic.print`), without backticks or `()`: the label,
+    /// or the target of `[text](target)`.
+    pub path: (usize, usize),
     /// What it names: `print`, `Basic`, `print` for `Basic.print`'s last segment, ...
-    pub(crate) names: Vec<String>,
+    pub names: Vec<String>,
+    /// Written `[text](name)`.
+    pub targeted: bool,
+    /// The label was written in backticks or with `()`: code, not prose.
+    pub code: bool,
 }
 
 /// A path such as `print` or `Basic.print` from link text (backticks and a trailing `()`
-/// removed).
-fn link_path(text: &str) -> Option<Vec<String>> {
-    let text = text.trim();
-    let text = text
-        .strip_prefix('`')
-        .and_then(|t| t.strip_suffix('`'))
-        .unwrap_or(text)
-        .trim();
-    let text = text.strip_suffix("()").unwrap_or(text);
-    if text.is_empty() {
+/// removed), with where it starts and ends in `text` and whether it was written as code.
+fn link_path(text: &str) -> Option<(Vec<String>, usize, usize, bool)> {
+    let mut start = text.len() - text.trim_start().len();
+    let mut t = text.trim();
+    let mut code = false;
+    if let Some(inner) = t.strip_prefix('`').and_then(|t| t.strip_suffix('`')) {
+        start += 1 + (inner.len() - inner.trim_start().len());
+        t = inner.trim();
+        code = true;
+    }
+    if let Some(inner) = t.strip_suffix("()") {
+        t = inner;
+        code = true;
+    }
+    if t.is_empty() {
         return None;
     }
     let mut names = Vec::new();
-    for segment in text.split('.') {
+    for segment in t.split('.') {
         let mut chars = segment.chars();
         let first = chars.next()?;
         if !(first.is_alphabetic() || first == '_')
@@ -512,12 +524,12 @@ fn link_path(text: &str) -> Option<Vec<String>> {
         }
         names.push(segment.to_owned());
     }
-    Some(names)
+    Some((names, start, start + t.len(), code))
 }
 
 /// The links in one line of documentation, skipping inline code and things that are not
 /// links (`a[i]`, images, `[x][y]`).
-pub(crate) fn links(line: &str) -> Vec<Link> {
+pub fn links(line: &str) -> Vec<Link> {
     let bytes = line.as_bytes();
     let mut out = Vec::new();
     let mut i = 0;
@@ -548,21 +560,27 @@ pub(crate) fn links(line: &str) -> Vec<Link> {
                 if let Some(target) = after.strip_prefix('(') {
                     // `[text](name)`: only a name is a link; a URL is left alone.
                     if let Some(end) = target.find(')') {
-                        if let Some(names) = link_path(&target[..end]) {
+                        if let Some((names, from, to, code)) = link_path(&target[..end]) {
                             out.push(Link {
-                                whole: (i, close + 2 + end),
+                                whole: (i, close + 3 + end),
                                 label,
+                                path: (close + 2 + from, close + 2 + to),
                                 names,
+                                targeted: true,
+                                code,
                             });
                         }
-                        i = close + 2 + end;
+                        i = close + 3 + end;
                         continue;
                     }
-                } else if let Some(names) = link_path(&line[label.0..label.1]) {
+                } else if let Some((names, from, to, code)) = link_path(&line[label.0..label.1]) {
                     out.push(Link {
                         whole: (i, close + 1),
                         label,
+                        path: (label.0 + from, label.0 + to),
                         names,
+                        targeted: false,
+                        code,
                     });
                 }
                 i = close + 1;
@@ -603,7 +621,7 @@ fn fence(body: &str) -> bool {
 
 /// `doc` as Markdown for display: untagged code fences become `jai`, and links `resolve`
 /// gives a URL for become Markdown links to it (the rest stay as written).
-pub(crate) fn markdown(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
+pub fn markdown(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut fenced = false;
     for line in doc.lines() {
@@ -646,7 +664,7 @@ pub(crate) fn markdown(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>)
 }
 
 /// Every link name path in `doc` (outside code fences), without repeats.
-pub(crate) fn link_names(doc: &str) -> Vec<Vec<String>> {
+pub fn link_names(doc: &str) -> Vec<Vec<String>> {
     let mut out: Vec<Vec<String>> = Vec::new();
     let mut fenced = false;
     for line in doc.lines() {
@@ -668,16 +686,29 @@ pub(crate) fn link_names(doc: &str) -> Vec<Vec<String>> {
 
 /// A link in a source file: where its label is and what it names, resolved from `scope_at`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Site {
-    pub(crate) label: (usize, usize),
-    pub(crate) names: Vec<String>,
+pub struct Site {
+    pub label: (usize, usize),
+    pub names: Vec<String>,
     /// An offset in the declaration the comment documents (its scope resolves the names).
-    pub(crate) scope_at: usize,
+    pub scope_at: usize,
+    /// The whole link, brackets (and target) included.
+    pub whole: (usize, usize),
+    /// The dotted name it spells, without backticks or `()`.
+    pub path: (usize, usize),
+    /// The comment documents a declaration (the line it is above, or on, is one), rather
+    /// than a statement.
+    pub on_declaration: bool,
+    /// A lowercase word in plain brackets (`[sic]`): as likely prose as a link, so it is
+    /// worth reporting only as a misspelling of something in scope.
+    pub plain: bool,
+    /// It is written like an intra-doc link and not like ordinary bracketed prose (see
+    /// [`meant_as_link`]).
+    pub meant: bool,
 }
 
 /// The links in the doc comments of `text`: comment runs and blocks directly above a
 /// declaration line, and trailing comments.
-pub(crate) fn sites(text: &str) -> Vec<Site> {
+pub fn sites(text: &str) -> Vec<Site> {
     let mut out = Vec::new();
     // (offset of the line, its text)
     let mut run: Vec<(usize, &str)> = Vec::new();
@@ -709,20 +740,26 @@ pub(crate) fn sites(text: &str) -> Vec<Site> {
             continue;
         }
         let scope_at = at + (line.len() - trimmed.len());
+        let declares = declaration_line(trimmed);
         if !run.is_empty() {
-            collect_sites(&run, scope_at, &mut out);
+            collect_sites(&run, scope_at, declares, &mut out);
             run.clear();
         }
         if let Some((comment_at, _)) = trailing_comment(text, at + (line.len() - trimmed.len())) {
             let end = at + line.len();
-            collect_sites(&[(comment_at, &text[comment_at..end])], scope_at, &mut out);
+            collect_sites(
+                &[(comment_at, &text[comment_at..end])],
+                scope_at,
+                declares,
+                &mut out,
+            );
         }
     }
     out
 }
 
 /// The site whose label holds `byte`.
-pub(crate) fn site_at(text: &str, byte: usize) -> Option<Site> {
+pub fn site_at(text: &str, byte: usize) -> Option<Site> {
     // Only a comment can hold a link: skip the scan for other lines.
     let start = line_start(text, byte);
     let end = text[byte..].find('\n').map_or(text.len(), |n| byte + n);
@@ -739,8 +776,9 @@ pub(crate) fn site_at(text: &str, byte: usize) -> Option<Site> {
         .find(|s| s.label.0 <= byte && byte <= s.label.1)
 }
 
-fn collect_sites(run: &[(usize, &str)], scope_at: usize, out: &mut Vec<Site>) {
+fn collect_sites(run: &[(usize, &str)], scope_at: usize, declares: bool, out: &mut Vec<Site>) {
     let mut fenced = false;
+    let mut bodies: Vec<(usize, usize, &str)> = Vec::new();
     for &(at, line) in run {
         // The part of the line that is comment text.
         let (body_at, body) = match line.find("//") {
@@ -753,22 +791,120 @@ fn collect_sites(run: &[(usize, &str)], scope_at: usize, out: &mut Vec<Site>) {
             fenced = !fenced;
             continue;
         }
-        if fenced || !body.contains('[') {
+        if fenced {
+            continue;
+        }
+        bodies.push((at, body_at, body));
+    }
+    // `[ref]: url` lines define reference links in the same comment.
+    let defined: Vec<&str> = bodies
+        .iter()
+        .filter_map(|&(_, _, body)| reference_definition(body))
+        .collect();
+    for (at, body_at, body) in bodies {
+        if !body.contains('[') {
             continue;
         }
         for link in links(body) {
+            let label = body[link.label.0..link.label.1].trim();
+            let meant = meant_as_link(&link, &body[..link.whole.0], &body[link.whole.1..])
+                && !defined.contains(&label);
+            let word = link.names[0].as_str();
+            let plain = !link.targeted
+                && !link.code
+                && link.names.len() == 1
+                && word.chars().all(|c| c.is_lowercase() || c.is_ascii_digit());
+            let shift = at + body_at;
             out.push(Site {
-                label: (at + body_at + link.label.0, at + body_at + link.label.1),
+                label: (shift + link.label.0, shift + link.label.1),
                 names: link.names,
                 scope_at,
+                whole: (shift + link.whole.0, shift + link.whole.1),
+                path: (shift + link.path.0, shift + link.path.1),
+                on_declaration: declares,
+                plain,
+                meant,
             });
         }
     }
 }
 
+/// The label of a Markdown reference definition (`[label]: url`) that `body` is.
+fn reference_definition(body: &str) -> Option<&str> {
+    let rest = body.trim_start().strip_prefix('[')?;
+    let end = rest.find("]:")?;
+    let after = rest[end + 2..].trim_start();
+    (!after.is_empty() && !rest[..end].contains('[')).then(|| rest[..end].trim())
+}
+
+/// A link that does not resolve is worth reporting only when it was written like an
+/// intra-doc link and not like ordinary bracketed prose (`before` and `after` are the line's
+/// text around it).
+/// Written as code (`` [`name`] ``, `[name()]`), as `[text](name)` or as a dotted path
+/// (`[Type.field]`) it is meant. A bare word is meant unless it is one letter (`[x]`, a
+/// checkbox or a variable), all capitals (`[TODO]`, `[NOTE]`), followed by `:` (a
+/// reference definition or footnote) or glued to quotes, slashes or similar (`'..[name]'`). Labels that are not a name (`[0]`, `[ ]`, `[^1]`,
+/// `[some words]`) are never links at all.
+pub fn meant_as_link(link: &Link, before: &str, after: &str) -> bool {
+    if after.starts_with(':') {
+        return false;
+    }
+    if link.targeted || link.code || link.names.len() > 1 {
+        return true;
+    }
+    // Inside a quoted or path-like text (`'...[description]'`, `a/[name]`).
+    let glued = before.ends_with([
+        '.', '\'', '"', '/', '\\', '=', '<', '$', '@', '#', '%', '&', '*', '-',
+    ]) || after.starts_with(['\'', '"', '/', '\\', '=', '>']);
+    if glued {
+        return false;
+    }
+    let word = link.names[0].as_str();
+    let tag = word.chars().all(|c| c.is_uppercase() || c.is_ascii_digit());
+    word.chars().count() > 1 && !tag
+}
+
+/// Whether a line (already trimmed) looks like it declares something: `name :: ...`,
+/// `name := ...`, `name: Type`, `a, b: Type`, or an enum member alone on its line (`NAME,`).
+pub fn declaration_line(line: &str) -> bool {
+    let line = line.strip_prefix("using ").unwrap_or(line);
+    let line = line.strip_prefix("#as ").unwrap_or(line);
+    let mut rest = line.strip_prefix('$').unwrap_or(line);
+    let mut names = 0;
+    loop {
+        let end = rest
+            .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(rest.len());
+        let starts = rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_');
+        if end == 0 || !starts {
+            return false;
+        }
+        names += 1;
+        rest = rest[end..].trim_start();
+        if rest.starts_with(':') {
+            return true;
+        }
+        let Some(after) = rest.strip_prefix([',', ';']) else {
+            return false;
+        };
+        let after = after.trim_start();
+        if after.is_empty() || after.starts_with("//") {
+            // An enum member (`RED,`), not a statement.
+            return names == 1 || rest.starts_with(',');
+        }
+        if rest.starts_with(';') {
+            return false;
+        }
+        rest = after;
+    }
+}
+
 /// A declaration's first line as a signature to show: from `at` to the `{` or the end of the
 /// line, bounded.
-pub(crate) fn signature_line(text: &str, at: usize) -> String {
+pub fn signature_line(text: &str, at: usize) -> String {
     let start = line_start(text, at);
     let end = text[at..].find('\n').map_or(text.len(), |n| at + n);
     let line = text[start..end].trim();
@@ -882,6 +1018,77 @@ g :: (
             markdown(doc, &resolve),
             "See [`print`](file:///a.jai#L3) and [x].\n\n```jai\nlet [print]\n```\n\n```c\nint x;\n```"
         );
+    }
+
+    #[test]
+    fn targeted_links_include_their_closing_parenthesis() {
+        let resolve =
+            |names: &[String]| (names == ["print"]).then(|| "file:///a.jai#L3".to_owned());
+        assert_eq!(
+            markdown("a [the text](print) b", &resolve),
+            "a [the text](file:///a.jai#L3) b"
+        );
+        let found = links("a [`x`](Basic.print) b");
+        assert_eq!(
+            &"a [`x`](Basic.print) b"[found[0].whole.0..found[0].whole.1],
+            "[`x`](Basic.print)"
+        );
+        assert_eq!(
+            &"a [`x`](Basic.print) b"[found[0].path.0..found[0].path.1],
+            "Basic.print"
+        );
+    }
+
+    #[test]
+    fn link_paths_exclude_code_marks() {
+        let line = "[ `Basic.print()` ] [print()]";
+        let found = links(line);
+        let path = |i: usize| &line[found[i].path.0..found[i].path.1];
+        assert_eq!((path(0), path(1)), ("Basic.print", "print"));
+    }
+
+    #[test]
+    fn meant_links_are_told_from_prose() {
+        let text = "// [print] [`print`] [TODO] [x] [Type.field] [a](b) [ref] and [guide][ref]\n// [ref]: https://example.com\nf :: () {}\n// [print]\nx = 1;\n// [print]\nenum_member,\n";
+        let found: Vec<(String, bool, bool)> = sites(text)
+            .into_iter()
+            .map(|s| {
+                (
+                    text[s.whole.0..s.whole.1].to_owned(),
+                    s.meant,
+                    s.on_declaration,
+                )
+            })
+            .collect();
+        let meant = |what: &str| found.iter().find(|f| f.0 == what).map(|f| f.1);
+        assert_eq!(meant("[print]"), Some(true));
+        assert_eq!(meant("[`print`]"), Some(true));
+        assert_eq!(meant("[TODO]"), Some(false));
+        assert_eq!(meant("[x]"), Some(false));
+        assert_eq!(meant("[Type.field]"), Some(true));
+        assert_eq!(meant("[a](b)"), Some(true));
+        assert_eq!(meant("[ref]"), Some(false));
+        // Above a statement, then above an enum member.
+        assert!(!found[found.len() - 2].2);
+        assert!(found[found.len() - 1].2);
+    }
+
+    #[test]
+    fn declaration_lines() {
+        for yes in [
+            "f :: () {",
+            "x := 1;",
+            "x: int;",
+            "a, b: int;",
+            "RED,",
+            "using s: S;",
+            "$T: Type",
+        ] {
+            assert!(declaration_line(yes), "{yes}");
+        }
+        for no in ["x = 1;", "f(x);", "return a;", "case X:", "}", "if a {"] {
+            assert!(!declaration_line(no), "{no}");
+        }
     }
 
     #[test]

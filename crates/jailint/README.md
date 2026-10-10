@@ -40,7 +40,7 @@ From a checkout: `cargo build -p jailint --release --locked` (the binary is `tar
 
 ## Features
 
-- 32 rules (`jailint --list`): unused variables, parameters and imports; loops that only index; hand-kept counters; redundant casts; `x == true`; a shadowed `it`; a `defer` in a loop; likely bugs such as `u >= 0` on an unsigned value, `1 << n - 1`, identical branches or operands, and a `while` whose condition nothing changes; unidiomatic code such as `x = x + 1`; constants that silently wrap to a narrower type; and opt-in checks for exact float comparison and narrowing `xx`.
+- 34 rules (`jailint --list`): unused variables, parameters and imports; loops that only index; hand-kept counters; redundant casts and aliases; `x == true`; a shadowed `it`; a `defer` in a loop; doc comment links that name nothing; likely bugs such as `u >= 0` on an unsigned value, `1 << n - 1`, identical branches or operands, and a `while` whose condition nothing changes; unidiomatic code such as `x = x + 1`; constants that silently wrap to a narrower type; and opt-in checks for exact float comparison and narrowing `xx`.
 - `--fix` applies the machine-applicable fixes; in an editor each fixable finding is a quick fix, and there is a fix-all action.
 - Diagnostics in the compilers' layout, with colour following `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS`.
 - Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a usage or configuration error.

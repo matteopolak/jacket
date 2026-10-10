@@ -12,7 +12,10 @@
 //! quiet for loops that walk a grid (`for c: 0..xs[i].count - 1` inside), index other arrays
 //! with the variable or compute with it inside an index (`ys[i]`, `xs[i + 1]`). Filling
 //! elements from the index (`xs[i] = sin(i * step)`) is reported: `for *xs` with `it_index`
-//! in the value. Writes to elements (`xs[i] = v`, `xs[i].f = v`, `*xs[i]`, passing `xs` to a
+//! in the value. Quiet when the body also indexes the same array with another variable
+//! (`ms[i] - ms[j]` over `ms`: a pairwise walk reads best with indices). When an element is
+//! used inside a nested `for` that binds `it` (or that this rule would rewrite to), the finding
+//! has no fix and suggests a named iterator: `it` would name the inner element. Writes to elements (`xs[i] = v`, `xs[i].f = v`, `*xs[i]`, passing `xs` to a
 //! call) make the suggestion `for *xs`. Constant arrays (`xs :: T.[...]`) are reported too, except where the
 //! suggestion would be `for *xs`.
 use super::{PlaceUse, is_call_argument, place_use};
@@ -137,6 +140,8 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     // Spans of nested loops that rebind `it` / `it_index`.
     let mut rebinds_it: Vec<jaic::source::Span> = Vec::new();
     let mut rebinds_index: Vec<jaic::source::Span> = Vec::new();
+    // Spans of nested loops this rule would itself rewrite to bind `it` (`for j: 0..ys.count-1`).
+    let mut will_bind_it: Vec<jaic::source::Span> = Vec::new();
     let mut stack = Vec::new();
     walk_node(Node::Stmt(&f.body), &mut stack, &mut |n, chain| {
         if bail {
@@ -149,6 +154,9 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                     S::For(inner) => {
                         if inner.it.is_none_or(|i| i.name == it) {
                             rebinds_it.push(s.span);
+                        }
+                        if counted_array(inner).is_some() {
+                            will_bind_it.push(s.span);
                         }
                         if inner.index.is_none_or(|i| i.name == it_index) {
                             rebinds_index.push(s.span);
@@ -167,6 +175,19 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         .any(|s| s.start <= e.span.start && e.span.end <= s.end)
                 };
                 let ents = cx.entities(e.span);
+                if let Some(Node::Expr(Expr {
+                    kind: E::Index(base, idx),
+                    ..
+                })) = chain.last()
+                    && idx.span == e.span
+                    && *name != var
+                    && squash(cx.src(base.span)) == arr_text
+                {
+                    // `ms[i] - ms[j]`: walking the same array by two indices (pairs) reads
+                    // best with both.
+                    bail = true;
+                    return false;
+                }
                 if *name == var {
                     if ents.is_empty() {
                         // Not checked (an `#if` left it out): cannot tell what it names.
@@ -198,7 +219,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                                 return false;
                             }
                             uses.by_pointer |= written;
-                            if inside(&rebinds_it) {
+                            if inside(&rebinds_it) || inside(&will_bind_it) {
                                 uses.captures_it = true;
                             }
                             uses.elements.push((span, how));
@@ -265,7 +286,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         var.as_str()
     };
     let only = uses.others.is_empty();
-    let (message, help) = if only {
+    let (message, mut help) = if only {
         (
             format!("`{index_name}` is only used to index `{arr_src}`"),
             if uses.by_pointer {
@@ -280,6 +301,12 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
             format!("loop over the elements: `for {header}`, with `it` and `it_index`"),
         )
     };
+    if uses.captures_it {
+        // `it` would name the nested loop's element: a named iterator keeps them apart.
+        help = format!(
+            "a nested loop binds `it`; name the iterator instead: `for elem: {header}` and `elem`"
+        );
+    }
     let fixable = !uses.captures_it && (only || !uses.captures_it_index);
     let fix = fixable.then(|| {
         let mut edits = vec![Edit {

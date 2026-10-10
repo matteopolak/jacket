@@ -68,6 +68,45 @@ pub fn closest<'a>(wanted: &str, candidates: impl IntoIterator<Item = &'a str>) 
     best.map(|(_, name)| name)
 }
 
+/// Like [`closest`], but only when one candidate is nearer than all the others: a tie
+/// (`pint` for `print` and `paint`) gives `None`, for callers that offer the name as a fix.
+pub fn closest_unique<'a>(
+    wanted: &str,
+    candidates: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
+    let length = wanted.chars().count();
+    let limit = if length < 3 {
+        0
+    } else {
+        (length / 3).max(1)
+    };
+    let lower = wanted.to_lowercase();
+    let mut best: Option<(usize, &'a str)> = None;
+    let mut tied = false;
+    for candidate in candidates {
+        if candidate == wanted || best.is_some_and(|(_, b)| b == candidate) {
+            continue;
+        }
+        let d = if candidate.to_lowercase() == lower {
+            0
+        } else {
+            match distance(wanted, candidate, limit) {
+                Some(d) => d,
+                None => continue,
+            }
+        };
+        match best {
+            Some((bd, _)) if d == bd => tied = true,
+            Some((bd, _)) if d > bd => {}
+            _ => {
+                best = Some((d, candidate));
+                tied = false;
+            }
+        }
+    }
+    best.filter(|_| !tied).map(|(_, name)| name)
+}
+
 /// For a file `name` that does not exist: the directory entry the user most likely meant,
 /// `name.jai` when there is one (the extension was left off), else the closest name.
 pub fn similar_entry<'a>(

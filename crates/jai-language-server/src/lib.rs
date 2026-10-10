@@ -3,7 +3,7 @@ mod analysis;
 mod asm;
 mod auto_import;
 mod doc_view;
-mod docs;
+pub(crate) use jaic::docs;
 mod document;
 mod exports;
 pub(crate) mod features;

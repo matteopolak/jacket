@@ -44,6 +44,7 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `almost_swapped` | warn | no | `a = b; b = a;`, a swap that sets both to `b` |
 | `bitwise_precedence` | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | warn | yes | `x == true`, `x != false`, `false == x` |
+| `broken_doc_link` | warn | editor | a link in a doc comment (`[prnt]`, `[Type.fild]`) that names no declaration |
 | `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
 | `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
@@ -61,6 +62,7 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `needless_bool` | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
 | `no_effect` | warn | no | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
 | `range_past_count` | warn | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
+| `redundant_alias` | warn | yes | a local that only exists to be copied into another local (`a := f(); b := a;`) or returned right away |
 | `redundant_cast` | warn | yes | a cast to the type the value already has |
 | `remove_in_for` | warn | no | `array_*_remove_*` on the array a `for` is walking |
 | `reversed_range` | warn | editor | `for i: 10..0`: a range that never runs |
@@ -103,6 +105,27 @@ Fires on an unparenthesized bitwise operation that is an operand of `+ - * / %`,
 ### bool_comparison
 
 `if ready == true` → `if ready`; `x == false` → `!x`. Only when the other side is a non-constant `bool`, so integers and types with `operator ==` are left alone.
+
+### broken_doc_link
+
+A doc comment link that names nothing is not clickable and does not warn, so it rots when the declaration is renamed (see [doc comments](../compiler/doc-comments.md)):
+
+```jai
+// Prints the point with [prnt], or [`Point.xx`].
+show :: (p: Point) {}
+```
+
+```text
+warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
+help: did you mean `print`?
+```
+
+Only comments directly above a declaration (or trailing a field, member or parameter) are read; a comment above a statement is not. Links resolve with the language server's rules, from the scope of the documented declaration, so a module (`[Basic.print]`) has to be one the file imports and uses. Unresolved links are reported only when they look meant as links, the same test everywhere (`jaic::docs`):
+
+- reported: ``[`name`]``, `[name()]`, `[text](name)`, a dotted path (`[Type.field]`, `[Basic.print]`) and a bare word of two or more characters that is not all capitals and either has an underscore or a capital in it (`[print_all]`, `[Point]`) or is a close misspelling of a name in scope (`[prnt]`, four letters or more);
+- not reported: one letter (`[x]`), all capitals (`[TODO]`, `[NOTE]`), a plain lowercase word that is nothing like a name in scope (`[sic]`, `[yet]`, `[keys]`), a dotted lowercase path whose first part is no name in scope (`[table.header]`), a word glued to quotes or slashes (`'..[name]'`), a link followed by `:` or named by a `[label]: url` line in the same comment (reference definitions), and everything that is not a link in the first place: `a[i]`, `[0]`, `[x][y]`, `[ ]`, `[^1]`, `[some words]`, URL targets, and text in code spans and fences.
+
+When exactly one name in scope (for a dotted path, one member of what the path leads to) is a close misspelling of the last segment (edit distance up to a third of its length, or a different case), the finding offers it as a fix (`did you mean `print`?`). It is a guess, so `--fix` leaves it alone and the editor offers it as a quick fix. A `// jailint: allow(broken_doc_link)` line inside the comment silences the links below it.
 
 ### defer_in_loop
 
@@ -155,7 +178,10 @@ Off by default. `if total == expected` with two computed floats. Comparisons wit
 - the loop could change `xs` itself (assignment, `array_add`, taking its address, `remove`);
 - it walks a grid (`for c: 0..xs[i].count - 1` inside);
 - the index is used with other arrays or computed with inside an index (`ys[i]`, `xs[i + 1]`);
-- `xs` is a constant (`xs :: T.[...]`) and the suggestion would be `for *xs`, since a constant has no elements to point at.;
+- `xs` is a constant (`xs :: T.[...]`) and the suggestion would be `for *xs`, since a constant has no elements to point at;
+- the body also indexes `xs` with another variable (`ms[i] - ms[j]` in two nested loops over `ms`): walking pairs reads best with both indices, so neither loop is reported.
+
+Nested loops: when an element use of the outer index sits inside a `for` that binds `it` (unnamed, or a `for j: 0..ys.count-1` this rule rewrites to bind `it` in the same run), `it` would name the inner element. The outer loop is still reported but gets no fix; the help suggests a named iterator (`for elem: xs` and `elem`). The inner loop is fixed, so `for i: 0..str.count-1 { for j: 0..to_find.count-1 { if str[i] == to_find[j] ... } }` becomes `for i: ... { for to_find { if str[i] == it ... } }`.
 
 ### infinite_loop
 
@@ -215,6 +241,17 @@ A negated integer comparison is flipped (`!(n < 10)` → `n >= 10`). Comments in
 
 Ranges include their end, so `for i: 0..xs.count { xs[i] }` reads one past the last element. Fires when a range ends at exactly `xs.count` for an array or string and the body indexes `xs[i]` with the loop variable, unless the body mentions `xs.count` (it may guard the last index). The suggested `xs.count - 1` changes what the loop does, so `--fix` does not apply it.
 
+### redundant_alias
+
+A style rule: `total := a + b; result := total;` becomes `result := a + b;`, and `x := compute(); return x;` becomes `return compute();`. The first name may be a deliberately descriptive one, so lower the level (or suppress) where that is the intent. The fix never changes behaviour or types, so it fires only when all of this holds:
+
+- The two statements are adjacent in one statement list and only whitespace and `;` lies between them (a comment between them, even a trailing one, keeps the rule quiet). Reordering a non-adjacent initializer past other statements could change what it reads, so those are never reported, literal initializers included.
+- The first is `a := <init>;` or `a: T = <init>;`: one plain variable with an initializer that is not `---`, no `using`, backtick, notes, flags or `#align`. Its name is written exactly twice in the whole procedure body, the declaration and one use, and that use resolves to this local. That rules out mutation, address-taking, `defer`, uses in nested procedures, `#run` / `#code` / `#insert` and code in `#if` branches; a body with any `#insert` is skipped.
+- Copy: the second is `b := a;` with one name and no explicit type (so no conversion, cast or `xx` happens), `b` has the same type as `a`, and `b` is not named in `a`'s initializer. The fix declares `b` where `a` was (keeping `b`, the name the rest of the code uses) and deletes the second statement. `b` being changed later is fine.
+- Return: the second is `return x;` as the only value of a procedure with one unnamed return value whose type is exactly the type of `x`, and `x` was declared without an explicit type. A different return type would convert (or change how the initializer is typed, as in `3 / 2` for a float). If the initializer is a call, the callee must resolve and return one value.
+
+Parameters, loop variables and globals are never the first name. Macro bodies, generated files and procedures that did not check are skipped.
+
 ### redundant_cast
 
 `cast(s32) x` where `x: s32`, or `v: u8 = xx w` where `w: u8`. Aliases such as `c_long` can be `s64` on one platform and `s32` on another, so equal types are not enough. The value must be declared with the same type spelling as the cast (`int`≡`s64`, `float`≡`float32`), or be another cast to it. Polymorphic bodies, macros and cast flags are skipped.
@@ -255,9 +292,14 @@ Only procedures whose every caller is in view. That means named procedures that 
 - not exported from a module;
 - not `#c_call`, `#foreign`, `#expand`, an operator or `for_expansion`;
 - without notes;
-- not sharing its name with another definition nearby.
+- without a variant (below).
 
-The last condition covers platform variants (`#if OS == ...`), build-selected backends in sibling files and overload sets, whose signatures must match. The compiler only sees the variants the build loads, so the `.jai` files under the file's own directory (three levels deep, at most 2000 files, `*.fixed.jai` excluded) are scanned once per directory for other `name :: (` definitions, and a procedure whose name is defined more than once is skipped.
+A variant is another definition of the same name whose parameters have the same names in the same order (their types may differ: `HWND` on one platform, `*void` on another). Some other definition of the name that does not match, such as an unrelated `update` or `draw` elsewhere in the tree, does not count. The procedure is checked against:
+
+- the other definitions in its own file, including the `#if` branches the build did not select (`#if OS == .MACOS { f :: (window: W) {} } else { f :: (window: W) { use(window); } }`);
+- `.jai` files the program does not load, which the compiler cannot see: first the siblings in the file's directory, then the files of the directory above and of its immediate subdirectories (`src/platform/macos.jai` against `src/platform/windows.jai`, or `utils/macos_window.jai` against `utils/win32_window.jai`). These files are parsed with the compiler's parser, not searched as text; procedures nested in other procedures count too. At most 300 files of up to 1 MiB are parsed per directory, once per process, and `*.fixed.jai` files are left out.
+
+Overload sets are skipped before any of this, from the compiler's own view of the scope.
 
 Empty bodies (stubs), bodies with `#insert`, and parameters whose type has a `$` (the argument settles a polymorphic type) are skipped. Prefix a name with `_` to keep a parameter on purpose.
 
@@ -322,7 +364,7 @@ Every finding below was checked by hand. Findings that turned out wrong were fix
    - run each enabled rule.
 
    Rules walk the syntax tree (`syntax::walk`) and ask the facts about types and names. Where the compiler did not look (an `#if` branch left out, a body that failed), they fall back to the text and stay quiet.
-4. **Report**. Findings get their level, suppressed ones are dropped, and the rest are rendered (`render.rs`). `--fix` applies each machine-applicable fix whose edits do not overlap one already taken (`fix.rs`); run again for the rest.
+4. **Report**. Findings get their level, suppressed ones are dropped, and the rest are rendered (`render.rs`). `--fix` applies each machine-applicable fix whose edits do not overlap one already taken, leaving a fix whose edits enclose another fix's edits (an outer loop around a rewritten inner one) for the next pass (`fix.rs`). It then lints the fixed files again, up to 5 passes in all, only while some fix was left over; most runs lint once. The language server's `source.fixAll.jailint` applies one pass.
 
 A file compiled by several roots is reported once, from the first root. Within a root, a workspace's compile wins over the metaprogram's.
 

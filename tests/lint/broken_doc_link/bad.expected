@@ -1,0 +1,90 @@
+warning[broken_doc_link]: `[Mode.OF]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:5:16
+   |
+ 5 |     // Same as [Mode.OF], which is not a member.
+   |                ^^^^^^^^^ not found from the documented declaration's scope
+   |
+   = help: link a declaration that is in scope, or leave out the brackets if this is not a link
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[Point.LIMT]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:12:13
+   |
+12 |     // Past [Point.LIMT] it clips; see also [Point.z].
+   |             ^^^^^^^^^^^^ not found from the documented declaration's scope
+   |
+help: did you mean `LIMIT`?
+   |
+12 ~     // Past [Point.LIMIT] it clips; see also [Point.z].
+   |
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[Point.z]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:12:45
+   |
+12 |     // Past [Point.LIMT] it clips; see also [Point.z].
+   |                                             ^^^^^^^^^ not found from the documented declaration's scope
+   |
+   = help: link a declaration that is in scope, or leave out the brackets if this is not a link
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[Point.xx]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:14:21
+   |
+14 |     y: int; // Like [Point.xx].
+   |                     ^^^^^^^^^^ not found from the documented declaration's scope
+   |
+   = help: link a declaration that is in scope, or leave out the brackets if this is not a link
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:17:40
+   |
+17 | // Scales a [Point] and prints it with [prnt], or [`print_it()`](print_it).
+   |                                        ^^^^^^ not found from the documented declaration's scope
+   |
+help: did you mean `print`?
+   |
+17 ~ // Scales a [Point] and prints it with [print], or [`print_it()`](print_it).
+   |
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[print_it]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:17:51
+   |
+17 | // Scales a [Point] and prints it with [prnt], or [`print_it()`](print_it).
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^ not found from the documented declaration's scope
+   |
+   = help: link a declaration that is in scope, or leave out the brackets if this is not a link
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[the-missing](gone)` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:20:6
+   |
+20 | // A [the-missing](gone) and a missing [Strings.joyn] and [Nowhere.thing].
+   |      ^^^^^^^^^^^^^^^^^^^ not found from the documented declaration's scope
+   |
+   = help: link a declaration that is in scope, or leave out the brackets if this is not a link
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[Strings.joyn]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:20:40
+   |
+20 | // A [the-missing](gone) and a missing [Strings.joyn] and [Nowhere.thing].
+   |                                        ^^^^^^^^^^^^^^ not found from the documented declaration's scope
+   |
+help: did you mean `join`?
+   |
+20 ~ // A [the-missing](gone) and a missing [Strings.join] and [Nowhere.thing].
+   |
+   = note: `broken_doc_link` is `warn` by default
+
+warning[broken_doc_link]: `[Nowhere.thing]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/bad.jai:20:59
+   |
+20 | // A [the-missing](gone) and a missing [Strings.joyn] and [Nowhere.thing].
+   |                                                           ^^^^^^^^^^^^^^^ not found from the documented declaration's scope
+   |
+   = help: link a declaration that is in scope, or leave out the brackets if this is not a link
+   = note: `broken_doc_link` is `warn` by default
+

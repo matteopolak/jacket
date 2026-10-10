@@ -1,0 +1,100 @@
+warning[redundant_alias]: `result` is returned right after it is declared
+  --> tests/lint/redundant_alias/bad.jai:4:5
+   |
+ 4 |     result := n * n;
+   |     ^^^^^^
+   |
+help: return the value directly
+   |
+ 4 -     result := n * n;
+ 5 -     return result;
+ 4 +     return n * n;
+   |
+   = note: `redundant_alias` is `warn` by default
+
+warning[redundant_alias]: `value` is returned right after it is declared
+  --> tests/lint/redundant_alias/bad.jai:13:5
+   |
+13 |     value := one();
+   |     ^^^^^
+   |
+help: return the value directly
+   |
+13 -     value := one();
+14 -     return value;
+13 +     return one();
+   |
+   = note: `redundant_alias` is `warn` by default
+
+warning[redundant_alias]: `raw` only exists to be copied into `total`
+  --> tests/lint/redundant_alias/bad.jai:18:5
+   |
+18 |     raw := n * 3;
+   |     ^^^
+   |
+help: declare `total` with the value directly
+   |
+18 -     raw := n * 3;
+19 -     total := raw;
+18 +     total := n * 3;
+   |
+   = note: `redundant_alias` is `warn` by default
+
+warning[redundant_alias]: `start` only exists to be copied into `count`
+  --> tests/lint/redundant_alias/bad.jai:24:5
+   |
+24 |     start := 10;
+   |     ^^^^^
+   |
+help: declare `count` with the value directly
+   |
+24 -     start := 10;
+25 -     count := start;
+24 +     count := 10;
+   |
+   = note: `redundant_alias` is `warn` by default
+
+warning[redundant_alias]: `wide` only exists to be copied into `area`
+  --> tests/lint/redundant_alias/bad.jai:30:5
+   |
+30 |     wide := (n + 1) *
+   |     ^^^^
+   |
+help: declare `area` with the value directly
+   |
+30 -     wide := (n + 1) *
+31 -         (n + 2);
+32 -     area := wide;
+30 +     area := (n + 1) *
+31 +         (n + 2);
+   |
+   = note: `redundant_alias` is `warn` by default
+
+warning[redundant_alias]: `small` only exists to be copied into `big`
+  --> tests/lint/redundant_alias/bad.jai:38:5
+   |
+38 |     small: u8 = 5;
+   |     ^^^^^
+   |
+help: declare `big` with the value directly
+   |
+38 -     small: u8 = 5;
+39 -     big := small;
+38 +     big: u8 = 5;
+   |
+   = note: `redundant_alias` is `warn` by default
+
+warning[redundant_alias]: `doubled` only exists to be copied into `shown`
+  --> tests/lint/redundant_alias/bad.jai:45:9
+   |
+45 |         doubled := it * 2;
+   |         ^^^^^^^
+   |
+help: declare `shown` with the value directly
+   |
+45 -         doubled := it * 2;
+46 -         shown := doubled;
+45 +         shown := it * 2;
+   |
+   = note: `redundant_alias` is `warn` by default
+

@@ -89,7 +89,9 @@ impl Suppressions {
                 let end = text[next..].find('\n').map_or(text.len(), |n| next + n);
                 let line = text[next..end].trim();
                 if !line.is_empty() && !line.starts_with("//") {
-                    self.lines.push((next, end, rules));
+                    // The comment lines in between are covered too: a marker inside a doc
+                    // comment covers the links below it.
+                    self.lines.push((line_end + 1, end, rules));
                     break;
                 }
                 next = end + 1;

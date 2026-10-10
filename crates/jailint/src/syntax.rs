@@ -18,6 +18,8 @@ pub(crate) struct Cx<'a> {
     pub tokens: &'a [Token],
     pub procs: Vec<ProcSite<'a>>,
     pub imports: Vec<crate::rules::unused_import::Unused>,
+    /// Links in doc comments that name nothing (`broken_doc_link`).
+    pub doc_links: Vec<crate::rules::broken_doc_link::Broken>,
     /// The compile finished without errors (otherwise some code went unchecked).
     pub complete: bool,
 }
@@ -65,6 +67,7 @@ impl<'a> Cx<'a> {
             tokens,
             procs,
             imports,
+            doc_links: Vec::new(),
             complete: true,
         }
     }

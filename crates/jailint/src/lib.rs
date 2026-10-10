@@ -94,9 +94,15 @@ pub fn lint_files(
         } else {
             Vec::new()
         };
+        let doc_links = if complete && wanted.iter().any(|r| r.name == "broken_doc_link") {
+            rules::broken_doc_link::prepare(compiler, file, &text)
+        } else {
+            Vec::new()
+        };
         let suppressions = suppress::Suppressions::new(&text, &tokens, &ast);
         let mut cx = syntax::Cx::new(compiler, &facts, file, &text, &ast, &tokens, imports);
         cx.complete = complete;
+        cx.doc_links = doc_links;
         for rule in wanted {
             let mut found = Vec::new();
             (rule.check)(&cx, &mut found);

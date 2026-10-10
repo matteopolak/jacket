@@ -36,7 +36,18 @@ runs :: (str: string, other: string) -> int {
     return n;
 }
 
+// Every pair of elements of one array: both loops keep their indices.
+spread :: (ms: [] int) {
+    for i: 0..ms.count - 1 {
+        for j: 0..ms.count - 1 {
+            r := ms[i] - ms[j];
+            print("%\n", r);
+        }
+    }
+}
+
 main :: () {
+    spread(.[1, 2, 3]);
     print("%\n", runs("aab", "abb"));
     a := float.[1, 2];
     xs: [3] int;

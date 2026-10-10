@@ -43,7 +43,16 @@ backend_step :: (count: int, scale: int) -> int {
     return count;
 }
 
+// A nested helper whose twin, in the other file's version of this procedure, uses `row`.
+fill_slots :: (slots: int) -> int {
+    slot_index :: (row: int, col: int) -> int {
+        return col;
+    }
+    return slot_index(1, slots);
+}
+
 main :: () {
+    print("%\n", fill_slots(3));
     kill_timer(1);
     print("%\n", backend_step(1, 2));
     handler := on_event;

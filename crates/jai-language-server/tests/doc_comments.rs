@@ -514,3 +514,37 @@ fn module_qualified_struct_constants_resolve() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn broken_doc_links_are_lint_diagnostics_with_a_quick_fix() {
+    use jai_language_server::{DiagnosticCode, Range};
+    let text = "#import \"Basic\";\n// Prints with [prnt].\nf :: () {}\nmain :: () { f(); print(\"x\\n\"); }\n";
+    let s = open_with(text);
+    let lints: Vec<_> = s
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .filter(|d| d.code == DiagnosticCode::Lint("broken_doc_link"))
+        .collect();
+    assert_eq!(lints.len(), 1, "{lints:?}");
+    assert_eq!(lints[0].range.start, after(text, "[prnt", 0, 5));
+    let cursor = after(text, "[prnt", 0, 2);
+    let actions = s
+        .code_actions(
+            &uri(),
+            Range {
+                start: cursor,
+                end: cursor,
+            },
+        )
+        .unwrap();
+    let fix = actions
+        .iter()
+        .find(|a| a.rule == Some("broken_doc_link"))
+        .expect("a quick fix");
+    assert_eq!(fix.kind, Some("quickfix"));
+    assert_eq!(fix.title, "Link to `print`");
+    assert!(!fix.is_preferred);
+    let (_, edits) = fix.edit.as_ref().unwrap();
+    assert_eq!(edits[0].new_text, "print");
+}

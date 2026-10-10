@@ -170,3 +170,41 @@ fn a_file_a_nearby_program_loads_is_checked_as_part_of_that_program() {
     let (out, _, _) = run(&["-D", "warnings", "tour/basics/basics.jai"]);
     assert!(!out.contains("stray"), "{out}");
 }
+
+#[test]
+fn fix_does_not_let_nested_index_loops_capture_each_others_it() {
+    let dir = scratch("fix-nested");
+    let before = "\
+#import \"Basic\";
+main :: () {
+    str := \"hello\";
+    to_find := \"lo\";
+    for i: 0..str.count - 1 {
+        for j: 0..to_find.count - 1 {
+            if str[i] == to_find[j] print(\"%\\n\", i);
+        }
+    }
+}
+";
+    // Only the inner loop is rewritten: the outer one would read the inner `it`.
+    let after = "\
+#import \"Basic\";
+main :: () {
+    str := \"hello\";
+    to_find := \"lo\";
+    for i: 0..str.count - 1 {
+        for to_find {
+            if str[i] == it print(\"%\\n\", i);
+        }
+    }
+}
+";
+    let file = dir.join("game.jai");
+    std::fs::write(&file, before).unwrap();
+    let (text, _) = jailint(&dir, &["--fix", "game.jai"]);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), after, "{text}");
+    // A second run finds nothing more to change.
+    let (text, _) = jailint(&dir, &["--fix", "game.jai"]);
+    assert!(!text.contains("fixed"), "{text}");
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), after);
+}

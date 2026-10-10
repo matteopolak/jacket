@@ -57,13 +57,14 @@ Rustdoc-style intra-doc links name a declaration from the scope of the documente
 | `[print]`, ``[`print`]``, `[print()]` | `print` |
 | `[Basic.print]` | `print` in the module imported as `Basic` |
 | `[Point.x]`, `[Mode.IDLE]` | a struct field or enum member |
+| `[Point.LIMIT]`, `[Outer.Inner]`, `[Point.helper]` | a constant, type or procedure declared inside a struct |
 | `[the text](print)` | `print`, shown as "the text" |
 
-A link that does not resolve stays plain text, and so do `a[i]`, `[0]`, `[x][y]` and `[text](https://...)`. Names inside inline code and code fences are never links. Untagged code fences in docs are rendered as `jai`.
+A link that does not resolve stays plain text (the `broken_doc_link` rule of [jailint](../tools/jailint.md) reports it), and so do `a[i]`, `[0]`, `[x][y]` and `[text](https://...)`. Names inside inline code and code fences are never links. Untagged code fences in docs are rendered as `jai`.
 
 ## How it works
 
-`crates/jai-language-server/src/docs.rs` does the text work, with no parser: it finds the comment lines above (or after) a declaration given the offset of its name, splits a parameter list, reads list items, and scans lines for links. It reads a file on demand and only for the declaration asked about, so hover and completion cost what they did before (the largest scan is 80 lines back, to tell whether a name is a parameter).
+`crates/jaic/src/docs.rs` (shared with jailint, which reports links that resolve to nothing) does the text work, with no parser: it finds the comment lines above (or after) a declaration given the offset of its name, splits a parameter list, reads list items, and scans lines for links. It reads a file on demand and only for the declaration asked about, so hover and completion cost what they did before (the largest scan is 80 lines back, to tell whether a name is a parameter).
 
 `doc_view.rs` is the glue:
 
@@ -94,8 +95,8 @@ Resolved links also arrive as semantic tokens (above), which override the TextMa
 
 ## How to change it
 
-- The convention (what counts as a doc, parameter items, link syntax): `docs.rs`. Its unit tests cover each rule; `tests/doc_comments.rs` covers the editor features.
-- What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/sema/ide.rs` (entities, module members, struct fields and enum members; struct constants are not reachable).
+- The convention (what counts as a doc, parameter items, link syntax, which unresolved links count as meant): `crates/jaic/src/docs.rs`. Its unit tests cover each rule; `tests/doc_comments.rs` covers the editor features.
+- What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/sema/ide.rs` (entities, module members, struct fields, enum members, and what a struct declares in its body).
 - The colour of a link label: `target_kind` in `doc_view.rs` guesses from the target's declaration line.
 - Markdown styling: edit the regexes in `jai-doc-comments.tmLanguage.json`, then add a case to `editors/vscode/test/grammar/doc-comments.jai` (`pnpm run test:grammar`). `scripts/tokenize-corpus.ts` loads the injection too, so the corpus check covers it.
 - The playground (another repository) needs: the `meta.comment-run.jai` wrapper from the regenerated grammar, the injection grammar above (or equivalent rules), a mapping from `markup.bold`, `markup.italic`, `markup.inline.raw`, `markup.heading`, `markup.list` and `markup.underline.link` to styles, and the semantic token types the server sends on link labels (`type`, `function`, `enumMember`, `property`, `namespace`, `variable` with `readonly`), which it must apply on top of the comment colour.

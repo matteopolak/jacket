@@ -184,11 +184,36 @@ fn fixed_cases_are_clean() {
             continue;
         }
         let (lints, text) = lint(&fixed, &[(r.name, Level::Warn)]);
+        // What is left carries no fix to apply (a nested loop that keeps `index_only_loop`
+        // from using `it`).
+        let lints: Vec<Lint> = lints
+            .into_iter()
+            .filter(|l| l.fix.as_ref().is_some_and(|f| f.machine_applicable))
+            .collect();
         assert!(
             lints.is_empty(),
-            "{} still fires after its fixes:\n{}",
+            "{} still has fixes to apply after its fixes:\n{}",
             r.name,
             rendered(&lints, &text, &fixed)
         );
     }
+}
+
+#[test]
+fn unused_parameter_variants_one_directory_over() {
+    // `platform/macos/window.jai` and `platform/windows/window.jai` define `set_title` with the
+    // same parameter names; the build loads one of them. `platform/linux/window.jai` takes other
+    // parameters, so it is no variant and its unused one is reported.
+    let dir = repo().join("tests/lint/unused_parameter/platform");
+    let levels = [("unused_parameter", Level::Warn)];
+    let macos = dir.join("macos/window.jai");
+    let (lints, text) = lint(&macos, &levels);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &macos));
+    let linux = dir.join("linux/window.jai");
+    let (lints, text) = lint(&linux, &levels);
+    assert_eq!(lints.len(), 1);
+    expect(
+        &dir.join("linux/window.expected"),
+        &rendered(&lints, &text, &linux),
+    );
 }
