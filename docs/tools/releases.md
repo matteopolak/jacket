@@ -44,6 +44,8 @@ Gotchas:
 - Linux arm64 is built natively on `ubuntu-24.04-arm` from `LLVM-<version>-Linux-ARM64.tar.xz`, the same way as x86-64 (apt's static zlib, zstd and libxml2; PGO), but without BOLT: Ubuntu's arm64 GCC links with `--fix-cortex-a53-843419`, and `llvm-bolt` stops with `binary contains Cortex-A53 erratum 843419 workaround veneers` unless told to drop them (`--drop-cortex-a53-843419-veneers`) or the binary is relinked without the fix; either way the result could miscompute on Cortex-A53 cores (Raspberry Pi 3 and many boards), which the archive should run on.
 - Adding a platform means adding a matrix row with its LLVM tarball name (and, on Windows, its `rust_target`). Check the LLVM release page for the exact asset name; it changes between major versions.
 
+- Binary size: `jaic` registers only the x86-64, AArch64 and WebAssembly backends and the `Package` step strips symbols (macOS `strip -x` plus an ad-hoc re-sign, Linux `strip --strip-unneeded`), so backtraces in release binaries have no function names. See [LLVM backends](llvm-backends.md). Compare the `ls -l` of `target/pgo/dist` in the job log with the previous release's sizes.
+
 ## Configuration
 
 - `LLVM_VERSION` in the workflow: the LLVM 23 patch release to download.

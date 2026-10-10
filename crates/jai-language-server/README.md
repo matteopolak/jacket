@@ -81,7 +81,6 @@ Jails was built from the revision pinned in our [upstream corpus](../../docs/too
 | Project config | `jai.toml`, `jailint.toml`; inferred when absent | `jails.json`: `roots`, `local_modules`, `build_root`, `intermediate_path`, `auto_insert_parentheses`, `use_symbols_from_local_modules` |
 | Needs an installed Jai compiler | no, the checker is built in | yes: it finds `jai` on `PATH` (or `-jai_path`) for its module directory and for diagnostics |
 | Editor extension | VS Code, Open VSX | VS Code Marketplace (per its readme: x64 Windows and ARM64 macOS builds); other clients use the binary |
-| Language | Rust | Jai |
 
 Jails describes itself as experimental and unstable, and its readme lists go to definition, completion, signature help and compiler errors as its feature set; the table follows that.
 
@@ -135,7 +134,7 @@ python3 tools/lsp_bench.py --server "jails=$J/bin/jails -jai_path /tmp/jai-root"
     --only jails --diagnostics push --push-wait 3 --repeat 3 --out jails.json --markdown jails.md
 ```
 
-Jails ran with no `jails.json` in the workloads (nothing was written into the corpus), so it parsed only the open documents and what they load. A `jails.json` with `roots` and `local_modules` may improve its results on projects with modules; that was not tried. No other process was compiling during the timed runs (runs were repeated until a window without a `rustc` process). The jailsp rows are from `benchmarks/results/lsp-apple-m5.json`; the full cross-server runs are not committed.
+Jails ran with no `jails.json` in the workloads (nothing was written into the corpus), so it parsed only the open documents and what they load. A `jails.json` with `roots` and `local_modules` may improve its results on projects with modules; that was not tried. No other process was compiling during the timed runs (runs were repeated until a window with no other build running). The jailsp rows are from `benchmarks/results/lsp-apple-m5.json`; the full cross-server runs are not committed.
 
 ## Documentation
 

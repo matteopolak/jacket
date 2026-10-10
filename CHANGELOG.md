@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Smaller `jaic` release binaries: only the x86-64, AArch64 and WebAssembly LLVM backends are linked in (the 0.6.2 macOS arm64 binary was 136 MiB with all twenty), and release binaries are stripped of local symbols, so `RUST_BACKTRACE` frames in them have no function names.
+- `get_type_table()` in compile-time code (a `#run`, or a metaprogram's message loop, also for another workspace and after `COMPLETE`) lists a descriptor of every type declared so far, unused structs and enums included, instead of an empty table; the compiled program's own table is unchanged.
 - `get_build_options()` of the program's own workspace reports the output name (the main file's name), `output_path` (its directory, with a trailing `/`) and `intermediate_path` (`.build` beside it) before a metaprogram sets anything, so metaprograms that build paths from them (`tprint("%/%", options.output_path, options.output_executable_name)`) get real paths instead of empty strings.
 - Modules: an import argument that names no parameter of the module, or gives a bool parameter a number (or any parameter a literal of another kind), is an error instead of being ignored; a plain `#import "M"` after `#import "M"(FLAG = true)` is its own instance with the default parameters instead of silently sharing the configured one.
 - Type info: a struct declared in a procedure, a block or another struct has `status_flags.LOCAL`.

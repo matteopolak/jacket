@@ -148,6 +148,7 @@ Scripts, CI and project policies.
 - [jaifmt (Jai formatter)](tools/jaifmt.md) (front page: [jaifmt README](../jaifmt/README.md)): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`
 - [jailint (Jai linter)](tools/jailint.md) (front page: [jailint README](../crates/jailint/README.md)): rules, `jailint.toml`, suppression, adding a rule
 - [LLVM setup](tools/llvm-setup.md)
+- [LLVM backends and binary size](tools/llvm-backends.md)
 - [Nix flake](tools/nix.md)
 - [Package managers and installers](tools/package-managers.md): Homebrew tap, winget, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup
 - [PGO and BOLT](tools/pgo-and-bolt.md): profile-guided and post-link optimisation of the released binaries, `tools/build_pgo.py`

@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jailint` reports common mistakes and unidiomatic code in Jai programs, like clippy does for Rust, and fixes the ones it can. Its rules run on the program after `jaic` has type-checked it, so they know each expression's type and what each name refers to. The same findings appear in editors through `jailsp`, as diagnostics with quick fixes.
+`jailint` reports common mistakes and unidiomatic code in Jai programs and fixes the ones it can. Its rules run on the program after `jaic` has type-checked it, so they know each expression's type and what each name refers to. The same findings appear in editors through `jailsp`, as diagnostics with quick fixes.
 
 ```sh
 cargo build -p jailint --release
@@ -12,7 +12,7 @@ jailint -D warnings stdlib    # fail on any finding (CI)
 jailint --list                # the rules and their default levels
 ```
 
-Output follows rustc's layout:
+Each finding gives its level and rule, the location, and the source line with the span marked:
 
 ```text
 warning[index_only_loop]: `i` counts through `names` to index it
@@ -274,11 +274,7 @@ A constant operand takes the other operand's type. A value outside that type's r
 
 Fires on constants written with literals and arithmetic that are operands of `/`, `%`, `<`, `<=`, `>`, `>=` (or the right side of `/=`, `%=`) next to a non-constant integer. The help offers both readings: compute in `s64` (or `u64`) by casting the other operand, which is the suggested fix (not applied by `--fix`, since the result's type changes), or write the wrapped value if it is meant. Not reported: `+`, `-` and `*`, which give the same bits whether the constant or the result wraps (`h + 0xffff_ffff` is `h - 1` either way); bitwise operators and `==`/`!=`, where the bit pattern is the point (`h & 0xffff_ffff`, `handle == 0xFFFF_FFFF`); expressions with `~` (`flags & ~0x7`); named constants; casts and `xx`; enums.
 
-### Clippy lints considered
-
-The rules above that have a Clippy counterpart: `absurd_extreme_comparisons`, `almost_swapped`, `precedence`, `ifs_same_cond` and `match_same_arms`-style duplicate arms, `erasing_op`, `if_same_then_else`, `eq_op`, `identity_op`, `needless_range_loop`, `while_immutable_condition`, `assign_op_pattern`, `explicit_counter_loop`, `min_max`, `needless_bool`/`needless_bool_assign`, `no_effect`, `unnecessary_cast`, `reversed_empty_ranges`, `self_assignment`, `bool_comparison`, `float_cmp`. `range_past_count`, `remove_in_for`, `integer_division_in_float`, `unused_result` (Clippy's `#[must_use]` checks) and `defer_in_loop` are Jai-specific.
-
-Considered and left out:
+### Rules considered and left out
 
 - `never_loop`: `for table { first = it; break; }` is the idiom for a table's first entry.
 - `collapsible_if`, `collapsible_else_if`, `needless_return`, `let_and_return`, `redundant_else`: style with no bug behind it; Jai code often keeps them on purpose.
@@ -292,7 +288,6 @@ Considered and left out:
 - `double_comparisons`, `int_plus_one`, `nonminimal_bool`, `manual_range_contains`: style; rewrites read no better in Jai.
 - `size_of_ref`-style mistakes (`size_of(type_of(ptr))` in `memcpy`): needs to know which argument is a size; deferred.
 - `suspicious_assignment_formatting` (`a =- b`): `jaifmt` rewrites the spacing, so formatted code cannot show it.
-- `mut_range_bound`, `explicit_iter_loop`, iterator, `Option`/`Result`, borrow, trait, `unsafe`, `async`, lifetime, macro, attribute, `Cargo.toml` and doc-comment lints: no Jai counterpart.
 
 ### Measured on this repository
 

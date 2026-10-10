@@ -1,6 +1,6 @@
 # jailint
 
-A linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), part of the [`jai{c,lsp,fmt,lint}`](../../README.md) toolchain. It reports common mistakes and unidiomatic code, like clippy does for Rust, and fixes the ones it safely can.
+A linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), part of the [`jai{c,lsp,fmt,lint}`](../../README.md) toolchain. It reports common mistakes and unidiomatic code, and fixes the ones it safely can.
 
 The rules run on the program after `jaic` has type-checked it, so they know each expression's type and what every name refers to. The same findings appear in editors through [`jailsp`](../jai-language-server/README.md), as diagnostics with quick fixes.
 
@@ -11,7 +11,7 @@ jailint -D warnings stdlib    # fail on any finding (CI)
 jailint --list                # the rules and their default levels
 ```
 
-Output follows rustc's layout:
+Each finding gives its level and rule, the location, and the source line with the span marked:
 
 ```text
 warning[index_only_loop]: `i` counts through `names` to index it

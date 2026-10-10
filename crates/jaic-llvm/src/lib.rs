@@ -250,7 +250,18 @@ fn target_machine(
 ) -> Result<(TargetMachine, TargetTriple, jaic::abi::Arch), String> {
     // Target registration writes process-wide tables: once, not from every codegen thread.
     static TARGETS: std::sync::Once = std::sync::Once::new();
-    TARGETS.call_once(|| Target::initialize_all(&InitializationConfig::default()));
+    TARGETS.call_once(|| {
+        // Only the backends `Arch::from_triple` accepts: initialising all of them would make
+        // the static link keep every LLVM backend (see docs/tools/llvm-backends.md). No
+        // disassembler: nothing reads machine code back. The asm parser is needed for inline asm.
+        let config = InitializationConfig {
+            disassembler: false,
+            ..InitializationConfig::default()
+        };
+        Target::initialize_x86(&config);
+        Target::initialize_aarch64(&config);
+        Target::initialize_webassembly(&config);
+    });
     let triple = match &options.target {
         Some(t) => TargetTriple::create(t),
         None => host_triple(options.codegen.macos_version.as_deref()),

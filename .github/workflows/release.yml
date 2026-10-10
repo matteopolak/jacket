@@ -167,6 +167,15 @@ jobs:
           dir="jai-${{ matrix.name }}"
           mkdir -p "$dir"
           out="target/pgo/dist"
+          # Symbol tables are about a tenth of the macOS binary (docs/tools/releases.md,
+          # "Binary size"). Stripped after PGO and BOLT, which need them. macOS: local symbols
+          # only, then the ad-hoc signature arm64 requires is made again. Windows: the
+          # symbols are in the .pdb, which the archive does not ship.
+          case "$RUNNER_OS" in
+            macOS) for t in jaic jailsp jailint; do strip -x "$out/$t"; codesign --force -s - "$out/$t"; done ;;
+            Linux) for t in jaic jailsp jailint; do strip --strip-unneeded "$out/$t"; done ;;
+          esac
+          ls -l "$out"
           cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$dir/"
           # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
           cp -R stdlib "$dir/stdlib"

@@ -2,7 +2,7 @@
 
 A code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), written in Jai. It is part of the [`jai{c,lsp,fmt,lint}`](../README.md) toolchain.
 
-`jaifmt` produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and zero or one space between tokens, whatever the input looked like. Formatting twice changes nothing. Comments, blank lines (up to a limit) and the line breaks inside expressions are kept; long lines are not re-wrapped.
+`jaifmt` produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and zero or one space between tokens, whatever the input looked like. Formatting twice changes nothing. Comments, blank lines (up to a limit) and the line breaks inside expressions are kept; long lines are not re-wrapped.
 
 Before it writes anything it lexes its own output and compares it with the input. If the tokens or comments differ, it refuses, so it cannot change what a program means.
 

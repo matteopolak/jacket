@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output, like rustfmt: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
+`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
 
 ```sh
 target/debug/jaic build jaifmt/build.jai   # or: jaic build jaifmt/main.jai -O2 -o target/jaifmt
@@ -68,7 +68,7 @@ jaic build jaifmt/build.jai - --help            # the options, parsed by Extensi
 
 ## How it works
 
-The output is canonical: it depends on the tokens, comments and blank lines of the input, not on how the input was spaced. Two inputs that differ only in spacing between tokens, in where braces and `else` sit, or in how many statements share a line format to the same text (like rustfmt). Formatting is idempotent.
+The output is canonical: it depends on the tokens, comments and blank lines of the input, not on how the input was spaced. Two inputs that differ only in spacing between tokens, in where braces and `else` sit, or in how many statements share a line format to the same text. Formatting is idempotent.
 
 `stdlib/Extensions/Jai_Format/module.jai` holds the public API (below) and loads three files:
 
@@ -194,7 +194,7 @@ Binary versus prefix is decided from the previous code token: an operand (identi
 
 ## Configuration
 
-`jaifmt.toml`, one `key = value` per line with `#` comments (a small TOML subset: integers, quoted strings and one-line string arrays; unknown keys and bad values are errors reported as `line N: ...`). The CLI uses the one in the file's directory or the nearest parent (per file, like rustfmt; `--config` overrides it for all files):
+`jaifmt.toml`, one `key = value` per line with `#` comments (a small TOML subset: integers, quoted strings and one-line string arrays; unknown keys and bad values are errors reported as `line N: ...`). The CLI uses the one in the file's directory or the nearest parent (per file; `--config` overrides it for all files):
 
 ```toml
 indent_width = 4          # 1-16
