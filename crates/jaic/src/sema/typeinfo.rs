@@ -6,6 +6,9 @@ use super::value::Aggregate;
 use super::*;
 use crate::types::{ArrayKind, TypeKind};
 
+/// A struct-scoped constant for type info: where it is declared, its name, type, value and notes.
+type StructConstant = (Span, Sym, TypeId, Option<Value>, Vec<Rc<[u8]>>);
+
 /// Tag values of Preload's `Type_Info_Tag`.
 mod tag {
     pub const INTEGER: i128 = 0;
@@ -503,13 +506,14 @@ impl Compiler {
                     let field = match *entry {
                         Ok(i) => &fields[i],
                         Err(c) => {
-                            let (_, name, ty, ref value) = constants[c];
+                            let (_, name, ty, ref value, ref cnotes) = constants[c];
                             let m = self.constant_member(
                                 member_ty,
                                 msize,
                                 name,
                                 ty,
                                 value.clone(),
+                                cnotes,
                                 &mut storage,
                                 span,
                             )?;
@@ -596,6 +600,34 @@ impl Compiler {
                         0x2
                     };
                     self.set_field(&mut agg, desc, "textual_flags", Value::Int(flags), span)?;
+                }
+                let no_padding = self
+                    .struct_asts
+                    .get(&s)
+                    .is_some_and(|src| src.lit.flags.no_padding);
+                if no_padding {
+                    let cur = if info.is_union || tagged {
+                        if tagged {
+                            0x42
+                        } else {
+                            0x2
+                        }
+                    } else {
+                        0
+                    };
+                    self.set_field(&mut agg, desc, "textual_flags", Value::Int(cur | 0x4), span)?;
+                }
+                // Every member is `= ---`: ALL_MEMBERS_UNINITIALIZED. The initializer stays
+                // set (it leaves the members untouched).
+                let all_uninit = self.struct_asts.get(&s).is_some_and(|src| {
+                    !src.inits.is_empty()
+                        && src.inits.iter().all(|(e, _)| {
+                            e.as_ref()
+                                .is_some_and(|e| matches!(e.kind, ast::ExprKind::Uninit))
+                        })
+                });
+                if all_uninit {
+                    self.set_field(&mut agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
                 }
                 // Notes written on the struct itself: `S :: struct @thing { ... }`.
                 let struct_notes: Vec<Rc<[u8]>> = self
@@ -783,10 +815,7 @@ impl Compiler {
     /// procedures have no single value and are not listed. They are listed in
     /// `Type_Info_Struct.members` with the `CONSTANT` flag. A constant that fails to resolve
     /// is left out: type info never reports errors for code nothing uses.
-    fn struct_constants(
-        &mut self,
-        s: crate::types::StructId,
-    ) -> Vec<(Span, Sym, TypeId, Option<Value>)> {
+    fn struct_constants(&mut self, s: crate::types::StructId) -> Vec<StructConstant> {
         let Some(scope) = self.struct_asts.get(&s).map(|src| src.scope) else {
             return Vec::new();
         };
@@ -815,6 +844,16 @@ impl Compiler {
         let mut out = Vec::new();
         for id in ids {
             let (name, span) = (self.entity(id).name, self.entity(id).span);
+            let notes: Vec<Rc<[u8]>> = match &self.entity(id).kind {
+                EntityKind::Decl {
+                    decl, ..
+                } => decl
+                    .notes
+                    .iter()
+                    .map(|n| Rc::from(n.text.as_bytes()))
+                    .collect(),
+                _ => Vec::new(),
+            };
             let resolved = match self.resolve_entity(id) {
                 Ok(Resolved::Const {
                     value,
@@ -833,7 +872,7 @@ impl Compiler {
                 Err(e) => Err(e),
             };
             if let Ok((ty, value)) = resolved {
-                out.push((span, name, ty, value));
+                out.push((span, name, ty, value, notes));
             }
         }
         out
@@ -849,6 +888,7 @@ impl Compiler {
         name: Sym,
         mut ty: TypeId,
         value: Option<Value>,
+        notes: &[Rc<[u8]>],
         storage: &mut Aggregate,
         span: Span,
     ) -> Result<Aggregate> {
@@ -896,6 +936,8 @@ impl Compiler {
         )?;
         self.set_info_ptr(&mut m, member_ty, "type", ty, span)?;
         self.set_field(&mut m, member_ty, "flags", Value::Int(0x1), span)?;
+        let notes_data = self.string_view(notes, span)?;
+        self.set_view(&mut m, member_ty, "notes", notes.len(), notes_data, 8, span)?;
         self.set_field(
             &mut m,
             member_ty,

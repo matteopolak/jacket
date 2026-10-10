@@ -27,7 +27,7 @@ Each form above compiles and has the value it suggests {#decl.3}.
 - `#run` initialisers run at compile time {#decl.13}. Changes other compile-time code makes to a global do not reach the running program unless the global is `#no_reset` (`tests/stdlib/compile-time-globals-reset.jai`) {#decl.14}.
 - `a, b :: f();` binds every value of a multi-value constant, evaluated once per scope. `Compiler::multi_consts` is keyed by declaration and scope, so each macro expansion gets its own {#decl.15}. Naming more values than the expression has is an error (`3 names but 2 values`), while fewer names take the leading values {#decl.16}. `#run f()` keeps all of f's values {#decl.17}.
 - `#assert cond "message";` and `#assert(cond, "message");` run at compile time and report at the assertion {#decl.18}: `#assert failed: Rec must be 8 bytes` {#decl.19}.
-- Notes after a field (`v : s32 = 9 @Hidden;`) appear in `type_info(T).members[i].notes` {#decl.20}; notes on the struct (`S :: struct @thing { ... }`) in `type_info(S).notes` {#decl.21}.
+- Notes after a field (`v : s32 = 9 @Hidden;`) appear in `type_info(T).members[i].notes` {#decl.20}; notes on the struct (`S :: struct @thing { ... }`) in `type_info(S).notes` {#decl.21}. Notes on a struct-scoped constant (`K :: 3; @kn`) appear in that constant member's `notes`; `#no_padding` sets `textual_flags.NO_PADDING` and a struct whose members are all `= ---` sets `nontextual_flags.ALL_MEMBERS_UNINITIALIZED` (its `initializer` stays non-null and leaves the members untouched).
 
 ## How to change it
 

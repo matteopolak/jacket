@@ -31,6 +31,16 @@ Empty :: struct #type_info_none {
     a := 1;
 }
 
+Padless :: struct #no_padding {
+    a: u8;
+    b: u32;
+}
+
+Blank :: struct {
+    x: int = ---;
+    K :: 3; @kn
+}
+
 #run compiler_set_type_info_flags(Voided, .PROCEDURES_ARE_VOID_POINTERS);
 #run compiler_set_type_info_flags(Hidden, .NO_TYPE_INFO);
 
@@ -53,5 +63,12 @@ main :: () {
     check(type_info(Hidden).members.count == 0, "flag: no type info");
     check(type_info(Empty).members.count == 0, "directive: no type info");
     check(type_info(Plain).members.count == 2, "plain members");
+    check((type_info(Padless).textual_flags & .NO_PADDING) != 0, "#no_padding textual flag");
+    check((type_info(Plain).textual_flags & .NO_PADDING) == 0, "no #no_padding flag on a plain struct");
+    check((type_info(Blank).nontextual_flags & .ALL_MEMBERS_UNINITIALIZED) != 0, "all members uninitialized");
+    check((type_info(Plain).nontextual_flags & .ALL_MEMBERS_UNINITIALIZED) == 0, "initialized members");
+    for type_info(Blank).members if it.name == "K" {
+        check(it.notes.count == 1 && it.notes[0] == "kn", "note on a struct constant");
+    }
     print("ok\n");
 }

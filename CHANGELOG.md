@@ -5,6 +5,7 @@
 - `#add_context name :: proc;` appears in `type_info(type_of(context)).members` with the `CONSTANT` flag even when nothing had used the procedure yet, so a `#run` that detects a context hook by name sees it. Focus built from source now installs its macOS app delegate, becomes a foreground app and receives keyboard input.
 - `array_view(array, index, count)` with a `count` past the end returns the elements that exist instead of failing an assertion, so Focus's open-file dialog no longer aborts when the list is shorter than the window.
 - A GetRect subwindow's close button closes it: the title bar no longer takes the click to start a drag first.
+- Type info: `Type_Info_Struct.textual_flags` has `.NO_PADDING` for a `#no_padding` struct, `nontextual_flags` has `.ALL_MEMBERS_UNINITIALIZED` when every member is `= ---`, and a note on a struct-scoped constant (`K :: 3; @kn`) appears in that member's `notes`.
 
 ## [0.6.1] - 2026-10-09
 
