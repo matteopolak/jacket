@@ -163,7 +163,7 @@ Gaps this found and did not fix (each needs a decision about Jai's behaviour or 
 
 - `signal` named as a value (`log("...", handle, signal)` in wait_group on Linux) is an ambiguous overload of POSIX's `signal` and Thread's `signal(*Semaphore)`.
 - Focus's own `modules/Linux_Display` exposes `GL` after `#scope_module`, and the program reads `LD.GL`.
-- Focus's Windows process code needs overlapped pipe reading; `Process.init_named_pipe_pair` now exists and type-checks for Windows, but nothing runs it against a real child yet.
+- Focus's Windows process code needs overlapped pipe reading; `Process.init_named_pipe_pair` now exists and is exercised against a real child by `tests/stdlib/process-named-pipes.jai` on the Windows CI jobs.
 
 ### Notes per project
 

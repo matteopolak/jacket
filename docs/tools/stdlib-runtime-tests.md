@@ -93,7 +93,7 @@ Those modules, and what exercises or blocks them:
 | `lz4` | run by `lz4-roundtrip` (default, fast and HC modes, the compress bound, too-small destinations, truncated and corrupt input, partial decompression); built from the official 1.10.0 release archive |
 | `meshoptimizer` | run by `meshoptimizer-indices` (index a shuffled grid, vertex cache, overdraw and fetch optimization, strips, the index and vertex codecs: triangle sets, index ranges and cache statistics are checked); C++ built without a C++ runtime library |
 | `pl_mpeg` | run by `pl-mpeg-decode`, which decodes `tests/stdlib/pl-mpeg-clip.mpg`, a 0.4 s clip of a red 32x32 picture and a 440 Hz tone that was made for the test with ffmpeg's synthetic `color` and `sine` sources (no third-party content, so no license to carry) |
-| `meow_hash` | pure Jai (`#asm` AES rounds); checked by `tests/stdlib/meow-hash.jai` |
+| `meow_hash` | pure Jai (`#asm` AES rounds); checked by `tests/stdlib/meow-hash.jai` against the official 0.5 digests |
 | `Curl`, `Mail` | libcurl is a system library whose development files and version vary between the runners, so a `file://` test is not reliable there |
 | `Android`, `Toolchains`, `Codex`, `Preload`, `Simple_Package`, `Window_Type`, `GetRect_Common`, `Default_Metaprogram`, `Minimal_Metaprogram` | target-specific, data-only, or metaprograms that other tests drive through the compiler |
 | `Runtime_Support_Crash_Handler` | installed by the program entry point; a crash is not something a passing test can provoke |
