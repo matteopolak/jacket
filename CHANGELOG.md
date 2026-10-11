@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixes
+
+- Hovering a word right after a non-ASCII character no longer fails.
+
 ## [0.11.0] - 2026-10-11
 
 Hover and go to definition now reach almost every name in a program, and every directive explains itself.

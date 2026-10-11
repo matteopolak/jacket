@@ -249,7 +249,13 @@ impl Session {
         byte: usize,
     ) -> Option<(usize, usize, HoverText)> {
         let word = |c: char| c.is_alphanumeric() || c == '_';
-        let start = text[..byte].rfind(|c: char| !word(c)).map_or(0, |i| i + 1);
+        if !text.is_char_boundary(byte) {
+            return None;
+        }
+        let start = text[..byte]
+            .char_indices()
+            .rfind(|&(_, c)| !word(c))
+            .map_or(0, |(i, c)| i + c.len_utf8());
         let end = text[byte..]
             .find(|c: char| !word(c))
             .map_or(text.len(), |i| byte + i);
