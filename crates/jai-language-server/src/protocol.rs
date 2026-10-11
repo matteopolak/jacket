@@ -307,6 +307,11 @@ impl JsonSession {
         self.defer_publications = on;
     }
 
+    /// (compiles so far, compiles alive); see `Session::compile_counts`.
+    pub fn compile_counts(&self) -> (usize, usize) {
+        self.session.compile_counts()
+    }
+
     /// An edit is waiting for `flush_publications`.
     pub fn publications_pending(&self) -> bool {
         self.publications_pending

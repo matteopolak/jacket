@@ -248,6 +248,41 @@ impl Sources<'_> {
         seen
     }
 
+    /// `closure` of `root`, plus every file of the modules in `module_dirs` (the project's own,
+    /// not the stdlib's) that those files `#import`, and what those modules import in turn.
+    fn closure_with_modules(
+        &self,
+        index: &mut Index,
+        root: &Path,
+        module_dirs: &[PathBuf],
+    ) -> BTreeSet<PathBuf> {
+        let mut seen = BTreeSet::new();
+        let mut pending = vec![root.to_path_buf()];
+        while let Some(entry) = pending.pop() {
+            if seen.len() >= MAX_LOADED || seen.contains(&entry) {
+                continue;
+            }
+            let files = self.closure(index, &entry);
+            for file in &files {
+                for import in &self.scan(index, file).imports {
+                    let found = module_dirs.iter().find_map(|dir| {
+                        [
+                            dir.join(&import.path).join("module.jai"),
+                            dir.join(format!("{}.jai", import.path)),
+                        ]
+                        .into_iter()
+                        .find(|f| self.is_file(f))
+                    });
+                    if let Some(found) = found {
+                        pending.push(project::normalize(&found));
+                    }
+                }
+            }
+            seen.extend(files);
+        }
+        seen
+    }
+
     /// The modules in `dir`: `Name.jai` and `Name/module.jai`, imported as `prefix` + `Name`.
     fn modules_in(&self, index: &mut Index, dir: &Path, prefix: &str) -> Vec<Module> {
         let mut modules = Vec::new();
@@ -425,6 +460,36 @@ impl Sources<'_> {
             if closure.contains(file) {
                 found = Some((entry.clone(), closure));
                 break;
+            }
+        }
+        // A file of a module the project keeps in its own folders (`modules/Simp/font.jai`)
+        // belongs to the program that imports it: checked there, it sees what the program
+        // gives it (`#module_parameters`, names a metaprogram pokes in).
+        if found.is_none()
+            && let Some(base) = &base
+        {
+            let mut dirs = vec![base.join("modules")];
+            if let Some((_, config)) = &config {
+                dirs.extend(
+                    config
+                        .import_path
+                        .iter()
+                        .map(|p| project::normalize(&base.join(p))),
+                );
+            }
+            dirs.retain(|d| file.starts_with(d) && self.is_dir(d));
+            if !dirs.is_empty() {
+                for entry in &entries {
+                    let mut entry_dirs = vec![entry.parent().unwrap_or(base).join("modules")];
+                    entry_dirs.extend(dirs.iter().cloned());
+                    if self
+                        .closure_with_modules(index, entry, &entry_dirs)
+                        .contains(file)
+                    {
+                        found = Some((entry.clone(), self.closure(index, entry)));
+                        break;
+                    }
+                }
             }
         }
         let (root, closure) = match found {

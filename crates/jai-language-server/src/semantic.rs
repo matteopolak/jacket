@@ -131,6 +131,9 @@ pub struct Analysis {
     /// The compile got far enough to record scopes and names (the text parsed), so its facts
     /// can answer for an edit that left the code before the cursor alone.
     usable: bool,
+    /// Bytes of source the compile read (its programs' included): what dropping it would cost
+    /// to redo.
+    cost: usize,
     /// The program compiled without errors.
     complete: bool,
     /// Why it did not: the compiler's first error, then the independent errors the editor
@@ -512,10 +515,13 @@ impl Cache {
         }
     }
 
-    /// Drop compiles until one fewer than `CACHED` is left: the newest that checked stays, else
-    /// the newest. A compile for another target makes room only among those (one is kept), so
-    /// asking about a skipped branch does not cost the program's own compile.
-    fn make_room(&mut self, os: Option<TargetOs>) {
+    /// Drop compiles until one fewer than `CACHED` is left. The one kept is the newest that
+    /// checked of `root` (what completion falls back to while its text does not parse), else
+    /// the costliest that checked (a project's compile, not a stray file's that takes
+    /// milliseconds to redo), else the newest. A compile for another target makes room only
+    /// among those (one is kept), so asking about a skipped branch does not cost the program's
+    /// own compile.
+    fn make_room(&mut self, os: Option<TargetOs>, root: &Path) {
         if os.is_some() {
             // The oldest compile for another target goes; the newest stays, so hovers that go
             // back and forth between a Windows and a Linux branch do not recompile each time.
@@ -526,10 +532,16 @@ impl Cache {
             return;
         }
         while self.entries.iter().filter(|a| a.os.is_none()).count() >= CACHED {
+            let own = |a: &Analysis| a.usable && a.os.is_none();
             let keep = self
                 .entries
                 .iter()
-                .rposition(|a| a.usable && a.os.is_none())
+                .rposition(|a| own(a) && a.root == root)
+                .or_else(|| {
+                    (0..self.entries.len())
+                        .filter(|&i| own(&self.entries[i]))
+                        .max_by_key(|&i| self.entries[i].cost)
+                })
                 .or_else(|| self.entries.iter().rposition(|a| a.os.is_none()));
             let victim = (0..self.entries.len())
                 .find(|&i| Some(i) != keep && self.entries[i].os.is_none())
@@ -636,10 +648,16 @@ impl Cache {
                 self.entries
                     .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
             }
-            self.make_room(os);
+            self.make_room(os, root);
             self.compiles += 1;
             let snapshot = files.clone();
             let (compiler, errors, others) = compile(env, root, dirs, files, os);
+            let cost = std::iter::once(&compiler)
+                .chain(others.iter().map(|p| &p.compiler))
+                .flat_map(|c| {
+                    (0..c.sources.len() as u32).map(|f| c.sources.get(FileId(f)).text.len())
+                })
+                .sum();
             let usable = errors.is_empty()
                 || compiler
                     .ide
@@ -654,6 +672,7 @@ impl Cache {
                 dirs: dirs.to_vec(),
                 files: snapshot,
                 usable,
+                cost,
                 complete: errors.is_empty(),
                 errors,
                 lints: BTreeMap::new(),

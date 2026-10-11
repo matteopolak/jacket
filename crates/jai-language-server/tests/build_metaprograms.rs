@@ -133,3 +133,58 @@ fn control_without_the_metaprogram_reports_the_missing_name() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn file_of_a_project_module_is_checked_through_the_program_importing_it() {
+    let folder = project(
+        "module",
+        &[
+            (
+                "main.jai",
+                "#import \"Basic\";\n#import \"Grid\"(SIZE = 3);\nmain :: () { print(\"%\\n\", cells); }\n",
+            ),
+            (
+                "modules/Grid/module.jai",
+                "#module_parameters(SIZE: int);\n#load \"cells.jai\";\n",
+            ),
+            ("modules/Grid/cells.jai", "cells :: SIZE * 2;\n"),
+        ],
+    );
+    let (s, uri, text) = open(&folder, "modules/Grid/cells.jai");
+    assert!(hover_at(&s, &uri, &text, "cells ::").contains('6'));
+    assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
+}
+
+#[test]
+fn stray_files_do_not_push_out_the_projects_compile() {
+    let folder = project(
+        "stray",
+        &[
+            (
+                "main.jai",
+                "#import \"Basic\";\nmain :: () { total := 1; print(\"%\\n\", total); }\n",
+            ),
+            ("scratch/one.jai", "one :: 1;\n"),
+            ("scratch/two.jai", "two :: 2;\n"),
+        ],
+    );
+    let (mut s, main, main_text) = open(&folder, "main.jai");
+    let mut strays = Vec::new();
+    for name in ["scratch/one.jai", "scratch/two.jai"] {
+        let path = folder.join(name);
+        let text = std::fs::read_to_string(&path).unwrap();
+        s.open(uri_of(&path), 1, text.clone()).unwrap();
+        strays.push((uri_of(&path), text));
+    }
+    hover_at(&s, &main, &main_text, "total :=");
+    for (uri, text) in &strays {
+        hover_at(&s, uri, text, &text[..3]);
+    }
+    let (compiled, _) = s.compile_counts();
+    hover_at(&s, &main, &main_text, "total :=");
+    assert_eq!(
+        s.compile_counts().0,
+        compiled,
+        "the project's compile was kept"
+    );
+}

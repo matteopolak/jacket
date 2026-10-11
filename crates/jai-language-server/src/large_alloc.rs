@@ -42,6 +42,34 @@ const MAP_ANON: i32 = 0x1000;
 
 pub struct LargeBlocksToOs;
 
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn malloc_zone_pressure_relief(zone: *mut c_void, goal: usize) -> usize;
+}
+
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+unsafe extern "C" {
+    fn malloc_trim(pad: usize) -> i32;
+}
+
+/// Give the system allocator's free pages back to the operating system.
+///
+/// A compile frees tens of thousands of small blocks (syntax trees that were consumed,
+/// metaprogram state, the compile it replaced), and the system allocator keeps their pages
+/// resident for reuse: after a Focus compile the resident set was nearly twice the live data.
+/// Blocks of `LARGE` bytes and up already go back on `free`; this covers the rest. It walks the
+/// allocator's free lists, so call it after a compile, not after every request.
+pub fn release_free_memory() {
+    #[cfg(target_os = "macos")]
+    unsafe {
+        malloc_zone_pressure_relief(std::ptr::null_mut(), 0);
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    unsafe {
+        malloc_trim(0);
+    }
+}
+
 fn mapped(size: usize, align: usize) -> bool {
     size >= LARGE && align <= GRANULE
 }

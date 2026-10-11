@@ -14,8 +14,10 @@
 
 ### Performance
 
+- `jailsp` hands the pages a compile freed back to the system once the compile is done: an editor on Focus sits at about 230 MiB between compiles instead of 300-370 MiB.
 - Hover and go to definition answer several times faster when many files are open (Linalg's 12k requests: 4.8 s to 0.6 s): the server no longer re-reads folders, copies and hashes every open document and canonicalizes every path for each request, and code no target compiles no longer recompiles every target on each hover. Requests on an open document no longer compare, copy, reparse or scan its whole text. Focus's 380k requests went from over 10 minutes to 9 s, and a 600 KB file's from 6.6 s to 0.45 s. Compiles no longer canonicalize the same paths over and over, and a `#run` that traps no longer resolves the stdlib's folders for each report.
 - The syntax tree is a third of its former size in memory: `Expr` went from 80 to 56 bytes, `Stmt` from 272 to 88 and `Decl` from 640 to 176, by boxing rare statement and expression variants and the rare parts of declarations. `jaic check` of a generated 132k-line project peaks at 193 MiB instead of 284 MiB, and the language server keeps correspondingly less per compile.
+- The language server keeps the project's compile when a stray file is compiled next to it, dropping the cheaper one instead: Focus's coverage run no longer recompiles `first.jai` for each unloaded Wayland protocol file.
 - The language server drops a metaprogram's build state once the compile is checked, and keeps compiles for two other targets instead of one. Focus's coverage run peaks at 1.3 GB instead of 2.7 GB and takes 19 s instead of 31 s.
 
 ### Fixes
@@ -23,6 +25,7 @@
 - `syscall` works in `#asm` blocks (`syscall rcx_out:, r11_out:, rax_inout`, with arguments in the registers pinned to `di`, `si`, `d`, `10`, `8` and `9`): compiled code makes the call on x86-64, `#run` makes it on a Linux x86-64 host, and the sandbox and the browser refuse it with `-EPERM`.
 - A loop value named `it_index` (`for < it_index: 0..n`, often in a `for_expansion`) no longer stops the compile with an internal error; naming a loop's value and index the same is an error.
 - Hovering a word right after a non-ASCII character no longer fails.
+- Files of a module kept in the project's own `modules/` folder are checked through the program that imports it, so they see its `#module_parameters` values and names its metaprogram pokes in (Focus's Simp module), instead of alone.
 - Names declared under `#scope_module` are reachable from importers as `Module.name`, as in Jai; only `#scope_file` names stay hidden.
 - Reading a struct with a garbage length at compile time (a `freeze` of uninitialized memory) no longer aborts the compiler trying to allocate it.
 - `#bake_constants` that fixes only some of a procedure's polymorphic types (`#bake_constants f(T = float32)` where `f` also has `$W`) makes a procedure that is still polymorphic in the rest, instead of failing.

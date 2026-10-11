@@ -34,7 +34,18 @@ fn main() -> std::process::ExitCode {
                 }
             }
         });
+        let mut compiles = 0;
         loop {
+            // A compile (or the eviction it caused) freed many small blocks: hand their pages
+            // back while the editor is idle (see `large_alloc`).
+            #[cfg(unix)]
+            {
+                let (started, _) = session.compile_counts();
+                if started != compiles {
+                    compiles = started;
+                    jai_language_server::large_alloc::release_free_memory();
+                }
+            }
             // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
             // requests that are queued (completion, hover) are answered first and a burst of
             // keystrokes costs one compile.
