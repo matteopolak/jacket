@@ -9,6 +9,8 @@
 - The parameters of `#foreign` procedures hover, and the library name after `#foreign` hovers and goes to its declaration.
 - `ide_coverage --errors` prints each file's type-checker errors.
 
+- The `meow_hash` module has an x64 `MeowHash` and `MeowU64From` (AES-based 128-bit hash taking an `#asm` `vec` register), so Focus's `calculate_meow_hash` compiles for x64. `Process` on Windows has `init_named_pipe_pair`, which makes an overlapped pipe pair with an event for the parent end.
+
 ### Performance
 
 - Hover and go to definition answer several times faster when many files are open (Linalg's 12k requests: 4.8 s to 0.6 s): the server no longer re-reads folders, copies and hashes every open document and canonicalizes every path for each request, and code no target compiles no longer recompiles every target on each hover. Requests on an open document no longer compare, copy, reparse or scan its whole text. Focus's 380k requests went from over 10 minutes to 9 s, and a 600 KB file's from 6.6 s to 0.45 s. Compiles no longer canonicalize the same paths over and over, and a `#run` that traps no longer resolves the stdlib's folders for each report.

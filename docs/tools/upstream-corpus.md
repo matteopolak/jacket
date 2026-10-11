@@ -163,8 +163,7 @@ Gaps this found and did not fix (each needs a decision about Jai's behaviour or 
 
 - `signal` named as a value (`log("...", handle, signal)` in wait_group on Linux) is an ambiguous overload of POSIX's `signal` and Thread's `signal(*Semaphore)`.
 - Focus's own `modules/Linux_Display` exposes `GL` after `#scope_module`, and the program reads `LD.GL`.
-- `Process` lacks `init_named_pipe_pair` and overlapped pipe reading, which Focus's Windows process code uses.
-- stdlib `meow_hash` has no x64 `MeowHash`/`MeowU64From`, and `#asm { hash: vec; }` cannot be passed to a macro.
+- Focus's Windows process code needs overlapped pipe reading; `Process.init_named_pipe_pair` now exists and type-checks for Windows, but nothing runs it against a real child yet.
 
 ### Notes per project
 
