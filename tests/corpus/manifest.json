@@ -1368,6 +1368,19 @@
       }
     },
     {
+      "id": "for-value-and-index-same-name",
+      "source": "negative/for-value-and-index-same-name.jai",
+      "sha256": "78225d617b1e60c1d5b0d3ba064f0c93bc82976f209f8229770423f5b50c9bb2",
+      "suite": "negative",
+      "feature": "for loops",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "the loop's value and index are both named `a`"
+      }
+    },
+    {
       "id": "using-pointer-cycle",
       "source": "negative/using-pointer-cycle.jai",
       "sha256": "afeb84c29313e3c395e67ee3a44429d35eedded0778c4418fba442dded1b1ec4",

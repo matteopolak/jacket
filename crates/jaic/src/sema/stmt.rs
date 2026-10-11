@@ -1968,7 +1968,11 @@ impl Compiler {
             .last()
             .map(|m| m.caller_scope)
             .filter(|&c| backtick && c != loop_scope);
-        for (name, kind) in names.into_iter().zip(kinds) {
+        for (i, (name, kind)) in names.into_iter().zip(kinds).enumerate() {
+            // `for it_index: 0..n`: the named value hides the default index.
+            if i == 1 && name == names[0] {
+                continue;
+            }
             if let Some(caller) = caller {
                 self.add_entity(caller, name, span, kind.clone(), false);
             }
@@ -2008,6 +2012,14 @@ impl Compiler {
         let index_name = for_
             .index
             .map_or_else(|| Sym::intern("it_index"), |i| i.name);
+        if let Some(index) = for_.index
+            && index.name == it_name
+        {
+            return err(
+                index.span,
+                format!("the loop's value and index are both named `{it_name}`"),
+            );
+        }
         let (lo, hi, collection) = match &for_.over {
             ast::ForOver::Range(a, b) => (Some(a), Some(b), None),
             ast::ForOver::Collection(c) => (None, None, Some(c)),
