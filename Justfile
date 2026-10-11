@@ -44,6 +44,13 @@ lint fix="false" staged="false" lang="all" jobs=default_jobs *paths:
 editor:
     {{ py }} tools/dev.py editor
 
+# Run the Neovim plugin's headless tests (editors/nvim); builds a debug jailsp for the end-to-end ones. Skipped without nvim 0.11.
+[group('test')]
+[arg("unit", long, value="true")]
+[arg("jobs", long, short="j")]
+nvim-test unit="false" jobs=default_jobs:
+    {{ py }} tools/dev.py nvim -j {{ jobs }} {{ if unit == "true" { "--unit" } else { "" } }}
+
 # What CI's format and lint steps run: fmt --check, then lint, over everything, plus the editor checks.
 [group('check')]
 [arg("jobs", long, short="j")]
@@ -51,6 +58,7 @@ check jobs=default_jobs:
     {{ just_executable() }} fmt --check --jobs {{ jobs }}
     {{ just_executable() }} lint --jobs {{ jobs }}
     {{ just_executable() }} editor
+    {{ just_executable() }} nvim-test --unit
 
 # Run the cargo tests (a crate and a test-name filter narrow them) and the tools/ unittests.
 [group('test')]

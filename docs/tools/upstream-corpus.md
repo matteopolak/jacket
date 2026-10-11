@@ -224,7 +224,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **forbear.** `build.jai` checks and builds (`forbear-build`). The case's setup compiles `vendor/kb_text_shape.a` and `vendor/freetype.a` with clang first; otherwise `build.jai` regenerates `bindings-MACOS.jai` inside the corpus.
 
-**rexim.github.io.** `rss.jai` runs (`rexim-rss`). It writes `event/<id>.json`, so the case creates `event/`.
+**rexim.github.io.** `rss.jai` runs (`rexim-rss`). It writes `event/<id>.json`, so the case creates `event/`. Upstream indexes `WEEKDAYS[tm_wday - 1]`, which is out of bounds on Sundays (local time), so the step has `"not_on": ["Sunday"]` (a step key the smoke runner checks against `time.strftime("%A")`, with `not_on_reason` printed when it skips).
 
 **ui_builder.** `jaic check demo.jai` passes (`ui-builder-demo-check`). `jaic build` stops at the link step: Pixel_Maker's prebuilt `bindings/Slang/lib/macos/libslang` is not in the pinned corpus.
 

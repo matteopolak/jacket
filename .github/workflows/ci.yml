@@ -242,6 +242,34 @@ jobs:
           name: vscode-extension
           path: editors/vscode/jai-vscode.vsix
           if-no-files-found: error
+  neovim-plugin:
+    # editors/nvim: the headless tests, including an end-to-end run against a debug jailsp
+    # (docs/tools/neovim-plugin.md).
+    name: Neovim plugin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+      NVIM_VERSION: v0.12.4
+      NVIM_SHA256: 012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Neovim (pinned release, checksum verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-x86_64.tar.gz"
+          echo "${NVIM_SHA256}  $RUNNER_TEMP/nvim.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/nvim"
+          tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
+          echo "$RUNNER_TEMP/nvim/bin" >> "$GITHUB_PATH"
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: '1.58.0'
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - name: Run the plugin tests (builds only jailsp)
+        run: just nvim-test -j 2
   stdlib-runtime:
     # Every stdlib runtime test (tests/stdlib and the modules' own tests) under the interpreter,
     # as a native executable, in the wasm sandbox and as a WASI module, with the platform's

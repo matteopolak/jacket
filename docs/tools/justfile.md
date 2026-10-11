@@ -13,7 +13,8 @@ Recipes are thin. Each takes a few options (`just fmt --check --lang jai a.jai`,
 | `build` | `cargo build` of `jaic-cli`, `jai-language-server`, `jailint`, then `target/jaifmt` compiled by `jaic` | `--release`, `-j/--jobs` |
 | `fmt` | `jaifmt` on Jai, `cargo fmt` plus `tools/rust_item_spacing.py` on Rust | `--check`, `--lang jai\|rust\|all`, `--staged`, `-j`, paths |
 | `lint` | `jailint -D warnings` on Jai, `cargo clippy --workspace --all-targets -- -D warnings` on Rust | `--fix`, `--lang`, `--staged`, `-j`, paths |
-| `check` | `fmt --check`, `lint`, then `editor`: everything CI's format, lint and VS Code generated-file checks run | `-j` |
+| `check` | `fmt --check`, `lint`, then `editor` and `nvim-test --unit`: everything CI's format, lint and VS Code generated-file checks run | `-j` |
+| `nvim-test` | the Neovim plugin's headless tests (`editors/nvim/tests`), after building a debug `jailsp` for the end-to-end spec; `--unit` skips that spec and the build (what `check` runs); skipped, with a note, without nvim 0.11 | `-j`, `--unit` |
 | `editor` | `node scripts/build-grammar.ts --check` and `build-schemas.ts --check` in `editors/vscode`, so a new `jailint` rule or `Jai_Format` key cannot land with a stale grammar or schema; skipped (with a note) when node 24 is not installed | |
 | `test` | `cargo test` (CI's skips) and the `tools/` unittests | `--suite cargo\|tools\|all`, `--crate NAME`, `-j`, test-name filter |
 | `hooks` | `git config core.hooksPath .githooks` ([pre-commit hook](pre-commit-hook.md)) | |

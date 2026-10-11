@@ -683,3 +683,23 @@ fn code_in_comment_fences_is_highlighted_as_jai() {
     // Prose lines are not code.
     assert!(tokens.iter().all(|t| t.position.line != 0), "{tokens:?}");
 }
+
+#[test]
+fn completion_docs_carry_links_eagerly_and_when_resolved() {
+    let text = BELOW.replace("    q, r :=", "    w := hai\n    q, r :=");
+    let s = edited(&text);
+    let list = s
+        .completion(&uri(), after(&text, "w := hai", 0, 0))
+        .unwrap();
+    let item = list.items.iter().find(|i| i.label == "hail").unwrap();
+    let link = format!(
+        "[divide](file:///lsp-doc-test/main.jai#L{})",
+        line_of(&text, "divide ::")
+    );
+    let eager = item.documentation.as_deref().unwrap();
+    assert!(eager.contains(&link), "{eager}");
+    let resolved = s
+        .completion_documentation(item.data.as_ref().unwrap())
+        .unwrap();
+    assert!(resolved.contains(&link), "{resolved}");
+}

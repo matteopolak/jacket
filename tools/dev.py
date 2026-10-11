@@ -5,6 +5,7 @@
     python3 tools/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev.py lint [--fix] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev.py editor
+    python3 tools/dev.py nvim [--unit] [-j N]
     python3 tools/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
 
 The recipes in the Justfile are thin wrappers; this file holds the logic so that CI and a local
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -169,6 +171,27 @@ def cmd_editor(args) -> int:
     return int(failed)
 
 
+def cmd_nvim(args) -> int:
+    """Run the Neovim plugin's headless tests (needs nvim >= 0.11); --unit leaves out the jailsp ones."""
+    nvim = shutil.which("nvim")
+    if nvim is None:
+        print("nvim not found: skipping the Neovim plugin tests (CI runs them)")
+        return 0
+    banner = subprocess.run([nvim, "--version"], capture_output=True, text=True).stdout.splitlines()
+    found = re.match(r"NVIM v(\d+)\.(\d+)", banner[0]) if banner else None
+    if found is None or (int(found.group(1)), int(found.group(2))) < (0, 11):
+        print(f"{banner[0] if banner else 'nvim'} is older than 0.11: skipping the Neovim plugin tests")
+        return 0
+    env = {k: v for k, v in os.environ.items() if k != "JAILSP"}
+    if not args.unit:
+        if cargo_build(["-p", "jai-language-server"], args.jobs):
+            return 1
+        env["JAILSP"] = str(TARGET / "debug" / ("jailsp" + EXE))
+    print("+ nvim --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'", file=sys.stderr, flush=True)
+    return subprocess.run([nvim, "--headless", "--clean", "-u", "tests/minimal_init.lua", "-c", "luafile tests/run.lua"],
+                          cwd=ROOT / "editors" / "nvim", env=env).returncode
+
+
 def cmd_test(args) -> int:
     failed = False
     narrowed = bool(args.crate or args.filter)
@@ -192,7 +215,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     for name, fn in (("build", cmd_build), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
-                     ("test", cmd_test)):
+                     ("nvim", cmd_nvim), ("test", cmd_test)):
         p = sub.add_parser(name)
         p.set_defaults(fn=fn)
         p.add_argument("-j", "--jobs", default="3")
@@ -203,6 +226,8 @@ def main() -> int:
             p.add_argument("--staged", action="store_true")
             p.add_argument("paths", nargs="*")
             p.add_argument("--check" if name == "fmt" else "--fix", action="store_true")
+        if name == "nvim":
+            p.add_argument("--unit", action="store_true")
         if name == "test":
             p.add_argument("--suite", choices=["cargo", "tools", "all"], default="all")
             p.add_argument("-p", "--crate", default="")

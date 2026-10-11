@@ -55,6 +55,7 @@ jailint src/ --fix                                 # apply the safe fixes
 ## Editors
 
 - **VS Code** and Open VSX editors: the [Jai extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain) ([docs](docs/tools/vscode-extension.md)).
+- **Neovim** 0.11+: [jai.nvim](editors/nvim/README.md) (language server, formatter, linter, toolchain download).
 - **Anything else**: run `jailsp` as a language server over stdio ([language server](docs/compiler/language-server.md)).
 
 ## Documentation

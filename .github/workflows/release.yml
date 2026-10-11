@@ -665,3 +665,86 @@ jobs:
           # A fork that is behind microsoft/winget-pkgs is fast-forwarded first.
           ./komac.exe sync || echo "::warning::could not sync the winget-pkgs fork; submitting anyway"
           ./komac.exe submit --yes "$MANIFESTS"
+
+  # The Neovim plugin (editors/nvim) is mirrored to matteopolak/jai.nvim, because vim.pack and
+  # plugin managers need a repository whose root is the plugin. The mirror's main branch is
+  # replaced by the plugin's files with its version and the release's checksums stamped in, and
+  # tagged vX.Y.Z. It pushes only when the NVIM_MIRROR_DEPLOY_KEY secret (a write-enabled
+  # deploy key of that repository) is set; see docs/tools/neovim-plugin.md#publishing.
+  neovim:
+    needs: [build, publish]
+    if: >-
+      inputs.publish_integrations &&
+      (!cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Stamp the version and the release's checksums into the plugin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cargo_version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+          version="${TAG#v}"
+          if [ -z "$version" ]; then version="$cargo_version"; fi
+          # The plugin downloads jaic v<its version>, so the two must agree.
+          test "$version" = "$cargo_version" || { echo "tag $TAG does not match Cargo.toml version $cargo_version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          cd editors/nvim
+          sed -i "s/^return '.*'$/return '$version'/" lua/jai/version.lua
+          grep -q "^return '$version'$" lua/jai/version.lua
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
+            {
+              echo "---SHA-256 checksums of the release archives, written by the release workflow."
+              echo "return {"
+              echo "  version = '$version',"
+              echo "  sha256 = {"
+              awk '$2 ~ /^jai-.*\.(tar\.gz|zip)$/ { printf "    [\047%s\047] = \047%s\047,\n", $2, $1 }' "$RUNNER_TEMP/SHA256SUMS"
+              echo "  },"
+              echo "}"
+            } > lua/jai/checksums.lua
+            grep -c "jai-linux-x64.tar.gz" lua/jai/checksums.lua
+            cat lua/jai/checksums.lua
+          fi
+      - name: Push to matteopolak/jai.nvim
+        env:
+          DEPLOY_KEY: ${{ secrets.NVIM_MIRROR_DEPLOY_KEY }}
+        run: |
+          if [ -z "$TAG" ]; then echo "No tag (dry run); not pushing the plugin"; exit 0; fi
+          if [ -z "$DEPLOY_KEY" ]; then echo "NVIM_MIRROR_DEPLOY_KEY is not set; skipping the Neovim plugin mirror"; exit 0; fi
+          key="$RUNNER_TEMP/mirror_key"
+          known="$RUNNER_TEMP/known_hosts"
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          chmod 600 "$key"
+          # GitHub's published ed25519 host key fingerprint, so the push cannot go to an impostor.
+          ssh-keyscan -t ed25519 github.com > "$known" 2> /dev/null
+          ssh-keygen -lf "$known" | grep -q 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU' || { echo "unexpected github.com host key"; exit 1; }
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$known -o StrictHostKeyChecking=yes"
+          git clone git@github.com:matteopolak/jai.nvim.git "$RUNNER_TEMP/mirror"
+          cd "$RUNNER_TEMP/mirror"
+          git checkout -B main
+          git rm -rq --ignore-unmatch .
+          cp -R "$GITHUB_WORKSPACE/editors/nvim/." .
+          cp "$GITHUB_WORKSPACE/LICENSE" "$GITHUB_WORKSPACE/LICENSE-EXCEPTION" .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The mirror already has this content"
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -q -m "jai.nvim $VERSION"
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "The mirror already has the tag v$VERSION"
+            git push origin main
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              tag -a "v$VERSION" -m "jai.nvim $VERSION"
+            git push origin main "v$VERSION"
+          fi
+          echo "Pushed jai.nvim $VERSION to matteopolak/jai.nvim"

@@ -234,6 +234,10 @@
         {
           "name": "rss.jai (runs at compile time)",
           "kind": "jaic",
+          "not_on": [
+            "Sunday"
+          ],
+          "not_on_reason": "upstream indexes WEEKDAYS[tm_wday - 1], out of bounds when tm_wday is 0",
           "argv": [
             "run",
             "rss.jai"
