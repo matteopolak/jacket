@@ -559,6 +559,15 @@ impl Compiler {
         self.interp.workspaces = Some(workspaces);
     }
 
+    /// Let go of what only compile-time code uses: the workspaces (with the records and
+    /// syntax trees handed to the metaprogram) and the exporter's state. An editor keeps a
+    /// compiler to answer questions long after its metaprograms ran; afterwards compile-time
+    /// code that reaches for the `Compiler` module traps.
+    pub fn release_build_state(&mut self) {
+        self.interp.workspaces = None;
+        self.export = code_export::ExportState::default();
+    }
+
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let mut c = Compiler {
             library_files: Default::default(),

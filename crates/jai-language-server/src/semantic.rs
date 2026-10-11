@@ -1,7 +1,7 @@
 //! Type-checked answers for hover and completion: the open documents are compiled with jaic
 //! (bundled or on-disk stdlib) and the compiler's editor facts (`jaic::sema::ide`) are queried.
 //! Compilation happens on demand and is cached per source text.
-use jaic::build::{BuildEnv, Workspaces};
+use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::intern::Sym;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
@@ -32,7 +32,7 @@ pub struct HoverFacts {
 }
 
 /// Basic blocks compile-time code may run per analysis (an edit can make a `#run` loop forever).
-const BLOCK_BUDGET: u64 = 20_000_000;
+const BLOCK_BUDGET: u64 = 200_000_000;
 
 /// Compilers kept for reuse: the newest one that checked (what completion falls back to while
 /// the text does not parse) and the newest of all. A compile is hundreds of MiB for a large
@@ -42,7 +42,7 @@ const CACHED: usize = 2;
 
 /// Compiles for another target kept besides those (for code an `#if OS == ...` skipped), the
 /// one being built included.
-const ALTERNATES: usize = 2;
+const ALTERNATES: usize = 3;
 
 /// The targets asked, in order, about code the environment's target skips.
 pub const OTHER_TARGETS: [TargetOs; 4] = [
@@ -55,17 +55,29 @@ pub const OTHER_TARGETS: [TargetOs; 4] = [
 /// Open documents over the environment's file system.
 struct OverlayFs {
     base: Rc<dyn FileSystem>,
+    /// Where relative paths start (the root file's folder): the server's own working directory
+    /// is wherever the editor started it, and a build metaprogram names its files and module
+    /// folders relative to itself.
+    dir: PathBuf,
     files: BTreeMap<PathBuf, Rc<[u8]>>,
     /// `canonical` answers so far: a compile asks about the same paths over and over.
     canonical: RefCell<HashMap<PathBuf, PathBuf>>,
 }
 
 impl OverlayFs {
+    fn at<'a>(&self, path: &'a Path) -> std::borrow::Cow<'a, Path> {
+        if path.is_relative() {
+            self.dir.join(path).into()
+        } else {
+            path.into()
+        }
+    }
+
     fn canonical_of(&self, path: &Path) -> PathBuf {
         if let Some(known) = self.canonical.borrow().get(path) {
             return known.clone();
         }
-        let found = self.base.canonical(path);
+        let found = self.base.canonical(&self.at(path));
         self.canonical
             .borrow_mut()
             .insert(path.to_path_buf(), found.clone());
@@ -77,17 +89,17 @@ impl FileSystem for OverlayFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         match self.files.get(&self.canonical_of(path)) {
             Some(bytes) => Some(bytes.to_vec()),
-            None => self.base.read(path),
+            None => self.base.read(&self.at(path)),
         }
     }
 
     fn is_file(&self, path: &Path) -> bool {
-        self.files.contains_key(&self.canonical_of(path)) || self.base.is_file(path)
+        self.files.contains_key(&self.canonical_of(path)) || self.base.is_file(&self.at(path))
     }
 
     fn is_dir(&self, path: &Path) -> bool {
         let p = self.canonical_of(path);
-        self.files.keys().any(|k| k.starts_with(&p) && *k != p) || self.base.is_dir(path)
+        self.files.keys().any(|k| k.starts_with(&p) && *k != p) || self.base.is_dir(&self.at(path))
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
@@ -95,7 +107,7 @@ impl FileSystem for OverlayFs {
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
-        self.base.list_dir(path)
+        self.base.list_dir(&self.at(path))
     }
 }
 
@@ -132,9 +144,45 @@ pub struct Analysis {
     /// `file`'s answers by the path asked for: canonicalizing every compiled file's path for
     /// each request was a quarter of a hover.
     found: RefCell<BTreeMap<PathBuf, Option<FileId>>>,
+    /// The programs the metaprogram built (`compiler_create_workspace`, as a `first.jai` does):
+    /// the files they compiled are answered from them (see `focus`).
+    others: Vec<Program>,
+}
+
+/// A program one compile produced, with what is known of it so far. The answering one lives in
+/// `Analysis`'s own fields; the others wait in `Analysis::others`.
+struct Program {
+    compiler: Compiler,
+    complete: bool,
+    errors: Vec<jaic::source::Diagnostic>,
+    lints: BTreeMap<FileId, Vec<jailint::Lint>>,
+    imports: Option<Vec<ImportSuggestion>>,
 }
 
 impl Analysis {
+    /// Answer from the program that compiled `path`: the compiled root's own, or one a
+    /// metaprogram built. The answering program stays when it compiled `path` too (a module
+    /// both import).
+    pub fn focus(&mut self, path: &Path) {
+        if self.others.is_empty() || self.file(path).is_some() {
+            return;
+        }
+        let Some(at) = self
+            .others
+            .iter()
+            .position(|p| find_file(&p.compiler, path).is_some())
+        else {
+            return;
+        };
+        let other = &mut self.others[at];
+        std::mem::swap(&mut self.compiler, &mut other.compiler);
+        std::mem::swap(&mut self.complete, &mut other.complete);
+        std::mem::swap(&mut self.errors, &mut other.errors);
+        std::mem::swap(&mut self.lints, &mut other.lints);
+        std::mem::swap(&mut self.imports, &mut other.imports);
+        self.found.borrow_mut().clear();
+    }
+
     /// jailint's findings in `path` (computed once per compile).
     pub fn lints(
         &mut self,
@@ -248,20 +296,7 @@ impl Analysis {
         if let Some(&found) = self.found.borrow().get(path) {
             return found;
         }
-        let exact = (0..self.compiler.sources.len() as u32)
-            .map(FileId)
-            .find(|&f| Path::new(&self.compiler.sources.get(f).path) == path);
-        let found = exact.or_else(|| {
-            let want = self.compiler.fs.canonical(path);
-            (0..self.compiler.sources.len() as u32)
-                .map(FileId)
-                .find(|&f| {
-                    self.compiler
-                        .fs
-                        .canonical(Path::new(&self.compiler.sources.get(f).path))
-                        == want
-                })
-        });
+        let found = find_file(&self.compiler, path);
         self.found.borrow_mut().insert(path.to_path_buf(), found);
         found
     }
@@ -534,7 +569,9 @@ impl Cache {
                     None => false,
                 })
         })?;
-        Some(&mut self.entries[at])
+        let analysis = &mut self.entries[at];
+        analysis.focus(&path);
+        Some(analysis)
     }
 
     /// The analysis of `root` with `files` open (compiled now unless cached).
@@ -602,7 +639,7 @@ impl Cache {
             self.make_room(os);
             self.compiles += 1;
             let snapshot = files.clone();
-            let (compiler, errors) = compile(env, root, dirs, files, os);
+            let (compiler, errors, others) = compile(env, root, dirs, files, os);
             let usable = errors.is_empty()
                 || compiler
                     .ide
@@ -622,27 +659,90 @@ impl Cache {
                 lints: BTreeMap::new(),
                 imports: None,
                 found: RefCell::default(),
+                others,
             });
         }
         self.entries.last_mut().expect("just pushed")
     }
 }
 
-/// The compiled program, and its errors: the first the compile stopped at, then the independent
-/// ones among the declarations and bodies it did not get to.
+/// `path`'s id among the files `compiler` compiled.
+fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
+    let files = || (0..compiler.sources.len() as u32).map(FileId);
+    files()
+        .find(|&f| Path::new(&compiler.sources.get(f).path) == path)
+        .or_else(|| {
+            let want = compiler.fs.canonical(path);
+            files().find(|&f| {
+                compiler
+                    .fs
+                    .canonical(Path::new(&compiler.sources.get(f).path))
+                    == want
+            })
+        })
+}
+
+/// The editor facts a compile records for the files under `prefix`, its compile-time output
+/// going to `host`.
+fn editor_facts(prefix: &str, host: &Rc<RefCell<SandboxHost>>) -> Box<IdeFacts> {
+    let mut facts = IdeFacts::new(vec![prefix.to_string()]);
+    facts.output = Some(host.clone());
+    // What jailint needs (expression types, casts, uses) on top of the editor facts.
+    facts.lint = true;
+    Box::new(facts)
+}
+
+/// Gives each compiler a metaprogram creates editor facts, and keeps it when it is done.
+struct Built {
+    prefix: String,
+    host: Rc<RefCell<SandboxHost>>,
+    done: Rc<RefCell<Vec<Compiler>>>,
+}
+
+impl WorkspaceObserver for Built {
+    fn created(&mut self, compiler: &mut Compiler) {
+        compiler.ide = Some(editor_facts(&self.prefix, &self.host));
+    }
+
+    fn finished(&mut self, compiler: Box<Compiler>, _failed: bool) {
+        self.done.borrow_mut().push(*compiler);
+    }
+}
+
+/// After a compile: its errors (the first it stopped at, then the independent ones among the
+/// declarations and bodies it did not get to), with every body checked and the polymorphs
+/// nothing called sketched.
+fn check_rest(
+    compiler: &mut Compiler,
+    mut errors: Vec<jaic::source::Diagnostic>,
+) -> Vec<jaic::source::Diagnostic> {
+    for e in compiler.ide_check_all() {
+        if !errors
+            .iter()
+            .any(|o| o.span == e.span && o.message == e.message)
+        {
+            errors.push(e);
+        }
+    }
+    compiler.ide_sketch_polymorphs();
+    errors
+}
+
+/// The compiled program and its errors, and the programs its metaprogram built.
 fn compile(
     env: &Environment,
     root: &Path,
     dirs: &[PathBuf],
     files: BTreeMap<PathBuf, Rc<[u8]>>,
     os: Option<TargetOs>,
-) -> (Compiler, Vec<jaic::source::Diagnostic>) {
+) -> (Compiler, Vec<jaic::source::Diagnostic>, Vec<Program>) {
+    let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),
+        dir: dir.clone(),
         files,
         canonical: RefCell::default(),
     });
-    let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let options = || {
         let mut options = (env.options)(root);
         crate::modules::splice(&mut options.import_paths, dirs);
@@ -665,10 +765,15 @@ fn compile(
     )));
     compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
+    let mut prefix = env.fs.canonical(&dir).to_string_lossy().into_owned();
+    if !prefix.ends_with('/') {
+        prefix.push('/');
+    }
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
     // the same way, with no output and the same host, and their compile-time code draws from
     // this compiler's budget.
     let workspace_host = host.clone();
+    let built = Rc::new(RefCell::new(Vec::new()));
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: compiler.fs.clone(),
@@ -677,34 +782,51 @@ fn compile(
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(|_| {}),
-        observer: None,
+        observer: Some(Box::new(Built {
+            prefix: prefix.clone(),
+            host: host.clone(),
+            done: built.clone(),
+        })),
     });
     compiler.attach_workspaces(workspaces);
-    let mut prefix = env.fs.canonical(&dir).to_string_lossy().into_owned();
-    if !prefix.ends_with('/') {
-        prefix.push('/');
-    }
-    let mut facts = IdeFacts::new(vec![prefix]);
-    facts.output = Some(host);
-    // What jailint needs (expression types, casts, uses) on top of the editor facts.
-    facts.lint = true;
-    compiler.ide = Some(Box::new(facts));
-    let mut errors: Vec<jaic::source::Diagnostic> = compiler
+    compiler.ide = Some(editor_facts(&prefix, &host));
+    let errors = compiler
         .compile_program(root)
         .err()
         .into_iter()
         .map(|e| *e)
-        .collect();
-    for e in compiler.ide_check_all() {
-        if !errors
-            .iter()
-            .any(|o| o.span == e.span && o.message == e.message)
-        {
-            errors.push(e);
-        }
+        .collect::<Vec<_>>();
+    // Workspaces no message loop drove compile once the metaprogram is done, as in a build.
+    // Their stopping error is in their own facts, so the message here adds nothing.
+    if errors.is_empty()
+        && let Some(workspaces) = compiler.interp.workspaces.clone()
+    {
+        let _ = jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget);
     }
-    compiler.ide_sketch_polymorphs();
-    (compiler, errors)
+    let errors = check_rest(&mut compiler, errors);
+    let mut others: Vec<Program> = built
+        .take()
+        .into_iter()
+        .map(|mut compiler| {
+            // The metaprogram's code spent the budget; checking the rest gets its own.
+            compiler.interp.block_budget = Some(BLOCK_BUDGET);
+            let errors = check_rest(&mut compiler, Vec::new());
+            Program {
+                compiler,
+                complete: errors.is_empty(),
+                errors,
+                lints: BTreeMap::new(),
+                imports: None,
+            }
+        })
+        .collect();
+    // Compile-time code is over once everything is checked. Each program holds the build
+    // state, which would otherwise outlive the compile by hundreds of MB.
+    compiler.release_build_state();
+    for other in &mut others {
+        other.compiler.release_build_state();
+    }
+    (compiler, errors, others)
 }
 
 thread_local! {

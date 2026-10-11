@@ -527,11 +527,12 @@ impl Session {
                 (PathBuf::from(u.path()), Rc::from(text.as_bytes()))
             })
             .collect();
+        // The open document no other open document loads, compiled from the project's entry
+        // file (which may load it, or build it from a metaprogram), so the files of the program
+        // that are not open are checked too.
         let open_root = self.root(uri);
-        // No open document loads this one: compile from the project's entry file, so the
-        // files of the program that are not open are checked too.
-        let root = match self.project_root(uri) {
-            Some(entry) if open_root == *uri && environment.fs.is_file(&entry) => entry,
+        let root = match self.project_root(&open_root) {
+            Some(entry) if environment.fs.is_file(&entry) => entry,
             _ => PathBuf::from(open_root.path()),
         };
         let dirs = self.import_dirs(&root);
@@ -549,7 +550,9 @@ impl Session {
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache.analyze(environment, &root, &dirs, files);
-        query(analysis, Path::new(uri.path()))
+        let path = Path::new(uri.path());
+        analysis.focus(path);
+        query(analysis, path)
     }
 
     /// Like `with_semantic` for a question about `byte` of `uri`. When the program's compile
@@ -568,6 +571,7 @@ impl Session {
         let path = Path::new(uri.path());
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache.analyze(environment, &root, &dirs, files.clone());
+        analysis.focus(path);
         if let Some(found) = query(analysis, path) {
             return Some(found);
         }
@@ -594,6 +598,7 @@ impl Session {
         order.sort_by_key(|&os| (Some(os) != last, !cache.has(&root, &dirs, &files, Some(os))));
         for os in order {
             let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os));
+            analysis.focus(path);
             match analysis.skipped_span(path, byte) {
                 Some(span) => unreached
                     .1

@@ -8,18 +8,22 @@
 - Code under an `#if OS == ...` or `#if CPU == ...` branch another target takes, and files only that branch loads, hover and go to definition: the language server compiles for that target when asked about it.
 - The parameters of `#foreign` procedures hover, and the library name after `#foreign` hovers and goes to its declaration.
 - `ide_coverage --errors` prints each file's type-checker errors.
+- Projects built by a metaprogram (`first.jai` creating a workspace and adding files with `add_build_file`, as Focus does) are checked through it: files the workspace compiles hover and go to definition, with or without a message loop in the metaprogram. A metaprogram written for Windows runs too, since compile-time code can use common Windows file, path, text and time calls; starting processes and shared memory are refused with an error code instead of stopping the compile.
 
 - The `meow_hash` module has an x64 `MeowHash` and `MeowU64From` (AES-based 128-bit hash taking an `#asm` `vec` register), so Focus's `calculate_meow_hash` compiles for x64. `Process` on Windows has `init_named_pipe_pair`, which makes an overlapped pipe pair with an event for the parent end.
 
 ### Performance
 
 - Hover and go to definition answer several times faster when many files are open (Linalg's 12k requests: 4.8 s to 0.6 s): the server no longer re-reads folders, copies and hashes every open document and canonicalizes every path for each request, and code no target compiles no longer recompiles every target on each hover. Requests on an open document no longer compare, copy, reparse or scan its whole text. Focus's 380k requests went from over 10 minutes to 9 s, and a 600 KB file's from 6.6 s to 0.45 s. Compiles no longer canonicalize the same paths over and over, and a `#run` that traps no longer resolves the stdlib's folders for each report.
+- The language server drops a metaprogram's build state once the compile is checked, and keeps compiles for two other targets instead of one. Focus's coverage run peaks at 1.3 GB instead of 2.7 GB and takes 19 s instead of 31 s.
 
 ### Fixes
 
 - `syscall` works in `#asm` blocks (`syscall rcx_out:, r11_out:, rax_inout`, with arguments in the registers pinned to `di`, `si`, `d`, `10`, `8` and `9`): compiled code makes the call on x86-64, `#run` makes it on a Linux x86-64 host, and the sandbox and the browser refuse it with `-EPERM`.
 - A loop value named `it_index` (`for < it_index: 0..n`, often in a `for_expansion`) no longer stops the compile with an internal error; naming a loop's value and index the same is an error.
 - Hovering a word right after a non-ASCII character no longer fails.
+- Names declared under `#scope_module` are reachable from importers as `Module.name`, as in Jai; only `#scope_file` names stay hidden.
+- Reading a struct with a garbage length at compile time (a `freeze` of uninitialized memory) no longer aborts the compiler trying to allocate it.
 - `#bake_constants` that fixes only some of a procedure's polymorphic types (`#bake_constants f(T = float32)` where `f` also has `$W`) makes a procedure that is still polymorphic in the rest, instead of failing.
 - Constants declared with listed values (`a, b :: 1, 2;`, `a, b : int : 1, 2;`) give each name its value instead of failing with "2 names but 1 values".
 - A missing `#import,dir` or `#import,file` path is named as written (folder `gone` does not exist), with help about imports instead of `#load`.

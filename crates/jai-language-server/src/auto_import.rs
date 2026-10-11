@@ -235,8 +235,14 @@ impl Sources<'_> {
                 continue;
             }
             let dir = file.parent().unwrap_or(Path::new("/")).to_path_buf();
-            for load in &self.scan(index, &file).loads {
+            let scan = self.scan(index, &file);
+            for load in &scan.loads {
                 pending.push(project::normalize(&dir.join(&load.path)));
+            }
+            // What a build metaprogram compiles belongs to its program: relative to the
+            // metaprogram's folder, where `set_working_directory(#filepath)` usually puts it.
+            for build in &scan.builds {
+                pending.push(project::normalize(&dir.join(build)));
             }
         }
         seen

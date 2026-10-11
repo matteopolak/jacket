@@ -59,6 +59,9 @@ pub struct FileScan {
     pub decls: Vec<Decl>,
     pub imports: Vec<Directive>,
     pub loads: Vec<Directive>,
+    /// Files a build metaprogram compiles: the string literal of each `add_build_file("x", w)`
+    /// call, anywhere in the file.
+    pub builds: Vec<String>,
     /// The targets a top-level `#assert OS == .A || OS == .B` allows (`["A", "B"]`).
     pub only_os: Option<Vec<String>>,
     /// The file declares `main` at its top level (it is a program's entry, not a part).
@@ -141,6 +144,17 @@ fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
                 }
                 _ => {}
             },
+            Tok::Ident(name)
+                if name.as_str() == "add_build_file"
+                    && matches!(
+                        tokens.get(i + 1).map(|t| &t.tok),
+                        Some(Tok::Punct(P::LParen))
+                    ) =>
+            {
+                if let Some(Tok::Str(bytes)) = tokens.get(i + 2).map(|t| &t.tok) {
+                    out.builds.push(String::from_utf8_lossy(bytes).into_owned());
+                }
+            }
             Tok::Ident(name) if at_top && starts_statement(tokens, i) => {
                 let next = tokens.get(i + 1).map(|t| &t.tok);
                 if let Some(Tok::Punct(P::ColonColon | P::Colon | P::ColonEq)) = next {
@@ -409,6 +423,14 @@ hidden :: () {}
             "#import \"Basic\";\nM :: #import \"Math\";"
         );
         assert!(!scan.declares_main);
+    }
+
+    #[test]
+    fn build_files_a_metaprogram_adds() {
+        let scan = scan(
+            "build :: () {\n    w := compiler_create_workspace();\n    add_build_file(\"src/main.jai\", w);\n}\n",
+        );
+        assert_eq!(scan.builds, ["src/main.jai"]);
     }
 
     #[test]

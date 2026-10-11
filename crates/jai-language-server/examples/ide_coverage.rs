@@ -7,7 +7,9 @@
 //! every use (not a declaration) for go to definition. A hover that is only the syntax layer's
 //! fallback counts as missing. Files with a type-checker error are reported apart: past the error some
 //! facts are expected to be missing. See docs/tools/ide-coverage.md.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, Limits, Position, Session};
+use jai_language_server::{
+    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Session,
+};
 use jaic::lexer::{P, Tok};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -209,7 +211,9 @@ fn main() {
                 .diagnostics(uri)
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|d| d.code == DiagnosticCode::Check)
+                .filter(|d| {
+                    d.code == DiagnosticCode::Check && d.severity == DiagnosticSeverity::Error
+                })
                 .collect();
             let errored = !errors.is_empty();
             let Ok(tokens) = jaic::lexer::lex(jaic::source::FileId(0), text) else {

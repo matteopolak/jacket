@@ -772,7 +772,21 @@ impl Compiler {
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let func = self.program.reserve_func("__entry_point".into());
         self.procs[id.0 as usize].target = Some(ProcTarget::Func(func));
-        let main = self.program_main(span)?;
+        let main = match self.program_main(span) {
+            Ok(main) => main,
+            // The editor checks every body in the project's files, also a vendored
+            // `Runtime_Support` calling the entry point of a program that has no `main` (a
+            // build metaprogram). No build reaches that call: it stops the program.
+            Err(_) if self.ide.is_some() => {
+                let mut f = FnCtx::new("__entry_point".into(), ir_sig.clone(), FileId(0));
+                f.b.intrinsic(ir::Intrinsic::Trap, Vec::new(), &[]);
+                let rets = ir_sig.returns.iter().map(|&t| f.b.iconst(t, 0)).collect();
+                f.b.ret(rets);
+                self.program.funcs[func.0 as usize] = Some(f.b.finish());
+                return Ok(func);
+            }
+            Err(e) => return Err(e),
+        };
         let main_sig = self.signature(main, span)?;
         if !main_sig.params.is_empty() {
             let name = &self.options.entry_point;
