@@ -20,7 +20,7 @@ use crate::sema::{
 };
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 /// What a workspace produces.
@@ -958,6 +958,10 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
         Ok(next) => next,
         Err(d) => {
             let text = compiler.render(&d);
+            // An editor compile (see `WorkspaceObserver`) keeps the error with its facts.
+            if let Some(ide) = compiler.ide.as_mut() {
+                ide.errors.push((*d).clone());
+            }
             let mut imports = Vec::new();
             if intercepted {
                 // The imports that found nothing, then the error itself.
@@ -1520,9 +1524,13 @@ pub fn call(
             }
             let fs = reg.env.fs.clone();
             // Resolved now: the metaprogram may change directory before it compiles.
-            let path = fs.canonical(&PathBuf::from(&value));
+            let cwd = interp
+                .host
+                .working_directory()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+            let path = fs.canonical(&cwd.join(&value));
             if op == MetaOp::AddFile && !fs.is_file(&path) {
-                let cwd = std::env::current_dir().unwrap_or_default();
                 return Err(trap(if fs.is_dir(&path) {
                     format!("add_build_file: `{value}` is a directory, not a .jai file")
                 } else {
@@ -1541,7 +1549,15 @@ pub fn call(
             Ok(Rets::default())
         }
         MetaOp::SetOption => {
-            let (key, value) = (text(interp, 1)?, text(interp, 2)?);
+            let (key, mut value) = (text(interp, 1)?, text(interp, 2)?);
+            // A module folder relative to a sandbox's own working directory: the process's is
+            // somewhere else.
+            if key == "import_path"
+                && Path::new(&value).is_relative()
+                && let Some(cwd) = interp.host.working_directory()
+            {
+                value = Path::new(&cwd).join(&value).to_string_lossy().into_owned();
+            }
             shared
                 .borrow_mut()
                 .set_option(arg(0) as i64, &key, &value)

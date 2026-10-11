@@ -70,6 +70,16 @@ impl Default for Probe {
 }
 
 impl Probe {
+    /// The `len` bytes of program memory at `addr`, or `None` when any of them cannot be
+    /// read. Nothing is allocated for a range that is not there (a garbage length).
+    pub fn read_vec(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
+        if !self.accessible(addr, len, false) {
+            return None;
+        }
+        let mut out = vec![0; len];
+        self.read(addr, &mut out).then_some(out)
+    }
+
     /// Copy `out.len()` bytes of program memory at `addr` into `out`. False when any of them
     /// cannot be read.
     pub fn read(&self, addr: u64, out: &mut [u8]) -> bool {
@@ -402,6 +412,21 @@ mod tests {
         // The pipe is empty again after a failure.
         assert!(read(data.as_ptr() as u64, &mut out[..10]));
         assert_eq!(out[..10], data[..10]);
+    }
+
+    #[test]
+    fn read_vec_copies_readable_memory_and_refuses_garbage_lengths() {
+        let data: Vec<u8> = (0..300u32).map(|i| i as u8).collect();
+        let got = PROBE.with(|p| p.read_vec(data.as_ptr() as u64, data.len()));
+        assert_eq!(got.as_deref(), Some(&data[..]));
+        // A garbage length reads nothing and allocates nothing.
+        assert!(
+            PROBE
+                .with(|p| p.read_vec(data.as_ptr() as u64, usize::MAX >> 4))
+                .is_none()
+        );
+        assert!(PROBE.with(|p| p.read_vec(80_000_000, 16)).is_none());
+        assert!(PROBE.with(|p| p.read_vec(0x40, 1 << 40)).is_none());
     }
 
     #[test]

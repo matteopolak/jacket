@@ -15,7 +15,9 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
 
 mod stdin;
+mod windows;
 
+const EPERM: u64 = 1;
 const ENOENT: u64 = 2;
 const EBADF: u64 = 9;
 const EEXIST: u64 = 17;
@@ -137,6 +139,18 @@ impl SandboxFs {
         }
     }
 
+    /// The length of an existing file, written or not.
+    fn file_size(&self, path: &str) -> usize {
+        match self.files.get(path) {
+            Some(data) => data.len(),
+            None => self
+                .base
+                .as_ref()
+                .and_then(|b| b.read(Path::new(path)))
+                .map_or(0, |d| d.len()),
+        }
+    }
+
     fn list(&self, path: &str) -> Vec<(String, bool)> {
         let mut out: BTreeMap<String, bool> = BTreeMap::new();
         if let Some(base) = &self.base {
@@ -230,6 +244,10 @@ pub struct SandboxHost {
     streams: HashMap<u64, i64>,
     dirs: HashMap<u64, DirStream>,
     errno_cell: u64,
+    /// Windows' `GetLastError`.
+    last_error: u64,
+    /// `FindFirstFileW` handle -> the entries left to return.
+    finds: HashMap<u64, Vec<(String, bool)>>,
     /// `strerror` results by error number; they stay valid for the whole run, like libc's.
     error_texts: HashMap<u64, u64>,
     stdin: stdin::Stdin,
@@ -404,16 +422,7 @@ impl SandboxHost {
         let (mode, size) = if self.fs.is_dir(path) {
             (S_IFDIR | 0o755, 4096)
         } else if self.fs.exists_file(path) {
-            let size = match self.fs.files.get(path) {
-                Some(data) => data.len(),
-                None => self
-                    .fs
-                    .base
-                    .as_ref()
-                    .and_then(|b| b.read(Path::new(path)))
-                    .map_or(0, |d| d.len()),
-            };
-            (S_IFREG | 0o644, size as i64)
+            (S_IFREG | 0o644, self.fs.file_size(path) as i64)
         } else {
             return Err(ENOENT);
         };
@@ -650,6 +659,9 @@ impl Host for SandboxHost {
         _sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         if let Some(result) = self.stdin_foreign(symbol, args) {
+            return Some(Ok(vec![result]));
+        }
+        if let Some(result) = self.windows_foreign(symbol, args) {
             return Some(Ok(vec![result]));
         }
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
@@ -893,7 +905,7 @@ impl Host for SandboxHost {
                 }
                 value as i64 as u64
             }
-            "__errno_location" => {
+            "__errno_location" | "__error" => {
                 // The cell keeps the last error: reading it must not clear it.
                 if self.errno_cell == 0 {
                     self.errno_cell = self.alloc(8);
@@ -926,7 +938,7 @@ impl Host for SandboxHost {
                     self.set_errno(ENOENT)
                 }
             }
-            "realpath" => {
+            "realpath" | "realpath$DARWIN_EXTSN" => {
                 let path = self.path(arg(0));
                 if !self.fs.is_dir(&path) && !self.fs.exists_file(&path) {
                     self.set_errno(ENOENT);
@@ -1122,27 +1134,8 @@ impl Host for SandboxHost {
             }
             "rename" => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
-                if self.fs.exists_file(&from) {
-                    self.fs.load(&from);
-                    let data = self.fs.files.remove(&from).unwrap_or_default();
-                    // The file keeps its identity and time under the new name.
-                    let inode = self.fs.inode(&from);
-                    let stamp = self.fs.mtimes.get(&from).copied();
-                    self.fs.forget(&from);
-                    self.fs.forget(&to);
-                    self.fs.inodes.insert(to.clone(), inode);
-                    if let Some(stamp) = stamp {
-                        self.fs.mtimes.insert(to.clone(), stamp);
-                    }
-                    self.fs.removed.insert(from);
-                    self.fs.removed.remove(&to);
-                    self.fs.files.insert(to, data);
-                    0
-                } else if self.fs.is_dir(&from) {
-                    self.set_errno(EINVAL)
-                } else {
-                    self.set_errno(ENOENT)
-                }
+                let result = self.rename_file(&from, &to).map(|_| 0);
+                self.libc_result(result)
             }
             "link" => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
@@ -1237,6 +1230,15 @@ impl Host for SandboxHost {
                 }
                 None => self.set_errno(EBADF),
             },
+            // Nothing a sandboxed program runs may start another process. It fails as a
+            // refused call does, so code with a fallback (a build stamping its version from
+            // `git`) carries on, and code that called it holding a lock lets go of it.
+            "pipe" | "pipe2" | "socketpair" | "fork" | "vfork" | "execv" | "execve" | "execvp" => {
+                self.set_errno(EPERM)
+            }
+            "posix_spawn" | "posix_spawnp" => EPERM,
+            // Nor share memory with one (the memory debugger's visualizer channel).
+            "shm_open" | "shm_unlink" => self.set_errno(EPERM),
             _ => return None,
         }]))
     }
@@ -1260,24 +1262,58 @@ impl Host for SandboxHost {
     fn virtual_now_ns(&mut self) -> Option<u64> {
         Some(self.clock_ns + 1_700_000_000u64 * 1_000_000_000)
     }
+
+    fn working_directory(&self) -> Option<String> {
+        (!self.cwd.is_empty()).then(|| self.cwd.clone())
+    }
 }
 
 impl SandboxHost {
     fn rmdir(&mut self, path: &str) -> Option<Result<Vec<u64>, String>> {
-        let code = if !self.fs.is_dir(path) {
-            self.set_errno(if self.fs.exists_file(path) {
+        let result = self.remove_dir(path).map(|_| 0);
+        Some(Ok(vec![self.libc_result(result)]))
+    }
+
+    /// Remove an empty directory; the error is an errno.
+    fn remove_dir(&mut self, path: &str) -> Result<(), u64> {
+        if !self.fs.is_dir(path) {
+            return Err(if self.fs.exists_file(path) {
                 ENOTDIR
             } else {
                 ENOENT
-            })
-        } else if !self.fs.list(path).is_empty() {
-            self.set_errno(ENOTEMPTY)
-        } else {
-            self.fs.dirs.remove(path);
-            self.fs.removed.insert(path.to_string());
-            0
-        };
-        Some(Ok(vec![code]))
+            });
+        }
+        if !self.fs.list(path).is_empty() {
+            return Err(ENOTEMPTY);
+        }
+        self.fs.dirs.remove(path);
+        self.fs.removed.insert(path.to_string());
+        Ok(())
+    }
+
+    /// Move a file to `to`, replacing what is there; the error is an errno.
+    fn rename_file(&mut self, from: &str, to: &str) -> Result<(), u64> {
+        if self.fs.is_dir(from) {
+            return Err(EINVAL);
+        }
+        if !self.fs.exists_file(from) {
+            return Err(ENOENT);
+        }
+        self.fs.load(from);
+        let data = self.fs.files.remove(from).unwrap_or_default();
+        // The file keeps its identity and time under the new name.
+        let inode = self.fs.inode(from);
+        let stamp = self.fs.mtimes.get(from).copied();
+        self.fs.forget(from);
+        self.fs.forget(to);
+        self.fs.inodes.insert(to.to_string(), inode);
+        if let Some(stamp) = stamp {
+            self.fs.mtimes.insert(to.to_string(), stamp);
+        }
+        self.fs.removed.insert(from.to_string());
+        self.fs.removed.remove(to);
+        self.fs.files.insert(to.to_string(), data);
+        Ok(())
     }
 }
 
@@ -1317,5 +1353,300 @@ impl Host for SharedHost {
 
     fn virtual_now_ns(&mut self) -> Option<u64> {
         self.0.borrow_mut().virtual_now_ns()
+    }
+
+    fn working_directory(&self) -> Option<String> {
+        self.0.borrow().working_directory()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sig() -> ir::Sig {
+        ir::Sig {
+            params: vec![],
+            returns: vec![],
+            conv: ir::Conv::C,
+            c_varargs: false,
+            c_fixed: 0,
+            c_abi: None,
+        }
+    }
+
+    fn host() -> SandboxHost {
+        let mut host = SandboxHost {
+            cwd: "/tmp".to_string(),
+            ..Default::default()
+        };
+        host.fs.dirs.insert("/tmp".to_string());
+        host
+    }
+
+    /// A zero-terminated UTF-16 string.
+    fn wide(text: &str) -> Vec<u16> {
+        text.encode_utf16().chain([0]).collect()
+    }
+
+    fn call(host: &mut SandboxHost, symbol: &str, args: &[u64]) -> u64 {
+        host.foreign(symbol, args, &sig())
+            .unwrap_or_else(|| panic!("{symbol} is not provided"))
+            .unwrap()[0]
+    }
+
+    fn errno(host: &SandboxHost) -> u32 {
+        unsafe { std::ptr::read_unaligned(host.errno_cell as *const u32) }
+    }
+
+    #[test]
+    fn process_creation_and_shared_memory_are_refused() {
+        let mut h = host();
+        for symbol in [
+            "fork",
+            "vfork",
+            "pipe",
+            "pipe2",
+            "socketpair",
+            "execv",
+            "execve",
+            "execvp",
+            "shm_open",
+            "shm_unlink",
+        ] {
+            assert_eq!(call(&mut h, symbol, &[0, 0, 0]), u64::MAX, "{symbol}");
+            assert_eq!(errno(&h), EPERM as u32, "{symbol}");
+        }
+        // posix_spawn returns the error number itself.
+        assert_eq!(call(&mut h, "posix_spawn", &[0, 0, 0, 0, 0, 0]), EPERM);
+        assert_eq!(call(&mut h, "posix_spawnp", &[0, 0, 0, 0, 0, 0]), EPERM);
+    }
+
+    #[test]
+    fn darwin_error_and_realpath_names_are_served() {
+        let mut h = host();
+        let cell = call(&mut h, "__error", &[]);
+        assert_ne!(cell, 0);
+        assert_eq!(cell, call(&mut h, "__errno_location", &[]));
+    }
+
+    #[test]
+    fn windows_file_round_trip() {
+        let mut h = host();
+        let name = wide("data.txt");
+        let (create_always, open_existing) = (2, 3);
+        let handle = call(
+            &mut h,
+            "CreateFileW",
+            &[
+                name.as_ptr() as u64,
+                0x4000_0000,
+                0,
+                0,
+                create_always,
+                0x80,
+                0,
+            ],
+        );
+        assert_ne!(handle, u64::MAX);
+        let mut done = 0u32;
+        let payload = b"hello windows";
+        let ok = call(
+            &mut h,
+            "WriteFile",
+            &[
+                handle,
+                payload.as_ptr() as u64,
+                payload.len() as u64,
+                &mut done as *mut u32 as u64,
+                0,
+            ],
+        );
+        assert_eq!((ok, done as usize), (1, payload.len()));
+        assert_eq!(call(&mut h, "CloseHandle", &[handle]), 1);
+
+        let handle = call(
+            &mut h,
+            "CreateFileW",
+            &[
+                name.as_ptr() as u64,
+                0x8000_0000,
+                0,
+                0,
+                open_existing,
+                0x80,
+                0,
+            ],
+        );
+        assert_ne!(handle, u64::MAX);
+        let mut buf = [0u8; 32];
+        let ok = call(
+            &mut h,
+            "ReadFile",
+            &[
+                handle,
+                buf.as_mut_ptr() as u64,
+                buf.len() as u64,
+                &mut done as *mut u32 as u64,
+                0,
+            ],
+        );
+        assert_eq!((ok, done as usize), (1, payload.len()));
+        assert_eq!(&buf[..payload.len()], payload);
+        let mut size = 0u64;
+        assert_eq!(
+            call(
+                &mut h,
+                "GetFileSizeEx",
+                &[handle, &mut size as *mut u64 as u64]
+            ),
+            1
+        );
+        assert_eq!(size as usize, payload.len());
+        assert_eq!(call(&mut h, "CloseHandle", &[handle]), 1);
+
+        // A missing file: INVALID_HANDLE_VALUE and ERROR_FILE_NOT_FOUND.
+        let missing = wide("nope.txt");
+        let bad = call(
+            &mut h,
+            "CreateFileW",
+            &[
+                missing.as_ptr() as u64,
+                0x8000_0000,
+                0,
+                0,
+                open_existing,
+                0x80,
+                0,
+            ],
+        );
+        assert_eq!(bad, u64::MAX);
+        assert_eq!(call(&mut h, "GetLastError", &[]), 2);
+    }
+
+    #[test]
+    fn windows_find_files_lists_a_directory() {
+        let mut h = host();
+        h.fs.dirs.insert("/tmp/d".to_string());
+        h.fs.files
+            .insert("/tmp/d/a.txt".to_string(), b"abc".to_vec());
+        h.fs.files.insert("/tmp/d/b.txt".to_string(), Vec::new());
+        let pattern = wide("d\\*");
+        let mut data = vec![0u8; 592];
+        let find = call(
+            &mut h,
+            "FindFirstFileW",
+            &[pattern.as_ptr() as u64, data.as_mut_ptr() as u64],
+        );
+        assert_ne!(find, u64::MAX);
+        let name_of = |data: &[u8]| {
+            let units: Vec<u16> = data[44..44 + 520]
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .take_while(|&u| u != 0)
+                .collect();
+            String::from_utf16(&units).unwrap()
+        };
+        let mut names = vec![name_of(&data)];
+        loop {
+            let ok = call(&mut h, "FindNextFileW", &[find, data.as_mut_ptr() as u64]);
+            if ok == 0 {
+                assert_eq!(call(&mut h, "GetLastError", &[]), 18);
+                break;
+            }
+            names.push(name_of(&data));
+        }
+        names.sort();
+        assert_eq!(names, [".", "..", "a.txt", "b.txt"]);
+        assert_eq!(call(&mut h, "FindClose", &[find]), 1);
+        // A directory with nothing matching.
+        let none = wide("d\\*.zzz");
+        let bad = call(
+            &mut h,
+            "FindFirstFileW",
+            &[none.as_ptr() as u64, data.as_mut_ptr() as u64],
+        );
+        assert_eq!(bad, u64::MAX);
+    }
+
+    #[test]
+    fn windows_text_conversion_and_current_directory() {
+        let mut h = host();
+        let text = "h\u{e9}llo \u{4e16}";
+        let mut utf16 = [0u16; 16];
+        let n = call(
+            &mut h,
+            "MultiByteToWideChar",
+            &[
+                65001,
+                0,
+                text.as_ptr() as u64,
+                text.len() as u64,
+                utf16.as_mut_ptr() as u64,
+                16,
+            ],
+        );
+        let expected: Vec<u16> = text.encode_utf16().collect();
+        assert_eq!(n as usize, expected.len());
+        assert_eq!(&utf16[..expected.len()], &expected[..]);
+        // A room of 0 asks for the count only.
+        assert_eq!(
+            call(
+                &mut h,
+                "MultiByteToWideChar",
+                &[65001, 0, text.as_ptr() as u64, text.len() as u64, 0, 0],
+            ),
+            n
+        );
+        let mut back = [0u8; 32];
+        let m = call(
+            &mut h,
+            "WideCharToMultiByte",
+            &[
+                65001,
+                0,
+                utf16.as_ptr() as u64,
+                n,
+                back.as_mut_ptr() as u64,
+                32,
+                0,
+                0,
+            ],
+        );
+        assert_eq!(&back[..m as usize], text.as_bytes());
+
+        let mut cwd = [0u16; 16];
+        let len = call(
+            &mut h,
+            "GetCurrentDirectoryW",
+            &[16, cwd.as_mut_ptr() as u64],
+        );
+        assert_eq!(String::from_utf16(&cwd[..len as usize]).unwrap(), "/tmp");
+        // Too small: the size needed, terminator included.
+        assert_eq!(
+            call(
+                &mut h,
+                "GetCurrentDirectoryW",
+                &[2, cwd.as_mut_ptr() as u64]
+            ),
+            5
+        );
+    }
+
+    #[test]
+    fn windows_process_creation_is_access_denied() {
+        let mut h = host();
+        for symbol in [
+            "CreateProcessW",
+            "CreateProcessA",
+            "CreatePipe",
+            "CreateFileMappingW",
+        ] {
+            h.last_error = 0;
+            assert_eq!(call(&mut h, symbol, &[0; 10]), 0, "{symbol}");
+            assert_eq!(call(&mut h, "GetLastError", &[]), 5, "{symbol}");
+        }
     }
 }

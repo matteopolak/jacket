@@ -119,6 +119,12 @@ pub trait Host {
     fn refill_budget(&mut self) -> Option<u64> {
         None
     }
+
+    /// The directory relative paths start from, when the host keeps its own (`chdir` in a
+    /// sandbox); `None` is the process's.
+    fn working_directory(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Writes to the process's stdout/stderr and links natively.
@@ -845,8 +851,7 @@ impl Interp {
 
     /// `len` bytes of program memory at `addr`, or `None` when they cannot all be read.
     pub fn read(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
-        let mut out = vec![0; len];
-        self.probe.read(addr, &mut out).then_some(out)
+        self.probe.read_vec(addr, len)
     }
 
     /// Fill `out` from program memory at `addr`; false when it cannot all be read.
